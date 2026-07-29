@@ -72,7 +72,7 @@ export default function CreateActivityModal({ communityId, onCreated, onClose }:
               value={form.title}
               onChange={handleChange}
               required
-              className="w-full px-3 py-2 rounded border border-border bg-surface text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 rounded border border-border bg-surface text-text text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
             />
           </div>
 
@@ -83,7 +83,7 @@ export default function CreateActivityModal({ communityId, onCreated, onClose }:
               value={form.activity_type}
               onChange={handleChange}
               required
-              className="w-full px-3 py-2 rounded border border-border bg-surface text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 rounded border border-border bg-surface text-text text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
             >
               <option value="">Select type…</option>
               <option value="pickup_game">Pickup Game</option>
@@ -102,7 +102,7 @@ export default function CreateActivityModal({ communityId, onCreated, onClose }:
               value={form.scheduled_at}
               onChange={handleChange}
               required
-              className="w-full px-3 py-2 rounded border border-border bg-surface text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 rounded border border-border bg-surface text-text text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
             />
           </div>
 
@@ -115,7 +115,7 @@ export default function CreateActivityModal({ communityId, onCreated, onClose }:
               onChange={handleChange}
               min="1"
               placeholder="e.g. 90"
-              className="w-full px-3 py-2 rounded border border-border bg-surface text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 rounded border border-border bg-surface text-text text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
             />
           </div>
 
@@ -127,7 +127,7 @@ export default function CreateActivityModal({ communityId, onCreated, onClose }:
               value={form.location}
               onChange={handleChange}
               placeholder="e.g. Riverside Park"
-              className="w-full px-3 py-2 rounded border border-border bg-surface text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 rounded border border-border bg-surface text-text text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
             />
           </div>
 
@@ -140,7 +140,7 @@ export default function CreateActivityModal({ communityId, onCreated, onClose }:
               onChange={handleChange}
               min="1"
               placeholder="Leave blank for no cap"
-              className="w-full px-3 py-2 rounded border border-border bg-surface text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 rounded border border-border bg-surface text-text text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
             />
           </div>
 

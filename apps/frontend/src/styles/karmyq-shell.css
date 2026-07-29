@@ -1,3 +1,11 @@
+/*
+ * This file is imported standalone by _app.tsx, so Tailwind compiles it as its own
+ * stylesheet with no theme in scope. Without this `@reference`, every `@apply` below
+ * fails to resolve the karmyq design tokens (text-text-muted, bg-primary-light, …).
+ * `@reference` loads globals.css for context only — it emits no duplicate CSS.
+ */
+@reference './globals.css';
+
 .kq-page {
   max-width: var(--measure);
   @apply mx-auto px-4;
@@ -40,7 +48,7 @@
 }
 
 .kq-path-badge {
-  @apply inline-flex items-center gap-2 rounded-full border border-primary-medium bg-primary-light px-2.5 py-1 text-xs font-semibold text-primary-dark shadow-sm;
+  @apply inline-flex items-center gap-2 rounded-full border border-primary-medium bg-primary-light px-2.5 py-1 text-xs font-semibold text-primary-dark shadow-xs;
 }
 
 .kq-path-avatar {

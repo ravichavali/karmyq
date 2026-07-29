@@ -101,7 +101,7 @@ export default function ProviderReviews({ providerId, reviews, currentUserId, on
             onChange={e => setText(e.target.value)}
             rows={3}
             placeholder="Describe your experience (optional)"
-            className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary resize-none"
           />
           <button
             type="submit"

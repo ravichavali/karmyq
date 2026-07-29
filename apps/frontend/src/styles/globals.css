@@ -1,74 +1,170 @@
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Hanken+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
 /*
- * Karmyq Design Tokens
+ * Karmyq Design Tokens (Tailwind v4, CSS-first)
  *
- * All values are RGB triplets so Tailwind can add alpha via <alpha-value>.
+ * Every token is a real CSS color. Tailwind v4 reads its theme straight out of the
+ * `--color-*` namespace, so `--color-primary` both *is* the token and generates
+ * `bg-primary` / `text-primary` / `border-primary`.
+ *
+ * Opacity modifiers (`bg-primary/50`) work without any extra plumbing: v4 compiles them
+ * to `color-mix(in oklab, var(--color-primary) 50%, transparent)`. Because that still
+ * references the variable, runtime re-skinning keeps working *including* at partial alpha.
+ * (v3 needed RGB triplets here only to feed its `<alpha-value>` splice.)
+ *
  * To re-skin the app, change the values below — every component follows.
  * Community skins override these via ThemeProvider (see ThemeContext.tsx).
  */
-:root {
+@theme {
   /* ── Primary (earthy green) ── */
-  --color-primary: 45 110 40;           /* karmyq-green-600 #2d6e28 */
-  --color-primary-light: 240 247 240;   /* karmyq-green-50  #f0f7f0 */
-  --color-primary-medium: 136 191 132;  /* karmyq-green-300 #88bf84 */
-  --color-primary-dark: 36 86 33;       /* karmyq-green-700 #245621 */
+  --color-primary: #2d6e28; /* karmyq-green-600 */
+  --color-primary-light: #f0f7f0; /* karmyq-green-50  */
+  --color-primary-medium: #88bf84; /* karmyq-green-300 */
+  --color-primary-dark: #245621; /* karmyq-green-700 */
 
   /* ── Accent (teal) ── */
-  --color-accent: 38 136 130;           /* karmyq-teal-600  #268882 */
-  --color-accent-light: 239 252 249;    /* karmyq-teal-50   #effcf9 */
-  --color-accent-dark: 34 109 105;      /* karmyq-teal-700  #226d69 */
+  --color-accent: #268882; /* karmyq-teal-600 */
+  --color-accent-light: #effcf9; /* karmyq-teal-50  */
+  --color-accent-dark: #226d69; /* karmyq-teal-700 */
 
   /* ── Surfaces ── */
-  --color-surface: 250 248 243;         /* karmyq-cream     #faf8f3 */
-  --color-surface-raised: 253 252 249;  /* karmyq-warmWhite #fdfcf9 */
-  --measure: 42rem;                     /* one comfortable reading column */
-  --measure-chrome: 72rem;              /* app chrome width; keep --measure for content */
-  --radius-card: 0.5rem;                /* 8px, shared warm card radius */
+  --color-surface: #faf8f3; /* karmyq-cream     */
+  --color-surface-raised: #fdfcf9; /* karmyq-warmWhite */
 
   /* ── Text ── */
-  --color-text: 92 62 48;              /* karmyq-brown-900 #5c3e30 */
-  --color-text-muted: 180 132 85;      /* karmyq-brown-500 #b48455 */
-  --color-text-subtle: 193 154 111;    /* karmyq-brown-400 #c19a6f */
+  --color-text: #5c3e30; /* karmyq-brown-900 */
+  --color-text-muted: #b48455; /* karmyq-brown-500 */
+  --color-text-subtle: #c19a6f; /* karmyq-brown-400 */
 
   /* ── Borders ── */
-  --color-border: 228 211 188;         /* karmyq-brown-200 #e4d3bc */
-  --color-border-light: 242 234 222;   /* karmyq-brown-100 #f2eade */
+  --color-border: #e4d3bc; /* karmyq-brown-200 */
+  --color-border-light: #f2eade; /* karmyq-brown-100 */
 
   /* ── Status ── */
-  --color-warn: 237 118 32;            /* karmyq-orange-500 #ed7620 */
-  --color-warn-light: 254 247 238;     /* karmyq-orange-50  #fef7ee */
-  --color-error: 220 38 38;            /* red-600 */
-  --color-error-light: 254 242 242;    /* red-50  */
-  --color-success: 61 139 53;          /* karmyq-green-500 #3d8b35 */
-  --color-success-light: 240 247 240;  /* karmyq-green-50  #f0f7f0 */
+  --color-warn: #ed7620; /* karmyq-orange-500 */
+  --color-warn-light: #fef7ee; /* karmyq-orange-50  */
+  --color-error: #dc2626; /* red-600 */
+  --color-error-light: #fef2f2; /* red-50  */
+  --color-success: #3d8b35; /* karmyq-green-500 */
+  --color-success-light: #f0f7f0; /* karmyq-green-50  */
+
+  /* ── Direct karmyq palette (request types, trust scores, gradients) ── */
+  --color-karmyq-green-50: #f0f7f0;
+  --color-karmyq-green-100: #dceddc;
+  --color-karmyq-green-200: #b8dab6;
+  --color-karmyq-green-300: #88bf84;
+  --color-karmyq-green-400: #5ea358;
+  --color-karmyq-green-500: #3d8b35;
+  --color-karmyq-green-600: #2d6e28;
+  --color-karmyq-green-700: #245621;
+  --color-karmyq-green-800: #1f451d;
+  --color-karmyq-green-900: #1a391a;
+
+  --color-karmyq-orange-50: #fef7ee;
+  --color-karmyq-orange-100: #fdedd7;
+  --color-karmyq-orange-200: #fad7ae;
+  --color-karmyq-orange-300: #f6b97a;
+  --color-karmyq-orange-400: #f19344;
+  --color-karmyq-orange-500: #ed7620;
+  --color-karmyq-orange-600: #de5d16;
+  --color-karmyq-orange-700: #b84614;
+  --color-karmyq-orange-800: #933818;
+  --color-karmyq-orange-900: #773016;
+
+  --color-karmyq-brown-50: #faf6f1;
+  --color-karmyq-brown-100: #f2eade;
+  --color-karmyq-brown-200: #e4d3bc;
+  --color-karmyq-brown-300: #d3b693;
+  --color-karmyq-brown-400: #c19a6f;
+  --color-karmyq-brown-500: #b48455;
+  --color-karmyq-brown-600: #a7724a;
+  --color-karmyq-brown-700: #8b5b3f;
+  --color-karmyq-brown-800: #714a38;
+  --color-karmyq-brown-900: #5c3e30;
+
+  --color-karmyq-teal-50: #effcf9;
+  --color-karmyq-teal-100: #d8f7f0;
+  --color-karmyq-teal-200: #b4ede2;
+  --color-karmyq-teal-300: #82ddd0;
+  --color-karmyq-teal-400: #4ec5b8;
+  --color-karmyq-teal-500: #33a99e;
+  --color-karmyq-teal-600: #268882;
+  --color-karmyq-teal-700: #226d69;
+  --color-karmyq-teal-800: #205755;
+  --color-karmyq-teal-900: #1f4947;
+
+  --color-karmyq-cream: #faf8f3;
+  --color-karmyq-warmWhite: #fdfcf9;
+
+  /* ── Typography ── */
+  --font-serif: 'Fraunces', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+/*
+ * Layout constants consumed as raw `var(...)` rather than through a utility.
+ * Deliberately NOT in @theme: Tailwind only emits theme variables that some generated
+ * utility references, and nothing generates `max-w-measure` / `rounded-card`. Declaring
+ * them here guarantees they reach the stylesheet.
+ */
+:root {
+  --measure: 42rem; /* one comfortable reading column */
+  --measure-chrome: 72rem; /* app chrome width; keep --measure for content */
+  --radius-card: 0.5rem; /* 8px, shared warm card radius */
 }
 
 body {
   font-family: 'Hanken Grotesk', 'Inter', system-ui, sans-serif;
-  color: rgb(var(--color-text));
-  background-color: rgb(var(--color-surface));
+  color: var(--color-text);
+  background-color: var(--color-surface);
   background-image:
-    radial-gradient(circle at 20% 10%, rgb(var(--color-primary-medium) / 0.05), transparent 40%),
-    radial-gradient(circle at 85% 0%, rgb(var(--color-warn) / 0.04), transparent 35%);
+    radial-gradient(
+      circle at 20% 10%,
+      color-mix(in srgb, var(--color-primary-medium) 5%, transparent),
+      transparent 40%
+    ),
+    radial-gradient(circle at 85% 0%, color-mix(in srgb, var(--color-warn) 4%, transparent), transparent 35%);
   background-attachment: fixed;
+}
+
+/*
+ * `btn-primary` and `card` are declared as @utility rather than inside @layer components
+ * because other rules compose them with `@apply` (.fab, .fab-trigger, .feed-card).
+ * Tailwind v4 can only `@apply` registered utilities — applying a plain @layer components
+ * class is a hard build error ("Cannot apply unknown utility class").
+ *
+ * This preserves v3 precedence: custom utilities are emitted before the built-ins, so a
+ * built-in utility still wins the tie (e.g. `class="btn-primary px-4"` → px-4 applies).
+ */
+@utility btn-primary {
+  @apply bg-primary text-white px-6 py-2.5 rounded-lg font-medium hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[36px];
+}
+
+@utility card {
+  border-radius: var(--radius-card);
+  @apply bg-surface-raised border border-border;
 }
 
 @layer components {
   /* ── Buttons ── */
-  .btn-primary   { @apply bg-primary text-white px-6 py-2.5 rounded-lg font-medium hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[36px]; }
-  .btn-secondary { @apply bg-surface-raised text-text border border-border px-6 py-2.5 rounded-lg font-medium hover:bg-primary-light transition-colors min-h-[36px]; }
-  .btn-ghost     { @apply text-primary px-4 py-2 rounded-lg hover:bg-primary-light transition-colors min-h-[36px]; }
-  .btn-danger    { @apply bg-error text-white px-6 py-2.5 rounded-lg font-medium hover:opacity-90 transition-opacity min-h-[36px]; }
+  .btn-secondary {
+    @apply bg-surface-raised text-text border border-border px-6 py-2.5 rounded-lg font-medium hover:bg-primary-light transition-colors min-h-[36px];
+  }
+  .btn-ghost {
+    @apply text-primary px-4 py-2 rounded-lg hover:bg-primary-light transition-colors min-h-[36px];
+  }
+  .btn-danger {
+    @apply bg-error text-white px-6 py-2.5 rounded-lg font-medium hover:opacity-90 transition-opacity min-h-[36px];
+  }
 
   /* ── Layout ── */
-  .card          { border-radius: var(--radius-card); @apply bg-surface-raised border border-border; }
-  .input         { @apply w-full px-4 py-2.5 border border-border rounded-lg bg-surface text-text placeholder:text-text-subtle focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent; }
-  .section-heading { @apply text-lg font-semibold text-text mb-4; }
+  .input {
+    @apply w-full px-4 py-2.5 border border-border rounded-lg bg-surface text-text placeholder:text-text-subtle focus:outline-hidden focus:ring-2 focus:ring-primary focus:border-transparent;
+  }
+  .section-heading {
+    @apply text-lg font-semibold text-text mb-4;
+  }
 
   /* ── Tab Bar (desktop horizontal tabs) ── */
   /* Full-width divider; the tab row inside aligns to the central column (kq-page),
@@ -163,7 +259,9 @@ body {
   }
 
   /* ── Speed-dial FAB ── */
-  .speed-dial { @apply relative inline-flex flex-col items-end gap-3; }
+  .speed-dial {
+    @apply relative inline-flex flex-col items-end gap-3;
+  }
   .speed-dial-action {
     @apply flex items-center gap-2 px-4 py-2.5 rounded-full bg-surface-raised border border-border
            shadow-md text-sm font-medium text-text whitespace-nowrap
@@ -175,16 +273,24 @@ body {
   }
 
   /* ── Request Wizard ── */
-  .wizard-step { @apply flex flex-col gap-4; }
+  .wizard-step {
+    @apply flex flex-col gap-4;
+  }
   .type-card {
     @apply flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-border
            text-center cursor-pointer transition-all hover:border-primary hover:bg-primary-light;
   }
-  .type-card.selected { @apply border-primary bg-primary-light text-primary; }
-  .type-card.locked { @apply border-border bg-surface-raised opacity-60 cursor-not-allowed; }
+  .type-card.selected {
+    @apply border-primary bg-primary-light text-primary;
+  }
+  .type-card.locked {
+    @apply border-border bg-surface-raised opacity-60 cursor-not-allowed;
+  }
   .urgency-option {
     @apply flex-1 py-2 text-sm font-medium rounded-lg border border-border text-center
            cursor-pointer transition-all hover:border-primary hover:text-primary;
   }
-  .urgency-option.selected { @apply border-primary bg-primary text-white; }
+  .urgency-option.selected {
+    @apply border-primary bg-primary text-white;
+  }
 }

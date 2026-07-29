@@ -80,7 +80,7 @@ export default function InviteGenerator() {
   };
 
   return (
-    <div className="bg-surface-raised rounded-lg shadow-sm p-6">
+    <div className="bg-surface-raised rounded-lg shadow-xs p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-lg font-semibold text-text">Invite Friends</h3>

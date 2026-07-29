@@ -173,7 +173,7 @@ export default function Dashboard() {
               <select
                 value={activeCommunityId}
                 onChange={(e) => setActiveCommunityId(e.target.value)}
-                className="w-full max-w-full text-sm border border-border rounded-lg bg-surface px-2 py-1.5 text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full max-w-full text-sm border border-border rounded-lg bg-surface px-2 py-1.5 text-text focus:outline-hidden focus:ring-2 focus:ring-primary"
               >
                 <option value="">All communities</option>
                 {userCommunities.map((c) => (

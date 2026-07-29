@@ -72,7 +72,7 @@ export default function CollectiveForm({ initial, onSubmit, submitLabel = 'Creat
           value={form.name}
           onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
           placeholder="e.g. Northside Rickshaw Stand"
-          className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
           required
         />
       </div>
@@ -84,7 +84,7 @@ export default function CollectiveForm({ initial, onSubmit, submitLabel = 'Creat
           onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
           rows={3}
           placeholder="What does this collective offer? Who are you?"
-          className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary resize-none"
         />
       </div>
 
@@ -116,7 +116,7 @@ export default function CollectiveForm({ initial, onSubmit, submitLabel = 'Creat
           value={form.location_notes}
           onChange={e => setForm(f => ({ ...f, location_notes: e.target.value }))}
           placeholder="e.g. Serves the north and east neighborhoods"
-          className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
         />
       </div>
 

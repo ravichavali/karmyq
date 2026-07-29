@@ -90,7 +90,7 @@ export default function NewOfferPage() {
       </Head>
       <Layout title="Create Help Offer">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-surface-raised rounded-lg shadow-sm p-8">
+          <div className="bg-surface-raised rounded-lg shadow-xs p-8">
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Community Selection */}

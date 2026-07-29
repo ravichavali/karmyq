@@ -12,7 +12,7 @@ import { PRIMARY_CTA_CLASS, OUTLINE_CTA_CLASS } from './styles';
  * direct fallback.
  */
 const fieldClass =
-  'w-full rounded-lg border border-karmyq-brown-200 bg-white px-4 py-2.5 text-base text-karmyq-brown-900 placeholder:text-karmyq-brown-400 focus:border-karmyq-green-500 focus:outline-none focus:ring-1 focus:ring-karmyq-green-500';
+  'w-full rounded-lg border border-karmyq-brown-200 bg-white px-4 py-2.5 text-base text-karmyq-brown-900 placeholder:text-karmyq-brown-400 focus:border-karmyq-green-500 focus:outline-hidden focus:ring-1 focus:ring-karmyq-green-500';
 
 type Status = 'idle' | 'submitting' | 'success' | 'error';
 

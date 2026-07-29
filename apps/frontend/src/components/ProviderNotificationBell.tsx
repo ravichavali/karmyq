@@ -59,11 +59,11 @@ const ProviderNotificationBell: React.FC = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: rgb(var(--color-text));
+          color: var(--color-text);
           transition: color 0.2s;
         }
         .provider-bell-button:hover {
-          color: rgb(var(--color-primary));
+          color: var(--color-primary);
         }
         .provider-badge {
           position: absolute;

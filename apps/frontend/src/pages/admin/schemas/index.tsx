@@ -171,7 +171,7 @@ export default function SchemaListPage() {
                 <div
                   key={schema.id}
                   onClick={() => handleEdit(schema)}
-                  className="bg-surface-raised rounded-lg shadow-sm hover:shadow-md cursor-pointer transition-all border border-border p-6"
+                  className="bg-surface-raised rounded-lg shadow-xs hover:shadow-md cursor-pointer transition-all border border-border p-6"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">

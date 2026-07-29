@@ -63,7 +63,7 @@ export default function FusionProposalModal({ communityId, onSuccess, onCancel }
               value={targetCommunityId}
               onChange={(e) => setTargetCommunityId(e.target.value)}
               placeholder="UUID of the community to merge with"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
@@ -75,7 +75,7 @@ export default function FusionProposalModal({ communityId, onSuccess, onCancel }
               value={mergedCommunityName}
               onChange={(e) => setMergedCommunityName(e.target.value)}
               placeholder="e.g. Unified Mutual Aid Collective"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
@@ -87,7 +87,7 @@ export default function FusionProposalModal({ communityId, onSuccess, onCancel }
               onChange={(e) => setRationale(e.target.value)}
               placeholder="Why would this merger benefit both communities?"
               rows={3}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             />
           </div>
 

@@ -88,10 +88,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId }) => {
             align-items: center;
             justify-content: center;
             height: 100%;
-            background-color: rgb(var(--color-surface));
+            background-color: var(--color-surface);
           }
           .loading-message {
-            color: rgb(var(--color-text-muted));
+            color: var(--color-text-muted);
             font-size: 14px;
           }
         `}</style>
@@ -109,10 +109,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId }) => {
             align-items: center;
             justify-content: center;
             height: 100%;
-            background-color: rgb(var(--color-error-light));
+            background-color: var(--color-error-light);
           }
           .error-message {
-            color: rgb(var(--color-error));
+            color: var(--color-error);
             font-size: 14px;
           }
         `}</style>
@@ -130,10 +130,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId }) => {
             align-items: center;
             justify-content: center;
             height: 100%;
-            background-color: rgb(var(--color-surface));
+            background-color: var(--color-surface);
           }
           .empty-message {
-            color: rgb(var(--color-text-subtle));
+            color: var(--color-text-subtle);
             font-size: 14px;
           }
         `}</style>
@@ -234,28 +234,28 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId }) => {
 
         .chat-header {
           padding: 16px 20px;
-          border-bottom: 1px solid rgb(var(--color-border));
-          background-color: rgb(var(--color-surface-raised));
+          border-bottom: 1px solid var(--color-border);
+          background-color: var(--color-surface-raised);
         }
 
         .header-info h3 {
           margin: 0;
           font-size: 16px;
           font-weight: 600;
-          color: rgb(var(--color-text));
+          color: var(--color-text);
         }
 
         .chat-subtitle {
           margin: 4px 0 0 0;
           font-size: 13px;
-          color: rgb(var(--color-text-muted));
+          color: var(--color-text-muted);
         }
 
         .messages-container {
           flex: 1;
           overflow-y: auto;
           padding: 20px;
-          background-color: rgb(var(--color-surface));
+          background-color: var(--color-surface);
         }
 
         .no-messages {
@@ -264,7 +264,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId }) => {
           align-items: center;
           justify-content: center;
           height: 100%;
-          color: rgb(var(--color-text-subtle));
+          color: var(--color-text-subtle);
         }
 
         .no-messages-icon {
@@ -282,7 +282,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId }) => {
           align-items: center;
           gap: 8px;
           padding: 8px 12px;
-          color: rgb(var(--color-text-muted));
+          color: var(--color-text-muted);
           font-size: 13px;
           font-style: italic;
         }
@@ -318,14 +318,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId }) => {
           align-items: flex-end;
           gap: 12px;
           padding: 16px 20px;
-          border-top: 1px solid rgb(var(--color-border));
-          background-color: rgb(var(--color-surface-raised));
+          border-top: 1px solid var(--color-border);
+          background-color: var(--color-surface-raised);
         }
 
         .message-input {
           flex: 1;
           padding: 10px 14px;
-          border: 1px solid rgb(var(--color-border));
+          border: 1px solid var(--color-border);
           border-radius: 20px;
           font-size: 14px;
           font-family: inherit;
@@ -336,12 +336,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId }) => {
         }
 
         .message-input:focus {
-          border-color: rgb(var(--color-primary));
+          border-color: var(--color-primary);
         }
 
         .send-button {
           padding: 10px;
-          background-color: rgb(var(--color-primary));
+          background-color: var(--color-primary);
           color: white;
           border: none;
           border-radius: 50%;
@@ -355,7 +355,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId }) => {
         }
 
         .send-button:hover:not(:disabled) {
-          background-color: rgb(var(--color-primary-dark));
+          background-color: var(--color-primary-dark);
         }
 
         .send-button:disabled {

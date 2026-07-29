@@ -101,7 +101,7 @@ export default function TrustScorePage() {
             </div>
 
             {/* Trust Score Breakdown */}
-            <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-6 mb-6">
+            <div className="bg-surface-raised rounded-xl shadow-xs border border-border p-6 mb-6">
               <h2 className="text-xl font-bold text-text mb-1">How It's Calculated</h2>
               <p className="text-sm text-text-muted mb-4">Your trust score reflects recent activity — it decays when you're inactive and grows as you engage.</p>
               <div className="space-y-4">
@@ -164,7 +164,7 @@ export default function TrustScorePage() {
 
             {/* Per-community breakdown */}
             {communityBreakdown.length > 0 && (
-              <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-6 mb-6">
+              <div className="bg-surface-raised rounded-xl shadow-xs border border-border p-6 mb-6">
                 <h2 className="text-xl font-bold text-text mb-1">Your Communities</h2>
                 <p className="text-sm text-text-muted mb-4">Overall score is weighted by recent activity in each community.</p>
                 <div className="space-y-3">

@@ -92,7 +92,7 @@ export default function KarmaPage() {
             </div>
 
             {/* Karma Summary */}
-            <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-8 mb-6">
+            <div className="bg-surface-raised rounded-xl shadow-xs border border-border p-8 mb-6">
               <div className="text-center">
                 <div className="text-6xl font-bold text-primary mb-2">
                   {karmaData?.total_karma || 0}
@@ -123,7 +123,7 @@ export default function KarmaPage() {
             </div>
 
             {/* Karma History */}
-            <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-6 mb-6">
+            <div className="bg-surface-raised rounded-xl shadow-xs border border-border p-6 mb-6">
               <h2 className="text-xl font-bold text-text mb-4">Recent Activity</h2>
 
               {karmaData?.history?.length > 0 ? (
@@ -162,7 +162,7 @@ export default function KarmaPage() {
 
             {/* Community Leaderboard */}
             {leaderboard.length > 0 && (
-              <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-6">
+              <div className="bg-surface-raised rounded-xl shadow-xs border border-border p-6">
                 <h2 className="text-xl font-bold text-text mb-1">Community Leaderboard</h2>
                 {activeCommunity && (
                   <p className="text-sm text-text-muted mb-4">{activeCommunity.name}</p>

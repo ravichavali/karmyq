@@ -59,14 +59,14 @@ export default function TrustEvolutionPage() {
       </p>
 
       {history.length === 0 ? (
-        <div className="text-gray-400 text-sm border rounded-lg p-8 text-center">
+        <div className="text-gray-400 text-sm border border-gray-200 rounded-lg p-8 text-center">
           No evolution events yet.
           Turn on evolution and start making connections.
         </div>
       ) : (
         <div className="space-y-3">
           {history.map((entry) => (
-            <div key={entry.id} className="border rounded-lg p-4">
+            <div key={entry.id} className="border border-gray-200 rounded-lg p-4">
               <div className="flex justify-between items-start">
                 <div>
                   <div className="font-medium text-sm">

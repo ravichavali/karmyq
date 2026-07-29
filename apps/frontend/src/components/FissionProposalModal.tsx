@@ -65,7 +65,7 @@ export default function FissionProposalModal({ communityId, onSuccess, onCancel 
               value={groupAName}
               onChange={(e) => setGroupAName(e.target.value)}
               placeholder="e.g. Eastside Collective"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
@@ -77,7 +77,7 @@ export default function FissionProposalModal({ communityId, onSuccess, onCancel 
               value={groupBName}
               onChange={(e) => setGroupBName(e.target.value)}
               placeholder="e.g. Westside Mutual Aid"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
@@ -89,7 +89,7 @@ export default function FissionProposalModal({ communityId, onSuccess, onCancel 
               onChange={(e) => setRationale(e.target.value)}
               placeholder="Why is a split beneficial for this community now?"
               rows={3}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             />
           </div>
 

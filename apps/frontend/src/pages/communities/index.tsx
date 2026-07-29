@@ -500,7 +500,7 @@ export default function CommunitiesPage() {
                   placeholder="Search by name or description..."
                   value={searchQuery}
                   onChange={handleSearchChange}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-hidden focus:ring-2 focus:ring-primary"
                 />
               </div>
 
@@ -514,7 +514,7 @@ export default function CommunitiesPage() {
                   placeholder="City, region, or area..."
                   value={locationFilter}
                   onChange={(e) => setLocationFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-hidden focus:ring-2 focus:ring-primary"
                 />
               </div>
 
@@ -526,7 +526,7 @@ export default function CommunitiesPage() {
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-hidden focus:ring-2 focus:ring-primary"
                 >
                   <option value="">All Categories</option>
                   {CATEGORIES.map((cat) => (
@@ -543,7 +543,7 @@ export default function CommunitiesPage() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-hidden focus:ring-2 focus:ring-primary"
                 >
                   <option value="activity">Most Active</option>
                   <option value="newest">Newest First</option>

@@ -547,7 +547,7 @@ export default function ProfilePage() {
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full px-3 py-2 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                      className="w-full px-3 py-2 border border-border rounded focus:outline-hidden focus:ring-2 focus:ring-primary"
                       required
                     />
                   </div>
@@ -573,7 +573,7 @@ export default function ProfilePage() {
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
                       rows={4}
-                      className="w-full px-3 py-2 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                      className="w-full px-3 py-2 border border-border rounded focus:outline-hidden focus:ring-2 focus:ring-primary"
                       placeholder="Tell others about yourself..."
                     />
                   </div>
@@ -654,7 +654,7 @@ export default function ProfilePage() {
                 <select
                   value={selectedCommunityId}
                   onChange={(e) => setSelectedCommunityId(e.target.value)}
-                  className="px-3 py-2 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="px-3 py-2 border border-border rounded focus:outline-hidden focus:ring-2 focus:ring-primary"
                 >
                   {communities.map((community) => (
                     <option key={community.id} value={community.id}>
@@ -861,7 +861,7 @@ export default function ProfilePage() {
                   <select
                     value={selectedSkill}
                     onChange={(e) => setSelectedSkill(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="flex-1 px-3 py-2 border border-border rounded focus:outline-hidden focus:ring-2 focus:ring-primary"
                   >
                     <option value="">Select a skill...</option>
                     {availableSkillsToAdd.map((skill) => (

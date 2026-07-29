@@ -189,7 +189,7 @@ export default function ExpandableConversation({ matchId, otherUserName, current
           {/* Input row */}
           <div className="flex gap-2 p-2 border-t border-border bg-surface-raised">
             <input
-              className="flex-1 text-xs border border-border rounded px-2 py-1.5 bg-background text-text placeholder-text-muted focus:outline-none focus:border-primary"
+              className="flex-1 text-xs border border-border rounded px-2 py-1.5 bg-background text-text placeholder-text-muted focus:outline-hidden focus:border-primary"
               placeholder="Message…"
               value={input}
               onChange={(e) => setInput(e.target.value)}

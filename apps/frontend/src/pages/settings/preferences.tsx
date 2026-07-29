@@ -256,7 +256,7 @@ export default function PreferencesPage() {
       </Head>
       <Layout title="Feed Preferences">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-surface-raised rounded-lg shadow-sm p-8">
+          <div className="bg-surface-raised rounded-lg shadow-xs p-8">
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-text">Feed Preferences</h1>
               <p className="text-text-muted mt-2">

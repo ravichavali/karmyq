@@ -150,7 +150,7 @@ export default function GovernanceTab({ communityId, currentUserId }: Governance
                       <select
                         value={nominateRole}
                         onChange={e => setNominateRole(e.target.value as 'admin' | 'moderator')}
-                        className="text-xs border rounded px-2 py-1"
+                        className="text-xs border border-gray-200 rounded px-2 py-1"
                       >
                         <option value="moderator">Moderator</option>
                         <option value="admin">Admin</option>
@@ -169,7 +169,7 @@ export default function GovernanceTab({ communityId, currentUserId }: Governance
                   ) : (
                     <button
                       onClick={() => setNominateTarget(m.user_id)}
-                      className="text-xs px-2 py-1 border rounded text-indigo-600 hover:bg-indigo-50"
+                      className="text-xs px-2 py-1 border border-gray-200 rounded text-indigo-600 hover:bg-indigo-50"
                     >
                       Nominate
                     </button>

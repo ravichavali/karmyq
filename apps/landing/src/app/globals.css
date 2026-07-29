@@ -1,8 +1,65 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
+@import 'tailwindcss';
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+/*
+ * Karmyq landing palette (Tailwind v4, CSS-first).
+ *
+ * v4 reads its theme from CSS variables, so this block replaces the former
+ * tailwind.config.ts `theme.extend`. The landing site uses the direct karmyq
+ * palette only — the semantic design tokens (--color-primary, --color-surface, …)
+ * belong to the app shell and live in apps/frontend.
+ */
+@theme {
+  --color-karmyq-green-50: #f0f7f0;
+  --color-karmyq-green-100: #dceddc;
+  --color-karmyq-green-200: #b8dab6;
+  --color-karmyq-green-300: #88bf84;
+  --color-karmyq-green-400: #5ea358;
+  --color-karmyq-green-500: #3d8b35;
+  --color-karmyq-green-600: #2d6e28;
+  --color-karmyq-green-700: #245621;
+  --color-karmyq-green-800: #1f451d;
+  --color-karmyq-green-900: #1a391a;
+
+  --color-karmyq-orange-50: #fef7ee;
+  --color-karmyq-orange-100: #fdedd7;
+  --color-karmyq-orange-200: #fad7ae;
+  --color-karmyq-orange-300: #f6b97a;
+  --color-karmyq-orange-400: #f19344;
+  --color-karmyq-orange-500: #ed7620;
+  --color-karmyq-orange-600: #de5d16;
+  --color-karmyq-orange-700: #b84614;
+  --color-karmyq-orange-800: #933818;
+  --color-karmyq-orange-900: #773016;
+
+  --color-karmyq-brown-50: #faf6f1;
+  --color-karmyq-brown-100: #f2eade;
+  --color-karmyq-brown-200: #e4d3bc;
+  --color-karmyq-brown-300: #d3b693;
+  --color-karmyq-brown-400: #c19a6f;
+  --color-karmyq-brown-500: #b48455;
+  --color-karmyq-brown-600: #a7724a;
+  --color-karmyq-brown-700: #8b5b3f;
+  --color-karmyq-brown-800: #714a38;
+  --color-karmyq-brown-900: #5c3e30;
+
+  --color-karmyq-teal-50: #effcf9;
+  --color-karmyq-teal-100: #d8f7f0;
+  --color-karmyq-teal-200: #b4ede2;
+  --color-karmyq-teal-300: #82ddd0;
+  --color-karmyq-teal-400: #4ec5b8;
+  --color-karmyq-teal-500: #33a99e;
+  --color-karmyq-teal-600: #268882;
+  --color-karmyq-teal-700: #226d69;
+  --color-karmyq-teal-800: #205755;
+  --color-karmyq-teal-900: #1f4947;
+
+  --color-karmyq-cream: #faf8f3;
+  --color-karmyq-warmWhite: #fdfcf9;
+
+  --font-serif: 'Fraunces', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
 
 @layer base {
   html {
@@ -69,7 +126,7 @@
   }
 
   .card {
-    @apply bg-white rounded-2xl p-8 shadow-sm border border-karmyq-brown-100
+    @apply bg-white rounded-2xl p-8 shadow-xs border border-karmyq-brown-100
            hover:shadow-md transition-all duration-300;
   }
 
@@ -159,7 +216,7 @@
   @apply text-karmyq-green-600 underline underline-offset-2 hover:text-karmyq-green-700;
 }
 .docs-prose code {
-  @apply text-sm bg-karmyq-brown-50 text-karmyq-brown-800 px-1.5 py-0.5 rounded font-mono;
+  @apply text-sm bg-karmyq-brown-50 text-karmyq-brown-800 px-1.5 py-0.5 rounded-sm font-mono;
 }
 .docs-prose pre {
   @apply bg-karmyq-brown-50 border border-karmyq-brown-100 rounded-lg p-4 overflow-x-auto mb-4;

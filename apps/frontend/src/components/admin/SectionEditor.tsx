@@ -36,7 +36,7 @@ export default function SectionEditor({ section, onSave, onCancel }: SectionEdit
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-4 py-3 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-4 py-3 border border-border rounded focus:outline-hidden focus:ring-2 focus:ring-primary"
           />
         </div>
 
@@ -48,7 +48,7 @@ export default function SectionEditor({ section, onSave, onCancel }: SectionEdit
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={4}
-            className="w-full px-4 py-3 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+            className="w-full px-4 py-3 border border-border rounded focus:outline-hidden focus:ring-2 focus:ring-primary resize-none"
             placeholder="Describe what information this section should collect..."
           />
         </div>

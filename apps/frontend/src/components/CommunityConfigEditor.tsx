@@ -167,7 +167,7 @@ export default function CommunityConfigEditor({
         min={min}
         max={max}
         step={step}
-        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary ${
+        className={`w-full px-3 py-2 border rounded-md shadow-xs focus:outline-hidden focus:ring-2 focus:ring-primary ${
           errors[field] ? 'border-red-500' : 'border-border'
         } disabled:bg-border-light disabled:cursor-not-allowed`}
       />
@@ -193,7 +193,7 @@ export default function CommunityConfigEditor({
         value={config[field] as any}
         onChange={(e) => handleFieldChange(field, e.target.value)}
         disabled={readOnly}
-        className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-border-light disabled:cursor-not-allowed"
+        className="w-full px-3 py-2 border border-border rounded-md shadow-xs focus:outline-hidden focus:ring-2 focus:ring-primary disabled:bg-border-light disabled:cursor-not-allowed"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -330,7 +330,7 @@ export default function CommunityConfigEditor({
                     key={type.value}
                     className={`relative border-2 rounded-lg p-4 transition-all ${
                       isEnabled
-                        ? 'border-primary bg-primary-light shadow-sm'
+                        ? 'border-primary bg-primary-light shadow-xs'
                         : 'border-border bg-surface-raised hover:border-border'
                     } ${readOnly ? 'cursor-default' : 'cursor-pointer'}`}
                     onClick={() => {

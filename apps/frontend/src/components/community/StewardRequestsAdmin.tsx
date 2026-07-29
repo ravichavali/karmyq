@@ -440,7 +440,7 @@ export default function StewardRequestsAdmin({
       {/* Triage Modal */}
       {showTriageModal && selectedRequest && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
           onClick={(e) => { if (e.target === e.currentTarget) handleCloseTriageModal() }}
         >
           <div className="bg-surface-raised rounded-lg p-6 w-full max-w-md">
@@ -536,7 +536,7 @@ export default function StewardRequestsAdmin({
       {/* MemberPicker Modal */}
       {showMemberPicker && memberPickerRequest && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
           onClick={(e) => { if (e.target === e.currentTarget) closeMemberPicker() }}
         >
           <div className="bg-surface-raised rounded-lg p-6 w-full max-w-md" role="dialog" aria-modal="true">

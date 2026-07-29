@@ -531,7 +531,7 @@ export default function SchemaEditorPage() {
 
               {/* Publish Dialog */}
               {showPublishDialog && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                   <div className="bg-surface rounded-lg shadow-xl p-6 max-w-md">
                     <h2 className="text-xl font-semibold mb-4">Publish Schema?</h2>
                     <p className="text-text-muted mb-6">
@@ -558,7 +558,7 @@ export default function SchemaEditorPage() {
 
               {/* Archive Dialog */}
               {showArchiveDialog && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                   <div className="bg-surface rounded-lg shadow-xl p-6 max-w-md">
                     <h2 className="text-xl font-semibold mb-4">Archive Schema?</h2>
                     <p className="text-text-muted mb-6">

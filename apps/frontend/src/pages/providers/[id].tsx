@@ -144,7 +144,7 @@ export default function ProviderDetailPage() {
 
           {!isOwner && (
             <button
-              className="btn-primary mt-4 px-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              className="btn-primary mt-4 px-6 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               onClick={() => setShowWizard(true)}
             >
               Get Service
@@ -184,7 +184,7 @@ export default function ProviderDetailPage() {
             <h3 className="text-base font-semibold text-gray-800 mb-3">Rate Cards</h3>
             <ul className="space-y-2">
               {provider.rate_cards.map((card: RateCard) => (
-                <li key={card.id} className="text-sm border rounded-lg p-3">
+                <li key={card.id} className="text-sm border border-gray-200 rounded-lg p-3">
                   <div className="flex justify-between">
                     <span className="font-medium">{card.label}</span>
                     <span className="text-gray-500">{formatRateCard(card)}</span>

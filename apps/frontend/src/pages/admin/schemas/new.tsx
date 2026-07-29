@@ -96,7 +96,7 @@ export default function NewSchemaPage() {
                     if (e.target.value !== 'custom') setType(e.target.value)
                     else setType('')
                   }}
-                  className="w-full px-4 py-3 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-4 py-3 border border-border rounded focus:outline-hidden focus:ring-2 focus:ring-primary"
                 >
                   {builtInTypes.map((t) => (
                     <option key={t} value={t}>
@@ -110,7 +110,7 @@ export default function NewSchemaPage() {
                     type="text"
                     value={type}
                     onChange={(e) => setType(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-                    className="w-full mt-2 px-4 py-3 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full mt-2 px-4 py-3 border border-border rounded focus:outline-hidden focus:ring-2 focus:ring-primary"
                     placeholder="e.g., dog_walking, tutoring"
                   />
                 )}
@@ -129,7 +129,7 @@ export default function NewSchemaPage() {
                   type="text"
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
-                  className="w-full px-4 py-3 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-4 py-3 border border-border rounded focus:outline-hidden focus:ring-2 focus:ring-primary"
                   placeholder="e.g., Dog Walking, Tutoring, etc."
                 />
               </div>
@@ -146,7 +146,7 @@ export default function NewSchemaPage() {
                   type="color"
                   value={color}
                   onChange={(e) => setColor(e.target.value)}
-                  className="w-full h-12 px-4 py-3 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full h-12 px-4 py-3 border border-border rounded focus:outline-hidden focus:ring-2 focus:ring-primary"
                 />
               </div>
 
@@ -158,7 +158,7 @@ export default function NewSchemaPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
-                  className="w-full px-4 py-3 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-4 py-3 border border-border rounded focus:outline-hidden focus:ring-2 focus:ring-primary"
                   placeholder="Describe when and how to use this request type..."
                 />
               </div>
@@ -176,7 +176,7 @@ export default function NewSchemaPage() {
                           newSections[index].title = e.target.value
                           setSections(newSections)
                         }}
-                        className="flex-1 px-4 py-2 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="flex-1 px-4 py-2 border border-border rounded focus:outline-hidden focus:ring-2 focus:ring-primary"
                       />
                       <button
                         type="button"

@@ -11,24 +11,32 @@ import React, { createContext, useContext, useEffect, useMemo } from 'react';
  * Only the supplied tokens are overridden; everything else falls through to :root.
  */
 
-/** RGB triplet string, e.g. "45 110 40" */
-type RGBTriplet = string;
+/**
+ * Any valid CSS color, e.g. "#2d6e28", "rgb(45 110 40)", "oklch(0.5 0.1 145)".
+ *
+ * Tailwind v4 reads the theme straight out of these variables, so the value must be a
+ * real color rather than the bare RGB triplet ("45 110 40") v3 required for its
+ * `<alpha-value>` splice. Opacity modifiers still work: v4 compiles `bg-primary/50` to
+ * `color-mix(in oklab, var(--color-primary) 50%, transparent)`, which resolves the
+ * variable at use time — so an override applied here is honoured at partial alpha too.
+ */
+type CSSColor = string;
 
 export interface CommunityTheme {
-  primary?: RGBTriplet;
-  primaryLight?: RGBTriplet;
-  primaryMedium?: RGBTriplet;
-  primaryDark?: RGBTriplet;
-  accent?: RGBTriplet;
-  accentLight?: RGBTriplet;
-  accentDark?: RGBTriplet;
-  surface?: RGBTriplet;
-  surfaceRaised?: RGBTriplet;
-  text?: RGBTriplet;
-  textMuted?: RGBTriplet;
-  textSubtle?: RGBTriplet;
-  border?: RGBTriplet;
-  borderLight?: RGBTriplet;
+  primary?: CSSColor;
+  primaryLight?: CSSColor;
+  primaryMedium?: CSSColor;
+  primaryDark?: CSSColor;
+  accent?: CSSColor;
+  accentLight?: CSSColor;
+  accentDark?: CSSColor;
+  surface?: CSSColor;
+  surfaceRaised?: CSSColor;
+  text?: CSSColor;
+  textMuted?: CSSColor;
+  textSubtle?: CSSColor;
+  border?: CSSColor;
+  borderLight?: CSSColor;
 }
 
 /** Maps CommunityTheme keys → CSS variable names */
