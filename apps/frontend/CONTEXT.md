@@ -602,16 +602,24 @@ Absence of this key (and of the legacy global `karmyq_onboarded`) triggers the `
 Written `'1'` when the `/welcome` arrival completes or is skipped, or on modal close. Checked in
 `useEffect` (never at render time). The legacy global key is read but no longer written.
 
-### Canonical CSS classes (`globals.css @layer components`)
+### Canonical CSS classes (`globals.css`)
 Sprint 33 added canonical utility classes. Use these instead of raw Tailwind on buttons, inputs, and cards:
+
+**Two declaration forms since the Tailwind v4 migration (Sprint 121, v11.35.0).** Most live in
+`@layer components`, but **`.btn-primary` and `.card` are declared with `@utility`** because other
+rules compose them with `@apply` (`.fab`, `.fab-trigger`, `.feed-card`) — and v4 can only `@apply` a
+*registered utility*, so applying a `@layer components` class is a hard build error
+(`Cannot apply unknown utility class`). Precedence is unaffected: custom utilities are emitted before
+the built-ins, so `class="btn-primary px-4"` still lets `px-4` win. **If you add a class that another
+rule needs to `@apply`, declare it with `@utility`.**
 
 | Class | Usage |
 |---|---|
-| `.btn-primary` | Primary action buttons |
+| `.btn-primary` | Primary action buttons (**`@utility`** — composed by `.fab`, `.fab-trigger`) |
 | `.btn-secondary` | Secondary / outline buttons |
 | `.btn-ghost` | Text-style buttons |
 | `.btn-danger` | Destructive actions |
-| `.card` | Container cards |
+| `.card` | Container cards (**`@utility`** — composed by `.feed-card`) |
 | `.input` | Form inputs |
 | `.section-heading` | Section headings within pages |
 | `.tab-bar` + `.tab-bar-item` | Desktop horizontal tab bar |

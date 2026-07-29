@@ -1,4 +1,39 @@
-# Sprint 121 — Dependency Backlog Cleanup — PRs 1–5 SHIPPED & DEPLOYED, PR 6 IS THE LAST ONE
+# Sprint 121 — Dependency Backlog Cleanup — PR 5 HOTFIX IN FLIGHT (v11.35.1), THEN PR 6 CLOSES THE SPRINT
+
+> **⚠️ HOTFIX v11.35.1 — PR 5 shipped a real production regression: the landing site stopped loading
+> its fonts.** Found by **cross-agent review (Codex) after the deploy**, not by any gate here.
+>
+> **Cause:** `apps/landing/src/app/globals.css` had `@import 'tailwindcss'` **above** the Google Fonts
+> `@import url(...)`. Tailwind v4 inlines the entire framework at its own `@import`, so the font
+> import was no longer at the top of the stylesheet — invalid in that position — and the production
+> optimizer **dropped it silently**. The build succeeded, every test was green, and the site kept
+> declaring `font-family: Fraunces` while never loading it, so fresh visitors got Georgia.
+>
+> **Proven a regression, not pre-existing:** `deploy.sh` copies with `cp -r` and never deletes, so
+> **16 previous landing stylesheets are still on the server — every one contains the font import.
+> Only v11.35.0's `03e743260ec2565d.css` has zero.**
+>
+> **Why every gate missed it, and the lesson.** The A/B computed-style diff — the same technique that
+> caught the button-cursor P1 — **cannot see this class of bug**: an unloaded font computes the
+> *identical* `font-family` string as a loaded one. Worse, the review browser had Fraunces cached from
+> visiting the v3 site minutes earlier, so the screenshots looked right. **A rendered-page check is
+> not sufficient for asset loading — assert on the built bundle.**
+> `tests/regression/landing-production-css.test.ts` now does, and **it was verified to actually fail**:
+> restoring the broken order turned 2 assertions red with a built-CSS font-import count of 0, then the
+> fix was restored. `apps/frontend` was never affected — it already imported fonts first and its
+> deployed CSS retains the import; that contrast is what confirmed the mechanism.
+>
+> **Also in the hotfix:** `apps/frontend/CONTEXT.md` claimed every canonical class uses
+> `@layer components`, but `.btn-primary` and `.card` are `@utility` since PR 5 (Codex minor #2).
+>
+> **SPRINT SCOPE DECISION (maintainer, 2026-07-29): the 8 new Dependabot PRs do NOT join Sprint 121.**
+> Sprint 121 finishes exactly as originally scoped — this hotfix, then **PR 6 (express 4 → 5) at
+> **v11.36.0** — and is then archived with a defensible completion statement: *"resolved the entire
+> original 18-PR triage."* Absorbing the new wave would make the sprint open-ended and mix deliberate
+> deferrals with its original backlog; absorbing only the "safe" groups still would not reach zero and
+> draws an arbitrary boundary. **Sprint 122 is a fresh dependency-wave triage** — planned in a separate
+> conversation, re-evaluated from post-Express master, **not a promise to merge everything.** Per-PR
+> guidance is in the roster table below.
 
 > **PR 5 SHIPPED AND DEPLOYED (2026-07-29).** [#175](https://github.com/ravichavali/karmyq/pull/175)
 > merged as **`9bec4aef`** (admin-authorized squash); master **CI/CD Pipeline** run
@@ -146,23 +181,25 @@
 
 ## Open PR roster after PR 5 (9 open — 1 from the original triage, 8 NEW)
 
-**The original 18 are down to 1 (#34). But 8 fresh Dependabot PRs landed on 2026-07-29**, the
+**The original 18 are down to 1 (#34). 8 fresh Dependabot PRs landed on 2026-07-29**, the
 mid-sprint-arrival case Critical Note 8 warns about — this time in bulk, and not benign.
-**Scope decision needed from the maintainer: does Sprint 121 absorb these, or do they open a new
-sprint?** The original sprint goal ("take the open-PR count to 0") is no longer reachable by
-finishing PR 6 alone.
+
+**DECIDED (maintainer, 2026-07-29): these 8 go to Sprint 122, NOT Sprint 121.** Sprint 121 ships the
+v11.35.1 hotfix and PR 6, then archives as *"resolved the entire original 18-PR triage."* The
+dispositions below are **triage input for Sprint 122, re-evaluated from post-Express master — not
+commitments to merge.** Holding or closing a PR is a valid outcome.
 
 | PR | Disposition |
 |---|---|
 | #34 | **PR 6 — express 4 → 5. CURRENT WORK — last of the original triage.** |
-| #176 | NEW — production-deps group, 10 updates. Triage as a consolidated safe batch (PR 2's shape). |
-| #167 | NEW — dev-deps group, 3 updates. Same. |
-| #173 | NEW — jest + @types/jest. Check against the **ts-jest 29.4.6 pin** (Critical Note 2) before taking. |
-| #170 | NEW — eslint 9.39.5 → **10.8.0**. **PR 3 explicitly named ESLint 10 as the cleaner future target** — it drops the `@eslint/eslintrc`/minimatch-3 chain at the source and would make PR 3's root-hoist fix unnecessary. Gate on `eslint-config-expo@57` supporting it. |
-| #168 | NEW — typescript 5.9.3 → **7.0.2**. MAJOR, and **skips 6 entirely**. PR 4 deliberately rejected TS 6; all 16 workspaces are on TS 5. Its own migration, not a bump. |
-| #171 | NEW — @types/node 20 → **26**. MAJOR. Root `engines.node` is still `>=18.0.0` because the 9 backends run `node:18-alpine` — taking @types/node 26 would type against APIs those runtimes lack. |
-| #169 | NEW — redis 4.7.1 → **6.1.0**. MAJOR, touches every service that talks to Redis/Bull. |
-| #172 | NEW — zustand 4 → **5**. MAJOR, frontend state. |
+| #176 | S122 — production-deps group, 10 updates. **Consolidate with #167** if resolution stays clean (PR 2's shape). |
+| #167 | S122 — dev-deps group, 3 updates. **Consolidate with #176** if resolution stays clean. |
+| #173 | S122 — jest + @types/jest. **Validate against the `ts-jest` 29.4.6 pin** (Critical Note 2) before taking. |
+| #170 | S122 — eslint → **10.8.0**. Treat as a **dedicated ESLint 10 migration**, not a bump. **PR 3 explicitly named it the cleaner target** — it drops the `@eslint/eslintrc`/minimatch-3 chain at the source and **may cleanly remove PR 3's root-hoist workaround**. Gate on `eslint-config-expo@57` supporting it. |
+| #168 | S122 — typescript → **7.0.2**. **HOLD or CLOSE** unless TS 7 across all 16 workspaces is deliberately brought into scope. It skips 6 entirely, and PR 4 already rejected TS 6. A platform decision, not backlog cleanup. |
+| #171 | S122 — @types/node → **26**. **HOLD or CLOSE** unless the runtime floor moves first: the 9 backends run `node:18-alpine` and root `engines.node` is `>=18.0.0`, so Node 26 types would compile against APIs those runtimes lack. A platform decision. |
+| #169 | S122 — redis → **6.1.0**. Separate **runtime major**, its own PR; touches every service on Redis/Bull. |
+| #172 | S122 — zustand 4 → **5**. Separate **runtime major**, its own PR; frontend state. |
 
 **Sprint progress on the original triage: 18 → 1.** #41 was superseded by #175 and auto-closed.
 **Total open including the new arrivals: 9.**
@@ -207,8 +244,8 @@ individually-scoped migrations.
 | **2** | consolidated safe deps | #157 (**minus mobile**), **#161**, #85, **#55**, #145, #144, #147, #118, #53 | v11.33.0 — **SHIPPED & DEPLOYED** (`d7ddd146`) |
 | **3** | lint toolchain majors → became an **ESLint 8 → 9 flat-config migration** | #40, #35, #36 (**all closed**) | **SHIPPED & DEPLOYED** (`e7bc6cc5`) — ⚠️ **no version bump; master still reads 11.33.0** |
 | **4** | mobile/Expo majors **+ Expo SDK 54 → 57 upgrade** | #37, #39 (**both closed**), **#157's 4 react-native bumps** (never re-raised — applied via the SDK) | **v11.34.0 — SHIPPED & DEPLOYED** (`cf27ab89`) |
-| **5** | tailwindcss 3 → 4 | #41 | **v11.35.0 — SHIPPED & DEPLOYED** (`9bec4aef`) |
-| **6** | express 4 → 5 | #34 | TBD — **set this before starting** (suggest v11.36.0) |
+| **5** | tailwindcss 3 → 4 | #41 | **v11.35.0 — SHIPPED & DEPLOYED** (`9bec4aef`) + **hotfix v11.35.1** (landing font import) |
+| **6** | express 4 → 5 | #34 | **v11.36.0 — DECIDED 2026-07-29** (set before implementation, per the PR 3 lesson) |
 | — | closed unmerged | #106 (stale docs) — **CLOSED 2026-07-24** | — |
 
 **Accounting (all 18 open PRs at triage):** 1 superseded by PR 1 (#159) + 9 in PR 2 (#157, #126,

@@ -1,5 +1,18 @@
-@import 'tailwindcss';
+/*
+ * ⚠️ THE GOOGLE FONTS IMPORT MUST STAY FIRST — above `@import 'tailwindcss'`.
+ *
+ * Tailwind v4 inlines the whole framework at its own @import, so anything after it is no longer
+ * at the top of the stylesheet. A remote `@import url(...)` in that position is invalid CSS, and
+ * the production optimizer drops it silently: the build still succeeds, `font-family: Fraunces`
+ * is still declared, and the font simply never loads — fresh visitors get the Georgia fallback.
+ *
+ * That regression shipped in v11.35.0 and was fixed in v11.35.1. It survived a computed-style
+ * diff against production because an unloaded font computes the identical `font-family` string;
+ * `tests/regression/landing-production-css.test.ts` asserts the built CSS instead.
+ * apps/frontend/src/styles/globals.css deliberately has the same ordering.
+ */
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@300;400;500;600;700&display=swap');
+@import 'tailwindcss';
 
 /*
  * Karmyq landing palette (Tailwind v4, CSS-first).
