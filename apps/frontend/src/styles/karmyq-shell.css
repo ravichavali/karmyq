@@ -25,13 +25,11 @@
 }
 
 .kq-headline {
-  font-family: 'Fraunces', Georgia, serif;
-  @apply text-[30px] leading-tight font-semibold text-text mt-1;
+  @apply font-serif text-[30px] leading-tight font-semibold text-text mt-1;
 }
 
 .kq-headline-sm {
-  font-family: 'Fraunces', Georgia, serif;
-  @apply text-[26px] leading-tight font-semibold text-text;
+  @apply font-serif text-[26px] leading-tight font-semibold text-text;
 }
 
 .kq-lede {
@@ -76,8 +74,7 @@
 }
 
 .kq-wordmark {
-  font-family: 'Fraunces', Georgia, serif;
-  @apply flex items-center gap-2 text-[22px] font-semibold tracking-[-0.01em] text-primary-dark transition-opacity hover:opacity-80;
+  @apply font-serif flex items-center gap-2 text-[22px] font-semibold tracking-[-0.01em] text-primary-dark transition-opacity hover:opacity-80;
 }
 
 .kq-wordmark-seed {
@@ -108,13 +105,11 @@
 }
 
 .kq-hero-name {
-  font-family: 'Fraunces', Georgia, serif;
-  @apply text-[32px] leading-tight font-semibold text-text tracking-[-0.01em] mt-1;
+  @apply font-serif text-[32px] leading-tight font-semibold text-text tracking-[-0.01em] mt-1;
 }
 
 .kq-hero-mission {
-  font-family: 'Fraunces', Georgia, serif;
-  @apply italic text-[18px] leading-relaxed text-text-muted mt-2.5 mb-5 max-w-[46ch];
+  @apply font-serif italic text-[18px] leading-relaxed text-text-muted mt-2.5 mb-5 max-w-[46ch];
 }
 
 .kq-capline {
