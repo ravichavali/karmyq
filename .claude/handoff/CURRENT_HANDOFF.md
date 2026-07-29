@@ -1,4 +1,26 @@
-# Sprint 121 — Dependency Backlog Cleanup — PRs 1–4 SHIPPED & DEPLOYED, PR 5 IS NEXT
+# Sprint 121 — Dependency Backlog Cleanup — PRs 1–4 SHIPPED & DEPLOYED, PR 5 AWAITS MERGE AUTHORIZATION
+
+> **PR 5 (tailwindcss 3 → 4) IS CODE-COMPLETE ON `deps/sprint-121-pr5-tailwind`, v11.35.0.**
+> All four gates run. **Not merged — merge needs EXPLICIT admin authorization, as every PR does.**
+>
+> **The one finding that mattered: v3's Preflight set `button { cursor: pointer }` and v4 dropped
+> it**, so every button in both apps silently stopped looking clickable. No test would ever catch
+> that. It was found by **A/B-ing computed styles against the live v3 site**, not by reading the
+> changelog — `karmyq.com/register` computes `pointer`, the v4 build computed `default`. Restored
+> via `@layer base` in both apps.
+>
+> **The A/B technique is the reusable asset here** — for any styling-layer upgrade, fingerprint
+> `getBoundingClientRect` + ~15 computed properties for every visible element on both the live site
+> and the local build, then diff. On the landing page that compared 128 elements and reduced
+> "100% of elements differ" to **one** real finding, because it let borderColor diffs be filtered by
+> whether a border is actually drawn (`border-width != 0` → **0 real diffs**), and showed the
+> `space-y` margin flip and the extra `box-shadow` slots to be visually inert.
+>
+> **Verified before believing anything:** every claim about what v4 renames, keeps or drops was
+> checked **against the compiler**, not the upgrade guide. That mattered in both directions — it
+> caught `bg-opacity-*` being **silently compiled away** (9 modal backdrops would have gone fully
+> opaque black), and it saved touching **286 `rounded` + 47 `flex-shrink-*` + 36 `bg-gradient-*`
+> sites** that 4.3.3 still supports unchanged.
 
 > **PR 4 SHIPPED AND DEPLOYED (2026-07-28).** [#165](https://github.com/ravichavali/karmyq/pull/165)
 > merged as **`cf27ab89`**; master CI/CD run **`30399781637`** reached **`Deploy to Demo` =
@@ -317,6 +339,95 @@ mid-sprint, add it to this table before starting work.
      zero live callers, so switching it to accept a CSS color string breaks nobody.
    - **`docs/adr/ADR-079-visual-design-system-v2.md` documents this token system** and must be
      updated in the same PR (docs feedback loop).
+
+   **PR 5 EXECUTION RESULTS (2026-07-29) — CODE-COMPLETE, AWAITING MERGE AUTHORIZATION.**
+
+   **Packages:** `tailwindcss` ^3.3.0 → ^4.3.3 + `@tailwindcss/postcss` ^4.3.3 in both apps;
+   **`autoprefixer` removed entirely** (v4 prefixes internally and it had no other consumer).
+   Net **18 packages added / 35 removed**. Both `tailwind.config` files deleted.
+
+   **Breaking changes fixed — each confirmed against the compiler, not the upgrade guide:**
+   - **`bg-opacity-*` is REMOVED and compiles away *silently*** (no error, utility just vanishes).
+     9 modal backdrops would have rendered **fully opaque black**. → `bg-black/50` form.
+   - **`outline-none` changed meaning** (now `outline-style: none`); **78** focus rings →
+     `outline-hidden`, v4's name for the old behaviour.
+   - **`shadow-sm` now equals v3's plain `shadow`**; **33** sites → `shadow-xs`.
+   - **Default `border-color` gray-200 → currentColor**; the **6** genuinely bare `border` sites got
+     an explicit `border-gray-200`.
+   - **`.fab`/`.fab-trigger`/`.feed-card` `@apply` a custom class, which v4 rejects outright**
+     (`Cannot apply unknown utility class` — a hard build error). `btn-primary` and `card` are now
+     `@utility`. **Precedence is preserved**: custom utilities emit *before* the built-ins, so
+     `class="btn-primary px-4"` still lets `px-4` win (verified in the emitted CSS).
+   - **`karmyq-shell.css` gets `@reference './globals.css'`.** Without it every `@apply` in that
+     standalone file resolves to nothing, silently. Verified present in the built CSS afterwards.
+
+   **Verified to need NO change (compiler-checked, saving ~370 edits):** bare `rounded` (**286**
+   sites — identical 0.25rem), bare `shadow` (6), `flex-shrink-*`/`flex-grow-*` (47),
+   **`bg-gradient-to-*` (36 — still an alias in 4.3.3)**, and all **10** `divide-y` sites, which
+   already carry an explicit divide color.
+
+   **Token conversion proven, not trusted: all 104 conversions are numerically exact** against
+   `origin/master`'s configs (20 semantic + 42 palette × 2 apps), checked by script.
+
+   **Runtime re-skinning proven in a browser.** Overriding `--color-primary` at runtime changes both
+   a solid `.btn-primary` and an alpha `bg-primary/50`, and reverts cleanly. *(First measurement said
+   the solid case failed — that was an artifact of reading `getComputedStyle` at t=0 during
+   `.btn-primary`'s own 0.15s `background-color` transition. Wait past the transition before
+   believing a "colour didn't change" result.)*
+
+   **Accepted visual changes — deliberate, not oversights:**
+   - **Landing headings get looser at `md+`.** v4 honours the `leading-tight`/`leading-snug` that v3
+     dropped when a responsive `md:text-*` rule won on source order. **Maintainer decision: accept.**
+     The premise was checked first: at **375px live v3 and the v4 build render identically**
+     (33/32.5/45px), so v3 was *breakpoint-inconsistent* and v4 makes desktop match mobile — it was
+     never a deliberate design choice. Affects 23 elements; page height 8319 → 8455px.
+   - **Placeholder color**: v4's Preflight moves the default from `gray-400` to 50% `currentColor`,
+     affecting **10** inputs that don't set one. Accepted — the new value is on-palette, and ADR-079
+     explicitly names raw greys as drift, so pinning them back to gray-400 would encode drift.
+
+   **Gates — ALL FOUR RUN, inline (no sub-agents), per PR 3's precedent.**
+   - **`/simplify`** — 1 fix: `karmyq-shell.css` repeated the Fraunces stack 5× → `@apply font-serif`.
+     `@apply` rather than `var(--font-serif)` **on purpose**: v4 only emits theme vars some generated
+     utility references, so the `@apply` is what guarantees the var reaches the stylesheet.
+     Skipped with reasons: the 42-line palette is duplicated across both apps (pre-existing; sharing
+     it via a cross-package CSS import is **not** worth it because **landing builds on the demo
+     server and a failed landing build only logs a warning** — it would ship a silently unstyled
+     marketing site); and pointing semantic tokens at palette vars would be fragile for the same
+     tree-shaking reason (**only 27 of 42 palette vars reach the built CSS**).
+   - **`/security-review`** — **no findings.** 18 added packages: **all** `registry.npmjs.org`, **all**
+     with integrity hashes, **zero `hasInstallScript`** (so ADR-061's `ignore-scripts=true` is safe).
+     No dangerous sinks, no secrets, no changed external resource loads. `npm audit` 0;
+     `sprint-75-security-gate` 3/3.
+   - **`/code-review` HIGH** — **P1 button-cursor regression found and fixed** (see the top block).
+   - **Testing** — below.
+
+   **Verification:** both production builds succeed · frontend `tsc` **0 errors** · landing `tsc`
+   unchanged (4 pre-existing test-file errors, **proven identical on master's stashed tree**) ·
+   frontend blocking tiers **35 suites / 352 tests**, run 3× (one intermediate run showed a lone
+   351/352 — **a flake**; green before and twice after) · frontend `tdd` tier **7 failed / 39
+   failed, byte-identical to master's baseline** · landing **5 / 61** · root regression+unit
+   **278/278** · lint unchanged at PR 3's baselines (**frontend 653, landing 1**) · `npm audit`
+   **0 vulnerabilities** · edge-vs-node **0 new mismatches vs master** · `npm ci --dry-run` clean ·
+   lockfile stable (real install ≡ two consecutive `--package-lock-only` runs).
+
+   **Demo-server compatibility checked before merge, not after:** the server is **Node v20.20.2 /
+   aarch64 / Ubuntu 24.04**, which satisfies `@tailwindcss/oxide`'s `node >= 20`, and
+   `@tailwindcss/oxide-linux-arm64-gnu` (glibc, matching Ubuntu) is in the lockfile. This mattered
+   because **`scripts/deploy.sh` builds the landing site on the server and only `log_warn`s if that
+   build fails** — a missing native binary would have shipped a stale docs site with a green deploy.
+
+   **Follow-ups deliberately NOT done in PR 5:**
+   - The **42-line karmyq palette is duplicated** between the two apps' `globals.css` (pre-existing —
+     both v3 configs had it). A shared CSS file would dedup it; see the deploy-risk reason above.
+   - **6 sites now carry an explicit off-palette `border-gray-200`.** v4 forced us to write down what
+     v3 was doing implicitly, which exposed 6 borders that were never on-palette. ADR-079 calls this
+     class of raw colour "drift" — worth a token pass.
+   - **`@reference` could be removed entirely** by `@import`-ing `karmyq-shell.css` into
+     `globals.css` and dropping the second `_app.tsx` import: one stylesheet, one parse, and the
+     footgun disappears instead of being documented. Not done here — restructuring CSS loading in the
+     sprint's highest-visual-risk PR is a bad trade.
+   - **`apps/frontend/.claude/README.md` does not exist**, exactly like the `apps/mobile` case PR 4
+     logged; `CLAUDE.md`'s bootstrap step points at both. The real files are `apps/*/CLAUDE.md`.
 5. **PR 6 / express 5** touches root, `packages/shared` (imported by all 10 services), and
    `geocoding-service`. Breaking: routing, error handling, `req.query` getter. #34 is already
    `CONFLICTING` — rebuild from scratch off master rather than rebasing that branch.
