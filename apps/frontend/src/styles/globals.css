@@ -114,6 +114,21 @@
   --radius-card: 0.5rem; /* 8px, shared warm card radius */
 }
 
+/*
+ * Restore the pointer cursor on buttons.
+ * Tailwind v3's Preflight set `button { cursor: pointer }`; v4 dropped it to follow the browser
+ * default (`cursor: default`), which silently makes every button in the app stop looking clickable.
+ * `:not(:disabled)` is Tailwind's recommended form and is a deliberate refinement of v3: a disabled
+ * control should not advertise itself as clickable. Components that want an explicit disabled
+ * affordance still set `disabled:cursor-not-allowed` (e.g. .btn-primary).
+ */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 body {
   font-family: 'Hanken Grotesk', 'Inter', system-ui, sans-serif;
   color: var(--color-text);

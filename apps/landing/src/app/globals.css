@@ -62,6 +62,16 @@
 }
 
 @layer base {
+  /*
+   * Restore the pointer cursor on buttons. Tailwind v3's Preflight set
+   * `button { cursor: pointer }`; v4 dropped it to follow the browser default, which silently
+   * makes every button stop looking clickable. `:not(:disabled)` is Tailwind's recommended form.
+   */
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+
   html {
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
