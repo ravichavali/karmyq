@@ -35,8 +35,11 @@
 > both `apps/frontend/tailwind.config.js` and `apps/landing/tailwind.config.ts` get
 > deleted/reexpressed), it is the **highest visual-regression risk in the sprint**, and
 > `/code-review` runs at **HIGH**. Verify against the S115/S118/S119 graph-presentation contracts
-> and the S120 R-1…R-8 clarity fixes. **Set its version bump in the Plan of Record before
-> starting** — PR 3 shipped without one precisely because it was left "TBD".
+> and the S120 R-1…R-8 clarity fixes.
+>
+> **PR 5 SCOPE DECIDED 2026-07-28, before any code change: `v11.35.0`, `tailwindcss@4.3.3`, and
+> design tokens convert from RGB triplets to real CSS colors ("Option A").** Full rationale and
+> the recon findings that shape the diff are in Critical Note 4.
 
 > **STATUS (2026-07-24, updated 2026-07-28):** **PR 3 ([#164](https://github.com/ravichavali/karmyq/pull/164))
 > merged as `e7bc6cc5` and deployed 2026-07-28** — master run `30383717067`, `Deploy to Demo` =
@@ -138,7 +141,7 @@ individually-scoped migrations.
 | **2** | consolidated safe deps | #157 (**minus mobile**), **#161**, #85, **#55**, #145, #144, #147, #118, #53 | v11.33.0 — **SHIPPED & DEPLOYED** (`d7ddd146`) |
 | **3** | lint toolchain majors → became an **ESLint 8 → 9 flat-config migration** | #40, #35, #36 (**all closed**) | **SHIPPED & DEPLOYED** (`e7bc6cc5`) — ⚠️ **no version bump; master still reads 11.33.0** |
 | **4** | mobile/Expo majors **+ Expo SDK 54 → 57 upgrade** | #37, #39 (**both closed**), **#157's 4 react-native bumps** (never re-raised — applied via the SDK) | **v11.34.0 — SHIPPED & DEPLOYED** (`cf27ab89`) |
-| **5** | tailwindcss 3 → 4 | #41 | TBD — **set this before starting** |
+| **5** | tailwindcss 3 → 4 | #41 | **v11.35.0 — DECIDED 2026-07-28** (see Critical Note 4) |
 | **6** | express 4 → 5 | #34 | TBD — **set this before starting** |
 | — | closed unmerged | #106 (stale docs) — **CLOSED 2026-07-24** | — |
 
@@ -271,6 +274,49 @@ mid-sprint, add it to this table before starting work.
    `apps/frontend/tailwind.config.js` and `apps/landing/tailwind.config.ts` are
    deleted/reexpressed. Highest visual-regression risk in the sprint — every surface. Verify
    against the S115/S118/S119 graph-presentation contracts and the S120 R-1…R-8 clarity fixes.
+
+   **DECISIONS TAKEN 2026-07-28, before any code change** (PR 3 shipped without a version bump
+   precisely because this was left "TBD"):
+   - **Version: `v11.35.0`.** Set in the Plan of Record above.
+   - **Target `tailwindcss@4.3.3`** + `@tailwindcss/postcss@4.3.3` (current latest).
+   - **Design tokens convert to real CSS colors — "Option A", maintainer-approved.**
+     `--color-primary: 45 110 40` (a bare RGB triplet) becomes `--color-primary: #2d6e28`.
+     **This is a format change, not a relocation:** every color still lives exactly once as a CSS
+     variable and components still say `bg-primary` / `var(--color-text)`. Nothing is hardcoded
+     into components.
+     **Why it is forced:** v4 reads its theme straight out of the `--color-*` namespace — the same
+     namespace our tokens already occupy — and expects a *color* there. Left as triplets,
+     `bg-primary` compiles to `background-color: 45 110 40`, which is not valid CSS. The triplet
+     form only ever existed to feed Tailwind 3's `<alpha-value>` splice
+     (`rgb(var(--color-primary) / <alpha-value>)`); v4 does opacity with `color-mix()` instead,
+     so `bg-primary/50` keeps working with no plumbing at all.
+     **The rejected alternative ("Option B")** was to rename the triplets to a private
+     `--brand-*` namespace and alias them (`--color-primary: rgb(var(--brand-primary))`). It
+     preserves `ThemeContext`'s current type but leaves a permanent two-variables-per-color
+     indirection layer that exists only to keep a v3 workaround alive — and it has to touch the
+     same 65 inline call sites anyway.
+
+   **Recon findings that shape the diff (verified 2026-07-28, not assumed):**
+   - `tailwindcss ^3.3.0` is a **devDependency of both** `apps/frontend` and `apps/landing`, each
+     with `postcss` + `autoprefixer` and a `{tailwindcss:{}, autoprefixer:{}}` PostCSS config.
+     v4 replaces the plugin with `@tailwindcss/postcss` and makes `autoprefixer` redundant.
+   - **~110 `@apply` sites** across `apps/frontend/src/styles/globals.css`,
+     `apps/frontend/src/styles/karmyq-shell.css` and `apps/landing/src/app/globals.css`.
+   - **⚠️ `karmyq-shell.css` is imported standalone** (`apps/frontend/src/pages/_app.tsx` line 2),
+     **not** `@import`ed into `globals.css`. In v4 an `@apply` in a file that never imports the
+     theme resolves to **nothing, silently** — it needs an explicit `@reference`. This is the
+     single most likely way to ship a half-styled app that still builds green.
+   - **69 `rgb(var(--color-…))` consumers**: 4 in `globals.css`, **65 inline styles across 7
+     components** (`ChatWindow`, `MessageBubble`, `NotificationBell`, `NotificationDropdown`,
+     `NotificationItem`, `ProviderModeSwitcher`, `ProviderNotificationBell`). All become
+     `var(--color-…)`.
+   - **Changing `ThemeContext`'s skin API is free.** `CommunityTheme` types its 14 tokens as
+     `RGBTriplet`, but `ThemeProvider` is mounted with **no `communityTheme` prop**
+     (`_app.tsx` line 62) and **no service or migration stores a theme** — grep across
+     `services/` and `packages/` returns nothing. The per-community skin path is scaffolding with
+     zero live callers, so switching it to accept a CSS color string breaks nobody.
+   - **`docs/adr/ADR-079-visual-design-system-v2.md` documents this token system** and must be
+     updated in the same PR (docs feedback loop).
 5. **PR 6 / express 5** touches root, `packages/shared` (imported by all 10 services), and
    `geocoding-service`. Breaking: routing, error handling, `req.query` getter. #34 is already
    `CONFLICTING` — rebuild from scratch off master rather than rebasing that branch.
