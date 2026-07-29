@@ -1,22 +1,42 @@
-# Sprint 121 — Dependency Backlog Cleanup — PRs 1–3 SHIPPED, PR 4 CODE-COMPLETE (unpushed)
+# Sprint 121 — Dependency Backlog Cleanup — PRs 1–4 SHIPPED & DEPLOYED, PR 5 IS NEXT
 
-> **PR 4 STATUS (2026-07-28): OPEN as [#165](https://github.com/ravichavali/karmyq/pull/165),
-> commit `930d532f`, ALL 21 CHECKS GREEN — awaiting merge authorization.**
-> `mergeStateStatus: BLOCKED` is the branch-protection review requirement, not a failing gate.
-> The resolution fight is **won** and all four quality gates ran; `/code-review high` found 2 P1s
-> (a silent native-splash regression and an undeclared `@types/jest`), both fixed and re-verified.
-> **`Test Docker Build` passed — it runs a real `npm ci`, which is precisely where PR 2's
-> `apps/landing` half-resolution was caught, so the lockfile is confirmed genuinely resolved.**
-> All 7 Docker image builds passed on `node:18-alpine`, confirming RN 0.86's Node floor does not
-> reach the backend builds (the basis for leaving root `engines` at `>=18.0.0`).
-> Version **11.34.0**, carrying PR 3's missed bump. See "PR 4 execution results" in Critical
-> Note 7.
+> **PR 4 SHIPPED AND DEPLOYED (2026-07-28).** [#165](https://github.com/ravichavali/karmyq/pull/165)
+> merged as **`cf27ab89`**; master CI/CD run **`30399781637`** reached **`Deploy to Demo` =
+> success**, `✅ All services healthy`, `🎉 Demo Deployment Successful`, **no rollback**.
+> **Demo now runs v11.34.0** (this also discharged PR 3's missed version bump).
 >
-> **Next:** explicit merge authorization → `gh pr merge 165 --squash --admin` → then the standing
-> two-step verification (master run reaches `Deploy to Demo` = success with no rollback, then
-> smoke-test live karmyq.com at v11.34.0). **Close #37 and #39 only AFTER the merge lands** —
-> #37 must be closed with the rationale that it proposed gesture-handler 3.0.2, which no Expo SDK
-> 54–57 bundles.
+> **Live smoke test PASSED** — not inferred from a green pipeline: `/login` renders and **React
+> fully hydrates** (wordmark → `/`, tagline, form fields, interactive Login button), the `_app`
+> bundle executes, and the API returns the correct ADR-074 envelope. This matters because PR 4
+> pinned React repo-wide to **19.2.3**, a downgrade for the two Next.js apps. The 6 console errors
+> are **401s from a stale expired JWT in the test browser profile** (decoded: `priya.sharma`,
+> already expired) plus the SSE client failing on that same token — **zero React or hydration
+> errors**.
+>
+> **⚠️ Read this before trusting any future "deploy is green".** The merge produced **three**
+> separate master runs for `cf27ab89`: `Tests` (`30399781525`), `CodeQL` (`30399781299`), and
+> **`CI/CD Pipeline` (`30399781637`) — only the last contains `Deploy to Demo`.** The `Tests` run
+> completed `success` with **no deploy job at all**, which is exactly the PR C trap. Always
+> confirm the run you are watching is the **CI/CD Pipeline** one.
+>
+> **`#37` and `#39` are both closed** with rationale recorded on each. #37's proposal was not
+> merely superseded but **wrong** — it wanted gesture-handler 3.0.2, which no Expo SDK 54–57
+> bundles.
+>
+> **An `Integration Tests` failure on the final head was a genuine flake and was re-run green.**
+> It failed in the *`Start test environment`* step (`karmyq-auth-service-test` exited 1) — i.e.
+> container startup, before any assertion — on a head whose only delta from a passing head was
+> **two markdown files**. Re-running the job passed. Treat a lone `Start test environment` failure
+> as infrastructure, not as your diff.
+>
+> **NEXT: PR 5 — tailwindcss 3 → 4.** Branch **`deps/sprint-121-pr5-tailwind` already exists**,
+> cut from fresh `origin/master` (`cf27ab89`) and carrying this handoff commit — **check it out,
+> do not re-cut it.** See Critical Note 4: it is a **config rewrite, not a bump** (v4 is CSS-first;
+> both `apps/frontend/tailwind.config.js` and `apps/landing/tailwind.config.ts` get
+> deleted/reexpressed), it is the **highest visual-regression risk in the sprint**, and
+> `/code-review` runs at **HIGH**. Verify against the S115/S118/S119 graph-presentation contracts
+> and the S120 R-1…R-8 clarity fixes. **Set its version bump in the Plan of Record before
+> starting** — PR 3 shipped without one precisely because it was left "TBD".
 
 > **STATUS (2026-07-24, updated 2026-07-28):** **PR 3 ([#164](https://github.com/ravichavali/karmyq/pull/164))
 > merged as `e7bc6cc5` and deployed 2026-07-28** — master run `30383717067`, `Deploy to Demo` =
@@ -69,13 +89,14 @@
    `apps/landing` note below). Local `npm audit` + `npm ci --dry-run` + full test/build runs all
    pass on a half-resolved tree; only `npm ci` in CI catches it.
 
-## Open PR roster after PR 3 (4 open)
+## Open PR roster after PR 4 (2 open)
 
 | PR | Disposition |
 |---|---|
-| #37, #39 | **PR 4 — mobile/Expo majors + Expo SDK upgrade. CURRENT WORK.** |
-| #41 | PR 5 — tailwindcss 3 → 4 |
+| #41 | **PR 5 — tailwindcss 3 → 4. CURRENT WORK.** |
 | #34 | PR 6 — express 4 → 5 |
+
+**Sprint progress: 18 open PRs → 2.** #37 and #39 closed on PR 4's merge.
 
 **Dependabot has NOT re-raised the four `apps/mobile` react-native bumps** that #157 took with it
 when it auto-closed on PR 2's merge (checked 2026-07-28, one open-PR list later). **PR 4 must
@@ -116,9 +137,9 @@ individually-scoped migrations.
 | **1** | postcss advisory hotfix + Sprint 120 close-out | #159 | v11.32.1 — **SHIPPED** |
 | **2** | consolidated safe deps | #157 (**minus mobile**), **#161**, #85, **#55**, #145, #144, #147, #118, #53 | v11.33.0 — **SHIPPED & DEPLOYED** (`d7ddd146`) |
 | **3** | lint toolchain majors → became an **ESLint 8 → 9 flat-config migration** | #40, #35, #36 (**all closed**) | **SHIPPED & DEPLOYED** (`e7bc6cc5`) — ⚠️ **no version bump; master still reads 11.33.0** |
-| **4** | mobile/Expo majors **+ Expo SDK 54 → 57 upgrade** | #37, #39, **#157's 4 react-native bumps** (never re-raised — applied via the SDK) | **v11.34.0 — CODE-COMPLETE, unpushed** (carries PR 3's missed bump) |
-| **5** | tailwindcss 3 → 4 | #41 | TBD |
-| **6** | express 4 → 5 | #34 | TBD |
+| **4** | mobile/Expo majors **+ Expo SDK 54 → 57 upgrade** | #37, #39 (**both closed**), **#157's 4 react-native bumps** (never re-raised — applied via the SDK) | **v11.34.0 — SHIPPED & DEPLOYED** (`cf27ab89`) |
+| **5** | tailwindcss 3 → 4 | #41 | TBD — **set this before starting** |
+| **6** | express 4 → 5 | #34 | TBD — **set this before starting** |
 | — | closed unmerged | #106 (stale docs) — **CLOSED 2026-07-24** | — |
 
 **Accounting (all 18 open PRs at triage):** 1 superseded by PR 1 (#159) + 9 in PR 2 (#157, #126,
@@ -672,10 +693,44 @@ mid-sprint, add it to this table before starting work.
 
 ## Carry-Forward / Known State
 
-- **Demo runs v11.33.0** as of PR 2's deploy (2026-07-28, run `30325538212`). **Every PR in this
-  sprint ends with the same two-step verification, not with a green PR:** confirm the master CI/CD
-  run reached **`Deploy to Demo` = success with no rollback**, then smoke-test the live site. PR C's
-  merge run is the standing counterexample — 20 green checks and no deploy.
+- **PR 4 follow-ups, carried forward** (each verified real, each deliberately out of PR 4's scope):
+  - **`turbo.json`'s `test` task hashes the wrong inputs** — `src/**` + `test/**`, but
+    `apps/mobile` uses `app/`/`services/`/`components/` and `tests/` (**plural**).
+    `turbo run test --dry` shows `@karmyq/mobile#test` hashing **exactly 1 input: `package.json`**,
+    so root `npm test` reports a **stale green for mobile** once cached. `@karmyq/tests#test`
+    hashes 1 input too — **this is the mechanical root cause of the documented "Turbo cache hides
+    cross-workspace failures" gotcha.** Fix: add `$TURBO_DEFAULT$` to the task's `inputs`. Until
+    then run workspace suites directly.
+  - **CI never type-checks `apps/mobile`** (`ci.yml` enumerates only `packages/shared`,
+    `auth-service`, `community-service`; mobile lint is `|| echo`). Mobile `tsc` is now **0 errors**
+    for the first time, so this is newly possible — not added, per the standing "don't chase mobile
+    green as a gate" decision.
+  - **An SDK-alignment regression gate** in `tests/regression/`: assert no `apps/mobile` dep is
+    declared `"*"`, every `expo-*`/`@expo/*` major equals `expo`'s major, and the lockfile satisfies
+    the manifest. This is the mechanism that would have prevented the drift PR 4 had to clean up.
+  - **`apps/landing/src/data/docs/concepts/adr-059-*.json` is genuinely stale** against
+    `docs/adr/ADR-059.md` (missing a Sprint 120 "2026-07-21 advisory refresh" section). PR 4's
+    regen picked it up and it was **reverted** as out-of-scope, so **any landing regen will
+    re-dirty it** until refreshed in its own PR.
+  - `react-native-vector-icons` is dead weight (zero imports; Expo's metro aliases it to
+    `@expo/vector-icons`) — dependency-pruning pass.
+  - `scripts/promote-tdd-tests.js` declares `APPS_DIR` (line 18) but only walks `SERVICES_DIR`
+    (line 63), so an `apps/*/tests/tdd/` test blocks pushes forever and never promotes.
+  - `apps/mobile/jest.config.js` still says `passWithNoTests: true` "until we write mobile tests" —
+    now false, and it would mask a `testMatch` mistake that drops the suite.
+  - **`CLAUDE.md` points at `apps/mobile/.claude/README.md`, which does not exist** — mobile's
+    local context is `apps/mobile/claude.md`. The bootstrap step is unsatisfiable as written.
+  - `apps/landing/src/data/docs/` is **gitignored but tracked**, so regenerated artifacts need
+    `git add -f`. Worth deciding whether they should be tracked at all.
+  - `app.json`'s plugin list is half-populated (`expo-notifications`, `expo-font`,
+    `expo-image-picker` ship plugins but aren't listed) and duplicates permission strings with
+    `infoPlist`; `apps/mobile/hooks/useExpoNotifications.ts` duplicates `services/notifications.ts`.
+- **Demo runs v11.34.0** as of PR 4's deploy (2026-07-28, CI/CD run `30399781637`). **Every PR in
+  this sprint ends with the same two-step verification, not with a green PR:** confirm the master
+  CI/CD run reached **`Deploy to Demo` = success with no rollback**, then smoke-test the live site.
+  PR C's merge run is the standing counterexample — 20 green checks and no deploy. **PR 4 added a
+  second, subtler counterexample: a merge fans out into three master runs and only the `CI/CD
+  Pipeline` one has a deploy job** — the `Tests` run goes green with no deploy at all.
 - **R-1…R-8 visual pass: DONE 2026-07-28 on live karmyq.com at v11.33.0 — all 8 PASS.** No longer
   owed; the debt opened in Sprint 120 PR C is closed. Evidence per check:
   - **R-1** (UTF-8 JWT decode) — 102 em dashes render correctly across the dashboard, **zero**
