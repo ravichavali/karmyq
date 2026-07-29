@@ -86,7 +86,7 @@ export default function UpcomingPanel({ matches, currentUserId, activeCommunityI
   }
 
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm mb-4 overflow-hidden" data-testid="upcoming-panel">
+    <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-xs mb-4 overflow-hidden" data-testid="upcoming-panel">
       {/* Header */}
       <button
         onClick={toggle}

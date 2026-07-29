@@ -87,7 +87,7 @@ export default function RequestTypeSelector({ selectedType, onSelectType, showEx
                 ? 'ring-2 ring-primary border-primary shadow-md'
                 : type.color
               }
-              focus:outline-none focus:ring-2 focus:ring-primary
+              focus:outline-hidden focus:ring-2 focus:ring-primary
             `}
           >
             {/* Most Used Badge */}

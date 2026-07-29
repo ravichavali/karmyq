@@ -298,7 +298,7 @@ export default function ProviderProfileTab({ providers, collectives }: ProviderP
 
       {/* Rate Card Modal */}
       {showRateCardModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
           <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold text-gray-800">{editingCard ? 'Edit Rate Card' : 'Add Rate Card'}</h3>
@@ -314,7 +314,7 @@ export default function ProviderProfileTab({ providers, collectives }: ProviderP
                   onChange={(e) => setModalLabel(e.target.value)}
                   required
                   placeholder="e.g. Standard hourly rate"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -347,7 +347,7 @@ export default function ProviderProfileTab({ providers, collectives }: ProviderP
                       value={modalRateAmount}
                       onChange={(e) => setModalRateAmount(e.target.value)}
                       placeholder="e.g. 50"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -355,7 +355,7 @@ export default function ProviderProfileTab({ providers, collectives }: ProviderP
                     <select
                       value={modalRateUnit}
                       onChange={(e) => setModalRateUnit(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     >
                       {RATE_UNIT_OPTIONS.map((o) => (
                         <option key={o.value} value={o.value}>{o.label}</option>
@@ -370,7 +370,7 @@ export default function ProviderProfileTab({ providers, collectives }: ProviderP
                 <select
                   value={modalServiceType}
                   onChange={(e) => setModalServiceType(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                 >
                   {SERVICE_TYPE_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
@@ -385,7 +385,7 @@ export default function ProviderProfileTab({ providers, collectives }: ProviderP
                   onChange={(e) => setModalNotes(e.target.value)}
                   rows={2}
                   placeholder="Any additional details..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 

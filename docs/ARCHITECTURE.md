@@ -701,7 +701,7 @@ import { logger } from '@shared/utils';
 ### Frontend
 - **Framework**: Next.js 14
 - **UI**: React 18
-- **Styling**: Tailwind CSS
+- **Styling**: Tailwind CSS v4 (CSS-first — the theme lives in `@theme` in `globals.css`; there is no `tailwind.config`)
 - **State**: React Context + Hooks
 - **API Client**: Fetch API with shared client
 

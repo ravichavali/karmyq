@@ -73,6 +73,26 @@ New/clarified tokens in `globals.css :root` + `karmyq-shell.css`:
 `--texture` / motif hook did **not** ship in Sprint 105 because it had no live consumer. **No palette
 or type-family change** — the brand colors and Fraunces + Hanken pairing are unchanged.
 
+**Token storage format changed in Sprint 121 (Tailwind v4, v11.35.0) — values only, not the system.**
+The tokens keep their names and their single home, but each now holds a real CSS color
+(`--color-primary: #2d6e28`) instead of the bare RGB triplet (`45 110 40`) Tailwind v3 required.
+The triplet existed solely to feed v3's `<alpha-value>` splice
+(`rgb(var(--color-primary) / <alpha-value>)`); v4 reads the `--color-*` namespace directly — the same
+namespace these tokens already occupied — and does opacity with `color-mix()`, so a triplet there is
+not a valid color. Consequences worth knowing:
+
+- **Opacity modifiers still resolve the variable.** `bg-primary/50` compiles to
+  `color-mix(in oklab, var(--color-primary) 50%, transparent)`, so per-community re-skinning via
+  `ThemeContext` keeps working *at partial alpha as well as solid* — verified in a browser, not assumed.
+- `CommunityTheme` in `ThemeContext.tsx` now accepts any CSS color string, not an RGB triplet.
+- Direct consumers moved from `rgb(var(--color-x))` to `var(--color-x)` (69 sites).
+- `--measure`, `--measure-chrome` and `--radius-card` are declared in a plain `:root` block rather
+  than `@theme`, because v4 only emits theme variables that some generated utility references and
+  nothing generates `max-w-measure` / `rounded-card`.
+- Component classes composed by others (`.btn-primary`, `.card`) are declared with `@utility`, since
+  v4 can only `@apply` a registered utility. Custom utilities emit before the built-ins, so utility
+  precedence is unchanged from v3.
+
 ### Implementation notes (Sprint 105)
 
 S105 shipped the foundation first, then converged the request/detail/offers/match cluster, Profile and

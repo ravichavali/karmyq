@@ -27,7 +27,7 @@ export default function PublishDialog({ isOpen, schema, onPublish, onCancel }: P
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-surface rounded-lg shadow-xl p-6 max-w-md">
         <h2 className="text-xl font-semibold text-text mb-4">Publish Schema?</h2>
         <p className="text-text-muted mb-6">

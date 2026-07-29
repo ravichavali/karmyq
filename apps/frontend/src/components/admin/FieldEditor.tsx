@@ -64,7 +64,7 @@ export default function FieldEditor({ field, onChange, onDelete }: Props) {
         <select
           value={field.type}
           onChange={(e) => onChange({ type: e.target.value })}
-          className="w-full px-3 py-1.5 border border-border rounded text-sm bg-surface focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full px-3 py-1.5 border border-border rounded text-sm bg-surface focus:outline-hidden focus:ring-1 focus:ring-primary"
         >
           {FIELD_TYPES.map((t) => (
             <option key={t} value={t}>{t}</option>
@@ -79,7 +79,7 @@ export default function FieldEditor({ field, onChange, onDelete }: Props) {
           type="text"
           value={field.label}
           onChange={(e) => onChange({ label: e.target.value })}
-          className="w-full px-3 py-1.5 border border-border rounded text-sm bg-surface focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full px-3 py-1.5 border border-border rounded text-sm bg-surface focus:outline-hidden focus:ring-1 focus:ring-primary"
         />
       </div>
 
@@ -90,7 +90,7 @@ export default function FieldEditor({ field, onChange, onDelete }: Props) {
           type="text"
           value={field.key ?? field.label.toLowerCase().replace(/\s+/g, '_')}
           onChange={(e) => onChange({ key: e.target.value })}
-          className="w-full px-3 py-1.5 border border-border rounded text-sm bg-surface focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+          className="w-full px-3 py-1.5 border border-border rounded text-sm bg-surface focus:outline-hidden focus:ring-1 focus:ring-primary font-mono"
         />
       </div>
 
@@ -102,7 +102,7 @@ export default function FieldEditor({ field, onChange, onDelete }: Props) {
             type="text"
             value={field.placeholder ?? ''}
             onChange={(e) => onChange({ placeholder: e.target.value })}
-            className="w-full px-3 py-1.5 border border-border rounded text-sm bg-surface focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full px-3 py-1.5 border border-border rounded text-sm bg-surface focus:outline-hidden focus:ring-1 focus:ring-primary"
           />
         </div>
       )}
@@ -114,7 +114,7 @@ export default function FieldEditor({ field, onChange, onDelete }: Props) {
           type="text"
           value={field.helpText ?? ''}
           onChange={(e) => onChange({ helpText: e.target.value })}
-          className="w-full px-3 py-1.5 border border-border rounded text-sm bg-surface focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full px-3 py-1.5 border border-border rounded text-sm bg-surface focus:outline-hidden focus:ring-1 focus:ring-primary"
         />
       </div>
 
@@ -148,7 +148,7 @@ export default function FieldEditor({ field, onChange, onDelete }: Props) {
               onChange={(e) => setOptionInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addOption() } }}
               placeholder="Add option…"
-              className="flex-1 px-3 py-1.5 border border-border rounded text-sm bg-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              className="flex-1 px-3 py-1.5 border border-border rounded text-sm bg-surface focus:outline-hidden focus:ring-1 focus:ring-primary"
             />
             <button onClick={addOption} className="px-3 py-1.5 bg-primary text-white rounded text-sm hover:bg-primary-dark">
               Add
@@ -166,7 +166,7 @@ export default function FieldEditor({ field, onChange, onDelete }: Props) {
               type="number"
               value={field.min ?? ''}
               onChange={(e) => onChange({ min: e.target.value ? Number(e.target.value) : undefined })}
-              className="w-full px-2 py-1.5 border border-border rounded text-sm bg-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-2 py-1.5 border border-border rounded text-sm bg-surface focus:outline-hidden focus:ring-1 focus:ring-primary"
             />
           </div>
           <div>
@@ -175,7 +175,7 @@ export default function FieldEditor({ field, onChange, onDelete }: Props) {
               type="number"
               value={field.max ?? ''}
               onChange={(e) => onChange({ max: e.target.value ? Number(e.target.value) : undefined })}
-              className="w-full px-2 py-1.5 border border-border rounded text-sm bg-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-2 py-1.5 border border-border rounded text-sm bg-surface focus:outline-hidden focus:ring-1 focus:ring-primary"
             />
           </div>
           <div>
@@ -185,7 +185,7 @@ export default function FieldEditor({ field, onChange, onDelete }: Props) {
               value={field.unit ?? ''}
               onChange={(e) => onChange({ unit: e.target.value })}
               placeholder="km, $…"
-              className="w-full px-2 py-1.5 border border-border rounded text-sm bg-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-2 py-1.5 border border-border rounded text-sm bg-surface focus:outline-hidden focus:ring-1 focus:ring-primary"
             />
           </div>
         </div>

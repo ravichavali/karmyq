@@ -110,7 +110,7 @@ export function ProfileTagsSection() {
                     if (e.key === 'Escape') setGroups(prev => ({ ...prev, [type]: { ...prev[type], adding: false, inputValue: '' } }));
                   }}
                   placeholder={placeholder}
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-300 w-full max-w-xs"
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-green-300 w-full max-w-xs"
                 />
                 {group.suggestions.length > 0 && (
                   <div className="flex flex-wrap gap-1">

@@ -58,7 +58,7 @@ function TrustEvolutionSection({ communityId }: { communityId: string }) {
   const { community_evolution_enabled, cross_community_prior, opted_in_rate } = status ?? {}
 
   return (
-    <div className="border rounded-lg p-4 mt-4">
+    <div className="border border-gray-200 rounded-lg p-4 mt-4">
       <h3 className="font-semibold mb-2">Trust Model Evolution</h3>
       <p className="text-sm text-gray-500 mb-3">
         When enabled, members who opt in have their trust parameters calibrate automatically based on experience.

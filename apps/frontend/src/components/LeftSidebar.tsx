@@ -84,7 +84,7 @@ export default function LeftSidebar({ user, communities, activeCommunityId, karm
   return (
     <div className="space-y-4">
       {/* User Karma Card */}
-      <div className="bg-surface-raised rounded-xl shadow-sm border border-border overflow-hidden">
+      <div className="bg-surface-raised rounded-xl shadow-xs border border-border overflow-hidden">
         {/* User Header */}
         <div className={`bg-gradient-to-br ${getTrustColor(karmaData?.trust_score || 0)} p-4 text-white`}>
           <button
@@ -154,7 +154,7 @@ export default function LeftSidebar({ user, communities, activeCommunityId, karm
       </div>
 
       {/* Communities */}
-      <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-4">
+      <div className="bg-surface-raised rounded-xl shadow-xs border border-border p-4">
         <button
           onClick={() => router.push('/communities')}
           className="w-full text-left font-semibold text-text mb-3 hover:text-primary transition-colors"
@@ -206,7 +206,7 @@ export default function LeftSidebar({ user, communities, activeCommunityId, karm
       </div>
 
       {/* Quick Stats */}
-      <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-4">
+      <div className="bg-surface-raised rounded-xl shadow-xs border border-border p-4">
         <h3 className="font-semibold text-text mb-3">Your Impact</h3>
         <div className="space-y-3">
           <div>

@@ -141,7 +141,7 @@ export default function EmojiPicker({ value, onChange, label = 'Icon (emoji)' }:
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-3 px-4 py-3 border border-border rounded hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary bg-surface text-left"
+        className="w-full flex items-center gap-3 px-4 py-3 border border-border rounded hover:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary bg-surface text-left"
       >
         <span className="text-2xl">{value || '✨'}</span>
         <span className="text-sm text-text-muted">Click to change</span>
@@ -159,7 +159,7 @@ export default function EmojiPicker({ value, onChange, label = 'Icon (emoji)' }:
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search emojis…"
-              className="w-full px-3 py-2 border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 border border-border rounded text-sm focus:outline-hidden focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -192,7 +192,7 @@ export default function EmojiPicker({ value, onChange, label = 'Icon (emoji)' }:
               value={value}
               onChange={(e) => onChange(e.target.value)}
               placeholder="Or type any emoji…"
-              className="w-full px-3 py-1.5 border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-1.5 border border-border rounded text-sm focus:outline-hidden focus:ring-1 focus:ring-primary"
             />
           </div>
         </div>

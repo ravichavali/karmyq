@@ -75,7 +75,7 @@ function SectionBlock({
   return (
     <div className="mb-4">
       <button
-        className="flex items-center gap-2 mb-2 w-full text-left focus:outline-none"
+        className="flex items-center gap-2 mb-2 w-full text-left focus:outline-hidden"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >

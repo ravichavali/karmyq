@@ -24,7 +24,7 @@ interface CollectiveCardProps {
 export default function CollectiveCard({ collective }: CollectiveCardProps) {
   return (
     <Link href={`/providers/collectives/${collective.id}`}>
-      <div className="bg-surface-raised rounded-lg shadow-sm border border-border p-4 hover:shadow-md transition cursor-pointer h-full flex flex-col gap-2">
+      <div className="bg-surface-raised rounded-lg shadow-xs border border-border p-4 hover:shadow-md transition cursor-pointer h-full flex flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-9 h-9 bg-gradient-to-br from-karmyq-teal-500 to-karmyq-green-600 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0">

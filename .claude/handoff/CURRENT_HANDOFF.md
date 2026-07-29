@@ -1,22 +1,67 @@
-# Sprint 121 — Dependency Backlog Cleanup — PRs 1–3 SHIPPED, PR 4 CODE-COMPLETE (unpushed)
+# Sprint 121 — Dependency Backlog Cleanup — PRs 1–4 SHIPPED & DEPLOYED, PR 5 AWAITS MERGE AUTHORIZATION
 
-> **PR 4 STATUS (2026-07-28): OPEN as [#165](https://github.com/ravichavali/karmyq/pull/165),
-> commit `930d532f`, ALL 21 CHECKS GREEN — awaiting merge authorization.**
-> `mergeStateStatus: BLOCKED` is the branch-protection review requirement, not a failing gate.
-> The resolution fight is **won** and all four quality gates ran; `/code-review high` found 2 P1s
-> (a silent native-splash regression and an undeclared `@types/jest`), both fixed and re-verified.
-> **`Test Docker Build` passed — it runs a real `npm ci`, which is precisely where PR 2's
-> `apps/landing` half-resolution was caught, so the lockfile is confirmed genuinely resolved.**
-> All 7 Docker image builds passed on `node:18-alpine`, confirming RN 0.86's Node floor does not
-> reach the backend builds (the basis for leaving root `engines` at `>=18.0.0`).
-> Version **11.34.0**, carrying PR 3's missed bump. See "PR 4 execution results" in Critical
-> Note 7.
+> **PR 5 (tailwindcss 3 → 4) IS CODE-COMPLETE ON `deps/sprint-121-pr5-tailwind`, v11.35.0.**
+> All four gates run. **Not merged — merge needs EXPLICIT admin authorization, as every PR does.**
 >
-> **Next:** explicit merge authorization → `gh pr merge 165 --squash --admin` → then the standing
-> two-step verification (master run reaches `Deploy to Demo` = success with no rollback, then
-> smoke-test live karmyq.com at v11.34.0). **Close #37 and #39 only AFTER the merge lands** —
-> #37 must be closed with the rationale that it proposed gesture-handler 3.0.2, which no Expo SDK
-> 54–57 bundles.
+> **The one finding that mattered: v3's Preflight set `button { cursor: pointer }` and v4 dropped
+> it**, so every button in both apps silently stopped looking clickable. No test would ever catch
+> that. It was found by **A/B-ing computed styles against the live v3 site**, not by reading the
+> changelog — `karmyq.com/register` computes `pointer`, the v4 build computed `default`. Restored
+> via `@layer base` in both apps.
+>
+> **The A/B technique is the reusable asset here** — for any styling-layer upgrade, fingerprint
+> `getBoundingClientRect` + ~15 computed properties for every visible element on both the live site
+> and the local build, then diff. On the landing page that compared 128 elements and reduced
+> "100% of elements differ" to **one** real finding, because it let borderColor diffs be filtered by
+> whether a border is actually drawn (`border-width != 0` → **0 real diffs**), and showed the
+> `space-y` margin flip and the extra `box-shadow` slots to be visually inert.
+>
+> **Verified before believing anything:** every claim about what v4 renames, keeps or drops was
+> checked **against the compiler**, not the upgrade guide. That mattered in both directions — it
+> caught `bg-opacity-*` being **silently compiled away** (9 modal backdrops would have gone fully
+> opaque black), and it saved touching **286 `rounded` + 47 `flex-shrink-*` + 36 `bg-gradient-*`
+> sites** that 4.3.3 still supports unchanged.
+
+> **PR 4 SHIPPED AND DEPLOYED (2026-07-28).** [#165](https://github.com/ravichavali/karmyq/pull/165)
+> merged as **`cf27ab89`**; master CI/CD run **`30399781637`** reached **`Deploy to Demo` =
+> success**, `✅ All services healthy`, `🎉 Demo Deployment Successful`, **no rollback**.
+> **Demo now runs v11.34.0** (this also discharged PR 3's missed version bump).
+>
+> **Live smoke test PASSED** — not inferred from a green pipeline: `/login` renders and **React
+> fully hydrates** (wordmark → `/`, tagline, form fields, interactive Login button), the `_app`
+> bundle executes, and the API returns the correct ADR-074 envelope. This matters because PR 4
+> pinned React repo-wide to **19.2.3**, a downgrade for the two Next.js apps. The 6 console errors
+> are **401s from a stale expired JWT in the test browser profile** (decoded: `priya.sharma`,
+> already expired) plus the SSE client failing on that same token — **zero React or hydration
+> errors**.
+>
+> **⚠️ Read this before trusting any future "deploy is green".** The merge produced **three**
+> separate master runs for `cf27ab89`: `Tests` (`30399781525`), `CodeQL` (`30399781299`), and
+> **`CI/CD Pipeline` (`30399781637`) — only the last contains `Deploy to Demo`.** The `Tests` run
+> completed `success` with **no deploy job at all**, which is exactly the PR C trap. Always
+> confirm the run you are watching is the **CI/CD Pipeline** one.
+>
+> **`#37` and `#39` are both closed** with rationale recorded on each. #37's proposal was not
+> merely superseded but **wrong** — it wanted gesture-handler 3.0.2, which no Expo SDK 54–57
+> bundles.
+>
+> **An `Integration Tests` failure on the final head was a genuine flake and was re-run green.**
+> It failed in the *`Start test environment`* step (`karmyq-auth-service-test` exited 1) — i.e.
+> container startup, before any assertion — on a head whose only delta from a passing head was
+> **two markdown files**. Re-running the job passed. Treat a lone `Start test environment` failure
+> as infrastructure, not as your diff.
+>
+> **NEXT: PR 5 — tailwindcss 3 → 4.** Branch **`deps/sprint-121-pr5-tailwind` already exists**,
+> cut from fresh `origin/master` (`cf27ab89`) and carrying this handoff commit — **check it out,
+> do not re-cut it.** See Critical Note 4: it is a **config rewrite, not a bump** (v4 is CSS-first;
+> both `apps/frontend/tailwind.config.js` and `apps/landing/tailwind.config.ts` get
+> deleted/reexpressed), it is the **highest visual-regression risk in the sprint**, and
+> `/code-review` runs at **HIGH**. Verify against the S115/S118/S119 graph-presentation contracts
+> and the S120 R-1…R-8 clarity fixes.
+>
+> **PR 5 SCOPE DECIDED 2026-07-28, before any code change: `v11.35.0`, `tailwindcss@4.3.3`, and
+> design tokens convert from RGB triplets to real CSS colors ("Option A").** Full rationale and
+> the recon findings that shape the diff are in Critical Note 4.
 
 > **STATUS (2026-07-24, updated 2026-07-28):** **PR 3 ([#164](https://github.com/ravichavali/karmyq/pull/164))
 > merged as `e7bc6cc5` and deployed 2026-07-28** — master run `30383717067`, `Deploy to Demo` =
@@ -69,13 +114,14 @@
    `apps/landing` note below). Local `npm audit` + `npm ci --dry-run` + full test/build runs all
    pass on a half-resolved tree; only `npm ci` in CI catches it.
 
-## Open PR roster after PR 3 (4 open)
+## Open PR roster after PR 4 (2 open)
 
 | PR | Disposition |
 |---|---|
-| #37, #39 | **PR 4 — mobile/Expo majors + Expo SDK upgrade. CURRENT WORK.** |
-| #41 | PR 5 — tailwindcss 3 → 4 |
+| #41 | **PR 5 — tailwindcss 3 → 4. CURRENT WORK.** |
 | #34 | PR 6 — express 4 → 5 |
+
+**Sprint progress: 18 open PRs → 2.** #37 and #39 closed on PR 4's merge.
 
 **Dependabot has NOT re-raised the four `apps/mobile` react-native bumps** that #157 took with it
 when it auto-closed on PR 2's merge (checked 2026-07-28, one open-PR list later). **PR 4 must
@@ -116,9 +162,9 @@ individually-scoped migrations.
 | **1** | postcss advisory hotfix + Sprint 120 close-out | #159 | v11.32.1 — **SHIPPED** |
 | **2** | consolidated safe deps | #157 (**minus mobile**), **#161**, #85, **#55**, #145, #144, #147, #118, #53 | v11.33.0 — **SHIPPED & DEPLOYED** (`d7ddd146`) |
 | **3** | lint toolchain majors → became an **ESLint 8 → 9 flat-config migration** | #40, #35, #36 (**all closed**) | **SHIPPED & DEPLOYED** (`e7bc6cc5`) — ⚠️ **no version bump; master still reads 11.33.0** |
-| **4** | mobile/Expo majors **+ Expo SDK 54 → 57 upgrade** | #37, #39, **#157's 4 react-native bumps** (never re-raised — applied via the SDK) | **v11.34.0 — CODE-COMPLETE, unpushed** (carries PR 3's missed bump) |
-| **5** | tailwindcss 3 → 4 | #41 | TBD |
-| **6** | express 4 → 5 | #34 | TBD |
+| **4** | mobile/Expo majors **+ Expo SDK 54 → 57 upgrade** | #37, #39 (**both closed**), **#157's 4 react-native bumps** (never re-raised — applied via the SDK) | **v11.34.0 — SHIPPED & DEPLOYED** (`cf27ab89`) |
+| **5** | tailwindcss 3 → 4 | #41 | **v11.35.0 — DECIDED 2026-07-28** (see Critical Note 4) |
+| **6** | express 4 → 5 | #34 | TBD — **set this before starting** |
 | — | closed unmerged | #106 (stale docs) — **CLOSED 2026-07-24** | — |
 
 **Accounting (all 18 open PRs at triage):** 1 superseded by PR 1 (#159) + 9 in PR 2 (#157, #126,
@@ -250,6 +296,138 @@ mid-sprint, add it to this table before starting work.
    `apps/frontend/tailwind.config.js` and `apps/landing/tailwind.config.ts` are
    deleted/reexpressed. Highest visual-regression risk in the sprint — every surface. Verify
    against the S115/S118/S119 graph-presentation contracts and the S120 R-1…R-8 clarity fixes.
+
+   **DECISIONS TAKEN 2026-07-28, before any code change** (PR 3 shipped without a version bump
+   precisely because this was left "TBD"):
+   - **Version: `v11.35.0`.** Set in the Plan of Record above.
+   - **Target `tailwindcss@4.3.3`** + `@tailwindcss/postcss@4.3.3` (current latest).
+   - **Design tokens convert to real CSS colors — "Option A", maintainer-approved.**
+     `--color-primary: 45 110 40` (a bare RGB triplet) becomes `--color-primary: #2d6e28`.
+     **This is a format change, not a relocation:** every color still lives exactly once as a CSS
+     variable and components still say `bg-primary` / `var(--color-text)`. Nothing is hardcoded
+     into components.
+     **Why it is forced:** v4 reads its theme straight out of the `--color-*` namespace — the same
+     namespace our tokens already occupy — and expects a *color* there. Left as triplets,
+     `bg-primary` compiles to `background-color: 45 110 40`, which is not valid CSS. The triplet
+     form only ever existed to feed Tailwind 3's `<alpha-value>` splice
+     (`rgb(var(--color-primary) / <alpha-value>)`); v4 does opacity with `color-mix()` instead,
+     so `bg-primary/50` keeps working with no plumbing at all.
+     **The rejected alternative ("Option B")** was to rename the triplets to a private
+     `--brand-*` namespace and alias them (`--color-primary: rgb(var(--brand-primary))`). It
+     preserves `ThemeContext`'s current type but leaves a permanent two-variables-per-color
+     indirection layer that exists only to keep a v3 workaround alive — and it has to touch the
+     same 65 inline call sites anyway.
+
+   **Recon findings that shape the diff (verified 2026-07-28, not assumed):**
+   - `tailwindcss ^3.3.0` is a **devDependency of both** `apps/frontend` and `apps/landing`, each
+     with `postcss` + `autoprefixer` and a `{tailwindcss:{}, autoprefixer:{}}` PostCSS config.
+     v4 replaces the plugin with `@tailwindcss/postcss` and makes `autoprefixer` redundant.
+   - **~110 `@apply` sites** across `apps/frontend/src/styles/globals.css`,
+     `apps/frontend/src/styles/karmyq-shell.css` and `apps/landing/src/app/globals.css`.
+   - **⚠️ `karmyq-shell.css` is imported standalone** (`apps/frontend/src/pages/_app.tsx` line 2),
+     **not** `@import`ed into `globals.css`. In v4 an `@apply` in a file that never imports the
+     theme resolves to **nothing, silently** — it needs an explicit `@reference`. This is the
+     single most likely way to ship a half-styled app that still builds green.
+   - **69 `rgb(var(--color-…))` consumers**: 4 in `globals.css`, **65 inline styles across 7
+     components** (`ChatWindow`, `MessageBubble`, `NotificationBell`, `NotificationDropdown`,
+     `NotificationItem`, `ProviderModeSwitcher`, `ProviderNotificationBell`). All become
+     `var(--color-…)`.
+   - **Changing `ThemeContext`'s skin API is free.** `CommunityTheme` types its 14 tokens as
+     `RGBTriplet`, but `ThemeProvider` is mounted with **no `communityTheme` prop**
+     (`_app.tsx` line 62) and **no service or migration stores a theme** — grep across
+     `services/` and `packages/` returns nothing. The per-community skin path is scaffolding with
+     zero live callers, so switching it to accept a CSS color string breaks nobody.
+   - **`docs/adr/ADR-079-visual-design-system-v2.md` documents this token system** and must be
+     updated in the same PR (docs feedback loop).
+
+   **PR 5 EXECUTION RESULTS (2026-07-29) — CODE-COMPLETE, AWAITING MERGE AUTHORIZATION.**
+
+   **Packages:** `tailwindcss` ^3.3.0 → ^4.3.3 + `@tailwindcss/postcss` ^4.3.3 in both apps;
+   **`autoprefixer` removed entirely** (v4 prefixes internally and it had no other consumer).
+   Net **18 packages added / 35 removed**. Both `tailwind.config` files deleted.
+
+   **Breaking changes fixed — each confirmed against the compiler, not the upgrade guide:**
+   - **`bg-opacity-*` is REMOVED and compiles away *silently*** (no error, utility just vanishes).
+     9 modal backdrops would have rendered **fully opaque black**. → `bg-black/50` form.
+   - **`outline-none` changed meaning** (now `outline-style: none`); **78** focus rings →
+     `outline-hidden`, v4's name for the old behaviour.
+   - **`shadow-sm` now equals v3's plain `shadow`**; **33** sites → `shadow-xs`.
+   - **Default `border-color` gray-200 → currentColor**; the **6** genuinely bare `border` sites got
+     an explicit `border-gray-200`.
+   - **`.fab`/`.fab-trigger`/`.feed-card` `@apply` a custom class, which v4 rejects outright**
+     (`Cannot apply unknown utility class` — a hard build error). `btn-primary` and `card` are now
+     `@utility`. **Precedence is preserved**: custom utilities emit *before* the built-ins, so
+     `class="btn-primary px-4"` still lets `px-4` win (verified in the emitted CSS).
+   - **`karmyq-shell.css` gets `@reference './globals.css'`.** Without it every `@apply` in that
+     standalone file resolves to nothing, silently. Verified present in the built CSS afterwards.
+
+   **Verified to need NO change (compiler-checked, saving ~370 edits):** bare `rounded` (**286**
+   sites — identical 0.25rem), bare `shadow` (6), `flex-shrink-*`/`flex-grow-*` (47),
+   **`bg-gradient-to-*` (36 — still an alias in 4.3.3)**, and all **10** `divide-y` sites, which
+   already carry an explicit divide color.
+
+   **Token conversion proven, not trusted: all 104 conversions are numerically exact** against
+   `origin/master`'s configs (20 semantic + 42 palette × 2 apps), checked by script.
+
+   **Runtime re-skinning proven in a browser.** Overriding `--color-primary` at runtime changes both
+   a solid `.btn-primary` and an alpha `bg-primary/50`, and reverts cleanly. *(First measurement said
+   the solid case failed — that was an artifact of reading `getComputedStyle` at t=0 during
+   `.btn-primary`'s own 0.15s `background-color` transition. Wait past the transition before
+   believing a "colour didn't change" result.)*
+
+   **Accepted visual changes — deliberate, not oversights:**
+   - **Landing headings get looser at `md+`.** v4 honours the `leading-tight`/`leading-snug` that v3
+     dropped when a responsive `md:text-*` rule won on source order. **Maintainer decision: accept.**
+     The premise was checked first: at **375px live v3 and the v4 build render identically**
+     (33/32.5/45px), so v3 was *breakpoint-inconsistent* and v4 makes desktop match mobile — it was
+     never a deliberate design choice. Affects 23 elements; page height 8319 → 8455px.
+   - **Placeholder color**: v4's Preflight moves the default from `gray-400` to 50% `currentColor`,
+     affecting **10** inputs that don't set one. Accepted — the new value is on-palette, and ADR-079
+     explicitly names raw greys as drift, so pinning them back to gray-400 would encode drift.
+
+   **Gates — ALL FOUR RUN, inline (no sub-agents), per PR 3's precedent.**
+   - **`/simplify`** — 1 fix: `karmyq-shell.css` repeated the Fraunces stack 5× → `@apply font-serif`.
+     `@apply` rather than `var(--font-serif)` **on purpose**: v4 only emits theme vars some generated
+     utility references, so the `@apply` is what guarantees the var reaches the stylesheet.
+     Skipped with reasons: the 42-line palette is duplicated across both apps (pre-existing; sharing
+     it via a cross-package CSS import is **not** worth it because **landing builds on the demo
+     server and a failed landing build only logs a warning** — it would ship a silently unstyled
+     marketing site); and pointing semantic tokens at palette vars would be fragile for the same
+     tree-shaking reason (**only 27 of 42 palette vars reach the built CSS**).
+   - **`/security-review`** — **no findings.** 18 added packages: **all** `registry.npmjs.org`, **all**
+     with integrity hashes, **zero `hasInstallScript`** (so ADR-061's `ignore-scripts=true` is safe).
+     No dangerous sinks, no secrets, no changed external resource loads. `npm audit` 0;
+     `sprint-75-security-gate` 3/3.
+   - **`/code-review` HIGH** — **P1 button-cursor regression found and fixed** (see the top block).
+   - **Testing** — below.
+
+   **Verification:** both production builds succeed · frontend `tsc` **0 errors** · landing `tsc`
+   unchanged (4 pre-existing test-file errors, **proven identical on master's stashed tree**) ·
+   frontend blocking tiers **35 suites / 352 tests**, run 3× (one intermediate run showed a lone
+   351/352 — **a flake**; green before and twice after) · frontend `tdd` tier **7 failed / 39
+   failed, byte-identical to master's baseline** · landing **5 / 61** · root regression+unit
+   **278/278** · lint unchanged at PR 3's baselines (**frontend 653, landing 1**) · `npm audit`
+   **0 vulnerabilities** · edge-vs-node **0 new mismatches vs master** · `npm ci --dry-run` clean ·
+   lockfile stable (real install ≡ two consecutive `--package-lock-only` runs).
+
+   **Demo-server compatibility checked before merge, not after:** the server is **Node v20.20.2 /
+   aarch64 / Ubuntu 24.04**, which satisfies `@tailwindcss/oxide`'s `node >= 20`, and
+   `@tailwindcss/oxide-linux-arm64-gnu` (glibc, matching Ubuntu) is in the lockfile. This mattered
+   because **`scripts/deploy.sh` builds the landing site on the server and only `log_warn`s if that
+   build fails** — a missing native binary would have shipped a stale docs site with a green deploy.
+
+   **Follow-ups deliberately NOT done in PR 5:**
+   - The **42-line karmyq palette is duplicated** between the two apps' `globals.css` (pre-existing —
+     both v3 configs had it). A shared CSS file would dedup it; see the deploy-risk reason above.
+   - **6 sites now carry an explicit off-palette `border-gray-200`.** v4 forced us to write down what
+     v3 was doing implicitly, which exposed 6 borders that were never on-palette. ADR-079 calls this
+     class of raw colour "drift" — worth a token pass.
+   - **`@reference` could be removed entirely** by `@import`-ing `karmyq-shell.css` into
+     `globals.css` and dropping the second `_app.tsx` import: one stylesheet, one parse, and the
+     footgun disappears instead of being documented. Not done here — restructuring CSS loading in the
+     sprint's highest-visual-risk PR is a bad trade.
+   - **`apps/frontend/.claude/README.md` does not exist**, exactly like the `apps/mobile` case PR 4
+     logged; `CLAUDE.md`'s bootstrap step points at both. The real files are `apps/*/CLAUDE.md`.
 5. **PR 6 / express 5** touches root, `packages/shared` (imported by all 10 services), and
    `geocoding-service`. Breaking: routing, error handling, `req.query` getter. #34 is already
    `CONFLICTING` — rebuild from scratch off master rather than rebasing that branch.
@@ -672,10 +850,44 @@ mid-sprint, add it to this table before starting work.
 
 ## Carry-Forward / Known State
 
-- **Demo runs v11.33.0** as of PR 2's deploy (2026-07-28, run `30325538212`). **Every PR in this
-  sprint ends with the same two-step verification, not with a green PR:** confirm the master CI/CD
-  run reached **`Deploy to Demo` = success with no rollback**, then smoke-test the live site. PR C's
-  merge run is the standing counterexample — 20 green checks and no deploy.
+- **PR 4 follow-ups, carried forward** (each verified real, each deliberately out of PR 4's scope):
+  - **`turbo.json`'s `test` task hashes the wrong inputs** — `src/**` + `test/**`, but
+    `apps/mobile` uses `app/`/`services/`/`components/` and `tests/` (**plural**).
+    `turbo run test --dry` shows `@karmyq/mobile#test` hashing **exactly 1 input: `package.json`**,
+    so root `npm test` reports a **stale green for mobile** once cached. `@karmyq/tests#test`
+    hashes 1 input too — **this is the mechanical root cause of the documented "Turbo cache hides
+    cross-workspace failures" gotcha.** Fix: add `$TURBO_DEFAULT$` to the task's `inputs`. Until
+    then run workspace suites directly.
+  - **CI never type-checks `apps/mobile`** (`ci.yml` enumerates only `packages/shared`,
+    `auth-service`, `community-service`; mobile lint is `|| echo`). Mobile `tsc` is now **0 errors**
+    for the first time, so this is newly possible — not added, per the standing "don't chase mobile
+    green as a gate" decision.
+  - **An SDK-alignment regression gate** in `tests/regression/`: assert no `apps/mobile` dep is
+    declared `"*"`, every `expo-*`/`@expo/*` major equals `expo`'s major, and the lockfile satisfies
+    the manifest. This is the mechanism that would have prevented the drift PR 4 had to clean up.
+  - **`apps/landing/src/data/docs/concepts/adr-059-*.json` is genuinely stale** against
+    `docs/adr/ADR-059.md` (missing a Sprint 120 "2026-07-21 advisory refresh" section). PR 4's
+    regen picked it up and it was **reverted** as out-of-scope, so **any landing regen will
+    re-dirty it** until refreshed in its own PR.
+  - `react-native-vector-icons` is dead weight (zero imports; Expo's metro aliases it to
+    `@expo/vector-icons`) — dependency-pruning pass.
+  - `scripts/promote-tdd-tests.js` declares `APPS_DIR` (line 18) but only walks `SERVICES_DIR`
+    (line 63), so an `apps/*/tests/tdd/` test blocks pushes forever and never promotes.
+  - `apps/mobile/jest.config.js` still says `passWithNoTests: true` "until we write mobile tests" —
+    now false, and it would mask a `testMatch` mistake that drops the suite.
+  - **`CLAUDE.md` points at `apps/mobile/.claude/README.md`, which does not exist** — mobile's
+    local context is `apps/mobile/claude.md`. The bootstrap step is unsatisfiable as written.
+  - `apps/landing/src/data/docs/` is **gitignored but tracked**, so regenerated artifacts need
+    `git add -f`. Worth deciding whether they should be tracked at all.
+  - `app.json`'s plugin list is half-populated (`expo-notifications`, `expo-font`,
+    `expo-image-picker` ship plugins but aren't listed) and duplicates permission strings with
+    `infoPlist`; `apps/mobile/hooks/useExpoNotifications.ts` duplicates `services/notifications.ts`.
+- **Demo runs v11.34.0** as of PR 4's deploy (2026-07-28, CI/CD run `30399781637`). **Every PR in
+  this sprint ends with the same two-step verification, not with a green PR:** confirm the master
+  CI/CD run reached **`Deploy to Demo` = success with no rollback**, then smoke-test the live site.
+  PR C's merge run is the standing counterexample — 20 green checks and no deploy. **PR 4 added a
+  second, subtler counterexample: a merge fans out into three master runs and only the `CI/CD
+  Pipeline` one has a deploy job** — the `Tests` run goes green with no deploy at all.
 - **R-1…R-8 visual pass: DONE 2026-07-28 on live karmyq.com at v11.33.0 — all 8 PASS.** No longer
   owed; the debt opened in Sprint 120 PR C is closed. Evidence per check:
   - **R-1** (UTF-8 JWT decode) — 102 em dashes render correctly across the dashboard, **zero**

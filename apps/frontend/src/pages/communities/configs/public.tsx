@@ -185,7 +185,7 @@ export default function ThrivingCommunitiesPage() {
                   id="minMembers"
                   value={minMembers}
                   onChange={(e) => setMinMembers(Number(e.target.value))}
-                  className="px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="px-3 py-2 border border-border rounded-md shadow-xs focus:outline-hidden focus:ring-2 focus:ring-primary"
                 >
                   <option value={5}>5+</option>
                   <option value={10}>10+</option>
@@ -360,7 +360,7 @@ export default function ThrivingCommunitiesPage() {
 
         {/* Copy Configuration Modal */}
         {copyModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
             <div className="bg-surface-raised rounded-lg p-8 max-w-md w-full">
               <h3 className="text-2xl font-bold mb-4">Copy Configuration</h3>
               <p className="text-text-muted mb-6">

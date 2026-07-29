@@ -133,7 +133,7 @@ export default function SectionCanvas({
                   if (e.key === 'Enter') commitSectionTitle(section.id)
                   if (e.key === 'Escape') setEditingSectionId(null)
                 }}
-                className="flex-1 text-sm font-semibold bg-transparent border-b border-primary focus:outline-none"
+                className="flex-1 text-sm font-semibold bg-transparent border-b border-primary focus:outline-hidden"
               />
             ) : (
               <button

@@ -44,7 +44,7 @@ const SERVICE_TYPE_LABELS: Record<string, string> = {
 export default function ProviderCard({ provider, onGetService }: ProviderCardProps) {
   return (
     <Link href={`/providers/${provider.id}`}>
-      <div className="bg-surface-raised rounded-lg shadow-sm border border-border p-4 hover:shadow-md transition cursor-pointer h-full flex flex-col gap-2">
+      <div className="bg-surface-raised rounded-lg shadow-xs border border-border p-4 hover:shadow-md transition cursor-pointer h-full flex flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-9 h-9 bg-gradient-to-br from-karmyq-green-500 to-karmyq-teal-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
@@ -83,7 +83,7 @@ export default function ProviderCard({ provider, onGetService }: ProviderCardPro
 
         {onGetService && (
           <button
-            className="btn-secondary text-xs px-3 py-1.5 mt-2 w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="btn-secondary text-xs px-3 py-1.5 mt-2 w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             onClick={(e) => { e.preventDefault(); onGetService(provider) }}
           >
             Get Service

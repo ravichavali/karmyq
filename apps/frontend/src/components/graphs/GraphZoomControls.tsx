@@ -10,7 +10,7 @@ interface GraphZoomControlsProps {
 
 const BTN =
   'w-8 h-8 flex items-center justify-center rounded-md bg-surface-raised border border-border ' +
-  'text-text-muted hover:bg-surface hover:text-text shadow-sm transition-colors text-lg leading-none'
+  'text-text-muted hover:bg-surface hover:text-text shadow-xs transition-colors text-lg leading-none'
 
 export default function GraphZoomControls({ onZoomIn, onZoomOut, onReset, className = '' }: GraphZoomControlsProps) {
   return (

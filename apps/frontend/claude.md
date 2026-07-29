@@ -1,7 +1,7 @@
 # Frontend Web Application
 
 ## Overview
-Next.js 14 web app with Pages Router and Tailwind CSS.
+Next.js 14 web app with Pages Router and Tailwind CSS v4.
 
 ## Structure
 ```
@@ -23,8 +23,20 @@ src/
 │   ├── requests/
 │   └── offers/
 └── styles/
-    └── globals.css # Tailwind imports
+    ├── globals.css      # @import "tailwindcss" + the @theme design tokens
+    └── karmyq-shell.css # .kq-* shell; needs its @reference to globals.css
 ```
+
+## Styling (Tailwind v4, CSS-first)
+There is **no `tailwind.config.js`** — the theme lives in `@theme` inside `globals.css`, and every
+design token is a real CSS color there (see ADR-079). Two rules that bite:
+
+- **`karmyq-shell.css` is imported standalone by `_app.tsx`**, so Tailwind compiles it with no theme
+  in scope. Its `@reference './globals.css'` is load-bearing: remove it and every `@apply` in that
+  file resolves to nothing *silently*.
+- **`@apply` only works on registered utilities.** A class defined in `@layer components` cannot be
+  `@apply`-ed — that is a hard build error. If a class needs to be composed by another rule, declare
+  it with `@utility` (as `.btn-primary` and `.card` are).
 
 ## API Client (`src/lib/api.ts`)
 Centralized API client with service-specific modules:

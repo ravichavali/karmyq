@@ -44,14 +44,14 @@ export default function SpeedDialFab({ activeTab, onGetHelp, onGetService }: Spe
   const expandedActions = !single && expanded && (
     <div className="flex flex-col items-stretch gap-2">
       <button
-        className="speed-dial-action justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        className="speed-dial-action justify-center focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         onClick={() => { onGetService(); setExpanded(false) }}
       >
         <span className="text-base">🔧</span>
         Get Service
       </button>
       <button
-        className="speed-dial-action justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        className="speed-dial-action justify-center focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         onClick={() => { onGetHelp(); setExpanded(false) }}
       >
         <span className="text-base">🤝</span>
@@ -88,7 +88,7 @@ export default function SpeedDialFab({ activeTab, onGetHelp, onGetService }: Spe
       >
         {expandedActions && <div className="relative z-40 flex flex-col items-end gap-3">{expandedActions}</div>}
         <button
-          className="fab-trigger whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="fab-trigger whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           onClick={onTrigger}
           aria-label={ariaLabel}
           aria-expanded={single ? undefined : expanded}

@@ -12,7 +12,7 @@ const ProviderModeSwitcher: React.FC = () => {
       <Link
         href="/providers/new"
         className="become-provider-link"
-        style={{ fontSize: '13px', color: 'rgb(var(--color-text-muted))', textDecoration: 'none' }}
+        style={{ fontSize: '13px', color: 'var(--color-text-muted)', textDecoration: 'none' }}
       >
         Become a Provider →
       </Link>
@@ -56,8 +56,8 @@ const ProviderModeSwitcher: React.FC = () => {
         .provider-mode-switcher {
           display: flex;
           align-items: center;
-          background: rgb(var(--color-surface));
-          border: 1px solid rgb(var(--color-border));
+          background: var(--color-surface);
+          border: 1px solid var(--color-border);
           border-radius: 9999px;
           padding: 2px;
           gap: 0;
@@ -72,15 +72,15 @@ const ProviderModeSwitcher: React.FC = () => {
           cursor: pointer;
           transition: background-color 0.15s, color 0.15s;
           background: transparent;
-          color: rgb(var(--color-text-muted));
+          color: var(--color-text-muted);
         }
 
         .mode-btn:hover {
-          color: rgb(var(--color-text));
+          color: var(--color-text);
         }
 
         .mode-btn.active {
-          background: rgb(var(--color-primary));
+          background: var(--color-primary);
           color: white;
         }
 
@@ -90,18 +90,18 @@ const ProviderModeSwitcher: React.FC = () => {
           gap: 5px;
           padding: 4px 10px;
           border-radius: 9999px;
-          border: 1px solid rgb(var(--color-border));
-          background: rgb(var(--color-surface));
+          border: 1px solid var(--color-border);
+          background: var(--color-surface);
           font-size: 12px;
           font-weight: 500;
           cursor: pointer;
           transition: background-color 0.15s, border-color 0.15s, color 0.15s;
-          color: rgb(var(--color-text-muted));
+          color: var(--color-text-muted);
         }
 
         .availability-btn:hover {
-          border-color: rgb(var(--color-text-muted));
-          color: rgb(var(--color-text));
+          border-color: var(--color-text-muted);
+          color: var(--color-text);
         }
 
         .availability-btn.on {
@@ -119,7 +119,7 @@ const ProviderModeSwitcher: React.FC = () => {
           height: 6px;
           border-radius: 50%;
           flex-shrink: 0;
-          background: rgb(var(--color-text-muted) / 0.4);
+          background: color-mix(in srgb, var(--color-text-muted) 40%, transparent);
         }
 
         .availability-btn.on .dot {

@@ -142,7 +142,7 @@ export default function ProvidersPage() {
 
             {/* Provider list */}
             {providers.length === 0 ? (
-              <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-12 text-center">
+              <div className="bg-surface-raised rounded-xl shadow-xs border border-border p-12 text-center">
                 <p className="text-text-subtle text-lg">No providers yet</p>
                 <p className="text-sm text-text-subtle mt-2">
                   Be the first to register as a provider
@@ -160,7 +160,7 @@ export default function ProvidersPage() {
                   return (
                     <div
                       key={provider.id}
-                      className={`flex items-start gap-4 p-4 rounded-xl border shadow-sm ${
+                      className={`flex items-start gap-4 p-4 rounded-xl border shadow-xs ${
                         i < 3 ? RANK_STYLES[i] : 'bg-surface-raised border-border'
                       }`}
                     >

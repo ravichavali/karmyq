@@ -63,7 +63,7 @@ export default function SubmitOfferModal({
             placeholder="Leave blank if free"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
-            className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-surface text-text focus:outline-hidden focus:ring-2 focus:ring-primary"
           />
         </div>
 
@@ -76,7 +76,7 @@ export default function SubmitOfferModal({
             placeholder="Any details about your offer..."
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-surface text-text focus:outline-hidden focus:ring-2 focus:ring-primary resize-none"
           />
         </div>
 

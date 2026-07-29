@@ -80,7 +80,7 @@ export default function InviteHistory() {
 
   if (loading) {
     return (
-      <div className="bg-surface-raised rounded-lg shadow-sm p-6">
+      <div className="bg-surface-raised rounded-lg shadow-xs p-6">
         <div className="animate-pulse space-y-4">
           <div className="h-4 bg-gray-200 rounded w-1/4"></div>
           <div className="h-20 bg-gray-200 rounded"></div>
@@ -92,7 +92,7 @@ export default function InviteHistory() {
 
   if (error) {
     return (
-      <div className="bg-surface-raised rounded-lg shadow-sm p-6">
+      <div className="bg-surface-raised rounded-lg shadow-xs p-6">
         <div className="p-4 bg-red-50 border border-red-200 rounded-md">
           <p className="text-sm text-red-800">{error}</p>
         </div>
@@ -104,7 +104,7 @@ export default function InviteHistory() {
   const pendingInvites = history?.sent.filter(inv => !inv.accepted_at) || [];
 
   return (
-    <div className="bg-surface-raised rounded-lg shadow-sm p-6 space-y-6">
+    <div className="bg-surface-raised rounded-lg shadow-xs p-6 space-y-6">
       <h3 className="text-lg font-semibold text-text">Invitation History</h3>
 
       {/* Received Invitation */}

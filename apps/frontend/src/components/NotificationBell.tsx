@@ -86,12 +86,12 @@ const NotificationBell: React.FC = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: rgb(var(--color-text-muted));
+          color: var(--color-text-muted);
           transition: color 0.2s;
         }
 
         .notification-bell-button:hover {
-          color: rgb(var(--color-primary));
+          color: var(--color-primary);
         }
 
         .notification-dot {
@@ -100,8 +100,8 @@ const NotificationBell: React.FC = () => {
           right: 7px;
           width: 7px;
           height: 7px;
-          background: rgb(var(--color-warn));
-          border: 1.5px solid rgb(var(--color-surface-raised));
+          background: var(--color-warn);
+          border: 1.5px solid var(--color-surface-raised);
           border-radius: 9999px;
         }
       `}</style>

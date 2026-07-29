@@ -336,7 +336,7 @@ export default function RequestWizard({
                   </label>
                   <textarea
                     className="w-full px-3 py-2.5 rounded-lg border border-border bg-surface text-text
-                               placeholder:text-text-subtle resize-none focus:outline-none focus:ring-2
+                               placeholder:text-text-subtle resize-none focus:outline-hidden focus:ring-2
                                focus:ring-primary focus:ring-offset-2 focus:border-primary transition-colors"
                     rows={3}
                     placeholder="A few plain details are enough."
@@ -395,7 +395,7 @@ export default function RequestWizard({
                     <select
                       id="community-scope-select"
                       className="mt-2 w-full px-3 py-2 rounded-lg border border-border bg-surface text-text text-sm
-                                 focus:outline-none focus:ring-2 focus:ring-primary"
+                                 focus:outline-hidden focus:ring-2 focus:ring-primary"
                       value={communityId}
                       onChange={(e) => setCommunityId(e.target.value)}
                     >

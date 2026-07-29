@@ -114,7 +114,7 @@ export default function ProviderForm({ initial, onSubmit, submitLabel = 'Create 
           value={form.display_name}
           onChange={e => update('display_name', e.target.value)}
           placeholder="How you want to appear in the directory"
-          className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
           required
         />
       </div>
@@ -126,7 +126,7 @@ export default function ProviderForm({ initial, onSubmit, submitLabel = 'Create 
           onChange={e => update('bio', e.target.value)}
           rows={3}
           placeholder="Describe what you offer and any relevant experience"
-          className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary resize-none"
         />
       </div>
 
@@ -137,7 +137,7 @@ export default function ProviderForm({ initial, onSubmit, submitLabel = 'Create 
           value={form.pricing_notes}
           onChange={e => update('pricing_notes', e.target.value)}
           placeholder="e.g. ~500/hr, negotiable"
-          className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
         />
         <p className="text-xs text-text-subtle mt-1">Advisory only — Karmyq never processes payment</p>
       </div>
@@ -149,7 +149,7 @@ export default function ProviderForm({ initial, onSubmit, submitLabel = 'Create 
           value={form.location_notes}
           onChange={e => update('location_notes', e.target.value)}
           placeholder="e.g. North side of the city, within 5km"
-          className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
         />
       </div>
 
@@ -164,7 +164,7 @@ export default function ProviderForm({ initial, onSubmit, submitLabel = 'Create 
               value={form.ride_details?.vehicle_type ?? ''}
               onChange={e => updateRide('vehicle_type', e.target.value)}
               placeholder="e.g. Auto-rickshaw, Car, Bicycle"
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
             />
           </div>
 
@@ -176,7 +176,7 @@ export default function ProviderForm({ initial, onSubmit, submitLabel = 'Create 
               max={20}
               value={form.ride_details?.max_passengers ?? 1}
               onChange={e => updateRide('max_passengers', parseInt(e.target.value, 10))}
-              className="w-24 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-24 border border-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
             />
           </div>
 
@@ -187,7 +187,7 @@ export default function ProviderForm({ initial, onSubmit, submitLabel = 'Create 
               onChange={e => updateRide('typical_routes', e.target.value)}
               rows={2}
               placeholder="e.g. Station to market, airport runs"
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary resize-none"
             />
           </div>
 

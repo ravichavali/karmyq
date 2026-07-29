@@ -268,7 +268,7 @@ export default function CollectiveDetailPage() {
                 value={communityIdInput}
                 onChange={e => setCommunityIdInput(e.target.value)}
                 placeholder="Community ID"
-                className="flex-1 border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="flex-1 border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
               />
               <button type="submit" className="bg-primary text-white rounded-lg px-3 py-1.5 text-sm hover:bg-primary-dark transition">
                 Link

@@ -84,7 +84,7 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-4 animate-pulse">
+        <div className="bg-surface-raised rounded-xl shadow-xs border border-border p-4 animate-pulse">
           <div className="h-24 bg-border-light rounded"></div>
         </div>
       </div>
@@ -95,7 +95,7 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
     <div className="space-y-4">
       {/* Community Health Compact */}
       {healthData && (
-        <div className={`rounded-xl shadow-sm border-2 p-4 ${getStrengthColor(healthData.networkStrength)}`}>
+        <div className={`rounded-xl shadow-xs border-2 p-4 ${getStrengthColor(healthData.networkStrength)}`}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-sm">Community Health</h3>
             <span className="text-xs font-medium px-2 py-1 rounded-full bg-surface-raised/50">
@@ -140,7 +140,7 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
 
       {/* Recent Milestones */}
       {milestones.length > 0 && (
-        <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-4">
+        <div className="bg-surface-raised rounded-xl shadow-xs border border-border p-4">
           <h3 className="font-semibold text-sm text-text mb-3">Recent Milestones</h3>
           <div className="space-y-2">
             {milestones.map((milestone) => (
@@ -163,7 +163,7 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
 
       {/* Top Helpers */}
       {leaderboard.length > 0 && (
-        <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-4" data-testid="top-helpers-panel">
+        <div className="bg-surface-raised rounded-xl shadow-xs border border-border p-4" data-testid="top-helpers-panel">
           <h3 className="font-semibold text-sm text-text mb-3">Top Helpers</h3>
           <div className="space-y-3">
             {leaderboard.map((entry, i) => (
@@ -183,7 +183,7 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
       )}
 
       {/* Active Now */}
-      <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-4">
+      <div className="bg-surface-raised rounded-xl shadow-xs border border-border p-4">
         <h3 className="font-semibold text-sm text-text mb-3">Active Now</h3>
         <div className="flex items-center gap-2 text-sm text-text-subtle">
           <div className="flex -space-x-2">

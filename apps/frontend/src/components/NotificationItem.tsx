@@ -178,21 +178,21 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
           display: flex;
           gap: 12px;
           padding: 12px 16px;
-          border-bottom: 1px solid rgb(var(--color-border-light));
+          border-bottom: 1px solid var(--color-border-light);
           cursor: pointer;
           transition: background-color 0.2s;
         }
 
         .notification-item:hover {
-          background-color: rgb(var(--color-surface));
+          background-color: var(--color-surface);
         }
 
         .notification-item.unread {
-          background-color: rgb(var(--color-primary-light));
+          background-color: var(--color-primary-light);
         }
 
         .notification-item.unread:hover {
-          background-color: rgb(var(--color-primary-medium) / 0.3);
+          background-color: color-mix(in srgb, var(--color-primary-medium) 30%, transparent);
         }
 
         .notification-icon {
@@ -208,13 +208,13 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         .notification-title {
           font-weight: 600;
           font-size: 14px;
-          color: rgb(var(--color-text));
+          color: var(--color-text);
           margin-bottom: 4px;
         }
 
         .notification-body {
           font-size: 13px;
-          color: rgb(var(--color-text-muted));
+          color: var(--color-text-muted);
           margin-bottom: 6px;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -231,13 +231,13 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 
         .notification-time {
           font-size: 12px;
-          color: rgb(var(--color-text-subtle));
+          color: var(--color-text-subtle);
         }
 
         .notification-cta {
           background: none;
           border: none;
-          color: rgb(var(--color-primary));
+          color: var(--color-primary);
           font-size: 12px;
           font-weight: 600;
           cursor: pointer;
@@ -247,7 +247,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         }
 
         .notification-cta:hover {
-          background-color: rgb(var(--color-primary-light));
+          background-color: var(--color-primary-light);
         }
 
         .notification-actions {
@@ -263,7 +263,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
           border: none;
           cursor: pointer;
           padding: 4px;
-          color: rgb(var(--color-text-subtle));
+          color: var(--color-text-subtle);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -271,7 +271,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         }
 
         .mark-read-btn:hover {
-          color: rgb(var(--color-primary));
+          color: var(--color-primary);
         }
 
         .delete-btn {
@@ -280,7 +280,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         }
 
         .delete-btn:hover {
-          color: rgb(var(--color-error));
+          color: var(--color-error);
         }
       `}</style>
     </div>
