@@ -1,4 +1,45 @@
-# Sprint 122 — Dependency Wave + Test-Tier Truth — PLANNED, READY TO EXECUTE (PR 1)
+# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 1 AWAITING MERGE AUTHORIZATION
+
+> ## ⏸️ CURRENT STATE (2026-07-30): PR #180 is open, 19/20 checks green, **NOT merged.**
+>
+> **Blocked on two maintainer actions, both requiring explicit authorization:**
+>
+> 1. **Dismiss one CodeQL alert** — `js/missing-rate-limiting` (high) at
+>    `services/request-service/src/routes/admin-schemas.ts:501`. **Verified false positive.**
+>    CodeQL counts it as "new" only because this PR touched line 501, and the change there is the
+>    one-word annotation `req: Request` → `req: Request<RouteParams>`. The route is protected by
+>    **three** layers the rule cannot see (it only inspects the handler's own chain, not mount-level
+>    `app.use`): `app.use(globalRateLimiter)` at `index.ts:59`, `rateLimiters.standard` on the
+>    `/admin/schemas` mount at `index.ts:86`, and `...adminAuth` at `index.ts:87`. The real gate,
+>    `Code Scanning Gate (ADR-060)`, **passed**.
+> 2. **Authorize the squash merge** — `gh pr merge 180 --squash --admin`. Never self-merged.
+>
+> Everything else is done: Tasks 0–10 complete and verified. **Tasks 11 (merge) and 12 (deploy +
+> live smoke test) remain.**
+>
+> **PR:** https://github.com/ravichavali/karmyq/pull/180 · branch `deps/sprint-122-pr1-express`
+> · commits `7a980a89` (express 5) + `9f53db3e` (req.body fix)
+>
+> ### ⚠️ The finding that matters most from this PR
+>
+> **CI integration tests caught a real 500 that every unit and regression tier missed.**
+> body-parser 2 leaves `req.body` **undefined** when no body is sent, where body-parser 1 gave `{}`.
+> **76 handlers across 7 services** do `const { x } = req.body`, which throws a `TypeError` on a
+> bodyless request that the route's own catch converts to a **500**.
+> `POST /communities/:id/join` sends no body — that is how it surfaced.
+> Fixed once via `normalizeRequestBody` (`packages/shared/middleware/bodyDefaults.ts`), mounted
+> after `express.json()` in all 8 shared-consuming services, with an inline equivalent in the
+> plain-JS geocoding-service. **Why local tiers were green:** every existing POST test sends a
+> body, so nothing reproduced a bodyless request. Both levels now pin it.
+>
+> ### PR 2 inherits, unchanged
+>
+> `ADR-088` is still the next free number — **PR 1 deliberately created no ADR** (rationale below).
+> The stale `adr-059-*.json` landing artifact is still PR 2's to repair; it re-dirties on any regen.
+> New for PR 2's backlog: **`messaging-service` has zero test files and no `test` scripts** — a
+> Critical service with no coverage; log to `docs/BUGS.md`.
+
+
 
 > **SPRINT 121 IS ARCHIVED (2026-07-29)** to
 > `.claude/handoff/archive/2026-07-29-sprint-121-dependency-backlog-17-OF-18-EXPRESS-CARRIED.md`.
@@ -97,6 +138,34 @@ verification):
    failure, an absence. A Critical service with no tests means express 5's `messaging` surface has
    no local coverage; its `tsc` clean at 0 errors is the only signal. **Logged for `docs/BUGS.md`;
    out of PR 1's scope to fix.**
+
+**Tasks 2–7 — the express 5 work.** Type fallout was far larger than the plan's "expect few or
+none": **83 errors** (82 × TS2345, 1 × TS2339), all from `@types/express` 5 typing route params as
+`string | string[]`. Fixed by narrowing, never widening — **zero `as any` in the diff**. One change
+to `AuthenticatedRequest extends Request<RouteParams>` cleared 51 of 83; the other 24 are handlers
+on bare `Request`, annotated individually. The invariant is **enforced** by
+`tests/regression/sprint-122-express5-route-params.test.ts`, proven non-vacuous by injecting a
+wildcard, a repeatable param and a legacy optional group and confirming it caught all three.
+
+**Task 9 — gates, run inline per Critical Note 22.**
+- **`/simplify`** found the real defect behind my first attempt: I had duplicated `RouteParams`
+  into messaging- and notification-service with the justification "these services don't declare
+  `@karmyq/shared`". **That justification was wrong** — both import it extensively
+  (`messaging-service/src/index.ts:12` even imports `AuthenticatedRequest` from it). The honest fix
+  was at a deeper altitude: **three** services (messaging, notification, **cleanup**) import the
+  package without declaring it — a live "declare what you import" violation and the reason Turbo
+  had no build-order edge to them. All three now declare it; the three duplicate definitions
+  collapsed to one. `cleanup-service` also carried a stale comment claiming it "doesn't use shared
+  package" while importing `createLogger` from it.
+- **`/code-review` HIGH** — all 7 services with an error middleware register it **after** all
+  routes (verified by line number) and emit the ADR-074 envelope with stack traces gated behind
+  `NODE_ENV === 'development'`. The 2 without one (geocoding, cleanup) try/catch inside every async
+  handler. Zero unbounded `res.status()` args, zero `req.query` assignments, zero legacy APIs.
+  `apps/frontend` imports only `@karmyq/shared/schemas/*`, never the express-typed `middleware/*`,
+  so `@types/express` 5 cannot ripple there.
+- **`/security-review`** — lockfile delta (51 added + 11 changed) is clean: every package
+  `registry.npmjs.org` + integrity + no install script. The 4 install-script packages in the tree
+  are pre-existing and neutralized by ADR-061's `ignore-scripts=true`.
 
 **Task 8 — two dispositions recorded, both deliberate:**
 
