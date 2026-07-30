@@ -13,7 +13,7 @@
     "test": {
       "dependsOn": ["build"],
       "outputs": ["coverage/**"],
-      "inputs": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx"]
+      "inputs": ["$TURBO_DEFAULT$"]
     },
     "lint": {
       "outputs": []
