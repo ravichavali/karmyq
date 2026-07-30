@@ -740,17 +740,37 @@ function workspacesWithTiers(): Array<{ ws: string; dir: string }> {
   return out;
 }
 
+/** Build output contains copies of test files; never count them as sources. */
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', 'coverage', '.next', '.expo', '.turbo']);
+
 function testFilesUnder(dir: string): string[] {
   const found: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (entry.name !== 'node_modules') found.push(...testFilesUnder(full));
+      if (!SKIP_DIRS.has(entry.name)) found.push(...testFilesUnder(full));
     } else if (/\.(test|spec)\.[jt]sx?$/.test(entry.name)) {
       found.push(full);
     }
   }
   return found;
+}
+
+/** Every npm workspace, tiered or not. */
+function allWorkspaces(): Array<{ ws: string; dir: string }> {
+  const out: Array<{ ws: string; dir: string }> = [];
+  for (const root of ['services', 'apps', 'packages']) {
+    const rootDir = join(ROOT, root);
+    if (!existsSync(rootDir)) continue;
+    for (const name of readdirSync(rootDir)) {
+      if (name === 'node_modules') continue;
+      const dir = join(rootDir, name);
+      if (!statSync(dir).isDirectory()) continue;
+      if (existsSync(join(dir, 'package.json'))) out.push({ ws: `${root}/${name}`, dir });
+    }
+  }
+  out.push({ ws: 'tests', dir: join(ROOT, 'tests') });
+  return out;
 }
 
 /**
@@ -834,6 +854,31 @@ describe('tier coverage: npm test runs every blocking test on disk', () => {
     const uncovered = onDisk.filter((f) => !seen.has(f));
 
     expect({ ws, uncovered }).toEqual({ ws, uncovered: [] });
+  }, 300_000);
+
+  it('no workspace that has test files silently runs none of them', () => {
+    // The general form of the invariant, covering workspaces the tier cases
+    // cannot reach. packages/shared keeps its 11 suites (156 tests) under
+    // src/**/__tests__/ with roots:['<rootDir>/src'] — a layout with no
+    // unit/ or regression/ directory at all, so every assertion above skips
+    // the package that 6 services and apps/frontend consume.
+    //
+    // This is also the assertion that catches a mis-scoped probe: during
+    // baselining, `npx jest --testPathPattern='(unit|regression)/'` reported
+    // "0 matches" in packages/shared and looked like a pass.
+    const silent = allWorkspaces()
+      .filter(({ dir }) => testFilesUnder(dir).length > 0)
+      .filter(({ dir }) => {
+        const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+        const invocations = jestInvocations(pkg);
+        if (invocations.length === 0) return true;
+        return invocations.flatMap((args) => listed(dir, args)).length === 0;
+      })
+      .map(({ ws }) => ws);
+
+    // messaging-service is absent from this list because it has zero test
+    // files — a real gap tracked in docs/BUGS.md, not a silent-run defect.
+    expect(silent).toEqual([]);
   }, 300_000);
 
   it('apps/mobile does not claim it has no tests', () => {
