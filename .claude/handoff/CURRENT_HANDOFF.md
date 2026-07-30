@@ -1,24 +1,37 @@
-# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 1 AWAITING MERGE AUTHORIZATION
+# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 1 SHIPPED · PR 2 IS NEXT
 
-> ## ⏸️ CURRENT STATE (2026-07-30): PR #180 is open, 19/20 checks green, **NOT merged.**
+> ## ✅ PR 1 COMPLETE (2026-07-30): express 4 → 5 merged, deployed and verified live at v11.36.0.
 >
-> **Blocked on two maintainer actions, both requiring explicit authorization:**
+> **PR #180 squash-merged** as `46b2982c` at 19:48:26Z (explicit maintainer authorization).
+> **#34 auto-closed.** All 20 checks green. `CI/CD Pipeline` run **30576415715** reached
+> **`Deploy to Demo` = success with no rollback**; its internal sweep reported **all 9 backends
+> healthy**.
 >
-> 1. **Dismiss one CodeQL alert** — `js/missing-rate-limiting` (high) at
->    `services/request-service/src/routes/admin-schemas.ts:501`. **Verified false positive.**
->    CodeQL counts it as "new" only because this PR touched line 501, and the change there is the
->    one-word annotation `req: Request` → `req: Request<RouteParams>`. The route is protected by
->    **three** layers the rule cannot see (it only inspects the handler's own chain, not mount-level
->    `app.use`): `app.use(globalRateLimiter)` at `index.ts:59`, `rateLimiters.standard` on the
->    `/admin/schemas` mount at `index.ts:86`, and `...adminAuth` at `index.ts:87`. The real gate,
->    `Code Scanning Gate (ADR-060)`, **passed**.
-> 2. **Authorize the squash merge** — `gh pr merge 180 --squash --admin`. Never self-merged.
+> CodeQL alert **#570** (`js/missing-rate-limiting`, high) dismissed as **false positive** with
+> justification: the rule inspects only the handler's own chain, not mount-level `app.use`, so it
+> could not see `globalRateLimiter` (`request-service/src/index.ts:59`), `rateLimiters.standard`, or
+> `adminAuth` (both on the `/admin/schemas` mount, `index.ts:86-87`). It was flagged only because
+> this PR retyped that line to `Request<RouteParams>`; the route itself never changed.
 >
-> Everything else is done: Tasks 0–10 complete and verified. **Tasks 11 (merge) and 12 (deploy +
-> live smoke test) remain.**
+> ### Live smoke test — PASSED (all legs)
 >
-> **PR:** https://github.com/ravichavali/karmyq/pull/180 · branch `deps/sprint-122-pr1-express`
-> · commits `7a980a89` (express 5) + `9f53db3e` (req.body fix)
+> `POST /api/auth/login` is the ideal body-parser probe: credentials arrive **only** via the parsed
+> JSON body, so a 200 with a token proves the whole chain through nginx.
+>
+> | Leg | Result |
+> |---|---|
+> | Happy path — `maria.reyes@test.karmyq.com` | **200**, `success:true`, token returned, JWT carries `communities[]` (6) |
+> | Error path — wrong password | **401** `{success:false, message:"Invalid email or password", error:"UNAUTHORIZED"}` — ADR-074 intact, **no stack trace or internal detail leaked** |
+> | **Bodyless POST** (the regression this PR fixed) | **400 `VALIDATION_ERROR`, not a 500** — the fix is confirmed working in production |
+> | `req.query` getter under real traffic | `requests?limit&offset`, `notifications/:userId?limit&offset`, `reputation/karma/:userId?community_id`, `communities/my/communities?user_id` all **200** with success envelopes |
+>
+> **Note for future smoke tests:** `/health` endpoints are **not reachable through nginx** — the
+> routers mount at `/auth`, `/communities`, … while `/health` sits at the service root, so
+> `/api/{prefix}/health` 404s or hits an authenticated route. The CI deploy job's internal
+> `localhost:PORT/health` sweep is the authoritative health check. Also: `/communities/my` is **not**
+> a route (`/:id` captures `"my"` and the non-UUID lookup 500s from that handler's own catch — a
+> pre-existing input-validation gap, identical under Express 4); the real route is
+> **`/my/communities`, and it requires a `user_id` query param.**
 >
 > ### ⚠️ The finding that matters most from this PR
 >
@@ -50,7 +63,28 @@
 > **Sprint 122 planning is COMPLETE. Nothing is implemented yet.** No code has changed on any
 > branch; the working tree carries only the two untracked `.github/` files that were never mine.
 
-## Quick Start
+## Quick Start — PR 2 (test-tier truthfulness, v11.37.0)
+
+1. **Start a fresh chat** (per-PR cadence). PR 1 is done; do **not** reuse its branch.
+2. **Branch off `origin/master`** (now at `46b2982c`, demo running **v11.36.0**) — never local master.
+3. Write the PR 2 plan file first; its scope is fixed in the Plan of Record and outlined below.
+4. **`ADR-088` is still the next free number** — PR 1 deliberately created none.
+5. **Budget for discovery.** Fixing `turbo.json`'s `test` inputs makes the cache honest for the
+   first time; expect pre-existing failures to surface. Log them to `docs/BUGS.md` and fix only
+   what the diff broke — do not let PR 2 become a bug-fixing sprint.
+6. **New for PR 2's backlog, found in PR 1:** `messaging-service` contains **zero test files** and
+   declares **no `test` scripts** ("14 files checked, 0 matches") — a Critical service with no
+   coverage at all, which is why `tsc` was its only Express 5 signal. Log to `docs/BUGS.md`.
+7. **Two verification traps PR 1 hit — do not repeat them:**
+   - `npx jest unit regression` is an **imprecise positional pattern**: jest matches it against the
+     full path and **"comm-unit-y" contains `unit`**, so it silently pulls in DB-dependent
+     `integration/` suites and WIP `tdd/` suites. Use `--testPathPattern='(unit|regression)/'`.
+   - Root Turbo on Windows fails `npm test` intermittently on a **different service each run with
+     no assertion output** — parallel-execution contention, not your diff. Confirm with
+     `npx turbo run test --force --concurrency=1` (passes 26/26) or by running the workspace
+     directly. Linux CI is unaffected.
+
+## Historical Quick Start (PR 1 — complete, kept for reference)
 
 1. Read this handoff, then the spec and plan below. **The Plan of Record table is authoritative.**
 2. Check out the branch — **`deps/sprint-122-pr1-express` ALREADY EXISTS and carries this planning
@@ -214,7 +248,7 @@ PRs — 6 merged and deployed, 3 closed with written rationale.
 
 | PR | Scope | Closes | Version | `/code-review` | Status |
 |---|---|---|---|---|---|
-| **1** | **express 4 → 5** (`^5.2.1`, `@types/express ^5.0.6`) | #34 | **v11.36.0** | **HIGH** | **NEXT** |
+| **1** | **express 4 → 5** (`^5.2.1`, `@types/express ^5.0.6`) | #34 ✅ | **v11.36.0** | **HIGH** | ✅ **SHIPPED** — merged `46b2982c`, deployed, verified live |
 | **2** | **test-tier truthfulness** — turbo inputs, promote-tdd walk, `passWithNoTests`, lint print-config gate, SDK-alignment gate, **ADR-088** | — | **v11.37.0** | **HIGH** | planned |
 | **3** | **consolidated safe groups** | **#179**, **#178** | **v11.38.0** | MEDIUM | ⚠️ **NOT ready — 3 decisions open** |
 | **4** | **jest 29 → 30** (11 workspaces) | #173 | **v11.39.0** | **HIGH** | planned |
