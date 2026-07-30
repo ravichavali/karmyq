@@ -83,7 +83,16 @@ The Plan of Record outline said "remove `passWithNoTests: true` and its now-fals
 
 Bulk-deleting the flag would fight an Accepted ADR across 10 workspaces to fix a hazard the flag is not actually the cause of. `--passWithNoTests` only changes behavior when **zero** tests match; the real hazard is a tier that **has files on disk** whose jest invocation matches **none of them** (testMatch drift, a moved directory, a broken `testPathPattern`) and therefore reports green.
 
-**So the gate asserts the stronger, source-level invariant instead: per workspace and per tier, the number of test files jest actually lists equals the number of test files on disk.** That catches the real failure mode, costs nothing to keep, and leaves ADR-029's documented decision intact. ADR-088 records this reasoning.
+**So the gate asserts the stronger, source-level invariant instead: every test file in a workspace's `unit/` and `regression/` directories must appear in what that workspace's `test` script actually tells jest to run.** That catches the real failure mode, costs nothing to keep, and leaves ADR-029's documented decision intact. ADR-088 records this reasoning.
+
+**The invariant is deliberately tier-agnostic**, because the repo has two legitimate layouts and an earlier draft of this gate mistook the second one for a defect:
+
+| Layout | Workspaces | `test` script |
+|---|---|---|
+| Tiered scripts | auth, community, request, reputation, notification, social-graph, geocoding, `apps/frontend`, `tests` | `npm run test:unit && npm run test:regression` |
+| Bare jest (runs every tier) | cleanup, simulation, `apps/landing`, `apps/mobile` | `jest` / `jest --passWithNoTests` |
+
+Measured 2026-07-30, the bare-jest four have **19 unit+regression files between them and no `test:unit`/`test:regression` scripts at all** (cleanup 3+2, simulation 3+11, landing 0+3, mobile 0+1). Their tests do run — bare `jest` runs everything. A rule of the form "no tier script means the tier must be empty" would fail four correct workspaces, so the gate resolves the `test` script (expanding `npm run X && npm run Y` one level) and asserts **coverage**, not equality: extra files listed are fine, missing ones are not.
 
 ---
 
@@ -94,7 +103,7 @@ Bulk-deleting the flag would fight an Accepted ADR across 10 workspaces to fix a
 | Path | Responsibility |
 |---|---|
 | `tests/tdd/sprint-122-turbo-test-inputs.test.ts` → promoted to `regression/` | Proves every `#test` task hashes its own test sources and jest config |
-| `tests/tdd/sprint-122-tier-parity.test.ts` → promoted to `regression/` | Proves each tier's jest invocation lists exactly the test files on disk |
+| `tests/tdd/sprint-122-tier-parity.test.ts` → promoted to `regression/` | Proves `npm test` covers every `unit/` + `regression/` file on disk, in both layouts |
 | `tests/tdd/sprint-122-lint-config-gate.test.ts` → promoted to `regression/` | Proves every flat ESLint config loads and yields a non-trivial rule set |
 | `tests/tdd/sprint-122-expo-sdk-alignment.test.ts` → promoted to `regression/` | Proves `apps/mobile` stays pinned to its SDK major, with no `"*"` ranges |
 | `tests/unit/promote-tdd-targets.test.ts` | Unit-tests the promoter's workspace walk (pure, no subprocess) |
@@ -677,27 +686,44 @@ Create `tests/tdd/sprint-122-tier-parity.test.ts`:
 ```typescript
 import { execSync } from 'child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
-import { join } from 'path';
+import { join, relative, sep } from 'path';
 
 /**
- * Sprint 122 PR 2 — tier parity (ADR-088).
+ * Sprint 122 PR 2 — tier coverage (ADR-088).
  *
  * `--passWithNoTests` is not itself the defect: it only changes behavior when
  * ZERO tests match, and ADR-029 justifies it for tiers that are legitimately
- * empty. The real hazard is a tier that HAS files on disk whose jest
- * invocation matches none of them — a moved directory, a drifted testMatch, a
- * broken testPathPattern — which reports green while running nothing.
+ * empty. The real hazard is a blocking tier that HAS files on disk which its
+ * jest invocation never matches — a moved directory, a drifted testMatch, a
+ * broken testPathPattern — reporting green while running nothing.
  *
- * This gate compares, per workspace and per tier, the test files on disk
- * against what jest itself says it would run (`--listTests`).
+ * The invariant is therefore COVERAGE, not equality, and it is tier-agnostic:
+ * every file in a workspace's unit/ and regression/ directories must appear in
+ * what its `test` script actually tells jest to run. Extra files listed (a bare
+ * `jest` also picking up tdd/ and integration/) are fine.
+ *
+ * Two layouts are both legitimate and both must pass:
+ *   - tiered scripts:  "test": "npm run test:unit && npm run test:regression"
+ *   - bare jest:       "test": "jest"   (cleanup, simulation, landing, mobile)
  */
 const ROOT = join(__dirname, '..', '..');
 
 const TIERS = ['unit', 'regression'] as const;
 
-/** Workspaces with a tiered layout, i.e. tests/{unit,regression}/. */
-function tieredWorkspaces(): string[] {
-  const out: string[] = [];
+/**
+ * Tier directories live at <ws>/tests/<tier> everywhere EXCEPT the `tests`
+ * workspace itself, where they are <ws>/<tier>. Getting this wrong makes the
+ * gate silently vacuous on the repo's largest suite, so resolve both.
+ */
+function tierDir(wsDir: string, tier: string): string | null {
+  for (const candidate of [join(wsDir, 'tests', tier), join(wsDir, tier)]) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+function workspacesWithTiers(): Array<{ ws: string; dir: string }> {
+  const out: Array<{ ws: string; dir: string }> = [];
   for (const root of ['services', 'apps', 'packages']) {
     const rootDir = join(ROOT, root);
     if (!existsSync(rootDir)) continue;
@@ -705,105 +731,137 @@ function tieredWorkspaces(): string[] {
       if (name === 'node_modules') continue;
       const dir = join(rootDir, name);
       if (!statSync(dir).isDirectory()) continue;
-      if (TIERS.some((t) => existsSync(join(dir, 'tests', t)))) out.push(`${root}/${name}`);
+      if (!existsSync(join(dir, 'package.json'))) continue;
+      if (TIERS.some((t) => tierDir(dir, t))) out.push({ ws: `${root}/${name}`, dir });
     }
   }
-  if (TIERS.some((t) => existsSync(join(ROOT, 'tests', t)))) out.push('tests');
+  const testsDir = join(ROOT, 'tests');
+  if (TIERS.some((t) => tierDir(testsDir, t))) out.push({ ws: 'tests', dir: testsDir });
   return out;
 }
 
-function countTestFilesOnDisk(dir: string): number {
-  if (!existsSync(dir)) return 0;
-  let n = 0;
+function testFilesUnder(dir: string): string[] {
+  const found: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);
-    if (entry.isDirectory()) n += countTestFilesOnDisk(full);
-    else if (/\.(test|spec)\.[jt]sx?$/.test(entry.name)) n += 1;
+    if (entry.isDirectory()) {
+      if (entry.name !== 'node_modules') found.push(...testFilesUnder(full));
+    } else if (/\.(test|spec)\.[jt]sx?$/.test(entry.name)) {
+      found.push(full);
+    }
   }
-  return n;
+  return found;
 }
 
-/** Ask jest itself which files the workspace's tier script would run. */
-function countTestFilesJestSees(workspaceDir: string, script: string): number {
-  // Strip the leading `jest` and append --listTests, preserving the script's
-  // own scoping (positional pattern or --testPathPattern) exactly as written.
-  const args = script.replace(/^jest\s*/, '');
-  const out = execSync(`npx jest ${args} --listTests`, {
-    cwd: workspaceDir,
+/**
+ * Expand a workspace's `test` script into the jest argument strings it runs.
+ * Handles `npm run X && npm run Y` one level deep, which is the only
+ * composition shape this repo uses.
+ */
+function jestInvocations(pkg: { scripts?: Record<string, string> }): string[] {
+  const scripts = pkg.scripts || {};
+  const top = scripts.test;
+  if (!top) return [];
+
+  const args: string[] = [];
+  for (const part of top.split('&&').map((s) => s.trim())) {
+    const viaNpm = part.match(/^npm run (\S+)/);
+    const resolved = viaNpm ? scripts[viaNpm[1]] : part;
+    if (!resolved) throw new Error(`test script references missing script: ${part}`);
+    const jest = resolved.match(/^jest\b\s*(.*)$/);
+    if (jest) args.push(jest[1]);
+  }
+  return args;
+}
+
+/** Ask jest itself which files a given invocation would run. */
+function listed(wsDir: string, jestArgs: string): string[] {
+  const out = execSync(`npx jest ${jestArgs} --listTests`, {
+    cwd: wsDir,
     encoding: 'utf8',
     maxBuffer: 32 * 1024 * 1024,
   });
-  return out.split('\n').filter((l) => /\.(test|spec)\.[jt]sx?$/.test(l.trim())).length;
+  return out
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => /\.(test|spec)\.[jt]sx?$/.test(l));
 }
 
-describe('tier parity: jest runs the tests that exist on disk', () => {
-  const workspaces = tieredWorkspaces();
+const norm = (p: string) => relative(ROOT, p).split(sep).join('/');
 
-  it('finds the tiered workspaces', () => {
-    expect(workspaces.length).toBeGreaterThanOrEqual(9);
-    expect(workspaces).toContain('tests');
-    expect(workspaces).toContain('services/request-service');
+describe('tier coverage: npm test runs every blocking test on disk', () => {
+  const workspaces = workspacesWithTiers();
+
+  it('finds every workspace that has a unit/ or regression/ directory', () => {
+    const names = workspaces.map((w) => w.ws).sort();
+    expect(names).toEqual([
+      'apps/frontend',
+      'apps/landing',
+      'apps/mobile',
+      'services/auth-service',
+      'services/cleanup-service',
+      'services/community-service',
+      'services/geocoding-service',
+      'services/messaging-service',
+      'services/notification-service',
+      'services/reputation-service',
+      'services/request-service',
+      'services/simulation-service',
+      'services/social-graph-service',
+      'tests',
+    ]);
   });
 
-  it.each(tieredWorkspaces())('%s runs every unit/ and regression/ file it has', (ws) => {
-    const dir = join(ROOT, ws);
+  it.each(workspacesWithTiers())('$ws runs every unit/ and regression/ file it has', ({ ws, dir }) => {
     const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
 
-    for (const tier of TIERS) {
-      const script: string | undefined = pkg.scripts?.[`test:${tier}`];
-      const onDisk = countTestFilesOnDisk(join(dir, 'tests', tier));
+    const onDisk = TIERS.flatMap((t) => {
+      const d = tierDir(dir, t);
+      return d ? testFilesUnder(d) : [];
+    }).map(norm);
 
-      if (!script) {
-        // No tier script: acceptable only if the tier is genuinely empty.
-        expect({ workspace: ws, tier, onDisk }).toEqual({ workspace: ws, tier, onDisk: 0 });
-        continue;
-      }
+    const invocations = jestInvocations(pkg);
 
-      expect({ workspace: ws, tier, seen: countTestFilesJestSees(dir, script) })
-        .toEqual({ workspace: ws, tier, seen: onDisk });
+    if (invocations.length === 0) {
+      // No jest invocation at all is acceptable ONLY with nothing to run.
+      // services/messaging-service is the sole such workspace (0 test files) —
+      // a real gap, logged in docs/BUGS.md, but not a cache-key or tier lie.
+      expect({ ws, uncovered: onDisk }).toEqual({ ws, uncovered: [] });
+      return;
     }
-  }, 120_000);
+
+    const seen = new Set(invocations.flatMap((args) => listed(dir, args)).map(norm));
+    const uncovered = onDisk.filter((f) => !seen.has(f));
+
+    expect({ ws, uncovered }).toEqual({ ws, uncovered: [] });
+  }, 300_000);
 
   it('apps/mobile does not claim it has no tests', () => {
-    const cfg = readFileSync(join(ROOT, 'apps', 'mobile', 'jest.config.js'), 'utf8');
-    expect(countTestFilesOnDisk(join(ROOT, 'apps', 'mobile', 'tests'))).toBeGreaterThan(0);
+    const mobile = join(ROOT, 'apps', 'mobile');
+    const cfg = readFileSync(join(mobile, 'jest.config.js'), 'utf8');
+    expect(testFilesUnder(join(mobile, 'tests')).length).toBeGreaterThan(0);
     expect(cfg).not.toMatch(/passWithNoTests/);
   });
 });
 ```
 
-- [ ] **Step 2: Run it and verify it fails**
+- [ ] **Step 2: Run it and verify it fails for the right reason**
 
 ```bash
-( cd tests && npx jest tdd/sprint-122-tier-parity --testTimeout=120000 ) 2>&1 | tail -40; echo "exit=$?"
+( cd tests && npx jest tdd/sprint-122-tier-parity --testTimeout=300000 ) 2>&1 | tail -40; echo "exit=$?"
 ```
 
-Expected: the last test FAILS on `passWithNoTests` still being present in `apps/mobile/jest.config.js`.
+Expected: the **last** test FAILS because `passWithNoTests` is still in `apps/mobile/jest.config.js`. The 14 coverage cases and the enumeration case are expected to **pass** — measured 2026-07-30, every workspace's `test` script does cover its unit+regression files.
 
-**The per-workspace parity cases are a discovery surface.** If any of them fail, read the failure carefully:
-- A **lower** `seen` than `onDisk` is a real truth defect — a tier not running files it has. Fix the script's scoping if the fix is one line and clearly this PR's subject; otherwise log it in Task 11 and narrow this test's `it.each` list with an inline `// KNOWN GAP:` comment naming the BUGS.md entry, so the gate still blocks everything else.
-- A **higher** `seen` than `onDisk` means the tier's pattern is over-broad (e.g. the `unit`-substring trap pulling in `tests/integration/` from a `comm-unit-y` path). Same disposition.
+**The coverage cases are a discovery surface.** If one fails, the `uncovered` array names the exact files a blocking tier has but never runs. Disposition:
+- **One-line scoping fix that is plainly this PR's subject** → fix it here.
+- **Anything larger** → log it in Task 11 and add the workspace to an explicit, commented skip list inside the test (`// KNOWN GAP: <ws> — see docs/BUGS.md#<entry>`), so the gate still blocks the other thirteen. Never delete the case.
 
 Do **not** let this become a bug-fixing sprint.
 
 - [ ] **Step 3: Remove the false flag from mobile**
 
-Replace `apps/mobile/jest.config.js` entirely:
-
-```javascript
-// Jest configuration for Mobile App
-module.exports = {
-  testEnvironment: "node",
-  setupFilesAfterEach: undefined,
-  setupFilesAfterEnv: [],
-  testMatch: [
-    "**/__tests__/**/*.test.[jt]s?(x)",
-    "**/?(*.)+(spec|test).[jt]s?(x)",
-  ],
-};
-```
-
-Note: drop the stray `setupFilesAfterEach` line — it is not a Jest option and was not in the original. The file must be exactly:
+`apps/mobile/jest.config.js` must end up as exactly this — the original file minus the `passWithNoTests` line and its two-line comment. Change nothing else:
 
 ```javascript
 // Jest configuration for Mobile App
@@ -821,7 +879,7 @@ module.exports = {
 
 ```bash
 ( cd apps/mobile && npx jest ) 2>&1 | tail -10; echo "exit=$?"
-( cd tests && npx jest tdd/sprint-122-tier-parity --testTimeout=120000 ) 2>&1 | tail -20; echo "exit=$?"
+( cd tests && npx jest tdd/sprint-122-tier-parity --testTimeout=300000 ) 2>&1 | tail -20; echo "exit=$?"
 ```
 
 Expected: mobile 2/2 passing with `exit=0` (proving the flag was load-bearing for nothing), and the gate green.
@@ -830,7 +888,7 @@ Expected: mobile 2/2 passing with `exit=0` (proving the flag was load-bearing fo
 
 ```bash
 git mv tests/tdd/sprint-122-tier-parity.test.ts tests/regression/sprint-122-tier-parity.test.ts
-( cd tests && npx jest regression/sprint-122-tier-parity --testTimeout=120000 ) 2>&1 | tail -8; echo "exit=$?"
+( cd tests && npx jest regression/sprint-122-tier-parity --testTimeout=300000 ) 2>&1 | tail -8; echo "exit=$?"
 git add apps/mobile/jest.config.js tests/regression/sprint-122-tier-parity.test.ts
 git commit -m "test: assert each tier runs the test files it has on disk
 
