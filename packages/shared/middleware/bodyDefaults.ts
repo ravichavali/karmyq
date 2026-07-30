@@ -14,9 +14,14 @@ import { Request, Response, NextFunction } from 'express';
  * and inevitably missing one. Sprint 122 found it via
  * `POST /communities/:id/join`, which legitimately takes no body.
  *
- * Deliberately narrow: it only fills in a **missing** body. A parsed body of any kind —
- * including an array or an explicitly-sent `null` — is left exactly as body-parser
- * produced it, so nothing that already works changes shape.
+ * Deliberately narrow: it only fills in a **missing** body. Any parsed body — an array, `0`,
+ * `""` — is left exactly as body-parser produced it, so nothing that already works changes
+ * shape. The guard tests `=== undefined` rather than falsiness precisely for that reason.
+ *
+ * On `null` specifically: under `express.json()`'s default `strict: true`, a bare `null` body
+ * is rejected with a 400 `entity.parse.failed` and this middleware never runs, so the case
+ * cannot arise in any Karmyq service today. The `undefined`-only guard still distinguishes it
+ * correctly should a service ever opt into `strict: false`, and the test file pins both halves.
  *
  * Mount order matters: this must come *after* the body parser, or it will run before
  * parsing and be overwritten.

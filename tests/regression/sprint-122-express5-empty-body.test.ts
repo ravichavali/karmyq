@@ -57,7 +57,7 @@ describe('Sprint 122 — express 5 leaves req.body undefined without the shim', 
     expect(res.body).toEqual({ got: { message: 'hello', n: 1 } });
   });
 
-  it('does not replace a falsy-but-parsed body (e.g. a JSON array or explicit null)', async () => {
+  it('does not flatten a parsed array body into {}', async () => {
     const app = express();
     app.use(express.json());
     app.use(normalizeRequestBody);
@@ -70,6 +70,40 @@ describe('Sprint 122 — express 5 leaves req.body undefined without the shim', 
     // An array body must survive as an array, not be flattened into {}.
     expect(res.body.isArray).toBe(true);
     expect(res.body.got).toEqual([1, 2, 3]);
+  });
+
+  it('preserves an explicit null body when a parser is configured to allow one', async () => {
+    // Under the DEFAULT `strict: true`, express.json() rejects a bare `null` with 400
+    // entity.parse.failed and this middleware never runs — so the only way to prove the
+    // `undefined`-only guard actually distinguishes null from missing is `strict: false`.
+    // Every Karmyq service uses the strict default; this pins the guard's semantics so a
+    // future service opting into strict:false does not silently get `null` rewritten to {}.
+    const app = express();
+    app.use(express.json({ strict: false }));
+    app.use(normalizeRequestBody);
+    app.post('/echo', (req, res) => {
+      res.json({ isNull: req.body === null, type: typeof req.body });
+    });
+
+    const res = await request(app).post('/echo').set('Content-Type', 'application/json').send('null');
+    expect(res.status).toBe(200);
+    expect(res.body.isNull).toBe(true);
+  });
+
+  it('confirms the strict default rejects an explicit null before this middleware runs', async () => {
+    // Documents why the test above needs strict:false, so the pair cannot drift apart.
+    let reached = false;
+    const app = express();
+    app.use(express.json());
+    app.use((_req, _res, next) => {
+      reached = true;
+      next();
+    });
+    app.post('/echo', (_req, res) => res.json({ ok: true }));
+
+    const res = await request(app).post('/echo').set('Content-Type', 'application/json').send('null');
+    expect(res.status).toBe(400);
+    expect(reached).toBe(false);
   });
 
   it('leaves GET requests with a normalized body rather than undefined', async () => {
