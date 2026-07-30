@@ -5,6 +5,8 @@
  * TDD Framework Rule: When a test in tdd/ passes, automatically move it to regression/
  * This ensures passing tests become locked-in regression tests.
  *
+ * Walks both services/* and apps/* workspaces for a tests/tdd directory.
+ *
  * Usage:
  *   - Run automatically after tests: npm run test:tdd && node scripts/promote-tdd-tests.js
  *   - Run manually: node scripts/promote-tdd-tests.js
@@ -53,30 +55,47 @@ function runTestFile(filePath, serviceDir) {
   }
 }
 
+/**
+ * Every workspace root that can hold a tests/tdd directory.
+ * APPS_DIR was declared and never walked until Sprint 122 PR 2, so an
+ * apps/* tdd test could never be promoted (see ADR-088).
+ */
+function collectTddTargets(roots = [SERVICES_DIR, APPS_DIR]) {
+  const targets = [];
+
+  for (const root of roots) {
+    if (!fs.existsSync(root)) continue;
+    const label = path.basename(root);
+
+    for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.name === 'node_modules') continue;
+
+      const dir = path.join(root, entry.name);
+      const tddDir = path.join(dir, 'tests', 'tdd');
+      if (!fs.existsSync(tddDir)) continue;
+
+      targets.push({ workspace: `${label}/${entry.name}`, dir, tddDir });
+    }
+  }
+
+  return targets;
+}
+
 function promoteTddTests() {
   console.log('🔄 Checking TDD tests for auto-promotion...\n');
 
   let promoted = 0;
   let failed = 0;
 
-  // Check services
-  const services = fs.readdirSync(SERVICES_DIR);
-  for (const service of services) {
-    const tddDir = path.join(SERVICES_DIR, service, 'tests', 'tdd');
-    if (!fs.existsSync(tddDir)) continue;
-
-    const tddTests = findTestFiles(tddDir);
-    for (const testFile of tddTests) {
+  for (const { workspace, dir, tddDir } of collectTddTargets()) {
+    for (const testFile of findTestFiles(tddDir)) {
       const testName = path.basename(testFile);
-      console.log(`  Testing: ${service}/tests/tdd/${testName}`);
+      console.log(`  Testing: ${workspace}/tests/tdd/${testName}`);
 
-      if (runTestFile(testFile, path.join(SERVICES_DIR, service))) {
-        // Test passed! Promote to regression
-        const regressionDir = path.join(SERVICES_DIR, service, 'tests', 'regression');
+      if (runTestFile(testFile, dir)) {
+        const regressionDir = path.join(dir, 'tests', 'regression');
         fs.mkdirSync(regressionDir, { recursive: true });
-
-        const newPath = path.join(regressionDir, testName);
-        fs.renameSync(testFile, newPath);
+        fs.renameSync(testFile, path.join(regressionDir, testName));
 
         console.log(`    ✅ PROMOTED to regression/${testName}\n`);
         promoted++;
@@ -97,4 +116,8 @@ function promoteTddTests() {
   }
 }
 
-promoteTddTests();
+module.exports = { collectTddTargets, promoteTddTests };
+
+if (require.main === module) {
+  promoteTddTests();
+}
