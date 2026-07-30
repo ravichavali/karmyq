@@ -9,7 +9,7 @@ import pool from './database/db';
 import messageRoutes from './routes/messages';
 import { initializeMessageSocket } from './socket/messageHandler';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
-import { authMiddleware, globalRateLimiter, rateLimiters, isDemoReadOnlySession, AuthenticatedRequest } from '@karmyq/shared/middleware';
+import { authMiddleware, globalRateLimiter, rateLimiters, isDemoReadOnlySession, AuthenticatedRequest, normalizeRequestBody } from '@karmyq/shared/middleware';
 import { requestIdMiddleware, sendSuccess, sendInternalError, sendForbidden } from '@karmyq/shared/utils/response';
 
 dotenv.config();
@@ -82,6 +82,9 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+// Express 5 leaves req.body undefined when no body was sent; restore the Express 4
+// `{}` default before any route destructures it. Must follow express.json().
+app.use(normalizeRequestBody);
 app.use(requestIdMiddleware);
 app.use(requestLoggingMiddleware(logger));
 app.use(globalRateLimiter);

@@ -11,7 +11,10 @@ export {
   isDemoReadOnlySession,
   JWTPayload,
   AuthenticatedRequest,
+  RouteParams,
 } from './auth';
+
+export { normalizeRequestBody } from './bodyDefaults';
 
 export {
   tenantMiddleware,

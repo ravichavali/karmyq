@@ -298,3 +298,11 @@ above is still accurate.
 Express 5 semantics now in force: async handler rejections auto-forward to the error middleware,
 `res.status()` throws `RangeError` on an out-of-range code, and `req.query` is a getter rather
 than a writable own property.
+
+**⚠️ `req.body` default restored (the bug this PR actually shipped to CI).** body-parser 2 leaves
+`req.body` **undefined** for a bodyless request where body-parser 1 gave `{}`, so `POST /cache`
+reading `req.body.query` would throw and the route's catch would answer **500
+GEOCODING_CACHE_FAILED** instead of a clean 400. Because this service is plain JS and does not
+consume `@karmyq/shared`, it carries an **inline** equivalent of the shared
+`normalizeRequestBody`, mounted immediately after `express.json()`. Pinned by a new case in
+`tests/regression/geocodingRoutes.test.js` asserting the ADR-074 400 envelope, not a 500.

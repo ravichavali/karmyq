@@ -19,6 +19,7 @@ import { expireDibs } from './jobs/expireDibs';
 import { sweepDeadTrustEdges } from './jobs/trustEdgeSweepJob';
 import { forgetExchangeContent } from './jobs/memoryRetentionJob';
 import pool from './database/db';
+import { normalizeRequestBody } from '@karmyq/shared/middleware';
 
 dotenv.config();
 
@@ -151,6 +152,9 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+// Express 5 leaves req.body undefined when no body was sent; restore the Express 4
+// `{}` default before any route destructures it. Must follow express.json().
+app.use(normalizeRequestBody);
 app.use(requestLoggingMiddleware(sharedLogger));
 app.use(requestIdMiddleware);
 

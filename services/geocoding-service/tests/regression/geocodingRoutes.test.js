@@ -80,6 +80,24 @@ describe('geocoding routes', () => {
     expect(pool.query.mock.calls[0][1]).toEqual(['oakland', JSON.stringify(results)])
   })
 
+  test('POST /cache with NO body returns the ADR-074 envelope, not a 500', async () => {
+    // Express 5 leaves req.body undefined for a bodyless request (Express 4 gave {}), so
+    // `req.body.query` would throw and the route's catch would return 500
+    // GEOCODING_CACHE_FAILED. The body-default shim keeps it a clean 400 validation error.
+    const pool = { query: jest.fn() }
+    const app = createApp({ pool, fetchImpl: jest.fn(), logger: { error: jest.fn(), log: jest.fn() } })
+
+    const res = await request(app).post('/cache')
+
+    expect(res.status).toBe(400)
+    expect(res.body).toEqual({
+      success: false,
+      message: 'Query must be at least 2 characters',
+      error: 'INVALID_QUERY',
+    })
+    expect(pool.query).not.toHaveBeenCalled()
+  })
+
   test('GET /health returns 200 (route table built by path-to-regexp 8)', async () => {
     const app = createApp({ pool: {}, fetchImpl: jest.fn() })
     const res = await request(app).get('/health').expect(200)

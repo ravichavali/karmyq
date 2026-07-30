@@ -1153,3 +1153,10 @@ above is still accurate.
 Express 5 semantics now in force: async handler rejections auto-forward to the error middleware,
 `res.status()` throws `RangeError` on an out-of-range code, and `req.query` is a getter rather
 than a writable own property.
+
+**⚠️ `req.body` default restored (the bug this PR actually shipped to CI).** body-parser 1
+initialised `req.body` to `{}` on every request; body-parser 2 leaves it **undefined** unless a
+body was parsed, so `const { x } = req.body` throws a `TypeError` on a bodyless request and the
+route's catch turns it into a **500**. `app.use(normalizeRequestBody)` is now mounted immediately
+after `express.json()` in `src/index.ts` to restore the Express 4 behaviour. It fills in only a
+*missing* body, so a parsed array or explicit `null` is untouched.

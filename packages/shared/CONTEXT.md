@@ -30,6 +30,20 @@ or ships Express 4 any more, so a dual range would advertise support that no run
 - Async handler rejections now auto-forward to the error middleware, so the ADR-074 envelope must
   keep coming from a real error handler; `res.status()` throws `RangeError` on an out-of-range code.
 
+**⚠️ `normalizeRequestBody` (`middleware/bodyDefaults`) — mount it after `express.json()`.**
+body-parser 1 initialised `req.body` to `{}` on every request; body-parser 2 leaves it
+**`undefined`** unless a body was actually parsed. **76 handlers across 7 services** do
+`const { x } = req.body`, which then throws a `TypeError` on a bodyless request and surfaces as a
+**500**. Sprint 122 shipped exactly that bug to CI — `POST /communities/:id/join` legitimately
+sends no body, and the integration suite caught it after every unit and regression tier was green.
+
+This middleware restores the old default in one place rather than editing 76 call sites and
+missing one. It is deliberately narrow: it fills in only a **missing** body, so a parsed array or
+an explicitly-sent `null` survives untouched. Mounted in all 8 shared-consuming services;
+`geocoding-service` carries an inline equivalent because it is plain JS and does not consume this
+package. Pinned by `tests/regression/sprint-122-express5-empty-body.test.ts`, which also asserts
+the raw Express 5 behaviour so the shim cannot be quietly removed.
+
 **Known, deliberate, out of scope** (both pre-date this sprint and neither blocks Express 5):
 
 | Package | `packages/shared` | root | Note |
@@ -64,8 +78,9 @@ Producers must emit only the canonical four; `critical`/`normal` are retired. Se
 | `.` | Root re-exports |
 | `./utils/logger` | `createLogger`, `requestLoggingMiddleware`, `LogContext`, `LogEntry`, `LogLevel` |
 | `./utils/response` | `sendSuccess`, `sendError`, `sendValidationError`, `sendNotFound`, `sendInternalError`, `HTTP_STATUS`, `validateRequest`, `requestIdMiddleware` |
-| `./middleware` | All middleware barrel |
-| `./middleware/auth` | `authMiddleware`, `AuthenticatedRequest` |
+| `./middleware` | All middleware barrel (incl. `normalizeRequestBody`) |
+| `./middleware/auth` | `authMiddleware`, `AuthenticatedRequest`, `RouteParams` |
+| `./middleware/bodyDefaults` | `normalizeRequestBody` — restores the Express 4 `req.body = {}` default |
 | `./middleware/dbContext` | `dbContextMiddleware` |
 | `./middleware/rateLimit` | `globalRateLimiter`, `rateLimiters` |
 | `./middleware/tenant` | `tenantMiddleware`, `optionalTenantMiddleware` |
