@@ -372,16 +372,26 @@ describe('turbo test-task inputs are honest', () => {
     }
   });
 
-  it('every test task hashes at least one file under its tests/ directory', () => {
+  it('every test task hashes at least one actual test file', () => {
     const testTasks = dry.tasks.filter((t) => t.taskId.endsWith('#test'));
     expect(testTasks.length).toBeGreaterThan(10); // 15 workspaces declare a test task
+
+    // Turbo reports input paths relative to each PACKAGE root, not the repo
+    // root, and this repo has three test layouts:
+    //   services/*, apps/*   -> tests/{unit,regression,tdd,integration}/
+    //   packages/shared      -> src/**/__tests__/   (no tests/ dir at all)
+    //   the `tests` package  -> its own root IS tests/, so its paths are bare
+    //                           (regression/..., unit/..., e2e/...)
+    // Matching the filename is therefore the layout-agnostic way to say
+    // "the cache key includes the tests".
+    const isTestFile = (p: string) => /\.(test|spec)\.[jt]sx?$/.test(p);
 
     const blind = testTasks
       .filter((t) => {
         // messaging-service declares no test script and has zero test files —
         // a real gap, logged as a bug, but not a cache-key lie.
         if (t.taskId.includes('messaging-service')) return false;
-        return !Object.keys(t.inputs || {}).some((p) => p.startsWith('tests/'));
+        return !Object.keys(t.inputs || {}).some(isTestFile);
       })
       .map((t) => t.taskId);
 
@@ -441,8 +451,9 @@ Expected: PASS, 4/4, `exit=0`.
 
 ```bash
 npx turbo run test --dry=json > /tmp/turbo-after.json; echo "exit=$?"
+TMP="C:/Users/ravic/AppData/Local/Temp"   # Windows node cannot resolve Git Bash's /tmp in require()
 node -e "
-const b=require('/tmp/turbo-before.json'), a=require('/tmp/turbo-after.json');
+const b=require(process.env.TMP+'/turbo-before.json'), a=require(process.env.TMP+'/turbo-after.json');
 const B=Object.fromEntries(b.tasks.map(t=>[t.taskId,Object.keys(t.inputs||{}).length]));
 for(const t of a.tasks.filter(t=>t.taskId.endsWith('#test')))
   console.log(t.taskId.padEnd(38), (B[t.taskId]??'-')+' -> '+Object.keys(t.inputs||{}).length);
