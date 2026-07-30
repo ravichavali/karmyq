@@ -95,7 +95,12 @@ literals, which is the risk PR 1 manages:
 | Route path syntax | `path-to-regexp` 0.x | `path-to-regexp` 8 (`*` → `/*splat`, `:p?` → `{/:p}`) | **zero affected paths (verified)** |
 | Body parsing | `body-parser` 1.x | `body-parser` **2.x** | see Critical Note 1 — an override blocks this |
 
-Health endpoints (`/health` on all 10 services) and the nginx `/api/{prefix}` routing are unchanged.
+Health endpoints and the nginx `/api/{prefix}` routing are unchanged. **There are 9 `/health`
+endpoints, not 10:** `services/registry.json` lists 10 services, but `simulation-service` has
+`"health_check": null`, is dev-only, and contains no Express usage. Every "all services" criterion in
+this sprint means **the 9 registry entries with a non-null `health_check`** — auth (3001), community
+(3002), request (3003), reputation (3004), notification (3005), messaging (3006), cleanup (3008),
+geocoding (3009), social-graph (3010).
 
 ---
 
@@ -141,7 +146,7 @@ two genuine drift repairs:
 |---|---|---|---|---|
 | **1** | **express 4 → 5** (`^5.2.1` + `@types/express` `^5.0.6`) | #34 | **v11.36.0** | **HIGH** |
 | **2** | **test-tier truthfulness** — turbo inputs, promote-tdd walk, `passWithNoTests`, lint print-config gate, SDK-alignment gate, ADR-088 | — | **v11.37.0** | **HIGH** |
-| **3** | **consolidated safe groups** — production-deps + dev-deps | **#179**, **#178** | **v11.38.0** | MEDIUM |
+| **3** | **consolidated safe groups** — production-deps + dev-deps · ⚠️ **NOT execution-ready: 3 maintainer decisions open (D-1…D-3, see the plan)** | **#179**, **#178** | **v11.38.0** | MEDIUM |
 | **4** | **jest 29 → 30** across 11 workspaces | #173 | **v11.39.0** | **HIGH** |
 | **5** | **redis (node-redis) 4 → 6** | #169 | **v11.40.0** | MEDIUM |
 | **6** | **zustand 4 → 5** (mobile only) | #172 | **v11.41.0** | MEDIUM |
@@ -221,29 +226,45 @@ roster notes in Sprint 121's handoff — where they do, **this document is corre
    `res.json(status, body)`. The remaining risk is **runtime semantics** — automatic async-rejection
    forwarding and `res.status()` throwing on invalid codes — not syntax.
 
-7. **The express surface is not what Sprint 121's Critical Note 5 said.** Verified:
-   - **`packages/shared` does NOT declare `express`.** It declares `@types/express ^4.17.21` (dev)
-     and `express-rate-limit ^7.1.5` (prod). Its five middleware files
-     (`packages/shared/middleware/{auth,dbContext,rateLimit,tenant,validate}.ts` — note: **outside
-     `src/`**) import `Request`/`Response`/`NextFunction` as types only.
+7. **⚠️ `packages/shared` DOES declare Express — as a PEER, and it must move.**
+   `packages/shared/package.json` carries `"peerDependencies": { "express": "^4.18.0" }`. Bumping the
+   provider to Express 5 without moving this leaves `@karmyq/shared` — consumed by **6 services and
+   `apps/frontend`** — declaring a contract nothing in the repo satisfies.
+   **Decision: set it to `^5.0.0`, not a dual `^4.18.0 || ^5.0.0` range.** The repo has exactly one
+   Express provider (the root production dependency), so after PR 1 no build, test or image exercises
+   Express 4 anywhere; a dual range would advertise support that is never verified — the same class of
+   decorative claim this sprint exists to remove. A dual range is acceptable only if actually
+   **verified** by running `packages/shared`'s suite against both majors.
+   *(Pre-existing, out of scope: `apps/frontend` consumes `@karmyq/shared` without providing Express
+   at all, so this peer is already unsatisfied there; `.npmrc`'s `legacy-peer-deps=true` silences it.)*
+
+8. **The rest of the express surface, corrected against Sprint 121's Critical Note 5.** Verified:
    - **Root `package.json` declares `express ^4.18.2` as a PRODUCTION dependency.** That is how all
-     9 backends get it: their Dockerfiles copy the root manifest and run
-     `npm install --omit=dev`. So express 5 lands via the **root** declaration plus
-     `@types/express` in root, `packages/shared` and the services that declare it.
+     9 Express backends get it: their Dockerfiles copy the root manifest and run
+     `npm install --omit=dev`.
+   - `packages/shared`'s five middleware files
+     (`packages/shared/middleware/{auth,dbContext,rateLimit,tenant,validate}.ts` — note: **outside
+     `src/`**) import `Request`/`Response`/`NextFunction` as types only; the package also declares
+     `@types/express ^4.17.21` (dev) and `express-rate-limit ^7.1.5` (prod).
    - **`services/geocoding-service/src` is plain JavaScript** (`geocodingApp.js`,
-     `geocodingService.js`, `response.js`) — it declares `express` directly and gets **no `tsc`
-     coverage at all**. Its express 5 behaviour must be proven by a runtime/supertest test, not a
-     type check. It is the one service where a green build says nothing.
+     `geocodingService.js`, `response.js`) and declares `express` directly, so it gets **no `tsc`
+     coverage**. It is **not** untested, though —
+     `services/geocoding-service/tests/regression/geocodingRoutes.test.js` already mounts the real
+     `createApp` through supertest and asserts the ADR-074 envelope. **The gap is type coverage, not
+     test coverage**, so the work is to extend that suite rather than write a new one.
+   - **⚠️ `geocodingApp.js` has NO express error middleware** — every route try/catches internally and
+     responds via `sendError`. So no test may claim that an async rejection reaches an error handler in
+     *that* service; check for an error middleware before writing any such test elsewhere.
    - **111 source files import from `'express'`**, overwhelmingly for types.
 
-8. **`express-rate-limit` is split across majors and express 5 does not force the alignment.** Root
+9. **`express-rate-limit` is split across majors and express 5 does not force the alignment.** Root
    declares `^8.2.2`; `packages/shared` declares `^7.1.5`. Verified peers: v8 wants
    `express: ">= 4.11"`, v7.1.5 wants `express: "4 || 5 || ^5.0.0-beta.1"` — **both accept
    express 5**. Note the split, do **not** fix it inside PR 1. (`packages/shared` also declares
    `zod ^3.22.4` against root's `^4.1.12` — same class of pre-existing split, same answer:
    out of scope, worth its own pass.)
 
-9. **turbo `test` inputs are `src/**/*.ts(x)` + `test/**/*.ts(x)` — singular `test`.** Confirmed
+10. **turbo `test` inputs are `src/**/*.ts(x)` + `test/**/*.ts(x)` — singular `test`.** Confirmed
    from `turbo.json`. `apps/mobile` has neither directory (its code is in `app/`, `services/`,
    `components/`, `hooks/`, `store/`, `utils/`; its tests in `tests/`, **plural**), so
    `@karmyq/mobile#test` and `@karmyq/tests#test` each hash **exactly one input: `package.json`**.
@@ -251,12 +272,12 @@ roster notes in Sprint 121's handoff — where they do, **this document is corre
    pre-existing failures** — that is the point, but it must not turn PR 2 into a bug-fixing sprint.
    Log what it finds to `docs/BUGS.md` and fix only what the diff itself broke.
 
-10. **`scripts/promote-tdd-tests.js` declares `APPS_DIR` (line 18) and never walks it** — only
+11. **`scripts/promote-tdd-tests.js` declares `APPS_DIR` (line 18) and never walks it** — only
     `SERVICES_DIR` (lines 63, 65, 73, 75). An `apps/*/tests/tdd/` test therefore blocks pushes
     forever and never promotes. This is why Sprint 121 PR 4 had to put a mobile test in
     `tests/unit/` instead. Fix the walk to cover both roots.
 
-11. **`redis` (node-redis) has exactly ONE importer** — `services/messaging-service/src/config/redis.ts`
+12. **`redis` (node-redis) has exactly ONE importer** — `services/messaging-service/src/config/redis.ts`
     (`import { createClient } from 'redis'`). Installed at 4.7.1 via the **root** prod declaration
     `redis: "^4.6.11"`; **`messaging-service` does not declare it**, which violates the standing
     "declare what you import" rule. PR 5 bumps the root declaration to 6 **and** adds the
@@ -264,11 +285,11 @@ roster notes in Sprint 121's handoff — where they do, **this document is corre
     package and is not in scope. node-redis 5 and 6 are both majors: `createClient` options and the
     `RESP3`/type surface changed — read the v5 **and** v6 migration notes, not just v6's.
 
-12. **`zustand` is mobile-only** — declared solely in `apps/mobile/package.json`, imported by
+13. **`zustand` is mobile-only** — declared solely in `apps/mobile/package.json`, imported by
     exactly one file, `apps/mobile/store/auth.ts`. The Sprint 121 roster's "frontend state" is
     **wrong**. `apps/mobile` is not deployed to the demo, making PR 6 the lowest-risk PR of the six.
 
-13. **`npm audit` is currently `found 0 vulnerabilities`.** That is the baseline. Sprint 121 saw
+14. **`npm audit` is currently `found 0 vulnerabilities`.** That is the baseline. Sprint 121 saw
     **four** advisories publish mid-flight; the signature is `Security Audit` and
     `sprint-75-security-gate` going red **together** on a diff that touches no dependencies. Check
     for a new advisory before debugging anything, remediate with a surgical in-place bump, and
@@ -276,7 +297,7 @@ roster notes in Sprint 121's handoff — where they do, **this document is corre
     1.19.0 raises the `form-data` floor for GHSA-hmw2-7cc7-3qxx — root already overrides
     `form-data@4.0.0 - 4.0.5` → `4.0.6`, so this is belt-and-braces, not a live finding.
 
-14. **Standing mechanics** (unchanged, all load-bearing): surgical in-place lockfile bumps only —
+15. **Standing mechanics** (unchanged, all load-bearing): surgical in-place lockfile bumps only —
     never `npm dedupe`, never a scratch regen on Windows, never a root **prod** dep added to force
     hoisting; run the **edge-vs-node** check before any multi-workspace bump and diff against
     `origin/master` so the ~26 deliberate `overrides` mismatches don't drown the real finding;
@@ -286,7 +307,7 @@ roster notes in Sprint 121's handoff — where they do, **this document is corre
     `npm test` regenerates landing docs, so revert timestamp/HEAD-sha churn before committing;
     grep-verify `nav.json` after any landing regen.
 
-15. **A green pipeline is not the bar, and neither is a rendered page.** Every PR ends with two
+16. **A green pipeline is not the bar, and neither is a rendered page.** Every PR ends with two
     verifications: the master **`CI/CD Pipeline`** run (a merge fans out into three runs — `Tests`,
     `CodeQL`, `CI/CD Pipeline` — and **only the last has a `Deploy to Demo` job**) reaching
     `Deploy to Demo` = success with no rollback, **then** a live smoke test. Sprint 121 PR 5 passed
@@ -294,7 +315,19 @@ roster notes in Sprint 121's handoff — where they do, **this document is corre
     production, and still shipped a broken font — because an unloaded font computes an identical
     `font-family`. **Assert on built artifacts for anything to do with asset loading.**
 
-16. **Gate calibration** (standing since S120): all four gates run every PR; effort scales with the
+17. **⚠️ `package-lock.json`'s version field is ALREADY drifted, and the naive task order re-breaks
+    it.** The manifest reads `11.35.1` while the lock records **`11.34.0`** in *both* `.version` and
+    `.packages[""].version` — Sprint 121's PR 5 and hotfix never carried their bumps into the lock.
+    Consequence for every PR this sprint: **bump the version BEFORE the lockfile resolution**, so one
+    `npm install --package-lock-only` lands it in all three places, and **assert all three
+    afterwards**. Bumping the manifest after the lock work (the obvious ordering) silently recreates
+    the drift. PR 1 closes the existing gap as a side effect of doing the order right.
+
+18. **There are 9 Express backends, not 10** — see § API Endpoints. `simulation-service` is dev-only
+    with `"health_check": null` and no Express usage, so it is outside every express-migration and
+    health-verification criterion.
+
+19. **Gate calibration** (standing since S120): all four gates run every PR; effort scales with the
     diff. `/code-review` **HIGH** for PRs 1, 2 and 4; **MEDIUM** for 3, 5, 6. One `/simplify` pass
     per PR (per-task only on PR 2, which is the only PR writing real new logic).
 
@@ -303,7 +336,11 @@ roster notes in Sprint 121's handoff — where they do, **this document is corre
 ## Definition of Done
 
 - [ ] All 9 open PRs dispositioned: 6 merged-and-deployed, 3 closed with written rationale and no ignore rule
+- [ ] PR 3's three open decisions (D-1 react, D-2 safe-area-context, D-3 react-native-maps) recorded in the plan before it starts
 - [ ] Demo runs **v11.41.0**, verified by `CI/CD Pipeline` → `Deploy to Demo` success **and** a live smoke test
+- [ ] All **9** deployed backends healthy (the non-null `health_check` registry entries; `simulation-service` is excluded by design)
+- [ ] `package.json`, `package-lock.json` `.version` and `.packages[""].version` all agree — the pre-existing `11.34.0` drift is closed
+- [ ] `packages/shared`'s `peerDependencies.express` matches the provider Express major
 - [ ] `npm test` is trustworthy: `turbo run test --dry` shows every workspace hashing its real sources
 - [ ] Two new blocking gates green: lint print-config per workspace, Expo SDK alignment
 - [ ] ADR-088 written, indexed, published to landing, and flipped to **Implemented**

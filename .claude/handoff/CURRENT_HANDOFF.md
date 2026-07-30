@@ -31,8 +31,13 @@ git diff --stat origin/master -- ':!*.md' ':!.claude'   # must be EMPTY: no code
 3. Open the plan: [`docs/superpowers/plans/2026-07-29-sprint-122-dependency-wave-test-truth.md`](../../docs/superpowers/plans/2026-07-29-sprint-122-dependency-wave-test-truth.md)
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development). **Tasks 1–10 are PR 1
    (express 4 → 5, v11.36.0).** PRs 2–6 get their own plan files and their own chats.
-5. **Read Critical Note 1 before typing anything.** `overrides.body-parser: "1.20.6"` will break
-   express 5, and it is the one defect here that can ship green.
+5. **Read Critical Notes 1 and 7 before typing anything.** `overrides.body-parser: "1.20.6"` will
+   break express 5 and is the one defect here that can ship green; and `packages/shared` declares
+   Express as a **peer** that must move with it.
+   **PR 1, 2, 4, 5, 6 are execution-ready. ⚠️ PR 3 is NOT** — three maintainer decisions (D-1 react
+   19.2.8, D-2 safe-area-context 5.8.0, D-3 react-native-maps 1.29.0) are open, because #179 wants to
+   move three packages away from the versions S121 PR 4 deliberately chose. Record them in the plan
+   before starting PR 3.
 6. Every merge needs **EXPLICIT admin authorization** (`gh pr merge --squash --admin`), every time.
    Never self-merge.
 7. **A green pipeline is not the bar, and neither is a rendered page.** Confirm the master
@@ -71,7 +76,7 @@ PRs — 6 merged and deployed, 3 closed with written rationale.
 |---|---|---|---|---|---|
 | **1** | **express 4 → 5** (`^5.2.1`, `@types/express ^5.0.6`) | #34 | **v11.36.0** | **HIGH** | **NEXT** |
 | **2** | **test-tier truthfulness** — turbo inputs, promote-tdd walk, `passWithNoTests`, lint print-config gate, SDK-alignment gate, **ADR-088** | — | **v11.37.0** | **HIGH** | planned |
-| **3** | **consolidated safe groups** | **#179**, **#178** | **v11.38.0** | MEDIUM | planned |
+| **3** | **consolidated safe groups** | **#179**, **#178** | **v11.38.0** | MEDIUM | ⚠️ **NOT ready — 3 decisions open** |
 | **4** | **jest 29 → 30** (11 workspaces) | #173 | **v11.39.0** | **HIGH** | planned |
 | **5** | **redis (node-redis) 4 → 6** | #169 | **v11.40.0** | MEDIUM | planned |
 | **6** | **zustand 4 → 5** (mobile only) | #172 | **v11.41.0** | MEDIUM | planned |
@@ -128,13 +133,20 @@ correct.** Full versions in the spec; notes 1, 3, 6, 7, 11 are the ones that cha
    `res.redirect('back')`, `express.urlencoded`. Remaining risk is **runtime semantics**: async
    rejections now auto-forward to the error middleware (**the ADR-074 envelope must still be what
    comes out**), `res.status()` throws `RangeError` on out-of-range codes, `req.query` is a getter.
-7. **The express surface is not what S121's Critical Note 5 said.** `packages/shared` does **NOT**
-   declare `express` — it declares `@types/express ^4.17.21` (dev) + `express-rate-limit ^7.1.5`,
-   and its five middleware files live at `packages/shared/middleware/` (**outside `src/`**). Root
-   `package.json` declares `express ^4.18.2` as a **production** dep — that is how all 9 backends
-   get it (Dockerfiles copy the root manifest, `npm install --omit=dev`). **`services/geocoding-service/src`
-   is plain JavaScript** (`geocodingApp.js`, `geocodingService.js`, `response.js`) with **no `tsc`
-   coverage at all** — the one service where a green build says nothing, so it needs a runtime test.
+7. **⚠️ `packages/shared` DOES declare Express — as a PEER (`peerDependencies.express: "^4.18.0"`),
+   and PR 1 must move it.** Leaving it makes `@karmyq/shared` — consumed by **6 services and
+   `apps/frontend`** — declare a contract nothing in the repo satisfies. **Decision: `^5.0.0`**, not
+   a dual range: the repo has exactly one Express provider, so a dual range would advertise support
+   nothing verifies. *(Found by maintainer review of the first draft of this plan, which wrongly said
+   shared does not declare express — the recon had printed only `dependencies`/`devDependencies`.)*
+   The rest of the surface: root `package.json` declares `express ^4.18.2` as a **production** dep —
+   that is how all 9 Express backends get it (Dockerfiles copy the root manifest,
+   `npm install --omit=dev`); shared's five middleware files live at `packages/shared/middleware/`
+   (**outside `src/`**), types only; **`services/geocoding-service/src` is plain JavaScript** with no
+   `tsc` coverage — but it **is** tested (`tests/regression/geocodingRoutes.test.js` mounts the real
+   app via supertest), so the gap is *type* coverage and the work is to **extend** that suite.
+   **⚠️ `geocodingApp.js` has NO express error middleware** — routes try/catch internally and respond
+   via `sendError`, so no test there may claim an async rejection reaches an error handler.
    111 source files import from `'express'`, overwhelmingly for types.
 8. **`express-rate-limit` is split across majors and express 5 does not force alignment.** Root
    `^8.2.2` (peer `express: ">= 4.11"`), `packages/shared` `^7.1.5` (peer
@@ -171,7 +183,19 @@ correct.** Full versions in the spec; notes 1, 3, 6, 7, 11 are the ones that cha
     regenerates landing docs, so revert timestamp/HEAD-sha churn before committing; grep-verify
     `nav.json` after any landing regen; `apps/landing/src/data/docs/` is gitignored but tracked, so
     regenerated artifacts need `git add -f`.
-15. **Gate calibration** (standing since S120): all four gates every PR, effort scaled to the diff.
+15. **⚠️ `package-lock.json`'s version is ALREADY drifted at `11.34.0`** while the manifest reads
+    `11.35.1` (S121's PR 5 and hotfix never carried their bumps into the lock — both `.version` and
+    `.packages[""].version`). **Bump the version BEFORE the lockfile resolution** in every PR this
+    sprint, so one `npm install --package-lock-only` lands it in all three places, then **assert all
+    three**. Bumping after the lock work silently recreates the drift.
+16. **There are 9 Express backends, not 10.** `services/registry.json` lists 10, but
+    `simulation-service` has `"health_check": null`, is dev-only and has no Express usage. Every "all
+    services" check means the **9 non-null `health_check` entries**: auth 3001, community 3002,
+    request 3003, reputation 3004, notification 3005, messaging 3006, cleanup 3008, geocoding 3009,
+    social-graph 3010.
+17. **All plan commands are PowerShell** (this repo's primary shell). Don't paste POSIX `for` loops,
+    subshells, `tail`, `/dev/null` or `||` idioms into execution.
+18. **Gate calibration** (standing since S120): all four gates every PR, effort scaled to the diff.
     `/code-review` **HIGH** for PRs 1, 2, 4; **MEDIUM** for 3, 5, 6. One `/simplify` pass per PR
     (per-task only on PR 2, the only PR writing real new logic). Run gates **inline**, per the
     S121 PR 3/PR 5 precedent.
