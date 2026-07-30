@@ -1,7 +1,18 @@
-# Sprint 121 — Dependency Backlog Cleanup — PR 5 HOTFIX IN FLIGHT (v11.35.1), THEN PR 6 CLOSES THE SPRINT
+# Sprint 121 — Dependency Backlog Cleanup — PRs 1–5 + HOTFIX SHIPPED; PR 6 (express) CLOSES THE SPRINT
 
-> **⚠️ HOTFIX v11.35.1 — PR 5 shipped a real production regression: the landing site stopped loading
-> its fonts.** Found by **cross-agent review (Codex) after the deploy**, not by any gate here.
+> **✅ HOTFIX v11.35.1 SHIPPED, DEPLOYED AND VERIFIED (2026-07-30).** [#177](https://github.com/ravichavali/karmyq/pull/177)
+> merged as **`e187c5d6`**; CI/CD Pipeline run **`30508938605`** reached **`Deploy to Demo` = success**,
+> all services healthy, no rollback. **Demo runs v11.35.1.**
+>
+> **Verified the way this bug demanded — cold cache, not a screenshot:** on karmyq.org
+> `document.fonts.check('600 48px Fraunces')` is **true**, and the headline measures **902px** with
+> Fraunces vs **1004px** with Georgia-only — a 102px delta proving the face genuinely renders rather
+> than falling back. Deployed CSS carries **exactly one** Google Fonts `@import`, at byte 65, ahead of
+> the first `@layer` (227) and first rule (243). karmyq.com also confirmed (Fraunces + Hanken Grotesk
+> load; button cursor `pointer`).
+>
+> **THE BUG, KEPT ON THE RECORD BECAUSE THE LESSON GENERALISES.** Found by **cross-agent review
+> (Codex) after the deploy**, not by any gate here.
 >
 > **Cause:** `apps/landing/src/app/globals.css` had `@import 'tailwindcss'` **above** the Google Fonts
 > `@import url(...)`. Tailwind v4 inlines the entire framework at its own `@import`, so the font
@@ -168,20 +179,20 @@
 ## Quick Start
 
 1. Read this handoff, top block first. The Plan of Record table below is authoritative.
-2. **PRs 1–5 are shipped and live.** Demo runs **v11.35.0** (`9bec4aef`). The whole original
-   18-PR triage is resolved except **#34 (express)**.
-3. **THE CURRENT WORK IS THE v11.35.1 HOTFIX**, branch **`fix/landing-font-import-v11.35.1`**
-   ([#177](https://github.com/ravichavali/karmyq/pull/177)) — **check it out, do not re-cut it.**
-   PR 5 shipped a landing site that declares `font-family: Fraunces` but never loads it. See the
-   top block for cause, proof it is a regression, and why every gate missed it. **If #177 has
-   already merged, skip to step 4.**
-4. **Then PR 6 — express 4 → 5, at `v11.36.0`, which closes the sprint.** Branch off **fresh
-   `origin/master`** after the hotfix lands (an earlier `deps/sprint-121-pr6-express` branch was
-   cut before the hotfix and carried only a handoff commit — that content is now in #177, so
-   **re-cut PR 6 from post-hotfix master and delete the stale branch**). See Critical Note 5:
-   it touches root, `packages/shared` (imported by all 10 services) and `geocoding-service`;
-   breaking areas are routing, error handling and the `req.query` getter. **#34 is already
-   `CONFLICTING` — rebuild from scratch off master, do not rebase it.** `/code-review` at **HIGH**.
+2. **PRs 1–5 and the v11.35.1 hotfix are all shipped, deployed and verified live.** Demo runs
+   **v11.35.1** (`e187c5d6`). The entire original 18-PR triage is resolved **except #34 (express)**.
+3. **THE CURRENT WORK IS PR 6 — express 4 → 5, at `v11.36.0`. It closes the sprint.**
+   Branch **`deps/sprint-121-pr6-express` already exists**, cut from post-hotfix `origin/master`
+   (`e187c5d6`) and carrying this handoff commit — **check it out, do not re-cut it.**
+   (An earlier branch of the same name was cut *before* the hotfix and has been deleted locally and
+   on origin; its only commit rode #177 to master, so nothing was lost.)
+   See Critical Note 5: it touches root, `packages/shared` (imported by all 10 services) and
+   `geocoding-service`; breaking areas are routing, error handling and the `req.query` getter.
+   **#34 is already `CONFLICTING` — rebuild from scratch off master, do not rebase it.**
+   `/code-review` runs at **HIGH**. The version is already decided, so do not leave it "TBD".
+4. **When PR 6 ships, Sprint 121 is DONE — archive it** with the completion statement
+   *"resolved the entire original 18-PR triage"* (via the `handoff` skill, to
+   `.claude/handoff/archive/`). Do not claim "open PRs at zero": 8 newer ones are queued for S122.
 5. **The 8 Dependabot PRs that arrived 2026-07-29 are OUT OF SCOPE for this sprint** — they go to
    Sprint 122 (see the roster table). Do not fold them into PR 6.
 6. Every merge needs **EXPLICIT admin authorization** (`gh pr merge --squash --admin`), every
@@ -198,8 +209,8 @@
 **The original 18 are down to 1 (#34). 8 fresh Dependabot PRs landed on 2026-07-29**, the
 mid-sprint-arrival case Critical Note 8 warns about — this time in bulk, and not benign.
 
-**DECIDED (maintainer, 2026-07-29): these 8 go to Sprint 122, NOT Sprint 121.** Sprint 121 ships the
-v11.35.1 hotfix and PR 6, then archives as *"resolved the entire original 18-PR triage."* The
+**DECIDED (maintainer, 2026-07-29): these 8 go to Sprint 122, NOT Sprint 121.** Sprint 121 shipped the
+v11.35.1 hotfix and now ships PR 6, then archives as *"resolved the entire original 18-PR triage."* The
 dispositions below are **triage input for Sprint 122, re-evaluated from post-Express master — not
 commitments to merge.** Holding or closing a PR is a valid outcome.
 
@@ -258,7 +269,7 @@ individually-scoped migrations.
 | **2** | consolidated safe deps | #157 (**minus mobile**), **#161**, #85, **#55**, #145, #144, #147, #118, #53 | v11.33.0 — **SHIPPED & DEPLOYED** (`d7ddd146`) |
 | **3** | lint toolchain majors → became an **ESLint 8 → 9 flat-config migration** | #40, #35, #36 (**all closed**) | **SHIPPED & DEPLOYED** (`e7bc6cc5`) — ⚠️ **no version bump; master still reads 11.33.0** |
 | **4** | mobile/Expo majors **+ Expo SDK 54 → 57 upgrade** | #37, #39 (**both closed**), **#157's 4 react-native bumps** (never re-raised — applied via the SDK) | **v11.34.0 — SHIPPED & DEPLOYED** (`cf27ab89`) |
-| **5** | tailwindcss 3 → 4 | #41 | **v11.35.0 — SHIPPED & DEPLOYED** (`9bec4aef`) + **hotfix v11.35.1** (landing font import) |
+| **5** | tailwindcss 3 → 4 | #41 | **v11.35.0 — SHIPPED & DEPLOYED** (`9bec4aef`) + **v11.35.1 hotfix SHIPPED & DEPLOYED** (`e187c5d6`, landing font import) |
 | **6** | express 4 → 5 | #34 | **v11.36.0 — DECIDED 2026-07-29** (set before implementation, per the PR 3 lesson) |
 | — | closed unmerged | #106 (stale docs) — **CLOSED 2026-07-24** | — |
 
