@@ -166,22 +166,19 @@ jobs:
       # v11.35.0 shipped a landing site that declared font-family: Fraunces but never loaded it:
       # `@import 'tailwindcss'` sat above the Google Fonts @import, so after Tailwind v4 inlined the
       # framework the font import was no longer first, became invalid, and the optimizer dropped it
-      # silently. The build succeeded and every test passed. This asserts on the DEPLOYED artifact,
-      # because a rendered-page check cannot see it — an unloaded font computes the same
-      # `font-family` string as a loaded one.
-      # The source-order counterpart lives in tests/regression/landing-production-css.test.ts;
-      # this step is what guards the built bundle, since that suite runs in a job without `out/`.
-      - name: Verify landing fonts are actually loaded (v11.35.0 regression)
-        run: |
-          css_dir=apps/landing/out/_next/static/css
-          test -d "$css_dir" || (echo "FAIL: $css_dir missing" && exit 1)
-          if ! grep -rql 'fonts\.googleapis\.com' "$css_dir"; then
-            echo "FAIL: no Google Fonts @import in the built CSS."
-            echo "  The stylesheet declares its font families but never loads them."
-            echo "  Fix: keep the @import url(fonts...) ABOVE @import 'tailwindcss' in globals.css."
-            exit 1
-          fi
-          echo "Landing fonts verified: Google Fonts @import present in the built CSS"
+      # silently. The build succeeded and every test passed. A rendered-page check cannot see this —
+      # an unloaded font computes the same `font-family` string as a loaded one — so the assertions
+      # are against the built bundle.
+      #
+      # This runs the real regression suite HERE rather than reimplementing its checks in bash: the
+      # build output only exists in this job, and a grep for the hostname would not enforce that the
+      # match is an actual @import, that there is exactly one, or that it precedes the first rule
+      # (an @import after the first rule is silently ignored by browsers — i.e. still broken).
+      # CI=true makes the suite fail rather than skip when build output is missing.
+      - name: Verify landing production CSS (v11.35.0 font regression)
+        env:
+          CI: 'true'
+        run: cd tests && npx jest regression/landing-production-css --verbose
 
   # Integration tests
   test-integration:

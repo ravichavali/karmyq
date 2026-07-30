@@ -128,7 +128,9 @@
 > design tokens convert from RGB triplets to real CSS colors ("Option A").** Full rationale and
 > the recon findings that shape the diff are in Critical Note 4.
 
-> **STATUS (2026-07-24, updated 2026-07-28):** **PR 3 ([#164](https://github.com/ravichavali/karmyq/pull/164))
+> **HISTORICAL STATUS (2026-07-24, last updated 2026-07-28) — superseded by the blocks above; kept
+> for the PR 3/PR 4 record. Do NOT take "current work" from here.**
+> **PR 3 ([#164](https://github.com/ravichavali/karmyq/pull/164))
 > merged as `e7bc6cc5` and deployed 2026-07-28** — master run `30383717067`, `Deploy to Demo` =
 > success, `🎉 Demo Deployment Successful` with service health verification, **no rollback**.
 > Superseded PRs **#40, #35 and #36 are closed** (#36 with a note that it landed at 10.0.0, not
@@ -165,19 +167,31 @@
 
 ## Quick Start
 
-1. Read this handoff. The triage table below is the plan of record.
-2. **PRs 1, 2 and 3 are shipped and live** (`ffe5f756` v11.32.1, `d7ddd146` v11.33.0,
-   `e7bc6cc5` — version bump missed, see the warning above).
-3. **PR 4 (mobile/Expo majors + the Expo SDK upgrade) is the current work.** Branch
-   **`deps/sprint-121-pr4-mobile-expo` already exists**, cut from fresh `origin/master`
-   (`e7bc6cc5`) — check it out, do not re-cut it. See Critical Note 7 for the full scope; it is
-   the largest PR of the sprint and **needs an SDK-target decision before code changes start**.
-4. PRs 5 and 6 each branch off **fresh `origin/master`** after the previous one merges.
-4. Every merge needs **EXPLICIT admin authorization** (`gh pr merge --squash --admin`), every
+1. Read this handoff, top block first. The Plan of Record table below is authoritative.
+2. **PRs 1–5 are shipped and live.** Demo runs **v11.35.0** (`9bec4aef`). The whole original
+   18-PR triage is resolved except **#34 (express)**.
+3. **THE CURRENT WORK IS THE v11.35.1 HOTFIX**, branch **`fix/landing-font-import-v11.35.1`**
+   ([#177](https://github.com/ravichavali/karmyq/pull/177)) — **check it out, do not re-cut it.**
+   PR 5 shipped a landing site that declares `font-family: Fraunces` but never loads it. See the
+   top block for cause, proof it is a regression, and why every gate missed it. **If #177 has
+   already merged, skip to step 4.**
+4. **Then PR 6 — express 4 → 5, at `v11.36.0`, which closes the sprint.** Branch off **fresh
+   `origin/master`** after the hotfix lands (an earlier `deps/sprint-121-pr6-express` branch was
+   cut before the hotfix and carried only a handoff commit — that content is now in #177, so
+   **re-cut PR 6 from post-hotfix master and delete the stale branch**). See Critical Note 5:
+   it touches root, `packages/shared` (imported by all 10 services) and `geocoding-service`;
+   breaking areas are routing, error handling and the `req.query` getter. **#34 is already
+   `CONFLICTING` — rebuild from scratch off master, do not rebase it.** `/code-review` at **HIGH**.
+5. **The 8 Dependabot PRs that arrived 2026-07-29 are OUT OF SCOPE for this sprint** — they go to
+   Sprint 122 (see the roster table). Do not fold them into PR 6.
+6. Every merge needs **EXPLICIT admin authorization** (`gh pr merge --squash --admin`), every
    time. Never self-merge.
-5. **Before pushing any multi-workspace bump, run the edge-vs-node lockfile check** (see the
+7. **Before pushing any multi-workspace bump, run the edge-vs-node lockfile check** (see the
    `apps/landing` note below). Local `npm audit` + `npm ci --dry-run` + full test/build runs all
    pass on a half-resolved tree; only `npm ci` in CI catches it.
+8. **A green pipeline is not the bar, and neither is a rendered page.** PR 5 passed 20/20 checks,
+   a successful deploy, a live smoke test and a computed-style A/B against production, and still
+   shipped a broken font. **Assert on built artifacts for anything to do with asset loading.**
 
 ## Open PR roster after PR 5 (9 open — 1 from the original triage, 8 NEW)
 
@@ -191,7 +205,7 @@ commitments to merge.** Holding or closing a PR is a valid outcome.
 
 | PR | Disposition |
 |---|---|
-| #34 | **PR 6 — express 4 → 5. CURRENT WORK — last of the original triage.** |
+| #34 | **PR 6 — express 4 → 5 at v11.36.0. NEXT, after the v11.35.1 hotfix lands — last of the original triage.** |
 | #176 | S122 — production-deps group, 10 updates. **Consolidate with #167** if resolution stays clean (PR 2's shape). |
 | #167 | S122 — dev-deps group, 3 updates. **Consolidate with #176** if resolution stays clean. |
 | #173 | S122 — jest + @types/jest. **Validate against the `ts-jest` 29.4.6 pin** (Critical Note 2) before taking. |

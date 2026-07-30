@@ -22,13 +22,47 @@ import path from 'path';
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 
+/**
+ * Built stylesheets for an app, from either the Next build dir or the static export.
+ * `out/` is the artifact actually deployed to the demo server, so it is checked too.
+ */
 function builtStylesheets(app: string): string[] {
-  const dir = path.join(REPO_ROOT, 'apps', app, '.next', 'static', 'css');
-  if (!fs.existsSync(dir)) return [];
-  return fs
-    .readdirSync(dir)
-    .filter((f) => f.endsWith('.css'))
-    .map((f) => path.join(dir, f));
+  const dirs = [
+    path.join(REPO_ROOT, 'apps', app, '.next', 'static', 'css'),
+    path.join(REPO_ROOT, 'apps', app, 'out', '_next', 'static', 'css'),
+  ];
+  return dirs
+    .filter((d) => fs.existsSync(d))
+    .flatMap((d) =>
+      fs
+        .readdirSync(d)
+        .filter((f) => f.endsWith('.css'))
+        .map((f) => path.join(d, f))
+    );
+}
+
+/**
+ * In CI the build output MUST be present, or these assertions would pass by vacuously skipping —
+ * the same silent-nothing failure mode this file exists to prevent. `ci.yml`'s `build-landing` job
+ * builds the app and then runs this suite. Locally, skipping is fine so the suite stays usable
+ * without forcing a build.
+ */
+const REQUIRE_BUILD = !!process.env.CI || !!process.env.REQUIRE_LANDING_BUILD;
+
+/** Returns sheets, asserting presence under CI. Empty array means "skip" locally. */
+function requireStylesheets(app: string): string[] {
+  const sheets = builtStylesheets(app);
+  if (REQUIRE_BUILD) {
+    // Fail loudly rather than skip: a missing build here means the guard is not actually running.
+    expect(sheets.length).toBeGreaterThan(0);
+  }
+  return sheets;
+}
+
+/** Every `@import` of the Google Fonts CSS API in a stylesheet, as match indices. */
+function fontImportIndices(css: string): number[] {
+  const re = /@import\s+(?:url\(\s*)?["']?https:\/\/fonts\.googleapis\.com/g;
+  return Array.from(css.matchAll(re), (m) => m.index as number);
 }
 
 /** Index of the first actual style rule / layer block, i.e. the point after which @import is invalid. */
@@ -57,39 +91,48 @@ function expectFontImportBeforeTailwind(file: string): void {
 }
 
 describe('landing production CSS (Tailwind v4)', () => {
-  const sheets = builtStylesheets('landing');
-
-  it('emits at least one stylesheet when the app has been built', () => {
-    if (!sheets.length) {
-      console.warn('apps/landing not built — skipping production-CSS assertions');
-      return;
-    }
-    expect(sheets.length).toBeGreaterThan(0);
+  it('has build output to assert against (fails in CI, skips locally)', () => {
+    const sheets = requireStylesheets('landing');
+    if (!sheets.length) console.warn('apps/landing not built — production-CSS assertions skipped');
   });
 
-  it('keeps the Google Fonts @import in the built CSS (v11.35.0 regression)', () => {
+  it('emits exactly one Google Fonts @import across the built CSS', () => {
+    const sheets = requireStylesheets('landing');
     if (!sheets.length) return;
-    const withFontImport = sheets.filter((f) =>
-      /@import\s+(url\()?["']?https:\/\/fonts\.googleapis\.com/.test(fs.readFileSync(f, 'utf8'))
-    );
-    expect(withFontImport.length).toBeGreaterThan(0);
+    // Count per physical stylesheet, then across the bundle. `.next` and `out` hold copies of the
+    // same sheet, so dedupe by basename before summing.
+    const byName = new Map<string, string>();
+    for (const f of sheets) byName.set(path.basename(f), fs.readFileSync(f, 'utf8'));
+    const total = Array.from(byName.values()).reduce((n, css) => n + fontImportIndices(css).length, 0);
+    // Exactly one: zero is the v11.35.0 regression; more than one means a duplicated import.
+    expect(total).toBe(1);
   });
 
   it('places the font @import before any rule, so browsers do not ignore it', () => {
+    const sheets = requireStylesheets('landing');
     if (!sheets.length) return;
+    let checked = 0;
     for (const file of sheets) {
       const css = fs.readFileSync(file, 'utf8');
-      const importIndex = css.search(/@import\s+(url\()?["']?https:\/\/fonts\.googleapis\.com/);
-      if (importIndex < 0) continue;
-      // An @import after the first rule is invalid CSS and silently dropped by the browser.
-      expect(importIndex).toBeLessThan(firstRuleIndex(css));
+      for (const idx of fontImportIndices(css)) {
+        // An @import after the first rule is invalid CSS and silently dropped by the browser.
+        expect(idx).toBeLessThan(firstRuleIndex(css));
+        checked++;
+      }
     }
+    // Guard the guard: if nothing was inspected the assertion above proved nothing.
+    expect(checked).toBeGreaterThan(0);
   });
 
-  it('declares the Fraunces family it imports (declaration and load stay in sync)', () => {
+  it('imports the families it declares — Fraunces and Inter', () => {
+    const sheets = requireStylesheets('landing');
     if (!sheets.length) return;
-    const all = sheets.map((f) => fs.readFileSync(f, 'utf8')).join('\n');
+    const all = Array.from(new Set(sheets.map((f) => fs.readFileSync(f, 'utf8')))).join('\n');
+    const importLine = all.slice(all.search(/@import[^;]*fonts\.googleapis[^;]*/));
     expect(all).toMatch(/Fraunces/);
+    // The declared family must actually appear in the import URL, not just in a font-family rule.
+    expect(importLine).toMatch(/family=Fraunces/);
+    expect(importLine).toMatch(/family=Inter/);
   });
 });
 
