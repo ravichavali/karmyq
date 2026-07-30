@@ -22,7 +22,8 @@ paste POSIX `for` loops, subshells, `tail`, `/dev/null` or `||` idioms.
 
 ## Scope of THIS plan file
 
-**Tasks 1–11 below are PR 1 (express 4 → 5, v11.36.0)** — the immediately executable work.
+**Tasks 0–12 below are PR 1 (express 4 → 5, v11.36.0)** — the immediately executable work. Task 0 is
+the shell-helper preamble; do not skip it, because every later verification depends on it.
 
 **PRs 2, 4, 5 and 6 are execution-ready** and get their own plan files at the start of their own
 chats, per CLAUDE.md's multi-PR sprint cadence. Their scope, version and gate level are fixed in the
@@ -38,22 +39,25 @@ outline below. Do not start it until those are decided and written into this fil
 ### New files to create
 | File | Responsibility |
 |------|---------------|
-| `tests/regression/sprint-122-express5-contract.test.ts` | The two things no existing test can see: that **Express itself** resolves `body-parser` 2.x, and that `req.query` is genuinely an accessor (not merely readable) |
+| `tests/tdd/sprint-122-express5-contract.test.ts` | **Starts in the TDD tier** (CLAUDE.md: new sprint tests begin in the changed workspace's `tests/tdd/`). The two things no existing test can see: that **Express itself** resolves `body-parser` 2.x, and that `req.query` is genuinely an accessor. Promoted to `tests/regression/` in Task 7. |
+| `services/geocoding-service/tests/tdd/sprint-122-express5-routes.test.js` | **TDD staging only.** The new geocoding cases are proven here first, then **folded into the existing regression suite and this file deleted** (Task 7) — so the blocking tier never carries a red test, and no second permanent route-test file is created. |
 
-**No new geocoding test file.** `services/geocoding-service/tests/regression/geocodingRoutes.test.js`
-already exists and already mounts the real `createApp` through supertest, asserting the ADR-074
-envelope and reading `req.query.q`. Per "update, don't create," **extend that file** — see Task 2.
+**No permanent new geocoding test file.**
+`services/geocoding-service/tests/regression/geocodingRoutes.test.js` already exists and already
+mounts the real `createApp` through supertest, asserting the ADR-074 envelope and reading
+`req.query.q`. Per "update, don't create," the new cases **land in that file at promotion time** —
+see Tasks 2 and 7.
 
 ### Existing files to modify
 | File | Change |
 |------|--------|
-| `package.json` (root) | `express` `^4.18.2` → `^5.2.1`; `overrides.body-parser` `"1.20.6"` → range-scoped selector or removed; `version` `11.35.1` → `11.36.0` |
+| `package.json` (root) | `express` `^4.18.2` → `^5.2.1`; `overrides.body-parser` `"1.20.6"` → range-scoped selector or removed; `version` `11.35.1` → `11.36.0`. **Root does NOT declare `@types/express` — do not add it.** |
 | `package-lock.json` | Surgical in-place resolution of the express subtree **and repair of the pre-existing `version` drift** (see Task 3) |
 | **`packages/shared/package.json`** | **`peerDependencies.express` `^4.18.0` → `^5.0.0`** (the contract this PR would otherwise invalidate) — and `@types/express` `^4.17.21` → `^5.0.6` |
 | `packages/shared/middleware/{auth,dbContext,rateLimit,tenant,validate}.ts` | `@types/express` 5 signature fallout, if any |
-| `services/*/package.json` | `@types/express` `^4.17.21` → `^5.0.6` where declared |
-| `services/geocoding-service/package.json` | `express` `^4.18.2` → `^5.2.1` (declares it directly) |
-| `services/geocoding-service/tests/regression/geocodingRoutes.test.js` | Extended with the express 5 body-parsing + route-matching cases |
+| **8 services' `package.json`** | `@types/express` `^4.17.21` → `^5.0.6`. The declarers are exactly: auth, cleanup, community, messaging, notification, reputation, request, social-graph. **`geocoding-service` is NOT among them** (it is plain JS) and **root is not either.** |
+| `services/geocoding-service/package.json` | `express` `^4.18.2` → `^5.2.1` (declares express directly; declares no `@types/express`) |
+| `services/geocoding-service/tests/regression/geocodingRoutes.test.js` | Receives the new express 5 cases **at promotion time** (Task 7), not before |
 | `services/*/src/**/*.ts` | Only where express 5 type/semantic fallout is real — expect few or none |
 | `CLAUDE.md` | Tech-stack drift: **"Next.js 14" → Next.js 15**; confirm the Express reference |
 | `docs/ARCHITECTURE.md` | Express 5 baseline |
@@ -157,6 +161,62 @@ envelope and reading `req.query.q`. Per "update, don't create," **extend that fi
 
 ---
 
+## Task 0: Paste the shell helpers (once per session)
+
+Every verification block below uses these. **They exist because a PowerShell pipeline "succeeds"
+even when the native command inside it exited nonzero** — `npx jest 2>&1 | Select-Object -Last 4`
+prints a failure and then carries on, which would let `/execute-plan` walk past a red suite. Capture
+`$LASTEXITCODE` immediately after the native command, restore the location, then decide.
+
+```powershell
+# Runs a native command in a directory, shows its tail, and RETURNS its exit code.
+function Invoke-InDir {
+  param([string]$Dir, [scriptblock]$Cmd, [int]$Tail = 6)
+  Push-Location $Dir
+  try {
+    $out  = & $Cmd 2>&1
+    $code = $LASTEXITCODE          # captured immediately; later cmdlets can clobber it
+    $out | Select-Object -Last $Tail | Out-Host
+    $code                          # sole pipeline output
+  } finally { Pop-Location }       # runs even on throw
+}
+
+# BASELINE mode — records the code, never throws. Several tiers are red on master by design.
+function Measure-Baseline {
+  param([string]$Label, [string]$Dir, [scriptblock]$Cmd)
+  $code = Invoke-InDir -Dir $Dir -Cmd $Cmd
+  Write-Host "BASELINE $Label -> exit $code" -ForegroundColor Cyan
+}
+
+# VERIFY mode — throws, so execution stops instead of moving on to the next task.
+function Assert-Green {
+  param([string]$Label, [string]$Dir, [scriptblock]$Cmd)
+  $code = Invoke-InDir -Dir $Dir -Cmd $Cmd
+  if ($code -ne 0) { throw "$Label FAILED (exit $code)" }
+  Write-Host "OK $Label" -ForegroundColor Green
+}
+```
+
+- [ ] **Verification — all five behaviours were confirmed on this box during planning; confirm at
+      least the first two before proceeding.** If the failure case does not throw, stop: every later
+      verification in this plan is meaningless.
+
+```powershell
+Assert-Green 'helpers wired'        '.' { node -e "process.exit(0)" }   # prints OK
+Assert-Green 'helpers catch failure' '.' { node -e "process.exit(1)" }  # MUST throw
+```
+
+  Confirmed behaviours: success prints `OK` and restores the location · failure **throws** with the
+  exit code **and still restores the location** (the `finally`) · `Measure-Baseline` records a nonzero
+  code without throwing · `Invoke-InDir` returns a clean `Int32`, not the command's output.
+
+> **Cosmetic, not a failure:** jest and tsc write their reports to **stderr**, so `2>&1` inside the
+> helper surfaces them as PowerShell `NativeCommandError`-decorated lines ("`node : boom`" + a
+> `CategoryInfo` block). The text is all still there and **the exit code is authoritative** — do not
+> read that decoration as an additional error.
+
+---
+
 ## Task 1: Confirm the branch and capture baselines
 
 **Files:**
@@ -180,26 +240,23 @@ git diff --stat origin/master -- ':!*.md' ':!.claude'   # must print nothing
       green — several tiers are red on master by design.
 
 ```powershell
-npm audit --audit-level=moderate 2>&1 | Select-Object -Last 3   # expect: found 0 vulnerabilities
-node -p "require('./node_modules/express/package.json').version"   # 4.22.2
-node -p "const l=require('./package-lock.json'); l.version + ' / ' + l.packages[''].version"   # 11.34.0 / 11.34.0 (drifted)
-npx tsc --noEmit -p packages/shared 2>&1 | Select-Object -Last 3
-Push-Location tests; npx jest unit regression 2>&1 | Select-Object -Last 8; Pop-Location   # expect 278/278
+Assert-Green    'audit baseline' '.' { npm audit --audit-level=moderate }   # expect 0 vulnerabilities
+node -p "require('./node_modules/express/package.json').version"                              # 4.22.2
+node -p "const l=require('./package-lock.json'); l.version + ' / ' + l.packages[''].version"  # 11.34.0 / 11.34.0 (drifted)
+Measure-Baseline 'shared tsc'   '.'     { npx tsc --noEmit -p packages/shared }
+Measure-Baseline 'root tests'   'tests' { npx jest unit regression }         # expect 278/278
 ```
 
 - [ ] **Baseline each of the 9 Express service suites DIRECTLY, not through Turbo.** Turbo's
       cross-workspace cache is untrustworthy until PR 2 lands; a cached pass here would poison the
-      comparison.
+      comparison. Baseline mode, because the bar is *no regression* — record each exit code.
 
 ```powershell
 $services = @('auth-service','community-service','request-service','reputation-service',
               'notification-service','messaging-service','social-graph-service',
               'cleanup-service','geocoding-service')
 foreach ($s in $services) {
-  Write-Host "=== $s ==="
-  Push-Location "services/$s"
-  npx jest 2>&1 | Select-Object -Last 4
-  Pop-Location
+  Measure-Baseline $s "services/$s" { npx jest }
 }
 ```
 
@@ -208,28 +265,48 @@ foreach ($s in $services) {
 
 ---
 
-## Task 2: Write the express 5 regression tests FIRST (TDD)
+## Task 2: Write the express 5 tests FIRST, in the TDD tier
 
 **Files:**
-- Create: `tests/regression/sprint-122-express5-contract.test.ts`
-- Modify: `services/geocoding-service/tests/regression/geocodingRoutes.test.js`
+- Create: `tests/tdd/sprint-122-express5-contract.test.ts`
+- Create: `services/geocoding-service/tests/tdd/sprint-122-express5-routes.test.js`
 
-These cover exactly what nothing else can see. They go straight into `regression/` because they
-guard a known upgrade regression, which is this repo's definition of a regression test.
+**Both start in `tests/tdd/`, per CLAUDE.md** — new sprint tests begin in the changed workspace's TDD
+tier and are promoted only once green. That is not a formality here: these tests are *designed* to be
+red on Express 4, so putting them in `regression/` now would block every push until Task 4 lands.
+Promotion happens in Task 7.
 
-- [ ] **Cross-workspace contract test — two assertions, both precise.** Assert on real behaviour, no
-      stubs for the thing under test.
+- [ ] **Cross-workspace contract test.** Assert on real behaviour, no stubs for the thing under test.
 
 ```ts
-// tests/regression/sprint-122-express5-contract.test.ts
+// tests/tdd/sprint-122-express5-contract.test.ts
 import { createRequire } from 'module';
 import express from 'express';
 import request from 'supertest';
 
+/**
+ * Walk the prototype chain and return the object that OWNS `prop`, plus its descriptor.
+ * Needed because Express's request chain is 3 deep: the incoming req -> `app.request`
+ * (Object.create'd per app) -> `express.request` (the shared prototype where the getter
+ * is defined). Asserting on `Object.getPrototypeOf(req)` inspects `app.request`, which
+ * owns nothing — it returns undefined even on a CORRECT Express 5 install.
+ */
+function findOwner(obj: object, prop: string) {
+  let cursor: object | null = obj;
+  let depth = 0;
+  while (cursor) {
+    const descriptor = Object.getOwnPropertyDescriptor(cursor, prop);
+    if (descriptor) return { depth, descriptor, owner: cursor };
+    cursor = Object.getPrototypeOf(cursor);
+    depth++;
+  }
+  return null;
+}
+
 describe('Sprint 122 — express 5 runtime contract', () => {
   it('EXPRESS resolves body-parser 2.x (not the override-pinned 1.20.6)', () => {
-    // Resolve from Express's own location. A bare require() here would report whichever
-    // copy THIS file resolves, which can differ from the one Express actually loads.
+    // Resolve from Express's own location. A bare require() here reports whichever copy
+    // THIS file resolves, which can differ from the one Express actually loads.
     const requireFromExpress = createRequire(require.resolve('express'));
     const bodyParser = requireFromExpress('body-parser/package.json') as { version: string };
     expect(bodyParser.version).toMatch(/^2\./);
@@ -244,15 +321,19 @@ describe('Sprint 122 — express 5 runtime contract', () => {
     expect(res.body).toEqual({ got: { a: 1 } });
   });
 
-  it('req.query is an ACCESSOR on the request prototype, not a writable own property', async () => {
-    // Express 4 assigns req.query as a plain writable own property in the query middleware.
-    // Express 5 defines a getter on the request prototype with no setter. Merely READING
-    // req.query passes under both, so the descriptor is what actually distinguishes them.
-    let descriptor: PropertyDescriptor | undefined;
+  it('query lives on express.request as a setter-less getter (express 5), not as an own property (express 4)', async () => {
+    // Measured on the installed Express 4.22.2: `query` is an OWN, writable property of the
+    // incoming request (depth 0, writable: true), and `express.request` owns no `query`
+    // descriptor at all. Express 5 inverts both halves. Assert both, so the test cannot pass
+    // for the wrong reason.
+    let ownedByRequestItself: boolean | undefined;
+    let found: ReturnType<typeof findOwner> = null;
     let assignmentError: unknown = null;
+
     const app = express();
     app.get('/q', (req, res) => {
-      descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(req), 'query');
+      ownedByRequestItself = Object.prototype.hasOwnProperty.call(req, 'query');
+      found = findOwner(req, 'query');
       try { (req as unknown as { query: unknown }).query = { hacked: true }; }
       catch (e) { assignmentError = e; }
       res.json({ q: req.query });
@@ -260,36 +341,87 @@ describe('Sprint 122 — express 5 runtime contract', () => {
 
     const res = await request(app).get('/q?x=1&y=2');
 
-    expect(descriptor).toBeDefined();
-    expect(typeof descriptor!.get).toBe('function');
-    expect(descriptor!.set).toBeUndefined();
-    expect(descriptor!.writable).toBeUndefined();
-    expect(assignmentError).toBeInstanceOf(TypeError);   // setter-less accessor, strict mode
-    expect(res.body.q).toEqual({ x: '1', y: '2' });      // and reading still works
+    // 1. the shared prototype Express exports owns an accessor
+    const shared = Object.getOwnPropertyDescriptor(express.request, 'query');
+    expect(shared).toBeDefined();
+    expect(typeof shared!.get).toBe('function');
+    expect(shared!.set).toBeUndefined();
+
+    // 2. and the incoming request inherits it rather than owning a writable copy
+    expect(ownedByRequestItself).toBe(false);
+    expect(found).not.toBeNull();
+    expect(found!.owner).toBe(express.request);
+    expect(typeof found!.descriptor.get).toBe('function');
+    expect(found!.descriptor.writable).toBeUndefined();
+
+    // 3. a setter-less inherited accessor rejects assignment under strict mode
+    expect(assignmentError).toBeInstanceOf(TypeError);
+
+    // 4. and reading still works
+    expect(res.body.q).toEqual({ x: '1', y: '2' });
   });
 });
 ```
 
-- [ ] **Extend the EXISTING geocoding regression suite** — do not create a second file. It already
-      mounts `createApp` through supertest and asserts the ADR-074 envelope on the `INVALID_QUERY`
-      path, which means it already exercises `req.query.q` and `path-to-regexp` route matching under
-      whatever Express is installed. Add the two cases it lacks:
-      - **`POST /cache` with a real JSON body**, proving `express.json()` populated `req.body` (the
-        route reads `req.body.query` / `req.body.results`). This is the geocoding-side body-parser
-        proof, and it is the only one that runs against the real app.
-      - **`GET /health` returns 200** with `status: 'healthy'` — the cheapest possible route-table
-        smoke for path-to-regexp 8.
-      **Do NOT write a test claiming an async rejection reaches an express error handler here:**
-      `geocodingApp.js` has no error middleware (Critical Note 5). Its 500s come from each route's own
-      `catch` calling `sendError`, and the existing suite's envelope assertions already cover that
-      shape.
+- [ ] **Geocoding TDD staging test — exact code, mocks matched to the real implementation.**
+      `service.cache(query, results)` validates the query, requires `Array.isArray(results)`, then
+      issues **one** `pool.query(sql, [normalizedQuery, JSON.stringify(results)])` and returns
+      `{ ok:true, data:{ query } }`; the route answers via `sendSuccess`. So asserting the **arguments
+      `pool.query` received** is what proves the JSON body reached the handler — if `express.json()`
+      were broken, `req.body` would be undefined, `req.body.query` would throw, and the route's own
+      `catch` would return a 500 `GEOCODING_CACHE_FAILED` instead.
 
-- [ ] **Verification — confirm the tests are wired to something real before the bump.** On express 4
-      the body-parser assertion and the descriptor assertions **must FAIL**; that failure is the proof.
+```js
+// services/geocoding-service/tests/tdd/sprint-122-express5-routes.test.js
+const request = require('supertest')
+const { createApp } = require('../../src/geocodingApp')
+
+describe('Sprint 122 — geocoding routes under express 5', () => {
+  test('POST /cache: express.json() delivers the body all the way to pool.query', async () => {
+    const pool = { query: jest.fn().mockResolvedValue({ rows: [], rowCount: 1 }) }
+    const app = createApp({ pool, fetchImpl: jest.fn(), logger: { error: jest.fn(), log: jest.fn() } })
+    const results = [{ display_name: 'Oakland', lat: 37.8, lng: -122.2, type: 'city' }]
+
+    const res = await request(app).post('/cache').send({ query: 'Oakland', results }).expect(200)
+
+    expect(res.body).toEqual({
+      success: true,
+      data: { query: 'oakland' },
+      message: 'Cached results for: oakland',
+    })
+    // The body-parser proof: the parsed values, not defaults, reached the service layer.
+    expect(pool.query).toHaveBeenCalledTimes(1)
+    expect(pool.query.mock.calls[0][1]).toEqual(['oakland', JSON.stringify(results)])
+  })
+
+  test('GET /health returns 200 (route table built by path-to-regexp 8)', async () => {
+    const app = createApp({ pool: {}, fetchImpl: jest.fn() })
+    const res = await request(app).get('/health').expect(200)
+    expect(res.body.status).toBe('healthy')
+    expect(res.body.service).toBe('geocoding-cache')
+  })
+})
+```
+
+- [ ] **Do NOT write a test claiming an async rejection reaches an express error handler here:**
+      `geocodingApp.js` has **no error middleware** (Critical Note 5). Its 500s come from each route's
+      own `catch` calling `sendError`, and the existing regression suite's envelope assertions already
+      cover that shape.
+
+- [ ] **Verification — confirm the tests are wired to something real BEFORE the bump.** On Express 4
+      the body-parser assertion and the `query`-descriptor assertions **must FAIL**; that failure is
+      the proof they measure something. The geocoding staging test should already **pass** on Express 4
+      (it asserts behaviour that must *survive* the upgrade, not change) — if it fails now, the mock is
+      wrong, not Express.
 
 ```powershell
-Push-Location tests; npx jest regression/sprint-122-express5-contract --no-coverage; Pop-Location
-Push-Location services/geocoding-service; npx jest tests/regression/geocodingRoutes; Pop-Location
+# Expected RED on express 4 — this is the TDD tier, which never blocks a push.
+Measure-Baseline 'contract test (expect RED on express 4)' 'tests' `
+  { npx jest tdd/sprint-122-express5-contract --no-coverage }
+
+# Expected GREEN on express 4 — it pins behaviour that must not change.
+Assert-Green 'geocoding staging test' 'services/geocoding-service' `
+  { npx jest tests/tdd/sprint-122-express5-routes }
 ```
 
 ---
@@ -346,11 +478,24 @@ git log -S'"body-parser"' --oneline -- package.json
 "peerDependencies": { "express": "^5.0.0" }   // was "^4.18.0"
 ```
 
-- [ ] **Bump express and `@types/express`**: root `express` → `^5.2.1`;
-      `services/geocoding-service` `express` → `^5.2.1`; `@types/express` → `^5.0.6` in root,
-      `packages/shared`, and every service that declares it.
+- [ ] **Bump express**: root `express` → `^5.2.1`; `services/geocoding-service` `express` → `^5.2.1`.
 
-- [ ] **Resolve the lockfile surgically** and prove stability.
+- [ ] **Bump `@types/express` → `^5.0.6` in exactly 9 manifests**: `packages/shared` plus the **8**
+      services that declare it (auth, cleanup, community, messaging, notification, reputation, request,
+      social-graph). **Root does NOT declare `@types/express` — do not add a declaration to it**, and
+      `geocoding-service` does not declare it either (plain JS). Verify the declarer list rather than
+      trusting this one:
+
+```powershell
+Get-ChildItem -Recurse -Filter package.json -Path services,packages,apps,tests |
+  Where-Object { $_.FullName -notmatch 'node_modules' } |
+  Where-Object { (Get-Content $_.FullName -Raw) -match '"@types/express"' } |
+  ForEach-Object { $_.FullName }
+```
+
+- [ ] **Resolve the lockfile surgically** and prove stability. `--package-lock-only` is the *only* way
+      to write the lock (Note 9 bans `npm dedupe` and scratch regens) — but it does **not** touch
+      `node_modules`.
 
 ```powershell
 npm install --package-lock-only
@@ -359,25 +504,37 @@ npm install --package-lock-only     # second run must produce no further change
 git diff --stat package-lock.json
 ```
 
-- [ ] **Verification — the three proofs this task exists for.**
+- [ ] **⚠️ NOW MATERIALIZE THE TREE. `--package-lock-only` left `node_modules` on Express 4.** Without
+      this step `npm ls express` reports a manifest/tree mismatch and the Task 2 contract test cannot
+      go green — it would still be loading Express 4. `npm ci` installs strictly from the stabilized
+      lockfile (it does **not** regenerate it, so Note 9 still holds) and will itself fail loudly if
+      the manifest and lock disagree, which makes it a lockfile check as well as an install.
+      `.npmrc`'s `ignore-scripts=true` (ADR-061) stays in force.
+
+```powershell
+Assert-Green 'npm ci (materialize express 5)' '.' { npm ci }
+node -p "require('./node_modules/express/package.json').version"   # must read 5.2.x, NOT 4.22.2
+```
+
+- [ ] **Verification — the four proofs this task exists for.**
 
 ```powershell
 # 1. Note 1: Express's own tree must carry body-parser 2.x
-npm ls body-parser
+Assert-Green 'npm ls body-parser' '.' { npm ls body-parser }
 node -p "const {createRequire}=require('module'); createRequire(require.resolve('express'))('body-parser/package.json').version"
 
-# 2. Note 6: version now consistent in all THREE places
+# 2. Note 6: version consistent in all THREE places
 node -p "const l=require('./package-lock.json'); JSON.stringify({manifest:require('./package.json').version, lock:l.version, lockRoot:l.packages[''].version})"
 
-# 3. express 5 installed, peer satisfied, audit clean
-npm ls express
-node -p "require('./packages/shared/package.json').peerDependencies.express"
-npm audit --audit-level=moderate 2>&1 | Select-Object -Last 3
-```
+# 3. express 5 declared, installed and peer-consistent; audit still clean
+Assert-Green 'npm ls express' '.' { npm ls express }
+node -p "require('./packages/shared/package.json').peerDependencies.express"   # ^5.0.0
+Assert-Green 'audit' '.' { npm audit --audit-level=moderate }
 
-```powershell
-# and the Task 2 assertions that were RED on express 4 must now be GREEN
-Push-Location tests; npx jest regression/sprint-122-express5-contract; Pop-Location
+# 4. the Task 2 assertions that were RED on express 4 must now be GREEN (still the tdd tier)
+Assert-Green 'contract test now green' 'tests' { npx jest tdd/sprint-122-express5-contract }
+Assert-Green 'geocoding staging still green' 'services/geocoding-service' `
+  { npx jest tests/tdd/sprint-122-express5-routes }
 ```
 
 ---
@@ -392,23 +549,25 @@ Push-Location tests; npx jest regression/sprint-122-express5-contract; Pop-Locat
       looser v4 types are where errors land.
 
 ```powershell
-npx tsc --noEmit -p packages/shared
+# Baseline mode first, so the FULL error list is visible rather than stopping at the first workspace.
+Measure-Baseline 'shared tsc' '.' { npx tsc --noEmit -p packages/shared }
 $tsServices = @('auth-service','community-service','request-service','reputation-service',
                 'notification-service','messaging-service','social-graph-service','cleanup-service')
-foreach ($s in $tsServices) {
-  Write-Host "=== $s ==="
-  Push-Location "services/$s"
-  npx tsc --noEmit 2>&1 | Select-Object -Last 5
-  Pop-Location
-}
+foreach ($s in $tsServices) { Measure-Baseline "$s tsc" "services/$s" { npx tsc --noEmit } }
 ```
 
 - [ ] **Do not widen types to silence errors.** If a handler's request shape was wrong, fix the
       shape. `as any` in a middleware signature is a finding, not a fix.
 
-- [ ] **Verification:** every TS workspace type-checks with **0 new errors** versus Task 1's
-      baseline. `geocoding-service` is JS and reports nothing — expected, which is why Task 2 extends
-      its runtime suite instead.
+- [ ] **Verification:** every TS workspace type-checks with **0 new errors** versus Task 1's baseline.
+      Once the fallout is fixed, re-run the same set in **verify** mode so a residual error cannot be
+      walked past. `geocoding-service` is JS and reports nothing — expected, which is why Task 2
+      stages a runtime test for it instead.
+
+```powershell
+Assert-Green 'shared tsc' '.' { npx tsc --noEmit -p packages/shared }
+foreach ($s in $tsServices) { Assert-Green "$s tsc" "services/$s" { npx tsc --noEmit } }
+```
 
 ---
 
@@ -421,17 +580,14 @@ foreach ($s in $tsServices) {
       Turbo — Note 9) and diff against Task 1's baselines.
 
 ```powershell
-Push-Location packages/shared; npx jest 2>&1 | Select-Object -Last 5; Pop-Location
+# First pass in baseline mode to see the whole picture, then compare each exit code and
+# suite count against Task 1. Anything that regressed gets fixed before the verify pass.
+Measure-Baseline 'shared'     'packages/shared' { npx jest }
 $services = @('auth-service','community-service','request-service','reputation-service',
               'notification-service','messaging-service','social-graph-service',
               'cleanup-service','geocoding-service')
-foreach ($s in $services) {
-  Write-Host "=== $s ==="
-  Push-Location "services/$s"
-  npx jest 2>&1 | Select-Object -Last 5
-  Pop-Location
-}
-Push-Location tests; npx jest unit regression 2>&1 | Select-Object -Last 8; Pop-Location
+foreach ($s in $services) { Measure-Baseline $s "services/$s" { npx jest } }
+Measure-Baseline 'root tests' 'tests' { npx jest unit regression }
 ```
 
 - [ ] **Treat these two failure shapes as noise, not as your diff** (both documented): the Windows
@@ -439,11 +595,59 @@ Push-Location tests; npx jest unit regression 2>&1 | Select-Object -Last 8; Pop-
       timestamp flake, whose digit regex false-fires on millisecond timestamps ~2/1000 runs. A lone
       CI red on that test means rerun, not debug.
 
-- [ ] **Verification:** every suite matches or beats its baseline, and both Task 2 additions pass.
+- [ ] **Verification:** every suite matches or beats its baseline. Then re-run the ones that were
+      **green at baseline** in verify mode, so a regression throws instead of scrolling past. Suites
+      that were already red on master stay in baseline mode and are compared by count.
+
+```powershell
+Assert-Green 'shared'     'packages/shared' { npx jest }
+Assert-Green 'root tests' 'tests'           { npx jest unit regression }   # was 278/278
+foreach ($s in $services) { Assert-Green $s "services/$s" { npx jest } }   # drop any that were red at baseline
+```
 
 ---
 
-## Task 7: Docs — drift repairs and the feedback loop
+## Task 7: Promote the TDD tests into the blocking tier
+
+**Files:**
+- Move: `tests/tdd/sprint-122-express5-contract.test.ts` → `tests/regression/`
+- Modify: `services/geocoding-service/tests/regression/geocodingRoutes.test.js`
+- Delete: `services/geocoding-service/tests/tdd/sprint-122-express5-routes.test.js`
+
+Both tests are green on Express 5 now, so they graduate. They belong in `regression/` rather than
+`unit/` because they guard against a known upgrade regression — the repo's definition of the tier.
+
+- [ ] **Promote the cross-workspace contract test by hand.** `scripts/promote-tdd-tests.js` only walks
+      `services/`, so it will never see a `tests/` workspace file (that script bug is PR 2's work).
+
+```powershell
+git mv tests/tdd/sprint-122-express5-contract.test.ts tests/regression/
+```
+
+- [ ] **Fold the geocoding cases into the EXISTING regression suite, then delete the staging file.**
+      Copy the two `test(...)` blocks from the TDD file into
+      `services/geocoding-service/tests/regression/geocodingRoutes.test.js` (they use the same
+      `createApp` + supertest idiom the file already establishes), then remove the staging file. Doing
+      it in this order matters: `promote-tdd-tests.js` **does** walk `services/`, so leaving the file
+      in place would let the script promote it as a *second* permanent route-test file, which is
+      exactly the duplicate "update, don't create" forbids.
+
+```powershell
+git rm services/geocoding-service/tests/tdd/sprint-122-express5-routes.test.js
+```
+
+- [ ] **Verification:** both tests now run in the blocking tier, the TDD tier is empty of this
+      sprint's files, and no duplicate geocoding route-test file exists.
+
+```powershell
+Assert-Green 'promoted contract test' 'tests' { npx jest regression/sprint-122-express5-contract }
+Assert-Green 'geocoding regression'   'services/geocoding-service' { npx jest tests/regression }
+Get-ChildItem -Recurse -Filter 'sprint-122-express5*' | ForEach-Object { $_.FullName }  # expect exactly ONE file
+```
+
+---
+
+## Task 8: Docs — drift repairs and the feedback loop
 
 **Files:**
 - Modify: `CLAUDE.md`, `docs/ARCHITECTURE.md`, `apps/landing/src/data/docs/architecture.json`,
@@ -457,7 +661,7 @@ Push-Location tests; npx jest unit regression 2>&1 | Select-Object -Last 8; Pop-
       artifact and force-add it (`apps/landing/src/data/docs/` is gitignored but tracked).
 
 ```powershell
-npm run generate:docs
+Assert-Green 'generate:docs' '.' { npm run generate:docs }
 git add -f apps/landing/src/data/docs/architecture.json
 git checkout -- apps/landing/src/data/docs/build.json   # pure timestamp/HEAD-sha churn
 git diff --stat apps/landing/src/data/docs/nav.json     # grep-verify nav.json did not revert
@@ -472,20 +676,21 @@ git diff --stat apps/landing/src/data/docs/nav.json     # grep-verify nav.json d
       dependency lists, then regenerate the graph.
 
 ```powershell
-npm run analyze:services
-npm run feedback:check
+Assert-Green 'analyze:services' '.' { npm run analyze:services }
+Measure-Baseline 'feedback:check' '.' { npm run feedback:check }   # advisory by design; read the list
 ```
 
 - [ ] **Verification:** `feedback:check` lists no outstanding CONTEXT/registry to-dos for this diff,
-      and the doc-context drift gate passes when run directly.
+      and the doc-context drift gate passes when run directly (Turbo would cache a stale pass — this
+      test reads files across the whole repo).
 
 ```powershell
-Push-Location tests; npx jest regression/doc-context-drift-gate.test.ts; Pop-Location
+Assert-Green 'doc-context drift gate' 'tests' { npx jest regression/doc-context-drift-gate.test.ts }
 ```
 
 ---
 
-## Task 8: SDLC quality gates — all four, calibrated to HIGH
+## Task 9: SDLC quality gates — all four, calibrated to HIGH
 
 **Files:**
 - Modify: whatever the findings demand
@@ -515,7 +720,7 @@ Run the gates **inline** (the S121 PR 3/PR 5 precedent), not via sub-agents.
 
 ---
 
-## Task 9: Pre-push verification
+## Task 10: Pre-push verification
 
 **Files:**
 - Modify: none
@@ -523,17 +728,20 @@ Run the gates **inline** (the S121 PR 3/PR 5 precedent), not via sub-agents.
 - [ ] **Run the blocking suites and the advisory checks.**
 
 ```powershell
-npm test                     # unit + regression, blocks push
-npm run feedback:check       # advisory to-do list for the diff
-npm run analyze:services     # dependencies changed, so this is required
+Assert-Green 'npm test'         '.' { npm test }                     # unit + regression, blocks push
+Measure-Baseline 'feedback:check' '.' { npm run feedback:check }     # advisory to-do list for the diff
+Assert-Green 'analyze:services' '.' { npm run analyze:services }     # deps changed, so this is required
 ```
+
+> **Note on `npm test`:** it runs through Turbo, whose `test` inputs are still broken until PR 2, so a
+> green here is necessary but **not sufficient** — Task 6's direct runs are the real evidence.
 
 - [ ] **Run the lockfile integrity checks that CI is otherwise the only place to catch.** Only
       `npm ci` in CI catches half-resolution; do the local equivalents first.
 
 ```powershell
-npm ci --dry-run
-npm ls express body-parser @types/express
+Assert-Green 'npm ci --dry-run' '.' { npm ci --dry-run }
+Assert-Green 'ls express tree'  '.' { npm ls express body-parser @types/express }
 # edge-vs-node: every declared range must be satisfied by the node it resolves to.
 # Diff against origin/master so master's ~26 deliberate `overrides` mismatches don't hide a real finding.
 ```
@@ -550,7 +758,7 @@ npm ls express body-parser @types/express
 
 ---
 
-## Task 10: Merge
+## Task 11: Merge
 
 **Files:**
 - Modify: none
@@ -569,7 +777,7 @@ gh pr merge <N> --squash --admin   # ONLY after explicit authorization, each tim
 
 ---
 
-## Task 11: Deploy and verify live
+## Task 12: Deploy and verify live
 
 **Files:**
 - Modify: `.claude/handoff/CURRENT_HANDOFF.md`
@@ -580,14 +788,28 @@ Use the **`/deploy`** skill.
       `CI/CD Pipeline` has a `Deploy to Demo` job.** Confirm it reached `Deploy to Demo` = success
       with **no rollback**.
 
-- [ ] **Live smoke test — a green pipeline is not the bar.** Express 5 changes request parsing, so
-      exercise real request/response paths, not just health checks: log in on `karmyq.com`
-      (`maria.reyes@…` / `password123`), load `/dashboard`, confirm a **POST** round-trips (the
-      body-parser proof, live), and confirm an error response still carries the ADR-074 envelope.
-      Then check the **9** deployed backends' `/health` endpoints — the non-null `health_check`
-      entries in `services/registry.json`; `simulation-service` has none and is not deployed
-      (Note 10). Note `curl -o /dev/null -w "%{http_code}"` returns `000` from this Windows host (a
-      schannel TLS quirk, not an outage) — read the response body instead.
+- [ ] **Live smoke test — a green pipeline is not the bar.** Express 5 changes request parsing, so the
+      test must be a **POST with a JSON body**, not a health check. Use **`POST /api/auth/login`**: it
+      is the safest available POST (it creates no domain data — no request, message, community or
+      karma record — and is idempotent from the caller's side), and it is the *ideal* body-parser probe
+      because the credentials only arrive via the parsed JSON body. If body parsing were broken, login
+      fails outright; a 200 with a token is proof the whole chain works.
+
+      1. **Happy path (proves body parsing):** POST `{"email":"maria.reyes@…","password":"password123"}`
+         → **200** with `{ success: true, data: { token, user } }`. A 400/401 here means the body never
+         arrived — that is the body-parser regression, not bad credentials.
+      2. **Error path (proves the ADR-074 envelope survived express 5's error handling):** POST the same
+         endpoint with a deliberately wrong password → non-2xx with
+         `{ success: false, message: <human>, error: <CODE> }`, and **no stack trace or internal
+         detail in `message`**.
+      3. **Query-string path (proves `req.query`'s getter under real traffic):** load `/dashboard` in
+         the browser as that user and confirm the feed renders — its requests carry query parameters.
+      4. **Health:** check the **9** deployed backends' `/health` endpoints — the non-null
+         `health_check` entries in `services/registry.json`. `simulation-service` has none and is not
+         deployed (Note 10).
+
+      Note `curl -o /dev/null -w "%{http_code}"` returns `000` from this Windows host (a schannel TLS
+      quirk, not an outage) — read the response body instead.
 
 - [ ] **Update the handoff:** PR 1 shipped, demo at v11.36.0, deploy run ID, smoke-test evidence, and
       **PR 2 as the next work**.

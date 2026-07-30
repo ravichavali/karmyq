@@ -327,7 +327,35 @@ roster notes in Sprint 121's handoff — where they do, **this document is corre
     with `"health_check": null` and no Express usage, so it is outside every express-migration and
     health-verification criterion.
 
-19. **Gate calibration** (standing since S120): all four gates run every PR; effort scales with the
+19. **⚠️ `npm install --package-lock-only` does NOT install anything.** It is the only sanctioned way
+    to *write* the lockfile (Note 15 bans `npm dedupe` and scratch regens), but it leaves
+    `node_modules` untouched. Every dependency PR this sprint must **materialize the tree afterwards
+    with `npm ci`** — which installs strictly from the stabilized lock, does not regenerate it, and
+    fails loudly if manifest and lock disagree. Skipping it means `npm ls` reports a mismatch and any
+    test asserting the new major still loads the old one.
+
+20. **⚠️ Express's request prototype chain is 3 deep — assert on `express.request`, not
+    `Object.getPrototypeOf(req)`.** Measured on the installed Express 4.22.2: the incoming request's
+    immediate prototype is `app.request` (created per-app via `Object.create`), whose prototype is the
+    shared `express.request` object where the `query` accessor is defined. `app.request` owns **no**
+    `query` descriptor, so a descriptor assertion one level up returns `undefined` **even on a correct
+    Express 5 install** — a test written that way fails for the wrong reason. Same measurement gives
+    the clean Express 4/5 discriminator: on 4, `query` is an **own, writable** property of the request
+    itself (depth 0) and `express.request` owns nothing; Express 5 inverts both halves.
+
+21. **⚠️ New sprint tests start in the changed workspace's `tests/tdd/`, always** (CLAUDE.md), and
+    this sprint has a concrete reason beyond policy: the express 5 contract assertions are *designed*
+    to be red before the bump, so staging them in `regression/` would block every push until the bump
+    lands. Promote after green. Note `scripts/promote-tdd-tests.js` walks only `services/`, so a
+    `tests/`-workspace file is promoted by hand — and a `services/*` staging file must be **deleted**
+    once its cases are folded into an existing suite, or the script will promote it as a duplicate.
+
+22. **Verification commands must fail loudly.** A PowerShell pipeline "succeeds" even when the native
+    command inside it exited nonzero, so `npx jest 2>&1 | Select-Object -Last 4` prints a failure and
+    execution carries on. Capture `$LASTEXITCODE` immediately after the native command and throw on
+    nonzero — with a deliberate **baseline mode** for the tiers that are red on master by design.
+
+23. **Gate calibration** (standing since S120): all four gates run every PR; effort scales with the
     diff. `/code-review` **HIGH** for PRs 1, 2 and 4; **MEDIUM** for 3, 5, 6. One `/simplify` pass
     per PR (per-task only on PR 2, which is the only PR writing real new logic).
 

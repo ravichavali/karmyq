@@ -18,19 +18,22 @@
    Sprint 122 spec/plan/handoff. Its code tree is identical to `origin/master` (`e187c5d6`) — the
    only deltas are documentation.
 
-```bash
+```powershell
 git fetch origin
 git checkout deps/sprint-122-pr1-express
-git log --oneline -3        # planning commit on top of ab8d9d3d
-git diff --stat origin/master -- ':!*.md' ':!.claude'   # must be EMPTY: no code delta yet
+git log --oneline -3        # planning commits on top of ab8d9d3d
+git diff --stat origin/master -- ':!*.md' ':!.claude'   # must print nothing: no code delta yet
 ```
 
-   `deps/sprint-121-pr6-express` is superseded; its commits are reachable from the new branch, so
-   deleting it locally and on origin is safe once you have confirmed the log above.
+   `deps/sprint-121-pr6-express` is superseded but **PR 1 does not delete it** — its commits are
+   reachable from this branch, so there is nothing to rescue and nothing to gain from a destructive
+   side action mid-migration.
 
 3. Open the plan: [`docs/superpowers/plans/2026-07-29-sprint-122-dependency-wave-test-truth.md`](../../docs/superpowers/plans/2026-07-29-sprint-122-dependency-wave-test-truth.md)
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development). **Tasks 1–10 are PR 1
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development). **Tasks 0–12 are PR 1
    (express 4 → 5, v11.36.0).** PRs 2–6 get their own plan files and their own chats.
+   **Task 0 is the PowerShell helper preamble — paste it first**, or every later verification can
+   silently walk past a failing command (Critical Note 21).
 5. **Read Critical Notes 1 and 7 before typing anything.** `overrides.body-parser: "1.20.6"` will
    break express 5 and is the one defect here that can ship green; and `packages/shared` declares
    Express as a **peer** that must move with it.
@@ -195,7 +198,26 @@ correct.** Full versions in the spec; notes 1, 3, 6, 7, 11 are the ones that cha
     social-graph 3010.
 17. **All plan commands are PowerShell** (this repo's primary shell). Don't paste POSIX `for` loops,
     subshells, `tail`, `/dev/null` or `||` idioms into execution.
-18. **Gate calibration** (standing since S120): all four gates every PR, effort scaled to the diff.
+18. **⚠️ `npm install --package-lock-only` installs NOTHING.** It writes the lockfile only; the tree
+    stays on the old major. **Materialize with `npm ci` afterwards** (installs from the stabilized
+    lock, never regenerates it, and fails loudly on a manifest/lock disagreement). Skip it and
+    `npm ls` reports a mismatch while any new-major test still loads the old one.
+19. **⚠️ Express's request prototype chain is 3 deep** — incoming `req` → `app.request` →
+    `express.request`. The `query` accessor lives on **`express.request`**; `app.request` owns nothing,
+    so `Object.getOwnPropertyDescriptor(Object.getPrototypeOf(req),'query')` is `undefined` **even on a
+    correct Express 5 install**. Measured on the installed 4.22.2, the discriminator is: Express 4 has
+    `query` as an **own writable** property at depth 0 with nothing on `express.request`; Express 5
+    inverts both. Assert on `express.request` (plus a chain walk).
+20. **New sprint tests start in the changed workspace's `tests/tdd/`** — and here the express 5
+    assertions are *designed* to be red pre-bump, so `regression/` would block every push. Promote
+    after green. `scripts/promote-tdd-tests.js` walks only `services/`, so a `tests/`-workspace file is
+    promoted by hand, and a `services/*` staging file must be **deleted** once folded into an existing
+    suite or the script promotes it as a duplicate.
+21. **Verification commands must fail loudly.** A PowerShell pipeline succeeds even when the native
+    command in it exited nonzero — capture `$LASTEXITCODE` right after the command and throw, with an
+    explicit baseline mode for the tiers that are red on master by design. The plan's Task 0 defines
+    `Assert-Green` / `Measure-Baseline`; **paste it before anything else.**
+22. **Gate calibration** (standing since S120): all four gates every PR, effort scaled to the diff.
     `/code-review` **HIGH** for PRs 1, 2, 4; **MEDIUM** for 3, 5, 6. One `/simplify` pass per PR
     (per-task only on PR 2, the only PR writing real new logic). Run gates **inline**, per the
     S121 PR 3/PR 5 precedent.
