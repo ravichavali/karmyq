@@ -17,6 +17,7 @@ import {
   dbContextMiddleware,
   globalRateLimiter,
   rateLimiters,
+  normalizeRequestBody,
 } from '@karmyq/shared/middleware';
 import { requestIdMiddleware, sendSuccess, sendError, sendInternalError } from '@karmyq/shared/utils/response';
 
@@ -44,6 +45,9 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+// Express 5 leaves req.body undefined when no body was sent; restore the Express 4
+// `{}` default before any route destructures it. Must follow express.json().
+app.use(normalizeRequestBody);
 app.use(requestIdMiddleware);
 app.use(requestLoggingMiddleware(logger));
 app.use(globalRateLimiter);

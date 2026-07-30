@@ -15,6 +15,7 @@ import {
   HTTP_STATUS
 } from '@karmyq/shared/utils/response';
 import { normalizeTags } from '../utils/tags';
+import { RouteParams } from '@karmyq/shared/middleware/auth';
 
 const router = Router();
 
@@ -314,7 +315,7 @@ router.get('/tags', async (req: Request, res: Response) => {
 });
 
 // GET /communities/:id - Get specific community with members
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { id } = req.params;
 

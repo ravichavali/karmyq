@@ -10,6 +10,7 @@ import {
   notificationEmitter,
 } from '../services/notificationService';
 import type { SSEAuthenticatedRequest } from '../middleware/sseAuth';
+import { RouteParams } from '@karmyq/shared/middleware/auth';
 
 const router = Router();
 
@@ -71,7 +72,7 @@ export const sseHandler = (req: SSEAuthenticatedRequest, res: Response) => {
 };
 
 // Get user's notifications
-router.get('/:userId', async (req: Request, res: Response) => {
+router.get('/:userId', async (req: Request<RouteParams>, res: Response) => {
   const safeUserId = String(req.params.userId).replace(/[\r\n]/g, '').slice(0, 100);
   console.log(`GET /notifications/${safeUserId}`, {
     body: req.body,
@@ -104,7 +105,7 @@ router.get('/:userId', async (req: Request, res: Response) => {
 });
 
 // Get unread count
-router.get('/:userId/unread-count', async (req: Request, res: Response) => {
+router.get('/:userId/unread-count', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { userId } = req.params;
     const count = await getUnreadCount(userId);
@@ -123,7 +124,7 @@ router.get('/:userId/unread-count', async (req: Request, res: Response) => {
 });
 
 // Mark notification as read
-router.put('/:notificationId/read', async (req: Request, res: Response) => {
+router.put('/:notificationId/read', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { notificationId } = req.params;
     const { user_id } = req.body;
@@ -159,7 +160,7 @@ router.put('/:notificationId/read', async (req: Request, res: Response) => {
 });
 
 // Mark all notifications as read
-router.put('/:userId/read-all', async (req: Request, res: Response) => {
+router.put('/:userId/read-all', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { userId } = req.params;
 
@@ -180,7 +181,7 @@ router.put('/:userId/read-all', async (req: Request, res: Response) => {
 });
 
 // Delete notification
-router.delete('/:notificationId', async (req: Request, res: Response) => {
+router.delete('/:notificationId', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { notificationId } = req.params;
     const { user_id } = req.body;
@@ -215,7 +216,7 @@ router.delete('/:notificationId', async (req: Request, res: Response) => {
 });
 
 // Get user preferences
-router.get('/:userId/preferences', async (req: Request, res: Response) => {
+router.get('/:userId/preferences', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { userId } = req.params;
     const preferences = await getUserPreferences(userId);
@@ -234,7 +235,7 @@ router.get('/:userId/preferences', async (req: Request, res: Response) => {
 });
 
 // Update global preferences
-router.put('/:userId/preferences', async (req: Request, res: Response) => {
+router.put('/:userId/preferences', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { userId } = req.params;
     const { in_app_enabled, push_enabled, email_enabled } = req.body;

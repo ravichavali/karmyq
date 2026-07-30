@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { RouteParams } from '@karmyq/shared/middleware/auth';
 import { getDecayConfig, getGlobalDecayConfig, upsertDecayConfig } from '../database/trustDecayConfigDb';
 import { logger } from '../config/logger';
 import { pool } from '../config/database';
@@ -28,7 +29,7 @@ router.get('/decay-config', async (_req: Request, res: Response) => {
 });
 
 // GET /trust/decay-config/:communityId — community-specific config (falls back to global)
-router.get('/decay-config/:communityId', async (req: Request, res: Response) => {
+router.get('/decay-config/:communityId', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { communityId } = req.params;
     if (!(await isActiveMember(communityId, (req as any).user?.userId))) {
@@ -43,7 +44,7 @@ router.get('/decay-config/:communityId', async (req: Request, res: Response) => 
 });
 
 // PUT /trust/decay-config/:communityId — update community decay config (admin only)
-router.put('/decay-config/:communityId', async (req: Request, res: Response) => {
+router.put('/decay-config/:communityId', async (req: Request<RouteParams>, res: Response) => {
   try {
     const user = (req as any).user;
     const memberships = user?.communities ?? [];

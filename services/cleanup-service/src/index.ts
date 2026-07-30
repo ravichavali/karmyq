@@ -19,6 +19,7 @@ import { expireDibs } from './jobs/expireDibs';
 import { sweepDeadTrustEdges } from './jobs/trustEdgeSweepJob';
 import { forgetExchangeContent } from './jobs/memoryRetentionJob';
 import pool from './database/db';
+import { normalizeRequestBody } from '@karmyq/shared/middleware';
 
 dotenv.config();
 
@@ -39,7 +40,8 @@ interface ExtendedRequest extends Request {
 
 type Meta = Record<string, unknown>;
 
-// Inline response helpers (cleanup-service doesn't use shared package)
+// Inline response helpers. (This service DOES consume @karmyq/shared — see the logger import
+// above — but deliberately keeps its own response helpers rather than the shared ones.)
 const requestIdMiddleware = (req: ExtendedRequest, _res: Response, next: NextFunction): void => {
   req.id = randomUUID();
   next();
@@ -150,6 +152,9 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+// Express 5 leaves req.body undefined when no body was sent; restore the Express 4
+// `{}` default before any route destructures it. Must follow express.json().
+app.use(normalizeRequestBody);
 app.use(requestLoggingMiddleware(sharedLogger));
 app.use(requestIdMiddleware);
 

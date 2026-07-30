@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { RouteParams } from '@karmyq/shared/middleware/auth';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
 
@@ -23,7 +24,7 @@ async function isAdminOrModOfRequestCommunity(requestId: string, user: any): Pro
 }
 
 // POST /requests/:id/boost — Admin boosts a request for 48 hours
-router.post('/:id/boost', async (req: Request, res: Response) => {
+router.post('/:id/boost', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { id } = req.params;
     const user = (req as any).user;
@@ -62,7 +63,7 @@ router.post('/:id/boost', async (req: Request, res: Response) => {
 });
 
 // DELETE /requests/:id/boost — Admin removes boost from a request
-router.delete('/:id/boost', async (req: Request, res: Response) => {
+router.delete('/:id/boost', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { id } = req.params;
     const user = (req as any).user;
@@ -101,7 +102,7 @@ router.delete('/:id/boost', async (req: Request, res: Response) => {
 });
 
 // POST /requests/:id/propose-match — Admin proposes a match for a specific user
-router.post('/:id/propose-match', async (req: Request, res: Response) => {
+router.post('/:id/propose-match', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { id } = req.params;
     const { user_id } = req.body;
@@ -179,7 +180,7 @@ router.post('/:id/propose-match', async (req: Request, res: Response) => {
 });
 
 // PATCH /requests/:id/urgent — Admin toggles urgency on a request
-router.patch('/:id/urgent', async (req: Request, res: Response) => {
+router.patch('/:id/urgent', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { id } = req.params;
     const { urgent } = req.body;

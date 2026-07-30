@@ -59,6 +59,52 @@ describe('geocoding routes', () => {
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
+  // Sprint 122: express 4 -> 5. These pin the two things the upgrade could break in this
+  // service, which is plain JS and therefore gets no `tsc` coverage: that `express.json()`
+  // (body-parser 2.x under express 5) still delivers a POST body to the handler, and that
+  // path-to-regexp 8 still builds the route table.
+  test('POST /cache: express.json() delivers the body all the way to pool.query', async () => {
+    const pool = { query: jest.fn().mockResolvedValue({ rows: [], rowCount: 1 }) }
+    const app = createApp({ pool, fetchImpl: jest.fn(), logger: { error: jest.fn(), log: jest.fn() } })
+    const results = [{ display_name: 'Oakland', lat: 37.8, lng: -122.2, type: 'city' }]
+
+    const res = await request(app).post('/cache').send({ query: 'Oakland', results }).expect(200)
+
+    expect(res.body).toEqual({
+      success: true,
+      data: { query: 'oakland' },
+      message: 'Cached results for: oakland',
+    })
+    // The body-parser proof: the parsed values, not defaults, reached the service layer.
+    expect(pool.query).toHaveBeenCalledTimes(1)
+    expect(pool.query.mock.calls[0][1]).toEqual(['oakland', JSON.stringify(results)])
+  })
+
+  test('POST /cache with NO body returns the ADR-074 envelope, not a 500', async () => {
+    // Express 5 leaves req.body undefined for a bodyless request (Express 4 gave {}), so
+    // `req.body.query` would throw and the route's catch would return 500
+    // GEOCODING_CACHE_FAILED. The body-default shim keeps it a clean 400 validation error.
+    const pool = { query: jest.fn() }
+    const app = createApp({ pool, fetchImpl: jest.fn(), logger: { error: jest.fn(), log: jest.fn() } })
+
+    const res = await request(app).post('/cache')
+
+    expect(res.status).toBe(400)
+    expect(res.body).toEqual({
+      success: false,
+      message: 'Query must be at least 2 characters',
+      error: 'INVALID_QUERY',
+    })
+    expect(pool.query).not.toHaveBeenCalled()
+  })
+
+  test('GET /health returns 200 (route table built by path-to-regexp 8)', async () => {
+    const app = createApp({ pool: {}, fetchImpl: jest.fn() })
+    const res = await request(app).get('/health').expect(200)
+    expect(res.body.status).toBe('healthy')
+    expect(res.body.service).toBe('geocoding-cache')
+  })
+
   test('GET /search recovers after a transient external geocoder rejection', async () => {
     const pool = {
       query: jest.fn()

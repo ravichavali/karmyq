@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { authMiddleware, globalRateLimiter, rateLimiters } from '@karmyq/shared/middleware';
+import { authMiddleware, globalRateLimiter, rateLimiters, normalizeRequestBody } from '@karmyq/shared/middleware';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import { logger } from './config/logger';
 import { pool } from './config/database';
@@ -36,6 +36,9 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+// Express 5 leaves req.body undefined when no body was sent; restore the Express 4
+// `{}` default before any route destructures it. Must follow express.json().
+app.use(normalizeRequestBody);
 app.use(requestLoggingMiddleware(sharedLogger));
 app.use(globalRateLimiter);
 

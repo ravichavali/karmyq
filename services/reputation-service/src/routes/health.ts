@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import { RouteParams } from '@karmyq/shared/middleware/auth';
 import { query } from '../database/db';
 import { computeNetworkCohesion } from '../services/networkCohesionService';
 import { checkAggregateAccess } from '../utils/disclosureAuth';
@@ -15,7 +16,7 @@ function denyAggregate(res: Response) {
  * GET /reputation/community-health/:communityId
  * Get community health metrics and trends (Social Karma v2.0)
  */
-router.get('/community-health/:communityId', async (req: Request, res: Response) => {
+router.get('/community-health/:communityId', async (req: Request<RouteParams>, res: Response) => {
   const { communityId } = req.params;
   const { period = '7d' } = req.query;
 
@@ -119,7 +120,7 @@ router.get('/community-health/:communityId', async (req: Request, res: Response)
  * GET /reputation/milestones/:communityId
  * Get community milestone achievements (Social Karma v2.0)
  */
-router.get('/milestones/:communityId', async (req: Request, res: Response) => {
+router.get('/milestones/:communityId', async (req: Request<RouteParams>, res: Response) => {
   const { communityId } = req.params;
   const { limit = '10' } = req.query;
 
@@ -274,7 +275,7 @@ function calculateNetworkStrength(
  * GET /reputation/network-metrics/:communityId
  * Compute graph-theory network cohesion metrics for a community.
  */
-router.get('/network-metrics/:communityId', async (req: Request, res: Response) => {
+router.get('/network-metrics/:communityId', async (req: Request<RouteParams>, res: Response) => {
   const { communityId } = req.params;
 
   try {

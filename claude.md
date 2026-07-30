@@ -126,7 +126,7 @@ feed-service.)
 | Geocoding | 3009 | Optional |
 | Simulation | dev | Optional |
 
-**Tech stack:** Node.js/Express/TypeScript · Next.js 14 · React Native + Expo · PostgreSQL 15
+**Tech stack:** Node.js/Express 5/TypeScript · Next.js 15 · React Native + Expo · PostgreSQL 15
 (RLS) · Redis + Bull · Turborepo.
 
 ---

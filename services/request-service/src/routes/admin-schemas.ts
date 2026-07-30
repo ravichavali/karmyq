@@ -9,6 +9,7 @@ import { Router, Request, Response } from 'express';
 import { sendSuccess, sendNotFound } from '@karmyq/shared/utils/response';
 import pool from '../database/db';
 import { SchemaService } from '../services/SchemaService';
+import { RouteParams } from '@karmyq/shared/middleware/auth';
 
 const router = Router();
 const schemaService = new SchemaService(pool);
@@ -497,7 +498,7 @@ router.get('/:id/versions', async (req: Request, res: Response) => {
 /**
  * POST /admin/schemas/:id/rollback/:version - Rollback to previous version
  */
-router.post('/:id/rollback/:version', async (req: Request, res: Response) => {
+router.post('/:id/rollback/:version', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { id, version } = req.params;
     const userId = (req as any).user?.userId;

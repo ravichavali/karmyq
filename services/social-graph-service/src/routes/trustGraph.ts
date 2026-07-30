@@ -15,6 +15,7 @@ import {
 } from '../services/disclosureProjection';
 import { logger } from '../config/logger';
 import { pool } from '../config/database';
+import { RouteParams } from '@karmyq/shared/middleware/auth';
 
 const router = Router();
 
@@ -207,7 +208,7 @@ router.get('/graph', async (req: Request, res: Response) => {
 
 // GET /trust/graph/:communityId/full — full community trust graph (up to 150 members + all inter-member edges)
 // MUST be declared before /graph/:communityId — Express matches "full" as a communityId otherwise
-router.get('/graph/:communityId/full', async (req: Request, res: Response) => {
+router.get('/graph/:communityId/full', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { communityId } = req.params;
     const callingUserId = (req as any).user?.userId;
@@ -242,7 +243,7 @@ router.get('/graph/:communityId/full', async (req: Request, res: Response) => {
 });
 
 // GET /trust/graph/:communityId — ego-network centered on calling user (or ?center=userId for expansion)
-router.get('/graph/:communityId', async (req: Request, res: Response) => {
+router.get('/graph/:communityId', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { communityId } = req.params;
     const callingUserId = (req as any).user?.userId;
@@ -299,7 +300,7 @@ router.get('/graph/:communityId', async (req: Request, res: Response) => {
  * traversal; an inaccessible center returns 404 (no account-existence leak). Capped at 80 nodes; each
  * node carries `degrees_of_separation` (center = 0). `trust_edges_live` is read-only.
  */
-router.get('/neighborhood/:userId', async (req: Request, res: Response) => {
+router.get('/neighborhood/:userId', async (req: Request<RouteParams>, res: Response) => {
   try {
     const callingUserId = (req as any).user?.userId as string;
     const centerUserId = req.params.userId;

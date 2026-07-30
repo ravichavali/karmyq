@@ -29,6 +29,14 @@ function createApp({
     credentials: true,
   }))
   app.use(express.json())
+  // Express 5 leaves req.body undefined when no body was sent, where Express 4 defaulted it
+  // to {}. POST /cache reads req.body.query, which would throw on a bodyless request. Declared
+  // inline rather than via @karmyq/shared's normalizeRequestBody: this service is plain JS and
+  // does not consume the shared package. Must follow express.json().
+  app.use((req, _res, next) => {
+    if (req.body === undefined) req.body = {}
+    next()
+  })
 
   app.get('/health', (req, res) => {
     res.json({ status: 'healthy', service: 'geocoding-cache', port: process.env.PORT || 3009 })

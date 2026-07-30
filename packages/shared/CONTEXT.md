@@ -1,8 +1,58 @@
 # @karmyq/shared — Context
 
-**Last Updated**: 2026-06-29 (Sprint 116 reciprocal relationship-context contract)
+**Last Updated**: 2026-07-29 (Sprint 122 Express 5 peer contract)
 
 Shared TypeScript library consumed by all Karmyq services and frontend apps.
+
+---
+
+## Express 5 peer contract (Sprint 122)
+
+**`peerDependencies.express` is `^5.0.0`** (was `^4.18.0`). This package is consumed by 6 services
+and `apps/frontend`, so the peer range is a real contract, not decoration — a single Express
+provider exists in the repo (the root **production** dependency, which is how all 9 Express
+backends get it), and after Sprint 122 that provider is Express 5.
+
+A dual `^4.18.0 || ^5.0.0` range was considered and **rejected**: nothing in the repo builds, tests
+or ships Express 4 any more, so a dual range would advertise support that no run verifies.
+
+`@types/express` is `^5.0.6`. Two consequences for the five middleware files in
+`packages/shared/middleware/` (which live **outside `src/`** and import `Request`/`Response`/
+`NextFunction` as types only):
+
+- **`RouteParams` (exported from `middleware/auth`)** — Express 5's `path-to-regexp` 8 widened the
+  default params type to `string | string[]`, because a repeatable segment (`:ids+`) or a wildcard
+  (`*splat`) captures an array. Karmyq declares neither, so `AuthenticatedRequest extends
+  Request<RouteParams>` narrows params back to `string`. That is an *enforced* invariant, not an
+  assumption: `tests/regression/sprint-122-express5-route-params.test.ts` fails if any route literal
+  introduces such syntax. Handlers that genuinely need an array param must widen their own generic
+  rather than loosen `RouteParams`.
+- Async handler rejections now auto-forward to the error middleware, so the ADR-074 envelope must
+  keep coming from a real error handler; `res.status()` throws `RangeError` on an out-of-range code.
+
+**⚠️ `normalizeRequestBody` (`middleware/bodyDefaults`) — mount it after `express.json()`.**
+body-parser 1 initialised `req.body` to `{}` on every request; body-parser 2 leaves it
+**`undefined`** unless a body was actually parsed. **76 handlers across 7 services** do
+`const { x } = req.body`, which then throws a `TypeError` on a bodyless request and surfaces as a
+**500**. Sprint 122 shipped exactly that bug to CI — `POST /communities/:id/join` legitimately
+sends no body, and the integration suite caught it after every unit and regression tier was green.
+
+This middleware restores the old default in one place rather than editing 76 call sites and
+missing one. It is deliberately narrow: it fills in only a **missing** body, so a parsed array or
+an explicitly-sent `null` survives untouched. Mounted in all 8 shared-consuming services;
+`geocoding-service` carries an inline equivalent because it is plain JS and does not consume this
+package. Pinned by `tests/regression/sprint-122-express5-empty-body.test.ts`, which also asserts
+the raw Express 5 behaviour so the shim cannot be quietly removed.
+
+**Known, deliberate, out of scope** (both pre-date this sprint and neither blocks Express 5):
+
+| Package | `packages/shared` | root | Note |
+|---|---|---|---|
+| `express-rate-limit` | `^7.1.5` (peer `4 \|\| 5 \|\| ^5.0.0-beta.1`) | `^8.2.2` (peer `>= 4.11`) | split across majors; **both accept Express 5** |
+| `zod` | `^3.22.4` | `^4.1.12` | same class of split, same answer |
+
+*(Also pre-existing: `apps/frontend` consumes this package without providing Express at all, so the
+peer is unsatisfied there and `.npmrc`'s `legacy-peer-deps=true` silences it.)*
 
 ---
 
@@ -28,8 +78,9 @@ Producers must emit only the canonical four; `critical`/`normal` are retired. Se
 | `.` | Root re-exports |
 | `./utils/logger` | `createLogger`, `requestLoggingMiddleware`, `LogContext`, `LogEntry`, `LogLevel` |
 | `./utils/response` | `sendSuccess`, `sendError`, `sendValidationError`, `sendNotFound`, `sendInternalError`, `HTTP_STATUS`, `validateRequest`, `requestIdMiddleware` |
-| `./middleware` | All middleware barrel |
-| `./middleware/auth` | `authMiddleware`, `AuthenticatedRequest` |
+| `./middleware` | All middleware barrel (incl. `normalizeRequestBody`) |
+| `./middleware/auth` | `authMiddleware`, `AuthenticatedRequest`, `RouteParams` |
+| `./middleware/bodyDefaults` | `normalizeRequestBody` — restores the Express 4 `req.body = {}` default |
 | `./middleware/dbContext` | `dbContextMiddleware` |
 | `./middleware/rateLimit` | `globalRateLimiter`, `rateLimiters` |
 | `./middleware/tenant` | `tenantMiddleware`, `optionalTenantMiddleware` |

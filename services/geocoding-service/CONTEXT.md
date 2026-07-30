@@ -266,3 +266,43 @@ ALLOWED_ORIGINS=http://localhost:3000
 **Status**: Production
 **Version**: 11.17.0
 **Last Updated**: 2026-06-22
+
+---
+
+## Sprint 122 — Express 5 (2026-07-29)
+
+Declares `express` **directly**: `^4.18.2 → ^5.2.1`. This service is **plain JavaScript**
+(`geocodingApp.js`, `geocodingService.js`, `response.js`) so it gets **no `tsc` coverage** and
+declares no `@types/express`; runtime tests are the only signal. `tests/regression/geocodingRoutes.test.js`
+was therefore extended with two Express 5 cases:
+
+- `POST /cache` asserts the **arguments `pool.query` received** (`['oakland', JSON.stringify(results)]`),
+  which proves `express.json()` — i.e. body-parser 2.x — delivered the parsed body all the way to the
+  service layer. Had body parsing broken, `req.body.query` would throw and the route's own `catch`
+  would return a 500 `GEOCODING_CACHE_FAILED` instead.
+- `GET /health` proves `path-to-regexp` 8 still builds the route table.
+
+⚠️ **`geocodingApp.js` has no express error middleware** — every route try/catches internally and
+answers through `sendError`, so the ADR-074 envelope here comes from the route's own `catch`. No test
+in this service may claim an async rejection reaches an express error handler, because there isn't one.
+
+`express-rate-limit` stays at `^7.0.0` here (peer `4 || 5 || ^5.0.0-beta.1`) against root's `^8.2.2`
+— a pre-existing, deliberate split; both majors accept Express 5.
+
+Express **4.18.2 → 5.2.1**, supplied by the root `package.json` **production** dependency
+(the Dockerfiles copy the root manifest and `npm install --omit=dev`). **No endpoint, payload,
+status code or event contract changed** — `feedback:check` flags this service's `src/routes/`
+diff as a "route change", but the diff is type annotations only, so the API Endpoints section
+above is still accurate.
+
+Express 5 semantics now in force: async handler rejections auto-forward to the error middleware,
+`res.status()` throws `RangeError` on an out-of-range code, and `req.query` is a getter rather
+than a writable own property.
+
+**⚠️ `req.body` default restored (the bug this PR actually shipped to CI).** body-parser 2 leaves
+`req.body` **undefined** for a bodyless request where body-parser 1 gave `{}`, so `POST /cache`
+reading `req.body.query` would throw and the route's catch would answer **500
+GEOCODING_CACHE_FAILED** instead of a clean 400. Because this service is plain JS and does not
+consume `@karmyq/shared`, it carries an **inline** equivalent of the shared
+`normalizeRequestBody`, mounted immediately after `express.json()`. Pinned by a new case in
+`tests/regression/geocodingRoutes.test.js` asserting the ADR-074 400 envelope, not a 500.

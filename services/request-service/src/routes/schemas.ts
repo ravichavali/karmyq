@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { sendSuccess, sendNotFound } from '@karmyq/shared/utils/response';
 import { SchemaService } from '../services/SchemaService';
 import pool from '../database/db';
+import { RouteParams } from '@karmyq/shared/middleware/auth';
 
 const router = Router();
 
@@ -39,7 +40,7 @@ router.get('/', async (req: Request, res: Response) => {
  * Now reads from database with fallback to code-based schemas.
  * Supports A/B testing via user_id query parameter.
  */
-router.get('/:type', async (req: Request, res: Response) => {
+router.get('/:type', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { type } = req.params;
     const userId = req.query.user_id as string | undefined;

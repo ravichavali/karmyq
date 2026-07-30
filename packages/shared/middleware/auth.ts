@@ -59,9 +59,24 @@ function blocksDemoWrite(
 }
 
 /**
+ * Route params as this repo actually declares them: every value is a single string.
+ *
+ * Express 5 (`path-to-regexp` 8) widened the default `ParamsDictionary` to
+ * `string | string[]`, because a repeatable param (`:ids+`) or a wildcard (`*splat`)
+ * captures an array. Karmyq declares neither — every route path is built from plain
+ * single segments — so `string` is the accurate type, not a convenience narrowing.
+ *
+ * That invariant is enforced, not assumed:
+ * `tests/regression/sprint-122-express5-route-params.test.ts` fails if any route literal
+ * introduces repeatable or wildcard syntax. If you need such a route, widen that handler's
+ * own generic rather than loosening this type.
+ */
+export type RouteParams = Record<string, string>;
+
+/**
  * Extended Express Request with user context
  */
-export interface AuthenticatedRequest extends Request {
+export interface AuthenticatedRequest extends Request<RouteParams> {
   user?: JWTPayload;
 }
 

@@ -11,7 +11,7 @@ import foundingCircleRoutes from './routes/foundingCircle';
 import { initDatabase } from './database/db';
 import { initEventPublisher } from './events/publisher';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
-import { globalRateLimiter, rateLimiters } from '@karmyq/shared/middleware';
+import { globalRateLimiter, rateLimiters, normalizeRequestBody } from '@karmyq/shared/middleware';
 import { requestIdMiddleware, sendSuccess, sendInternalError } from '@karmyq/shared/utils/response';
 
 dotenv.config();
@@ -37,6 +37,9 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+// Express 5 leaves req.body undefined when no body was sent; restore the Express 4
+// `{}` default before any route destructures it. Must follow express.json().
+app.use(normalizeRequestBody);
 app.use(requestIdMiddleware);
 app.use(requestLoggingMiddleware(logger));
 

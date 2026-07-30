@@ -1,9 +1,10 @@
 import { Router, Request, Response } from 'express';
+import { RouteParams } from '@karmyq/shared/middleware/auth';
 import { query } from '../database/db';
 import { BasicFeedRanker } from '../services/feed/basicFeedRanker';
 import { SocialKarmaFeedComposer } from '../services/feed/socialKarmaFeedComposer';
 
-interface AuthenticatedRequest extends Request {
+interface AuthenticatedRequest extends Request<RouteParams> {
   user?: {
     userId: string;
     email?: string;
