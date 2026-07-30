@@ -1,5 +1,5 @@
 import { execFileSync } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 /**
@@ -24,18 +24,23 @@ const PROBES: Probe[] = [
 
 describe('every linted workspace has a loadable flat ESLint config', () => {
   it('covers exactly the workspaces that ship an eslint.config.js', () => {
-    // If someone adds a config, they must add a probe — otherwise the new
-    // workspace's config is unverified and this gate quietly under-covers.
-    const configured = PROBES.map((p) => p.workspace).sort();
-    expect(configured).toEqual([
-      'apps/frontend',
-      'apps/landing',
-      'apps/mobile',
-      'services/cleanup-service',
-    ]);
-    for (const p of PROBES) {
-      expect(existsSync(join(ROOT, p.workspace, 'eslint.config.js'))).toBe(true);
+    // Scan the repo rather than comparing PROBES against a copy of itself.
+    // The failure this gate exists to prevent is silent under-coverage, so a
+    // NEW unprobed config must fail here — not only a REMOVED one.
+    const discovered: string[] = [];
+    for (const root of ['apps', 'services', 'packages']) {
+      const rootDir = join(ROOT, root);
+      if (!existsSync(rootDir)) continue;
+      for (const name of readdirSync(rootDir)) {
+        if (name === 'node_modules') continue;
+        const dir = join(rootDir, name);
+        if (!statSync(dir).isDirectory()) continue;
+        if (existsSync(join(dir, 'eslint.config.js'))) discovered.push(`${root}/${name}`);
+      }
     }
+    if (existsSync(join(ROOT, 'tests', 'eslint.config.js'))) discovered.push('tests');
+
+    expect(discovered.sort()).toEqual(PROBES.map((p) => p.workspace).sort());
   });
 
   it.each(PROBES)('$workspace resolves a real rule set', ({ workspace, probeFile, minRules, sentinel }) => {
