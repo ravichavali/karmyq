@@ -209,6 +209,11 @@
 **The original 18 are down to 1 (#34). 8 fresh Dependabot PRs landed on 2026-07-29**, the
 mid-sprint-arrival case Critical Note 8 warns about — this time in bulk, and not benign.
 
+**⚠️ The grouped PR numbers below churn — Dependabot closes and re-raises them.** #176 and #167 were
+already replaced by **#179** and **#178** on 2026-07-30 (same benign pattern as #126 → #161 earlier
+this sprint). Match on *what a PR bumps*, not on its number, and re-list with `gh pr list` when
+Sprint 122 starts rather than trusting these IDs.
+
 **DECIDED (maintainer, 2026-07-29): these 8 go to Sprint 122, NOT Sprint 121.** Sprint 121 shipped the
 v11.35.1 hotfix and now ships PR 6, then archives as *"resolved the entire original 18-PR triage."* The
 dispositions below are **triage input for Sprint 122, re-evaluated from post-Express master — not
