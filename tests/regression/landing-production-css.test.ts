@@ -42,12 +42,17 @@ function builtStylesheets(app: string): string[] {
 }
 
 /**
- * In CI the build output MUST be present, or these assertions would pass by vacuously skipping —
- * the same silent-nothing failure mode this file exists to prevent. `ci.yml`'s `build-landing` job
- * builds the app and then runs this suite. Locally, skipping is fine so the suite stays usable
- * without forcing a build.
+ * Where build output MUST exist, its absence is a failure rather than a skip — otherwise these
+ * assertions pass vacuously, which is the same silent-nothing failure mode this file exists to
+ * prevent.
+ *
+ * Keyed on an explicit opt-in, NOT on `CI`: GitHub Actions sets `CI=true` in *every* job, and the
+ * general test job legitimately has no landing build. `ci.yml`'s `build-landing` job sets
+ * `REQUIRE_LANDING_BUILD=1` after building, so strictness applies exactly where the artifact lives.
+ * Everywhere else (the plain test job, local runs) the built-CSS checks skip while the source-order,
+ * `@utility` and `@reference` checks below still run — those need no build.
  */
-const REQUIRE_BUILD = !!process.env.CI || !!process.env.REQUIRE_LANDING_BUILD;
+const REQUIRE_BUILD = !!process.env.REQUIRE_LANDING_BUILD;
 
 /** Returns sheets, asserting presence under CI. Empty array means "skip" locally. */
 function requireStylesheets(app: string): string[] {

@@ -174,10 +174,13 @@ jobs:
       # build output only exists in this job, and a grep for the hostname would not enforce that the
       # match is an actual @import, that there is exactly one, or that it precedes the first rule
       # (an @import after the first rule is silently ignored by browsers — i.e. still broken).
-      # CI=true makes the suite fail rather than skip when build output is missing.
+      #
+      # REQUIRE_LANDING_BUILD makes a missing build a FAILURE instead of a skip, so the check cannot
+      # pass vacuously. It is deliberately not keyed on `CI`, which Actions sets in every job —
+      # including the general test job, which has no landing build and must still skip these.
       - name: Verify landing production CSS (v11.35.0 font regression)
         env:
-          CI: 'true'
+          REQUIRE_LANDING_BUILD: '1'
         run: cd tests && npx jest regression/landing-production-css --verbose
 
   # Integration tests
