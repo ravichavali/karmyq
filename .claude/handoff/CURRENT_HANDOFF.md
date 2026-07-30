@@ -48,6 +48,74 @@ git diff --stat origin/master -- ':!*.md' ':!.claude'   # must print nothing: no
    the live site. S121 PR 5 passed 20/20 checks, a deploy, a live smoke test *and* a computed-style
    A/B against production, and still shipped a broken font.
 
+## PR 1 Execution Log (in progress)
+
+**Task 0 — helpers wired.** Captured in `scratchpad/s122-helpers.ps1` and dot-sourced per command
+(each tool invocation is a fresh shell, so the plan's interactive paste would not persist). Needs
+`powershell -ExecutionPolicy Bypass`; scripts are disabled on this box by default. All five
+behaviours confirmed: `OK` on success, **throws** on failure with the exit code, location restored
+by the `finally`, `Measure-Baseline` records nonzero without throwing, `Invoke-InDir` returns
+`Int32`.
+
+**Task 1 — baselines captured on express 4.22.2 (pre-bump).**
+
+| Workspace | `npx jest` (all tiers) | Blocking tier (`unit`+`regression`) | `tsc --noEmit` |
+|---|---|---|---|
+| `tests` (root) | — | **0** — 286/286 pass | — |
+| auth-service | 0 — 68/68 | 0 | 0 |
+| community-service | **1** — 13 failed / 144 | **0** — 131/131 | 0 |
+| request-service | **1** — 73 failed / 475 | **0** — 393 pass, 1 skip | 0 |
+| reputation-service | 0 — 137 pass, 11 skip, 3 todo | 0 | 0 |
+| notification-service | 0 — 52/52 | 0 | 0 |
+| messaging-service | **1** — ⚠️ **0 tests exist** | n/a | 0 |
+| social-graph-service | **1** — 22 failed / 200 | **0** — 166 pass, 3 todo | 0 |
+| cleanup-service | 0 — 32 pass, 7 skip | 0 | 0 |
+| geocoding-service | 0 — 9/9 | 0 | — (plain JS) |
+| packages/shared | — | — | 0 |
+
+- **Every blocking tier is green and all 9 TS workspaces are tsc-clean at 0 errors.** The three red
+  `npx jest` runs are red *only* in `tests/integration/` (needs a DB — Docker unavailable locally)
+  and `tests/tdd/` (WIP by design). Any tsc error or blocking-tier failure later in this PR is
+  unambiguously mine.
+- `npm audit --audit-level=moderate` → **`found 0 vulnerabilities`** (Note 8 baseline holds).
+- Installed express **4.22.2**; lock version drift confirmed: manifest `11.35.1` vs lock
+  `.version`/`.packages[""].version` both **`11.34.0`** (Critical Note 15/6).
+
+**Two plan defects found and corrected during Task 1** (both would have blocked or falsified later
+verification):
+
+1. **⚠️ The plan's `npx jest unit regression` is an imprecise positional pattern.** Jest treats the
+   args as regexes against the full path, and **"comm-unit-y" contains the substring `unit`** — so
+   it silently pulled in 2 `integration/` suites (which cannot pass without a DB) and 5 `tdd/`
+   suites, reporting `48 failed / 411` and exit 1. Task 6's *verify* block uses the same command and
+   would have thrown for reasons unrelated to express. **Use the workspace's own precise scoping**
+   (`--testPathPattern='(unit|regression)/'`, matching its `test:unit`/`test:regression` scripts),
+   which reports the true blocking tier: **286/286, exit 0**. The plan's "expect 278/278" is stale
+   by 8.
+2. **⚠️ `messaging-service` declares no `test` scripts at all and contains zero test files**
+   ("14 files checked, 0 matches"), so bare `npx jest` exits 1 there on an empty run — not a
+   failure, an absence. A Critical service with no tests means express 5's `messaging` surface has
+   no local coverage; its `tsc` clean at 0 errors is the only signal. **Logged for `docs/BUGS.md`;
+   out of PR 1's scope to fix.**
+
+**Task 8 — two dispositions recorded, both deliberate:**
+
+1. **PR 1 owes NO ADR (maintainer decision, 2026-07-30). `ADR-088` stays reserved for PR 2.**
+   `feedback:check` advises "Consider creating ADR" because the diff touches 9 services, and
+   CLAUDE.md's letter is "cross-service change (3+ services) → ADR". Rationale for declining:
+   bumping Express is maintenance, not a new architectural decision — the repo already decided to
+   use Express. The two genuinely *new* contracts are the **`RouteParams` convention** and the
+   choice of a **single `^5.0.0` peer range over a dual `^4.18.0 || ^5.0.0`**; both are
+   shared-package contracts, which CLAUDE.md routes to `packages/shared/CONTEXT.md`, where both are
+   now documented with rationale. Renumbering the planned ADR-088 would invalidate PR 2's plan for
+   no gain.
+2. **`services/registry.json` needs no edit** despite `feedback:check` asking for one. Its
+   `dependencies` field records **service and infrastructure** dependencies, not npm packages —
+   nothing in it moves for an Express bump. Confirmed empirically: `npm run analyze:services`
+   regenerated `dependency-graph.md` / `impact-analysis.md` / `version-drift.md` with **no diff**.
+   No endpoint, payload, status code or event contract changed either, so every service's
+   "API Endpoints" section is still accurate.
+
 ## Sprint Goal
 
 Ship express 4 → 5, make the test tier's cache keys honest, and disposition all 9 open dependency

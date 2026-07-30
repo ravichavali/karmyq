@@ -7,9 +7,11 @@ import {
   sendMessage,
 } from '../services/messageService';
 import { query } from '../database/db';
+import { RouteParams } from '@karmyq/shared/middleware/auth';
 
-// AuthenticatedRequest type - matches the shared middleware
-interface AuthenticatedRequest extends Request {
+// AuthenticatedRequest type - matches the shared middleware.
+// `RouteParams` keeps params as single strings under Express 5; see its definition for why.
+interface AuthenticatedRequest extends Request<RouteParams> {
   user?: {
     userId: string;
     email: string;

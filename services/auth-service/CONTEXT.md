@@ -858,3 +858,28 @@ login). The curated reset seeds `auth.users` password hashes from `DEMO_PERSONA_
 time (bcrypt cost 12); no plaintext or hash is ever committed, logged, or placed in the manifest.
 Live Maria story IDs are server-generated and published to the demo session only after the non-admin
 verifier confirms them by authoritative readback.
+
+---
+
+## Sprint 122 — Express 5 (2026-07-29)
+
+`@types/express` **4.17.21 → 5.0.6**. Express 5's `path-to-regexp` 8 widened route params to
+`string | string[]` (a repeatable `:ids+` or wildcard `*splat` segment captures an array), which
+surfaced as `TS2345` at every `req.params` read. Karmyq declares no such segment, so params are
+narrowed back to `string` via **`RouteParams`** (exported from `@karmyq/shared/middleware/auth`)
+rather than widened with `as any`. The invariant is enforced by
+`tests/regression/sprint-122-express5-route-params.test.ts`, which fails if any route literal
+introduces wildcard or repeatable syntax.
+
+Handlers here inherit the fix through `AuthenticatedRequest`, so **no route file changed** in this
+service — only the `@types/express` range.
+
+Express **4.18.2 → 5.2.1**, supplied by the root `package.json` **production** dependency
+(the Dockerfiles copy the root manifest and `npm install --omit=dev`). **No endpoint, payload,
+status code or event contract changed** — `feedback:check` flags this service's `src/routes/`
+diff as a "route change", but the diff is type annotations only, so the API Endpoints section
+above is still accurate.
+
+Express 5 semantics now in force: async handler rejections auto-forward to the error middleware,
+`res.status()` throws `RangeError` on an out-of-range code, and `req.query` is a getter rather
+than a writable own property.

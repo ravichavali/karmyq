@@ -1,8 +1,44 @@
 # @karmyq/shared — Context
 
-**Last Updated**: 2026-06-29 (Sprint 116 reciprocal relationship-context contract)
+**Last Updated**: 2026-07-29 (Sprint 122 Express 5 peer contract)
 
 Shared TypeScript library consumed by all Karmyq services and frontend apps.
+
+---
+
+## Express 5 peer contract (Sprint 122)
+
+**`peerDependencies.express` is `^5.0.0`** (was `^4.18.0`). This package is consumed by 6 services
+and `apps/frontend`, so the peer range is a real contract, not decoration — a single Express
+provider exists in the repo (the root **production** dependency, which is how all 9 Express
+backends get it), and after Sprint 122 that provider is Express 5.
+
+A dual `^4.18.0 || ^5.0.0` range was considered and **rejected**: nothing in the repo builds, tests
+or ships Express 4 any more, so a dual range would advertise support that no run verifies.
+
+`@types/express` is `^5.0.6`. Two consequences for the five middleware files in
+`packages/shared/middleware/` (which live **outside `src/`** and import `Request`/`Response`/
+`NextFunction` as types only):
+
+- **`RouteParams` (exported from `middleware/auth`)** — Express 5's `path-to-regexp` 8 widened the
+  default params type to `string | string[]`, because a repeatable segment (`:ids+`) or a wildcard
+  (`*splat`) captures an array. Karmyq declares neither, so `AuthenticatedRequest extends
+  Request<RouteParams>` narrows params back to `string`. That is an *enforced* invariant, not an
+  assumption: `tests/regression/sprint-122-express5-route-params.test.ts` fails if any route literal
+  introduces such syntax. Handlers that genuinely need an array param must widen their own generic
+  rather than loosen `RouteParams`.
+- Async handler rejections now auto-forward to the error middleware, so the ADR-074 envelope must
+  keep coming from a real error handler; `res.status()` throws `RangeError` on an out-of-range code.
+
+**Known, deliberate, out of scope** (both pre-date this sprint and neither blocks Express 5):
+
+| Package | `packages/shared` | root | Note |
+|---|---|---|---|
+| `express-rate-limit` | `^7.1.5` (peer `4 \|\| 5 \|\| ^5.0.0-beta.1`) | `^8.2.2` (peer `>= 4.11`) | split across majors; **both accept Express 5** |
+| `zod` | `^3.22.4` | `^4.1.12` | same class of split, same answer |
+
+*(Also pre-existing: `apps/frontend` consumes this package without providing Express at all, so the
+peer is unsatisfied there and `.npmrc`'s `legacy-peer-deps=true` silences it.)*
 
 ---
 

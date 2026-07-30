@@ -37,6 +37,7 @@ import {
 } from '../services/unifiedFeed';
 import { categoryToPayloadType } from '../services/payloadType';
 import { buildActivityItem, buildStoryItem, type StoryData } from '../services/communityTexture';
+import { RouteParams } from '@karmyq/shared/middleware/auth';
 
 const router = Router();
 
@@ -1480,7 +1481,7 @@ router.get('/curated', handleCuratedFeed);
  * the JWT `communities` claim (NOT `communityMemberships`, which is always undefined → always 403).
  * Reuses the single S86 texture aggregation, so the hero pulse and the in-feed ActivityCard agree.
  */
-router.get('/community/:communityId/pulse', async (req: Request, res: Response) => {
+router.get('/community/:communityId/pulse', async (req: Request<RouteParams>, res: Response) => {
   const meta = { requestId: (req as any).id };
   const { communityId } = req.params;
 
@@ -1671,7 +1672,7 @@ router.get('/retention-policy', async (req: Request, res: Response) => {
 //   not_actionable — anything else (completed/cancelled/matched, expired-open, or out-of-audience)
 // Expired-open asks still return (so the detail page can render a finite state) but are
 // not_actionable, which is why the WHERE no longer filters `expired = FALSE`.
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { id } = req.params;
     const userId = (req as any).user?.userId as string | undefined;

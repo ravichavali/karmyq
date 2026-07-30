@@ -1,7 +1,7 @@
 # Karmyq Architecture
 
-**Version**: 10.11.0
-**Last Updated**: 2026-06-05
+**Version**: see [`package.json`](../package.json) (source of truth)
+**Last Updated**: 2026-07-29 (Sprint 122 — Express 5 baseline)
 **Status**: Demo/Development
 
 ---
@@ -692,15 +692,16 @@ import { logger } from '@shared/utils';
 
 ### Backend
 - **Runtime**: Node.js 20
-- **Framework**: Express.js
+- **Framework**: Express 5 (Sprint 122; `path-to-regexp` 8 + `body-parser` 2 — async handler
+  rejections auto-forward to the error middleware, and `req.query` is a getter)
 - **Language**: TypeScript
 - **Database**: PostgreSQL 15
 - **Cache/Queue**: Redis 7 + Bull
 - **Event Queue**: Bull (Redis-backed)
 
 ### Frontend
-- **Framework**: Next.js 14
-- **UI**: React 18
+- **Framework**: Next.js 15
+- **UI**: React 19
 - **Styling**: Tailwind CSS v4 (CSS-first — the theme lives in `@theme` in `globals.css`; there is no `tailwind.config`)
 - **State**: React Context + Hooks
 - **API Client**: Fetch API with shared client

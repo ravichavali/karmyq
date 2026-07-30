@@ -399,3 +399,36 @@ Cleanup Service (Daily 3 AM)
 **Last Updated**: 2025-01-15
 **Version**: 5.1.0
 **Related**: See `docs/PHASE3_EPHEMERAL_DATA_DECAY.md` for full documentation
+
+---
+
+## Sprint 122 — Express 5 (2026-07-29)
+
+`@types/express` **4.17.21 → 5.0.6**. Express 5's `path-to-regexp` 8 widened route params to
+`string | string[]` (a repeatable `:ids+` or wildcard `*splat` segment captures an array), which
+surfaced as `TS2345` at every `req.params` read. Karmyq declares no such segment, so params are
+narrowed back to `string` via **`RouteParams`** (exported from `@karmyq/shared/middleware/auth`)
+rather than widened with `as any`. The invariant is enforced by
+`tests/regression/sprint-122-express5-route-params.test.ts`, which fails if any route literal
+introduces wildcard or repeatable syntax.
+
+No route file changed in this service — only the `@types/express` range; it type-checks clean at 0
+errors under Express 5. Every async handler here try/catches internally and answers via the inline
+`sendInternalError`, so no rejection escapes to Express 5's new auto-forwarding — which is why this
+service needs no express error middleware.
+
+**Also fixed here: `@karmyq/shared` was imported but never declared.** `src/index.ts` imports
+`createLogger` and `requestLoggingMiddleware` from it, while an inline comment claimed the service
+"doesn't use shared package" — stale and wrong. Now declared as `"*"`, and the comment corrected to
+say what is actually true: the service consumes the shared *logger* but deliberately keeps its own
+response helpers.
+
+Express **4.18.2 → 5.2.1**, supplied by the root `package.json` **production** dependency
+(the Dockerfiles copy the root manifest and `npm install --omit=dev`). **No endpoint, payload,
+status code or event contract changed** — `feedback:check` flags this service's `src/routes/`
+diff as a "route change", but the diff is type annotations only, so the API Endpoints section
+above is still accurate.
+
+Express 5 semantics now in force: async handler rejections auto-forward to the error middleware,
+`res.status()` throws `RangeError` on an out-of-range code, and `req.query` is a getter rather
+than a writable own property.

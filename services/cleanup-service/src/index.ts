@@ -39,7 +39,8 @@ interface ExtendedRequest extends Request {
 
 type Meta = Record<string, unknown>;
 
-// Inline response helpers (cleanup-service doesn't use shared package)
+// Inline response helpers. (This service DOES consume @karmyq/shared — see the logger import
+// above — but deliberately keeps its own response helpers rather than the shared ones.)
 const requestIdMiddleware = (req: ExtendedRequest, _res: Response, next: NextFunction): void => {
   req.id = randomUUID();
   next();
