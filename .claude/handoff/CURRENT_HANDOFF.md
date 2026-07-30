@@ -1,7 +1,72 @@
-# Sprint 121 — Dependency Backlog Cleanup — PRs 1–4 SHIPPED & DEPLOYED, PR 5 AWAITS MERGE AUTHORIZATION
+# Sprint 121 — Dependency Backlog Cleanup — PR 5 HOTFIX IN FLIGHT (v11.35.1), THEN PR 6 CLOSES THE SPRINT
 
-> **PR 5 (tailwindcss 3 → 4) IS CODE-COMPLETE ON `deps/sprint-121-pr5-tailwind`, v11.35.0.**
-> All four gates run. **Not merged — merge needs EXPLICIT admin authorization, as every PR does.**
+> **⚠️ HOTFIX v11.35.1 — PR 5 shipped a real production regression: the landing site stopped loading
+> its fonts.** Found by **cross-agent review (Codex) after the deploy**, not by any gate here.
+>
+> **Cause:** `apps/landing/src/app/globals.css` had `@import 'tailwindcss'` **above** the Google Fonts
+> `@import url(...)`. Tailwind v4 inlines the entire framework at its own `@import`, so the font
+> import was no longer at the top of the stylesheet — invalid in that position — and the production
+> optimizer **dropped it silently**. The build succeeded, every test was green, and the site kept
+> declaring `font-family: Fraunces` while never loading it, so fresh visitors got Georgia.
+>
+> **Proven a regression, not pre-existing:** `deploy.sh` copies with `cp -r` and never deletes, so
+> **16 previous landing stylesheets are still on the server — every one contains the font import.
+> Only v11.35.0's `03e743260ec2565d.css` has zero.**
+>
+> **Why every gate missed it, and the lesson.** The A/B computed-style diff — the same technique that
+> caught the button-cursor P1 — **cannot see this class of bug**: an unloaded font computes the
+> *identical* `font-family` string as a loaded one. Worse, the review browser had Fraunces cached from
+> visiting the v3 site minutes earlier, so the screenshots looked right. **A rendered-page check is
+> not sufficient for asset loading — assert on the built bundle.**
+> `tests/regression/landing-production-css.test.ts` now does, and **it was verified to actually fail**:
+> restoring the broken order turned 2 assertions red with a built-CSS font-import count of 0, then the
+> fix was restored. `apps/frontend` was never affected — it already imported fonts first and its
+> deployed CSS retains the import; that contrast is what confirmed the mechanism.
+>
+> **Also in the hotfix:** `apps/frontend/CONTEXT.md` claimed every canonical class uses
+> `@layer components`, but `.btn-primary` and `.card` are `@utility` since PR 5 (Codex minor #2).
+>
+> **SPRINT SCOPE DECISION (maintainer, 2026-07-29): the 8 new Dependabot PRs do NOT join Sprint 121.**
+> Sprint 121 finishes exactly as originally scoped — this hotfix, then **PR 6 (express 4 → 5) at
+> **v11.36.0** — and is then archived with a defensible completion statement: *"resolved the entire
+> original 18-PR triage."* Absorbing the new wave would make the sprint open-ended and mix deliberate
+> deferrals with its original backlog; absorbing only the "safe" groups still would not reach zero and
+> draws an arbitrary boundary. **Sprint 122 is a fresh dependency-wave triage** — planned in a separate
+> conversation, re-evaluated from post-Express master, **not a promise to merge everything.** Per-PR
+> guidance is in the roster table below.
+
+> **PR 5 SHIPPED AND DEPLOYED (2026-07-29).** [#175](https://github.com/ravichavali/karmyq/pull/175)
+> merged as **`9bec4aef`** (admin-authorized squash); master **CI/CD Pipeline** run
+> **`30483581848`** reached **`Deploy to Demo` = success**, all **9 services healthy**,
+> `🎉 Demo Deployment Successful` with `✅ Landing page build + docs verification`, **no rollback**.
+> **Demo now runs v11.35.0.**
+>
+> **LIVE SMOKE TEST PASSED — and it proves v4 actually shipped, not just that a pipeline was green.**
+> On `karmyq.com/login` the token `--color-primary` reads **`#2d6e28`, a real CSS color** — under v3
+> it was the triplet `45 110 40`, so the format itself is the evidence. Also live: the **P1 fix
+> (`cursor: pointer` on buttons)**, brand green `rgb(45,110,40)`, the Fraunces wordmark (so
+> `karmyq-shell.css`'s `@reference` compiled in production), input borders on `--color-border`, and
+> `--measure`/`--radius-card` surviving outside `@theme`. The 6 console errors are the **known stale
+> expired JWT** in the test browser profile (decodes to `priya.sharma@test.karmyq.com`) plus the SSE
+> client failing on that same token — **zero React, hydration or CSS errors**.
+> `karmyq.org` (built **on the server**, the flagged risk) renders correctly with the camelCase
+> `--color-karmyq-warmWhite` token resolving, and **the ADR-079 edit from this PR reached the
+> published docs site** — docs feedback loop verified end-to-end in production. The landing `h1`
+> reads `line-height: 60px`, i.e. the **accepted** leading change, exactly as predicted.
+>
+> **NEXT: PR 6 — express 4 → 5, the last of the ORIGINAL triage.** (8 new Dependabot PRs arrived
+> 2026-07-29 and need a scope decision — see the roster table.) Branch
+> **`deps/sprint-121-pr6-express` already exists**, cut from fresh `origin/master` (`9bec4aef`) and
+> carrying this handoff commit — **check it out, do not re-cut it.** See Critical Note 5: it touches
+> root, `packages/shared` (**imported by all 10 services**) and `geocoding-service`; breaking areas
+> are routing, error handling and the `req.query` getter. **#34 is already `CONFLICTING` — rebuild
+> from scratch off master rather than rebasing it.** `/code-review` runs at **HIGH**.
+> **Set its version bump in the Plan of Record before starting** (suggest `v11.36.0`).
+>
+> **Reusable technique from PR 5, worth applying to any styling/behavioural upgrade:** verify by
+> **A/B-diffing computed styles against the live site**, and confirm every framework rename **against
+> the compiler**, never the upgrade guide. Details in Critical Note 4 and
+> `feedback_styling_upgrade_live_ab_diff` in memory.
 >
 > **The one finding that mattered: v3's Preflight set `button { cursor: pointer }` and v4 dropped
 > it**, so every button in both apps silently stopped looking clickable. No test would ever catch
@@ -63,7 +128,9 @@
 > design tokens convert from RGB triplets to real CSS colors ("Option A").** Full rationale and
 > the recon findings that shape the diff are in Critical Note 4.
 
-> **STATUS (2026-07-24, updated 2026-07-28):** **PR 3 ([#164](https://github.com/ravichavali/karmyq/pull/164))
+> **HISTORICAL STATUS (2026-07-24, last updated 2026-07-28) — superseded by the blocks above; kept
+> for the PR 3/PR 4 record. Do NOT take "current work" from here.**
+> **PR 3 ([#164](https://github.com/ravichavali/karmyq/pull/164))
 > merged as `e7bc6cc5` and deployed 2026-07-28** — master run `30383717067`, `Deploy to Demo` =
 > success, `🎉 Demo Deployment Successful` with service health verification, **no rollback**.
 > Superseded PRs **#40, #35 and #36 are closed** (#36 with a note that it landed at 10.0.0, not
@@ -100,28 +167,56 @@
 
 ## Quick Start
 
-1. Read this handoff. The triage table below is the plan of record.
-2. **PRs 1, 2 and 3 are shipped and live** (`ffe5f756` v11.32.1, `d7ddd146` v11.33.0,
-   `e7bc6cc5` — version bump missed, see the warning above).
-3. **PR 4 (mobile/Expo majors + the Expo SDK upgrade) is the current work.** Branch
-   **`deps/sprint-121-pr4-mobile-expo` already exists**, cut from fresh `origin/master`
-   (`e7bc6cc5`) — check it out, do not re-cut it. See Critical Note 7 for the full scope; it is
-   the largest PR of the sprint and **needs an SDK-target decision before code changes start**.
-4. PRs 5 and 6 each branch off **fresh `origin/master`** after the previous one merges.
-4. Every merge needs **EXPLICIT admin authorization** (`gh pr merge --squash --admin`), every
+1. Read this handoff, top block first. The Plan of Record table below is authoritative.
+2. **PRs 1–5 are shipped and live.** Demo runs **v11.35.0** (`9bec4aef`). The whole original
+   18-PR triage is resolved except **#34 (express)**.
+3. **THE CURRENT WORK IS THE v11.35.1 HOTFIX**, branch **`fix/landing-font-import-v11.35.1`**
+   ([#177](https://github.com/ravichavali/karmyq/pull/177)) — **check it out, do not re-cut it.**
+   PR 5 shipped a landing site that declares `font-family: Fraunces` but never loads it. See the
+   top block for cause, proof it is a regression, and why every gate missed it. **If #177 has
+   already merged, skip to step 4.**
+4. **Then PR 6 — express 4 → 5, at `v11.36.0`, which closes the sprint.** Branch off **fresh
+   `origin/master`** after the hotfix lands (an earlier `deps/sprint-121-pr6-express` branch was
+   cut before the hotfix and carried only a handoff commit — that content is now in #177, so
+   **re-cut PR 6 from post-hotfix master and delete the stale branch**). See Critical Note 5:
+   it touches root, `packages/shared` (imported by all 10 services) and `geocoding-service`;
+   breaking areas are routing, error handling and the `req.query` getter. **#34 is already
+   `CONFLICTING` — rebuild from scratch off master, do not rebase it.** `/code-review` at **HIGH**.
+5. **The 8 Dependabot PRs that arrived 2026-07-29 are OUT OF SCOPE for this sprint** — they go to
+   Sprint 122 (see the roster table). Do not fold them into PR 6.
+6. Every merge needs **EXPLICIT admin authorization** (`gh pr merge --squash --admin`), every
    time. Never self-merge.
-5. **Before pushing any multi-workspace bump, run the edge-vs-node lockfile check** (see the
+7. **Before pushing any multi-workspace bump, run the edge-vs-node lockfile check** (see the
    `apps/landing` note below). Local `npm audit` + `npm ci --dry-run` + full test/build runs all
    pass on a half-resolved tree; only `npm ci` in CI catches it.
+8. **A green pipeline is not the bar, and neither is a rendered page.** PR 5 passed 20/20 checks,
+   a successful deploy, a live smoke test and a computed-style A/B against production, and still
+   shipped a broken font. **Assert on built artifacts for anything to do with asset loading.**
 
-## Open PR roster after PR 4 (2 open)
+## Open PR roster after PR 5 (9 open — 1 from the original triage, 8 NEW)
+
+**The original 18 are down to 1 (#34). 8 fresh Dependabot PRs landed on 2026-07-29**, the
+mid-sprint-arrival case Critical Note 8 warns about — this time in bulk, and not benign.
+
+**DECIDED (maintainer, 2026-07-29): these 8 go to Sprint 122, NOT Sprint 121.** Sprint 121 ships the
+v11.35.1 hotfix and PR 6, then archives as *"resolved the entire original 18-PR triage."* The
+dispositions below are **triage input for Sprint 122, re-evaluated from post-Express master — not
+commitments to merge.** Holding or closing a PR is a valid outcome.
 
 | PR | Disposition |
 |---|---|
-| #41 | **PR 5 — tailwindcss 3 → 4. CURRENT WORK.** |
-| #34 | PR 6 — express 4 → 5 |
+| #34 | **PR 6 — express 4 → 5 at v11.36.0. NEXT, after the v11.35.1 hotfix lands — last of the original triage.** |
+| #176 | S122 — production-deps group, 10 updates. **Consolidate with #167** if resolution stays clean (PR 2's shape). |
+| #167 | S122 — dev-deps group, 3 updates. **Consolidate with #176** if resolution stays clean. |
+| #173 | S122 — jest + @types/jest. **Validate against the `ts-jest` 29.4.6 pin** (Critical Note 2) before taking. |
+| #170 | S122 — eslint → **10.8.0**. Treat as a **dedicated ESLint 10 migration**, not a bump. **PR 3 explicitly named it the cleaner target** — it drops the `@eslint/eslintrc`/minimatch-3 chain at the source and **may cleanly remove PR 3's root-hoist workaround**. Gate on `eslint-config-expo@57` supporting it. |
+| #168 | S122 — typescript → **7.0.2**. **HOLD or CLOSE** unless TS 7 across all 16 workspaces is deliberately brought into scope. It skips 6 entirely, and PR 4 already rejected TS 6. A platform decision, not backlog cleanup. |
+| #171 | S122 — @types/node → **26**. **HOLD or CLOSE** unless the runtime floor moves first: the 9 backends run `node:18-alpine` and root `engines.node` is `>=18.0.0`, so Node 26 types would compile against APIs those runtimes lack. A platform decision. |
+| #169 | S122 — redis → **6.1.0**. Separate **runtime major**, its own PR; touches every service on Redis/Bull. |
+| #172 | S122 — zustand 4 → **5**. Separate **runtime major**, its own PR; frontend state. |
 
-**Sprint progress: 18 open PRs → 2.** #37 and #39 closed on PR 4's merge.
+**Sprint progress on the original triage: 18 → 1.** #41 was superseded by #175 and auto-closed.
+**Total open including the new arrivals: 9.**
 
 **Dependabot has NOT re-raised the four `apps/mobile` react-native bumps** that #157 took with it
 when it auto-closed on PR 2's merge (checked 2026-07-28, one open-PR list later). **PR 4 must
@@ -163,8 +258,8 @@ individually-scoped migrations.
 | **2** | consolidated safe deps | #157 (**minus mobile**), **#161**, #85, **#55**, #145, #144, #147, #118, #53 | v11.33.0 — **SHIPPED & DEPLOYED** (`d7ddd146`) |
 | **3** | lint toolchain majors → became an **ESLint 8 → 9 flat-config migration** | #40, #35, #36 (**all closed**) | **SHIPPED & DEPLOYED** (`e7bc6cc5`) — ⚠️ **no version bump; master still reads 11.33.0** |
 | **4** | mobile/Expo majors **+ Expo SDK 54 → 57 upgrade** | #37, #39 (**both closed**), **#157's 4 react-native bumps** (never re-raised — applied via the SDK) | **v11.34.0 — SHIPPED & DEPLOYED** (`cf27ab89`) |
-| **5** | tailwindcss 3 → 4 | #41 | **v11.35.0 — DECIDED 2026-07-28** (see Critical Note 4) |
-| **6** | express 4 → 5 | #34 | TBD — **set this before starting** |
+| **5** | tailwindcss 3 → 4 | #41 | **v11.35.0 — SHIPPED & DEPLOYED** (`9bec4aef`) + **hotfix v11.35.1** (landing font import) |
+| **6** | express 4 → 5 | #34 | **v11.36.0 — DECIDED 2026-07-29** (set before implementation, per the PR 3 lesson) |
 | — | closed unmerged | #106 (stale docs) — **CLOSED 2026-07-24** | — |
 
 **Accounting (all 18 open PRs at triage):** 1 superseded by PR 1 (#159) + 9 in PR 2 (#157, #126,
