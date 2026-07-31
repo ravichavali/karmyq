@@ -1,7 +1,7 @@
 # Frontend Web Application
 
 ## Overview
-Next.js 14 web app with Pages Router and Tailwind CSS v4.
+Next.js 15 web app with Pages Router and Tailwind CSS v4.
 
 ## Structure
 ```

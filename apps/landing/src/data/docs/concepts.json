@@ -679,6 +679,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-087-one-seed-path-init-sql-regeneration.md"
+    },
+    {
+      "slug": "adr-088-test-tier-truthfulness",
+      "number": "088",
+      "title": "ADR-088: Test-Tier Truthfulness",
+      "status": "proposed",
+      "description": "**Status**: Proposed",
+      "filename": "ADR-088-test-tier-truthfulness.md"
     }
   ]
 }
