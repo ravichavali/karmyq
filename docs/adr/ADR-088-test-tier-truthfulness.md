@@ -56,6 +56,16 @@ Operationally, this PR establishes and enforces four properties:
   `@karmyq/tests#test` 1→138, `karmyq-frontend#test` (apps/frontend) 225→377,
   `karmyq-landing#test` 32→202. Every `#test` task's cache key now depends on the test files, jest
   config, and setup files it actually runs.
+  - **This is still not a complete guarantee for `@karmyq/tests`.** `$TURBO_DEFAULT$` scopes a
+    task's cache key to its own package directory. But the five new gates in this PR live in the
+    `tests` workspace and audit *other* workspaces (Turbo's cache-key shape, tier-coverage parity,
+    lint config loadability, Expo SDK alignment, the promoter's directory walk) — a change to a
+    service or app they check does not appear in `@karmyq/tests#test`'s own inputs, so a warm
+    cache could replay a stale "pass" for a gate whose subject matter changed. `turbo.json`
+    therefore gives `@karmyq/tests#test` a package-specific override, `"cache": false`, so it
+    always runs live rather than relying on an input list that structurally cannot see what it's
+    checking. Concretely: a local `npm test` only guarantees a task ran for real if the task
+    either isn't cross-workspace, or is one of these five `tests`-workspace gates.
 - **Every tier's jest invocation must list exactly the test files present on disk.** A new
   regression gate asserts, per workspace, that the resolved `test` script's tier invocations cover
   the files that exist under that workspace's test directories — tier-agnostic, because the repo

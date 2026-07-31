@@ -27,6 +27,11 @@ describe('every linted workspace has a loadable flat ESLint config', () => {
     // Scan the repo rather than comparing PROBES against a copy of itself.
     // The failure this gate exists to prevent is silent under-coverage, so a
     // NEW unprobed config must fail here — not only a REMOVED one.
+    // Flat config resolves any of these four extensions; scanning only .js
+    // would leave a future eslint.config.mjs/.cjs/.ts unprobed.
+    const FLAT_CONFIG_NAMES = ['eslint.config.js', 'eslint.config.mjs', 'eslint.config.cjs', 'eslint.config.ts'];
+    const hasFlatConfig = (dir: string) => FLAT_CONFIG_NAMES.some((name) => existsSync(join(dir, name)));
+
     const discovered: string[] = [];
     for (const root of ['apps', 'services', 'packages']) {
       const rootDir = join(ROOT, root);
@@ -35,10 +40,10 @@ describe('every linted workspace has a loadable flat ESLint config', () => {
         if (name === 'node_modules') continue;
         const dir = join(rootDir, name);
         if (!statSync(dir).isDirectory()) continue;
-        if (existsSync(join(dir, 'eslint.config.js'))) discovered.push(`${root}/${name}`);
+        if (hasFlatConfig(dir)) discovered.push(`${root}/${name}`);
       }
     }
-    if (existsSync(join(ROOT, 'tests', 'eslint.config.js'))) discovered.push('tests');
+    if (hasFlatConfig(join(ROOT, 'tests'))) discovered.push('tests');
 
     expect(discovered.sort()).toEqual(PROBES.map((p) => p.workspace).sort());
   });

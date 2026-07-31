@@ -19,8 +19,21 @@ describe('collectTddTargets', () => {
   const workspaces = targets.map((t: { workspace: string }) => t.workspace);
 
   it('includes apps/ workspaces that have a tests/tdd directory', () => {
-    expect(existsSync(join(ROOT, 'apps', 'landing', 'tests', 'tdd'))).toBe(true);
-    expect(workspaces).toContain('apps/landing');
+    // Anchored on apps/frontend, not apps/landing: apps/landing/tests/tdd is
+    // empty by construction (its only occupant was promoted out by this PR)
+    // and tracked only via a .gitkeep, which is fragile to build a permanent
+    // gate on. apps/frontend/tests/tdd carries 74 tracked files and is not
+    // going empty.
+    expect(existsSync(join(ROOT, 'apps', 'frontend', 'tests', 'tdd'))).toBe(true);
+    expect(workspaces).toContain('apps/frontend');
+  });
+
+  it('also includes apps/landing when its tests/tdd directory exists', () => {
+    // Secondary check: apps/landing/tests/tdd is currently empty (see above),
+    // so this only asserts something when the directory is present at all.
+    if (existsSync(join(ROOT, 'apps', 'landing', 'tests', 'tdd'))) {
+      expect(workspaces).toContain('apps/landing');
+    }
   });
 
   it('still includes services/ workspaces that have a tests/tdd directory', () => {

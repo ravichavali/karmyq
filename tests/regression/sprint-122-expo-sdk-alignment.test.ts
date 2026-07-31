@@ -36,9 +36,12 @@ const INDEPENDENTLY_VERSIONED: Record<string, string> = {
  * real arbiter for these; this map is its committed shadow, frozen at the
  * versions Sprint 121 PR 4 deliberately chose for SDK 57.
  *
- * Scope is the packages with a RECORDED decision behind them, not every
- * SDK-managed package: the rest are covered by the lockfile assertion below
- * and by `expo install --check` in CI.
+ * Scope is now every SDK-managed package expoFamily() cannot see, not only
+ * those with a recorded decision behind them — the earlier five had a
+ * decision on record; the six added in Sprint 122 PR 2 (reanimated, worklets,
+ * screens, gesture-handler, react-native-web, the picker) did not, but were
+ * just as invisible to the predicate. `reanimated` and `worklets` are the
+ * fastest-moving of the eleven and the most likely next bump.
  *
  * Sprint 122 PR 3 proposes moving three of these (react 19.2.3 -> 19.2.8,
  * react-native-safe-area-context ~5.7.0 -> 5.8.0, react-native-maps 1.27.2 ->
@@ -52,6 +55,12 @@ const SDK_PINNED: Record<string, string> = {
   'react-native': '0.86.0',
   'react-native-maps': '1.27.2',
   'react-native-safe-area-context': '~5.7.0',
+  'react-native-reanimated': '4.5.0',
+  'react-native-worklets': '0.10.0',
+  'react-native-screens': '~4.26.0',
+  'react-native-gesture-handler': '~2.32.0',
+  'react-native-web': '~0.21.0',
+  '@react-native-picker/picker': '2.11.4',
 };
 
 const expoFamily = (name: string) =>

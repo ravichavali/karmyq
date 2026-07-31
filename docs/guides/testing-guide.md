@@ -22,7 +22,7 @@ Some workspaces (`cleanup-service`, `simulation-service`, `apps/landing`, `apps/
 single bare `jest` invocation instead of tiered `test:unit` / `test:regression` / `test:tdd`
 scripts. That invocation covers every tier directory in one pass — it is a legitimate second
 layout, not a shortcut. A regression gate
-(`tests/regression/tier-coverage-truthfulness.test.ts`) checks both layouts the same way: whatever
+(`tests/regression/sprint-122-tier-parity.test.ts`) checks both layouts the same way: whatever
 the workspace's `test` script resolves to must actually cover the test files present on disk for
 every tier that has files.
 
@@ -60,8 +60,21 @@ etc. instead of a bare positional argument — see ADR-029.
 
 Turbo caches `#test` task output keyed on the task's `inputs`. As of ADR-088, `turbo.json`
 declares `inputs: ["$TURBO_DEFAULT$"]` for the `test` task, so the cache key includes the
-package's own test files, jest config, and setup files — a test edit invalidates the cache. Two
-ways to bypass the cache when you need a guaranteed real run:
+package's own test files, jest config, and setup files — a test edit invalidates the cache.
+
+**`@karmyq/tests#test` is uncached, deliberately.** The five gates in `tests/regression/` and
+`tests/unit/` that audit *other* workspaces (Turbo cache-key shape, tier-coverage parity, lint
+config loadability, Expo SDK alignment, the promoter's directory walk) live in the `tests`
+workspace but read files outside it. `$TURBO_DEFAULT$` scopes a task's cache key to its own
+package directory, so `@karmyq/tests#test`'s inputs never include the services/apps it's
+checking — a change to, say, `services/reputation-service/package.json` doesn't invalidate the
+`tests` workspace's cache, and a warm cache would replay a stale pass instead of re-running the
+gate. `turbo.json` gives `@karmyq/tests#test` a package-specific override (`"cache": false`), so
+it always runs live. **A local `npm test` only guarantees a task ran for real if either it isn't
+cross-workspace, or it's the `tests` workspace** — don't assume a green cached run elsewhere
+re-validated anything outside its own package directory.
+
+Two ways to bypass the cache when you need a guaranteed real run on a workspace that IS cached:
 
 ```bash
 # Force every workspace's test task to actually run

@@ -15,6 +15,11 @@
       "outputs": ["coverage/**"],
       "inputs": ["$TURBO_DEFAULT$"]
     },
+    "@karmyq/tests#test": {
+      "dependsOn": ["build"],
+      "outputs": ["coverage/**"],
+      "cache": false
+    },
     "lint": {
       "outputs": []
     },
