@@ -1,4 +1,84 @@
-# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 1 SHIPPED · PR 2 IS NEXT
+# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 1 SHIPPED · PR 2 BUILT & GREEN, AWAITING MERGE REVIEW
+
+> ## ⏸️ PR 2 (2026-07-31): **BUILT, ALL 20 CI CHECKS GREEN, NOT MERGED — held at maintainer request for review.**
+>
+> **PR #183** → https://github.com/ravichavali/karmyq/pull/183
+> Branch `deps/sprint-122-pr2-test-truth` @ `420897c0` · **22 commits, 51 files, +2896/−1430** · **v11.37.0**
+>
+> **Nothing is decaying.** The branch is pushed and green. Resume by reviewing the PR and either
+> authorizing `gh pr merge --squash --admin` (needs EXPLICIT authorization, every time) or asking
+> for changes. **Do not re-run the build; it is done.**
+>
+> ### What it does — four ways a green result could be produced without evidence
+>
+> | Defect | Measured before | After |
+> |---|---|---|
+> | `turbo.json` hashed `test/**` (**singular**); every workspace uses `tests/` (**plural**) — so **no `#test` task hashed any test file, jest config or setup file**. Editing a test replayed a cached pass monorepo-wide. | `karmyq-auth-service#test` hashed 15 inputs: `package.json` + 14 `src/**`, zero tests. Three tasks hashed exactly **one** file. | `$TURBO_DEFAULT$`. auth 15→38, mobile 1→50, geocoding 1→13, `tests` 1→138, frontend 225→377, landing 32→202. |
+> | `scripts/promote-tdd-tests.js` declared `APPS_DIR`, never walked it. Runs as `posttest` on every `npm test`. | `apps/landing`'s `sprint-99` test was **passing and stranded** in `tdd/`. | Testable `collectTddTargets()`; **5 tests promoted** (4 frontend, 1 landing). |
+> | `apps/mobile` set `passWithNoTests: true` under "until we write mobile tests". | A regression test existed there, passing **2/2**. | Flag removed; coverage asserted instead. |
+> | CI runs lint as `npm run lint --if-present \|\| echo` — a config that throws on load yields a **green job**. | Never verified. | `--print-config` gate over all 4 configs (112/112/442/89 rules). |
+>
+> Plus **D-4** (`apps/mobile` joins CI's blocking type-check — its `tsc` is 0 errors for the first
+> time) and **D-5** (dead root-level `mobile/` scaffold deleted — Expo SDK 50 / RN 0.73, not an npm
+> workspace, so nothing installed, audited, built or tested it).
+>
+> **Zero runtime code touched** — verified by path filter: nothing under `services/`, `apps/*/src`,
+> `infrastructure/`, `packages/shared/src|middleware`.
+>
+> ### Decisions taken this PR (do not re-debate)
+>
+> | # | Decision |
+> |---|---|
+> | **D-4** | CI type-checks `apps/mobile`, blocking. Overrides the standing "don't chase mobile green as a gate." |
+> | **D-5** | Root-level `mobile/` scaffold deleted. |
+> | **D-6** | The TDD promoter's `.ts`-only file filter is **NOT** extended in PR 2. `apps/frontend/tests/tdd/` holds **72 `.test.tsx` vs 2 `.test.ts`**; **67 of 74** suites pass and would promote — ~442 tests into the blocking tier in one change. Logged **BUG-033**. ADR-088 states the limitation rather than claiming the promoter is fixed. |
+> | — | `--passWithNoTests` deliberately **not** bulk-deleted. It is in 10 workspaces and **ADR-029 explicitly justifies it** for legitimately-empty tiers. ADR-088 **amends** ADR-029 and asserts tier *coverage* instead. |
+> | — | `@karmyq/tests#test` is **uncached** (`cache: false`): its gates audit *other* workspaces, so package-local `$TURBO_DEFAULT$` inputs cannot see what they check and a warm cache would replay them instead of running them. |
+>
+> ### Two things CI/review caught that local work did not
+>
+> 1. **A Critical that would have gone red on the first push.** `tests/unit/promote-tdd-targets.test.ts`
+>    asserted `apps/landing/tests/tdd/` exists — but this PR's own promotion left that directory
+>    **empty with zero tracked files**, and git does not track empty directories. A fresh clone (CI)
+>    would fail on a **blocking** tier for a reason unrelated to the code — this PR's exact theme.
+>    All ten `services/*/tests/tdd/` carry a `.gitkeep`; that one did not. Fixed with a `.gitkeep`
+>    **and** by re-anchoring the assertion on `apps/frontend` (74 tracked files).
+> 2. **CodeQL #571, `js/command-line-injection`, CRITICAL** at the tier gate's
+>    `execSync(\`npx jest ${jestArgs} …\`)` — args read from workspace `package.json` into a shell
+>    string. My own `/security-review` had looked at that line and waved it past as "repo-controlled,
+>    low risk." **Fixed, not dismissed:** argv arrays + `execFileSync(process.execPath, [JEST_BIN, …])`,
+>    no shell anywhere. Note `npx.cmd` is NOT a valid shortcut — Node 24 on Windows refuses to spawn
+>    a `.cmd` without a shell (CVE-2024-27980 fix), which reintroduces the string-building.
+>
+> ### Verification state
+>
+> - **All 20 CI checks green** on `420897c0`, including **Integration Tests** (the tier that caught
+>   PR 1's real 500), Lint & Type Check (now covering `apps/mobile`), all 7 Docker builds,
+>   Security Audit, ADR-060 gate, CodeQL. `Deploy to Demo` shows `skipping` — correct on a PR.
+> - Honest local full run, cache defeated (`turbo run test --force --concurrency=1`): **exit 0, 26/26
+>   tasks**. `tests` workspace **24 suites / 341 tests**.
+> - **All five gates proven non-vacuous by injection**, several in workspaces different from the
+>   author's, each restored byte-identical. Non-vacuity was **re-proved after** the CodeQL fix changed
+>   how `listed()` invokes jest.
+> - `/simplify`, `/security-review`, `feedback:check` ("No context updates needed") all run.
+>   `/code-review` = 11 per-task reviews + a whole-branch review (1 Critical, 2 Important, 7 Minor;
+>   all fixed and re-reviewed).
+>
+> ### Owed after merge (do NOT push these to master separately)
+>
+> - **ADR-088 is `Proposed`.** Flip to **Implemented** on deploy — carry that edit into **PR 3's
+>   branch**, never a docs-only master push (every master push is a full deploy → demo 502s).
+> - Deferred, non-blocking, all logged: `promote-tdd-tests.js:47` has the same shell-string shape
+>   CodeQL did *not* flag (left alone — it runs as `posttest`, risk > the unraised alert);
+>   a new-service scaffold will trip the turbo gate with a bare task-id array and no guidance;
+>   colocated `src/**/__tests__` tests in `apps/frontend` would never run under `npm test` (zero
+>   exist today); `--if-present` silent-pass applies to all four type-check workspaces.
+>
+> ### Observation for the maintainer (not caused by this PR)
+>
+> `password123` appears in **81 files on master** — landing docs, Maestro configs, `DATA_FLOWS.md`.
+> CLAUDE.md says "never commit passwords." The demo persona credential is effectively public
+> already; the rule and the practice disagree. Worth a deliberate decision rather than more drift.
 
 > ## ✅ PR 1 COMPLETE (2026-07-30): express 4 → 5 merged, deployed and verified live at v11.36.0.
 >
@@ -63,13 +143,30 @@
 > **Sprint 122 planning is COMPLETE. Nothing is implemented yet.** No code has changed on any
 > branch; the working tree carries only the two untracked `.github/` files that were never mine.
 
-## Quick Start — PR 2 (test-tier truthfulness, v11.37.0) — PLAN WRITTEN 2026-07-30
+## Quick Start — resume here
 
-**Plan file:** [`docs/superpowers/plans/2026-07-30-sprint-122-pr2-test-tier-truthfulness.md`](../../docs/superpowers/plans/2026-07-30-sprint-122-pr2-test-tier-truthfulness.md)
-— 12 tasks, baseline measured, ready to execute. Branch `deps/sprint-122-pr2-test-truth` is cut and
-carries only doc commits (`git diff origin/master -- ':!*.md' ':!.claude'` prints nothing).
+**PR 2 is built and green. The only open action is your review of PR #183.**
 
-### Two maintainer decisions taken 2026-07-30
+1. Review https://github.com/ravichavali/karmyq/pull/183 (22 commits, 51 files, all 20 checks green).
+2. Then either:
+   - **Authorize the merge** — `gh pr merge --squash --admin` needs **EXPLICIT** authorization every
+     time; never self-merge. After merging: confirm the master **`CI/CD Pipeline`** run reaches
+     `Deploy to Demo` = success **with no rollback** and its internal sweep reports all **9** backends
+     healthy, then smoke-test for **v11.37.0**. This PR changes no runtime code, so the smoke test
+     confirms a clean deploy, not new behavior.
+   - **Or ask for changes** — the deferred items are listed above under "Owed after merge".
+3. **Then PR 3** — ⚠️ still **NOT execution-ready**: D-1/D-2/D-3 are open (below). Note PR 2 now makes
+   those decisions *mechanical*: `SDK_PINNED` in `tests/regression/sprint-122-expo-sdk-alignment.test.ts`
+   freezes `react`, `react-dom`, `react-native`, `react-native-maps`, `react-native-safe-area-context`
+   (plus 6 more SDK-managed packages), so moving any of them **requires editing that map with a written
+   reason** and `npx expo install --check` must still exit 0. That is deliberate — it forces the
+   re-decision to be explicit and reviewable. Verified: injecting D-2's actual proposal
+   (`~5.7.0`→`5.8.0`) turns the gate red.
+
+**Plan file (complete, executed):** [`docs/superpowers/plans/2026-07-30-sprint-122-pr2-test-tier-truthfulness.md`](../../docs/superpowers/plans/2026-07-30-sprint-122-pr2-test-tier-truthfulness.md)
+**Execution ledger (every finding, ruling and verification):** `.superpowers/sdd/2026-07-30-sprint-122-pr2-test-tier-truthfulness/progress.md` *(git-ignored; local only)*
+
+### Maintainer decisions taken 2026-07-30
 
 | # | Decision | Answer |
 |---|---|---|
@@ -280,7 +377,7 @@ PRs — 6 merged and deployed, 3 closed with written rationale.
 | PR | Scope | Closes | Version | `/code-review` | Status |
 |---|---|---|---|---|---|
 | **1** | **express 4 → 5** (`^5.2.1`, `@types/express ^5.0.6`) | #34 ✅ | **v11.36.0** | **HIGH** | ✅ **SHIPPED** — merged `46b2982c`, deployed, verified live |
-| **2** | **test-tier truthfulness** — turbo inputs, promote-tdd walk, `passWithNoTests`, lint print-config gate, SDK-alignment gate, **ADR-088** | — | **v11.37.0** | **HIGH** | planned |
+| **2** | **test-tier truthfulness** — turbo inputs, promote-tdd walk, `passWithNoTests`, lint print-config gate, SDK-alignment gate, **ADR-088** | — | **v11.37.0** | **HIGH** | ⏸️ **BUILT, 20/20 GREEN — PR #183 awaiting merge review** |
 | **3** | **consolidated safe groups** | **#179**, **#178** | **v11.38.0** | MEDIUM | ⚠️ **NOT ready — 3 decisions open** |
 | **4** | **jest 29 → 30** (11 workspaces) | #173 | **v11.39.0** | **HIGH** | planned |
 | **5** | **redis (node-redis) 4 → 6** | #169 | **v11.40.0** | MEDIUM | planned |
