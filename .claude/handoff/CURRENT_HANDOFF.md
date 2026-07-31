@@ -92,7 +92,9 @@
 >
 > ### Verification state
 >
-> - **All 20 CI checks green** on `13480b2d`, including **Integration Tests** (the tier that caught
+> - **All 20 CI checks were green on `a53af273`** (review round 1). Round 2's `13480b2d` changes only
+>   a test file and this handoff, and CI is re-running on it — **confirm before claiming green on the
+>   current head.** The round-1 run included **Integration Tests** (the tier that caught
 >   PR 1's real 500), Lint & Type Check (now covering `apps/mobile`), all 7 Docker builds,
 >   Security Audit, ADR-060 gate, CodeQL. `Deploy to Demo` shows `skipping` — correct on a PR.
 > - Honest local full run, cache defeated (`turbo run test --force --concurrency=1`): **exit 0, 26/26
