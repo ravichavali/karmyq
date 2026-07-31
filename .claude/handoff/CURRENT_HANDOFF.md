@@ -3,7 +3,7 @@
 > ## ⏸️ PR 2 (2026-07-31): **BUILT, ALL 20 CI CHECKS GREEN, NOT MERGED — held at maintainer request for review.**
 >
 > **PR #183** → https://github.com/ravichavali/karmyq/pull/183
-> Branch `deps/sprint-122-pr2-test-truth` @ `REPLACE_HEAD` · **26 commits, 56 files** (review rounds 1-2 applied) · **v11.37.0**
+> Branch `deps/sprint-122-pr2-test-truth` @ `13480b2d` · **26 commits, 56 files** (review rounds 1-2 applied) · **v11.37.0**
 >
 > **Nothing is decaying.** The branch is pushed and green. Resume by reviewing the PR and either
 > authorizing `gh pr merge --squash --admin` (needs EXPLICIT authorization, every time) or asking
@@ -92,7 +92,7 @@
 >
 > ### Verification state
 >
-> - **All 20 CI checks green** on `REPLACE_HEAD`, including **Integration Tests** (the tier that caught
+> - **All 20 CI checks green** on `13480b2d`, including **Integration Tests** (the tier that caught
 >   PR 1's real 500), Lint & Type Check (now covering `apps/mobile`), all 7 Docker builds,
 >   Security Audit, ADR-060 gate, CodeQL. `Deploy to Demo` shows `skipping` — correct on a PR.
 > - Honest local full run, cache defeated (`turbo run test --force --concurrency=1`): **exit 0, 26/26
