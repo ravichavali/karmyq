@@ -3,7 +3,7 @@
 > ## ⏸️ PR 2 (2026-07-31): **BUILT, ALL 20 CI CHECKS GREEN, NOT MERGED — held at maintainer request for review.**
 >
 > **PR #183** → https://github.com/ravichavali/karmyq/pull/183
-> Branch `deps/sprint-122-pr2-test-truth` @ `a53af273` · **24 commits, 56 files** (review round 1 applied) · **v11.37.0**
+> Branch `deps/sprint-122-pr2-test-truth` @ `REPLACE_HEAD` · **26 commits, 56 files** (review rounds 1-2 applied) · **v11.37.0**
 >
 > **Nothing is decaying.** The branch is pushed and green. Resume by reviewing the PR and either
 > authorizing `gh pr merge --squash --admin` (needs EXPLICIT authorization, every time) or asking
@@ -74,13 +74,29 @@
 >    colocates at `src/**/__tests__`; the `tests` workspace keeps tiers at its own root. Both now
 >    documented, with how the gates reach each.
 >
+> ### Maintainer review round 2 (2026-07-31) — 1 Important, fixed
+>
+> **The new CI type-check gate asserted a COUNT, not an identity.** It required
+> `invocations.length >= 4` and that each named workspace declared the script — so replacing
+> `apps/mobile` with a **duplicate `packages/shared`** passed 3/3 while mobile went unchecked
+> (reproduced). This is the same count-vs-identity mistake the lint-config gate made and had to be
+> fixed for, repeated in a gate written *after* that fix. Rewritten to pin the **exact, unique**
+> workspace roster, scope parsing to the named step (so an invocation moved elsewhere cannot satisfy
+> it), and reject `--if-present`, `||` suppression and `continue-on-error`. Proven against **six**
+> bypass shapes — duplicate substitution, dropped workspace, `--if-present`, `|| true`,
+> `continue-on-error`, and relocation out of the step — with the baseline green either side.
+>
+> Also corrected stale docs the reviewer flagged: this handoff had claimed the `--if-present`
+> silent-pass was still deferred, and the PR description still quoted the obsolete mobile
+> invocation and old suite counts.
+>
 > ### Verification state
 >
-> - **All 20 CI checks green** on `a53af273`, including **Integration Tests** (the tier that caught
+> - **All 20 CI checks green** on `REPLACE_HEAD`, including **Integration Tests** (the tier that caught
 >   PR 1's real 500), Lint & Type Check (now covering `apps/mobile`), all 7 Docker builds,
 >   Security Audit, ADR-060 gate, CodeQL. `Deploy to Demo` shows `skipping` — correct on a PR.
 > - Honest local full run, cache defeated (`turbo run test --force --concurrency=1`): **exit 0, 26/26
->   tasks**. `tests` workspace **25 suites / 345 tests**.
+>   tasks**. `tests` workspace **25 suites / 346 tests**.
 > - **All five gates proven non-vacuous by injection**, several in workspaces different from the
 >   author's, each restored byte-identical. Non-vacuity was **re-proved after** the CodeQL fix changed
 >   how `listed()` invokes jest.
@@ -96,7 +112,8 @@
 >   CodeQL did *not* flag (left alone — it runs as `posttest`, risk > the unraised alert);
 >   a new-service scaffold will trip the turbo gate with a bare task-id array and no guidance;
 >   colocated `src/**/__tests__` tests in `apps/frontend` would never run under `npm test` (zero
->   exist today); `--if-present` silent-pass applies to all four type-check workspaces.
+>   exist today). **The `--if-present` silent-pass is FIXED, not deferred** — see review round 1
+>   above; all four type-check invocations now run without it and a gate pins the roster.
 >
 > ### Observation for the maintainer (not caused by this PR)
 >
