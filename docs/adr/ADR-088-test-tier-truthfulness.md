@@ -68,8 +68,10 @@ Operationally, this PR establishes and enforces four properties:
   sprint-99 test).
 - **`apps/mobile` no longer claims an excuse it doesn't have**, and any configuration whose failure
   mode is silent gets a blocking gate proven non-vacuous at authoring time — new regression tests
-  in `tests/regression/` for the turbo cache-key shape, the promoter's directory coverage, the
-  per-workspace tier-coverage assertion, and the four flat ESLint configs' loadability.
+  in `tests/regression/` for the turbo cache-key shape, the per-workspace tier-coverage assertion,
+  and the four flat ESLint configs' loadability, plus a blocking **unit**-tier test at
+  `tests/unit/promote-tdd-targets.test.ts` for the promoter's directory coverage (the unit tier
+  blocks a push exactly as regression does — it just isn't the same directory).
 
 ## Why not bulk-delete `--passWithNoTests`
 
@@ -129,14 +131,14 @@ making the re-decision explicit and reviewable instead of silently passing throu
   currently pass (442 tests) and would promote today if the filter were extended to `.tsx`.
   **Maintainer decision (2026-07-30): not extended in this PR.** Extending the filter would move
   ~442 tests into the blocking regression tier in a single change, which is a much larger and
-  separately-reviewable decision than fixing the directory walk. This is logged as a follow-up in
-  `docs/BUGS.md`, not silently deferred.
+  separately-reviewable decision than fixing the directory walk. Logged as
+  [`docs/BUGS.md` BUG-033](../BUGS.md), not silently deferred.
 - **`services/messaging-service` — a Critical service — has zero test files and declares no `test`
   script.** No tier-coverage assertion can bite on a workspace with nothing to compare against, so
   this PR's coverage gate is silent about messaging-service by construction, not by exemption. A
   "every Critical service has tests" gate is a natural follow-up but cannot land as a blocking gate
   yet, because it would land red on day one; it becomes addable once messaging-service has any
-  tests at all.
+  tests at all. Logged as [`docs/BUGS.md` BUG-034](../BUGS.md).
 
 ### Neutral Consequences
 
@@ -180,11 +182,15 @@ making the re-decision explicit and reviewable instead of silently passing throu
 ## Implementation Notes
 
 - Files affected: `turbo.json`; `scripts/promote-tdd-tests.js`; `apps/mobile/jest.config.js`; four
-  new gates under `tests/regression/`; the Expo alignment gate and its new `SDK_PINNED` map.
+  new gates under `tests/regression/` — `sprint-122-turbo-test-inputs.test.ts`,
+  `sprint-122-tier-parity.test.ts`, `sprint-122-lint-config-gate.test.ts`, and
+  `sprint-122-expo-sdk-alignment.test.ts` (with its new `SDK_PINNED` map) — plus one new gate at
+  `tests/unit/promote-tdd-targets.test.ts` for the promoter's directory coverage.
 - All four repaired mechanisms and their gates were verified non-vacuous by injecting the original
   defect and confirming the gate goes red, then restoring the file to a byte-identical state.
-- Follow-ups logged in `docs/BUGS.md`: the `.tsx` gap in the TDD promoter's file filter, and the
-  future "every Critical service has tests" gate pending `services/messaging-service` coverage.
+- Follow-ups logged in `docs/BUGS.md`: **BUG-033** (the `.tsx` gap in the TDD promoter's file
+  filter) and **BUG-034** (`services/messaging-service` has zero test coverage; the future "every
+  Critical service has tests" gate is pending its coverage).
 
 ## References
 
