@@ -3,7 +3,7 @@
 > ## ⏸️ PR 2 (2026-07-31): **BUILT, ALL 20 CI CHECKS GREEN, NOT MERGED — held at maintainer request for review.**
 >
 > **PR #183** → https://github.com/ravichavali/karmyq/pull/183
-> Branch `deps/sprint-122-pr2-test-truth` @ `420897c0` · **22 commits, 51 files, +2896/−1430** · **v11.37.0**
+> Branch `deps/sprint-122-pr2-test-truth` @ `a53af273` · **24 commits, 56 files** (review round 1 applied) · **v11.37.0**
 >
 > **Nothing is decaying.** The branch is pushed and green. Resume by reviewing the PR and either
 > authorizing `gh pr merge --squash --admin` (needs EXPLICIT authorization, every time) or asking
@@ -50,13 +50,37 @@
 >    no shell anywhere. Note `npx.cmd` is NOT a valid shortcut — Node 24 on Windows refuses to spawn
 >    a `.cmd` without a shell (CVE-2024-27980 fix), which reintroduces the string-building.
 >
+> ### Maintainer review round 1 (2026-07-31) — 2 Important + 1 Minor, all correct, all fixed (`a53af273`)
+>
+> Each was **reproduced before being fixed**, and each fix proven non-vacuous.
+>
+> 1. **The Expo gate allowed MIXED SDK generations.** `sdkMajor >= 57` was a *floor* while
+>    `SDK_PINNED` is a frozen SDK-57 matrix — so moving the whole expo family to 58 while
+>    `react-native` stayed on its 57 pin passed **both** assertions. My first simulation went red
+>    only on the **lockfile** assertion, which a real bump PR clears with `npm install` — false
+>    comfort. Fixed with an exact `SDK_MAJOR = 57` constant beside `SDK_PINNED`, so an SDK
+>    migration must edit both together. Rejected `expo install --check` as a blocking test
+>    (network/CLI fragility is why the committed shadow exists) and per-major pin sets (YAGNI).
+> 2. **CI's "Run TypeScript type check" step was checking almost nothing.** `--if-present` silently
+>    passes when a script is absent — and **three of its four workspaces (`packages/shared`,
+>    `auth-service`, `community-service`) declared no `type-check` script at all.** The step had
+>    been green while checking only `apps/mobile`, added a day earlier by D-4. All three verified
+>    tsc-clean at 0 errors → scripts added, `--if-present` dropped from all four,
+>    and `tests/regression/sprint-122-ci-type-check-gate.test.ts` now asserts the invariant both
+>    ways. **I had deferred this as minor M-7 reasoning "pre-existing convention, fix all four
+>    together" — without ever checking whether the other three had the script. The convention I
+>    deferred to was covering an empty step.**
+> 3. **`testing-guide.md`** claimed every workspace stores tests under `tests/`. `packages/shared`
+>    colocates at `src/**/__tests__`; the `tests` workspace keeps tiers at its own root. Both now
+>    documented, with how the gates reach each.
+>
 > ### Verification state
 >
-> - **All 20 CI checks green** on `420897c0`, including **Integration Tests** (the tier that caught
+> - **All 20 CI checks green** on `a53af273`, including **Integration Tests** (the tier that caught
 >   PR 1's real 500), Lint & Type Check (now covering `apps/mobile`), all 7 Docker builds,
 >   Security Audit, ADR-060 gate, CodeQL. `Deploy to Demo` shows `skipping` — correct on a PR.
 > - Honest local full run, cache defeated (`turbo run test --force --concurrency=1`): **exit 0, 26/26
->   tasks**. `tests` workspace **24 suites / 341 tests**.
+>   tasks**. `tests` workspace **25 suites / 345 tests**.
 > - **All five gates proven non-vacuous by injection**, several in workspaces different from the
 >   author's, each restored byte-identical. Non-vacuity was **re-proved after** the CodeQL fix changed
 >   how `listed()` invokes jest.
