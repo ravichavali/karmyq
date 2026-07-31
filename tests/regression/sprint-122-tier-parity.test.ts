@@ -36,24 +36,6 @@ function tierDir(wsDir: string, tier: string): string | null {
   return null;
 }
 
-function workspacesWithTiers(): Array<{ ws: string; dir: string }> {
-  const out: Array<{ ws: string; dir: string }> = [];
-  for (const root of ['services', 'apps', 'packages']) {
-    const rootDir = join(ROOT, root);
-    if (!existsSync(rootDir)) continue;
-    for (const name of readdirSync(rootDir)) {
-      if (name === 'node_modules') continue;
-      const dir = join(rootDir, name);
-      if (!statSync(dir).isDirectory()) continue;
-      if (!existsSync(join(dir, 'package.json'))) continue;
-      if (TIERS.some((t) => tierDir(dir, t))) out.push({ ws: `${root}/${name}`, dir });
-    }
-  }
-  const testsDir = join(ROOT, 'tests');
-  if (TIERS.some((t) => tierDir(testsDir, t))) out.push({ ws: 'tests', dir: testsDir });
-  return out;
-}
-
 /** Build output contains copies of test files; never count them as sources. */
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', 'coverage', '.next', '.expo', '.turbo']);
 
@@ -87,6 +69,11 @@ function allWorkspaces(): Array<{ ws: string; dir: string }> {
   return out;
 }
 
+/** The subset of workspaces that actually keep a unit/ or regression/ tier. */
+function workspacesWithTiers(): Array<{ ws: string; dir: string }> {
+  return allWorkspaces().filter(({ dir }) => TIERS.some((t) => tierDir(dir, t)));
+}
+
 /**
  * Expand a workspace's `test` script into the jest argument strings it runs.
  * Handles `npm run X && npm run Y` one level deep, which is the only
@@ -108,17 +95,33 @@ function jestInvocations(pkg: { scripts?: Record<string, string> }): string[] {
   return args;
 }
 
-/** Ask jest itself which files a given invocation would run. */
+/**
+ * Ask jest itself which files a given invocation would run.
+ *
+ * Memoized: the coverage cases and the "silently runs none" sweep ask the same
+ * (workspace, args) questions, and each miss costs an `npx jest` spawn — around
+ * a second on Windows, paid on every push. The tree cannot change mid-run, so
+ * caching within the process is free of correctness cost.
+ */
+const listedCache = new Map<string, string[]>();
+
 function listed(wsDir: string, jestArgs: string): string[] {
+  const key = `${wsDir} ${jestArgs}`;
+  const hit = listedCache.get(key);
+  if (hit) return hit;
+
   const out = execSync(`npx jest ${jestArgs} --listTests`, {
     cwd: wsDir,
     encoding: 'utf8',
     maxBuffer: 32 * 1024 * 1024,
   });
-  return out
+  const files = out
     .split('\n')
     .map((l) => l.trim())
     .filter((l) => /\.(test|spec)\.[jt]sx?$/.test(l));
+
+  listedCache.set(key, files);
+  return files;
 }
 
 const norm = (p: string) => relative(ROOT, p).split(sep).join('/');
