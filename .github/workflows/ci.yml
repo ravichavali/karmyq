@@ -63,10 +63,10 @@ jobs:
 
       - name: Run TypeScript type check
         run: |
-          npm run type-check --workspace=packages/shared --if-present
-          npm run type-check --workspace=services/auth-service --if-present
-          npm run type-check --workspace=services/community-service --if-present
-          npm run type-check --workspace=apps/mobile --if-present
+          npm run type-check --workspace=packages/shared
+          npm run type-check --workspace=services/auth-service
+          npm run type-check --workspace=services/community-service
+          npm run type-check --workspace=apps/mobile
 
       - name: Run linter
         run: npm run lint --if-present || echo "⚠️  Linter found issues but continuing (non-blocking)"

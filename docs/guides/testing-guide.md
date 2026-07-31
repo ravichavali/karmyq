@@ -8,8 +8,7 @@
 
 ## The four tiers
 
-Every workspace (service, app, or package) that has tests keeps them under `tests/` in one of
-four tiers:
+Most workspaces (services and apps) keep their tests under `tests/` in one of four tiers:
 
 | Tier | Directory | Meaning |
 |---|---|---|
@@ -17,6 +16,16 @@ four tiers:
 | Regression | `tests/regression/` | Locked-in behavior. Once a test lands here, breaking it is a breaking change. |
 | TDD | `tests/tdd/` | Work-in-progress. Allowed to fail. Write-tests-first lives here. |
 | Integration | `tests/integration/` | Requires a real database (`infrastructure/docker`). |
+
+**Two workspaces do not use that directory layout, and both are legitimate:**
+
+- **`packages/shared`** colocates its suites at `src/**/__tests__/` with `roots: ['<rootDir>/src']`
+  in its jest config, and has no `tests/` directory at all.
+- **The `tests` workspace** *is* the tests directory, so its tiers sit at its own root —
+  `tests/unit/`, `tests/regression/` — not at `tests/tests/unit/`.
+
+Both are covered: the tier-coverage gate resolves either shape, and a separate assertion catches
+any workspace that has test files but runs none of them, which is what reaches `packages/shared`.
 
 Some workspaces (`cleanup-service`, `simulation-service`, `apps/landing`, `apps/mobile`) run a
 single bare `jest` invocation instead of tiered `test:unit` / `test:regression` / `test:tdd`

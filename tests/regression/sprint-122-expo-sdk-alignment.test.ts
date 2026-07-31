@@ -49,6 +49,12 @@ const INDEPENDENTLY_VERSIONED: Record<string, string> = {
  * editing this line with a written reason, and `npx expo install --check` must
  * still exit 0 afterwards.
  */
+/**
+ * The Expo SDK generation this file is written for. SDK_PINNED below is that
+ * generation's frozen matrix, so the two move together or not at all.
+ */
+const SDK_MAJOR = 57;
+
 const SDK_PINNED: Record<string, string> = {
   react: '19.2.3',
   'react-dom': '19.2.3',
@@ -88,9 +94,20 @@ describe('apps/mobile stays aligned to its Expo SDK', () => {
     expect(wildcards).toEqual([]);
   });
 
+  it('is pinned to the SDK generation SDK_PINNED was written for', () => {
+    // SDK_PINNED below is a frozen SDK-57 matrix. A floor like `>= 57` would let
+    // the whole expo family move to 58 while react-native and friends stayed on
+    // their 57 pins, and BOTH assertions would still pass — a mixed-generation
+    // false green, which is exactly what this gate exists to prevent (verified
+    // by simulation, 2026-07-31). The two halves must name the same generation,
+    // so an SDK migration has to edit this constant and SDK_PINNED together,
+    // with `npx expo install --check` exiting 0 afterwards.
+    expect(semver.major(semver.minVersion(allDeps.expo)!)).toBe(SDK_MAJOR);
+  });
+
   it('every expo-family package shares the SDK major', () => {
     const sdkMajor = semver.major(semver.minVersion(allDeps.expo)!);
-    expect(sdkMajor).toBeGreaterThanOrEqual(57);
+    expect(sdkMajor).toBe(SDK_MAJOR);
 
     const misaligned = Object.entries(allDeps)
       .filter(([name]) => expoFamily(name) && !(name in INDEPENDENTLY_VERSIONED))
