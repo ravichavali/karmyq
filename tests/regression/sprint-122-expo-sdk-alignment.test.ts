@@ -30,6 +30,30 @@ const INDEPENDENTLY_VERSIONED: Record<string, string> = {
   '@expo/vector-icons': 'Icon set, versioned on its own line (15.x under SDK 57), not with the SDK.',
 };
 
+/**
+ * Packages the Expo SDK pins that carry no expo-/@expo/ prefix, so
+ * expoFamily() structurally cannot see them. `npx expo install --check` is the
+ * real arbiter for these; this map is its committed shadow, frozen at the
+ * versions Sprint 121 PR 4 deliberately chose for SDK 57.
+ *
+ * Scope is the packages with a RECORDED decision behind them, not every
+ * SDK-managed package: the rest are covered by the lockfile assertion below
+ * and by `expo install --check` in CI.
+ *
+ * Sprint 122 PR 3 proposes moving three of these (react 19.2.3 -> 19.2.8,
+ * react-native-safe-area-context ~5.7.0 -> 5.8.0, react-native-maps 1.27.2 ->
+ * 1.29.0). That is precisely why the map exists: changing any of them requires
+ * editing this line with a written reason, and `npx expo install --check` must
+ * still exit 0 afterwards.
+ */
+const SDK_PINNED: Record<string, string> = {
+  react: '19.2.3',
+  'react-dom': '19.2.3',
+  'react-native': '0.86.0',
+  'react-native-maps': '1.27.2',
+  'react-native-safe-area-context': '~5.7.0',
+};
+
 const expoFamily = (name: string) =>
   name === 'expo' || name.startsWith('expo-') || name.startsWith('@expo/');
 
@@ -61,7 +85,7 @@ describe('apps/mobile stays aligned to its Expo SDK', () => {
 
     const misaligned = Object.entries(allDeps)
       .filter(([name]) => expoFamily(name) && !(name in INDEPENDENTLY_VERSIONED))
-      .filter(([, range]) => semver.major(semver.minVersion(range)!) !== sdkMajor)
+      .filter(([, range]) => semver.validRange(range) !== null && semver.major(semver.minVersion(range)!) !== sdkMajor)
       .map(([name, range]) => `${name}@${range} (expected major ${sdkMajor})`);
 
     expect(misaligned).toEqual([]);
@@ -70,6 +94,21 @@ describe('apps/mobile stays aligned to its Expo SDK', () => {
   it('has no stale exemptions', () => {
     const stale = Object.keys(INDEPENDENTLY_VERSIONED).filter((name) => !(name in allDeps));
     expect(stale).toEqual([]);
+  });
+
+  it('SDK-pinned non-expo packages still match what SDK 57 expects', () => {
+    const drifted = Object.entries(SDK_PINNED)
+      .filter(([name]) => name in allDeps)
+      .filter(([name, expected]) => allDeps[name] !== expected)
+      .map(([name, expected]) => `${name}: manifest has ${allDeps[name]}, SDK 57 pin is ${expected}`);
+
+    expect(drifted).toEqual([]);
+  });
+
+  it('every SDK-pinned package is still declared', () => {
+    // A pin that silently disappears from the manifest is drift too.
+    const missing = Object.keys(SDK_PINNED).filter((name) => !(name in allDeps));
+    expect(missing).toEqual([]);
   });
 
   it('the lockfile satisfies every apps/mobile declaration', () => {
