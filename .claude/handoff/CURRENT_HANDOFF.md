@@ -1,11 +1,16 @@
-# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 1 SHIPPED · PR 2 BUILT & GREEN, AWAITING MERGE REVIEW
+# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 1 SHIPPED · PR 2 BUILT & REVIEWED, AWAITING MERGE AUTHORIZATION
 
-> ## ⏸️ PR 2 (2026-07-31): **BUILT, ALL 20 CI CHECKS GREEN, NOT MERGED — held at maintainer request for review.**
+> ## ⏸️ PR 2 (2026-07-31): **BUILT AND REVIEWED, NOT MERGED — held at maintainer request.**
 >
 > **PR #183** → https://github.com/ravichavali/karmyq/pull/183
-> Branch `deps/sprint-122-pr2-test-truth` @ `13480b2d` · **26 commits, 56 files** (review rounds 1-2 applied) · **v11.37.0**
+> Branch `deps/sprint-122-pr2-test-truth` · **v11.37.0** · review rounds 1–2 applied
 >
-> **Nothing is decaying.** The branch is pushed and green. Resume by reviewing the PR and either
+> **For the current head, commit count and CI status, read the PR — not this file.** A sha written
+> here goes stale on the next commit, and it did three times during this PR's review rounds. Run
+> `gh pr view 183 --json headRefOid,state` and `gh pr checks 183`.
+>
+> **Nothing is decaying.** The branch is fully pushed (`git status -sb` shows no ahead/behind).
+> Resume by reviewing the PR and either
 > authorizing `gh pr merge --squash --admin` (needs EXPLICIT authorization, every time) or asking
 > for changes. **Do not re-run the build; it is done.**
 >
@@ -92,11 +97,12 @@
 >
 > ### Verification state
 >
-> - **All 20 CI checks were green on `a53af273`** (review round 1). Round 2's `13480b2d` changes only
->   a test file and this handoff, and CI is re-running on it — **confirm before claiming green on the
->   current head.** The round-1 run included **Integration Tests** (the tier that caught
->   PR 1's real 500), Lint & Type Check (now covering `apps/mobile`), all 7 Docker builds,
->   Security Audit, ADR-060 gate, CodeQL. `Deploy to Demo` shows `skipping` — correct on a PR.
+> - **CI status: run `gh pr checks 183`. Do not trust any sha or verdict recorded in this file** —
+>   it goes stale on the next commit and did so repeatedly during review. What the full green run
+>   covers when it passes: **Integration Tests** (the tier that caught PR 1's real 500), Lint &
+>   Type Check (now genuinely type-checking all four workspaces, not just `apps/mobile`), all 7
+>   Docker builds, Security Audit, ADR-060 gate, CodeQL. `Deploy to Demo` shows `skipping` on a PR —
+>   that is correct, it only runs on master.
 > - Honest local full run, cache defeated (`turbo run test --force --concurrency=1`): **exit 0, 26/26
 >   tasks**. `tests` workspace **25 suites / 346 tests**.
 > - **All five gates proven non-vacuous by injection**, several in workspaces different from the
