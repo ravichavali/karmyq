@@ -22,6 +22,20 @@ import { join } from 'path';
 const ROOT = join(__dirname, '..', '..');
 const CI_YML = join(ROOT, '.github', 'workflows', 'ci.yml');
 
+/**
+ * The step must also be UNCONDITIONAL and FAIL-FAST. Three further bypasses were
+ * found in review after the roster was pinned, each of which left all earlier
+ * assertions green:
+ *   - `if: false` on the step — skipped entirely, nothing type-checked.
+ *   - `shell: bash {0}` — a custom template drops GitHub's implicit
+ *     `-eo pipefail`, so an early failure followed by a later success yields a
+ *     green step (the exit code is the LAST command's).
+ *   - `continue-on-error: true` on the enclosing job — the job reports success
+ *     regardless.
+ * See https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax
+ */
+const REQUIRED_SHELL = 'shell: bash';
+
 /** Exactly the workspaces this step must type-check. Changing it is a decision. */
 const EXPECTED_WORKSPACES = [
   'apps/mobile',
@@ -58,6 +72,31 @@ function typeCheckLines(): string[] {
     .filter((l) => l.startsWith('npm run type-check'));
 }
 
+/**
+ * The body of the job containing the named step: from its `  <job>:` key (two
+ * spaces) to the next one. Job-level `continue-on-error` / `if` can neutralise a
+ * perfectly-formed step, so the gate has to see them.
+ */
+function enclosingJobBody(): string[] {
+  const lines = readFileSync(CI_YML, 'utf8').split('\n');
+  const stepIdx = lines.findIndex((l) => l.trim() === `- name: ${STEP_NAME}`);
+  if (stepIdx === -1) throw new Error(`ci.yml has no step named "${STEP_NAME}"`);
+
+  const isJobKey = (l: string) => /^ {2}[A-Za-z0-9_-]+:\s*$/.test(l);
+  let start = -1;
+  for (let i = stepIdx; i >= 0; i--) {
+    if (isJobKey(lines[i])) {
+      start = i;
+      break;
+    }
+  }
+  if (start === -1) throw new Error('could not locate the job containing the type-check step');
+
+  const rest = lines.slice(start + 1);
+  const end = rest.findIndex(isJobKey);
+  return end === -1 ? rest : rest.slice(0, end);
+}
+
 const workspaceOf = (line: string) => line.match(/--workspace=(\S+)/)?.[1];
 
 describe('CI type-check step does what its name says', () => {
@@ -90,6 +129,37 @@ describe('CI type-check step does what its name says', () => {
     });
 
     expect(missing).toEqual([]);
+  });
+
+  it('the step is unconditional — no `if:` can skip it', () => {
+    // `if: false` skips the step entirely; every other assertion here still
+    // passes because the lines are all still present in the file.
+    const conditionals = stepBody(STEP_NAME)
+      .map((l) => l.trim())
+      .filter((l) => /^if:/.test(l));
+
+    expect(conditionals).toEqual([]);
+  });
+
+  it('the step declares fail-fast shell semantics', () => {
+    // Must be exactly `shell: bash` (which GitHub expands to
+    // `--noprofile --norc -eo pipefail`). A custom template such as
+    // `shell: bash {0}` drops those flags, so an early failure followed by a
+    // later success produces a GREEN step.
+    const shells = stepBody(STEP_NAME)
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith('shell:'));
+
+    expect(shells).toEqual([REQUIRED_SHELL]);
+  });
+
+  it('the enclosing job cannot suppress its own failure', () => {
+    // Job-level keys sit at four spaces; a step's own `if:` is at eight and is
+    // legitimate on unrelated steps, so match the indent exactly rather than
+    // flagging every `if:` in the job.
+    const suppressing = enclosingJobBody().filter((l) => /^ {4}(continue-on-error|if):/.test(l));
+
+    expect(suppressing).toEqual([]);
   });
 
   it('nothing in the step can swallow a failure', () => {

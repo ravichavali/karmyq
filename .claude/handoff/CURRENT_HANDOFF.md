@@ -194,9 +194,11 @@
 
 ## Quick Start — resume here
 
-**PR 2 is built and green. The only open action is your review of PR #183.**
+**PR 2 is built and reviewed. The only open action is your merge decision on PR #183.**
 
-1. Review https://github.com/ravichavali/karmyq/pull/183 (22 commits, 51 files, all 20 checks green).
+1. Review https://github.com/ravichavali/karmyq/pull/183 — for head, commit/file counts and CI
+   status run `gh pr view 183` and `gh pr checks 183`. Volatile values are deliberately not
+   recorded in this file; they went stale three times during review.
 2. Then either:
    - **Authorize the merge** — `gh pr merge --squash --admin` needs **EXPLICIT** authorization every
      time; never self-merge. After merging: confirm the master **`CI/CD Pipeline`** run reaches

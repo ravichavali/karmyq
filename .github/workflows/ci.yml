@@ -62,6 +62,11 @@ jobs:
         run: npm ci
 
       - name: Run TypeScript type check
+        # Explicit `shell: bash` gives `--noprofile --norc -eo pipefail`, so any
+        # failing line fails the step. A custom template like `bash {0}` would
+        # drop those flags and let an early failure be masked by a later
+        # success — the step's exit code would be the LAST command's.
+        shell: bash
         run: |
           npm run type-check --workspace=packages/shared
           npm run type-check --workspace=services/auth-service
