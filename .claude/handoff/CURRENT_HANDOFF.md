@@ -96,10 +96,40 @@
 > infrastructure* edges, not npm versions, and neither CONTEXT.md pins package versions. An axios
 > patch bump changes nothing in either. The check fires on any `package.json` edit.
 >
+> ### CI: PR **#186** — all **20 checks green**, `Deploy to Demo` skipped (master-only)
+>
+> ### ⚠️ The lesson that cost a CI round — local `npm ci` is NOT sufficient on Windows
+>
+> The first push failed five jobs at once. Not tests — **`npm ci` refused the lockfile**:
+> *"Missing: eslint-config-next@16.2.12, framer-motion@12.43.0, motion@12.43.0,
+> @playwright/test@1.62.1, playwright@1.62.1 from lock file."*
+>
+> The manifests declared the new versions; the lock still carried the old ones nested under
+> `apps/frontend`, `apps/landing` and `tests/`. **`npm install --package-lock-only` printed "up to
+> date" and moved nothing, because the existing pins still satisfied every declared range.**
+> `npm update <pkg>` did not fix it either — the root edge moves, the nested node does not
+> ([[feedback_npm_apps_workspace_half_resolution]]). Only deleting those nested lock entries and
+> re-resolving hoisted them correctly.
+>
+> **`npm ci` passed locally on the exact lock CI rejected.** So a green local `npm ci` on Windows
+> proves nothing about the lock's integrity. What does work, and is worth keeping:
+>
+> 1. After **every** dependency edit, **assert the resolved version** out of `package-lock.json` —
+>    never trust the command's own "up to date" / success output.
+> 2. Cross-check **every** workspace declaration against the resolved tree (291 declarations across
+>    16 workspaces here) before pushing. Range satisfaction is necessary but not sufficient — CI
+>    checks for *missing nodes*, which is a different property.
+> 3. This bit **three separate times** in one PR (override floors, the restored ts-jest pin, the
+>    nested expo tree) before it bit a fourth time in CI.
+>
 > ### Still owed on this PR
 >
 > 1. **Merge authorization** — `gh pr merge --squash --admin` needs EXPLICIT approval, every time.
-> 2. OWED item 2 from PR 2 is **partially** done: the Expo gate has now had an adversarial
+>    Nothing else is blocking; the branch is fully pushed and CI is green.
+> 2. **Close #185 and #184 after the merge** (comments explaining the partial acceptance are
+>    already posted). They were deliberately left open — closing them while #186 was unmerged
+>    would have dropped the updates from tracking.
+> 3. OWED item 2 from PR 2 is **partially** done: the Expo gate has now had an adversarial
 >    two-injection sweep. **The turbo cache-key, tier-coverage and lint-config gates have not.**
 
 
