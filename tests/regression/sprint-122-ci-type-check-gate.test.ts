@@ -36,6 +36,13 @@ const CI_YML = join(ROOT, '.github', 'workflows', 'ci.yml');
  */
 const REQUIRED_SHELL = 'shell: bash';
 
+/**
+ * The exact script each type-checked workspace must run. Presence is not
+ * semantics — `"echo skipped"` and `"tsc --noEmit || true"` are both truthy and
+ * both type-check nothing. All four workspaces run this identical command today.
+ */
+const EXPECTED_TYPE_CHECK = 'tsc --noEmit';
+
 /** Exactly the workspaces this step must type-check. Changing it is a decision. */
 const EXPECTED_WORKSPACES = [
   'apps/mobile',
@@ -121,14 +128,31 @@ describe('CI type-check step does what its name says', () => {
     expect(new Set(workspaces).size).toBe(workspaces.length);
   });
 
-  it('every workspace it names declares a type-check script', () => {
-    const missing = EXPECTED_WORKSPACES.filter((ws) => {
+  it('every workspace it names runs exactly the expected type-check', () => {
+    // Truthiness is not semantics. `"type-check": "echo skipped"` and
+    // `"tsc --noEmit || true"` both satisfy a presence check while type-checking
+    // nothing, so the workflow reports green having verified nothing (both
+    // reproduced in review). Pin the command itself: all four workspaces run the
+    // identical script today, and a workspace that genuinely needs different
+    // flags must change EXPECTED_TYPE_CHECK deliberately, in review.
+    const actual = EXPECTED_WORKSPACES.map((ws) => {
       const pkg = join(ROOT, ws, 'package.json');
-      if (!existsSync(pkg)) return true;
-      return !JSON.parse(readFileSync(pkg, 'utf8')).scripts?.['type-check'];
+      const script = existsSync(pkg)
+        ? JSON.parse(readFileSync(pkg, 'utf8')).scripts?.['type-check']
+        : '<no package.json>';
+      return [ws, script ?? '<missing>'];
     });
 
-    expect(missing).toEqual([]);
+    expect(actual).toEqual(EXPECTED_WORKSPACES.map((ws) => [ws, EXPECTED_TYPE_CHECK]));
+  });
+
+  it('the expected script is itself a real, unsuppressed type-check', () => {
+    // Closes the loop: without this, loosening EXPECTED_TYPE_CHECK to
+    // `tsc --noEmit || true` would make every workspace "match" and the gate
+    // would go green again — the same presence-vs-semantics hole one level up.
+    expect(EXPECTED_TYPE_CHECK).toMatch(/^tsc\b/);
+    expect(EXPECTED_TYPE_CHECK).toContain('--noEmit');
+    expect(EXPECTED_TYPE_CHECK).not.toMatch(/\|\||&&|;|\becho\b|\btrue\b|\bexit\b/);
   });
 
   it('the step is unconditional — no `if:` can skip it', () => {
