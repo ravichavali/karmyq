@@ -13,7 +13,12 @@
     "test": {
       "dependsOn": ["build"],
       "outputs": ["coverage/**"],
-      "inputs": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx"]
+      "inputs": ["$TURBO_DEFAULT$"]
+    },
+    "@karmyq/tests#test": {
+      "dependsOn": ["build"],
+      "outputs": ["coverage/**"],
+      "cache": false
     },
     "lint": {
       "outputs": []

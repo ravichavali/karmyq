@@ -1,24 +1,166 @@
-# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 1 AWAITING MERGE AUTHORIZATION
+# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 1 SHIPPED · PR 2 BUILT & REVIEWED, AWAITING MERGE AUTHORIZATION
 
-> ## ⏸️ CURRENT STATE (2026-07-30): PR #180 is open, 19/20 checks green, **NOT merged.**
+> ## ⏸️ PR 2 (2026-07-31): **BUILT AND REVIEWED, NOT MERGED — held at maintainer request.**
 >
-> **Blocked on two maintainer actions, both requiring explicit authorization:**
+> **PR #183** → https://github.com/ravichavali/karmyq/pull/183
+> Branch `deps/sprint-122-pr2-test-truth` · **v11.37.0** · review rounds 1–2 applied
 >
-> 1. **Dismiss one CodeQL alert** — `js/missing-rate-limiting` (high) at
->    `services/request-service/src/routes/admin-schemas.ts:501`. **Verified false positive.**
->    CodeQL counts it as "new" only because this PR touched line 501, and the change there is the
->    one-word annotation `req: Request` → `req: Request<RouteParams>`. The route is protected by
->    **three** layers the rule cannot see (it only inspects the handler's own chain, not mount-level
->    `app.use`): `app.use(globalRateLimiter)` at `index.ts:59`, `rateLimiters.standard` on the
->    `/admin/schemas` mount at `index.ts:86`, and `...adminAuth` at `index.ts:87`. The real gate,
->    `Code Scanning Gate (ADR-060)`, **passed**.
-> 2. **Authorize the squash merge** — `gh pr merge 180 --squash --admin`. Never self-merged.
+> **For the current head, commit count and CI status, read the PR — not this file.** A sha written
+> here goes stale on the next commit, and it did three times during this PR's review rounds. Run
+> `gh pr view 183 --json headRefOid,state` and `gh pr checks 183`.
 >
-> Everything else is done: Tasks 0–10 complete and verified. **Tasks 11 (merge) and 12 (deploy +
-> live smoke test) remain.**
+> **Nothing is decaying.** The branch is fully pushed (`git status -sb` shows no ahead/behind).
+> Resume by reviewing the PR and either
+> authorizing `gh pr merge --squash --admin` (needs EXPLICIT authorization, every time) or asking
+> for changes. **Do not re-run the build; it is done.**
 >
-> **PR:** https://github.com/ravichavali/karmyq/pull/180 · branch `deps/sprint-122-pr1-express`
-> · commits `7a980a89` (express 5) + `9f53db3e` (req.body fix)
+> ### What it does — four ways a green result could be produced without evidence
+>
+> | Defect | Measured before | After |
+> |---|---|---|
+> | `turbo.json` hashed `test/**` (**singular**); every workspace uses `tests/` (**plural**) — so **no `#test` task hashed any test file, jest config or setup file**. Editing a test replayed a cached pass monorepo-wide. | `karmyq-auth-service#test` hashed 15 inputs: `package.json` + 14 `src/**`, zero tests. Three tasks hashed exactly **one** file. | `$TURBO_DEFAULT$`. auth 15→38, mobile 1→50, geocoding 1→13, `tests` 1→138, frontend 225→377, landing 32→202. |
+> | `scripts/promote-tdd-tests.js` declared `APPS_DIR`, never walked it. Runs as `posttest` on every `npm test`. | `apps/landing`'s `sprint-99` test was **passing and stranded** in `tdd/`. | Testable `collectTddTargets()`; **5 tests promoted** (4 frontend, 1 landing). |
+> | `apps/mobile` set `passWithNoTests: true` under "until we write mobile tests". | A regression test existed there, passing **2/2**. | Flag removed; coverage asserted instead. |
+> | CI runs lint as `npm run lint --if-present \|\| echo` — a config that throws on load yields a **green job**. | Never verified. | `--print-config` gate over all 4 configs (112/112/442/89 rules). |
+>
+> Plus **D-4** (`apps/mobile` joins CI's blocking type-check — its `tsc` is 0 errors for the first
+> time) and **D-5** (dead root-level `mobile/` scaffold deleted — Expo SDK 50 / RN 0.73, not an npm
+> workspace, so nothing installed, audited, built or tested it).
+>
+> **Zero runtime code touched** — verified by path filter: nothing under `services/`, `apps/*/src`,
+> `infrastructure/`, `packages/shared/src|middleware`.
+>
+> ### Decisions taken this PR (do not re-debate)
+>
+> | # | Decision |
+> |---|---|
+> | **D-4** | CI type-checks `apps/mobile`, blocking. Overrides the standing "don't chase mobile green as a gate." |
+> | **D-5** | Root-level `mobile/` scaffold deleted. |
+> | **D-6** | The TDD promoter's `.ts`-only file filter is **NOT** extended in PR 2. `apps/frontend/tests/tdd/` holds **72 `.test.tsx` vs 2 `.test.ts`**; **67 of 74** suites pass and would promote — ~442 tests into the blocking tier in one change. Logged **BUG-033**. ADR-088 states the limitation rather than claiming the promoter is fixed. |
+> | — | `--passWithNoTests` deliberately **not** bulk-deleted. It is in 10 workspaces and **ADR-029 explicitly justifies it** for legitimately-empty tiers. ADR-088 **amends** ADR-029 and asserts tier *coverage* instead. |
+> | — | `@karmyq/tests#test` is **uncached** (`cache: false`): its gates audit *other* workspaces, so package-local `$TURBO_DEFAULT$` inputs cannot see what they check and a warm cache would replay them instead of running them. |
+>
+> ### Two things CI/review caught that local work did not
+>
+> 1. **A Critical that would have gone red on the first push.** `tests/unit/promote-tdd-targets.test.ts`
+>    asserted `apps/landing/tests/tdd/` exists — but this PR's own promotion left that directory
+>    **empty with zero tracked files**, and git does not track empty directories. A fresh clone (CI)
+>    would fail on a **blocking** tier for a reason unrelated to the code — this PR's exact theme.
+>    All ten `services/*/tests/tdd/` carry a `.gitkeep`; that one did not. Fixed with a `.gitkeep`
+>    **and** by re-anchoring the assertion on `apps/frontend` (74 tracked files).
+> 2. **CodeQL #571, `js/command-line-injection`, CRITICAL** at the tier gate's
+>    `execSync(\`npx jest ${jestArgs} …\`)` — args read from workspace `package.json` into a shell
+>    string. My own `/security-review` had looked at that line and waved it past as "repo-controlled,
+>    low risk." **Fixed, not dismissed:** argv arrays + `execFileSync(process.execPath, [JEST_BIN, …])`,
+>    no shell anywhere. Note `npx.cmd` is NOT a valid shortcut — Node 24 on Windows refuses to spawn
+>    a `.cmd` without a shell (CVE-2024-27980 fix), which reintroduces the string-building.
+>
+> ### Maintainer review round 1 (2026-07-31) — 2 Important + 1 Minor, all correct, all fixed (`a53af273`)
+>
+> Each was **reproduced before being fixed**, and each fix proven non-vacuous.
+>
+> 1. **The Expo gate allowed MIXED SDK generations.** `sdkMajor >= 57` was a *floor* while
+>    `SDK_PINNED` is a frozen SDK-57 matrix — so moving the whole expo family to 58 while
+>    `react-native` stayed on its 57 pin passed **both** assertions. My first simulation went red
+>    only on the **lockfile** assertion, which a real bump PR clears with `npm install` — false
+>    comfort. Fixed with an exact `SDK_MAJOR = 57` constant beside `SDK_PINNED`, so an SDK
+>    migration must edit both together. Rejected `expo install --check` as a blocking test
+>    (network/CLI fragility is why the committed shadow exists) and per-major pin sets (YAGNI).
+> 2. **CI's "Run TypeScript type check" step was checking almost nothing.** `--if-present` silently
+>    passes when a script is absent — and **three of its four workspaces (`packages/shared`,
+>    `auth-service`, `community-service`) declared no `type-check` script at all.** The step had
+>    been green while checking only `apps/mobile`, added a day earlier by D-4. All three verified
+>    tsc-clean at 0 errors → scripts added, `--if-present` dropped from all four,
+>    and `tests/regression/sprint-122-ci-type-check-gate.test.ts` now asserts the invariant both
+>    ways. **I had deferred this as minor M-7 reasoning "pre-existing convention, fix all four
+>    together" — without ever checking whether the other three had the script. The convention I
+>    deferred to was covering an empty step.**
+> 3. **`testing-guide.md`** claimed every workspace stores tests under `tests/`. `packages/shared`
+>    colocates at `src/**/__tests__`; the `tests` workspace keeps tiers at its own root. Both now
+>    documented, with how the gates reach each.
+>
+> ### Maintainer review round 2 (2026-07-31) — 1 Important, fixed
+>
+> **The new CI type-check gate asserted a COUNT, not an identity.** It required
+> `invocations.length >= 4` and that each named workspace declared the script — so replacing
+> `apps/mobile` with a **duplicate `packages/shared`** passed 3/3 while mobile went unchecked
+> (reproduced). This is the same count-vs-identity mistake the lint-config gate made and had to be
+> fixed for, repeated in a gate written *after* that fix. Rewritten to pin the **exact, unique**
+> workspace roster, scope parsing to the named step (so an invocation moved elsewhere cannot satisfy
+> it), and reject `--if-present`, `||` suppression and `continue-on-error`. Proven against **six**
+> bypass shapes — duplicate substitution, dropped workspace, `--if-present`, `|| true`,
+> `continue-on-error`, and relocation out of the step — with the baseline green either side.
+>
+> Also corrected stale docs the reviewer flagged: this handoff had claimed the `--if-present`
+> silent-pass was still deferred, and the PR description still quoted the obsolete mobile
+> invocation and old suite counts.
+>
+> ### Verification state
+>
+> - **CI status: run `gh pr checks 183`. Do not trust any sha or verdict recorded in this file** —
+>   it goes stale on the next commit and did so repeatedly during review. What the full green run
+>   covers when it passes: **Integration Tests** (the tier that caught PR 1's real 500), Lint &
+>   Type Check (now genuinely type-checking all four workspaces, not just `apps/mobile`), all 7
+>   Docker builds, Security Audit, ADR-060 gate, CodeQL. `Deploy to Demo` shows `skipping` on a PR —
+>   that is correct, it only runs on master.
+> - Honest local full run, cache defeated (`turbo run test --force --concurrency=1`): **exit 0, 26/26
+>   tasks**. `tests` workspace **25 suites / 346 tests**.
+> - **All five gates proven non-vacuous by injection**, several in workspaces different from the
+>   author's, each restored byte-identical. Non-vacuity was **re-proved after** the CodeQL fix changed
+>   how `listed()` invokes jest.
+> - `/simplify`, `/security-review`, `feedback:check` ("No context updates needed") all run.
+>   `/code-review` = 11 per-task reviews + a whole-branch review (1 Critical, 2 Important, 7 Minor;
+>   all fixed and re-reviewed).
+>
+> ### Owed after merge (do NOT push these to master separately)
+>
+> - **ADR-088 is `Proposed`.** Flip to **Implemented** on deploy — carry that edit into **PR 3's
+>   branch**, never a docs-only master push (every master push is a full deploy → demo 502s).
+> - Deferred, non-blocking, all logged: `promote-tdd-tests.js:47` has the same shell-string shape
+>   CodeQL did *not* flag (left alone — it runs as `posttest`, risk > the unraised alert);
+>   a new-service scaffold will trip the turbo gate with a bare task-id array and no guidance;
+>   colocated `src/**/__tests__` tests in `apps/frontend` would never run under `npm test` (zero
+>   exist today). **The `--if-present` silent-pass is FIXED, not deferred** — see review round 1
+>   above; all four type-check invocations now run without it and a gate pins the roster.
+>
+> ### Observation for the maintainer (not caused by this PR)
+>
+> `password123` appears in **81 files on master** — landing docs, Maestro configs, `DATA_FLOWS.md`.
+> CLAUDE.md says "never commit passwords." The demo persona credential is effectively public
+> already; the rule and the practice disagree. Worth a deliberate decision rather than more drift.
+
+> ## ✅ PR 1 COMPLETE (2026-07-30): express 4 → 5 merged, deployed and verified live at v11.36.0.
+>
+> **PR #180 squash-merged** as `46b2982c` at 19:48:26Z (explicit maintainer authorization).
+> **#34 auto-closed.** All 20 checks green. `CI/CD Pipeline` run **30576415715** reached
+> **`Deploy to Demo` = success with no rollback**; its internal sweep reported **all 9 backends
+> healthy**.
+>
+> CodeQL alert **#570** (`js/missing-rate-limiting`, high) dismissed as **false positive** with
+> justification: the rule inspects only the handler's own chain, not mount-level `app.use`, so it
+> could not see `globalRateLimiter` (`request-service/src/index.ts:59`), `rateLimiters.standard`, or
+> `adminAuth` (both on the `/admin/schemas` mount, `index.ts:86-87`). It was flagged only because
+> this PR retyped that line to `Request<RouteParams>`; the route itself never changed.
+>
+> ### Live smoke test — PASSED (all legs)
+>
+> `POST /api/auth/login` is the ideal body-parser probe: credentials arrive **only** via the parsed
+> JSON body, so a 200 with a token proves the whole chain through nginx.
+>
+> | Leg | Result |
+> |---|---|
+> | Happy path — `maria.reyes@test.karmyq.com` | **200**, `success:true`, token returned, JWT carries `communities[]` (6) |
+> | Error path — wrong password | **401** `{success:false, message:"Invalid email or password", error:"UNAUTHORIZED"}` — ADR-074 intact, **no stack trace or internal detail leaked** |
+> | **Bodyless POST** (the regression this PR fixed) | **400 `VALIDATION_ERROR`, not a 500** — the fix is confirmed working in production |
+> | `req.query` getter under real traffic | `requests?limit&offset`, `notifications/:userId?limit&offset`, `reputation/karma/:userId?community_id`, `communities/my/communities?user_id` all **200** with success envelopes |
+>
+> **Note for future smoke tests:** `/health` endpoints are **not reachable through nginx** — the
+> routers mount at `/auth`, `/communities`, … while `/health` sits at the service root, so
+> `/api/{prefix}/health` 404s or hits an authenticated route. The CI deploy job's internal
+> `localhost:PORT/health` sweep is the authoritative health check. Also: `/communities/my` is **not**
+> a route (`/:id` captures `"my"` and the non-UUID lookup 500s from that handler's own catch — a
+> pre-existing input-validation gap, identical under Express 4); the real route is
+> **`/my/communities`, and it requires a `user_id` query param.**
 >
 > ### ⚠️ The finding that matters most from this PR
 >
@@ -50,7 +192,78 @@
 > **Sprint 122 planning is COMPLETE. Nothing is implemented yet.** No code has changed on any
 > branch; the working tree carries only the two untracked `.github/` files that were never mine.
 
-## Quick Start
+## Quick Start — resume here
+
+**PR 2 is built and reviewed. The only open action is your merge decision on PR #183.**
+
+1. Review https://github.com/ravichavali/karmyq/pull/183 — for head, commit/file counts and CI
+   status run `gh pr view 183` and `gh pr checks 183`. Volatile values are deliberately not
+   recorded in this file; they went stale three times during review.
+2. Then either:
+   - **Authorize the merge** — `gh pr merge --squash --admin` needs **EXPLICIT** authorization every
+     time; never self-merge. After merging: confirm the master **`CI/CD Pipeline`** run reaches
+     `Deploy to Demo` = success **with no rollback** and its internal sweep reports all **9** backends
+     healthy, then smoke-test for **v11.37.0**. This PR changes no runtime code, so the smoke test
+     confirms a clean deploy, not new behavior.
+   - **Or ask for changes** — the deferred items are listed above under "Owed after merge".
+3. **Then PR 3** — ⚠️ still **NOT execution-ready**: D-1/D-2/D-3 are open (below). Note PR 2 now makes
+   those decisions *mechanical*: `SDK_PINNED` in `tests/regression/sprint-122-expo-sdk-alignment.test.ts`
+   freezes `react`, `react-dom`, `react-native`, `react-native-maps`, `react-native-safe-area-context`
+   (plus 6 more SDK-managed packages), so moving any of them **requires editing that map with a written
+   reason** and `npx expo install --check` must still exit 0. That is deliberate — it forces the
+   re-decision to be explicit and reviewable. Verified: injecting D-2's actual proposal
+   (`~5.7.0`→`5.8.0`) turns the gate red.
+
+**Plan file (complete, executed):** [`docs/superpowers/plans/2026-07-30-sprint-122-pr2-test-tier-truthfulness.md`](../../docs/superpowers/plans/2026-07-30-sprint-122-pr2-test-tier-truthfulness.md)
+**Execution ledger (every finding, ruling and verification):** `.superpowers/sdd/2026-07-30-sprint-122-pr2-test-tier-truthfulness/progress.md` *(git-ignored; local only)*
+
+### Maintainer decisions taken 2026-07-30
+
+| # | Decision | Answer |
+|---|---|---|
+| **D-4** | Should CI type-check `apps/mobile`? (`ci.yml:66-68` lists only shared/auth/community; mobile `tsc` is 0 errors for the first time) | **YES — blocking gate.** Overrides the standing "don't chase mobile green as a gate." Plan Task 8. |
+| **D-5** | Delete the stray root-level `mobile/` scaffold (12 tracked files, Expo SDK 50 / RN 0.73 / React 18, not an npm workspace, unreferenced outside `docs/archive/`)? | **YES — delete in PR 2.** Plan Task 9. |
+
+### Recon corrections to the Plan of Record's PR 2 outline
+
+- **The turbo bug is monorepo-wide, not two workspaces.** `turbo.json:16` says `test/**` (singular);
+  every workspace uses `tests/` (plural), so **no `#test` task hashes any test file, jest config or
+  setup file** — `karmyq-auth-service#test` hashes 15 inputs, all `src/**` + `package.json`. Editing
+  a test replays a cached pass everywhere. Critical Note 9 named mobile and tests as the one-input
+  tasks; **`geocoding-service#test` is a third.**
+- **`apps/landing/tests/tdd/sprint-99-network-visualization.test.ts` is PASSING and un-promoted** —
+  the live fingerprint of the `promote-tdd-tests.js` `APPS_DIR` bug, and PR 2's proof-of-fix.
+- **Do NOT bulk-delete `--passWithNoTests`.** It appears in 8 services + `apps/frontend` + `tests`,
+  generated by `scripts/add-tdd-scripts.js:17-19` and **explicitly justified in ADR-029**. The plan
+  installs a stronger gate instead: per workspace and tier, jest must *list* exactly the test files
+  on disk. Only `apps/mobile`'s `passWithNoTests: true` is removed — its comment ("until we write
+  mobile tests") is false; a regression test exists and passes 2/2.
+- **`@expo/vector-icons` is `^15.0.2`** — independently versioned, so the SDK-alignment gate needs a
+  named exception with a reason, plus a stale-exemption assertion.
+- **`nav.json` is GENERATED** from `ADR_GROUPS` in `scripts/generate-docs.ts:433` (written at line
+  623). Edit the table, never the JSON.
+- **Version drift is already repaired** — manifest and both lock sites all read `11.36.0`.
+
+1. ~~Start a fresh chat~~ — plan written in the PR 1 follow-on chat; execution may continue there.
+2. **Branch off `origin/master`** (now at `46b2982c`, demo running **v11.36.0**) — never local master.
+3. ~~Write the PR 2 plan file first~~ — **done**, see above.
+4. **`ADR-088` is still the next free number** — PR 1 deliberately created none.
+5. **Budget for discovery.** Fixing `turbo.json`'s `test` inputs makes the cache honest for the
+   first time; expect pre-existing failures to surface. Log them to `docs/BUGS.md` and fix only
+   what the diff broke — do not let PR 2 become a bug-fixing sprint.
+6. **New for PR 2's backlog, found in PR 1:** `messaging-service` contains **zero test files** and
+   declares **no `test` scripts** ("14 files checked, 0 matches") — a Critical service with no
+   coverage at all, which is why `tsc` was its only Express 5 signal. Log to `docs/BUGS.md`.
+7. **Two verification traps PR 1 hit — do not repeat them:**
+   - `npx jest unit regression` is an **imprecise positional pattern**: jest matches it against the
+     full path and **"comm-unit-y" contains `unit`**, so it silently pulls in DB-dependent
+     `integration/` suites and WIP `tdd/` suites. Use `--testPathPattern='(unit|regression)/'`.
+   - Root Turbo on Windows fails `npm test` intermittently on a **different service each run with
+     no assertion output** — parallel-execution contention, not your diff. Confirm with
+     `npx turbo run test --force --concurrency=1` (passes 26/26) or by running the workspace
+     directly. Linux CI is unaffected.
+
+## Historical Quick Start (PR 1 — complete, kept for reference)
 
 1. Read this handoff, then the spec and plan below. **The Plan of Record table is authoritative.**
 2. Check out the branch — **`deps/sprint-122-pr1-express` ALREADY EXISTS and carries this planning
@@ -214,8 +427,8 @@ PRs — 6 merged and deployed, 3 closed with written rationale.
 
 | PR | Scope | Closes | Version | `/code-review` | Status |
 |---|---|---|---|---|---|
-| **1** | **express 4 → 5** (`^5.2.1`, `@types/express ^5.0.6`) | #34 | **v11.36.0** | **HIGH** | **NEXT** |
-| **2** | **test-tier truthfulness** — turbo inputs, promote-tdd walk, `passWithNoTests`, lint print-config gate, SDK-alignment gate, **ADR-088** | — | **v11.37.0** | **HIGH** | planned |
+| **1** | **express 4 → 5** (`^5.2.1`, `@types/express ^5.0.6`) | #34 ✅ | **v11.36.0** | **HIGH** | ✅ **SHIPPED** — merged `46b2982c`, deployed, verified live |
+| **2** | **test-tier truthfulness** — turbo inputs, promote-tdd walk, `passWithNoTests`, lint print-config gate, SDK-alignment gate, **ADR-088** | — | **v11.37.0** | **HIGH** | ⏸️ **BUILT, 20/20 GREEN — PR #183 awaiting merge review** |
 | **3** | **consolidated safe groups** | **#179**, **#178** | **v11.38.0** | MEDIUM | ⚠️ **NOT ready — 3 decisions open** |
 | **4** | **jest 29 → 30** (11 workspaces) | #173 | **v11.39.0** | **HIGH** | planned |
 | **5** | **redis (node-redis) 4 → 6** | #169 | **v11.40.0** | MEDIUM | planned |

@@ -6,7 +6,7 @@ Frontend applications for web and mobile platforms.
 ## Applications
 
 ### frontend/ (Port 3000)
-Next.js 14 web application with:
+Next.js 15 web application with:
 - Pages Router (`src/pages/`)
 - Tailwind CSS styling
 - API client in `src/lib/api.ts`

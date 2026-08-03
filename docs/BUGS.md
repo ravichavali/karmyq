@@ -519,3 +519,27 @@ Covered by `apps/frontend/tests/regression/sprint-120-five-second-fixes.test.tsx
 non-Latin scripts and accents, both base64url substitutions, malformed token, invalid UTF-8).
 
 ---
+
+## BUG-033 · [2026-07-30] · open
+
+TDD promoter cannot see `.tsx` tests. `scripts/promote-tdd-tests.js`'s `findTestFiles()` matches
+only `*.test.ts`. `apps/frontend/tests/tdd/` holds **72 `.test.tsx` files against 2 `.test.ts`**,
+so roughly 97% of that directory is invisible to the promoter and can never graduate to
+`regression/` regardless of whether it is green. Measured 2026-07-30: **67 of 74** frontend tdd
+suites pass and would promote if the filter were extended. Deliberately NOT extended in Sprint 122
+PR 2 (maintainer decision): extending it moves ~442 tests into the blocking tier in a single
+change. Found while fixing the `APPS_DIR` walk, which is what made the gap reachable. Related:
+[ADR-088](adr/ADR-088-test-tier-truthfulness.md).
+
+---
+
+## BUG-034 · [2026-07-30] · open
+
+`services/messaging-service` has zero test coverage. A **Critical** service (port 3006, Socket.io
+presence/pubsub) with **zero** test files and **no `test` script** in its `package.json`. Its
+`tsc` clean was the only signal it gave during the Express 5 migration. No coverage assertion in
+`tests/regression/sprint-122-tier-parity.test.ts` can bite on it, and a "every Critical service
+has tests" gate cannot be added while it would land red. Found Sprint 122 PR 1, confirmed PR 2.
+Related: [ADR-088](adr/ADR-088-test-tier-truthfulness.md).
+
+---

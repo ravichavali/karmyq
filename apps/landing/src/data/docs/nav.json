@@ -528,6 +528,10 @@
           "divider": true
         },
         {
+          "label": "Test-Tier Truthfulness",
+          "href": "/docs/concepts/adr-088-test-tier-truthfulness"
+        },
+        {
           "label": "One Seed Path — init.sql Regeneration",
           "href": "/docs/concepts/adr-087-one-seed-path-init-sql-regeneration"
         },
