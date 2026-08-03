@@ -1,6 +1,6 @@
 {
   "name": "karmyq",
-  "version": "11.37.0",
+  "version": "11.38.0",
   "private": true,
   "description": "Community Mutual Aid Platform - Privacy-First Community Health Platform",
   "workspaces": [
@@ -40,7 +40,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "tsx": "^4.23.1",
-    "turbo": "^2.10.7"
+    "turbo": "^2.10.8"
   },
   "engines": {
     "node": ">=18.0.0",
@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "@alloc/quick-lru": "^5.2.0",
-    "axios": "^1.18.1",
+    "axios": "^1.19.0",
     "bcryptjs": "^2.4.3",
     "bull": "^4.11.5",
     "cors": "^2.8.5",
@@ -70,10 +70,10 @@
     "react-dom": "19.2.3",
     "@xmldom/xmldom": "^0.8.13",
     "node-forge": ">=1.4.0",
-    "fast-uri": ">=4.1.1",
+    "fast-uri": ">=4.1.2",
     "qs": ">=6.15.2",
-    "ip-address": ">=10.1.1",
-    "postcss": "^8.5.18",
+    "ip-address": ">=10.3.1",
+    "postcss": "^8.5.25",
     "uuid": "^11.1.1",
     "picomatch@3.0.0 - 3.0.1": ">=4.0.4",
     "ws@8.0.0 - 8.20.0": ">=8.20.1",
@@ -87,7 +87,7 @@
       "ws": "8.21.0"
     },
     "form-data@4.0.0 - 4.0.5": "4.0.6",
-    "brace-expansion": "5.0.8",
+    "brace-expansion": "5.0.9",
     "js-yaml": "4.3.0",
     "body-parser@<1.20.6": "1.20.6",
     "shell-quote@<=1.8.4": "1.10.0",
@@ -97,7 +97,8 @@
     },
     "@swc/helpers": "0.5.15",
     "ts-jest": "29.4.6",
-    "undici@7.0.0 - 7.27.2": "^7.28.0"
+    "socket.io-parser@<=4.2.6": "4.2.7",
+    "undici@7.0.0 - 7.28.0": "^7.29.0"
   },
   "packageManager": "npm@10.8.2"
 }

@@ -43,11 +43,23 @@ const INDEPENDENTLY_VERSIONED: Record<string, string> = {
  * just as invisible to the predicate. `reanimated` and `worklets` are the
  * fastest-moving of the eleven and the most likely next bump.
  *
- * Sprint 122 PR 3 proposes moving three of these (react 19.2.3 -> 19.2.8,
+ * Sprint 122 PR 3 proposed moving three of these (react 19.2.3 -> 19.2.8,
  * react-native-safe-area-context ~5.7.0 -> 5.8.0, react-native-maps 1.27.2 ->
  * 1.29.0). That is precisely why the map exists: changing any of them requires
  * editing this line with a written reason, and `npx expo install --check` must
  * still exit 0 afterwards.
+ *
+ * The arbiter is Expo's own version map, read directly
+ * (api.expo.dev/v2/sdks/57.0.0/native-modules) rather than inferred from
+ * `expo install --check` staying silent about a package. Every value below is
+ * what that map returns for SDK 57; where Dependabot proposed something else,
+ * the map won (PR 3, 2026-08-03):
+ *
+ *   react / react-dom               proposed 19.2.8, SDK says 19.2.3
+ *   react-native-maps               proposed 1.29.0, SDK says 1.27.2
+ *   react-native-safe-area-context  proposed 5.8.0,  SDK says ~5.7.0
+ *   react-native-reanimated         proposed 4.5.3,  SDK says 4.5.1
+ *   react-native-worklets           proposed 0.11.3, SDK says 0.10.1
  */
 /**
  * The Expo SDK generation this file is written for. SDK_PINNED below is that
@@ -58,11 +70,11 @@ const SDK_MAJOR = 57;
 const SDK_PINNED: Record<string, string> = {
   react: '19.2.3',
   'react-dom': '19.2.3',
-  'react-native': '0.86.0',
+  'react-native': '0.86.2',
   'react-native-maps': '1.27.2',
   'react-native-safe-area-context': '~5.7.0',
-  'react-native-reanimated': '4.5.0',
-  'react-native-worklets': '0.10.0',
+  'react-native-reanimated': '4.5.1',
+  'react-native-worklets': '0.10.1',
   'react-native-screens': '~4.26.0',
   'react-native-gesture-handler': '~2.32.0',
   'react-native-web': '~0.21.0',
