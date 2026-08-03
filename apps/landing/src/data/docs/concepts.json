@@ -684,8 +684,8 @@
       "slug": "adr-088-test-tier-truthfulness",
       "number": "088",
       "title": "ADR-088: Test-Tier Truthfulness",
-      "status": "proposed",
-      "description": "**Status**: Proposed",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
       "filename": "ADR-088-test-tier-truthfulness.md"
     }
   ]
