@@ -1,4 +1,107 @@
-# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 2 SHIPPED · PR 3 IS NEXT
+# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 3 BUILT, AWAITING MERGE AUTHORIZATION
+
+> ## ⏸️ PR 3 (2026-08-03): **BUILT, VERIFIED, NOT MERGED.** Needs explicit merge authorization.
+>
+> Branch `deps/sprint-122-pr3-consolidated-groups` · **v11.38.0**.
+> **For head sha, commit count and CI status read the PR, not this file** — those went stale three
+> times during PR 2. Use `gh pr view` / `gh pr checks`.
+>
+> ### 🔴 The three "open decisions" are CLOSED — by the arbiter, not by judgement
+>
+> The sprint plan pre-agreed that **`expo install --check` / the Expo SDK map is the arbiter, not
+> the Dependabot table**. I read the map directly
+> (`api.expo.dev/v2/sdks/57.0.0/native-modules`) rather than inferring from `--check` staying
+> silent, because absence-of-complaint is exactly the weaker-than-claimed assertion I keep
+> shipping. It overruled **five** proposed bumps:
+>
+> | Package | Dependabot wanted | SDK 57 says | Outcome |
+> |---|---|---|---|
+> | `react` / `react-dom` | 19.2.8 | **19.2.3** | **D-1 — HELD.** Also *moot*: react was dropped from the regrouped PR entirely, so there was no `EOVERRIDE` question to answer. |
+> | `react-native-safe-area-context` | 5.8.0 | **~5.7.0** | **D-2 — HELD** |
+> | `react-native-maps` | 1.29.0 | **1.27.2** | **D-3 — HELD** |
+> | `react-native-reanimated` | 4.5.3 | **4.5.1** | MOVED to 4.5.1 |
+> | `react-native-worklets` | 0.11.3 | **0.10.1** | MOVED to 0.10.1 |
+> | `react-native` | 0.86.2 | 0.86.2 | MOVED — agreed |
+>
+> **`expo install --check` now reports "Dependencies are up to date", exit 0.**
+>
+> ⚠️ **reanimated and worklets were never on the D-list** — the plan called them
+> "uncontroversial." PR 2's `SDK_PINNED` caught them *only* because it freezes every SDK-managed
+> package rather than just the ones with a recorded decision. That design choice paid for itself
+> within one PR.
+>
+> ### ⚠️ Grouped PR numbers churned again
+>
+> The plan's **#179/#178 are now #185/#184**, and their contents changed (react dropped; expo
+> patch line, reanimated, worklets added). Match on *what a PR bumps*, never the number.
+>
+> ### ts-jest — retested as #163 intended, regression REPRODUCED, excluded again with NO ignore rule
+>
+> `29.4.12` still breaks it: request-service fails **12 suites / 20 tests**, `TS2307: Cannot find
+> module '@karmyq/shared/matching/types'` (and the `schemas/ui` subpath that first surfaced it).
+> Restoring the root override at `29.4.6` returns the same suite to **42/42, 393 passing** — an A/B
+> that attributes the failure to ts-jest rather than to a stale `packages/shared` build (I checked
+> `dist/` and the workspace symlink before concluding).
+>
+> **Root cause, now written down:** the root `jest.config.js` transform passes an **inline
+> `tsconfig` object**, and ts-jest 29.4.11+ stopped inheriting `moduleResolution: node16` from the
+> workspace `tsconfig.json` in that case — so `@karmyq/shared`'s `exports` subpath map stops
+> resolving. **The fix is not a version bump**: point ts-jest at each workspace's real
+> `tsconfig.json`. That touches every service's test transform, which is why it did not belong in a
+> "safe groups" PR. Logged in `docs/IDEAS.md` to ride **PR 4 (jest 30)** or the TS 7 step.
+>
+> ### 🔒 Six high advisories were ALREADY RED ON MASTER — fixed here
+>
+> Verified against master's own lockfile before touching anything, so this is the
+> advisories-publish-mid-flight pattern, **not** a regression this PR introduced. `brace-expansion`,
+> `fast-uri`, `ip-address`, `minimatch`, `socket.io-parser`, `undici`. **Four already had overrides
+> whose floors the new advisories had overtaken** — an override is not a permanent fix, it is a
+> floor that decays. `undici` → **7.29.0**, deliberately staying on 7.x rather than the 8.x major.
+> **`npm audit` now reports 0 vulnerabilities.**
+>
+> Mechanical gotcha worth keeping: raising an override floor does **not** re-resolve on its own.
+> `npm install --package-lock-only` reports "up to date" and leaves the vulnerable version pinned.
+> `npm update <pkg> --package-lock-only` is what actually moves it.
+>
+> ### 🐛 Found while doing the above: `apps/landing` used ts-jest without declaring it
+>
+> Its `jest.config.js` names `ts-jest` in the transform; its `package.json` never declared it. It
+> survived purely on the root override hoisting the package. Deleting the override de-hoisted it and
+> the workspace broke outright — *"Module ts-jest in the transform option was not found."* Exactly
+> the [[feedback_declare_what_you_import]] shape. Declared it; landing is green at **5 suites / 61
+> tests**. **This latent break is now fixed even though the override came back.**
+>
+> ### Verification actually run (not inferred)
+>
+> | Check | Result |
+> |---|---|
+> | `expo install --check` | **"Dependencies are up to date", exit 0** |
+> | `npm audit` | **0 vulnerabilities** (was 6 high on master) |
+> | request-service | 42 suites / 393 passing, 1 skipped |
+> | `tests` workspace gates | 25 suites / 350 passing |
+> | auth · community · landing | 9/62 · 13/131 · 5/61 |
+> | `tsc --noEmit` (request-service) | clean |
+> | version alignment | `package.json` = lock `.version` = lock `.packages[""]` = **11.38.0** |
+> | Gate non-vacuity | Injected **both** rejected proposals (reanimated 4.5.3, maps 1.29.0); each turns the gate red on **identity** (`manifest has X, SDK 57 pin is Y`), not presence |
+>
+> **Two full `npm test` runs each failed on a different service** (auth-service, then
+> community-service) with 5000ms hook timeouts and no assertion output. Both pass directly —
+> `sprint-70-fusion.test.ts` runs in **1.9s standalone** vs timing out at 5s under Turbo's load.
+> That is the known Windows Turbo flake, confirmed by reproduction rather than assumed.
+>
+> ### Advisory findings dismissed with justification
+>
+> `feedback:check` asks for `registry.json` + CONTEXT.md updates for request-service and
+> simulation-service. **Dismissed:** `registry.json`'s `dependencies` records *inter-service and
+> infrastructure* edges, not npm versions, and neither CONTEXT.md pins package versions. An axios
+> patch bump changes nothing in either. The check fires on any `package.json` edit.
+>
+> ### Still owed on this PR
+>
+> 1. **Merge authorization** — `gh pr merge --squash --admin` needs EXPLICIT approval, every time.
+> 2. OWED item 2 from PR 2 is **partially** done: the Expo gate has now had an adversarial
+>    two-injection sweep. **The turbo cache-key, tier-coverage and lint-config gates have not.**
+
 
 > ## ✅ PR 2 COMPLETE (2026-08-03): test-tier truthfulness merged, deployed and verified live at v11.37.0.
 >
@@ -109,8 +212,8 @@ PRs — 6 merged and deployed, 3 closed with written rationale.
 |---|---|---|---|---|
 | **1** | express 4 → 5 | #34 ✅ | v11.36.0 | ✅ **SHIPPED** `46b2982c` |
 | **2** | test-tier truthfulness + **ADR-088** | — | **v11.37.0** | ✅ **SHIPPED** `b4041506`, deployed, verified live |
-| **3** | consolidated safe groups | **#179**, **#178** | v11.38.0 | ⚠️ **NOT ready — D-1/D-2/D-3 open** |
-| **4** | jest 29 → 30 | #173 | v11.39.0 | planned |
+| **3** | consolidated safe groups + 6 advisory fixes | **#185**, **#184** (was #179/#178) | v11.38.0 | ⏸️ **BUILT & VERIFIED — awaiting merge authorization** |
+| **4** | jest 29 → 30 | #173 | v11.39.0 | **NEXT** — also owns the ts-jest inline-tsconfig fix |
 | **5** | redis (node-redis) 4 → 6 | #169 | v11.40.0 | planned |
 | **6** | zustand 4 → 5 (mobile only) | #172 | v11.41.0 | planned |
 | — | closed with rationale, **no ignore rule** | #170 eslint 10, #168 typescript 7, #171 @types/node 26 | — | planned |
@@ -118,24 +221,20 @@ PRs — 6 merged and deployed, 3 closed with written rationale.
 **⚠️ Grouped Dependabot PR numbers churn** — match on *what a PR bumps*, not its number, and
 re-list with `gh pr list` at the start of each PR.
 
-## PR 3's open decisions
+## PR 3's decisions — CLOSED (see the block at the top of this file)
 
-| # | Package | S121 PR 4 chose | #179 wants | Decision |
-|---|---|---|---|---|
-| D-1 | `react` / `react-dom` | exactly `19.2.3` (root `overrides` + root devDep + both apps) | `19.2.8` | **OPEN** |
-| D-2 | `react-native-safe-area-context` | aligned **down** to `~5.7.0` (zero importers in mobile source) | `5.8.0` | **OPEN** |
-| D-3 | `react-native-maps` | **held** at `1.27.2` (SDK 57 pins it) | `1.29.0` | **OPEN** |
+D-1/D-2/D-3 all resolved to **HELD** by the Expo SDK 57 map, plus two divergences that were never
+on the list (reanimated, worklets). ts-jest retested and re-excluded, no ignore rule.
 
-- A workspace-only react bump throws `EOVERRIDE` — root override + root devDep + both apps move together.
-- **`npx expo install --check` is the arbiter**, not the Dependabot table.
-- `ts-jest` in #178: **re-test, don't reflexively exclude.** Root `overrides.ts-jest: "29.4.6"`
-  contradicts #178's `^29.4.12`. The original blocker was TS2307 on the
-  `@karmyq/shared/schemas/ui` subpath in request-service tests. #163 was closed **without** an
-  ignore rule precisely so this could be retried; if 29.4.12 fixed it, take the ranges and
-  **delete the override**.
-- Close #170 / #168 / #171 with written rationale and **no ignore rule**; record them in
-  `docs/IDEAS.md` as the S123 "platform floor" candidate, in dependency order:
-  **runtime floor off `node:18-alpine` → @types/node 26 → TS 7 → ESLint 10.**
+**Still to do as part of PR 3's disposition:**
+
+- **Close #185 and #184** explaining the *partial* acceptance — the compatible bumps were taken in
+  this PR; the five SDK-overruled versions and ts-jest were not. Dependabot will re-propose them;
+  that is expected and correct, and the gate will keep catching them.
+- **Close #170 (eslint 10), #168 (typescript 7), #171 (@types/node 26)** with written rationale and
+  **no ignore rule**. Already recorded in `docs/IDEAS.md` as the S123 "platform floor" arc, in
+  dependency order: **runtime floor off `node:18-alpine` → @types/node 26 → TS 7 → ESLint 10**,
+  with the ts-jest inline-tsconfig fix attached to the TS 7 step.
 
 ## Standing mechanics (carried forward)
 
@@ -144,6 +243,18 @@ re-list with `gh pr list` at the start of each PR.
 - **No docs-only master pushes** — every master push is a full deploy.
 - Surgical in-place lockfile bumps only; never `npm dedupe`, never a scratch regen on Windows.
   `npm install --package-lock-only` installs **nothing** — materialize with `npm ci`.
+- **`npm install --package-lock-only` will not re-resolve a package whose existing pin still
+  satisfies every declared range** — it prints "up to date" and silently keeps the old version.
+  This bit three times in PR 3: raised override floors, the restored ts-jest pin, and the nested
+  `apps/mobile/node_modules/expo-*` tree. Fixes, in escalating order: `npm update <pkg>
+  --package-lock-only`; then deleting just that package's lock entries and re-resolving; then
+  `git checkout origin/master -- package-lock.json` and redoing the resolution from a known-good
+  base (still in-place, still not a scratch regen). **Always assert the resolved version after —
+  never trust the command's own success.**
+- **Raising an `overrides` floor is not a one-time fix.** Four of PR 3's six advisories were on
+  packages that *already had* overrides; the advisory ranges had simply grown past the pinned
+  floor (e.g. `undici@7.0.0 - 7.27.2 → ^7.28.0` when 7.28.0 itself became vulnerable). Re-check
+  that the selector range still covers the installed version, not just that an override exists.
 - **Bump the version BEFORE the lockfile resolution**, then assert all three sites
   (`package.json`, lock `.version`, lock `.packages[""].version`).
 - **Advisories publish mid-flight** — re-run `npm audit` immediately before merging, not just when
