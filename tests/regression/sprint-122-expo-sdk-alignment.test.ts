@@ -58,10 +58,21 @@ const INDEPENDENTLY_VERSIONED: Record<string, string> = {
  * exactly the assertion-weaker-than-it-claims failure this suite exists to
  * prevent.
  *
- * Proven, not hypothetical (PR 3, 2026-08-03): these values were read from the
- * map, and within hours it moved `react-native-gesture-handler` from ~2.32.0
- * to ~3.1.0. Every test here still passed 8/8 while `expo install --check`
- * exited 1. Caught in maintainer review, not by CI.
+ * Proven, not hypothetical (PR 3). These values were read straight from the
+ * map, and it moved TWICE during a single review:
+ *
+ *   2026-08-03  `react-native-gesture-handler` ~2.32.0 -> ~3.1.0
+ *   2026-08-04  reverted ~3.1.0 -> ~2.32.0, and the expo patch line moved again
+ *               (expo/expo-router ~57.0.10, expo-constants ~57.0.9,
+ *               expo-linking ~57.0.5)
+ *
+ * Both times every test here passed 8/8 while `expo install --check` exited 1.
+ * Both times it was caught in maintainer review, not by CI.
+ *
+ * Note the second move was a REVERT: the arbiter is not monotonic, and a value
+ * it asserts today can be withdrawn tomorrow. So "chase the map until the suite
+ * is green" is not a terminating strategy — do not treat a mismatch as proof
+ * this file is wrong. Check what the map says NOW, and expect it to churn.
  *
  * Note `node_modules/expo/bundledNativeModules.json` is NOT a usable
  * substitute: expo 57.0.9 ships ~2.32.0 there, so it lagged the API too.
@@ -97,7 +108,7 @@ const SDK_PINNED: Record<string, string> = {
   'react-native-reanimated': '4.5.1',
   'react-native-worklets': '0.10.1',
   'react-native-screens': '~4.26.0',
-  'react-native-gesture-handler': '~3.1.0',
+  'react-native-gesture-handler': '~2.32.0',
   'react-native-web': '~0.21.0',
   '@react-native-picker/picker': '2.11.4',
 };
