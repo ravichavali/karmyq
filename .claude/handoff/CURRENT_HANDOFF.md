@@ -118,21 +118,27 @@
 > source**, and both peers accept it (`expo-router` wants `*`, `react-native-drawer-layout` wants
 > `>= 2.0.0`).
 >
-> ### ⚠️ THE STRUCTURAL HOLE IS STILL OPEN — decide before trusting this gate again
+> ### ✅ STRUCTURAL HOLE CLOSED — `.github/workflows/expo-sdk-drift.yml` (maintainer-approved)
 >
-> **CI never runs `expo install --check`.** Grep of `.github/workflows/` returns nothing; the only
-> occurrence in the repo is a comment. So nothing in CI can detect this class of drift today.
+> CI previously **never ran `expo install --check`** — the only occurrence in the repo was a
+> comment. The new job runs the real arbiter against the live map **daily**, files (or comments on)
+> an issue labelled `expo-sdk-drift` containing the drift plus the fix procedure, and **fails the
+> run** so there is a red scheduled build too.
 >
-> **`node_modules/expo/bundledNativeModules.json` is NOT a usable substitute** — expo 57.0.9 ships
-> `~2.32.0` there, so it lagged the API too and would have stayed green. Verified, not assumed.
+> **Deliberately `schedule` + `workflow_dispatch` only, NOT `pull_request`.** Blocking would couple
+> every merge to `api.expo.dev` being reachable, and drift is a fix-within-a-day problem. **The
+> accepted tradeoff is an up-to-24h detection window** — the alignment suite can still be green for
+> a day after Expo moves. That is stated in the suite's own comment so a green run is not mistaken
+> for proof of alignment.
 >
-> Options, for a maintainer decision:
-> 1. **Scheduled drift job (recommended)** — a cron workflow runs `expo install --check` daily and
->    opens an issue on drift. Detects it without making merges depend on network availability.
-> 2. **Run it in CI as a blocking step** — strongest signal, but couples every merge to
->    `api.expo.dev` being reachable.
-> 3. **Fetch the live map inside the test** — do NOT skip-on-network-failure; a silent skip is the
->    same weaker-than-claimed pattern in a new costume.
+> Rejected alternatives, both verified rather than assumed:
+> - **`node_modules/expo/bundledNativeModules.json`** — looked like the ideal offline source of
+>   truth; expo 57.0.9 ships `~2.32.0` in it, so it lagged the API and would also have stayed green.
+> - **Fetch-the-map-inside-the-test with skip-on-network-failure** — a silent skip is the same
+>   weaker-than-claimed defect in a new costume.
+>
+> ⚠️ **The job cannot be exercised until it is on `master`** — `workflow_dispatch` only surfaces for
+> workflows present on the default branch. First real run is the schedule after merge; check it.
 >
 > ### CI: PR **#186** — was **20/20 green**, `Deploy to Demo` skipped (master-only).
 > **Re-running after the gesture-handler fix.**
