@@ -66,9 +66,13 @@ const INDEPENDENTLY_VERSIONED: Record<string, string> = {
  * Note `node_modules/expo/bundledNativeModules.json` is NOT a usable
  * substitute: expo 57.0.9 ships ~2.32.0 there, so it lagged the API too.
  *
- * **`npx expo install --check` must be run and must exit 0 before trusting a
- * green run of this file.** See the `SDK_PINNED` drift test below for where
- * that belongs in CI.
+ * **`npx expo install --check` must exit 0 before a green run of this file
+ * means anything.** That is enforced by `.github/workflows/expo-sdk-drift.yml`,
+ * which runs the real arbiter on a daily schedule and files an issue when the
+ * live map moves. It is deliberately NOT a pull_request check — drift is a
+ * fix-within-a-day problem, and making it blocking would couple every merge to
+ * api.expo.dev being reachable. So this file can still go green for up to a day
+ * after Expo moves; the scheduled job is what closes that window.
  *
  * Where Dependabot proposed something else, the map won:
  *
