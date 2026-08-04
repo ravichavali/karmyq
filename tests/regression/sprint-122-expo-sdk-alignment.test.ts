@@ -49,11 +49,28 @@ const INDEPENDENTLY_VERSIONED: Record<string, string> = {
  * editing this line with a written reason, and `npx expo install --check` must
  * still exit 0 afterwards.
  *
- * The arbiter is Expo's own version map, read directly
- * (api.expo.dev/v2/sdks/57.0.0/native-modules) rather than inferred from
- * `expo install --check` staying silent about a package. Every value below is
- * what that map returns for SDK 57; where Dependabot proposed something else,
- * the map won (PR 3, 2026-08-03):
+ * ⚠️ THIS MAP IS A SHADOW OF A LIVE SOURCE, AND SHADOWS GO STALE.
+ *
+ * The real arbiter is Expo's version map at
+ * api.expo.dev/v2/sdks/57.0.0/native-modules, and Expo revises it *within* an
+ * SDK generation. It is therefore NOT enough for this map to agree with
+ * apps/mobile — that only proves two local files match each other, which is
+ * exactly the assertion-weaker-than-it-claims failure this suite exists to
+ * prevent.
+ *
+ * Proven, not hypothetical (PR 3, 2026-08-03): these values were read from the
+ * map, and within hours it moved `react-native-gesture-handler` from ~2.32.0
+ * to ~3.1.0. Every test here still passed 8/8 while `expo install --check`
+ * exited 1. Caught in maintainer review, not by CI.
+ *
+ * Note `node_modules/expo/bundledNativeModules.json` is NOT a usable
+ * substitute: expo 57.0.9 ships ~2.32.0 there, so it lagged the API too.
+ *
+ * **`npx expo install --check` must be run and must exit 0 before trusting a
+ * green run of this file.** See the `SDK_PINNED` drift test below for where
+ * that belongs in CI.
+ *
+ * Where Dependabot proposed something else, the map won:
  *
  *   react / react-dom               proposed 19.2.8, SDK says 19.2.3
  *   react-native-maps               proposed 1.29.0, SDK says 1.27.2
@@ -76,7 +93,7 @@ const SDK_PINNED: Record<string, string> = {
   'react-native-reanimated': '4.5.1',
   'react-native-worklets': '0.10.1',
   'react-native-screens': '~4.26.0',
-  'react-native-gesture-handler': '~2.32.0',
+  'react-native-gesture-handler': '~3.1.0',
   'react-native-web': '~0.21.0',
   '@react-native-picker/picker': '2.11.4',
 };

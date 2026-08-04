@@ -96,7 +96,46 @@
 > infrastructure* edges, not npm versions, and neither CONTEXT.md pins package versions. An axios
 > patch bump changes nothing in either. The check fires on any `package.json` edit.
 >
-> ### CI: PR **#186** — all **20 checks green**, `Deploy to Demo` skipped (master-only)
+> ### 🔴 MERGE BLOCKER FOUND IN REVIEW (2026-08-03) — the Expo gate was FALSE-GREEN
+>
+> Maintainer review caught what CI structurally could not. On head `0da64640`:
+> **the gate passed 8/8 while `npx expo install --check` exited 1.**
+>
+> Expo's map moved `react-native-gesture-handler` from `~2.32.0` to **`~3.1.0`** *within* SDK 57 —
+> hours after I read that map and wrote its values into `SDK_PINNED`. The manifest and the
+> handwritten map still agreed with each other, so every assertion passed.
+>
+> **This is my recurring defect in its purest form yet.** `SDK_PINNED` is a *shadow of a live
+> source*. The gate compares manifest ↔ shadow — two local files — and calls it "aligned to the
+> SDK." It can only ever prove those two agree, never that either matches Expo. I even wrote
+> *"every value below is what that map returns"* in the comment, which was true when written and
+> false by the time CI ran.
+>
+> **Fixed:** gesture-handler → `~3.1.0` in the manifest and `SDK_PINNED`; lockfile re-resolved
+> (needed the nested-entry deletion again — plain resolve left it at 2.32.0). Verified:
+> `expo install --check` **exit 0**, mobile 2/2, mobile `tsc --noEmit` clean, gates 25/350,
+> lockfile cross-check 291/291. Safe bump despite being a major: **zero importers in mobile
+> source**, and both peers accept it (`expo-router` wants `*`, `react-native-drawer-layout` wants
+> `>= 2.0.0`).
+>
+> ### ⚠️ THE STRUCTURAL HOLE IS STILL OPEN — decide before trusting this gate again
+>
+> **CI never runs `expo install --check`.** Grep of `.github/workflows/` returns nothing; the only
+> occurrence in the repo is a comment. So nothing in CI can detect this class of drift today.
+>
+> **`node_modules/expo/bundledNativeModules.json` is NOT a usable substitute** — expo 57.0.9 ships
+> `~2.32.0` there, so it lagged the API too and would have stayed green. Verified, not assumed.
+>
+> Options, for a maintainer decision:
+> 1. **Scheduled drift job (recommended)** — a cron workflow runs `expo install --check` daily and
+>    opens an issue on drift. Detects it without making merges depend on network availability.
+> 2. **Run it in CI as a blocking step** — strongest signal, but couples every merge to
+>    `api.expo.dev` being reachable.
+> 3. **Fetch the live map inside the test** — do NOT skip-on-network-failure; a silent skip is the
+>    same weaker-than-claimed pattern in a new costume.
+>
+> ### CI: PR **#186** — was **20/20 green**, `Deploy to Demo` skipped (master-only).
+> **Re-running after the gesture-handler fix.**
 >
 > ### ⚠️ The lesson that cost a CI round — local `npm ci` is NOT sufficient on Windows
 >
