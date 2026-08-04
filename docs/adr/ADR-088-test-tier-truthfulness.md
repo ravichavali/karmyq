@@ -1,6 +1,6 @@
 # ADR-088: Test-Tier Truthfulness
 
-**Status**: Proposed
+**Status**: Implemented
 **Date**: 2026-07-30
 **Sprint**: 122
 **Version**: 11.37.0

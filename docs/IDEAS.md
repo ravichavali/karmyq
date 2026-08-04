@@ -427,3 +427,34 @@ wizard, community detail + steward tabs, profile, notifications, the messaging t
 md→lg topbar rhythm.
 
 ---
+
+## [2026-08-03] deps
+
+**The "platform floor" arc — Sprint 123 candidate.** Sprint 122 PR 3 closed three Dependabot
+majors with written rationale and **no ignore rule**, because each is a floor-raise that the
+others depend on rather than a bump that can land alone. They must go in dependency order:
+
+1. **Runtime floor off `node:18-alpine`.** Every service Dockerfile still builds on Node 18, which
+   is EOL. Nothing above can be adopted honestly until the runtime moves — @types/node 26 and
+   TypeScript 7 both describe a runtime we do not run.
+2. **`@types/node` 20 → 26** (#171). Purely a types bump, but it asserts Node 26 APIs exist; it is
+   a lie about the container until step 1 lands.
+3. **TypeScript 5.9 → 7** (#168). TS 7 is the Go port (`tsgo`). Blast radius is every workspace's
+   `tsc --noEmit`, plus `ts-jest`, which currently sits pinned at 29.4.6 (see below).
+4. **ESLint 9 → 10** (#170). Sprint 121 PR 3 just migrated to flat config, so the structural work
+   is already done; 10 mainly drops old Node and removes deprecated APIs. Cheapest of the four,
+   but sequenced last because its parser follows TypeScript.
+
+**Carry-forward blocker that belongs to this arc — `ts-jest` is pinned at 29.4.6 by a root
+override.** Sprint 122 PR 3 retested `29.4.12` as #163 intended and the original regression
+**reproduced**: request-service fails 12 suites / 20 tests with `TS2307: Cannot find module
+'@karmyq/shared/matching/types'` (and the `schemas/ui` subpath that first surfaced it). Root cause
+is unchanged — ts-jest 29.4.11+ stopped inheriting `moduleResolution: node16` from the service
+`tsconfig.json` when the root `jest.config.js` transform supplies an **inline** `tsconfig` object,
+so `@karmyq/shared`'s `exports` subpath map stops resolving. The override was therefore restored
+and #184's ts-jest range excluded, again **without an ignore rule**.
+
+The real fix is not a version bump: it is to stop passing an inline `tsconfig` object from the root
+jest transform and point ts-jest at each workspace's real `tsconfig.json`. That touches every
+service's test transform, which is why it was not done inside a "safe groups" PR. It should ride
+either the TypeScript 7 step above or PR 4 (jest 29 → 30), both of which already own that surface.

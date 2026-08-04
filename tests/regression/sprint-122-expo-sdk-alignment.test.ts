@@ -43,11 +43,55 @@ const INDEPENDENTLY_VERSIONED: Record<string, string> = {
  * just as invisible to the predicate. `reanimated` and `worklets` are the
  * fastest-moving of the eleven and the most likely next bump.
  *
- * Sprint 122 PR 3 proposes moving three of these (react 19.2.3 -> 19.2.8,
+ * Sprint 122 PR 3 proposed moving three of these (react 19.2.3 -> 19.2.8,
  * react-native-safe-area-context ~5.7.0 -> 5.8.0, react-native-maps 1.27.2 ->
  * 1.29.0). That is precisely why the map exists: changing any of them requires
  * editing this line with a written reason, and `npx expo install --check` must
  * still exit 0 afterwards.
+ *
+ * ⚠️ THIS MAP IS A SHADOW OF A LIVE SOURCE, AND SHADOWS GO STALE.
+ *
+ * The real arbiter is Expo's version map at
+ * api.expo.dev/v2/sdks/57.0.0/native-modules, and Expo revises it *within* an
+ * SDK generation. It is therefore NOT enough for this map to agree with
+ * apps/mobile — that only proves two local files match each other, which is
+ * exactly the assertion-weaker-than-it-claims failure this suite exists to
+ * prevent.
+ *
+ * Proven, not hypothetical (PR 3). These values were read straight from the
+ * map, and it moved TWICE during a single review:
+ *
+ *   2026-08-03  `react-native-gesture-handler` ~2.32.0 -> ~3.1.0
+ *   2026-08-04  reverted ~3.1.0 -> ~2.32.0, and the expo patch line moved again
+ *               (expo/expo-router ~57.0.10, expo-constants ~57.0.9,
+ *               expo-linking ~57.0.5)
+ *
+ * Both times every test here passed 8/8 while `expo install --check` exited 1.
+ * Both times it was caught in maintainer review, not by CI.
+ *
+ * Note the second move was a REVERT: the arbiter is not monotonic, and a value
+ * it asserts today can be withdrawn tomorrow. So "chase the map until the suite
+ * is green" is not a terminating strategy — do not treat a mismatch as proof
+ * this file is wrong. Check what the map says NOW, and expect it to churn.
+ *
+ * Note `node_modules/expo/bundledNativeModules.json` is NOT a usable
+ * substitute: expo 57.0.9 ships ~2.32.0 there, so it lagged the API too.
+ *
+ * **`npx expo install --check` must exit 0 before a green run of this file
+ * means anything.** That is enforced by `.github/workflows/expo-sdk-drift.yml`,
+ * which runs the real arbiter on a daily schedule and files an issue when the
+ * live map moves. It is deliberately NOT a pull_request check — drift is a
+ * fix-within-a-day problem, and making it blocking would couple every merge to
+ * api.expo.dev being reachable. So this file can still go green for up to a day
+ * after Expo moves; the scheduled job is what closes that window.
+ *
+ * Where Dependabot proposed something else, the map won:
+ *
+ *   react / react-dom               proposed 19.2.8, SDK says 19.2.3
+ *   react-native-maps               proposed 1.29.0, SDK says 1.27.2
+ *   react-native-safe-area-context  proposed 5.8.0,  SDK says ~5.7.0
+ *   react-native-reanimated         proposed 4.5.3,  SDK says 4.5.1
+ *   react-native-worklets           proposed 0.11.3, SDK says 0.10.1
  */
 /**
  * The Expo SDK generation this file is written for. SDK_PINNED below is that
@@ -58,11 +102,11 @@ const SDK_MAJOR = 57;
 const SDK_PINNED: Record<string, string> = {
   react: '19.2.3',
   'react-dom': '19.2.3',
-  'react-native': '0.86.0',
+  'react-native': '0.86.2',
   'react-native-maps': '1.27.2',
   'react-native-safe-area-context': '~5.7.0',
-  'react-native-reanimated': '4.5.0',
-  'react-native-worklets': '0.10.0',
+  'react-native-reanimated': '4.5.1',
+  'react-native-worklets': '0.10.1',
   'react-native-screens': '~4.26.0',
   'react-native-gesture-handler': '~2.32.0',
   'react-native-web': '~0.21.0',

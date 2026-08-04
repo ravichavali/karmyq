@@ -1,0 +1,132 @@
+name: Expo SDK drift
+
+# Sprint 122 PR 3. `tests/regression/sprint-122-expo-sdk-alignment.test.ts` freezes the
+# SDK-managed versions in a handwritten `SDK_PINNED` map. That map is a SHADOW of a live,
+# mutable source -- Expo revises its version matrix *within* an SDK generation. On
+# 2026-08-03 it moved react-native-gesture-handler ~2.32.0 -> ~3.1.0 and the gate stayed
+# 8/8 green, because it compares the manifest against the shadow: two local files that
+# still agreed with each other.
+#
+# `npx expo install --check` is the real arbiter. This job runs it against the live map
+# so the drift is detected by CI rather than by a human happening to re-read the source.
+#
+# Deliberately NOT a pull_request trigger: that would make every merge depend on
+# api.expo.dev being reachable. Drift is a "fix within a day" problem, not a
+# "block this merge" problem, so it runs on a schedule and files an issue.
+
+on:
+  schedule:
+    # 07:15 UTC daily. Off the hour to avoid GitHub's peak-of-hour scheduling backlog.
+    - cron: '15 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  NODE_VERSION: '24.x'
+  DRIFT_LABEL: expo-sdk-drift
+
+jobs:
+  check-expo-alignment:
+    name: Check apps/mobile against Expo's live SDK map
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run the arbiter (expo install --check)
+        id: check
+        working-directory: apps/mobile
+        env:
+          EXPO_NO_TELEMETRY: '1'
+        run: |
+          set +e
+          npx expo install --check > "$RUNNER_TEMP/expo-check.log" 2>&1
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/expo-check.log"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+          if [ "$status" -eq 0 ]; then
+            echo "✅ apps/mobile matches Expo's live SDK map."
+            exit 0
+          fi
+
+          # Keep only the actionable lines for the issue body.
+          {
+            echo 'drift<<DRIFT_EOF'
+            grep -E 'expected version|should be updated' "$RUNNER_TEMP/expo-check.log" || \
+              cat "$RUNNER_TEMP/expo-check.log"
+            echo 'DRIFT_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+          echo "::warning::Expo SDK drift detected — see the issue filed by this run."
+
+      - name: File or update the drift issue
+        if: steps.check.outputs.status != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRIFT: ${{ steps.check.outputs.drift }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Ensure the label exists before searching or creating with it.
+          gh label create "$DRIFT_LABEL" \
+            --description "apps/mobile has drifted from Expo's live SDK version map" \
+            --color 'B60205' 2>/dev/null || true
+
+          body=$(cat <<EOF
+          \`npx expo install --check\` exited non-zero against Expo's **live** version map.
+
+          \`\`\`
+          $DRIFT
+          \`\`\`
+
+          **Why CI's own gate did not catch this:** \`SDK_PINNED\` in
+          \`tests/regression/sprint-122-expo-sdk-alignment.test.ts\` is a handwritten copy of
+          Expo's map. It compares the manifest against that copy, so when Expo revises the
+          matrix *within* an SDK generation both local files still agree and the suite stays
+          green. That is exactly what this job exists to detect.
+
+          **To fix:**
+          1. Update the version in \`apps/mobile/package.json\`.
+          2. Update the matching entry in \`SDK_PINNED\`, with a written reason.
+          3. Re-resolve the lockfile — a plain \`npm install --package-lock-only\` will report
+             "up to date" and leave the nested node stale. Delete that package's entries from
+             \`package-lock.json\` and re-resolve, then **assert the resolved version**.
+          4. Re-run \`npx expo install --check\` (must exit 0), plus mobile tests and
+             \`tsc --noEmit\`.
+
+          Run: $RUN_URL
+          EOF
+          )
+
+          existing=$(gh issue list --state open --label "$DRIFT_LABEL" \
+            --json number --jq '.[0].number // empty')
+
+          if [ -n "$existing" ]; then
+            echo "Updating existing issue #$existing"
+            gh issue comment "$existing" --body "$body"
+          else
+            echo "Filing a new drift issue"
+            gh issue create \
+              --title "Expo SDK drift: apps/mobile no longer matches Expo's live version map" \
+              --label "$DRIFT_LABEL" \
+              --body "$body"
+          fi
+
+      - name: Fail the run when drift is present
+        if: steps.check.outputs.status != '0'
+        run: |
+          echo "Expo SDK drift detected; failing so the scheduled run is visibly red."
+          exit 1
