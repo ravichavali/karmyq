@@ -1,10 +1,29 @@
-# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 3 BUILT, AWAITING MERGE AUTHORIZATION
+# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 3 SHIPPED · PR 4 (jest 30) IS NEXT
 
-> ## ⏸️ PR 3 (2026-08-03): **BUILT, VERIFIED, NOT MERGED.** Needs explicit merge authorization.
+> ## ✅ PR 3 COMPLETE (2026-08-04): merged, deployed and verified live at v11.38.0.
 >
-> Branch `deps/sprint-122-pr3-consolidated-groups` · **v11.38.0**.
-> **For head sha, commit count and CI status read the PR, not this file** — those went stale three
-> times during PR 2. Use `gh pr view` / `gh pr checks`.
+> **PR #186 squash-merged** as `5fa203ce` at 18:55:53Z (explicit maintainer authorization).
+> `CI/CD Pipeline` run **30940916758** reached **`Deploy to Demo` = success, no rollback**; its
+> internal sweep reported **all services healthy**. Master is `5fa203ce`, manifest reads 11.38.0.
+>
+> ### Live smoke test — PASSED
+>
+> | Leg | Result |
+> |---|---|
+> | Happy path — `maria.reyes@test.karmyq.com` | **200**, `success:true`, JWT carries `communities[]` (6) |
+> | Wrong password | **401** ADR-074 envelope, `UNAUTHORIZED`, no stack trace |
+> | **Bodyless POST** (PR 1's regression) | **400 `VALIDATION_ERROR`, not 500** — still fixed |
+> | Landing | serves HTML |
+>
+> ### `expo-sdk-drift` workflow — dispatched on master, verified
+>
+> Run **30942925117** (`workflow_dispatch`) went green: the arbiter step logged *"Dependencies are
+> up to date"*, and **both the issue-filing and fail steps correctly skipped**. No issue was
+> created. ⚠️ **Only the no-drift path is proven on real infrastructure** — the drift path's issue
+> body was dry-run locally but has never executed in CI. First scheduled run is 07:15 UTC daily.
+>
+> **#185 / #184 were already auto-closed** by Dependabot when #186 merged; rationale comments were
+> posted to both regardless, so the record stands.
 >
 > ### 🔴 The three "open decisions" are CLOSED — by the arbiter, not by judgement
 >
@@ -167,15 +186,18 @@
 > 3. This bit **three separate times** in one PR (override floors, the restored ts-jest pin, the
 >    nested expo tree) before it bit a fourth time in CI.
 >
-> ### Still owed on this PR
+> ### 🔴 CARRIED FORWARD — first actions in the next chat
 >
-> 1. **Merge authorization** — `gh pr merge --squash --admin` needs EXPLICIT approval, every time.
->    Nothing else is blocking; the branch is fully pushed and CI is green.
-> 2. **Close #185 and #184 after the merge** (comments explaining the partial acceptance are
->    already posted). They were deliberately left open — closing them while #186 was unmerged
->    would have dropped the updates from tracking.
-> 3. OWED item 2 from PR 2 is **partially** done: the Expo gate has now had an adversarial
+> 1. **The drift job's failure path is unproven in CI.** Only the green path ran. Before relying on
+>    it, force a drift (temporarily skew one manifest pin on a scratch branch, dispatch, confirm the
+>    issue is filed with correct markdown and the run goes red) — then revert. This is the same
+>    "one injection proves non-vacuity, not correctness" trap I keep falling into.
+> 2. OWED item 2 from PR 2 is **still partially** done: the Expo gate got an adversarial
 >    two-injection sweep. **The turbo cache-key, tier-coverage and lint-config gates have not.**
+> 3. **PR 4 (jest 29 → 30, #173) also owns the ts-jest fix** — stop passing an inline `tsconfig`
+>    object from the root `jest.config.js` transform and point ts-jest at each workspace's real
+>    `tsconfig.json`. That is what unblocks ts-jest 29.4.12+ (currently pinned 29.4.6 by root
+>    override). See `docs/IDEAS.md`.
 
 
 > ## ✅ PR 2 COMPLETE (2026-08-03): test-tier truthfulness merged, deployed and verified live at v11.37.0.
@@ -261,7 +283,18 @@
 > `.claude/handoff/archive/2026-07-29-sprint-121-dependency-backlog-17-OF-18-EXPRESS-CARRIED.md`.
 > **PR 1 (express 4 → 5, v11.36.0, `46b2982c`)** shipped 2026-07-30 and is live.
 
-## Quick Start — PR 3
+## Quick Start — PR 4 (jest 29 → 30, #173)
+
+1. **Start a fresh chat** (per-PR cadence). Branch off **`origin/master`** (now `5fa203ce`, demo
+   running **v11.38.0**) — never local master.
+2. **Re-list the Dependabot PRs first** — numbers churn. Remaining open: **#173** (jest), **#172**
+   (zustand, mobile-only), **#169** (redis 4→6).
+3. **PR 4 owns the ts-jest fix** (see CARRIED FORWARD above). jest 30 and the inline-`tsconfig`
+   defect touch the same transform, so do them together rather than twice.
+4. **Before trusting any Expo-adjacent green:** `npx expo install --check` must exit 0. The suite
+   alone is not sufficient — it compares against a frozen copy.
+
+## (historical) Quick Start — PR 3
 
 1. **Start a fresh chat** (per-PR cadence). Branch off **`origin/master`** (now `b4041506`,
    demo running **v11.37.0**) — never local master.
@@ -287,8 +320,8 @@ PRs — 6 merged and deployed, 3 closed with written rationale.
 |---|---|---|---|---|
 | **1** | express 4 → 5 | #34 ✅ | v11.36.0 | ✅ **SHIPPED** `46b2982c` |
 | **2** | test-tier truthfulness + **ADR-088** | — | **v11.37.0** | ✅ **SHIPPED** `b4041506`, deployed, verified live |
-| **3** | consolidated safe groups + 6 advisory fixes | **#185**, **#184** (was #179/#178) | v11.38.0 | ⏸️ **BUILT & VERIFIED — awaiting merge authorization** |
-| **4** | jest 29 → 30 | #173 | v11.39.0 | **NEXT** — also owns the ts-jest inline-tsconfig fix |
+| **3** | consolidated safe groups + 6 advisory fixes + Expo drift job | **#185**, **#184** (was #179/#178) | v11.38.0 | ✅ **SHIPPED** `5fa203ce`, deployed, smoke-tested |
+| **4** | jest 29 → 30 | #173 | v11.39.0 | ⬅️ **NEXT** — also owns the ts-jest inline-tsconfig fix |
 | **5** | redis (node-redis) 4 → 6 | #169 | v11.40.0 | planned |
 | **6** | zustand 4 → 5 (mobile only) | #172 | v11.41.0 | planned |
 | — | closed with rationale, **no ignore rule** | #170 eslint 10, #168 typescript 7, #171 @types/node 26 | — | planned |
