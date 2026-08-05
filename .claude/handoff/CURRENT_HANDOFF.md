@@ -685,17 +685,24 @@
 > `.claude/handoff/archive/2026-07-29-sprint-121-dependency-backlog-17-OF-18-EXPRESS-CARRIED.md`.
 > **PR 1 (express 4 → 5, v11.36.0, `46b2982c`)** shipped 2026-07-30 and is live.
 
-## Quick Start — PR 5 (redis 4 → 6, #169)
+## Quick Start — PR 6 (zustand 4 → 5, #172) · v11.41.0 · CLOSES THE SPRINT
 
-1. **Start a fresh chat** (per-PR cadence). Branch off **`origin/master`** — never local master.
-2. **Re-list the Dependabot PRs first** — numbers churn. Match on *what a PR bumps*, never the
-   number.
-3. **Exactly one importer:** `services/messaging-service/src/config/redis.ts`, which **does not
-   declare `redis`** — the root does. Add the declaration ([[feedback_declare_what_you_import]]);
-   PR 4's toolchain gate covers jest/ts-jest only, not this.
-4. Two majors are crossed (4 → 5 → 6): read **both** migration notes. `createClient` options and
-   the RESP3/type surface changed. `ioredis` is a **different package**, not in scope.
-5. Messaging is Socket.io presence/pubsub — smoke-test a live message round-trip, not just health.
+1. **Start a fresh chat** (per-PR cadence).
+2. **⚠️ Do NOT branch off `origin/master`.** Branch off **`docs/sprint-122-pr5-shipped`** (pushed,
+   `origin/master` + 1 commit). It carries **ADR-090 `Proposed` → `Implemented`**, the four
+   messaging-service endpoint corrections, and this handoff. **A docs-only master push triggers a
+   full deploy → demo 502s**, so those must ride PR 6. Same pattern as PR 4's docs branch riding PR 5.
+3. **Re-list the Dependabot PRs first** — numbers churn. Match on *what a PR bumps*, never the number.
+4. **Mobile only, lowest risk of the six.** `zustand` is declared solely in
+   `apps/mobile/package.json` and imported by exactly **one** file, `apps/mobile/store/auth.ts`.
+   The S121 roster's "frontend state" is **wrong**. `apps/mobile` is **not deployed to the demo**.
+5. zustand 5 drops the default-export shim and changes `createWithEqualityFn` / `useStore` selector
+   semantics — check that one store against the v5 migration guide. **Read the shipped source, not
+   the changelog** (see the two mechanism errors below).
+6. **Check `engines.node` on the new zustand** against `RUNTIME_MAJOR = 24` — the new runtime-floor
+   gate will fail the build if it exceeds it. That is the gate working, not a problem.
+7. **Closing the sprint:** archive Sprint 122, confirm the open-PR count, and **run the end-of-sprint
+   methodology review** (agenda below — now with PR 5's data, not just PR 4's).
 
 ## (historical) Quick Start — PR 4
 
@@ -838,6 +845,38 @@ avoidable in principle. Contributing causes, each evidenced in this file:
 
 **Do not conclude "fewer reviews".** The reviews caught real defects every round; so did CI. The
 target is moving the same findings earlier and making each round cheaper, not removing the loop.
+
+### PR 5's data (2026-08-05) — the shape is now confirmed across two PRs
+
+**2 review rounds, 5 findings, all legitimate, all fixed. CI was green on the FIRST run and every
+run after — so CI contributed nothing this time; every defect came from human review.**
+
+| # | Finding | Class |
+|---|---|---|
+| 1 | `redisSubscriber` had no `error` listener — `duplicate()` copies options, not EventEmitter registrations, and an unhandled `'error'` **throws** | untraced mechanism |
+| 2 | `FROM` parser matched only column-zero uppercase, so `FROM --platform=… node:18-alpine` evaded the gate entirely while it stayed **green** | assertion weaker than claimed |
+| 3 | Attributed `subscribe()` rejections to the new 5s command timeout. **False** — pub/sub goes through `#addPubSubCommand`, which hardcodes `timeout: undefined` | untraced mechanism |
+| 4 | Parser read **physical lines**, not logical instructions — a line-continued `FROM` false-failed | untraced mechanism |
+| 5 | Comment named `--chmod` as a `FROM` option; it is `COPY`/`ADD` | untraced mechanism |
+
+**Four of five were claims about how something works that I had not traced to source.** Not logic
+errors — assertions. `/simplify`, `/security-review`, the 26-case injection sweep and 21 CI checks
+were all green while every one of them was present, because none of those instruments read a claim
+and ask "is this true?".
+
+**The countermeasure is agreed and should be a RULE, not a candidate:** *a mechanism claim ships
+with its reproducer — the command, the source trace, or the focused test — in the same commit.* Both
+PR 4's headline failure and four of PR 5's five would have been caught by it. In every case the
+answer was two functions further into a file I already had open.
+
+**Second, cheaper lesson:** a string-replacement injection that matches nothing is a silent no-op.
+PR 5's sweep case #12 went stale during a refactor and only surfaced because it expected RED — a
+stale case expecting GREEN would have "passed" while proving nothing. Injections must fail loudly
+when their search text is absent.
+
+**Third:** the smoke test found **four wrong REST endpoints** in a Critical service's CONTEXT.md
+that no test, gate or review had ever caught — because nothing else calls a real path. Smoke tests
+earn their cost; keep insisting they hit real routes rather than `/health`.
 
 ## Multi-Sprint Arc
 
