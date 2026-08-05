@@ -61,22 +61,42 @@ const EOL_MAJORS: Record<number, string> = {
   20: '2026-04-30',
 };
 
-/** Every tracked Dockerfile. Pinned by identity so that DELETING one cannot shrink
- *  what this gate checks while leaving it green — counting is not identity. */
-const EXPECTED_DOCKERFILES = [
-  'apps/frontend/Dockerfile',
-  'apps/frontend/Dockerfile.prod',
-  'services/auth-service/Dockerfile',
-  'services/cleanup-service/Dockerfile',
-  'services/community-service/Dockerfile',
-  'services/geocoding-service/Dockerfile',
-  'services/messaging-service/Dockerfile',
-  'services/notification-service/Dockerfile',
-  'services/reputation-service/Dockerfile',
-  'services/request-service/Dockerfile',
-  'services/social-graph-service/Dockerfile',
-  'tests/Dockerfile.test',
-];
+/**
+ * Every tracked Dockerfile and **how many Node stages each must contribute**.
+ *
+ * Pinned by identity, not counted, so that deleting a Dockerfile cannot shrink
+ * what this gate checks while leaving it green. The per-file COUNT matters just
+ * as much: the first version of this gate parsed only column-zero uppercase
+ * `FROM node:…`, so a stage written `FROM --platform=$BUILDPLATFORM node:18-alpine`
+ * — valid Dockerfile syntax — contributed nothing to the scan and the remaining
+ * stages still all read `node:24-alpine`, leaving the gate GREEN. Caught in
+ * review. An image the parser cannot see is indistinguishable from an image that
+ * complies, so the parser must be strict about what it fails to understand.
+ */
+const EXPECTED_NODE_STAGES: Record<string, number> = {
+  'apps/frontend/Dockerfile': 2,
+  'apps/frontend/Dockerfile.prod': 2,
+  'services/auth-service/Dockerfile': 2,
+  'services/cleanup-service/Dockerfile': 2,
+  'services/community-service/Dockerfile': 2,
+  'services/geocoding-service/Dockerfile': 2,
+  'services/messaging-service/Dockerfile': 2,
+  'services/notification-service/Dockerfile': 2,
+  'services/reputation-service/Dockerfile': 2,
+  'services/request-service/Dockerfile': 2,
+  'services/social-graph-service/Dockerfile': 2,
+  'tests/Dockerfile.test': 1,
+};
+
+const EXPECTED_DOCKERFILES = Object.keys(EXPECTED_NODE_STAGES).sort();
+
+/**
+ * A `FROM` instruction: optional leading whitespace, case-insensitive keyword,
+ * any number of `--flag` / `--flag=value` options (`--platform`, `--chmod`, …),
+ * then the image reference.
+ */
+const FROM_LINE = /^\s*FROM\s+((?:--[^\s]+\s+)*)(\S+)/i;
+const IS_NODE_IMAGE = /^node(:|$)/i;
 
 /**
  * Each scan below spawns a `git` process or parses the 1835-entry lockfile, and
@@ -97,18 +117,29 @@ const trackedDockerfiles = once((): string[] => {
     .sort();
 });
 
-/** Every `FROM node:…` line in a Dockerfile, as `{ file, tag }`. */
-const nodeBaseImages = once((): Array<{ file: string; tag: string }> => {
-  const images: Array<{ file: string; tag: string }> = [];
+/**
+ * EVERY `FROM` instruction across the tracked Dockerfiles — node or not, parsed
+ * or not. Unparsed lines are carried rather than dropped so a syntax this gate
+ * does not understand becomes a failure instead of a silent omission.
+ */
+const allFromLines = once((): Array<{ file: string; raw: string; image?: string }> => {
+  const lines: Array<{ file: string; raw: string; image?: string }> = [];
   for (const file of trackedDockerfiles()) {
     const body = readFileSync(join(ROOT, file), 'utf8');
     for (const line of body.split(/\r?\n/)) {
-      const m = line.match(/^FROM\s+(node:\S+)/);
-      if (m) images.push({ file, tag: m[1] });
+      if (!/^\s*FROM\s/i.test(line)) continue;
+      lines.push({ file, raw: line.trim(), image: line.match(FROM_LINE)?.[2] });
     }
   }
-  return images;
+  return lines;
 });
+
+/** Just the Node base images, as `{ file, tag }`. */
+const nodeBaseImages = once((): Array<{ file: string; tag: string }> =>
+  allFromLines()
+    .filter((l) => l.image !== undefined && IS_NODE_IMAGE.test(l.image))
+    .map((l) => ({ file: l.file, tag: l.image as string })),
+);
 
 const lockfile = once(() => JSON.parse(readFileSync(LOCK, 'utf8')));
 
@@ -143,6 +174,28 @@ const installedNodeFloors = once((): Array<{ name: string; range: string; min: s
 describe('container runtime satisfies every installed package (ADR-090)', () => {
   it('checks exactly the tracked Dockerfiles — deleting one cannot shrink this gate', () => {
     expect(trackedDockerfiles()).toEqual(EXPECTED_DOCKERFILES);
+  });
+
+  it('every FROM instruction parses — an unreadable line is a failure, not a skip', () => {
+    // The evasion this closes: a stage the parser silently drops is
+    // indistinguishable from a compliant one. Report the raw line so the failure
+    // names the syntax that defeated the regex.
+    const unparsed = allFromLines()
+      .filter((l) => l.image === undefined)
+      .map((l) => `${l.file}: ${l.raw}`);
+
+    expect(unparsed).toEqual([]);
+  });
+
+  it('each Dockerfile contributes exactly the Node stages it is expected to', () => {
+    // Counting per file is what makes the parser's blind spots visible: a stage
+    // written `FROM --platform=$BUILDPLATFORM node:18-alpine` used to contribute
+    // zero images while every remaining stage still read node:24-alpine, so the
+    // tag assertion below passed. Identity per file, not a global total.
+    const actual: Record<string, number> = Object.fromEntries(EXPECTED_DOCKERFILES.map((f) => [f, 0]));
+    for (const { file } of nodeBaseImages()) actual[file] = (actual[file] ?? 0) + 1;
+
+    expect(actual).toEqual(EXPECTED_NODE_STAGES);
   });
 
   it('every Node base image is pinned to the agreed major, with no floating tag', () => {

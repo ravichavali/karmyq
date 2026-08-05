@@ -63,7 +63,8 @@
 > | **23** base-image lines across **12** Dockerfiles → `node:24-alpine` | grep-verified; no `node:1x`/`node:20` remains outside historical ADR-027/028 samples |
 > | Root `engines.node` `>=18.0.0` → `>=24.0.0` | Gate asserts equality with the image major, both directions |
 > | `redis` `^4.6.11` → `^6.2.0`; **messaging-service now declares it** | Was importing it undeclared, living on root hoisting |
-> | 9 redis promise sites hardened | v6 applies `DEFAULT_COMMAND_TIMEOUT = 5000` (v4 applied none); Socket.IO does not catch async-listener rejections → process termination on Node 20+ |
+> | 9 redis promise sites hardened | Socket.IO does not catch async-listener rejections → process termination on Node 20+. v6 applies `DEFAULT_COMMAND_TIMEOUT = 5000` (v4 applied none) to `hSet`/`hDel`/`publish` — **not** to `subscribe()`, see the correction below |
+> | **Subscriber `error` listener added** | `duplicate()` copies options, not EventEmitter registrations. An `'error'` event with no listener **throws** → every socket error on the subscriber connection was fatal. **Found in code review** |
 > | `maintNotifications: 'disabled'` | v6 RESP3 default is `'auto'` → Enterprise-only handshake cmd + **DNS lookup per connect**, error swallowed. We run OSS `redis:7-alpine` everywhere |
 > | messaging-service `type-check` script + wired into CI's blocking step | **Nothing in CI could previously fail on a redis regression here** — zero tests (BUG-034), no type-check |
 > | `ARCHITECTURE.md` "Runtime: Node.js 20" → 24 | It was **already wrong** before this PR; services ran 18 |
@@ -80,6 +81,43 @@
 > | **CI type-check job, `packages/shared/dist` DELETED** | **All 5 workspaces pass** — deliberately reproducing PR 4's stale-`dist` trap |
 > | redis 6 typings | `tsc --noEmit` clean; resolution traced to `redis/dist/index.d.ts@6.2.0`; proven non-vacuous by injecting a type error (red), then restoring (green) |
 > | `npm test` (Turbo) | ⚠️ **RED both runs — the Windows Turbo flake, confirmed not assumed.** All failures were `Exceeded timeout of 5000/10000 ms` on suites taking **357–502s**. Directly: community 12/122 in **11s**, social-graph 23/157 in **13s**, auth 6/37 in **9.6s**. A 30–40× slowdown under Turbo load |
+>
+> ### 🔴 CODE REVIEW FOUND 3 REAL DEFECTS — all confirmed against source, all fixed
+>
+> **1. `redisSubscriber` had no `error` listener (the important one).** `duplicate()` calls
+> `new constructor({ ...parentOptions })` — it copies options, **not EventEmitter registrations**.
+> An `'error'` event with no listener **throws**, terminating the process. So while I was hardening
+> nine promise sites against exactly that outcome, every socket error on the subscriber connection
+> stayed fatal. **The fix was adjacent to my own change and I missed it.**
+>
+> **2. The Dockerfile `FROM` parser was evadable.** It matched only column-zero uppercase
+> `FROM node:…`. `FROM --platform=$BUILDPLATFORM node:18-alpine` — valid syntax — contributed
+> **nothing** to the scan, and the remaining stages still read `node:24-alpine`, so the gate stayed
+> **GREEN**. My sweep tested an unpinned *tag* (`node:alpine`) but never a different *line syntax*.
+> Fixed: the parser reads flags and is case/whitespace-insensitive, **every `FROM` line must parse
+> or the gate fails** (an unreadable line is a failure, not a skip), and **per-file Node-stage
+> counts are pinned** so a stage that vanishes from the scan is caught.
+>
+> **3. 🔴 I REPEATED PR 4's HEADLINE FAILURE — a mechanism claim written before it was measured.**
+> I attributed `subscribe()` rejections to v6's new 5s command timeout. **False.** Pub/sub is
+> enqueued by `#addPubSubCommand`, which hardcodes `timeout: undefined`; only `addCommand` attaches
+> `commandOptions.timeout` as an `AbortSignal.timeout`. The timeout governs `hSet`/`hDel`/`publish`
+> **only**. I generalized from `DEFAULT_COMMAND_TIMEOUT` being applied in `#initiateOptions` without
+> tracing the pub/sub path — and wrote it into a code comment, `CONTEXT.md`, this handoff, the PR
+> body and the commit message before checking. The `.catch` is still correct (subscribe rejects on
+> connection loss); **only the stated reason was wrong.** Corrected everywhere except the commit
+> message, which is immutable.
+>
+> **This is the exact cause the end-of-sprint methodology agenda names first.** The countermeasure
+> it proposes — *"a mechanism claim must ship with the command that demonstrates it"* — would have
+> caught it: I had already read `#initiateOptions`, and reading two functions further would have
+> settled it. **Escalate this from a candidate change to a rule.**
+>
+> Also worth keeping: **a string-replacement injection that matches nothing is a silent no-op.**
+> Sweep case #12 went stale when the gate was refactored and only surfaced because it expected RED;
+> a stale case expecting GREEN would have "passed" while proving nothing. The sweep now throws on
+> any injection whose search text is absent. **Sweep is 21/21**, including two positive controls
+> proving the parser *accepts* valid `--platform` and lowercase `from` rather than merely rejecting.
 >
 > ### 🔴 Owed on this PR
 >

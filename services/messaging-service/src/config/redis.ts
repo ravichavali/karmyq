@@ -19,6 +19,13 @@ redisClient.on('connect', () => console.log('Redis Client Connected'));
 // Create a duplicate for subscriber (Redis requires dedicated connection for sub)
 export const redisSubscriber = redisClient.duplicate();
 
+// The subscriber needs its OWN listeners. `duplicate()` constructs a brand-new
+// client from the parent's options — it copies no EventEmitter registrations —
+// and an 'error' event with no listener THROWS, which terminates the process.
+// Without this, every socket error on the subscriber connection is fatal.
+redisSubscriber.on('error', (err) => console.log('Redis Subscriber Error', err));
+redisSubscriber.on('connect', () => console.log('Redis Subscriber Connected'));
+
 /**
  * Open a connection without blocking module evaluation.
  *

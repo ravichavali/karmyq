@@ -295,20 +295,31 @@ on the image/`engines`/CI alignment.
 
 ### Two v6 behaviour changes that reach this service
 
-**1. Commands now time out after 5s.** `@redis/client` 6 applies
-`DEFAULT_COMMAND_TIMEOUT = 5000` unconditionally; v4 applied none. Nine call sites here are
+**1. Ordinary commands now time out after 5s.** `@redis/client` 6 applies
+`DEFAULT_COMMAND_TIMEOUT = 5000` in `#initiateOptions`; v4 applied none. Nine call sites here are
 fire-and-forget or awaited inside async Socket.IO listeners, and **Socket.IO does not catch
 rejections from async listeners** — an unhandled rejection terminates the process on Node 20+. All
 nine are now guarded (`try`/`catch` around the `hSet` registration pair and the `hDel` cleanup pair,
-`.catch` on the three `subscribe()` calls and both connect IIFEs). Under v4 these paths queued
-indefinitely instead of rejecting, so the crash path was reachable only when Redis was fully down;
-under v6 any slow command reaches it.
+`.catch` on the three `subscribe()` calls and both connects).
+
+⚠️ **The timeout does NOT reach `subscribe()`** — corrected in code review after an earlier version
+of this document claimed it did. Pub/sub is enqueued by `#addPubSubCommand`, which hardcodes
+`timeout: undefined`; only `addCommand` attaches `commandOptions.timeout` as an
+`AbortSignal.timeout`. So the 5s timeout governs `hSet`, `hDel` and `publish`. `subscribe()` still
+rejects on a connection lost or destroyed while the SUBSCRIBE is queued, which is why it keeps its
+`.catch` — but the mechanism is connection loss, not a timeout.
 
 **2. RESP3 is the default protocol**, which flips `maintNotifications` to `"auto"`. That sends an
 Enterprise-only `CLIENT MAINT_NOTIFICATIONS ON` at handshake and performs a **DNS lookup on every
 connect**; the resulting error is swallowed only because `"auto"` (unlike `"enabled"`) does not
 rethrow. We run OSS `redis:7-alpine` everywhere — compose, CI service containers, demo — so the
 feature can never fire. It is now explicitly `maintNotifications: 'disabled'`.
+
+**3. `duplicate()` copies options, not listeners.** It calls
+`new constructor({ ...parentOptions })`, so `redisSubscriber` inherits **no** EventEmitter
+registrations from `redisClient`. An `'error'` event with no listener **throws**, which terminates
+the process — so every socket error on the subscriber connection was fatal. The subscriber now
+registers its own `'error'` and `'connect'` handlers. Found in code review, not by me.
 
 RESP3 itself is kept (Redis 7 speaks `HELLO 3`). `createClient`, `duplicate()`, `isOpen`,
 `connect()`, `subscribe(channel, listener)`, `hSet`, `hDel` and `publish` are otherwise unchanged

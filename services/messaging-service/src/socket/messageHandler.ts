@@ -15,9 +15,14 @@ const TYPING_CHANNEL = 'karmyq:typing';       // Channel for typing events
  * Subscribe without blocking, and without letting a failed subscription take the
  * process down.
  *
- * `subscribe()` is fire-and-forget here, and node-redis 6 applies a 5s command
- * timeout by default (v4 applied none), so a subscriber still completing its
- * handshake now rejects. Unhandled, that terminates the process on Node 20+.
+ * `subscribe()` is fire-and-forget here, and it can reject — a connection lost or
+ * destroyed while the SUBSCRIBE is queued rejects the pending command. Unhandled,
+ * that terminates the process on Node 20+.
+ *
+ * Note it is NOT the 5s command timeout that reaches this path: pub/sub is
+ * enqueued by `#addPubSubCommand`, which hardcodes `timeout: undefined`, rather
+ * than by `addCommand`, which is where `commandOptions.timeout` becomes an
+ * `AbortSignal.timeout`. That timeout governs `hSet`/`hDel`/`publish` below.
  */
 function subscribeInBackground(channel: string, purpose: string, handler: (message: string) => void): void {
   redisSubscriber
