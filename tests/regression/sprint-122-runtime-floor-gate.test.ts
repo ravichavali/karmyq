@@ -92,11 +92,67 @@ const EXPECTED_DOCKERFILES = Object.keys(EXPECTED_NODE_STAGES).sort();
 
 /**
  * A `FROM` instruction: optional leading whitespace, case-insensitive keyword,
- * any number of `--flag` / `--flag=value` options (`--platform`, `--chmod`, …),
- * then the image reference.
+ * any number of `--flag` / `--flag=value` options, then the image reference.
+ *
+ * Today `FROM` accepts `--platform` (and BuildKit's `--from`); the option group is
+ * matched generically rather than by name so a future flag does not silently push
+ * the image reference out of the capture. `--chmod` is a `COPY`/`ADD` option, not
+ * a `FROM` one — an earlier version of this comment claimed otherwise.
  */
 const FROM_LINE = /^\s*FROM\s+((?:--[^\s]+\s+)*)(\S+)/i;
 const IS_NODE_IMAGE = /^node(:|$)/i;
+
+/**
+ * Fold a Dockerfile's physical lines into LOGICAL instructions.
+ *
+ * Docker's escape character continues an instruction onto the next line, so
+ *
+ *     FROM --platform=$BUILDPLATFORM \
+ *       node:24-alpine AS builder
+ *
+ * is one instruction. A physical-line parser reads its image as `\` — a false
+ * failure on valid syntax, found in review. The escape character defaults to `\`
+ * and can be set to a backtick by an `# escape=` parser directive, which must
+ * appear before any comment, blank line or builder instruction. Comment lines
+ * inside a continuation are dropped by Docker, so they are dropped here too.
+ *
+ * See https://docs.docker.com/reference/dockerfile/
+ */
+function logicalInstructions(body: string): string[] {
+  const lines = body.split(/\r?\n/);
+
+  let escape = '\\';
+  for (const line of lines) {
+    const directive = line.match(/^#\s*escape\s*=\s*(\S)\s*$/i);
+    if (directive) {
+      escape = directive[1];
+      break;
+    }
+    // Parser directives are only honoured at the very top of the file.
+    if (!/^\s*#/.test(line) || line.trim() === '') break;
+  }
+
+  const continues = new RegExp(`${escape.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+  const instructions: string[] = [];
+  let buffer = '';
+
+  for (const line of lines) {
+    // Whole-line comments are not part of an instruction, continued or not.
+    if (/^\s*#/.test(line)) continue;
+
+    const trimmed = line.trimEnd();
+    if (continues.test(trimmed)) {
+      buffer += `${trimmed.slice(0, -1).trim()} `;
+    } else {
+      const joined = (buffer + line).trim();
+      if (joined !== '') instructions.push(joined);
+      buffer = '';
+    }
+  }
+  if (buffer.trim() !== '') instructions.push(buffer.trim());
+
+  return instructions;
+}
 
 /**
  * Each scan below spawns a `git` process or parses the 1835-entry lockfile, and
@@ -126,9 +182,9 @@ const allFromLines = once((): Array<{ file: string; raw: string; image?: string 
   const lines: Array<{ file: string; raw: string; image?: string }> = [];
   for (const file of trackedDockerfiles()) {
     const body = readFileSync(join(ROOT, file), 'utf8');
-    for (const line of body.split(/\r?\n/)) {
-      if (!/^\s*FROM\s/i.test(line)) continue;
-      lines.push({ file, raw: line.trim(), image: line.match(FROM_LINE)?.[2] });
+    for (const instruction of logicalInstructions(body)) {
+      if (!/^\s*FROM\s/i.test(instruction)) continue;
+      lines.push({ file, raw: instruction, image: instruction.match(FROM_LINE)?.[2] });
     }
   }
   return lines;
