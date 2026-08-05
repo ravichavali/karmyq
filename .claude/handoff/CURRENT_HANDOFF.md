@@ -1,10 +1,31 @@
-# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 5 OPEN, CI NOT YET RUN
+# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 5 OPEN & CI-GREEN, AWAITING /code-review + MERGE AUTH
 
-> ## 🚧 PR 5 (2026-08-05): branch `deps/sprint-122-pr5-redis`, **v11.40.0**, PR opened.
+> ## 🚧 PR 5 (2026-08-05): branch `deps/sprint-122-pr5-redis`, **v11.40.0**, PR **#193**.
 >
-> **CI has NEVER run on this branch as of writing.** Read `gh pr checks` / `gh pr view`, not this
-> file, for status. No SHA is recorded here on purpose — this file ships *inside* the commit, so any
-> hash written here is invalidated by the amend that writes it. Run `git rev-parse HEAD`.
+> **CI: 20 pass, 1 skipping (`Deploy to Demo`, master-only) on the FIRST run.** Read `gh pr checks`,
+> not this file, for live status. No SHA is recorded here on purpose — this file ships *inside* the
+> commit, so any hash written here is invalidated by the amend that writes it.
+>
+> **All 7 Docker image builds passed on `node:24-alpine`** — the one thing with no local equivalent
+> (Docker is unavailable on the dev machine). I predicted a red first run based on PR 3 and PR 4;
+> that prediction was wrong.
+>
+> ### 🔴 `Code Scanning Gate (ADR-060)` PASSED BY FAILING OPEN — a green tick is not evidence
+>
+> Its check-run annotation reads: *"No code-scanning analysis available for this SHA within timeout
+> — passing (fail-open on missing analysis, see ADR-060)."* The gate gave up before the analyses
+> existed. **This is [[feedback_code_scanning_gate_rescan_race]] in a form that passes instead of
+> blocking**, which is the more dangerous direction and was not previously recorded.
+>
+> Verified independently rather than trusting the tick: two CodeQL analyses ran against
+> `refs/pull/193/head` at this PR's exact head commit, both **`results=0`**, landing at 21:08:49Z —
+> after the gate's window. The `CodeQL` check-run annotations array is also empty. So the PR really
+> is clean; the gate just did not prove it.
+>
+> **How to check this yourself, because `code-scanning/alerts` returns nothing useful:**
+> `gh api "repos/{owner}/{repo}/code-scanning/analyses?per_page=8"` and match on
+> `ref=refs/pull/<N>/head` + your head SHA. Querying `refs/pull/<N>/merge` returns **empty**, and
+> `alerts?...&state=open` trivially returns 0 when no analysis exists — a zero there is not proof.
 >
 > ### 🔴 THE PLAN WAS WRONG: redis 6 could not land on Node 18
 >
@@ -62,11 +83,11 @@
 >
 > ### 🔴 Owed on this PR
 >
-> 1. **`/code-review` has NOT been run** — it is user-triggered and cannot be launched from here.
->    `/simplify` and `/security-review` are done (security: no HIGH/MEDIUM findings).
-> 2. Watch CI. **Expect the first run to be red** — it has been for PR 3 and PR 4, and both times
->    the failures were real. This PR rebuilds **every** image on a new Node major; the Docker build
->    jobs are the ones with no local equivalent.
+> 1. **`/code-review` has NOT been run** — it is user-triggered and cannot be launched from an agent
+>    session. `/simplify` and `/security-review` are done (security: no HIGH/MEDIUM findings).
+>    **This is the one mandatory gate still missing.**
+> 2. ✅ ~~Watch CI.~~ **DONE — 20 pass / 1 skipping on the first run.** But see the ADR-060
+>    fail-open above: that gate's green is not evidence, and it was checked separately.
 > 3. Re-run `npm audit` immediately before merge (advisories publish mid-flight).
 > 4. **Merge authorization is EXPLICIT, every time** (`gh pr merge --squash --admin`).
 > 5. **Flip ADR-090 `Proposed` → `Implemented`** once deployed — carry it on the NEXT PR's branch,
