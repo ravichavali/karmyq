@@ -695,6 +695,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-089-ts-jest-subpath-type-resolution.md"
+    },
+    {
+      "slug": "adr-090-container-runtime-floor",
+      "number": "090",
+      "title": "ADR-090: The Container Runtime Floor Is Node 24, and It Is Enforced",
+      "status": "proposed",
+      "description": "**Status**: Proposed",
+      "filename": "ADR-090-container-runtime-floor.md"
     }
   ]
 }

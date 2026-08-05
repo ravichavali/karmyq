@@ -2,7 +2,7 @@
 # Runs tests inside Docker network with access to all services
 # Note: tests directory is mounted as volume, not copied during build
 
-FROM node:20-alpine
+FROM node:24-alpine
 
 WORKDIR /app
 

@@ -1,4 +1,89 @@
-# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 4 SHIPPED · PR 5 (redis) IS NEXT
+# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 5 OPEN, CI NOT YET RUN
+
+> ## 🚧 PR 5 (2026-08-05): branch `deps/sprint-122-pr5-redis`, **v11.40.0**, PR opened.
+>
+> **CI has NEVER run on this branch as of writing.** Read `gh pr checks` / `gh pr view`, not this
+> file, for status. No SHA is recorded here on purpose — this file ships *inside* the commit, so any
+> hash written here is invalidated by the amend that writes it. Run `git rev-parse HEAD`.
+>
+> ### 🔴 THE PLAN WAS WRONG: redis 6 could not land on Node 18
+>
+> The plan said "two majors are crossed (4 → 5 → 6): read both migration notes." It did not know
+> the blocker. **`redis@6` declares `engines.node: ">= 20.0.0"`; every backend Dockerfile ran
+> `node:18-alpine`.** npm does not enforce `engines` without `engine-strict` (`.npmrc` does not set
+> it), so the bump would have installed, built, passed CI, deployed, and shipped a package onto a
+> runtime it declares it does not support.
+>
+> **Maintainer chose option B: take redis 6 AND move the runtime floor** (S123's platform-floor
+> step 1, pulled forward). **ADR-090.**
+>
+> ### The measurement that justifies the ADR
+>
+> **redis was NOT the first violation — 61 production packages already declared a Node floor above
+> 18** (`@expo/env` `>=20.12.0`, the `@img/sharp-*` family `>=20.9.0`, `react-native-maps`
+> `>= 20.19.4`). The images had been out of contract for a long time, silently, because nothing
+> compared the two numbers.
+>
+> ⚠️ **Node 20 was ALSO EOL** (2026-04-30, three months ago) — `apps/frontend` ×2 and
+> `tests/Dockerfile.test` were on it. Node 18 EOL'd 2025-04-30. Dates read from nodejs/Release
+> `schedule.json`, not memory.
+>
+> ### Why Node 24 and not 22 (maintainer said "20/22"; 20 is dead)
+>
+> **CI already ran `NODE_VERSION: '24.x'`.** Shipping 22 would have preserved the exact defect the
+> ADR exists to remove — CI proving things about a runtime the demo does not run — just moved one
+> major over. 24 is Active LTS to 2028-04-30; 22 is Maintenance to 2027-04-30. **Say so if you want
+> 22 instead; it is a one-constant change (`RUNTIME_MAJOR`) plus the images.**
+>
+> ### What shipped
+>
+> | Change | Evidence |
+> |---|---|
+> | **23** base-image lines across **12** Dockerfiles → `node:24-alpine` | grep-verified; no `node:1x`/`node:20` remains outside historical ADR-027/028 samples |
+> | Root `engines.node` `>=18.0.0` → `>=24.0.0` | Gate asserts equality with the image major, both directions |
+> | `redis` `^4.6.11` → `^6.2.0`; **messaging-service now declares it** | Was importing it undeclared, living on root hoisting |
+> | 9 redis promise sites hardened | v6 applies `DEFAULT_COMMAND_TIMEOUT = 5000` (v4 applied none); Socket.IO does not catch async-listener rejections → process termination on Node 20+ |
+> | `maintNotifications: 'disabled'` | v6 RESP3 default is `'auto'` → Enterprise-only handshake cmd + **DNS lookup per connect**, error swallowed. We run OSS `redis:7-alpine` everywhere |
+> | messaging-service `type-check` script + wired into CI's blocking step | **Nothing in CI could previously fail on a redis regression here** — zero tests (BUG-034), no type-check |
+> | `ARCHITECTURE.md` "Runtime: Node.js 20" → 24 | It was **already wrong** before this PR; services ran 18 |
+>
+> ### Verification actually run (not inferred)
+>
+> | Check | Result |
+> |---|---|
+> | `tests` workspace, run directly | **27 suites / 370 passing** (gate adds 10) |
+> | New gate, adversarial sweep | **15/15 cases behaved as specified**, incl. vacuity guard, roster-shrink, and a dev-only false-positive control. **Re-run after the `/simplify` refactor** — still 15/15 |
+> | `npm audit` | **0 vulnerabilities**, both installed-tree and `--package-lock-only`. **Re-run immediately before merge** |
+> | `npm ci --dry-run` | Clean, no "Missing … from lock file" |
+> | Version alignment | `package.json` = lock `.version` = lock `.packages[""]` = **11.40.0** |
+> | **CI type-check job, `packages/shared/dist` DELETED** | **All 5 workspaces pass** — deliberately reproducing PR 4's stale-`dist` trap |
+> | redis 6 typings | `tsc --noEmit` clean; resolution traced to `redis/dist/index.d.ts@6.2.0`; proven non-vacuous by injecting a type error (red), then restoring (green) |
+> | `npm test` (Turbo) | ⚠️ **RED both runs — the Windows Turbo flake, confirmed not assumed.** All failures were `Exceeded timeout of 5000/10000 ms` on suites taking **357–502s**. Directly: community 12/122 in **11s**, social-graph 23/157 in **13s**, auth 6/37 in **9.6s**. A 30–40× slowdown under Turbo load |
+>
+> ### 🔴 Owed on this PR
+>
+> 1. **`/code-review` has NOT been run** — it is user-triggered and cannot be launched from here.
+>    `/simplify` and `/security-review` are done (security: no HIGH/MEDIUM findings).
+> 2. Watch CI. **Expect the first run to be red** — it has been for PR 3 and PR 4, and both times
+>    the failures were real. This PR rebuilds **every** image on a new Node major; the Docker build
+>    jobs are the ones with no local equivalent.
+> 3. Re-run `npm audit` immediately before merge (advisories publish mid-flight).
+> 4. **Merge authorization is EXPLICIT, every time** (`gh pr merge --squash --admin`).
+> 5. **Flip ADR-090 `Proposed` → `Implemented`** once deployed — carry it on the NEXT PR's branch,
+>    never a docs-only master push.
+> 6. Post-deploy: **smoke-test a live message round-trip**, not just `/health`. Redis is only
+>    exercised by an actual socket connect + send. `/health` does not touch it.
+> 7. Disposition **#169** (fully taken).
+>
+> ### Not decided here
+>
+> `@types/node` 26 (#171), TS 7 (#168), ESLint 10 (#170) — steps 2–4 of the platform-floor arc, now
+> **unblocked**. Deliberately not bundled: this PR's blast radius is already every deployed image.
+> `messaging-service` still declares `@types/node: ^20.10.5` against a Node 24 runtime — that is #171.
+> Also open: `.npmrc` `engine-strict`, and ADR-028's new-service Dockerfile template still shows
+> `node:18-alpine` (the gate will fail any new service copying it).
+
+
 
 > ## ✅ PR 4 COMPLETE (2026-08-05): merged, deployed and verified live at v11.39.0.
 >
@@ -499,7 +584,7 @@ PRs — 6 merged and deployed, 3 closed with written rationale.
 | **2** | test-tier truthfulness + **ADR-088** | — | **v11.37.0** | ✅ **SHIPPED** `b4041506`, deployed, verified live |
 | **3** | consolidated safe groups + 6 advisory fixes + Expo drift job | **#185**, **#184** (was #179/#178) | v11.38.0 | ✅ **SHIPPED** `5fa203ce`, deployed, smoke-tested |
 | **4** | jest 29 → 30 + **ts-jest unpinned** + **ADR-089** | #173 ✅, #189 (ts-jest half) ✅ | **v11.39.0** | ✅ **SHIPPED** `c3d623b2`, deployed, smoke-tested |
-| **5** | redis (node-redis) 4 → 6 | #169 | v11.40.0 | ⬅️ **NEXT** |
+| **5** | redis 4 → 6 **+ runtime floor Node 24** + **ADR-090** | #169 | v11.40.0 | 🚧 **PR OPEN, CI not yet run** |
 | **6** | zustand 4 → 5 (mobile only) | #172 | v11.41.0 | planned |
 | — | closed with rationale, **no ignore rule** | #170 eslint 10, #168 typescript 7, #171 @types/node 26 | — | planned |
 

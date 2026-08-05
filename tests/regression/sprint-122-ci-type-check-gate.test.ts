@@ -43,12 +43,19 @@ const REQUIRED_SHELL = 'shell: bash';
  */
 const EXPECTED_TYPE_CHECK = 'tsc --noEmit';
 
-/** Exactly the workspaces this step must type-check. Changing it is a decision. */
+/** Exactly the workspaces this step must type-check. Changing it is a decision.
+ *
+ * services/messaging-service added in Sprint 122 PR 5 (ADR-090): it is the sole
+ * importer of `redis`, and the redis 4 → 6 bump landed with NOTHING in CI able to
+ * fail on it — the service has no tests at all (BUG-034) and had no `type-check`
+ * script, so a breaking change in the client's type surface would have reached the
+ * demo unchallenged. */
 const EXPECTED_WORKSPACES = [
   'apps/mobile',
   'packages/shared',
   'services/auth-service',
   'services/community-service',
+  'services/messaging-service',
 ];
 
 const STEP_NAME = 'Run TypeScript type check';

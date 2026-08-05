@@ -169,12 +169,14 @@ Mark all messages in conversation as read.
 - `src/socket/messageHandler.ts` - WebSocket message handling
 - `src/routes/messages.ts` - REST API endpoints
 - `src/database/db.ts` - PostgreSQL connection pool
+- `src/config/redis.ts` - node-redis client + dedicated subscriber connection
 
 ## Environment Variables
 
 ```bash
 PORT=3006
 DATABASE_URL=postgresql://user:password@localhost:5432/karmyq_db
+REDIS_URL=redis://localhost:6379
 NODE_ENV=development
 LOG_LEVEL=info
 ```
@@ -276,3 +278,44 @@ body was parsed, so `const { x } = req.body` throws a `TypeError` on a bodyless 
 route's catch turns it into a **500**. `app.use(normalizeRequestBody)` is now mounted immediately
 after `express.json()` in `src/index.ts` to restore the Express 4 behaviour. It fills in only a
 *missing* body, so a parsed array or explicit `null` is untouched.
+
+---
+
+## Sprint 122 PR 5 — node-redis 4 → 6, runtime floor Node 24 (2026-08-05)
+
+`redis` **4.7.1 → 6.2.0** (two majors). This service is the **only** importer in the repo
+(`src/config/redis.ts`), and it previously imported the package **without declaring it**, surviving
+on the root declaration being hoisted — the same "declare what you import" violation as
+`@karmyq/shared` above. Now declared at `^6.2.0`, matching the root.
+
+**The bump required moving the container runtime first.** node-redis 6 declares
+`engines.node: ">= 20.0.0"`; every backend Dockerfile ran `node:18-alpine`. See **ADR-090** — all
+images are now `node:24-alpine` and `tests/regression/sprint-122-runtime-floor-gate.test.ts` blocks
+on the image/`engines`/CI alignment.
+
+### Two v6 behaviour changes that reach this service
+
+**1. Commands now time out after 5s.** `@redis/client` 6 applies
+`DEFAULT_COMMAND_TIMEOUT = 5000` unconditionally; v4 applied none. Nine call sites here are
+fire-and-forget or awaited inside async Socket.IO listeners, and **Socket.IO does not catch
+rejections from async listeners** — an unhandled rejection terminates the process on Node 20+. All
+nine are now guarded (`try`/`catch` around the `hSet` registration pair and the `hDel` cleanup pair,
+`.catch` on the three `subscribe()` calls and both connect IIFEs). Under v4 these paths queued
+indefinitely instead of rejecting, so the crash path was reachable only when Redis was fully down;
+under v6 any slow command reaches it.
+
+**2. RESP3 is the default protocol**, which flips `maintNotifications` to `"auto"`. That sends an
+Enterprise-only `CLIENT MAINT_NOTIFICATIONS ON` at handshake and performs a **DNS lookup on every
+connect**; the resulting error is swallowed only because `"auto"` (unlike `"enabled"`) does not
+rethrow. We run OSS `redis:7-alpine` everywhere — compose, CI service containers, demo — so the
+feature can never fire. It is now explicitly `maintNotifications: 'disabled'`.
+
+RESP3 itself is kept (Redis 7 speaks `HELLO 3`). `createClient`, `duplicate()`, `isOpen`,
+`connect()`, `subscribe(channel, listener)`, `hSet`, `hDel` and `publish` are otherwise unchanged
+across 4 → 6; verified by `tsc --noEmit` against the real 6.2.0 typings, with the resolution traced
+to `redis/dist/index.d.ts@6.2.0` and proven non-vacuous by injecting a deliberate type error.
+
+⚠️ **This service still contains zero test files** (BUG-034). It now at least has a `type-check`
+script wired into CI's blocking `Lint & Type Check` step — before this PR, **nothing in CI could
+have failed on a redis regression here.** A live message round-trip remains a manual post-deploy
+check; `/health` alone does not exercise Redis.

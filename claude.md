@@ -126,7 +126,9 @@ feed-service.)
 | Geocoding | 3009 | Optional |
 | Simulation | dev | Optional |
 
-**Tech stack:** Node.js/Express 5/TypeScript · Next.js 15 · React Native + Expo · PostgreSQL 15
+**Tech stack:** Node.js 24 (`node:24-alpine`, [ADR-090](docs/adr/ADR-090-container-runtime-floor.md)
+— images, root `engines.node` and CI's `NODE_VERSION` are gate-locked to one major)/Express
+5/TypeScript · Next.js 15 · React Native + Expo · PostgreSQL 15
 (RLS) · Redis + Bull · Turborepo.
 
 ---

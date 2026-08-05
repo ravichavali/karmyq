@@ -2,7 +2,7 @@
 # Multi-stage build for production with workspace dependencies
 
 # Build stage
-FROM node:18-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 # Copy workspace root package.json for hoisted dependencies
@@ -37,7 +37,7 @@ WORKDIR /app/services/notification-service
 RUN npm run build
 
 # Production stage
-FROM node:18-alpine
+FROM node:24-alpine
 WORKDIR /app
 
 # Copy workspace root package.json for hoisted dependencies

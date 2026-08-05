@@ -691,7 +691,9 @@ import { logger } from '@shared/utils';
 ## Technology Stack
 
 ### Backend
-- **Runtime**: Node.js 20
+- **Runtime**: Node.js 24 (`node:24-alpine`, Active LTS; Sprint 122 / ADR-090 — every image, root
+  `engines.node` and CI's `NODE_VERSION` are held to the same major by a blocking gate. This line
+  previously read "Node.js 20" while the services actually ran EOL `node:18-alpine`.)
 - **Framework**: Express 5 (Sprint 122; `path-to-regexp` 8 + `body-parser` 2 — async handler
   rejections auto-forward to the error middleware, and `req.query` is a getter)
 - **Language**: TypeScript

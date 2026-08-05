@@ -2,7 +2,7 @@
 # Simple build for JavaScript-only service (no TypeScript, no shared package dependency)
 
 # Build stage
-FROM node:18-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 # Copy workspace root package.json for workspace context
@@ -19,7 +19,7 @@ COPY services/geocoding-service/index.js ./services/geocoding-service/index.js
 COPY services/geocoding-service/src ./services/geocoding-service/src
 
 # Production stage
-FROM node:18-alpine
+FROM node:24-alpine
 WORKDIR /app
 
 # Run as non-root user (node user is built into node:alpine images)
