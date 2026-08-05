@@ -49,21 +49,9 @@
       "types": "./dist/constants/config.d.ts",
       "default": "./dist/constants/config.js"
     },
-    "./api/client": {
-      "types": "./dist/api/client.d.ts",
-      "default": "./dist/api/client.js"
-    },
-    "./api/mobile-storage": {
-      "types": "./dist/api/mobile-storage.d.ts",
-      "default": "./dist/api/mobile-storage.js"
-    },
     "./events/publisher": {
       "types": "./dist/events/publisher.d.ts",
       "default": "./dist/events/publisher.js"
-    },
-    "./api/web-storage": {
-      "types": "./dist/api/web-storage.d.ts",
-      "default": "./dist/api/web-storage.js"
     },
     "./matching": {
       "types": "./dist/src/matching/index.d.ts",
@@ -98,6 +86,68 @@
       "default": "./dist/src/projections/completedExchange.js"
     }
   },
+  "//typesVersions": "Sprint 122 PR 4 (ADR-089) — typesVersions MIRRORS the exports map above and must stay in lockstep with it (enforced by src/__tests__/exportsTypesVersionsParity.test.ts). ts-jest forces moduleResolution:node10 whenever it forces module:commonjs — in EVERY 29.x — and node10 does not read exports maps, so without this every consumer test importing a @karmyq/shared subpath fails with TS2307. Node itself still resolves via exports at runtime; this affects TYPE resolution only.",
+  "typesVersions": {
+    "*": {
+      "utils/logger": [
+        "dist/utils/logger.d.ts"
+      ],
+      "utils/response": [
+        "dist/utils/response.d.ts"
+      ],
+      "middleware": [
+        "dist/middleware/index.d.ts"
+      ],
+      "middleware/auth": [
+        "dist/middleware/auth.d.ts"
+      ],
+      "middleware/dbContext": [
+        "dist/middleware/dbContext.d.ts"
+      ],
+      "middleware/rateLimit": [
+        "dist/middleware/rateLimit.d.ts"
+      ],
+      "middleware/tenant": [
+        "dist/middleware/tenant.d.ts"
+      ],
+      "middleware/validate": [
+        "dist/middleware/validate.d.ts"
+      ],
+      "types": [
+        "dist/types/index.d.ts"
+      ],
+      "constants/config": [
+        "dist/constants/config.d.ts"
+      ],
+      "events/publisher": [
+        "dist/events/publisher.d.ts"
+      ],
+      "matching": [
+        "dist/src/matching/index.d.ts"
+      ],
+      "matching/types": [
+        "dist/src/matching/types.d.ts"
+      ],
+      "schemas/requests": [
+        "dist/src/schemas/requests/index.d.ts"
+      ],
+      "schemas/ui": [
+        "dist/src/schemas/ui/index.d.ts"
+      ],
+      "schemas/providers": [
+        "dist/src/schemas/providers/index.d.ts"
+      ],
+      "schemas/reputation-disclosure": [
+        "dist/src/schemas/reputationDisclosure.d.ts"
+      ],
+      "trust/decayTier": [
+        "dist/src/trust/decayTier.d.ts"
+      ],
+      "projections/completed-exchange": [
+        "dist/src/projections/completedExchange.d.ts"
+      ]
+    }
+  },
   "scripts": {
     "build": "tsc",
     "type-check": "tsc --noEmit",
@@ -110,16 +160,16 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@jest/globals": "^29.7.0",
+    "@jest/globals": "^30.4.1",
     "@types/express": "^5.0.6",
-    "@types/jest": "^29.5.11",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.10.0",
     "@types/pg": "^8.10.9",
     "@types/supertest": "^7.2.0",
     "@types/uuid": "^11.0.0",
-    "jest": "^29.7.0",
+    "jest": "^30.4.2",
     "supertest": "^7.2.2",
-    "ts-jest": "^29.1.1"
+    "ts-jest": "^29.4.12"
   },
   "peerDependencies": {
     "express": "^5.0.0"

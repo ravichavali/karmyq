@@ -445,16 +445,32 @@ others depend on rather than a bump that can land alone. They must go in depende
    is already done; 10 mainly drops old Node and removes deprecated APIs. Cheapest of the four,
    but sequenced last because its parser follows TypeScript.
 
-**Carry-forward blocker that belongs to this arc — `ts-jest` is pinned at 29.4.6 by a root
-override.** Sprint 122 PR 3 retested `29.4.12` as #163 intended and the original regression
-**reproduced**: request-service fails 12 suites / 20 tests with `TS2307: Cannot find module
-'@karmyq/shared/matching/types'` (and the `schemas/ui` subpath that first surfaced it). Root cause
-is unchanged — ts-jest 29.4.11+ stopped inheriting `moduleResolution: node16` from the service
-`tsconfig.json` when the root `jest.config.js` transform supplies an **inline** `tsconfig` object,
-so `@karmyq/shared`'s `exports` subpath map stops resolving. The override was therefore restored
-and #184's ts-jest range excluded, again **without an ignore rule**.
+**~~Carry-forward blocker~~ — RESOLVED in Sprint 122 PR 4 (v11.39.0, ADR-089).** `ts-jest` is no
+longer pinned; the root override is deleted and every workspace declares `^29.4.12`.
 
-The real fix is not a version bump: it is to stop passing an inline `tsconfig` object from the root
-jest transform and point ts-jest at each workspace's real `tsconfig.json`. That touches every
-service's test transform, which is why it was not done inside a "safe groups" PR. It should ride
-either the TypeScript 7 step above or PR 4 (jest 29 → 30), both of which already own that surface.
+⚠️ **The root cause recorded here by PR 3 was WRONG, and so was its premise.** It blamed the root
+`jest.config.js` supplying an **inline `tsconfig` object**, and proposed pointing ts-jest at each
+workspace's real `tsconfig.json`. PR 4 tested both claims:
+
+- With the real tsconfig path in place, ts-jest 29.4.12 **still** failed with the identical
+  `TS2307`; with `typesVersions` added and the inline object deliberately restored, it passed.
+- An inline object does **not** stop ts-jest 29.4.11+ reading `tsconfig.json`. Measured on 29.4.12:
+  it still resolves `apps/landing/tsconfig.json` and inherits `strict`, `target` and
+  `isolatedModules`, exactly as the path form does — it merges the inline keys on top.
+
+**Actual cause:** ts-jest forces `moduleResolution: node10` whenever it forces `module: commonjs`
+— in *every* 29.x, 29.4.6 included — and `node10` does not read `exports` maps. No tsconfig can
+avoid it (`node16` and `bundler` are both substituted to `node10` alongside `module: commonjs`).
+The fix is **`typesVersions` in `packages/shared/package.json`**, generated from the `exports` map
+and held identical to it by a blocking test. See
+[ADR-089](adr/ADR-089-ts-jest-subpath-type-resolution.md).
+
+PR 4 initially made the inline-object-to-path change anyway, on the theory that it restored dropped
+`strict`/`target`/`lib`. When that theory was measured and failed, the change was **reverted** — a
+config churn with no demonstrated behavioural difference is not worth shipping. The transforms are
+unchanged from master.
+
+**The tell that was missed:** request-service's suites passed on 29.4.6 *under node10*, which
+node10 structurally cannot do for an `exports`-only subpath. That "impossible pass" was a
+resolution-cache accident and should have been treated as the anomaly to explain, not as the
+baseline of correctness.

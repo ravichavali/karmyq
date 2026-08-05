@@ -1,6 +1,6 @@
 {
   "name": "karmyq",
-  "version": "11.38.0",
+  "version": "11.39.0",
   "private": true,
   "description": "Community Mutual Aid Platform - Privacy-First Community Health Platform",
   "workspaces": [
@@ -96,7 +96,6 @@
       "ws": ">=8.20.1"
     },
     "@swc/helpers": "0.5.15",
-    "ts-jest": "29.4.6",
     "socket.io-parser@<=4.2.6": "4.2.7",
     "undici@7.0.0 - 7.28.0": "^7.29.0"
   },

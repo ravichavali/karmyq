@@ -687,6 +687,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-088-test-tier-truthfulness.md"
+    },
+    {
+      "slug": "adr-089-ts-jest-subpath-type-resolution",
+      "number": "089",
+      "title": "ADR-089: ts-jest Cannot Read `exports` Maps — `typesVersions` Is the Contract",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-089-ts-jest-subpath-type-resolution.md"
     }
   ]
 }

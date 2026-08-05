@@ -47,7 +47,7 @@ every tier that has files.
 - **`npm run feedback:check` — NEVER blocks.** It's an advisory to-do list for the diff (see
   CLAUDE.md's Pre-Merge Checklist), not a test run.
 
-## Scoping with `--testPathPattern`: use `(unit|regression)/`, not a positional argument
+## Scoping with `--testPathPatterns`: use `(unit|regression)/`, not a positional argument
 
 Jest's positional filename argument does a **substring** match against the full path, not a
 directory match. `npx jest unit` does not mean "run the `unit/` directory" — it means "run any
@@ -59,11 +59,18 @@ depending on naming.
 The correct, unambiguous form is an explicit regex anchored to the tier directory:
 
 ```bash
-npx jest --testPathPattern='(unit|regression)/'
+npx jest --testPathPatterns='(unit|regression)/'
 ```
 
-This is why `@karmyq/tests`' scripts use `--testPathPattern=unit/`, `--testPathPattern=regression/`,
+This is why `@karmyq/tests`' scripts use `--testPathPatterns=unit/`, `--testPathPatterns=regression/`,
 etc. instead of a bare positional argument — see ADR-029.
+
+> **The flag was renamed in jest 30** (Sprint 122 PR 4): it used to be `--testPathPattern`,
+> singular. The old spelling is **not** silently ignored — jest 30 exits 1 with
+> *"Option `testPathPattern` was replaced by `--testPathPatterns`"* — so a stale command fails
+> loudly rather than quietly running the wrong set. `tests/regression/sprint-122-jest-toolchain-gate.test.ts`
+> checks every flag in every jest script against the installed jest's own option table, so the
+> next rename is caught the same way without anyone maintaining a list.
 
 ## Turbo caches test results — how to force a real run
 
