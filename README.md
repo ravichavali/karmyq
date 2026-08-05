@@ -11,6 +11,10 @@ A trust-based mutual aid platform where people help each other without money, bu
 
 ## 🚀 Quick Start
 
+**Requires Node.js 24** (Active LTS) — every container image runs `node:24-alpine` and CI builds on
+24.x. Older majors will install with `EBADENGINE` warnings and are not supported; see
+[ADR-090](docs/adr/ADR-090-container-runtime-floor.md).
+
 ```bash
 # 1. Clone the repository
 git clone https://github.com/your-org/karmyq.git

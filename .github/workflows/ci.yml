@@ -71,6 +71,7 @@ jobs:
           npm run type-check --workspace=packages/shared
           npm run type-check --workspace=services/auth-service
           npm run type-check --workspace=services/community-service
+          npm run type-check --workspace=services/messaging-service
           npm run type-check --workspace=apps/mobile
 
       - name: Run linter

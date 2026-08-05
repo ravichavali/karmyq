@@ -434,9 +434,14 @@ md→lg topbar rhythm.
 majors with written rationale and **no ignore rule**, because each is a floor-raise that the
 others depend on rather than a bump that can land alone. They must go in dependency order:
 
-1. **Runtime floor off `node:18-alpine`.** Every service Dockerfile still builds on Node 18, which
-   is EOL. Nothing above can be adopted honestly until the runtime moves — @types/node 26 and
-   TypeScript 7 both describe a runtime we do not run.
+1. ~~**Runtime floor off `node:18-alpine`.**~~ **DONE — Sprint 122 PR 5 (v11.40.0, ADR-090).**
+   Pulled forward out of S123 because node-redis 6 (#169) declares `engines.node: ">= 20.0.0"` and
+   could not land on Node 18 honestly. All 23 base-image lines across 12 Dockerfiles are now
+   `node:24-alpine`, root `engines.node` is `>=24.0.0`, and
+   `tests/regression/sprint-122-runtime-floor-gate.test.ts` blocks on image/`engines`/CI alignment.
+   ⚠️ **Node 20 was ALSO EOL** (2026-04-30) — `apps/frontend` and `tests/Dockerfile.test` were on it.
+   And the floor was already being violated: **61 production packages declared a Node floor above 18**
+   before redis was even considered. **Steps 2–4 below are now unblocked.**
 2. **`@types/node` 20 → 26** (#171). Purely a types bump, but it asserts Node 26 APIs exist; it is
    a lie about the container until step 1 lands.
 3. **TypeScript 5.9 → 7** (#168). TS 7 is the Go port (`tsgo`). Blast radius is every workspace's

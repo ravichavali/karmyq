@@ -1,8 +1,190 @@
-# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 4 OPEN & CI-GREEN, AWAITING MERGE AUTHORIZATION
+# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 5 OPEN & CI-GREEN, AWAITING /code-review + MERGE AUTH
 
-> ## ⏸️ PR 4: **OPEN AS #191, ALL CI GREEN, NOT MERGED.** Needs explicit merge authorization.
+> ## 🚧 PR 5 (2026-08-05): branch `deps/sprint-122-pr5-redis`, **v11.40.0**, PR **#193**.
 >
-> Branch `deps/sprint-122-pr4-jest-30` · **v11.39.0** · PR **#191**.
+> **CI: 20 pass, 1 skipping (`Deploy to Demo`, master-only) on the FIRST run.** Read `gh pr checks`,
+> not this file, for live status. No SHA is recorded here on purpose — this file ships *inside* the
+> commit, so any hash written here is invalidated by the amend that writes it.
+>
+> **All 7 Docker image builds passed on `node:24-alpine`** — the one thing with no local equivalent
+> (Docker is unavailable on the dev machine). I predicted a red first run based on PR 3 and PR 4;
+> that prediction was wrong.
+>
+> ### 🔴 `Code Scanning Gate (ADR-060)` PASSED BY FAILING OPEN — a green tick is not evidence
+>
+> Its check-run annotation reads: *"No code-scanning analysis available for this SHA within timeout
+> — passing (fail-open on missing analysis, see ADR-060)."* The gate gave up before the analyses
+> existed. **This is [[feedback_code_scanning_gate_rescan_race]] in a form that passes instead of
+> blocking**, which is the more dangerous direction and was not previously recorded.
+>
+> Verified independently rather than trusting the tick: two CodeQL analyses ran against
+> `refs/pull/193/head` at this PR's exact head commit, both **`results=0`**, landing at 21:08:49Z —
+> after the gate's window. The `CodeQL` check-run annotations array is also empty. So the PR really
+> is clean; the gate just did not prove it.
+>
+> **How to check this yourself, because `code-scanning/alerts` returns nothing useful:**
+> `gh api "repos/{owner}/{repo}/code-scanning/analyses?per_page=8"` and match on
+> `ref=refs/pull/<N>/head` + your head SHA. Querying `refs/pull/<N>/merge` returns **empty**, and
+> `alerts?...&state=open` trivially returns 0 when no analysis exists — a zero there is not proof.
+>
+> ### 🔴 THE PLAN WAS WRONG: redis 6 could not land on Node 18
+>
+> The plan said "two majors are crossed (4 → 5 → 6): read both migration notes." It did not know
+> the blocker. **`redis@6` declares `engines.node: ">= 20.0.0"`; every backend Dockerfile ran
+> `node:18-alpine`.** npm does not enforce `engines` without `engine-strict` (`.npmrc` does not set
+> it), so the bump would have installed, built, passed CI, deployed, and shipped a package onto a
+> runtime it declares it does not support.
+>
+> **Maintainer chose option B: take redis 6 AND move the runtime floor** (S123's platform-floor
+> step 1, pulled forward). **ADR-090.**
+>
+> ### The measurement that justifies the ADR
+>
+> **redis was NOT the first violation — 61 production packages already declared a Node floor above
+> 18** (`@expo/env` `>=20.12.0`, the `@img/sharp-*` family `>=20.9.0`, `react-native-maps`
+> `>= 20.19.4`). The images had been out of contract for a long time, silently, because nothing
+> compared the two numbers.
+>
+> ⚠️ **Node 20 was ALSO EOL** (2026-04-30, three months ago) — `apps/frontend` ×2 and
+> `tests/Dockerfile.test` were on it. Node 18 EOL'd 2025-04-30. Dates read from nodejs/Release
+> `schedule.json`, not memory.
+>
+> ### Why Node 24 and not 22 (maintainer said "20/22"; 20 is dead)
+>
+> **CI already ran `NODE_VERSION: '24.x'`.** Shipping 22 would have preserved the exact defect the
+> ADR exists to remove — CI proving things about a runtime the demo does not run — just moved one
+> major over. 24 is Active LTS to 2028-04-30; 22 is Maintenance to 2027-04-30. **Say so if you want
+> 22 instead; it is a one-constant change (`RUNTIME_MAJOR`) plus the images.**
+>
+> ### What shipped
+>
+> | Change | Evidence |
+> |---|---|
+> | **23** base-image lines across **12** Dockerfiles → `node:24-alpine` | grep-verified; no `node:1x`/`node:20` remains outside historical ADR-027/028 samples |
+> | Root `engines.node` `>=18.0.0` → `>=24.0.0` | Gate asserts equality with the image major, both directions |
+> | `redis` `^4.6.11` → `^6.2.0`; **messaging-service now declares it** | Was importing it undeclared, living on root hoisting |
+> | 9 redis promise sites hardened | Socket.IO does not catch async-listener rejections → process termination on Node 20+. v6 applies `DEFAULT_COMMAND_TIMEOUT = 5000` (v4 applied none) to `hSet`/`hDel`/`publish` — **not** to `subscribe()`, see the correction below |
+> | **Subscriber `error` listener added** | `duplicate()` copies options, not EventEmitter registrations. An `'error'` event with no listener **throws** → every socket error on the subscriber connection was fatal. **Found in code review** |
+> | `maintNotifications: 'disabled'` | v6 RESP3 default is `'auto'` → Enterprise-only handshake cmd + **DNS lookup per connect**, error swallowed. We run OSS `redis:7-alpine` everywhere |
+> | messaging-service `type-check` script + wired into CI's blocking step | **Nothing in CI could previously fail on a redis regression here** — zero tests (BUG-034), no type-check |
+> | `ARCHITECTURE.md` "Runtime: Node.js 20" → 24 | It was **already wrong** before this PR; services ran 18 |
+>
+> ### Verification actually run (not inferred)
+>
+> | Check | Result |
+> |---|---|
+> | `tests` workspace, run directly | **27 suites / 370 passing** (gate adds 10) |
+> | New gate, adversarial sweep | **15/15 cases behaved as specified**, incl. vacuity guard, roster-shrink, and a dev-only false-positive control. **Re-run after the `/simplify` refactor** — still 15/15 |
+> | `npm audit` | **0 vulnerabilities**, both installed-tree and `--package-lock-only`. **Re-run immediately before merge** |
+> | `npm ci --dry-run` | Clean, no "Missing … from lock file" |
+> | Version alignment | `package.json` = lock `.version` = lock `.packages[""]` = **11.40.0** |
+> | **CI type-check job, `packages/shared/dist` DELETED** | **All 5 workspaces pass** — deliberately reproducing PR 4's stale-`dist` trap |
+> | redis 6 typings | `tsc --noEmit` clean; resolution traced to `redis/dist/index.d.ts@6.2.0`; proven non-vacuous by injecting a type error (red), then restoring (green) |
+> | `npm test` (Turbo) | ⚠️ **RED both runs — the Windows Turbo flake, confirmed not assumed.** All failures were `Exceeded timeout of 5000/10000 ms` on suites taking **357–502s**. Directly: community 12/122 in **11s**, social-graph 23/157 in **13s**, auth 6/37 in **9.6s**. A 30–40× slowdown under Turbo load |
+>
+> ### 🔴 CODE REVIEW FOUND 3 REAL DEFECTS — all confirmed against source, all fixed
+>
+> **1. `redisSubscriber` had no `error` listener (the important one).** `duplicate()` calls
+> `new constructor({ ...parentOptions })` — it copies options, **not EventEmitter registrations**.
+> An `'error'` event with no listener **throws**, terminating the process. So while I was hardening
+> nine promise sites against exactly that outcome, every socket error on the subscriber connection
+> stayed fatal. **The fix was adjacent to my own change and I missed it.**
+>
+> **2. The Dockerfile `FROM` parser was evadable.** It matched only column-zero uppercase
+> `FROM node:…`. `FROM --platform=$BUILDPLATFORM node:18-alpine` — valid syntax — contributed
+> **nothing** to the scan, and the remaining stages still read `node:24-alpine`, so the gate stayed
+> **GREEN**. My sweep tested an unpinned *tag* (`node:alpine`) but never a different *line syntax*.
+> Fixed: the parser reads flags and is case/whitespace-insensitive, **every `FROM` line must parse
+> or the gate fails** (an unreadable line is a failure, not a skip), and **per-file Node-stage
+> counts are pinned** so a stage that vanishes from the scan is caught.
+>
+> **3. 🔴 I REPEATED PR 4's HEADLINE FAILURE — a mechanism claim written before it was measured.**
+> I attributed `subscribe()` rejections to v6's new 5s command timeout. **False.** Pub/sub is
+> enqueued by `#addPubSubCommand`, which hardcodes `timeout: undefined`; only `addCommand` attaches
+> `commandOptions.timeout` as an `AbortSignal.timeout`. The timeout governs `hSet`/`hDel`/`publish`
+> **only**. I generalized from `DEFAULT_COMMAND_TIMEOUT` being applied in `#initiateOptions` without
+> tracing the pub/sub path — and wrote it into a code comment, `CONTEXT.md`, this handoff, the PR
+> body and the commit message before checking. The `.catch` is still correct (subscribe rejects on
+> connection loss); **only the stated reason was wrong.** Corrected everywhere except the commit
+> message, which is immutable.
+>
+> **This is the exact cause the end-of-sprint methodology agenda names first.** The countermeasure
+> it proposes — *"a mechanism claim must ship with the command that demonstrates it"* — would have
+> caught it: I had already read `#initiateOptions`, and reading two functions further would have
+> settled it. **Escalate this from a candidate change to a rule.**
+>
+> Also worth keeping: **a string-replacement injection that matches nothing is a silent no-op.**
+> Sweep case #12 went stale when the gate was refactored and only surfaced because it expected RED;
+> a stale case expecting GREEN would have "passed" while proving nothing. The sweep now throws on
+> any injection whose search text is absent.
+>
+> ### 🔴 SECOND REVIEW ROUND found 2 more — same parser, same defect class
+>
+> **4. The parser read PHYSICAL LINES, not logical Dockerfile instructions.** Docker's escape
+> character continues an instruction across lines, so `FROM --platform=$BUILDPLATFORM \` + newline +
+> `  node:24-alpine AS builder` is **one** instruction whose image the gate read as `\`. It fails
+> **closed** (the stage drops out of the per-file count → red), so it was a false failure rather than
+> an evasion — but it would break on any legitimate multi-line `FROM`. Fixed by folding physical
+> lines into logical instructions first, honouring the `# escape=` directive (default `\`, settable
+> to a backtick, valid only above any comment/blank/instruction) and dropping comment lines inside a
+> continuation as Docker does.
+>
+> **5.** A comment named `--chmod` as a `FROM` option. It is `COPY`/`ADD`; `FROM` takes `--platform`.
+> Regex unaffected (it matches the option group generically) but the comment asserted something
+> false — **the same defect class as #3, just cheaper.**
+>
+> **Sweep is 26/26.** The continuation cases are deliberately **paired**: compliant multi-line must
+> stay GREEN *and* violating multi-line must go RED, for both escape characters. A green alone would
+> only show the continuation was tolerated; the pair shows it is parsed through to the image.
+>
+> ⚠️ **Pattern across both rounds: every one of my five defects was a claim or a parser asserting
+> something I had not traced.** None were caught by tests, CI, `/simplify` or `/security-review` —
+> all five came from human review. Feed this to the methodology agenda alongside PR 4's data.
+>
+> ### 🔴 Owed on this PR
+>
+> 1. **`/code-review` has NOT been run** — it is user-triggered and cannot be launched from an agent
+>    session. `/simplify` and `/security-review` are done (security: no HIGH/MEDIUM findings).
+>    **This is the one mandatory gate still missing.**
+> 2. ✅ ~~Watch CI.~~ **DONE — 20 pass / 1 skipping on the first run.** But see the ADR-060
+>    fail-open above: that gate's green is not evidence, and it was checked separately.
+> 3. Re-run `npm audit` immediately before merge (advisories publish mid-flight).
+> 4. **Merge authorization is EXPLICIT, every time** (`gh pr merge --squash --admin`).
+> 5. **Flip ADR-090 `Proposed` → `Implemented`** once deployed — carry it on the NEXT PR's branch,
+>    never a docs-only master push.
+> 6. Post-deploy: **smoke-test a live message round-trip**, not just `/health`. Redis is only
+>    exercised by an actual socket connect + send. `/health` does not touch it.
+> 7. Disposition **#169** (fully taken).
+>
+> ### Not decided here
+>
+> `@types/node` 26 (#171), TS 7 (#168), ESLint 10 (#170) — steps 2–4 of the platform-floor arc, now
+> **unblocked**. Deliberately not bundled: this PR's blast radius is already every deployed image.
+> `messaging-service` still declares `@types/node: ^20.10.5` against a Node 24 runtime — that is #171.
+> Also open: `.npmrc` `engine-strict`, and ADR-028's new-service Dockerfile template still shows
+> `node:18-alpine` (the gate will fail any new service copying it).
+
+
+
+> ## ✅ PR 4 COMPLETE (2026-08-05): merged, deployed and verified live at v11.39.0.
+>
+> **PR #191 squash-merged** as `c3d623b2` at 12:14:29Z (explicit maintainer authorization).
+> `CI/CD Pipeline` run 31004763061 reached **Deploy to Demo = success, no rollback**; its internal
+> sweep reported **all 9 backends healthy**. Master is `c3d623b2`, manifest reads **11.39.0**.
+>
+> ### Live smoke test — PASSED
+>
+> | Leg | Result |
+> |---|---|
+> | Happy path — `maria.reyes@test.karmyq.com` | **200**, `success:true`, JWT carries `communities[]` (6) |
+> | Wrong password | **401** ADR-074 envelope, `UNAUTHORIZED`, no stack trace |
+> | **Bodyless POST** (PR 1 regression) | **400 `VALIDATION_ERROR`, not 500** — still fixed |
+> | Landing | serves HTML |
+>
+> **#173 auto-closed** by Dependabot on merge (fully taken); **#189 auto-closed** (ts-jest half
+> taken). Rationale comments posted to both regardless, so the record stands. Dependabot already
+> regenerated the remainder as **#192** (`tsx`, `@types/pg`, `@types/semver`) — expected, no ignore
+> rules were added.
 > jest 29 → 30, ts-jest **unpinned**, ADR-089.
 >
 > **No SHA is recorded here on purpose.** This file is *inside* the commit, so any hash written
@@ -19,7 +201,7 @@
 > | `tsc --noEmit` | ✅ Clean in every workspace except pre-existing `apps/landing` and `tests/e2e` errors — see "Noted, not fixed here" |
 > | **CI** | ✅ **GREEN — all 21 checks pass.** Took two fix commits to get there; **the first run was red and both failures were real.** Local green proves nothing about CI; that bit PR 3 for five jobs at once and it bit again here. |
 > | **PR** | ✅ **#191 open**, `mergeable=MERGEABLE`, `mergeStateStatus=BLOCKED` solely on `REVIEW_REQUIRED` (master is protected) — **zero failing checks** |
-> | **Merge** | ⛔️ Not authorized. Needs `gh pr merge --squash --admin` + EXPLICIT approval. |
+> | **Merge** | ✅ Squash-merged with `--admin` under explicit authorization |
 >
 > ### 🔴 CI caught TWO real defects local runs structurally could not
 >
@@ -443,28 +625,7 @@
 > `.claude/handoff/archive/2026-07-29-sprint-121-dependency-backlog-17-OF-18-EXPRESS-CARRIED.md`.
 > **PR 1 (express 4 → 5, v11.36.0, `46b2982c`)** shipped 2026-07-30 and is live.
 
-## Quick Start — FINISH PR 4 (jest 30, #173) — it is not done
-
-**PR 4 is committed locally on `deps/sprint-122-pr4-jest-30` and nothing more.**
-Check out that branch; do **not** re-cut it and do **not** start PR 5.
-
-1. `git checkout deps/sprint-122-pr4-jest-30`, then `git rev-parse HEAD` and
-   `git log --oneline origin/master..HEAD` to see what is actually on it — **this file deliberately
-   records no SHA**, because it ships inside the commit it would be describing.
-2. Confirm `git status` is clean. The only untracked files should be
-   `.github/copilot-instructions.md` and `.github/instructions/`, which are **not ours to commit**.
-   `apps/landing/src/data/docs/build.json` re-churns on every test run (`generatedAt`, `commitSha`)
-   — revert that churn rather than committing it; the `adrCount` value in the commit is correct.
-2. Work the **"Still owed on this PR"** list at the top of this file, in order: re-run the suite on
-   a quiescent tree → re-run `npm audit` → push → open the PR → watch CI → request merge
-   authorization → close #173 / comment on #189 → deploy + smoke test.
-3. **Do not re-open the ts-jest question.** ADR-089 settles it; the inline-`tsconfig` theory is
-   disproven and the change was reverted. `git diff origin/master` for the three jest configs is
-   empty **on purpose**.
-
-## (deferred) Quick Start — PR 5 (redis 4 → 6, #169)
-
-Only after PR 4 is merged and deployed.
+## Quick Start — PR 5 (redis 4 → 6, #169)
 
 1. **Start a fresh chat** (per-PR cadence). Branch off **`origin/master`** — never local master.
 2. **Re-list the Dependabot PRs first** — numbers churn. Match on *what a PR bumps*, never the
@@ -503,8 +664,8 @@ PRs — 6 merged and deployed, 3 closed with written rationale.
 | **1** | express 4 → 5 | #34 ✅ | v11.36.0 | ✅ **SHIPPED** `46b2982c` |
 | **2** | test-tier truthfulness + **ADR-088** | — | **v11.37.0** | ✅ **SHIPPED** `b4041506`, deployed, verified live |
 | **3** | consolidated safe groups + 6 advisory fixes + Expo drift job | **#185**, **#184** (was #179/#178) | v11.38.0 | ✅ **SHIPPED** `5fa203ce`, deployed, smoke-tested |
-| **4** | jest 29 → 30 + **ts-jest unpinned** + **ADR-089** | #173, #189 (ts-jest half) | **v11.39.0** | 🚧 **IN PROGRESS** — committed locally, **not pushed, no PR, CI never run** |
-| **5** | redis (node-redis) 4 → 6 | #169 | v11.40.0 | planned (blocked on PR 4) |
+| **4** | jest 29 → 30 + **ts-jest unpinned** + **ADR-089** | #173 ✅, #189 (ts-jest half) ✅ | **v11.39.0** | ✅ **SHIPPED** `c3d623b2`, deployed, smoke-tested |
+| **5** | redis 4 → 6 **+ runtime floor Node 24** + **ADR-090** | #169 | v11.40.0 | 🚧 **PR OPEN, CI not yet run** |
 | **6** | zustand 4 → 5 (mobile only) | #172 | v11.41.0 | planned |
 | — | closed with rationale, **no ignore rule** | #170 eslint 10, #168 typescript 7, #171 @types/node 26 | — | planned |
 
@@ -598,6 +759,26 @@ on the list (reanimated, worklets). ts-jest retested and re-excluded, no ignore 
   CLAUDE.md's bootstrap points at both. The real files are `apps/*/claude.md`.
 - **Untracked, not mine to commit:** `.github/copilot-instructions.md`, `.github/instructions/`.
 
+## 🔴 END-OF-SPRINT AGENDA — review the review loop (maintainer request, 2026-08-05)
+
+**Agreed at the end of PR 4: the correction cycles are too expensive and should be examined once
+the sprint closes.** Do this with data, not impressions — PR 4 is the worked example.
+
+**PR 4 took ~5 maintainer review rounds + 2 CI rounds before it was mergeable.** Every finding was
+legitimate; none was noise. That is the problem — they were all preventable *earlier*, not
+avoidable in principle. Contributing causes, each evidenced in this file:
+
+| Cause | Evidence from PR 4 | Candidate change |
+|---|---|---|
+| **Claims written before being measured** | The inline-`tsconfig` mechanism was taken from ts-jest's changelog and written into an ADR, `docs/IDEAS.md`, three code comments and a memory file — then disproven. Correcting it touched all five, and it caused ~3 of the rounds. | A mechanism claim must ship with the command that demonstrates it, in the same commit. If it can't be measured, write it as a hypothesis. |
+| **Docs written before CI ran** | ADR-089, the guide, CONTEXT.md and the handoff were all authored while CI had *never* run. CI then found two real defects, invalidating part of what was written. | **Push early for CI signal, write the durable docs after.** A draft PR costs nothing and would have surfaced both defects before the ADR existed. |
+| **Handoff duplicates state that lives elsewhere** | Stale in four separate ways across rounds: an instruction to do the disproven fix (4 sites), its own commit SHA (structurally impossible — the file ships inside the commit), "BUILT & VERIFIED" before CI, and an owed-list contradicting completed work. | Reference, don't duplicate: name the branch and let the reader run `git rev-parse HEAD` / `gh pr checks`. Already applied to SHAs; extend the principle. |
+| **Gates written from the narrative, not the reproduced failure** | The first toolchain gate checked `jest` while the failure it described was about `ts-jest` — both affected services declared `jest` throughout. | Write the gate against the reproduction, then injection-test *the original failure* specifically. |
+| **Local environment not representative of CI** | A stale `packages/shared/dist` made the whole local verification cycle green on a build that CI rejects. | Before pushing, delete build artifacts and re-run the exact CI job commands. |
+
+**Do not conclude "fewer reviews".** The reviews caught real defects every round; so did CI. The
+target is moving the same findings earlier and making each round cheaper, not removing the loop.
+
 ## Multi-Sprint Arc
 
 - **S120** — true scores, one seed path, five-second clarity (complete)
@@ -607,6 +788,8 @@ on the list (reanimated, worklets). ts-jest retested and re-excluded, no ignore 
   @types/node 26 → TS 7 → ESLint 10), or the **deferred UX audit findings** (R-9, R-10, R-12) plus
   the seven surfaces the five-second pass never reached. Five consecutive infrastructure sprints is
   a real cost; the UX arc is the counterweight.
+- **Before S123 is chosen:** run the methodology review above. It is cheap, it is scoped, and
+  whichever arc comes next inherits the process.
 
 ## Persistent Context
 

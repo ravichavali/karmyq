@@ -11,10 +11,29 @@ console.log(`🚀 Messaging Service Instance ID: ${INSTANCE_ID}`);
 const MESSAGING_CHANNEL = 'karmyq:messaging'; // Channel for new messages
 const TYPING_CHANNEL = 'karmyq:typing';       // Channel for typing events
 
+/**
+ * Subscribe without blocking, and without letting a failed subscription take the
+ * process down.
+ *
+ * `subscribe()` is fire-and-forget here, and it can reject — a connection lost or
+ * destroyed while the SUBSCRIBE is queued rejects the pending command. Unhandled,
+ * that terminates the process on Node 20+.
+ *
+ * Note it is NOT the 5s command timeout that reaches this path: pub/sub is
+ * enqueued by `#addPubSubCommand`, which hardcodes `timeout: undefined`, rather
+ * than by `addCommand`, which is where `commandOptions.timeout` becomes an
+ * `AbortSignal.timeout`. That timeout governs `hSet`/`hDel`/`publish` below.
+ */
+function subscribeInBackground(channel: string, purpose: string, handler: (message: string) => void): void {
+  redisSubscriber
+    .subscribe(channel, handler)
+    .catch((err) => console.error(`Failed to subscribe to ${channel} for ${purpose}:`, err));
+}
+
 export function initializeMessageSocket(io: Server) {
 
   // Setup Redis Subscriber for cross-instance communication
-  redisSubscriber.subscribe(MESSAGING_CHANNEL, (message) => {
+  subscribeInBackground(MESSAGING_CHANNEL, 'cross-instance delivery', (message) => {
     try {
       const data = JSON.parse(message);
       // data: { targetInstanceId, socketId, event, payload }
@@ -28,7 +47,7 @@ export function initializeMessageSocket(io: Server) {
     }
   });
 
-  redisSubscriber.subscribe(TYPING_CHANNEL, (message) => {
+  subscribeInBackground(TYPING_CHANNEL, 'typing indicators', (message) => {
     try {
       const data = JSON.parse(message);
       // Broadcast typing/stop_typing to room members might be complex with direct sockets
@@ -53,13 +72,22 @@ export function initializeMessageSocket(io: Server) {
 
     // Register socket in Redis using Hashes for atomic field access
     // user:{userId} -> { socketId, instanceId }
-    await redisClient.hSet('user_sockets', userId, JSON.stringify({
-      socketId: socket.id,
-      instanceId: INSTANCE_ID
-    }));
-
     // socket:{socketId} -> userId (for cleanup)
-    await redisClient.hSet('socket_users', socket.id, userId);
+    //
+    // Wrapped because socket.io does not catch rejections from async listeners:
+    // an unhandled rejection here terminates the process on Node 20+. node-redis 6
+    // applies a 5s command timeout by default (v4 applied none), so a slow Redis
+    // now rejects on a path that previously only queued.
+    try {
+      await redisClient.hSet('user_sockets', userId, JSON.stringify({
+        socketId: socket.id,
+        instanceId: INSTANCE_ID
+      }));
+
+      await redisClient.hSet('socket_users', socket.id, userId);
+    } catch (error) {
+      console.error(`Failed to register socket ${socket.id} for user ${userId} in Redis:`, error);
+    }
 
     console.log(`User ${userId} connected on instance ${INSTANCE_ID}`);
 
@@ -146,15 +174,20 @@ export function initializeMessageSocket(io: Server) {
     // Handle Redis Room Broadcasts (listening logic moved inside init, but here is the logic structure)
 
     socket.on('disconnect', async () => {
-      // Cleanup Redis
-      await redisClient.hDel('user_sockets', userId);
-      await redisClient.hDel('socket_users', socket.id);
+      // Cleanup Redis. Same reason as the registration path above: an unhandled
+      // rejection from this async listener would terminate the process.
+      try {
+        await redisClient.hDel('user_sockets', userId);
+        await redisClient.hDel('socket_users', socket.id);
+      } catch (error) {
+        console.error(`Failed to clean up Redis state for socket ${socket.id}:`, error);
+      }
       console.log('Client disconnected:', socket.id);
     });
   });
 
   // Global subscription handler for Room Broadcasts
-  redisSubscriber.subscribe(MESSAGING_CHANNEL, (msg) => {
+  subscribeInBackground(MESSAGING_CHANNEL, 'room broadcasts', (msg) => {
     try {
       const data = JSON.parse(msg);
       if (data.type === 'room_broadcast' && data.sourceInstanceId !== INSTANCE_ID) {

@@ -519,6 +519,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
   {
     label: '— Infrastructure —',
     slugs: [
+      'adr-090-container-runtime-floor',
       'adr-089-ts-jest-subpath-type-resolution',
       'adr-088-test-tier-truthfulness',
       'adr-087-one-seed-path-init-sql-regeneration',
