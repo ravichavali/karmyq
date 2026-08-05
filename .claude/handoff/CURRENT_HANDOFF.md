@@ -593,6 +593,26 @@ on the list (reanimated, worklets). ts-jest retested and re-excluded, no ignore 
   CLAUDE.md's bootstrap points at both. The real files are `apps/*/claude.md`.
 - **Untracked, not mine to commit:** `.github/copilot-instructions.md`, `.github/instructions/`.
 
+## 🔴 END-OF-SPRINT AGENDA — review the review loop (maintainer request, 2026-08-05)
+
+**Agreed at the end of PR 4: the correction cycles are too expensive and should be examined once
+the sprint closes.** Do this with data, not impressions — PR 4 is the worked example.
+
+**PR 4 took ~5 maintainer review rounds + 2 CI rounds before it was mergeable.** Every finding was
+legitimate; none was noise. That is the problem — they were all preventable *earlier*, not
+avoidable in principle. Contributing causes, each evidenced in this file:
+
+| Cause | Evidence from PR 4 | Candidate change |
+|---|---|---|
+| **Claims written before being measured** | The inline-`tsconfig` mechanism was taken from ts-jest's changelog and written into an ADR, `docs/IDEAS.md`, three code comments and a memory file — then disproven. Correcting it touched all five, and it caused ~3 of the rounds. | A mechanism claim must ship with the command that demonstrates it, in the same commit. If it can't be measured, write it as a hypothesis. |
+| **Docs written before CI ran** | ADR-089, the guide, CONTEXT.md and the handoff were all authored while CI had *never* run. CI then found two real defects, invalidating part of what was written. | **Push early for CI signal, write the durable docs after.** A draft PR costs nothing and would have surfaced both defects before the ADR existed. |
+| **Handoff duplicates state that lives elsewhere** | Stale in four separate ways across rounds: an instruction to do the disproven fix (4 sites), its own commit SHA (structurally impossible — the file ships inside the commit), "BUILT & VERIFIED" before CI, and an owed-list contradicting completed work. | Reference, don't duplicate: name the branch and let the reader run `git rev-parse HEAD` / `gh pr checks`. Already applied to SHAs; extend the principle. |
+| **Gates written from the narrative, not the reproduced failure** | The first toolchain gate checked `jest` while the failure it described was about `ts-jest` — both affected services declared `jest` throughout. | Write the gate against the reproduction, then injection-test *the original failure* specifically. |
+| **Local environment not representative of CI** | A stale `packages/shared/dist` made the whole local verification cycle green on a build that CI rejects. | Before pushing, delete build artifacts and re-run the exact CI job commands. |
+
+**Do not conclude "fewer reviews".** The reviews caught real defects every round; so did CI. The
+target is moving the same findings earlier and making each round cheaper, not removing the loop.
+
 ## Multi-Sprint Arc
 
 - **S120** — true scores, one seed path, five-second clarity (complete)
@@ -602,6 +622,8 @@ on the list (reanimated, worklets). ts-jest retested and re-excluded, no ignore 
   @types/node 26 → TS 7 → ESLint 10), or the **deferred UX audit findings** (R-9, R-10, R-12) plus
   the seven surfaces the five-second pass never reached. Five consecutive infrastructure sprints is
   a real cost; the UX arc is the counterweight.
+- **Before S123 is chosen:** run the methodology review above. It is cheap, it is scoped, and
+  whichever arc comes next inherits the process.
 
 ## Persistent Context
 
