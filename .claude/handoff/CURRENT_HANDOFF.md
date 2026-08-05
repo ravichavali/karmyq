@@ -1,8 +1,8 @@
-# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 4 IN PROGRESS, VERIFICATION NOT COMPLETE
+# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 4 OPEN & CI-GREEN, AWAITING MERGE AUTHORIZATION
 
-> ## 🚧 PR 4 (2026-08-04): **BUILT, VERIFICATION IN PROGRESS. NOT PUSHED. NO PR OPENED.**
+> ## ⏸️ PR 4: **OPEN AS #191, ALL CI GREEN, NOT MERGED.** Needs explicit merge authorization.
 >
-> Branch `deps/sprint-122-pr4-jest-30` · **v11.39.0** · committed locally, not pushed.
+> Branch `deps/sprint-122-pr4-jest-30` · **v11.39.0** · PR **#191**.
 > jest 29 → 30, ts-jest **unpinned**, ADR-089.
 >
 > **No SHA is recorded here on purpose.** This file is *inside* the commit, so any hash written
@@ -13,15 +13,31 @@
 >
 > | | Status |
 > |---|---|
-> | Local suite, 14 workspaces | ✅ **14/14 green on a quiescent tree.** Only deltas vs the pre-change baseline are the two new gate suites: `packages/shared` 11→12 suites / 156→161 tests, `tests` regression 15→16 / 249→259. Earlier runs overlapped injection sweeps and were measuring a mutated tree; this one did not. |
+> | Local suite, 14 workspaces | ✅ **14/14 green on a quiescent tree.** Only deltas vs the pre-change baseline are the two new gate suites: `packages/shared` 11→12 suites / 156→**162** tests, `tests` regression 15→16 / 249→259. Earlier runs overlapped injection sweeps and were measuring a mutated tree; this one did not. |
 > | `npm audit` | ✅ **0 vulnerabilities**, both installed-tree and `--package-lock-only` (the ADR-059 gate form). **Re-run again immediately before merge** — advisories publish mid-flight. |
 > | `npm ci --dry-run`, version sites | ✅ Clean; `package.json` = lock `.version` = lock `.packages[""]` = **11.39.0** |
 > | `tsc --noEmit` | ✅ Clean in every workspace except pre-existing `apps/landing` and `tests/e2e` errors — see "Noted, not fixed here" |
-> | **CI** | 🔴 **First run was RED — see below.** Local green proves nothing about CI; that bit PR 3 for five jobs at once and it bit again here. |
-> | **PR** | ✅ **#191 open** |
-> | **Merge** | ⛔️ Not authorized |
+> | **CI** | ✅ **GREEN — all 21 checks pass.** Took two fix commits to get there; **the first run was red and both failures were real.** Local green proves nothing about CI; that bit PR 3 for five jobs at once and it bit again here. |
+> | **PR** | ✅ **#191 open**, `mergeable=MERGEABLE`, `mergeStateStatus=BLOCKED` solely on `REVIEW_REQUIRED` (master is protected) — **zero failing checks** |
+> | **Merge** | ⛔️ Not authorized. Needs `gh pr merge --squash --admin` + EXPLICIT approval. |
 >
-> ### 🔴 CI caught a real regression local runs structurally could not
+> ### 🔴 CI caught TWO real defects local runs structurally could not
+>
+> **(2) CodeQL — `js/remote-property-injection`, HIGH**, at the new parity gate. Building the
+> expected map with `expected[strip(subpath)] = …` writes a property whose key comes from parsed
+> JSON; a subpath literally named `__proto__` would pollute the object instead of being recorded,
+> silently weakening the very comparison the gate exists to make. Fixed by comparing sorted entry
+> **pairs** — same equality, no prototype surface — and re-verified by injection.
+>
+> ⚠️ **This was NOT dismissed as "only a test."** PR 2 waved past a CodeQL
+> `js/command-line-injection` finding on exactly that reasoning and it was a real defect. The 4s
+> "CodeQL" check is a *different* check from `Analyze (javascript-typescript)` (~2m, passed
+> throughout) and from the ADR-060 gate (passed throughout); its findings surface as **check-run
+> annotations**, not as `code-scanning/alerts` entries, so `gh api .../code-scanning/alerts`
+> returns nothing for them. Read
+> `gh api repos/{owner}/{repo}/check-runs/{id}/annotations` instead.
+>
+> **(1) `Lint & Type Check` — a real regression**
 >
 > `Lint & Type Check` failed: `services/auth-service` threw **13 × TS2307** on
 > `@karmyq/shared/utils/logger`, `/middleware`, `/utils/response`.
@@ -40,18 +56,12 @@
 > dependsOn its own `build`, so `dist/` always exists there. A gate's own build guarantee can hide
 > the property it is meant to protect when that property is about what *other* workspaces see.
 >
-> **`CodeQL` also failed (4s, "1 new alert including 1 high severity") and is UNEXPLAINED.** No
-> alert exists against the PR ref in any state; the three open repo alerts are pre-existing
-> `js/log-injection` mediums on master; `Analyze (javascript-typescript)` passed in 1m55s and the
-> ADR-060 gate passed. **Do not dismiss it as a false positive without evidence** — re-check on the
-> next run.
->
 > ⚠️ **The `tests` regression tier needs network.** In a sandboxed/offline run the audit gate fails
 > spuriously (15/16 suites, 258/259) while everything else passes. That is an environment artifact,
 > not a regression — confirm with an unsandboxed run before debugging it.
 >
-> **Do not record this PR as shipped, verified or ready on the strength of this file.** For head
-> sha and CI status read the PR once it exists, not this file.
+> **Do not record this PR as shipped or deployed on the strength of this file.** For head sha and
+> live CI status read **PR #191**, not this file.
 >
 > ### 🔴 PR 3 RECORDED THE WRONG ROOT CAUSE FOR THE ts-jest REGRESSION — corrected here
 >
@@ -123,15 +133,13 @@
 >
 > ### 🔴 Still owed on this PR — in order
 >
-> 1. ✅ ~~Re-run the full suite on a quiescent tree.~~ **DONE — 14/14 green**, deltas are the two new
+> 1. ✅ ~~Re-run the full suite.~~ **DONE — 14/14 green** (re-run after each CI fix), deltas are the two new
 >    gate suites only. Run workspaces directly, not through Turbo, if repeating.
 > 2. ✅ ~~Re-run `npm audit`.~~ **DONE — 0 vulnerabilities** in both forms. **Still re-run once more
 >    immediately before merge**: advisories publish mid-flight, and a no-dependency diff going red
 >    on `Security Audit` + `sprint-75-security-gate` together is that signature.
-> 3. **Push the branch and open the PR.** Copy and fill `.github/pull_request_template.md`.
->    Maintainer review recommended proceeding to this step.
-> 4. **Watch CI.** It has never run on this branch. `npm ci` is the job that catches lockfile nodes
->    a local install papers over.
+> 3. ✅ ~~Push the branch and open the PR.~~ **DONE — #191.**
+> 4. ✅ ~~Watch CI.~~ **DONE — all 21 checks green** after two real fixes (see above).
 > 5. **Merge authorization** — `gh pr merge --squash --admin` needs EXPLICIT approval, every time.
 >    **Not yet requested; review explicitly stated its recommendation is NOT merge authorization.**
 > 6. **Close #173** (jest, fully taken) and **comment on #189** — its ts-jest half is taken here;
