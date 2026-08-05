@@ -116,8 +116,30 @@
 > Also worth keeping: **a string-replacement injection that matches nothing is a silent no-op.**
 > Sweep case #12 went stale when the gate was refactored and only surfaced because it expected RED;
 > a stale case expecting GREEN would have "passed" while proving nothing. The sweep now throws on
-> any injection whose search text is absent. **Sweep is 21/21**, including two positive controls
-> proving the parser *accepts* valid `--platform` and lowercase `from` rather than merely rejecting.
+> any injection whose search text is absent.
+>
+> ### 🔴 SECOND REVIEW ROUND found 2 more — same parser, same defect class
+>
+> **4. The parser read PHYSICAL LINES, not logical Dockerfile instructions.** Docker's escape
+> character continues an instruction across lines, so `FROM --platform=$BUILDPLATFORM \` + newline +
+> `  node:24-alpine AS builder` is **one** instruction whose image the gate read as `\`. It fails
+> **closed** (the stage drops out of the per-file count → red), so it was a false failure rather than
+> an evasion — but it would break on any legitimate multi-line `FROM`. Fixed by folding physical
+> lines into logical instructions first, honouring the `# escape=` directive (default `\`, settable
+> to a backtick, valid only above any comment/blank/instruction) and dropping comment lines inside a
+> continuation as Docker does.
+>
+> **5.** A comment named `--chmod` as a `FROM` option. It is `COPY`/`ADD`; `FROM` takes `--platform`.
+> Regex unaffected (it matches the option group generically) but the comment asserted something
+> false — **the same defect class as #3, just cheaper.**
+>
+> **Sweep is 26/26.** The continuation cases are deliberately **paired**: compliant multi-line must
+> stay GREEN *and* violating multi-line must go RED, for both escape characters. A green alone would
+> only show the continuation was tolerated; the pair shows it is parsed through to the image.
+>
+> ⚠️ **Pattern across both rounds: every one of my five defects was a claim or a parser asserting
+> something I had not traced.** None were caught by tests, CI, `/simplify` or `/security-review` —
+> all five came from human review. Feed this to the methodology agenda alongside PR 4's data.
 >
 > ### 🔴 Owed on this PR
 >
