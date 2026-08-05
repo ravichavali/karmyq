@@ -1,8 +1,24 @@
-# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 4 OPEN & CI-GREEN, AWAITING MERGE AUTHORIZATION
+# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 4 SHIPPED · PR 5 (redis) IS NEXT
 
-> ## ⏸️ PR 4: **OPEN AS #191, ALL CI GREEN, NOT MERGED.** Needs explicit merge authorization.
+> ## ✅ PR 4 COMPLETE (2026-08-05): merged, deployed and verified live at v11.39.0.
 >
-> Branch `deps/sprint-122-pr4-jest-30` · **v11.39.0** · PR **#191**.
+> **PR #191 squash-merged** as `c3d623b2` at 12:14:29Z (explicit maintainer authorization).
+> `CI/CD Pipeline` run 31004763061 reached **Deploy to Demo = success, no rollback**; its internal
+> sweep reported **all 9 backends healthy**. Master is `c3d623b2`, manifest reads **11.39.0**.
+>
+> ### Live smoke test — PASSED
+>
+> | Leg | Result |
+> |---|---|
+> | Happy path — `maria.reyes@test.karmyq.com` | **200**, `success:true`, JWT carries `communities[]` (6) |
+> | Wrong password | **401** ADR-074 envelope, `UNAUTHORIZED`, no stack trace |
+> | **Bodyless POST** (PR 1 regression) | **400 `VALIDATION_ERROR`, not 500** — still fixed |
+> | Landing | serves HTML |
+>
+> **#173 auto-closed** by Dependabot on merge (fully taken); **#189 auto-closed** (ts-jest half
+> taken). Rationale comments posted to both regardless, so the record stands. Dependabot already
+> regenerated the remainder as **#192** (`tsx`, `@types/pg`, `@types/semver`) — expected, no ignore
+> rules were added.
 > jest 29 → 30, ts-jest **unpinned**, ADR-089.
 >
 > **No SHA is recorded here on purpose.** This file is *inside* the commit, so any hash written
@@ -19,7 +35,7 @@
 > | `tsc --noEmit` | ✅ Clean in every workspace except pre-existing `apps/landing` and `tests/e2e` errors — see "Noted, not fixed here" |
 > | **CI** | ✅ **GREEN — all 21 checks pass.** Took two fix commits to get there; **the first run was red and both failures were real.** Local green proves nothing about CI; that bit PR 3 for five jobs at once and it bit again here. |
 > | **PR** | ✅ **#191 open**, `mergeable=MERGEABLE`, `mergeStateStatus=BLOCKED` solely on `REVIEW_REQUIRED` (master is protected) — **zero failing checks** |
-> | **Merge** | ⛔️ Not authorized. Needs `gh pr merge --squash --admin` + EXPLICIT approval. |
+> | **Merge** | ✅ Squash-merged with `--admin` under explicit authorization |
 >
 > ### 🔴 CI caught TWO real defects local runs structurally could not
 >
@@ -443,28 +459,7 @@
 > `.claude/handoff/archive/2026-07-29-sprint-121-dependency-backlog-17-OF-18-EXPRESS-CARRIED.md`.
 > **PR 1 (express 4 → 5, v11.36.0, `46b2982c`)** shipped 2026-07-30 and is live.
 
-## Quick Start — FINISH PR 4 (jest 30, #173) — it is not done
-
-**PR 4 is committed locally on `deps/sprint-122-pr4-jest-30` and nothing more.**
-Check out that branch; do **not** re-cut it and do **not** start PR 5.
-
-1. `git checkout deps/sprint-122-pr4-jest-30`, then `git rev-parse HEAD` and
-   `git log --oneline origin/master..HEAD` to see what is actually on it — **this file deliberately
-   records no SHA**, because it ships inside the commit it would be describing.
-2. Confirm `git status` is clean. The only untracked files should be
-   `.github/copilot-instructions.md` and `.github/instructions/`, which are **not ours to commit**.
-   `apps/landing/src/data/docs/build.json` re-churns on every test run (`generatedAt`, `commitSha`)
-   — revert that churn rather than committing it; the `adrCount` value in the commit is correct.
-2. Work the **"Still owed on this PR"** list at the top of this file, in order: re-run the suite on
-   a quiescent tree → re-run `npm audit` → push → open the PR → watch CI → request merge
-   authorization → close #173 / comment on #189 → deploy + smoke test.
-3. **Do not re-open the ts-jest question.** ADR-089 settles it; the inline-`tsconfig` theory is
-   disproven and the change was reverted. `git diff origin/master` for the three jest configs is
-   empty **on purpose**.
-
-## (deferred) Quick Start — PR 5 (redis 4 → 6, #169)
-
-Only after PR 4 is merged and deployed.
+## Quick Start — PR 5 (redis 4 → 6, #169)
 
 1. **Start a fresh chat** (per-PR cadence). Branch off **`origin/master`** — never local master.
 2. **Re-list the Dependabot PRs first** — numbers churn. Match on *what a PR bumps*, never the
@@ -503,8 +498,8 @@ PRs — 6 merged and deployed, 3 closed with written rationale.
 | **1** | express 4 → 5 | #34 ✅ | v11.36.0 | ✅ **SHIPPED** `46b2982c` |
 | **2** | test-tier truthfulness + **ADR-088** | — | **v11.37.0** | ✅ **SHIPPED** `b4041506`, deployed, verified live |
 | **3** | consolidated safe groups + 6 advisory fixes + Expo drift job | **#185**, **#184** (was #179/#178) | v11.38.0 | ✅ **SHIPPED** `5fa203ce`, deployed, smoke-tested |
-| **4** | jest 29 → 30 + **ts-jest unpinned** + **ADR-089** | #173, #189 (ts-jest half) | **v11.39.0** | 🚧 **IN PROGRESS** — committed locally, **not pushed, no PR, CI never run** |
-| **5** | redis (node-redis) 4 → 6 | #169 | v11.40.0 | planned (blocked on PR 4) |
+| **4** | jest 29 → 30 + **ts-jest unpinned** + **ADR-089** | #173 ✅, #189 (ts-jest half) ✅ | **v11.39.0** | ✅ **SHIPPED** `c3d623b2`, deployed, smoke-tested |
+| **5** | redis (node-redis) 4 → 6 | #169 | v11.40.0 | ⬅️ **NEXT** |
 | **6** | zustand 4 → 5 (mobile only) | #172 | v11.41.0 | planned |
 | — | closed with rationale, **no ignore rule** | #170 eslint 10, #168 typescript 7, #171 @types/node 26 | — | planned |
 
