@@ -1,10 +1,185 @@
-# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 3 BUILT, AWAITING MERGE AUTHORIZATION
+# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 4 OPEN & CI-GREEN, AWAITING MERGE AUTHORIZATION
 
-> ## ⏸️ PR 3 (2026-08-03): **BUILT, VERIFIED, NOT MERGED.** Needs explicit merge authorization.
+> ## ⏸️ PR 4: **OPEN AS #191, ALL CI GREEN, NOT MERGED.** Needs explicit merge authorization.
 >
-> Branch `deps/sprint-122-pr3-consolidated-groups` · **v11.38.0**.
-> **For head sha, commit count and CI status read the PR, not this file** — those went stale three
-> times during PR 2. Use `gh pr view` / `gh pr checks`.
+> Branch `deps/sprint-122-pr4-jest-30` · **v11.39.0** · PR **#191**.
+> jest 29 → 30, ts-jest **unpinned**, ADR-089.
+>
+> **No SHA is recorded here on purpose.** This file is *inside* the commit, so any hash written
+> here is invalidated by the very amend that writes it — it went stale twice in one review before
+> that was obvious. Run `git rev-parse HEAD` on the branch.
+>
+> ### ⚠️ What is and is NOT verified — read before claiming this is done
+>
+> | | Status |
+> |---|---|
+> | Local suite, 14 workspaces | ✅ **14/14 green on a quiescent tree.** Only deltas vs the pre-change baseline are the two new gate suites: `packages/shared` 11→12 suites / 156→**162** tests, `tests` regression 15→16 / 249→259. Earlier runs overlapped injection sweeps and were measuring a mutated tree; this one did not. |
+> | `npm audit` | ✅ **0 vulnerabilities**, both installed-tree and `--package-lock-only` (the ADR-059 gate form). **Re-run again immediately before merge** — advisories publish mid-flight. |
+> | `npm ci --dry-run`, version sites | ✅ Clean; `package.json` = lock `.version` = lock `.packages[""]` = **11.39.0** |
+> | `tsc --noEmit` | ✅ Clean in every workspace except pre-existing `apps/landing` and `tests/e2e` errors — see "Noted, not fixed here" |
+> | **CI** | ✅ **GREEN — all 21 checks pass.** Took two fix commits to get there; **the first run was red and both failures were real.** Local green proves nothing about CI; that bit PR 3 for five jobs at once and it bit again here. |
+> | **PR** | ✅ **#191 open**, `mergeable=MERGEABLE`, `mergeStateStatus=BLOCKED` solely on `REVIEW_REQUIRED` (master is protected) — **zero failing checks** |
+> | **Merge** | ⛔️ Not authorized. Needs `gh pr merge --squash --admin` + EXPLICIT approval. |
+>
+> ### 🔴 CI caught TWO real defects local runs structurally could not
+>
+> **(2) CodeQL — `js/remote-property-injection`, HIGH**, at the new parity gate. Building the
+> expected map with `expected[strip(subpath)] = …` writes a property whose key comes from parsed
+> JSON; a subpath literally named `__proto__` would pollute the object instead of being recorded,
+> silently weakening the very comparison the gate exists to make. Fixed by comparing sorted entry
+> **pairs** — same equality, no prototype surface — and re-verified by injection.
+>
+> ⚠️ **This was NOT dismissed as "only a test."** PR 2 waved past a CodeQL
+> `js/command-line-injection` finding on exactly that reasoning and it was a real defect. The 4s
+> "CodeQL" check is a *different* check from `Analyze (javascript-typescript)` (~2m, passed
+> throughout) and from the ADR-060 gate (passed throughout); its findings surface as **check-run
+> annotations**, not as `code-scanning/alerts` entries, so `gh api .../code-scanning/alerts`
+> returns nothing for them. Read
+> `gh api repos/{owner}/{repo}/check-runs/{id}/annotations` instead.
+>
+> **(1) `Lint & Type Check` — a real regression**
+>
+> `Lint & Type Check` failed: `services/auth-service` threw **13 × TS2307** on
+> `@karmyq/shared/utils/logger`, `/middleware`, `/utils/response`.
+>
+> **Cause:** `typesVersions` originally pointed at `dist/**/*.d.ts`. CI's type-check job runs
+> `tsc --noEmit` on consumers **without building `packages/shared`**. Consumers on
+> `moduleResolution: node` had always resolved those subpaths by directory traversal straight to
+> shared's **source**; `typesVersions` takes precedence over that traversal, so an unbuilt `dist`
+> broke resolution that previously needed no build. **Local runs passed only because a stale
+> `dist/` was present.**
+>
+> **Fix:** `typesVersions` now points at **source `.ts`**, removing the build dependency from type
+> resolution entirely. Verified with `dist` deleted: all four CI type-check workspaces pass.
+>
+> ⚠️ **The parity gate could not have caught this** — it runs in `packages/shared`, whose `test`
+> dependsOn its own `build`, so `dist/` always exists there. A gate's own build guarantee can hide
+> the property it is meant to protect when that property is about what *other* workspaces see.
+>
+> ⚠️ **The `tests` regression tier needs network.** In a sandboxed/offline run the audit gate fails
+> spuriously (15/16 suites, 258/259) while everything else passes. That is an environment artifact,
+> not a regression — confirm with an unsandboxed run before debugging it.
+>
+> **Do not record this PR as shipped or deployed on the strength of this file.** For head sha and
+> live CI status read **PR #191**, not this file.
+>
+> ### 🔴 PR 3 RECORDED THE WRONG ROOT CAUSE FOR THE ts-jest REGRESSION — corrected here
+>
+> PR 3 concluded the `TS2307: Cannot find module '@karmyq/shared/matching/types'` came from the
+> root `jest.config.js` passing an **inline `tsconfig` object**, which supposedly stopped
+> ts-jest 29.4.11+ inheriting `moduleResolution: node16`, and that the fix was to point ts-jest at
+> each workspace's real `tsconfig.json`. **Both halves are false**, disproven by measurement:
+>
+> | Claim | Measurement |
+> |---|---|
+> | "the real tsconfig path fixes it" | With the path in place, 29.4.12 **still** failed, identical TS2307 |
+> | "`typesVersions` is what fixes it" | With `typesVersions` and the inline object *restored*, **green** |
+> | "29.4.11+ stops reading tsconfig.json" | 29.4.12 `ConfigSet` with an inline object still reports `tsconfigFilePath: apps/landing/tsconfig.json` and inherits `strict`/`target`/`isolatedModules` — **identical** to the path form |
+>
+> **Actual cause:** ts-jest forces `moduleResolution: node10` whenever it forces `module: commonjs`
+> — in *every* 29.x, 29.4.6 included — and node10 does not read `exports` maps. No tsconfig can
+> avoid it (`node16` and `bundler` are both substituted to node10 alongside `module: commonjs`).
+> **Fix: `typesVersions` in `packages/shared`**, mirroring `exports`, parity-enforced by a test.
+>
+> **The tell that was missed:** request-service's suites passed on 29.4.6 *under node10*, which
+> node10 structurally cannot do for an `exports`-only subpath. That "impossible pass" was a
+> resolution-cache accident and should have been the anomaly to explain, not the baseline of health.
+>
+> Because the inline-object premise was false, PR 4 **reverted its own** inline-object→path change:
+> `git diff origin/master -- jest.config.js tests/jest.config.js apps/landing/jest.config.js` is
+> **empty**. No config churn ships without a demonstrated difference.
+>
+> ### What shipped
+>
+> | Change | Evidence |
+> |---|---|
+> | `typesVersions` (19 subpaths) in `packages/shared` | The only thing that fixes TS2307; A/B in both directions |
+> | Root `overrides."ts-jest": "29.4.6"` **deleted**; **11** workspaces declare `^29.4.12` | Full suite identical to baseline |
+> | jest 29 → 30.4.2, `@types/jest` 30.0.0, `@jest/globals` 30.4.1 | Full suite identical to baseline, **zero fallout** |
+> | `jest` declared in the 4 hoist-only workspaces (landing, cleanup, geocoding, simulation) | Deleting the ts-jest override de-hoisted it and broke cleanup + simulation |
+> | `--testPathPattern` → `--testPathPatterns` (jest 30 rename) | Old flag **exits 1** — fails loudly, never silently |
+> | 3 dead `./api/*` exports removed from `packages/shared` | Excluded from the build since `11ebb6a4` (2026-01-23); **zero importers**; unresolvable for ~7 months |
+>
+> ⚠️ **`@jest/globals` is `^30.4.1`, not `^30.4.2`** — 30.4.2 was a jest-runtime-only patch and
+> `@jest/globals` was never published at it. `^30.4.2` fails resolution outright.
+>
+> ### Two blocking gates, each adversarially swept
+>
+> - `packages/shared/src/__tests__/exportsTypesVersionsParity.test.ts` — whole-map equality
+>   `typesVersions` ≡ `exports`, plus on-disk existence. **5 injections**, all caught, including
+>   repointing a subpath at a *wrong-but-existing* `.d.ts` (proves identity, not containment) and a
+>   manifest where both maps agree but the files don't exist (proves it checks disk, not just
+>   self-consistency).
+> - `tests/regression/sprint-122-jest-toolchain-gate.test.ts` — roster/declaration/major/resolution
+>   for **both `jest` and `ts-jest`**, plus every CLI flag validated against the installed jest's own
+>   option table (so the *next* rename is caught with no blocklist to maintain). **14 injections.**
+>
+> ⚠️ **Maintainer review caught that the first version of this gate checked `jest` only** — so
+> deleting `ts-jest` from cleanup or simulation would have passed it while continuing to work by
+> accident through hoisting, i.e. the gate did not protect the failure its own header described.
+> Fixed and injection-proven (dropping ts-jest from cleanup, simulation *and* landing each turns it
+> red). Detecting this needs the **resolved** config, not a grep: five services name ts-jest nowhere
+> in their own file and inherit it by spreading the root config.
+>
+> ### 🔴 Two process failures worth not repeating
+>
+> 1. **I wrote the inline-tsconfig mechanism into an ADR, IDEAS.md, three code comments and a memory
+>    file before measuring it.** It came from ts-jest's changelog/diff comments. A mechanism read off
+>    a changelog is a hypothesis; verify before writing it down.
+> 2. **My first injection sweep used `git checkout --` to undo each injection** — which reverts to
+>    HEAD, and the PR's work was uncommitted, so it progressively deleted the very changes under
+>    test. Runs 2–10 were measuring a corrupted tree. Caught by the control case. Sweeps now restore
+>    from a file snapshot. **Never `git checkout` as undo in a dirty tree.**
+>
+> ### 🔴 Still owed on this PR — in order
+>
+> 1. ✅ ~~Re-run the full suite.~~ **DONE — 14/14 green** (re-run after each CI fix), deltas are the two new
+>    gate suites only. Run workspaces directly, not through Turbo, if repeating.
+> 2. ✅ ~~Re-run `npm audit`.~~ **DONE — 0 vulnerabilities** in both forms. **Still re-run once more
+>    immediately before merge**: advisories publish mid-flight, and a no-dependency diff going red
+>    on `Security Audit` + `sprint-75-security-gate` together is that signature.
+> 3. ✅ ~~Push the branch and open the PR.~~ **DONE — #191.**
+> 4. ✅ ~~Watch CI.~~ **DONE — all 21 checks green** after two real fixes (see above).
+> 5. **Merge authorization** — `gh pr merge --squash --admin` needs EXPLICIT approval, every time.
+>    **Not yet requested; review explicitly stated its recommendation is NOT merge authorization.**
+> 6. **Close #173** (jest, fully taken) and **comment on #189** — its ts-jest half is taken here;
+>    Dependabot will re-propose the rest, which is expected and correct.
+> 7. **Deploy + live smoke test** after merge, then update this file.
+>
+> ### Noted, not fixed here
+>
+> - `apps/landing` jest is **transpile-only** (`isolatedModules: true` in its tsconfig), so its
+>   `tsc --noEmit` errors — TS2802 Set-iteration under `target: es5`, TS2540 on `NODE_ENV` — never
+>   surface in its suite. **Pre-existing and identical before and after this PR**, verified by
+>   testing a deliberate type error under both the old and new config. Worth a deliberate decision.
+> - PR 3's two carried-forward OWED items remain open (drift-job failure path unproven in CI; the
+>   adversarial sweep of the turbo cache-key, tier-coverage and lint-config gates). Deferred by
+>   maintainer decision, not dropped.
+
+> ## ✅ PR 3 COMPLETE (2026-08-04): merged, deployed and verified live at v11.38.0.
+>
+> **PR #186 squash-merged** as `5fa203ce` at 18:55:53Z (explicit maintainer authorization).
+> `CI/CD Pipeline` run **30940916758** reached **`Deploy to Demo` = success, no rollback**; its
+> internal sweep reported **all services healthy**. Master is `5fa203ce`, manifest reads 11.38.0.
+>
+> ### Live smoke test — PASSED
+>
+> | Leg | Result |
+> |---|---|
+> | Happy path — `maria.reyes@test.karmyq.com` | **200**, `success:true`, JWT carries `communities[]` (6) |
+> | Wrong password | **401** ADR-074 envelope, `UNAUTHORIZED`, no stack trace |
+> | **Bodyless POST** (PR 1's regression) | **400 `VALIDATION_ERROR`, not 500** — still fixed |
+> | Landing | serves HTML |
+>
+> ### `expo-sdk-drift` workflow — dispatched on master, verified
+>
+> Run **30942925117** (`workflow_dispatch`) went green: the arbiter step logged *"Dependencies are
+> up to date"*, and **both the issue-filing and fail steps correctly skipped**. No issue was
+> created. ⚠️ **Only the no-drift path is proven on real infrastructure** — the drift path's issue
+> body was dry-run locally but has never executed in CI. First scheduled run is 07:15 UTC daily.
+>
+> **#185 / #184 were already auto-closed** by Dependabot when #186 merged; rationale comments were
+> posted to both regardless, so the record stands.
 >
 > ### 🔴 The three "open decisions" are CLOSED — by the arbiter, not by judgement
 >
@@ -167,15 +342,22 @@
 > 3. This bit **three separate times** in one PR (override floors, the restored ts-jest pin, the
 >    nested expo tree) before it bit a fourth time in CI.
 >
-> ### Still owed on this PR
+> ### 🔴 CARRIED FORWARD — first actions in the next chat
 >
-> 1. **Merge authorization** — `gh pr merge --squash --admin` needs EXPLICIT approval, every time.
->    Nothing else is blocking; the branch is fully pushed and CI is green.
-> 2. **Close #185 and #184 after the merge** (comments explaining the partial acceptance are
->    already posted). They were deliberately left open — closing them while #186 was unmerged
->    would have dropped the updates from tracking.
-> 3. OWED item 2 from PR 2 is **partially** done: the Expo gate has now had an adversarial
+> 1. **The drift job's failure path is unproven in CI.** Only the green path ran. Before relying on
+>    it, force a drift (temporarily skew one manifest pin on a scratch branch, dispatch, confirm the
+>    issue is filed with correct markdown and the run goes red) — then revert. This is the same
+>    "one injection proves non-vacuity, not correctness" trap I keep falling into.
+> 2. OWED item 2 from PR 2 is **still partially** done: the Expo gate got an adversarial
 >    two-injection sweep. **The turbo cache-key, tier-coverage and lint-config gates have not.**
+> 3. ~~**PR 4 also owns the ts-jest fix** — stop passing an inline `tsconfig` object from the root
+>    `jest.config.js` transform and point ts-jest at each workspace's real `tsconfig.json`.~~
+>    ⛔️ **DO NOT DO THIS. Both halves of this instruction were disproven by measurement in PR 4.**
+>    Pointing ts-jest at the real `tsconfig.json` does **not** fix the TS2307, and an inline object
+>    does **not** stop ts-jest 29.4.11+ reading `tsconfig.json` in the first place. The real cause
+>    is that ts-jest forces `moduleResolution: node10` on the CommonJS path in *every* 29.x, and
+>    node10 ignores `exports` maps; the fix is `typesVersions` in `packages/shared`. **Resolved in
+>    PR 4 — see ADR-089.**
 
 
 > ## ✅ PR 2 COMPLETE (2026-08-03): test-tier truthfulness merged, deployed and verified live at v11.37.0.
@@ -261,7 +443,40 @@
 > `.claude/handoff/archive/2026-07-29-sprint-121-dependency-backlog-17-OF-18-EXPRESS-CARRIED.md`.
 > **PR 1 (express 4 → 5, v11.36.0, `46b2982c`)** shipped 2026-07-30 and is live.
 
-## Quick Start — PR 3
+## Quick Start — FINISH PR 4 (jest 30, #173) — it is not done
+
+**PR 4 is committed locally on `deps/sprint-122-pr4-jest-30` and nothing more.**
+Check out that branch; do **not** re-cut it and do **not** start PR 5.
+
+1. `git checkout deps/sprint-122-pr4-jest-30`, then `git rev-parse HEAD` and
+   `git log --oneline origin/master..HEAD` to see what is actually on it — **this file deliberately
+   records no SHA**, because it ships inside the commit it would be describing.
+2. Confirm `git status` is clean. The only untracked files should be
+   `.github/copilot-instructions.md` and `.github/instructions/`, which are **not ours to commit**.
+   `apps/landing/src/data/docs/build.json` re-churns on every test run (`generatedAt`, `commitSha`)
+   — revert that churn rather than committing it; the `adrCount` value in the commit is correct.
+2. Work the **"Still owed on this PR"** list at the top of this file, in order: re-run the suite on
+   a quiescent tree → re-run `npm audit` → push → open the PR → watch CI → request merge
+   authorization → close #173 / comment on #189 → deploy + smoke test.
+3. **Do not re-open the ts-jest question.** ADR-089 settles it; the inline-`tsconfig` theory is
+   disproven and the change was reverted. `git diff origin/master` for the three jest configs is
+   empty **on purpose**.
+
+## (deferred) Quick Start — PR 5 (redis 4 → 6, #169)
+
+Only after PR 4 is merged and deployed.
+
+1. **Start a fresh chat** (per-PR cadence). Branch off **`origin/master`** — never local master.
+2. **Re-list the Dependabot PRs first** — numbers churn. Match on *what a PR bumps*, never the
+   number.
+3. **Exactly one importer:** `services/messaging-service/src/config/redis.ts`, which **does not
+   declare `redis`** — the root does. Add the declaration ([[feedback_declare_what_you_import]]);
+   PR 4's toolchain gate covers jest/ts-jest only, not this.
+4. Two majors are crossed (4 → 5 → 6): read **both** migration notes. `createClient` options and
+   the RESP3/type surface changed. `ioredis` is a **different package**, not in scope.
+5. Messaging is Socket.io presence/pubsub — smoke-test a live message round-trip, not just health.
+
+## (historical) Quick Start — PR 4
 
 1. **Start a fresh chat** (per-PR cadence). Branch off **`origin/master`** (now `b4041506`,
    demo running **v11.37.0**) — never local master.
@@ -287,9 +502,9 @@ PRs — 6 merged and deployed, 3 closed with written rationale.
 |---|---|---|---|---|
 | **1** | express 4 → 5 | #34 ✅ | v11.36.0 | ✅ **SHIPPED** `46b2982c` |
 | **2** | test-tier truthfulness + **ADR-088** | — | **v11.37.0** | ✅ **SHIPPED** `b4041506`, deployed, verified live |
-| **3** | consolidated safe groups + 6 advisory fixes | **#185**, **#184** (was #179/#178) | v11.38.0 | ⏸️ **BUILT & VERIFIED — awaiting merge authorization** |
-| **4** | jest 29 → 30 | #173 | v11.39.0 | **NEXT** — also owns the ts-jest inline-tsconfig fix |
-| **5** | redis (node-redis) 4 → 6 | #169 | v11.40.0 | planned |
+| **3** | consolidated safe groups + 6 advisory fixes + Expo drift job | **#185**, **#184** (was #179/#178) | v11.38.0 | ✅ **SHIPPED** `5fa203ce`, deployed, smoke-tested |
+| **4** | jest 29 → 30 + **ts-jest unpinned** + **ADR-089** | #173, #189 (ts-jest half) | **v11.39.0** | 🚧 **IN PROGRESS** — committed locally, **not pushed, no PR, CI never run** |
+| **5** | redis (node-redis) 4 → 6 | #169 | v11.40.0 | planned (blocked on PR 4) |
 | **6** | zustand 4 → 5 (mobile only) | #172 | v11.41.0 | planned |
 | — | closed with rationale, **no ignore rule** | #170 eslint 10, #168 typescript 7, #171 @types/node 26 | — | planned |
 
@@ -308,8 +523,10 @@ on the list (reanimated, worklets). ts-jest retested and re-excluded, no ignore 
   that is expected and correct, and the gate will keep catching them.
 - **Close #170 (eslint 10), #168 (typescript 7), #171 (@types/node 26)** with written rationale and
   **no ignore rule**. Already recorded in `docs/IDEAS.md` as the S123 "platform floor" arc, in
-  dependency order: **runtime floor off `node:18-alpine` → @types/node 26 → TS 7 → ESLint 10**,
-  with the ts-jest inline-tsconfig fix attached to the TS 7 step.
+  dependency order: **runtime floor off `node:18-alpine` → @types/node 26 → TS 7 → ESLint 10**.
+  ~~with the ts-jest inline-tsconfig fix attached to the TS 7 step~~ — **that fix does not exist;
+  ts-jest was unpinned in PR 4 via `typesVersions` (ADR-089), so the TS 7 step carries no ts-jest
+  debt.**
 
 ## Standing mechanics (carried forward)
 
@@ -343,6 +560,13 @@ on the list (reanimated, worklets). ts-jest retested and re-excluded, no ignore 
 - **`nav.json` is GENERATED** from `ADR_GROUPS` in `scripts/generate-docs.ts`. Never hand-edit it.
 - **Do not record volatile values (head sha, commit counts, CI verdicts) in this file** — they went
   stale three times during PR 2's review. Use `gh pr view` / `gh pr checks`.
+  **For an UNPUSHED branch this is not merely unwise, it is impossible:** this file ships *inside*
+  the commit, so writing the head SHA here invalidates it via the very amend that writes it. It
+  went stale twice in one review before that registered. Name the **branch** and tell the reader to
+  run `git rev-parse HEAD`.
+- **`apps/landing/src/data/docs/build.json` re-churns on every test run** (`generatedAt`,
+  `commitSha` — the landing prebuild regenerates docs). Revert that churn before committing; only
+  real deltas like `adrCount` belong in the diff.
 - **Known flakes — rerun, don't debug:** the Windows Turbo timeout flake (a different service each
   run, no assertion output) and the `feed-dibs` privacy timestamp flake (~2/1000).
 - Docker unavailable locally; `integration/` tiers ride CI.

@@ -78,24 +78,29 @@ Producers must emit only the canonical four; `critical`/`normal` are retired. Se
 | `.` | Root re-exports |
 | `./utils/logger` | `createLogger`, `requestLoggingMiddleware`, `LogContext`, `LogEntry`, `LogLevel` |
 | `./utils/response` | `sendSuccess`, `sendError`, `sendValidationError`, `sendNotFound`, `sendInternalError`, `HTTP_STATUS`, `validateRequest`, `requestIdMiddleware` |
-| `./middleware` | All middleware barrel (incl. `normalizeRequestBody`) |
+| `./middleware` | All middleware barrel, including `normalizeRequestBody` (restores the Express 4 `req.body = {}` default). **There is no `./middleware/bodyDefaults` subpath export** — every consumer imports it from this barrel. |
 | `./middleware/auth` | `authMiddleware`, `AuthenticatedRequest`, `RouteParams` |
-| `./middleware/bodyDefaults` | `normalizeRequestBody` — restores the Express 4 `req.body = {}` default |
 | `./middleware/dbContext` | `dbContextMiddleware` |
 | `./middleware/rateLimit` | `globalRateLimiter`, `rateLimiters` |
 | `./middleware/tenant` | `tenantMiddleware`, `optionalTenantMiddleware` |
 | `./middleware/validate` | Validation middleware |
 | `./types` | Shared TypeScript types |
 | `./constants/config` | Platform-wide constants |
-| `./api/client` | API client utilities |
-| `./api/mobile-storage` | Mobile storage helpers |
-| `./api/web-storage` | Web storage helpers |
 | `./matching` | `calculateMatchScore`, `calculateFeedScore`, scoring utilities, `DEFAULT_FEED_WEIGHTS` |
 | `./matching/types` | `UserProfile`, `FeedScoringWeights`, `VisibilityScope` |
 | `./schemas/requests` | Zod schemas for request types (generic, ride, service, event, borrow) |
 | `./schemas/ui` | UI schema types for DynamicForm |
 | `./schemas/providers` | TypeScript interfaces for provider profiles, reviews, trust scores (ADR-041/042) |
+| `./schemas/reputation-disclosure` | Reputation disclosure boundary schema (ADR-082) |
+| `./trust/decayTier` | Trust decay tier calculation |
+| `./projections/completed-exchange` | Completed-exchange projection |
 | `./events/publisher` | `createPublisher(source)` — Bull queue factory; returns `{ initEventPublisher, publishEvent, getEventQueue }` |
+
+> **Sprint 122 PR 4 (ADR-089):** `./api/client`, `./api/mobile-storage` and `./api/web-storage`
+> were **removed**. Their sources have been excluded from the build since `11ebb6a4` (2026-01-23),
+> so all three had been unresolvable for ~7 months, with zero importers. The table above is now
+> held identical to `package.json`'s `exports` — and to its `typesVersions` mirror — by
+> `packages/shared/src/__tests__/exportsTypesVersionsParity.test.ts`.
 
 > **Sprint 93 (ADR-064):** `ApiClient.removeCommunityMember(communityId, userId)` dropped its
 > `adminUserId` argument — the community-service DELETE handler now derives the caller from the

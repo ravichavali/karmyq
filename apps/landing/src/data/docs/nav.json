@@ -528,6 +528,10 @@
           "divider": true
         },
         {
+          "label": "ts-jest Cannot Read `exports` Maps — `typesVersions` Is the Contract",
+          "href": "/docs/concepts/adr-089-ts-jest-subpath-type-resolution"
+        },
+        {
           "label": "Test-Tier Truthfulness",
           "href": "/docs/concepts/adr-088-test-tier-truthfulness"
         },

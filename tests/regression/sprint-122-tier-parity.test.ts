@@ -1,6 +1,8 @@
 import { execFileSync } from 'child_process';
-import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
+import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join, relative, sep } from 'path';
+
+import { ROOT, allWorkspaces } from './helpers/workspaces';
 
 /**
  * Sprint 122 PR 2 — tier coverage (ADR-088).
@@ -20,8 +22,6 @@ import { join, relative, sep } from 'path';
  *   - tiered scripts:  "test": "npm run test:unit && npm run test:regression"
  *   - bare jest:       "test": "jest"   (cleanup, simulation, landing, mobile)
  */
-const ROOT = join(__dirname, '..', '..');
-
 const TIERS = ['unit', 'regression'] as const;
 
 /**
@@ -50,23 +50,6 @@ function testFilesUnder(dir: string): string[] {
     }
   }
   return found;
-}
-
-/** Every npm workspace, tiered or not. */
-function allWorkspaces(): Array<{ ws: string; dir: string }> {
-  const out: Array<{ ws: string; dir: string }> = [];
-  for (const root of ['services', 'apps', 'packages']) {
-    const rootDir = join(ROOT, root);
-    if (!existsSync(rootDir)) continue;
-    for (const name of readdirSync(rootDir)) {
-      if (name === 'node_modules') continue;
-      const dir = join(rootDir, name);
-      if (!statSync(dir).isDirectory()) continue;
-      if (existsSync(join(dir, 'package.json'))) out.push({ ws: `${root}/${name}`, dir });
-    }
-  }
-  out.push({ ws: 'tests', dir: join(ROOT, 'tests') });
-  return out;
 }
 
 /** The subset of workspaces that actually keep a unit/ or regression/ tier. */

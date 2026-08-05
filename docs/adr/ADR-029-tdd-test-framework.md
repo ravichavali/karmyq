@@ -55,9 +55,9 @@ All services/apps have these scripts:
 **Note**: For the `@karmyq/tests` package, explicit path patterns are required:
 ```json
 {
-  "test:unit": "jest --testPathPattern=unit/ --passWithNoTests",
-  "test:regression": "jest --testPathPattern=regression/ --passWithNoTests",
-  "test:tdd": "jest --testPathPattern=tdd/ --passWithNoTests"
+  "test:unit": "jest --testPathPatterns=unit/ --passWithNoTests",
+  "test:regression": "jest --testPathPatterns=regression/ --passWithNoTests",
+  "test:tdd": "jest --testPathPatterns=tdd/ --passWithNoTests"
 }
 ```
 
@@ -215,7 +215,7 @@ fi
    - Moved existing tests to `tdd/` (need work)
 
 3. **Tests Package** (`tests/package.json`):
-   - Uses `--testPathPattern` for explicit filtering
+   - Uses `--testPathPatterns` for explicit filtering
    - Required due to Jest path resolution issues
 
 4. **Root** (`package.json`):
@@ -352,5 +352,13 @@ The framework has been validated by successful pushes with all unit + regression
 ---
 
 ## Implementation History
+
+**2026-08-04 (Sprint 122 PR 4)**: jest 29 → 30 across all 14 jest-bearing workspaces. The
+`@karmyq/tests` scoping flag was renamed by jest 30 — `--testPathPattern` → **`--testPathPatterns`**
+(plural); the script examples above use the new spelling. The old one exits 1 rather than being
+ignored. Also: `jest` is now **declared** by every workspace that runs it (`apps/landing`,
+`cleanup-service`, `geocoding-service` and `simulation-service` had been relying on root hoisting),
+and `tests/regression/sprint-122-jest-toolchain-gate.test.ts` blocks re-drift of the declaration,
+version-major and CLI-flag invariants. See ADR-089 for the related ts-jest type-resolution decision.
 
 **2026-05-06 (Sprint 53)**: Coverage enforcement gap closed. Removed `passWithNoTests: true` from cleanup-service and raised community-service threshold from 0% to 60% (scoped to `src/services/` — DB-dependent routes excluded). All four critical-path services (cleanup-service, auth-service, feed-service, community-service) now have meaningful unit tests. Total new tests: 32 across 5 new test files.

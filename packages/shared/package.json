@@ -49,21 +49,9 @@
       "types": "./dist/constants/config.d.ts",
       "default": "./dist/constants/config.js"
     },
-    "./api/client": {
-      "types": "./dist/api/client.d.ts",
-      "default": "./dist/api/client.js"
-    },
-    "./api/mobile-storage": {
-      "types": "./dist/api/mobile-storage.d.ts",
-      "default": "./dist/api/mobile-storage.js"
-    },
     "./events/publisher": {
       "types": "./dist/events/publisher.d.ts",
       "default": "./dist/events/publisher.js"
-    },
-    "./api/web-storage": {
-      "types": "./dist/api/web-storage.d.ts",
-      "default": "./dist/api/web-storage.js"
     },
     "./matching": {
       "types": "./dist/src/matching/index.d.ts",
@@ -98,6 +86,68 @@
       "default": "./dist/src/projections/completedExchange.js"
     }
   },
+  "//typesVersions": "Sprint 122 PR 4 (ADR-089) — typesVersions mirrors the exports map above, pointing at each subpath SOURCE file (enforced by src/__tests__/exportsTypesVersionsParity.test.ts). ts-jest forces moduleResolution:node10 whenever it forces module:commonjs — in EVERY 29.x — and node10 does not read exports maps, so without this every consumer test importing a @karmyq/shared subpath fails with TS2307. It points at SOURCE rather than dist deliberately: consumers on moduleResolution:node already resolved these subpaths to source, and CI type-checks them WITHOUT building shared, so a dist-pointing map breaks Lint & Type Check. Affects TYPE resolution only — Node still resolves exports to dist at runtime.",
+  "typesVersions": {
+    "*": {
+      "utils/logger": [
+        "utils/logger.ts"
+      ],
+      "utils/response": [
+        "utils/response.ts"
+      ],
+      "middleware": [
+        "middleware/index.ts"
+      ],
+      "middleware/auth": [
+        "middleware/auth.ts"
+      ],
+      "middleware/dbContext": [
+        "middleware/dbContext.ts"
+      ],
+      "middleware/rateLimit": [
+        "middleware/rateLimit.ts"
+      ],
+      "middleware/tenant": [
+        "middleware/tenant.ts"
+      ],
+      "middleware/validate": [
+        "middleware/validate.ts"
+      ],
+      "types": [
+        "types/index.ts"
+      ],
+      "constants/config": [
+        "constants/config.ts"
+      ],
+      "events/publisher": [
+        "events/publisher.ts"
+      ],
+      "matching": [
+        "src/matching/index.ts"
+      ],
+      "matching/types": [
+        "src/matching/types.ts"
+      ],
+      "schemas/requests": [
+        "src/schemas/requests/index.ts"
+      ],
+      "schemas/ui": [
+        "src/schemas/ui/index.ts"
+      ],
+      "schemas/providers": [
+        "src/schemas/providers/index.ts"
+      ],
+      "schemas/reputation-disclosure": [
+        "src/schemas/reputationDisclosure.ts"
+      ],
+      "trust/decayTier": [
+        "src/trust/decayTier.ts"
+      ],
+      "projections/completed-exchange": [
+        "src/projections/completedExchange.ts"
+      ]
+    }
+  },
   "scripts": {
     "build": "tsc",
     "type-check": "tsc --noEmit",
@@ -110,16 +160,16 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@jest/globals": "^29.7.0",
+    "@jest/globals": "^30.4.1",
     "@types/express": "^5.0.6",
-    "@types/jest": "^29.5.11",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.10.0",
     "@types/pg": "^8.10.9",
     "@types/supertest": "^7.2.0",
     "@types/uuid": "^11.0.0",
-    "jest": "^29.7.0",
+    "jest": "^30.4.2",
     "supertest": "^7.2.2",
-    "ts-jest": "^29.1.1"
+    "ts-jest": "^29.4.12"
   },
   "peerDependencies": {
     "express": "^5.0.0"
