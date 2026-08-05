@@ -65,16 +65,27 @@ describe('@karmyq/shared: typesVersions mirrors exports', () => {
     strip(typesPath).replace(/^dist\//, '').replace(/\.d\.ts$/, '.ts');
 
   it('maps exactly the exports subpaths, each to the SOURCE its types file is built from', () => {
-    const expected: Record<string, string[]> = {};
-    for (const [subpath, entry] of Object.entries(exp)) {
+    // Compared as sorted entry PAIRS, not by building an object with computed
+    // property names. `expected[subpath] = ...` is a write whose key comes from
+    // parsed JSON, which CodeQL correctly flags as js/remote-property-injection
+    // (high) — a subpath literally named `__proto__` would pollute the object
+    // rather than be recorded, and the comparison would silently weaken.
+    // Pairs carry the same whole-map equality with no prototype surface at all.
+    //
+    // Worth not rationalising away as "it's only a test": PR 2 waved past a
+    // CodeQL js/command-line-injection finding on the same reasoning and it was
+    // a real defect.
+    const expected = Object.entries(exp)
       // '.' is the package root, covered by top-level `types`, not typesVersions.
-      if (subpath === '.') continue;
-      expected[strip(subpath)] = [sourceOf(entry.types)];
-    }
+      .filter(([subpath]) => subpath !== '.')
+      .map(([subpath, entry]) => [strip(subpath), [sourceOf(entry.types)]] as const)
+      .sort(([a], [b]) => a.localeCompare(b));
 
-    // Whole-map equality: catches a missing subpath, an extra one, AND a
-    // subpath pointed at the wrong file.
-    expect(typesVersions['*']).toEqual(expected);
+    const actual = Object.entries(typesVersions['*']).sort(([a], [b]) => a.localeCompare(b));
+
+    // Catches a missing subpath, an extra one, AND a subpath pointed at the
+    // wrong file.
+    expect(actual).toEqual(expected);
   });
 
   it('the root export is covered by the top-level "types" field', () => {
