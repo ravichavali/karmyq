@@ -65,7 +65,32 @@ The map is **derived from `exports` and parity-enforced**: its committed form is
 `packages/shared/src/__tests__/exportsTypesVersionsParity.test.ts` asserts whole-map equality
 against `exports` plus on-disk existence of every file both maps name. There is deliberately no
 build-time generator — the test is the mechanism that keeps them identical, and it fails on a
-missing subpath, an extra one, or a subpath pointed at the wrong declaration file.
+missing subpath, an extra one, or a subpath pointed at the wrong file.
+
+### `typesVersions` points at SOURCE, not `dist` — this matters
+
+Each entry maps a subpath to the **`.ts` source** its declaration is built from
+(`matching/types` → `src/matching/types.ts`), not to `dist/**/*.d.ts`.
+
+The first version of this ADR pointed at `dist`, and CI rejected it: `Lint & Type Check` runs
+`tsc --noEmit` on consumers **without building `packages/shared` first**, and
+`services/auth-service` failed with 13 × `TS2307`. Consumers on `moduleResolution: node` had always
+resolved these subpaths by plain directory traversal straight to shared's source; `typesVersions`
+takes precedence over that traversal, so pointing it at an unbuilt `dist` broke resolution that had
+previously worked with no build at all.
+
+That is also the asymmetry that made the original ts-jest bug look selective: the flat-layout
+subpaths (`utils/`, `middleware/`) have source at the path the specifier implies, so node10 found
+them; the `src/`-nested ones (`matching/types`, `schemas/ui`) do not, so node10 failed only there.
+
+Pointing at source removes the build dependency from **type** resolution entirely — a consumer
+type-checks identically whether or not shared has been built. `exports` still points at `dist` for
+**runtime**, which is correct and unchanged.
+
+⚠️ **The parity gate could not have caught this.** It lives in `packages/shared`, whose
+`test` task dependsOn its own `build`, so `dist/` always exists in that suite — the gate's own
+build guarantee hid a property about what *other* workspaces see. It now asserts source existence
+explicitly, and carries an injection for the dist-pointing regression itself.
 
 ### Rejected alternatives
 

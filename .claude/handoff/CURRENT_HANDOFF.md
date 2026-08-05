@@ -17,9 +17,34 @@
 > | `npm audit` | ✅ **0 vulnerabilities**, both installed-tree and `--package-lock-only` (the ADR-059 gate form). **Re-run again immediately before merge** — advisories publish mid-flight. |
 > | `npm ci --dry-run`, version sites | ✅ Clean; `package.json` = lock `.version` = lock `.packages[""]` = **11.39.0** |
 > | `tsc --noEmit` | ✅ Clean in every workspace except pre-existing `apps/landing` and `tests/e2e` errors — see "Noted, not fixed here" |
-> | **CI** | ⛔️ **NEVER RUN.** Local `npm ci` passing proves nothing about CI on Windows — that bit PR 3 for five jobs at once. |
-> | **PR** | ⛔️ **NOT OPENED** |
-> | **Merge** | ⛔️ Not authorized, not requested |
+> | **CI** | 🔴 **First run was RED — see below.** Local green proves nothing about CI; that bit PR 3 for five jobs at once and it bit again here. |
+> | **PR** | ✅ **#191 open** |
+> | **Merge** | ⛔️ Not authorized |
+>
+> ### 🔴 CI caught a real regression local runs structurally could not
+>
+> `Lint & Type Check` failed: `services/auth-service` threw **13 × TS2307** on
+> `@karmyq/shared/utils/logger`, `/middleware`, `/utils/response`.
+>
+> **Cause:** `typesVersions` originally pointed at `dist/**/*.d.ts`. CI's type-check job runs
+> `tsc --noEmit` on consumers **without building `packages/shared`**. Consumers on
+> `moduleResolution: node` had always resolved those subpaths by directory traversal straight to
+> shared's **source**; `typesVersions` takes precedence over that traversal, so an unbuilt `dist`
+> broke resolution that previously needed no build. **Local runs passed only because a stale
+> `dist/` was present.**
+>
+> **Fix:** `typesVersions` now points at **source `.ts`**, removing the build dependency from type
+> resolution entirely. Verified with `dist` deleted: all four CI type-check workspaces pass.
+>
+> ⚠️ **The parity gate could not have caught this** — it runs in `packages/shared`, whose `test`
+> dependsOn its own `build`, so `dist/` always exists there. A gate's own build guarantee can hide
+> the property it is meant to protect when that property is about what *other* workspaces see.
+>
+> **`CodeQL` also failed (4s, "1 new alert including 1 high severity") and is UNEXPLAINED.** No
+> alert exists against the PR ref in any state; the three open repo alerts are pre-existing
+> `js/log-injection` mediums on master; `Analyze (javascript-typescript)` passed in 1m55s and the
+> ADR-060 gate passed. **Do not dismiss it as a false positive without evidence** — re-check on the
+> next run.
 >
 > ⚠️ **The `tests` regression tier needs network.** In a sandboxed/offline run the audit gate fails
 > spuriously (15/16 suites, 258/259) while everything else passes. That is an environment artifact,

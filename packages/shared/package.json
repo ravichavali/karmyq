@@ -86,65 +86,65 @@
       "default": "./dist/src/projections/completedExchange.js"
     }
   },
-  "//typesVersions": "Sprint 122 PR 4 (ADR-089) — typesVersions MIRRORS the exports map above and must stay in lockstep with it (enforced by src/__tests__/exportsTypesVersionsParity.test.ts). ts-jest forces moduleResolution:node10 whenever it forces module:commonjs — in EVERY 29.x — and node10 does not read exports maps, so without this every consumer test importing a @karmyq/shared subpath fails with TS2307. Node itself still resolves via exports at runtime; this affects TYPE resolution only.",
+  "//typesVersions": "Sprint 122 PR 4 (ADR-089) — typesVersions mirrors the exports map above, pointing at each subpath SOURCE file (enforced by src/__tests__/exportsTypesVersionsParity.test.ts). ts-jest forces moduleResolution:node10 whenever it forces module:commonjs — in EVERY 29.x — and node10 does not read exports maps, so without this every consumer test importing a @karmyq/shared subpath fails with TS2307. It points at SOURCE rather than dist deliberately: consumers on moduleResolution:node already resolved these subpaths to source, and CI type-checks them WITHOUT building shared, so a dist-pointing map breaks Lint & Type Check. Affects TYPE resolution only — Node still resolves exports to dist at runtime.",
   "typesVersions": {
     "*": {
       "utils/logger": [
-        "dist/utils/logger.d.ts"
+        "utils/logger.ts"
       ],
       "utils/response": [
-        "dist/utils/response.d.ts"
+        "utils/response.ts"
       ],
       "middleware": [
-        "dist/middleware/index.d.ts"
+        "middleware/index.ts"
       ],
       "middleware/auth": [
-        "dist/middleware/auth.d.ts"
+        "middleware/auth.ts"
       ],
       "middleware/dbContext": [
-        "dist/middleware/dbContext.d.ts"
+        "middleware/dbContext.ts"
       ],
       "middleware/rateLimit": [
-        "dist/middleware/rateLimit.d.ts"
+        "middleware/rateLimit.ts"
       ],
       "middleware/tenant": [
-        "dist/middleware/tenant.d.ts"
+        "middleware/tenant.ts"
       ],
       "middleware/validate": [
-        "dist/middleware/validate.d.ts"
+        "middleware/validate.ts"
       ],
       "types": [
-        "dist/types/index.d.ts"
+        "types/index.ts"
       ],
       "constants/config": [
-        "dist/constants/config.d.ts"
+        "constants/config.ts"
       ],
       "events/publisher": [
-        "dist/events/publisher.d.ts"
+        "events/publisher.ts"
       ],
       "matching": [
-        "dist/src/matching/index.d.ts"
+        "src/matching/index.ts"
       ],
       "matching/types": [
-        "dist/src/matching/types.d.ts"
+        "src/matching/types.ts"
       ],
       "schemas/requests": [
-        "dist/src/schemas/requests/index.d.ts"
+        "src/schemas/requests/index.ts"
       ],
       "schemas/ui": [
-        "dist/src/schemas/ui/index.d.ts"
+        "src/schemas/ui/index.ts"
       ],
       "schemas/providers": [
-        "dist/src/schemas/providers/index.d.ts"
+        "src/schemas/providers/index.ts"
       ],
       "schemas/reputation-disclosure": [
-        "dist/src/schemas/reputationDisclosure.d.ts"
+        "src/schemas/reputationDisclosure.ts"
       ],
       "trust/decayTier": [
-        "dist/src/trust/decayTier.d.ts"
+        "src/trust/decayTier.ts"
       ],
       "projections/completed-exchange": [
-        "dist/src/projections/completedExchange.d.ts"
+        "src/projections/completedExchange.ts"
       ]
     }
   },

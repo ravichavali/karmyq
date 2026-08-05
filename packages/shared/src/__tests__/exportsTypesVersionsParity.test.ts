@@ -21,11 +21,16 @@ import { join } from 'path';
  *
  * THE INVARIANT
  *
- * Every `exports` subpath has a `typesVersions` entry pointing at the SAME
- * declaration file, and vice versa. A new subpath added to `exports` alone
- * compiles fine for the app (Node reads `exports`) and fails only in a
- * consumer's ts-jest run — a slow, confusing failure this gate turns into an
- * immediate one.
+ * Every `exports` subpath has a `typesVersions` entry pointing at the SOURCE
+ * file its declaration is built from, and vice versa. A new subpath added to
+ * `exports` alone compiles fine for the app (Node reads `exports`) and fails
+ * only in a consumer's ts-jest run — a slow, confusing failure this gate turns
+ * into an immediate one.
+ *
+ * `typesVersions` points at SOURCE, not `dist`, so that type resolution never
+ * depends on whether shared has been built. Pointing it at `dist` broke CI's
+ * `Lint & Type Check` job, which type-checks consumers without building shared;
+ * see the "WITHOUT needing a build" case below.
  *
  * Deliberately an EQUALITY of the whole map, not a per-key containment check:
  * containment would let `typesVersions` point a subpath at the wrong `.d.ts`
@@ -55,16 +60,20 @@ describe('@karmyq/shared: typesVersions mirrors exports', () => {
     expect(Object.keys(exp).length).toBeGreaterThan(1);
   });
 
-  it('maps exactly the exports subpaths, each to the exports entry\'s own types file', () => {
+  /** `./dist/src/matching/types.d.ts` -> `src/matching/types.ts`. */
+  const sourceOf = (typesPath: string) =>
+    strip(typesPath).replace(/^dist\//, '').replace(/\.d\.ts$/, '.ts');
+
+  it('maps exactly the exports subpaths, each to the SOURCE its types file is built from', () => {
     const expected: Record<string, string[]> = {};
     for (const [subpath, entry] of Object.entries(exp)) {
       // '.' is the package root, covered by top-level `types`, not typesVersions.
       if (subpath === '.') continue;
-      expected[strip(subpath)] = [strip(entry.types)];
+      expected[strip(subpath)] = [sourceOf(entry.types)];
     }
 
     // Whole-map equality: catches a missing subpath, an extra one, AND a
-    // subpath pointed at the wrong declaration file.
+    // subpath pointed at the wrong file.
     expect(typesVersions['*']).toEqual(expected);
   });
 
@@ -72,13 +81,34 @@ describe('@karmyq/shared: typesVersions mirrors exports', () => {
     expect(strip(pkg.types)).toBe(strip(exp['.'].types));
   });
 
-  it('every declaration file the maps point at exists on disk', () => {
-    // packages/shared#test dependsOn packages/shared#build (turbo.json), so
-    // dist/ is guaranteed here. A missing file means the build layout moved
-    // and both maps are now lying.
+  it('every source file typesVersions points at exists — WITHOUT needing a build', () => {
+    // This is the assertion that matters most, and it is deliberately about
+    // SOURCE rather than `dist`.
+    //
+    // typesVersions originally pointed at `dist/**/*.d.ts`. That passed here
+    // (packages/shared#test dependsOn packages/shared#build, so dist always
+    // exists in this suite) while breaking CI's `Lint & Type Check` job, which
+    // runs `tsc --noEmit` on consumers WITHOUT building shared first. Consumers
+    // on `moduleResolution: node` had always resolved these subpaths straight
+    // to shared's source; typesVersions silently redirected them at dist and
+    // they got TS2307.
+    //
+    // Pointing at source removes the build dependency from TYPE resolution
+    // entirely, so a consumer type-checks identically built or not. Note this
+    // suite could never have caught that on its own — the property is about
+    // what other workspaces see, and this gate's own build guarantee hid it.
     const missing = Object.values(typesVersions['*'])
       .flat()
-      .concat(strip(exp['.'].types))
+      .filter((rel) => !existsSync(join(PKG_DIR, rel)));
+
+    expect(missing).toEqual([]);
+  });
+
+  it('every declaration file the exports map names exists on disk', () => {
+    // Build-dependent, and legitimately so: `exports` drives RUNTIME resolution
+    // and runtime genuinely needs dist. Guaranteed here by test-dependsOn-build.
+    const missing = Object.values(exp)
+      .map((e) => strip(e.types))
       .filter((rel) => !existsSync(join(PKG_DIR, rel)));
 
     expect(missing).toEqual([]);
