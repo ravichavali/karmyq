@@ -140,19 +140,21 @@ Get all messages in a conversation (paginated).
 ```json
 {
   "success": true,
-  "data": {
-    "messages": [
-      {
-        "id": "msg-uuid",
-        "sender_id": "user-uuid",
-        "sender_name": "Alice Smith",
-        "content": "Hello!",
-        "status": "read",
-        "created_at": "2025-01-10T12:00:00Z"
-      }
-    ],
-    "total": 45
-  }
+  "data": [
+    {
+      "id": "msg-uuid",
+      "conversation_id": "conversation-uuid",
+      "sender_id": "user-uuid",
+      "sender": {
+        "id": "user-uuid",
+        "name": "Alice Smith",
+        "email": "alice@example.com"
+      },
+      "content": "Hello!",
+      "status": "sent",
+      "created_at": "2025-01-10T12:00:00Z"
+    }
+  ]
 }
 ```
 
@@ -162,14 +164,13 @@ Create new conversation (usually auto-created when match occurs).
 **Request:**
 ```json
 {
-  "request_match_id": "match-uuid",
+  "match_id": "match-uuid",
   "participant_ids": ["user-1-uuid", "user-2-uuid"]
 }
 ```
 
 ### POST /conversations/:conversationId/messages
-Send a message to a conversation over REST. The realtime path is the `send_message`
-socket event above, which is the one that publishes to Redis for cross-instance delivery.
+Send a message to a conversation over REST; the realtime `send_message` socket event above is the path that publishes to Redis for cross-instance delivery.
 
 ### GET /match/:matchId
 Get the conversation for a request match.

@@ -1,4 +1,58 @@
-# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 5 SHIPPED · PR 6 (zustand) IS NEXT
+# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 6 (zustand) IN PROGRESS
+
+> ## 🚧 PR 6 STATUS (2026-08-05): branch `agent/codex/sprint-122-pr6-zustand5` · v11.41.0
+>
+> Dependabot target is still **#172**, proposing Zustand 4.5.7 → 5.0.14. The dependency is mobile
+> only: one declaration (`apps/mobile/package.json`) and one importer (`apps/mobile/store/auth.ts`).
+> The importer already uses v5's supported named `create` export and uses no default import,
+> `createWithEqualityFn`, `useStore`, or custom equality function, so source tracing found no
+> store-code migration to make.
+>
+> **Verified after materializing the lock with `npm ci`:** installed Zustand is 5.0.14;
+> `engines.node` is `>=12.20.0` (below the enforced Node 24 floor); the real bound-store runtime
+> API updates and reads state; mobile `tsc --noEmit` passes; mobile Jest is 1/1 suite, 2/2 tests;
+> and the runtime-floor gate is 12/12. All three version sites read 11.41.0.
+>
+> **Known baseline, not caused here:** `npx expo install --check` is red because Expo 57 recommends
+> Jest 29 while Sprint 122 PR 4 deliberately shipped Jest 30. It reports no Zustand mismatch.
+>
+> **Review finding fixed:** the PR 5 endpoint correction had not updated the canonical service
+> registry. `services/registry.json` now names all seven real messaging REST method/path pairs with
+> exact `:conversationId`/`:matchId` parameters, and the generated landing service catalog was
+> refreshed. The entries were traced against `src/routes/messages.ts`, the `'/'` mount in
+> `src/index.ts`, and nginx's `/api/conversations` + `/api/match` forwarding rules.
+> Independent review then found two more stale payload claims: `POST /conversations` documented
+> `request_match_id` instead of the route's required `match_id`, and the message-list response was
+> shown as `{messages,total}` with `sender_name` instead of the runtime's flat array with nested
+> `sender`. Both are corrected and regenerated; a follow-up review found no remaining issue.
+>
+> **Full local gate:** `npm test` is red only in the documented Windows Turbo shape after 319s.
+> Mobile itself stayed green. The affected workspaces pass directly and sequentially: community
+> 13 suites / 131 tests; auth 9 suites / 62 tests. A too-broad diagnostic `npx jest` also selected
+> community's DB-backed TDD tier and failed without PostgreSQL; that is not a blocking-tier result.
+>
+> **Review gates:** calibrated simplify fixed a misplaced mobile-doc heading and surfaced the
+> registry omission; independent code review found the two payload-contract errors above plus a
+> one-line landing-extraction truncation, all fixed and clean on follow-up; security review found no
+> executable-code or trust-boundary change, no package install scripts, and 0 audit findings.
+>
+> **`feedback:check`:** meaningful staged run exits 0 and requests the standard registry checklist.
+> `analyze:services` ran clean and its graph/impact outputs were reviewed. The suggested
+> `generate-service-context.js` was deliberately **not** run: API paths do not feed that generator,
+> it overwrites all ten service READMEs, and its template still emits the forbidden
+> `communityMemberships` JWT field. Running it would add unrelated incorrect churn.
+>
+> **Install note:** the first `npm ci` exceeded a two-minute tool timeout; the immediate retry hit
+> `ENOTEMPTY` while removing a React Native podspec directory from that interrupted partial tree.
+> A clean retry completed in 208 seconds, added 1706 packages and audited 1725 with 0 vulnerabilities.
+>
+> **Final local evidence before commit:** both audit forms report 0 vulnerabilities; mobile and
+> messaging type-checks pass; mobile Jest is 2/2; doc-context + runtime-floor gates are 17/17;
+> the landing production build generates all 167 static pages; `git diff --cached --check` is clean.
+>
+> **Next:** commit, push, and open the draft PR for authoritative CI. Do not archive Sprint 122
+> until PR 6 is merged and the master deployment is verified. The end-of-sprint methodology review
+> remains mandatory then.
 
 > ## ✅ PR 5 COMPLETE (2026-08-05): merged, deployed and verified live at v11.40.0.
 >

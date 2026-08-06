@@ -14,10 +14,8 @@ React Native + Expo application for iOS and Android.
 │   ├── api.ts        # Base API client
 │   ├── auth.ts       # Auth service
 │   └── feed.ts       # Feed service
-├── store/            # Redux Toolkit store
-│   ├── index.ts      # Store configuration
-│   ├── authSlice.ts  # Auth state
-│   └── feedSlice.ts  # Feed state
+├── store/            # Zustand stores
+│   └── auth.ts       # Auth state and actions
 ├── components/       # Reusable components
 └── constants/        # App constants
 ```
@@ -30,9 +28,15 @@ React Native + Expo application for iOS and Android.
 ## Tech Stack
 - Expo SDK 57 (React Native 0.86)
 - Expo Router (file-based routing)
-- Redux Toolkit for state
+- Zustand 5 for state
 - Axios for API calls
 - React Native Paper (UI components)
+
+## Recent Changes
+
+- Sprint 122 PR 6: upgraded Zustand 4.5.7 → 5.0.14. The sole store already used the supported
+  named `create` export and does not use the removed default-export shim or the
+  `createWithEqualityFn`/custom-equality selector APIs, so no store-code migration was required.
 
 ## Development
 

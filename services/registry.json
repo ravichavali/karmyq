@@ -661,8 +661,41 @@
       },
       "apis": {
         "provides": [
-          "/conversations",
-          "/conversations/:id/messages"
+          {
+            "method": "GET",
+            "path": "/conversations",
+            "description": "List conversations for the authenticated user."
+          },
+          {
+            "method": "POST",
+            "path": "/conversations",
+            "description": "Create or retrieve a conversation for a match after validating the authenticated participant."
+          },
+          {
+            "method": "GET",
+            "path": "/conversations/:conversationId",
+            "description": "Get a conversation after validating the authenticated participant."
+          },
+          {
+            "method": "GET",
+            "path": "/conversations/:conversationId/messages",
+            "description": "List paginated messages for a conversation after validating the authenticated participant."
+          },
+          {
+            "method": "POST",
+            "path": "/conversations/:conversationId/messages",
+            "description": "Send a message to a conversation as the authenticated participant."
+          },
+          {
+            "method": "GET",
+            "path": "/match/:matchId",
+            "description": "Get or create the authenticated participant's conversation for a request match and return its messages."
+          },
+          {
+            "method": "POST",
+            "path": "/match/:matchId/messages",
+            "description": "Send a message to the authenticated participant's conversation for a request match."
+          }
         ],
         "consumes": [
           "/auth/verify"

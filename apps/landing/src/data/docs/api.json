@@ -857,7 +857,7 @@
         {
           "method": "POST",
           "path": "/conversations/:conversationId/messages",
-          "description": "Send a message to a conversation over REST. The realtime path is the `send_message`"
+          "description": "Send a message to a conversation over REST; the realtime `send_message` socket event above is the path that publishes to Redis for cross-instance delivery."
         },
         {
           "method": "GET",
