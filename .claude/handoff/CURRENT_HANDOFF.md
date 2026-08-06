@@ -1,13 +1,45 @@
-# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 6 VERIFIED, AWAITING MERGE AUTHORIZATION
+# Sprint 122 — Dependency Wave + Test-Tier Truth — ALL 6 PRs SHIPPED · 3 CLOSEOUT ITEMS LEFT
 
-> ## 🚧 PR 6 STATUS (2026-08-05): PR #194 ready · head `9bce1cfb` · branch `agent/codex/sprint-122-pr6-zustand5` · v11.41.0
+> ## ✅ PR 6 COMPLETE (2026-08-06): merged, deployed and verified live at v11.41.0.
 >
-> **State:** `MERGEABLE` / `BLOCKED` / `REVIEW_REQUIRED` — blocked **only** on required review.
-> **Merge authorization has NOT been given.** It is the maintainer's to give, every time; an agent
-> cannot self-authorize, and being asked to authorize is not authorization
-> ([[feedback_admin_override_merge_path]]). Nothing is staged to merge.
+> **PR #194 squash-merged** as **`7bfa3471`** at 01:48:01Z, at head `9bce1cfb`. `CI/CD Pipeline` run
+> **31063775099** reached **`Deploy to Demo` = success**, all 7 image builds green, **no rollback**.
+> Master manifest reads **11.41.0**; **ADR-090 is `Implemented` on master** (it rode in on this PR as
+> planned). **All six sprint PRs are shipped.**
 >
-> ### Independent cross-agent verification (Claude, non-author) — every claim re-checked
+> ### Live smoke test — 3/3 real paths (run post-deploy, not inferred from the deploy job)
+>
+> | Leg | Result |
+> |---|---|
+> | Landing | **200**, serves HTML |
+> | **Bodyless `POST /api/auth/login`** (PR 1 regression) | **400 `VALIDATION_ERROR`, not 500** — still fixed |
+> | Wrong password | **401 `UNAUTHORIZED`**, ADR-074 envelope, no stack trace |
+>
+> ⚠️ **`curl` is broken in the Claude sandbox** — it returns `000` with *"libcurl function was given a
+> bad argument"* even against `api.github.com`. A `curl` failure here is **not** evidence the demo is
+> down. Use `node -e` with `fetch`, which works.
+>
+> ### 🔴 THE HANDOFF ALMOST DIDN'T SURVIVE THIS MERGE
+>
+> This file's closeout commit was pushed to `agent/codex/sprint-122-pr6-zustand5` roughly one minute
+> **after** #194 was merged at `9bce1cfb`, so it was **not in the merge** and was stranded on a
+> merged branch. Rescued by cherry-pick onto **`fix/adr-060-gate-pr-head-ref`** (off `origin/master`
+> `7bfa3471`), which is where the remaining work now lives.
+>
+> **Lesson worth keeping:** a handoff that ships *inside* the PR it describes is lost if the merge
+> lands first. When a PR is awaiting merge authorization, either land the handoff before asking, or
+> put it on the follow-up branch from the start. `gh pr view --json mergeable` returning `UNKNOWN` is
+> ambiguous between "recomputing after your push" and "being merged right now" — it meant the latter.
+>
+> ### Dependabot dispositions — ALL TAKEN (verified 2026-08-06)
+>
+> `#169`, `#170`, `#171`, `#172`, `#184`, `#185` are all **CLOSED**. The sprint's "9 open dependency
+> PRs dispositioned" goal is met. **Two new PRs are open and are S123's, not this sprint's:**
+> **#190** (regenerated Expo held bumps — maps/reanimated/safe-area-context/worklets; expected, no
+> ignore rule on purpose, `SDK_PINNED` keeps catching them) and **#192** (dev-deps: `tsx`
+> 4.23.1→4.23.5, `@types/pg`, `@types/semver` — new, unexamined).
+>
+> ### (retained) Independent cross-agent verification of PR 6 before merge
 >
 > | Claim | Verdict |
 > |---|---|
@@ -802,43 +834,58 @@
 > `.claude/handoff/archive/2026-07-29-sprint-121-dependency-backlog-17-OF-18-EXPRESS-CARRIED.md`.
 > **PR 1 (express 4 → 5, v11.36.0, `46b2982c`)** shipped 2026-07-30 and is live.
 
-## Quick Start — SPRINT 122 CLOSEOUT (PR 6 built & verified; 7 items remain)
+## Quick Start — SPRINT 122 CLOSEOUT (all 6 PRs shipped; 3 items remain)
 
-**PR 6 implementation is DONE and independently verified** (block at the top of this file). Nothing
-about zustand needs revisiting. What is left is merge → deploy → disposition → close the sprint.
-Work these in order; 1–3 are a single sitting, 4–7 close the sprint.
+**You are on branch `fix/adr-060-gate-pr-head-ref`, cut from `origin/master` `7bfa3471`.** It already
+carries this handoff (rescued from the merged PR 6 branch). Everything below is **not started**;
+the branch has no code changes yet. Do the work in this order — item 1 is the PR, items 2–3 close
+the sprint and ride the same PR (**no docs-only master push**).
 
-1. **Re-verify the head, then ask for merge authorization.**
-   `gh pr checks 194` and confirm `gh pr view 194 --json headRefOid` still reads **`9bce1cfb`**. If
-   the head moved, the CodeQL evidence above is stale — re-run the exact-head query
-   (`gh api "repos/ravichavali/karmyq/code-scanning/analyses?per_page=20"`, match
-   `ref=refs/pull/194/head` + the head SHA). **Do not count the `Code Scanning Gate (ADR-060)` tick
-   as evidence — it abstains on every PR** (finding at the top).
-   Re-run `npm audit` immediately before merging; advisories publish mid-flight.
-2. **Merge only on explicit maintainer authorization** — `gh pr merge --squash --admin`. Expect the
-   Bash form to be blocked by the permission classifier as in PR 5; the **GitHub MCP
-   `merge_pull_request`** tool is the working path (same squash merge).
-3. **Watch the deploy and smoke-test a real path.** Master push = full deploy. Confirm
-   `Deploy to Demo` = success with no rollback, manifest reads **11.41.0**, and hit a **real
-   endpoint** — `POST /api/auth/login`, then `GET /api/conversations`. `/health` is not exposed via
-   nginx. `apps/mobile` is **not deployed**, so this PR cannot regress the demo; the smoke test is
-   confirming the *deploy*, not zustand.
-4. **Take the remaining Dependabot dispositions** (the last of the sprint's "9 PRs" goal):
-   - **#172** — closed by this merge.
-   - **#170** (eslint 10), **#168** (typescript 7), **#171** (@types/node 26) — close with written
-     rationale and **no ignore rule**; they are S123's platform-floor arc in dependency order
-     (@types/node 26 → TS 7 → ESLint 10, now unblocked by ADR-090's Node 24 floor).
-   - **#185**, **#184** — close explaining the *partial* acceptance from PR 3.
-   Then confirm the open-PR count matches the plan of record.
-5. **Fix the ADR-060 gate** (`.github/workflows/ci.yml:126` and `:135`) — or file it into S123 with
-   the trace above. It is a security gate that has never gated. **Whoever fixes it must prove it
-   goes RED on a seeded critical/high finding**; a green run proves nothing, which is the whole
-   lesson. Not started.
-6. **Run the end-of-sprint methodology review** — MANDATORY, agenda below, now carrying PR 4's data,
-   PR 5's five findings, and PR 6's gate finding. The maintainer flagged review-loop cost on
-   2026-08-05; this is the deliverable that answers it.
-7. **Archive Sprint 122** to `.claude/handoff/archive/` and open the S123 handoff. **Only after the
-   deploy is verified** — never before.
+**Version decision needed first:** the plan of record ended at v11.41.0. A gate fix is either
+Sprint 122's epilogue (v11.42.0) or S123 PR 1. **Ask the maintainer which** — it changes whether you
+archive before or after this PR merges.
+
+### 1. Fix the ADR-060 code-scanning gate — the only code work left
+
+**The gate has never blocked a pull request.** [`.github/workflows/ci.yml:126`](../../.github/workflows/ci.yml)
+polls `code-scanning/analyses?ref=${{ github.ref }}&sha=${{ github.sha }}`. On a `pull_request` run
+(`ci.yml:6`) `github.ref` is `refs/pull/N/merge` and `github.sha` is the **merge commit**; CodeQL
+default setup publishes to `refs/pull/N/head`. The query can never match → 10 attempts → `exit 0`.
+`ci.yml:135`'s alerts query has the same defect, so past the fail-open the critical/high count is a
+vacuous 0. **Confirmed live on #194:** the gate polled `fdd2a49c`, whose parents are `5c75dfcc`
+(master) + `9bce1cfb` (head).
+
+- **On `push` events the gate DOES work** (`github.ref` = `refs/heads/master`, `github.sha` = the
+  real commit). Only the PR path is inert — which is the path that matters, since it is what is
+  supposed to stop a finding *before* master.
+- Likely fix: `github.event.pull_request.head.sha` and `refs/pull/${{ github.event.number }}/head`
+  on PR events, falling back to `github.ref`/`github.sha` on push. **Unverified.**
+- 🔴 **The fix is not done until it goes RED on a seeded critical/high finding.** A green run is
+  exactly the observation that cannot distinguish a working gate from an inert one — that is the
+  whole lesson, and shipping this fix proven only by a green run would repeat the defect it fixes.
+  Consider a regression test asserting the workflow's ref/sha expressions, so the next edit can't
+  silently reintroduce it.
+- Fail-open on a genuinely missing analysis may still be right; **fail-open on a query that can
+  never match is not.** Decide deliberately and write the reason into the ADR.
+- **ADR-060 needs updating** — its gate description no longer matches reality. Docs feedback loop:
+  ADR + `docs/adr/README.md` index + landing `concepts/adr-060-*.json`.
+
+### 2. Run the end-of-sprint methodology review — MANDATORY
+
+Agenda is below in this file, now carrying **PR 4's data, PR 5's five findings, and PR 6's gate
+finding**. The maintainer flagged review-loop cost on 2026-08-05; this is the deliverable that
+answers it. PR 6's own numbers: **0 implementation defects, ~2 review rounds, 1 CI round** — down
+from PR 4's ~5 and 2 — while finding the most serious defect of the sprint.
+
+### 3. Archive Sprint 122 and open the S123 handoff
+
+Move this file to `.claude/handoff/archive/2026-08-06-sprint-122-dependency-wave-test-truth.md`.
+All six PRs are shipped and the deploy is verified, so nothing blocks the archive except the
+version decision above.
+
+**S123 candidates, already evidenced:** the platform-floor arc (@types/node 26 → TS 7 → ESLint 10,
+unblocked by ADR-090) · **#190** regenerated Expo held bumps · **#192** dev-deps (`tsx`,
+`@types/pg`, `@types/semver`, unexamined) · the carried debt below.
 
 ### Carried debt that does NOT block closeout
 
@@ -853,9 +900,9 @@ Work these in order; 1–3 are a single sitting, 4–7 close the sprint.
 
 ### ⚠️ Do not re-litigate these
 
-- Branch is deliberately off **`docs/sprint-122-pr5-shipped`**, not `origin/master`. It carries
-  ADR-090 `Proposed` → `Implemented` and PR 5's endpoint corrections, which must ride a code PR
-  because **a docs-only master push triggers a full deploy → demo 502s**.
+- **Zustand 5 is done and live.** One line, one importer (`apps/mobile/store/auth.ts`), verified
+  against the shipped source. Nothing about it needs revisiting.
+- **ADR-090 is already `Implemented` on master** — it rode in on PR 6. Do not flip it again.
 - `generate-service-context.js` was deliberately **not** run: it overwrites all ten service READMEs
   and its template still emits the forbidden `communityMemberships` JWT field.
 - `npx expo install --check` is red because Expo 57 recommends Jest 29 while PR 4 deliberately
@@ -892,7 +939,7 @@ PRs — 6 merged and deployed, 3 closed with written rationale.
 | **3** | consolidated safe groups + 6 advisory fixes + Expo drift job | **#185**, **#184** (was #179/#178) | v11.38.0 | ✅ **SHIPPED** `5fa203ce`, deployed, smoke-tested |
 | **4** | jest 29 → 30 + **ts-jest unpinned** + **ADR-089** | #173 ✅, #189 (ts-jest half) ✅ | **v11.39.0** | ✅ **SHIPPED** `c3d623b2`, deployed, smoke-tested |
 | **5** | redis 4 → 6 **+ runtime floor Node 24** + **ADR-090** | #169 | v11.40.0 | ✅ **SHIPPED** `5c75dfcc`, deployed, smoke-tested |
-| **6** | zustand 4 → 5 (mobile only) | #172 | v11.41.0 | 🚧 **PR #194 OPEN, built + verified, CI green — awaiting explicit merge auth** |
+| **6** | zustand 4 → 5 (mobile only) | #172 ✅ | v11.41.0 | ✅ **SHIPPED** `7bfa3471`, deployed, smoke-tested |
 | — | closed with rationale, **no ignore rule** | #170 eslint 10, #168 typescript 7, #171 @types/node 26 | — | planned |
 
 **⚠️ Grouped Dependabot PR numbers churn** — match on *what a PR bumps*, not its number, and
