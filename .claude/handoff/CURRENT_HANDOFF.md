@@ -1,6 +1,6 @@
 # Sprint 122 — Dependency Wave + Test-Tier Truth — PR 6 (zustand) IN PROGRESS
 
-> ## 🚧 PR 6 STATUS (2026-08-05): branch `agent/codex/sprint-122-pr6-zustand5` · v11.41.0
+> ## 🚧 PR 6 STATUS (2026-08-05): draft PR #194 · branch `agent/codex/sprint-122-pr6-zustand5` · v11.41.0
 >
 > Dependabot target is still **#172**, proposing Zustand 4.5.7 → 5.0.14. The dependency is mobile
 > only: one declaration (`apps/mobile/package.json`) and one importer (`apps/mobile/store/auth.ts`).
@@ -50,9 +50,9 @@
 > messaging type-checks pass; mobile Jest is 2/2; doc-context + runtime-floor gates are 17/17;
 > the landing production build generates all 167 static pages; `git diff --cached --check` is clean.
 >
-> **Next:** commit, push, and open the draft PR for authoritative CI. Do not archive Sprint 122
-> until PR 6 is merged and the master deployment is verified. The end-of-sprint methodology review
-> remains mandatory then.
+> **Next:** watch authoritative CI on draft PR #194, resolve real failures, and make it
+> merge-ready. Do not archive Sprint 122 until PR 6 is merged and the master deployment is verified.
+> The end-of-sprint methodology review remains mandatory then.
 
 > ## ✅ PR 5 COMPLETE (2026-08-05): merged, deployed and verified live at v11.40.0.
 >
