@@ -895,10 +895,30 @@ and `refs/pull/N/head` — never a `/merge` ref.
   | `/language:javascript-typescript` | 04:01:10Z |
 
   The gate passed **66 seconds before the JavaScript analysis existed**. A late JS high/critical
-  would have escaped. Fixed on this branch: readiness now requires **every** category from the live
-  `default-setup` config, and API errors no longer masquerade as "no analysis" (they exit 1 rather
-  than fail open). This is the same defect class the sprint keeps producing — I verified the
-  *mechanism* and then over-claimed the *conclusion* from a single green run.
+  would have escaped. Fixed on this branch: readiness now requires **every** category the default
+  branch publishes, and API errors no longer masquerade as "no analysis" (they exit 1 rather than
+  fail open). This is the same defect class the sprint keeps producing — I verified the *mechanism*
+  and then over-claimed the *conclusion* from a single green run.
+
+- 🔴 **The first attempt at that fix broke the gate outright**, and CI caught it in 4 seconds. It
+  read the required categories from `code-scanning/default-setup`, which needs admin rights and
+  returns **403 `Resource not accessible by integration`** to this job's `security-events: read`
+  token; the new refuse-to-fail-open logic then hard-failed every run. The arbiter is now the
+  categories the **default branch actually publishes** (`analyses?ref=refs/heads/$DEFAULT_BRANCH`),
+  readable with the permission the job already holds.
+
+  ⚠️ **The 19 unit tests were GREEN while CI 403'd** — they stub `gh`, so a permissions failure is
+  structurally invisible to them. Recorded in ADR-060 §6b. When touching this gate, a real CI run
+  is the only proof of the permission surface.
+
+- ✅ **Verified live on `ec163073`** (job `92652633124`): the gate enumerated
+  `Required analysis categories (from master): actions, javascript-typescript`, confirmed
+  `All required analyses present`, then reported clean. Cross-checked independently against the API
+  — both categories exist for that sha (`actions` 14:38:21Z, `javascript-typescript` 14:39:54Z).
+
+  **Not yet exercised live:** the *waiting* path (both analyses were already published when the job
+  started, so no `Waiting for analyses` line appears) and the API-error paths. Those are covered by
+  the regression suite only.
 
 ### Item 2 — the methodology review is ADR-091
 
