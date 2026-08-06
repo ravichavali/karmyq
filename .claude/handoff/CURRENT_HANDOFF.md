@@ -1,4 +1,49 @@
-# Sprint 122 — Dependency Wave + Test-Tier Truth — ALL 6 PRs SHIPPED · 3 CLOSEOUT ITEMS LEFT
+# Sprint 122 — Dependency Wave + Test-Tier Truth — epilogue PR #195 OPEN, blocked on a GitHub outage
+
+> ## 🔴 READ FIRST (2026-08-06 22:00Z) — PR #195 is built and unmerged
+>
+> **Do not start new work on this branch, and do not merge #195 without CI green on its head commit.**
+>
+> | | |
+> |---|---|
+> | Branch | `fix/adr-060-gate-pr-head-ref` |
+> | Head | **`74a8e87b`** — no CI has run on it yet |
+> | Version | v11.42.0 (S122 epilogue) |
+> | Blocker | **GitHub Actions Major Outage** since 15:22Z — webhooks throttled, runners not being allocated |
+>
+> **Local verification is complete and green:** 421/421 across 29 suites, ADR-060 gate suite 26/26,
+> guard-hook suite 23/23, `npm audit --audit-level=high` clean, `feedback:check` clean.
+>
+> **On the previous head `13e273b6`, the substantive CI all passed** — ADR-060 gate, Security Audit,
+> backend unit+regression, Lint & Type Check, Integration Tests, Build Landing Page, and 2 of 7
+> Docker image builds. The other 5 image builds sat queued 67+ minutes with no runner; three jobs
+> elsewhere were killed at exactly ~15m with zero failed steps. All outage symptoms, not defects.
+> `actions/runners` `total_count: 0` — the `actions-runner/` directory in the tree is a dead
+> checkout, so there is nothing local to restart.
+>
+> ### What #195 contains
+> ADR-060 gate fix (it had never gated a PR since Sprint 76) · ADR-091 methodology review ·
+> verification countermeasures (CLAUDE.md Discipline 5, `/review-response` skill, dependency guard
+> hook) · a repo-wide `claude.md` audit · js-yaml `4.3.1` for GHSA-5p4m-2wfm-xmqj.
+>
+> ### ⚠️ The gate fooled me four times — read ADR-060 §6, §6b, §6c before touching it
+> 1. Queried the PR **merge** ref; CodeQL publishes to **head** → inert on every PR.
+> 2. Broke the poll on the **first** analysis → passed 66s before javascript-typescript existed.
+> 3. Read required categories from `default-setup` → **403** for the CI token, hard-failing every run.
+> 4. **The API ignores `?sha=`** → readiness was satisfied by an analysis from an *earlier commit on
+>    the same PR*. Caught live: it passed `13e273b6` using `97110ebb`'s analysis while `13e273b6`'s
+>    own JS analysis had been cancelled. Filtering is now client-side on `commit_sha`.
+>
+> Every fix is mutation-checked. **A green gate run proves nothing; watch it go red.**
+>
+> ### Owed before this sprint can close
+> - CI green on head → squash-merge → deploy → real-path smoke test (`POST /api/auth/login`;
+>   `/health` 404s through nginx).
+> - Then: archive S122 → open S123 · flip **ADR-091** to `Implemented`.
+> - `/code-review` was run and all 8 findings fixed; a re-review of `74a8e87b` has **not** happened.
+> - One force-push was authorised by the maintainer to drop an empty commit (2026-08-06). Standing
+>   rule is still **never force-push** — that was a one-off.
+
 
 > ## ✅ PR 6 COMPLETE (2026-08-06): merged, deployed and verified live at v11.41.0.
 >
@@ -833,6 +878,44 @@
 > **SPRINT 121 IS ARCHIVED** to
 > `.claude/handoff/archive/2026-07-29-sprint-121-dependency-backlog-17-OF-18-EXPRESS-CARRIED.md`.
 > **PR 1 (express 4 → 5, v11.36.0, `46b2982c`)** shipped 2026-07-30 and is live.
+
+## 🔵 NEXT CHAT — architecture / product review + seeding review (maintainer, 2026-08-06)
+
+**Agreed direction, not yet scoped.** The maintainer wants a deep review before committing to the
+next build sprint. Two distinct threads; treat them as one review with two halves:
+
+### 1. Architecture & product review — "are we on the right path?"
+Open-ended and deliberately not pre-scoped. Likely inputs: `services/registry.json` (10 services),
+`docs/ARCHITECTURE.md`, the 91 ADRs, the multi-sprint arc below, and the demo itself. Worth asking
+what "right path" means to the maintainer before analysing — product direction, service boundaries,
+and complexity-vs-value are all plausible readings and they lead to different reviews.
+
+Context that bears on it: **five consecutive infrastructure sprints** (117–122 were dependency,
+test-truth and gate work). The arc notes below already flag that "the UX arc is the counterweight".
+
+### 2. Seeding process — the maintainer is **not happy with the data**
+Stated plainly: *"I also want to look at our seeding process. I am not too happy with the data so
+far."* The specific dissatisfaction is **not yet articulated** — get that first rather than
+assuming. Known surfaces:
+
+- `tests/fixtures/` — `consolidatedSeeder.ts`, `realisticDataFactory.ts`, `volumeSeeder.ts`,
+  `timeTravelFactory.ts`, plus generated `.sql`/`.json` sets.
+- `infrastructure/postgres/seed-data.sql` — curated demo data, spliced into the generated
+  `init.sql` by `scripts/regenerate-init-sql.sh` (see [[ADR-087]] one-seed-path).
+- `scripts/seed-*`, `tests/scripts/seed-data.ts`, `simulation/` service.
+
+**Evidence already on file that the data is thin** — do not re-derive:
+- Demo trust graph is sparse: avg ~4.6 connections/user; `maria.reyes@` is the richest view.
+- `maria.reyes@` has **zero conversations**, which is why `redisClient.publish` is still UNPROVEN.
+- `mark-read` has no implementation — `markMessagesAsRead` exists and is never called, so nothing
+  transitions a message to `'read'`. Found by PR 5's smoke test.
+- PR 5's smoke test found **four wrong REST endpoints** in a Critical service's `CONTEXT.md` that no
+  test or gate had caught.
+
+Start with the `sprint-planning` skill only *after* the review has produced findings — this chat is
+diagnosis, not a plan.
+
+---
 
 ## Quick Start — SPRINT 122 CLOSEOUT (all 6 PRs shipped; epilogue BUILT, awaiting review)
 
