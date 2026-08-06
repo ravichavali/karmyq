@@ -49,7 +49,14 @@ mandatory — follow them exactly.
    `git push --no-verify` emergencies only; `SKIP_PREPUSH=1` skips pre-push only.
 4. **Fix forward, not around:** fix the original script, never a workaround copy; ADR if
    architectural.
-5. **Docs feedback loop (MANDATORY):** every behavior change updates docs in the same PR —
+5. **Verify before you assert:** every factual claim you write into a spec, plan, handoff or ADR
+   about this repo — file path, dependency/`peerDependency`, export, endpoint route, engine range,
+   CI gate behavior — is read out of the file FIRST; cite `file:line` for non-obvious ones and mark
+   anything you couldn't check **UNVERIFIED**. A changelog or upgrade guide is a hypothesis;
+   the manifest / `node_modules` / the compiler is evidence. Same rule for gates you write: a check
+   comparing against a hand-written shadow map is **false-green** — query the live arbiter
+   (registry, SDK map, upstream API) at run time and prove the check can actually fail.
+6. **Docs feedback loop (MANDATORY):** every behavior change updates docs in the same PR —
    endpoint/schema/event/dependency → service `CONTEXT.md` + `services/registry.json` (+ migration
    in `infrastructure/postgres/migrations/`); shared-package export → `packages/shared/CONTEXT.md`;
    architectural decision → ADR in `docs/adr/` + its `README.md` index (lifecycle: Proposed →
@@ -172,6 +179,12 @@ a contract — bumping a package in the workspaces that declare it de-hoists it 
 ones that don't, breaking them. Before any bump, cross-check importers against declarers and add
 the missing declarations; never pin to preserve a hoist.
 
+**Dependency edits are surgical.** Never `npm install --workspace`, `npm dedupe`, or a lockfile
+scratch-regen to fix a dependency problem — they rewrite exact pins to ranges and churn unrelated
+packages. Edit `package.json` and splice `package-lock.json` in place, then prove it with strict
+`npm ci`. Never add a root-level production dependency to satisfy an advisory — it lands in every
+service image.
+
 ---
 
 ## Development Commands
@@ -192,6 +205,13 @@ npm scripts (full list in [`package.json`](package.json)):
 when green via `scripts/promote-tdd-tests.js`); `integration/` needs a DB. **New sprint tests
 start in the changed workspace's `tests/tdd/`** (e.g. `services/request-service/tests/tdd/`),
 not root. Infrastructure: `cd infrastructure/docker && docker-compose up -d postgres redis`.
+
+### Windows / Git Bash environment
+This machine is Windows + Git Bash. `curl` flag parsing is unreliable (spurious status `000`),
+`jq` is **not installed**, and PowerShell execution policy blocks dot-sourcing helpers — use
+`node -e` for HTTP probes and JSON parsing instead of `curl`/`jq`. `| tail` masks exit codes.
+Don't attribute a Turbo failure to the first-listed package; read the failing suite name out of
+the raw output.
 
 ---
 
@@ -274,6 +294,11 @@ package names/versions, env-var loading order.
 chosen, a constraint is established, or a sprint completes — never defer to end of session (the
 handoff is the only thing that travels between chats). Trigger phrases: "next sprint",
 "the plan is", "we've agreed". Update status/blockers/next steps at every session end.
+
+**Reconcile the handoff before claiming done.** After any merge, PR open/close, and at session
+end, re-read `CURRENT_HANDOFF.md` end-to-end against real state (`gh pr list`, `git log`, current
+branch). A handoff saying "PR N NEXT / start from master" while PR N is already open or merged is
+a **blocking defect**, not a nice-to-have — fix it before reporting the work complete.
 
 ---
 

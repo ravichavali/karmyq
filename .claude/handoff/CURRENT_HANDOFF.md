@@ -877,6 +877,36 @@ finding**. The maintainer flagged review-loop cost on 2026-08-05; this is the de
 answers it. PR 6's own numbers: **0 implementation defects, ~2 review rounds, 1 CI round** — down
 from PR 4's ~5 and 2 — while finding the most serious defect of the sprint.
 
+**Countermeasures already landed on this branch (2026-08-05)** — a down-payment on the agenda, not
+the review itself. Prompted by the `/insights` report, which independently found the same top
+friction: unverified claims caught in maintainer review rounds.
+
+- **`CLAUDE.md` Discipline 5, "Verify before you assert"** — every repo claim in a spec/plan/handoff
+  is read out of the file first, cited `file:line`, or marked UNVERIFIED; a changelog is a
+  hypothesis. Carries the agenda's own proposed rule (*a mechanism claim must ship with the command
+  that demonstrates it*) and the false-green rule: gates query the live arbiter and must be proven
+  able to fail. Mirrored into `AGENTS.md` Step 4.
+- **`/review-response` skill** (`.claude/skills/review-response/`) — per-finding verify → classify
+  → minimal fix → **prove against the symptom, not the diff**. Directly targets the five
+  human-review-only defects logged above.
+- **Dependency guard hook** (`scripts/dependency-guard-hook.js`, wired PreToolUse/PostToolUse on
+  Bash) — blocks `npm install --workspace`, `npm dedupe`, and lockfile deletion; warns on >60-line
+  lockfile churn. **Proven both ways** by `tests/tdd/dependency-guard-hook.test.ts` (18 cases,
+  green): 8 dangerous forms blocked, 10 legitimate ones — including `npm run --workspace`, `npm ci`,
+  and prose *describing* the blocked commands — allowed. The churn warning fires on a seeded
+  100-line diff and is silent on a 2-line one. Two of its own false-green defects were caught this
+  way: v1 matched its own commit message, v2 misaligned segment indices when `&&` sat inside quotes.
+- **Windows/Git Bash section** in `CLAUDE.md` + `AGENTS.md`, and a **real defect fixed**: the `ship`
+  and `deploy` skills' post-deploy verification was `curl -s https://karmyq.com/health | jq .` —
+  wrong twice over, since `jq` is absent here (`npm run health:check` hard-exits on it) and
+  `/health` 404s through nginx. Both now probe `POST /api/auth/login` via `node`.
+- **Permission allowlist** in `.claude/settings.json` from a 28-transcript scan (`npm view`,
+  `npm audit`, `git fetch`, `gh run watch`, read-only Playwright MCP).
+
+**Still owed to the review:** the round-count/defect-class analysis itself, and whether these
+countermeasures actually move PR 7's numbers. **Note `.claude/settings.local.json` contains
+`Bash(*)`**, which blankets the new narrow Bash rules — worth deciding whether to keep it.
+
 ### 3. Archive Sprint 122 and open the S123 handoff
 
 Move this file to `.claude/handoff/archive/2026-08-06-sprint-122-dependency-wave-test-truth.md`.
