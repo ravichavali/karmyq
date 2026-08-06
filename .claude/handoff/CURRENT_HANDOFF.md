@@ -50,9 +50,13 @@
 > messaging type-checks pass; mobile Jest is 2/2; doc-context + runtime-floor gates are 17/17;
 > the landing production build generates all 167 static pages; `git diff --cached --check` is clean.
 >
-> **Next:** watch authoritative CI on draft PR #194, resolve real failures, and make it
-> merge-ready. Do not archive Sprint 122 until PR 6 is merged and the master deployment is verified.
-> The end-of-sprint methodology review remains mandatory then.
+> **Authoritative CI:** the first full PR run passed all 20 blocking checks; only the PR-only deploy
+> job skipped. Both CodeQL analyses matched the PR head and reported 0 results, independently
+> substantiating the ADR-060 gate. Always re-check the latest head live with `gh pr checks 194`.
+>
+> **Next:** after the handoff-only head is green, mark PR #194 ready and request **explicit** merge
+> authorization. Do not archive Sprint 122 until PR 6 is merged and the master deployment is
+> verified. The end-of-sprint methodology review remains mandatory then.
 
 > ## ✅ PR 5 COMPLETE (2026-08-05): merged, deployed and verified live at v11.40.0.
 >
