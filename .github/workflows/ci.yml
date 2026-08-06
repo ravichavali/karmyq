@@ -140,12 +140,13 @@ jobs:
             exit 0
           fi
           # Severity filtering done in jq (the alerts endpoint's severity filter is unreliable).
-          open=$(gh api "repos/${{ github.repository }}/code-scanning/alerts?ref=$SCAN_REF&state=open&per_page=100" --paginate \
-            --jq '.[] | select(.rule.security_severity_level=="critical" or .rule.security_severity_level=="high") | .number' | wc -l)
-          if [ "$open" -gt 0 ]; then
-            echo "::error::$open open critical/high code-scanning alert(s) — blocking (ADR-060)."
-            gh api "repos/${{ github.repository }}/code-scanning/alerts?ref=$SCAN_REF&state=open&per_page=100" --paginate \
-              --jq '.[] | select(.rule.security_severity_level=="critical" or .rule.security_severity_level=="high") | "  - #\(.number) \(.rule.id) \(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"'
+          # Fetched ONCE: the count and the listing must never be able to disagree, which two
+          # separately-maintained copies of this filter would eventually allow.
+          alerts=$(gh api "repos/${{ github.repository }}/code-scanning/alerts?ref=$SCAN_REF&state=open&per_page=100" --paginate \
+            --jq '.[] | select(.rule.security_severity_level=="critical" or .rule.security_severity_level=="high") | "  - #\(.number) \(.rule.id) \(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"')
+          if [ -n "$alerts" ]; then
+            echo "::error::$(printf '%s\n' "$alerts" | wc -l) open critical/high code-scanning alert(s) — blocking (ADR-060)."
+            printf '%s\n' "$alerts"
             exit 1
           fi
           echo "Code-scanning gate clean: 0 open critical/high (ADR-060)."
