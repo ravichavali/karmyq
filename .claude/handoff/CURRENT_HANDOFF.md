@@ -1,6 +1,67 @@
-# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 6 (zustand) IN PROGRESS
+# Sprint 122 — Dependency Wave + Test-Tier Truth — PR 6 VERIFIED, AWAITING MERGE AUTHORIZATION
 
-> ## 🚧 PR 6 STATUS (2026-08-05): draft PR #194 · branch `agent/codex/sprint-122-pr6-zustand5` · v11.41.0
+> ## 🚧 PR 6 STATUS (2026-08-05): PR #194 ready · head `9bce1cfb` · branch `agent/codex/sprint-122-pr6-zustand5` · v11.41.0
+>
+> **State:** `MERGEABLE` / `BLOCKED` / `REVIEW_REQUIRED` — blocked **only** on required review.
+> **Merge authorization has NOT been given.** It is the maintainer's to give, every time; an agent
+> cannot self-authorize, and being asked to authorize is not authorization
+> ([[feedback_admin_override_merge_path]]). Nothing is staged to merge.
+>
+> ### Independent cross-agent verification (Claude, non-author) — every claim re-checked
+>
+> | Claim | Verdict |
+> |---|---|
+> | Zustand 5.0.14 | ✅ `apps/mobile/package.json` `^5.0.14`; lock resolves `apps/mobile/node_modules/zustand` → **5.0.14** |
+> | No store migration needed | ✅ sole importer `apps/mobile/store/auth.ts:1` uses named `create`; no default import, no `createWithEqualityFn`/`useStore`. Only 2 non-`node_modules` matches repo-wide |
+> | v11.41.0 at all three sites | ✅ root `package.json`, lock `.version`, lock `.packages[""]`. Workspace manifests correctly stay `1.0.0` |
+> | Registry ↔ routes | ✅ all 7 `apis.provides` entries match `services/messaging-service/src/routes/messages.ts` 1:1, methods + `:conversationId`/`:matchId` params |
+> | CI at final head | ✅ 20 pass, `Deploy to Demo` skipping — **but see the gate finding below** |
+> | Exact-head CodeQL | ✅ `9bce1cfb`, both `javascript-typescript` and `actions`, `results_count: 0`, ref `refs/pull/194/head`; check-run annotations 0 on both |
+> | `.github` user files untouched | ✅ still the only untracked entries; absent from the 15-file diff |
+>
+> **The diff contains no executable source at all** — manifests, lock, landing JSON, ADR-090, ADR
+> index, messaging `CONTEXT.md`, `registry.json`, mobile `claude.md`, this handoff. That is what
+> substantiates the security review's "no executable-code or trust-boundary change", independent of
+> the reviewer's own say-so.
+>
+> ### 🔴 THE ADR-060 GATE IS STRUCTURALLY INERT ON EVERY PULL REQUEST — traced to source
+>
+> PR 5 recorded this as a *race* ("the gate gave up before the analyses existed"). **That diagnosis
+> was incomplete.** It is not a timing problem; the gate is querying a ref that can never have an
+> analysis, so it fail-opens on **every** PR run by construction.
+>
+> `.github/workflows/ci.yml:126` polls:
+> `code-scanning/analyses?ref=${{ github.ref }}&sha=${{ github.sha }}`
+>
+> The workflow triggers on `pull_request` (`ci.yml:6`), so on a PR run `github.ref` is
+> **`refs/pull/194/merge`** and `github.sha` is the **merge commit** — confirmed live: the gate's log
+> polls `fdd2a49c…`, and that SHA's parents are `5c75dfcc` (master) + `9bce1cfb` (head), i.e. the
+> merge commit. CodeQL default setup publishes against **`refs/pull/194/head`** at `9bce1cfb`. The
+> two never intersect → `length` is always 0 → 10 attempts → `exit 0`.
+>
+> **`ci.yml:135` has the same defect**: the alerts query also uses `ref=refs/pull/N/merge`, which
+> returns empty, so even past the fail-open the critical/high count would be a vacuous 0.
+>
+> **Consequence: this gate has never blocked a pull request.** Its green tick has carried zero
+> information on every PR of this sprint. The likely fix is to use
+> `github.event.pull_request.head.sha` and `refs/pull/${{ github.event.number }}/head` on PR events
+> — **not yet written, not yet verified.** Prove it by reproduction before believing it, and note it
+> must fail RED on a seeded finding, not merely go green.
+>
+> This is [[feedback_code_scanning_gate_rescan_race]] upgraded from "flaky" to "inert", and it is
+> also a textbook [[feedback_gates_assert_weaker_than_claimed]] — the third gate this sprint to
+> assert less than it claims. **It belongs on the methodology agenda, and the fix belongs in S123.**
+>
+> PR #194 itself is unaffected in substance: the exact-head analyses are real, and the diff changes
+> no code. But **count the run as 19 substantive checks + 1 abstention**, not 20.
+>
+> ⚠️ Secondary caveat on that evidence: PR-head analyses report `0` while master reports `447` on the
+> same codebase. That gap is structural, not a property of this PR, so a PR-head `0` is weak evidence
+> in general. It happens not to matter here only because the diff has no code.
+>
+> ---
+>
+> ### Original PR 6 record (author's, retained)
 >
 > Dependabot target is still **#172**, proposing Zustand 4.5.7 → 5.0.14. The dependency is mobile
 > only: one declaration (`apps/mobile/package.json`) and one importer (`apps/mobile/store/auth.ts`).
@@ -53,10 +114,8 @@
 > **Authoritative CI:** the first full PR run passed all 20 blocking checks; only the PR-only deploy
 > job skipped. Both CodeQL analyses matched the PR head and reported 0 results, independently
 > substantiating the ADR-060 gate. Always re-check the latest head live with `gh pr checks 194`.
->
-> **Next:** after the handoff-only head is green, mark PR #194 ready and request **explicit** merge
-> authorization. Do not archive Sprint 122 until PR 6 is merged and the master deployment is
-> verified. The end-of-sprint methodology review remains mandatory then.
+> ⚠️ *Amended above: "independently substantiating the ADR-060 gate" is backwards — the head
+> analyses are the only evidence; the gate itself abstained and always does on PRs.*
 
 > ## ✅ PR 5 COMPLETE (2026-08-05): merged, deployed and verified live at v11.40.0.
 >
@@ -743,24 +802,66 @@
 > `.claude/handoff/archive/2026-07-29-sprint-121-dependency-backlog-17-OF-18-EXPRESS-CARRIED.md`.
 > **PR 1 (express 4 → 5, v11.36.0, `46b2982c`)** shipped 2026-07-30 and is live.
 
-## Quick Start — PR 6 (zustand 4 → 5, #172) · v11.41.0 · CLOSES THE SPRINT
+## Quick Start — SPRINT 122 CLOSEOUT (PR 6 built & verified; 7 items remain)
 
-1. **Start a fresh chat** (per-PR cadence).
-2. **⚠️ Do NOT branch off `origin/master`.** Branch off **`docs/sprint-122-pr5-shipped`** (pushed,
-   `origin/master` + 1 commit). It carries **ADR-090 `Proposed` → `Implemented`**, the four
-   messaging-service endpoint corrections, and this handoff. **A docs-only master push triggers a
-   full deploy → demo 502s**, so those must ride PR 6. Same pattern as PR 4's docs branch riding PR 5.
-3. **Re-list the Dependabot PRs first** — numbers churn. Match on *what a PR bumps*, never the number.
-4. **Mobile only, lowest risk of the six.** `zustand` is declared solely in
-   `apps/mobile/package.json` and imported by exactly **one** file, `apps/mobile/store/auth.ts`.
-   The S121 roster's "frontend state" is **wrong**. `apps/mobile` is **not deployed to the demo**.
-5. zustand 5 drops the default-export shim and changes `createWithEqualityFn` / `useStore` selector
-   semantics — check that one store against the v5 migration guide. **Read the shipped source, not
-   the changelog** (see the two mechanism errors below).
-6. **Check `engines.node` on the new zustand** against `RUNTIME_MAJOR = 24` — the new runtime-floor
-   gate will fail the build if it exceeds it. That is the gate working, not a problem.
-7. **Closing the sprint:** archive Sprint 122, confirm the open-PR count, and **run the end-of-sprint
-   methodology review** (agenda below — now with PR 5's data, not just PR 4's).
+**PR 6 implementation is DONE and independently verified** (block at the top of this file). Nothing
+about zustand needs revisiting. What is left is merge → deploy → disposition → close the sprint.
+Work these in order; 1–3 are a single sitting, 4–7 close the sprint.
+
+1. **Re-verify the head, then ask for merge authorization.**
+   `gh pr checks 194` and confirm `gh pr view 194 --json headRefOid` still reads **`9bce1cfb`**. If
+   the head moved, the CodeQL evidence above is stale — re-run the exact-head query
+   (`gh api "repos/ravichavali/karmyq/code-scanning/analyses?per_page=20"`, match
+   `ref=refs/pull/194/head` + the head SHA). **Do not count the `Code Scanning Gate (ADR-060)` tick
+   as evidence — it abstains on every PR** (finding at the top).
+   Re-run `npm audit` immediately before merging; advisories publish mid-flight.
+2. **Merge only on explicit maintainer authorization** — `gh pr merge --squash --admin`. Expect the
+   Bash form to be blocked by the permission classifier as in PR 5; the **GitHub MCP
+   `merge_pull_request`** tool is the working path (same squash merge).
+3. **Watch the deploy and smoke-test a real path.** Master push = full deploy. Confirm
+   `Deploy to Demo` = success with no rollback, manifest reads **11.41.0**, and hit a **real
+   endpoint** — `POST /api/auth/login`, then `GET /api/conversations`. `/health` is not exposed via
+   nginx. `apps/mobile` is **not deployed**, so this PR cannot regress the demo; the smoke test is
+   confirming the *deploy*, not zustand.
+4. **Take the remaining Dependabot dispositions** (the last of the sprint's "9 PRs" goal):
+   - **#172** — closed by this merge.
+   - **#170** (eslint 10), **#168** (typescript 7), **#171** (@types/node 26) — close with written
+     rationale and **no ignore rule**; they are S123's platform-floor arc in dependency order
+     (@types/node 26 → TS 7 → ESLint 10, now unblocked by ADR-090's Node 24 floor).
+   - **#185**, **#184** — close explaining the *partial* acceptance from PR 3.
+   Then confirm the open-PR count matches the plan of record.
+5. **Fix the ADR-060 gate** (`.github/workflows/ci.yml:126` and `:135`) — or file it into S123 with
+   the trace above. It is a security gate that has never gated. **Whoever fixes it must prove it
+   goes RED on a seeded critical/high finding**; a green run proves nothing, which is the whole
+   lesson. Not started.
+6. **Run the end-of-sprint methodology review** — MANDATORY, agenda below, now carrying PR 4's data,
+   PR 5's five findings, and PR 6's gate finding. The maintainer flagged review-loop cost on
+   2026-08-05; this is the deliverable that answers it.
+7. **Archive Sprint 122** to `.claude/handoff/archive/` and open the S123 handoff. **Only after the
+   deploy is verified** — never before.
+
+### Carried debt that does NOT block closeout
+
+- **`redisClient.publish` is still UNPROVEN** (PR 5). `maria.reyes@` has zero conversations, so no
+  `send_message` round-trip could run. Prove it when a seeded conversation exists.
+- **`mark-read` has no implementation** — `markMessagesAsRead` exists in `messageService.ts`, is
+  imported by `messageHandler.ts`, and is never called, so nothing transitions a message to
+  `'read'`. Not a regression; found by PR 5's smoke test. Needs a bug entry, not a hotfix.
+- `.npmrc` `engine-strict`, and **ADR-028's new-service Dockerfile template still shows
+  `node:18-alpine`** — the runtime-floor gate will fail any new service that copies it.
+- `messaging-service` declares `@types/node: ^20.10.5` against a Node 24 runtime — that is #171.
+
+### ⚠️ Do not re-litigate these
+
+- Branch is deliberately off **`docs/sprint-122-pr5-shipped`**, not `origin/master`. It carries
+  ADR-090 `Proposed` → `Implemented` and PR 5's endpoint corrections, which must ride a code PR
+  because **a docs-only master push triggers a full deploy → demo 502s**.
+- `generate-service-context.js` was deliberately **not** run: it overwrites all ten service READMEs
+  and its template still emits the forbidden `communityMemberships` JWT field.
+- `npx expo install --check` is red because Expo 57 recommends Jest 29 while PR 4 deliberately
+  shipped Jest 30. Known baseline, reports no zustand mismatch.
+- `npm test` red on Windows is the documented Turbo timeout shape, not a real failure. Confirm any
+  suspect workspace by running it directly.
 
 ## (historical) Quick Start — PR 4
 
@@ -791,7 +892,7 @@ PRs — 6 merged and deployed, 3 closed with written rationale.
 | **3** | consolidated safe groups + 6 advisory fixes + Expo drift job | **#185**, **#184** (was #179/#178) | v11.38.0 | ✅ **SHIPPED** `5fa203ce`, deployed, smoke-tested |
 | **4** | jest 29 → 30 + **ts-jest unpinned** + **ADR-089** | #173 ✅, #189 (ts-jest half) ✅ | **v11.39.0** | ✅ **SHIPPED** `c3d623b2`, deployed, smoke-tested |
 | **5** | redis 4 → 6 **+ runtime floor Node 24** + **ADR-090** | #169 | v11.40.0 | ✅ **SHIPPED** `5c75dfcc`, deployed, smoke-tested |
-| **6** | zustand 4 → 5 (mobile only) | #172 | v11.41.0 | ⬅️ **NEXT** |
+| **6** | zustand 4 → 5 (mobile only) | #172 | v11.41.0 | 🚧 **PR #194 OPEN, built + verified, CI green — awaiting explicit merge auth** |
 | — | closed with rationale, **no ignore rule** | #170 eslint 10, #168 typescript 7, #171 @types/node 26 | — | planned |
 
 **⚠️ Grouped Dependabot PR numbers churn** — match on *what a PR bumps*, not its number, and
@@ -935,6 +1036,32 @@ when their search text is absent.
 **Third:** the smoke test found **four wrong REST endpoints** in a Critical service's CONTEXT.md
 that no test, gate or review had ever caught — because nothing else calls a real path. Smoke tests
 earn their cost; keep insisting they hit real routes rather than `/health`.
+
+### PR 6's data (2026-08-05) — the cheapest PR produced the sprint's most serious finding
+
+**Zero implementation defects.** The bump was one line, one importer, correctly traced; two rounds
+of independent review found only documentation-contract errors, all in files PR 5 had touched. That
+is the loop working as intended on a small diff.
+
+**But the cross-agent verification pass found what six PRs of gates had not: the ADR-060 code
+scanning gate has never gated a pull request** (trace at the top of this file). It queries
+`refs/pull/N/merge` while CodeQL publishes to `refs/pull/N/head`, so it fail-opens by construction,
+every time, and its follow-up alerts query is vacuous for the same reason.
+
+Three things this sharpens for the review:
+
+1. **A gate's own green is not evidence that the gate ran.** Every instrument this sprint reported
+   success while inert or weaker than claimed: the `FROM` parser (PR 5, evadable), the injection
+   sweep (PR 5, silent no-op), and now ADR-060 (never fires). The pattern is not "gates are buggy";
+   it is **that we verify gates by watching them pass, which is precisely the observation that
+   cannot distinguish working from inert**. Every gate needs a proof that it goes RED.
+2. **The agreed rule generalizes.** "A mechanism claim ships with its reproducer" caught PR 4's and
+   four of PR 5's five findings — and PR 5's *own* diagnosis of this gate ("a rescan race") was
+   itself an untraced mechanism claim that survived into the handoff. It was wrong. Reading
+   `ci.yml:126` settled it in one look. **The rule applies to our own post-mortems too.**
+3. **Non-author review is where these surface.** PR 5's five findings and PR 6's gate finding all
+   came from a reader who had not written the thing. Cost data, honestly: this PR was ~2 review
+   rounds and 1 CI round, well down from PR 4's ~5 and 2 — the loop got cheaper *and* found more.
 
 ## Multi-Sprint Arc
 
