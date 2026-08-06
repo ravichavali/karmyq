@@ -528,6 +528,10 @@
           "divider": true
         },
         {
+          "label": "Verification Before Assertion — the Sprint 122 review-loop retrospective",
+          "href": "/docs/concepts/adr-091-verification-before-assertion"
+        },
+        {
           "label": "The Container Runtime Floor Is Node 24, and It Is Enforced",
           "href": "/docs/concepts/adr-090-container-runtime-floor"
         },

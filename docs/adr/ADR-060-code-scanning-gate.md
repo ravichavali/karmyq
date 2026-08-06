@@ -78,11 +78,14 @@ code-scanning-gate:
     - name: Fail on open critical/high CodeQL alerts
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # See §6 — resolving the scan target per event type is load-bearing.
+        SCAN_REF: ${{ github.event_name == 'pull_request' && format('refs/pull/{0}/head', github.event.number) || github.ref }}
+        SCAN_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       run: |
         # Default setup is async — poll for an analysis on this SHA (bounded).
         analyses=0
         for i in $(seq 1 10); do
-          analyses=$(gh api ".../code-scanning/analyses?ref=$REF&sha=$SHA&per_page=1" --jq 'length' || echo 0)
+          analyses=$(gh api ".../code-scanning/analyses?ref=$SCAN_REF&sha=$SCAN_SHA&per_page=1" --jq 'length' || echo 0)
           [ "$analyses" -gt 0 ] && break
           sleep 30
         done
@@ -111,6 +114,25 @@ code-scanning-gate:
 
 `git push --no-verify` skips local hooks; the **CI gate cannot be bypassed** from a push. A genuinely needed exception is made by triaging/dismissing the specific alert with justification (which is auditable), not by disabling the job.
 
+### 6. Sprint 122 correction — the gate was inert on every pull request (2026-08-05)
+
+**The gate had never blocked a pull request.** From its introduction in Sprint 76 until this fix, the poll queried `ref=${{ github.ref }}&sha=${{ github.sha }}`. On a `pull_request` event those resolve to `refs/pull/N/merge` and the ephemeral **merge commit**, while CodeQL default setup publishes its analysis to `refs/pull/N/**head**` and the head sha. The query could therefore never match: 10 attempts → 0 analyses → the fail-open branch → `exit 0`. The alerts query at the next line carried the same defect, so even past the fail-open the critical/high count was a vacuous `0`.
+
+Verified against the live API on merged PR #194 (head `9bce1cfb`, merge commit `7bfa3471`):
+
+| Query | Analyses returned |
+|---|---|
+| `ref=refs/pull/194/merge&sha=7bfa3471…` (what the gate ran) | **0** |
+| `ref=refs/pull/194/head&sha=9bce1cfb…` (the fix) | **1** |
+
+Enumerating all published analyses confirms the rule: they appear only under `refs/heads/master` and `refs/pull/N/head` — never a `/merge` ref.
+
+**Fix.** Resolve the scan target explicitly per event type (`SCAN_REF` / `SCAN_SHA` above), applied to **both** the analyses poll and the alerts query. On `push` events the behaviour is unchanged — `github.ref`/`github.sha` were always correct there, which is why the gate did work on master and produced the misleading impression that it worked everywhere.
+
+**Fail-open, revisited deliberately.** Fail-open on a *genuinely missing* analysis is still correct — default setup is asynchronous and a rescan lag is an infrastructure race, not a security signal. Fail-open on a query that can **never** match is not; it is an unconditional pass wearing a gate's clothing. The distinction is now the whole point of the design, so the asymmetry stands as written in §3, with the scan target corrected beneath it.
+
+**Locked by test.** `tests/regression/sprint-122-adr-060-code-scanning-gate.test.ts` asserts both halves: that the workflow resolves the head ref/sha (and never reintroduces the raw `github.ref`/`github.sha` in either query), and — by extracting the shipped `run:` body and executing it against a stubbed `gh` — that the gate **exits 1 on a seeded critical or high finding** and 0 otherwise. A green gate run cannot distinguish a working gate from an inert one, which is precisely how this survived from Sprint 76 to Sprint 122; the test is written so that the failing direction is the one under proof.
+
 ---
 
 ## Alternatives Considered
@@ -131,6 +153,7 @@ code-scanning-gate:
 **Negative / trade-offs**
 - The aggressive config produces more false positives (350 fixed-host request-forgery), which is ongoing triage cost. Mitigated by the per-class justifications (future occurrences of the same pattern are quick to dismiss by reference).
 - The poll-gate fails open on a missing analysis — a (narrow) window where a push could deploy before analysis completes. Accepted, and documented; the next push re-evaluates.
+- **A gate observed only in its passing state is unfalsifiable.** This one shipped inert on pull requests for ~46 sprints while reporting green every time. The general lesson, now applied to new gates repo-wide: a check must be demonstrated **failing** on a seeded violation before it is trusted, and that demonstration belongs in a test rather than in a one-off manual run.
 
 ---
 

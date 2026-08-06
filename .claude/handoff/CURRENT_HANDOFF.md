@@ -834,18 +834,60 @@
 > `.claude/handoff/archive/2026-07-29-sprint-121-dependency-backlog-17-OF-18-EXPRESS-CARRIED.md`.
 > **PR 1 (express 4 → 5, v11.36.0, `46b2982c`)** shipped 2026-07-30 and is live.
 
-## Quick Start — SPRINT 122 CLOSEOUT (all 6 PRs shipped; 3 items remain)
+## Quick Start — SPRINT 122 CLOSEOUT (all 6 PRs shipped; epilogue BUILT, awaiting review)
 
-**You are on branch `fix/adr-060-gate-pr-head-ref`, cut from `origin/master` `7bfa3471`.** It already
-carries this handoff (rescued from the merged PR 6 branch). Everything below is **not started**;
-the branch has no code changes yet. Do the work in this order — item 1 is the PR, items 2–3 close
-the sprint and ride the same PR (**no docs-only master push**).
+**Branch `fix/adr-060-gate-pr-head-ref`, cut from `origin/master` `7bfa3471`.**
 
-**Version decision needed first:** the plan of record ended at v11.41.0. A gate fix is either
-Sprint 122's epilogue (v11.42.0) or S123 PR 1. **Ask the maintainer which** — it changes whether you
-archive before or after this PR merges.
+**✅ VERSION DECIDED (maintainer, 2026-08-05): this is Sprint 122's epilogue, `v11.42.0`.** Archive
+S122 **after** this PR merges. Version is bumped at all three sites (root `package.json`, lock
+`.version`, lock `.packages[""]`); workspace manifests correctly stay `1.0.0`.
 
-### 1. Fix the ADR-060 code-scanning gate — the only code work left
+**Items 1 and 2 are BUILT on this branch. Item 3 (archive) is post-merge.** No PR is open yet —
+`gh pr list --head fix/adr-060-gate-pr-head-ref` is the authority on that, not this paragraph.
+
+| Closeout item | State |
+|---|---|
+| 1. ADR-060 gate fix | ✅ built + proven; ADR §6, regression test, landing doc |
+| 2. Methodology review | ✅ shipped as **ADR-091**, indexed + navigated |
+| 3. Archive S122 → open S123 | ⏳ **after merge** |
+
+### What landed for item 1 (2026-08-05)
+
+**Diagnosis reproduced against the live API before any edit** — the handoff's claim was treated as
+a hypothesis, per the rule this sprint adopted:
+
+| Query | Analyses |
+|---|---|
+| `ref=refs/pull/194/merge&sha=7bfa3471…` (what the gate ran) | **0** → fail-open |
+| `ref=refs/pull/194/head&sha=9bce1cfb…` (the fix) | **1** |
+
+Enumerating every published analysis confirms the rule: they exist only under `refs/heads/master`
+and `refs/pull/N/head` — never a `/merge` ref.
+
+- **Fix:** `SCAN_REF`/`SCAN_SHA` resolved per event type in `ci.yml`, applied to **both** the
+  analyses poll and the alerts query. `push` behaviour unchanged (it was always correct there —
+  which is why the gate looked healthy).
+- **Proven able to fail:** `tests/regression/sprint-122-adr-060-code-scanning-gate.test.ts` (9
+  cases) extracts the shipped `run:` body and executes it against a stubbed `gh`. It exits **1** on
+  a seeded critical and on a seeded high, **0** on medium-only and on no findings. Mutation-checked:
+  reverting `ci.yml` to the old form turns **3 of the 9 red**.
+- **Fail-open decision recorded deliberately** in ADR-060 §6: fail-open on a genuinely missing
+  analysis stays (async rescan lag is an infrastructure race); fail-open on a query that can never
+  match does not.
+- ⚠️ **The one thing not yet observed: this gate running green-for-the-right-reason on a real PR.**
+  It has never executed with a matching query. Watch its log line on this PR — it now prints
+  `Scan target: ref=… sha=…`, and the ref must read `refs/pull/N/head`.
+
+### Item 2 — the methodology review is ADR-091
+
+`docs/adr/ADR-091-verification-before-assertion.md`, indexed in `docs/adr/README.md` and added to
+the landing nav via `scripts/generate-docs.ts`'s curated `ADR_GROUPS` (**never edit `nav.json`
+directly — it is regenerated**; grep-verified after regeneration). Four adopted rules, each
+enforced somewhere other than memory. Countermeasures had already shipped earlier on this branch
+(commit `58c50e15`): `CLAUDE.md` Discipline 5, the `/review-response` skill, and the dependency
+guard hook.
+
+### 1. ✅ DONE — Fix the ADR-060 code-scanning gate (original brief; outcome summarised above)
 
 **The gate has never blocked a pull request.** [`.github/workflows/ci.yml:126`](../../.github/workflows/ci.yml)
 polls `code-scanning/analyses?ref=${{ github.ref }}&sha=${{ github.sha }}`. On a `pull_request` run
@@ -870,7 +912,7 @@ vacuous 0. **Confirmed live on #194:** the gate polled `fdd2a49c`, whose parents
 - **ADR-060 needs updating** — its gate description no longer matches reality. Docs feedback loop:
   ADR + `docs/adr/README.md` index + landing `concepts/adr-060-*.json`.
 
-### 2. Run the end-of-sprint methodology review — MANDATORY
+### 2. ✅ DONE — end-of-sprint methodology review (shipped as ADR-091; original brief below)
 
 Agenda is below in this file, now carrying **PR 4's data, PR 5's five findings, and PR 6's gate
 finding**. The maintainer flagged review-loop cost on 2026-08-05; this is the deliverable that
