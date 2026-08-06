@@ -143,7 +143,13 @@ The corrected gate went green on PR #195 and that was reported as "green for the
 | **gate reported clean** | **04:00:10Z** |
 | `/language:javascript-typescript` | 04:01:10Z |
 
-The gate passed **66 seconds before the JavaScript analysis existed** — a late JS high/critical would have escaped. Readiness now requires **every** expected category. The expected set is derived at run time from `code-scanning/default-setup` (`languages`, normalising `javascript`/`typescript` → the single published category `javascript-typescript`), not from a hand-maintained list — a shadow map here would drift and silently re-narrow the gate, which is the failure mode §6 exists to document.
+The gate passed **66 seconds before the JavaScript analysis existed** — a late JS high/critical would have escaped. Readiness now requires **every** expected category.
+
+The expected set is read at run time from the live system rather than a hand-maintained list — a shadow map here would drift and silently re-narrow the gate, which is the failure mode §6 exists to document. The arbiter is **the set of categories the default branch actually publishes** (`code-scanning/analyses?ref=refs/heads/<default_branch>`, distinct `.category`).
+
+> **Not `code-scanning/default-setup`.** The obvious arbiter is the default-setup config's `languages`, and the first attempt used it. It returns **403 `Resource not accessible by integration`** for this job's `security-events: read` token — that endpoint needs admin rights. Because the new code correctly refuses to fail open on an API error, the gate then hard-failed *every* run. The analyses endpoint carries the same information for this purpose and is readable with the permission the job already holds. **The unit tests could not have caught this**: they stub `gh`, so a permissions failure is invisible to them. Only a real CI run proves it.
+
+If the default branch has no analyses at all, there is nothing to require and the gate fails open with a warning — the same "missing analysis" branch, not a silent pass.
 
 **API errors read as "no findings".** `gh api … || echo 0` mapped authentication, rate-limit, network and 5xx failures onto the same value as a valid empty result, and the alerts query treated an error as an empty alert list. That is strictly broader than the stated policy. All three queries (`default-setup`, `analyses`, `alerts`) now distinguish an error from an empty response and **exit 1** rather than fail open: a failed query means the security state could not be established at all, which is not the same as establishing that it is clean.
 

@@ -51,14 +51,14 @@ type Alert = {
 }
 
 type Scenario = {
-  /** Languages the stubbed default-setup endpoint reports. */
-  languages?: string[]
-  /** Analysis categories present for the SHA (as published, e.g. "/language:actions"). */
+  /** Categories the DEFAULT BRANCH publishes — the arbiter for what must be present. */
+  baseline?: string[]
+  /** Analysis categories present for the SHA under test (e.g. "/language:actions"). */
   categories?: string[]
   /** Open alerts the alerts endpoint returns before jq filtering. */
   alerts?: Alert[]
-  /** Which endpoint (if any) should hard-fail, simulating an API/auth/rate-limit error. */
-  failEndpoint?: 'default-setup' | 'analyses' | 'alerts'
+  /** Which query (if any) should hard-fail, simulating an API/auth/rate-limit error. */
+  failEndpoint?: 'baseline' | 'analyses' | 'alerts'
 }
 
 const alertOf = (severity: string, number = 42): Alert => ({
@@ -83,7 +83,7 @@ function runGate(scenario: Scenario): { code: number; out: string } {
     fs.writeFileSync(
       path.join(work, 'config.json'),
       JSON.stringify({
-        languages: scenario.languages ?? ['actions', 'javascript', 'javascript-typescript', 'typescript'],
+        baseline: scenario.baseline ?? BOTH_CATEGORIES,
         categories: scenario.categories ?? BOTH_CATEGORIES,
         alerts: scenario.alerts ?? [],
         failEndpoint: scenario.failEndpoint ?? null,
@@ -99,18 +99,18 @@ const cfg = JSON.parse(fs.readFileSync(__dirname + '/config.json', 'utf8'));
 const [url, jqexpr] = process.argv.slice(2);
 const hit = (name) => url.includes('/' + name);
 
-if (cfg.failEndpoint && hit(cfg.failEndpoint)) {
-  process.stderr.write('gh: simulated API failure for ' + cfg.failEndpoint + '\\n');
+// The baseline query and the per-SHA query both hit /analyses; only the latter carries sha=.
+const which = hit('alerts') ? 'alerts' : url.includes('sha=') ? 'analyses' : 'baseline';
+
+if (cfg.failEndpoint && cfg.failEndpoint === which) {
+  process.stderr.write('gh: simulated API failure for ' + which + '\\n');
   process.exit(1);
 }
-if (hit('default-setup')) {
-  const norm = cfg.languages.map((l) =>
-    l === 'javascript' || l === 'typescript' ? 'javascript-typescript' : l
-  );
-  [...new Set(norm)].forEach((l) => console.log(l));
+if (which === 'baseline') {
+  cfg.baseline.forEach((c) => console.log(c));
   process.exit(0);
 }
-if (hit('analyses')) {
+if (which === 'analyses') {
   cfg.categories.forEach((c) => console.log(c));
   process.exit(0);
 }
@@ -163,6 +163,7 @@ node "${work.replace(/\\/g, '/')}/stub.js" "$url" "$jqexpr"
       GITHUB_EVENT_NAME: 'pull_request',
       SCAN_REF: 'refs/pull/999/head',
       SCAN_SHA: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+      DEFAULT_BRANCH: 'master',
     }
 
     try {
@@ -275,16 +276,23 @@ describe('ADR-060 gate — waits for EVERY analysis category', () => {
     expect(out).toContain('All required analyses present')
   })
 
-  it('derives required categories from the live default-setup config, not a hardcoded list', () => {
-    // A repo configured for one language must not be made to wait on the other.
+  it('derives required categories from what the default branch publishes, not a hardcoded list', () => {
+    // A repo whose base branch only ever publishes one category must not wait on the other.
     const { code, out } = runGate({
-      languages: ['actions'],
+      baseline: ['/language:actions'],
       categories: ['/language:actions'],
       alerts: [],
     })
     expect(code).toBe(0)
     expect(out).toContain('All required analyses present')
     expect(out).not.toContain('Waiting for analyses')
+  })
+
+  it('fails open when the default branch has no analyses at all (nothing to require)', () => {
+    const { code, out } = runGate({ baseline: [], categories: [], alerts: [] })
+    expect(code).toBe(0)
+    expect(out).toContain('nothing to require')
+    expect(out).not.toContain('Code-scanning gate clean')
   })
 })
 
@@ -295,10 +303,10 @@ describe('ADR-060 gate — refuses to fail open on API errors', () => {
     expect(out).toContain('API error, not an empty result')
   })
 
-  it('exits 1 when the default-setup query errors, rather than guessing the required categories', () => {
-    const { code, out } = runGate({ failEndpoint: 'default-setup' })
+  it('exits 1 when the baseline query errors, rather than guessing the required categories', () => {
+    const { code, out } = runGate({ failEndpoint: 'baseline' })
     expect(code).toBe(1)
-    expect(out).toContain('Could not read code-scanning default setup')
+    expect(out).toContain('Could not read baseline analyses')
   })
 
   it('exits 1 when the alerts query errors, rather than reporting the gate clean', () => {

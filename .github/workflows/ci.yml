@@ -124,6 +124,7 @@ jobs:
           # explicitly per event type instead. (ADR-060)
           SCAN_REF: ${{ github.event_name == 'pull_request' && format('refs/pull/{0}/head', github.event.number) || github.ref }}
           SCAN_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -o pipefail
           # CodeQL runs via GitHub default setup and is async, so poll with a bounded timeout.
@@ -131,16 +132,23 @@ jobs:
           # on an API error — an error means we could not establish the state at all (ADR-060).
           echo "Scan target: ref=$SCAN_REF sha=$SCAN_SHA (event: $GITHUB_EVENT_NAME)"
 
-          # WHICH analyses must exist comes from the live default-setup config, not a
-          # hand-maintained list — a shadow map would drift and silently narrow the gate.
-          # javascript / typescript / javascript-typescript all publish under the single
-          # category "javascript-typescript".
-          if ! expected=$(gh api "repos/${{ github.repository }}/code-scanning/default-setup" \
-                --jq '[.languages[] | if . == "javascript" or . == "typescript" then "javascript-typescript" else . end] | unique | .[]'); then
-            echo "::error::Could not read code-scanning default setup — cannot establish which analyses to require; refusing to fail open (ADR-060)."
+          # WHICH analyses must exist is read from the live system, not a hand-maintained list —
+          # a shadow map would drift and silently narrow the gate. The arbiter is the set of
+          # categories the DEFAULT BRANCH actually publishes.
+          #
+          # Not code-scanning/default-setup: that endpoint needs admin rights and returns
+          # 403 "Resource not accessible by integration" for this job's `security-events: read`
+          # token. The analyses endpoint is readable with the permission we already hold.
+          if ! baseline=$(gh api "repos/${{ github.repository }}/code-scanning/analyses?ref=refs/heads/$DEFAULT_BRANCH&per_page=100" --jq '.[].category'); then
+            echo "::error::Could not read baseline analyses on $DEFAULT_BRANCH — cannot establish which analyses to require; refusing to fail open (ADR-060)."
             exit 1
           fi
-          echo "Required analysis categories:"; for c in $expected; do echo "  - $c"; done
+          expected=$(printf '%s\n' "$baseline" | sed 's|^/language:||' | sort -u | grep -v '^$' || true)
+          if [ -z "$expected" ]; then
+            echo "::warning::No code-scanning analyses exist on $DEFAULT_BRANCH at all — nothing to require; passing (fail-open on MISSING analysis, see ADR-060)."
+            exit 0
+          fi
+          echo "Required analysis categories (from $DEFAULT_BRANCH):"; for c in $expected; do echo "  - $c"; done
 
           # Wait for EVERY expected category on this exact SHA. Breaking on the first analysis
           # to appear would pass before (e.g.) javascript-typescript has run, letting a late
