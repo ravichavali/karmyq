@@ -836,23 +836,38 @@
       "endpoints": [
         {
           "method": "GET",
-          "path": "/messages/conversations/:userId",
-          "description": "Get all conversations for a user."
+          "path": "/conversations",
+          "description": "Get all conversations for the authenticated user."
         },
         {
           "method": "GET",
-          "path": "/messages/:conversationId",
+          "path": "/conversations/:conversationId",
+          "description": "Get a single conversation."
+        },
+        {
+          "method": "GET",
+          "path": "/conversations/:conversationId/messages",
           "description": "Get all messages in a conversation (paginated)."
         },
         {
           "method": "POST",
-          "path": "/messages",
+          "path": "/conversations",
           "description": "Create new conversation (usually auto-created when match occurs)."
         },
         {
           "method": "POST",
-          "path": "/messages/:conversationId/mark-read",
-          "description": "Mark all messages in conversation as read."
+          "path": "/conversations/:conversationId/messages",
+          "description": "Send a message to a conversation over REST; the realtime `send_message` socket event above is the path that publishes to Redis for cross-instance delivery."
+        },
+        {
+          "method": "GET",
+          "path": "/match/:matchId",
+          "description": "Get the conversation for a request match."
+        },
+        {
+          "method": "POST",
+          "path": "/match/:matchId/messages",
+          "description": "Send a message addressed by request match rather than conversation id."
         }
       ]
     },

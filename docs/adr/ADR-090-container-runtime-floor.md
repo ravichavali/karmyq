@@ -1,6 +1,6 @@
 # ADR-090: The Container Runtime Floor Is Node 24, and It Is Enforced
 
-**Status**: Proposed
+**Status**: Implemented
 **Date**: 2026-08-05
 **Sprint**: 122
 **Version**: 11.40.0

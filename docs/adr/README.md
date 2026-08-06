@@ -125,7 +125,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-087: One Seed Path — init.sql Regeneration](ADR-087-one-seed-path-init-sql-regeneration.md) — **Implemented**
 - [ADR-088: Test-Tier Truthfulness](ADR-088-test-tier-truthfulness.md) — **Implemented**
 - [ADR-089: ts-jest Cannot Read `exports` Maps — `typesVersions` Is the Contract](ADR-089-ts-jest-subpath-type-resolution.md) — **Implemented**
-- [ADR-090: The Container Runtime Floor Is Node 24, and It Is Enforced](ADR-090-container-runtime-floor.md) — **Proposed**
+- [ADR-090: The Container Runtime Floor Is Node 24, and It Is Enforced](ADR-090-container-runtime-floor.md) — **Implemented**
 
 ## Creating a New ADR
 

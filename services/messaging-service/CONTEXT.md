@@ -90,8 +90,19 @@ socket.on('new_message', (message) => {
 
 ## REST API Endpoints
 
-### GET /messages/conversations/:userId
-Get all conversations for a user.
+> **⚠️ Corrected 2026-08-05 (Sprint 122 PR 5).** Every path below previously carried a `/messages`
+> prefix — `GET /messages/conversations/:userId`, `GET /messages/:conversationId`,
+> `POST /messages`, `POST /messages/:conversationId/mark-read`. **None of those four routes exist.**
+> The router is mounted at `'/'` in `src/index.ts`, so the real paths are the ones documented here.
+> Found by a post-deploy smoke test that called the documented path and got the landing page's HTML
+> back through the nginx fallthrough. `mark-read` had no implementation at all.
+>
+> Externally these are reached through nginx as `/api/conversations/…` and `/api/match/…`
+> (see `infrastructure/nginx/nginx.conf`). All require `Authorization: Bearer <token>`; the
+> authenticated user is taken from the token, never from a path parameter.
+
+### GET /conversations
+Get all conversations for the authenticated user.
 
 **Response:**
 ```json
@@ -115,7 +126,10 @@ Get all conversations for a user.
 }
 ```
 
-### GET /messages/:conversationId
+### GET /conversations/:conversationId
+Get a single conversation.
+
+### GET /conversations/:conversationId/messages
 Get all messages in a conversation (paginated).
 
 **Query Parameters:**
@@ -126,42 +140,49 @@ Get all messages in a conversation (paginated).
 ```json
 {
   "success": true,
-  "data": {
-    "messages": [
-      {
-        "id": "msg-uuid",
-        "sender_id": "user-uuid",
-        "sender_name": "Alice Smith",
-        "content": "Hello!",
-        "status": "read",
-        "created_at": "2025-01-10T12:00:00Z"
-      }
-    ],
-    "total": 45
-  }
+  "data": [
+    {
+      "id": "msg-uuid",
+      "conversation_id": "conversation-uuid",
+      "sender_id": "user-uuid",
+      "sender": {
+        "id": "user-uuid",
+        "name": "Alice Smith",
+        "email": "alice@example.com"
+      },
+      "content": "Hello!",
+      "status": "sent",
+      "created_at": "2025-01-10T12:00:00Z"
+    }
+  ]
 }
 ```
 
-### POST /messages
+### POST /conversations
 Create new conversation (usually auto-created when match occurs).
 
 **Request:**
 ```json
 {
-  "request_match_id": "match-uuid",
+  "match_id": "match-uuid",
   "participant_ids": ["user-1-uuid", "user-2-uuid"]
 }
 ```
 
-### POST /messages/:conversationId/mark-read
-Mark all messages in conversation as read.
+### POST /conversations/:conversationId/messages
+Send a message to a conversation over REST; the realtime `send_message` socket event above is the path that publishes to Redis for cross-instance delivery.
 
-**Request:**
-```json
-{
-  "user_id": "user-uuid"
-}
-```
+### GET /match/:matchId
+Get the conversation for a request match.
+
+### POST /match/:matchId/messages
+Send a message addressed by request match rather than conversation id.
+
+> **`mark-read` is not a REST route.** `markMessagesAsRead` exists in
+> `src/services/messageService.ts` but is not wired to any endpoint — it is imported by
+> `src/socket/messageHandler.ts` and left unused there. The previously documented
+> `POST /messages/:conversationId/mark-read` never existed. Read status is set on insert
+> (`status` defaults to `'sent'`); nothing currently transitions it to `'read'`.
 
 ## Key Files
 

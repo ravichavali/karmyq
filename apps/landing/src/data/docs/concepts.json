@@ -700,8 +700,8 @@
       "slug": "adr-090-container-runtime-floor",
       "number": "090",
       "title": "ADR-090: The Container Runtime Floor Is Node 24, and It Is Enforced",
-      "status": "proposed",
-      "description": "**Status**: Proposed",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
       "filename": "ADR-090-container-runtime-floor.md"
     }
   ]
