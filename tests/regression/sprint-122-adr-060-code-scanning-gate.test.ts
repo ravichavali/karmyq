@@ -61,6 +61,8 @@ type Scenario = {
   failEndpoint?: 'baseline' | 'analyses' | 'alerts'
   /** Fail that query only for the first N calls, then succeed — a transient 502/rate-limit. */
   failTimes?: number
+  /** Categories published for OTHER commits on the same ref (the API returns these too). */
+  foreignCategories?: string[]
   /** Raw baseline rows (category + commit_sha) for testing the "current config" derivation. */
   baselineRows?: Array<{ category: string; commit_sha: string }>
 }
@@ -90,6 +92,7 @@ function runGate(scenario: Scenario): { code: number; out: string } {
         baseline: scenario.baseline ?? BOTH_CATEGORIES,
         baselineRows: scenario.baselineRows ?? null,
         categories: scenario.categories ?? BOTH_CATEGORIES,
+        foreignCategories: scenario.foreignCategories ?? [],
         alerts: scenario.alerts ?? [],
         failEndpoint: scenario.failEndpoint ?? null,
         failTimes: scenario.failTimes ?? null,
@@ -104,10 +107,13 @@ function runGate(scenario: Scenario): { code: number; out: string } {
 const fs = require('fs');
 const cfg = JSON.parse(fs.readFileSync(__dirname + '/config.json', 'utf8'));
 const [url, jqexpr] = process.argv.slice(2);
+const SCAN_SHA = process.env.SCAN_SHA;
 const hit = (name) => url.includes('/' + name);
 
-// The baseline query and the per-SHA query both hit /analyses; only the latter carries sha=.
-const which = hit('alerts') ? 'alerts' : url.includes('sha=') ? 'analyses' : 'baseline';
+// Both /analyses queries look alike; the baseline one targets refs/heads/<default branch>,
+// the per-SHA one targets the PR head ref. (It no longer carries sha= — that parameter is
+// ignored by the API, so filtering moved client-side.)
+const which = hit('alerts') ? 'alerts' : url.includes('refs/heads/') ? 'baseline' : 'analyses';
 
 if (cfg.failEndpoint === which) {
   // failTimes = transient: fail the first N calls to this endpoint, then recover.
@@ -136,7 +142,11 @@ if (which === 'baseline') {
   process.exit(0);
 }
 if (which === 'analyses') {
-  cfg.categories.forEach((c) => console.log(c));
+  // The real API IGNORES ?sha=, returning every analysis on the ref. The stub reproduces that:
+  // it emits foreign-SHA rows too, so a gate that does not filter client-side will wrongly
+  // count them. Output shape matches the workflow's jq: "<commit_sha> <category>".
+  cfg.categories.forEach((c) => console.log(SCAN_SHA + ' ' + c));
+  (cfg.foreignCategories || []).forEach((c) => console.log('0000000000000000000000000000000000000000 ' + c));
   process.exit(0);
 }
 if (hit('alerts')) {
@@ -305,6 +315,21 @@ describe('ADR-060 gate — waits for EVERY analysis category', () => {
     expect(code).toBe(0)
     expect(out).toContain('Missing code-scanning analyses')
     expect(out).not.toContain('Code-scanning gate clean')
+  })
+
+  it('ignores an analysis belonging to a DIFFERENT commit on the same ref', () => {
+    // The API ignores ?sha=, so it returns every analysis for the ref. Before this was filtered
+    // client-side, a stale javascript-typescript analysis from an earlier commit satisfied the
+    // readiness check — observed live on 13e273b6, whose own JS analysis had been cancelled.
+    const { code, out } = runGate({
+      categories: ['/language:actions'],
+      foreignCategories: ['/language:javascript-typescript'],
+      alerts: [],
+    })
+    expect(out).toContain('Waiting for analyses')
+    expect(out).toContain('javascript-typescript')
+    expect(out).not.toContain('Code-scanning gate clean')
+    expect(code).toBe(0) // fail-open on genuinely missing, with a warning
   })
 
   it('proceeds once every required category is present', () => {

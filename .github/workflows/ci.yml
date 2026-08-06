@@ -173,9 +173,15 @@ jobs:
           missing=""
           last_query_failed=0
           for i in $(seq 1 10); do
-            if raw=$(api_retry '.[].category' "repos/${{ github.repository }}/code-scanning/analyses?ref=$SCAN_REF&sha=$SCAN_SHA&per_page=100" --paginate); then
+            # ⚠️ The API IGNORES the `sha` query parameter on this endpoint — querying a nonsense
+            # sha still returns every analysis for the ref. Filtering must happen client-side on
+            # commit_sha, or a stale analysis from an EARLIER commit on the same PR satisfies the
+            # readiness check for the current one. (Observed: the gate passed 13e273b6 using a
+            # javascript-typescript analysis belonging to 97110ebb, while 13e273b6's own JS
+            # analysis had been cancelled and never published.)
+            if raw=$(api_retry '.[]|"\(.commit_sha) \(.category)"' "repos/${{ github.repository }}/code-scanning/analyses?ref=$SCAN_REF&per_page=100" --paginate); then
               last_query_failed=0
-              got=$(printf '%s\n' "$raw" | sed 's|^/language:||' | sort -u)
+              got=$(printf '%s\n' "$raw" | awk -v s="$SCAN_SHA" '$1==s{print $2}' | sed 's|^/language:||' | sort -u)
               missing=""
               for c in $expected; do
                 printf '%s\n' "$got" | grep -qx "$c" || missing="$missing $c"

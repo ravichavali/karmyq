@@ -151,6 +151,16 @@ The expected set is read at run time from the live system rather than a hand-mai
 
 If the default branch has no analyses at all, there is nothing to require and the gate fails open with a warning — the same "missing analysis" branch, not a silent pass.
 
+### 6c. The `sha` query parameter is ignored by the API
+
+`GET /code-scanning/analyses?ref=…&sha=…` **does not filter on `sha`**. Demonstrated against this repo: querying `sha=0000000000000000000000000000000000000000` still returns results, and a query for `13e273b6`'s analyses returned rows whose `commit_sha` was `97110ebb`, `ec163073`, `855981d7`, `27e2d474` — every analysis on the ref.
+
+The consequence is severe on a long-lived PR branch: the readiness check in §6b was satisfied by an analysis belonging to an **earlier commit on the same pull request**. Observed live — the gate reported *"All required analyses present for 13e273b6"* and passed, while `13e273b6`'s own `javascript-typescript` analysis had been cancelled mid-run and never published. It was matching `97110ebb`'s analysis from five hours earlier.
+
+**Fix:** the query drops the useless `sha` parameter and asks for `"\(.commit_sha) \(.category)"`, then filters on `commit_sha` client-side with `awk`. Locked by a regression case whose stub reproduces the API's actual behaviour — emitting foreign-SHA rows alongside the real ones — so a gate that trusts the server-side filter goes red.
+
+The general lesson matches the rest of this ADR: **a filter you did not watch reject something is not a filter.** Three of this gate's defects now share that shape — a query that could never match, a poll that stopped too early, and a parameter that was never applied.
+
 **API errors read as "no findings".** `gh api … || echo 0` mapped authentication, rate-limit, network and 5xx failures onto the same value as a valid empty result, and the alerts query treated an error as an empty alert list. That is strictly broader than the stated policy. All three queries (`default-setup`, `analyses`, `alerts`) now distinguish an error from an empty response and **exit 1** rather than fail open: a failed query means the security state could not be established at all, which is not the same as establishing that it is clean.
 
 Fork PRs without `security-events: read` will therefore fail this job rather than silently pass. That is the intended reading of the policy; revisit it if this repo starts taking fork contributions.
