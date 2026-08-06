@@ -842,8 +842,14 @@
 S122 **after** this PR merges. Version is bumped at all three sites (root `package.json`, lock
 `.version`, lock `.packages[""]`); workspace manifests correctly stay `1.0.0`.
 
-**Items 1 and 2 are BUILT on this branch. Item 3 (archive) is post-merge.** No PR is open yet —
-`gh pr list --head fix/adr-060-gate-pr-head-ref` is the authority on that, not this paragraph.
+**Items 1 and 2 are BUILT and OPEN as PR #195; item 3 (archive) is post-merge.** `gh pr checks 195`
+is the authority on CI state, not this paragraph — at the time of writing all 19 checks passed,
+0 failing, `MERGEABLE`, awaiting **merge authorization** (`/code-review` is owed and is the
+maintainer's; it is the one PR-contract gate I did not run).
+
+CI also settled a local ambiguity: `npm test` under turbo on Windows reported `auth-service` and
+`community-service` failures that did not reproduce directly (62/62 and 122/122 green). Both pass
+on Linux CI — they are the known Windows parallel-load timeouts, not regressions.
 
 | Closeout item | State |
 |---|---|
@@ -874,9 +880,20 @@ and `refs/pull/N/head` — never a `/merge` ref.
 - **Fail-open decision recorded deliberately** in ADR-060 §6: fail-open on a genuinely missing
   analysis stays (async rescan lag is an infrastructure race); fail-open on a query that can never
   match does not.
-- ⚠️ **The one thing not yet observed: this gate running green-for-the-right-reason on a real PR.**
-  It has never executed with a matching query. Watch its log line on this PR — it now prints
-  `Scan target: ref=… sha=…`, and the ref must read `refs/pull/N/head`.
+- ✅ **OBSERVED green-for-the-right-reason on PR #195** (job `92515639874`, the first time this gate
+  has ever evaluated a real PR analysis):
+
+  ```
+  SCAN_REF: refs/pull/195/head
+  SCAN_SHA: 27e2d474117507f1178225e169695771dc7cc748
+  Scan target: ref=refs/pull/195/head sha=27e2d474… (event: pull_request)
+  No analysis yet for 27e2d474… (attempt 1) — waiting…
+  Code-scanning gate clean: 0 open critical/high (ADR-060).
+  ```
+
+  **It did not fail open.** The `::warning::No code-scanning analysis available…` line is absent and
+  there is no "attempt 2" message — the poll broke out because `analyses > 0`, i.e. the query
+  matched. Under the old code that query could only ever return 0.
 
 ### Item 2 — the methodology review is ADR-091
 
