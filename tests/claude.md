@@ -9,19 +9,25 @@ and follow the same tier rules. `npm test` at the repo root is `turbo run test` 
 
 ## Test tiers ([ADR-029](../docs/adr/ADR-029-tdd-test-framework.md)) — this is the contract
 
-| Tier | Blocks push? | Needs a DB? | Files here |
-|---|---|---|---|
-| `unit/` | **YES** | no | 10 |
-| `regression/` | **YES** | no | 17 |
-| `tdd/` | no — reports only | no | 40 |
-| `integration/` | blocks *if* a DB is reachable | **yes** | 12 |
-| `performance/` | no | needs **running services** (3001/3002) | 1 |
-| `e2e/` | no | yes + running app | separate npm project |
-| `load/` | no | yes + running app | `load-test.ts` |
+| Tier | Blocks push? | Needs what |
+|---|---|---|
+| `unit/` | **YES** | nothing |
+| `regression/` | **YES** | nothing |
+| `tdd/` | no — reports only | nothing |
+| `integration/` | blocks *if* a DB is reachable | Postgres |
+| `performance/` | no | **running services** (3001/3002) |
+| `e2e/` | no | running app; separate npm project |
+| `load/` | no | running app; `load-test.ts` |
 
-**`tdd/` is the WIP tier and it auto-promotes.** `scripts/promote-tdd-tests.js` runs as root
-`posttest` and *moves* any passing `tests/tdd/*` file into `regression/` — across `services/*` and
-`apps/*` too. So a green TDD test relocates itself; don't be surprised when the file moves.
+(File counts deliberately omitted — a hardcoded count in prose is drift waiting to happen.
+`ls tests/<tier>/*.test.ts | wc -l` is the answer.)
+
+**`tdd/` is the WIP tier and it auto-promotes — but NOT in this directory.**
+`scripts/promote-tdd-tests.js` runs as root `posttest` and moves passing `tests/tdd/*` files into
+`regression/`, but it only walks **`services/*` and `apps/*`** (`SERVICES_DIR`, `APPS_DIR`). A test
+left in **root `tests/tdd/`** therefore never blocks a push *and* never gets promoted — it runs and
+reports, forever. ⚠️ **If a test is meant to enforce something, put it straight in
+`tests/regression/`.** A rule "enforced" by a root-`tdd/` test is not enforced.
 
 **New sprint tests start in the CHANGED workspace's `tests/tdd/`** (e.g.
 `services/request-service/tests/tdd/`), not in this directory. Put a test here only when it spans

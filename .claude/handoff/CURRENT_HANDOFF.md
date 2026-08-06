@@ -880,20 +880,25 @@ and `refs/pull/N/head` — never a `/merge` ref.
 - **Fail-open decision recorded deliberately** in ADR-060 §6: fail-open on a genuinely missing
   analysis stays (async rescan lag is an infrastructure race); fail-open on a query that can never
   match does not.
-- ✅ **OBSERVED green-for-the-right-reason on PR #195** (job `92515639874`, the first time this gate
-  has ever evaluated a real PR analysis):
+- ✅ **The ref/sha fix is confirmed live on PR #195** (job `92515639874`): `SCAN_REF` resolved to
+  `refs/pull/195/head`, the poll matched an analysis, and the fail-open warning is absent. Under the
+  old code that query could only ever return 0.
 
-  ```
-  SCAN_REF: refs/pull/195/head
-  SCAN_SHA: 27e2d474117507f1178225e169695771dc7cc748
-  Scan target: ref=refs/pull/195/head sha=27e2d474… (event: pull_request)
-  No analysis yet for 27e2d474… (attempt 1) — waiting…
-  Code-scanning gate clean: 0 open critical/high (ADR-060).
-  ```
+- 🔴 **…but my "green for the right reason" claim was WRONG, and review caught it.** The gate broke
+  out of the poll on the *first* analysis to appear, which was `actions`. Timestamps for sha
+  `27e2d474`:
 
-  **It did not fail open.** The `::warning::No code-scanning analysis available…` line is absent and
-  there is no "attempt 2" message — the poll broke out because `analyses > 0`, i.e. the query
-  matched. Under the old code that query could only ever return 0.
+  | Analysis | Published |
+  |---|---|
+  | `/language:actions` | 04:00:04Z |
+  | **gate reported clean** | **04:00:10Z** |
+  | `/language:javascript-typescript` | 04:01:10Z |
+
+  The gate passed **66 seconds before the JavaScript analysis existed**. A late JS high/critical
+  would have escaped. Fixed on this branch: readiness now requires **every** category from the live
+  `default-setup` config, and API errors no longer masquerade as "no analysis" (they exit 1 rather
+  than fail open). This is the same defect class the sprint keeps producing — I verified the
+  *mechanism* and then over-claimed the *conclusion* from a single green run.
 
 ### Item 2 — the methodology review is ADR-091
 
@@ -950,7 +955,7 @@ friction: unverified claims caught in maintainer review rounds.
   human-review-only defects logged above.
 - **Dependency guard hook** (`scripts/dependency-guard-hook.js`, wired PreToolUse/PostToolUse on
   Bash) — blocks `npm install --workspace`, `npm dedupe`, and lockfile deletion; warns on >60-line
-  lockfile churn. **Proven both ways** by `tests/tdd/dependency-guard-hook.test.ts` (18 cases,
+  lockfile churn. **Proven both ways** by `tests/regression/dependency-guard-hook.test.ts` (18 cases,
   green): 8 dangerous forms blocked, 10 legitimate ones — including `npm run --workspace`, `npm ci`,
   and prose *describing* the blocked commands — allowed. The churn warning fires on a seeded
   100-line diff and is silent on a 2-line one. Two of its own false-green defects were caught this

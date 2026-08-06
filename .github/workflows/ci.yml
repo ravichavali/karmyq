@@ -125,25 +125,56 @@ jobs:
           SCAN_REF: ${{ github.event_name == 'pull_request' && format('refs/pull/{0}/head', github.event.number) || github.ref }}
           SCAN_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
-          # CodeQL runs via GitHub default setup and is async, so poll for an
-          # analysis on this SHA with a bounded timeout. Fail-open ONLY when no
-          # analysis exists yet; never fail-open on present findings (ADR-060).
+          set -o pipefail
+          # CodeQL runs via GitHub default setup and is async, so poll with a bounded timeout.
+          # Fail-open ONLY when an analysis is genuinely absent; never on findings, and never
+          # on an API error — an error means we could not establish the state at all (ADR-060).
           echo "Scan target: ref=$SCAN_REF sha=$SCAN_SHA (event: $GITHUB_EVENT_NAME)"
-          analyses=0
+
+          # WHICH analyses must exist comes from the live default-setup config, not a
+          # hand-maintained list — a shadow map would drift and silently narrow the gate.
+          # javascript / typescript / javascript-typescript all publish under the single
+          # category "javascript-typescript".
+          if ! expected=$(gh api "repos/${{ github.repository }}/code-scanning/default-setup" \
+                --jq '[.languages[] | if . == "javascript" or . == "typescript" then "javascript-typescript" else . end] | unique | .[]'); then
+            echo "::error::Could not read code-scanning default setup — cannot establish which analyses to require; refusing to fail open (ADR-060)."
+            exit 1
+          fi
+          echo "Required analysis categories:"; for c in $expected; do echo "  - $c"; done
+
+          # Wait for EVERY expected category on this exact SHA. Breaking on the first analysis
+          # to appear would pass before (e.g.) javascript-typescript has run, letting a late
+          # high/critical escape — observed on PR #195, where actions landed 66s before it.
+          missing=""
           for i in $(seq 1 10); do
-            analyses=$(gh api "repos/${{ github.repository }}/code-scanning/analyses?ref=$SCAN_REF&sha=$SCAN_SHA&per_page=1" --jq 'length' 2>/dev/null || echo 0)
-            [ "${analyses:-0}" -gt 0 ] && break
-            echo "No analysis yet for $SCAN_SHA (attempt $i) — waiting…"; sleep 30
+            if ! raw=$(gh api "repos/${{ github.repository }}/code-scanning/analyses?ref=$SCAN_REF&sha=$SCAN_SHA&per_page=100" --paginate --jq '.[].category'); then
+              echo "::error::code-scanning analyses query FAILED (API error, not an empty result) — refusing to fail open (ADR-060)."
+              exit 1
+            fi
+            got=$(printf '%s\n' "$raw" | sed 's|^/language:||' | sort -u)
+            missing=""
+            for c in $expected; do
+              printf '%s\n' "$got" | grep -qx "$c" || missing="$missing $c"
+            done
+            [ -z "$missing" ] && break
+            echo "Waiting for analyses:$missing (attempt $i)"; sleep 30
           done
-          if [ "${analyses:-0}" -eq 0 ]; then
-            echo "::warning::No code-scanning analysis available for $SCAN_REF@$SCAN_SHA within timeout — passing (fail-open on missing analysis, see ADR-060)."
+
+          if [ -n "$missing" ]; then
+            echo "::warning::Missing code-scanning analyses for$missing at $SCAN_REF@$SCAN_SHA within timeout — passing (fail-open on MISSING analysis only, see ADR-060)."
             exit 0
           fi
+          echo "All required analyses present for $SCAN_SHA."
           # Severity filtering done in jq (the alerts endpoint's severity filter is unreliable).
           # Fetched ONCE: the count and the listing must never be able to disagree, which two
           # separately-maintained copies of this filter would eventually allow.
-          alerts=$(gh api "repos/${{ github.repository }}/code-scanning/alerts?ref=$SCAN_REF&state=open&per_page=100" --paginate \
-            --jq '.[] | select(.rule.security_severity_level=="critical" or .rule.security_severity_level=="high") | "  - #\(.number) \(.rule.id) \(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"')
+          # Same rule as the poll: an API error is not "no alerts". Guard explicitly rather than
+          # leaning on `set -e`, so the behaviour holds regardless of how the shell is invoked.
+          if ! alerts=$(gh api "repos/${{ github.repository }}/code-scanning/alerts?ref=$SCAN_REF&state=open&per_page=100" --paginate \
+                --jq '.[] | select(.rule.security_severity_level=="critical" or .rule.security_severity_level=="high") | "  - #\(.number) \(.rule.id) \(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"'); then
+            echo "::error::code-scanning alerts query FAILED (API error, not an empty result) — refusing to report the gate clean (ADR-060)."
+            exit 1
+          fi
           if [ -n "$alerts" ]; then
             echo "::error::$(printf '%s\n' "$alerts" | wc -l) open critical/high code-scanning alert(s) — blocking (ADR-060)."
             printf '%s\n' "$alerts"

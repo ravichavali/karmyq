@@ -93,7 +93,7 @@ code-scanning-gate:
           echo "::warning::No analysis for this SHA within timeout — passing (fail-open on MISSING analysis)."
           exit 0
         fi
-        open=$(gh api ".../code-scanning/alerts?ref=$REF&state=open&per_page=100" --paginate \
+        open=$(gh api ".../code-scanning/alerts?ref=$SCAN_REF&state=open&per_page=100" --paginate \
           --jq '.[] | select(.rule.security_severity_level=="critical" or .rule.security_severity_level=="high") | .number' | wc -l)
         [ "$open" -gt 0 ] && { echo "::error::$open open critical/high — blocking"; exit 1; }
 ```
@@ -130,6 +130,26 @@ Enumerating all published analyses confirms the rule: they appear only under `re
 **Fix.** Resolve the scan target explicitly per event type (`SCAN_REF` / `SCAN_SHA` above), applied to **both** the analyses poll and the alerts query. On `push` events the behaviour is unchanged — `github.ref`/`github.sha` were always correct there, which is why the gate did work on master and produced the misleading impression that it worked everywhere.
 
 **Fail-open, revisited deliberately.** Fail-open on a *genuinely missing* analysis is still correct — default setup is asynchronous and a rescan lag is an infrastructure race, not a security signal. Fail-open on a query that can **never** match is not; it is an unconditional pass wearing a gate's clothing. The distinction is now the whole point of the design, so the asymmetry stands as written in §3, with the scan target corrected beneath it.
+
+### 6b. Two further defects, found by review of the fix itself (PR #195)
+
+The corrected gate went green on PR #195 and that was reported as "green for the right reason". It was not. Review found two ways the gate still under-asserted:
+
+**Partial completion.** The poll broke out on the *first* analysis to appear. CodeQL default setup publishes one analysis per category, and on #195 at sha `27e2d474` the timing was:
+
+| Analysis | Published |
+|---|---|
+| `/language:actions` | 04:00:04Z |
+| **gate reported clean** | **04:00:10Z** |
+| `/language:javascript-typescript` | 04:01:10Z |
+
+The gate passed **66 seconds before the JavaScript analysis existed** — a late JS high/critical would have escaped. Readiness now requires **every** expected category. The expected set is derived at run time from `code-scanning/default-setup` (`languages`, normalising `javascript`/`typescript` → the single published category `javascript-typescript`), not from a hand-maintained list — a shadow map here would drift and silently re-narrow the gate, which is the failure mode §6 exists to document.
+
+**API errors read as "no findings".** `gh api … || echo 0` mapped authentication, rate-limit, network and 5xx failures onto the same value as a valid empty result, and the alerts query treated an error as an empty alert list. That is strictly broader than the stated policy. All three queries (`default-setup`, `analyses`, `alerts`) now distinguish an error from an empty response and **exit 1** rather than fail open: a failed query means the security state could not be established at all, which is not the same as establishing that it is clean.
+
+Fork PRs without `security-events: read` will therefore fail this job rather than silently pass. That is the intended reading of the policy; revisit it if this repo starts taking fork contributions.
+
+**Test coverage for both** is in the same regression file, including a stub that honours the workflow's own jq severity predicate rather than reimplementing it — so narrowing that predicate in `ci.yml` turns the seeded-high case red instead of quietly passing.
 
 **Locked by test.** `tests/regression/sprint-122-adr-060-code-scanning-gate.test.ts` asserts both halves: that the workflow resolves the head ref/sha (and never reintroduces the raw `github.ref`/`github.sha` in either query), and — by extracting the shipped `run:` body and executing it against a stubbed `gh` — that the gate **exits 1 on a seeded critical or high finding** and 0 otherwise. A green gate run cannot distinguish a working gate from an inert one, which is precisely how this survived from Sprint 76 to Sprint 122; the test is written so that the failing direction is the one under proof.
 

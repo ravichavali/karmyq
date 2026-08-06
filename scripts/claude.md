@@ -7,7 +7,7 @@ script — prefer those**, since they carry the right arguments and working dire
 
 | npm script | Runs | Purpose |
 |---|---|---|
-| `npm test` → `posttest` | `promote-tdd-tests.js` | Moves passing `tests/tdd/*` into `regression/` |
+| `npm test` → `posttest` | `promote-tdd-tests.js` | Moves passing `tests/tdd/*` into `regression/` — **`services/*` and `apps/*` only**, not root `tests/` |
 | `npm run feedback:check` | `feedback-loop.js` | Advisory docs to-do list for the staged diff |
 | `npm run analyze:services` | `analyze-services.js` | Regenerates the dependency graph + impact analysis |
 | `npm run context:generate` | `generate-service-context.js` | Generates a service's `CONTEXT.md` |
@@ -51,7 +51,7 @@ committing) · `update-service-deps.js` · `update-service-tdd-docs.js` · `add-
 **Stop** hook. `dependency-guard-hook.js` — wired to **PreToolUse/PostToolUse** on Bash; blocks
 `npm install --workspace`, `npm dedupe`, and lockfile deletion, and warns on lockfile churn over
 60 lines. Both are configured in [`.claude/settings.json`](../.claude/settings.json); the guard is
-covered by `tests/tdd/dependency-guard-hook.test.ts`.
+covered by `tests/regression/dependency-guard-hook.test.ts`.
 
 ## Subdirectories
 

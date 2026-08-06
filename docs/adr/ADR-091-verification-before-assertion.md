@@ -67,7 +67,9 @@ A check is not trusted until it has been demonstrated going **red** on a seeded 
 - A gate that compares against a hand-written shadow map instead of the live arbiter is false-green by construction.
 - An injection whose search text is absent is a silent no-op; injections must fail loudly when they match nothing.
 
-*Enforced by:* `CLAUDE.md` Discipline 5; `tests/regression/sprint-122-adr-060-code-scanning-gate.test.ts` and `tests/tdd/dependency-guard-hook.test.ts` are the worked examples — both assert the blocking direction, not just the passing one.
+*Enforced by:* `CLAUDE.md` Discipline 5; `tests/regression/sprint-122-adr-060-code-scanning-gate.test.ts` and `tests/regression/dependency-guard-hook.test.ts` are the worked examples — both assert the blocking direction, not just the passing one.
+
+Both live in `regression/`, deliberately. Review of this very PR caught the guard test sitting in the root `tests/tdd/` tier: that tier never blocks a push, and `scripts/promote-tdd-tests.js` only walks `services/*` and `apps/*`, so it would never have been promoted either. **A rule "enforced" by a non-blocking test is not enforced** — the same class of gap this ADR is about, found in the ADR's own evidence.
 
 ### 3. Push early for CI signal; write durable docs after
 
