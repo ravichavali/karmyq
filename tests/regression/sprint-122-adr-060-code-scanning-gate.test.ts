@@ -59,6 +59,10 @@ type Scenario = {
   alerts?: Alert[]
   /** Which query (if any) should hard-fail, simulating an API/auth/rate-limit error. */
   failEndpoint?: 'baseline' | 'analyses' | 'alerts'
+  /** Fail that query only for the first N calls, then succeed — a transient 502/rate-limit. */
+  failTimes?: number
+  /** Raw baseline rows (category + commit_sha) for testing the "current config" derivation. */
+  baselineRows?: Array<{ category: string; commit_sha: string }>
 }
 
 const alertOf = (severity: string, number = 42): Alert => ({
@@ -84,9 +88,12 @@ function runGate(scenario: Scenario): { code: number; out: string } {
       path.join(work, 'config.json'),
       JSON.stringify({
         baseline: scenario.baseline ?? BOTH_CATEGORIES,
+        baselineRows: scenario.baselineRows ?? null,
         categories: scenario.categories ?? BOTH_CATEGORIES,
         alerts: scenario.alerts ?? [],
         failEndpoint: scenario.failEndpoint ?? null,
+        failTimes: scenario.failTimes ?? null,
+        counterFile: path.join(work, 'calls').replace(/\\/g, '/'),
       })
     )
 
@@ -102,11 +109,29 @@ const hit = (name) => url.includes('/' + name);
 // The baseline query and the per-SHA query both hit /analyses; only the latter carries sha=.
 const which = hit('alerts') ? 'alerts' : url.includes('sha=') ? 'analyses' : 'baseline';
 
-if (cfg.failEndpoint && cfg.failEndpoint === which) {
-  process.stderr.write('gh: simulated API failure for ' + which + '\\n');
-  process.exit(1);
+if (cfg.failEndpoint === which) {
+  // failTimes = transient: fail the first N calls to this endpoint, then recover.
+  let n = 0;
+  try { n = JSON.parse(fs.readFileSync(cfg.counterFile, 'utf8'))[which] || 0; } catch {}
+  const transient = cfg.failTimes !== null && n >= cfg.failTimes;
+  let all = {};
+  try { all = JSON.parse(fs.readFileSync(cfg.counterFile, 'utf8')); } catch {}
+  all[which] = n + 1;
+  fs.writeFileSync(cfg.counterFile, JSON.stringify(all));
+  if (!transient) {
+    process.stderr.write('gh: simulated API failure for ' + which + '\\n');
+    process.exit(1);
+  }
 }
 if (which === 'baseline') {
+  // Mirrors the workflow's jq: categories of the MOST RECENT analysed commit only.
+  if (cfg.baselineRows) {
+    const newest = cfg.baselineRows.length ? cfg.baselineRows[0].commit_sha : '';
+    [...new Set(cfg.baselineRows.filter((r) => r.commit_sha === newest).map((r) => r.category))]
+      .sort()
+      .forEach((c) => console.log(c));
+    process.exit(0);
+  }
   cfg.baseline.forEach((c) => console.log(c));
   process.exit(0);
 }
@@ -215,6 +240,18 @@ describe('ADR-060 gate — scan target resolution', () => {
   })
 })
 
+describe('ADR-060 gate — baseline is the CURRENT config, not all history', () => {
+  // `jq` is not installed on the Windows dev box, so the stub below models the baseline jq's
+  // semantics rather than executing it. That means the behavioural tests cannot detect a change
+  // to the expression itself — this assertion is what locks it. (Mutation-checked: replacing the
+  // expression with `.[].category` turns this red.)
+  it('selects only the newest analysed commit_sha', () => {
+    const gate = extractGateScript()
+    expect(gate).toMatch(/\$all\[0\]\.commit_sha/)
+    expect(gate).toMatch(/select\(\.commit_sha == \$newest\)/)
+  })
+})
+
 describe('ADR-060 gate — severity predicate', () => {
   it('blocks on BOTH critical and high (narrowing this predicate must break the tests below)', () => {
     const gate = extractGateScript()
@@ -313,5 +350,62 @@ describe('ADR-060 gate — refuses to fail open on API errors', () => {
     const { code, out } = runGate({ failEndpoint: 'alerts' })
     expect(code).toBe(1)
     expect(out).not.toContain('Code-scanning gate clean')
+  })
+})
+
+// A gate that reds on one transient 502 among ~11 API calls is its own kind of broken.
+describe('ADR-060 gate — survives transient API errors', () => {
+  it('retries a transient analyses failure instead of failing the job', () => {
+    const { code, out } = runGate({ failEndpoint: 'analyses', failTimes: 2, alerts: [] })
+    expect(code).toBe(0)
+    expect(out).toContain('Code-scanning gate clean')
+  })
+
+  it('retries a transient baseline failure instead of failing the job', () => {
+    const { code, out } = runGate({ failEndpoint: 'baseline', failTimes: 2, alerts: [] })
+    expect(code).toBe(0)
+    expect(out).toContain('Required analysis categories')
+  })
+
+  it('retries a transient alerts failure, and still blocks on the finding it then sees', () => {
+    const { code } = runGate({
+      failEndpoint: 'alerts',
+      failTimes: 2,
+      alerts: [alertOf('critical')],
+    })
+    expect(code).toBe(1)
+  })
+})
+
+describe('ADR-060 gate — required categories reflect the CURRENT config', () => {
+  it('does not keep requiring a language that the newest default-branch commit dropped', () => {
+    // Historical analyses still mention `ruby`; the newest analysed commit does not.
+    const { code, out } = runGate({
+      baselineRows: [
+        { category: '/language:actions', commit_sha: 'new' },
+        { category: '/language:javascript-typescript', commit_sha: 'new' },
+        { category: '/language:ruby', commit_sha: 'old' },
+        { category: '/language:actions', commit_sha: 'old' },
+      ],
+      categories: BOTH_CATEGORIES,
+      alerts: [],
+    })
+    expect(out).not.toContain('ruby')
+    expect(out).toContain('All required analyses present')
+    expect(code).toBe(0)
+  })
+
+  it('does require a language the newest commit added', () => {
+    const { out } = runGate({
+      baselineRows: [
+        { category: '/language:actions', commit_sha: 'new' },
+        { category: '/language:javascript-typescript', commit_sha: 'new' },
+        { category: '/language:ruby', commit_sha: 'new' },
+      ],
+      categories: BOTH_CATEGORIES,
+      alerts: [],
+    })
+    expect(out).toContain('ruby')
+    expect(out).toContain('Waiting for analyses')
   })
 })

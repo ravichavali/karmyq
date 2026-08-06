@@ -319,4 +319,6 @@ a **blocking defect**, not a nice-to-have — fix it before reporting the work c
 
 ---
 
-**Remember**: this is global context — read the local `.claude/README.md` for the area you touch.
+**Remember**: this is global context — read the local context for the area you touch (the table in
+*Context Follows Directory Scope*: `.claude/README.md` for a service, that directory's `claude.md`
+everywhere else).

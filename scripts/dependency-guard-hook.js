@@ -34,39 +34,65 @@ function readCommand() {
   return process.env.CLAUDE_TOOL_INPUT_COMMAND || '';
 }
 
+// Each rule is scoped to the segment's HEAD command. Without that scoping, an `npm` invocation
+// carrying an `rm …package-lock.json` argument (e.g. `npm test -- -t "rm package-lock.json"`)
+// trips the rm rule, and vice versa.
 const BLOCKED = [
   {
+    head: 'npm',
     // `npm run <script> --workspace=x` is fine; only install/add churn pins.
-    test: /\bnpm\s+(install|i|add)\b[^|;&\n]*(--workspace\b|--workspaces\b|\s-w[\s=])/,
+    // `--workspaces=false` is a root-ONLY install — safe, and must not be blocked.
+    test: /\bnpm\s+(install|i|add)\b[^|;&\n]*(--workspaces(?!=false)|--workspace\b|\s-w[\s=])/,
     why: '`npm install --workspace` silently rewrites exact pins to carets across the tree.',
   },
   {
+    head: 'npm',
     test: /\bnpm\s+dedupe\b/,
     why: '`npm dedupe` churns unrelated packages (71 of them, last time).',
   },
   {
+    head: 'rm',
+    // Only this rule consults the unquoted text, so `rm "package-lock.json"` is still caught.
+    matchUnquoted: true,
     test: /\brm\b[^|;&\n]*package-lock\.json/,
     why: 'Deleting package-lock.json forces a scratch regen — never do that on Windows.',
   },
 ];
 
 /**
- * Drop heredoc bodies: a commit message describing `npm dedupe` is prose, not an invocation.
- * The opener line is kept — it carries the real command.
+ * Which line indices belong to heredoc BODIES (a commit message describing `npm dedupe` is prose,
+ * not an invocation). Opener lines are kept — they carry the real command.
+ *
+ * Detection runs on the QUOTE-BLANKED text: a `<<` inside a string is a left-shift or a quoted
+ * pattern, not a heredoc opener. Reading it as one silently discarded every following line, which
+ * made `node -e "1 << x"` + newline + `npm dedupe` sail straight through.
  */
-function stripHeredocBodies(cmd) {
-  const kept = [];
+function heredocBodyLines(raw, blanked) {
+  const OPENER = /<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1/g;
+  const rawLines = raw.split('\n');
+  const blankedLines = blanked.split('\n');
+  const drop = new Set();
   let terminator = null;
-  for (const line of cmd.split('\n')) {
+
+  rawLines.forEach((line, i) => {
     if (terminator !== null) {
       if (line.trim() === terminator) terminator = null;
-      continue;
+      drop.add(i);
+      return;
     }
-    kept.push(line);
-    const opener = line.match(/<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1/);
-    if (opener) terminator = opener[2];
-  }
-  return kept.join('\n');
+    // The delimiter must be read from RAW (`<<'EOF'` has its EOF blanked out), but whether this
+    // `<<` is a real opener must be judged from BLANKED — inside a string it is a left-shift or a
+    // quoted pattern, not a heredoc. blankQuoted is length-preserving, so indices line up.
+    OPENER.lastIndex = 0;
+    let m;
+    while ((m = OPENER.exec(line)) !== null) {
+      if (blankedLines[i].slice(m.index, m.index + 2) === '<<') {
+        terminator = m[2];
+        break;
+      }
+    }
+  });
+  return drop;
 }
 
 /**
@@ -87,8 +113,17 @@ const SPLIT = /\|\||&&|\||;|\n/;
  * detectable). `blankQuoted` is length-preserving, so both splits stay index-aligned.
  */
 function riskySegments(cmd) {
-  const raw = stripHeredocBodies(cmd);
-  const clean = blankQuoted(raw);
+  // Blank quotes FIRST, then find heredocs in the blanked text, then drop those lines from both.
+  const blankedAll = blankQuoted(cmd);
+  const drop = heredocBodyLines(cmd, blankedAll);
+  const keep = (text) =>
+    text
+      .split('\n')
+      .filter((_, i) => !drop.has(i))
+      .join('\n');
+
+  const raw = keep(cmd);
+  const clean = keep(blankedAll);
 
   // Find separators in the BLANKED text, then slice both strings at those offsets — splitting each
   // independently would misalign, since a `&&` inside quotes is a separator in one and not the other.
@@ -103,21 +138,22 @@ function riskySegments(cmd) {
   ranges.push([start, clean.length]);
 
   return ranges
-    .map(([from, to]) => ({
-      clean: clean.slice(from, to).trim(),
-      unquoted: raw.slice(from, to).replace(/['"]/g, '').trim(),
-    }))
-    .filter(({ clean }) => {
-      let tokens = clean.split(/\s+/).filter(Boolean);
+    .map(([from, to]) => {
+      const segment = clean.slice(from, to).trim();
+      let tokens = segment.split(/\s+/).filter(Boolean);
       while (
         tokens.length &&
         (/^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0]) || ['sudo', 'command'].includes(tokens[0]))
       ) {
         tokens = tokens.slice(1);
       }
-      const head = (tokens[0] || '').replace(/^.*[\\/]/, '');
-      return head === 'npm' || head === 'rm';
-    });
+      return {
+        clean: segment,
+        unquoted: raw.slice(from, to).replace(/['"]/g, '').trim(),
+        head: (tokens[0] || '').replace(/^.*[\\/]/, ''),
+      };
+    })
+    .filter(({ head }) => BLOCKED.some((rule) => rule.head === head));
 }
 
 const command = readCommand();
@@ -125,7 +161,12 @@ const command = readCommand();
 if (MODE === 'pre') {
   const candidates = riskySegments(command);
   for (const rule of BLOCKED) {
-    if (candidates.some((s) => rule.test.test(s.clean) || rule.test.test(s.unquoted))) {
+    const applicable = candidates.filter((s) => s.head === rule.head);
+    if (
+      applicable.some(
+        (s) => rule.test.test(s.clean) || (rule.matchUnquoted && rule.test.test(s.unquoted))
+      )
+    ) {
       console.error(
         `\n🚫 BLOCKED: ${rule.why}\n` +
           '   Dependency edits are SURGICAL: edit package.json, splice package-lock.json in place,\n' +
@@ -140,7 +181,9 @@ if (MODE === 'pre') {
 // post: surgical-diff check on the lockfile
 try {
   // argv form, not a shell string: cmd.exe does not strip the quotes off a globbed pathspec.
-  const out = execFileSync('git', ['diff', '--numstat', '--', '*package-lock.json'], {
+  // `HEAD` (not a bare `git diff`) so STAGED lockfile churn counts too — `npm install` followed by
+  // `git add` would otherwise show a clean worktree and warn about nothing.
+  const out = execFileSync('git', ['diff', '--numstat', 'HEAD', '--', '*package-lock.json'], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'ignore'],
   }).trim();
@@ -160,6 +203,9 @@ try {
         '\n   Confirm every changed package is an intended target of this change, and that no exact\n' +
         '   pin became a range. Verify with strict `npm ci` before pushing.\n'
     );
+    // Exit 2 is what surfaces a PostToolUse hook's stderr back to the agent. Exiting 0 here wrote
+    // the warning into the void — nobody saw it, which is the same as not having the check.
+    process.exit(2);
   }
 } catch {
   /* not a git repo / no lockfile — nothing to check */

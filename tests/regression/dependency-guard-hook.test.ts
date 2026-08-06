@@ -1,4 +1,8 @@
-// tests/tdd/dependency-guard-hook.test.ts
+// tests/regression/dependency-guard-hook.test.ts
+//
+// Lives in regression/, not tdd/: root `tests/tdd/` neither blocks a push nor gets promoted
+// (promote-tdd-tests.js walks only services/* and apps/*), so a rule "enforced" from there is
+// not enforced at all.
 //
 // Guards scripts/dependency-guard-hook.js — the PreToolUse hook that blocks lockfile-churning npm
 // commands (CLAUDE.md -> Global Patterns / Workspace dependencies).
@@ -41,6 +45,37 @@ describe('dependency guard hook — blocks lockfile churn', () => {
 
   it.each(blocked)('blocks: %s', (_label, command) => {
     expect(runHook(command)).toBe(BLOCK_EXIT)
+  })
+})
+
+// Every case below reproduces a defect found by /code-review on PR #195. The guard shipped both
+// too loose (a `<<` inside a string silently discarded everything after it) and too tight
+// (blocking legitimate npm invocations that merely *mention* a blocked phrase in an argument).
+describe('dependency guard hook — review findings from PR #195', () => {
+  it('does not block a test filter that merely mentions a blocked phrase', () => {
+    expect(runHook('npm run test -- --grep "npm dedupe"')).toBe(0)
+    expect(runHook('npm test -- -t "rm package-lock.json"')).toBe(0)
+  })
+
+  it('does not block `--workspaces=false`, which is a root-only install', () => {
+    expect(runHook('npm install --workspaces=false')).toBe(0)
+  })
+
+  it('still blocks `--workspaces` and `--workspaces=true`', () => {
+    expect(runHook('npm install --workspaces')).toBe(BLOCK_EXIT)
+    expect(runHook('npm install --workspaces=true')).toBe(BLOCK_EXIT)
+  })
+
+  it('is not bypassed by a `<<` inside a quoted string (left-shift, quoted pattern)', () => {
+    // The heredoc stripper used to treat this `<<` as an opener and drop every following line.
+    expect(runHook('node -e "console.log(1 << shift)"\nnpm dedupe')).toBe(BLOCK_EXIT)
+    expect(runHook('grep "a << b" file.txt\nrm package-lock.json')).toBe(BLOCK_EXIT)
+  })
+
+  it('still ignores a real heredoc body', () => {
+    expect(
+      runHook("git commit -F - <<'EOF'\nfix: guard\n  npm dedupe is blocked\nEOF")
+    ).toBe(0)
   })
 })
 
