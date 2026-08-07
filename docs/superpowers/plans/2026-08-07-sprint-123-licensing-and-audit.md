@@ -477,13 +477,16 @@ git add claude.md AGENTS.md && git status --short
 - [ ] **Regenerate and verify all three pages land in nav** — `nav.json` is generated; never edit it
 
 ```bash
-npx tsx scripts/generate-docs.ts
+cd apps/landing && npm run generate-docs && cd ../..
 node -e "
 const nav=require('fs').readFileSync('apps/landing/src/data/docs/nav.json','utf8');
 for (const s of ['adr-092','adr-093','open-source-and-agpl'])
   console.log(s, nav.includes(s) ? 'OK' : 'MISSING');
 "
 ```
+
+`apps/landing/src/data/docs/` is **tracked, not gitignored** (160 files under version control),
+so plain `git add` is correct — no `-f` needed.
 
 - [ ] **Run the drift gate — it enforces exactly this**
 
