@@ -30,7 +30,7 @@ Tool-name mapping (`Read`→your read tool, `Bash`→your shell, `TodoWrite`→`
 `~/.claude/plugins/cache/claude-plugins-official/superpowers/*/skills/using-superpowers/references/codex-tools.md`
 
 **Project skills** ([`.claude/skills/`](.claude/skills/)): `sprint-planning`,
-`pre-commit-check` (**mandatory before every commit**), `deploy`, `ship`,
+`pre-commit-check` (**mandatory before every commit**), `deploy`, `ship`, `review-response`,
 `update-handoff`/`handoff`, `bug`, `capture`.
 **Superpowers skills** (same plugin cache, `superpowers/*/skills/`): `brainstorming`,
 `test-driven-development`, `systematic-debugging`, `writing-plans`, `executing-plans`,
@@ -50,11 +50,17 @@ agents live in [`.claude/agents/`](.claude/agents/) (`migration-validator`, `pro
   docs authoring").
 - **Quality gates before merge:** tests, `/simplify`, `/code-review`, `/security-review` —
   effort calibrated to diff size (see `CLAUDE.md` Pre-Merge Checklist).
+- **Verify before you assert:** every factual claim about the repo in a spec/plan/handoff is read
+  out of the file first, cited `file:line`, or marked UNVERIFIED (see `CLAUDE.md` → Discipline 5).
 - **Declare what you import:** every workspace declares every package it imports; hoisting is not
   a contract (see `CLAUDE.md` → Global Patterns).
+- **Dependency edits are surgical:** never `npm install --workspace`, `npm dedupe`, or a lockfile
+  scratch-regen; edit + splice in place and prove with strict `npm ci`.
 - **Solo dev, no git worktrees.** Feature branches only.
-- **Host is Windows/PowerShell** (`$null`, `$env:VAR`).
-- **Update the handoff before stopping.**
+- **Host is Windows/PowerShell** (`$null`, `$env:VAR`); in Git Bash `jq` is absent and `curl`
+  returns spurious `000` — use `node -e` for HTTP probes and JSON parsing.
+- **Update the handoff before stopping** — and reconcile it against `gh pr list` / `git log`; a
+  stale handoff is a blocking defect.
 
 ## Lanes & Merge Authority
 

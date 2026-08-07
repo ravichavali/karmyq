@@ -126,6 +126,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-088: Test-Tier Truthfulness](ADR-088-test-tier-truthfulness.md) — **Implemented**
 - [ADR-089: ts-jest Cannot Read `exports` Maps — `typesVersions` Is the Contract](ADR-089-ts-jest-subpath-type-resolution.md) — **Implemented**
 - [ADR-090: The Container Runtime Floor Is Node 24, and It Is Enforced](ADR-090-container-runtime-floor.md) — **Implemented**
+- [ADR-091: Verification Before Assertion — the Sprint 122 review-loop retrospective](ADR-091-verification-before-assertion.md) — **Accepted**
 
 ## Creating a New ADR
 

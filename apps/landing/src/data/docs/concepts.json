@@ -703,6 +703,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-090-container-runtime-floor.md"
+    },
+    {
+      "slug": "adr-091-verification-before-assertion",
+      "number": "091",
+      "title": "ADR-091: Verification Before Assertion — the Sprint 122 review-loop retrospective",
+      "status": "accepted",
+      "description": "**Status**: Accepted",
+      "filename": "ADR-091-verification-before-assertion.md"
     }
   ]
 }

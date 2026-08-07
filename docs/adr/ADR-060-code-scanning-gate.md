@@ -78,11 +78,14 @@ code-scanning-gate:
     - name: Fail on open critical/high CodeQL alerts
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # See §6 — resolving the scan target per event type is load-bearing.
+        SCAN_REF: ${{ github.event_name == 'pull_request' && format('refs/pull/{0}/head', github.event.number) || github.ref }}
+        SCAN_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       run: |
         # Default setup is async — poll for an analysis on this SHA (bounded).
         analyses=0
         for i in $(seq 1 10); do
-          analyses=$(gh api ".../code-scanning/analyses?ref=$REF&sha=$SHA&per_page=1" --jq 'length' || echo 0)
+          analyses=$(gh api ".../code-scanning/analyses?ref=$SCAN_REF&sha=$SCAN_SHA&per_page=1" --jq 'length' || echo 0)
           [ "$analyses" -gt 0 ] && break
           sleep 30
         done
@@ -90,7 +93,7 @@ code-scanning-gate:
           echo "::warning::No analysis for this SHA within timeout — passing (fail-open on MISSING analysis)."
           exit 0
         fi
-        open=$(gh api ".../code-scanning/alerts?ref=$REF&state=open&per_page=100" --paginate \
+        open=$(gh api ".../code-scanning/alerts?ref=$SCAN_REF&state=open&per_page=100" --paginate \
           --jq '.[] | select(.rule.security_severity_level=="critical" or .rule.security_severity_level=="high") | .number' | wc -l)
         [ "$open" -gt 0 ] && { echo "::error::$open open critical/high — blocking"; exit 1; }
 ```
@@ -110,6 +113,61 @@ code-scanning-gate:
 ### 5. Escape hatch
 
 `git push --no-verify` skips local hooks; the **CI gate cannot be bypassed** from a push. A genuinely needed exception is made by triaging/dismissing the specific alert with justification (which is auditable), not by disabling the job.
+
+### 6. Sprint 122 correction — the gate was inert on every pull request (2026-08-05)
+
+**The gate had never blocked a pull request.** From its introduction in Sprint 76 until this fix, the poll queried `ref=${{ github.ref }}&sha=${{ github.sha }}`. On a `pull_request` event those resolve to `refs/pull/N/merge` and the ephemeral **merge commit**, while CodeQL default setup publishes its analysis to `refs/pull/N/**head**` and the head sha. The query could therefore never match: 10 attempts → 0 analyses → the fail-open branch → `exit 0`. The alerts query at the next line carried the same defect, so even past the fail-open the critical/high count was a vacuous `0`.
+
+Verified against the live API on merged PR #194 (head `9bce1cfb`, merge commit `7bfa3471`):
+
+| Query | Analyses returned |
+|---|---|
+| `ref=refs/pull/194/merge&sha=7bfa3471…` (what the gate ran) | **0** |
+| `ref=refs/pull/194/head&sha=9bce1cfb…` (the fix) | **1** |
+
+Enumerating all published analyses confirms the rule: they appear only under `refs/heads/master` and `refs/pull/N/head` — never a `/merge` ref.
+
+**Fix.** Resolve the scan target explicitly per event type (`SCAN_REF` / `SCAN_SHA` above), applied to **both** the analyses poll and the alerts query. On `push` events the behaviour is unchanged — `github.ref`/`github.sha` were always correct there, which is why the gate did work on master and produced the misleading impression that it worked everywhere.
+
+**Fail-open, revisited deliberately.** Fail-open on a *genuinely missing* analysis is still correct — default setup is asynchronous and a rescan lag is an infrastructure race, not a security signal. Fail-open on a query that can **never** match is not; it is an unconditional pass wearing a gate's clothing. The distinction is now the whole point of the design, so the asymmetry stands as written in §3, with the scan target corrected beneath it.
+
+### 6b. Two further defects, found by review of the fix itself (PR #195)
+
+The corrected gate went green on PR #195 and that was reported as "green for the right reason". It was not. Review found two ways the gate still under-asserted:
+
+**Partial completion.** The poll broke out on the *first* analysis to appear. CodeQL default setup publishes one analysis per category, and on #195 at sha `27e2d474` the timing was:
+
+| Analysis | Published |
+|---|---|
+| `/language:actions` | 04:00:04Z |
+| **gate reported clean** | **04:00:10Z** |
+| `/language:javascript-typescript` | 04:01:10Z |
+
+The gate passed **66 seconds before the JavaScript analysis existed** — a late JS high/critical would have escaped. Readiness now requires **every** expected category.
+
+The expected set is read at run time from the live system rather than a hand-maintained list — a shadow map here would drift and silently re-narrow the gate, which is the failure mode §6 exists to document. The arbiter is **the set of categories the default branch actually publishes** (`code-scanning/analyses?ref=refs/heads/<default_branch>`, distinct `.category`).
+
+> **Not `code-scanning/default-setup`.** The obvious arbiter is the default-setup config's `languages`, and the first attempt used it. It returns **403 `Resource not accessible by integration`** for this job's `security-events: read` token — that endpoint needs admin rights. Because the new code correctly refuses to fail open on an API error, the gate then hard-failed *every* run. The analyses endpoint carries the same information for this purpose and is readable with the permission the job already holds. **The unit tests could not have caught this**: they stub `gh`, so a permissions failure is invisible to them. Only a real CI run proves it.
+
+If the default branch has no analyses at all, there is nothing to require and the gate fails open with a warning — the same "missing analysis" branch, not a silent pass.
+
+### 6c. The `sha` query parameter is ignored by the API
+
+`GET /code-scanning/analyses?ref=…&sha=…` **does not filter on `sha`**. Demonstrated against this repo: querying `sha=0000000000000000000000000000000000000000` still returns results, and a query for `13e273b6`'s analyses returned rows whose `commit_sha` was `97110ebb`, `ec163073`, `855981d7`, `27e2d474` — every analysis on the ref.
+
+The consequence is severe on a long-lived PR branch: the readiness check in §6b was satisfied by an analysis belonging to an **earlier commit on the same pull request**. Observed live — the gate reported *"All required analyses present for 13e273b6"* and passed, while `13e273b6`'s own `javascript-typescript` analysis had been cancelled mid-run and never published. It was matching `97110ebb`'s analysis from five hours earlier.
+
+**Fix:** the query drops the useless `sha` parameter and asks for `"\(.commit_sha) \(.category)"`, then filters on `commit_sha` client-side with `awk`. Locked by a regression case whose stub reproduces the API's actual behaviour — emitting foreign-SHA rows alongside the real ones — so a gate that trusts the server-side filter goes red.
+
+The general lesson matches the rest of this ADR: **a filter you did not watch reject something is not a filter.** Three of this gate's defects now share that shape — a query that could never match, a poll that stopped too early, and a parameter that was never applied.
+
+**API errors read as "no findings".** `gh api … || echo 0` mapped authentication, rate-limit, network and 5xx failures onto the same value as a valid empty result, and the alerts query treated an error as an empty alert list. That is strictly broader than the stated policy. All three queries (`default-setup`, `analyses`, `alerts`) now distinguish an error from an empty response and **exit 1** rather than fail open: a failed query means the security state could not be established at all, which is not the same as establishing that it is clean.
+
+Fork PRs without `security-events: read` will therefore fail this job rather than silently pass. That is the intended reading of the policy; revisit it if this repo starts taking fork contributions.
+
+**Test coverage for both** is in the same regression file, including a stub that honours the workflow's own jq severity predicate rather than reimplementing it — so narrowing that predicate in `ci.yml` turns the seeded-high case red instead of quietly passing.
+
+**Locked by test.** `tests/regression/sprint-122-adr-060-code-scanning-gate.test.ts` asserts both halves: that the workflow resolves the head ref/sha (and never reintroduces the raw `github.ref`/`github.sha` in either query), and — by extracting the shipped `run:` body and executing it against a stubbed `gh` — that the gate **exits 1 on a seeded critical or high finding** and 0 otherwise. A green gate run cannot distinguish a working gate from an inert one, which is precisely how this survived from Sprint 76 to Sprint 122; the test is written so that the failing direction is the one under proof.
 
 ---
 
@@ -131,6 +189,7 @@ code-scanning-gate:
 **Negative / trade-offs**
 - The aggressive config produces more false positives (350 fixed-host request-forgery), which is ongoing triage cost. Mitigated by the per-class justifications (future occurrences of the same pattern are quick to dismiss by reference).
 - The poll-gate fails open on a missing analysis — a (narrow) window where a push could deploy before analysis completes. Accepted, and documented; the next push re-evaluates.
+- **A gate observed only in its passing state is unfalsifiable.** This one shipped inert on pull requests for ~46 sprints while reporting green every time. The general lesson, now applied to new gates repo-wide: a check must be demonstrated **failing** on a seeded violation before it is trusted, and that demonstration belongs in a test rather than in a one-off manual run.
 
 ---
 

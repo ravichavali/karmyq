@@ -31,16 +31,27 @@ one sprint = one chat per agent branch, orchestrated through handoff/PR state.
 
 ## Context Follows Directory Scope
 
-Read the LOCAL context first: `services/{name}/.claude/README.md` (+ `CONTEXT.md`) for a service,
-`apps/frontend/.claude/README.md` for frontend, `apps/mobile/.claude/README.md` for mobile,
-`tests/.claude/README.md` for tests. **This file is global patterns only.** Local checklists are
-mandatory — follow them exactly.
+Read the LOCAL context first. **This file is global patterns only**; local checklists are mandatory
+— follow them exactly.
+
+| Working in | Read |
+|---|---|
+| `services/{name}/` | `services/{name}/.claude/README.md` **+** `CONTEXT.md` |
+| `apps/frontend/`, `apps/mobile/` | that app's `claude.md` |
+| `apps/landing/` | [`apps/claude.md`](apps/claude.md) |
+| `packages/shared/` | [`packages/claude.md`](packages/claude.md) + `shared/CONTEXT.md` |
+| `tests/` | [`tests/claude.md`](tests/claude.md) |
+| `infrastructure/`, `scripts/` | that directory's `claude.md` |
+
+Only the **services** carry `.claude/README.md`; everywhere else the directory-level `claude.md`
+*is* the local context, and Claude auto-discovers it from the file you're editing.
 
 ---
 
 ## Development Disciplines (MUST FOLLOW)
 
-1. **Context-driven:** read the local `.claude/README.md` before changes.
+1. **Context-driven:** read the local context for the directory before changing anything in it
+   (table above — `.claude/README.md` for services, `claude.md` elsewhere).
 2. **Update, don't create:** search for an existing file before creating any new one.
 3. **TDD framework ([ADR-029](docs/adr/ADR-029-tdd-test-framework.md)):** unit + regression MUST
    pass before push (pre-push hook enforces; TDD tier reports only; integration blocks if a DB is
@@ -49,7 +60,14 @@ mandatory — follow them exactly.
    `git push --no-verify` emergencies only; `SKIP_PREPUSH=1` skips pre-push only.
 4. **Fix forward, not around:** fix the original script, never a workaround copy; ADR if
    architectural.
-5. **Docs feedback loop (MANDATORY):** every behavior change updates docs in the same PR —
+5. **Verify before you assert:** every factual claim you write into a spec, plan, handoff or ADR
+   about this repo — file path, dependency/`peerDependency`, export, endpoint route, engine range,
+   CI gate behavior — is read out of the file FIRST; cite `file:line` for non-obvious ones and mark
+   anything you couldn't check **UNVERIFIED**. A changelog or upgrade guide is a hypothesis;
+   the manifest / `node_modules` / the compiler is evidence. Same rule for gates you write: a check
+   comparing against a hand-written shadow map is **false-green** — query the live arbiter
+   (registry, SDK map, upstream API) at run time and prove the check can actually fail.
+6. **Docs feedback loop (MANDATORY):** every behavior change updates docs in the same PR —
    endpoint/schema/event/dependency → service `CONTEXT.md` + `services/registry.json` (+ migration
    in `infrastructure/postgres/migrations/`); shared-package export → `packages/shared/CONTEXT.md`;
    architectural decision → ADR in `docs/adr/` + its `README.md` index (lifecycle: Proposed →
@@ -154,8 +172,12 @@ strip `/api`: `proxy_pass http://your_service/{prefix}$1$is_args$args`. Takes ef
 deploy (or manual `sudo cp` + `nginx -t` + reload on the server).
 
 ### Database
-Schema-prefixed tables: `auth.*`, `communities.*`, `requests.*`, `reputation.*`,
-`notifications.*`, `messaging.*`.
+**13 schemas**, not 6: `auth`, `communities`, `requests`, `reputation`, `notifications`,
+`messaging`, `social_graph`, `feed`, `federation`, `governance`, `feedback`, `provider`, `events`.
+The community schema is **`communities`** (plural). Two names where the obvious guess is wrong:
+`communities.members` (not `memberships`) and `requests.help_offers` (not `offers`). RLS is on —
+a query that skips `setDbContext` sees nothing rather than erroring.
+Details: [infrastructure/claude.md](infrastructure/claude.md).
 
 ### API Response Contract (ADR-074)
 Success: `{ "success": true, "data": T, "message": "optional" }`.
@@ -171,6 +193,12 @@ Bull queue `karmyq-events`: `match_completed` → Reputation, Notification; `kar
 a contract — bumping a package in the workspaces that declare it de-hoists it out from under the
 ones that don't, breaking them. Before any bump, cross-check importers against declarers and add
 the missing declarations; never pin to preserve a hoist.
+
+**Dependency edits are surgical.** Never `npm install --workspace`, `npm dedupe`, or a lockfile
+scratch-regen to fix a dependency problem — they rewrite exact pins to ranges and churn unrelated
+packages. Edit `package.json` and splice `package-lock.json` in place, then prove it with strict
+`npm ci`. Never add a root-level production dependency to satisfy an advisory — it lands in every
+service image.
 
 ---
 
@@ -193,6 +221,13 @@ when green via `scripts/promote-tdd-tests.js`); `integration/` needs a DB. **New
 start in the changed workspace's `tests/tdd/`** (e.g. `services/request-service/tests/tdd/`),
 not root. Infrastructure: `cd infrastructure/docker && docker-compose up -d postgres redis`.
 
+### Windows / Git Bash environment
+This machine is Windows + Git Bash. `curl` flag parsing is unreliable (spurious status `000`),
+`jq` is **not installed**, and PowerShell execution policy blocks dot-sourcing helpers — use
+`node -e` for HTTP probes and JSON parsing instead of `curl`/`jq`. `| tail` masks exit codes.
+Don't attribute a Turbo failure to the first-listed package; read the failing suite name out of
+the raw output.
+
 ---
 
 ## Documentation Map
@@ -201,7 +236,9 @@ not root. Infrastructure: `cd infrastructure/docker && docker-compose up -d post
 `.claude/README.md` (read first) + `CONTEXT.md` (technical) + `README.md` (human) ·
 [docs/](docs/): `ARCHITECTURE.md`, `SERVICE_GOVERNANCE.md`, `CONTEXT_MANAGEMENT.md`, `adr/`.
 **Generated, never hand-edit** (a hook blocks it): `services/dependency-graph.md`,
-`services/impact-analysis.md`, `/dist/`, `/build/`.
+`services/impact-analysis.md`, `/dist/`, `/build/`. Also generated:
+`infrastructure/postgres/init.sql` (source = `migrations/*.sql` + `scripts/regenerate-init-sql.sh`;
+a drift gate enforces it) and `apps/landing/src/data/docs/` (regenerated by the landing prebuild).
 
 ---
 
@@ -275,6 +312,13 @@ chosen, a constraint is established, or a sprint completes — never defer to en
 handoff is the only thing that travels between chats). Trigger phrases: "next sprint",
 "the plan is", "we've agreed". Update status/blockers/next steps at every session end.
 
+**Reconcile the handoff before claiming done.** After any merge, PR open/close, and at session
+end, re-read `CURRENT_HANDOFF.md` end-to-end against real state (`gh pr list`, `git log`, current
+branch). A handoff saying "PR N NEXT / start from master" while PR N is already open or merged is
+a **blocking defect**, not a nice-to-have — fix it before reporting the work complete.
+
 ---
 
-**Remember**: this is global context — read the local `.claude/README.md` for the area you touch.
+**Remember**: this is global context — read the local context for the area you touch (the table in
+*Context Follows Directory Scope*: `.claude/README.md` for a service, that directory's `claude.md`
+everywhere else).

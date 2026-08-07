@@ -1,6 +1,32 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(npm view *)",
+      "Bash(npm audit)",
+      "Bash(npm audit *)",
+      "Bash(npm run feedback:check)",
+      "Bash(npm run type-check)",
+      "Bash(git fetch *)",
+      "Bash(gh run watch *)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_resize",
+      "mcp__plugin_playwright_playwright__browser_console_messages"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/dependency-guard-hook.js pre",
+            "timeout": 5
+          }
+        ]
+      },
       {
         "matcher": "Edit|Write",
         "hooks": [
@@ -30,6 +56,17 @@
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/dependency-guard-hook.js post",
+            "timeout": 10,
+            "statusMessage": "Checking lockfile churn..."
+          }
+        ]
+      },
       {
         "matcher": "Edit|Write",
         "hooks": [

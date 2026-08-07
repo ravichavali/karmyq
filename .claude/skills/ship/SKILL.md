@@ -56,9 +56,12 @@ go green → run any plan-listed server scripts).
 
 Do not declare done until production is verified live — this is the step that usually gets cut off:
 
+**Not** `curl … /health | jq` — `jq` is not installed on the Windows dev box and `/health` is not
+exposed through nginx (404). `npm run health:check` also requires `jq`, so run it **on the server**,
+not locally. Probe from here with node:
+
 ```bash
-npm run health:check
-curl -s https://karmyq.com/health | jq .
+node -e "fetch('https://karmyq.com/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'<sim user>',password:'<sim password>'})}).then(async r=>console.log(r.status, (await r.text()).slice(0,200)))"
 ```
 
 Plus a quick API smoke + UI check for the feature just shipped (per the plan's validation step).

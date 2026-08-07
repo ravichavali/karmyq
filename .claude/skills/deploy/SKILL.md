@@ -54,10 +54,11 @@ If the plan lists no scripts, skip this step.
 
 ## Step 6: Verify health
 
+`npm run health:check` needs `jq` — run it **on the server**. From the Windows dev box `jq` is
+absent and `/health` 404s through nginx, so probe with node against a real route instead:
+
 ```bash
-npm run health:check
-# or
-curl -s https://karmyq.com/health | jq .
+node -e "fetch('https://karmyq.com/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'<sim user>',password:'<sim password>'})}).then(async r=>console.log(r.status, (await r.text()).slice(0,200)))"
 ```
 
 ## Step 7: Update the handoff
