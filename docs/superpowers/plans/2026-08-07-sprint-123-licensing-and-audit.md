@@ -59,10 +59,9 @@ on absence, and on any unallowlisted new claim.
 
 ## ⚠️ Critical Implementation Notes (read before Task 2)
 
-1. **Branch from the planning branch, not `origin/master`.** The spec and plan exist only on
-   `docs/sprint-123-planning` at **local** HEAD — they are on neither `origin/master` nor the pushed
-   planning branch (`origin/docs/sprint-123-planning` is at `9a88cc96`, two commits behind).
-   Branching from `origin/master` produces a working tree with no plan in it.
+1. **Branch from `docs/sprint-123-planning`, not `origin/master`.** The spec and plan are on the
+   planning branch only — pushed as of 2026-08-07, but **not** on `origin/master`. Branching from
+   `origin/master` produces a working tree with no plan in it.
 2. **The AGPL text is copied verbatim and left byte-exact.** Fetch
    `https://www.gnu.org/licenses/agpl-3.0.txt` with `node -e` + `fetch` (`curl` is unreliable here —
    spurious status 000). **Do not append a copyright block to `LICENSE`** — GitHub's detection is
@@ -585,7 +584,122 @@ cd tests && npx jest regression/doc-context-drift-gate.test.ts
 
 ---
 
-## Task 11: SDLC quality gates
+## Task 11: Fix the inert git hooks
+
+Found 2026-08-07 while pushing the planning branch: the push completed in seconds with no test
+output. **Two gates this repo documents as enforcing things are not running at all.**
+
+**Root cause, traced:** `scripts/install-hooks.sh:63` hardcodes `target=".git/hooks/$hook_name"`,
+but `core.hooksPath` is set to `.husky` (husky owns it, for `pre-commit`). Git reads **only** the
+configured hooks path, so everything the installer writes to `.git/hooks/` is dead code.
+
+| Hook | Source | Reality |
+|---|---|---|
+| `pre-push` — unit + regression, blocking | `scripts/git-hooks/pre-push` | **Never runs.** `.husky/` has no `pre-push` at all |
+| `pre-commit` — governance **+ doc feedback loop** | `scripts/git-hooks/pre-commit` | **Never runs.** The older, narrower `.husky/pre-commit` runs instead — it lacks the doc-feedback check and the generated-file exclusions |
+
+This makes two CLAUDE.md claims false today: Discipline 3 ("pre-push hook enforces") and *Creating
+New Services* ("Pre-commit hook enforces the checklist"). It is the same failure class as ADR-060 —
+a mechanism assumed to work, never observed failing, silent when it does nothing.
+
+**Files:**
+- Modify: `scripts/install-hooks.sh`
+- Create: `tests/regression/sprint-123-git-hooks-installed.test.ts`
+- Decide: the fate of the tracked `.husky/pre-commit`
+
+- [ ] **Fix the installer to resolve the ACTIVE hooks path** — fix-forward in the original script,
+      never a workaround copy (`scripts/CLAUDE.md`: "when a script is wrong, fix that script")
+
+```sh
+# Resolve where git will ACTUALLY look for hooks. core.hooksPath wins when set
+# (husky sets it to .husky); otherwise git uses .git/hooks.
+hooks_dir=$(git config --get core.hooksPath || true)
+[ -z "$hooks_dir" ] && hooks_dir=".git/hooks"
+mkdir -p "$hooks_dir"
+```
+
+then `target="$hooks_dir/$hook_name"`. Update the script's header comment and its closing summary,
+both of which currently name `.git/hooks`.
+
+- [ ] **Resolve the duplicate `pre-commit`.** `scripts/git-hooks/pre-commit` is the newer, richer
+      version and should be the single source. The tracked `.husky/pre-commit` is a stale fork that
+      the fixed installer would overwrite on this machine. **Recommendation:** delete the tracked
+      `.husky/pre-commit` so `scripts/git-hooks/` is unambiguously the source, and let the installer
+      populate whichever directory is active. Confirm nothing else references it
+
+```bash
+git grep -n "husky" -- ':!node_modules' ':!package-lock.json'
+```
+
+- [ ] **Note the third copy, do not silently adopt it.** `scripts/setup/git-hooks/{pre-commit,pre-push}`
+      is a *third* set of hook sources. Determine whether it is live or vestigial; if vestigial, say
+      so in the PR rather than leaving three copies unexplained. **Do not expand this sprint into
+      consolidating it** — record it
+
+- [ ] **Write the regression test — assert the INSTALLER is correct, not this machine's state.**
+      A test asserting "a pre-push hook exists here" would fail in CI, where `install-hooks.sh`
+      deliberately exits early on `$CI`. The durable invariant is that the installer targets the
+      active path
+
+```typescript
+it('install-hooks.sh installs into the ACTIVE hooks path, not a hardcoded .git/hooks', () => {
+  const sh = read('scripts/install-hooks.sh');
+  expect(sh).toMatch(/core\.hooksPath/);                    // it must consult the real setting
+  expect(sh).not.toMatch(/target="\.git\/hooks\//);         // and not hardcode the dead one
+});
+
+it('pre-push actually runs the blocking suite', () => {
+  const hook = read('scripts/git-hooks/pre-push');
+  expect(hook).toMatch(/npm (run )?test/);
+});
+```
+
+- [ ] **Prove it functionally — this is the assertion that matters.** Run the installer inside a
+      throwaway git repo with `core.hooksPath` pointed at a custom directory, and assert the hook
+      lands **there**. A grep can be satisfied by a comment; this cannot
+
+```typescript
+it('installs into a custom core.hooksPath (functional proof)', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'karmyq-hooks-'));
+  execSync('git init -q', { cwd: tmp });
+  execSync('git config core.hooksPath custom-hooks', { cwd: tmp });
+  cpSync(join(ROOT, 'scripts/git-hooks'), join(tmp, 'scripts/git-hooks'), { recursive: true });
+  cpSync(join(ROOT, 'scripts/install-hooks.sh'), join(tmp, 'scripts/install-hooks.sh'));
+  writeFileSync(join(tmp, 'package.json'), '{}');           // installer requires project root
+
+  execSync('sh scripts/install-hooks.sh', { cwd: tmp, env: { ...process.env, CI: '' } });
+
+  expect(existsSync(join(tmp, 'custom-hooks/pre-push'))).toBe(true);   // the real assertion
+  expect(existsSync(join(tmp, '.git/hooks/pre-push'))).toBe(false);    // and NOT the dead path
+});
+```
+
+- [ ] **Watch it go red before trusting it** (ADR-091). Temporarily restore the hardcoded
+      `target=".git/hooks/$hook_name"`, run the suite, confirm the functional test **fails**, then
+      restore the fix and confirm it passes. Paste both outputs into the PR
+
+```bash
+cd tests && npx jest regression/sprint-123-git-hooks-installed.test.ts
+```
+
+- [ ] **Re-install hooks locally and verify pre-push now actually fires**
+
+```bash
+npm run hooks:install
+git config --get core.hooksPath        # .husky on this machine
+ls -la "$(git config --get core.hooksPath)"   # expect pre-push AND pre-commit present
+```
+
+- [ ] **Observe it running on a real push.** The next push of this branch must print
+      `🚀 Running pre-push checks...` and run the suite. If the push is silent and instant again,
+      the fix did not work — that silence is the entire bug
+
+- [ ] **Correct the two CLAUDE.md claims** if the wording overstates what is enforced, and add a
+      line to `scripts/CLAUDE.md` noting that `core.hooksPath` decides where hooks live
+
+---
+
+## Task 12: SDLC quality gates
 
 All four run every sprint. Effort calibrated to diff size: small, well-specified diff, so one
 `/simplify` pass and `/code-review` at **medium**.
@@ -609,7 +723,7 @@ All four run every sprint. Effort calibrated to diff size: small, well-specified
 
 ---
 
-## Task 12: Final verification
+## Task 13: Final verification
 
 - [ ] **Type check**
 
@@ -649,7 +763,7 @@ cd tests && npx jest regression/sprint-123-license-consistency-gate.test.ts
 
 ---
 
-## Task 13: Merge + Deploy
+## Task 14: Merge + Deploy
 
 Use the `/deploy` skill. CI/CD first.
 

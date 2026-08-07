@@ -276,6 +276,37 @@ Per ADR-091 and memory `feedback_gates_assert_weaker_than_claimed` — *one inje
 
 ---
 
+## Added scope: the inert git hooks
+
+Found 2026-08-07 while pushing the planning branch — the push completed in seconds, silently.
+
+`core.hooksPath` is set to `.husky` (husky owns it, for `pre-commit`), but
+`scripts/install-hooks.sh:63` hardcodes `target=".git/hooks/$hook_name"`. Git reads **only** the
+configured hooks path, so everything the installer writes is dead code.
+
+| Hook | Source | Reality |
+|---|---|---|
+| `pre-push` — unit + regression, blocking | `scripts/git-hooks/pre-push` | **Never runs.** `.husky/` contains no `pre-push` at all |
+| `pre-commit` — governance **+ doc feedback loop** | `scripts/git-hooks/pre-commit` | **Never runs.** The older, narrower `.husky/pre-commit` runs instead — no doc-feedback check, no generated-file exclusions |
+
+**Two CLAUDE.md claims are false today:** Discipline 3 ("pre-push hook enforces") and *Creating New
+Services* ("Pre-commit hook enforces the checklist").
+
+It belongs in this sprint because it is the same failure class the sprint is already about — a
+mechanism that claims to enforce something, was never observed failing, and is silent when it does
+nothing. ADR-060 was this. The license gate would have become this if it only checked presence.
+
+**Fix-forward in `install-hooks.sh`** (resolve `core.hooksPath`, fall back to `.git/hooks`), not a
+hand-placed file in `.husky`. The regression test asserts the **installer** is correct rather than
+this machine's state — CI skips hook installation on `$CI`, so a "hook exists here" assertion would
+false-fail — and proves it functionally by running the installer in a throwaway repo with a custom
+`core.hooksPath` and asserting the hook lands there.
+
+**Also noted, not adopted:** `scripts/setup/git-hooks/{pre-commit,pre-push}` is a *third* set of
+hook sources. Its status is recorded in the PR; consolidating it is out of scope.
+
+---
+
 ## User Guide & Doc Updates
 
 Mandatory every sprint.
@@ -327,10 +358,9 @@ stated inline), and that the schema is **deliberately not deleted**.
 
 These appear verbatim in the implementation plan.
 
-1. **Branch from the planning branch, not `origin/master`.** The spec and plan exist only on
-   `docs/sprint-123-planning` at local HEAD — they are on neither `origin/master` nor the *pushed*
-   planning branch (`origin/docs/sprint-123-planning` is at `9a88cc96`, two commits behind).
-   Branching from `origin/master` produces a working tree with no plan in it.
+1. **Branch from `docs/sprint-123-planning`, not `origin/master`.** The spec and plan are on the
+   planning branch only — pushed as of 2026-08-07, but never on `origin/master`. Branching from
+   `origin/master` produces a working tree with no plan in it.
 2. **The AGPL text is copied verbatim and left byte-exact.** Fetch
    `https://www.gnu.org/licenses/agpl-3.0.txt` with `node -e` + `fetch` (`curl` is unreliable here —
    spurious status 000). **Do not append a copyright block to `LICENSE`** — GitHub's detection is
@@ -378,6 +408,8 @@ These appear verbatim in the implementation plan.
 - [ ] `gh repo view --json licenseInfo` no longer returns `null`
 - [ ] Gate in `tests/regression/`, **observed red on a real flip and green after restore**, both
       outputs in the PR
+- [ ] `scripts/install-hooks.sh` resolves `core.hooksPath`; hook-installer test **observed red**
+      against the hardcoded path; `pre-push` verified firing on a real push (not silent and instant)
 - [ ] ADR-092 + ADR-093 written, indexed, wired into `ADR_GROUPS`
 - [ ] `docs/concepts/open-source-and-agpl.md` renders with a nav entry
 - [ ] CLAUDE.md says 12 live + 1 reserved

@@ -10,13 +10,12 @@
 ## Quick Start
 
 1. Read this handoff
-2. ⚠️ **Branch from the planning branch, NOT `origin/master`** — the spec and plan exist only on
-   `docs/sprint-123-planning` at **local** HEAD. They are on neither `origin/master` nor the pushed
-   planning branch (`origin/docs/sprint-123-planning` is at `9a88cc96`, behind local).
+2. ⚠️ **Branch from `docs/sprint-123-planning`, NOT `origin/master`** — the spec and plan are on the
+   planning branch only (pushed 2026-08-07), never on master.
 
    ```bash
-   git rev-parse --abbrev-ref HEAD    # expect: docs/sprint-123-planning
-   git checkout -b feature/sprint-123-licensing-and-audit
+   git fetch origin
+   git checkout -b feature/sprint-123-licensing-and-audit origin/docs/sprint-123-planning
    ls docs/superpowers/plans/2026-08-07-sprint-123-licensing-and-audit.md   # must exist
    ```
 3. Open plan: [`docs/superpowers/plans/2026-08-07-sprint-123-licensing-and-audit.md`](../../docs/superpowers/plans/2026-08-07-sprint-123-licensing-and-audit.md)
@@ -151,11 +150,15 @@ happens to the unauthenticated global provider directory (`providers.ts:27`, ran
 
 - **Version:** v11.42.0 on master, deployed and smoke-tested (landing 200 · bodyless login 400
   `VALIDATION_ERROR` · wrong password 401 `UNAUTHORIZED`).
-- **Branch:** `docs/sprint-123-planning`, cut from `origin/master` `e5dc24ce`. Carries the S122
-  closeout, the arc design, and the S123 spec + plan. ⚠️ **`origin/docs/sprint-123-planning` is at
-  `9a88cc96` — the planning commits are LOCAL ONLY.** Push before relying on the remote, and branch
-  the feature work from local HEAD (Quick Start). `fix/adr-060-gate-pr-head-ref` is merged and can
-  be deleted; `docs/sprint-122-closeout` was closed (local + remote).
+- **Branch:** `docs/sprint-123-planning`, cut from `origin/master` `e5dc24ce`, **pushed 2026-08-07**.
+  Carries the S122 closeout, the arc design, and the S123 spec + plan. Branch the feature work from
+  it (Quick Start). `fix/adr-060-gate-pr-head-ref` is merged and can be deleted;
+  `docs/sprint-122-closeout` was closed (local + remote).
+- ⚠️ **Git hooks are INERT on this machine** — `core.hooksPath` is `.husky`, but
+  `scripts/install-hooks.sh` writes to `.git/hooks/`, which git never reads. `pre-push` (tests)
+  never runs; the newer `pre-commit` (governance + doc feedback) never runs either — the stale
+  `.husky/pre-commit` runs instead. **Fixed in S123 Task 11.** Until then, run `npm test` by hand
+  before any push and do not trust a silent, instant push.
 - **ADR-060 gate now genuinely gates.** Verified live on both paths. Before touching it, read
   ADR-060 §6/§6b/§6c — it reported success while inert **four** separate ways, and each was caught
   by review or CI, never by inspection. **A green gate run proves nothing; watch it go red.**
