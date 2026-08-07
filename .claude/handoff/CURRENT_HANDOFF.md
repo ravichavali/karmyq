@@ -10,12 +10,20 @@
 ## Quick Start
 
 1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-123-licensing-and-audit origin/master`
+2. ⚠️ **Branch from the planning branch, NOT `origin/master`** — the spec and plan exist only on
+   `docs/sprint-123-planning` at **local** HEAD. They are on neither `origin/master` nor the pushed
+   planning branch (`origin/docs/sprint-123-planning` is at `9a88cc96`, behind local).
+
+   ```bash
+   git rev-parse --abbrev-ref HEAD    # expect: docs/sprint-123-planning
+   git checkout -b feature/sprint-123-licensing-and-audit
+   ls docs/superpowers/plans/2026-08-07-sprint-123-licensing-and-audit.md   # must exist
+   ```
 3. Open plan: [`docs/superpowers/plans/2026-08-07-sprint-123-licensing-and-audit.md`](../../docs/superpowers/plans/2026-08-07-sprint-123-licensing-and-audit.md)
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
-**Sprint goal:** Publish AGPL-3.0-or-later, reconcile all six contradictory license claim sites plus
-eighteen silent manifests, record the manifesto audit as ADR-092 and the `federation` fossil as
+**Sprint goal:** Publish AGPL-3.0-or-later, reconcile all thirteen contradictory license claim sites
+plus twenty silent manifests, record the manifesto audit as ADR-092 and the `federation` fossil as
 ADR-093, and add a regression gate that fails when any two license sources disagree.
 
 **Version:** v11.42.0 → v11.43.0 · **Branch:** `feature/sprint-123-licensing-and-audit`
@@ -34,78 +42,83 @@ ADR-093, and add a regression gate that fails when any two license sources disag
 |---|---|
 | D7 | The project is **AGPL** |
 | D8 | SPDX id is **`AGPL-3.0-or-later`** (FSF's recommended "or any later version" form) |
-| D9 | Copyright line is **`Copyright (C) 2025-2026 Ravi Chavali`** |
-| D10 | **All 18 manifests** get the `license` field, not just root |
-| D11 | Pallavi Ravi's consent is **verbal, no written artifact, no follow-up task** |
-| D12 | `Karmyq Developer <karmyq@example.com>` **is the maintainer's own** pre-config identity |
+| D9 | Copyright line is **`Copyright (C) 2025-2026 Ravi Chavali`**, placed in **`README.md`**, not `LICENSE` |
+| D10 | **All 20 tracked manifests** get the `license` field, discovered via `git ls-files` |
+| D11 | **Sole authorship.** Every commit is the maintainer's own, across five git identities. No third-party contribution exists — no consent needed, relicensing unproblematic |
 | D13 | The 7 UNVERIFIED §2.4 claims are **recorded as follow-up in ADR-092**, not checked this sprint |
 
-⚠️ **D11 is the sprint's one accepted risk, taken knowingly.** A written-confirmation-first option
-and an in-sprint email task were both offered and declined. The mitigating facts are measured:
-`forkCount: 0`, `stargazerCount: 0`, `watchers: 0` — **no third party has ever received the code
-under the README's MIT claim.** ADR-092 must state the consent is verbal and undocumented, plainly,
-so a future reader is not misled about the strength of the record.
+**D11 supersedes the earlier consent/provenance apparatus entirely.** The maintainer attested
+2026-08-07 that `Pallavi Ravi <kompella.chavali@gmail.com>` and
+`Karmyq Developer <karmyq@example.com>` are both their own addresses. ADR-092 records this **as a
+maintainer attestation** — the repo cannot prove address ownership, the maintainer can, and naming
+the source of the fact is accuracy, not hedging.
 
 ---
 
 ## ⚠️ The one thing not to get wrong in S123
 
-Adding a `LICENSE` is a **new legal grant**, not a record of an existing one. There is no license
-file today, so default copyright applies — the landing page's "open source" claim is currently false
-as a matter of law. Both provenance actions are now **resolved** (D11, D12), so the sprint is
-unblocked end-to-end.
+**The gate, not the LICENSE file.** The `LICENSE` is fifteen minutes; a gate that checks presence
+instead of agreement would have passed straight through the contradiction this sprint exists to end.
+It must fail on disagreement, on a null extraction, and on any new unallowlisted claim — and every
+extractor must be **observed red**, not just the first one.
 
-**Two claim sites the arc design missed, found during planning. Both are in scope:**
+**The claim inventory is 13 sites, not 6.** The first version of this spec missed seven because its
+scan was piped through `| head -60`:
 
-- **`CONTRIBUTING.md:52`** — "By contributing, you agree your contributions are licensed under the
-  **MIT** License." This is the live contributor agreement and the most legally consequential MIT
-  statement in the repository.
-- **`apps/mobile/README.md:363`** — claims **AGPL-3.0** and links to the nonexistent `LICENSE`.
+- `CONTRIBUTING.md:52` — MIT, the live contributor agreement
+- `apps/mobile/README.md:363` — AGPL-3.0, links to the nonexistent `LICENSE`
+- **7 service READMEs** — `auth`, `cleanup`, `community`, `messaging`, `notification`, `reputation`,
+  `request` all say **MIT**
 
-Full inventory: 6 prose sites + 18 manifests. See the spec's *License Claim Inventory*.
+And **20 manifests, not 18** — a scratchpad script double-counted `packages/shared`, and a directory
+glob never reached `tests/e2e`, `tests/load`, `tests/performance`. Both numbers are now derived from
+`git ls-files`, the live arbiter.
+
+**Repository is PUBLIC** (`isPrivate: false`, verified 2026-08-07) — the contradictory claims have
+been publicly readable. That is reason enough to fix them; ADR-092 should claim nothing stronger.
+Zero forks/stars/watchers does **not** prove nobody cloned it.
 
 ---
 
 ## Critical Implementation Notes (verbatim from the spec)
 
-1. **The AGPL text is copied verbatim from a canonical source, never hand-typed or reconstructed
-   from memory.** Fetch `https://www.gnu.org/licenses/agpl-3.0.txt` with `node -e` + `fetch`
-   (`curl` is unreliable on this host — spurious status 000) and verify before committing: the file
-   must contain `GNU AFFERO GENERAL PUBLIC LICENSE`, `Version 3, 19 November 2007`, the closing
-   `<https://www.gnu.org/licenses/>`, and be ~660 lines. **A license file with typos is a real
-   defect, not a cosmetic one.** If the fetch fails, stop and ask — do not approximate.
-2. **The gate goes in `tests/regression/`, not `tests/tdd/`.** Root `tests/tdd/` never
+1. **Branch from the planning branch, not `origin/master`** — see Quick Start. The plan exists only
+   on `docs/sprint-123-planning` at local HEAD.
+2. **The AGPL text is copied verbatim and left byte-exact.** Fetch
+   `https://www.gnu.org/licenses/agpl-3.0.txt` with `node -e` + `fetch` (`curl` is unreliable here —
+   spurious status 000). **Do not append a copyright block to `LICENSE`** — GitHub's detection is
+   similarity-based and `licenseInfo != null` is a Definition-of-Done item. The D9 notice goes in
+   `README.md`, per GNU's `gpl-howto`. If the fetch fails, stop and ask — do not approximate.
+3. **The gate goes in `tests/regression/`, not `tests/tdd/`.** Root `tests/tdd/` never
    auto-promotes (`scripts/promote-tdd-tests.js` walks only `services/*` and `apps/*`), so a gate
    left there blocks nothing. See `tests/CLAUDE.md`.
-3. **A null extraction must fail the gate, not skip it.** The recurring defect in this repo is gates
-   that assert weaker than they claim — presence instead of blocking, count instead of identity.
-   If a site's extractor returns `null`, that is a red test.
-4. **Prove each extractor can fail, not just one.** Table-driven MIT-flip per source, plus one real
-   on-disk flip of `README.md:4` with both red and green outputs pasted into the PR.
-5. **Run the gate directly, never through Turbo:**
+4. **Write extractors against committed fixtures, never speculation.** Task 4 lands the final
+   wording *before* Task 5 finalizes the extractors. The first version's `CONTRIBUTING` regex used
+   a character class excluding periods, so it returned `null` for `AGPL-3.0-or-later` — the very
+   string it was written to accept.
+5. **A null extraction must fail the gate, not skip it.** Presence-instead-of-blocking is this
+   repo's recurring gate defect.
+6. **Prove each extractor can fail, not just one.** Table-driven MIT-flip across all 13 sites, plus
+   one real on-disk flip. **Restore the flip with a targeted revert** — `git checkout README.md`
+   discards Task 4's uncommitted reconciliation of the same file.
+7. **Run the gate directly, never through Turbo:**
    `cd tests && npx jest regression/sprint-123-license-consistency-gate.test.ts`. Turbo's cache
-   misses cross-workspace test inputs — a `tests/regression/*` file reading `apps/landing` and
-   `apps/mobile` will cache a stale pass while CI fails.
-6. **`nav.json` is generated and hand-edits silently revert.** The source is `scripts/generate-docs.ts`.
-   ADR-092/093 go in `ADR_GROUPS` ("— Infrastructure —", line ~520); the new concept page goes in
-   **both** `CONCEPT_ORDER` (line ~245) and the `whyKarmyq` array (line 578). All 89 ADRs are
-   currently curated there, and `doc-context-drift-gate.test.ts` fails on any concept page missing
-   from nav — so skipping this step breaks an existing gate.
-7. **`npm test` regenerates the landing docs.** The prebuild runs `generate-docs`, which rewrites
-   `apps/landing/src/data/docs/`. Expect timestamp/HEAD-sha churn; commit the intended ADR/concept
-   additions and revert the incidental churn.
-8. **The manifest list is discovered, not hand-written.** Globbing `services/*`, `apps/*`,
-   `packages/*` plus the four root manifests means a new workspace cannot appear unlicensed and pass.
-   A hand-written shadow list is exactly the false-green pattern CLAUDE.md Discipline 5 forbids.
-9. **`CONTRIBUTING.md:52` and `apps/mobile/README.md:363` are not in the arc design.** They were
-   found during planning. `CONTRIBUTING.md` is the live contributor agreement and is the most
-   legally consequential MIT statement in the repository — it is not optional scope.
-10. **The shields.io badge escapes hyphens.** `AGPL-3.0-or-later` renders as
-    `license-AGPL--3.0--or--later-blue` in the badge URL. The gate must un-escape before comparing,
-    and the rendered badge should be eyeballed once.
-11. **`git add` CLAUDE.md carefully on Windows** — it is tracked lowercase as `claude.md`.
-12. **No docs-only push to master.** Everything lands in the one PR; a post-merge docs push triggers
-    a second deploy and 502s the demo.
+   misses cross-workspace test inputs.
+8. **`nav.json` is generated and hand-edits silently revert.** Source is `scripts/generate-docs.ts`:
+   `ADR_GROUPS` (~line 520); the concept page needs **both** `CONCEPT_ORDER` (~245) and `whyKarmyq`
+   (line 578). All 89 ADRs are curated there, and `doc-context-drift-gate.test.ts` fails on any
+   concept page missing from nav.
+9. **`npm test` regenerates the landing docs** — commit the intended additions, revert incidental
+   timestamp/HEAD-sha churn.
+10. **The manifest list is discovered via `git ls-files`, never hand-written.** There are **20**.
+    A directory glob missed `tests/e2e`, `tests/load`, `tests/performance` in the first version.
+11. **The version bump touches the lockfile.** `e5dc24ce` proves the shape: `package.json` x1 and
+    `package-lock.json` x2 (`.version`, `.packages[""].version`). "Lockfile untouched" is **wrong**
+    — the correct assertion is *only those lines change*.
+12. **The shields.io badge escapes hyphens** — `AGPL-3.0-or-later` renders as
+    `license-AGPL--3.0--or--later-blue`. The normalizer un-escapes `--` before comparing.
+13. **`git add` CLAUDE.md carefully on Windows** — tracked lowercase as `claude.md`.
+14. **No docs-only push to master.**
 
 ---
 
@@ -139,8 +152,10 @@ happens to the unauthenticated global provider directory (`providers.ts:27`, ran
 - **Version:** v11.42.0 on master, deployed and smoke-tested (landing 200 · bodyless login 400
   `VALIDATION_ERROR` · wrong password 401 `UNAUTHORIZED`).
 - **Branch:** `docs/sprint-123-planning`, cut from `origin/master` `e5dc24ce`. Carries the S122
-  closeout, the arc design, and the S123 spec + plan. `fix/adr-060-gate-pr-head-ref` is merged and
-  can be deleted; `docs/sprint-122-closeout` was closed (local + remote).
+  closeout, the arc design, and the S123 spec + plan. ⚠️ **`origin/docs/sprint-123-planning` is at
+  `9a88cc96` — the planning commits are LOCAL ONLY.** Push before relying on the remote, and branch
+  the feature work from local HEAD (Quick Start). `fix/adr-060-gate-pr-head-ref` is merged and can
+  be deleted; `docs/sprint-122-closeout` was closed (local + remote).
 - **ADR-060 gate now genuinely gates.** Verified live on both paths. Before touching it, read
   ADR-060 §6/§6b/§6c — it reported success while inert **four** separate ways, and each was caught
   by review or CI, never by inspection. **A green gate run proves nothing; watch it go red.**
