@@ -1,6 +1,7 @@
 {
   "name": "@karmyq/cleanup-service",
   "version": "1.0.0",
+  "license": "AGPL-3.0-or-later",
   "description": "Karmyq Cleanup Service - Handles TTL expiration and reputation decay",
   "main": "dist/index.js",
   "scripts": {

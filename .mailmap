@@ -1,0 +1,10 @@
+# Collapse the maintainer's git identities to one canonical author.
+#
+# All addresses below are the maintainer's own (attested 2026-08-07, recorded in
+# ADR-092). The repository cannot prove address ownership; the maintainer can.
+# Mapping is by email, so both name spellings behind kompella.chavali@gmail.com
+# ("Pallavi Ravi" and "kompellachavali") collapse via the single rule.
+
+Ravi Chavali <ravichavali@gmail.com> <ravichavali@users.noreply.github.com>
+Ravi Chavali <ravichavali@gmail.com> <kompella.chavali@gmail.com>
+Ravi Chavali <ravichavali@gmail.com> <karmyq@example.com>

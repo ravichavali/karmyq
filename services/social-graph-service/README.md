@@ -126,3 +126,7 @@ Calls `/invitations/accept` during user signup.
 
 **Service Owner**: Platform Team
 **Last Updated**: 2025-12-27
+
+## License
+
+AGPL-3.0-or-later - See [LICENSE](../../LICENSE) for details.

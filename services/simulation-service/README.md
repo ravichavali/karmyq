@@ -346,7 +346,7 @@ export const NEW_PROFILE: UserProfile = {
 
 ## License
 
-Internal use only - Karmyq Platform
+AGPL-3.0-or-later - See [LICENSE](../../LICENSE) for details.
 
 ---
 

@@ -1,6 +1,7 @@
 {
   "name": "geocoding-service",
   "version": "1.0.0",
+  "license": "AGPL-3.0-or-later",
   "description": "Karmyq Geocoding Cache Service - Three-tier caching for address lookup",
   "main": "index.js",
   "scripts": {

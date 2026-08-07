@@ -99,4 +99,4 @@ const socket = io('http://localhost:3006', {
 
 ## License
 
-MIT
+AGPL-3.0-or-later - See [LICENSE](../../LICENSE) for details.

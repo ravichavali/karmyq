@@ -1,6 +1,7 @@
 {
   "name": "karmyq-community-service",
   "version": "1.0.0",
+  "license": "AGPL-3.0-or-later",
   "description": "Karmyq Community Service",
   "main": "dist/index.js",
   "scripts": {

@@ -49,4 +49,4 @@ Use the GitHub issue templates in [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMP
 
 ## License
 
-By contributing, you agree your contributions are licensed under the MIT License.
+By contributing, you agree your contributions are licensed under the AGPL-3.0-or-later License.

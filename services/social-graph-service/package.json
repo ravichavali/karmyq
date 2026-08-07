@@ -1,6 +1,7 @@
 {
   "name": "@karmyq/social-graph-service",
   "version": "9.1.0",
+  "license": "AGPL-3.0-or-later",
   "description": "Social graph and trust path computation service for Karmyq",
   "main": "dist/index.js",
   "scripts": {
