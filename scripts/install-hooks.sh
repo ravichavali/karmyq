@@ -1,6 +1,11 @@
 #!/bin/sh
-# Install git hooks by creating symlinks from .git/hooks to scripts/git-hooks
-# This ensures hooks are always up-to-date with the source files
+# Install git hooks from scripts/git-hooks into the directory git ACTUALLY reads.
+#
+# That directory is NOT always .git/hooks. When core.hooksPath is set, git reads only
+# that path and ignores .git/hooks entirely. This script used to hardcode .git/hooks,
+# so on any machine with core.hooksPath set (husky sets it) every hook it installed was
+# dead code -- pushes completed silently in seconds with no tests run. See ADR-092's
+# sibling finding and tests/regression/sprint-123-git-hooks-installed.test.ts.
 
 set -e
 
@@ -44,8 +49,18 @@ if [ ! -d "scripts/git-hooks" ]; then
   exit 1
 fi
 
-# Create .git/hooks directory if it doesn't exist
-mkdir -p .git/hooks
+# Resolve where git will ACTUALLY look for hooks. core.hooksPath wins whenever it is
+# set; otherwise git uses .git/hooks. Installing anywhere else is a silent no-op.
+hooks_dir=$(git config --get core.hooksPath || true)
+[ -z "$hooks_dir" ] && hooks_dir=".git/hooks"
+
+# core.hooksPath may hold an absolute Windows path with backslashes (husky writes one).
+# Backslashes are not path separators to sh, so normalize before touching the filesystem.
+hooks_dir=$(printf '%s' "$hooks_dir" | tr '\\' '/')
+
+mkdir -p "$hooks_dir"
+echo "  Hooks directory: $hooks_dir"
+echo ""
 
 # Counter for installed hooks
 installed=0
@@ -60,7 +75,7 @@ for hook in scripts/git-hooks/*; do
       continue
     fi
 
-    target=".git/hooks/$hook_name"
+    target="$hooks_dir/$hook_name"
 
     # Remove existing hook (whether it's a file or symlink)
     if [ -e "$target" ] || [ -L "$target" ]; then
@@ -75,8 +90,10 @@ for hook in scripts/git-hooks/*; do
       chmod +x "$target"
       echo "  ✓ Installed $hook_name (copy)"
     else
-      # On Unix, use relative symlinks
-      ln -sf "../../$hook" "$target"
+      # Absolute symlink: hooks_dir is not always two levels below the repo root
+      # (.husky is one, and core.hooksPath may be absolute), so "../../$hook" is
+      # only correct for .git/hooks and silently dangles anywhere else.
+      ln -sf "$(pwd)/$hook" "$target"
       chmod +x "$hook"
       echo "  ✓ Installed $hook_name (symlink)"
     fi
@@ -90,7 +107,7 @@ if [ $installed -eq 0 ]; then
   echo "❌ No hooks found to install"
   exit 1
 else
-  echo "✅ Successfully installed $installed hook(s)"
+  echo "✅ Successfully installed $installed hook(s) into $hooks_dir"
   echo ""
   echo "Installed hooks:"
   echo "  • pre-commit  - Runs service analysis and documentation checks"

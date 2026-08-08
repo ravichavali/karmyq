@@ -18,6 +18,10 @@
         {
           "label": "Running a Community",
           "href": "/docs/concepts/community-design"
+        },
+        {
+          "label": "Open Source and the AGPL",
+          "href": "/docs/concepts/open-source-and-agpl"
         }
       ]
     },
@@ -526,6 +530,14 @@
           "label": "— Infrastructure —",
           "href": "/docs/concepts",
           "divider": true
+        },
+        {
+          "label": "AGPL-3.0-or-later, and the Manifesto Audit That Produced It",
+          "href": "/docs/concepts/adr-092-agpl-licensing-and-manifesto-audit"
+        },
+        {
+          "label": "The `federation` Schema Is Reserved, Not Live",
+          "href": "/docs/concepts/adr-093-federation-schema-reserved"
         },
         {
           "label": "Verification Before Assertion — the Sprint 122 review-loop retrospective",

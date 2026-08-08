@@ -46,7 +46,7 @@ before it touches real rows. The `migration-validator` agent reviews these befor
 | `messaging` | 3 | Messaging (3006) |
 | `social_graph` | 5 | Social-Graph (3010) |
 | `feed` | 3 | Request (feed folded in — ADR-071) |
-| `federation` | 12 | cross-community federation |
+| `federation` | 12 | **RESERVED — no service reads it** ([ADR-093](../docs/adr/ADR-093-federation-schema-reserved.md)) |
 | `governance` | 4 | community governance |
 | `feedback` | 2 | interaction feedback |
 | `provider` | 1 | provider profiles |

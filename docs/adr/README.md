@@ -127,6 +127,8 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-089: ts-jest Cannot Read `exports` Maps — `typesVersions` Is the Contract](ADR-089-ts-jest-subpath-type-resolution.md) — **Implemented**
 - [ADR-090: The Container Runtime Floor Is Node 24, and It Is Enforced](ADR-090-container-runtime-floor.md) — **Implemented**
 - [ADR-091: Verification Before Assertion — the Sprint 122 review-loop retrospective](ADR-091-verification-before-assertion.md) — **Implemented**
+- [ADR-092: AGPL-3.0-or-later, and the Manifesto Audit That Produced It](ADR-092-agpl-licensing-and-manifesto-audit.md) — **Accepted**
+- [ADR-093: The `federation` Schema Is Reserved, Not Live](ADR-093-federation-schema-reserved.md) — **Accepted**
 
 ## Creating a New ADR
 

@@ -1,0 +1,247 @@
+import { execFileSync } from 'child_process';
+import { createHash } from 'crypto';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+/**
+ * Sprint 123 — license consistency gate.
+ *
+ * Before this sprint the repository made **fourteen** contradictory license claims in prose
+ * (ten said MIT, three said AGPL, one said "Internal use only") while shipping no LICENSE file
+ * at all and no `license` field on any of its twenty manifests. Every one of those claims was
+ * publicly readable.
+ *
+ * The failure mode this gate exists to prevent is *disagreement*, not *absence*. A gate that
+ * merely checked "a LICENSE file exists" would have passed straight through the contradiction.
+ * So every assertion here compares sources against each other and against one expected value:
+ *
+ *   - a source that cannot be read at all is a FAILURE, never a skip (a null extraction means
+ *     the claim moved and the gate went blind, which is exactly when it must speak up);
+ *   - the site count is asserted by identity, not as a floor, so scope cannot silently shrink;
+ *   - the manifest list is discovered from `git ls-files` — the live arbiter — never hand-written;
+ *   - every extractor is separately proven able to return MIT and null, because "one injection
+ *     went red" only proves one extractor works.
+ *
+ * See ADR-092.
+ */
+
+const ROOT = join(__dirname, '..', '..');
+
+const EXPECTED_SPDX = 'AGPL-3.0-or-later';
+const EXPECTED_FAMILY = 'AGPL-3.0';
+
+/**
+ * sha256 of the canonical GNU AGPL v3 text as published at
+ * https://www.gnu.org/licenses/agpl-3.0.txt (fetched 2026-08-07, 662 lines, 34523 bytes).
+ * Computed over LF-normalized bytes so the assertion survives a CRLF checkout on Windows.
+ */
+const CANONICAL_AGPL_SHA256 = '0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0';
+
+const SERVICES = [
+  'auth',
+  'cleanup',
+  'community',
+  'geocoding',
+  'messaging',
+  'notification',
+  'reputation',
+  'request',
+  'simulation',
+  'social-graph',
+];
+
+const read = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8');
+
+const lfNormalize = (s: string): string => s.replace(/\r\n/g, '\n');
+
+/**
+ * Normalize any human, badge-escaped or SPDX spelling to a comparable family token.
+ * Returns null only for a genuinely absent claim — callers treat null as a failure.
+ */
+function normalizeLicense(raw: string | null): string | null {
+  if (!raw) return null;
+  const s = raw.replace(/--/g, '-').trim().toLowerCase(); // un-escape shields.io hyphens
+  if (/agpl[\s-]*v?3|affero general public license/.test(s)) return 'AGPL-3.0';
+  if (/\bmit\b/.test(s)) return 'MIT';
+  return 'OTHER';
+}
+
+type Site = { name: string; file: string; extract: (c: string) => string | null };
+
+/**
+ * The uniform License section every service README and the mobile README now carry:
+ *
+ *     ## License
+ *
+ *     AGPL-3.0-or-later - See [LICENSE](../../LICENSE) for details.
+ *
+ * Making the shape uniform is deliberate: it turns "some READMEs state a license" into
+ * "every README states the license", which is an invariant a gate can actually enforce.
+ */
+const licenseSectionExtractor = (c: string): string | null =>
+  c.match(/^##\s+License\s*[\r\n]+\s*(\S+)\s+-\s+See/m)?.[1] ?? null;
+
+const PROSE_SITES: Site[] = [
+  {
+    name: 'README badge',
+    file: 'README.md',
+    extract: (c) =>
+      c.match(/shields\.io\/badge\/license-(.+?)-(?:green|blue|brightgreen|red|orange)\.svg/)?.[1] ??
+      null,
+  },
+  {
+    name: 'README license section',
+    file: 'README.md',
+    extract: (c) => c.match(/licensed under the (.+?) License/)?.[1] ?? null,
+  },
+  {
+    name: 'CONTRIBUTING contributor agreement',
+    file: 'CONTRIBUTING.md',
+    extract: (c) => c.match(/contributions are licensed under the (.+?) License/)?.[1] ?? null,
+  },
+  {
+    name: 'mobile README',
+    file: 'apps/mobile/README.md',
+    extract: licenseSectionExtractor,
+  },
+  ...SERVICES.map((s) => ({
+    name: `${s}-service README`,
+    file: `services/${s}-service/README.md`,
+    extract: licenseSectionExtractor,
+  })),
+  {
+    name: 'landing Footer',
+    file: 'apps/landing/src/components/Footer.tsx',
+    // The token sits inside a link, so the pattern must span the JSX the anchor introduces.
+    extract: (c) => c.match(/Open source,[\s\S]{0,260}?\b(AGPLv?3[\w.-]*|MIT)\b/)?.[1] ?? null,
+  },
+  {
+    name: 'landingContent manifesto copy',
+    file: 'apps/landing/src/lib/landingContent.ts',
+    extract: (c) => c.match(/the\s+(\S+)\s+license keeps it that way/)?.[1] ?? null,
+  },
+];
+
+/** Files that legitimately mention a license token without making a claim about this project. */
+const CLAIM_SCAN_ALLOWLIST: RegExp[] = [
+  /^docs\/archive\//, // historical; preserved as written
+  /^docs\/superpowers\//, // specs and plans quote the contradiction being fixed
+  /^\.claude\/handoff\//, // same
+  /^apps\/landing\/src\/data\/docs\//, // generated by the landing prebuild
+  /^apps\/frontend\/IMPLEMENTATION_SUMMARY\.md$/, // "MIT license compatible" — about OSM deps
+  /^docs\/adr\/ADR-09[23]-/, // the ADRs that record this decision
+  /^docs\/adr\/README\.md$/, // ADR index entries name the decision
+  /^docs\/concepts\/open-source-and-agpl\.md$/, // the user-facing explainer
+  /^tests\/regression\/sprint-123-license-consistency-gate\.test\.ts$/, // this file
+];
+
+function tracked(...patterns: string[]): string[] {
+  // execFileSync, not execSync: on Windows execSync goes through cmd.exe, which does not
+  // strip single quotes, so a quoted glob reaches git as a literal and matches nothing.
+  return execFileSync('git', ['ls-files', ...patterns], { cwd: ROOT, encoding: 'utf8' })
+    .split('\n')
+    .filter((p) => p && !p.includes('node_modules'));
+}
+
+const discoverManifests = (): string[] => tracked('*package.json');
+
+describe('Sprint 123 license consistency gate', () => {
+  describe('LICENSE', () => {
+    it('is the byte-exact canonical AGPL-3.0 text with no project notice appended', () => {
+      const t = lfNormalize(read('LICENSE'));
+
+      expect(t).toContain('GNU AFFERO GENERAL PUBLIC LICENSE');
+      expect(t).toContain('Version 3, 19 November 2007');
+      expect(t).toContain('<https://www.gnu.org/licenses/>');
+      // A modified LICENSE defeats GitHub's similarity-based detection, and
+      // `licenseInfo != null` is a Definition-of-Done item for this sprint.
+      expect(t).not.toMatch(/Copyright \(C\) 20\d\d(-20\d\d)? Ravi/);
+      expect(t.split('\n').length).toBe(662);
+      expect(createHash('sha256').update(t, 'utf8').digest('hex')).toBe(CANONICAL_AGPL_SHA256);
+    });
+
+    it('carries the copyright notice in README.md, where GNU gpl-howto puts it', () => {
+      expect(read('README.md')).toMatch(/Copyright \(C\) 2025-2026 Ravi Chavali/);
+    });
+  });
+
+  describe('prose claim sites', () => {
+    it('enumerates every site — the count is identity, so scope cannot shrink', () => {
+      expect(PROSE_SITES).toHaveLength(16);
+      expect(PROSE_SITES.filter((s) => /-service README$/.test(s.name))).toHaveLength(10);
+    });
+
+    it('every site is readable AND agrees on one license family', () => {
+      const results = PROSE_SITES.map((s) => ({
+        name: s.name,
+        raw: s.extract(read(s.file)),
+        family: normalizeLicense(s.extract(read(s.file))),
+      }));
+
+      // Unreadable is a FAILURE, not a skip: a claim that moved is exactly when the gate
+      // must speak, and a silent null is how presence-checks fail open.
+      expect(results.filter((r) => r.family === null).map((r) => r.name)).toEqual([]);
+
+      expect([...new Set(results.map((r) => r.family))]).toEqual([EXPECTED_FAMILY]);
+    });
+  });
+
+  describe('manifests', () => {
+    it('every tracked manifest declares the exact SPDX id', () => {
+      const manifests = discoverManifests();
+
+      expect(manifests).toHaveLength(20); // identity, not a floor
+      expect(
+        manifests.filter((m) => JSON.parse(read(m)).license !== EXPECTED_SPDX)
+      ).toEqual([]);
+    });
+  });
+
+  describe('no unenumerated claim site', () => {
+    it('every file mentioning a license token is either an enumerated site or allowlisted', () => {
+      const enumerated = new Set(PROSE_SITES.map((s) => s.file));
+      const candidates = tracked('*.md', '*.ts', '*.tsx');
+
+      const stray = candidates.filter((p) => {
+        if (enumerated.has(p)) return false;
+        if (CLAIM_SCAN_ALLOWLIST.some((re) => re.test(p))) return false;
+        return /\bMIT\b|AGPL|Affero/.test(read(p));
+      });
+
+      expect({
+        stray,
+        hint: 'A new license claim appeared. Reconcile it to AGPL-3.0-or-later and add it to '
+          + 'PROSE_SITES, or allowlist the path deliberately in CLAIM_SCAN_ALLOWLIST.',
+      }).toEqual({ stray: [], hint: expect.any(String) });
+    });
+  });
+
+  /**
+   * A green gate proves nothing about a gate. Each extractor is exercised against a mutated
+   * copy of its own real file and against an empty one, so every one of the sixteen is
+   * separately shown to discriminate — not just whichever one a single injection happened to hit.
+   */
+  describe('each extractor is proven able to fail', () => {
+    it.each(PROSE_SITES.map((s) => [s.name, s] as const))(
+      '%s detects a flipped claim and an absent one',
+      (_name, site) => {
+        const flipped = read(site.file).replace(
+          /AGPL--3\.0--or--later|AGPL-3\.0-or-later|AGPLv3/g,
+          'MIT'
+        );
+
+        expect(normalizeLicense(site.extract(flipped))).toBe('MIT');
+        expect(site.extract('')).toBeNull();
+      }
+    );
+
+    it('the normalizer does not launder a foreign claim into agreement', () => {
+      // services/simulation-service/README.md said "Internal use only - Karmyq Platform"
+      // before this sprint — a license claim matching neither "MIT" nor "AGPL".
+      expect(normalizeLicense('Internal use only - Karmyq Platform')).toBe('OTHER');
+      expect(normalizeLicense('Apache-2.0')).toBe('OTHER');
+      expect(normalizeLicense(null)).toBeNull();
+      expect(normalizeLicense('')).toBeNull();
+    });
+  });
+});

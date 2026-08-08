@@ -543,3 +543,37 @@ has tests" gate cannot be added while it would land red. Found Sprint 122 PR 1, 
 Related: [ADR-088](adr/ADR-088-test-tier-truthfulness.md).
 
 ---
+
+## BUG-035 · [2026-08-07] · open
+
+**`Expo SDK drift` workflow is permanently red and cannot record a deliberate divergence.**
+
+`.github/workflows/expo-sdk-drift.yml:54-64` takes `npx expo install --check`'s exit status as the
+verdict, with **no exemption mechanism**. Sprint 122 PR 4 (`c3d623b2`) moved `apps/mobile` to
+jest 30; Expo SDK 57's live map pins `jest ~29.7.0` / `@types/jest 29.5.14`. That divergence is a
+choice, and the gate has no way to record it — so the run has been red every day since and will
+never go green on its own. It files/updates issue **#196** on every scheduled run.
+
+Timeline: green 2026-08-05 02:48 PT (last run before the jest bump landed 05:14 PT) → red from
+2026-08-06 onward. The 08-06 run flagged **only** jest + `@types/jest`.
+
+Failure direction is the opposite of the CodeQL gate (ADR-060) and the inert git hooks: not
+fail-open but **fail-always**, which is equally useless — a check that can never pass gets ignored,
+so it can no longer warn about the drift it exists to catch.
+
+**Buried by the noise — 5 genuine Expo patch releases** (published 08-06/08-07):
+`expo 57.0.10 → ~57.0.11` · `expo-image-picker 57.0.7 → ~57.0.8` ·
+`expo-location 57.0.7 → ~57.0.8` · `expo-notifications 57.0.8 → ~57.0.9` ·
+`expo-router 57.0.10 → ~57.0.11`.
+
+**The jest divergence itself looks safe, and that is worth recording somewhere:** `jest-expo` is
+not declared and `apps/mobile/jest.config.js` uses no Expo preset (just `testEnvironment: "node"`).
+Expo's jest pin exists to keep its own preset in sync, which this project does not use. Verify
+before relying on it.
+
+Fix shape: an allowlist of deliberate divergences (package + reason + the decision that made it),
+checked against the arbiter's output so real drift still goes red. Deliberately **not** folded into
+Sprint 123 — that sprint already carries licensing plus the inert-hooks fix, and a third unrelated
+topic is what arc-design D6 exists to prevent.
+
+---
