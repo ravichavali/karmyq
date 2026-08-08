@@ -1,7 +1,9 @@
 import { execFileSync } from 'child_process';
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { cpSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+
+import { ROOT, read } from './helpers/workspaces';
 
 /**
  * Sprint 123 — the git hooks were inert, and nothing said so.
@@ -23,16 +25,66 @@ import { join } from 'path';
  * and the functional test below proves it by running the installer for real.
  */
 
-const ROOT = join(__dirname, '..', '..');
-const read = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8');
+/**
+ * Scaffold a throwaway repo, run the real installer in it, and return the repo path.
+ * Shared by every functional case so a change to the installer's prerequisites lands once.
+ */
+type Install = { dir: string; status: number; output: string; cleanup: () => void };
+
+function installInto(
+  hooksPath: string | null,
+  opts: { hooksPathFrom?: (dir: string) => string; allowFailure?: boolean } = {}
+): Install {
+  const dir = mkdtempSync(join(tmpdir(), 'karmyq-hooks-'));
+  const cleanup = () => rmSync(dir, { recursive: true, force: true });
+
+  try {
+    execFileSync('git', ['init', '-q'], { cwd: dir });
+
+    const resolved = opts.hooksPathFrom ? opts.hooksPathFrom(dir) : hooksPath;
+    if (resolved) execFileSync('git', ['config', 'core.hooksPath', resolved], { cwd: dir });
+
+    cpSync(join(ROOT, 'scripts/git-hooks'), join(dir, 'scripts/git-hooks'), { recursive: true });
+    cpSync(join(ROOT, 'scripts/install-hooks.sh'), join(dir, 'scripts/install-hooks.sh'));
+    writeFileSync(join(dir, 'package.json'), '{}'); // the installer requires a project root
+
+    let status = 0;
+    let output = '';
+    try {
+      // CI: '' so the installer does not take its early-exit branch inside CI runs.
+      output = execFileSync('sh', ['scripts/install-hooks.sh'], {
+        cwd: dir,
+        env: { ...process.env, CI: '' },
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch (err) {
+      const e = err as { status?: number; stdout?: string; stderr?: string };
+      if (!opts.allowFailure) throw err;
+      status = e.status ?? 1;
+      output = `${e.stdout ?? ''}${e.stderr ?? ''}`;
+    }
+
+    return { dir, status, output, cleanup };
+  } catch (err) {
+    cleanup();
+    throw err;
+  }
+}
+
+/** The absolute path git reports for a repo — forward slashes, and on Windows a drive letter. */
+const topLevel = (dir: string): string =>
+  execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: dir, encoding: 'utf8' }).trim();
 
 describe('Sprint 123 git hooks are actually installed where git reads them', () => {
-  it('install-hooks.sh resolves the ACTIVE hooks path instead of hardcoding .git/hooks', () => {
+  it('install-hooks.sh consults core.hooksPath and hardcodes .git/hooks nowhere', () => {
+    // Deliberately only two assertions, both about behaviour rather than identifier names: the
+    // functional tests below prove the resolution works, but they cannot prove the absence of a
+    // SECOND, hardcoded write alongside the correct one.
     const sh = read('scripts/install-hooks.sh');
 
     expect(sh).toMatch(/git config --get core\.hooksPath/);
     expect(sh).not.toMatch(/target="\.git\/hooks\//);
-    expect(sh).toMatch(/target="\$hooks_dir\//);
   });
 
   it('pre-push actually runs the blocking suite', () => {
@@ -43,65 +95,83 @@ describe('Sprint 123 git hooks are actually installed where git reads them', () 
     expect(read('scripts/git-hooks/pre-commit')).toMatch(/feedback-loop|feedback:check/);
   });
 
-  it('no stale .husky/pre-commit fork is tracked — scripts/git-hooks is the single source', () => {
-    const husky = execFileSync('git', ['ls-files', '.husky'], { cwd: ROOT, encoding: 'utf8' })
-      .split('\n')
-      .filter(Boolean);
+  it('the superseded third installer refuses to run instead of fighting over the same directory', () => {
+    // scripts/setup/setup-git-hooks.sh reinstalls husky, rewrites core.hooksPath, and swaps
+    // pre-push for a different suite. Before this sprint the two installers targeted different
+    // directories; now they would target the same one, so it has to refuse.
+    const sh = read('scripts/setup/setup-git-hooks.sh');
 
-    expect(husky).toEqual([]);
+    expect(sh).toMatch(/superseded/i);
+    expect(sh).toMatch(/exit 1/);
+    // The refusal must come BEFORE the husky install, or it refuses too late to matter.
+    expect(sh.indexOf('exit 1')).toBeLessThan(sh.indexOf('npm install --save-dev husky'));
   });
 
   /**
-   * The assertion that matters. A grep can be satisfied by a comment; running the installer
-   * against a custom `core.hooksPath` and finding the hook there cannot.
+   * The assertions that matter. A grep can be satisfied by a comment; running the installer for
+   * real and finding the hook where git would look cannot.
    */
-  it('installs into a custom core.hooksPath (functional proof)', () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'karmyq-hooks-'));
+  describe.each([
+    { label: 'a custom core.hooksPath', hooksPath: 'custom-hooks', landsIn: 'custom-hooks' },
+    { label: 'the .git/hooks default when unset', hooksPath: null, landsIn: '.git/hooks' },
+  ])('installs into $label (functional proof)', ({ hooksPath, landsIn }) => {
+    it('puts both hooks there and nowhere else', () => {
+      const { dir, cleanup } = installInto(hooksPath);
+
+      try {
+        expect(existsSync(join(dir, landsIn, 'pre-push'))).toBe(true);
+        expect(existsSync(join(dir, landsIn, 'pre-commit'))).toBe(true);
+
+        // ...and NOT in the other candidate directory. With the old hardcoded installer the
+        // custom case landed in .git/hooks, which is exactly what this catches.
+        const deadPath = landsIn === '.git/hooks' ? 'custom-hooks' : '.git/hooks';
+        expect(existsSync(join(dir, deadPath, 'pre-push'))).toBe(false);
+      } finally {
+        cleanup();
+      }
+    });
+  });
+
+  it('accepts an ABSOLUTE core.hooksPath inside the repo, whatever the drive-letter case', () => {
+    // Regression: the first version of the out-of-repo guard compared paths case-sensitively.
+    // On Windows the two sources genuinely disagree — `git rev-parse --show-toplevel` returns
+    // `C:/...` while core.hooksPath holds `c:\...` — so the guard rejected a hooks directory
+    // plainly inside the repo and installed nothing. The relative-path tests above cannot see
+    // this, because they never exercise the absolute branch at all.
+    const { dir, cleanup } = installInto(null, {
+      hooksPathFrom: (d) => {
+        const abs = `${topLevel(d)}/abs-hooks`;
+        // Flip the drive-letter case where there is one, reproducing the real mismatch.
+        return /^[A-Za-z]:/.test(abs) ? abs[0].toLowerCase() + abs.slice(1) : abs;
+      },
+    });
 
     try {
-      execFileSync('git', ['init', '-q'], { cwd: tmp });
-      execFileSync('git', ['config', 'core.hooksPath', 'custom-hooks'], { cwd: tmp });
-
-      cpSync(join(ROOT, 'scripts/git-hooks'), join(tmp, 'scripts/git-hooks'), { recursive: true });
-      cpSync(join(ROOT, 'scripts/install-hooks.sh'), join(tmp, 'scripts/install-hooks.sh'));
-      writeFileSync(join(tmp, 'package.json'), '{}'); // the installer requires a project root
-
-      // CI: '' so the installer does not take its early-exit branch inside CI runs.
-      execFileSync('sh', ['scripts/install-hooks.sh'], {
-        cwd: tmp,
-        env: { ...process.env, CI: '' },
-        encoding: 'utf8',
-      });
-
-      expect(existsSync(join(tmp, 'custom-hooks/pre-push'))).toBe(true);
-      expect(existsSync(join(tmp, 'custom-hooks/pre-commit'))).toBe(true);
-      // ...and NOT the dead path the old installer wrote to.
-      expect(existsSync(join(tmp, '.git/hooks/pre-push'))).toBe(false);
+      expect(existsSync(join(dir, 'abs-hooks/pre-push'))).toBe(true);
+      expect(existsSync(join(dir, '.git/hooks/pre-push'))).toBe(false);
     } finally {
-      rmSync(tmp, { recursive: true, force: true });
+      cleanup();
     }
   });
 
-  it('falls back to .git/hooks when core.hooksPath is unset (functional proof)', () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'karmyq-hooks-default-'));
+  it('REFUSES a core.hooksPath outside the repo instead of clobbering it', () => {
+    // A machine-global core.hooksPath would otherwise get Karmyq's hooks written into a directory
+    // every repo on the machine shares — and the installer's `rm "$target"` deletes what was
+    // there first. Refusing loudly beats installing hooks that hard-exit in unrelated repos.
+    const outside = mkdtempSync(join(tmpdir(), 'karmyq-outside-'));
+
+    const { status, output, cleanup } = installInto(null, {
+      hooksPathFrom: () => outside.replace(/\\/g, '/'),
+      allowFailure: true,
+    });
 
     try {
-      execFileSync('git', ['init', '-q'], { cwd: tmp });
-      // core.hooksPath deliberately NOT set — the fresh-clone case.
-
-      cpSync(join(ROOT, 'scripts/git-hooks'), join(tmp, 'scripts/git-hooks'), { recursive: true });
-      cpSync(join(ROOT, 'scripts/install-hooks.sh'), join(tmp, 'scripts/install-hooks.sh'));
-      writeFileSync(join(tmp, 'package.json'), '{}');
-
-      execFileSync('sh', ['scripts/install-hooks.sh'], {
-        cwd: tmp,
-        env: { ...process.env, CI: '' },
-        encoding: 'utf8',
-      });
-
-      expect(existsSync(join(tmp, '.git/hooks/pre-push'))).toBe(true);
+      expect(status).not.toBe(0);
+      expect(output).toMatch(/OUTSIDE this repository/);
+      expect(existsSync(join(outside, 'pre-push'))).toBe(false); // nothing was written
     } finally {
-      rmSync(tmp, { recursive: true, force: true });
+      cleanup();
+      rmSync(outside, { recursive: true, force: true });
     }
   });
 });

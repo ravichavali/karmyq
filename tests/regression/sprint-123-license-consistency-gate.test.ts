@@ -1,7 +1,7 @@
 import { execFileSync } from 'child_process';
 import { createHash } from 'crypto';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+
+import { ROOT, allServicePaths, read, tracked } from './helpers/workspaces';
 
 /**
  * Sprint 123 — license consistency gate.
@@ -25,8 +25,6 @@ import { join } from 'path';
  * See ADR-092.
  */
 
-const ROOT = join(__dirname, '..', '..');
-
 const EXPECTED_SPDX = 'AGPL-3.0-or-later';
 const EXPECTED_FAMILY = 'AGPL-3.0';
 
@@ -36,21 +34,6 @@ const EXPECTED_FAMILY = 'AGPL-3.0';
  * Computed over LF-normalized bytes so the assertion survives a CRLF checkout on Windows.
  */
 const CANONICAL_AGPL_SHA256 = '0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0';
-
-const SERVICES = [
-  'auth',
-  'cleanup',
-  'community',
-  'geocoding',
-  'messaging',
-  'notification',
-  'reputation',
-  'request',
-  'simulation',
-  'social-graph',
-];
-
-const read = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8');
 
 const lfNormalize = (s: string): string => s.replace(/\r\n/g, '\n');
 
@@ -104,16 +87,21 @@ const PROSE_SITES: Site[] = [
     file: 'apps/mobile/README.md',
     extract: licenseSectionExtractor,
   },
-  ...SERVICES.map((s) => ({
-    name: `${s}-service README`,
-    file: `services/${s}-service/README.md`,
+  // Discovered from services/registry.json, never hand-listed: a service added later must be
+  // checked automatically, or the gate quietly stops covering it while still reporting green.
+  ...allServicePaths().map((path) => ({
+    name: `${path} README`,
+    file: `${path}/README.md`,
     extract: licenseSectionExtractor,
   })),
   {
     name: 'landing Footer',
     file: 'apps/landing/src/components/Footer.tsx',
-    // The token sits inside a link, so the pattern must span the JSX the anchor introduces.
-    extract: (c) => c.match(/Open source,[\s\S]{0,260}?\b(AGPLv?3[\w.-]*|MIT)\b/)?.[1] ?? null,
+    // The token sits inside a link, so the pattern spans the JSX the anchor introduces. It
+    // captures the anchor text generically rather than whitelisting AGPL|MIT — a whitelist would
+    // report a foreign claim ("Apache-2.0") as a *missing* one, making the OTHER branch of
+    // normalizeLicense unreachable for the one site most likely to be reworded by a designer.
+    extract: (c) => c.match(/Open source,[\s\S]{0,260}?>([^<>{}\n]+)<\/a>/)?.[1]?.trim() ?? null,
   },
   {
     name: 'landingContent manifesto copy',
@@ -135,15 +123,25 @@ const CLAIM_SCAN_ALLOWLIST: RegExp[] = [
   /^tests\/regression\/sprint-123-license-consistency-gate\.test\.ts$/, // this file
 ];
 
-function tracked(...patterns: string[]): string[] {
-  // execFileSync, not execSync: on Windows execSync goes through cmd.exe, which does not
-  // strip single quotes, so a quoted glob reaches git as a literal and matches nothing.
-  return execFileSync('git', ['ls-files', ...patterns], { cwd: ROOT, encoding: 'utf8' })
-    .split('\n')
-    .filter((p) => p && !p.includes('node_modules'));
+/**
+ * Tracked files containing a license token, resolved by `git grep` rather than by reading every
+ * tracked `.md`/`.ts`/`.tsx` into JS (~1,500 files, ~7.8 MB) to run one regex over each.
+ * `git grep -l` exits 1 when nothing matches, which is a legitimate empty result, not an error.
+ */
+function filesMentioningALicense(): string[] {
+  try {
+    return execFileSync(
+      'git',
+      ['grep', '-lIE', '\\bMIT\\b|AGPL|Affero', '--', '*.md', '*.ts', '*.tsx'],
+      { cwd: ROOT, encoding: 'utf8' }
+    )
+      .split(/\r?\n/)
+      .filter((p) => p && !p.includes('node_modules'));
+  } catch (err) {
+    if ((err as { status?: number }).status === 1) return [];
+    throw err;
+  }
 }
-
-const discoverManifests = (): string[] => tracked('*package.json');
 
 describe('Sprint 123 license consistency gate', () => {
   describe('LICENSE', () => {
@@ -166,15 +164,34 @@ describe('Sprint 123 license consistency gate', () => {
   });
 
   describe('prose claim sites', () => {
-    it('enumerates every site — the count is identity, so scope cannot shrink', () => {
-      expect(PROSE_SITES).toHaveLength(16);
-      expect(PROSE_SITES.filter((s) => /-service README$/.test(s.name))).toHaveLength(10);
+    it('covers every service on disk, not just the ones the registry happens to list', () => {
+      // PROSE_SITES derives its service entries from the registry, so asserting a literal count
+      // here would only restate that derivation. The load-bearing check is that the registry and
+      // the filesystem agree — a service directory the registry forgot would otherwise ship
+      // unlicensed, and the stray-claim scan cannot see it (it only fires on files that DO
+      // mention a token, and a README with no License section mentions none).
+      const onDisk = tracked('services/*/README.md')
+        .filter((p) => /^services\/[^/]+\/README\.md$/.test(p)) // git's `*` crosses `/`
+        .sort();
+
+      expect(PROSE_SITES.filter((s) => s.file.startsWith('services/')).map((s) => s.file).sort())
+        .toEqual(onDisk);
+    });
+
+    it('enumerates the six non-service sites explicitly, so scope cannot shrink', () => {
+      expect(PROSE_SITES.filter((s) => !s.file.startsWith('services/')).map((s) => s.name)).toEqual([
+        'README badge',
+        'README license section',
+        'CONTRIBUTING contributor agreement',
+        'mobile README',
+        'landing Footer',
+        'landingContent manifesto copy',
+      ]);
     });
 
     it('every site is readable AND agrees on one license family', () => {
       const results = PROSE_SITES.map((s) => ({
         name: s.name,
-        raw: s.extract(read(s.file)),
         family: normalizeLicense(s.extract(read(s.file))),
       }));
 
@@ -188,31 +205,24 @@ describe('Sprint 123 license consistency gate', () => {
 
   describe('manifests', () => {
     it('every tracked manifest declares the exact SPDX id', () => {
-      const manifests = discoverManifests();
+      const manifests = tracked('*package.json');
 
       expect(manifests).toHaveLength(20); // identity, not a floor
-      expect(
-        manifests.filter((m) => JSON.parse(read(m)).license !== EXPECTED_SPDX)
-      ).toEqual([]);
+      expect(manifests.filter((m) => JSON.parse(read(m)).license !== EXPECTED_SPDX)).toEqual([]);
     });
   });
 
   describe('no unenumerated claim site', () => {
     it('every file mentioning a license token is either an enumerated site or allowlisted', () => {
       const enumerated = new Set(PROSE_SITES.map((s) => s.file));
-      const candidates = tracked('*.md', '*.ts', '*.tsx');
 
-      const stray = candidates.filter((p) => {
-        if (enumerated.has(p)) return false;
-        if (CLAIM_SCAN_ALLOWLIST.some((re) => re.test(p))) return false;
-        return /\bMIT\b|AGPL|Affero/.test(read(p));
-      });
+      const stray = filesMentioningALicense().filter(
+        (p) => !enumerated.has(p) && !CLAIM_SCAN_ALLOWLIST.some((re) => re.test(p))
+      );
 
-      expect({
-        stray,
-        hint: 'A new license claim appeared. Reconcile it to AGPL-3.0-or-later and add it to '
-          + 'PROSE_SITES, or allowlist the path deliberately in CLAIM_SCAN_ALLOWLIST.',
-      }).toEqual({ stray: [], hint: expect.any(String) });
+      // A new license claim appeared. Reconcile it to AGPL-3.0-or-later and add it to
+      // PROSE_SITES, or allowlist the path deliberately in CLAIM_SCAN_ALLOWLIST.
+      expect(stray).toEqual([]);
     });
   });
 

@@ -10,6 +10,25 @@
 
 set -e
 
+# ─────────────────────────────────────────────────────────────────────────────
+# SUPERSEDED (Sprint 123). Do not run this script.
+#
+# It reinstalls husky, re-runs `npx husky init` (which rewrites core.hooksPath),
+# and overwrites .husky/pre-push with `./scripts/test-local.sh e2e` -- silently
+# swapping out the blocking unit+regression suite. Since install-hooks.sh now
+# resolves core.hooksPath, both scripts target the same directory and the last
+# one to run wins, with nothing surfacing the swap.
+#
+# The single supported path is:  npm run hooks:install
+# Sources live in scripts/git-hooks/. See ADR-092's sibling finding.
+# ─────────────────────────────────────────────────────────────────────────────
+echo "❌ scripts/setup/setup-git-hooks.sh is superseded and must not be run."
+echo "   It would reinstall husky, rewrite core.hooksPath, and replace the blocking"
+echo "   pre-push suite with a different one."
+echo ""
+echo "   Use instead:  npm run hooks:install"
+exit 1
+
 SKIP_INSTALL=${1:-""}
 
 echo "========================================="
