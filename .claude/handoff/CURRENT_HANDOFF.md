@@ -90,7 +90,7 @@ config setting behind. Fixed in the installer; the stale `.husky/pre-commit` for
 >
 > | Package | Installed | Advisory | Fixable? |
 > |---|---|---|---|
-> | `nanoid` | 3.3.16 | `<3.3.17` high — infinite loop when size is 0 | ✅ **Yes** — 3.3.18 is published. Range-scoped override `"nanoid@<3.3.17": ">=3.3.17"` + `npm update nanoid --package-lock-only` |
+> | `nanoid` | 3.3.16 → **3.3.18** | `<3.3.17` high — infinite loop when size is 0 | ✅ **FIXED on this branch** — override `"nanoid": "^3.3.18"` |
 > | `image-size` | 1.2.1 | `<=2.0.2` high ×2 — ICNS / JXL+HEIF DoS | 🔴 **No. There is no fixed version.** |
 >
 > **`image-size`'s latest published release is 2.0.2, and the advisory range is `<=2.0.2`** — every
@@ -112,9 +112,33 @@ config setting behind. Fixed in the installer; the stale `.husky/pre-commit` for
 > 3. `--no-verify` past it — **rejected**, CI is supposed to block here and this is exactly the
 >    bypass the discipline forbids.
 >
-> ⚠️ **The `nanoid` half was NOT applied — the maintainer declined the `package.json` edit.** Do not
-> re-apply it without asking; folding a dependency change into a licensing PR may be the objection.
-> On its own it would not unblock the PR anyway, since `image-size` still reds both checks.
+> **Every upstream avenue is closed — checked against the registry 2026-08-10, do not re-derive it:**
+>
+> | Avenue | Result |
+> |---|---|
+> | Newer `image-size` | `latest` **is 2.0.2**, inside the advisory range. The `legacy` tag is our 1.2.1 |
+> | Upgrade `metro` | **`metro@0.87.0` (newest) declares `image-size: ^1.0.2` — identical to our 0.84.4.** Upgrading metro changes nothing |
+> | Newer `@expo/metro` | `56.0.0` is newest in its line (only rc.0–rc.2 precede it) |
+> | Override to `image-size@2.x` | Breaks metro's default import **and** 2.0.2 is still vulnerable |
+>
+> It cannot be fixed by moving versions. It is wait-or-exempt, nothing else.
+>
+> ### ✅ `nanoid` IS fixed on this branch — 11 highs → 10, all 10 now the image-size chain
+>
+> `"nanoid": "^3.3.18"` in root `overrides`; root `node_modules/nanoid` resolves **3.3.18**, single
+> entry, no nested duplicates. Proven with the gate's own command
+> (`npm audit --package-lock-only --audit-level=high`): the only root advisory left is `image-size`.
+> `npm ci --dry-run` is clean — no "Missing … from lock file". Lock diff is **22 lines**, surgical.
+>
+> ⚠️ **Two traps hit while doing it — both are [[feedback_npm_workspace_overrides]] in the wild:**
+> 1. **`">=3.3.17"` is open-ended and npm took it to `nanoid@6.0.1`** — a major — under
+>    `expo-router`, while root stayed vulnerable at 3.3.16. **Bound override ranges** (`^3.3.18`).
+> 2. Deleting the root lock entry to force re-resolution **left `postcss`'s `nanoid ^3.3.16`
+>    unsatisfiable** — a broken lockfile that `npm ci` would reject. Restored from git and used an
+>    unscoped override + `npm update` instead.
+>
+> Both were caught only by **asserting the resolved version after every command** rather than
+> trusting `npm`'s own "up to date" — which it printed while the vulnerable pin was still in place.
 >
 > ### ✅ Confirmed green on #198 (13 checks)
 >
