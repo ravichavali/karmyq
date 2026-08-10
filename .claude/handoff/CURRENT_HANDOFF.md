@@ -76,11 +76,64 @@ config setting behind. Fixed in the installer; the stale `.husky/pre-commit` for
 
 ---
 
-## Task 14 — all that remains
+## Task 14 — IN PROGRESS: PR #198 is open and BLOCKED on a pre-existing advisory
 
-- [ ] Push the branch; **confirm pre-push actually fires** (see #6 above)
-- [ ] Open the PR with `pr-contract.yml` headers, both gate outputs (red and green), the license
-      decision summary
+> ### 🔴 BLOCKER (2026-08-10): two red checks, ONE cause — `image-size` has no patched release
+>
+> **PR [#198](https://github.com/ravichavali/karmyq/pull/198)** is open. **13 of 15 checks pass.**
+> The two failures are the same root cause, which is the classic mid-flight-advisory signature
+> ([[feedback_advisories_publish_mid_flight]]): `Security Audit` (`npm audit --package-lock-only
+> --audit-level=high`, `ci.yml:95`) and `Test Backend Services` → `regression/sprint-75-security-gate.test.ts`
+> → *"npm audit reports zero high/critical vulnerabilities (ADR-059 gate)"*.
+>
+> **Nothing in this diff caused it.** Two root advisories, both arriving after the branch was cut:
+>
+> | Package | Installed | Advisory | Fixable? |
+> |---|---|---|---|
+> | `nanoid` | 3.3.16 | `<3.3.17` high — infinite loop when size is 0 | ✅ **Yes** — 3.3.18 is published. Range-scoped override `"nanoid@<3.3.17": ">=3.3.17"` + `npm update nanoid --package-lock-only` |
+> | `image-size` | 1.2.1 | `<=2.0.2` high ×2 — ICNS / JXL+HEIF DoS | 🔴 **No. There is no fixed version.** |
+>
+> **`image-size`'s latest published release is 2.0.2, and the advisory range is `<=2.0.2`** — every
+> published version is vulnerable (checked against the registry, not a changelog). `npm audit`'s
+> suggested "fix" is `react-native@0.72.17`, a **downgrade** across a major, which is not a fix.
+> Additionally `metro/src/Assets.js:17` does `_interopRequireDefault(require("image-size"))` and
+> image-size 2.x dropped the default export, so forcing 2.x would break metro *and still not clear
+> the advisory*.
+>
+> **Reach:** `apps/mobile` → `expo@57` → `@expo/metro` → `metro@0.84.4` → `image-size`. Dev-time
+> bundler only. **It is in no deployed image** — mobile is not deployed, and no backend image
+> contains metro. The gate blocks on lockfile presence, not on reachability.
+>
+> **This needs a maintainer decision, and it is not a code problem:**
+> 1. Wait for `image-size` 2.0.3 / metro to move — PR stays blocked, and the high SLA is ≤ 1 week.
+> 2. Give ADR-059 a **documented, time-boxed exemption mechanism** for advisories with no published
+>    fix. Note this is the *same missing capability* as BUG-035's complaint about the Expo drift
+>    workflow — worth solving once, properly, rather than twice ad hoc.
+> 3. `--no-verify` past it — **rejected**, CI is supposed to block here and this is exactly the
+>    bypass the discipline forbids.
+>
+> ⚠️ **The `nanoid` half was NOT applied — the maintainer declined the `package.json` edit.** Do not
+> re-apply it without asking; folding a dependency change into a licensing PR may be the objection.
+> On its own it would not unblock the PR anyway, since `image-size` still reds both checks.
+>
+> ### ✅ Confirmed green on #198 (13 checks)
+>
+> `pr-contract` · `Lint & Type Check` · `Test Auth Service` · `Test Frontend` · `Test Docker Build`
+> · `CodeQL` · `Analyze (actions)` · `Analyze (javascript-typescript)` · **`Code Scanning Gate
+> (ADR-060)` — passed in 2m7s having actually evaluated**, not the old 5-minute fail-open. The
+> Sprint 122 epilogue fix is working on a real PR.
+
+## Task 14 — remaining
+
+- [x] Push the branch; **pre-push CONFIRMED firing** — `🚀 Running pre-push checks…` printed. The
+      Task 11 hook repair is proven on a real push, closing the sprint's last open question.
+      ⚠️ The run then failed on the **documented Windows Turbo flake** (`Exceeded timeout of
+      5000 ms` on suites taking 230–285 s). Verified not real by running directly: **auth-service
+      37/37**, **community-service 122/122**, both exit 0. Pushed with `SKIP_PREPUSH=1` *after*
+      that proof — never before it.
+- [x] Open the PR with `pr-contract.yml` headers — **[#198](https://github.com/ravichavali/karmyq/pull/198)**,
+      `pr-contract` passes
+- [ ] 🔴 **Resolve the `image-size` advisory blocker** (decision above) — blocks everything below
 - [ ] `/code-review` at medium — ⚠️ **maintainer-invoked only**, the agent cannot run it
 - [ ] Merge — ⚠️ `gh pr merge --squash --admin` needs **explicit authorization each time**; the Bash
       form is blocked by the permission classifier, use the GitHub MCP `merge_pull_request` tool
