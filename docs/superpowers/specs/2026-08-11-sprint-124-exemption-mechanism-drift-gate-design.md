@@ -123,13 +123,16 @@ a proof.
 The 2026-08-06 drift run flagged jest and `@types/jest` — a genuine deliberate choice. But five
 Expo patch releases published 08-06/08-07 are **unapplied updates**, not decisions:
 
-| Package | Declared (verified `apps/mobile/package.json`, 2026-08-11) | Expo's map (per BUG-035) |
+| Package | Declared (verified `apps/mobile/package.json`, 2026-08-11) | Expo's map (live arbiter, 2026-08-11) |
 |---|---|---|
-| `expo` | `~57.0.10` | `~57.0.11` |
-| `expo-image-picker` | `~57.0.7` | `~57.0.8` |
-| `expo-location` | `~57.0.7` | `~57.0.8` |
-| `expo-notifications` | `~57.0.8` | `~57.0.9` |
-| `expo-router` | `~57.0.10` | `~57.0.11` |
+| `@expo/metro-runtime` | `~57.0.8` | `~57.0.9` |
+| `expo` | `~57.0.10` | `~57.0.12` |
+| `expo-constants` | `~57.0.9` | `~57.0.10` |
+| `expo-image-picker` | `~57.0.7` | `~57.0.9` |
+| `expo-location` | `~57.0.7` | `~57.0.9` |
+| `expo-notifications` | `~57.0.8` | `~57.0.10` |
+| `expo-router` | `~57.0.10` | `~57.0.12` |
+| `expo-splash-screen` | `~57.0.5` | `~57.0.6` |
 
 These get **applied**, not exempted. Exempting a patch bump you simply have not done yet is how a
 registry rots into a to-do list nobody reads.
