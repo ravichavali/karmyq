@@ -145,3 +145,7 @@ The frontend consumes this service through `apps/frontend/src/lib/geocoding.ts`:
 4. Direct Nominatim fallback only when the backend is unreachable
 
 Successful direct fallback results are written back to `/cache` in a non-blocking call.
+
+## License
+
+AGPL-3.0-or-later - See [LICENSE](../../LICENSE) for details.

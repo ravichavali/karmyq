@@ -1,7 +1,7 @@
 # Karmyq - Community Mutual Aid Platform 🤝
 
 [![Version](https://img.shields.io/badge/version-10.11.0-blue.svg)](https://github.com/ravichavali/karmyq/releases/tag/v10.11.0)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSE)
 [![Tests](https://github.com/ravichavali/karmyq/actions/workflows/test.yml/badge.svg)](https://github.com/ravichavali/karmyq/actions/workflows/test.yml)
 [![E2E Tests](https://github.com/ravichavali/karmyq/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/ravichavali/karmyq/actions/workflows/e2e-tests.yml)
 
@@ -161,7 +161,9 @@ See [Project Structure](docs/architecture/proposed-structure.md) for details.
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Copyright (C) 2025-2026 Ravi Chavali
+
+This project is licensed under the AGPL-3.0-or-later License - see the [LICENSE](LICENSE) file for details.
 
 ## 🌟 Star History
 

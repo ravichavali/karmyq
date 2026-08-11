@@ -23,7 +23,8 @@ export default function Footer() {
             {' '}&middot;{' '}
             <a href="mailto:contact@karmyq.org" className="hover:text-karmyq-green-400 transition-colors">Contact</a>
             {' '}&middot;{' '}
-            Open source, AGPLv3
+            Open source,{' '}
+            <a href="https://github.com/ravichavali/karmyq/blob/master/LICENSE" className="hover:text-karmyq-green-400 transition-colors">AGPLv3</a>
             {' '}&middot;{' '}
             No ads{' '}&middot;{' '}No tracking
           </p>

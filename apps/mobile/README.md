@@ -360,7 +360,7 @@ See main [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
 
 ## License
 
-AGPL-3.0 - See [LICENSE](../../LICENSE) for details.
+AGPL-3.0-or-later - See [LICENSE](../../LICENSE) for details.
 
 ## Resources
 

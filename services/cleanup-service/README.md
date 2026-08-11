@@ -235,4 +235,4 @@ SELECT reputation.calculate_decayed_karma('user-uuid', 'community-uuid');
 
 ## License
 
-MIT
+AGPL-3.0-or-later - See [LICENSE](../../LICENSE) for details.

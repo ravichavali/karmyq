@@ -1,6 +1,7 @@
 {
   "name": "karmyq-reputation-service",
   "version": "1.0.0",
+  "license": "AGPL-3.0-or-later",
   "description": "Karmyq Reputation Service - Karma and trust score tracking",
   "main": "dist/index.js",
   "scripts": {

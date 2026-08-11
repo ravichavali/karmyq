@@ -13,7 +13,7 @@ script — prefer those**, since they carry the right arguments and working dire
 | `npm run context:generate` | `generate-service-context.js` | Generates a service's `CONTEXT.md` |
 | `npm run health:check` | `health-check.sh` | Health of every production service in the registry |
 | `npm run dashboard` | `dashboard.js` | Interactive service dashboard |
-| `npm run hooks:install` | `install-hooks.sh` | Symlinks `.git/hooks` → `git-hooks/` (once after clone) |
+| `npm run hooks:install` | `install-hooks.sh` | Installs `git-hooks/` into the **active** hooks dir (once after clone) |
 
 `.npmrc` sets `ignore-scripts=true` ([ADR-061](../docs/adr/ADR-061-supply-chain-and-secrets-hardening.md)),
 so `hooks:install` does **not** run automatically on `npm install` — run it by hand after cloning.
@@ -55,7 +55,12 @@ covered by `tests/regression/dependency-guard-hook.test.ts`.
 
 ## Subdirectories
 
-- **`git-hooks/`** — `pre-commit`, `pre-push` sources. Edit these, not `.git/hooks` (symlinks).
+- **`git-hooks/`** — `pre-commit`, `pre-push` sources. Edit these, not the installed copies.
+  ⚠️ **`core.hooksPath` decides where hooks live.** When it is set — husky sets it, and it outlives
+  husky's removal — git reads *only* that directory and ignores `.git/hooks` entirely. The
+  installer resolves it (Sprint 123; it used to hardcode `.git/hooks`, which made every hook on
+  such a machine dead code and every push silent). `scripts/setup/setup-git-hooks.sh` is a **third,
+  vestigial** installer that reintroduces husky — don't run it.
   `pre-push` runs `npm test` (unit + regression, blocking), integration if a DB is reachable, and
   `test:tdd` for reporting only. `SKIP_PREPUSH=1` skips it; `--no-verify` for emergencies only.
 - **`setup/`** — server and first-run setup: `init-production-database.sh`, `run-migrations.sh`,

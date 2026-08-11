@@ -1,6 +1,6 @@
 # ADR-091: Verification Before Assertion — the Sprint 122 review-loop retrospective
 
-**Status**: Accepted
+**Status**: Implemented
 **Date**: 2026-08-05
 **Sprint**: 122 (epilogue)
 

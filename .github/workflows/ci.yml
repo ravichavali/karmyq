@@ -91,8 +91,12 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
-      - name: Run npm audit (blocking — no high/critical vulns; see ADR-059)
-        run: npm audit --package-lock-only --audit-level=high
+      # Blocking: zero high/critical, EXCEPT advisories under a time-boxed exemption in
+      # security/audit-exemptions.json (ADR-059). The script is the single arbiter — the
+      # regression tier calls the same evaluator against the same registry, so CI and local
+      # tests cannot disagree. It fails closed on a malformed, expired, or stale exemption.
+      - name: Run npm audit with ADR-059 exemptions (blocking)
+        run: node scripts/audit-exemptions.js
 
       - name: Install dependencies
         run: npm ci

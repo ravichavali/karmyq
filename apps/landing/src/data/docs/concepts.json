@@ -708,9 +708,25 @@
       "slug": "adr-091-verification-before-assertion",
       "number": "091",
       "title": "ADR-091: Verification Before Assertion — the Sprint 122 review-loop retrospective",
-      "status": "accepted",
-      "description": "**Status**: Accepted",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
       "filename": "ADR-091-verification-before-assertion.md"
+    },
+    {
+      "slug": "adr-092-agpl-licensing-and-manifesto-audit",
+      "number": "092",
+      "title": "ADR-092: AGPL-3.0-or-later, and the Manifesto Audit That Produced It",
+      "status": "accepted",
+      "description": "**Date**: 2026-08-07",
+      "filename": "ADR-092-agpl-licensing-and-manifesto-audit.md"
+    },
+    {
+      "slug": "adr-093-federation-schema-reserved",
+      "number": "093",
+      "title": "ADR-093: The `federation` Schema Is Reserved, Not Live",
+      "status": "accepted",
+      "description": "**Date**: 2026-08-07",
+      "filename": "ADR-093-federation-schema-reserved.md"
     }
   ]
 }

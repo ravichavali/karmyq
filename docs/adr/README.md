@@ -95,7 +95,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-056: Intrinsic Trust Decay (Interaction Half-Life)](ADR-056-intrinsic-trust-decay.md) — **Implemented**
 - [ADR-057: Community Fission Mechanism](ADR-057-fission-mechanism.md) — **Implemented**
 - [ADR-058: Community Fusion Mechanism](ADR-058-fusion-mechanism.md) — **Implemented**
-- [ADR-059: Dependency Vulnerability Remediation + Blocking CI Security Gate](ADR-059-dependency-security-gate.md) — **Implemented**
+- [ADR-059: Dependency Vulnerability Remediation + Blocking CI Security Gate](ADR-059-dependency-security-gate.md) — **Implemented** (amended Sprint 123: time-boxed exemptions for advisories with no published fix)
 - [ADR-060: Code Scanning Remediation + Blocking CI Code-Scanning Gate](ADR-060-code-scanning-gate.md) — **Implemented**
 - [ADR-061: Supply-Chain & Secrets Hardening](ADR-061-supply-chain-and-secrets-hardening.md) — **Implemented**
 - [ADR-062: Community Identity & Idempotent Creation](ADR-062-community-identity-idempotent-creation.md) — **Implemented**
@@ -126,7 +126,9 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-088: Test-Tier Truthfulness](ADR-088-test-tier-truthfulness.md) — **Implemented**
 - [ADR-089: ts-jest Cannot Read `exports` Maps — `typesVersions` Is the Contract](ADR-089-ts-jest-subpath-type-resolution.md) — **Implemented**
 - [ADR-090: The Container Runtime Floor Is Node 24, and It Is Enforced](ADR-090-container-runtime-floor.md) — **Implemented**
-- [ADR-091: Verification Before Assertion — the Sprint 122 review-loop retrospective](ADR-091-verification-before-assertion.md) — **Accepted**
+- [ADR-091: Verification Before Assertion — the Sprint 122 review-loop retrospective](ADR-091-verification-before-assertion.md) — **Implemented**
+- [ADR-092: AGPL-3.0-or-later, and the Manifesto Audit That Produced It](ADR-092-agpl-licensing-and-manifesto-audit.md) — **Accepted**
+- [ADR-093: The `federation` Schema Is Reserved, Not Live](ADR-093-federation-schema-reserved.md) — **Accepted**
 
 ## Creating a New ADR
 

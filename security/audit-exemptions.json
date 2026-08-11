@@ -1,0 +1,25 @@
+{
+  "$comment": "ADR-059 time-boxed audit exemptions. Read by scripts/audit-exemptions.js, which CI and tests/regression/sprint-75-security-gate.test.ts both call. Rules: exact package + GHSA id (no wildcards), high severity only (critical is never exemptible), every field required, expiry at most 7 days after creation. The gate FAILS on a malformed, expired, or unmatched entry — an exemption that no longer matches a live advisory means upstream shipped a fix and it must be deleted.",
+  "exemptions": [
+    {
+      "package": "image-size",
+      "advisory": "GHSA-w3rx-r6r6-pgpr",
+      "severity": "high",
+      "rationale": "No fixed version exists. image-size's latest published release is 2.0.2 and the advisory range is <=2.0.2, so every published version is affected; metro@0.87.0 (newest) still declares image-size ^1.0.2, so upgrading metro does not help; and image-size 2.x drops the default export metro/src/Assets.js requires. Reach is apps/mobile -> expo@57 -> @expo/metro -> metro, a dev-time bundler that ships in no deployed image.",
+      "decision": "PR #198 code review, 2026-08-10; ADR-059 amendment 'Time-boxed exemptions'",
+      "owner": "ravichavali",
+      "created": "2026-08-10",
+      "expires": "2026-08-17"
+    },
+    {
+      "package": "image-size",
+      "advisory": "GHSA-5p2g-fcmc-qvqq",
+      "severity": "high",
+      "rationale": "Second advisory on the same unfixable package (JXL/HEIF parsers). Listed separately on purpose: exemptions match an exact advisory id, never a package wildcard, so a third image-size advisory would still block the gate.",
+      "decision": "PR #198 code review, 2026-08-10; ADR-059 amendment 'Time-boxed exemptions'",
+      "owner": "ravichavali",
+      "created": "2026-08-10",
+      "expires": "2026-08-17"
+    }
+  ]
+}

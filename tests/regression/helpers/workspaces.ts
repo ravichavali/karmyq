@@ -1,4 +1,5 @@
-import { existsSync, readdirSync, statSync } from 'fs';
+import { execFileSync } from 'child_process';
+import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 /**
@@ -30,4 +31,30 @@ export function allWorkspaces(): Workspace[] {
   }
   out.push({ ws: 'tests', dir: join(ROOT, 'tests') });
   return out;
+}
+
+/** Read a repo-relative path. */
+export const read = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8');
+
+/**
+ * Tracked paths matching git pathspecs — the live arbiter, never a directory glob.
+ *
+ * `execFileSync`, not `execSync`: on Windows `execSync` routes through `cmd.exe`, which does not
+ * strip single quotes, so a quoted glob reaches git as a literal and matches nothing. A silently
+ * empty list is how a discovery-based gate goes vacuously green.
+ */
+export function tracked(...pathspecs: string[]): string[] {
+  return execFileSync('git', ['ls-files', ...pathspecs], { cwd: ROOT, encoding: 'utf8' })
+    .split(/\r?\n/)
+    .filter((p) => p && !p.includes('node_modules'));
+}
+
+/**
+ * Every service directory, from `services/registry.json` — the documented single source of truth.
+ * A hand-written list here is the false-green shape CLAUDE.md Discipline 5 forbids: a service
+ * added later would simply not be checked, and no assertion would notice.
+ */
+export function allServicePaths(): string[] {
+  const registry = JSON.parse(read('services/registry.json'));
+  return Object.values(registry.services as Record<string, { path: string }>).map((s) => s.path);
 }

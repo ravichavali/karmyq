@@ -108,3 +108,54 @@ This is the **dependency** half of the standing security posture. Code scanning 
 - **Expo SDK 54 → 55/56 upgrade** — clears the expo-chain highs at the source but is a large, breaking change; deferred to a dedicated sprint.
 - **`npm audit fix --force`** — installs `next@9.3.3` and other breaking downgrades.
 - **Leaving the gate at `critical`** — the status quo that allowed the debt; rejected.
+
+---
+
+## Amendment (Sprint 123, 2026-08-10): time-boxed exemptions
+
+### Why
+
+The gate as written is binary, and that is a real failure mode: **an advisory with no published fix
+blocks every PR indefinitely.** Sprint 123 hit it with `image-size` (GHSA-w3rx-r6r6-pgpr,
+GHSA-5p2g-fcmc-qvqq). Verified against the registry, not a changelog:
+
+| Escape route | Why it does not exist |
+|---|---|
+| Newer `image-size` | `latest` is **2.0.2**; the advisory range is `<=2.0.2` |
+| Upgrade `metro` | `metro@0.87.0` (newest) still declares `image-size: ^1.0.2` |
+| Override to `image-size@2.x` | `metro/src/Assets.js` needs the default export 2.x removed — and 2.0.2 is still affected |
+
+Reach is `apps/mobile → expo → @expo/metro → metro`: a **dev-time bundler that ships in no deployed
+image**. The available responses were all bad — leave every PR blocked, drop the gate to
+`critical`, or normalise `--no-verify`. The first two surrender the gate; the third surrenders the
+habit.
+
+### Decision
+
+A finding may be exempted **only** through `security/audit-exemptions.json`, evaluated by
+`scripts/audit-exemptions.js`. **CI and the regression tier call the same evaluator against the
+same registry**, so the two can never drift apart.
+
+| Rule | Rationale |
+|---|---|
+| Exact `package` + GHSA id | No package-wide wildcard. A *second* advisory on an exempted package must still block |
+| `high` only | **`critical` is never exemptible**, whatever the registry says |
+| `rationale`, `decision`, `owner`, `created`, `expires` all required | An exemption is a decision with a name on it, not a config tweak |
+| `expires` ≤ 7 days after `created` | Equal to the existing high-severity SLA — an exemption buys review time, never permanence |
+| Fails closed on malformed, expired, duplicate, or **unmatched** entries | An exemption matching nothing means upstream shipped a fix; it must be deleted, not left to rot |
+| Parent findings clear only when **every** advisory reachable through npm's `via` graph is exempted | `metro` is high solely because of `image-size`; the day it gains its own finding it blocks again |
+
+### Consequences
+
+- The gate is now **stricter in one respect**: an expired or stale exemption *fails the build*,
+  where previously a permanently-unfixable advisory could only be handled by weakening the gate.
+- It is **weaker in one respect**: a named human can knowingly ship for up to seven days with a
+  documented high. That is the trade, and it is recorded in the diff rather than in someone's head.
+- **Proof obligation.** `tests/regression/sprint-123-audit-exemption-gate.test.ts` asserts the
+  refusals, not the passes — expired, over-long, malformed, wrong-severity, wrong-id, stale,
+  partially-exempted parents, and the CLI's non-zero exit. A gate demonstrated only by a green run
+  cannot be distinguished from an inert one; this repo has shipped that mistake twice (ADR-060's
+  PR path, and the `FROM` parser in Sprint 122).
+- `validateRegistry()` is deliberately independent of npm audit so **BUG-035** can reuse the same
+  schema and expiry rules for the Expo drift workflow, which needs exactly this and has no
+  mechanism today. That reuse is **not** folded into this sprint's PR.

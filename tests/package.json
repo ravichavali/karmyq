@@ -1,6 +1,7 @@
 {
   "name": "@karmyq/tests",
   "version": "4.0.0",
+  "license": "AGPL-3.0-or-later",
   "description": "Integration and E2E tests for Karmyq multi-tenant platform",
   "private": true,
   "scripts": {

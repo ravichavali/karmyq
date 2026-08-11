@@ -11,6 +11,10 @@
 *.yaml text eol=lf
 *.sh text eol=lf
 
+# The AGPL text must stay byte-exact in the working tree, not just in the blob —
+# core.autocrlf=true would otherwise check it out with CRLF (ADR-092).
+LICENSE text eol=lf
+
 # Binary files
 *.png binary
 *.jpg binary
