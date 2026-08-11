@@ -1,5 +1,8 @@
 import { execFileSync } from 'child_process';
 import { createHash } from 'crypto';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { dirname, join } from 'path';
 
 import { ROOT, allServicePaths, read, tracked } from './helpers/workspaces';
 
@@ -121,22 +124,76 @@ const CLAIM_SCAN_ALLOWLIST: RegExp[] = [
   /^docs\/adr\/README\.md$/, // ADR index entries name the decision
   /^docs\/concepts\/open-source-and-agpl\.md$/, // the user-facing explainer
   /^tests\/regression\/sprint-123-license-consistency-gate\.test\.ts$/, // this file
+  // "Internal use only" here annotates ENDPOINT VISIBILITY, not a license:
+  // "POST /notifications/push/send (internal). Internal use only (called by event handlers…)".
+  // The phrase is in the vocabulary because simulation-service's README used it as a real
+  // license claim. Tradeoff accepted knowingly: these two paths trade a little recall for
+  // signal, and both are covered by the service-README site list either way.
+  /^services\/notification-service\/CONTEXT\.md$/,
+  /^services\/notification-service\/src\/routes\/push\.ts$/,
+];
+
+/**
+ * Vocabulary of a license CLAIM.
+ *
+ * The original three tokens (`MIT|AGPL|Affero`) encoded the assumption that a wrong claim would
+ * name one of the two licenses we were choosing between. This sprint disproved that:
+ * `services/simulation-service/README.md` said *"Internal use only - Karmyq Platform"* — a real
+ * license claim containing none of the three — and every planning-stage grep was blind to it. It
+ * was found by reading files by hand. **A search is only as complete as its vocabulary**, so the
+ * gate now looks for the ways a claim is actually phrased, not just the two answers we expected.
+ */
+const CLAIM_VOCABULARY = [
+  '\\bMIT\\b',
+  'AGPL',
+  'Affero',
+  '\\bL?GPL\\b',
+  'Apache-2\\.0',
+  'Apache License',
+  'BSD-[23]-Clause',
+  'MPL-2\\.0',
+  '\\bISC\\b',
+  '\\bUnlicense\\b',
+  '\\bSSPL\\b',
+  '[Pp]roprietary',
+  'All rights reserved',
+  'Internal use only',
+  'closed[- ]source',
+].join('|');
+
+/**
+ * Paths that carry license tokens which are not claims about THIS project.
+ * Kept separate from CLAIM_SCAN_ALLOWLIST because these are structural (dependency metadata),
+ * not editorial decisions about a particular document.
+ */
+const NOT_OUR_CLAIM: RegExp[] = [
+  /(^|\/)package-lock\.json$/, // npm records every dependency's license; none of them are ours
+  /(^|\/)node_modules\//,
+  // Manifests are checked far more strictly in the `manifests` block below — exact SPDX id on
+  // all 20 — so re-reporting them here as "unenumerated prose" would be noise, not coverage.
+  /(^|\/)package\.json$/,
+  /^LICENSE$/, // the license text itself; asserted byte-exact by sha256 above
+  /^\.gitattributes$/, // pins LICENSE to eol=lf; names the file, makes no claim
 ];
 
 /**
  * Tracked files containing a license token, resolved by `git grep` rather than by reading every
- * tracked `.md`/`.ts`/`.tsx` into JS (~1,500 files, ~7.8 MB) to run one regex over each.
- * `git grep -l` exits 1 when nothing matches, which is a legitimate empty result, not an error.
+ * tracked file into JS to run one regex over each.
+ *
+ * Scans ALL tracked text files: `-I` excludes binaries, and restricting to `.md/.ts/.tsx` used to
+ * exclude `NOTICE`, `LICENSE*`, `.txt`, `.js`, `.json`, `.yml` and every extensionless file — any
+ * of which can carry a claim. `git grep -l` exits 1 when nothing matches, which is a legitimate
+ * empty result, not an error.
  */
-function filesMentioningALicense(): string[] {
+function filesMentioningALicense(cwd: string = ROOT, vocabulary = CLAIM_VOCABULARY): string[] {
   try {
-    return execFileSync(
-      'git',
-      ['grep', '-lIE', '\\bMIT\\b|AGPL|Affero', '--', '*.md', '*.ts', '*.tsx'],
-      { cwd: ROOT, encoding: 'utf8' }
-    )
+    return execFileSync('git', ['grep', '-lIE', vocabulary], {
+      cwd,
+      encoding: 'utf8',
+      maxBuffer: 32 * 1024 * 1024,
+    })
       .split(/\r?\n/)
-      .filter((p) => p && !p.includes('node_modules'));
+      .filter((p) => p && !NOT_OUR_CLAIM.some((re) => re.test(p)));
   } catch (err) {
     if ((err as { status?: number }).status === 1) return [];
     throw err;
@@ -223,6 +280,51 @@ describe('Sprint 123 license consistency gate', () => {
       // A new license claim appeared. Reconcile it to AGPL-3.0-or-later and add it to
       // PROSE_SITES, or allowlist the path deliberately in CLAIM_SCAN_ALLOWLIST.
       expect(stray).toEqual([]);
+    });
+
+    /**
+     * The scan is only as good as its vocabulary and its file-type reach, and a green run cannot
+     * show either. This builds a throwaway git repo, tracks files that carry FOREIGN claims in
+     * shapes the original scan could not see, and proves the current one finds every last one —
+     * then proves the ORIGINAL scan finds none of them.
+     */
+    describe('the scan itself is proven able to find a foreign claim', () => {
+      const OLD_VOCABULARY = '\\bMIT\\b|AGPL|Affero';
+
+      const foreignClaims: Record<string, string> = {
+        NOTICE: 'This product is licensed under Apache-2.0.', // extensionless
+        'legal.txt': 'Copyright 2026. All rights reserved.', // .txt
+        'vendor/bundled.js': '// Proprietary — do not redistribute', // .js
+        'docs/terms.md': 'Released under the BSD-3-Clause license.', // in-vocabulary, new token
+        'internal/notes.md': 'Internal use only - Karmyq Platform', // the phrase that slipped through
+      };
+
+      let repo: string;
+
+      beforeAll(() => {
+        repo = mkdtempSync(join(tmpdir(), 'karmyq-claims-'));
+        execFileSync('git', ['init', '-q'], { cwd: repo });
+        for (const [file, body] of Object.entries(foreignClaims)) {
+          mkdirSync(join(repo, dirname(file)), { recursive: true });
+          writeFileSync(join(repo, file), body);
+        }
+        writeFileSync(join(repo, 'innocent.md'), 'Nothing about licensing here.');
+        execFileSync('git', ['add', '-A'], { cwd: repo });
+      });
+
+      afterAll(() => rmSync(repo, { recursive: true, force: true }));
+
+      it('finds every foreign claim, across all five file shapes', () => {
+        expect(filesMentioningALicense(repo).sort()).toEqual(Object.keys(foreignClaims).sort());
+      });
+
+      it('does NOT flag a file with no claim', () => {
+        expect(filesMentioningALicense(repo)).not.toContain('innocent.md');
+      });
+
+      it('the ORIGINAL MIT|AGPL|Affero scan missed all five — this is the regression', () => {
+        expect(filesMentioningALicense(repo, OLD_VOCABULARY)).toEqual([]);
+      });
     });
   });
 

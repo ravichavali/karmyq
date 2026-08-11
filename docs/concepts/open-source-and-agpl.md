@@ -29,8 +29,11 @@ distribution, so a company can take an MIT-licensed project, improve it privatel
 service for millions of people, and owe nothing back.
 
 The AGPL closes exactly that gap. Its section 13 says that **if people interact with your modified
-version over a network, they are entitled to its source code.** That is the difference between the
-AGPL and every other license Karmyq could have picked, and it is the whole reason for picking it.
+version over a network, they are entitled to its source code.** That is what separates it from the
+permissive alternatives we actually weighed — MIT, Apache-2.0 and BSD — none of which ask anything
+of a company running a modified copy as a service. It is not the only license with a network
+clause; other copyleft licenses reach network use too. It is the one that fits Karmyq, and the
+network-use condition is the whole reason for picking it.
 
 So, concretely:
 

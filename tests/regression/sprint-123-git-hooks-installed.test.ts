@@ -1,9 +1,54 @@
 import { execFileSync } from 'child_process';
-import { cpSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { cpSync, existsSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { join, resolve } from 'path';
 
 import { ROOT, read } from './helpers/workspaces';
+
+/**
+ * A POSIX shell that actually exists on this machine.
+ *
+ * `sh` is on PATH under Git Bash, Linux and macOS — but NOT from PowerShell, where Git for
+ * Windows puts sh.exe in `<git>/usr/bin` while only `<git>/cmd` is on PATH. The functional cases
+ * below are the only ones that prove anything, so resolving the shell must never degrade into
+ * skipping them: if nothing here works we throw, and the suite goes red rather than quiet.
+ */
+const SHELL: string = (() => {
+  const candidates = ['sh'];
+
+  if (process.platform === 'win32') {
+    try {
+      // .../mingw64/libexec/git-core -> the Git for Windows install root
+      const gitRoot = resolve(
+        execFileSync('git', ['--exec-path'], { encoding: 'utf8' }).trim(),
+        '..',
+        '..',
+        '..'
+      );
+      candidates.push(join(gitRoot, 'usr', 'bin', 'sh.exe'), join(gitRoot, 'bin', 'sh.exe'));
+    } catch {
+      // git not on PATH is handled by the candidates below and, failing those, the throw.
+    }
+    candidates.push(
+      'C:\\Program Files\\Git\\usr\\bin\\sh.exe',
+      'C:\\Program Files (x86)\\Git\\usr\\bin\\sh.exe'
+    );
+  }
+
+  for (const candidate of candidates) {
+    try {
+      execFileSync(candidate, ['-c', 'exit 0'], { stdio: 'ignore' });
+      return candidate;
+    } catch {
+      // try the next candidate
+    }
+  }
+
+  throw new Error(
+    `No POSIX shell found. Tried: ${candidates.join(', ')}. ` +
+      'Install Git for Windows or run from a shell where `sh` resolves — these cases must not be skipped.'
+  );
+})();
 
 /**
  * Sprint 123 — the git hooks were inert, and nothing said so.
@@ -52,7 +97,7 @@ function installInto(
     let output = '';
     try {
       // CI: '' so the installer does not take its early-exit branch inside CI runs.
-      output = execFileSync('sh', ['scripts/install-hooks.sh'], {
+      output = execFileSync(SHELL, ['scripts/install-hooks.sh'], {
         cwd: dir,
         env: { ...process.env, CI: '' },
         encoding: 'utf8',
@@ -151,6 +196,68 @@ describe('Sprint 123 git hooks are actually installed where git reads them', () 
       expect(existsSync(join(dir, '.git/hooks/pre-push'))).toBe(false);
     } finally {
       cleanup();
+    }
+  });
+
+  it('installs ONLY the hooks — never scripts/git-hooks/README.md', () => {
+    // The filter used `[[ ]]`, which a real POSIX shell (dash is /bin/sh on the CI runners)
+    // reports as "not found". Inside an `if` condition that failure is not fatal even under
+    // `set -e`, so it silently took the ELSE branch and installed README.md as a hook. The
+    // pre-existing assertions could not see it: they only checked that pre-push/pre-commit exist.
+    const { dir, output, cleanup } = installInto('custom-hooks');
+
+    try {
+      expect(existsSync(join(dir, 'custom-hooks/README.md'))).toBe(false);
+      expect(output).toMatch(/Successfully installed 2 hook\(s\)/);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('REFUSES a core.hooksPath that escapes via ".." even though it is lexically inside', () => {
+    // `<repo>/../<sibling>` has the repo path as a literal prefix, so the previous lexical
+    // prefix test accepted it and would have installed — and `rm "$target"` deleted — outside
+    // the repository.
+    const outside = mkdtempSync(join(tmpdir(), 'karmyq-dotdot-'));
+
+    const { status, output, cleanup } = installInto(null, {
+      hooksPathFrom: (d) => `${topLevel(d)}/../${outside.replace(/\\/g, '/').split('/').pop()}`,
+      allowFailure: true,
+    });
+
+    try {
+      expect(status).not.toBe(0);
+      expect(output).toMatch(/OUTSIDE this repository/);
+      expect(existsSync(join(outside, 'pre-push'))).toBe(false);
+    } finally {
+      cleanup();
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('REFUSES a core.hooksPath whose SYMLINK target is outside the repo', () => {
+    // The link name sits inside the repo, so every lexical check passes; only resolving the link
+    // reveals the escape.
+    const outside = mkdtempSync(join(tmpdir(), 'karmyq-symlink-'));
+
+    const { status, output, cleanup } = installInto(null, {
+      hooksPathFrom: (d) => {
+        const link = join(d, 'linked-hooks');
+        // 'junction' works on Windows without developer mode or elevation; on POSIX the type
+        // argument is ignored. Either way this must be a REAL link, not a copy.
+        symlinkSync(outside, link, process.platform === 'win32' ? 'junction' : 'dir');
+        return `${topLevel(d)}/linked-hooks`;
+      },
+      allowFailure: true,
+    });
+
+    try {
+      expect(status).not.toBe(0);
+      expect(output).toMatch(/OUTSIDE this repository/);
+      expect(existsSync(join(outside, 'pre-push'))).toBe(false);
+    } finally {
+      cleanup();
+      rmSync(outside, { recursive: true, force: true });
     }
   });
 

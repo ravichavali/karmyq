@@ -95,7 +95,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-056: Intrinsic Trust Decay (Interaction Half-Life)](ADR-056-intrinsic-trust-decay.md) — **Implemented**
 - [ADR-057: Community Fission Mechanism](ADR-057-fission-mechanism.md) — **Implemented**
 - [ADR-058: Community Fusion Mechanism](ADR-058-fusion-mechanism.md) — **Implemented**
-- [ADR-059: Dependency Vulnerability Remediation + Blocking CI Security Gate](ADR-059-dependency-security-gate.md) — **Implemented**
+- [ADR-059: Dependency Vulnerability Remediation + Blocking CI Security Gate](ADR-059-dependency-security-gate.md) — **Implemented** (amended Sprint 123: time-boxed exemptions for advisories with no published fix)
 - [ADR-060: Code Scanning Remediation + Blocking CI Code-Scanning Gate](ADR-060-code-scanning-gate.md) — **Implemented**
 - [ADR-061: Supply-Chain & Secrets Hardening](ADR-061-supply-chain-and-secrets-hardening.md) — **Implemented**
 - [ADR-062: Community Identity & Idempotent Creation](ADR-062-community-identity-idempotent-creation.md) — **Implemented**
