@@ -120,8 +120,9 @@ a proof.
 
 ### F2 — Not everything BUG-035 reports is a divergence
 
-The 2026-08-06 drift run flagged jest and `@types/jest` — a genuine deliberate choice. But five
-Expo patch releases published 08-06/08-07 are **unapplied updates**, not decisions:
+The 2026-08-06 drift run flagged jest and `@types/jest` — a genuine deliberate choice. But the
+eight Expo-managed package updates reported by the 2026-08-11 live arbiter are **unapplied
+updates**, not decisions:
 
 | Package | Declared (verified `apps/mobile/package.json`, 2026-08-11) | Expo's map (live arbiter, 2026-08-11) |
 |---|---|---|
@@ -137,9 +138,9 @@ Expo patch releases published 08-06/08-07 are **unapplied updates**, not decisio
 These get **applied**, not exempted. Exempting a patch bump you simply have not done yet is how a
 registry rots into a to-do list nobody reads.
 
-⚠️ **That right-hand column is five days old and Expo revises its map within a generation.** It is
-a starting hypothesis, not the target. The implementation reads the live arbiter and bumps to
-whatever it says on the day.
+⚠️ **That right-hand column is the 2026-08-11 live-arbiter result: eight updates.** Expo revises
+its map within a generation, so Task 5 must re-read the live arbiter on its execution day and bump
+to whatever it says then.
 
 ### F3 — The jest divergence itself looks safe, and that reasoning must be recorded
 
@@ -334,7 +335,7 @@ The middle rows are the point. **Gates must be proven to reject, not merely to p
    The parser must **fail closed on unrecognized output**: zero parsed lines from a non-zero exit
    is "I could not tell", never "clean" (`audit-exemptions.js:206-208` is the pattern to copy).
 
-4. **Apply the five Expo patch bumps; do not exempt them.** And re-read the live map on the day —
+4. **Apply the eight Expo-managed package updates; do not exempt them.** And re-read the live map on the day —
    BUG-035's list was captured 2026-08-06 and Expo revised its map twice during a single Sprint 122
    review.
 
@@ -381,7 +382,7 @@ The middle rows are the point. **Gates must be proven to reject, not merely to p
 - [ ] `scripts/lib/exemption-registry.js` exists; both registries consume it
 - [ ] `sprint-123-audit-exemption-gate.test.ts` passes **unedited** (36 tests)
 - [ ] `security/expo-divergences.json` records jest + `@types/jest` with verified rationale
-- [ ] The five Expo patch releases applied, lockfile re-resolved, resolved versions asserted
+- [ ] The eight Expo-managed package updates applied, lockfile re-resolved, resolved versions asserted
 - [ ] `npx expo install --check` exits 0, or exits non-zero only on registered divergences
 - [ ] New gate proven to **reject**: stale entry, wrong-SDK entry, missing field, unregistered
       drift, malformed JSON — each with a RED test
