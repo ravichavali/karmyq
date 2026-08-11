@@ -243,21 +243,29 @@ function evaluateAudit(report, registry, now = new Date()) {
  * CLI against a fixture, which is the only way to prove the EXECUTABLE path exits non-zero — an
  * evaluator returning ok:false while the CLI exits 0 would be a silently inert gate.
  */
-function registryPath() {
-  const override = process.env.KARMYQ_AUDIT_REGISTRY;
-  if (!override) return REGISTRY_PATH;
+/**
+ * Named fixtures the regression tier may select. Values are CONSTANTS — the environment picks a
+ * key, never a path.
+ *
+ * A prefix check on an env-provided path was the first attempt and CodeQL rejected it, correctly:
+ * the path still originated outside the program, so `fs` was reachable from the environment. An
+ * allowlist removes the sink rather than guarding it, and it also documents exactly which
+ * fixtures exist.
+ */
+const TEST_REGISTRIES = {
+  empty: path.join(ROOT, 'tests', 'regression', 'fixtures', 'audit-exemptions-empty.json'),
+};
 
-  // Confined to the repository, and resolved before the check so `..` cannot walk out. The
-  // override exists solely so the regression tier can drive the real CLI against a fixture;
-  // it is never a way to read an arbitrary file. Same canonicalize-then-confine shape as
-  // scripts/install-hooks.sh.
-  const resolved = path.resolve(ROOT, override);
-  if (resolved !== ROOT && !resolved.startsWith(ROOT + path.sep)) {
+function registryPath() {
+  const key = process.env.KARMYQ_AUDIT_REGISTRY;
+  if (!key) return REGISTRY_PATH;
+
+  if (!Object.prototype.hasOwnProperty.call(TEST_REGISTRIES, key)) {
     throw new Error(
-      `KARMYQ_AUDIT_REGISTRY must resolve inside the repository (got ${resolved})`
+      `KARMYQ_AUDIT_REGISTRY must name a known fixture (${Object.keys(TEST_REGISTRIES).join(', ')}); got "${key}"`
     );
   }
-  return resolved;
+  return TEST_REGISTRIES[key];
 }
 
 function readRegistry(file = registryPath()) {

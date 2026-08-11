@@ -323,18 +323,15 @@ describe('ADR-059 gate — CI and the test tier share ONE registry', () => {
     // while the CLI exits 0 would be a silently inert gate. Points the real script at an empty
     // registry, so the live image-size highs must block.
     //
-    // The fixture is committed inside the repo rather than written to a temp dir because
-    // KARMYQ_AUDIT_REGISTRY is confined to the repository — an env var that could name any path
-    // on disk is a path-injection sink, which CodeQL flagged and which the confinement fixes.
-    const empty = join(__dirname, 'fixtures', 'audit-exemptions-empty.json');
-
+    // KARMYQ_AUDIT_REGISTRY names a FIXTURE KEY, not a path: an env var that could name any file
+    // on disk is a path-injection sink, which CodeQL flagged. The allowlist removes the sink.
     let status = 0;
     let out = '';
     try {
       execFileSync(process.execPath, [join(ROOT, 'scripts/audit-exemptions.js')], {
         cwd: ROOT,
         encoding: 'utf8',
-        env: { ...process.env, KARMYQ_AUDIT_REGISTRY: empty },
+        env: { ...process.env, KARMYQ_AUDIT_REGISTRY: 'empty' },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
     } catch (err) {
@@ -348,23 +345,27 @@ describe('ADR-059 gate — CI and the test tier share ONE registry', () => {
     expect(out).toMatch(/ADR-059 gate FAILED/);
   });
 
-  it('REFUSES a KARMYQ_AUDIT_REGISTRY that resolves outside the repository', () => {
-    // The override is a test affordance, not a way to read any file on disk. CodeQL flagged the
-    // unconfined version as a path-injection sink; this is the sanitizer, and it must stay.
-    let combined = '';
-    try {
-      execFileSync(process.execPath, [join(ROOT, 'scripts/audit-exemptions.js')], {
-        cwd: ROOT,
-        encoding: 'utf8',
-        env: { ...process.env, KARMYQ_AUDIT_REGISTRY: '../../../etc/passwd' },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-    } catch (err) {
-      const e = err as { stdout?: string; stderr?: string };
-      combined = `${e.stdout ?? ''}${e.stderr ?? ''}`;
+  it.each(['../../../etc/passwd', '/etc/passwd', 'security/audit-exemptions.json', 'nope'])(
+    'REFUSES KARMYQ_AUDIT_REGISTRY=%s — it names a fixture key, never a path',
+    (value) => {
+      // The override is a test affordance, not a way to read any file on disk. CodeQL flagged the
+      // path-taking version as a path-injection sink; the allowlist is what removed it, and a
+      // path-shaped value must be rejected even when it points somewhere legitimate.
+      let combined = '';
+      try {
+        execFileSync(process.execPath, [join(ROOT, 'scripts/audit-exemptions.js')], {
+          cwd: ROOT,
+          encoding: 'utf8',
+          env: { ...process.env, KARMYQ_AUDIT_REGISTRY: value },
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+      } catch (err) {
+        const e = err as { stdout?: string; stderr?: string };
+        combined = `${e.stdout ?? ''}${e.stderr ?? ''}`;
+      }
+      expect(combined).toMatch(/must name a known fixture/);
     }
-    expect(combined).toMatch(/must resolve inside the repository/);
-  });
+  );
 
   it('the CLI exits ZERO with the shipped registry', () => {
     const out = execFileSync(process.execPath, [join(ROOT, 'scripts/audit-exemptions.js')], {
