@@ -50,6 +50,7 @@ refusals) · decision: **ADR-059 amendment**.
 | **`@types/node` floor** | `messaging-service` declares `^20.10.5` against a Node 24 runtime |
 | **Claim-scan precision trade** | Two paths allowlisted where *"Internal use only"* annotates endpoint visibility, not a license (`notification-service` `CONTEXT.md`, `routes/push.ts`). A real claim added to those two files would be missed |
 | **Open Dependabot PRs** | **#199** production-deps group (11 updates) and **#200** dev-deps group (9 updates), both regenerated on 2026-08-10. Neither triaged. ⚠️ These were #190/#197 hours earlier — **the numbers churn every regeneration; match on what a PR bumps** |
+| **~90 stale remote branches** | `git branch -r --no-merged origin/master` lists ~90, mostly spent Dependabot branches plus every shipped `deps/`, `docs/`, `feature/` and `fix/` branch back to sprint 30. Squash-merged branches always read as "unmerged" (their commits never become ancestors of master), so this list will never self-clear. Safe to prune the ones whose PR is MERGED or CLOSED; **verify PR state per branch first, never bulk-delete by name pattern.** Immediate candidates: `fix/adr-060-gate-pr-head-ref` (obsolete — superseded by #195), `docs/sprint-123-planning`, `feature/sprint-123-licensing-and-audit`, `docs/sprint-122-pr5-shipped`, `agent/codex/sprint-122-pr6-zustand5` |
 
 ---
 
