@@ -76,8 +76,60 @@ config setting behind. Fixed in the installer; the stale `.husky/pre-commit` for
 
 ---
 
-## Task 14 — IN PROGRESS: PR #198 is open and BLOCKED on a pre-existing advisory
+## Task 14 — PR #198 OPEN, ALL 20 CHECKS GREEN, awaiting merge authorization
 
+> ### ✅ RESOLVED (2026-08-10): `/code-review` ran, 7 findings, all 7 fixed
+>
+> **Head `1feef7b1`. 20/20 checks pass**, `Deploy to Demo` skipping as expected on a PR.
+> **Merge authorization has NOT been given** — it is the maintainer's, every time.
+>
+> | # | Finding | Fix | Proof |
+> |---|---|---|---|
+> | 1 | Absolute Windows `core.hooksPath` fails at `mkdir` | Canonicalize both paths; use the canonical one for every fs op | Installer green under real `dash` **and** `bash` |
+> | 2 | Hook test assumed `sh` on PATH | Resolver: `sh` → Git-for-Windows `usr/bin/sh.exe` via `git --exec-path` → known roots; **throws** if none | Functional cases can no longer be skipped |
+> | 3 | Guard accepted `..` and symlink escapes | Canonicalizing comparison (`cd -P` on deepest existing ancestor) | **Injection:** reverting `canonicalize()` to identity turns exactly the 2 new escape tests red |
+> | 4 | Claim scan missed `NOTICE`/`.txt`/`.js` and `Apache-2.0`/`Proprietary`/`Internal use only` | All tracked text files + claim vocabulary | Throwaway repo, 5 foreign claims, 5 file shapes: new scan finds **5/5**, old vocabulary **0/5** |
+> | 5 | `image-size` blocked required checks | **ADR-059 time-boxed exemption mechanism** | 36 tests, almost all asserting **refusals** |
+> | 6 | AGPL explainer overstated uniqueness | Narrowed to the permissive alternatives actually weighed | — |
+> | 7 | PR body stale | Rewritten | — |
+>
+> ### 🔴 Found while fixing #2 — the installer was never POSIX
+>
+> It declares `#!/bin/sh` but used `[[ ]]` and `$OSTYPE`. Under **dash — which is `/bin/sh` on the
+> CI runners** — `[[` is *"not found"*, and inside an `if` condition **that is not fatal even under
+> `set -e`**, so the filter silently inverted and installed `scripts/git-hooks/README.md` as a hook.
+> Reproduced against real `dash`. The existing tests could not see it: they only asserted that
+> `pre-push`/`pre-commit` exist, never that nothing *else* was installed.
+>
+> ### CodeQL took three rounds — worth reading before writing another script
+>
+> The new script tripped `js/path-injection`, and the first two fixes were not good enough:
+>
+> 1. **Prefix check on an env-provided path** — rejected. The path still *originated* outside the
+>    program, so `fs` remained reachable from the environment. Guarding a sink is not removing it.
+> 2. **Allowlist** — `KARMYQ_AUDIT_REGISTRY` now names a **key** into a constant map, so no
+>    env-derived value reaches `fs` at all. Two of three annotations cleared.
+> 3. **`if (parseError) process.exit(1)`** — a condition guarding a sensitive action, reachable from
+>    user input. `readRegistry` now **throws** and the CLI has a fail-closed `catch`. Better anyway:
+>    a sentinel the caller forgets to check fails **open**; an exception cannot be forgotten.
+>
+> ### The exemption mechanism (ADR-059 amendment)
+>
+> `security/audit-exemptions.json` + `scripts/audit-exemptions.js`; **CI and the regression tier call
+> the same evaluator against the same registry**, so they cannot drift. Exact package + GHSA id (no
+> wildcard), **`high` only — critical never exemptible**, rationale/decision/owner/created/expires
+> all required, **expiry ≤ 7 days**, fail-closed on malformed/expired/duplicate/**unmatched**. Parent
+> findings clear only when *every* advisory reachable through npm's `via` graph is exempted, so
+> `metro` blocks again the day it gains a finding of its own.
+>
+> ⏰ **The `image-size` exemption EXPIRES 2026-08-17.** On that date the gate fails until someone
+> re-checks upstream and either renews with a fresh decision or removes it. That is intended.
+>
+> `validateRegistry()` is audit-independent so **BUG-035** can reuse it for the Expo drift workflow.
+> Deliberately not folded into this PR.
+>
+> <details><summary>Historical: the blocker as first diagnosed</summary>
+>
 > ### 🔴 BLOCKER (2026-08-10): two red checks, ONE cause — `image-size` has no patched release
 >
 > **PR [#198](https://github.com/ravichavali/karmyq/pull/198)** is open. **13 of 15 checks pass.**
@@ -140,12 +192,14 @@ config setting behind. Fixed in the installer; the stale `.husky/pre-commit` for
 > Both were caught only by **asserting the resolved version after every command** rather than
 > trusting `npm`'s own "up to date" — which it printed while the vulnerable pin was still in place.
 >
-> ### ✅ Confirmed green on #198 (13 checks)
+> ### ✅ Confirmed green on #198 (13 checks at that point)
 >
 > `pr-contract` · `Lint & Type Check` · `Test Auth Service` · `Test Frontend` · `Test Docker Build`
 > · `CodeQL` · `Analyze (actions)` · `Analyze (javascript-typescript)` · **`Code Scanning Gate
 > (ADR-060)` — passed in 2m7s having actually evaluated**, not the old 5-minute fail-open. The
 > Sprint 122 epilogue fix is working on a real PR.
+>
+> </details>
 
 ## Task 14 — remaining
 
@@ -157,10 +211,14 @@ config setting behind. Fixed in the installer; the stale `.husky/pre-commit` for
       that proof — never before it.
 - [x] Open the PR with `pr-contract.yml` headers — **[#198](https://github.com/ravichavali/karmyq/pull/198)**,
       `pr-contract` passes
-- [ ] 🔴 **Resolve the `image-size` advisory blocker** (decision above) — blocks everything below
-- [ ] `/code-review` at medium — ⚠️ **maintainer-invoked only**, the agent cannot run it
-- [ ] Merge — ⚠️ `gh pr merge --squash --admin` needs **explicit authorization each time**; the Bash
-      form is blocked by the permission classifier, use the GitHub MCP `merge_pull_request` tool
+- [x] ✅ **`image-size` blocker resolved** — ADR-059 time-boxed exemption mechanism (above).
+      `nanoid` was **fixed**, not exempted (`overrides: "nanoid": "^3.3.18"`).
+- [x] ✅ **`/code-review` DONE** — 7 findings, all 7 fixed and pushed; 3 further CodeQL rounds on
+      the new script, all resolved by removing sinks rather than dismissing them.
+- [x] ✅ **All 20 CI checks green** at head `1feef7b1`; `Deploy to Demo` skipping as expected.
+- [ ] ⬅️ **Merge — NEEDS EXPLICIT MAINTAINER AUTHORIZATION.** `gh pr merge --squash --admin`; the
+      Bash form is blocked by the permission classifier, so use the GitHub MCP
+      `merge_pull_request` tool. **This is the only thing standing between here and deploy.**
 - [ ] Monitor GitHub Actions (no migrations this sprint, so no manual SSH step)
 - [ ] `gh repo view --json licenseInfo,visibility` — must no longer be `null`. This is the
       externally-visible proof F1 is closed and the reason `LICENSE` had to stay byte-exact
@@ -180,7 +238,7 @@ config setting behind. Fixed in the installer; the stale `.husky/pre-commit` for
 | Testing | Both new suites observed **red** on real injections, then green. Details below |
 | `/simplify` | 4 parallel reviews. Applied: registry-derived service list, helper extraction, `git grep` instead of 1,500 file reads, generic Footer extractor, table-driven hook proofs. **Surfaced two real installer defects** (see below) |
 | `/security-review` | **No qualifying findings.** Noted (and accepted) that the out-of-repo guard is a lexical prefix test — trusted input, accidental-misconfiguration scope |
-| `/code-review` | **NOT RUN — maintainer-invoked only.** Do not record it as done |
+| `/code-review` | ✅ **RUN 2026-08-10 — 7 findings, all 7 fixed** (table at the top of this file). Every Important finding was CONFIRMED against source before being touched; none were false positives |
 
 **Red observed, on every gate, after the refactor** (a refactored gate is an unproven gate):
 README badge flipped to MIT · a registry service with no README · the hardcoded `.git/hooks`
