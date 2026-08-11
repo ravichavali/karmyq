@@ -33,6 +33,7 @@
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { validateRegistry: validateWithSpec } = require('./lib/exemption-registry');
 
 const ROOT = path.join(__dirname, '..');
 const REGISTRY_PATH = path.join(ROOT, 'security', 'audit-exemptions.json');
@@ -51,95 +52,57 @@ const REQUIRED_FIELDS = [
   'expires',
 ];
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const GHSA_ID = /^GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/;
 
 const MS_PER_DAY = 86400000;
 
-/** Parse a YYYY-MM-DD as UTC midnight. Returns NaN-bearing Date for anything else. */
-function parseUtcDate(s) {
-  if (typeof s !== 'string' || !ISO_DATE.test(s)) return new Date(NaN);
-  const d = new Date(`${s}T00:00:00Z`);
-  // Rejects real-looking but invalid dates such as 2026-02-31, which Date would roll over.
-  return d.toISOString().slice(0, 10) === s ? d : new Date(NaN);
-}
+const AUDIT_SPEC = {
+  collection: 'exemptions',
+  requiredFields: REQUIRED_FIELDS,
+  identity: (entry) => `${entry.package}|${entry.advisory}`,
+  fieldValidators: {
+    advisory: (value, at) =>
+      GHSA_ID.test(value)
+        ? []
+        : [`${at}: "advisory" must be an exact GHSA id (got "${value}")`],
+    severity: (value, at) =>
+      value === 'high'
+        ? []
+        : [
+            `${at}: only "high" is exemptible — critical is never exemptible (got "${value}")`,
+          ],
+  },
+  maxDays: MAX_EXEMPTION_DAYS,
+  checkExpiry: (entry, { today, parseUtcDate }) => {
+    const created = parseUtcDate(entry.created);
+    const expires = parseUtcDate(entry.expires);
 
-function todayUtc(now = new Date()) {
-  return new Date(`${now.toISOString().slice(0, 10)}T00:00:00Z`);
-}
-
-/**
- * Schema + expiry validation, independent of npm audit. Reusable (BUG-035).
- * @returns {string[]} human-readable errors; empty means valid.
- */
-function validateRegistry(registry, now = new Date()) {
-  const errors = [];
-
-  if (registry === null || typeof registry !== 'object' || Array.isArray(registry)) {
-    return ['registry must be a JSON object'];
-  }
-  if (!Array.isArray(registry.exemptions)) {
-    return ['registry.exemptions must be an array'];
-  }
-
-  const today = todayUtc(now);
-  const seen = new Set();
-
-  registry.exemptions.forEach((e, i) => {
-    const at = `exemptions[${i}]`;
-
-    if (e === null || typeof e !== 'object' || Array.isArray(e)) {
-      errors.push(`${at}: must be an object`);
-      return;
-    }
-
-    for (const f of REQUIRED_FIELDS) {
-      if (typeof e[f] !== 'string' || e[f].trim() === '') {
-        errors.push(`${at}: "${f}" is required and must be a non-empty string`);
-      }
-    }
-    // Every later check reads these fields; bail rather than emit cascading noise.
-    if (errors.some((m) => m.startsWith(`${at}:`))) return;
-
-    if (!GHSA_ID.test(e.advisory)) {
-      errors.push(`${at}: "advisory" must be an exact GHSA id (got "${e.advisory}")`);
-    }
-    if (e.severity !== 'high') {
-      errors.push(
-        `${at}: only "high" is exemptible — critical is never exemptible (got "${e.severity}")`
-      );
-    }
-
-    const key = `${e.package}|${e.advisory}`;
-    if (seen.has(key)) errors.push(`${at}: duplicate exemption for ${key}`);
-    seen.add(key);
-
-    const created = parseUtcDate(e.created);
-    const expires = parseUtcDate(e.expires);
-    if (Number.isNaN(created.getTime())) {
-      errors.push(`${at}: "created" must be a valid YYYY-MM-DD date (got "${e.created}")`);
-    }
     if (Number.isNaN(expires.getTime())) {
-      errors.push(`${at}: "expires" must be a valid YYYY-MM-DD date (got "${e.expires}")`);
+      return [`"expires" must be a valid YYYY-MM-DD date (got "${entry.expires}")`];
     }
-    if (Number.isNaN(created.getTime()) || Number.isNaN(expires.getTime())) return;
+    if (Number.isNaN(created.getTime())) return [];
 
+    const errors = [];
     const days = (expires - created) / MS_PER_DAY;
     if (days <= 0) {
-      errors.push(`${at}: "expires" must be after "created"`);
+      errors.push('"expires" must be after "created"');
     } else if (days > MAX_EXEMPTION_DAYS) {
       errors.push(
-        `${at}: exemption spans ${days} days — the maximum is ${MAX_EXEMPTION_DAYS} (ADR-059 SLA)`
+        `exemption spans ${days} days — the maximum is ${MAX_EXEMPTION_DAYS} (ADR-059 SLA)`
       );
     }
     if (expires < today) {
       errors.push(
-        `${at}: EXPIRED on ${e.expires} — re-check upstream and renew with a fresh decision, or fix`
+        `EXPIRED on ${entry.expires} — re-check upstream and renew with a fresh decision, or fix`
       );
     }
-  });
+    return errors;
+  },
+};
 
-  return errors;
+/** @deprecated-shape kept for tests/regression/sprint-75-security-gate.test.ts:60 */
+function validateRegistry(registry, now = new Date()) {
+  return validateWithSpec(registry, AUDIT_SPEC, now);
 }
 
 /**
