@@ -273,7 +273,11 @@ function readRegistry(file = registryPath()) {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch (err) {
-    return { __parseError: err.message };
+    // Throws rather than returning a sentinel the caller must remember to check. A forgotten
+    // sentinel check is a fail-OPEN; an exception cannot be forgotten. (It also removes the
+    // `if (parseError) process.exit(1)` branch CodeQL flagged as a user-controlled guard on a
+    // sensitive action.)
+    throw new Error(`${file} is not valid JSON: ${err.message}`);
   }
 }
 
@@ -301,13 +305,7 @@ function runAudit(cwd = ROOT) {
 }
 
 function main() {
-  const registry = readRegistry();
-  if (registry.__parseError) {
-    console.error(`❌ security/audit-exemptions.json is not valid JSON: ${registry.__parseError}`);
-    process.exit(1);
-  }
-
-  const result = evaluateAudit(runAudit(), registry);
+  const result = evaluateAudit(runAudit(), readRegistry());
 
   for (const c of result.cleared) {
     console.log(`⚠️  EXEMPT (${c.severity}): ${c.package} — via ${c.via.join(', ')}`);
@@ -340,4 +338,15 @@ module.exports = {
   validateRegistry,
 };
 
-if (require.main === module) main();
+if (require.main === module) {
+  try {
+    main();
+  } catch (err) {
+    // Any failure to even evaluate the gate is a gate FAILURE, never a pass. This is the
+    // fail-closed backstop for a malformed registry, an unknown fixture key, or an npm audit
+    // that could not be parsed.
+    console.error(`❌ ${err.message}`);
+    console.error('\nADR-059 gate FAILED.');
+    process.exit(1);
+  }
+}
