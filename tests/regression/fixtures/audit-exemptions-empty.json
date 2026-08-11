@@ -1,0 +1,4 @@
+{
+  "$comment": "Fixture for tests/regression/sprint-123-audit-exemption-gate.test.ts. An empty registry, so the real CLI run against the live npm audit must BLOCK on the image-size highs and exit 1. Lives inside the repository because KARMYQ_AUDIT_REGISTRY is confined to it.",
+  "exemptions": []
+}

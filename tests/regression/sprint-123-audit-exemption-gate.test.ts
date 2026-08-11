@@ -1,6 +1,5 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 
 /**
@@ -323,8 +322,11 @@ describe('ADR-059 gate — CI and the test tier share ONE registry', () => {
     // Proves the executable path, not just the exported function: an evaluator returning ok:false
     // while the CLI exits 0 would be a silently inert gate. Points the real script at an empty
     // registry, so the live image-size highs must block.
-    const empty = join(mkdtempSync(join(tmpdir(), 'karmyq-audit-')), 'empty.json');
-    writeFileSync(empty, JSON.stringify({ exemptions: [] }));
+    //
+    // The fixture is committed inside the repo rather than written to a temp dir because
+    // KARMYQ_AUDIT_REGISTRY is confined to the repository — an env var that could name any path
+    // on disk is a path-injection sink, which CodeQL flagged and which the confinement fixes.
+    const empty = join(__dirname, 'fixtures', 'audit-exemptions-empty.json');
 
     let status = 0;
     let out = '';
@@ -344,6 +346,24 @@ describe('ADR-059 gate — CI and the test tier share ONE registry', () => {
     expect(status).toBe(1);
     expect(out).toMatch(/BLOCKING \(high\): image-size/);
     expect(out).toMatch(/ADR-059 gate FAILED/);
+  });
+
+  it('REFUSES a KARMYQ_AUDIT_REGISTRY that resolves outside the repository', () => {
+    // The override is a test affordance, not a way to read any file on disk. CodeQL flagged the
+    // unconfined version as a path-injection sink; this is the sanitizer, and it must stay.
+    let combined = '';
+    try {
+      execFileSync(process.execPath, [join(ROOT, 'scripts/audit-exemptions.js')], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        env: { ...process.env, KARMYQ_AUDIT_REGISTRY: '../../../etc/passwd' },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch (err) {
+      const e = err as { stdout?: string; stderr?: string };
+      combined = `${e.stdout ?? ''}${e.stderr ?? ''}`;
+    }
+    expect(combined).toMatch(/must resolve inside the repository/);
   });
 
   it('the CLI exits ZERO with the shipped registry', () => {

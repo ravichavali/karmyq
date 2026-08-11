@@ -244,7 +244,20 @@ function evaluateAudit(report, registry, now = new Date()) {
  * evaluator returning ok:false while the CLI exits 0 would be a silently inert gate.
  */
 function registryPath() {
-  return process.env.KARMYQ_AUDIT_REGISTRY || REGISTRY_PATH;
+  const override = process.env.KARMYQ_AUDIT_REGISTRY;
+  if (!override) return REGISTRY_PATH;
+
+  // Confined to the repository, and resolved before the check so `..` cannot walk out. The
+  // override exists solely so the regression tier can drive the real CLI against a fixture;
+  // it is never a way to read an arbitrary file. Same canonicalize-then-confine shape as
+  // scripts/install-hooks.sh.
+  const resolved = path.resolve(ROOT, override);
+  if (resolved !== ROOT && !resolved.startsWith(ROOT + path.sep)) {
+    throw new Error(
+      `KARMYQ_AUDIT_REGISTRY must resolve inside the repository (got ${resolved})`
+    );
+  }
+  return resolved;
 }
 
 function readRegistry(file = registryPath()) {
