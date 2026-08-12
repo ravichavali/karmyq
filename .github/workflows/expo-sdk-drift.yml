@@ -97,9 +97,11 @@ jobs:
             );
           }
 
+          // Read from the structured result, never by regex over `errors`: matching on
+          // human-readable prose would mean rewording a message silently stopped issues being
+          // filed while the gate still went red, with no test covering the pairing.
           const issueWorthy =
-            result.blocking.length > 0 ||
-            result.errors.some((error) => /recorded expoPins/.test(error));
+            result.blocking.length > 0 || (result.mismatched || []).length > 0;
           console.log(
             `result=${Buffer.from(JSON.stringify(result), "utf8").toString("base64")}`,
           );

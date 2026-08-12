@@ -19,7 +19,18 @@ function todayUtc(now = new Date()) {
  */
 function validateRegistry(registry, spec, now = new Date()) {
   const errors = [];
-  const { collection, requiredFields, identity, fieldValidators, checkExpiry } = spec;
+  const {
+    collection,
+    entryName,
+    requiredFields,
+    identity,
+    fieldValidators,
+    // Which fields hold YYYY-MM-DD dates is the SPEC's business, not the core's. Parsing a field
+    // named `created` by name would silently mandate one audit-shaped field of every future
+    // registry — the two shipped registries both happening to have it is what would hide that.
+    dateFields = [],
+    checkExpiry,
+  } = spec;
 
   if (registry === null || typeof registry !== 'object' || Array.isArray(registry)) {
     return ['registry must be a JSON object'];
@@ -30,7 +41,6 @@ function validateRegistry(registry, spec, now = new Date()) {
 
   const today = todayUtc(now);
   const seen = new Set();
-  const entryName = collection.endsWith('s') ? collection.slice(0, -1) : collection;
 
   registry[collection].forEach((entry, index) => {
     const at = `${collection}[${index}]`;
@@ -56,9 +66,10 @@ function validateRegistry(registry, spec, now = new Date()) {
     if (seen.has(key)) errors.push(`${at}: duplicate ${entryName} for ${key}`);
     seen.add(key);
 
-    const created = parseUtcDate(entry.created);
-    if (Number.isNaN(created.getTime())) {
-      errors.push(`${at}: "created" must be a valid YYYY-MM-DD date (got "${entry.created}")`);
+    for (const field of dateFields) {
+      if (Number.isNaN(parseUtcDate(entry[field]).getTime())) {
+        errors.push(`${at}: "${field}" must be a valid YYYY-MM-DD date (got "${entry[field]}")`);
+      }
     }
 
     for (const message of checkExpiry(entry, { now, today, parseUtcDate })) {

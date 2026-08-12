@@ -58,7 +58,9 @@ covered by `tests/regression/dependency-guard-hook.test.ts`.
 
 - **`lib/`** — shared script internals, not standalone entry points.
   `exemption-registry.js` validates the structural rules common to the audit and Expo registries;
-  each caller owns its own identity, field, and expiry policy (ADR-094).
+  each caller owns its own identity, field, and expiry policy (ADR-094). The spec supplies
+  `entryName` and `dateFields` too — the core names no field of its own, so nothing audit-shaped
+  leaks into a future registry.
 - **`git-hooks/`** — `pre-commit`, `pre-push` sources. Edit these, not the installed copies.
   ⚠️ **`core.hooksPath` decides where hooks live.** When it is set — husky sets it, and it outlives
   husky's removal — git reads *only* that directory and ignores `.git/hooks` entirely. The

@@ -58,7 +58,9 @@ const MS_PER_DAY = 86400000;
 
 const AUDIT_SPEC = {
   collection: 'exemptions',
+  entryName: 'exemption',
   requiredFields: REQUIRED_FIELDS,
+  dateFields: ['created'],
   identity: (entry) => `${entry.package}|${entry.advisory}`,
   fieldValidators: {
     advisory: (value, at) =>
@@ -99,7 +101,14 @@ const AUDIT_SPEC = {
   },
 };
 
-/** @deprecated-shape kept for tests/regression/sprint-75-security-gate.test.ts:60 */
+/**
+ * The audit registry's one-argument validator: this module's own spec, bound.
+ *
+ * Used internally by `evaluateAudit` (below) and asserted directly by
+ * `tests/regression/sprint-123-audit-exemption-gate.test.ts:67`. It is part of the public surface —
+ * `.github/workflows/ci.yml` runs this script by path, and `sprint-75-security-gate.test.ts`
+ * requires the module — so keep the signature stable rather than pushing `AUDIT_SPEC` onto callers.
+ */
 function validateRegistry(registry, now = new Date()) {
   return validateWithSpec(registry, AUDIT_SPEC, now);
 }

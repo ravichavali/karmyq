@@ -32,6 +32,7 @@ type Evaluation = {
   blocking: Drift[];
   cleared: Divergence[];
   stale: Divergence[];
+  mismatched: Divergence[];
 };
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -40,18 +41,28 @@ const gate = require('../../scripts/expo-divergences') as {
   evaluate: (checkResult: CheckResult, registry: unknown) => Evaluation;
   readRegistry: (file?: string) => Registry;
   runExpoCheck: () => CheckResult;
+  expoSpec: (mobilePkg: unknown) => { requiredFields: string[] };
 };
 
-const REQUIRED_FIELDS = [
-  'package',
-  'declared',
-  'expoPins',
-  'sdk',
-  'rationale',
-  'decision',
-  'owner',
-  'created',
-];
+// Read from the shipped spec, not re-declared here: the per-field rejection cases below are
+// generated from this list, so a hand-written copy would silently delete a field's own test case
+// when that field was dropped. The literal below pins it by identity so the deletion fails loudly.
+const REQUIRED_FIELDS = gate.expoSpec(
+  JSON.parse(readFileSync(join(ROOT, 'apps', 'mobile', 'package.json'), 'utf8'))
+).requiredFields;
+
+it('pins the shipped divergence schema', () => {
+  expect(REQUIRED_FIELDS).toEqual([
+    'package',
+    'declared',
+    'expoPins',
+    'sdk',
+    'rationale',
+    'decision',
+    'owner',
+    'created',
+  ]);
+});
 
 const driftOutput = (...lines: string[]): string => [
   'The following packages should be updated for best compatibility with the installed expo version:',
@@ -281,6 +292,19 @@ describe('Sprint 124 Expo divergence gate', () => {
 
     expect(result.ok).toBe(false);
     expect(result.errors.join(' ')).toMatch(/jest.*expoPins.*~29\.6\.0.*~29\.7\.0/i);
+
+    // The drift workflow decides whether to FILE AN ISSUE from this field. Asserting it by
+    // identity, not just length: recovering the same fact by regex over `errors` is what this
+    // field exists to replace, so a reworded message must not be able to empty it.
+    expect(result.mismatched.map((entry) => entry.package)).toEqual(['jest']);
+  });
+
+  it('leaves mismatched empty when every registered pin still agrees with the arbiter', () => {
+    // The negative half of the pair above — without it, a field hardwired to always report a
+    // mismatch would satisfy the assertion and make the workflow file an issue on every run.
+    const result = gate.evaluate({ status: 1, output: bothJestDrifts }, validRegistry());
+
+    expect(result.mismatched).toEqual([]);
   });
 
   it('rejects malformed registry JSON instead of treating it as an empty registry', () => {
@@ -304,6 +328,7 @@ describe('Sprint 124 Expo divergence gate', () => {
       blocking: [],
       cleared: validRegistry().divergences,
       stale: [],
+      mismatched: [],
     });
   });
 

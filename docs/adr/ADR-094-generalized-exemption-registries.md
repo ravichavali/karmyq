@@ -33,11 +33,18 @@ common to exemption registries:
 - the registry and entries have the required object/array shapes;
 - required fields are non-empty strings;
 - entry identities are unique;
-- `created` is a real `YYYY-MM-DD` UTC date; and
+- every field the spec names in `dateFields` is a real `YYYY-MM-DD` UTC date (rejecting roll-overs
+  such as `2026-02-31`); and
 - each consumer supplies its own field validators and expiry policy.
 
 The core knows nothing about audit severities, GHSA identifiers, Expo versions, or expiry lengths.
 Those rules remain with the consumer so sharing code cannot silently make the policies equivalent.
+
+Note that *which* fields hold dates is the spec's business, not the core's — both shipped registries
+happen to have a `created` field, and a core that parsed that name directly would have quietly
+mandated one audit-shaped field of every future registry while looking generic. The entry noun used
+in duplicate errors is spec-supplied (`entryName`) for the same reason: deriving it by trimming an
+`s` off the collection name is a guess that happens to work for the two nouns shipped today.
 
 ### Audit exemptions: calendar expiry
 

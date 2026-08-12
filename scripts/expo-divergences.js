@@ -64,7 +64,9 @@ function expoSpec(mobilePkg) {
   const sdk = currentSdkMajor(mobilePkg);
   return {
     collection: "divergences",
+    entryName: "divergence",
     requiredFields: REQUIRED_FIELDS,
+    dateFields: ["created"],
     identity: (entry) => entry.package,
     fieldValidators: {
       sdk: (value, at) =>
@@ -160,7 +162,14 @@ function parseExpoCheckOutput(output) {
 }
 
 function failedResult(errors) {
-  return { ok: false, errors, blocking: [], cleared: [], stale: [] };
+  return {
+    ok: false,
+    errors,
+    blocking: [],
+    cleared: [],
+    stale: [],
+    mismatched: [],
+  };
 }
 
 /**
@@ -248,6 +257,12 @@ function evaluate(checkResult, registry) {
     blocking,
     cleared,
     stale,
+    // Classified here rather than left for a caller to recover by regex over `errors`. The drift
+    // workflow decides whether to file an issue from this; matching on human-readable error prose
+    // would mean a pure reword silently stopped issues being filed while the gate still went red.
+    mismatched: registry.divergences.filter((entry) =>
+      mismatched.has(entry.package),
+    ),
   };
 }
 
@@ -326,22 +341,22 @@ function main() {
   }
 
   const registry = readRegistry();
+  const mobilePkg = readMobilePackage();
+
+  // Validate locally BEFORE spawning the arbiter. `evaluate` bails on registry errors without ever
+  // reading the check result, so an invalid registry would otherwise pay a full
+  // `npx expo install --check` round-trip (npx resolution + api.expo.dev) to reach a verdict two
+  // local file reads already decided. SDK-generation expiry is designed to fire the moment
+  // apps/mobile bumps its expo major, so this is the expected steady-state failure, not an edge.
+  const registryErrors = validateRegistry(registry, mobilePkg);
+  if (registryErrors.length) {
+    printResult(failedResult(registryErrors));
+    console.error("\nExpo divergence gate FAILED.");
+    process.exitCode = 1;
+    return;
+  }
+
   if (args[0] === "--registry-only") {
-    const mobilePkg = readMobilePackage();
-    const errors = validateRegistry(registry, mobilePkg);
-    const result = {
-      ok: errors.length === 0,
-      errors,
-      blocking: [],
-      cleared: [],
-      stale: [],
-    };
-    printResult(result);
-    if (!result.ok) {
-      console.error("\nExpo divergence gate FAILED.");
-      process.exitCode = 1;
-      return;
-    }
     console.log(
       `✅ Expo divergence registry valid for SDK ${currentSdkMajor(mobilePkg)}.`,
     );
