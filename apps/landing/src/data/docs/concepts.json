@@ -716,7 +716,7 @@
       "slug": "adr-092-agpl-licensing-and-manifesto-audit",
       "number": "092",
       "title": "ADR-092: AGPL-3.0-or-later, and the Manifesto Audit That Produced It",
-      "status": "accepted",
+      "status": "implemented",
       "description": "**Date**: 2026-08-07",
       "filename": "ADR-092-agpl-licensing-and-manifesto-audit.md"
     },
@@ -724,9 +724,17 @@
       "slug": "adr-093-federation-schema-reserved",
       "number": "093",
       "title": "ADR-093: The `federation` Schema Is Reserved, Not Live",
-      "status": "accepted",
+      "status": "implemented",
       "description": "**Date**: 2026-08-07",
       "filename": "ADR-093-federation-schema-reserved.md"
+    },
+    {
+      "slug": "adr-094-generalized-exemption-registries",
+      "number": "094",
+      "title": "ADR-094: Generalized Exemption Registries",
+      "status": "implemented",
+      "description": "**Date**: 2026-08-11",
+      "filename": "ADR-094-generalized-exemption-registries.md"
     }
   ]
 }

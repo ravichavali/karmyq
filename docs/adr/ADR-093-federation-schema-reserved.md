@@ -1,7 +1,7 @@
 # ADR-093: The `federation` Schema Is Reserved, Not Live
 
 **Date**: 2026-08-07
-**Status**: Accepted
+**Status**: Implemented
 **Deciders**: Ravi Chavali (maintainer)
 **Related**: [ADR-087](ADR-087-one-seed-path-init-sql-regeneration.md) ·
 [ADR-092](ADR-092-agpl-licensing-and-manifesto-audit.md) · Sprint 123

@@ -123,6 +123,10 @@
         {
           "label": "Error Observability",
           "href": "/docs/concepts/observability"
+        },
+        {
+          "label": "Time-boxed exemptions",
+          "href": "/docs/concepts/time-boxed-exemptions"
         }
       ]
     },
@@ -530,6 +534,10 @@
           "label": "— Infrastructure —",
           "href": "/docs/concepts",
           "divider": true
+        },
+        {
+          "label": "Generalized Exemption Registries",
+          "href": "/docs/concepts/adr-094-generalized-exemption-registries"
         },
         {
           "label": "AGPL-3.0-or-later, and the Manifesto Audit That Produced It",
