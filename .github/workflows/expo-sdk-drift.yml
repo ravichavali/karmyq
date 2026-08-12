@@ -17,7 +17,7 @@ name: Expo SDK drift
 on:
   schedule:
     # 07:15 UTC daily. Off the hour to avoid GitHub's peak-of-hour scheduling backlog.
-    - cron: '15 7 * * *'
+    - cron: "15 7 * * *"
   workflow_dispatch:
 
 permissions:
@@ -25,7 +25,7 @@ permissions:
   issues: write
 
 env:
-  NODE_VERSION: '24.x'
+  NODE_VERSION: "24.x"
   DRIFT_LABEL: expo-sdk-drift
 
 jobs:
@@ -40,44 +40,107 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run the arbiter (expo install --check)
+      - name: Run the arbiter and divergence gate
         id: check
         working-directory: apps/mobile
         env:
-          EXPO_NO_TELEMETRY: '1'
+          EXPO_NO_TELEMETRY: "1"
         run: |
           set +e
           npx expo install --check > "$RUNNER_TEMP/expo-check.log" 2>&1
           status=$?
           set -e
           cat "$RUNNER_TEMP/expo-check.log"
-          echo "status=$status" >> "$GITHUB_OUTPUT"
 
-          if [ "$status" -eq 0 ]; then
-            echo "✅ apps/mobile matches Expo's live SDK map."
-            exit 0
+          set +e
+          EXPO_CHECK_STATUS="$status" node -e '
+          const fs = require("fs");
+          const gate = require("../../scripts/expo-divergences.js");
+          let result;
+          try {
+            result = gate.evaluate(
+              {
+                status: Number(process.env.EXPO_CHECK_STATUS),
+                signal: null,
+                output: fs.readFileSync(0, "utf8"),
+              },
+              gate.readRegistry(),
+            );
+          } catch (error) {
+            result = {
+              ok: false,
+              errors: [error.message],
+              blocking: [],
+              cleared: [],
+              stale: [],
+            };
+          }
+
+          for (const entry of result.cleared) {
+            console.log(
+              `REGISTERED DIVERGENCE: ${entry.package} ${entry.declared} (Expo pins ${entry.expoPins})`,
+            );
+          }
+          for (const error of result.errors) console.error(`ERROR: ${error}`);
+          for (const drift of result.blocking) {
+            console.error(
+              `BLOCKING: ${drift.package}@${drift.installed} (Expo expects ${drift.expoPins})`,
+            );
+          }
+
+          const issueWorthy =
+            result.blocking.length > 0 ||
+            result.errors.some((error) => /recorded expoPins/.test(error));
+          console.log(
+            `result=${Buffer.from(JSON.stringify(result), "utf8").toString("base64")}`,
+          );
+          console.log(`issue=${issueWorthy ? 1 : 0}`);
+          process.exitCode = result.ok ? 0 : 1;
+          ' < "$RUNNER_TEMP/expo-check.log" > "$RUNNER_TEMP/expo-gate.log" 2>&1
+          gate_status=$?
+          set -e
+          cat "$RUNNER_TEMP/expo-gate.log"
+
+          result=$(sed -n 's/^result=//p' "$RUNNER_TEMP/expo-gate.log")
+          issue=$(sed -n 's/^issue=//p' "$RUNNER_TEMP/expo-gate.log")
+          if [ -z "$result" ]; then
+            echo "Divergence gate did not emit a result payload." >&2
+            result=$(node -e '
+            const result = {
+              ok: false,
+              errors: ["Divergence gate did not emit a result payload"],
+              blocking: [],
+              cleared: [],
+              stale: [],
+            };
+            process.stdout.write(Buffer.from(JSON.stringify(result), "utf8").toString("base64"));
+            ')
+            gate_status=1
+          fi
+          if [ "$issue" != "1" ]; then
+            issue=0
           fi
 
-          # Keep only the actionable lines for the issue body.
-          {
-            echo 'drift<<DRIFT_EOF'
-            grep -E 'expected version|should be updated' "$RUNNER_TEMP/expo-check.log" || \
-              cat "$RUNNER_TEMP/expo-check.log"
-            echo 'DRIFT_EOF'
-          } >> "$GITHUB_OUTPUT"
+          echo "status=$gate_status" >> "$GITHUB_OUTPUT"
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+          echo "issue=$issue" >> "$GITHUB_OUTPUT"
 
-          echo "::warning::Expo SDK drift detected — see the issue filed by this run."
+          if [ "$gate_status" -eq 0 ]; then
+            echo "✅ Expo divergence gate is green."
+          else
+            echo "::warning::Expo divergence gate failed; review this run's gate output."
+          fi
 
       - name: File or update the drift issue
-        if: steps.check.outputs.status != '0'
+        if: steps.check.outputs.issue == '1'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DRIFT: ${{ steps.check.outputs.drift }}
+          RESULT: ${{ steps.check.outputs.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           # Ensure the label exists before searching or creating with it.
@@ -85,27 +148,53 @@ jobs:
             --description "apps/mobile has drifted from Expo's live SDK version map" \
             --color 'B60205' 2>/dev/null || true
 
+          details=$(node -e '
+          const result = JSON.parse(Buffer.from(process.env.RESULT, "base64").toString("utf8"));
+          const sections = [];
+          if (result.errors.length) {
+            sections.push("### Gate errors\n" + result.errors.map((error) => `- ${error}`).join("\n"));
+          }
+          if (result.blocking.length) {
+            sections.push(
+              "### Blocking drift\n" +
+                result.blocking
+                  .map((drift) => `- ${drift.package}@${drift.installed} — Expo expects ${drift.expoPins}`)
+                  .join("\n"),
+            );
+          }
+          if (result.stale.length) {
+            sections.push(
+              "### Stale divergence registrations\n" +
+                result.stale.map((entry) => `- ${entry.package} ${entry.declared}`).join("\n"),
+            );
+          }
+          sections.push(
+            "### Cleared registered divergences\n" +
+              (result.cleared.length
+                ? result.cleared
+                    .map(
+                      (entry) =>
+                        `- ${entry.package} ${entry.declared} — Expo pins ${entry.expoPins}`,
+                    )
+                    .join("\n")
+                : "- None"),
+          );
+          process.stdout.write(sections.join("\n\n"));
+          ')
+
           body=$(cat <<EOF
-          \`npx expo install --check\` exited non-zero against Expo's **live** version map.
+          The Expo divergence gate rejected the result from \`npx expo install --check\`
+          against Expo's **live** version map.
 
-          \`\`\`
-          $DRIFT
-          \`\`\`
-
-          **Why CI's own gate did not catch this:** \`SDK_PINNED\` in
-          \`tests/regression/sprint-122-expo-sdk-alignment.test.ts\` is a handwritten copy of
-          Expo's map. It compares the manifest against that copy, so when Expo revises the
-          matrix *within* an SDK generation both local files still agree and the suite stays
-          green. That is exactly what this job exists to detect.
+          $details
 
           **To fix:**
-          1. Update the version in \`apps/mobile/package.json\`.
-          2. Update the matching entry in \`SDK_PINNED\`, with a written reason.
-          3. Re-resolve the lockfile — a plain \`npm install --package-lock-only\` will report
-             "up to date" and leave the nested node stale. Delete that package's entries from
-             \`package-lock.json\` and re-resolve, then **assert the resolved version**.
-          4. Re-run \`npx expo install --check\` (must exit 0), plus mobile tests and
-             \`tsc --noEmit\`.
+          1. For blocking drift, update \`apps/mobile/package.json\` and the matching
+             \`SDK_PINNED\` entry, with a written reason.
+          2. For a stale or mismatched registration, update or remove the entry in
+             \`security/expo-divergences.json\`; never widen it to hide new drift.
+          3. Re-resolve the lockfile surgically and assert the resolved version.
+          4. Re-run \`node scripts/expo-divergences.js\`, mobile tests, and \`tsc --noEmit\`.
 
           Run: $RUN_URL
           EOF
@@ -123,6 +212,25 @@ jobs:
               --title "Expo SDK drift: apps/mobile no longer matches Expo's live version map" \
               --label "$DRIFT_LABEL" \
               --body "$body"
+          fi
+
+      - name: Close stale drift issues when the gate is green
+        if: steps.check.outputs.status == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          existing=$(gh issue list --state open --label "$DRIFT_LABEL" \
+            --json number --jq '.[].number')
+
+          if [ -n "$existing" ]; then
+            for issue in $existing; do
+              echo "Closing resolved drift issue #$issue"
+              gh issue close "$issue" \
+                --comment "The Expo divergence gate is green again. Verified by $RUN_URL."
+            done
+          else
+            echo "No stale Expo drift issue is open."
           fi
 
       - name: Fail the run when drift is present
