@@ -82,6 +82,7 @@ jobs:
               blocking: [],
               cleared: [],
               stale: [],
+              mismatched: [],
             };
           }
 
@@ -97,11 +98,13 @@ jobs:
             );
           }
 
-          // Read from the structured result, never by regex over `errors`: matching on
-          // human-readable prose would mean rewording a message silently stopped issues being
-          // filed while the gate still went red, with no test covering the pairing.
-          const issueWorthy =
-            result.blocking.length > 0 || (result.mismatched || []).length > 0;
+          // ANY failure files the issue, matching the pre-ADR-094 behaviour (`status != '0'`).
+          // Narrowing this to blocking/mismatched left stale registrations, unparseable arbiter
+          // output, and an invalid registry turning the scheduled run red with no issue filed --
+          // and the body below renders "Gate errors" and "Stale divergence registrations"
+          // sections that would then be unreachable. A red scheduled run nobody is told about is
+          // the ignored-signal problem BUG-035 was filed for.
+          const issueWorthy = !result.ok;
           console.log(
             `result=${Buffer.from(JSON.stringify(result), "utf8").toString("base64")}`,
           );
@@ -123,6 +126,7 @@ jobs:
               blocking: [],
               cleared: [],
               stale: [],
+              mismatched: [],
             };
             process.stdout.write(Buffer.from(JSON.stringify(result), "utf8").toString("base64"));
             ')

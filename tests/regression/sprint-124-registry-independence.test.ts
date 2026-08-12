@@ -1,12 +1,14 @@
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const auditGate = require('../../scripts/audit-exemptions') as {
   evaluateAudit: (report: unknown, registry: unknown, now?: Date) => GateResult;
-  readRegistry: () => unknown;
+  readRegistry: () => { exemptions: Array<{ created: string }> };
 };
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const expoGate = require('../../scripts/expo-divergences') as {
   evaluate: (checkResult: ExpoCheckResult, registry: unknown) => GateResult;
-  readRegistry: () => unknown;
+  readRegistry: () => {
+    divergences: Array<{ package: string; declared: string; expoPins: string }>;
+  };
 };
 
 type GateResult = {
@@ -21,7 +23,13 @@ type ExpoCheckResult = {
   output: string;
 };
 
-const NOW = new Date('2026-08-11T12:00:00Z');
+// Derived from the shipped registry, never a frozen literal. This suite exercises the real
+// time-boxed audit registry, which by design must be renewed before it expires — and since an
+// exemption's `created` may not be in the future, a hardcoded clock goes red on the next renewal
+// instead of on a real defect. Reading the registry's own `created` pins the clock to the moment
+// the entries were written, which is what these assertions actually mean.
+const SHIPPED_AUDIT_REGISTRY = auditGate.readRegistry();
+const NOW = new Date(`${SHIPPED_AUDIT_REGISTRY.exemptions[0].created}T12:00:00Z`);
 
 const advisory = (id: string) => ({
   source: 123456,
@@ -46,20 +54,29 @@ const auditReport = {
   },
 };
 
+// Synthesised FROM the shipped Expo registry rather than hardcoded. This suite feeds the real
+// registry to the gate, and the drift issue the workflow files tells maintainers to "update or
+// remove the entry in security/expo-divergences.json" — with the arbiter output frozen here,
+// following those instructions would leave the blocking regression tier red for a reason
+// unrelated to what this suite tests. Derived, the two move together.
+const SHIPPED_EXPO_REGISTRY = expoGate.readRegistry();
+
 const expoCheck: ExpoCheckResult = {
   status: 1,
   output: [
     'The following packages should be updated for best compatibility with the installed expo version:',
-    '  @types/jest@30.0.0 - expected version: 29.5.14',
-    '  jest@30.4.2 - expected version: ~29.7.0',
+    ...SHIPPED_EXPO_REGISTRY.divergences.map(
+      (entry) =>
+        `  ${entry.package}@${entry.declared.replace(/^[\^~]/, '')} - expected version: ${entry.expoPins}`
+    ),
     'Your project may not work correctly until you install the expected versions of the packages.',
     'Found outdated dependencies',
   ].join('\n'),
 };
 
 describe('Sprint 124 audit and Expo registry independence', () => {
-  const auditRegistry = auditGate.readRegistry();
-  const expoRegistry = expoGate.readRegistry();
+  const auditRegistry = SHIPPED_AUDIT_REGISTRY;
+  const expoRegistry = SHIPPED_EXPO_REGISTRY;
 
   it('the shipped audit registry clears only audit findings and cannot clear Expo drift', () => {
     const nativeResult = auditGate.evaluateAudit(auditReport, auditRegistry, NOW);
