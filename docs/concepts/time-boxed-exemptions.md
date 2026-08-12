@@ -45,8 +45,9 @@ an Expo divergence can remain for a long time while the app stays on the same SD
 
 An exemption never replaces the real check. Karmyq still runs `npm audit` and Expo's live
 compatibility command, then subtracts only exact, current registrations. New findings remain red.
-Malformed registries, expired decisions, output the gate cannot fully understand, and entries that
-no longer match reality all fail closed.
+Malformed registries, expired decisions, non-zero or drift output the Expo gate cannot fully
+understand, and entries that no longer match reality all fail closed. An unrecognized failure
+cannot become clean; headerless output with Expo exit status 0 remains a successful result.
 
 That is the principle: make exceptional decisions legible and temporary on the clock that fits
 their risk, so the ordinary signal stays worth listening to.

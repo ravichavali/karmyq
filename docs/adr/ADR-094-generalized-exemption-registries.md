@@ -65,12 +65,16 @@ change to either package is independently visible.
 ### Fail-closed, complete-output gate
 
 Expo's live `npx expo install --check` remains the arbiter. The gate parses the complete known
-output envelope: header, every drift row, compatibility guidance, final footer, and process exit
-status. Missing framing, malformed or trailing output, an unexpected exit status, termination by
-signal, malformed JSON, an unregistered drift, or stale registry data all fail closed. A future
-Expo output format that the parser cannot understand means “compatibility unknown,” never “clean.”
+drift envelope: header, every drift row, compatibility guidance, final footer, and process exit
+status. When Expo exits non-zero or emits recognized drift rows, missing framing, malformed or
+trailing output, or an unrecognized future format fails closed. An unexpected exit status,
+termination by signal, malformed JSON, an unregistered drift, or stale registry data also fails.
+Headerless output paired with Expo exit status 0 remains a clean result; the gate trusts Expo's
+successful verdict when there is no recognized drift to subtract.
 
-CI and regression tests call the same consumer modules and registries. The shared core removes
+The workflow calls the shipped consumer module with the shipped registry. Regression tests call
+that same exported module and spec behavior with constructed registries and fixtures, so they prove
+the policy without claiming to use the workflow's live registry data. The shared core removes
 duplicated mechanics; it does not create a second source of truth for either gate.
 
 ## Consequences
