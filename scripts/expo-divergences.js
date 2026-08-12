@@ -159,6 +159,10 @@ function parseExpoCheckOutput(output) {
   return drifts;
 }
 
+function failedResult(errors) {
+  return { ok: false, errors, blocking: [], cleared: [], stale: [] };
+}
+
 /**
  * Apply the divergence registry to an Expo compatibility check.
  *
@@ -167,68 +171,39 @@ function parseExpoCheckOutput(output) {
 function evaluate(checkResult, registry) {
   const mobilePkg = readMobilePackage();
   const errors = validateRegistry(registry, mobilePkg);
-  if (errors.length)
-    return { ok: false, errors, blocking: [], cleared: [], stale: [] };
+  if (errors.length) return failedResult(errors);
 
   if (checkResult && checkResult.signal) {
-    return {
-      ok: false,
-      errors: [
-        `Expo install check was terminated by signal ${checkResult.signal}`,
-      ],
-      blocking: [],
-      cleared: [],
-      stale: [],
-    };
+    return failedResult([
+      `Expo install check was terminated by signal ${checkResult.signal}`,
+    ]);
   }
 
   const status = checkResult && checkResult.status;
   if (status !== 0 && status !== 1) {
-    return {
-      ok: false,
-      errors: [`Expo install check returned unexpected exit status ${status}`],
-      blocking: [],
-      cleared: [],
-      stale: [],
-    };
+    return failedResult([
+      `Expo install check returned unexpected exit status ${status}`,
+    ]);
   }
 
   let drifts;
   try {
     drifts = parseExpoCheckOutput(checkResult.output);
   } catch (err) {
-    return {
-      ok: false,
-      errors: [
-        `could not parse the complete Expo drift output: ${err.message}`,
-      ],
-      blocking: [],
-      cleared: [],
-      stale: [],
-    };
+    return failedResult([
+      `could not parse the complete Expo drift output: ${err.message}`,
+    ]);
   }
 
   if (status === 1 && drifts.length === 0) {
-    return {
-      ok: false,
-      errors: [
-        "Expo install check exited non-zero, but the gate could not parse any drift; output format was not recognized and compatibility could not be determined",
-      ],
-      blocking: [],
-      cleared: [],
-      stale: [],
-    };
+    return failedResult([
+      "Expo install check exited non-zero, but the gate could not parse any drift; output format was not recognized and compatibility could not be determined",
+    ]);
   }
   if (status === 0 && drifts.length !== 0) {
-    return {
-      ok: false,
-      errors: [
-        `Expo emitted a drift block with exit status 0; the documented drift status is 1`,
-      ],
-      blocking: [],
-      cleared: [],
-      stale: [],
-    };
+    return failedResult([
+      `Expo emitted a drift block with exit status 0; the documented drift status is 1`,
+    ]);
   }
 
   const registered = new Map(
@@ -389,6 +364,7 @@ module.exports = {
   REGISTRY_PATH,
   currentSdkMajor,
   evaluate,
+  expoSpec,
   parseExpoCheckOutput,
   readRegistry,
   runExpoCheck,

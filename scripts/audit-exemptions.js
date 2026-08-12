@@ -72,7 +72,6 @@ const AUDIT_SPEC = {
             `${at}: only "high" is exemptible — critical is never exemptible (got "${value}")`,
           ],
   },
-  maxDays: MAX_EXEMPTION_DAYS,
   checkExpiry: (entry, { today, parseUtcDate }) => {
     const created = parseUtcDate(entry.created);
     const expires = parseUtcDate(entry.expires);
@@ -202,11 +201,6 @@ function evaluateAudit(report, registry, now = new Date()) {
 }
 
 /**
- * KARMYQ_AUDIT_REGISTRY overrides the registry path. Used by the regression tier to drive the real
- * CLI against a fixture, which is the only way to prove the EXECUTABLE path exits non-zero — an
- * evaluator returning ok:false while the CLI exits 0 would be a silently inert gate.
- */
-/**
  * Named fixtures the regression tier may select. Values are CONSTANTS — the environment picks a
  * key, never a path.
  *
@@ -292,6 +286,7 @@ function main() {
 }
 
 module.exports = {
+  AUDIT_SPEC,
   MAX_EXEMPTION_DAYS,
   REGISTRY_PATH,
   evaluateAudit,
