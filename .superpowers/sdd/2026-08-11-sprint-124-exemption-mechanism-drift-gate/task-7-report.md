@@ -104,3 +104,117 @@ The pre-existing untracked Copilot files under `.github/` were preserved and exc
 
 None within Task 7. The blocked optional audit run is an environment limitation documented above,
 not a failure in this diff.
+
+## Fix round 1 — complete Expo output and process-status validation
+
+Resolved the Critical review finding that recognized registered rows could hide a partially
+unrecognized drift block or an abnormal Expo process result.
+
+### Root cause and behavior change
+
+The original parser extracted matching rows from anywhere in the output and silently skipped every
+other line. `evaluate()` rejected a non-zero result only when zero rows parsed, and
+`runExpoCheck()` changed a signal-terminated spawn's `null` status into ordinary drift status `1`
+while discarding the signal. A manual reproduction returned `ok: true` for all three reported
+inputs: a malformed `expo-camera` row after both registered Jest rows, exit status `2` with both
+registered rows, and a `SIGTERM` result with those rows.
+
+The parser now requires one exact Expo drift header, the compatibility guidance line, the final
+`Found outdated dependencies` footer, and a recognized package row for every line inside that
+block. Evaluation accepts only status `0` for no drift or documented status `1` for a complete
+drift block, rejects all signals and unexpected/null statuses, and rejects a drift block paired
+with status `0`. The spawn adapter preserves both raw `status` and `signal`.
+
+### TDD RED
+
+Added regression cases before changing production code for a partially changed row, missing
+header/footer framing, exit status `2`, and `SIGTERM` termination.
+
+```text
+cd tests
+npx jest regression/sprint-124-expo-divergence-gate --no-coverage
+
+Test Suites: 1 failed, 1 total
+Tests:       5 failed, 22 passed, 27 total
+Exit code: 1
+```
+
+All five failures were the intended `Expected: false, Received: true` result against the original
+gate.
+
+### GREEN verification
+
+```text
+cd tests
+npx jest regression/sprint-124-expo-divergence-gate --no-coverage
+
+Test Suites: 1 passed, 1 total
+Tests:       27 passed, 27 total
+Exit code: 0
+```
+
+```text
+cd tests
+npx jest regression/sprint-124-registry-core-parity --no-coverage
+
+Test Suites: 1 passed, 1 total
+Tests:       38 passed, 38 total
+Exit code: 0
+```
+
+```text
+node scripts/expo-divergences.js --registry-only
+✅ Expo divergence registry valid for SDK 57.
+Exit code: 0
+```
+
+Supporting self-review probes confirmed that status `0` with a drift block and `null` status
+without a signal also return `ok: false`. The registry contents and constant-key fixture selector
+are unchanged, and the pre-existing Copilot files remain untouched.
+
+### Process-review follow-up
+
+The first fix-round process review caught two remaining proof gaps: nonblank content after the
+nominal final footer was ignored, and the signal regression injected directly into `evaluate()`
+without proving that `runExpoCheck()` preserved the spawn result. Both are now covered.
+
+The trailing-content test restored RED for the exact residual false green:
+
+```text
+cd tests
+npx jest regression/sprint-124-expo-divergence-gate --no-coverage
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 28 passed, 29 total
+Exit code: 1
+```
+
+The parser now rejects every nonblank line after the final footer. The adapter regression isolates
+the real `runExpoCheck()` module with a simulated signal-terminated spawn, asserts the raw
+`{ status: null, signal: 'SIGTERM' }` result, and passes that result through fail-closed evaluation.
+
+Final verification after both corrections:
+
+```text
+cd tests
+npx jest regression/sprint-124-expo-divergence-gate --no-coverage
+
+Test Suites: 1 passed, 1 total
+Tests:       29 passed, 29 total
+Exit code: 0
+```
+
+```text
+cd tests
+npx jest regression/sprint-124-registry-core-parity --no-coverage
+
+Test Suites: 1 passed, 1 total
+Tests:       38 passed, 38 total
+Exit code: 0
+```
+
+```text
+node scripts/expo-divergences.js --registry-only
+✅ Expo divergence registry valid for SDK 57.
+Exit code: 0
+```

@@ -29,6 +29,13 @@ const REQUIRED_FIELDS = [
   "created",
 ];
 
+const DRIFT_HEADER =
+  "The following packages should be updated for best compatibility with the installed expo version:";
+const DRIFT_GUIDANCE =
+  "Your project may not work correctly until you install the expected versions of the packages.";
+const DRIFT_FOOTER = "Found outdated dependencies";
+const DRIFT_LINE = /^\s*(@?[^@\s]+)@(\S+)\s+-\s+expected version:\s+(.+?)\s*$/;
+
 /** Live SDK major from apps/mobile's declared expo range. Never a hand-maintained constant. */
 function currentSdkMajor(mobilePkg) {
   const range = (mobilePkg.dependencies || {}).expo;
@@ -95,15 +102,60 @@ function validateRegistry(registry, mobilePkg = readMobilePackage()) {
 
 /** Parse every package drift from the human-readable `expo install --check` output. */
 function parseExpoCheckOutput(output) {
-  const driftLine = /^\s*(@?[^@\s]+)@(\S+)\s+-\s+expected version:\s+(.+?)\s*$/;
-  const drifts = [];
+  const lines = String(output || "").split(/\r?\n/);
+  const headerIndexes = lines
+    .map((line, index) => (line.trim() === DRIFT_HEADER ? index : -1))
+    .filter((index) => index !== -1);
 
-  for (const line of String(output || "").split(/\r?\n/)) {
-    const match = driftLine.exec(line);
-    if (!match) continue;
-    drifts.push({ package: match[1], installed: match[2], expoPins: match[3] });
+  if (headerIndexes.length === 0) {
+    if (lines.some((line) => DRIFT_LINE.test(line))) {
+      throw new Error(
+        "recognized Expo drift rows without the required header and footer framing",
+      );
+    }
+    return [];
+  }
+  if (headerIndexes.length !== 1) {
+    throw new Error("Expo drift output contains multiple drift headers");
   }
 
+  const headerIndex = headerIndexes[0];
+  const guidanceIndex = lines.findIndex(
+    (line, index) => index > headerIndex && line.trim() === DRIFT_GUIDANCE,
+  );
+  if (guidanceIndex === -1) {
+    throw new Error(
+      "Expo drift output is missing its compatibility guidance footer",
+    );
+  }
+
+  const footerIndex = lines.findIndex(
+    (line, index) => index > guidanceIndex && line.trim() !== "",
+  );
+  if (footerIndex === -1 || lines[footerIndex].trim() !== DRIFT_FOOTER) {
+    throw new Error(
+      `Expo drift output is missing its final "${DRIFT_FOOTER}" footer`,
+    );
+  }
+  const trailingIndex = lines.findIndex(
+    (line, index) => index > footerIndex && line.trim() !== "",
+  );
+  if (trailingIndex !== -1) {
+    throw new Error(
+      `unexpected content after the final Expo drift footer: "${lines[trailingIndex].trim()}"`,
+    );
+  }
+
+  const drifts = [];
+  for (const line of lines.slice(headerIndex + 1, guidanceIndex)) {
+    const match = DRIFT_LINE.exec(line);
+    if (!match) {
+      throw new Error(`cannot parse Expo drift row "${line.trim()}"`);
+    }
+    drifts.push({ package: match[1], installed: match[2], expoPins: match[3] });
+  }
+  if (drifts.length === 0)
+    throw new Error("Expo drift block contains no package rows");
   return drifts;
 }
 
@@ -118,12 +170,60 @@ function evaluate(checkResult, registry) {
   if (errors.length)
     return { ok: false, errors, blocking: [], cleared: [], stale: [] };
 
-  const drifts = parseExpoCheckOutput(checkResult && checkResult.output);
-  if (Number(checkResult && checkResult.status) !== 0 && drifts.length === 0) {
+  if (checkResult && checkResult.signal) {
+    return {
+      ok: false,
+      errors: [
+        `Expo install check was terminated by signal ${checkResult.signal}`,
+      ],
+      blocking: [],
+      cleared: [],
+      stale: [],
+    };
+  }
+
+  const status = checkResult && checkResult.status;
+  if (status !== 0 && status !== 1) {
+    return {
+      ok: false,
+      errors: [`Expo install check returned unexpected exit status ${status}`],
+      blocking: [],
+      cleared: [],
+      stale: [],
+    };
+  }
+
+  let drifts;
+  try {
+    drifts = parseExpoCheckOutput(checkResult.output);
+  } catch (err) {
+    return {
+      ok: false,
+      errors: [
+        `could not parse the complete Expo drift output: ${err.message}`,
+      ],
+      blocking: [],
+      cleared: [],
+      stale: [],
+    };
+  }
+
+  if (status === 1 && drifts.length === 0) {
     return {
       ok: false,
       errors: [
         "Expo install check exited non-zero, but the gate could not parse any drift; output format was not recognized and compatibility could not be determined",
+      ],
+      blocking: [],
+      cleared: [],
+      stale: [],
+    };
+  }
+  if (status === 0 && drifts.length !== 0) {
+    return {
+      ok: false,
+      errors: [
+        `Expo emitted a drift block with exit status 0; the documented drift status is 1`,
       ],
       blocking: [],
       cleared: [],
@@ -222,7 +322,8 @@ function runExpoCheck() {
 
   if (result.error) throw result.error;
   return {
-    status: result.status === null ? 1 : result.status,
+    status: result.status,
+    signal: result.signal,
     output: `${result.stdout || ""}${result.stderr || ""}`,
   };
 }

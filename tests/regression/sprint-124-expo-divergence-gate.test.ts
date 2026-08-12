@@ -21,6 +21,11 @@ type Drift = {
 
 type Divergence = Record<string, string>;
 type Registry = { divergences: Divergence[] };
+type CheckResult = {
+  status: number | null;
+  signal?: string | null;
+  output: string;
+};
 type Evaluation = {
   ok: boolean;
   errors: string[];
@@ -32,8 +37,9 @@ type Evaluation = {
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const gate = require('../../scripts/expo-divergences') as {
   parseExpoCheckOutput: (output: string) => Drift[];
-  evaluate: (checkResult: { status: number; output: string }, registry: unknown) => Evaluation;
+  evaluate: (checkResult: CheckResult, registry: unknown) => Evaluation;
   readRegistry: (file?: string) => Registry;
+  runExpoCheck: () => CheckResult;
 };
 
 const REQUIRED_FIELDS = [
@@ -113,6 +119,90 @@ describe('Sprint 124 Expo divergence gate', () => {
 
     expect(result.ok).toBe(false);
     expect(result.errors.join(' ')).toMatch(/parse|recogniz|determine/i);
+  });
+
+  it('fails closed when one row inside the Expo drift block changes format', () => {
+    const result = gate.evaluate(
+      {
+        status: 1,
+        output: driftOutput(
+          '@types/jest@30.0.0 - expected version: 29.5.14',
+          'jest@30.4.2 - expected version: ~29.7.0',
+          'expo-camera@57.0.3 -> expected ~57.0.4'
+        ),
+      },
+      validRegistry()
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/parse|malformed|recogniz/i);
+    expect(result.errors.join(' ')).toMatch(/expo-camera/i);
+  });
+
+  it.each([
+    [
+      'header and footer',
+      ['  @types/jest@30.0.0 - expected version: 29.5.14', '  jest@30.4.2 - expected version: ~29.7.0'].join('\n'),
+    ],
+    ['final footer', bothJestDrifts.replace('\nFound outdated dependencies', '')],
+  ])('rejects recognized drift rows without the known Expo %s framing', (_part, output) => {
+    const result = gate.evaluate({ status: 1, output }, validRegistry());
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/fram|footer|recogniz|complete/i);
+  });
+
+  it('rejects nonblank content after the final Expo drift footer', () => {
+    const result = gate.evaluate(
+      { status: 1, output: `${bothJestDrifts}\n  expo-camera@57.0.3 -> expected ~57.0.4` },
+      validRegistry()
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/after|footer|trailing|complete/i);
+    expect(result.errors.join(' ')).toMatch(/expo-camera/i);
+  });
+
+  it('rejects registered drift emitted with an unexpected Expo exit status', () => {
+    const result = gate.evaluate({ status: 2, output: bothJestDrifts }, validRegistry());
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/status 2|exit.*2|unexpected status/i);
+  });
+
+  it('rejects registered drift from a signal-terminated Expo process', () => {
+    const result = gate.evaluate({ status: null, signal: 'SIGTERM', output: bothJestDrifts }, validRegistry());
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/SIGTERM|signal|terminated/i);
+  });
+
+  it('preserves a signal-terminated spawn result for fail-closed evaluation', () => {
+    let checkResult: CheckResult | undefined;
+    try {
+      jest.isolateModules(() => {
+        jest.doMock('child_process', () => ({
+          spawnSync: jest.fn(() => ({
+            status: null,
+            signal: 'SIGTERM',
+            stdout: bothJestDrifts,
+            stderr: '',
+          })),
+        }));
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const isolatedGate = require('../../scripts/expo-divergences') as typeof gate;
+        checkResult = isolatedGate.runExpoCheck();
+      });
+    } finally {
+      jest.dontMock('child_process');
+    }
+
+    expect(checkResult).toEqual({
+      status: null,
+      signal: 'SIGTERM',
+      output: bothJestDrifts,
+    });
+    expect(gate.evaluate(checkResult as CheckResult, validRegistry()).ok).toBe(false);
   });
 
   it('rejects an unregistered drift alongside valid registered Jest drifts', () => {
