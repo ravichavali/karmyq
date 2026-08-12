@@ -115,25 +115,34 @@ describe('Sprint 124 Expo divergence gate', () => {
     expect(result.errors.join(' ')).toMatch(/parse|recogniz|determine/i);
   });
 
-  it('rejects an unregistered drift', () => {
+  it('rejects an unregistered drift alongside valid registered Jest drifts', () => {
     const result = gate.evaluate(
       {
         status: 1,
-        output: driftOutput('expo-camera@57.0.3 - expected version: ~57.0.4'),
+        output: driftOutput(
+          '@types/jest@30.0.0 - expected version: 29.5.14',
+          'jest@30.4.2 - expected version: ~29.7.0',
+          'expo-camera@57.0.3 - expected version: ~57.0.4'
+        ),
       },
-      { divergences: [] }
+      validRegistry()
     );
 
     expect(result.ok).toBe(false);
     expect(result.blocking.map((drift) => drift.package)).toEqual(['expo-camera']);
+    expect(result.cleared.map((entry) => entry.package)).toEqual(['jest', '@types/jest']);
   });
 
-  it('rejects a registered divergence that matches no current drift', () => {
-    const registry = fixtureRegistry('expo-divergences-stale.json');
-    const result = gate.evaluate({ status: 0, output: 'Dependencies are up to date' }, registry);
+  it('rejects a stale registration alongside a valid current Jest registration', () => {
+    const stale = fixtureRegistry('expo-divergences-stale.json').divergences[0];
+    const result = gate.evaluate(
+      { status: 1, output: jestDrift },
+      { divergences: [validEntry(), stale] }
+    );
 
     expect(result.ok).toBe(false);
     expect(result.stale.map((entry) => entry.package)).toEqual(['expo-router']);
+    expect(result.cleared.map((entry) => entry.package)).toEqual(['jest']);
   });
 
   it('expires a registry entry from SDK 56 when apps/mobile declares Expo SDK 57', () => {
@@ -172,6 +181,16 @@ describe('Sprint 124 Expo divergence gate', () => {
 
     expect(result.ok).toBe(false);
     expect(result.errors.join(' ')).toMatch(/jest.*declared.*\^29\.7\.0.*\^30\.4\.2/i);
+  });
+
+  it('rejects a recorded Expo pin that no longer matches the arbiter output', () => {
+    const result = gate.evaluate(
+      { status: 1, output: jestDrift },
+      { divergences: [validEntry({ expoPins: '~29.6.0' })] }
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/jest.*expoPins.*~29\.6\.0.*~29\.7\.0/i);
   });
 
   it('rejects malformed registry JSON instead of treating it as an empty registry', () => {
@@ -213,14 +232,15 @@ describe('Sprint 124 Expo divergence gate', () => {
     expect(output).toMatch(/Expo divergence gate FAILED/i);
   });
 
-  it('refuses a path-shaped registry override instead of reading an env-provided file', () => {
+  it.each([
+    'tests/regression/fixtures/expo-divergences-wrong-sdk.json',
+    'nope',
+    'unknown-fixture',
+  ])('refuses unknown registry key %s instead of treating it as a file path', (key) => {
     const cli = spawnSync(process.execPath, [SCRIPT, '--registry-only'], {
       cwd: ROOT,
       encoding: 'utf8',
-      env: {
-        ...process.env,
-        KARMYQ_EXPO_REGISTRY: 'tests/regression/fixtures/expo-divergences-wrong-sdk.json',
-      },
+      env: { ...process.env, KARMYQ_EXPO_REGISTRY: key },
     });
     const output = `${cli.stdout ?? ''}${cli.stderr ?? ''}`;
 
