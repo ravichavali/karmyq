@@ -84,6 +84,18 @@ const AUDIT_SPEC = {
     if (Number.isNaN(created.getTime())) return [];
 
     const errors = [];
+
+    // The cap below constrains the SPAN, which is only the ADR-059 SLA while `created` is real.
+    // A future `created` keeps any span inside the cap while suppressing the finding from today
+    // through to a far-future `expires` — a 7-day entry dated 2027-01-01 suppressed a high for 149
+    // days and validated clean. With `created <= today` and span <= MAX, `expires` cannot exceed
+    // today + MAX, which is the invariant ADR-059 actually claims.
+    if (created > today) {
+      errors.push(
+        `"created" must not be in the future (got "${entry.created}") — a forward-dated exemption keeps its span inside the cap while suppressing the finding far longer`
+      );
+    }
+
     const days = (expires - created) / MS_PER_DAY;
     if (days <= 0) {
       errors.push('"expires" must be after "created"');

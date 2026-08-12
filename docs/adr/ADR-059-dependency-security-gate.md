@@ -143,7 +143,7 @@ required-field, duplicate, and UTC-date validation into the spec-driven
 | Exact `package` + GHSA id | No package-wide wildcard. A *second* advisory on an exempted package must still block |
 | `high` only | **`critical` is never exemptible**, whatever the registry says |
 | `rationale`, `decision`, `owner`, `created`, `expires` all required | An exemption is a decision with a name on it, not a config tweak |
-| `expires` ≤ 7 days after `created` | Equal to the existing high-severity SLA — an exemption buys review time, never permanence. This cap is audit-specific and unchanged by the shared core |
+| `expires` ≤ 7 days after `created`, **and `created` not in the future** | Equal to the existing high-severity SLA — an exemption buys review time, never permanence. This cap is audit-specific and unchanged by the shared core. The `created` clause is load-bearing, not paperwork: capping only the *span* let a forward-dated entry stay inside the cap while suppressing the finding far longer. Sprint 124's `/security-review` demonstrated a registry that spanned exactly 7 days, validated clean, and suppressed a high for **149**. With `created ≤ today` and span ≤ 7, `expires` cannot exceed today + 7 — which is the invariant this row always claimed |
 | Fails closed on malformed, expired, duplicate, or **unmatched** entries | An exemption matching nothing means upstream shipped a fix; it must be deleted, not left to rot |
 | Parent findings clear only when **every** advisory reachable through npm's `via` graph is exempted | `metro` is high solely because of `image-size`; the day it gains its own finding it blocks again |
 

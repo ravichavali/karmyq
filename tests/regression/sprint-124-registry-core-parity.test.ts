@@ -168,6 +168,21 @@ describe('Sprint 124 shared exemption registry core', () => {
       ).toEqual([]);
     });
 
+    it('caps how long an exemption stays LIVE, not merely how long it spans', () => {
+      // A future `created` keeps the span inside the cap while suppressing the advisory from today
+      // right through to a far-future `expires`. Found by /security-review on this branch: the
+      // entry below spans exactly 7 days and validated clean while suppressing a high for 149.
+      // "spans <= 7 days" is not the ADR-059 SLA; "resolved within a week" is.
+      const futureDated = validAuditEntry({
+        created: '2027-01-01',
+        expires: '2027-01-08',
+      });
+
+      expect(
+        core.validateRegistry({ exemptions: [futureDated] }, AUDIT_SPEC, NOW).join(' ')
+      ).toMatch(/"created" must not be in the future/);
+    });
+
     it('rejects critical under the audit spec, and does not know severity under the Expo spec', () => {
       expect(EXPO_SPEC.requiredFields).not.toContain('severity');
       expect(
