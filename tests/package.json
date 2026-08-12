@@ -46,7 +46,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/lodash.memoize": "^4.1.9",
     "@types/node": "^20.10.6",
-    "@types/pg": "^8.10.9",
+    "@types/pg": "^8.21.0",
     "@types/semver": "^7.7.1",
     "@types/supertest": "^7.2.0",
     "bs-logger": "^0.2.6",
@@ -63,7 +63,7 @@
     "dotenv": "^16.3.1",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.22.0",
+    "pg": "^8.23.0",
     "supertest": "^7.2.2"
   }
 }
