@@ -20,6 +20,10 @@ on:
     - cron: "15 7 * * *"
   workflow_dispatch:
 
+concurrency:
+  group: expo-sdk-drift
+  cancel-in-progress: false
+
 permissions:
   contents: read
   issues: write
@@ -220,8 +224,19 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          existing=$(gh issue list --state open --label "$DRIFT_LABEL" \
-            --json number --jq '.[].number')
+          existing=$(gh api graphql --paginate \
+            -F owner='{owner}' \
+            -F name='{repo}' \
+            -F "labels[]=$DRIFT_LABEL" \
+            -f query='query($owner: String!, $name: String!, $labels: [String!]!, $endCursor: String) {
+              repository(owner: $owner, name: $name) {
+                issues(first: 100, after: $endCursor, states: OPEN, labels: $labels) {
+                  nodes { number }
+                  pageInfo { hasNextPage endCursor }
+                }
+              }
+            }' \
+            --jq '.data.repository.issues.nodes[].number')
 
           if [ -n "$existing" ]; then
             for issue in $existing; do
