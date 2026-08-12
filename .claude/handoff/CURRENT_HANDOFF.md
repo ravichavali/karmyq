@@ -1,17 +1,26 @@
-# Sprint 124 — Exemption Mechanism & The Drift Gate (IMPLEMENTATION COMPLETE, awaiting PR → merge)
+# Sprint 124 — Exemption Mechanism & The Drift Gate (PR #204 OPEN, awaiting cross-agent review)
 
 > ## State as of 2026-08-12
 >
-> **All 11 implementation tasks are done and committed.** 23 commits on
-> `feature/sprint-124-exemption-mechanism` (branched from `origin/master` `9dd080af`).
+> **All 11 implementation tasks are done, pushed, and PR [#204][pr] is OPEN.**
+> `feature/sprint-124-exemption-mechanism`, branched from `origin/master` `9dd080af`.
 > Version **v11.43.0 → v11.44.0**.
 >
-> Remaining: **push, open the PR, merge, deploy** (plan Tasks 12–13). Nothing else is outstanding.
+> **All 21 CI checks PASS.** The PR is blocked *only* by branch protection's 1-approval rule
+> (`reviewDecision: REVIEW_REQUIRED`, no reviews yet; `enforce_admins: false`, so an admin override
+> is available with explicit maintainer authorization).
+>
+> **NEXT: cross-agent review by Codex as non-author**, then merge. Maintainer decision, 2026-08-12.
 >
 > ⏰ **HARD DEADLINE — the exemption expires `2026-08-18` (6 days).** The span is already at the
 > ADR-059 7-day maximum, so it **cannot be renewed again** without breaking the SLA. If this PR does
 > not land before that date, `scripts/audit-exemptions.js` starts failing and blocks **every PR and
 > every push**. This is the single most important fact on this page.
+>
+> ⚠️ **`dismiss_stale_reviews` is ON.** Any push to this branch discards an approval already given.
+> Land nothing else here after Codex approves — if a change is genuinely needed, expect re-approval.
+
+[pr]: https://github.com/ravichavali/karmyq/pull/204
 
 ---
 
@@ -19,15 +28,34 @@
 
 ```bash
 git checkout feature/sprint-124-exemption-mechanism
-git log --oneline origin/master..HEAD    # expect 23 commits
-npm test                                  # expect exit 0
+gh pr view 204 --json state,reviewDecision,mergeStateStatus
 ```
 
-1. Push the branch and open the PR (see "Exact remaining steps" below).
-2. Wait for CI green, then **request merge authorization explicitly** — never merge without it.
+1. **Codex reviews #204 as non-author** (see "Cross-agent review brief" below).
+2. Resolve any findings; then **request merge authorization explicitly** — never merge without it.
 3. Merge with the GitHub MCP `merge_pull_request` tool (the Bash `gh pr merge` form is blocked by
-   the permission classifier).
+   the permission classifier). Squash.
 4. Post-deploy smoke test, close issue #196, archive this handoff.
+
+---
+
+## Cross-agent review brief (for Codex)
+
+Do **not** co-edit files the author is holding; report findings, don't silently rewrite. Highest-value
+places to look, in order:
+
+1. **`scripts/audit-exemptions.js` `checkExpiry`** — the new `created`-not-in-future rule. Is there
+   any *other* way to keep an exemption live past 7 days from today? (Timezone edges, `expires`
+   exactly equal to `today`, an entry whose `created` is far in the past.)
+2. **`scripts/lib/exemption-registry.js`** — the core now takes `dateFields`/`entryName` from the
+   spec. Does anything still leak audit shape into it? Does a spec *omitting* `dateFields` silently
+   skip date validation, and is that caught?
+3. **`scripts/expo-divergences.js` `parseExpoCheckOutput`** — the fail-closed path. Can any real
+   Expo output shape parse to zero drifts while exiting non-zero and be read as clean?
+4. **`.github/workflows/expo-sdk-drift.yml`** — `issueWorthy = !result.ok`, and the base64/`sed`
+   transport between steps. The workflow cannot be tested locally; read it as a shell program.
+5. **Assertion strength generally** — the recurring defect on this repo is gates asserting weaker
+   than they claim. Ask of each new test: *what injection would this fail to catch?*
 
 | Artifact | Path |
 |---|---|
@@ -106,17 +134,11 @@ a defect. The clock is now derived from the registry's own `created`, and the sa
 
 ## Exact remaining steps
 
-```bash
-# 1. Push (hooks ARE live on this clone — core.hooksPath = .husky, verified 2026-08-12).
-#    A push that finishes silently and instantly means no hook ran — treat that as a red flag.
-git push -u origin feature/sprint-124-exemption-mechanism
-
-# 2. Open the PR. Body must carry the PR-contract headers (pr-contract.yml blocks without them).
-```
-
-Then:
-- [ ] CI green: unit + regression, dependency audit (ADR-059), CodeQL (ADR-060), PR contract
-      headers, doc/context drift gate
+- [x] Branch pushed — the pre-push hook genuinely ran (1m16s of tests), not a silent instant push
+- [x] PR #204 opened with the full contract body
+- [x] **CI green — all 21 checks pass**, including Security Audit (ADR-059), Code Scanning Gate
+      (ADR-060), CodeQL, Integration Tests, Docker builds, and pr-contract
+- [ ] **Cross-agent review by Codex** (brief above) — findings resolved or dismissed in writing
 - [ ] **Request merge authorization explicitly** — required every time, no standing approval
 - [ ] Squash-merge via GitHub MCP `merge_pull_request`
 - [ ] Post-deploy smoke test: `POST /api/auth/login` (`/health` is **not** exposed via nginx)
