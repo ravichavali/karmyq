@@ -1,14 +1,20 @@
-# Sprint 124 — Exemption Mechanism & The Drift Gate (PR #204 OPEN, awaiting cross-agent review)
+# Sprint 124 — Exemption Mechanism & The Drift Gate (PR #204 OPEN, review findings fixed)
 
-> ## State as of 2026-08-12
+> ## State as of 2026-08-13
 >
-> **All 11 implementation tasks are done, pushed, and PR [#204][pr] is OPEN.**
+> **All 11 implementation tasks are done, pushed, and PR [#204][pr] is OPEN** at `a2d37cf8`.
 > `feature/sprint-124-exemption-mechanism`, branched from `origin/master` `9dd080af`.
 > Version **v11.43.0 → v11.44.0**.
 >
-> **All 21 CI checks PASS.** The PR is blocked *only* by branch protection's 1-approval rule
-> (`reviewDecision: REVIEW_REQUIRED`, no reviews yet; `enforce_admins: false`, so an admin override
-> is available with explicit maintainer authorization).
+> **CI green: 20 pass, 1 skip** (`Deploy to Demo` is master-only, so skipping is correct). The PR is
+> blocked *only* by branch protection's 1-approval rule (`reviewDecision: REVIEW_REQUIRED`, no
+> reviews recorded; `enforce_admins: false`, so an admin override is available with explicit
+> maintainer authorization).
+>
+> ℹ️ `Integration Tests` failed once on `a2d37cf8` with `npm error code ECONNRESET` inside a Docker
+> image build — a registry network flake, not a code failure. **Re-ran with no code change and it
+> passed**, which is the proof. If it recurs twice in a row, investigate the image build rather than
+> re-running again.
 >
 > **Codex reviewed as non-author on 2026-08-13 and found TWO blocking issues. Both are now fixed**
 > (see "Cross-agent review outcome" below). Codex could not file a formal `REQUEST_CHANGES` — the
