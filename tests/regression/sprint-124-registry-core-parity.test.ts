@@ -183,6 +183,31 @@ describe('Sprint 124 shared exemption registry core', () => {
       ).toMatch(/"created" must not be in the future/);
     });
 
+    it('treats `expires` as the first INVALID day, so the cap grants 7 live days and not 8', () => {
+      // Cross-agent review (Codex, PR #204). `expires < today` left the entry valid THROUGH its
+      // expiry date, so created 08-11 / expires 08-18 was live on 8 calendar days (11th..18th)
+      // under a rule that calls itself a 7-day cap. The boundary was untested in both suites,
+      // which is why a 7-day span could quietly buy 8 days.
+      const expiringToday = validAuditEntry({
+        created: '2026-08-03',
+        expires: '2026-08-10', // == NOW's date
+      });
+
+      expect(
+        core.validateRegistry({ exemptions: [expiringToday] }, AUDIT_SPEC, NOW).join(' ')
+      ).toMatch(/EXPIRED on 2026-08-10/);
+
+      // ...and the day before is still live, so the fix moves the boundary rather than shifting
+      // the whole window one day earlier.
+      expect(
+        core.validateRegistry(
+          { exemptions: [validAuditEntry({ created: '2026-08-04', expires: '2026-08-11' })] },
+          AUDIT_SPEC,
+          NOW
+        )
+      ).toEqual([]);
+    });
+
     it('rejects critical under the audit spec, and does not know severity under the Expo spec', () => {
       expect(EXPO_SPEC.requiredFields).not.toContain('severity');
       expect(

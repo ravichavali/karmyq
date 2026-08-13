@@ -131,6 +131,10 @@ jobs:
             process.stdout.write(Buffer.from(JSON.stringify(result), "utf8").toString("base64"));
             ')
             gate_status=1
+            # The gate died before printing `issue=`, so `$issue` is empty and the normalization
+            # below would force it to 0 -- a red run with no issue filed, which is the silent-red
+            # failure BUG-035 was about. A crashed gate is the LOUDEST case, not the quietest.
+            issue=1
           fi
           if [ "$issue" != "1" ]; then
             issue=0

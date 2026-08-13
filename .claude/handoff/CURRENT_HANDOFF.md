@@ -10,12 +10,20 @@
 > (`reviewDecision: REVIEW_REQUIRED`, no reviews yet; `enforce_admins: false`, so an admin override
 > is available with explicit maintainer authorization).
 >
-> **NEXT: cross-agent review by Codex as non-author**, then merge. Maintainer decision, 2026-08-12.
+> **Codex reviewed as non-author on 2026-08-13 and found TWO blocking issues. Both are now fixed**
+> (see "Cross-agent review outcome" below). Codex could not file a formal `REQUEST_CHANGES` — the
+> GitHub app lacks review-write permission and the CLI credential is the PR author, so it cannot
+> self-review. Findings were posted as
+> [a PR comment](https://github.com/ravichavali/karmyq/pull/204#issuecomment-5274286916).
 >
-> ⏰ **HARD DEADLINE — the exemption expires `2026-08-18` (6 days).** The span is already at the
+> **NEXT: Codex re-reviews the two fixes, then merge.**
+>
+> ⏰ **HARD DEADLINE — the LAST VALID DAY is now `2026-08-17`, not the 18th.** Fixing Codex's
+> finding 1 made `expires` the first *invalid* day, so an exemption expiring `2026-08-18` is live
+> through the **17th**. Today is 2026-08-13 → **5 days, today included**. The span is already at the
 > ADR-059 7-day maximum, so it **cannot be renewed again** without breaking the SLA. If this PR does
-> not land before that date, `scripts/audit-exemptions.js` starts failing and blocks **every PR and
-> every push**. This is the single most important fact on this page.
+> not land by the 17th, `scripts/audit-exemptions.js` starts failing and blocks **every PR and every
+> push**. This is the single most important fact on this page.
 >
 > ⚠️ **`dismiss_stale_reviews` is ON.** Any push to this branch discards an approval already given.
 > Land nothing else here after Codex approves — if a change is genuinely needed, expect re-approval.
@@ -36,6 +44,39 @@ gh pr view 204 --json state,reviewDecision,mergeStateStatus
 3. Merge with the GitHub MCP `merge_pull_request` tool (the Bash `gh pr merge` form is blocked by
    the permission classifier). Squash.
 4. Post-deploy smoke test, close issue #196, archive this handoff.
+
+---
+
+## Cross-agent review outcome (Codex, 2026-08-13) — both findings CONFIRMED and fixed
+
+Codex reported 77/77 passing on the three Sprint 124 suites and a clean worktree — nothing was
+edited, pushed, approved, or merged by the reviewer. Both findings were verified against the repo
+before fixing; neither was taken on faith.
+
+**Finding 1 — CONFIRMED. `scripts/audit-exemptions.js` accepted an exemption throughout its expiry
+date.** `expires < today` left the entry valid *through* `expires`, so created `08-11` / expires
+`08-18` was live on **8** calendar days under a rule calling itself a 7-day cap. The boundary was
+untested in both suites, which is exactly why a 7-day span could quietly buy 8 days. Fixed with
+`expires <= today` — `expires` is the first INVALID day. **This is why the deadline moved to the
+17th.** ADR-059's cap row now states the semantics explicitly.
+
+**Finding 2 — CONFIRMED. The drift workflow swallowed a crashed gate.** When the gate died before
+printing `issue=`, `$issue` was empty, the normalization below forced it to `0`, and the
+`if: steps.check.outputs.issue == '1'` step never ran — a red run with **no issue filed**, which is
+the silent-red failure BUG-035 exists to prevent. A crashed gate is the loudest case, not the
+quietest. Fixed by setting `issue=1` in the no-payload branch.
+
+Proven by extracting the post-gate shell fragment and running it under real `sh` (`dash -n` clean):
+
+| Case | Pre-fix | Post-fix |
+|---|---|---|
+| Gate crashed (empty log) | `issue=0` ❌ silent red | `issue=1` ✅ files an issue |
+| Gate ran, clean | `issue=0` | `issue=0` ✅ |
+| Gate ran, drift | `issue=1` | `issue=1` ✅ |
+
+**Eleven injections now, all red** — the nine from before plus reverting the expiry boundary to `<`
+and removing the `created`-not-in-future check. The frozen 36-test proof still passes with a
+byte-empty diff.
 
 ---
 

@@ -104,7 +104,10 @@ const AUDIT_SPEC = {
         `exemption spans ${days} days — the maximum is ${MAX_EXEMPTION_DAYS} (ADR-059 SLA)`
       );
     }
-    if (expires < today) {
+    // `expires` is the first INVALID day, not the last valid one. With `<`, an entry created 08-11
+    // and expiring 08-18 stayed live on 8 calendar days (11th through 18th) under a rule calling
+    // itself a 7-day cap. `<=` makes the live window exactly MAX_EXEMPTION_DAYS days long.
+    if (expires <= today) {
       errors.push(
         `EXPIRED on ${entry.expires} — re-check upstream and renew with a fresh decision, or fix`
       );
