@@ -1,7 +1,7 @@
 # ADR-092: AGPL-3.0-or-later, and the Manifesto Audit That Produced It
 
 **Date**: 2026-08-07
-**Status**: Accepted
+**Status**: Implemented
 **Deciders**: Ravi Chavali (maintainer)
 **Related**: [ADR-041](ADR-041-two-layer-mutual-aid-services.md) ·
 [ADR-082](ADR-082-reputation-disclosure-boundary.md) ·

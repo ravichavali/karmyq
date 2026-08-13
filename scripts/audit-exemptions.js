@@ -33,6 +33,7 @@
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { validateRegistry: validateWithSpec } = require('./lib/exemption-registry');
 
 const ROOT = path.join(__dirname, '..');
 const REGISTRY_PATH = path.join(ROOT, 'security', 'audit-exemptions.json');
@@ -51,95 +52,80 @@ const REQUIRED_FIELDS = [
   'expires',
 ];
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const GHSA_ID = /^GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/;
 
 const MS_PER_DAY = 86400000;
 
-/** Parse a YYYY-MM-DD as UTC midnight. Returns NaN-bearing Date for anything else. */
-function parseUtcDate(s) {
-  if (typeof s !== 'string' || !ISO_DATE.test(s)) return new Date(NaN);
-  const d = new Date(`${s}T00:00:00Z`);
-  // Rejects real-looking but invalid dates such as 2026-02-31, which Date would roll over.
-  return d.toISOString().slice(0, 10) === s ? d : new Date(NaN);
-}
+const AUDIT_SPEC = {
+  collection: 'exemptions',
+  entryName: 'exemption',
+  requiredFields: REQUIRED_FIELDS,
+  dateFields: ['created'],
+  identity: (entry) => `${entry.package}|${entry.advisory}`,
+  fieldValidators: {
+    advisory: (value, at) =>
+      GHSA_ID.test(value)
+        ? []
+        : [`${at}: "advisory" must be an exact GHSA id (got "${value}")`],
+    severity: (value, at) =>
+      value === 'high'
+        ? []
+        : [
+            `${at}: only "high" is exemptible — critical is never exemptible (got "${value}")`,
+          ],
+  },
+  checkExpiry: (entry, { today, parseUtcDate }) => {
+    const created = parseUtcDate(entry.created);
+    const expires = parseUtcDate(entry.expires);
 
-function todayUtc(now = new Date()) {
-  return new Date(`${now.toISOString().slice(0, 10)}T00:00:00Z`);
-}
-
-/**
- * Schema + expiry validation, independent of npm audit. Reusable (BUG-035).
- * @returns {string[]} human-readable errors; empty means valid.
- */
-function validateRegistry(registry, now = new Date()) {
-  const errors = [];
-
-  if (registry === null || typeof registry !== 'object' || Array.isArray(registry)) {
-    return ['registry must be a JSON object'];
-  }
-  if (!Array.isArray(registry.exemptions)) {
-    return ['registry.exemptions must be an array'];
-  }
-
-  const today = todayUtc(now);
-  const seen = new Set();
-
-  registry.exemptions.forEach((e, i) => {
-    const at = `exemptions[${i}]`;
-
-    if (e === null || typeof e !== 'object' || Array.isArray(e)) {
-      errors.push(`${at}: must be an object`);
-      return;
+    if (Number.isNaN(expires.getTime())) {
+      return [`"expires" must be a valid YYYY-MM-DD date (got "${entry.expires}")`];
     }
+    if (Number.isNaN(created.getTime())) return [];
 
-    for (const f of REQUIRED_FIELDS) {
-      if (typeof e[f] !== 'string' || e[f].trim() === '') {
-        errors.push(`${at}: "${f}" is required and must be a non-empty string`);
-      }
-    }
-    // Every later check reads these fields; bail rather than emit cascading noise.
-    if (errors.some((m) => m.startsWith(`${at}:`))) return;
+    const errors = [];
 
-    if (!GHSA_ID.test(e.advisory)) {
-      errors.push(`${at}: "advisory" must be an exact GHSA id (got "${e.advisory}")`);
-    }
-    if (e.severity !== 'high') {
+    // The cap below constrains the SPAN, which is only the ADR-059 SLA while `created` is real.
+    // A future `created` keeps any span inside the cap while suppressing the finding from today
+    // through to a far-future `expires` — a 7-day entry dated 2027-01-01 suppressed a high for 149
+    // days and validated clean. With `created <= today` and span <= MAX, `expires` cannot exceed
+    // today + MAX, which is the invariant ADR-059 actually claims.
+    if (created > today) {
       errors.push(
-        `${at}: only "high" is exemptible — critical is never exemptible (got "${e.severity}")`
+        `"created" must not be in the future (got "${entry.created}") — a forward-dated exemption keeps its span inside the cap while suppressing the finding far longer`
       );
     }
-
-    const key = `${e.package}|${e.advisory}`;
-    if (seen.has(key)) errors.push(`${at}: duplicate exemption for ${key}`);
-    seen.add(key);
-
-    const created = parseUtcDate(e.created);
-    const expires = parseUtcDate(e.expires);
-    if (Number.isNaN(created.getTime())) {
-      errors.push(`${at}: "created" must be a valid YYYY-MM-DD date (got "${e.created}")`);
-    }
-    if (Number.isNaN(expires.getTime())) {
-      errors.push(`${at}: "expires" must be a valid YYYY-MM-DD date (got "${e.expires}")`);
-    }
-    if (Number.isNaN(created.getTime()) || Number.isNaN(expires.getTime())) return;
 
     const days = (expires - created) / MS_PER_DAY;
     if (days <= 0) {
-      errors.push(`${at}: "expires" must be after "created"`);
+      errors.push('"expires" must be after "created"');
     } else if (days > MAX_EXEMPTION_DAYS) {
       errors.push(
-        `${at}: exemption spans ${days} days — the maximum is ${MAX_EXEMPTION_DAYS} (ADR-059 SLA)`
+        `exemption spans ${days} days — the maximum is ${MAX_EXEMPTION_DAYS} (ADR-059 SLA)`
       );
     }
-    if (expires < today) {
+    // `expires` is the first INVALID day, not the last valid one. With `<`, an entry created 08-11
+    // and expiring 08-18 stayed live on 8 calendar days (11th through 18th) under a rule calling
+    // itself a 7-day cap. `<=` makes the live window exactly MAX_EXEMPTION_DAYS days long.
+    if (expires <= today) {
       errors.push(
-        `${at}: EXPIRED on ${e.expires} — re-check upstream and renew with a fresh decision, or fix`
+        `EXPIRED on ${entry.expires} — re-check upstream and renew with a fresh decision, or fix`
       );
     }
-  });
+    return errors;
+  },
+};
 
-  return errors;
+/**
+ * The audit registry's one-argument validator: this module's own spec, bound.
+ *
+ * Used internally by `evaluateAudit` (below) and asserted directly by
+ * `tests/regression/sprint-123-audit-exemption-gate.test.ts:67`. It is part of the public surface —
+ * `.github/workflows/ci.yml` runs this script by path, and `sprint-75-security-gate.test.ts`
+ * requires the module — so keep the signature stable rather than pushing `AUDIT_SPEC` onto callers.
+ */
+function validateRegistry(registry, now = new Date()) {
+  return validateWithSpec(registry, AUDIT_SPEC, now);
 }
 
 /**
@@ -239,11 +225,6 @@ function evaluateAudit(report, registry, now = new Date()) {
 }
 
 /**
- * KARMYQ_AUDIT_REGISTRY overrides the registry path. Used by the regression tier to drive the real
- * CLI against a fixture, which is the only way to prove the EXECUTABLE path exits non-zero — an
- * evaluator returning ok:false while the CLI exits 0 would be a silently inert gate.
- */
-/**
  * Named fixtures the regression tier may select. Values are CONSTANTS — the environment picks a
  * key, never a path.
  *
@@ -329,6 +310,7 @@ function main() {
 }
 
 module.exports = {
+  AUDIT_SPEC,
   MAX_EXEMPTION_DAYS,
   REGISTRY_PATH,
   evaluateAudit,

@@ -1,0 +1,25 @@
+{
+  "$comment": "BUG-035 / ADR-094. Deliberate departures from Expo's live SDK version map for apps/mobile. Read by scripts/expo-divergences.js, which .github/workflows/expo-sdk-drift.yml and tests/regression/sprint-124-expo-divergence-gate.test.ts both call. Rules: exact package name (no wildcards), every field required, and `sdk` must match the SDK major apps/mobile currently declares. The gate FAILS on a malformed entry, an entry tagged for a different SDK generation, and an entry matching no current drift — a divergence that no longer diverges means the pin converged and it must be deleted.",
+  "divergences": [
+    {
+      "package": "jest",
+      "declared": "^30.4.2",
+      "expoPins": "~29.7.0",
+      "sdk": "57",
+      "rationale": "Expo pins jest to keep jest-expo's preset in sync with the SDK. apps/mobile declares no jest-expo and apps/mobile/jest.config.js uses no Expo preset (testEnvironment: 'node' only), so the pin does not bind this project. Moved to jest 30 by Sprint 122 PR 4 (c3d623b2) for tier parity with the rest of the monorepo.",
+      "decision": "Sprint 124, ADR-094; divergence introduced by Sprint 122 PR 4 (c3d623b2)",
+      "owner": "ravichavali",
+      "created": "2026-08-11"
+    },
+    {
+      "package": "@types/jest",
+      "declared": "^30.0.0",
+      "expoPins": "29.5.14",
+      "sdk": "57",
+      "rationale": "Types for the jest above. Listed separately on purpose: divergences match an exact package name, never a wildcard, so an unrelated Expo pin moving would still block the gate.",
+      "decision": "Sprint 124, ADR-094; divergence introduced by Sprint 122 PR 4 (c3d623b2)",
+      "owner": "ravichavali",
+      "created": "2026-08-11"
+    }
+  ]
+}

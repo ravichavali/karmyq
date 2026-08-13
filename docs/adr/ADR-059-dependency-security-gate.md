@@ -134,14 +134,16 @@ habit.
 
 A finding may be exempted **only** through `security/audit-exemptions.json`, evaluated by
 `scripts/audit-exemptions.js`. **CI and the regression tier call the same evaluator against the
-same registry**, so the two can never drift apart.
+same registry**, so the two can never drift apart. Sprint 124 moved the registry's common shape,
+required-field, duplicate, and UTC-date validation into the spec-driven
+`scripts/lib/exemption-registry.js`; the audit script still owns every audit-specific rule.
 
 | Rule | Rationale |
 |---|---|
 | Exact `package` + GHSA id | No package-wide wildcard. A *second* advisory on an exempted package must still block |
 | `high` only | **`critical` is never exemptible**, whatever the registry says |
 | `rationale`, `decision`, `owner`, `created`, `expires` all required | An exemption is a decision with a name on it, not a config tweak |
-| `expires` ≤ 7 days after `created` | Equal to the existing high-severity SLA — an exemption buys review time, never permanence |
+| `expires` ≤ 7 days after `created`, **and `created` not in the future** | Equal to the existing high-severity SLA — an exemption buys review time, never permanence. This cap is audit-specific and unchanged by the shared core. The `created` clause is load-bearing, not paperwork: capping only the *span* let a forward-dated entry stay inside the cap while suppressing the finding far longer. Sprint 124's `/security-review` demonstrated a registry that spanned exactly 7 days, validated clean, and suppressed a high for **149**. With `created ≤ today` and span ≤ 7, `expires` cannot exceed today + 7 — which is the invariant this row always claimed. **`expires` is the first INVALID day, not the last valid one**: cross-agent review of Sprint 124 found that treating it as inclusive made a 7-day span live on 8 calendar days, so a "7-day" exemption quietly bought 8. An entry created `08-11` expiring `08-18` is live on the 11th through the **17th** |
 | Fails closed on malformed, expired, duplicate, or **unmatched** entries | An exemption matching nothing means upstream shipped a fix; it must be deleted, not left to rot |
 | Parent findings clear only when **every** advisory reachable through npm's `via` graph is exempted | `metro` is high solely because of `image-size`; the day it gains its own finding it blocks again |
 
@@ -156,6 +158,7 @@ same registry**, so the two can never drift apart.
   partially-exempted parents, and the CLI's non-zero exit. A gate demonstrated only by a green run
   cannot be distinguished from an inert one; this repo has shipped that mistake twice (ADR-060's
   PR path, and the `FROM` parser in Sprint 122).
-- `validateRegistry()` is deliberately independent of npm audit so **BUG-035** can reuse the same
-  schema and expiry rules for the Expo drift workflow, which needs exactly this and has no
-  mechanism today. That reuse is **not** folded into this sprint's PR.
+- The shared validator is deliberately independent of npm audit and now lives in
+  `scripts/lib/exemption-registry.js` (Sprint 124 / ADR-094). Audit and Expo reuse its mechanics,
+  **not its policy**: the audit spec alone retains the seven-day maximum, exact GHSA matching, and
+  `high`-only rule. **Critical remains never exemptible.**

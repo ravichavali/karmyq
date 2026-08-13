@@ -1,0 +1,16 @@
+env: load .env
+env: export EXPO_PUBLIC_API_HOST EXPO_ROUTER_APP_ROOT
+Skipped checking dependencies: typescript. These dependencies are listed in expo.install.exclude in package.json. Learn more: https://docs.expo.dev/more/expo-cli/#configuring-dependency-validation
+The following packages should be updated for best compatibility with the installed expo version:
+  @expo/metro-runtime@57.0.8 - expected version: ~57.0.9
+  expo@57.0.10 - expected version: ~57.0.12
+  expo-constants@57.0.9 - expected version: ~57.0.10
+  expo-image-picker@57.0.7 - expected version: ~57.0.9
+  expo-location@57.0.7 - expected version: ~57.0.9
+  expo-notifications@57.0.8 - expected version: ~57.0.10
+  expo-router@57.0.10 - expected version: ~57.0.12
+  expo-splash-screen@57.0.5 - expected version: ~57.0.6
+  @types/jest@30.0.0 - expected version: 29.5.14
+  jest@30.4.2 - expected version: ~29.7.0
+Your project may not work correctly until you install the expected versions of the packages.
+Found outdated dependencies

@@ -544,7 +544,7 @@ Related: [ADR-088](adr/ADR-088-test-tier-truthfulness.md).
 
 ---
 
-## BUG-035 · [2026-08-07] · open
+## BUG-035 · [2026-08-07] · fixed (Sprint 124, v11.44.0)
 
 **`Expo SDK drift` workflow is permanently red and cannot record a deliberate divergence.**
 
@@ -575,5 +575,37 @@ Fix shape: an allowlist of deliberate divergences (package + reason + the decisi
 checked against the arbiter's output so real drift still goes red. Deliberately **not** folded into
 Sprint 123 — that sprint already carries licensing plus the inert-hooks fix, and a third unrelated
 topic is what arc-design D6 exists to prevent.
+
+Fixed by `security/expo-divergences.json` and `scripts/expo-divergences.js` (ADR-094). The registry
+records the exact Jest and `@types/jest` decisions for SDK 57; the evaluator derives the current SDK
+major from `apps/mobile`, checks recorded declared and Expo-pinned ranges against live facts, and
+rejects stale or unregistered differences. The workflow now passes only when the complete
+`expo install --check` output has known framing and status and every drift is accounted for; unknown
+or malformed output fails closed. Common registry validation is shared with the ADR-059 audit gate
+through `scripts/lib/exemption-registry.js`, while audit's seven-day horizon and Expo's SDK-major
+horizon remain separate policies.
+
+---
+
+## BUG-036 · [2026-08-13] · open
+
+**CI "Test Docker Build" health check races service startup.**
+
+`.github/workflows/test.yml:125-131` uses a fixed `sleep 30` after
+`docker compose -f infrastructure/docker/docker-compose.yml up -d`, then curls
+`http://localhost:3001/health`. When the runner has to cold-pull the ten infrastructure images
+(postgres, redis, grafana, prometheus, loki, promtail, cadvisor, node-exporter, redis-commander,
+registry), the 30 seconds elapse before auth-service is listening and the job fails with:
+
+```
+curl: (7) Failed to connect to localhost port 3001 after 0 ms: Couldn't connect to server
+```
+
+Observed on PR #204 at `71ce0449` — a **docs-only commit** touching one markdown file, so the
+failure cannot have been caused by the change under test. Passed on re-run with no code change.
+
+The step is a fixed-duration guess rather than a readiness wait, so it fails whenever the runner is
+slow or the image cache is cold. Fix: replace the fixed sleep with a retry/until loop against
+`/health` (and ideally add compose healthchecks plus `docker compose up -d --wait`).
 
 ---

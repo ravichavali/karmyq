@@ -14,6 +14,7 @@ script — prefer those**, since they carry the right arguments and working dire
 | `npm run health:check` | `health-check.sh` | Health of every production service in the registry |
 | `npm run dashboard` | `dashboard.js` | Interactive service dashboard |
 | `npm run hooks:install` | `install-hooks.sh` | Installs `git-hooks/` into the **active** hooks dir (once after clone) |
+| Expo SDK drift workflow | `expo-divergences.js` | Applies the SDK-major-scoped divergence registry to the complete output of Expo's live compatibility check; malformed, stale, or unregistered drift fails closed (ADR-094) |
 
 `.npmrc` sets `ignore-scripts=true` ([ADR-061](../docs/adr/ADR-061-supply-chain-and-secrets-hardening.md)),
 so `hooks:install` does **not** run automatically on `npm install` — run it by hand after cloning.
@@ -55,6 +56,11 @@ covered by `tests/regression/dependency-guard-hook.test.ts`.
 
 ## Subdirectories
 
+- **`lib/`** — shared script internals, not standalone entry points.
+  `exemption-registry.js` validates the structural rules common to the audit and Expo registries;
+  each caller owns its own identity, field, and expiry policy (ADR-094). The spec supplies
+  `entryName` and `dateFields` too — the core names no field of its own, so nothing audit-shaped
+  leaks into a future registry.
 - **`git-hooks/`** — `pre-commit`, `pre-push` sources. Edit these, not the installed copies.
   ⚠️ **`core.hooksPath` decides where hooks live.** When it is set — husky sets it, and it outlives
   husky's removal — git reads *only* that directory and ignores `.git/hooks` entirely. The
