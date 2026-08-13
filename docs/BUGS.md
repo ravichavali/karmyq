@@ -586,3 +586,26 @@ through `scripts/lib/exemption-registry.js`, while audit's seven-day horizon and
 horizon remain separate policies.
 
 ---
+
+## BUG-036 · [2026-08-13] · open
+
+**CI "Test Docker Build" health check races service startup.**
+
+`.github/workflows/test.yml:125-131` uses a fixed `sleep 30` after
+`docker compose -f infrastructure/docker/docker-compose.yml up -d`, then curls
+`http://localhost:3001/health`. When the runner has to cold-pull the ten infrastructure images
+(postgres, redis, grafana, prometheus, loki, promtail, cadvisor, node-exporter, redis-commander,
+registry), the 30 seconds elapse before auth-service is listening and the job fails with:
+
+```
+curl: (7) Failed to connect to localhost port 3001 after 0 ms: Couldn't connect to server
+```
+
+Observed on PR #204 at `71ce0449` — a **docs-only commit** touching one markdown file, so the
+failure cannot have been caused by the change under test. Passed on re-run with no code change.
+
+The step is a fixed-duration guess rather than a readiness wait, so it fails whenever the runner is
+slow or the image cache is cold. Fix: replace the fixed sleep with a retry/until loop against
+`/health` (and ideally add compose healthchecks plus `docker compose up -d --wait`).
+
+---
