@@ -1,4 +1,4 @@
-# Sprints 123–126 — Manifesto Alignment & Demo Data Arc
+# Sprints 123–127 — Manifesto Alignment & Demo Data Arc
 
 **Date**: 2026-08-06
 **Status**: Design agreed, not yet planned
@@ -17,7 +17,12 @@ deployed and smoke-tested) and Sprint 122 archived. See §7.
 >
 > **Revised 2026-08-06 after external review** — eight findings, all CONFIRMED. The two that
 > changed the framing: F3 was *not* architecturally blocked (§2.2), and `TimeTravelFactory`
-> does *not* already satisfy S125's replay constraint (§4, S125).
+> does *not* already satisfy the demo-backfill replay constraint (now §4, S126).
+>
+> **Revised 2026-08-13 after Sprint 124 shipped.** An urgent dependency-security and gate-truth
+> sprint displaced the provider work originally numbered S124. The remaining arc moves one sprint:
+> provider standing is S125, demo backfill S126, and live simulation S127. Sprint 125 begins with a
+> security Task 0 for the still-unpatched `image-size` advisories and a weekly upstream check.
 
 ---
 
@@ -286,7 +291,38 @@ would have passed happily through the entire MIT-vs-AGPL contradiction. It must 
 two disagree. Per ADR-091, prove it by flipping one source to the wrong license and watching it go
 **red**.
 
-### S124 — The provider question *(one ADR + implementation)*
+### S124 — Exemption mechanism and honest Expo drift gate *(complete, v11.44.0)*
+
+Sprint 124 shipped PR #204 (`a1cf9eca`). It generalized the time-boxed exemption-registry core,
+renewed the two still-unpatched `image-size` advisories through the first invalid day
+`2026-08-18`, and made BUG-035's Expo drift gate green honestly through SDK-generation-scoped
+divergences. This was urgent security/process work, not a manifesto product workstream, and it
+shifted the remaining arc by one sprint.
+
+### S125 — The provider question *(security Task 0 + one ADR + implementation)*
+
+#### Task 0 — `image-size` remediation and weekly upstream check
+
+This is an urgent security prelude, not provider-domain scope. The dependency remains
+`apps/mobile → expo → @expo/metro → metro@0.84.4 → image-size@1.2.1`. Re-measured 2026-08-13:
+`image-size` latest is still `2.0.2`, both advisories affect `<=2.0.2` with no patched release,
+and Metro latest `0.87.0` still declares `image-size: ^1.0.2`.
+
+- **First action in the sprint:** remeasure npm, both GitHub advisories, Metro's dependency, and
+  the live lockfile before the current exemption becomes invalid on `2026-08-18`.
+- Add a **weekly**, schedule-only GitHub workflow plus `workflow_dispatch`. It queries the live
+  upstream versions/advisories and the repo's current exemption horizon. It stays quiet while
+  nothing actionable changes and files or updates one issue when a patched package/compatible
+  Metro path appears or renewal/remediation needs attention.
+- Automation must **never edit or renew** `security/audit-exemptions.json`. A renewal is a fresh
+  reviewed decision with current measurements and may buy at most seven more days.
+- If upstream is still blocked, pursue the real fix: a narrowly tested, immutable 1.x-compatible
+  backport/fork preserving Metro's CommonJS/default-export contract, or a tested Metro patch that
+  removes the dependency. Renaming vulnerable code is not remediation; malicious ICNS, JXL, and
+  HEIF fixtures must prove the parser cannot hang before both exemptions are deleted.
+- Done means the vulnerable package is absent or patched, `npm audit --package-lock-only` is clean,
+  Metro/mobile bundle behavior is proven, and both exemption entries are removed. A fresh renewal
+  is only a time-boxed bridge, not completion of Task 0.
 
 > ⚠️ **Reframed after review.** The original version put the standing threshold on **global
 > provider-profile creation** — a surface where *no community is selected*, so a
@@ -294,7 +330,7 @@ two disagree. Per ADR-091, prove it by flipping one source to the wrong license 
 > "gate reach, not existence" as a new option when ADR-041:53 already specifies it.
 
 **The primary work is enforcement, not architecture.** ADR-041 already designed the policy and the
-migration already shipped the three config columns; nothing consults them. S124 makes the existing
+migration already shipped the three config columns; nothing consults them. S125 makes the existing
 design real:
 
 - Enforce `provider_services_enabled` — providers surface in a community only if it opted in.
@@ -313,11 +349,11 @@ design real:
    `trust_score DESC`)? It is the most marketplace-shaped surface in the system and sits outside
    any community, so community gating cannot reach it. Options: leave public, require auth,
    restrict to shared communities, or retire it. **Undecided — this is the real product question
-   in S124.**
+   in S125.**
 
 Gates must be proven to **reject**, not merely to pass.
 
-### S125 — Demo data backfill
+### S126 — Demo data backfill
 
 > 🔴 **Corrected after review — the original version was wrong about the tooling, in the exact
 > direction that would have caused silent damage.** It said `TimeTravelFactory` "already exists for
@@ -335,12 +371,12 @@ for derived data:
 
 Using it as-is would fabricate a demo whose karma totals never passed through `karmaService`, so
 the numbers would be *asserted* rather than *earned* — precisely the class of falsehood this whole
-arc exists to remove. **S125's first task is fixing the factory**, not seeding with it.
+arc exists to remove. **S126's first task is fixing the factory**, not seeding with it.
 
 **Non-negotiable constraint:** every backfilled score is produced by **replaying production
 math** — issue the real command/event, let the service compute, then backdate only *source*
 timestamps. Sprint 117 set this precedent ("fixture-only replay locked to production math");
-S125 extends it. `ConsolidatedSeeder` provides `quick`/`staging`/`production` profiles
+S126 extends it. `ConsolidatedSeeder` provides `quick`/`staging`/`production` profiles
 (20 / 2000 / 2000 users) and is unaffected by this finding.
 
 Target shape, chosen so the claims that hold become *visible* to a visitor:
@@ -359,7 +395,7 @@ then decide whether it belongs in the target shape.** It is deliberately exclude
 **Verification:** extend `verify:demo` to assert the target shape, so "the data is good" becomes
 a command that can fail rather than an impression.
 
-### S126 — Live simulation across all users
+### S127 — Live simulation across all users
 
 - Remove the protected-core exclusion from the actor pool
   (`buildActorPoolPredicate()`, `services/simulation-service/src/db-user-loader.ts:57-67`),
@@ -367,7 +403,7 @@ a command that can fail rather than an impression.
 - Verify `reset:demo`'s real path restores a known baseline; make smoke tests reset-then-run.
 - Tune worker count and cadence for sustained density.
 
-**Accepted gap:** between S125 and S126 the flagship personas stay static. The demo is not
+**Accepted gap:** between S126 and S127 the flagship personas stay static. The demo is not
 frozen — the sim already runs continuously against the 27 `ambient` users — so the cost is
 narrow.
 
@@ -394,7 +430,7 @@ as. This is ADR-087's determinism guarantee working as designed, not a bug. It i
 
 ## 6. Open questions for the next chat
 
-1. **S124's ADR fork** — the two semantic questions in §4 S124: (a) does standing gate *global
+1. **S125's ADR fork** — the two semantic questions in §4 S125: (a) does standing gate *global
    registration* as well as community reach, or only reach? (b) what happens to the unauthenticated
    global directory — leave public, require auth, restrict to shared communities, or retire it?
    Neither is decided. *(This item previously read "options 1/2/3 above", a dangling reference to a
