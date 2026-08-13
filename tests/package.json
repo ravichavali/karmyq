@@ -47,7 +47,7 @@
     "@types/lodash.memoize": "^4.1.9",
     "@types/node": "^20.10.6",
     "@types/pg": "^8.10.9",
-    "@types/semver": "^7.7.1",
+    "@types/semver": "^7.8.0",
     "@types/supertest": "^7.2.0",
     "bs-logger": "^0.2.6",
     "jest": "^30.4.2",
