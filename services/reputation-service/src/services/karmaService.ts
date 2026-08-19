@@ -241,10 +241,15 @@ interface KarmaRecordData {
 async function recordKarma(data: KarmaRecordData) {
   const { user_id, community_id, points, reason, related_entity_id } = data;
 
+  // ON CONFLICT DO NOTHING (Sprint 126): uq_karma_match_projection makes replaying an already
+  // projected match a no-op instead of a 23505. Without it a Bull retry that crashed part-way
+  // through a multi-community award could never get past the first community it had written —
+  // the remaining communities would be permanently unawardable.
   await query(
     `INSERT INTO reputation.karma_records
      (user_id, community_id, points, reason, related_entity_id)
-     VALUES ($1, $2, $3, $4, $5)`,
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT DO NOTHING`,
     [user_id, community_id, points, reason, related_entity_id || null]
   );
 }

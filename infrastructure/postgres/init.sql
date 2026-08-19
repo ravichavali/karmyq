@@ -2189,7 +2189,7 @@ CREATE TABLE reputation.trust_scores (
     id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
     user_id uuid NOT NULL,
     community_id uuid NOT NULL,
-    score integer DEFAULT 50,
+    score integer DEFAULT 0 NOT NULL,
     requests_completed integer DEFAULT 0,
     offers_accepted integer DEFAULT 0,
     average_feedback numeric(3,2) DEFAULT 0,
@@ -4778,6 +4778,18 @@ CREATE INDEX idx_utc_user ON reputation.user_trust_configs USING btree (user_id)
 CREATE INDEX idx_utel_user_comm_param_created ON reputation.user_trust_evolution_log USING btree (user_id, community_id, parameter, created_at DESC);
 
 --
+-- Name: uq_activity_match_projection; Type: INDEX; Schema: reputation; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_activity_match_projection ON reputation.activity_log USING btree (user_id, community_id, activity_type, related_entity_id) WHERE (related_entity_id IS NOT NULL);
+
+--
+-- Name: uq_karma_match_projection; Type: INDEX; Schema: reputation; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_karma_match_projection ON reputation.karma_records USING btree (user_id, community_id, reason, related_entity_id) WHERE (related_entity_id IS NOT NULL);
+
+--
 -- Name: idx_collective_community_links_collective; Type: INDEX; Schema: requests; Owner: -
 --
 
@@ -6850,5 +6862,6 @@ INSERT INTO public.schema_migrations (migration_name) VALUES
   ('20260613-demo-data-quality-repair.sql'),
   ('20260614-trust-truth-repair.sql'),
   ('20260615-split-proposal-active-unique.sql'),
-  ('20260716-path-trust-score-double-precision.sql')
+  ('20260716-path-trust-score-double-precision.sql'),
+  ('20260819-standing-projection-foundation.sql')
 ON CONFLICT (migration_name) DO NOTHING;

@@ -50,9 +50,9 @@ all active memberships.
 | `services/reputation-service/src/scripts/backfillStanding.ts` | `backfill:standing` argument parsing and operator output |
 | `services/reputation-service/tests/tdd/sprint-126-standing-projector.test.ts` | Transaction, retry, timestamp, cap, and as-of projector tests |
 | `services/reputation-service/tests/tdd/sprint-126-standing-backfill.test.ts` | Dry-run/apply, legacy repair, resume, and report tests |
-| `services/community-service/tests/tdd/sprint-126-karma-carry-conflicts.test.ts` | Fusion/fission duplicate-projection regression |
+| `services/community-service/tests/regression/sprint-126-karma-carry-conflicts.test.ts` | Fusion/fission conflict-safe carry regression (blocking tier; see Task 1 deviations) |
 | `tests/tdd/sprint-126-standing-projection-equivalence.test.ts` | Shared fixture/live policy equivalence gate while RED; manually promote to `tests/regression/` in Task 6 |
-| `tests/tdd/sprint-126-standing-schema.integration.test.ts` | PostgreSQL 15 migration/default/index/idempotency coverage |
+| `tests/integration/sprint-126-standing-schema.integration.test.ts` | PostgreSQL 15 migration/default/index/idempotency coverage, plus the fusion-overlap SUM proof (gating tier; see Task 1 deviations) |
 | `docs/adr/ADR-096-canonical-completed-match-standing-projection.md` | Projection identity, temporal rules, and operator boundary |
 
 ### Existing files to modify
@@ -137,10 +137,39 @@ all active memberships.
 
 ## Task 1: Schema foundation and conflict-safe existing writers
 
+> **Executed 2026-08-19. Four recorded deviations from the text below:**
+>
+> 1. **Test placement.** The schema test went to `tests/integration/`, not root `tests/tdd/`, and
+>    the karma-carry test to `services/community-service/tests/regression/`. Root `tests/tdd/` is
+>    neither promoted (`scripts/promote-tdd-tests.js` walks only `services/*` and `apps/*`) nor run
+>    by CI except where a file is named explicitly, so a test there would never gate. CI's
+>    `test-integration` job runs `tests/integration/` against migrated Postgres and is a required
+>    dependency of deploy.
+> 2. **The migration adds `UPDATE reputation.trust_scores SET score = 0 WHERE score IS NULL`**
+>    before the ALTERs. `SET NOT NULL` aborts on any existing NULL, so the approved DDL alone could
+>    not apply. It writes the value every read path already infers via `COALESCE(ts.score, 0)`.
+> 3. **`init.sql` was updated with the semantic delta only, not a wholesale regeneration.**
+>    Regenerating on PostgreSQL 15.15 rewrites 78 lines of unrelated CHECK-constraint cast
+>    placement (the documented pg_dump-patch sensitivity: `normalize_schema_dump` canonicalizes 2 of
+>    14 such constraints). The delta was isolated by diffing two dumps taken with the SAME pg_dump,
+>    then verified end-to-end: a fresh database loaded from the edited `init.sql` and replayed
+>    through the full migration chain passes `ci-apply-full-schema.sh --drift-check`.
+> 4. **Fusion karma carry was split in two and now SUMs.** The migration-validator review found that
+>    a bare `ON CONFLICT DO NOTHING` on the fusion carry causes *silent, nondeterministic karma
+>    loss*: production splits one match's pool across up to three shared communities, so a user can
+>    hold the same `(reason, match)` identity in both origin communities, and fusing them collapses
+>    those onto one identity. The identity-bearing half now aggregates
+>    (`SUM(points)`, `MIN(created_at)`, `GROUP BY user_id, reason, related_entity_id`); the
+>    `related_entity_id IS NULL` half stays row-for-row because the index does not constrain it and
+>    aggregating would merge genuinely distinct manual adjustments. Both statements are exported
+>    from `fusionService.ts` so the integration test executes the shipped SQL rather than a retyped
+>    copy. `services/reputation-service/src/services/karmaService.ts` `recordKarma` also gained
+>    `ON CONFLICT DO NOTHING` to close the deploy-window gap; Task 4 supersedes that code path.
+
 **Files:**
 - Create: `infrastructure/postgres/migrations/20260819-standing-projection-foundation.sql`
-- Create: `tests/tdd/sprint-126-standing-schema.integration.test.ts`
-- Create: `services/community-service/tests/tdd/sprint-126-karma-carry-conflicts.test.ts`
+- Create: `tests/integration/sprint-126-standing-schema.integration.test.ts`
+- Create: `services/community-service/tests/regression/sprint-126-karma-carry-conflicts.test.ts`
 - Modify: `services/community-service/src/services/fusionService.ts`
 - Modify: `services/community-service/src/services/fissionService.ts`
 - Modify: `infrastructure/postgres/init.sql` (generated)
@@ -199,7 +228,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_activity_match_projection
 
 ```bash
 bash scripts/regenerate-init-sql.sh
-cd tests && npx jest tdd/sprint-126-standing-schema.integration.test.ts --runInBand
+cd tests && npx jest --config jest.integration.config.js integration/sprint-126-standing-schema.integration.test.ts --runInBand
 npx jest regression/sprint-120-init-sql-drift-gate.test.ts --runInBand
 cd ../services/community-service && npm run test:tdd -- --runInBand sprint-126-karma-carry-conflicts
 ```
@@ -209,7 +238,7 @@ cd ../services/community-service && npm run test:tdd -- --runInBand sprint-126-k
 
 ```bash
 node scripts/promote-tdd-tests.js
-git add infrastructure/postgres/migrations/20260819-standing-projection-foundation.sql infrastructure/postgres/init.sql tests/tdd/sprint-126-standing-schema.integration.test.ts services/community-service/src/services/fusionService.ts services/community-service/src/services/fissionService.ts services/community-service/tests/regression/sprint-126-karma-carry-conflicts.test.ts
+git add infrastructure/postgres/migrations/20260819-standing-projection-foundation.sql infrastructure/postgres/init.sql tests/integration/sprint-126-standing-schema.integration.test.ts services/community-service/src/services/fusionService.ts services/community-service/src/services/fissionService.ts services/community-service/tests/regression/sprint-126-karma-carry-conflicts.test.ts
 git commit -m "feat: add standing projection schema foundation"
 ```
 
@@ -340,6 +369,13 @@ git commit -m "feat: centralize completed match standing policy"
 **Files:**
 - Modify: `services/reputation-service/src/database/db.ts`
 - Modify: `services/reputation-service/src/utils/activityTracker.ts`
+- Modify: `services/cleanup-service/src/jobs/reputationDecayJob.ts` — **added during Task 1.** The
+  migration-validator review found `recordActivity` duplicated near-verbatim at
+  `reputationDecayJob.ts:116-128`, with the same unguarded `activity_log` insert, the same
+  `last_activity_at` update *after* it, and the same swallowed error. Once
+  `uq_activity_match_projection` exists, a replay there silently skips the activity row AND leaves
+  `last_activity_at` stale, so the decay job can decay a genuinely active user. Fix both copies
+  (CLAUDE.md "grep ALL instances"), or extract one shared implementation.
 - Create: `services/reputation-service/tests/tdd/sprint-126-standing-projector.test.ts`
 
 **Interfaces:**
@@ -799,7 +835,7 @@ git commit -m "docs: define canonical standing projection"
 - Modify: `apps/landing/src/data/docs/services/simulation-service.json` (generated)
 - Modify: `package.json`
 - Modify: `package-lock.json`
-- Modify: `tests/tdd/sprint-126-standing-schema.integration.test.ts`
+- Modify: `tests/integration/sprint-126-standing-schema.integration.test.ts`
 
 **Interfaces:**
 - Consumes: all completed Sprint 126 behavior.
@@ -835,14 +871,14 @@ npm --workspace karmyq-landing run generate-docs
 
 ```bash
 npm run feedback:check
-cd tests && npx jest tdd/sprint-126-standing-schema.integration.test.ts --runInBand
+cd tests && npx jest --config jest.integration.config.js integration/sprint-126-standing-schema.integration.test.ts --runInBand
 cd .. && npm run analyze:services
 ```
 
 - [ ] **Step 7: Commit.**
 
 ```bash
-git add packages/shared/CONTEXT.md services/reputation-service/CONTEXT.md services/simulation-service/CONTEXT.md services/community-service/CONTEXT.md services/registry.json apps/landing/src/data/docs/services/community-service.json apps/landing/src/data/docs/services/reputation-service.json apps/landing/src/data/docs/services/simulation-service.json package.json package-lock.json tests/tdd/sprint-126-standing-schema.integration.test.ts
+git add packages/shared/CONTEXT.md services/reputation-service/CONTEXT.md services/simulation-service/CONTEXT.md services/community-service/CONTEXT.md services/registry.json apps/landing/src/data/docs/services/community-service.json apps/landing/src/data/docs/services/reputation-service.json apps/landing/src/data/docs/services/simulation-service.json package.json package-lock.json tests/integration/sprint-126-standing-schema.integration.test.ts
 git commit -m "docs: record Sprint 126 standing contract"
 ```
 
@@ -912,7 +948,8 @@ npm --workspace @karmyq/shared test
 npm --workspace karmyq-reputation-service test
 npm --workspace karmyq-community-service test
 npm --workspace @karmyq/simulation-service test
-cd tests && npx jest tdd/sprint-117-projection-equivalence.test.ts regression/sprint-126-standing-projection-equivalence.test.ts tdd/sprint-126-standing-schema.integration.test.ts --runInBand
+cd tests && npx jest tdd/sprint-117-projection-equivalence.test.ts regression/sprint-126-standing-projection-equivalence.test.ts --runInBand
+npx jest --config jest.integration.config.js integration/sprint-126-standing-schema.integration.test.ts --runInBand
 ```
 
 - [ ] **Step 3: Run the full blocking suite with safe concurrency.** Do not pipe through `tail`.
@@ -973,6 +1010,33 @@ git config core.hooksPath
 
 - [ ] **Step 3: Obtain explicit maintainer merge authorization.** Never self-merge; any `--admin`
   override requires its own explicit approval.
+
+- [ ] **Step 3b: Prove the unique indexes can be created before deploying them.** The Task 1
+  migration runs `CREATE UNIQUE INDEX` against demo *before* Step 7 collapses duplicates, and
+  `IF NOT EXISTS` does not tolerate duplicate data — it aborts the migration and rolls the deploy
+  back. The spec audited 0 duplicates (spec:101-102) but that is a 2026-08-19 snapshot, and the
+  non-idempotent retry path this sprint replaces is exactly what would create one. Re-measure
+  against demo immediately before the deploy and refuse to proceed on any non-zero count.
+
+```sql
+SELECT COUNT(*) FROM (
+  SELECT 1 FROM reputation.karma_records WHERE related_entity_id IS NOT NULL
+  GROUP BY user_id, community_id, reason, related_entity_id HAVING COUNT(*) > 1) d;
+SELECT COUNT(*) FROM (
+  SELECT 1 FROM reputation.activity_log WHERE related_entity_id IS NOT NULL
+  GROUP BY user_id, community_id, activity_type, related_entity_id HAVING COUNT(*) > 1) d;
+
+-- Measured, not gating: the migration rewrites these NULLs to 0 before SET NOT NULL.
+SELECT COUNT(*) FROM reputation.trust_scores WHERE score IS NULL;
+```
+
+  Expected: both duplicate counts `0`. On any non-zero result, stop and resolve the duplicates as
+  their own authorized data operation before the deploy. Record the NULL-score count before it is
+  silently rewritten.
+
+  Prefer a quiet deploy window: `scripts/deploy.sh` applies migrations at step 6 but does not
+  rebuild service images until step 8, so the unique indexes are live against the OLD images for a
+  few minutes. Task 1 made the pre-existing writers conflict-safe precisely to survive that gap.
 
 - [ ] **Step 4: Use `/deploy`.** Merge and deploy schema/code without running the backfill. Verify
   service health and one ordinary live match completion first.
