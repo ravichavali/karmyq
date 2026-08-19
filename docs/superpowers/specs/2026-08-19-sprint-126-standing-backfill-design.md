@@ -10,10 +10,10 @@
 ## Overview
 
 The demo contains a substantial history of completed mutual-aid exchanges, but that history is not
-visible to personal standing. A read-only production audit on 2026-08-19 found 7,814 completed
+visible to personal standing. A read-only demo audit on 2026-08-19 found 7,817 completed
 matches across 481 requesters, 509 helpers, and 50 request communities, while the current handoff
 records zero `reputation.trust_scores` rows on demo
-(`.claude/handoff/CURRENT_HANDOFF.md:77`). As a result, Sprint 125's provider reach gate behaves
+(`.claude/handoff/CURRENT_HANDOFF.md:99`). As a result, Sprint 125's provider reach gate behaves
 correctly but a non-zero floor empties the provider layer.
 
 The problem is projection, not a lack of underlying activity. The live reputation subscriber writes
@@ -22,10 +22,15 @@ snake-case reasons such as `help_provided`
 (`services/reputation-service/src/services/karmaService.ts:157`,
 `packages/shared/src/projections/completedExchange.ts:201`). The trust calculator recognizes only
 the production vocabulary (`services/reputation-service/src/services/karmaService.ts:258-260`).
-The two paths also use different milestone schedules: the fixture uses 1/5/10/25
-(`packages/shared/src/projections/completedExchange.ts:79-83`) while production uses 1/10/50/100
-(`services/reputation-service/src/services/karmaService.ts:177-205`). The curated core therefore
-looks populated in storage but is invisible or inconsistent to standing.
+The two paths also diverge on milestone schedule, milestone scope, and community selection. The
+fixture uses 1/5/10/25 milestones, counts them platform-wide per helper, and allocates over the
+entire static `config.communityConfigs` list with no cap
+(`packages/shared/src/projections/completedExchange.ts:79-83,152,193-218`). Production uses
+1/10/50/100 milestones scoped to `(helper, community)` and resolves at most three shared request
+communities (`services/reputation-service/src/services/karmaService.ts:31,67-92,170-209`). The
+curated core therefore looks populated in storage but is invisible or inconsistent to standing.
+Canonicalization is expected to change curated-demo karma output on all four axes: reason labels,
+milestone schedule, milestone scope, and community selection/cap.
 
 Sprint 126 creates one canonical, transactional, idempotent completed-match standing projector.
 Both live events and a dry-run-first operator CLI will use it. The CLI will replay stored completed
@@ -70,11 +75,13 @@ Sprint 126 deliberately does not fabricate retroactive ratings.
 | A missing provider-standing row is treated as 0. | `services/request-service/src/services/providerReachService.ts:95-128` |
 | ADR-095 explicitly deferred that inconsistency. | `docs/adr/ADR-095-authenticated-provider-directory-and-reach-gated-standing.md:74-84` |
 | Live projection writes prose reason labels. | `services/reputation-service/src/services/karmaService.ts:152-205` |
-| Curated projection writes incompatible snake-case labels and milestones. | `packages/shared/src/projections/completedExchange.ts:79-83,201-216` |
+| Curated projection differs in labels, milestone schedule/scope, and uncapped static community allocation. | `packages/shared/src/projections/completedExchange.ts:79-83,152,193-218` |
 | Trust metrics use karma records as their source of truth. | `services/reputation-service/src/database/trustMetricsDb.ts:9-23` |
 | The live subscriber invokes `awardKarmaForCompletedMatch` directly. | `services/reputation-service/src/events/subscriber.ts:45-60` |
-| Karma and activity rows have match provenance but no durable projection uniqueness. | `infrastructure/postgres/init.sql:2006-2012,2118-2125` |
+| Activity and karma rows have match provenance but no durable projection uniqueness. | `infrastructure/postgres/init.sql:2006-2012,2118-2125` |
 | Match completion timestamps are stored. | `infrastructure/postgres/init.sql:1678` |
+| Fusion and fission copy karma with bare `INSERT ... SELECT` writers. | `services/community-service/src/services/fusionService.ts:97-103`; `services/community-service/src/services/fissionService.ts:311-317` |
+| The production community cap is 3, and selection ranks on existing karma. | `services/reputation-service/src/services/karmaService.ts:31,67-92` |
 
 ### Demo snapshot — read-only audit, 2026-08-19
 
@@ -83,19 +90,20 @@ Sprint 126 deliberately does not fabricate retroactive ratings.
 | Active user-community membership pairs | 5,659 |
 | Active pairs with production-recognized interaction karma | 0 |
 | Active pairs with feedback | 0 |
-| Completed matches | 7,814 |
+| Completed matches | 7,817 |
 | Distinct requesters / helpers | 481 / 509 |
 | Distinct request communities | 50 |
-| Completed matches with an active shared request community | 7,814 |
+| Completed matches with an active shared request community | 7,817 |
 | Completed matches with no eligible community | 0 |
-| Completed matches exceeding the five-community award cap | 0 |
+| Completed matches exceeding the three-community award cap | 0 |
+| Eligible-community distribution | all 7,817 resolve to exactly 1 |
 | Existing karma records | 174 across 22 curated matches |
 | Existing duplicate karma projection identities | 0 |
 | Existing duplicate activity projection identities | 0 |
 
 The 174 curated records use only `help_provided`, `help_received`, and `first_help_bonus`; none use
-the reason labels consumed by production trust math. The audit establishes that the backfill can
-attribute every stored completed match without invoking the live fallback.
+the reason labels consumed by production trust math. The cap-3 audit establishes that the current
+backfill population can attribute every stored completed match without invoking the live fallback.
 
 ---
 
@@ -127,8 +135,11 @@ not silently padded.
 
 `@karmyq/shared` will export canonical completed-exchange reason constants. The fixture projector
 and reputation service will import those constants rather than carrying string literals. The
-fixture projector's milestone schedule will be removed as an independent policy and delegated to
-the same canonical policy used by live reputation projection.
+fixture projector's milestone schedule, platform-wide helper counter, and uncapped static
+community allocation will be removed as independent policy. Curated exchanges will provide their
+facts to the same canonical reason, milestone, per-community counting, and capped resolution policy
+used by live reputation projection. Existing curated fixture expectations must change; preserving
+their old karma output is not a compatibility goal.
 
 This export must be reflected in `packages/shared/package.json` exports/typesVersions only if a new
 subpath is introduced; a root export is preferred to avoid needless subpath surface. The shared
@@ -142,7 +153,8 @@ projector. For one match it will:
 
 1. acquire a transaction-scoped lock for the match;
 2. validate completed status, participants, request, request type, and completion timestamp;
-3. resolve shared request communities using the existing cap and a stable community-ID tie-breaker;
+3. resolve shared request communities using the production cap of 3 and a stable community-ID
+   tie-breaker;
 4. allocate karma with the production `allocateKarma` function;
 5. insert canonical helper/requester and earned bonus rows with `ON CONFLICT DO NOTHING`;
 6. insert canonical activity rows with the same conflict behavior;
@@ -171,9 +183,13 @@ Dry-run output includes:
 - PDX provider eligibility at floors 1, 20, 40, and 60; and
 - the exact command required to apply.
 
-Apply processes matches oldest-first in bounded batches and prints durable progress. Because each
+Apply processes matches oldest-first in bounded batches and prints durable progress. Historical
+community priority uses only karma with `created_at < match.completed_at`, followed by the stable
+community-ID tie-breaker. It never ranks a historical match using karma written at or after that
+match, so its selected community set cannot move under an interrupted/resumed replay. Because each
 match commits atomically and each output has durable uniqueness, interruption requires no special
-cleanup: rerunning the same command resumes by skipping existing projection identities.
+cleanup: rerunning the same command resolves the same per-match community set and skips existing
+projection identities.
 
 After match projection, the CLI invokes `updateTrustScore` for every active membership pair. Pairs
 without canonical history receive score 0, ensuring stored-row and missing-row semantics agree.
@@ -207,6 +223,26 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_activity_match_projection
   ON reputation.activity_log (user_id, community_id, activity_type, related_entity_id)
   WHERE related_entity_id IS NOT NULL;
 ```
+
+Every existing writer must remain valid after these indexes land. The community service's fusion
+and fission `INSERT ... SELECT` karma copies will add `ON CONFLICT DO NOTHING`; otherwise merging
+two communities that both awarded the same match would collapse them onto the same new community
+identity and abort with `23505`. Their regression coverage is part of the schema change, not an
+optional community-service cleanup.
+
+The incompatible fixture milestone values are:
+
+| Fixture label | Count | Points | Canonical production milestone at same count |
+|---|---:|---:|---|
+| `first_help_bonus` | 1 | 15 | `First help in community` — 15 |
+| `milestone_help_5` | 5 | 25 | none |
+| `milestone_help_10` | 10 | 50 | `10 exchanges milestone` — 25 |
+| `milestone_help_25` | 25 | 100 | none |
+| — | 50 | — | `50 exchanges milestone` — 50 |
+| — | 100 | — | `100 exchanges milestone` — 100 |
+
+The matching 50-point values belong to different counts (`milestone_help_10` versus production's
+50-exchange milestone) and are not aliases.
 
 Before normalizing reasons, the migration must rank any old/new vocabulary collisions across all
 rows, retain one canonical row deterministically, and report/delete only exact projection
@@ -247,7 +283,7 @@ boundary (`services/request-service/src/services/providerReachService.ts:95-128`
   complete match.
 - **Retry-safe outputs.** Database uniqueness, not an in-memory set or report file, is the arbiter.
 - **Deterministic order.** Historical matches sort by `completed_at`, then match ID; community
-  selection adds a stable ID tie-breaker after existing-karma order.
+  selection ranks only karma strictly older than the match, then adds a stable ID tie-breaker.
 - **Anomalous history fails closed.** Missing participants, request communities, completion times,
   or conflicting existing rows abort preflight. The historical CLI does not use the live fallback
   that selects an arbitrary request community.
@@ -268,6 +304,8 @@ New tests begin in the changed workspace's `tests/tdd/` tier and promote only wh
 
 - canonical reason constants are used by fixture and reputation paths;
 - fixture/live allocation and milestone schedules are identical;
+- curated fixture output changes are pinned for canonical labels, cap-3 per-match community
+  resolution, and `(helper, community)` milestone counting;
 - varied, chronological exchange histories project exact records and timestamps.
 
 ### Migration integration
@@ -276,7 +314,10 @@ New tests begin in the changed workspace's `tests/tdd/` tier and promote only wh
 - legacy reasons normalize to canonical values;
 - mixed old/new rows deduplicate without losing conflicting data;
 - karma/activity uniqueness rejects duplicate projection identities;
-- migration is idempotent and generated `init.sql` converges.
+- migration is idempotent and generated `init.sql` converges;
+- fusion of two communities carrying the same match succeeds and retains one row per canonical
+  projection identity in the merged community;
+- fission karma carry uses the same conflict-safe writer and remains retry-safe.
 
 ### Reputation projector
 
@@ -293,7 +334,7 @@ New tests begin in the changed workspace's `tests/tdd/` tier and promote only wh
 
 - dry-run writes zero rows;
 - apply projects a fixture database and recalculates every active membership;
-- interruption resumes without duplicates;
+- a run killed mid-batch resumes with the identical community set for every match and no duplicates;
 - second dry-run/apply reports zero writes;
 - malformed or ambiguous history blocks before mutation;
 - reports expose source coverage, score distribution, and provider-floor eligibility.
@@ -308,7 +349,7 @@ New tests begin in the changed workspace's `tests/tdd/` tier and promote only wh
 | ADR-037 | Clarify canonical interaction provenance, zero cold start, and historical timestamps. |
 | ADR-095 | Mark the `DEFAULT 50` inconsistency resolved by Sprint 126. |
 | `docs/guides/demo-data.md` | Correct the current claim that both parties rate every completed match; explain that standing is derived from stored exchange history and absent ratings remain neutral. |
-| Provider-standing concept page | Explain why inactive users stay at 0 and how a community floor changes reach. |
+| `apps/landing/src/data/docs/concepts/adr-095-authenticated-provider-directory-and-reach-gated-standing.json` | Explain why inactive users stay at 0 and how a community floor changes reach. |
 | `services/reputation-service/CONTEXT.md` | Projector, reason contract, schema indexes, CLI, and runbook. |
 | `services/simulation-service/CONTEXT.md` | Curated projector now delegates canonical standing semantics. |
 | `packages/shared/CONTEXT.md` | Canonical reason/projection exports. |
@@ -326,7 +367,8 @@ No onboarding workflow changes are required because there is no new user action.
 3. Take a fresh demo database backup.
 4. Run and retain the CLI dry-run report.
 5. Obtain separate maintainer authorization for `--apply`.
-6. Apply all 7,814 stored completed matches in bounded batches.
+6. Apply the preflight-reported stored completed matches in bounded batches (7,817 at the
+   2026-08-19 cap-3 audit; the live count may grow).
 7. Re-run dry-run and apply; both must report zero new writes.
 8. Verify all 5,659 active membership pairs were evaluated and inspect score/source buckets.
 9. Exercise the PDX community provider API and UI at a non-zero floor, initially 20 unless the
@@ -349,7 +391,8 @@ No onboarding workflow changes are required because there is no new user action.
 4. **Idempotency lives in PostgreSQL.** Per-match transactions and unique projection identities are
    required; a CLI checkpoint file or `SELECT`-then-insert check is insufficient.
 5. **Oldest first.** First-help and milestone outcomes depend on chronological history. Sort by
-   completion timestamp and match ID.
+   completion timestamp and match ID. Historical community priority may read only karma strictly
+   older than the match; current/future replay writes must not change an earlier match's selection.
 6. **No fabricated feedback.** Demo currently has no feedback rows. Keep quality neutral; Sprint 127
    may create future ratings only through ordinary authenticated workflows.
 7. **Backfill only standing side effects.** Do not replay badges, provider metrics, notifications,
@@ -364,3 +407,5 @@ No onboarding workflow changes are required because there is no new user action.
     revert unrelated timestamp/HEAD churn.
 12. **Demo facts are a dated snapshot.** Re-run preflight immediately before apply because the live
     simulator can add matches after this spec's 2026-08-19 audit.
+13. **Audit every writer before adding uniqueness.** Fusion and fission karma copies must use
+    `ON CONFLICT DO NOTHING`, with shared-match regression coverage, before the indexes land.

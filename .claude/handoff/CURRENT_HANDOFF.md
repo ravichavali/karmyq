@@ -6,8 +6,9 @@
 > smoke-tested on demo. `master` and `origin/master` are both at `f1197a17`. Archived at
 > [`archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md`](archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md).
 >
-> **Sprint 126 design is approved.** Branch `feature/sprint-126-standing-backfill` was cut from
-> `origin/master` at `f1197a17`. The written design spec is awaiting maintainer review; the
+> **Sprint 126 design direction is approved.** Branch `feature/sprint-126-standing-backfill` was
+> cut from `origin/master` at `f1197a17`. The maintainer's first written-spec review found five
+> projection/writer gaps; the corrected spec now covers them and is awaiting re-review. The
 > implementation plan and execution-ready handoff must not be written until that review passes.
 
 ## Sprint goal
