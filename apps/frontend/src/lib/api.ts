@@ -938,6 +938,18 @@ export const providerService = {
   getProvider: (id: string) =>
     requestApi.get(`/providers/${id}`),
 
+  /**
+   * Providers reachable through one community (Sprint 125 / ADR-095).
+   *
+   * NOT `/communities/:id/providers` — that prefix is routed to community-service by nginx and
+   * would never reach request-service. Returns `[]` for a community that has not enabled provider
+   * services, and 403 if the caller is not an active member.
+   */
+  getCommunityProviders: (
+    communityId: string,
+    params?: { limit?: number; offset?: number }
+  ) => requestApi.get(`/providers/community/${communityId}`, { params }),
+
   createProvider: (data: any) =>
     requestApi.post('/providers', data),
 

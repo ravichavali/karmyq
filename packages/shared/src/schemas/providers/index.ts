@@ -63,6 +63,20 @@ export interface CreateProviderReviewInput {
 export const PROVIDER_SERVICE_TYPES = ['ride', 'tradesperson', 'tutor', 'other'] as const;
 export type ProviderServiceType = typeof PROVIDER_SERVICE_TYPES[number];
 
+/**
+ * Human labels for the service types above.
+ *
+ * Lives beside the values deliberately: the frontend had ~10 verbatim copies of this map, and they
+ * had already drifted ('Trades' vs 'Home Repair'). New code should import this rather than add an
+ * eleventh copy; the existing copies are a separate cleanup.
+ */
+export const PROVIDER_SERVICE_TYPE_LABELS: Record<ProviderServiceType, string> = {
+  ride: 'Rides',
+  tradesperson: 'Home Repair',
+  tutor: 'Tutoring',
+  other: 'Other',
+};
+
 export interface ProviderCollective {
   id: string;
   name: string;

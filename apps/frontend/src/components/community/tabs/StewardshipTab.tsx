@@ -26,6 +26,8 @@ interface Props {
   refetchCommunity: () => Promise<void>
   refetchCommunityRequests: (status?: string) => Promise<void>
   refetchCommunityCollectives: () => Promise<void>
+  /** Sprint 125: lets the provider-services switch refresh the config it just wrote. */
+  refetchConfig: () => Promise<void>
   /** The sub-section a legacy deep link (`?tab=settings`, `?tab=fission`, …) resolved to. */
   initialSection?: StewardshipSection
 }
@@ -43,7 +45,7 @@ export default function StewardshipTab({
   config, settings, stats, loadingStats, communityCollectives,
   communityTrust, loadingTrust, networkMetrics,
   communityRequests, loadingRequests,
-  refetchCommunity, refetchCommunityRequests, refetchCommunityCollectives,
+  refetchCommunity, refetchCommunityRequests, refetchCommunityCollectives, refetchConfig,
   initialSection,
 }: Props) {
   const showSplit = isAdmin || community.active_split_proposal != null
@@ -126,6 +128,7 @@ export default function StewardshipTab({
             communityCollectives={communityCollectives} currentUser={currentUser}
             isAdmin={isAdmin} communityId={communityId}
             refetchCommunityCollectives={refetchCommunityCollectives}
+            refetchConfig={refetchConfig}
           />
         )}
       </div>

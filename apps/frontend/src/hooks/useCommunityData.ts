@@ -210,6 +210,10 @@ export function useCommunityData(communityId: string | undefined) {
   return {
     community, loading, error, currentUser,
     norms, config, settings,
+    // Sprint 125: exposed so the provider-services switch can refresh the config it just wrote.
+    // Without it, an admin enabling provider services saw no Providers section until a full page
+    // reload — the config is fetched once on mount and the Home gate reads it.
+    refetchConfig: fetchConfig,
     stats, loadingStats,
     communityTrust, loadingTrust,
     networkMetrics,

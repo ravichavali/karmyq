@@ -75,14 +75,24 @@ describe('Sprint 93 F1: community-scoped provider discovery', () => {
     expect(params).not.toContainEqual(['c-stale']);            // the stale claim is never bound
   });
 
-  it('does NOT annotate (and runs no extra query) for unauthenticated requests', async () => {
+  /*
+   * ⚠️ SUPERSEDED BY ADR-095 (Sprint 125). This case used to assert that an UNAUTHENTICATED caller
+   * got 200 with no `shared_communities` annotation — the Sprint 93 contract, when `GET /providers`
+   * was public. The directory now requires authentication, so the same request is rejected before
+   * any query runs.
+   *
+   * The Sprint 93 behaviour this file exists to protect is unchanged and still asserted above and
+   * below: the annotation is derived from LIVE `communities.members`, never the JWT claim. Only the
+   * anonymous entry point is gone.
+   */
+  it('rejects an unauthenticated request outright (ADR-095) and runs NO query', async () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ id: 'p1', user_id: 'u1', display_name: 'Alice', service_type: 'tutor' }] });
 
     const res = await request(app).get('/providers');
 
-    expect(res.status).toBe(200);
-    expect(res.body.data[0].shared_communities).toBeUndefined();
-    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(res.status).toBe(401);
+    // Still the stronger half of the original assertion: no database work on an anonymous caller.
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 
   it('annotates [] for an authenticated viewer with no live shared community (still queries live membership)', async () => {

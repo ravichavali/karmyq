@@ -70,6 +70,18 @@ export interface CommunityConfig {
   feed_weight_prior_interaction?: number;
   feed_weight_recency?: number;
 
+  // Provider services (Sprint 125 / ADR-095 — enforced by the reach gate in request-service)
+  /** Whether this community surfaces a provider layer to its members at all. */
+  provider_services_enabled?: boolean;
+  /**
+   * Minimum PERSONAL standing (reputation.trust_scores.score, user x community) a provider needs
+   * to be surfaced here. Not the provider-profile quality score — a different table entirely.
+   * A provider with no trust row in this community scores 0 and is excluded whenever this is > 0.
+   */
+  provider_min_personal_trust_score?: number;
+  /** Allowed service types. EMPTY MEANS ALL TYPES, not none. */
+  provider_services_list?: string[];
+
   // Metadata
   /** Name of the template this config was created from (optional) */
   template_source?: string;

@@ -149,10 +149,16 @@ describe('Sprint 124 shared exemption registry core', () => {
 
   describe('the firewall — sharing a core is not sharing rules', () => {
     it('enforces the ADR-059 day cap under the audit spec only', () => {
-      const overLongSpan = validAuditEntry({
-        created: '2026-08-10',
-        expires: '2026-08-20', // 10 days — over the 7-day cap
-      });
+      // ⚠️ DERIVED from MAX_EXEMPTION_DAYS, never a hardcoded span. This fixture used to be a
+      // literal 10 days ("over the 7-day cap"); when Sprint 125 raised the cap to 30 the entry
+      // became legal and the assertion silently had nothing to match. The test read the constant
+      // for its EXPECTATION but not for its INPUT — so it described a boundary that had moved.
+      const created = '2026-08-10';
+      const overLong = new Date(Date.UTC(2026, 7, 10) + (MAX_EXEMPTION_DAYS + 1) * 86400000)
+        .toISOString()
+        .slice(0, 10);
+
+      const overLongSpan = validAuditEntry({ created, expires: overLong });
       expect(
         core.validateRegistry({ exemptions: [overLongSpan] }, AUDIT_SPEC, NOW).join(' ')
       ).toMatch(new RegExp(`the maximum is ${MAX_EXEMPTION_DAYS}`));
@@ -161,7 +167,7 @@ describe('Sprint 124 shared exemption registry core', () => {
       // clean, because a divergence expires by SDK generation, never by elapsed days.
       expect(
         core.validateRegistry(
-          { divergences: [validExpoEntry({ created: '2026-08-10', expires: '2026-08-20' })] },
+          { divergences: [validExpoEntry({ created, expires: overLong })] },
           EXPO_SPEC,
           NOW
         )

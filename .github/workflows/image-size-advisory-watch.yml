@@ -1,0 +1,244 @@
+name: image-size advisory watch
+
+# Sprint 125, Task 2. `security/audit-exemptions.json` suppresses two high advisories on
+# `image-size` for a bounded window (ADR-059). That cap exists to force a human re-decision -- but
+# re-deciding needs fresh measurements, and in Sprints 123-125 those were re-taken by hand every
+# time. A measurement that depends on someone remembering to take it is a measurement that
+# eventually stops happening.
+#
+# THIS JOB IS WHY THE CAP COULD BE RAISED. Sprint 125 moved it from 7 days to 30 on the explicit
+# grounds that the re-measurement obligation moved HERE. If this workflow is deleted or left
+# failing, `MAX_EXEMPTION_DAYS` must go back to 7 in the same change (ADR-059, 'Renewal cadence').
+#
+# `scripts/check-image-size-upstream.js` queries the LIVE arbiters (npm registry, GitHub's advisory
+# API, this repo's own resolved tree) and stays quiet unless a human has something to do.
+#
+# Deliberately NOT a `pull_request` trigger -- same reasoning as expo-sdk-drift.yml: that would
+# make every merge depend on registry.npmjs.org and api.github.com being reachable. A newly
+# published upstream fix is a "act within a day" problem, not a "block this merge" problem. The
+# merge-blocking job is the ADR-059 audit gate in ci.yml, which is a separate, offline check
+# against the lockfile.
+#
+# ⚠️ This workflow MUST NEVER write `security/audit-exemptions.json`. Renewing an exemption is a
+# reviewed human decision with a written rationale and explicit maintainer authorization; a monitor
+# that can renew its own suppression is not a monitor. `permissions.contents` is `read` so the job
+# has no token that could push such a change, and
+# `tests/regression/sprint-125-image-size-monitor.test.ts` asserts the file declares no write path.
+
+on:
+  schedule:
+    # 06:40 UTC every Monday. Off the hour to avoid GitHub's peak-of-hour scheduling backlog, and
+    # early in the week so a fresh advisory has the working week to be acted on rather than landing
+    # against a weekend.
+    - cron: "40 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: image-size-advisory-watch
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  NODE_VERSION: "24.x"
+  WATCH_LABEL: image-size-advisory
+
+jobs:
+  check-image-size-upstream:
+    name: Check image-size against live upstream advisories
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run the upstream arbiter
+        id: check
+        env:
+          # Raises the advisory API's unauthenticated 60/hour per-IP limit. Read-only usage.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OUT="$RUNNER_TEMP/image-size.json"
+          ERR_LOG="$RUNNER_TEMP/image-size.err"
+          export OUT ERR_LOG
+
+          set +e
+          node scripts/check-image-size-upstream.js --json > "$OUT" 2> "$ERR_LOG"
+          status=$?
+          set -e
+
+          cat "$ERR_LOG" || true
+
+          # A crashed arbiter is the LOUDEST case, not the quietest: it means the measurements were
+          # never taken, which is not an all-clear. Synthesize a result so the issue still files.
+          if [ ! -s "$OUT" ]; then
+            echo "::warning::The arbiter emitted no JSON payload; treating as actionable."
+            node -e '
+            const fs = require("fs");
+            const stderr = fs.existsSync(process.env.ERR_LOG)
+              ? fs.readFileSync(process.env.ERR_LOG, "utf8").trim()
+              : "(no stderr captured)";
+            const result = {
+              ok: false,
+              signals: [
+                {
+                  code: "monitor-failed",
+                  message: `The image-size arbiter did not complete its measurements. This is NOT an all-clear.\n\n${stderr}`,
+                },
+              ],
+              facts: null,
+            };
+            fs.writeFileSync(process.env.OUT, JSON.stringify(result));
+            '
+            status=1
+          fi
+
+          cat "$OUT"
+
+          payload=$(node -e '
+            const fs = require("fs");
+            process.stdout.write(
+              Buffer.from(fs.readFileSync(process.env.OUT, "utf8"), "utf8").toString("base64"),
+            );
+          ')
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "payload=$payload" >> "$GITHUB_OUTPUT"
+
+          if [ "$status" -eq 0 ]; then
+            echo "✅ image-size upstream is unchanged and the exemption horizon is not near."
+          else
+            echo "::warning::image-size upstream check reported actionable signals."
+          fi
+
+      - name: File or update the advisory issue
+        if: steps.check.outputs.status != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAYLOAD: ${{ steps.check.outputs.payload }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create "$WATCH_LABEL" \
+            --description "image-size advisories or the ADR-059 exemption horizon need a decision" \
+            --color 'D93F0B' 2>/dev/null || true
+
+          details=$(node -e '
+          const result = JSON.parse(Buffer.from(process.env.PAYLOAD, "base64").toString("utf8"));
+          const sections = [];
+
+          sections.push(
+            "### Actionable signals\n" +
+              result.signals.map((s) => `- **${s.code}** — ${s.message}`).join("\n"),
+          );
+
+          if (result.facts) {
+            const f = result.facts;
+            sections.push(
+              "### Measurements (live, taken this run)\n" +
+                `- newest published: \`${f.package}@${f.latestVersion}\`\n` +
+                `- \`${f.parent}@${f.parentVersion}\` declares: \`${f.package} ${f.parentRange ?? "(no dependency)"}\`\n` +
+                f.advisories
+                  .map(
+                    (a) =>
+                      `- ${a.ghsa_id} [${a.severity}] range \`${a.vulnerable_version_range}\`, patched \`${a.first_patched_version ?? "none"}\`${a.withdrawn_at ? ` — WITHDRAWN ${a.withdrawn_at}` : ""}`,
+                  )
+                  .join("\n") +
+                "\n" +
+                f.resolved.map((r) => `- resolved: \`${r.path}\``).join("\n") +
+                "\n" +
+                f.exemptions
+                  .map(
+                    (e) =>
+                      `- exemption ${e.advisory}: created ${e.created}, stops suppressing **${e.expires}**`,
+                  )
+                  .join("\n"),
+            );
+          }
+          process.stdout.write(sections.join("\n\n"));
+          ')
+
+          body=$(cat <<EOF
+          The \`image-size\` upstream watch found something that needs a human decision.
+
+          $details
+
+          **To act:**
+          1. If a patched release or a compatible \`metro\` path exists, remediate surgically
+             (edit \`package.json\` + splice \`package-lock.json\`; never a scratch regen) and
+             **delete** the matching entries from \`security/audit-exemptions.json\`.
+          2. If an advisory was withdrawn, delete its entry — the audit gate fails closed on an
+             exemption that matches no live advisory.
+          3. If a NEW advisory appeared, it is already blocking the gate. Exemptions match exact
+             GHSA ids by design.
+          4. If only the horizon is near, this is a **renewal decision**: fresh measurements, a
+             written rationale, and explicit maintainer authorization. The maximum span is
+             whatever \`MAX_EXEMPTION_DAYS\` in \`scripts/audit-exemptions.js\` says today — it is
+             reported under Measurements above, and is deliberately not restated here.
+          5. Re-run \`node scripts/check-image-size-upstream.js\` and
+             \`node scripts/audit-exemptions.js\` afterwards.
+
+          ⚠️ This workflow deliberately cannot edit \`security/audit-exemptions.json\`. Renewal is
+          a reviewed decision, never an automated one.
+
+          Run: $RUN_URL
+          EOF
+          )
+
+          existing=$(gh issue list --state open --label "$WATCH_LABEL" \
+            --json number --jq '.[0].number // empty')
+
+          if [ -n "$existing" ]; then
+            echo "Updating existing issue #$existing"
+            gh issue comment "$existing" --body "$body"
+          else
+            echo "Filing a new advisory-watch issue"
+            gh issue create \
+              --title "image-size: upstream advisory state or exemption horizon needs a decision" \
+              --label "$WATCH_LABEL" \
+              --body "$body"
+          fi
+
+      - name: Close stale watch issues when nothing is actionable
+        if: steps.check.outputs.status == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          existing=$(gh api graphql --paginate \
+            -F owner='{owner}' \
+            -F name='{repo}' \
+            -F "labels[]=$WATCH_LABEL" \
+            -f query='query($owner: String!, $name: String!, $labels: [String!]!, $endCursor: String) {
+              repository(owner: $owner, name: $name) {
+                issues(first: 100, after: $endCursor, states: OPEN, labels: $labels) {
+                  nodes { number }
+                  pageInfo { hasNextPage endCursor }
+                }
+              }
+            }' \
+            --jq '.data.repository.issues.nodes[].number')
+
+          if [ -n "$existing" ]; then
+            for issue in $existing; do
+              echo "Closing resolved advisory-watch issue #$issue"
+              gh issue close "$issue" \
+                --comment "image-size upstream is unchanged and the exemption horizon is not near. Verified by $RUN_URL."
+            done
+          else
+            echo "No stale image-size watch issue is open."
+          fi
+
+      - name: Fail the run when something is actionable
+        if: steps.check.outputs.status != '0'
+        run: |
+          echo "image-size upstream check reported actionable signals; failing so the scheduled run is visibly red."
+          exit 1

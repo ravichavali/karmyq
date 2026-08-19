@@ -138,8 +138,16 @@ Types exported from `./schemas/providers`:
 - `ProviderTrustScore` — computed trust cache (avg_stars, completion_rate, response_rate, trust_score)
 - `CreateProviderProfileInput` — input type for POST /providers
 - `CreateProviderReviewInput` — input type for POST /reputation/provider-reviews
-- `PROVIDER_SERVICE_TYPES` — const array `['ride', 'tradesperson', 'tutor', 'other']`
+- `PROVIDER_SERVICE_TYPES` — const array `['ride', 'tradesperson', 'tutor', 'other']`. Since Sprint
+  125 this is also the arbiter for a community's `provider_services_list` allowlist, validated in
+  community-service's `config-validator.ts` — a value outside this list would match no provider and
+  silently empty a community's provider layer.
 - `ProviderServiceType` — union type derived from above
+- `PROVIDER_SERVICE_TYPE_LABELS` (Sprint 125) — display labels keyed by service type. Added because
+  the frontend had ~10 verbatim copies of this map that had already drifted (`'Trades'` vs
+  `'Home Repair'`). New code imports it; the existing copies are a separate cleanup. ⚠️ Look values
+  up with `Object.hasOwn` — `service_type` is bare `TEXT` in the DB, so a stored `'constructor'`
+  resolves up the prototype chain.
 
 ## Schema: reputation disclosure (added 2026-06-24, ADR-082)
 

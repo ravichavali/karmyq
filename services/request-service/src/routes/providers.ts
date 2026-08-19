@@ -1,31 +1,21 @@
 import { Router, Response } from 'express';
-import * as jwt from 'jsonwebtoken';
 import { query } from '../database/db';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { publishEvent } from '../events/publisher';
-import type { CreateProviderProfileInput } from '@karmyq/shared/schemas/providers';
-
-/**
- * Optionally decode the viewer from the bearer token. GET /providers is public, so a
- * missing or invalid token simply yields null (no community annotation), never an error.
- */
-function decodeOptionalViewer(req: any): { userId: string } | null {
-  const authHeader = req.headers?.authorization;
-  if (!authHeader) return null;
-  try {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) return null;
-    const decoded: any = jwt.verify(authHeader.replace('Bearer ', ''), secret);
-    return decoded.userId ? { userId: decoded.userId } : null;
-  } catch {
-    return null;
-  }
-}
+import { PROVIDER_SERVICE_TYPES, type CreateProviderProfileInput } from '@karmyq/shared/schemas/providers';
+import { getCommunityProviders, isActiveMember } from '../services/providerReachService';
 
 const router = Router();
 
-// GET /requests/providers - Browse providers (public, no auth required)
-router.get('/', async (req: any, res: Response) => {
+// GET /requests/providers - Browse providers
+//
+// Sprint 125 / ADR-095: this route was public. ADR-041 called the directory "publicly visible",
+// which in practice let anyone on the internet enumerate every provider profile on the platform —
+// display name, bio, location notes, pricing, and the owner's user id — with no account. It is now
+// visible to any authenticated user; it is deliberately still NOT community-gated, because the
+// directory's purpose is cross-community discovery. Community gating lives on
+// `GET /community/:communityId` above.
+router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { service_type, user_id, limit = 20, offset = 0 } = req.query;
 
@@ -65,13 +55,16 @@ router.get('/', async (req: any, res: Response) => {
     const result = await query(queryText, params);
     const providers = result.rows;
 
-    // F1 (Sprint 93, ADR-073): when the directory is browsed by an authenticated member,
-    // annotate each provider with `shared_communities` — the communities the provider and
-    // viewer both belong to — so the UI can present the directory through the community
-    // trust lens that dibs/matching already use. Public (unauthenticated) responses are
-    // unchanged; no schema change (reuses communities.members).
-    const viewer = decodeOptionalViewer(req);
-    if (viewer && providers.length > 0) {
+    // F1 (Sprint 93, ADR-073): annotate each provider with `shared_communities` — the communities
+    // the provider and viewer both belong to — so the UI can present the directory through the
+    // community trust lens that dibs/matching already use. No schema change (reuses
+    // communities.members).
+    //
+    // Sprint 125: the viewer is now guaranteed by authMiddleware, so the old optional-viewer
+    // decode and its `viewer &&` guard are gone. Only the empty-list check remains, and that is a
+    // real one: `ANY($2)` with an empty array is a pointless round trip.
+    const viewerId = req.user!.userId;
+    if (providers.length > 0) {
       // Derive the viewer's shared communities from LIVE membership (communities.members),
       // never the JWT 'communities' claim — a stale token must not badge a community the
       // viewer has since left (the stale-JWT membership class noted in CONTEXT §10.5). We
@@ -84,7 +77,7 @@ router.get('/', async (req: any, res: Response) => {
          JOIN communities.communities c ON c.id = vm.community_id
          WHERE vm.user_id = $1 AND vm.status = 'active'
            AND pm.user_id = ANY($2) AND pm.status = 'active'`,
-        [viewer.userId, providers.map((p: any) => p.user_id)]
+        [viewerId, providers.map((p: any) => p.user_id)]
       );
       const byUser = new Map<string, { id: string; name: string }[]>();
       for (const row of shared.rows) {
@@ -101,6 +94,54 @@ router.get('/', async (req: any, res: Response) => {
   } catch (error: any) {
     (req as any).logger?.error('Error fetching providers', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to fetch providers', error: error.message });
+  }
+});
+
+// GET /requests/providers/community/:communityId - Providers reachable through one community
+//
+// ⚠️ ORDERING: this must stay ABOVE `GET /:providerId`. Express matches in registration order, and
+// `/:providerId` happily captures the literal segment "community", which would turn this endpoint
+// into a 404 for a provider id that does not exist. `/providers/my` above relies on the same rule.
+//
+// ⚠️ PATH: deliberately NOT `/communities/:id/providers` — nginx routes the `/api/communities`
+// prefix to community-service (nginx.conf:172-173), so that path would never reach this service.
+// This path rides the existing `/api/requests` rule and needs no nginx change or deploy ordering.
+router.get('/community/:communityId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const viewerId = req.user!.userId;
+    const { communityId } = req.params;
+
+    // Membership is checked BEFORE the layer is queried, not filtered out of the result. A
+    // non-member must learn nothing about the community's providers, including how many there are.
+    if (!(await isActiveMember(viewerId, communityId))) {
+      return res.status(403).json({
+        success: false,
+        message: 'You must be an active member of this community to view its providers',
+        error: 'NOT_A_MEMBER',
+      });
+    }
+
+    const providers = await getCommunityProviders(communityId, {
+      limit: req.query.limit,
+      offset: req.query.offset,
+    });
+
+    // An empty array covers three different situations on purpose: the community never enabled
+    // provider services, it enabled them and nobody qualifies yet, or its allowlist excludes every
+    // registered type. All three are "nothing to show a member", and the distinction that matters
+    // to the UI (enabled vs not) comes from the community config it already loads.
+    res.json({ success: true, data: providers });
+  } catch (error: any) {
+    (req as any).logger?.error(
+      'Error fetching community providers',
+      error instanceof Error ? error : new Error(String(error)),
+      { service: 'request-service' }
+    );
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch community providers',
+      error: error.message,
+    });
   }
 });
 
@@ -128,7 +169,10 @@ router.get('/my', authMiddleware, async (req: AuthenticatedRequest, res: Respons
 
 // ── Rate Card helpers ──────────────────────────────────────────────────────
 
-const VALID_SERVICE_TYPES = ['ride', 'tradesperson', 'tutor', 'other'];
+// The canonical list. Sprint 125 made this the arbiter of the community allowlist too (a value
+// the backend rejects yields a filter matching nobody), so it reads the shared constant rather
+// than keeping a fourth copy.
+const VALID_SERVICE_TYPES: readonly string[] = PROVIDER_SERVICE_TYPES;
 const VALID_RATE_UNITS = ['per_hour', 'per_session', 'per_trip', 'flat_rate'];
 const VALID_PRICING_MODELS = ['standard', 'free', 'negotiable'];
 
@@ -154,29 +198,24 @@ function validateRateCardInput(body: any): string | null {
   return null;
 }
 
-// GET /providers/:providerId/rate-cards (public; owner gets all including inactive via ?include_inactive=true)
-router.get('/:providerId/rate-cards', async (req: any, res: Response) => {
+// GET /providers/:providerId/rate-cards (authenticated; owner gets all including inactive via
+// ?include_inactive=true). Sprint 125 / ADR-095: was public, hence the bespoke token decode that
+// used to live inside. `authMiddleware` has already verified the token and populated `req.user`,
+// so the owner check is now a plain comparison against the verified identity.
+router.get('/:providerId/rate-cards', authMiddleware, async (req: any, res: Response) => {
   try {
     const { providerId } = req.params;
     const { include_inactive } = req.query;
 
+    // Only the profile's owner may see inactive rate cards. A non-owner asking for them is not an
+    // error — they silently get the active-only view, as before.
     let includeInactive = false;
     if (include_inactive === 'true') {
-      const authHeader = req.headers?.authorization;
-      if (authHeader) {
-        try {
-          const secret = process.env.JWT_SECRET;
-          if (!secret) throw new Error('JWT_SECRET not configured');
-          const decoded: any = jwt.verify(authHeader.replace('Bearer ', ''), secret);
-          const ownerCheck = await query(
-            'SELECT user_id FROM requests.provider_profiles WHERE id = $1',
-            [providerId]
-          );
-          if (ownerCheck.rows.length > 0 && ownerCheck.rows[0].user_id === decoded.userId) {
-            includeInactive = true;
-          }
-        } catch (_) { /* invalid token — fall back to active-only */ }
-      }
+      const ownerCheck = await query(
+        'SELECT user_id FROM requests.provider_profiles WHERE id = $1',
+        [providerId]
+      );
+      includeInactive = ownerCheck.rows[0]?.user_id === req.user!.userId;
     }
 
     const result = await query(
@@ -311,8 +350,9 @@ router.delete('/:providerId/rate-cards/:cardId', authMiddleware, async (req: Aut
   }
 });
 
-// GET /requests/providers/:providerId - Get single provider profile (public)
-router.get('/:providerId', async (req: any, res: Response) => {
+// GET /requests/providers/:providerId - Get single provider profile
+// Sprint 125 / ADR-095: was public. See the note on `GET /` above.
+router.get('/:providerId', authMiddleware, async (req: any, res: Response) => {
   try {
     const { providerId } = req.params;
 

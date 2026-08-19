@@ -506,6 +506,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-034-multi-layer-trust-computation',
       'adr-041-two-layer-mutual-aid-services',
       'adr-042-provider-trust-score',
+      'adr-095-authenticated-provider-directory-and-reach-gated-standing',
       'adr-051-explore-exploit-dibs',
       'adr-072-dibs-scope',
       'adr-073-provider-community-linkup',

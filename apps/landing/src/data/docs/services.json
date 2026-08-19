@@ -355,10 +355,19 @@
         {
           "method": "GET",
           "path": "/providers",
-          "description": "Browse active providers (public, optional ?service_type). When called WITH a token, each provider is annotated with shared_communities — the communities the provider and viewer both belong to (ADR-073, Sprint 93); unauthenticated responses are unchanged"
+          "description": "Browse active providers. AUTHENTICATION REQUIRED since Sprint 125 / ADR-095 (was public). Optional ?service_type. Each provider is annotated with shared_communities — the communities the provider and viewer both belong to, derived from live communities.members, never the JWT claim (ADR-073, Sprint 93)"
+        },
+        {
+          "method": "GET",
+          "path": "/providers/community/:communityId",
+          "description": "Providers reachable through one community (Sprint 125 / ADR-095). Requires an ACTIVE membership re-derived live from communities.members, not the JWT claim; a non-member gets 403 before the layer is queried. Enforces three communities.community_configs columns together: provider_services_enabled, a floor on reputation.trust_scores.score (user × community, COALESCE to 0 so unknown standing fails closed), and provider_services_list (EMPTY MEANS ALL TYPES). A community that opted out or has no config row returns 200 with an empty array, never 404. Registered BEFORE GET /:providerId, which would otherwise capture the literal segment 'community'."
         },
         "/providers/my",
-        "/providers/:id",
+        {
+          "method": "GET",
+          "path": "/providers/:id",
+          "description": "Single provider with ride details + trust score. AUTHENTICATION REQUIRED since Sprint 125 / ADR-095 (was public)"
+        },
         "/collectives/my",
         "/collectives/:id/stats",
         "/providers/:id/availability",

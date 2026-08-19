@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { PROVIDER_SERVICE_TYPES, PROVIDER_SERVICE_TYPE_LABELS } from '@karmyq/shared/schemas/providers'
 import { communityService, reputationService } from '@/lib/api'
 import dynamic from 'next/dynamic'
 import CommunityLinks from '@/components/community/CommunityLinks'
@@ -26,6 +27,8 @@ interface Props {
   isAdmin: boolean
   communityId: string
   refetchCommunityCollectives: () => Promise<void>
+  /** Sprint 125: optional — only the `providers` section needs to re-read what it just wrote. */
+  refetchConfig?: () => Promise<void>
 }
 
 function TrustEvolutionSection({ communityId }: { communityId: string }) {
@@ -105,7 +108,7 @@ function TrustEvolutionSection({ communityId }: { communityId: string }) {
 export default function ProfileTab({
   section, community, config, settings, stats, communityCollectives,
   currentUser, isAdmin, communityId,
-  refetchCommunityCollectives,
+  refetchCommunityCollectives, refetchConfig,
 }: Props) {
   const [editedConfig, setEditedConfig] = useState<CommunityConfig | null>(null)
   const [configErrors, setConfigErrors] = useState<Record<string, string>>({})
@@ -125,6 +128,24 @@ export default function ProfileTab({
 
   // Sync form state when server data arrives
   useEffect(() => { if (config) { setEditedConfig(config) } }, [config])
+  /*
+   * Sprint 125: providerConfig had NO such sync. It initialised to
+   * {enabled: false, floor: 0, list: []} and stayed there, so the provider form always showed
+   * "off" no matter what was saved — and pressing Save wrote those defaults back, silently
+   * switching off a community's provider layer just for opening the tab.
+   *
+   * That was survivable while nothing read the three columns. Now the reach gate enforces them,
+   * so the same click would empty a working provider layer. `?? ` (not `||`) on the floor: 0 is a
+   * meaningful value and must not fall through to a default.
+   */
+  useEffect(() => {
+    if (!config) return
+    setProviderConfig({
+      provider_services_enabled: config.provider_services_enabled ?? false,
+      provider_min_personal_trust_score: config.provider_min_personal_trust_score ?? 0,
+      provider_services_list: config.provider_services_list ?? [],
+    })
+  }, [config])
   useEffect(() => { if (settings) { setEditedSettings(settings) } }, [settings])
 
   const validateConfig = (cfg: CommunityConfig): Record<string, string> => {
@@ -340,7 +361,12 @@ export default function ProfileTab({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-text">Enable provider services</p>
-              <p className="text-xs text-text-muted mt-0.5">Allow members to discover neighborhood service providers in this community.</p>
+              <p className="text-xs text-text-muted mt-0.5">
+                Adds a Providers section to this community&rsquo;s Home for every member. It lists
+                members who registered a provider profile and meet the two conditions below.
+                Turning this off hides the section entirely; it does not delete anyone&rsquo;s
+                profile, and they stay listed in the platform-wide directory.
+              </p>
             </div>
             <button
               type="button"
@@ -365,6 +391,55 @@ export default function ProfileTab({
                 <span>0 (all providers)</span>
                 <span>100 (highly trusted only)</span>
               </div>
+              <p className="text-xs text-text-muted mt-1">
+                This is a member&rsquo;s <strong>personal standing in this community</strong>, not
+                their provider rating. Someone with no standing here yet counts as 0, so any value
+                above 0 hides brand-new members until they build a track record.
+              </p>
+            </div>
+          )}
+          {providerConfig.provider_services_enabled && (
+            <div>
+              <label className="block text-sm font-medium text-text mb-1">Service types allowed</label>
+              <p className="text-xs text-text-muted mb-2">
+                {providerConfig.provider_services_list.length === 0
+                  ? 'No restriction — every service type is allowed here.'
+                  : `Only these ${providerConfig.provider_services_list.length} type(s) appear in this community.`}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {PROVIDER_SERVICE_TYPES.map(type => {
+                  const selected = providerConfig.provider_services_list.includes(type)
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setProviderConfig(c => ({
+                        ...c,
+                        provider_services_list: selected
+                          ? c.provider_services_list.filter(t => t !== type)
+                          : [...c.provider_services_list, type],
+                      }))}
+                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                        selected
+                          ? 'bg-primary text-white border-primary'
+                          : 'bg-surface text-text border-border'
+                      }`}
+                    >
+                      {PROVIDER_SERVICE_TYPE_LABELS[type] ?? type}
+                    </button>
+                  )
+                })}
+              </div>
+              {providerConfig.provider_services_list.length > 0 && (
+                <button
+                  type="button"
+                  className="text-xs text-text-muted underline mt-2"
+                  onClick={() => setProviderConfig(c => ({ ...c, provider_services_list: [] }))}
+                >
+                  Clear restriction (allow all types)
+                </button>
+              )}
             </div>
           )}
           {isAdmin && (
@@ -374,6 +449,12 @@ export default function ProfileTab({
                 setSavingProviderConfig(true)
                 try {
                   await communityService.updateConfig(communityId, providerConfig)
+                  // Re-read the config so the member-facing Providers section on Home appears (or
+                  // disappears) immediately. Without this the page keeps the config it fetched on
+                  // mount, and an admin who just enabled provider services sees no change until a
+                  // full reload — which reads as "the switch does nothing", the exact impression
+                  // this sprint exists to remove.
+                  await refetchConfig?.()
                   alert('Provider settings saved')
                 } catch (err: any) {
                   alert(err?.message ?? 'Failed to save')

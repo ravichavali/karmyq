@@ -45,13 +45,19 @@ describe('Provider Profiles API (TDD)', () => {
     mockQuery.mockReset();
   });
 
+  // ⚠️ Sprint 125 / ADR-095: the three read routes below were PUBLIC when this file was written.
+  // They now require authentication, so every case here sends a token. The refusal side — that an
+  // anonymous or forged caller gets 401 — is asserted in
+  // tests/tdd/sprint-125-provider-auth-gate.test.ts rather than duplicated here.
   describe('GET /providers', () => {
-    it('returns provider list without auth', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [
-        { id: 'p1', display_name: 'Ali Rickshaw', service_type: 'ride', trust_score: 80 }
-      ]});
+    it('returns provider list to an authenticated caller', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [
+          { id: 'p1', user_id: 'u1', display_name: 'Ali Rickshaw', service_type: 'ride', trust_score: 80 }
+        ]})
+        .mockResolvedValueOnce({ rows: [] }); // shared_communities annotation
 
-      const res = await request(app).get('/providers');
+      const res = await request(app).get('/providers').set('Authorization', `Bearer ${makeToken()}`);
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data).toHaveLength(1);
@@ -61,7 +67,9 @@ describe('Provider Profiles API (TDD)', () => {
     it('filters by service_type', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
-      await request(app).get('/providers?service_type=tutor');
+      await request(app)
+        .get('/providers?service_type=tutor')
+        .set('Authorization', `Bearer ${makeToken()}`);
       const callArgs = mockQuery.mock.calls[0][0] as string;
       expect(callArgs).toContain('pp.service_type = $');
     });
@@ -71,7 +79,9 @@ describe('Provider Profiles API (TDD)', () => {
     it('returns 404 when provider not found', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
-      const res = await request(app).get('/providers/nonexistent-id');
+      const res = await request(app)
+        .get('/providers/nonexistent-id')
+        .set('Authorization', `Bearer ${makeToken()}`);
       expect(res.status).toBe(404);
       expect(res.body.success).toBe(false);
     });
@@ -85,7 +95,9 @@ describe('Provider Profiles API (TDD)', () => {
         .mockResolvedValueOnce({ rows: [provider] })   // SELECT provider profile
         .mockResolvedValueOnce({ rows: [] });            // SELECT rate_cards
 
-      const res = await request(app).get('/providers/p1');
+      const res = await request(app)
+        .get('/providers/p1')
+        .set('Authorization', `Bearer ${makeToken()}`);
       expect(res.status).toBe(200);
       expect(res.body.data.vehicle_type).toBe('rickshaw');
     });

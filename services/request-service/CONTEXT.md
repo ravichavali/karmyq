@@ -2973,8 +2973,10 @@ CREATE TABLE auth.user_interests (
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/providers` | Public | Browse active providers, filter by `service_type` |
-| GET | `/providers/:id` | Public | Get single provider with ride details + trust score |
+| GET | `/providers` | **Required** | Browse active providers, filter by `service_type`. Annotates `shared_communities` from live membership. Auth added Sprint 125 / ADR-095 (was Public) |
+| GET | `/providers/:id` | **Required** | Get single provider with ride details + trust score. Auth added Sprint 125 / ADR-095 (was Public) |
+| GET | `/providers/:id/rate-cards` | **Required** | Rate cards; owner also gets inactive via `?include_inactive=true`. Auth added Sprint 125 / ADR-095 (was Public) |
+| GET | `/providers/community/:communityId` | Required + **active member** | Providers reachable through one community (Sprint 125 / ADR-095). Non-member → 403; opted-out or unconfigured community → `200 []`, never 404 |
 | POST | `/providers` | Required | Create provider profile (+ ride details if `service_type=ride`) |
 | PUT | `/providers/:id` | Owner | Update profile or ride details |
 | DELETE | `/providers/:id` | Owner | Delete profile (cascades reviews/trust scores) |
@@ -2985,10 +2987,23 @@ CREATE TABLE auth.user_interests (
 - `reputation.provider_reviews` — stars + text, tied to match_id
 - `reputation.provider_trust_scores` — computed cache (ADR-042)
 
-**Community config additions**:
-- `provider_services_enabled` — opt-in per community
-- `provider_min_personal_trust_score` — gate by ADR-037 trust
-- `provider_services_list` — allowed service types
+**Community config additions** — ⚠️ these were written by the admin UI and **read by nothing at all**
+until Sprint 125. They are now enforced together by `src/services/providerReachService.ts`
+(ADR-095); enforcing a subset would leave an inert column behind again:
+- `provider_services_enabled` — opt-in per community. The `community_configs` join is INNER, so a
+  community with **no config row** yields an empty layer rather than an error.
+- `provider_min_personal_trust_score` — floor on `reputation.trust_scores.score`
+  (**user × community**, ADR-037). Applied as `COALESCE(ts.score, 0) >= floor` over a `LEFT JOIN`:
+  a provider with no trust row scores **0** (fails closed). An `INNER JOIN` here would silently
+  drop every provider lacking a trust row even when the floor is 0.
+  ⚠️ Not to be confused with `reputation.provider_trust_scores.trust_score` (provider-profile
+  quality, ADR-042), which this endpoint uses only for **ordering**.
+- `provider_services_list` — allowed service types. **Empty means ALL types**, not none
+  (`cardinality(list) = 0 OR service_type = ANY(list)`); the column defaults to `'{}'`.
+
+**Reach gate route ordering**: `GET /providers/community/:communityId` MUST stay registered above
+`GET /:providerId`, which would otherwise capture the literal segment `community`. The path is
+deliberately **not** `/communities/:id/providers` — nginx routes that prefix to community-service.
 
 ### 11.4 Matching Engine Enhancements
 
