@@ -1,11 +1,15 @@
-# Sprint 125 — Provider Standing & Community Reach (COMMITTED, awaiting PR + merge auth)
+# Sprint 125 — Provider Standing & Community Reach (PR #209 green, awaiting merge auth)
 
-> ## State as of 2026-08-17
+> ## State as of 2026-08-19
 >
 > Branch `feature/sprint-125-provider-standing`, cut from `a1cf9eca` (v11.44.0). Version bumped to
-> **v11.45.0**. **Committed locally; NOT pushed, no PR open, not merged.** Full blocking suite green
-> (26/26 tasks, exit 0). Type checks clean across request-service, community-service,
-> reputation-service, frontend, packages/shared.
+> **v11.45.0**. Committed as `b92ab5c2`, pushed, and open as **PR #209**. The local pre-push hook
+> ran and passed. **All CI checks are green**, including functional, build, type, audit, contract,
+> integration, Docker images, CodeQL, and the ADR-060 gate. CodeQL alert **#577**
+> (`js/request-forgery`, `apps/frontend/src/lib/api.ts:951`) was dismissed as the documented
+> browser-side Axios false positive with maintainer authorization on 2026-08-19; the rationale is
+> recorded in PR #209's Security dismissals section. The PR is not merged. Merge still requires
+> explicit maintainer authorization.
 >
 > ⚠️ **Run the suite with `npx turbo run test --concurrency=2` on this machine.** Default
 > concurrency exhausts its 8 GB and aborts with SIGABRT (exit 134) — a *different* set of suites
@@ -38,7 +42,7 @@ Enforce the provider policy that migration `022-provider-profiles.sql` and ADR-0
 | 10. CONTEXT.md + registry + integration test | **Done** — 17 integration tests against real Postgres |
 | 11. SDLC gates | **Done** — all three run, every finding fixed (see below) |
 | 12. Final verification | **Done** — suite green, type checks clean, hooks confirmed installed, landing churn reverted |
-| 13. Merge + deploy | **NOT STARTED** — push, PR, and merge all still owed; merge needs explicit maintainer authorization |
+| 13. Merge + deploy | **IN PROGRESS** — commit `b92ab5c2` pushed; PR #209 open and fully green; merge needs explicit maintainer authorization |
 
 ---
 
@@ -164,14 +168,8 @@ tunnel afterwards.**
 
 ## Next steps
 
-1. **Finish Task 11** — `/simplify` findings, then `/code-review` at **high** effort (this diff
-   changes an authorization surface), then `/security-review`. Pay attention to: the membership
-   check, whether any provider field leaks across communities, and whether the 403/401/empty-layer
-   distinction leaks community existence.
-2. **Commit** (nothing is committed yet — 13 new files, ~30 modified).
-3. **Open the PR** with contract headers; CI must be green.
-4. **Merge needs explicit maintainer authorization**; `--admin` needs its own each time.
-5. Deploy via `/deploy`, smoke-test `POST /api/auth/login` then the new endpoint against a
+1. **Merge needs explicit maintainer authorization**; `--admin` needs its own each time.
+2. Deploy via `/deploy`, smoke-test `POST /api/auth/login` then the new endpoint against a
    community with provider services enabled *and* one with it disabled.
 
 ---
