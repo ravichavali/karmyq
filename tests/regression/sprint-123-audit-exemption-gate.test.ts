@@ -139,14 +139,37 @@ describe('ADR-059 gate — proves it can actually FAIL', () => {
     expect(r.errors.join(' ')).toMatch(/EXPIRED on 2026-08-08/);
   });
 
-  it('BLOCKS an exemption longer than 7 days', () => {
+  // Sprint 125 raised MAX_EXEMPTION_DAYS from 7 to 30 (ADR-059, "Renewal cadence"). The pair below
+  // pins the BOUNDARY rather than merely "something longer is blocked" — a cap test that only ever
+  // checks a far-over value passes just as happily against a cap of 300.
+  it('ACCEPTS an exemption of exactly the maximum span', () => {
     const r = gate.evaluateAudit(
       reportWithImageSize(),
-      { exemptions: [validExemption({ created: '2026-08-10', expires: '2026-08-18' })] },
+      { exemptions: [validExemption({ created: '2026-08-10', expires: '2026-09-09' })] },
+      NOW
+    );
+    // NOT `r.ok === true`: this fixture carries a second advisory that a single exemption never
+    // covers, so the run is legitimately red for an unrelated reason. The claim under test is
+    // narrower and must be asserted as such — a 30-day span raises no SPAN complaint.
+    expect(r.errors.join(' ')).not.toMatch(/spans \d+ days/);
+  });
+
+  it('BLOCKS an exemption one day longer than the maximum span', () => {
+    const r = gate.evaluateAudit(
+      reportWithImageSize(),
+      { exemptions: [validExemption({ created: '2026-08-10', expires: '2026-09-10' })] },
       NOW
     );
     expect(r.ok).toBe(false);
-    expect(r.errors.join(' ')).toMatch(/spans 8 days — the maximum is 7/);
+    expect(r.errors.join(' ')).toMatch(/spans 31 days — the maximum is 30/);
+  });
+
+  it('keeps the cap and the gate reading the same constant', () => {
+    // Guards the amendment itself: if MAX_EXEMPTION_DAYS moves again, the two cases above must be
+    // re-derived rather than silently describing a boundary that no longer exists.
+    // No `?? 30` default here — a fallback would let this pass if the export were ever removed,
+    // which is precisely the regression it exists to catch.
+    expect(gate.MAX_EXEMPTION_DAYS).toBe(30);
   });
 
   it.each(['package', 'advisory', 'rationale', 'decision', 'owner', 'created', 'expires'])(

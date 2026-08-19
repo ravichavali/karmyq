@@ -9,6 +9,7 @@ import BrowseTab from '@/components/community/tabs/BrowseTab'
 import ActiveTab from '@/components/community/tabs/ActiveTab'
 import TrustGraphTab from '@/components/community/tabs/TrustGraphTab'
 import StewardshipTab from '@/components/community/tabs/StewardshipTab'
+import ProvidersTab from '@/components/community/tabs/ProvidersTab'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import { decodeJwtPayload } from '@/lib/jwt'
 import { useCommunityPulse } from '@/hooks/useCommunityPulse'
@@ -26,7 +27,7 @@ export default function CommunityDetailPage() {
     community, loading, error, currentUser, norms, config, settings,
     stats, loadingStats, communityTrust, loadingTrust, networkMetrics,
     communityRequests, loadingRequests, memberTrustScores, communityCollectives,
-    refetchCommunity, refetchNorms, refetchStats, refetchCommunityTrust, refetchNetworkMetrics,
+    refetchCommunity, refetchNorms, refetchConfig, refetchStats, refetchCommunityTrust, refetchNetworkMetrics,
     refetchCommunityRequests, refetchMemberTrustScores, refetchCommunityCollectives,
   } = useCommunityData(communityId)
 
@@ -227,6 +228,20 @@ export default function CommunityDetailPage() {
               <div className="space-y-2">
                 <CommunityPulse pulse={pulse} loading={loadingPulse} communityId={communityId!} />
                 <BrowseTab community={community} communityId={communityId!} />
+                {/*
+                  Sprint 125 / ADR-095. The provider layer lives INSIDE Home rather than as a new
+                  top-level tab: ADR-068 deliberately collapsed ~10 tabs into four, and the
+                  `providers` alias in communityTabs.ts already points at the ADMIN config surface
+                  under Stewardship. This is the member-facing counterpart of that switch, so it
+                  belongs on the surface every member already lands on.
+
+                  Rendered only when the community opted in — an unconfigured or opted-out
+                  community shows nothing here at all, rather than an empty section implying a
+                  feature that was never turned on.
+                */}
+                {config?.provider_services_enabled && (
+                  <ProvidersTab communityId={communityId!} />
+                )}
               </div>
             ) : (
               // Visitors/pending users aren't members yet — the community feed + pulse are member-
@@ -266,6 +281,7 @@ export default function CommunityDetailPage() {
               refetchCommunity={refetchCommunity}
               refetchCommunityRequests={refetchCommunityRequests}
               refetchCommunityCollectives={refetchCommunityCollectives}
+              refetchConfig={refetchConfig}
               initialSection={stewardshipSection}
             />
           )}

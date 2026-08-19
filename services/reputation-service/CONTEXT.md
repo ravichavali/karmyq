@@ -1251,8 +1251,15 @@ src/
 - [x] Reputation portability across communities — ADR-038 carry model (implemented)
 - [x] Provider trust score — ADR-042 (stars 60% + completion 30% + response 10%), implemented 2026-02-27
   - `POST /reputation/provider-reviews` — submit review (auth required)
-  - `GET /reputation/provider-trust/:providerId` — public trust score
-  - `GET /reputation/provider-reviews/:providerId` — public review list
+  - `GET /reputation/provider-trust/:providerId` — trust score with `display_name`, `service_type`
+    and owner `user_id`. **AUTHENTICATION REQUIRED since Sprint 125 / ADR-095** (was public)
+  - `GET /reputation/provider-reviews/:providerId` — review list including review text and
+    `reviewer_name`. **AUTHENTICATION REQUIRED since Sprint 125 / ADR-095** (was public)
+
+  ⚠️ These two were closed one review-round *after* the three request-service provider routes.
+  Closing only those left the provider directory anonymously enumerable through this service, and
+  `provider-reviews` was the most sensitive of the five — it returned the real names of members who
+  left reviews. When auditing an access surface, enumerate by **data exposed**, not by service.
   - New tables: `reputation.provider_reviews`, `reputation.provider_trust_scores`
 - [ ] Negative karma for reported issues
 - [ ] Badge system implementation

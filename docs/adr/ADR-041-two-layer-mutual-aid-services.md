@@ -3,7 +3,16 @@
 **Status**: Accepted
 **Date**: 2026-02-27
 **Supersedes**: —
-**Related**: ADR-042 (Provider Trust Score)
+**Related**: ADR-042 (Provider Trust Score), ADR-095 (Authenticated Provider Directory and Reach-Gated Standing)
+
+> **Note (Sprint 125, 2026-08-17) — narrowed by [ADR-095](ADR-095-authenticated-provider-directory-and-reach-gated-standing.md), NOT superseded.**
+> Two clauses below have moved:
+> - **"Publicly visible" is now "visible to any authenticated user."** The directory routes require
+>   auth. It is still global, not community-gated — cross-community discovery is the point.
+> - **Self-registration is unchanged.** Community standing gates a provider's *reach* into a
+>   community, never their ability to register or appear in the global directory.
+>
+> Everything else in this ADR — the two-layer separation of karma and paid services — stands as written.
 
 ---
 

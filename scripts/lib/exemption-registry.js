@@ -80,4 +80,7 @@ function validateRegistry(registry, spec, now = new Date()) {
   return errors;
 }
 
-module.exports = { validateRegistry };
+// `parseUtcDate` and `todayUtc` are exported so callers do not re-implement them. A hand-rolled
+// copy in scripts/check-image-size-upstream.js dropped both the ISO_DATE shape check and the
+// 2026-02-31 rollover guard, which is exactly the drift this shared core exists to prevent.
+module.exports = { validateRegistry, parseUtcDate, todayUtc };

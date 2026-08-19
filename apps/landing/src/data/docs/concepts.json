@@ -735,6 +735,14 @@
       "status": "implemented",
       "description": "**Date**: 2026-08-11",
       "filename": "ADR-094-generalized-exemption-registries.md"
+    },
+    {
+      "slug": "adr-095-authenticated-provider-directory-and-reach-gated-standing",
+      "number": "095",
+      "title": "ADR-095: Authenticated Provider Directory and Reach-Gated Standing",
+      "status": "accepted",
+      "description": "**Status**: Accepted",
+      "filename": "ADR-095-authenticated-provider-directory-and-reach-gated-standing.md"
     }
   ]
 }

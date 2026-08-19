@@ -143,7 +143,7 @@ required-field, duplicate, and UTC-date validation into the spec-driven
 | Exact `package` + GHSA id | No package-wide wildcard. A *second* advisory on an exempted package must still block |
 | `high` only | **`critical` is never exemptible**, whatever the registry says |
 | `rationale`, `decision`, `owner`, `created`, `expires` all required | An exemption is a decision with a name on it, not a config tweak |
-| `expires` ≤ 7 days after `created`, **and `created` not in the future** | Equal to the existing high-severity SLA — an exemption buys review time, never permanence. This cap is audit-specific and unchanged by the shared core. The `created` clause is load-bearing, not paperwork: capping only the *span* let a forward-dated entry stay inside the cap while suppressing the finding far longer. Sprint 124's `/security-review` demonstrated a registry that spanned exactly 7 days, validated clean, and suppressed a high for **149**. With `created ≤ today` and span ≤ 7, `expires` cannot exceed today + 7 — which is the invariant this row always claimed. **`expires` is the first INVALID day, not the last valid one**: cross-agent review of Sprint 124 found that treating it as inclusive made a 7-day span live on 8 calendar days, so a "7-day" exemption quietly bought 8. An entry created `08-11` expiring `08-18` is live on the 11th through the **17th** |
+| `expires` ≤ **30** days after `created`, **and `created` not in the future** | ⚠️ This was 7 through Sprint 124; **Sprint 125 raised it to 30** — see *Amendment (Sprint 125): renewal cadence* below for why, and for what now carries the obligation the shorter cap used to force. An exemption buys review time, never permanence. This cap is audit-specific and unchanged by the shared core. The `created` clause is load-bearing, not paperwork: capping only the *span* let a forward-dated entry stay inside the cap while suppressing the finding far longer. Sprint 124's `/security-review` demonstrated a registry that spanned exactly 7 days, validated clean, and suppressed a high for **149**. With `created ≤ today` and span ≤ 7, `expires` cannot exceed today + 7 — which is the invariant this row always claimed. **`expires` is the first INVALID day, not the last valid one**: cross-agent review of Sprint 124 found that treating it as inclusive made a 7-day span live on 8 calendar days, so a "7-day" exemption quietly bought 8. An entry created `08-11` expiring `08-18` is live on the 11th through the **17th** |
 | Fails closed on malformed, expired, duplicate, or **unmatched** entries | An exemption matching nothing means upstream shipped a fix; it must be deleted, not left to rot |
 | Parent findings clear only when **every** advisory reachable through npm's `via` graph is exempted | `metro` is high solely because of `image-size`; the day it gains its own finding it blocks again |
 
@@ -151,8 +151,9 @@ required-field, duplicate, and UTC-date validation into the spec-driven
 
 - The gate is now **stricter in one respect**: an expired or stale exemption *fails the build*,
   where previously a permanently-unfixable advisory could only be handled by weakening the gate.
-- It is **weaker in one respect**: a named human can knowingly ship for up to seven days with a
-  documented high. That is the trade, and it is recorded in the diff rather than in someone's head.
+- It is **weaker in one respect**: a named human can knowingly ship for up to thirty days (seven,
+  before Sprint 125) with a documented high. That is the trade, and it is recorded in the diff
+  rather than in someone's head.
 - **Proof obligation.** `tests/regression/sprint-123-audit-exemption-gate.test.ts` asserts the
   refusals, not the passes — expired, over-long, malformed, wrong-severity, wrong-id, stale,
   partially-exempted parents, and the CLI's non-zero exit. A gate demonstrated only by a green run
@@ -160,5 +161,51 @@ required-field, duplicate, and UTC-date validation into the spec-driven
   PR path, and the `FROM` parser in Sprint 122).
 - The shared validator is deliberately independent of npm audit and now lives in
   `scripts/lib/exemption-registry.js` (Sprint 124 / ADR-094). Audit and Expo reuse its mechanics,
-  **not its policy**: the audit spec alone retains the seven-day maximum, exact GHSA matching, and
-  `high`-only rule. **Critical remains never exemptible.**
+  **not its policy**: the audit spec alone retains the span maximum (now thirty days), exact GHSA
+  matching, and `high`-only rule. **Critical remains never exemptible.**
+
+---
+
+## Amendment (Sprint 125, 2026-08-17): renewal cadence
+
+**Status**: Accepted · **Decision**: maintainer, 2026-08-17
+
+`MAX_EXEMPTION_DAYS` moves from **7 to 30**.
+
+### What the seven-day cap was actually buying
+
+It was never the number that had value. The value was that a renewal *forced someone to re-measure
+upstream* — to go and check whether a fix had shipped. Sprints 123, 124 and 125 each paid that cost
+by hand: `npm view`, the two GHSA pages, `npm ls`, every time, and every time the answer was
+identical. Three cycles of a manual check that has never once changed its answer is not diligence;
+it is a ritual, and rituals get performed carelessly or skipped.
+
+### What replaces it
+
+`.github/workflows/image-size-advisory-watch.yml` runs `scripts/check-image-size-upstream.js`
+weekly against the **live** arbiters — the npm registry, GitHub's advisory API, and this repo's own
+resolved tree. It files an issue the moment a patched release appears, an advisory is withdrawn, a
+third advisory lands, the resolved tree changes, or the horizon comes within a week. Its
+`evaluate()` is pure and every signal has a test that drives it to fire, so it is not a monitor
+that has only ever been observed passing.
+
+**The obligation did not weaken; it moved from a human's memory to a scheduled job.** The cap is
+now the backstop, not the trigger.
+
+### What did NOT change
+
+- `critical` is still never exemptible.
+- Exact `package` + GHSA id; no wildcards. A second advisory still blocks.
+- Fail-closed on malformed, expired, duplicate, or unmatched entries.
+- `created` may not be in the future, and `expires` is still the **first invalid day**.
+- The high-severity remediation **SLA is unchanged**. The cap and the SLA were numerically equal
+  until now and that equality is what made them easy to conflate — they are separate rules, and
+  this amendment decouples them deliberately.
+
+### The risk being accepted
+
+A high-severity finding can now sit suppressed for a month rather than a week. That is a real
+widening, and it is only defensible while the weekly monitor is alive and its issues are read. **If
+that workflow is ever removed or left failing, this cap must go back to 7 in the same change** —
+otherwise the registry becomes what ADR-059 was written to prevent: a place where findings are
+parked and forgotten.

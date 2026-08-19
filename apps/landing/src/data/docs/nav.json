@@ -491,6 +491,10 @@
           "href": "/docs/concepts/adr-042-provider-trust-score"
         },
         {
+          "label": "Authenticated Provider Directory and Reach-Gated Standing",
+          "href": "/docs/concepts/adr-095-authenticated-provider-directory-and-reach-gated-standing"
+        },
+        {
           "label": "Explore/Exploit Two-Tier Dibs Candidate Selection",
           "href": "/docs/concepts/adr-051-explore-exploit-dibs"
         },

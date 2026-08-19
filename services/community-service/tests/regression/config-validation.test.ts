@@ -609,3 +609,70 @@ describe('Community Configuration Validation', () => {
     });
   });
 });
+
+describe('Provider Services List Validation (Sprint 125 / ADR-095)', () => {
+  /*
+   * `provider_services_list` was inert until Sprint 125 — nothing read it, so a garbage value was
+   * harmless. It is now the allowlist the provider reach gate filters on. An unrecognised value is
+   * matched against `provider_profiles.service_type`, matches nothing, and silently empties the
+   * community's provider layer with no error surfaced anywhere.
+   */
+  it('accepts an empty array — empty means ALL service types, not none', () => {
+    const result = validateCommunityConfig({ provider_services_list: [] });
+
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it('accepts every canonical service type', () => {
+    const result = validateCommunityConfig({
+      provider_services_list: ['ride', 'tradesperson', 'tutor', 'other'],
+    });
+
+    expect(result.isValid).toBe(true);
+  });
+
+  it('REJECTS a plausible-but-wrong value rather than silently emptying the layer', () => {
+    // "trades" instead of "tradesperson" is the realistic typo — it looks right in the UI.
+    const result = validateCommunityConfig({ provider_services_list: ['trades'] });
+
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        field: 'provider_services_list',
+        message: expect.stringContaining('trades'),
+      })
+    );
+  });
+
+  it('names every unknown value, not just the first', () => {
+    const result = validateCommunityConfig({
+      provider_services_list: ['ride', 'trades', 'plumbing'],
+    });
+
+    expect(result.isValid).toBe(false);
+    const message = result.errors.find((e) => e.field === 'provider_services_list')!.message;
+    // Assert against the UNKNOWN list only. The message also names the valid types as guidance, so
+    // a naive `not.toContain('ride')` over the whole string tests the help text, not the logic.
+    const unknownPart = message.slice(0, message.indexOf('Valid types:'));
+    expect(unknownPart).toContain('trades');
+    expect(unknownPart).toContain('plumbing');
+    expect(unknownPart).not.toContain('ride');
+  });
+
+  it('REJECTS a non-array', () => {
+    const result = validateCommunityConfig({ provider_services_list: 'ride' as never });
+
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ field: 'provider_services_list' })
+    );
+  });
+
+  it('ignores the field entirely when it is not being updated', () => {
+    // A partial config that never mentions the column must not be rejected for it.
+    const result = validateCommunityConfig({ member_cap: 50 });
+
+    expect(result.errors.some((e) => e.field === 'provider_services_list')).toBe(false);
+  });
+});

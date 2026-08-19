@@ -166,6 +166,28 @@ COMMENT ON TABLE communities.community_configs IS 'Phase 1: Comprehensive config
 COMMENT ON TABLE communities.config_templates IS 'Pre-made configuration templates for evolutionary discovery';
 ```
 
+### Provider service columns — who consumes them
+
+`community_configs` carries three columns this service only **stores**; the consumer lives in
+another service, so a change here has effects that are invisible from this repo directory:
+
+| Column | Consumed by |
+|---|---|
+| `provider_services_enabled` | request-service `src/services/providerReachService.ts` |
+| `provider_min_personal_trust_score` | same — as a floor on `reputation.trust_scores.score` |
+| `provider_services_list` | same — **empty means ALL service types**, not none |
+
+All three are enforced by `GET /requests/providers/community/:communityId` (Sprint 125 /
+[ADR-095](../../docs/adr/ADR-095-authenticated-provider-directory-and-reach-gated-standing.md)).
+
+⚠️ **Before Sprint 125 nothing read them.** `GET /:id/config` and `PUT /:id/config` wrote all three
+and no service consumed any — a steward could enable provider services and change nothing. If a
+future change makes these write-only again, delete them rather than leaving a switch that lies.
+
+⚠️ `GET /:id/config` returns **404** when a community has no config row. The reach gate deliberately
+does NOT mirror that: an unconfigured community is *disabled*, and returns an empty layer, because
+404 there would let a member probe which communities exist.
+
 -- communities.community_links (NEW - Migration 025, Sprint 15)
 CREATE TABLE communities.community_links (
   id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),

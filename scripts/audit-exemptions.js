@@ -10,7 +10,9 @@
  * and 2.x drops the default export metro requires. There is no version to move to.
  *
  * The wrong answers are dropping the gate to `critical`, or `--no-verify`. Both silently give up
- * the whole gate. This gives up exactly one advisory, for at most seven days, in writing.
+ * the whole gate. This gives up exactly one advisory, for a bounded window, in writing.
+ * (That window was seven days through Sprint 124; Sprint 125 raised it to thirty and moved the
+ * re-measurement obligation onto a weekly live monitor. See `MAX_EXEMPTION_DAYS` below.)
  *
  * DESIGN RULES (all enforced below, each with a RED test in
  * tests/regression/sprint-123-audit-exemption-gate.test.ts)
@@ -38,8 +40,22 @@ const { validateRegistry: validateWithSpec } = require('./lib/exemption-registry
 const ROOT = path.join(__dirname, '..');
 const REGISTRY_PATH = path.join(ROOT, 'security', 'audit-exemptions.json');
 
-/** Maximum lifetime of any exemption. Deliberately equal to the ADR-059 high-severity SLA. */
-const MAX_EXEMPTION_DAYS = 7;
+/**
+ * Maximum lifetime of any exemption.
+ *
+ * Sprint 125 (2026-08-17) raised this from 7 to 30 by maintainer decision; ADR-059's amendment
+ * "Renewal cadence (Sprint 125)" records the reasoning. It is no longer equal to the high-severity
+ * SLA — that decoupling is the point of the change, and the SLA itself is unchanged.
+ *
+ * What kept the number honest at 7 was that a renewal forced someone to re-measure upstream. That
+ * obligation has NOT been dropped; it moved to `.github/workflows/image-size-advisory-watch.yml`,
+ * which re-takes the measurements weekly from live arbiters and files an issue the moment a fix,
+ * a withdrawal, or a new advisory appears. The cap is the backstop now, not the trigger.
+ *
+ * ⚠️ Raising this further without an equivalent live monitor would return the registry to being a
+ * place where findings are parked and forgotten — the exact failure ADR-059 was written against.
+ */
+const MAX_EXEMPTION_DAYS = 30;
 
 const REQUIRED_FIELDS = [
   'package',

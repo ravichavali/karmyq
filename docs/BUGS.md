@@ -582,8 +582,9 @@ major from `apps/mobile`, checks recorded declared and Expo-pinned ranges agains
 rejects stale or unregistered differences. The workflow now passes only when the complete
 `expo install --check` output has known framing and status and every drift is accounted for; unknown
 or malformed output fails closed. Common registry validation is shared with the ADR-059 audit gate
-through `scripts/lib/exemption-registry.js`, while audit's seven-day horizon and Expo's SDK-major
-horizon remain separate policies.
+through `scripts/lib/exemption-registry.js`, while audit's calendar horizon (seven days when this
+was written; thirty since Sprint 125 — ADR-059 "Renewal cadence") and Expo's SDK-major horizon
+remain separate policies.
 
 ---
 

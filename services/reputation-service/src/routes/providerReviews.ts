@@ -66,7 +66,12 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
 });
 
 // GET /reputation/provider-trust/:providerId - Get provider trust score
-router.get('/provider-trust/:providerId', async (req: any, res: Response) => {
+//
+// Sprint 125 / ADR-095: was public. Closing the three request-service provider read routes while
+// leaving this one open would have made ADR-095's claim false — this returns the provider's
+// display_name, service_type and owner user_id, so the directory stayed anonymously enumerable
+// through reputation-service. Only authenticated frontend callers use it.
+router.get('/provider-trust/:providerId', authMiddleware, async (req: any, res: Response) => {
   try {
     const { providerId } = req.params;
 
@@ -91,7 +96,10 @@ router.get('/provider-trust/:providerId', async (req: any, res: Response) => {
 });
 
 // GET /reputation/provider-reviews/:providerId - List reviews for a provider (public)
-router.get('/provider-reviews/:providerId', async (req: any, res: Response) => {
+// Sprint 125 / ADR-095: was public — and this one returned `reviewer_name`, i.e. the real names of
+// members who left reviews, to anonymous callers. That is the most sensitive field in the provider
+// surface and the strongest reason this route could not stay open.
+router.get('/provider-reviews/:providerId', authMiddleware, async (req: any, res: Response) => {
   try {
     const { providerId } = req.params;
     const { limit = 20, offset = 0 } = req.query;

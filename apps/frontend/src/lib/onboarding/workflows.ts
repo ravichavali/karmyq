@@ -69,6 +69,10 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
         body: "A community opens on warm Home — its hero, the weekly pulse, and the open asks. People shows who's here and the trust between you. How we're connected anchors you at the top of the community ring so you can see where you fit; zoom out to Communities to see which of yours are woven together. Stewardship is where shared decisions, splits, merges, and (for admins) the management tools live.",
       },
       {
+        title: 'Neighbours who offer services',
+        body: "Some communities also surface a Providers section on Home — neighbours who offer services for pay, like rides, trades, or tutoring. It appears only if your community's stewards enabled it, and it lists members who meet the standing your community asks for. Paid services stay separate from karma: helping and hiring are different things here.",
+      },
+      {
         title: 'Relationships that fade — and how to keep them',
         body: "Karmyq is designed to forget. On How we're connected, a How memory fades legend explains why some bonds look softer, and a gentle, optional notice shows which bonds are close to being let go — helping each other again keeps a bond alive, or you can let it fade. Your profile's memory section shows the same in plain words — active bonds you're tending, ones going quiet, and ones nearly forgotten — even when your karma display is off. The What Karmyq Remembers page explains exactly what's kept versus let go. Forgetting the details never touches your karma or trust.",
       },

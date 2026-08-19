@@ -351,7 +351,8 @@ export class ApiClient {
   }
 
   /**
-   * Request API - Browse providers (public)
+   * Request API - Browse providers (authenticated since Sprint 125 / ADR-095;
+   * the session client always carries a token, so this is unaffected)
    */
   async getProviders(serviceType?: string): Promise<any[]> {
     const params = serviceType ? { service_type: serviceType } : {};
@@ -362,7 +363,8 @@ export class ApiClient {
   }
 
   /**
-   * Request API - Get provider profiles for a specific user (public)
+   * Request API - Get provider profiles for a specific user (authenticated since
+   * Sprint 125 / ADR-095)
    */
   async getProvidersByUser(userId: string): Promise<any[]> {
     const response = await executeWithRetry(() =>

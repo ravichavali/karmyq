@@ -377,10 +377,19 @@
           {
             "method": "GET",
             "path": "/providers",
-            "description": "Browse active providers (public, optional ?service_type). When called WITH a token, each provider is annotated with shared_communities \u2014 the communities the provider and viewer both belong to (ADR-073, Sprint 93); unauthenticated responses are unchanged"
+            "description": "Browse active providers. AUTHENTICATION REQUIRED since Sprint 125 / ADR-095 (was public). Optional ?service_type. Each provider is annotated with shared_communities \u2014 the communities the provider and viewer both belong to, derived from live communities.members, never the JWT claim (ADR-073, Sprint 93)"
+          },
+          {
+            "method": "GET",
+            "path": "/providers/community/:communityId",
+            "description": "Providers reachable through one community (Sprint 125 / ADR-095). Requires an ACTIVE membership re-derived live from communities.members, not the JWT claim; a non-member gets 403 before the layer is queried. Enforces three communities.community_configs columns together: provider_services_enabled, a floor on reputation.trust_scores.score (user \u00d7 community, COALESCE to 0 so unknown standing fails closed), and provider_services_list (EMPTY MEANS ALL TYPES). A community that opted out or has no config row returns 200 with an empty array, never 404. Registered BEFORE GET /:providerId, which would otherwise capture the literal segment 'community'."
           },
           "/providers/my",
-          "/providers/:id",
+          {
+            "method": "GET",
+            "path": "/providers/:id",
+            "description": "Single provider with ride details + trust score. AUTHENTICATION REQUIRED since Sprint 125 / ADR-095 (was public)"
+          },
           "/collectives/my",
           "/collectives/:id/stats",
           "/providers/:id/availability",
@@ -547,8 +556,16 @@
           "/users/:userId/badges",
           "/feedback",
           "/reputation/provider-reviews",
-          "/reputation/provider-trust/:providerId",
-          "/reputation/provider-reviews/:providerId",
+          {
+            "method": "GET",
+            "path": "/reputation/provider-trust/:providerId",
+            "description": "Provider trust score with display_name, service_type and owner user_id. AUTHENTICATION REQUIRED since Sprint 125 / ADR-095 (was public) \u2014 leaving it open kept the provider directory anonymously enumerable through reputation-service after request-service was closed."
+          },
+          {
+            "method": "GET",
+            "path": "/reputation/provider-reviews/:providerId",
+            "description": "Reviews for a provider, including review text and reviewer_name. AUTHENTICATION REQUIRED since Sprint 125 / ADR-095 (was public) \u2014 this route returned the real names of members who left reviews to anonymous callers."
+          },
           "/reputation/network-metrics/:communityId",
           "GET /reputation/trust-config/:userId/:communityId",
           "PUT /reputation/trust-config/:userId/:communityId",

@@ -94,3 +94,41 @@ The score is calculated from member trust signals and updated periodically. You 
 **Welcome new members.** A short personal message to someone who just joined goes a long way.
 
 **Handle problems early.** Address issues before they affect the community's trust in each other.
+
+---
+
+## Provider Services
+
+Some neighbourhoods contain people who offer services for pay — rickshaw drivers, handypeople,
+tutors. Karmyq keeps that separate from the karma economy, but your community can choose to surface
+those neighbours to its members.
+
+**To turn it on:** Stewardship → Providers → *Enable provider services*.
+
+This adds a **Providers** section to your community's Home for every member. It lists members who
+have registered a provider profile and who meet two conditions you control.
+
+### Minimum personal standing
+
+A slider from 0 to 100. This is the member's **personal standing in your community** — how they
+have shown up here — not their star rating as a provider. The two are different scores.
+
+> ⚠️ **Someone with no standing here yet counts as 0.** Any value above 0 hides brand-new members
+> until they build a track record. Set 0 (the default) if you want every provider in your community
+> to appear.
+
+### Service types allowed
+
+Pick the service types your community wants to surface. **Selecting nothing means every type is
+allowed** — this is the default, and it is not the same as "none". Use *Clear restriction* to
+return to allowing all types.
+
+### What enabling does NOT do
+
+- It does not create provider profiles. Members register their own.
+- It does not remove anyone from the platform-wide directory. Turning the switch off hides the
+  section in your community; it does not touch anyone's profile or their visibility elsewhere.
+- It does not gate who may register as a provider anywhere. Your settings control **reach into
+  your community**, nothing more.
+
+Members who are not part of your community cannot see this section at all.

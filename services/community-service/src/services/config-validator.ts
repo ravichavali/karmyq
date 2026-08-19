@@ -5,6 +5,8 @@
  * Used by API endpoints before persisting configs to the database.
  */
 
+import { PROVIDER_SERVICE_TYPES } from '@karmyq/shared/schemas/providers';
+
 export interface ValidationError {
   field: string;
   message: string;
@@ -58,6 +60,12 @@ export interface CommunityConfig {
   feed_weight_prior_interaction?: number;
   feed_weight_recency?: number;
 
+  // Provider Services (Sprint 125 / ADR-095 — enforced by request-service's reach gate)
+  provider_services_enabled?: boolean;
+  provider_min_personal_trust_score?: number;
+  /** Allowed service types. An EMPTY array means ALL types, not none. */
+  provider_services_list?: string[];
+
   // Metadata
   template_source?: string;
 }
@@ -77,6 +85,34 @@ export function validateCommunityConfig(config: Partial<CommunityConfig>): Valid
         field: 'member_cap',
         message: 'member_cap must be between 10 and 150',
       });
+    }
+  }
+
+  // Provider Services List Validation (Sprint 125 / ADR-095)
+  //
+  // This column was inert until Sprint 125, so an unrecognised value was harmless. It is now the
+  // service-type allowlist the provider reach gate filters on, matched against
+  // `requests.provider_profiles.service_type`. A typo like "trades" would otherwise be accepted
+  // with a 200 and silently reduce the community's provider layer to nobody — the steward would
+  // see an empty tab and no reason for it.
+  //
+  // NOTE: an EMPTY array is valid and means "all service types", not "none".
+  if (config.provider_services_list !== undefined) {
+    if (!Array.isArray(config.provider_services_list)) {
+      errors.push({
+        field: 'provider_services_list',
+        message: 'provider_services_list must be an array (an empty array means all service types)',
+      });
+    } else {
+      const unknown = config.provider_services_list.filter(
+        (type) => !PROVIDER_SERVICE_TYPES.includes(type as never)
+      );
+      if (unknown.length > 0) {
+        errors.push({
+          field: 'provider_services_list',
+          message: `provider_services_list contains unknown service type(s): ${unknown.join(', ')}. Valid types: ${PROVIDER_SERVICE_TYPES.join(', ')}`,
+        });
+      }
     }
   }
 
