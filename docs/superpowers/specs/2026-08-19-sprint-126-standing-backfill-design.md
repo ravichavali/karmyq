@@ -1,7 +1,7 @@
 # Sprint 126: Honest Standing Backfill — Design Spec
 
 **Date**: 2026-08-19
-**Status**: Review — second-round corrections incorporated
+**Status**: Approved
 **Version**: v11.45.0 → v11.46.0
 **Sprint Branch**: `feature/sprint-126-standing-backfill`
 
