@@ -1,7 +1,7 @@
 # Sprint 126: Honest Standing Backfill — Design Spec
 
 **Date**: 2026-08-19
-**Status**: Approved
+**Status**: Review — second-round corrections incorporated
 **Version**: v11.45.0 → v11.46.0
 **Sprint Branch**: `feature/sprint-126-standing-backfill`
 
@@ -25,7 +25,7 @@ the production vocabulary (`services/reputation-service/src/services/karmaServic
 The two paths also diverge on milestone schedule, milestone scope, and community selection. The
 fixture uses 1/5/10/25 milestones, counts them platform-wide per helper, and allocates over the
 entire static `config.communityConfigs` list with no cap
-(`packages/shared/src/projections/completedExchange.ts:79-83,152,193-218`). Production uses
+(`packages/shared/src/projections/completedExchange.ts:79-83,151,193-218`). Production uses
 1/10/50/100 milestones scoped to `(helper, community)` and resolves at most three shared request
 communities (`services/reputation-service/src/services/karmaService.ts:31,67-92,170-209`). The
 curated core therefore looks populated in storage but is invisible or inconsistent to standing.
@@ -75,7 +75,7 @@ Sprint 126 deliberately does not fabricate retroactive ratings.
 | A missing provider-standing row is treated as 0. | `services/request-service/src/services/providerReachService.ts:95-128` |
 | ADR-095 explicitly deferred that inconsistency. | `docs/adr/ADR-095-authenticated-provider-directory-and-reach-gated-standing.md:74-84` |
 | Live projection writes prose reason labels. | `services/reputation-service/src/services/karmaService.ts:152-205` |
-| Curated projection differs in labels, milestone schedule/scope, and uncapped static community allocation. | `packages/shared/src/projections/completedExchange.ts:79-83,152,193-218` |
+| Curated projection differs in labels, milestone schedule/scope, and uncapped static community allocation. | `packages/shared/src/projections/completedExchange.ts:79-83,151,193-218` |
 | Trust metrics use karma records as their source of truth. | `services/reputation-service/src/database/trustMetricsDb.ts:9-23` |
 | The live subscriber invokes `awardKarmaForCompletedMatch` directly. | `services/reputation-service/src/events/subscriber.ts:45-60` |
 | Activity and karma rows have match provenance but no durable projection uniqueness. | `infrastructure/postgres/init.sql:2006-2012,2118-2125` |
@@ -156,10 +156,13 @@ projector. For one match it will:
 3. resolve shared request communities using the production cap of 3 and a stable community-ID
    tie-breaker;
 4. allocate karma with the production `allocateKarma` function;
-5. insert canonical helper/requester and earned bonus rows with `ON CONFLICT DO NOTHING`;
-6. insert canonical activity rows with the same conflict behavior;
-7. recalculate affected trust scores through `updateTrustScore`; and
-8. commit all effects for that match together.
+5. insert canonical helper/requester rows with `ON CONFLICT DO NOTHING`;
+6. derive the helper's per-community milestone rank from canonical `Provided help` history ordered
+   by `(completed_at, match_id)` at or before this match—not from the current unbounded row count;
+7. insert any earned canonical bonus row with the same conflict behavior;
+8. insert canonical activity rows with the same conflict behavior;
+9. recalculate affected trust scores through `updateTrustScore`; and
+10. commit all effects for that match together.
 
 Historical calls pass `matches.completed_at` as the occurrence time. Live calls default to the
 event's completion time or the database completion timestamp. No replayed history is stamped as
@@ -183,16 +186,23 @@ Dry-run output includes:
 - PDX provider eligibility at floors 1, 20, 40, and 60; and
 - the exact command required to apply.
 
-Apply processes matches oldest-first in bounded batches and prints durable progress. Historical
-community priority uses only karma with `created_at < match.completed_at`, followed by the stable
-community-ID tie-breaker. It never ranks a historical match using karma written at or after that
-match, so its selected community set cannot move under an interrupted/resumed replay. Because each
-match commits atomically and each output has durable uniqueness, interruption requires no special
-cleanup: rerunning the same command resolves the same per-match community set and skips existing
-projection identities.
+Apply processes matches oldest-first in bounded batches and prints durable progress. Every match
+defines one replay key, `asOf = (match.completed_at, match.id)`. Historical community priority uses
+only canonical karma whose source-match ordering key is lexicographically strictly before `asOf`
+(`completed_at` is earlier, or the timestamp is equal and the match ID is lower), followed by the
+stable community-ID tie-breaker. Milestone rank uses the same `asOf` key but includes canonical
+helper history through `asOf`, so the current match occupies its chronological position. Therefore
+rerunning an early match after later rows exist cannot attach a later milestone to the early match,
+and pre-existing curated rows are counted at their true chronological position. For a live
+completion, `asOf` is the stored `(completion time, match ID)` key, which reduces to current live
+behavior. Because each match commits atomically and each output has durable uniqueness, interruption
+requires no special cleanup: rerunning the same command resolves the same per-match community set
+and milestone rank, then skips existing projection identities.
 
 After match projection, the CLI invokes `updateTrustScore` for every active membership pair. Pairs
 without canonical history receive score 0, ensuring stored-row and missing-row semantics agree.
+This is the deliberate temporal exception: cached standing reflects all present canonical history;
+projector decisions about where and what to write reflect only history as of the source match.
 
 ---
 
@@ -202,15 +212,6 @@ One migration will perform the foundation repair in this order:
 
 ```sql
 -- Conceptual DDL; implementation must be collision-safe and idempotent.
-UPDATE reputation.karma_records
-SET reason = CASE reason
-  WHEN 'help_provided' THEN 'Provided help'
-  WHEN 'help_received' THEN 'Received help'
-  WHEN 'first_help_bonus' THEN 'First help in community'
-  ELSE reason
-END
-WHERE reason IN ('help_provided', 'help_received', 'first_help_bonus');
-
 ALTER TABLE reputation.trust_scores
   ALTER COLUMN score SET DEFAULT 0,
   ALTER COLUMN score SET NOT NULL;
@@ -244,14 +245,22 @@ The incompatible fixture milestone values are:
 The matching 50-point values belong to different counts (`milestone_help_10` versus production's
 50-exchange milestone) and are not aliases.
 
-Before normalizing reasons, the migration must rank any old/new vocabulary collisions across all
-rows, retain one canonical row deterministically, and report/delete only exact projection
-duplicates. Fixture-only milestone labels (`milestone_help_5`, `milestone_help_10`, and
-`milestone_help_25`) are not aliases for production milestones and must not be renamed as if they
-were. Preflight identifies them by completed-match provenance; apply removes/replaces only those
-derived rows through the canonical projector. It must never equate different point amounts or
-unrelated reasons silently. The data repair is dry-run against a disposable PostgreSQL 15 database
-and audited read-only against demo before deployment.
+The migration does **not** rename the 174 curated rows in place. Operator preflight first proves
+that each legacy row's `related_entity_id` identifies a completed match with a non-null completion
+timestamp. For every attributable match, apply removes its fixture-derived karma rows and rebuilds
+them inside that match's canonical projection transaction. This produces the right vocabulary,
+cap-3 community set, per-community milestones, and chronological bonuses from source facts instead
+of preserving fixture artifacts.
+
+If preflight finds a legacy row that cannot be attributed to a completed match, it must not delete
+it. The report identifies it explicitly; apply retains its points and timestamps through a
+collision-safe legacy-to-canonical normalization, resolving only exact projection duplicates. The
+fixture-only milestone labels (`milestone_help_5`, `milestone_help_10`, and `milestone_help_25`)
+are never aliases for production milestones. The repair must never equate different point amounts
+or unrelated reasons silently.
+
+The schema and data repair are dry-run against a disposable PostgreSQL 15 database and audited
+read-only against demo before deployment.
 
 `infrastructure/postgres/init.sql` is regenerated from the migration chain, never hand-edited
 (`infrastructure/claude.md:14-24`).
@@ -283,7 +292,8 @@ boundary (`services/request-service/src/services/providerReachService.ts:95-128`
   complete match.
 - **Retry-safe outputs.** Database uniqueness, not an in-memory set or report file, is the arbiter.
 - **Deterministic order.** Historical matches sort by `completed_at`, then match ID; community
-  selection ranks only karma strictly older than the match, then adds a stable ID tie-breaker.
+  selection ranks only canonical history lexicographically strictly before the match's `asOf` key,
+  then adds a stable ID tie-breaker; milestone rank counts canonical helper history through `asOf`.
 - **Anomalous history fails closed.** Missing participants, request communities, completion times,
   or conflicting existing rows abort preflight. The historical CLI does not use the live fallback
   that selects an arbitrary request community.
@@ -311,8 +321,6 @@ New tests begin in the changed workspace's `tests/tdd/` tier and promote only wh
 ### Migration integration
 
 - new trust rows default to 0 and reject null scores;
-- legacy reasons normalize to canonical values;
-- mixed old/new rows deduplicate without losing conflicting data;
 - karma/activity uniqueness rejects duplicate projection identities;
 - migration is idempotent and generated `init.sql` converges;
 - fusion of two communities carrying the same match succeeds and retains one row per canonical
@@ -321,8 +329,14 @@ New tests begin in the changed workspace's `tests/tdd/` tier and promote only wh
 
 ### Reputation projector
 
-- exact production allocation for one and multiple communities;
+- exact production allocation for one, three, and more-than-three candidate communities, including
+  cap selection (synthetic coverage is mandatory because all audited demo matches resolve to one);
 - first-help and 10/50/100 milestones in chronological order;
+- rerunning match 1 after a helper already has exactly 10/50/100 completed helps adds no milestone
+  to the earlier match;
+- pre-existing later rows do not affect an earlier match's milestone rank;
+- two matches with the same `completed_at` use match-ID ordering consistently for both community
+  priority (strictly before `asOf`) and milestone rank (through `asOf`);
 - original completion timestamps on karma and activity;
 - same match twice changes nothing;
 - concurrent duplicate delivery changes nothing;
@@ -334,7 +348,10 @@ New tests begin in the changed workspace's `tests/tdd/` tier and promote only wh
 
 - dry-run writes zero rows;
 - apply projects a fixture database and recalculates every active membership;
-- a run killed mid-batch resumes with the identical community set for every match and no duplicates;
+- attributable legacy curated rows are removed and canonically reprojected; unattributable rows are
+  reported and normalized without losing points/timestamps;
+- a run killed mid-batch resumes with the identical community set and milestone rank for every
+  match, with no duplicates;
 - second dry-run/apply reports zero writes;
 - malformed or ambiguous history blocks before mutation;
 - reports expose source coverage, score distribution, and provider-floor eligibility.
@@ -384,15 +401,17 @@ No onboarding workflow changes are required because there is no new user action.
 1. **One projector, not equivalent-looking copies.** Live events, curated reset data, and historical
    backfill must share canonical reason and milestone policy. An equivalence claim needs a test that
    can fail.
-2. **Foundation before backfill.** Change `trust_scores.score` to `DEFAULT 0 NOT NULL` and normalize
-   legacy reasons before projecting history.
+2. **Foundation before backfill.** Change `trust_scores.score` to `DEFAULT 0 NOT NULL`; reproject
+   attributable legacy rows from completed-match facts rather than renaming them in place.
 3. **Historical time is data.** Use `matches.completed_at`; stamping replayed rows with `NOW()` makes
    decay and recent-activity output falsely rich.
 4. **Idempotency lives in PostgreSQL.** Per-match transactions and unique projection identities are
    required; a CLI checkpoint file or `SELECT`-then-insert check is insufficient.
 5. **Oldest first.** First-help and milestone outcomes depend on chronological history. Sort by
-   completion timestamp and match ID. Historical community priority may read only karma strictly
-   older than the match; current/future replay writes must not change an earlier match's selection.
+   completion timestamp and match ID. Define one `asOf = (completed_at, match_id)` key. Historical
+   community priority may read only canonical history lexicographically strictly before `asOf`;
+   milestone rank may count canonical helper history through `asOf`. Current/future replay writes
+   must change neither result.
 6. **No fabricated feedback.** Demo currently has no feedback rows. Keep quality neutral; Sprint 127
    may create future ratings only through ordinary authenticated workflows.
 7. **Backfill only standing side effects.** Do not replay badges, provider metrics, notifications,
@@ -409,3 +428,7 @@ No onboarding workflow changes are required because there is no new user action.
     simulator can add matches after this spec's 2026-08-19 audit.
 13. **Audit every writer before adding uniqueness.** Fusion and fission karma copies must use
     `ON CONFLICT DO NOTHING`, with shared-match regression coverage, before the indexes land.
+14. **Every projector predicate is as-of.** Community selection, milestone eligibility, and any
+    future write decision must be a function only of stored history as of the match plus the match
+    itself—never current table state. `updateTrustScore` is the deliberate exception because its
+    cache is supposed to reflect the present.

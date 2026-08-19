@@ -8,8 +8,10 @@
 >
 > **Sprint 126 design direction is approved.** Branch `feature/sprint-126-standing-backfill` was
 > cut from `origin/master` at `f1197a17`. The maintainer's first written-spec review found five
-> projection/writer gaps; the corrected spec now covers them and is awaiting re-review. The
-> implementation plan and execution-ready handoff must not be written until that review passes.
+> projection/writer gaps. The second review approved the architecture but found one remaining
+> current-state milestone predicate; the spec now applies the same as-of invariant to community
+> selection and milestone rank and is awaiting final approval. The implementation plan and
+> execution-ready handoff must not be written until that review passes.
 
 ## Sprint goal
 
