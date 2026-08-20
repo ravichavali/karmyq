@@ -1,4 +1,4 @@
-# Sprint 126 — Honest Standing Backfill (Tasks 1-6 of 14 done)
+# Sprint 126 — Honest Standing Backfill (Tasks 1-7 of 14 done)
 
 > ## State as of 2026-08-20
 >
@@ -6,8 +6,8 @@
 > smoke-tested on demo. Archived at
 > [`archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md`](archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md).
 >
-> **Sprint 126 is mid-execution on `feature/sprint-126-standing-backfill`.** Tasks 1-6 are
-> committed and green; Tasks 7-14 are not started. Nothing is pushed, no PR is open, and the demo
+> **Sprint 126 is mid-execution on `feature/sprint-126-standing-backfill`.** Tasks 1-7 are
+> complete and green; Task 7 is staged as this commit. Nothing is pushed, no PR is open, and the demo
 > database is UNTOUCHED — the version bump to v11.46.0 is still pending (Task 11).
 
 ## Progress
@@ -20,7 +20,9 @@
 | 4. Transactional standing projector | ✅ done | `cb94f514` |
 | 5. Live event boundary | ✅ done | `7939a082` |
 | 6. Curated fixture convergence | ✅ done | `00bb1549` |
-| 7-9. Backfill preflight, apply, operator CLI | ⬜ next | — |
+| 7. Read-only standing preflight | ✅ done | this commit |
+| 8. Bounded apply and legacy repair | ⬜ next | — |
+| 9. Operator CLI | ⬜ | — |
 | 10-11. ADRs, docs, CONTEXT, registry, version bump | ⬜ | — |
 | 12-13. SDLC gates, final verification, handoff | ⬜ | — |
 | 14. Merge, deploy, separately authorized demo apply | ⬜ | — |
@@ -34,10 +36,10 @@ root policy 32, schema integration 12 against real PostgreSQL 15.15.
 1. `git checkout feature/sprint-126-standing-backfill` (already there; tree clean except
    `docs/IDEAS.md`).
 2. Open the plan: `docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md`.
-3. Start at **Task 7** (read-only standing preflight). Tasks 7-9 need no database — they are
+3. Start at **Task 8** (bounded apply and legacy repair). Tasks 8-9 need no database — they are
    mocked; Task 11 needs the disposable PostgreSQL recipe below.
-4. `/simplify` is still owed for Tasks 7 and 8 (maintainer chose: substantial tasks only, plus one
-   final branch-diff pass). `/code-review` and `/security-review` are Task 12.
+4. Task 7's simplify pass is complete; `/simplify` remains owed for Task 8 and the final branch-diff
+   pass. `/code-review` and `/security-review` are Task 12.
 
 ## ⚠️ Decisions taken during execution that differ from the written plan
 

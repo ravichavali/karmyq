@@ -607,6 +607,15 @@ describe('projectCompletedMatchStanding', () => {
       expect(sql).toMatch(/cm_req\.user_id = \$2 AND cm_req\.status = 'active'/);
       expect(sql).toMatch(/cm_help\.user_id = \$3 AND cm_help\.status = 'active'/);
     });
+
+    it('reads the typed enabled_request_types column that exists in community_configs', async () => {
+      arm();
+      await project();
+
+      const sql = candidateQuerySql()!;
+      expect(sql).toMatch(/cc\.enabled_request_types\s+AS enabled_request_types/i);
+      expect(sql).not.toMatch(/cc\.config\s*->/i);
+    });
   });
 
   describe('community fallback boundary', () => {

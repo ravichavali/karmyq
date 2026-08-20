@@ -132,7 +132,7 @@ async function loadCandidates(
     `SELECT rc.community_id,
             COALESCE(cc.karma_split_helper, 60)    AS karma_split_helper,
             COALESCE(cc.karma_split_requestor, 40) AS karma_split_requestor,
-            cc.config->'enabled_request_types'     AS enabled_request_types,
+            cc.enabled_request_types               AS enabled_request_types,
             COALESCE(prior.total, 0)               AS prior_helper_karma,
             COALESCE(prior_helps.count, 0)         AS helper_helps_before
      FROM requests.request_communities rc
@@ -195,7 +195,7 @@ async function loadFallbackCandidate(
     `SELECT rc.community_id,
             COALESCE(cc.karma_split_helper, 60)    AS karma_split_helper,
             COALESCE(cc.karma_split_requestor, 40) AS karma_split_requestor,
-            cc.config->'enabled_request_types'     AS enabled_request_types
+            cc.enabled_request_types               AS enabled_request_types
      FROM requests.request_communities rc
      LEFT JOIN communities.community_configs cc ON cc.community_id = rc.community_id
      WHERE rc.request_id = $1

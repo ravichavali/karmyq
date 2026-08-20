@@ -5,6 +5,8 @@
 
 ## Recent Changes
 
+- **2026-08-20 (Sprint 126 — standing preflight, in progress)**: `standingBackfillService.analyzeStandingBackfill()` performs a SELECT-only, oldest-first replay of completed-match facts through the shared standing policy and reports legacy provenance, conflicting/duplicate projections, predicted karma/activity writes, zero-history memberships, trust-score distributions, interaction depth/breadth, and provider reach floors. It fails closed through `canApply` when source facts or stored canonical projections are unsafe. `feedbackDb.calculateWeightedAvgFeedback()` is now the pure ADR-039 weighting function shared by live refresh and preflight. The live projector and preflight read the typed `community_configs.enabled_request_types` column; the former `cc.config->...` expression referenced a column that does not exist.
+
 - **2026-06-18 (Sprint 106 — BUG-013 rating-write hardening, v11.14.0)**: `POST /reputation/feedback` previously accepted a rating from ANY authenticated user for ANY match, guarding only against double-submission per `(from_user_id, request_match_id)`. It now validates participation and lifecycle before `insertFeedback`: new `feedbackDb.getMatchParticipation(matchId)` (joins `requests.matches` → `requests.help_requests` → `requests.request_communities`, cross-schema, returns `{ requesterId, responderId, status, communityIds }`) drives five checks — 404 `MATCH_NOT_FOUND` (unknown match), 403 `NOT_A_PARTICIPANT` (caller is neither party), 400 `INVALID_RATEE` (`to_user_id` is not the counterparty), 409 `MATCH_NOT_COMPLETED` (match not yet `completed`), and 400 `INVALID_COMMUNITY` (body `community_id` is not one the match's request was posted to — prevents a participant attributing feedback/trust to an arbitrary community). The per-`(rater, match)` double-submission guard is unchanged, so both parties still rate independently. Test: `tests/tdd/sprint-106-feedback-constraints.test.ts`.
 
 - **2026-05-21 (Sprint 62 — Karma multipliers)**: `src/services/karmaAllocation.ts` — `allocateKarma()` now accepts optional `requestType?: string` parameter. Added `getRequestTypeMultiplier()` helper that reads `enabled_request_types` from `CommunityKarmaConfig` and returns the configured `karma_multiplier` (defaults to `1.0`). Extended `CommunityKarmaConfig` with optional `enabled_request_types?: RequestTypeConfig[]`. `karmaService.ts` — `getCommunityKarmaConfig()` now fetches `config->'enabled_request_types'` alongside existing columns. `awardKarmaForCompletedMatch()` now resolves `request_type` (from event payload or DB lookup) and passes it to `allocateKarma()`, so per-community multipliers are applied at match completion.
@@ -291,7 +293,7 @@ Defaults: `carry_factor = 0.40`, `carry_cap = 59`. Configurable via `trust_carry
 | `trust_carry_cap` | 59 | Max carried score |
 
 **Tuning surface:** `src/services/trustScoreStrategy.ts` — `computeTrustScore(inputs: TrustScoreInputs)`
-**Feedback weighting:** `src/database/feedbackDb.ts` — `getWeightedAvgFeedback(userId, communityId, halfLifeMonths=6)`
+**Feedback weighting:** `src/database/feedbackDb.ts` — pure `calculateWeightedAvgFeedback(rows, communityId, ...)`, used by both `getWeightedAvgFeedback(userId, communityId, halfLifeMonths=6)` and standing preflight
 **Depth/breadth metrics:** `src/database/trustMetricsDb.ts` — `getTrustMetrics(userId, communityId)`
 **Carry floor:** `src/database/trustCarryDb.ts` — `getMaxOtherCommunityScore(userId, targetCommunityId)`
 

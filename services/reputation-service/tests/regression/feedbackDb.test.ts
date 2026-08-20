@@ -8,7 +8,11 @@
 const mockQuery = jest.fn();
 jest.mock('../../src/database/db', () => ({ query: (...args: any[]) => mockQuery(...args) }));
 
-import { getBlendedAvgFeedback } from '../../src/database/feedbackDb';
+import {
+  calculateWeightedAvgFeedback,
+  getBlendedAvgFeedback,
+  getWeightedAvgFeedback,
+} from '../../src/database/feedbackDb';
 
 const mockFeedbackRow = (localAvg: string | null, globalAvg: string | null) => ({
   rows: [{ local_avg: localAvg, global_avg: globalAvg }],
@@ -75,5 +79,51 @@ describe('getBlendedAvgFeedback', () => {
       expect.stringContaining('feedback.feedback'),
       ['user-abc', 'community-xyz'],
     );
+  });
+});
+
+describe('ADR-039 recency-weighted feedback', () => {
+  const NOW = Date.parse('2026-08-20T00:00:00.000Z');
+  const sixMonthsAgo = new Date(NOW - 180 * 24 * 60 * 60 * 1000);
+  const longAgo = new Date(NOW - 60 * 30 * 24 * 60 * 60 * 1000);
+
+  it('returns null for no ratings and a local rating unchanged', () => {
+    expect(calculateWeightedAvgFeedback([], 'community-1', NOW)).toBeNull();
+    expect(calculateWeightedAvgFeedback([
+      { rating: '4.5', community_id: 'community-1', created_at: new Date(NOW) },
+    ], 'community-1', NOW)).toBe(4.5);
+  });
+
+  it('blends local and global recency-weighted averages', () => {
+    const score = calculateWeightedAvgFeedback([
+      { rating: 5, community_id: 'community-1', created_at: new Date(NOW) },
+      { rating: 1, community_id: 'community-2', created_at: sixMonthsAgo },
+    ], 'community-1', NOW);
+
+    // local=5; global=(5*1 + 1*0.5)/1.5; blend=70/30.
+    expect(score).toBeCloseTo(4.6);
+  });
+
+  it('floors the weight of very old ratings at 0.1', () => {
+    const score = calculateWeightedAvgFeedback([
+      { rating: 5, community_id: 'community-1', created_at: new Date(NOW) },
+      { rating: 1, community_id: 'community-2', created_at: longAgo },
+    ], 'community-with-no-local-ratings', NOW);
+
+    expect(score).toBeCloseTo((5 + 0.1) / 1.1);
+  });
+
+  it('keeps the live database wrapper behavior identical to the pure calculator', async () => {
+    const rows = [
+      { rating: '5', community_id: 'community-1', created_at: new Date() },
+      { rating: '3', community_id: 'community-2', created_at: new Date() },
+    ];
+    mockQuery.mockResolvedValue({ rows });
+
+    const live = await getWeightedAvgFeedback('user-1', 'community-1');
+    const pure = calculateWeightedAvgFeedback(rows, 'community-1');
+
+    expect(live).toBeCloseTo(pure!);
+    expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('ORDER BY created_at DESC'), ['user-1']);
   });
 });

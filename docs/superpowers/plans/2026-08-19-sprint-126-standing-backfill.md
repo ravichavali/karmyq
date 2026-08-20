@@ -66,6 +66,7 @@ all active memberships.
 | `services/reputation-service/src/database/db.ts` | Add async-context transaction routing and `withTransaction()` |
 | `services/reputation-service/src/services/karmaAllocation.ts` | Re-export the shared allocation contract for compatibility |
 | `services/reputation-service/src/services/karmaService.ts` | Delegate completion writes; retain trust reads and `updateTrustScore` |
+| `services/reputation-service/src/database/feedbackDb.ts` | Share the pure recency-weighted feedback calculation with dry-run analysis |
 | `services/reputation-service/src/utils/activityTracker.ts` | Required/idempotent activity writes with supplied occurrence time |
 | `services/reputation-service/src/events/subscriber.ts` | Use the transactional projector; keep non-standing side effects live-only |
 | `services/reputation-service/package.json` | Add `backfill:standing` |
@@ -656,7 +657,14 @@ git commit -m "feat: align curated standing with production policy"
 
 **Files:**
 - Create: `services/reputation-service/src/services/standingBackfillService.ts`
-- Create: `services/reputation-service/tests/tdd/sprint-126-standing-backfill.test.ts`
+- Create: `services/reputation-service/tests/regression/sprint-126-standing-backfill.test.ts`
+- Modify: `services/reputation-service/src/database/feedbackDb.ts`
+- Modify: `services/reputation-service/tests/regression/feedbackDb.test.ts`
+- Modify: `services/reputation-service/src/services/standingProjector.ts`
+- Modify: `services/reputation-service/tests/regression/sprint-126-standing-projector.test.ts`
+- Modify: `services/reputation-service/CONTEXT.md`
+- Modify: `docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md`
+- Modify: `.claude/handoff/CURRENT_HANDOFF.md`
 
 **Interfaces:**
 - Consumes: shared pure replay policy and production `computeTrustScore`.
@@ -669,12 +677,15 @@ git commit -m "feat: align curated standing with production policy"
 
 ```typescript
 export interface StandingBackfillReport {
+  canApply: boolean;
   completedMatches: number; eligibleMatches: number; alreadyProjectedMatches: number;
   anomalies: Array<{ code: string; matchId?: string; detail: string }>;
   activeMembershipPairs: number; sourcedPairs: number; zeroHistoryPairs: number;
   legacy: { attributableRows: number; unattributableRows: number; exactDuplicates: number };
   predicted: { karmaRows: number; activityRows: number; trustRowsEvaluated: number };
   scoreBuckets: Record<'0' | '1-19' | '20-39' | '40-59' | '60-79' | '80-100', number>;
+  interactionDepthBuckets: Record<'0' | '1' | '2-3' | '4+', number>;
+  interactionBreadthBuckets: Record<'0' | '1' | '2-3' | '4+', number>;
   providerEligibility: Record<'1' | '20' | '40' | '60', number>;
 }
 ```
@@ -689,7 +700,8 @@ export interface StandingBackfillReport {
 
 - [ ] **Step 4: Compute derived distributions from projected facts.** Evaluate each active
   membership, including zero-history pairs, with production score math and real feedback/config
-  facts. Do not tune or clamp beyond the existing calculator.
+  facts. Extract the pure row-weighting portion of `getWeightedAvgFeedback()` so dry-run and live
+  score refresh use one calculation; do not tune or clamp beyond the existing calculator.
 
 - [ ] **Step 5: Fail closed on anomalies.** The report may be printed, but `canApply` is false when
   required match facts are missing, legacy provenance is ambiguous, or an existing canonical row
@@ -698,9 +710,11 @@ export interface StandingBackfillReport {
 - [ ] **Step 6: Verify and commit.**
 
 ```bash
-cd services/reputation-service && npm run test:tdd -- --runInBand sprint-126-standing-backfill
-cd ../.. && node scripts/promote-tdd-tests.js
-git add services/reputation-service/src/services/standingBackfillService.ts services/reputation-service/tests/regression/sprint-126-standing-backfill.test.ts
+cd services/reputation-service
+npx jest tests/regression/sprint-126-standing-backfill.test.ts tests/regression/sprint-126-standing-projector.test.ts tests/regression/feedbackDb.test.ts --runInBand
+npx tsc --noEmit
+cd ../.. && npm run feedback:check
+git add .claude/handoff/CURRENT_HANDOFF.md docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md services/reputation-service/CONTEXT.md services/reputation-service/src/database/feedbackDb.ts services/reputation-service/src/services/standingBackfillService.ts services/reputation-service/src/services/standingProjector.ts services/reputation-service/tests/regression/feedbackDb.test.ts services/reputation-service/tests/regression/sprint-126-standing-backfill.test.ts services/reputation-service/tests/regression/sprint-126-standing-projector.test.ts
 git commit -m "feat: add read-only standing backfill preflight"
 ```
 
@@ -717,7 +731,13 @@ git commit -m "feat: add read-only standing backfill preflight"
 - Produces: `applyStandingBackfill({ batchSize }): Promise<StandingBackfillReport>`.
 
 ```typescript
-export interface StandingBackfillApplyOptions { batchSize: number }
+export interface StandingBackfillProgress {
+  completedBatches: number; completedMatches: number; lastCommittedMatchId: string;
+}
+export interface StandingBackfillApplyOptions {
+  batchSize: number;
+  onProgress?: (progress: StandingBackfillProgress) => void;
+}
 export function applyStandingBackfill(
   options: StandingBackfillApplyOptions,
 ): Promise<StandingBackfillReport>;
