@@ -19,6 +19,7 @@
 import type { PoolClient } from 'pg';
 import {
   projectCompletedExchanges,
+  DEFAULT_KARMA_POOL,
   type CommunityProjectionConfig,
   type CompletedExchangeEvent,
 } from '@karmyq/shared';
@@ -54,7 +55,6 @@ export function toDbRequestStatus(lifecycle: RequestLifecycle): string {
 const DEFAULT_MATCH_COMPLETED_WEIGHT = 10.0;
 const DEFAULT_KARMA_SPLIT_HELPER = 60;
 const DEFAULT_KARMA_SPLIT_REQUESTER = 40;
-const DEFAULT_BASE_KARMA_POOL = 100;
 const DEFAULT_STABILITY_GROWTH_RATE = 0.2;
 
 const IDENT = /^[a-z_]+\.[a-z_]+$/;
@@ -256,9 +256,16 @@ async function insertProjections(client: PoolClient, baseline: CompiledDemoBasel
       karma_split_helper: DEFAULT_KARMA_SPLIT_HELPER,
       karma_split_requestor: DEFAULT_KARMA_SPLIT_REQUESTER,
     }];
-    const projection = projectCompletedExchanges(events, {
+    // Declare the exchange's actual reach explicitly. Events are grouped by their single request
+    // community, so this is the same set the default would produce — stated rather than inferred,
+    // so a future change to the grouping cannot silently widen who gets paid.
+    const scopedEvents = events.map(event => ({
+      ...event,
+      eligibleCommunityIds: event.eligibleCommunityIds ?? [communityId],
+    }));
+    const projection = projectCompletedExchanges(scopedEvents, {
       stabilityGrowthRate: DEFAULT_STABILITY_GROWTH_RATE,
-      basePool: DEFAULT_BASE_KARMA_POOL,
+      basePool: DEFAULT_KARMA_POOL,
       communityConfigs,
     });
 
@@ -289,8 +296,11 @@ async function insertProjections(client: PoolClient, baseline: CompiledDemoBasel
       // The projection carries the exchange's semantic key in relatedEntityId; map it back to the
       // completed match's UUID so the value is valid for the UUID column.
       await client.query(
+        // ON CONFLICT DO NOTHING: uq_karma_match_projection (Sprint 126) is now the authoritative
+        // identity for these rows, and a reset re-seeding the same exchange must be a no-op.
         `INSERT INTO reputation.karma_records (user_id, community_id, points, reason, related_entity_id, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT DO NOTHING`,
         [record.userId, record.communityId, record.points, record.reason, exchangeMatchId(record.relatedEntityId), record.createdAt],
       );
     }

@@ -1,4 +1,7 @@
-import { allocateKarma, CommunityKarmaConfig } from '../../src/services/karmaAllocation';
+import {
+  allocateCompletedMatchKarma as allocateKarma,
+  type CommunityKarmaConfig,
+} from '@karmyq/shared';
 
 function totalPoints(allocations: ReturnType<typeof allocateKarma>): number {
   return allocations.reduce((sum, a) => sum + a.helperPoints + a.requesterPoints, 0);

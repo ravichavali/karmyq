@@ -237,9 +237,9 @@ Karma is awarded via a **fixed-pool model** — a total of `BASE_KARMA_POOL` poi
 | 50 Exchanges | 50 | Completing 50 help exchanges |
 | 100 Exchanges | 100 | Completing 100 help exchanges |
 
-**Tuning surface:** `src/services/karmaAllocation.ts` — `allocateKarma(configs, totalPool, requestType?)`
+**Tuning surface (Sprint 126 / ADR-096):** `@karmyq/shared` `src/projections/completedMatchStanding.ts` — `allocateCompletedMatchKarma(configs, totalPool, requestType?)`. The reputation-service `karmaAllocation.ts` shim was deleted once its importers moved; live delivery, the curated fixture, and historical replay now share one implementation.
 **Request type multipliers:** Per-community multipliers read from `CommunityKarmaConfig.enabled_request_types[].karma_multiplier`. Default: 1.0 (no change). Applied per community before distribution.
-**Configuration defaults:** `src/services/karmaService.ts` — `KARMA_DEFAULTS`
+**Configuration defaults:** `@karmyq/shared` — `COMPLETED_MATCH_REASONS`, `COMPLETED_MATCH_MILESTONES`, `MAX_COMMUNITIES_PER_KARMA_AWARD`, `DEFAULT_KARMA_POOL`. The service-local `KARMA_DEFAULTS` block was removed in Sprint 126; it duplicated these byte-for-byte and nothing could fail if the two drifted.
 
 ## Trust Score Calculation
 

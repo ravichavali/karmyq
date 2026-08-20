@@ -196,8 +196,8 @@ function getRequestTypeMultiplier(config: CommunityKarmaConfig, requestType?: st
  * largest-remainder rounding guarantees the integer awards sum EXACTLY to the pool — so being in
  * three communities never awards more total karma than being in one.
  *
- * This is the single implementation; `reputation-service/karmaAllocation.ts` re-exports it under
- * its historical `allocateKarma` name so existing importers keep working.
+ * This is the single implementation. Sprint 126 deleted the `karmaAllocation.ts` compatibility
+ * shim once its last importers moved here.
  */
 export function allocateCompletedMatchKarma(
   configs: readonly CommunityKarmaConfig[],
