@@ -70,6 +70,51 @@ this sprint replaces is exactly what would create one. Queries are in the plan a
 Prefer a quiet window: `deploy.sh` applies migrations at step 6 but does not rebuild images until
 step 8, so the new indexes are live against OLD images for a few minutes.
 
+## 🔴 LIVE PRODUCTION BUG found on 2026-08-20 — already fixed by this sprint
+
+**Live karma awarding has been failing on demo for every completed match, and still is.**
+
+`karmaService.getCommunityKarmaConfig()` selected `config->'enabled_request_types'` from
+`communities.community_configs`. That table has **no `config` column** — `enabled_request_types` is
+a top-level `jsonb` column (`init.sql`), and no migration ever created a `config` column. So the
+query raises `42703` at parse time and `awardKarmaForCompletedMatch` throws on every single call.
+
+Confirmed in the live reputation-service logs, not inferred:
+
+```
+❌ Failed to award karma for match: <uuid> error: column "config" does not exist
+   code: '42703'
+   at async awardKarmaForCompletedMatch (karmaService.js:112:30)
+```
+
+20 occurrences in the last 72 hours alone. Read-only demo state agrees exactly:
+
+| Measure | Value |
+|---|---|
+| Completed matches | **7,860** (was 7,817 on 2026-08-19 — the simulator is still adding) |
+| `karma_records` with live-path prose reasons | **0** |
+| `karma_records` with fixture snake_case reasons | 174 |
+| `trust_scores` rows | **0** |
+| `activity_log` rows | **0** |
+
+The live path has never written a single karma record, activity row, or trust score. Introduced in
+Sprint 62 (2026-05-21, when the multiplier fetch was added); the Sprint 117 curated reset cleared
+whatever preceded it.
+
+**This deepens the sprint's premise.** The spec attributed the invisible-standing problem to a
+reason-vocabulary mismatch between the fixture and production. That is real, but the primary cause
+is that the production writer was crashing outright. Sprint 126 repairs it incidentally: Task 4
+replaced `getCommunityKarmaConfig` with the projector's own query, and Task 7-9's TDD corrected
+that query to read the real `enabled_request_types` column.
+
+**Consequences to carry:**
+- **Task 10/11:** ADR-096 and reputation `CONTEXT.md` "Recent Fixes" should record this as the true
+  root cause, not just the vocabulary drift. Worth a `docs/BUGS.md` entry marked fixed-in-S126.
+- **Task 14 smoke test:** after deploy, a live match completion will write karma **for the first
+  time**. Verify that directly — it is a behaviour change on demo independent of the backfill, and
+  the cleanest possible proof the repair works.
+- **The 7,860 figure** confirms why Task 14 Step 5 must re-measure rather than trust the audit.
+
 ## Known residual risk
 
 **Cap-3 selection has no validation from real demo data.** All 7,817 stored completed matches
