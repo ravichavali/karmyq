@@ -26,6 +26,8 @@ export interface RecordActivityOptions {
  * @param activityType - Type of activity (complete_request, complete_offer, etc.)
  * @param relatedEntityId - Optional ID of related entity (match_id, request_id, etc.)
  * @param options - Occurrence time and failure semantics (see RecordActivityOptions)
+ * @returns how many activity rows were written (0 when the type is not tracked, or on a replay
+ *          that the projection identity already covers)
  */
 export async function recordActivity(
   userId: string,
@@ -33,7 +35,7 @@ export async function recordActivity(
   activityType: string,
   relatedEntityId?: string,
   options: RecordActivityOptions = {}
-): Promise<void> {
+): Promise<number> {
   const occurredAt = options.occurredAt ?? new Date();
 
   try {
@@ -47,7 +49,7 @@ export async function recordActivity(
 
     if (!settingsResult.rows.length) {
       logger.warn('No community settings found, skipping activity tracking', { communityId });
-      return;
+      return 0;
     }
 
     const activityTypes = settingsResult.rows[0].activity_types || [];
@@ -55,12 +57,12 @@ export async function recordActivity(
     // Check if this activity type counts
     if (!activityTypes.includes(activityType)) {
       logger.debug('Activity type not tracked for this community', { activityType, communityId });
-      return;
+      return 0;
     }
 
     // Log the activity. ON CONFLICT DO NOTHING against uq_activity_match_projection makes
     // replaying an already-projected match a no-op rather than a 23505.
-    await query(
+    const inserted = await query(
       `INSERT INTO reputation.activity_log (user_id, community_id, activity_type, related_entity_id, created_at)
        VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT DO NOTHING`,
@@ -77,10 +79,12 @@ export async function recordActivity(
     );
 
     logger.info('Activity recorded', { userId, communityId, activityType, relatedEntityId });
+    return inserted.rowCount ?? 0;
   } catch (error) {
     logger.error('Error recording activity', error as Error, { userId, communityId, activityType });
     if (options.required) throw error;
     // Otherwise don't throw - activity logging shouldn't break the main flow
+    return 0;
   }
 }
 

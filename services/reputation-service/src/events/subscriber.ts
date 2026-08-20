@@ -1,5 +1,5 @@
 import Queue from 'bull';
-import { awardKarmaForCompletedMatch } from '../services/karmaService';
+import { awardKarmaForCompletedMatch } from '../services/standingProjector';
 import { checkAndAwardBadges } from '../services/badgeService';
 import { updateProviderCompletionRate } from '../services/providerTrustService';
 import { query } from '../database/db';
@@ -48,15 +48,19 @@ export async function initEventSubscriber() {
 
       // Extract payload from the event wrapper
       const { payload } = job.data;
-      const { match_id, request_id, requester_id, responder_id } = payload;
+      const { match_id, request_id, requester_id, responder_id, completed_at } = payload;
 
       try {
-        // Award karma to both parties
+        // Project standing for both parties. Sprint 126: this is now one atomic, idempotent
+        // transaction, so redelivering the same job re-writes nothing. `completed_at` is passed
+        // through when the payload carries it; otherwise the projector reads the stored value —
+        // never a fresh clock read, which would backdate history to the retry time.
         await awardKarmaForCompletedMatch({
           match_id,
           request_id,
           requester_id,
           responder_id,
+          completed_at,
         });
 
         console.log('✅ Karma awarded for match:', match_id);
