@@ -516,6 +516,20 @@ ORDER BY prior_helper_karma DESC, rc.community_id ASC
   snake-case event fields to the new input and run `projectCompletedMatchStanding(..., {mode:
   'live', allowRequestCommunityFallback: true})`.
 
+  **Also delete the duplicate constants** (added after the Task 2 `/simplify` pass — three of the
+  four reviewers raised this independently). `karmaService.ts:20-31` still defines
+  `KARMA_DEFAULTS.{FIRST_HELP, MILESTONE_10, MILESTONE_50, MILESTONE_100, BASE_KARMA_POOL}` and a
+  module-local `MAX_COMMUNITIES_PER_KARMA_AWARD = 3`, byte-identical to the shared constants. Import
+  them from `@karmyq/shared` and remove the local block, and make the SQL `LIMIT` at
+  `karmaService.ts:92` bind `MAX_COMMUNITIES_PER_KARMA_AWARD` rather than a literal. `HELP_PROVIDED`
+  and `HELP_RECEIVED` have no readers at all and go with them. **Without this the sprint ends having
+  ADDED a copy of the milestone schedule rather than removed one** — nothing can fail if the two
+  drift, because the Task 2 tests pin the shared constants against their own literals.
+
+  Replace the remaining reason string literals at the award sites (`karmaService.ts:157,166,182,194,
+  202,210`) with `COMPLETED_MATCH_REASONS.*`. The SQL comparison sites cannot import a TS constant
+  and stay as they are.
+
 - [ ] **Step 8: Verify and commit.**
 
 ```bash
@@ -609,6 +623,25 @@ cd tests && npx jest tdd/sprint-117-projection-equivalence.test.ts tdd/sprint-12
 git mv tests/tdd/sprint-126-standing-projection-equivalence.test.ts tests/regression/sprint-126-standing-projection-equivalence.test.ts
 cd tests && npx jest regression/sprint-126-standing-projection-equivalence.test.ts --runInBand
 ```
+
+- [ ] **Step 6b: Finish removing the duplicates the canonical policy replaced** (from the Task 2
+  `/simplify` pass).
+  - `completedExchange.ts:142-144` sorts with `a.completedAt.getTime() - b.completedAt.getTime() ||
+    a.key.localeCompare(b.key)` — the same rule `compareReplayKeys` owns, but `localeCompare` is
+    locale/ICU-collation sensitive and can order a pair differently from the canonical code-unit
+    comparison. Re-point it at `compareReplayKeys`.
+  - Derive the fixture's as-of values through the exported `isStrictlyBefore` / `isThrough`
+    predicates rather than restating the boundary, so the one axis no pure test can cross-check
+    (SQL derivation vs TS derivation) shares a single predicate.
+  - `ProjectedKarmaRecord` (`completedExchange.ts:58-65`) duplicates `PlannedStandingKarmaRow`
+    field-for-field; alias it.
+  - `baselineWriter.ts:57` defines a fourth `DEFAULT_BASE_KARMA_POOL = 100`; use `DEFAULT_KARMA_POOL`
+    (that file already imports from `@karmyq/shared`).
+  - **Delete `services/reputation-service/src/services/karmaAllocation.ts`.** After Tasks 4 and 6 its
+    only importers are two regression suites; re-point
+    `services/reputation-service/tests/regression/karmaAllocation.test.ts:1` and
+    `sprint-62-karma-multipliers.test.ts:8` at `@karmyq/shared` and remove the shim. No other task
+    deletes it, so without this step a 22-line file survives solely to preserve an old import path.
 
 - [ ] **Step 7: Commit.**
 

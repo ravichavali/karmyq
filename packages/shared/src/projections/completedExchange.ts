@@ -10,6 +10,8 @@
  * changes production reputation behaviour.
  */
 
+import type { CommunityAllocation } from './completedMatchStanding';
+
 export interface CompletedExchangeEvent {
   key: string;
   requesterId: string;
@@ -62,11 +64,8 @@ export interface ProjectedKarmaRecord {
   createdAt: Date;
 }
 
-export interface CommunityAllocation {
-  community_id: string;
-  helperPoints: number;
-  requesterPoints: number;
-}
+// Sprint 126: the allocation shape is owned by the canonical standing policy (imported above), not
+// duplicated here. The package root exports it from its owner, so this module does not re-export it.
 
 export interface CompletedExchangeProjection {
   trustEdges: ProjectedTrustEdge[];

@@ -29,6 +29,11 @@ module.exports = {
   // Module path mapping
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    // Sprint 126: resolve @karmyq/shared to SOURCE, matching the root tests config. Since the
+    // karma allocation policy moved into the shared package, running this tier directly (as the
+    // sprint plan's own commands do) would otherwise test a stale packages/shared/dist and go
+    // green against code that no longer exists. Turbo rebuilds shared first; a bare jest run does not.
+    '^@karmyq/shared$': '<rootDir>/../../packages/shared/index.ts',
   },
 
   // Remove setup files requirement
