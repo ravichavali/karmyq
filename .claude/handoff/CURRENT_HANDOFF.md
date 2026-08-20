@@ -1,23 +1,79 @@
-# Sprint 126 — Honest Standing Backfill (ready to execute)
+# Sprint 126 — Honest Standing Backfill (Tasks 1-6 of 14 done)
 
-> ## State as of 2026-08-19
+> ## State as of 2026-08-20
 >
 > **Sprint 125 shipped**: PR #209, squash **`f1197a17`**, version **v11.45.0**, deployed and
-> smoke-tested on demo. `master` and `origin/master` are both at `f1197a17`. Archived at
+> smoke-tested on demo. Archived at
 > [`archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md`](archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md).
 >
-> **Sprint 126 is approved and ready to execute.** Branch
-> `feature/sprint-126-standing-backfill` was cut from `origin/master` at `f1197a17`. The design
-> passed two written review rounds; its implementation plan incorporates the writer audit,
-> collision-safe legacy reprojection, cap-3 synthetic coverage, and one deterministic
-> `(completed_at, match_id)` replay key.
+> **Sprint 126 is mid-execution on `feature/sprint-126-standing-backfill`.** Tasks 1-6 are
+> committed and green; Tasks 7-14 are not started. Nothing is pushed, no PR is open, and the demo
+> database is UNTOUCHED — the version bump to v11.46.0 is still pending (Task 11).
 
-## Quick Start
+## Progress
 
-1. Read this handoff and the approved design spec.
-2. Check out the existing branch: `git checkout feature/sprint-126-standing-backfill`
-3. Open plan: `docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md`
-4. Run: `/execute-plan` (uses `superpowers:subagent-driven-development`)
+| Task | State | Commit |
+|---|---|---|
+| 1. Schema foundation + conflict-safe writers | ✅ done | `915a2590` |
+| 2. Canonical pure standing policy | ✅ done | `0dfca2ca` |
+| 3. Transaction routing + historical activity | ✅ done | `d89ca83f` |
+| 4. Transactional standing projector | ✅ done | `cb94f514` |
+| 5. Live event boundary | ✅ done | `7939a082` |
+| 6. Curated fixture convergence | ✅ done | `00bb1549` |
+| 7-9. Backfill preflight, apply, operator CLI | ⬜ next | — |
+| 10-11. ADRs, docs, CONTEXT, registry, version bump | ⬜ | — |
+| 12-13. SDLC gates, final verification, handoff | ⬜ | — |
+| 14. Merge, deploy, separately authorized demo apply | ⬜ | — |
+
+**Verification at Task 6:** full `npx turbo run test --concurrency=2` — **26/26 tasks, 0 failures**.
+`npm run feedback:check` clean. Suites: shared 171, simulation 99, reputation 192 (0 skipped),
+root policy 32, schema integration 12 against real PostgreSQL 15.15.
+
+## Resume here
+
+1. `git checkout feature/sprint-126-standing-backfill` (already there; tree clean except
+   `docs/IDEAS.md`).
+2. Open the plan: `docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md`.
+3. Start at **Task 7** (read-only standing preflight). Tasks 7-9 need no database — they are
+   mocked; Task 11 needs the disposable PostgreSQL recipe below.
+4. `/simplify` is still owed for Tasks 7 and 8 (maintainer chose: substantial tasks only, plus one
+   final branch-diff pass). `/code-review` and `/security-review` are Task 12.
+
+## ⚠️ Decisions taken during execution that differ from the written plan
+
+All four are recorded in full in the plan's Task 1 preamble and in the affected task steps.
+
+1. **Test placement.** New tests went to blocking tiers (`tests/integration/`,
+   `services/*/tests/regression/`), not root `tests/tdd/`. A root-`tdd/` test is never promoted and
+   never runs in CI, so it would have gated nothing.
+2. **The migration adds a NULL guard** (`UPDATE trust_scores SET score = 0 WHERE score IS NULL`)
+   before `SET NOT NULL`, which would otherwise abort. The approved DDL alone could not apply.
+3. **`init.sql` carries the semantic delta only, not a regeneration.** Regenerating on PostgreSQL
+   15.15 rewrites 78 lines of unrelated CHECK-constraint casts (the documented pg_dump-patch
+   sensitivity). Verified by loading the edited file into a fresh database and replaying the whole
+   migration chain through `ci-apply-full-schema.sh --drift-check`.
+4. **Fusion karma carry now SUMs rather than discarding.** A bare `ON CONFLICT DO NOTHING` there
+   caused silent, nondeterministic karma LOSS — production splits one match's pool across up to
+   three shared communities, so a user can hold the same `(reason, match)` identity in both origin
+   communities and fusing them collapses those onto one identity. Found by the migration-validator
+   review, not by the plan.
+
+## ⚠️ Carried into Task 14 (deploy)
+
+**Re-measure duplicate projection identities against demo immediately before deploying.** The
+migration's `CREATE UNIQUE INDEX` runs at deploy, BEFORE the backfill collapses duplicates, and
+`IF NOT EXISTS` does not tolerate duplicate data — it aborts the migration and rolls the deploy
+back. The audit found 0 on 2026-08-19, but that is a snapshot and the non-idempotent write path
+this sprint replaces is exactly what would create one. Queries are in the plan at Task 14 Step 3b.
+Prefer a quiet window: `deploy.sh` applies migrations at step 6 but does not rebuild images until
+step 8, so the new indexes are live against OLD images for a few minutes.
+
+## Known residual risk
+
+**Cap-3 selection has no validation from real demo data.** All 7,817 stored completed matches
+resolve to exactly one eligible community, so multi-community selection, the tie-break, and the cap
+are exercised only by synthetic tests. Task 14's human realism check structurally cannot confirm
+them.
 
 ## Sprint goal
 
@@ -28,14 +84,6 @@ surface shows rich, credible data without invented scores or retroactive feedbac
 **Design spec**: [`docs/superpowers/specs/2026-08-19-sprint-126-standing-backfill-design.md`](../../docs/superpowers/specs/2026-08-19-sprint-126-standing-backfill-design.md)
 
 **Implementation plan**: [`docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md`](../../docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md)
-
-## Execution checkpoint
-
-1. Start at Task 1: schema foundation plus fusion/fission writer safety.
-2. Use TDD and commit each independently reviewable task.
-3. Run the migration validator before committing migration/generated-schema changes.
-4. Do not run demo `--apply` during implementation. Deployment, backup, and separate data-operation
-   authorization are distinct gates in Task 14.
 
 ## ⚠️ Working-tree ownership
 
