@@ -1,4 +1,4 @@
-# Sprint 126 — Honest Standing Backfill (Tasks 1-8 of 14 done)
+# Sprint 126 — Honest Standing Backfill (Tasks 1-9 of 14 done)
 
 > ## State as of 2026-08-20
 >
@@ -6,8 +6,8 @@
 > smoke-tested on demo. Archived at
 > [`archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md`](archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md).
 >
-> **Sprint 126 is mid-execution on `feature/sprint-126-standing-backfill`.** Tasks 1-8 are
-> complete and green; Task 8 is staged as this commit. Nothing is pushed, no PR is open, and the demo
+> **Sprint 126 is mid-execution on `feature/sprint-126-standing-backfill`.** Tasks 1-9 are
+> complete and green; Task 9 is staged as this commit. Nothing is pushed, no PR is open, and the demo
 > database is UNTOUCHED — the version bump to v11.46.0 is still pending (Task 11).
 
 ## Progress
@@ -21,8 +21,8 @@
 | 5. Live event boundary | ✅ done | `7939a082` |
 | 6. Curated fixture convergence | ✅ done | `00bb1549` |
 | 7. Read-only standing preflight | ✅ done | `5ba3671c` |
-| 8. Bounded apply and legacy repair | ✅ done | this commit |
-| 9. Operator CLI | ⬜ next | — |
+| 8. Bounded apply and legacy repair | ✅ done | `2c0d3f42` |
+| 9. Operator CLI | ✅ done | this commit |
 | 10-11. ADRs, docs, CONTEXT, registry, version bump | ⬜ | — |
 | 12-13. SDLC gates, final verification, handoff | ⬜ | — |
 | 14. Merge, deploy, separately authorized demo apply | ⬜ | — |
@@ -36,8 +36,8 @@ root policy 32, schema integration 12 against real PostgreSQL 15.15.
 1. `git checkout feature/sprint-126-standing-backfill` (already there; tree clean except
    `docs/IDEAS.md`).
 2. Open the plan: `docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md`.
-3. Start at **Task 9** (dry-run-first operator CLI). Its implementation tests are mocked and need
-   no database; Task 11 needs the disposable PostgreSQL recipe below.
+3. Start at **Task 10** (ADRs, user guide, and landing documentation). Task 11 needs the disposable
+   PostgreSQL recipe below.
 4. Task 7 and Task 8 simplify passes are complete; the final branch-diff simplify pass remains.
    `/code-review` and `/security-review` are Task 12.
 

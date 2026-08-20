@@ -787,6 +787,9 @@ git commit -m "feat: apply standing backfill idempotently"
 - Create: `services/reputation-service/src/scripts/backfillStanding.ts`
 - Modify: `services/reputation-service/package.json`
 - Modify: `services/reputation-service/tests/regression/sprint-126-standing-backfill.test.ts`
+- Modify: `services/reputation-service/CONTEXT.md`
+- Modify: `docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md`
+- Modify: `.claude/handoff/CURRENT_HANDOFF.md`
 
 **Interfaces:**
 - Consumes: `analyzeStandingBackfill()` and `applyStandingBackfill()`.
@@ -811,20 +814,23 @@ git commit -m "feat: apply standing backfill idempotently"
 "backfill:standing": "ts-node src/scripts/backfillStanding.ts"
 ```
 
-- [ ] **Step 5: Prove default dry-run and argument safety.**
+- [ ] **Step 5: Prove default dry-run and argument safety.** The blocking regression injects the
+  service boundary so every invalid form is proven to exit before a database call. Live dry-run
+  invocation and table fingerprints remain part of Task 14's freshly measured preflight; Tasks 7-9
+  deliberately do not touch the demo database.
 
 ```bash
-npm --workspace karmyq-reputation-service run backfill:standing
-npm --workspace karmyq-reputation-service run backfill:standing -- --batch-size 25
-npm --workspace karmyq-reputation-service run backfill:standing -- --unknown
+cd services/reputation-service
+npx jest tests/regression/sprint-126-standing-backfill.test.ts --runInBand
 ```
 
-  Expected: first two exit 0 with no table fingerprint change; third exits 2 before connecting.
+  Expected: default and `--batch-size 25` call analysis only; unknown/bare/non-positive/non-integer
+  forms exit 2 before the injected database service boundary; only `--apply` calls apply.
 
 - [ ] **Step 6: Commit.**
 
 ```bash
-git add services/reputation-service/src/scripts/backfillStanding.ts services/reputation-service/package.json services/reputation-service/tests/regression/sprint-126-standing-backfill.test.ts
+git add .claude/handoff/CURRENT_HANDOFF.md docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md services/reputation-service/CONTEXT.md services/reputation-service/package.json services/reputation-service/src/scripts/backfillStanding.ts services/reputation-service/tests/regression/sprint-126-standing-backfill.test.ts
 git commit -m "feat: add standing backfill operator command"
 ```
 

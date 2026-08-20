@@ -17,6 +17,10 @@ import {
   applyStandingBackfill,
   type StandingBackfillReport,
 } from '../../src/services/standingBackfillService';
+import {
+  parseStandingBackfillArgs,
+  runStandingBackfillCli,
+} from '../../src/scripts/backfillStanding';
 
 jest.mock('../../src/database/db', () => ({
   query: jest.fn(),
@@ -552,5 +556,88 @@ describe('Sprint 126 standing backfill apply', () => {
     expect(insertedRows).toBe(0);
     expect(mockProject.mock.calls.map(([input]) => input)).toEqual(firstAttemptInputs);
     expect(mockProject.mock.results).toHaveLength(2);
+  });
+});
+
+describe('Sprint 126 standing backfill operator CLI', () => {
+  const report: StandingBackfillReport = {
+    canApply: true,
+    completedMatches: 2,
+    eligibleMatches: 2,
+    alreadyProjectedMatches: 0,
+    anomalies: [],
+    activeMembershipPairs: 4,
+    sourcedPairs: 3,
+    zeroHistoryPairs: 1,
+    legacy: { attributableRows: 3, unattributableRows: 1, exactDuplicates: 0 },
+    predicted: { karmaRows: 5, activityRows: 4, trustRowsEvaluated: 4 },
+    scoreBuckets: { '0': 1, '1-19': 2, '20-39': 1, '40-59': 0, '60-79': 0, '80-100': 0 },
+    interactionDepthBuckets: { '0': 4, '1': 0, '2-3': 0, '4+': 0 },
+    interactionBreadthBuckets: { '0': 1, '1': 2, '2-3': 1, '4+': 0 },
+    providerEligibility: { '1': 1, '20': 1, '40': 0, '60': 0 },
+  };
+
+  function cliDeps() {
+    return {
+      analyze: jest.fn().mockResolvedValue(report),
+      apply: jest.fn().mockResolvedValue(report),
+      log: jest.fn(),
+      error: jest.fn(),
+    };
+  }
+
+  it('defaults to analysis-only mode and prints the exact opt-in command', async () => {
+    const deps = cliDeps();
+
+    const exitCode = await runStandingBackfillCli([], deps);
+
+    expect(exitCode).toBe(0);
+    expect(deps.log).toHaveBeenNthCalledWith(1, '[standing-backfill] mode=dry-run batchSize=100');
+    expect(deps.analyze).toHaveBeenCalledTimes(1);
+    expect(deps.apply).not.toHaveBeenCalled();
+    expect(deps.log.mock.calls.flat().join('\n')).toContain(
+      'npm --workspace karmyq-reputation-service run backfill:standing -- --apply --batch-size 100',
+    );
+    expect(deps.log.mock.calls.flat().join('\n')).toContain('"providerEligibility"');
+  });
+
+  it('--apply is the only switch that calls the mutating service and prints progress', async () => {
+    const deps = cliDeps();
+    deps.apply.mockImplementation(async (options) => {
+      options.onProgress?.({ completedBatches: 1, completedMatches: 2, lastCommittedMatchId: MATCH_2 });
+      return report;
+    });
+
+    const exitCode = await runStandingBackfillCli(['--apply', '--batch-size', '25'], deps);
+
+    expect(exitCode).toBe(0);
+    expect(deps.log).toHaveBeenNthCalledWith(1, '[standing-backfill] mode=apply batchSize=25');
+    expect(deps.analyze).not.toHaveBeenCalled();
+    expect(deps.apply).toHaveBeenCalledWith(expect.objectContaining({ batchSize: 25 }));
+    expect(deps.log.mock.calls.flat().join('\n')).toContain(`lastCommittedMatchId=${MATCH_2}`);
+  });
+
+  it.each([
+    [['--unknown'], 'Unknown flag'],
+    [['--batch-size'], 'requires a value'],
+    [['--batch-size', '1.5'], 'positive integer'],
+    [['--batch-size', '0'], 'positive integer'],
+    [['--batch-size', '-1'], 'positive integer'],
+  ])('rejects invalid arguments before any database service call: %j', async (argv, message) => {
+    const deps = cliDeps();
+
+    const exitCode = await runStandingBackfillCli(argv, deps);
+
+    expect(exitCode).toBe(2);
+    expect(deps.error).toHaveBeenCalledWith(expect.stringContaining(message));
+    expect(deps.log).not.toHaveBeenCalled();
+    expect(deps.analyze).not.toHaveBeenCalled();
+    expect(deps.apply).not.toHaveBeenCalled();
+  });
+
+  it('parses only the approved flags with a default batch size', () => {
+    expect(parseStandingBackfillArgs([])).toEqual({ apply: false, batchSize: 100 });
+    expect(parseStandingBackfillArgs(['--apply', '--batch-size', '7']))
+      .toEqual({ apply: true, batchSize: 7 });
   });
 });
