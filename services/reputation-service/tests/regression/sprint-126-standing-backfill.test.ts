@@ -9,12 +9,28 @@
  * - provider-floor counts being tuned independently of projected scores.
  */
 
-import { query } from '../../src/database/db';
-import { analyzeStandingBackfill, type StandingBackfillReport } from '../../src/services/standingBackfillService';
+import { query, withTransaction } from '../../src/database/db';
+import { updateTrustScore } from '../../src/services/karmaService';
+import { projectCompletedMatchStanding } from '../../src/services/standingProjector';
+import {
+  analyzeStandingBackfill,
+  applyStandingBackfill,
+  type StandingBackfillReport,
+} from '../../src/services/standingBackfillService';
 
-jest.mock('../../src/database/db', () => ({ query: jest.fn() }));
+jest.mock('../../src/database/db', () => ({
+  query: jest.fn(),
+  withTransaction: jest.fn((work: () => Promise<unknown>) => work()),
+}));
+jest.mock('../../src/services/standingProjector', () => ({
+  projectCompletedMatchStanding: jest.fn(),
+}));
+jest.mock('../../src/services/karmaService', () => ({ updateTrustScore: jest.fn() }));
 
 const mockQuery = query as jest.MockedFunction<typeof query>;
+const mockWithTransaction = withTransaction as jest.MockedFunction<typeof withTransaction>;
+const mockProject = projectCompletedMatchStanding as jest.MockedFunction<typeof projectCompletedMatchStanding>;
+const mockUpdateTrust = updateTrustScore as jest.MockedFunction<typeof updateTrustScore>;
 
 const C1 = '10000000-0000-0000-0000-000000000001';
 const MATCH_1 = '20000000-0000-0000-0000-000000000001';
@@ -110,7 +126,7 @@ function result(rows: unknown[]) {
 }
 
 function arm(fixture: Fixture = baseFixture()) {
-  mockQuery.mockImplementation(async (sql) => {
+  mockQuery.mockImplementation(async (sql, params) => {
     const text = String(sql);
     if (text.includes('standing-backfill:matches')) return result(fixture.matches);
     if (text.includes('standing-backfill:community-configs')) return result(fixture.configs);
@@ -120,6 +136,17 @@ function arm(fixture: Fixture = baseFixture()) {
     if (text.includes('standing-backfill:feedback')) return result(fixture.feedback);
     if (text.includes('standing-backfill:user-configs')) return result(fixture.userConfigs);
     if (text.includes('standing-backfill:providers')) return result(fixture.providers);
+    if (text.includes('standing-backfill:legacy-collision')) return result([]);
+    if (text.includes('standing-backfill:normalize-legacy')) return result([]);
+    if (text.includes('standing-backfill:delete-attributable-legacy')) {
+      const matchId = String(params?.[0]);
+      fixture.karma = fixture.karma.filter((row) =>
+        row.related_entity_id !== matchId
+        || !['help_provided', 'help_received', 'first_help_bonus', 'milestone_help_5', 'milestone_help_10', 'milestone_help_25']
+          .includes(row.reason),
+      );
+      return result([]);
+    }
     throw new Error(`Unexpected preflight query: ${text}`);
   });
   return fixture;
@@ -309,5 +336,221 @@ describe('Sprint 126 standing backfill preflight', () => {
       matchId: MATCH_1,
       detail: 'Stored karma contains a duplicate projection identity',
     });
+  });
+});
+
+describe('Sprint 126 standing backfill apply', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockWithTransaction.mockImplementation(async (work) => work());
+    mockProject.mockImplementation(async (input) => ({
+      matchId: input.matchId,
+      communityIds: [C1],
+      insertedKarmaRows: 2,
+      insertedActivityRows: 2,
+    }));
+    mockUpdateTrust.mockResolvedValue(undefined as never);
+  });
+
+  it('repairs attributable legacy rows and projects each match in the same transaction', async () => {
+    arm();
+
+    await applyStandingBackfill({ batchSize: 1 });
+
+    expect(mockWithTransaction).toHaveBeenCalledTimes(2);
+    expect(mockProject).toHaveBeenNthCalledWith(1, expect.objectContaining({ matchId: MATCH_1 }), {
+      mode: 'historical', allowRequestCommunityFallback: false,
+    });
+    expect(mockProject).toHaveBeenNthCalledWith(2, expect.objectContaining({ matchId: MATCH_2 }), {
+      mode: 'historical', allowRequestCommunityFallback: false,
+    });
+    const writes = mockQuery.mock.calls.map(([sql]) => String(sql));
+    expect(writes.filter((sql) => sql.includes('delete-attributable-legacy'))).toHaveLength(2);
+  });
+
+  it('normalizes unattributable legacy reasons without changing points or timestamps', async () => {
+    const fixture = baseFixture();
+    const orphan = karmaRow({
+      id: '50000000-0000-0000-0000-000000000099',
+      reason: 'help_received',
+      points: 37,
+      related_entity_id: null,
+      created_at: new Date('2025-01-02T03:04:05.000Z'),
+    });
+    fixture.karma = [orphan];
+    arm(fixture);
+
+    await applyStandingBackfill({ batchSize: 2 });
+
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.stringContaining('standing-backfill:normalize-legacy'),
+      ['Received help', orphan.id],
+    );
+  });
+
+  it('collapses only an exact canonical collision during legacy normalization', async () => {
+    const fixture = baseFixture();
+    const orphan = karmaRow({ reason: 'help_provided', related_entity_id: null });
+    fixture.karma = [orphan];
+    arm(fixture);
+    const normalQuery = mockQuery.getMockImplementation()!;
+    mockQuery.mockImplementation(async (sql, params) => {
+      if (String(sql).includes('standing-backfill:legacy-collision')) {
+        return result([{ id: 'canonical-row', points: orphan.points, created_at: orphan.created_at }]);
+      }
+      return normalQuery(sql, params);
+    });
+
+    await applyStandingBackfill({ batchSize: 2 });
+
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.stringMatching(/standing-backfill:normalize-legacy[\s\S]*DELETE/i),
+      [orphan.id],
+    );
+  });
+
+  it('rejects a canonicalization collision that would lose points or history', async () => {
+    const fixture = baseFixture();
+    const orphan = karmaRow({ reason: 'help_provided', related_entity_id: null });
+    fixture.karma = [orphan];
+    arm(fixture);
+    const normalQuery = mockQuery.getMockImplementation()!;
+    mockQuery.mockImplementation(async (sql, params) => {
+      if (String(sql).includes('standing-backfill:legacy-collision')) {
+        return result([{ id: 'canonical-row', points: 999, created_at: orphan.created_at }]);
+      }
+      return normalQuery(sql, params);
+    });
+
+    await expect(applyStandingBackfill({ batchSize: 2 })).rejects.toThrow('normalization collision');
+
+    expect(mockProject).not.toHaveBeenCalled();
+  });
+
+  it('retains fixture-only milestone labels verbatim when provenance is unavailable', async () => {
+    const fixture = baseFixture();
+    fixture.karma = [karmaRow({
+      reason: 'milestone_help_10', related_entity_id: null, points: 50,
+    })];
+    arm(fixture);
+
+    await applyStandingBackfill({ batchSize: 2 });
+
+    expect(mockQuery.mock.calls.map(([sql]) => String(sql)))
+      .not.toContainEqual(expect.stringContaining('standing-backfill:normalize-legacy'));
+  });
+
+  it('refuses to write when the fresh preflight fails closed', async () => {
+    const fixture = baseFixture();
+    fixture.matches = [matchRow({ completed_at: null })];
+    fixture.karma = [];
+    arm(fixture);
+
+    await expect(applyStandingBackfill({ batchSize: 1 })).rejects.toThrow('preflight');
+
+    expect(mockWithTransaction).not.toHaveBeenCalled();
+    expect(mockProject).not.toHaveBeenCalled();
+  });
+
+  it('rolls back a failed match transaction by propagating the projector error', async () => {
+    const fixture = baseFixture();
+    fixture.matches = [fixture.matches[0]];
+    arm(fixture);
+    mockProject.mockRejectedValueOnce(new Error('forced projection failure'));
+
+    await expect(applyStandingBackfill({ batchSize: 1 })).rejects.toThrow('forced projection failure');
+
+    expect(mockWithTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a projection whose communities drift after preflight', async () => {
+    const fixture = baseFixture();
+    fixture.matches = [fixture.matches[0]];
+    arm(fixture);
+    mockProject.mockResolvedValueOnce({
+      matchId: MATCH_1, communityIds: [], insertedKarmaRows: 0, insertedActivityRows: 0,
+    });
+
+    await expect(applyStandingBackfill({ batchSize: 1 })).rejects.toThrow('community set changed');
+
+    expect(mockWithTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('emits bounded oldest-first progress and refreshes every active membership', async () => {
+    arm();
+    const progress = jest.fn();
+
+    await applyStandingBackfill({ batchSize: 1, onProgress: progress });
+
+    expect(mockProject.mock.calls.map(([input]) => input.matchId)).toEqual([MATCH_1, MATCH_2]);
+    expect(progress).toHaveBeenNthCalledWith(1, {
+      completedBatches: 1, completedMatches: 1, lastCommittedMatchId: MATCH_1,
+    });
+    expect(progress).toHaveBeenNthCalledWith(2, {
+      completedBatches: 2, completedMatches: 2, lastCommittedMatchId: MATCH_2,
+    });
+    expect(mockUpdateTrust).toHaveBeenCalledTimes(4);
+    expect(mockUpdateTrust).toHaveBeenCalledWith(IDLE, C1);
+  });
+
+  it('resumes an interrupted batch from committed identities and the next apply writes zero rows', async () => {
+    const fixture = baseFixture();
+    arm(fixture);
+    const projected = new Set<string>();
+    let failMatchTwoOnce = true;
+    let insertedRows = 0;
+    mockProject.mockImplementation(async (input) => {
+      if (input.matchId === MATCH_2 && failMatchTwoOnce) {
+        failMatchTwoOnce = false;
+        throw new Error('interrupt after first committed match');
+      }
+      if (projected.has(input.matchId)) {
+        return { matchId: input.matchId, communityIds: [C1], insertedKarmaRows: 0, insertedActivityRows: 0 };
+      }
+
+      const requester = input.matchId === MATCH_1 ? REQUESTER_1 : REQUESTER_2;
+      const completedAt = input.matchId === MATCH_1 ? COMPLETED_1 : COMPLETED_2;
+      const canonical = [
+        karmaRow({ id: `${input.matchId}-helper`, reason: 'Provided help', related_entity_id: input.matchId, created_at: completedAt }),
+        karmaRow({ id: `${input.matchId}-requester`, user_id: requester, points: 40, reason: 'Received help', related_entity_id: input.matchId, created_at: completedAt }),
+      ];
+      if (input.matchId === MATCH_1) {
+        canonical.push(karmaRow({
+          id: `${input.matchId}-first`, reason: 'First help in community', points: 15,
+          related_entity_id: input.matchId, created_at: completedAt,
+        }));
+      }
+      fixture.karma.push(...canonical);
+      fixture.activities.push(
+        { user_id: HELPER, community_id: C1, activity_type: 'complete_request', related_entity_id: input.matchId, created_at: completedAt },
+        { user_id: requester, community_id: C1, activity_type: 'complete_offer', related_entity_id: input.matchId, created_at: completedAt },
+      );
+      projected.add(input.matchId);
+      insertedRows += canonical.length + 2;
+      return {
+        matchId: input.matchId,
+        communityIds: [C1],
+        insertedKarmaRows: canonical.length,
+        insertedActivityRows: 2,
+      };
+    });
+
+    await expect(applyStandingBackfill({ batchSize: 2 })).rejects.toThrow('interrupt after first committed match');
+    expect(projected).toEqual(new Set([MATCH_1]));
+    const firstAttemptInputs = mockProject.mock.calls.map(([input]) => input);
+
+    insertedRows = 0;
+    mockProject.mockClear();
+    await applyStandingBackfill({ batchSize: 2 });
+    expect(insertedRows).toBe(4);
+    expect(mockProject.mock.calls.map(([input]) => input)).toEqual(firstAttemptInputs);
+    expect(projected).toEqual(new Set([MATCH_1, MATCH_2]));
+
+    insertedRows = 0;
+    mockProject.mockClear();
+    await applyStandingBackfill({ batchSize: 2 });
+    expect(insertedRows).toBe(0);
+    expect(mockProject.mock.calls.map(([input]) => input)).toEqual(firstAttemptInputs);
+    expect(mockProject.mock.results).toHaveLength(2);
   });
 });

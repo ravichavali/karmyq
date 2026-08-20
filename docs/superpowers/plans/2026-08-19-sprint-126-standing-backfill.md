@@ -725,6 +725,9 @@ git commit -m "feat: add read-only standing backfill preflight"
 **Files:**
 - Modify: `services/reputation-service/src/services/standingBackfillService.ts`
 - Modify: `services/reputation-service/tests/regression/sprint-126-standing-backfill.test.ts`
+- Modify: `services/reputation-service/CONTEXT.md`
+- Modify: `docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md`
+- Modify: `.claude/handoff/CURRENT_HANDOFF.md`
 
 **Interfaces:**
 - Consumes: `projectCompletedMatchStanding()` and `withTransaction()`.
@@ -735,7 +738,7 @@ export interface StandingBackfillProgress {
   completedBatches: number; completedMatches: number; lastCommittedMatchId: string;
 }
 export interface StandingBackfillApplyOptions {
-  batchSize: number;
+  batchSize?: number;
   onProgress?: (progress: StandingBackfillProgress) => void;
 }
 export function applyStandingBackfill(
@@ -746,7 +749,8 @@ export function applyStandingBackfill(
 - [ ] **Step 1: Add RED apply tests.** Assert attributable fixture rows are deleted and rebuilt in
   the same match transaction; unattributable rows retain points/timestamps through collision-safe
   normalization; a forced failure rolls back that match; stopping mid-batch and resuming yields the
-  identical communities/ranks; second apply writes zero rows.
+  identical communities/ranks; second apply writes zero rows. If the selected community set changes
+  after preflight, reject inside the match transaction so legacy deletion rolls back.
 
 - [ ] **Step 2: Re-run preflight at apply start.** Refuse when `canApply` is false. Do not trust a
   report file or a prior live count because simulation may have added matches.
@@ -771,7 +775,7 @@ export function applyStandingBackfill(
 
 ```bash
 cd services/reputation-service && npm run test:regression -- --runInBand sprint-126-standing-backfill sprint-126-standing-projector
-git add src/services/standingBackfillService.ts tests/regression/sprint-126-standing-backfill.test.ts
+git add ../../.claude/handoff/CURRENT_HANDOFF.md ../../docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md CONTEXT.md src/services/standingBackfillService.ts tests/regression/sprint-126-standing-backfill.test.ts
 git commit -m "feat: apply standing backfill idempotently"
 ```
 

@@ -7,13 +7,15 @@ import {
   type PlannedStandingKarmaRow,
   type StandingCommunityCandidate,
 } from '@karmyq/shared';
-import { query } from '../database/db';
+import { query, withTransaction } from '../database/db';
 import {
   calculateWeightedAvgFeedback,
   type WeightedFeedbackRow,
 } from '../database/feedbackDb';
 import { TRUST_CONFIG_DEFAULTS } from '../database/trustConfigDb';
 import { computeTrustScore } from './trustScoreStrategy';
+import { updateTrustScore } from './karmaService';
+import { projectCompletedMatchStanding } from './standingProjector';
 
 type ScoreBucket = '0' | '1-19' | '20-39' | '40-59' | '60-79' | '80-100';
 type InteractionBucket = '0' | '1' | '2-3' | '4+';
@@ -40,6 +42,17 @@ export interface StandingBackfillReport {
   interactionDepthBuckets: Record<InteractionBucket, number>;
   interactionBreadthBuckets: Record<InteractionBucket, number>;
   providerEligibility: Record<ProviderFloor, number>;
+}
+
+export interface StandingBackfillProgress {
+  completedBatches: number;
+  completedMatches: number;
+  lastCommittedMatchId: string;
+}
+
+export interface StandingBackfillApplyOptions {
+  batchSize?: number;
+  onProgress?: (progress: StandingBackfillProgress) => void;
 }
 
 interface MatchRow {
@@ -628,8 +641,10 @@ function calculateDistributions(snapshot: BackfillSnapshot, replayed: ReplayMatc
  * pure in-memory replay make the no-write property inspectable and testable. Task 8 consumes the
  * report as its fail-closed precondition but performs mutation through a separate entry point.
  */
-export async function analyzeStandingBackfill(): Promise<StandingBackfillReport> {
-  const snapshot = await loadSnapshot();
+function analyzeSnapshot(snapshot: BackfillSnapshot): {
+  report: StandingBackfillReport;
+  replayed: ReplayMatch[];
+} {
   const anomalies: StandingBackfillAnomaly[] = [];
   const replayed = replayMatches(snapshot, anomalies);
   const matchesById = new Map(
@@ -652,23 +667,145 @@ export async function analyzeStandingBackfill(): Promise<StandingBackfillReport>
   const activeMembershipPairs = snapshot.memberships.length;
 
   return {
-    canApply: anomalies.length === 0,
-    completedMatches: snapshot.matches.length,
-    eligibleMatches: replayed.length,
-    alreadyProjectedMatches: comparison.alreadyProjectedMatches,
-    anomalies,
-    activeMembershipPairs,
-    sourcedPairs: distributions.sourcedPairs,
-    zeroHistoryPairs: activeMembershipPairs - distributions.sourcedPairs,
-    legacy: { attributableRows, unattributableRows, exactDuplicates },
-    predicted: {
-      karmaRows: comparison.predictedKarma,
-      activityRows: comparison.predictedActivity,
-      trustRowsEvaluated: activeMembershipPairs,
+    report: {
+      canApply: anomalies.length === 0,
+      completedMatches: snapshot.matches.length,
+      eligibleMatches: replayed.length,
+      alreadyProjectedMatches: comparison.alreadyProjectedMatches,
+      anomalies,
+      activeMembershipPairs,
+      sourcedPairs: distributions.sourcedPairs,
+      zeroHistoryPairs: activeMembershipPairs - distributions.sourcedPairs,
+      legacy: { attributableRows, unattributableRows, exactDuplicates },
+      predicted: {
+        karmaRows: comparison.predictedKarma,
+        activityRows: comparison.predictedActivity,
+        trustRowsEvaluated: activeMembershipPairs,
+      },
+      scoreBuckets: distributions.scoreBuckets,
+      interactionDepthBuckets: distributions.interactionDepthBuckets,
+      interactionBreadthBuckets: distributions.interactionBreadthBuckets,
+      providerEligibility: distributions.providerEligibility,
     },
-    scoreBuckets: distributions.scoreBuckets,
-    interactionDepthBuckets: distributions.interactionDepthBuckets,
-    interactionBreadthBuckets: distributions.interactionBreadthBuckets,
-    providerEligibility: distributions.providerEligibility,
+    replayed,
   };
+}
+
+export async function analyzeStandingBackfill(): Promise<StandingBackfillReport> {
+  return analyzeSnapshot(await loadSnapshot()).report;
+}
+
+const NORMALIZED_LEGACY_REASONS: Readonly<Record<string, string>> = {
+  help_provided: COMPLETED_MATCH_REASONS.provided,
+  help_received: COMPLETED_MATCH_REASONS.received,
+  first_help_bonus: COMPLETED_MATCH_REASONS.first,
+};
+
+async function normalizeUnattributableLegacy(
+  snapshot: BackfillSnapshot,
+): Promise<void> {
+  const attributableMatchIds = new Set(
+    snapshot.matches
+      .filter((match) => match.completed_at != null)
+      .map((match) => String(match.id)),
+  );
+  const rows = snapshot.karma.filter((row) =>
+    NORMALIZED_LEGACY_REASONS[row.reason]
+    && (!row.related_entity_id || !attributableMatchIds.has(row.related_entity_id)),
+  );
+  if (rows.length === 0) return;
+
+  await withTransaction(async () => {
+    for (const row of rows) {
+      const normalizedReason = NORMALIZED_LEGACY_REASONS[row.reason];
+      const collision = await query(
+        `/* standing-backfill:legacy-collision */
+         SELECT id, points, created_at
+         FROM reputation.karma_records
+         WHERE user_id = $1 AND community_id = $2 AND reason = $3
+           AND related_entity_id IS NOT DISTINCT FROM $4::uuid
+           AND id <> $5
+         LIMIT 1`,
+        [row.user_id, row.community_id, normalizedReason, row.related_entity_id, row.id],
+      );
+      const existing = collision.rows[0] as Pick<KarmaRow, 'id' | 'points' | 'created_at'> | undefined;
+      if (existing) {
+        if (Number(existing.points) !== Number(row.points) || !sameInstant(existing.created_at, row.created_at)) {
+          throw new Error(`Legacy normalization collision for karma row ${row.id}`);
+        }
+        await query(
+          `/* standing-backfill:normalize-legacy */
+           DELETE FROM reputation.karma_records WHERE id = $1`,
+          [row.id],
+        );
+        continue;
+      }
+      await query(
+        `/* standing-backfill:normalize-legacy */
+         UPDATE reputation.karma_records SET reason = $1 WHERE id = $2`,
+        [normalizedReason, row.id],
+      );
+    }
+  });
+}
+
+/** Apply only after a fresh, fail-closed preflight; database identities are the resume checkpoint. */
+export async function applyStandingBackfill(
+  options: StandingBackfillApplyOptions = {},
+): Promise<StandingBackfillReport> {
+  const batchSize = options.batchSize ?? 100;
+  if (!Number.isInteger(batchSize) || batchSize < 1) {
+    throw new Error('Standing backfill batchSize must be a positive integer');
+  }
+
+  const snapshot = await loadSnapshot();
+  const preflight = analyzeSnapshot(snapshot);
+  if (!preflight.report.canApply) {
+    throw new Error(`Standing backfill preflight failed with ${preflight.report.anomalies.length} anomaly(s)`);
+  }
+
+  await normalizeUnattributableLegacy(snapshot);
+
+  let completedMatches = 0;
+  let completedBatches = 0;
+  for (let offset = 0; offset < preflight.replayed.length; offset += batchSize) {
+    const batch = preflight.replayed.slice(offset, offset + batchSize);
+    for (const replay of batch) {
+      await withTransaction(async () => {
+        await query(
+          `/* standing-backfill:delete-attributable-legacy */
+           DELETE FROM reputation.karma_records
+           WHERE related_entity_id = $1 AND reason = ANY($2::text[])`,
+          [replay.row.id, [...LEGACY_REASONS]],
+        );
+        const projection = await projectCompletedMatchStanding({
+          matchId: replay.row.id,
+          requestId: String(replay.row.request_id),
+          requesterId: String(replay.row.requester_id),
+          helperId: String(replay.row.responder_id),
+          requestType: replay.row.request_type ?? undefined,
+          completedAt: replay.completedAt,
+        }, { mode: 'historical', allowRequestCommunityFallback: false });
+        const sameCommunities = projection.communityIds.length === replay.communityIds.length
+          && projection.communityIds.every((communityId, index) => communityId === replay.communityIds[index]);
+        if (!sameCommunities) {
+          throw new Error(`Standing community set changed after preflight for match ${replay.row.id}`);
+        }
+      });
+      completedMatches += 1;
+    }
+    completedBatches += 1;
+    const last = batch[batch.length - 1];
+    options.onProgress?.({
+      completedBatches,
+      completedMatches,
+      lastCommittedMatchId: last.row.id,
+    });
+  }
+
+  for (const membership of snapshot.memberships) {
+    await updateTrustScore(membership.user_id, membership.community_id);
+  }
+
+  return analyzeStandingBackfill();
 }
