@@ -4,6 +4,34 @@
 **Status**: Implemented
 **Deciders**: Development Team
 **Supersedes**: ADR-035 (trust score portion only; karma allocation unchanged)
+**Amended by**: [ADR-096](ADR-096-canonical-completed-match-standing-projection.md) (Sprint 126) — canonical provenance, zero cold start, historical occurrence time
+
+---
+
+## Amendment — Sprint 126 (ADR-096)
+
+Three clarifications to how this model is fed. The formula itself is unchanged.
+
+**1. Canonical provenance.** The interaction counts this score reads are a projection of completed
+matches, written by exactly one path (`@karmyq/shared` `completedMatchStanding.ts`, applied by
+`reputation-service` `standingProjector.ts`). `updateTrustScore` counts
+`reason = 'Provided help'` / `'Received help'` **in SQL**, so those strings are a data contract.
+Karma written under any other label — as the curated fixture's `help_provided` / `help_received`
+once was — is stored and then invisible to this score.
+
+**2. Zero is the cold start.** `reputation.trust_scores.score` is `DEFAULT 0 NOT NULL`. A member
+with no history scores 0 whether or not a row exists for them. Previously a stored row started at
+50 while a missing row was read as 0, so identical (empty) histories could score differently
+depending only on whether some earlier codepath had inserted a row. See ADR-095, which deferred
+this and is now resolved.
+
+**3. Historical occurrence time.** Rows are stamped with the match's stored `completed_at`, never
+`NOW()`. This score's recency window and ADR-011 decay both read `created_at`, so stamping a
+replayed historical row with the current time would make a dormant member look freshly active.
+
+⚠️ Note for anyone reading this ADR against demo data before Sprint 126 deploys: `trust_scores` held
+**zero rows** platform-wide, because the live karma writer raised `42703` on every completed match
+from Sprint 62 onward. The formula was never the problem; nothing was reaching it.
 
 ---
 
@@ -276,4 +304,5 @@ Current model: trust score is computed per-community. This breaks down when:
 - ADR-036: Private Feedback Model (feedback is the quality signal input)
 - Putnam, Robert D. "Bowling Alone: The Collapse and Revival of American Community" (2000)
 - `services/reputation-service/src/services/trustScoreStrategy.ts` — current formula (to be replaced in Phase 2)
+- `packages/shared/src/projections/completedMatchStanding.ts` — canonical completed-match projection (ADR-096)
 - `infrastructure/postgres/init.sql` lines 847–917 — `community_configs` schema

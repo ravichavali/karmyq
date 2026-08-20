@@ -467,6 +467,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-016-prestige-based-recognition',
       'adr-043-three-score-model',
       'adr-035-karma-allocation-trust-score-strategy',
+      'adr-096-canonical-completed-match-standing-projection',
       'adr-054-trust-graph-architecture',
       'adr-055-trust-governance-architecture',
       'adr-056-intrinsic-trust-decay',

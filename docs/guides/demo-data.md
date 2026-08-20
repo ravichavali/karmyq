@@ -10,7 +10,7 @@ All accounts with `@test.karmyq.com` email addresses are synthetic. Their activi
 
 ## How Activity Is Generated
 
-The simulation engine runs 10 concurrent workers, each independently acting as a simulated community member. Workers create help requests, offer assistance, complete matches, submit feedback, call dibs on requests, and participate in community governance — all through the same APIs a real user would call.
+The simulation engine runs 10 concurrent workers, each independently acting as a simulated community member. Workers create help requests, offer assistance, complete matches, call dibs on requests, and participate in community governance — all through the same APIs a real user would call. They do not currently submit interaction feedback, which is why quality signals read as neutral (see **Social Karma** below).
 
 This means the trust graph, karma scores, and match history you see are the result of real platform behavior, not seeded test data.
 
@@ -24,7 +24,18 @@ The trust network shows how trust has accumulated between simulated users throug
 
 ## Social Karma
 
-After each completed match, both participants rate the interaction on helpfulness, responsiveness, and clarity. These ratings feed the Social Karma system, which surfaces patterns of good community participation without reducing people to a single number. The karma data you see reflects real platform feedback flows, not pre-loaded scores.
+Standing is **derived from stored exchange history**, not from pre-loaded scores. Every completed
+match projects karma to both participants — the helper and the person helped — through the same
+rules a new exchange uses today, at the time the exchange actually completed. Nothing is written
+that a live match would not have written.
+
+Two-sided ratings (helpfulness, responsiveness, clarity) are a real part of the platform and feed
+the Social Karma system, which surfaces patterns of participation without reducing people to a
+single number. **The demo currently contains no ratings at all.** Quality signals are therefore
+neutral rather than synthesized: rather than invent feedback nobody gave, the demo leaves that
+input empty and lets standing rest on what demonstrably happened. Where you see a rich profile, it
+is rich because that account genuinely completed many exchanges — you can trace any score back to
+the matches behind it.
 
 ## Tester Account (for evaluators)
 

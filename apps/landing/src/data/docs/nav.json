@@ -365,6 +365,10 @@
           "href": "/docs/concepts/adr-035-karma-allocation-trust-score-strategy"
         },
         {
+          "label": "Canonical Completed-Match Standing Projection",
+          "href": "/docs/concepts/adr-096-canonical-completed-match-standing-projection"
+        },
+        {
           "label": "Trust Graph Architecture",
           "href": "/docs/concepts/adr-054-trust-graph-architecture"
         },
