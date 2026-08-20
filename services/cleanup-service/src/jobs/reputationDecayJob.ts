@@ -83,6 +83,13 @@ export async function updateDecayedTrustScores(): Promise<void> {
 /**
  * Activity Tracker
  * Updates last_activity_at when users perform qualifying activities
+ *
+ * ⚠️ This duplicates `services/reputation-service/src/utils/activityTracker.ts` near-verbatim, and
+ * currently has NO callers anywhere in the repo. It is kept conflict-safe in step with its twin so
+ * it cannot corrupt decay input if it is ever wired up; if it is still unused next time someone
+ * touches this file, delete it rather than maintaining two copies. The reputation-service version
+ * additionally supports a supplied occurrence time and required-write semantics for Sprint 126
+ * standing projection — a cross-service extraction into `packages/shared` would be the real fix.
  */
 export async function recordActivity(
   userId: string,
@@ -112,17 +119,21 @@ export async function recordActivity(
       return;
     }
 
-    // Log the activity
+    // Log the activity. ON CONFLICT DO NOTHING against uq_activity_match_projection (Sprint 126):
+    // without it a repeat write raises 23505, and because the catch below deliberately swallows,
+    // the failure would silently skip the last_activity_at refresh underneath — letting the decay
+    // job decay a genuinely active member.
     await query(
       `INSERT INTO reputation.activity_log (user_id, community_id, activity_type, related_entity_id)
-       VALUES ($1, $2, $3, $4)`,
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT DO NOTHING`,
       [userId, communityId, activityType, relatedEntityId]
     );
 
-    // Update last_activity_at in trust_scores
+    // Update last_activity_at in trust_scores, never moving it backwards.
     await query(
       `UPDATE reputation.trust_scores
-       SET last_activity_at = CURRENT_TIMESTAMP
+       SET last_activity_at = GREATEST(last_activity_at, CURRENT_TIMESTAMP)
        WHERE user_id = $1 AND community_id = $2`,
       [userId, communityId]
     );
