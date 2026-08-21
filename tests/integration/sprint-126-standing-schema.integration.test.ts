@@ -132,6 +132,19 @@ describe('Sprint 126 trust_scores zero-standing default', () => {
 describe('Sprint 126 projection identities', () => {
   afterEach(cleanupRows);
 
+  it('indexes related_entity_id, which the trust calculator self-joins on', async () => {
+    const result = await pool.query<{ indexdef: string }>(
+      `SELECT indexdef FROM pg_indexes
+       WHERE schemaname = 'reputation' AND indexname = 'idx_karma_related_entity'`,
+    );
+    // trustMetricsDb joins karma_records to itself on related_entity_id ("who else was awarded for
+    // this match"). Without a leading index that is a hash/seq scan of the whole table on every
+    // trust-score computation — live and during replay alike.
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].indexdef).toMatch(/related_entity_id/);
+    expect(result.rows[0].indexdef).toMatch(/WHERE \(related_entity_id IS NOT NULL\)/);
+  });
+
   it('creates both partial unique projection indexes', async () => {
     const result = await pool.query<{ indexname: string }>(
       `SELECT indexname FROM pg_indexes

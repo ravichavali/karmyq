@@ -145,19 +145,21 @@ async function loadCandidates(
        SELECT SUM(kr.points) AS total
        FROM reputation.karma_records kr
        JOIN requests.matches src ON src.id = kr.related_entity_id
-       WHERE kr.user_id = $3 AND kr.community_id = rc.community_id
+       WHERE kr.related_entity_id IS NOT NULL
+         AND kr.user_id = $3 AND kr.community_id = rc.community_id
          AND kr.reason = ANY($4::text[])
          AND src.completed_at IS NOT NULL
-         AND (src.completed_at < $5 OR (src.completed_at = $5 AND src.id::text < $6))
+         AND (src.completed_at < $5 OR (src.completed_at = $5 AND src.id < $6::uuid))
      ) prior ON TRUE
      LEFT JOIN LATERAL (
        SELECT COUNT(*) AS count
        FROM reputation.karma_records kr
        JOIN requests.matches src ON src.id = kr.related_entity_id
-       WHERE kr.user_id = $3 AND kr.community_id = rc.community_id
+       WHERE kr.related_entity_id IS NOT NULL
+         AND kr.user_id = $3 AND kr.community_id = rc.community_id
          AND kr.reason = $7
          AND src.completed_at IS NOT NULL
-         AND (src.completed_at < $5 OR (src.completed_at = $5 AND src.id::text < $6))
+         AND (src.completed_at < $5 OR (src.completed_at = $5 AND src.id < $6::uuid))
      ) prior_helps ON TRUE
      WHERE rc.request_id = $1`,
     [
@@ -187,21 +189,57 @@ async function loadCandidates(
  * The live-only fallback: one stable request community when the membership intersection is empty.
  * Ordered by id — the original bare `LIMIT 1` could pick a different community on each retry, which
  * under the projection indexes would award the same match twice in two different communities.
+ *
+ * It carries the SAME as-of aggregates as the normal path. Hardcoding rank 1 here (as this first
+ * did) mints a "First help in community" bonus on every fallback award — including for a helper who
+ * already has history in that community, because the projection identity is per-match and would
+ * happily accept a second first-help row. That is a fabricated milestone, which is precisely what
+ * this sprint exists to prevent.
  */
 async function loadFallbackCandidate(
-  input: CompletedMatchStandingInput
+  input: CompletedMatchStandingInput,
+  completedAt: Date
 ): Promise<StandingCommunityCandidate[]> {
   const result = await query(
     `SELECT rc.community_id,
             COALESCE(cc.karma_split_helper, 60)    AS karma_split_helper,
             COALESCE(cc.karma_split_requestor, 40) AS karma_split_requestor,
-            cc.enabled_request_types               AS enabled_request_types
+            cc.enabled_request_types               AS enabled_request_types,
+            COALESCE(prior.total, 0)               AS prior_helper_karma,
+            COALESCE(prior_helps.count, 0)         AS helper_helps_before
      FROM requests.request_communities rc
      LEFT JOIN communities.community_configs cc ON cc.community_id = rc.community_id
+     LEFT JOIN LATERAL (
+       SELECT SUM(kr.points) AS total
+       FROM reputation.karma_records kr
+       JOIN requests.matches src ON src.id = kr.related_entity_id
+       WHERE kr.related_entity_id IS NOT NULL
+         AND kr.user_id = $2 AND kr.community_id = rc.community_id
+         AND kr.reason = ANY($3::text[])
+         AND src.completed_at IS NOT NULL
+         AND (src.completed_at < $4 OR (src.completed_at = $4 AND src.id < $5::uuid))
+     ) prior ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT COUNT(*) AS count
+       FROM reputation.karma_records kr
+       JOIN requests.matches src ON src.id = kr.related_entity_id
+       WHERE kr.related_entity_id IS NOT NULL
+         AND kr.user_id = $2 AND kr.community_id = rc.community_id
+         AND kr.reason = $6
+         AND src.completed_at IS NOT NULL
+         AND (src.completed_at < $4 OR (src.completed_at = $4 AND src.id < $5::uuid))
+     ) prior_helps ON TRUE
      WHERE rc.request_id = $1
      ORDER BY rc.community_id
      LIMIT 1`,
-    [input.requestId]
+    [
+      input.requestId,
+      input.helperId,
+      CANONICAL_REASONS,
+      completedAt,
+      input.matchId,
+      COMPLETED_MATCH_REASONS.provided,
+    ]
   );
 
   return result.rows.map((row: Record<string, unknown>) => ({
@@ -211,8 +249,8 @@ async function loadFallbackCandidate(
     enabled_request_types: Array.isArray(row.enabled_request_types)
       ? (row.enabled_request_types as StandingCommunityCandidate['enabled_request_types'])
       : undefined,
-    priorHelperKarma: 0,
-    helperHelpCountThroughAsOf: 1,
+    priorHelperKarma: Number(row.prior_helper_karma),
+    helperHelpCountThroughAsOf: Number(row.helper_helps_before) + 1,
   }));
 }
 
@@ -241,7 +279,7 @@ export async function projectCompletedMatchStanding(
       if (options.mode === 'historical' || !options.allowRequestCommunityFallback) {
         return { matchId: input.matchId, communityIds: [], insertedKarmaRows: 0, insertedActivityRows: 0 };
       }
-      candidates = await loadFallbackCandidate(input);
+      candidates = await loadFallbackCandidate(input, completedAt);
       if (candidates.length === 0) {
         throw new Error(`No communities found for request ${input.requestId}`);
       }

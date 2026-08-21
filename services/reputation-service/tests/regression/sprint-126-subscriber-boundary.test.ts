@@ -148,18 +148,11 @@ describe('match_completed delivery', () => {
 });
 
 describe('backfill boundary', () => {
-  it('keeps the non-standing handlers out of the projector module', () => {
-    const projector = require('../../src/services/standingProjector');
-
-    // The historical backfill imports the projector, so anything reachable from it is something the
-    // backfill could replay. These must NOT be.
-    expect(projector.checkAndAwardBadges).toBeUndefined();
-    expect(projector.updateProviderCompletionRate).toBeUndefined();
-    expect(projector.evaluateUserEvolution).toBeUndefined();
-    expect(projector.applyCommunityEvolution).toBeUndefined();
-  });
-
-  it('exposes only the projection entry points', () => {
+  // NOTE: an earlier version of this block asserted `projector.checkAndAwardBadges` etc. were
+  // undefined — but `standingProjector` is mocked above to a single-key object, so those assertions
+  // were true of the mock regardless of what the real module exports. They could not fail. The test
+  // below unmocks and pins the real export list exactly, which strictly implies all of them.
+  it('exposes only the projection entry points, so the backfill can reach nothing else', () => {
     jest.unmock('../../src/services/standingProjector');
     const exported = Object.keys(require('../../src/services/standingProjector'));
 

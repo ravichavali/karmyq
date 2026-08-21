@@ -16,6 +16,20 @@ function getRedis(): Redis {
   return _redis;
 }
 
+/**
+ * Release the lazily-created Redis client.
+ *
+ * Long-running processes (the standing backfill CLI) otherwise never exit: ioredis reconnects
+ * indefinitely and keeps the event loop alive, so the operator sees the final report followed by a
+ * hang that is indistinguishable from a crash. No-op when no client was ever created.
+ */
+export async function disconnectEffectiveParamsCache(): Promise<void> {
+  if (!_redis) return;
+  const client = _redis;
+  _redis = null;
+  await client.quit().catch(() => client.disconnect());
+}
+
 function cacheKey(userId: string, communityId: string): string {
   return `trust_params:${userId}:${communityId}`;
 }

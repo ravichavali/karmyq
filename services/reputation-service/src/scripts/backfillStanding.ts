@@ -41,9 +41,13 @@ export function parseStandingBackfillArgs(argv: readonly string[]): StandingBack
       apply = true;
       continue;
     }
-    if (token === '--batch-size') {
-      const value = argv[index + 1];
-      if (value == null || value.startsWith('--')) {
+    // Both `--batch-size N` and `--batch-size=N` are accepted. The repo's other operator CLI
+    // (simulation-service resetDemoData) requires the `=` form, and two operator commands with
+    // mutually incompatible value syntax is a trap for whoever runs this once, under pressure.
+    if (token === '--batch-size' || token.startsWith('--batch-size=')) {
+      const inline = token.startsWith('--batch-size=');
+      const value = inline ? token.slice('--batch-size='.length) : argv[index + 1];
+      if (value == null || value === '' || value.startsWith('--')) {
         throw new Error('--batch-size requires a value');
       }
       const parsed = Number(value);
@@ -51,7 +55,7 @@ export function parseStandingBackfillArgs(argv: readonly string[]): StandingBack
         throw new Error('--batch-size must be a positive integer');
       }
       batchSize = parsed;
-      index += 1;
+      if (!inline) index += 1;
       continue;
     }
     throw new Error(`Unknown flag: ${token}`);
@@ -88,7 +92,13 @@ export async function runStandingBackfillCli(
     dependencies.log(JSON.stringify(report, null, 2));
     if (!args.apply) {
       dependencies.log(
-        `Apply exactly: npm --workspace karmyq-reputation-service run backfill:standing -- --apply --batch-size ${args.batchSize}`,
+        `Apply exactly (source checkout):  npm --workspace karmyq-reputation-service run backfill:standing -- --apply --batch-size ${args.batchSize}`,
+      );
+      // The deployed image contains only dist/ and installs with --omit=dev, so it has no ts-node
+      // and no src/. Printing only the ts-node form would hand an operator a command that cannot
+      // run where they are most likely to run it.
+      dependencies.log(
+        `Apply exactly (deployed container): npm run backfill:standing:dist -- --apply --batch-size ${args.batchSize}`,
       );
     }
     return 0;
@@ -98,8 +108,37 @@ export async function runStandingBackfillCli(
   }
 }
 
+/**
+ * Release the connections the service modules open lazily, so the CLI exits.
+ *
+ * Without this the process prints its report and then hangs: the pg pool holds idle clients, and
+ * `effectiveParamsCache` creates an ioredis client that reconnects forever and keeps the event loop
+ * alive. After a multi-hour apply that looks exactly like a crash mid-write.
+ */
+async function shutdown(): Promise<void> {
+  try {
+    const pool = (await import('../database/db')).default;
+    await pool.end();
+  } catch {
+    /* already closed */
+  }
+  try {
+    const { disconnectEffectiveParamsCache } = await import('../services/effectiveParamsCache');
+    await disconnectEffectiveParamsCache();
+  } catch {
+    /* no redis client was ever created */
+  }
+}
+
 if (require.main === module) {
-  runStandingBackfillCli(process.argv.slice(2)).then((exitCode) => {
-    process.exitCode = exitCode;
-  });
+  runStandingBackfillCli(process.argv.slice(2))
+    .then(async (exitCode) => {
+      process.exitCode = exitCode;
+      await shutdown();
+    })
+    .catch(async (error) => {
+      console.error(`[standing-backfill] fatal: ${error instanceof Error ? error.message : String(error)}`);
+      process.exitCode = 1;
+      await shutdown();
+    });
 }

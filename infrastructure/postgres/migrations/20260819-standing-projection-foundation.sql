@@ -64,3 +64,20 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_karma_match_projection
 CREATE UNIQUE INDEX IF NOT EXISTS uq_activity_match_projection
   ON reputation.activity_log (user_id, community_id, activity_type, related_entity_id)
   WHERE related_entity_id IS NOT NULL;
+
+-- 3. THE TRUST CALCULATOR SELF-JOINS ON A COLUMN WITH NO INDEX.
+--    `trustMetricsDb` derives repeat-interaction pairs and distinct counterparties by joining
+--    karma_records to itself on `other.related_entity_id = me.related_entity_id` — i.e. "who else
+--    was awarded for the same match". No index led on that column: karma_records carried only
+--    (id), (community_id), (user_id), and the projection identity above leads with user_id. So
+--    every trust-score computation hashed or scanned the whole table for the inner side.
+--
+--    This is not backfill-specific — it runs on every live match completion too — but the backfill
+--    makes it acute: ~31,000 executions against a table growing from 174 toward ~20,000 rows, which
+--    is what makes the tail of a replay far slower than the head.
+--
+--    Partial for the same reason as the identities above: rows with no source entity are never the
+--    subject of this join.
+CREATE INDEX IF NOT EXISTS idx_karma_related_entity
+  ON reputation.karma_records (related_entity_id)
+  WHERE related_entity_id IS NOT NULL;

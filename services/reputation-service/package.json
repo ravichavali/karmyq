@@ -9,6 +9,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "backfill:standing": "ts-node src/scripts/backfillStanding.ts",
+    "backfill:standing:dist": "node dist/scripts/backfillStanding.js",
     "test": "npm run test:unit && npm run test:regression",
     "test:watch": "jest --watch",
     "test:unit": "jest tests/unit --passWithNoTests",

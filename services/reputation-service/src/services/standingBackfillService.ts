@@ -16,6 +16,9 @@ import { TRUST_CONFIG_DEFAULTS } from '../database/trustConfigDb';
 import { computeTrustScore } from './trustScoreStrategy';
 import { updateTrustScore } from './karmaService';
 import { projectCompletedMatchStanding } from './standingProjector';
+// The same enum the writer uses (activityTracker), so a rename cannot break the writer while the
+// preflight's comparison stays green against stale literals.
+import { ActivityType } from '../utils/activityTracker';
 
 type ScoreBucket = '0' | '1-19' | '20-39' | '40-59' | '60-79' | '80-100';
 type InteractionBucket = '0' | '1' | '2-3' | '4+';
@@ -252,14 +255,14 @@ function expectedActivityRows(replay: ReplayMatch): ActivityRow[] {
     rows.push({
       user_id: String(replay.row.responder_id),
       community_id: communityId,
-      activity_type: 'complete_request',
+      activity_type: ActivityType.COMPLETE_REQUEST,
       related_entity_id: replay.row.id,
       created_at: replay.completedAt,
     });
     rows.push({
       user_id: String(replay.row.requester_id),
       community_id: communityId,
-      activity_type: 'complete_offer',
+      activity_type: ActivityType.COMPLETE_OFFER,
       related_entity_id: replay.row.id,
       created_at: replay.completedAt,
     });
@@ -286,10 +289,25 @@ function replayMatches(
   anomalies: StandingBackfillAnomaly[],
 ): ReplayMatch[] {
   const configs = new Map(snapshot.configs.map((config) => [String(config.community_id), config]));
-  const canonicalLedger: PlannedStandingKarmaRow[] = [];
+  // As-of accumulators keyed by `${helperId}|${communityId}`, advanced only AFTER each match is
+  // planned — so reading them yields exactly the strictly-before history the canonical policy
+  // expects. This replaces scanning a growing ledger per candidate, which was O(matches²) and
+  // retained every planned row solely to recompute two scalars. Same pattern the fixture projector
+  // uses (packages/shared/src/projections/completedExchange.ts).
+  const priorHelper = new Map<string, { points: number; providedCount: number }>();
+  const helperKey = (userId: string, communityId: string) => `${userId}|${communityId}`;
   const replayed: ReplayMatch[] = [];
   const ordered = [...snapshot.matches].sort((left, right) => {
-    if (!left.completed_at) return right.completed_at ? 1 : String(left.id).localeCompare(String(right.id));
+    // Code-unit comparison, not localeCompare: its collation is locale/ICU-dependent, which is the
+    // exact environment-sensitivity compareReplayKeys exists to eliminate. Only reachable for rows
+    // with a NULL completed_at, which are discarded as anomalies below — but a latent inconsistency
+    // in the file that removed this everywhere else is still worth not having.
+    if (!left.completed_at) {
+      if (right.completed_at) return 1;
+      const a = String(left.id);
+      const b = String(right.id);
+      return a < b ? -1 : a > b ? 1 : 0;
+    }
     if (!right.completed_at) return -1;
     return compareReplayKeys(
       { completedAt: new Date(left.completed_at), matchId: String(left.id) },
@@ -307,6 +325,12 @@ function replayMatches(
       });
       continue;
     }
+    // Hoisted out of the guard: TypeScript discards property narrowing inside the `.map()` callback
+    // below (the object could in principle be mutated), and this service compiles with
+    // `strict: false` so it would not have flagged it — the root tests workspace, which is strict,
+    // does.
+    const helperId: string = row.responder_id;
+    const requesterId: string = row.requester_id;
     if (!row.completed_at) {
       anomalies.push({
         code: 'MISSING_COMPLETION_TIME',
@@ -338,9 +362,7 @@ function replayMatches(
     const completedAt = new Date(row.completed_at);
     const candidates: StandingCommunityCandidate[] = eligibleCommunities.map((communityId) => {
       const config = configs.get(communityId) ?? defaultConfig(communityId);
-      const priorRows = canonicalLedger.filter(
-        (record) => record.userId === row.responder_id && record.communityId === communityId,
-      );
+      const prior = priorHelper.get(helperKey(helperId, communityId));
       return {
         community_id: communityId,
         karma_split_helper: Number(config.karma_split_helper),
@@ -348,21 +370,30 @@ function replayMatches(
         enabled_request_types: Array.isArray(config.enabled_request_types)
           ? config.enabled_request_types
           : undefined,
-        priorHelperKarma: priorRows.reduce((sum, record) => sum + record.points, 0),
-        helperHelpCountThroughAsOf:
-          priorRows.filter((record) => record.reason === COMPLETED_MATCH_REASONS.provided).length + 1,
+        priorHelperKarma: prior?.points ?? 0,
+        helperHelpCountThroughAsOf: (prior?.providedCount ?? 0) + 1,
       };
     });
 
     const plan = planCompletedMatchStanding({
       matchId,
-      requesterId: row.requester_id,
-      helperId: row.responder_id,
+      requesterId,
+      helperId,
       requestType: row.request_type ?? undefined,
       occurredAt: completedAt,
       candidates,
     }, DEFAULT_KARMA_POOL);
-    canonicalLedger.push(...plan.rows);
+    // Accumulate for EVERY participant, not just this match's helper: a user who was the requester
+    // here may be the helper of a later match, and their 'Received help' points count toward
+    // priorHelperKarma there. This mirrors the SQL projector, whose prior-karma LATERAL sums all
+    // canonical reasons for the user (standingProjector.ts loadCandidates).
+    for (const planned of plan.rows) {
+      const key = helperKey(planned.userId, planned.communityId);
+      const acc = priorHelper.get(key) ?? { points: 0, providedCount: 0 };
+      acc.points += planned.points;
+      if (planned.reason === COMPLETED_MATCH_REASONS.provided) acc.providedCount += 1;
+      priorHelper.set(key, acc);
+    }
     replayed.push({ row, completedAt, communityIds: plan.communityIds, rows: plan.rows });
   }
 
@@ -807,5 +838,27 @@ export async function applyStandingBackfill(
     await updateTrustScore(membership.user_id, membership.community_id);
   }
 
-  return analyzeStandingBackfill();
+  // Post-apply verification. This re-derives every identity, point value and timestamp from the
+  // in-memory replay and compares them to what the SQL projector actually wrote — the one place a
+  // TypeScript derivation and a SQL derivation are checked against each other. Apply already
+  // refused unless preflight was clean, so any anomaly here is a genuine projection mismatch.
+  //
+  // It is ENFORCED, not merely reported: returning this quietly let the CLI print anomalies inside
+  // a JSON blob and still exit 0, which is an operator being told a data operation succeeded when
+  // it did not.
+  const verification = await analyzeStandingBackfill();
+  if (!verification.canApply) {
+    const summary = verification.anomalies
+      .slice(0, 5)
+      .map((a) => `${a.code}${a.matchId ? ` (${a.matchId})` : ''}`)
+      .join(', ');
+    throw new Error(
+      `Standing backfill applied but post-apply verification FAILED with ` +
+        `${verification.anomalies.length} anomal${verification.anomalies.length === 1 ? 'y' : 'ies'}: ` +
+        `${summary}${verification.anomalies.length > 5 ? ', …' : ''}. ` +
+        `Rows are already committed — inspect before re-running.`,
+    );
+  }
+
+  return verification;
 }

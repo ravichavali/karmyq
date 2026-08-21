@@ -623,6 +623,10 @@ describe('Sprint 126 standing backfill operator CLI', () => {
     [['--batch-size', '1.5'], 'positive integer'],
     [['--batch-size', '0'], 'positive integer'],
     [['--batch-size', '-1'], 'positive integer'],
+    [['--batch-size='], 'requires a value'],
+    [['--batch-size=0'], 'positive integer'],
+    [['--batch-size=1.5'], 'positive integer'],
+    [['--batch-size=abc'], 'positive integer'],
   ])('rejects invalid arguments before any database service call: %j', async (argv, message) => {
     const deps = cliDeps();
 
@@ -639,5 +643,16 @@ describe('Sprint 126 standing backfill operator CLI', () => {
     expect(parseStandingBackfillArgs([])).toEqual({ apply: false, batchSize: 100 });
     expect(parseStandingBackfillArgs(['--apply', '--batch-size', '7']))
       .toEqual({ apply: true, batchSize: 7 });
+  });
+
+  it('accepts --batch-size=N as well as --batch-size N', () => {
+    // The repo's other operator CLI (simulation-service resetDemoData) requires the `=` form.
+    // Two operator commands with incompatible value syntax is a trap for whoever runs this once.
+    expect(parseStandingBackfillArgs(['--batch-size=25'])).toEqual({ apply: false, batchSize: 25 });
+    expect(parseStandingBackfillArgs(['--apply', '--batch-size=7']))
+      .toEqual({ apply: true, batchSize: 7 });
+    // Still exactly equivalent to the space-separated form.
+    expect(parseStandingBackfillArgs(['--batch-size=7']))
+      .toEqual(parseStandingBackfillArgs(['--batch-size', '7']));
   });
 });

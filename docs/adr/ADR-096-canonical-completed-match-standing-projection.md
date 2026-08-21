@@ -96,7 +96,7 @@ Manual adjustments carry a NULL `related_entity_id` and stay unconstrained, beca
 legitimately be identical. The identity includes `reason` / `activity_type` because one match
 legitimately writes several rows for the same user in the same community.
 
-### 3. One replay key, two as-of predicates
+### 3. One replay key, two as-of boundaries
 
 `asOf = (completed_at, match_id)` totally orders replay. The id tie-break is not cosmetic: first-help
 and milestone outcomes depend on chronological rank, so matches sharing a timestamp must replay in a
@@ -109,6 +109,15 @@ locale- and ICU-dependent.
 Deriving both from strictly-before history is what makes the result **replay-stable**: the match's
 own rows are never counted, so the answer does not change once they exist. Counting inclusively
 would award a different milestone on a second run.
+
+The boundary is derived twice — in SQL for live delivery and historical replay, in TypeScript for
+the curated fixture and the dry-run report — and **no type or shared predicate can bind those two
+together**. An earlier draft of this ADR claimed a pair of exported predicates served as that
+oracle; nothing called them, so they were deleted rather than left advertising a guarantee that did
+not exist. The binding is instead a runtime check: `applyStandingBackfill` re-derives every
+projected identity, point value and timestamp in TypeScript, compares them against what SQL actually
+wrote, and **fails the run** on any mismatch. That check is the reason a dry run's prediction can be
+trusted.
 
 Every projector predicate is as-of — a function of stored history plus the match itself, never of
 current table state. `updateTrustScore` is the deliberate exception: that cache is supposed to

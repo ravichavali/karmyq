@@ -152,21 +152,20 @@ export function compareReplayKeys(left: ReplayKey, right: ReplayKey): number {
 }
 
 /**
- * The two as-of boundary rules, exported so every adapter shares ONE definition of them.
+ * ⚠️ The as-of boundary is NOT expressed as a shared predicate, and deliberately so.
  *
- * `priorHelperKarma` is derived from history STRICTLY BEFORE the match; `helperHelpCountThroughAsOf`
- * counts history THROUGH it. Those are different predicates, and Sprint 126 derives them in two
- * places — SQL for live/historical replay, TypeScript for the curated fixture. No pure test can
- * compare a SQL derivation against a TS one, so the predicate itself must be canonical even where
- * the aggregation cannot be: use these as the oracle rather than restating the comparison.
+ * `priorHelperKarma` reads history STRICTLY BEFORE the match; `helperHelpCountThroughAsOf` is that
+ * count plus one. Both consumers derive them with running accumulators advanced *after* each match
+ * is planned (see `standingBackfillService` and `completedExchange`), which is a better mechanism
+ * than a per-row predicate — it is O(1) per match rather than a scan — and it has no natural call
+ * site for an `isStrictlyBefore(key, asOf)` helper.
+ *
+ * Sprint 126 originally exported such helpers and advertised them as the canonical oracle. Nothing
+ * ever called them. An exported contract that no code is bound by is worse than none, because it
+ * reads as a guarantee — so they were removed rather than left as decoration. The real cross-check
+ * is at runtime: `applyStandingBackfill` re-derives every projected row in TypeScript and compares
+ * it against what SQL actually wrote, and now FAILS the run when they disagree.
  */
-export function isStrictlyBefore(key: ReplayKey, asOf: ReplayKey): boolean {
-  return compareReplayKeys(key, asOf) < 0;
-}
-
-export function isThrough(key: ReplayKey, asOf: ReplayKey): boolean {
-  return compareReplayKeys(key, asOf) <= 0;
-}
 
 /**
  * Choose which communities a match awards karma in: the helper's most-invested communities first,

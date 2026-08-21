@@ -578,9 +578,13 @@ describe('projectCompletedMatchStanding', () => {
       // Both LATERAL aggregates must carry the same strict boundary, or replaying an old match
       // would see karma from matches that had not happened yet.
       const boundaries = sql!.match(
-        /src\.completed_at < \$5 OR \(src\.completed_at = \$5 AND src\.id::text < \$6\)/g,
+        /src\.completed_at < \$5 OR \(src\.completed_at = \$5 AND src\.id < \$6::uuid\)/g,
       );
       expect(boundaries).toHaveLength(2);
+      // uuid comparison, not `id::text` — text `<` uses the database collation, which is exactly
+      // the environment-sensitivity compareReplayKeys rejects localeCompare for. Byte order and
+      // canonical-lowercase-hex string order agree, so the TS and SQL tie-breaks still match.
+      expect(sql).not.toMatch(/src\.id::text/);
       expect(sql).toMatch(/JOIN requests\.matches src ON src\.id = kr\.related_entity_id/);
     });
 

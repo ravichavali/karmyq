@@ -823,16 +823,22 @@ The reputation service automatically awards karma by listening to events from ot
 
 When a match is completed, the reputation service:
 
-1. Finds shared communities (request communities ∩ both users' active memberships, max 3)
-2. Calls `allocateKarma(communityConfigs, BASE_KARMA_POOL)` to compute per-community integer awards
-3. Awards helper and requester karma in each shared community (fixed pool, no inflation)
-4. Checks if this is helper's first help in the community (+15 bonus)
-5. Checks for milestone bonuses (10, 50, 100 exchanges)
-6. Updates trust scores for both users via `computeTrustScore()`
+1. Re-reads the match's authoritative facts under `pg_advisory_xact_lock` (the payload is a message,
+   not a record; a payload disagreeing with stored participants/status is rejected)
+2. Finds shared communities (request communities ∩ both users' **active** memberships), ranked by
+   the helper's karma from history **strictly before** this match, capped at 3
+3. Calls the canonical `planCompletedMatchStanding()` in `@karmyq/shared` for every row the match
+   produces — helper award, requester award, and at most one milestone bonus per community
+4. Writes them all in ONE transaction with `ON CONFLICT DO NOTHING`, stamped with the match's stored
+   `completed_at` (never `NOW()`)
+5. Refreshes trust scores for both users via `updateTrustScore()` — the deliberate present-state
+   exception, run after every as-of decision
 
-**Event Handler:** `src/events/subscriber.ts:12`
+**Event Handler:** `src/events/subscriber.ts`
 
-**Karma Award Logic:** `src/services/karmaService.ts:20-106`
+**Standing projection:** `src/services/standingProjector.ts` (Sprint 126 / ADR-096). The former
+`karmaService.awardKarmaForCompletedMatch` and `allocateKarma` were **deleted** — see BUG-037 above
+for why that path had been throwing `42703` on every match since Sprint 62.
 
 **Event Payload:**
 ```json
@@ -962,21 +968,23 @@ eventQueue.process('new_event_name', async (job) => {
 
 ### Add New Milestone
 
-```typescript
-// src/services/karmaService.ts - In awardKarmaForCompletedMatch
-const totalHelps = parseInt(helperHistory.rows[0].count);
+Milestones are **policy**, not service code, and live in one place:
+`packages/shared/src/projections/completedMatchStanding.ts`.
 
-// Add new milestone
-if (totalHelps === 250) {
-  await recordKarma({
-    user_id: responder_id,
-    community_id,
-    points: 250,
-    reason: '250 exchanges milestone',
-    related_entity_id: match_id,
-  });
-}
+```typescript
+export const COMPLETED_MATCH_MILESTONES = [
+  { count: 1,   points: 15,  reason: COMPLETED_MATCH_REASONS.first },
+  { count: 10,  points: 25,  reason: COMPLETED_MATCH_REASONS.milestone10 },
+  { count: 50,  points: 50,  reason: COMPLETED_MATCH_REASONS.milestone50 },
+  { count: 100, points: 100, reason: COMPLETED_MATCH_REASONS.milestone100 },
+  { count: 250, points: 250, reason: COMPLETED_MATCH_REASONS.milestone250 }, // new
+];
 ```
+
+Add the matching label to `COMPLETED_MATCH_REASONS` first — the reason strings are a SQL data
+contract, and `updateTrustScore` compares against them literally. Adding it here applies it to live
+delivery, the curated fixture, and historical replay at once, which is the point of the shared
+policy.
 
 ### Change Trust Score Algorithm
 
@@ -1421,15 +1429,26 @@ Projects stored completed-match history through the same production path new act
 invents nothing — no matches, no feedback, no score tuning.
 
 ```bash
-# Dry run (DEFAULT). SELECT-only; prints the full preflight report and the exact apply command.
-npm --workspace karmyq-reputation-service run backfill:standing
-
-# Bounded apply. The ONLY mutating switch.
+# From a SOURCE CHECKOUT (has src/ and ts-node) — e.g. ~/karmyq on the demo host:
+npm --workspace karmyq-reputation-service run backfill:standing                      # dry run (DEFAULT)
 npm --workspace karmyq-reputation-service run backfill:standing -- --apply --batch-size 100
+
+# Inside the DEPLOYED CONTAINER, which has only dist/ and installs --omit=dev (no ts-node, no src/):
+npm run backfill:standing:dist
+npm run backfill:standing:dist -- --apply --batch-size 100
 ```
 
-`--batch-size N` takes a positive integer, default 100. Unknown, missing, non-integer, zero, and
-negative arguments exit 2 **before** any database call.
+⚠️ **Two invocation paths, and the ts-node one does not work in the container.** The image copies
+`dist` only and installs without dev dependencies, so `backfill:standing` (ts-node) is a
+source-checkout command. Use `backfill:standing:dist` in the container. The CLI prints both.
+
+`--batch-size N` and `--batch-size=N` are both accepted; positive integer, default 100. Unknown,
+missing, non-integer, zero, and negative arguments exit 2 **before** any database call.
+
+**The apply enforces its own verification.** After writing, it re-derives every projected row in
+TypeScript and compares it against what SQL actually wrote; any mismatch throws and the CLI exits
+non-zero. Rows already committed are not rolled back — the message says so — but you will never be
+told a data operation succeeded when it did not.
 
 **Authority boundary.** `--apply` against demo is a separately authorized data operation, after
 deployment and a fresh backup. Deployment approval is not data-operation approval.

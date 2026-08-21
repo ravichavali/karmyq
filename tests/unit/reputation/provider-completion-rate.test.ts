@@ -12,7 +12,9 @@ jest.mock('../../../services/reputation-service/src/database/db', () => ({
   query: jest.fn(),
 }));
 
-jest.mock('../../../services/reputation-service/src/services/karmaService', () => ({
+// Sprint 126: awardKarmaForCompletedMatch moved to standingProjector; karmaService no longer
+// exports it, so mocking it there isolated nothing (and blanked updateTrustScore as a side effect).
+jest.mock('../../../services/reputation-service/src/services/standingProjector', () => ({
   awardKarmaForCompletedMatch: jest.fn(),
 }));
 

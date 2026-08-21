@@ -129,7 +129,6 @@ moved here.
 | `MAX_COMMUNITIES_PER_KARMA_AWARD` | `3` |
 | `DEFAULT_KARMA_POOL` | `100` |
 | `compareReplayKeys(a, b)` | total order over `(completedAt, matchId)`; code-unit tie-break |
-| `isStrictlyBefore(key, asOf)` / `isThrough(key, asOf)` | the two as-of boundary predicates |
 | `selectStandingCommunities(candidates, limit?)` | prior-karma DESC, community-id tie-break, capped |
 | `allocateCompletedMatchKarma(configs, totalPool, requestType?)` | largest-remainder allocation (ADR-032) |
 | `planCompletedMatchStanding(facts, totalPool?)` | every karma row one match produces |
@@ -144,7 +143,11 @@ moved here.
 - **Every predicate is as-of.** Community selection and milestone rank are functions of stored
   history as of the match plus the match itself, never of current table state. Callers supply the
   two aggregates; deriving them strictly-before is what makes a replay stable, because the match's
-  own rows are never counted.
+  own rows are never counted. The boundary is **not** exported as a shared predicate — both
+  consumers use running accumulators advanced after each match, which has no predicate call site.
+  What binds SQL and TypeScript together is a runtime check, not a type: `applyStandingBackfill`
+  re-derives every projected row in memory, compares it to what SQL wrote, and fails the run on any
+  mismatch.
 - **The pool is fixed per match.** Being in three communities never awards more total karma than
   being in one.
 
