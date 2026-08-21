@@ -1,4 +1,4 @@
-# Sprint 126 — Honest Standing Backfill (Tasks 1-9 of 14 done)
+# Sprint 126 — Honest Standing Backfill (Tasks 1-11 of 14 done; gates next)
 
 > ## State as of 2026-08-20
 >
@@ -6,9 +6,10 @@
 > smoke-tested on demo. Archived at
 > [`archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md`](archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md).
 >
-> **Sprint 126 is mid-execution on `feature/sprint-126-standing-backfill`.** Tasks 1-9 are
-> complete and green; Task 9 is staged as this commit. Nothing is pushed, no PR is open, and the demo
-> database is UNTOUCHED — the version bump to v11.46.0 is still pending (Task 11).
+> **Sprint 126 implementation is COMPLETE on `feature/sprint-126-standing-backfill`.** Tasks 1-11
+> are committed and green. Remaining: Task 12 (SDLC gates), Task 13 (final verification + handoff
+> reconcile), Task 14 (merge, deploy, separately authorized demo apply). Nothing is pushed, no PR is
+> open, and the demo database has only ever been READ. Version is bumped to **v11.46.0**.
 
 ## Progress
 
@@ -22,12 +23,19 @@
 | 6. Curated fixture convergence | ✅ done | `00bb1549` |
 | 7. Read-only standing preflight | ✅ done | `5ba3671c` |
 | 8. Bounded apply and legacy repair | ✅ done | `2c0d3f42` |
-| 9. Operator CLI | ✅ done | this commit |
-| 10-11. ADRs, docs, CONTEXT, registry, version bump | ⬜ | — |
-| 12-13. SDLC gates, final verification, handoff | ⬜ | — |
+| 9. Operator CLI | ✅ done | `88811056` |
+| 10. ADR-096, ADR-037/095 amendments, guide, landing | ✅ done | `33599dd8` |
+| 11. Contexts, registry, version bump, end-to-end proof | ✅ done | `6cea6abf` |
+| 12. SDLC gates (/simplify, /code-review, /security-review) | ⬜ **next** | — |
+| 13. Final verification + handoff reconcile | ⬜ | — |
 | 14. Merge, deploy, separately authorized demo apply | ⬜ | — |
 
-**Verification at Task 6:** full `npx turbo run test --concurrency=2` — **26/26 tasks, 0 failures**.
+**Verification at Task 11:** full `npx turbo run test --concurrency=2` — **26/26 tasks, 0 failures**.
+Reputation 231 passing / 3 todo / 0 skipped. Against real PostgreSQL 15.15: schema integration
+12/12 and **backfill end-to-end 10/10** — dry run leaves a byte-identical fingerprint, a second
+apply writes nothing, and an interrupted run resumes to the same rows as an uninterrupted one.
+
+**Earlier (Task 6):** full suite — **26/26 tasks, 0 failures**.
 `npm run feedback:check` clean. Suites: shared 171, simulation 99, reputation 192 (0 skipped),
 root policy 32, schema integration 12 against real PostgreSQL 15.15.
 
@@ -36,10 +44,31 @@ root policy 32, schema integration 12 against real PostgreSQL 15.15.
 1. `git checkout feature/sprint-126-standing-backfill` (already there; tree clean except
    `docs/IDEAS.md`).
 2. Open the plan: `docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md`.
-3. Start at **Task 10** (ADRs, user guide, and landing documentation). Task 11 needs the disposable
-   PostgreSQL recipe below.
-4. Task 7 and Task 8 simplify passes are complete; the final branch-diff simplify pass remains.
-   `/code-review` and `/security-review` are Task 12.
+3. Start at **Task 12** — the SDLC gates: the final branch-diff `/simplify` pass (the Task 7 and 8
+   passes are already done), then `/code-review` at high effort, then `/security-review`, then the
+   `pre-commit-check` skill on the staged scope.
+4. Task 13 re-proves operator behaviour (dry-run → apply → dry-run → apply) against a disposable
+   database. Recipe below.
+
+### Disposable PostgreSQL + Redis (this box has no local Docker)
+
+```bash
+ssh ubuntu@karmyq.com 'docker run -d --name karmyq-s126-e2e   -e POSTGRES_USER=karmyq_test -e POSTGRES_PASSWORD=test_password -e POSTGRES_DB=karmyq_test   -p 127.0.0.1:55434:5432 postgres:15-alpine'
+ssh ubuntu@karmyq.com 'docker run -d --name karmyq-s126-redis -p 127.0.0.1:63799:6379 redis:7-alpine'
+scp infrastructure/postgres/init.sql ubuntu@karmyq.com:/tmp/s126-init.sql
+ssh ubuntu@karmyq.com 'docker exec -i karmyq-s126-e2e psql -v ON_ERROR_STOP=1 -U karmyq_test -d karmyq_test < /tmp/s126-init.sql'
+ssh -f -N -L 55434:127.0.0.1:55434 ubuntu@karmyq.com
+ssh -f -N -L 63799:127.0.0.1:63799 ubuntu@karmyq.com
+
+cd tests && DATABASE_URL='postgresql://karmyq_test:test_password@127.0.0.1:55434/karmyq_test'   REDIS_URL='redis://127.0.0.1:63799'   npx jest --config jest.integration.config.js integration/sprint-126-standing-backfill.integration.test.ts --runInBand --forceExit
+```
+
+⚠️ **REDIS_URL is not optional.** `effectiveParamsCache` is Redis-backed, so without it every
+`updateTrustScore` burns connection retries — apply measured **298s per match** without Redis versus
+**2.1s** with it. If the backfill ever looks pathologically slow, check Redis before suspecting the
+query plan. CI is unaffected (`docker-compose.test.yml` provides `redis-test`).
+
+**Tear both containers down afterwards** — demo must be left as found (17 containers).
 
 ## ⚠️ Decisions taken during execution that differ from the written plan
 
