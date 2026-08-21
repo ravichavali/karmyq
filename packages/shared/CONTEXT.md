@@ -113,6 +113,47 @@ Producers must emit only the canonical four; `critical`/`normal` are retired. Se
 
 ---
 
+## Canonical completed-match standing policy (added 2026-08-20, ADR-096)
+
+`src/projections/completedMatchStanding.ts` — exported from the **root barrel** (no new subpath).
+This is the single definition of what a completed match does to personal standing. Live event
+delivery (`reputation-service` `standingProjector.ts`), the curated fixture projector
+(`completedExchange.ts`), and historical operator replay (`backfill:standing`) all consume it.
+Sprint 126 deleted `reputation-service/src/services/karmaAllocation.ts` when its last importers
+moved here.
+
+| Export | Contract |
+|---|---|
+| `COMPLETED_MATCH_REASONS` | `Provided help`, `Received help`, `First help in community`, `10/50/100 exchanges milestone` |
+| `COMPLETED_MATCH_MILESTONES` | helper-side bonuses at counts 1 / 10 / 50 / 100 → 15 / 25 / 50 / 100 points |
+| `MAX_COMMUNITIES_PER_KARMA_AWARD` | `3` |
+| `DEFAULT_KARMA_POOL` | `100` |
+| `compareReplayKeys(a, b)` | total order over `(completedAt, matchId)`; code-unit tie-break |
+| `isStrictlyBefore(key, asOf)` / `isThrough(key, asOf)` | the two as-of boundary predicates |
+| `selectStandingCommunities(candidates, limit?)` | prior-karma DESC, community-id tie-break, capped |
+| `allocateCompletedMatchKarma(configs, totalPool, requestType?)` | largest-remainder allocation (ADR-032) |
+| `planCompletedMatchStanding(facts, totalPool?)` | every karma row one match produces |
+
+**Invariants this module exists to hold:**
+
+- **Pure.** No clock, no database. The same facts always produce the same plan — that is what makes
+  historical replay safe.
+- **The reason strings are a data contract, not labels.** `updateTrustScore` compares against them
+  in SQL, so karma written under any other label is stored and then invisible to standing. The
+  fixture's old `help_provided` / `help_received` are exactly that failure.
+- **Every predicate is as-of.** Community selection and milestone rank are functions of stored
+  history as of the match plus the match itself, never of current table state. Callers supply the
+  two aggregates; deriving them strictly-before is what makes a replay stable, because the match's
+  own rows are never counted.
+- **The pool is fixed per match.** Being in three communities never awards more total karma than
+  being in one.
+
+⚠️ `DEFAULT_KARMA_POOL` is a flat constant. `communities.community_configs.base_karma_pool_per_request`
+is admin-editable and read by callers, but has always been ignored in favour of this value.
+Pre-existing; documented on the constant; not changed by Sprint 126.
+
+---
+
 ## Logger: error_type + X-Request-Id (added 2026-04-06, ADR-049)
 
 `requestLoggingMiddleware` now:

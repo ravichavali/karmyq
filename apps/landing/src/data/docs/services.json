@@ -566,7 +566,7 @@
         ]
       },
       "healthCheck": "http://localhost:3004/health",
-      "notes": "",
+      "notes": "Sprint 126 (ADR-096): the match_completed payload is UNCHANGED, but reputation's projection of it is now atomic, idempotent, and timestamp-preserving. One transaction per match under pg_advisory_xact_lock; all writes ON CONFLICT DO NOTHING against uq_karma_match_projection / uq_activity_match_projection, so redelivering a job re-writes nothing. Karma is awarded in at most 3 shared request communities, selected from history STRICTLY BEFORE (completed_at, match_id). Rows carry the stored matches.completed_at, never NOW(). The payload is treated as a message, not a record: participants and status are re-read from the database under the lock and a disagreeing payload is rejected. Badges, provider metrics and trust evolution remain subscriber-owned and live-only — the historical backfill (npm run backfill:standing, dry-run by default) never replays them.",
       "databaseSchemas": [
         "reputation"
       ]
@@ -957,5 +957,5 @@
       ]
     }
   },
-  "updated": "2026-07-08"
+  "updated": "2026-08-20"
 }

@@ -5,6 +5,10 @@
 
 ## Recent Changes
 
+- **2026-08-20 (Sprint 126 — BUG-037: live karma awarding was broken since Sprint 62)**: `karmaService.getCommunityKarmaConfig()` selected `config->'enabled_request_types'` from `communities.community_configs`, which has **no `config` column** — `enabled_request_types` is top-level `jsonb`. PostgreSQL raised `42703` at parse time, so `awardKarmaForCompletedMatch()` threw on **every** completed match. Demo confirmed it: 7,860 completed matches, **0** karma rows from the live path, **0** `trust_scores` rows, **0** `activity_log` rows; the only 174 karma rows came from the curated fixture. This is also why ADR-095's reach gate emptied the provider layer at any non-zero floor. Fixed by deleting the legacy award path entirely; `standingProjector.ts` reads the real column. Mocked tests could not catch it — a stubbed pool asserts its own mock, never a column's existence.
+
+- **2026-08-20 (Sprint 126 — transactional standing projector, ADR-096)**: `standingProjector.ts` is the one database adapter for the canonical policy in `@karmyq/shared`. One transaction per match under `pg_advisory_xact_lock(hashtextextended(matchId, 0))`; all writes `ON CONFLICT DO NOTHING` against the projection identities; community selection and milestone rank read history **strictly before** `(completed_at, match_id)`, which is what makes a replay stable. Rows carry the **stored** `matches.completed_at`, never `NOW()`. The event payload is a message, not a record — participants and status are re-read under the lock and a disagreeing payload is rejected. Historical mode fails closed with no community; only live delivery falls back to one deterministically ordered request community. `karmaService.ts` keeps trust reads and `updateTrustScore` (the deliberate present-state exception) and lost `KARMA_DEFAULTS` plus its second `MAX_COMMUNITIES_PER_KARMA_AWARD`, which duplicated the shared constants.
+
 - **2026-08-20 (Sprint 126 — standing operator CLI, in progress)**: `npm run backfill:standing` is dry-run by default and prints the complete preflight report plus the exact apply command. Only `--apply` reaches `applyStandingBackfill`; `--batch-size N` accepts positive integers and defaults to 100. Unknown, missing, non-integer, zero, and negative arguments exit 2 before any database service call. Apply progress prints batch/match counts and the last committed match ID, never user records or credentials.
 
 - **2026-08-20 (Sprint 126 — bounded standing apply, in progress)**: `standingBackfillService.applyStandingBackfill()` now reruns fail-closed preflight, normalizes only safe unattributable legacy reason labels, reprojects attributable fixture rows oldest-first in per-match transactions, emits bounded progress, and refreshes every active membership including zero-history pairs. Database projection identities are the resume checkpoint. Exact normalization collisions collapse without losing points/timestamps; conflicting collisions abort. A post-preflight community-set change also aborts inside the match transaction so legacy deletion cannot commit without its canonical replacement.
@@ -55,13 +59,25 @@ CREATE TABLE reputation.trust_scores (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     community_id UUID NOT NULL REFERENCES communities.communities(id),
-    score INTEGER DEFAULT 50,              -- Trust score 0-100
+    score INTEGER DEFAULT 0 NOT NULL,      -- Trust score 0-100; 0 cold start (Sprint 126/ADR-096)
     requests_completed INTEGER DEFAULT 0,  -- Number of help requests completed
     offers_accepted INTEGER DEFAULT 0,     -- Number of times helped others
     average_feedback NUMERIC(3,2) DEFAULT 0,
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, community_id)         -- One score per user per community
 );
+
+-- Sprint 126 / ADR-096: projection identity. Idempotent replay is a DATABASE guarantee — an
+-- application-side SELECT-then-INSERT check cannot survive a crash in between. Partial, because
+-- only rows attributable to a source entity have a projection identity at all; manual adjustments
+-- carry a NULL related_entity_id and stay unconstrained.
+CREATE UNIQUE INDEX uq_karma_match_projection
+  ON reputation.karma_records (user_id, community_id, reason, related_entity_id)
+  WHERE related_entity_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_activity_match_projection
+  ON reputation.activity_log (user_id, community_id, activity_type, related_entity_id)
+  WHERE related_entity_id IS NOT NULL;
 
 -- reputation.badges
 CREATE TABLE reputation.badges (
@@ -1396,3 +1412,52 @@ body was parsed, so `const { x } = req.body` throws a `TypeError` on a bodyless 
 route's catch turns it into a **500**. `app.use(normalizeRequestBody)` is now mounted immediately
 after `express.json()` in `src/index.ts` to restore the Express 4 behaviour. It fills in only a
 *missing* body, so a parsed array or explicit `null` is untouched.
+
+---
+
+## Operator runbook: `backfill:standing` (Sprint 126 / ADR-096)
+
+Projects stored completed-match history through the same production path new activity uses. It
+invents nothing — no matches, no feedback, no score tuning.
+
+```bash
+# Dry run (DEFAULT). SELECT-only; prints the full preflight report and the exact apply command.
+npm --workspace karmyq-reputation-service run backfill:standing
+
+# Bounded apply. The ONLY mutating switch.
+npm --workspace karmyq-reputation-service run backfill:standing -- --apply --batch-size 100
+```
+
+`--batch-size N` takes a positive integer, default 100. Unknown, missing, non-integer, zero, and
+negative arguments exit 2 **before** any database call.
+
+**Authority boundary.** `--apply` against demo is a separately authorized data operation, after
+deployment and a fresh backup. Deployment approval is not data-operation approval.
+
+**Order of operations against a live database:**
+
+1. **Before deploying**, count duplicate projection identities. `CREATE UNIQUE INDEX` does not
+   tolerate duplicate data — `IF NOT EXISTS` guards against the index existing, not against
+   duplicate rows — and a conflict aborts the migration and rolls the deploy back:
+
+   ```sql
+   SELECT COUNT(*) FROM (
+     SELECT 1 FROM reputation.karma_records WHERE related_entity_id IS NOT NULL
+     GROUP BY user_id, community_id, reason, related_entity_id HAVING COUNT(*) > 1) d;
+   ```
+
+2. Deploy schema and code. Prefer a quiet window: migrations apply before images are rebuilt, so
+   the new indexes run against old containers for a few minutes.
+3. Take a fresh backup.
+4. Dry-run and read the report. Re-measure rather than trusting an earlier audit — the simulator
+   keeps completing matches (7,817 on 2026-08-19 → 7,860 on 2026-08-20).
+5. Obtain explicit authorization, then apply in bounded batches.
+6. Dry-run again, then apply again. **Both must report zero new projection writes.** That is the
+   idempotency proof, and it is the point of the whole design.
+
+**Resume safety.** There is no checkpoint file — the database projection identities *are* the
+checkpoint. An interrupted run is resumed by re-running the same command; already-projected matches
+write nothing.
+
+**A zero is a result, not a gap.** Every active membership is evaluated, including pairs with no
+history. They are supposed to score 0.
