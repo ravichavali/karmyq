@@ -79,6 +79,13 @@ CREATE UNIQUE INDEX uq_activity_match_projection
   ON reputation.activity_log (user_id, community_id, activity_type, related_entity_id)
   WHERE related_entity_id IS NOT NULL;
 
+-- trustMetricsDb self-joins karma_records on related_entity_id ("who else was awarded for this
+-- match") to derive repeat pairs and distinct counterparties. Nothing led on that column, so every
+-- trust-score computation scanned the table — on live match completions, not just during replay.
+CREATE INDEX idx_karma_related_entity
+  ON reputation.karma_records (related_entity_id)
+  WHERE related_entity_id IS NOT NULL;
+
 -- reputation.badges
 CREATE TABLE reputation.badges (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
