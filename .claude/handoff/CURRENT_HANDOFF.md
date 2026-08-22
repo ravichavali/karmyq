@@ -6,10 +6,12 @@
 > smoke-tested on demo. Archived at
 > [`archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md`](archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md).
 >
-> **Sprint 126 implementation and all SDLC gates are COMPLETE** on
-> `feature/sprint-126-standing-backfill`. Tasks 1-12 are committed and green. Remaining: Task 13
-> (final verification) and Task 14 (merge, deploy, separately authorized demo apply). Nothing is
-> pushed, no PR is open, and the demo database has only ever been READ. Version **v11.46.0**.
+> **Sprint 126 is code-complete and open as [PR #210](https://github.com/ravichavali/karmyq/pull/210).**
+> Tasks 1-13 done; branch pushed (pre-push hook ran and passed), PR `MERGEABLE`, base `master`.
+> Version **v11.46.0**. The demo database has only ever been READ. Remaining is Task 14 only —
+> and every step of it needs maintainer authorization.
+>
+> **Awaiting: Codex cross-agent review of PR #210**, then CI, then merge authorization.
 
 ## Progress
 
