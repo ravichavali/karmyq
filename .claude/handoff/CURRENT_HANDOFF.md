@@ -1,4 +1,4 @@
-# Sprint 126 — Honest Standing Backfill (Tasks 1-12 done; final verification next)
+# Sprint 126 — Honest Standing Backfill (Tasks 1-13 done; PR open, awaiting review + merge auth)
 
 > ## State as of 2026-08-20
 >
@@ -30,7 +30,7 @@
 | 12b. /code-review high | ✅ done | `ac93b30b` |
 | 12c. /security-review | ✅ done | `5bd1b7d4` |
 | 12d. pre-commit process review | ✅ done | this commit |
-| 13. Final verification + PR | ⬜ **next** | — |
+| 13. Final verification + PR | ✅ done | this commit |
 | 14. Merge, deploy, separately authorized demo apply | ⬜ | — |
 
 **Verification at Task 11:** full `npx turbo run test --concurrency=2` — **26/26 tasks, 0 failures**.
@@ -47,8 +47,9 @@ root policy 32, schema integration 12 against real PostgreSQL 15.15.
 1. `git checkout feature/sprint-126-standing-backfill` (already there; tree clean except
    `docs/IDEAS.md`).
 2. Open the plan: `docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md`.
-3. Start at **Task 13** — final verification and the PR. All three SDLC gates have run and their
-   findings are committed (see "What the gates found" below).
+3. **Task 14 is all that remains**, and every step of it needs maintainer authorization:
+   merge → deploy → fresh backup → dry-run → **separate** authorization → bounded apply.
+   Do not run `--apply` against demo without that separate approval.
 4. Task 13 re-proves operator behaviour (dry-run → apply → dry-run → apply) against a disposable
    database. Recipe below.
 
@@ -71,6 +72,27 @@ cd tests && DATABASE_URL='postgresql://karmyq_test:test_password@127.0.0.1:55434
 query plan. CI is unaffected (`docker-compose.test.yml` provides `redis-test`).
 
 **Tear both containers down afterwards** — demo must be left as found (17 containers).
+
+## Task 13 — operator behaviour proved against real PostgreSQL 15
+
+Twelve seeded completed matches across two communities, run through the exact four-step sequence
+the runbook prescribes:
+
+| Step | Result |
+|---|---|
+| 1. Dry run (default) | predicts 26 karma / 24 activity rows; wrote **0 / 0 / 0** |
+| 2. `--apply --batch-size 5` | 3 bounded batches; wrote exactly **26 karma / 24 activity / 4 trust** |
+| 3. Second dry run | `alreadyProjectedMatches: 12`, predicts **0** — converged |
+| 4. Second apply | writes nothing; row counts **unchanged** |
+
+Prediction matched reality exactly. Milestones landed per `(helper, community)` — 2 first-help rows
+across 2 communities, not 1 platform-wide. Scores are ADR-037 computed values (37), not invented.
+Argument safety: `--unknown` and `--batch-size=0` both exit **2** before any database call. The CLI
+exits cleanly rather than hanging.
+
+Note the converged `activityRows: 0` in step 3 is only possible because of the Task 12 settings-gating
+fix — before it, the preflight predicted activity rows for communities that will never receive any,
+so this check could never have passed.
 
 ## What the gates found (Task 12)
 
