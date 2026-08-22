@@ -1,4 +1,4 @@
-# Sprint 126 — Honest Standing Backfill (Tasks 1-11 of 14 done; gates next)
+# Sprint 126 — Honest Standing Backfill (Tasks 1-12 done; final verification next)
 
 > ## State as of 2026-08-20
 >
@@ -6,10 +6,10 @@
 > smoke-tested on demo. Archived at
 > [`archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md`](archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md).
 >
-> **Sprint 126 implementation is COMPLETE on `feature/sprint-126-standing-backfill`.** Tasks 1-11
-> are committed and green. Remaining: Task 12 (SDLC gates), Task 13 (final verification + handoff
-> reconcile), Task 14 (merge, deploy, separately authorized demo apply). Nothing is pushed, no PR is
-> open, and the demo database has only ever been READ. Version is bumped to **v11.46.0**.
+> **Sprint 126 implementation and all SDLC gates are COMPLETE** on
+> `feature/sprint-126-standing-backfill`. Tasks 1-12 are committed and green. Remaining: Task 13
+> (final verification) and Task 14 (merge, deploy, separately authorized demo apply). Nothing is
+> pushed, no PR is open, and the demo database has only ever been READ. Version **v11.46.0**.
 
 ## Progress
 
@@ -26,8 +26,11 @@
 | 9. Operator CLI | ✅ done | `88811056` |
 | 10. ADR-096, ADR-037/095 amendments, guide, landing | ✅ done | `33599dd8` |
 | 11. Contexts, registry, version bump, end-to-end proof | ✅ done | `6cea6abf` |
-| 12. SDLC gates (/simplify, /code-review, /security-review) | ⬜ **next** | — |
-| 13. Final verification + handoff reconcile | ⬜ | — |
+| 12a. /simplify (4 angles, full branch diff) | ✅ done | `ea663ba8` |
+| 12b. /code-review high | ✅ done | `ac93b30b` |
+| 12c. /security-review | ✅ done | `5bd1b7d4` |
+| 12d. pre-commit process review | ✅ done | this commit |
+| 13. Final verification + PR | ⬜ **next** | — |
 | 14. Merge, deploy, separately authorized demo apply | ⬜ | — |
 
 **Verification at Task 11:** full `npx turbo run test --concurrency=2` — **26/26 tasks, 0 failures**.
@@ -44,9 +47,8 @@ root policy 32, schema integration 12 against real PostgreSQL 15.15.
 1. `git checkout feature/sprint-126-standing-backfill` (already there; tree clean except
    `docs/IDEAS.md`).
 2. Open the plan: `docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md`.
-3. Start at **Task 12** — the SDLC gates: the final branch-diff `/simplify` pass (the Task 7 and 8
-   passes are already done), then `/code-review` at high effort, then `/security-review`, then the
-   `pre-commit-check` skill on the staged scope.
+3. Start at **Task 13** — final verification and the PR. All three SDLC gates have run and their
+   findings are committed (see "What the gates found" below).
 4. Task 13 re-proves operator behaviour (dry-run → apply → dry-run → apply) against a disposable
    database. Recipe below.
 
@@ -69,6 +71,54 @@ cd tests && DATABASE_URL='postgresql://karmyq_test:test_password@127.0.0.1:55434
 query plan. CI is unaffected (`docker-compose.test.yml` provides `redis-test`).
 
 **Tear both containers down afterwards** — demo must be left as found (17 containers).
+
+## What the gates found (Task 12)
+
+Four bugs, three of them in code this sprint wrote, one pre-existing and sprint-invalidating.
+
+**🔴 The nightly decay job would have wiped the entire backfill within 24 hours.**
+cleanup-service's 03:00 cron overwrote `reputation.trust_scores.score` with
+`min(100, floor(decayed_karma / 10))`, a pre-ADR-037 formula. ADR-039 Phase 2 moved decay INTO the
+canonical calculator, so this second formula did not add decay — it replaced the real score nightly
+and would have re-emptied ADR-095's provider reach gate. Invisible until now only because
+`trust_scores` had zero rows (BUG-037). The job no longer writes trust scores; four tests pin that.
+
+**🔴 The live fallback fabricated a milestone.** `loadFallbackCandidate` hardcoded
+`helperHelpCountThroughAsOf: 1`, minting a "First help in community" bonus on every fallback award
+even for a helper with existing history — the projection identity is per-match, so the index
+accepted it. Fabricated standing, in the sprint whose thesis is that standing must be derivable.
+
+**🔴 `canApply` treated every anomaly as fatal**, so routine data was permanently fatal: one member
+leaving a community, or fission carrying karma into a child community (demo has **16 executed
+splits**), would have made the backfill unrunnable forever with no override. Anomalies now carry a
+severity; only blocking ones refuse.
+
+**🔴 Post-apply verification was printed, not enforced.** The apply re-derives every projected row
+in TypeScript and compares it to what SQL wrote — the only SQL-vs-TS cross-check that exists — and
+returned the verdict unchecked while the CLI exited 0. It now throws.
+
+Also fixed: a deadlock window (trust-score locks now taken in one deterministic order),
+`last_activity_at` being stamped falsely fresh during replay, the preflight predicting activity rows
+for the 45 of 53 demo communities that have no `communities.settings` row (which made
+`alreadyProjectedMatches` unable to converge — breaking the operator's own "second run writes
+nothing" check), two O(n²) scans, a test that could not fail, and `isStrictlyBefore`/`isThrough`
+which ADR-096 advertised as the canonical oracle while having zero callers.
+
+**`/security-review` found no vulnerabilities introduced by this branch** and confirmed a hardening
+win: before this sprint, `awardKarmaForCompletedMatch` trusted `requester_id`/`responder_id`
+straight from the Bull payload, so anyone able to inject a job could mint karma for arbitrary users.
+The projector now re-reads participants and status from the database under an advisory lock.
+
+Its one actionable item was adjacent: `PUT /matches/:id/complete` never checked `m.status`, so
+repeated calls re-stamped `completed_at` and re-published. That drift shifts the as-of boundary and
+would have tripped the backfill's own blocking `CONFLICTING_KARMA_PROJECTION` — one double-click
+could have refused the whole run. Completion is now idempotent.
+
+⚠️ **`npm run feedback:check` is a false-green on a committed branch.** `scripts/feedback-loop.js`
+reads `git diff --cached --name-status` with no range, so a branch with everything committed always
+reports clean. It only cross-checks CONTEXT.md when a file under `/routes/` changed, so the
+cleanup-service job change was outside its rules entirely. Replay its rules by hand against
+`origin/master...HEAD`, or stage before trusting it.
 
 ## ⚠️ Decisions taken during execution that differ from the written plan
 

@@ -1,16 +1,44 @@
 # Cleanup Service Context
 
 **Port**: 3008
-**Purpose**: Automated data expiration and reputation decay management
+**Purpose**: Automated data expiration and retention management
 **Tech**: Node.js, TypeScript, PostgreSQL, node-cron
 
 ## What This Service Does
 
 The Cleanup Service handles:
 1. **Ephemeral Data (TTL)** - Automatic expiration for requests, offers, messages, notifications
-2. **Reputation Decay** - Time-based karma decay calculation
-3. **Activity Tracking** - Log user activities for decay reset
-4. **Data Cleanup** - Hard deletion of expired data after grace period
+2. **Data Cleanup** - Hard deletion of expired data after grace period
+3. **Activity Log Cleanup** - Remove `reputation.activity_log` rows older than 90 days
+4. **Decay Reporting** - Read-only community decay statistics
+
+⚠️ **This service does NOT compute or write trust scores** (Sprint 126 / ADR-096). See Recent
+Changes below.
+
+## Recent Changes
+
+- **2026-08-21 (Sprint 126 / ADR-096 — the decay job no longer writes trust scores)**:
+  `updateDecayedTrustScores()` is now a logging no-op, and the dead `recordActivity()` twin was
+  deleted from `src/jobs/reputationDecayJob.ts`.
+
+  It used to overwrite `reputation.trust_scores.score` with `min(100, floor(decayed_karma / 10))`
+  — a pre-ADR-037 formula. **ADR-039 Phase 2 moved decay INTO the canonical calculator**:
+  `reputation-service`'s `updateTrustScore()` already weights interactions by a 12-month recency
+  window and blends recency-weighted feedback. So this second, cruder formula did not add decay —
+  it replaced the real multi-signal score with `karma/10` every night.
+
+  This was invisible because `reputation.trust_scores` held **zero rows platform-wide** (BUG-037 —
+  the live karma writer had been raising `42703` on every completed match since Sprint 62), so the
+  job selected nothing and logged "No trust scores to update". The moment Sprint 126's backfill
+  populates that table, the old behaviour would have wiped every projected score within 24 hours
+  and re-emptied ADR-095's provider reach gate. Found by the Sprint 126 `/code-review` gate.
+
+  Karma decay itself (ADR-011) is unaffected — it is computed at read time from `karma_records`
+  timestamps, never stored here. `POST /jobs/update-decay` still exists and still requires admin
+  auth; it now triggers the no-op. Pinned by `tests/unit/reputationDecayJob.test.ts`.
+
+  `recordActivity()` here was a near-verbatim copy of reputation-service's, with zero callers
+  repo-wide. Activity is written by `reputation-service/src/utils/activityTracker.ts`.
 
 ## Scheduled Jobs
 
@@ -18,7 +46,7 @@ The Cleanup Service handles:
 |-----|----------|-------------|
 | Mark Expired | Every hour (`:00`) | Soft delete data past `expires_at` (help_requests filtered to `status = 'open'` — Sprint 85 dropped the phantom `'pending'` token, never a real help_requests status) |
 | Hard Delete | Daily 2:00 AM | Permanently delete data expired >7 days |
-| Reputation Decay | Daily 3:00 AM | Recalculate trust scores with decay |
+| Reputation Decay | Daily 3:00 AM | **NO-OP since Sprint 126** — logs and returns; writes nothing |
 | Activity Log Cleanup | Weekly Sun 4:00 AM | Remove old activity logs (>90 days) |
 | Decay Report | Weekly Mon 9:00 AM | Generate community decay statistics |
 | Expire Dibs | Every 5 minutes | Find pending `requests.dibs` records past `expires_at`, set `status=expired`, reset `help_requests.status` to `open`, publish `dibs_expired` event |
