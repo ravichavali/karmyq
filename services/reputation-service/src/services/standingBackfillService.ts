@@ -24,8 +24,22 @@ type ScoreBucket = '0' | '1-19' | '20-39' | '40-59' | '60-79' | '80-100';
 type InteractionBucket = '0' | '1' | '2-3' | '4+';
 type ProviderFloor = '1' | '20' | '40' | '60';
 
+/**
+ * `blocking` anomalies mean the run cannot be trusted and apply must refuse. `informational` ones
+ * mean a specific match cannot be projected, or a stored row cannot be explained by replay — real
+ * facts an operator must see, but not reasons to refuse the whole backfill.
+ *
+ * The distinction exists because `canApply` originally demanded ZERO anomalies of any kind, which
+ * made routine data permanently fatal: one member leaving a community yields NO_ELIGIBLE_COMMUNITY
+ * forever, and fusion/fission legitimately carry canonical karma into a community replay would
+ * never select (demo has 16 executed splits), yielding UNEXPECTED_KARMA_PROJECTION forever. Neither
+ * is a corruption; both would have made the backfill unrunnable with no override.
+ */
+export type StandingBackfillAnomalySeverity = 'blocking' | 'informational';
+
 export interface StandingBackfillAnomaly {
   code: string;
+  severity: StandingBackfillAnomalySeverity;
   matchId?: string;
   detail: string;
 }
@@ -36,6 +50,9 @@ export interface StandingBackfillReport {
   eligibleMatches: number;
   alreadyProjectedMatches: number;
   anomalies: StandingBackfillAnomaly[];
+  /** Counts by severity, so the operator sees at a glance whether anything actually refuses. */
+  blockingAnomalies: number;
+  informationalAnomalies: number;
   activeMembershipPairs: number;
   sourcedPairs: number;
   zeroHistoryPairs: number;
@@ -105,8 +122,12 @@ interface UserConfigRow {
 }
 interface ProviderRow { provider_id: string; user_id: string; community_id: string }
 
+/** community_id -> the activity types that community actually tracks. */
+type ActivitySettings = Map<string, Set<string>>;
+
 interface BackfillSnapshot {
   matches: MatchRow[];
+  activitySettings: ActivitySettings;
   configs: CommunityConfigRow[];
   karma: KarmaRow[];
   activities: ActivityRow[];
@@ -132,6 +153,9 @@ const LEGACY_REASONS = new Set([
   'milestone_help_25',
 ]);
 const CANONICAL_REASONS = new Set<string>(Object.values(COMPLETED_MATCH_REASONS));
+const ACTIVITY_SETTINGS_QUERY = `/* standing-backfill:activity-settings */
+  SELECT community_id, activity_types FROM communities.settings`;
+
 const MATCHES_QUERY = `/* standing-backfill:matches */
   SELECT m.id, m.request_id, hr.requester_id, m.responder_id, m.status, m.completed_at,
          hr.request_type::text AS request_type,
@@ -205,7 +229,7 @@ const PROVIDERS_QUERY = `/* standing-backfill:providers */
   ORDER BY member.community_id, pp.id`;
 
 async function loadSnapshot(): Promise<BackfillSnapshot> {
-  const [matches, configs, karma, activities, memberships, feedback, userConfigs, providers] =
+  const [matches, configs, karma, activities, memberships, feedback, userConfigs, providers, settings] =
     await Promise.all([
       query(MATCHES_QUERY),
       query(COMMUNITY_CONFIGS_QUERY),
@@ -215,10 +239,18 @@ async function loadSnapshot(): Promise<BackfillSnapshot> {
       query(FEEDBACK_QUERY),
       query(USER_CONFIGS_QUERY),
       query(PROVIDERS_QUERY),
+      query(ACTIVITY_SETTINGS_QUERY),
     ]);
+
+  const activitySettings: ActivitySettings = new Map();
+  for (const row of settings.rows as Array<{ community_id: string; activity_types: unknown }>) {
+    const types = Array.isArray(row.activity_types) ? row.activity_types.map(String) : [];
+    activitySettings.set(String(row.community_id), new Set(types));
+  }
 
   return {
     matches: matches.rows as MatchRow[],
+    activitySettings,
     configs: configs.rows as CommunityConfigRow[],
     karma: karma.rows as KarmaRow[],
     activities: activities.rows as ActivityRow[],
@@ -249,23 +281,34 @@ function activityIdentity(row: Pick<ActivityRow, 'user_id' | 'community_id' | 'a
   return [row.user_id, row.community_id, row.activity_type, row.related_entity_id ?? ''].join('|');
 }
 
-function expectedActivityRows(replay: ReplayMatch): ActivityRow[] {
+/**
+ * The activity rows this match will ACTUALLY produce.
+ *
+ * `recordActivity` returns without writing when the community has no `communities.settings` row, or
+ * when the type is not in its `activity_types`. Most communities have no settings row at all (8 of
+ * 53 on demo), so predicting two rows per community unconditionally overstated the work AND made
+ * `alreadyProjectedMatches` unable to converge — a re-run would forever report activity rows still
+ * outstanding, which is exactly the signal the operator's "second run writes nothing" check reads.
+ */
+function expectedActivityRows(replay: ReplayMatch, settings: ActivitySettings): ActivityRow[] {
   const rows: ActivityRow[] = [];
   for (const communityId of replay.communityIds) {
-    rows.push({
-      user_id: String(replay.row.responder_id),
-      community_id: communityId,
-      activity_type: ActivityType.COMPLETE_REQUEST,
-      related_entity_id: replay.row.id,
-      created_at: replay.completedAt,
-    });
-    rows.push({
-      user_id: String(replay.row.requester_id),
-      community_id: communityId,
-      activity_type: ActivityType.COMPLETE_OFFER,
-      related_entity_id: replay.row.id,
-      created_at: replay.completedAt,
-    });
+    const tracked = settings.get(communityId);
+    if (!tracked) continue;
+    const candidates = [
+      { user_id: String(replay.row.responder_id), activity_type: ActivityType.COMPLETE_REQUEST },
+      { user_id: String(replay.row.requester_id), activity_type: ActivityType.COMPLETE_OFFER },
+    ];
+    for (const candidate of candidates) {
+      if (!tracked.has(candidate.activity_type)) continue;
+      rows.push({
+        user_id: candidate.user_id,
+        community_id: communityId,
+        activity_type: candidate.activity_type,
+        related_entity_id: replay.row.id,
+        created_at: replay.completedAt,
+      });
+    }
   }
   return rows;
 }
@@ -320,6 +363,7 @@ function replayMatches(
     if (!row.request_id || !row.requester_id || !row.responder_id) {
       anomalies.push({
         code: 'MISSING_MATCH_PARTICIPANTS',
+        severity: 'informational',
         matchId,
         detail: 'Completed match is missing its request, requester, or helper',
       });
@@ -334,6 +378,7 @@ function replayMatches(
     if (!row.completed_at) {
       anomalies.push({
         code: 'MISSING_COMPLETION_TIME',
+        severity: 'informational',
         matchId,
         detail: 'Completed match has no completed_at timestamp',
       });
@@ -344,6 +389,7 @@ function replayMatches(
     if (requestCommunities.length === 0) {
       anomalies.push({
         code: 'NO_REQUEST_COMMUNITY',
+        severity: 'informational',
         matchId,
         detail: 'Completed match request is not posted to any community',
       });
@@ -353,6 +399,7 @@ function replayMatches(
     if (eligibleCommunities.length === 0) {
       anomalies.push({
         code: 'NO_ELIGIBLE_COMMUNITY',
+        severity: 'informational',
         matchId,
         detail: 'Completed match has no active shared request community',
       });
@@ -418,6 +465,7 @@ function addDuplicateAnomalies(
     duplicates += rows.length - 1;
     anomalies.push({
       code: 'DUPLICATE_KARMA_IDENTITY',
+        severity: 'blocking',
       matchId: rows[0].related_entity_id ?? undefined,
       detail: 'Stored karma contains a duplicate projection identity',
     });
@@ -436,6 +484,7 @@ function addDuplicateAnomalies(
     duplicates += rows.length - 1;
     anomalies.push({
       code: 'DUPLICATE_ACTIVITY_IDENTITY',
+        severity: 'blocking',
       matchId: rows[0].related_entity_id ?? undefined,
       detail: 'Stored activity contains a duplicate projection identity',
     });
@@ -466,11 +515,18 @@ function compareStoredProjection(
   let alreadyProjectedMatches = 0;
   const expectedKarmaKeys = new Set<string>();
 
+  // One pass instead of rescanning every karma row per match: at 7,860 matches against a growing
+  // table this was the last quadratic scan left in the file.
+  const matchesWithLegacyRows = new Set<string>();
+  for (const row of snapshot.karma) {
+    if (row.related_entity_id && LEGACY_REASONS.has(row.reason)) {
+      matchesWithLegacyRows.add(row.related_entity_id);
+    }
+  }
+
   for (const replay of replayed) {
     let complete = true;
-    const hasAttributableLegacy = snapshot.karma.some(
-      (row) => row.related_entity_id === replay.row.id && LEGACY_REASONS.has(row.reason),
-    );
+    const hasAttributableLegacy = matchesWithLegacyRows.has(replay.row.id);
     if (hasAttributableLegacy) complete = false;
 
     for (const expected of replay.rows) {
@@ -487,13 +543,14 @@ function compareStoredProjection(
         complete = false;
         anomalies.push({
           code: 'CONFLICTING_KARMA_PROJECTION',
+        severity: 'blocking',
           matchId: replay.row.id,
           detail: `Stored projection differs from canonical replay for ${expected.userId}/${expected.communityId}/${expected.reason}`,
         });
       }
     }
 
-    for (const expected of expectedActivityRows(replay)) {
+    for (const expected of expectedActivityRows(replay, snapshot.activitySettings)) {
       const stored = storedActivity.get(activityIdentity(expected)) ?? [];
       if (stored.length === 0) {
         predictedActivity += 1;
@@ -502,6 +559,7 @@ function compareStoredProjection(
         complete = false;
         anomalies.push({
           code: 'CONFLICTING_ACTIVITY_PROJECTION',
+        severity: 'blocking',
           matchId: replay.row.id,
           detail: `Stored activity timestamp differs for ${expected.user_id}/${expected.community_id}/${expected.activity_type}`,
         });
@@ -518,6 +576,7 @@ function compareStoredProjection(
     if (!expectedKarmaKeys.has(key)) {
       anomalies.push({
         code: 'UNEXPECTED_KARMA_PROJECTION',
+        severity: 'informational',
         matchId: row.related_entity_id,
         detail: `Stored canonical row is not produced by replay for ${row.user_id}/${row.community_id}/${row.reason}`,
       });
@@ -699,7 +758,12 @@ function analyzeSnapshot(snapshot: BackfillSnapshot): {
 
   return {
     report: {
-      canApply: anomalies.length === 0,
+      // Only blocking anomalies refuse the run. Informational ones (a match that cannot be
+      // projected, a stored row replay cannot explain) are reported in full and counted, but a
+      // single unprojectable match must not make the whole backfill permanently impossible.
+      canApply: anomalies.every((anomaly) => anomaly.severity !== 'blocking'),
+      blockingAnomalies: anomalies.filter((a) => a.severity === 'blocking').length,
+      informationalAnomalies: anomalies.filter((a) => a.severity === 'informational').length,
       completedMatches: snapshot.matches.length,
       eligibleMatches: replayed.length,
       alreadyProjectedMatches: comparison.alreadyProjectedMatches,
@@ -815,7 +879,8 @@ export async function applyStandingBackfill(
           requesterId: String(replay.row.requester_id),
           helperId: String(replay.row.responder_id),
           requestType: replay.row.request_type ?? undefined,
-          completedAt: replay.completedAt,
+          // No completedAt: the projector re-reads matches.completed_at under its advisory lock,
+          // which is the value this replay was derived from anyway.
         }, { mode: 'historical', allowRequestCommunityFallback: false });
         const sameCommunities = projection.communityIds.length === replay.communityIds.length
           && projection.communityIds.every((communityId, index) => communityId === replay.communityIds[index]);
@@ -848,14 +913,15 @@ export async function applyStandingBackfill(
   // it did not.
   const verification = await analyzeStandingBackfill();
   if (!verification.canApply) {
-    const summary = verification.anomalies
+    const blocking = verification.anomalies.filter((a) => a.severity === 'blocking');
+    const summary = blocking
       .slice(0, 5)
       .map((a) => `${a.code}${a.matchId ? ` (${a.matchId})` : ''}`)
       .join(', ');
     throw new Error(
       `Standing backfill applied but post-apply verification FAILED with ` +
-        `${verification.anomalies.length} anomal${verification.anomalies.length === 1 ? 'y' : 'ies'}: ` +
-        `${summary}${verification.anomalies.length > 5 ? ', …' : ''}. ` +
+        `${blocking.length} blocking anomal${blocking.length === 1 ? 'y' : 'ies'}: ` +
+        `${summary}${blocking.length > 5 ? ', …' : ''}. ` +
         `Rows are already committed — inspect before re-running.`,
     );
   }

@@ -241,15 +241,22 @@ describe('recordActivity — projector-safe activity writes', () => {
     expect(insertCall![1]).toContain(OCCURRED);
   });
 
-  it('advances last_activity_at with GREATEST so a replay cannot move it backwards', async () => {
+  it('upserts last_activity_at with GREATEST so a replay cannot move it backwards', async () => {
     armSettings();
     const { recordActivity } = require('../../src/utils/activityTracker');
 
     await recordActivity(USER, COMMUNITY, 'complete_offer', MATCH, { occurredAt: OCCURRED });
 
-    const update = poolSql().find((s) => /UPDATE reputation\.trust_scores/i.test(s));
-    expect(update).toBeDefined();
-    expect(update).toMatch(/GREATEST/i);
+    const write = poolSql().find((s) => /INTO reputation\.trust_scores/i.test(s));
+    expect(write).toBeDefined();
+    expect(write).toMatch(/GREATEST/i);
+    // Must be an UPSERT, not an UPDATE: during a backfill of an empty table a bare UPDATE matches
+    // zero rows, and updateTrustScore then inserts the row with last_activity_at defaulting to
+    // CURRENT_TIMESTAMP — stamping historical activity as happening today.
+    expect(write).toMatch(/ON CONFLICT \(user_id, community_id\) DO UPDATE/i);
+    // The historical timestamp is the value written, not a clock read.
+    const call = mockPoolQuery.mock.calls.find((c) => /INTO reputation\.trust_scores/i.test(String(c[0])));
+    expect((call![1] as unknown[])[2]).toEqual(OCCURRED);
   });
 
   it('swallows errors for ordinary callers, so activity logging cannot break the main flow', async () => {
@@ -688,6 +695,25 @@ describe('projectCompletedMatchStanding', () => {
         expect((call[1] as unknown[])[4]).toEqual(COMPLETED_AT);
       }
       expect(result.insertedActivityRows).toBe(2);
+    });
+
+    it('touches trust_scores rows in ONE deterministic (community, user) order', async () => {
+      arm({ candidates: [candidateRow('community-b', 5, 3), candidateRow('community-a', 9, 3)] });
+      await project();
+
+      // Every write that locks a trust_scores row, in the order it was issued.
+      const locked = mockClient.query.mock.calls
+        .filter((c) => /INTO reputation\.trust_scores/i.test(String(c[0])))
+        .map((c) => {
+          const params = c[1] as unknown[];
+          return `${String(params[1])}|${String(params[0])}`;
+        });
+
+      // These locks are held until the match transaction commits. Two concurrent matches that share
+      // both participants with swapped roles would deadlock (40P01) under a helper-then-requester
+      // order; sorting means they can only ever queue.
+      expect(locked).toEqual([...locked].sort());
+      expect(locked.length).toBeGreaterThan(1);
     });
 
     it('refreshes the trust cache for both participants', async () => {

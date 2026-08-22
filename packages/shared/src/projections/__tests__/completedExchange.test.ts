@@ -205,6 +205,42 @@ describe('Sprint 126 canonical convergence', () => {
     }
   });
 
+  it("counts a user's RECEIVED help toward their prior karma when they later help", () => {
+    // community-z is named so that community-id tie-breaking would rank it LAST. The only way it
+    // ranks first on the second exchange is if the points user-helper earned as the REQUESTER of
+    // the first exchange counted toward their prior karma there — which is what the SQL projector's
+    // prior-karma LATERAL does (it sums all canonical reasons for the user, not just 'Provided
+    // help'). Accumulating only the helper's own rows is a silent drift from production.
+    const configs = [community('community-a'), community('community-z')];
+    const events = [
+      {
+        key: 'exchange.001',
+        requesterId: 'user-helper', // receives help here...
+        helperId: 'user-other',
+        communityId: 'community-z',
+        completedAt: new Date('2026-01-01T00:00:00Z'),
+        requestType: 'generic',
+        eligibleCommunityIds: ['community-z'],
+      },
+      {
+        key: 'exchange.002',
+        requesterId: 'user-other',
+        helperId: 'user-helper', // ...and gives help here, across both communities
+        communityId: 'community-a',
+        completedAt: new Date('2026-01-02T00:00:00Z'),
+        requestType: 'generic',
+        eligibleCommunityIds: ['community-a', 'community-z'],
+      },
+    ];
+
+    const result = projectCompletedExchanges(events, projectionConfig({ configs }));
+
+    expect(result.allocationsByMatch[1].map(a => a.community_id)).toEqual([
+      'community-z',
+      'community-a',
+    ]);
+  });
+
   it('accumulates prior helper karma strictly before each exchange', () => {
     // With two eligible communities and equal splits, selection order on the SECOND exchange is
     // decided by karma earned in the FIRST — which only works if the accumulator excludes the

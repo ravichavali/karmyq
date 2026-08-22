@@ -22,6 +22,7 @@
 import {
   planCompletedMatchStanding,
   compareReplayKeys,
+  COMPLETED_MATCH_REASONS,
   type CommunityAllocation,
   type PlannedStandingKarmaRow,
   type StandingCommunityCandidate,
@@ -198,14 +199,18 @@ export function projectCompletedExchanges(
     karmaRecords.push(...plan.rows);
 
     // Advance the as-of accumulators only now, so the next event sees this one as history.
-    for (const communityId of plan.communityIds) {
-      const accKey = `${event.helperId}:${communityId}`;
-      priorHelperHelps.set(accKey, (priorHelperHelps.get(accKey) ?? 0) + 1);
-    }
+    //
+    // Accumulate for EVERY participant, not just this event's helper: a user who was the requester
+    // here may be the helper of a later exchange, and their 'Received help' points count toward
+    // priorHelperKarma there. The SQL projector's prior-karma LATERAL sums ALL canonical reasons for
+    // the user, so restricting this to the helper is a fourth drift axis in the module whose whole
+    // purpose is that there is only one definition.
     for (const row of plan.rows) {
-      if (row.userId !== event.helperId) continue;
       const accKey = `${row.userId}:${row.communityId}`;
       priorHelperKarma.set(accKey, (priorHelperKarma.get(accKey) ?? 0) + row.points);
+      if (row.reason === COMPLETED_MATCH_REASONS.provided) {
+        priorHelperHelps.set(accKey, (priorHelperHelps.get(accKey) ?? 0) + 1);
+      }
     }
   }
 

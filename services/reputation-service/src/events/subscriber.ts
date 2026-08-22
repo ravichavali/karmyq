@@ -52,9 +52,10 @@ export async function initEventSubscriber() {
 
       try {
         // Project standing for both parties. Sprint 126: this is now one atomic, idempotent
-        // transaction, so redelivering the same job re-writes nothing. `completed_at` is passed
-        // through when the payload carries it; otherwise the projector reads the stored value —
-        // never a fresh clock read, which would backdate history to the retry time.
+        // transaction, so redelivering the same job re-writes nothing. The projector reads
+        // matches.completed_at from the database under an advisory lock and ignores any timestamp
+        // in the payload — an event is a message, the database is the record, and a retry hours
+        // later must not backdate the exchange to the retry time.
         await awardKarmaForCompletedMatch({
           match_id,
           request_id,

@@ -80,6 +80,12 @@ function karmaRow(overrides: Record<string, unknown> = {}) {
 
 function baseFixture() {
   return {
+    // Which communities actually track activity. recordActivity writes nothing without a
+    // communities.settings row, so the preflight must predict accordingly (only 8 of 53 demo
+    // communities have one).
+    activitySettings: [
+      { community_id: C1, activity_types: ['complete_request', 'complete_offer'] },
+    ],
     matches: [
       matchRow(),
       matchRow({
@@ -135,6 +141,7 @@ function arm(fixture: Fixture = baseFixture()) {
     if (text.includes('standing-backfill:matches')) return result(fixture.matches);
     if (text.includes('standing-backfill:community-configs')) return result(fixture.configs);
     if (text.includes('standing-backfill:karma')) return result(fixture.karma);
+    if (text.includes('standing-backfill:activity-settings')) return result(fixture.activitySettings);
     if (text.includes('standing-backfill:activity')) return result(fixture.activities);
     if (text.includes('standing-backfill:memberships')) return result(fixture.memberships);
     if (text.includes('standing-backfill:feedback')) return result(fixture.feedback);
@@ -200,7 +207,9 @@ describe('Sprint 126 standing backfill preflight', () => {
     expect(report.anomalies).toEqual([]);
 
     const issuedSql = mockQuery.mock.calls.map(([sql]) => String(sql));
-    expect(issuedSql).toHaveLength(8);
+    // Nine SELECTs, one pass, no per-match queries. The count is pinned so a future edit cannot
+    // quietly turn the preflight into an N+1 over 7,860 matches.
+    expect(issuedSql).toHaveLength(9);
     for (const sql of issuedSql) {
       expect(sql).not.toMatch(/\b(?:INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|TRUNCATE|BEGIN|COMMIT)\b/i);
     }
@@ -256,7 +265,33 @@ describe('Sprint 126 standing backfill preflight', () => {
     expect(sql).not.toMatch(/\bconfig\s*->/i);
   });
 
-  it('fails closed when a completed match has no eligible shared request community', async () => {
+  it('predicts NO activity rows for a community with no settings row', async () => {
+    const fixture = baseFixture();
+    fixture.activitySettings = []; // 45 of 53 demo communities are in exactly this state
+    arm(fixture);
+
+    const report = await analyzeStandingBackfill();
+
+    // recordActivity returns without writing when the community has no settings row. Predicting
+    // rows that will never be written makes alreadyProjectedMatches unable to converge, so a
+    // re-run would forever report outstanding work — breaking the operator's "second run writes
+    // nothing" check.
+    expect(report.predicted.activityRows).toBe(0);
+    expect(report.predicted.karmaRows).toBeGreaterThan(0);
+  });
+
+  it('predicts only the activity types a community actually tracks', async () => {
+    const fixture = baseFixture();
+    fixture.activitySettings = [{ community_id: C1, activity_types: ['complete_request'] }];
+    arm(fixture);
+
+    const report = await analyzeStandingBackfill();
+
+    // One tracked type means one row per match, not two.
+    expect(report.predicted.activityRows).toBe(2);
+  });
+
+  it('reports an unprojectable match WITHOUT blocking the whole run', async () => {
     const fixture = baseFixture();
     fixture.matches = [matchRow({ request_community_ids: [C1], eligible_community_ids: [] })];
     fixture.karma = [];
@@ -264,10 +299,20 @@ describe('Sprint 126 standing backfill preflight', () => {
 
     const report = await analyzeStandingBackfill();
 
-    expect(report.canApply).toBe(false);
+    // A participant having left a community is routine. Treating it as fatal made ONE such match
+    // permanently block the entire backfill, with no override — so it is reported, counted, and
+    // skipped instead.
+    expect(report.canApply).toBe(true);
     expect(report.eligibleMatches).toBe(0);
+    expect(report.blockingAnomalies).toBe(0);
+    expect(report.informationalAnomalies).toBe(1);
     expect(report.anomalies).toEqual([
-      { code: 'NO_ELIGIBLE_COMMUNITY', matchId: MATCH_1, detail: 'Completed match has no active shared request community' },
+      {
+        code: 'NO_ELIGIBLE_COMMUNITY',
+        severity: 'informational',
+        matchId: MATCH_1,
+        detail: 'Completed match has no active shared request community',
+      },
     ]);
   });
 
@@ -275,7 +320,7 @@ describe('Sprint 126 standing backfill preflight', () => {
     ['participants', { requester_id: null }, 'MISSING_MATCH_PARTICIPANTS'],
     ['request communities', { request_community_ids: [] }, 'NO_REQUEST_COMMUNITY'],
     ['completion timestamp', { completed_at: null }, 'MISSING_COMPLETION_TIME'],
-  ])('fails closed when completed-match %s are missing', async (_label, overrides, code) => {
+  ])('reports but does not block when completed-match %s are missing', async (_label, overrides, code) => {
     const fixture = baseFixture();
     fixture.matches = [matchRow(overrides)];
     fixture.karma = [];
@@ -283,10 +328,12 @@ describe('Sprint 126 standing backfill preflight', () => {
 
     const report = await analyzeStandingBackfill();
 
-    expect(report.canApply).toBe(false);
+    // Same reasoning: the match cannot be projected and is skipped, but the run is still safe.
+    expect(report.canApply).toBe(true);
     expect(report.eligibleMatches).toBe(0);
+    expect(report.blockingAnomalies).toBe(0);
     expect(report.anomalies).toEqual([
-      expect.objectContaining({ code, matchId: MATCH_1 }),
+      expect.objectContaining({ code, matchId: MATCH_1, severity: 'informational' }),
     ]);
   });
 
@@ -302,6 +349,7 @@ describe('Sprint 126 standing backfill preflight', () => {
     expect(report.canApply).toBe(false);
     expect(report.anomalies).toContainEqual({
       code: 'CONFLICTING_KARMA_PROJECTION',
+      severity: 'blocking',
       matchId: MATCH_1,
       detail: `Stored projection differs from canonical replay for ${HELPER}/${C1}/Provided help`,
     });
@@ -337,6 +385,7 @@ describe('Sprint 126 standing backfill preflight', () => {
     expect(report.canApply).toBe(false);
     expect(report.anomalies).toContainEqual({
       code: 'DUPLICATE_KARMA_IDENTITY',
+      severity: 'blocking',
       matchId: MATCH_1,
       detail: 'Stored karma contains a duplicate projection identity',
     });
@@ -444,16 +493,31 @@ describe('Sprint 126 standing backfill apply', () => {
       .not.toContainEqual(expect.stringContaining('standing-backfill:normalize-legacy'));
   });
 
-  it('refuses to write when the fresh preflight fails closed', async () => {
+  it('refuses to write when the fresh preflight reports a BLOCKING anomaly', async () => {
     const fixture = baseFixture();
-    fixture.matches = [matchRow({ completed_at: null })];
-    fixture.karma = [];
+    // A duplicate stored projection identity is blocking: the database contains two rows that the
+    // projection identity says cannot both exist, so replay cannot be trusted. (An unprojectable
+    // match is informational and deliberately does NOT refuse — see the preflight tests above.)
+    fixture.karma.push({ ...fixture.karma[0], id: '50000000-0000-0000-0000-000000000077' });
     arm(fixture);
 
     await expect(applyStandingBackfill({ batchSize: 1 })).rejects.toThrow('preflight');
 
     expect(mockWithTransaction).not.toHaveBeenCalled();
     expect(mockProject).not.toHaveBeenCalled();
+  });
+
+  it('proceeds when the only anomalies are informational', async () => {
+    const fixture = baseFixture();
+    // One unprojectable match alongside a projectable one: the run continues and projects the
+    // healthy match rather than refusing wholesale.
+    fixture.matches = [fixture.matches[0], matchRow({ id: MATCH_2, completed_at: null })];
+    arm(fixture);
+
+    await expect(applyStandingBackfill({ batchSize: 5 })).resolves.toEqual(
+      expect.objectContaining({ canApply: true }),
+    );
+    expect(mockProject).toHaveBeenCalled();
   });
 
   it('rolls back a failed match transaction by propagating the projector error', async () => {
@@ -566,6 +630,8 @@ describe('Sprint 126 standing backfill operator CLI', () => {
     eligibleMatches: 2,
     alreadyProjectedMatches: 0,
     anomalies: [],
+    blockingAnomalies: 0,
+    informationalAnomalies: 0,
     activeMembershipPairs: 4,
     sourcedPairs: 3,
     zeroHistoryPairs: 1,

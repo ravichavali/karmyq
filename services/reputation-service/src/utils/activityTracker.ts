@@ -70,11 +70,22 @@ export async function recordActivity(
     );
 
     // Advance last_activity_at, never move it backwards: replaying old history must not make a
-    // recently active member look stale to the decay job. GREATEST ignores a NULL existing value.
+    // recently active member look stale to the decay job.
+    //
+    // UPSERT, not UPDATE. A bare UPDATE matches zero rows when the pair has no trust_scores row yet
+    // — which is every pair during a backfill of a table that starts empty. updateTrustScore would
+    // then INSERT the row moments later with last_activity_at defaulting to CURRENT_TIMESTAMP,
+    // stamping an eight-month-old exchange as happening today. That is exactly the falsely-fresh
+    // history `occurredAt` exists to prevent, arriving through the back door.
+    //
+    // score is omitted deliberately: it defaults to 0 (Sprint 126), and updateTrustScore computes
+    // the real value afterwards.
     await query(
-      `UPDATE reputation.trust_scores
-       SET last_activity_at = GREATEST(last_activity_at, $3::timestamp)
-       WHERE user_id = $1 AND community_id = $2`,
+      `INSERT INTO reputation.trust_scores (user_id, community_id, last_activity_at)
+       VALUES ($1, $2, $3::timestamp)
+       ON CONFLICT (user_id, community_id) DO UPDATE
+         SET last_activity_at = GREATEST(
+               reputation.trust_scores.last_activity_at, EXCLUDED.last_activity_at)`,
       [userId, communityId, occurredAt]
     );
 

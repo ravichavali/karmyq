@@ -33,7 +33,6 @@ export interface CompletedMatchStandingInput {
   requesterId: string;
   helperId: string;
   requestType?: string;
-  completedAt?: Date;
 }
 
 export interface StandingProjectionOptions {
@@ -309,24 +308,43 @@ export async function projectCompletedMatchStanding(
       insertedKarmaRows += result.rowCount ?? 0;
     }
 
+    /**
+     * Every write that touches a `trust_scores` row, in ONE deterministic order.
+     *
+     * These writes take row locks that are held until the match transaction commits. Ordering them
+     * by (community, user) means two concurrent matches can only ever acquire the same locks in the
+     * same sequence, so they queue instead of deadlocking. Awarding helper-then-requester would
+     * deadlock (40P01) whenever two in-flight matches share both participants with swapped roles —
+     * a window that did not exist before Sprint 126, because each write auto-committed on its own.
+     */
+    const lockOrderedPairs = plan.communityIds
+      .flatMap((communityId) => [
+        { communityId, userId: input.helperId, type: ActivityType.COMPLETE_REQUEST },
+        { communityId, userId: input.requesterId, type: ActivityType.COMPLETE_OFFER },
+      ])
+      .sort((a, b) =>
+        a.communityId < b.communityId ? -1
+        : a.communityId > b.communityId ? 1
+        : a.userId < b.userId ? -1
+        : a.userId > b.userId ? 1
+        : 0,
+      );
+
     let insertedActivityRows = 0;
-    for (const communityId of plan.communityIds) {
+    for (const activity of lockOrderedPairs) {
+      const communityId = activity.communityId;
       // required: true — a failed activity write must roll the whole match back rather than leave
       // karma without its decay-tracking counterpart.
       insertedActivityRows += await recordActivity(
-        input.helperId, communityId, ActivityType.COMPLETE_REQUEST, input.matchId,
-        { occurredAt: completedAt, required: true }
-      );
-      insertedActivityRows += await recordActivity(
-        input.requesterId, communityId, ActivityType.COMPLETE_OFFER, input.matchId,
+        activity.userId, communityId, activity.type, input.matchId,
         { occurredAt: completedAt, required: true }
       );
     }
 
     // Present-state cache refresh, deliberately AFTER every as-of decision above.
-    for (const communityId of plan.communityIds) {
-      await updateTrustScore(input.helperId, communityId);
-      await updateTrustScore(input.requesterId, communityId);
+    // Same deterministic order as the activity writes, for the same reason.
+    for (const { userId, communityId } of lockOrderedPairs) {
+      await updateTrustScore(userId, communityId);
     }
 
     return {
@@ -352,7 +370,9 @@ export async function awardKarmaForCompletedMatch(
       requesterId: data.requester_id,
       helperId: data.responder_id,
       requestType: data.request_type,
-      completedAt: data.completed_at ? new Date(data.completed_at) : undefined,
+      // data.completed_at is deliberately NOT forwarded. The projector reads the stored
+      // matches.completed_at under the advisory lock, because the payload is a message and the
+      // database is the record — a stale or wrong timestamp in an event must not rewrite history.
     },
     { mode: 'live', allowRequestCommunityFallback: true }
   );
