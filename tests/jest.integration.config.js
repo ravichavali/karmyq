@@ -20,6 +20,18 @@ module.exports = {
   moduleNameMapper: {
     '^@karmyq/shared/projections/completed-exchange$': '<rootDir>/../packages/shared/src/projections/completedExchange.ts',
     '^@karmyq/shared$': '<rootDir>/../packages/shared/index.ts',
+    // Subpaths must resolve too: these tests pull in reputation-service modules that import
+    // `@karmyq/shared/utils/logger` and friends. The shared package has a DUAL ROOT — older modules
+    // (middleware/, utils/, constants/, events/) sit at the package root while newer ones
+    // (src/matching, src/schemas, src/trust, src/projections) sit under src/ — so a single prefix
+    // cannot cover both. Jest tries an array of targets in order, which handles it without
+    // enumerating every subpath by hand.
+    '^@karmyq/shared/(.*)$': [
+      '<rootDir>/../packages/shared/$1.ts',
+      '<rootDir>/../packages/shared/$1/index.ts',
+      '<rootDir>/../packages/shared/src/$1.ts',
+      '<rootDir>/../packages/shared/src/$1/index.ts',
+    ],
   },
   testMatch: ['**/*.integration.test.ts'],
   transform: {
