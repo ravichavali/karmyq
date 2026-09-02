@@ -156,20 +156,46 @@ beforeAll(async () => {
   await seedWorld();
 }, 60000);
 
+/**
+ * Close EVERY connection this suite caused to be opened, not just its own.
+ *
+ * Importing the backfill service pulls in reputation-service's module-level pg Pool and, through
+ * `effectiveParamsCache`, a lazily-created ioredis client that reconnects indefinitely. Both keep
+ * the Node event loop alive after the last assertion, so `jest` (which CI runs WITHOUT
+ * `--forceExit`) hangs instead of exiting — the run sat for 25 minutes with every test already
+ * passed. Running locally with `--forceExit`, as I had been, hides this completely.
+ */
 afterAll(async () => {
   if (!pool) return;
   await wipeWorld();
   await pool.query('DELETE FROM communities.communities WHERE id = ANY($1::uuid[])', [ALL_COMMUNITIES]);
   await pool.query('DELETE FROM auth.users WHERE id = ANY($1::uuid[])', [ALL_USERS]);
   await pool.end();
+
+  const servicePool = (await import('../../services/reputation-service/src/database/db')).default;
+  await servicePool.end().catch(() => undefined);
+
+  const { disconnectEffectiveParamsCache } = await import(
+    '../../services/reputation-service/src/services/effectiveParamsCache'
+  );
+  await disconnectEffectiveParamsCache().catch(() => undefined);
 });
 
 beforeEach(async () => {
   await wipe();
-  jest.resetModules();
 });
 
-/** Fresh module instances per test so the pool picks up DATABASE_URL. */
+/**
+ * ONE module instance for the whole file — deliberately not `jest.resetModules()` per test.
+ *
+ * Resetting the registry gives every test a fresh `db.ts` (new pg Pool) and a fresh
+ * `effectiveParamsCache` (new ioredis client, which reconnects indefinitely). Ten tests then leak
+ * ten of each, none of them reachable from `afterAll` — a later import just builds an eleventh. The
+ * suite passes and Jest never exits, which is what hung CI for 25 minutes with every test green.
+ *
+ * A single instance is also correct: these modules hold no per-test state beyond their connections,
+ * and DATABASE_URL is set at the top of this file before the first import.
+ */
 function backfill() {
   return require('../../services/reputation-service/src/services/standingBackfillService');
 }
