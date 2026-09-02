@@ -317,6 +317,18 @@ jobs:
           npm run test:integration
         env:
           DOCKER_ENV: test
+          # Jest runs on the HOST here, not inside the compose network, so `DOCKER_ENV: test` alone
+          # leaves these unset (integration/setup.ts only fills them in for the non-Docker branch).
+          # Postgres is published on 5433 and Redis on 6380 by docker-compose.test.yml. The Sprint
+          # 117 step below already declares DATABASE_URL for the same reason.
+          #
+          # REDIS_URL matters more than it looks: reputation-service's effectiveParamsCache is
+          # Redis-backed, and an unreachable Redis does not fail fast — ioredis retries, so every
+          # updateTrustScore burns connection timeouts. Measured on a scratch environment, that is
+          # ~298s per match versus ~2.1s with Redis reachable, which shows up here as blanket
+          # 60s Jest timeouts rather than as a connection error.
+          DATABASE_URL: postgresql://karmyq_test:test_password@localhost:5433/karmyq_test
+          REDIS_URL: redis://localhost:6380
 
       # Sprint 117: the curated full-reset destructive path must execute (twice) in migrated
       # Postgres before it can ever run against the live demo. Placed LAST so the full wipe does
