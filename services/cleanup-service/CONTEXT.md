@@ -33,8 +33,13 @@ Changes below.
   populates that table, the old behaviour would have wiped every projected score within 24 hours
   and re-emptied ADR-095's provider reach gate. Found by the Sprint 126 `/code-review` gate.
 
-  Karma decay itself (ADR-011) is unaffected — it is computed at read time from `karma_records`
-  timestamps, never stored here. `POST /jobs/update-decay` still exists and still requires admin
+  ⚠️ **The refresh cadence MOVED, it did not disappear.** `computeTrustScore` reads a moving
+  12-month window, so a stored score only decays if something recomputes it — and the ADR-095
+  provider reach gate reads the CACHED value. Simply deleting this job would have frozen dormant
+  providers as permanently eligible. `reputation-service/src/cron/trustScoreRefresh.ts` now sweeps
+  every active membership daily at **03:30** through the canonical `updateTrustScore`, owned by the
+  service that owns the data. Karma decay itself (ADR-011) is unaffected — it is computed at read
+  time from `karma_records` timestamps, never stored here. `POST /jobs/update-decay` still exists and still requires admin
   auth; it now triggers the no-op. Pinned by `tests/unit/reputationDecayJob.test.ts`.
 
   `recordActivity()` here was a near-verbatim copy of reputation-service's, with zero callers

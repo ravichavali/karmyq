@@ -26,14 +26,25 @@ type ProviderFloor = '1' | '20' | '40' | '60';
 
 /**
  * `blocking` anomalies mean the run cannot be trusted and apply must refuse. `informational` ones
- * mean a specific match cannot be projected, or a stored row cannot be explained by replay — real
- * facts an operator must see, but not reasons to refuse the whole backfill.
+ * describe a fact the operator must see that is nonetheless normal for a live platform.
  *
- * The distinction exists because `canApply` originally demanded ZERO anomalies of any kind, which
- * made routine data permanently fatal: one member leaving a community yields NO_ELIGIBLE_COMMUNITY
- * forever, and fusion/fission legitimately carry canonical karma into a community replay would
- * never select (demo has 16 executed splits), yielding UNEXPECTED_KARMA_PROJECTION forever. Neither
- * is a corruption; both would have made the backfill unrunnable with no override.
+ * The line is drawn at **corrupt source data versus routine history**:
+ *
+ * - **Blocking** — a completed match missing its participants, its completion time, or any request
+ *   community at all. Those are not routine; they mean the source facts this projection is derived
+ *   FROM are broken. Letting apply silently omit such a match and still report success would be
+ *   fail-open: the operator would be told the backfill succeeded while completed exchanges were
+ *   quietly skipped. Also blocking: duplicate projection identities, and any stored canonical row
+ *   whose points or timestamp conflict with replay.
+ * - **Informational** — a match whose participants are no longer co-members of any request
+ *   community (`NO_ELIGIBLE_COMMUNITY`). Membership loss is routine, guessing a community would
+ *   fabricate history, and one such match must not make the backfill permanently impossible.
+ *   Also informational: a stored canonical row in a community with **proven** fusion/fission
+ *   lineage to one of the match's request communities — that is legitimate carry (demo has 16
+ *   executed splits). An unexplained canonical row still blocks; see `isCarryExplained`.
+ *
+ * `canApply` originally demanded ZERO anomalies of any kind, which made routine membership loss and
+ * legitimate carry permanently fatal.
  */
 export type StandingBackfillAnomalySeverity = 'blocking' | 'informational';
 
@@ -53,6 +64,13 @@ export interface StandingBackfillReport {
   /** Counts by severity, so the operator sees at a glance whether anything actually refuses. */
   blockingAnomalies: number;
   informationalAnomalies: number;
+  /**
+   * True when no projection work remains. Absence of anomalies is NOT the same as done: a match
+   * completed by the live simulator during the run is perfectly valid but arrived after the batch
+   * list was taken, so rows can remain outstanding with a clean report. The CLI exits non-zero on
+   * `converged: false` rather than telling an operator the backfill finished when it has not.
+   */
+  converged: boolean;
   activeMembershipPairs: number;
   sourcedPairs: number;
   zeroHistoryPairs: number;
@@ -125,9 +143,19 @@ interface ProviderRow { provider_id: string; user_id: string; community_id: stri
 /** community_id -> the activity types that community actually tracks. */
 type ActivitySettings = Map<string, Set<string>>;
 
+/**
+ * Undirected community lineage: `community -> communities it is related to by fusion or fission`.
+ *
+ * Fusion writes `community_links(link_type='fusion_origin')` for merged↔A and merged↔B. Fission
+ * writes a sibling link (childA↔childB) but no parent link, so parent→child lineage comes from
+ * `split_proposals(community_id, child_community_a_id, child_community_b_id)` instead.
+ */
+type CommunityLineage = Map<string, Set<string>>;
+
 interface BackfillSnapshot {
   matches: MatchRow[];
   activitySettings: ActivitySettings;
+  lineage: CommunityLineage;
   configs: CommunityConfigRow[];
   karma: KarmaRow[];
   activities: ActivityRow[];
@@ -153,6 +181,19 @@ const LEGACY_REASONS = new Set([
   'milestone_help_25',
 ]);
 const CANONICAL_REASONS = new Set<string>(Object.values(COMPLETED_MATCH_REASONS));
+const LINEAGE_QUERY = `/* standing-backfill:lineage */
+  SELECT community_a_id::text AS a, community_b_id::text AS b
+  FROM communities.community_links
+  WHERE link_type IN ('fusion_origin', 'split_origin')
+  UNION ALL
+  SELECT community_id::text AS a, child_community_a_id::text AS b
+  FROM communities.split_proposals
+  WHERE status = 'executed' AND child_community_a_id IS NOT NULL
+  UNION ALL
+  SELECT community_id::text AS a, child_community_b_id::text AS b
+  FROM communities.split_proposals
+  WHERE status = 'executed' AND child_community_b_id IS NOT NULL`;
+
 const ACTIVITY_SETTINGS_QUERY = `/* standing-backfill:activity-settings */
   SELECT community_id, activity_types FROM communities.settings`;
 
@@ -229,7 +270,7 @@ const PROVIDERS_QUERY = `/* standing-backfill:providers */
   ORDER BY member.community_id, pp.id`;
 
 async function loadSnapshot(): Promise<BackfillSnapshot> {
-  const [matches, configs, karma, activities, memberships, feedback, userConfigs, providers, settings] =
+  const [matches, configs, karma, activities, memberships, feedback, userConfigs, providers, settings, lineageRows] =
     await Promise.all([
       query(MATCHES_QUERY),
       query(COMMUNITY_CONFIGS_QUERY),
@@ -240,6 +281,7 @@ async function loadSnapshot(): Promise<BackfillSnapshot> {
       query(USER_CONFIGS_QUERY),
       query(PROVIDERS_QUERY),
       query(ACTIVITY_SETTINGS_QUERY),
+      query(LINEAGE_QUERY),
     ]);
 
   const activitySettings: ActivitySettings = new Map();
@@ -248,9 +290,22 @@ async function loadSnapshot(): Promise<BackfillSnapshot> {
     activitySettings.set(String(row.community_id), new Set(types));
   }
 
+  const lineage: CommunityLineage = new Map();
+  const linkLineage = (a: string, b: string) => {
+    if (!lineage.has(a)) lineage.set(a, new Set());
+    lineage.get(a)!.add(b);
+  };
+  for (const row of lineageRows.rows as Array<{ a: string; b: string }>) {
+    if (!row.a || !row.b) continue;
+    // Undirected: karma carries merged→origin and parent→child alike.
+    linkLineage(String(row.a), String(row.b));
+    linkLineage(String(row.b), String(row.a));
+  }
+
   return {
     matches: matches.rows as MatchRow[],
     activitySettings,
+    lineage,
     configs: configs.rows as CommunityConfigRow[],
     karma: karma.rows as KarmaRow[],
     activities: activities.rows as ActivityRow[],
@@ -363,7 +418,7 @@ function replayMatches(
     if (!row.request_id || !row.requester_id || !row.responder_id) {
       anomalies.push({
         code: 'MISSING_MATCH_PARTICIPANTS',
-        severity: 'informational',
+        severity: 'blocking',
         matchId,
         detail: 'Completed match is missing its request, requester, or helper',
       });
@@ -378,7 +433,7 @@ function replayMatches(
     if (!row.completed_at) {
       anomalies.push({
         code: 'MISSING_COMPLETION_TIME',
-        severity: 'informational',
+        severity: 'blocking',
         matchId,
         detail: 'Completed match has no completed_at timestamp',
       });
@@ -389,7 +444,7 @@ function replayMatches(
     if (requestCommunities.length === 0) {
       anomalies.push({
         code: 'NO_REQUEST_COMMUNITY',
-        severity: 'informational',
+        severity: 'blocking',
         matchId,
         detail: 'Completed match request is not posted to any community',
       });
@@ -568,19 +623,45 @@ function compareStoredProjection(
     if (complete) alreadyProjectedMatches += 1;
   }
 
-  const replayedIds = new Set(replayed.map((replay) => replay.row.id));
+  const replayedById = new Map(replayed.map((replay) => [replay.row.id, replay]));
+
+  /**
+   * Is a stored canonical row in a community replay never selected explained by fusion/fission?
+   *
+   * Fusion and fission legitimately COPY karma rows into a merged or child community, and replay
+   * will never produce those — it selects only the match's own request communities. That is not a
+   * defect, and demo has 16 executed splits, so treating every such row as fatal would make the
+   * backfill permanently unrunnable.
+   *
+   * But "unexplained canonical row" and "legitimate carry" are not the same thing, and an arbitrary
+   * or corrupt row influences the stored score exactly as much as a carried one. So carry must be
+   * PROVEN, not assumed: the row's community must be linked by recorded lineage to one of the
+   * match's own request communities. Anything else blocks.
+   */
+  const isCarryExplained = (communityId: string, replay: ReplayMatch): boolean => {
+    const related = snapshot.lineage.get(communityId);
+    if (!related) return false;
+    const sources = stringArray(replay.row.request_community_ids);
+    return sources.some((source) => related.has(source));
+  };
+
   for (const row of snapshot.karma) {
-    if (!row.related_entity_id || !replayedIds.has(row.related_entity_id)) continue;
+    if (!row.related_entity_id) continue;
+    const replay = replayedById.get(row.related_entity_id);
+    if (!replay) continue;
     if (!CANONICAL_REASONS.has(row.reason)) continue;
     const key = karmaIdentity(row);
-    if (!expectedKarmaKeys.has(key)) {
-      anomalies.push({
-        code: 'UNEXPECTED_KARMA_PROJECTION',
-        severity: 'informational',
-        matchId: row.related_entity_id,
-        detail: `Stored canonical row is not produced by replay for ${row.user_id}/${row.community_id}/${row.reason}`,
-      });
-    }
+    if (expectedKarmaKeys.has(key)) continue;
+
+    const explained = isCarryExplained(String(row.community_id), replay);
+    anomalies.push({
+      code: 'UNEXPECTED_KARMA_PROJECTION',
+      severity: explained ? 'informational' : 'blocking',
+      matchId: row.related_entity_id,
+      detail: explained
+        ? `Stored canonical row not produced by replay for ${row.user_id}/${row.community_id}/${row.reason}, explained by fusion/fission lineage`
+        : `Stored canonical row not produced by replay for ${row.user_id}/${row.community_id}/${row.reason}, with NO fusion/fission lineage to the match's request communities`,
+    });
   }
 
   return { predictedKarma, predictedActivity, alreadyProjectedMatches };
@@ -764,6 +845,7 @@ function analyzeSnapshot(snapshot: BackfillSnapshot): {
       canApply: anomalies.every((anomaly) => anomaly.severity !== 'blocking'),
       blockingAnomalies: anomalies.filter((a) => a.severity === 'blocking').length,
       informationalAnomalies: anomalies.filter((a) => a.severity === 'informational').length,
+      converged: comparison.predictedKarma === 0 && comparison.predictedActivity === 0,
       completedMatches: snapshot.matches.length,
       eligibleMatches: replayed.length,
       alreadyProjectedMatches: comparison.alreadyProjectedMatches,
@@ -912,6 +994,7 @@ export async function applyStandingBackfill(
   // a JSON blob and still exit 0, which is an operator being told a data operation succeeded when
   // it did not.
   const verification = await analyzeStandingBackfill();
+
   if (!verification.canApply) {
     const blocking = verification.anomalies.filter((a) => a.severity === 'blocking');
     const summary = blocking

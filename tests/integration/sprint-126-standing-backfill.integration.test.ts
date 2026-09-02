@@ -17,18 +17,11 @@
  */
 
 import { Pool } from 'pg';
-import * as fs from 'fs';
-import * as path from 'path';
 
 const DATABASE_URL =
   process.env.DATABASE_URL || 'postgresql://karmyq_test:test_password@localhost:5433/karmyq_test';
 
 process.env.DATABASE_URL = DATABASE_URL;
-
-const MIGRATION_PATH = path.join(
-  __dirname,
-  '../../infrastructure/postgres/migrations/20260819-standing-projection-foundation.sql',
-);
 
 const U = (n: string) => `00000000-1260-4000-8000-0000000000${n}`;
 const HELPER = U('a1');
@@ -156,9 +149,10 @@ async function seedWorld(): Promise<void> {
      VALUES ($1, $2, 'member', 'active') ON CONFLICT DO NOTHING`, [C1, LONELY]);
 }
 
+// The migration is not applied here — see the note in the schema integration suite. CI replays the
+// whole chain before this job; locally the scratch database is loaded from the generated init.sql.
 beforeAll(async () => {
   pool = new Pool({ connectionString: DATABASE_URL });
-  await pool.query(fs.readFileSync(MIGRATION_PATH, 'utf8'));
   await seedWorld();
 }, 60000);
 

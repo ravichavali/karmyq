@@ -194,9 +194,14 @@ app.post('/jobs/hard-delete', adminRateLimiter, adminAuthMiddleware, async (req:
 
 app.post('/jobs/update-decay', adminRateLimiter, adminAuthMiddleware, async (req: ExtendedRequest, res: Response) => {
   try {
-    logger.info('Manual trigger: update reputation decay');
+    logger.info('Manual trigger: reputation decay job (no-op since Sprint 126)');
     await updateDecayedTrustScores();
-    sendSuccess(res, { message: 'Trust scores updated successfully' }, 200, { requestId: req.id });
+    sendSuccess(res, {
+      message: 'No-op: trust scores are maintained by reputation-service (ADR-037/ADR-039/ADR-096). '
+        + 'This service no longer writes reputation.trust_scores; the canonical daily refresh runs '
+        + 'in reputation-service at 03:30.',
+      noop: true,
+    }, 200, { requestId: req.id });
   } catch (error) {
     logger.error('Manual decay update job failed', { error });
     sendInternalError(res, error instanceof Error ? error.message : String(error), error, { requestId: req.id });
@@ -316,9 +321,10 @@ cron.schedule('0 2 * * *', async () => {
 });
 
 /**
- * Reputation Decay Update Job
- * Runs daily at 3:00 AM
- * Recalculates trust scores based on time-decayed karma
+ * Reputation Decay Update Job — NO-OP since Sprint 126 (ADR-096)
+ * Runs daily at 3:00 AM and writes nothing.
+ * Trust scores are recalculated by reputation-service's own 03:30 sweep through the canonical
+ * ADR-037 calculator. This entry is retained so the schedule is visible rather than silently gone.
  */
 cron.schedule('0 3 * * *', async () => {
   logger.info('Cron: Running reputation decay job');

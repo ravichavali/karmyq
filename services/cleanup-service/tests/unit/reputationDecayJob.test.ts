@@ -1,4 +1,4 @@
-import { updateDecayedTrustScores } from '../../src/jobs/reputationDecayJob';
+import { updateDecayedTrustScores, cleanupActivityLogs } from '../../src/jobs/reputationDecayJob';
 
 jest.mock('../../src/database/db', () => ({
   query: jest.fn(),
@@ -66,5 +66,32 @@ describe('updateDecayedTrustScores', () => {
 
   it('resolves without throwing so the cron and admin endpoint stay healthy', async () => {
     await expect(updateDecayedTrustScores()).resolves.toBeUndefined();
+  });
+});
+
+describe('cleanupActivityLogs', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockQuery.mockResolvedValue({ rows: [], rowCount: 0 } as never);
+  });
+
+  it('spares rows that carry a projection identity', async () => {
+    await cleanupActivityLogs();
+
+    const sql = String(mockQuery.mock.calls[0][0]);
+    // Sprint 126: attributable rows are projection state. Deleting them would make the standing
+    // backfill re-predict and rewrite them forever, so it could never report convergence.
+    expect(sql).toMatch(/related_entity_id IS NULL/);
+    expect(sql).toMatch(/DELETE FROM reputation\.activity_log/);
+  });
+
+  it('still expires transient rows on the 90-day window', async () => {
+    await cleanupActivityLogs();
+
+    const [, params] = mockQuery.mock.calls[0] as [string, string[]];
+    const cutoff = new Date(params[0]).getTime();
+    const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    // Within a minute of 90 days ago — the retention window itself is unchanged.
+    expect(Math.abs(cutoff - ninetyDaysAgo)).toBeLessThan(60_000);
   });
 });

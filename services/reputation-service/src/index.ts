@@ -10,6 +10,7 @@ import reputationRouter from './routes/reputation';
 import healthRouter from './routes/health';
 import providerReviewsRouter from './routes/providerReviews';
 import { initHealthMetricsCalculator } from './cron/healthMetricsCalculator';
+import { initTrustScoreRefresh } from './cron/trustScoreRefresh';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
   authMiddleware,
@@ -125,6 +126,9 @@ async function start() {
     logger.info('Event subscriber initialized successfully');
 
     initHealthMetricsCalculator();
+    // Sprint 126: trust scores decay only if something recomputes them, and the ADR-095 reach gate
+    // reads the cached value. Without this sweep a dormant provider stays visible forever.
+    initTrustScoreRefresh();
     logger.info('Health metrics calculator initialized successfully');
 
     app.listen(PORT, () => {

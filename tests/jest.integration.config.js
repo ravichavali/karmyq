@@ -13,6 +13,14 @@
 module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/integration'],
+  // Sprint 126: resolve @karmyq/shared to SOURCE, exactly as jest.config.js does. Integration tests
+  // now import reputation-service modules that pull in the shared package; without this the suite
+  // dies with "Cannot find module '@karmyq/shared'" in CI, where the workspace symlink and built
+  // dist/ are not laid out the way they are on a dev machine.
+  moduleNameMapper: {
+    '^@karmyq/shared/projections/completed-exchange$': '<rootDir>/../packages/shared/src/projections/completedExchange.ts',
+    '^@karmyq/shared$': '<rootDir>/../packages/shared/index.ts',
+  },
   testMatch: ['**/*.integration.test.ts'],
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {

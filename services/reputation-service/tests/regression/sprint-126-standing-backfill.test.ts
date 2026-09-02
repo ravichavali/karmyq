@@ -86,6 +86,9 @@ function baseFixture() {
     activitySettings: [
       { community_id: C1, activity_types: ['complete_request', 'complete_offer'] },
     ],
+    // Fusion/fission lineage edges. Empty by default: a stored canonical row in a community with no
+    // recorded lineage to the match's request communities is NOT explainable carry, and blocks.
+    lineage: [] as Array<{ a: string; b: string }>,
     matches: [
       matchRow(),
       matchRow({
@@ -141,6 +144,7 @@ function arm(fixture: Fixture = baseFixture()) {
     if (text.includes('standing-backfill:matches')) return result(fixture.matches);
     if (text.includes('standing-backfill:community-configs')) return result(fixture.configs);
     if (text.includes('standing-backfill:karma')) return result(fixture.karma);
+    if (text.includes('standing-backfill:lineage')) return result(fixture.lineage);
     if (text.includes('standing-backfill:activity-settings')) return result(fixture.activitySettings);
     if (text.includes('standing-backfill:activity')) return result(fixture.activities);
     if (text.includes('standing-backfill:memberships')) return result(fixture.memberships);
@@ -207,9 +211,9 @@ describe('Sprint 126 standing backfill preflight', () => {
     expect(report.anomalies).toEqual([]);
 
     const issuedSql = mockQuery.mock.calls.map(([sql]) => String(sql));
-    // Nine SELECTs, one pass, no per-match queries. The count is pinned so a future edit cannot
+    // Ten SELECTs, one pass, no per-match queries. The count is pinned so a future edit cannot
     // quietly turn the preflight into an N+1 over 7,860 matches.
-    expect(issuedSql).toHaveLength(9);
+    expect(issuedSql).toHaveLength(10);
     for (const sql of issuedSql) {
       expect(sql).not.toMatch(/\b(?:INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|TRUNCATE|BEGIN|COMMIT)\b/i);
     }
@@ -316,11 +320,43 @@ describe('Sprint 126 standing backfill preflight', () => {
     ]);
   });
 
+  it('BLOCKS an unexplained canonical row, but ALLOWS proven fusion/fission carry', async () => {
+    const CARRIED = '10000000-0000-0000-0000-0000000000ff';
+    const fixture = baseFixture();
+    fixture.matches = [fixture.matches[0]];
+    // A canonical row attributed to MATCH_1 but sitting in a community replay never selects.
+    fixture.karma = [...fixture.karma, {
+      ...fixture.karma[0],
+      id: '50000000-0000-0000-0000-0000000000ff',
+      community_id: CARRIED,
+      // Canonical reason — legacy snake_case rows are deliberately not compared against replay.
+      reason: 'Provided help',
+    }];
+
+    // With no recorded lineage this is an arbitrary canonical row that still influences the stored
+    // score, so it must block.
+    arm(fixture);
+    const unexplained = await analyzeStandingBackfill();
+    expect(unexplained.canApply).toBe(false);
+    expect(unexplained.anomalies).toContainEqual(
+      expect.objectContaining({ code: 'UNEXPECTED_KARMA_PROJECTION', severity: 'blocking' }),
+    );
+
+    // Same row, now with fusion/fission lineage to the match's request community: legitimate carry.
+    fixture.lineage = [{ a: CARRIED, b: C1 }];
+    arm(fixture);
+    const explained = await analyzeStandingBackfill();
+    expect(explained.canApply).toBe(true);
+    expect(explained.anomalies).toContainEqual(
+      expect.objectContaining({ code: 'UNEXPECTED_KARMA_PROJECTION', severity: 'informational' }),
+    );
+  });
+
   it.each([
     ['participants', { requester_id: null }, 'MISSING_MATCH_PARTICIPANTS'],
     ['request communities', { request_community_ids: [] }, 'NO_REQUEST_COMMUNITY'],
     ['completion timestamp', { completed_at: null }, 'MISSING_COMPLETION_TIME'],
-  ])('reports but does not block when completed-match %s are missing', async (_label, overrides, code) => {
+  ])('BLOCKS when completed-match %s are missing — that is corrupt source data', async (_label, overrides, code) => {
     const fixture = baseFixture();
     fixture.matches = [matchRow(overrides)];
     fixture.karma = [];
@@ -328,12 +364,14 @@ describe('Sprint 126 standing backfill preflight', () => {
 
     const report = await analyzeStandingBackfill();
 
-    // Same reasoning: the match cannot be projected and is skipped, but the run is still safe.
-    expect(report.canApply).toBe(true);
+    // Unlike a participant having merely left a community, these mean the facts this projection is
+    // derived FROM are broken. Skipping such a match and still reporting success would tell the
+    // operator the backfill succeeded while completed exchanges were quietly omitted.
+    expect(report.canApply).toBe(false);
     expect(report.eligibleMatches).toBe(0);
-    expect(report.blockingAnomalies).toBe(0);
+    expect(report.blockingAnomalies).toBe(1);
     expect(report.anomalies).toEqual([
-      expect.objectContaining({ code, matchId: MATCH_1, severity: 'informational' }),
+      expect.objectContaining({ code, matchId: MATCH_1, severity: 'blocking' }),
     ]);
   });
 
@@ -509,13 +547,17 @@ describe('Sprint 126 standing backfill apply', () => {
 
   it('proceeds when the only anomalies are informational', async () => {
     const fixture = baseFixture();
-    // One unprojectable match alongside a projectable one: the run continues and projects the
-    // healthy match rather than refusing wholesale.
-    fixture.matches = [fixture.matches[0], matchRow({ id: MATCH_2, completed_at: null })];
+    // A match whose participants are no longer co-members of any request community: routine
+    // membership loss. It is reported and skipped; the healthy match is still projected, rather
+    // than one departed member refusing the whole backfill.
+    fixture.matches = [
+      fixture.matches[0],
+      matchRow({ id: MATCH_2, request_id: REQUEST_2, eligible_community_ids: [] }),
+    ];
     arm(fixture);
 
     await expect(applyStandingBackfill({ batchSize: 5 })).resolves.toEqual(
-      expect.objectContaining({ canApply: true }),
+      expect.objectContaining({ canApply: true, blockingAnomalies: 0 }),
     );
     expect(mockProject).toHaveBeenCalled();
   });
@@ -632,6 +674,7 @@ describe('Sprint 126 standing backfill operator CLI', () => {
     anomalies: [],
     blockingAnomalies: 0,
     informationalAnomalies: 0,
+    converged: true,
     activeMembershipPairs: 4,
     sourcedPairs: 3,
     zeroHistoryPairs: 1,
@@ -709,6 +752,33 @@ describe('Sprint 126 standing backfill operator CLI', () => {
     expect(parseStandingBackfillArgs([])).toEqual({ apply: false, batchSize: 100 });
     expect(parseStandingBackfillArgs(['--apply', '--batch-size', '7']))
       .toEqual({ apply: true, batchSize: 7 });
+  });
+
+  it('exits non-zero when apply did not converge, even with no anomalies', async () => {
+    const deps = cliDeps();
+    deps.apply = jest.fn(async () => ({
+      ...report,
+      converged: false,
+      predicted: { karmaRows: 4, activityRows: 2, trustRowsEvaluated: 4 },
+    })) as never;
+
+    const exitCode = await runStandingBackfillCli(['--apply'], deps);
+
+    // A clean report is not the same as a finished one: the live simulator completes matches during
+    // the run, so rows can remain outstanding with zero anomalies. Exiting 0 would tell the operator
+    // the backfill is done when it is not.
+    expect(exitCode).toBe(1);
+    expect(deps.error).toHaveBeenCalledWith(expect.stringContaining('NOT converged'));
+    expect(deps.error).toHaveBeenCalledWith(expect.stringContaining('Re-run to finish'));
+  });
+
+  it('exits zero when apply converged', async () => {
+    const deps = cliDeps();
+
+    const exitCode = await runStandingBackfillCli(['--apply'], deps);
+
+    expect(exitCode).toBe(0);
+    expect(deps.error).not.toHaveBeenCalledWith(expect.stringContaining('NOT converged'));
   });
 
   it('accepts --batch-size=N as well as --batch-size N', () => {

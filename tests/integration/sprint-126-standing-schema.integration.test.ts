@@ -6,13 +6,9 @@
  * make replay idempotent. Idempotency cannot be asserted against a mock — `ON CONFLICT DO NOTHING`
  * only means anything if the underlying index rejects the duplicate — so this lives in the
  * integration tier, which runs against migrated Postgres in CI and gates the deploy.
- *
- * The migration is applied twice to prove re-running the chain is safe.
  */
 
 import { Pool } from 'pg';
-import * as fs from 'fs';
-import * as path from 'path';
 import {
   KARMA_CARRY_IDENTITY_SQL,
   KARMA_CARRY_UNIDENTIFIED_SQL,
@@ -20,11 +16,6 @@ import {
 
 const DATABASE_URL =
   process.env.DATABASE_URL || 'postgresql://karmyq_test:test_password@localhost:5433/karmyq_test';
-
-const MIGRATION_PATH = path.join(
-  __dirname,
-  '../../infrastructure/postgres/migrations/20260819-standing-projection-foundation.sql'
-);
 
 // Fixed ids keep cleanup deterministic and collision-free against seeded demo data.
 const USER_A = '00000000-0126-4000-8000-000000000001';
@@ -81,18 +72,22 @@ async function sqlstateOf(text: string, params: unknown[]): Promise<string | nul
   }
 }
 
+/**
+ * The migration is NOT applied here.
+ *
+ * These tests assert the migration's EFFECTS against whatever schema the database already has: in
+ * CI the full migration chain is replayed by `scripts/ci-apply-full-schema.sh` before this job, and
+ * locally the scratch database is loaded from `init.sql`, which is generated from that same chain.
+ *
+ * An earlier version read the migration file and ran it through `pool.query` twice to prove
+ * re-running was safe. That fed file contents into a query, which CodeQL correctly flags as
+ * `js/sql-injection` (it cannot know the path is a repo constant) — and the idempotency claim it
+ * made is already proved far more rigorously by `ci-apply-full-schema.sh --drift-check`, which
+ * replays every migration and fails on any schema change. Removing it loses no coverage and removes
+ * a finding rather than dismissing one.
+ */
 beforeAll(async () => {
   pool = new Pool({ connectionString: DATABASE_URL });
-
-  if (!fs.existsSync(MIGRATION_PATH)) {
-    throw new Error(`Sprint 126 migration missing: ${MIGRATION_PATH}`);
-  }
-  const migration = fs.readFileSync(MIGRATION_PATH, 'utf8');
-
-  // Applied twice: re-running the chain must be safe.
-  await pool.query(migration);
-  await pool.query(migration);
-
   await seed();
   await cleanupRows();
 });

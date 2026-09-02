@@ -40,9 +40,22 @@ export async function cleanupActivityLogs(): Promise<void> {
     const threshold = new Date();
     threshold.setDate(threshold.getDate() - 90); // Keep 90 days
 
+    // Sprint 126 (ADR-096): rows with a related_entity_id are PROJECTION STATE, not disposable log
+    // noise. They carry a projection identity (uq_activity_match_projection) and the standing
+    // backfill compares stored rows against replay to decide it has converged.
+    //
+    // Deleting them makes retention and projection permanently incompatible: the backfill writes an
+    // activity row dated with its match's real completion time — usually far older than 90 days —
+    // this sweep removes it, the next dry run predicts it again, and the run can never report
+    // convergence. The operator's "second run writes nothing" check would fail forever.
+    //
+    // Unattributable rows (logins and similar, related_entity_id IS NULL) are genuinely transient
+    // and still expire on the 90-day window. The retained rows carry no free text, so ADR-069
+    // memory-retention concerns do not apply.
     const result = await query(
       `DELETE FROM reputation.activity_log
        WHERE created_at <= $1
+         AND related_entity_id IS NULL
        RETURNING id`,
       [threshold.toISOString()]
     );

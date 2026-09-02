@@ -90,6 +90,21 @@ export async function runStandingBackfillCli(
       : await dependencies.analyze();
 
     dependencies.log(JSON.stringify(report, null, 2));
+
+    // Absence of anomalies is not the same as "done". A match completed by the live simulator while
+    // the run was in progress is perfectly valid, but it arrived after the batch list was taken, so
+    // rows can remain outstanding with an otherwise clean report. Exiting 0 there would tell the
+    // operator the backfill finished when it has not — and the demo simulator completes matches
+    // continuously, so this is the expected case, not a rare one. Re-running is the remedy.
+    if (args.apply && !report.converged) {
+      dependencies.error(
+        `[standing-backfill] applied, but NOT converged: ${report.predicted.karmaRows} karma and ` +
+          `${report.predicted.activityRows} activity rows still outstanding (most likely matches ` +
+          `completed during the run). Re-run to finish.`,
+      );
+      return 1;
+    }
+
     if (!args.apply) {
       dependencies.log(
         `Apply exactly (source checkout):  npm --workspace karmyq-reputation-service run backfill:standing -- --apply --batch-size ${args.batchSize}`,
