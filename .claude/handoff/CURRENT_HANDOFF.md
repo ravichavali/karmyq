@@ -136,6 +136,49 @@ explicit authorization naming the data operation itself.
 Per ADR-096 and the plan, **deployment approval is not data-operation approval.** The amended
 Task 14 also requires a pre-deploy duplicate-identity check before any apply.
 
+## ▶ NEXT CHAT: start here
+
+Sprint 126 is **fully complete** — merged, deployed, demo backfilled and converged. Nothing about
+it is outstanding. This handoff is the record of that, not a to-do list.
+
+**⚠️ Read this file from branch `docs/sprint-126-post-deploy-state`, NOT master.** The
+post-deploy and Task 14b records live only here; master's copy predates the merge. It was kept off
+master deliberately — every master push is a full deploy, and a docs-only push would have
+restarted healthy services twice for no reason. **Fold this file into the next sprint's first PR**
+so master catches up as a side effect of real work.
+
+**Sprint 127 is NOT planned.** Run the `sprint-planning` skill to produce spec + plan + a fresh
+handoff, then execute in the chat after that.
+
+### Candidate work, highest-value first
+
+1. **Two operator-report inaccuracies (found during the 14b run, NOT fixed).** The backfill's
+   dry-run preview disagrees with what the canonical calculator actually stores:
+   - `scoreBuckets` predicts 1,518 pairs at score **0**; the stored minimum is **1** and they land
+     in 1-19 (1,518 + 19 = 1,537 = the stored 1-19 bucket exactly).
+   - `providerEligibility` predicts **384** providers at floor 20; **499 of 501** actually qualify.
+
+   The stored data is correct — the PREVIEW is wrong, which is worse than it sounds: the preview is
+   what an operator reads before authorizing a destructive data operation. Small, well-scoped fix.
+
+2. **ADR-095 floor 20 is now barely selective** — 499/501 providers clear it. Before the backfill
+   the gate admitted nobody (empty `trust_scores`), so the floor was never exercised against real
+   data. Now it is, and it discriminates almost nothing. Needs a deliberate decision about what the
+   floor is FOR, and the score range (1..52, nothing above 52) should inform it. **Changing the
+   floor needs its own authorization** — it was explicitly not done.
+
+3. **⏰ `security/audit-exemptions.json` expires 2026-09-15** (2 GHSA entries). After that every PR
+   blocks on the ADR-059 gate. ~12 days out — either renew with justification or fix the
+   advisories. Do not let this ambush a sprint mid-flight.
+
+4. **Known rough edges** already catalogued below: CodeQL dismissals dying on line shifts (68 and
+   counting on `api.ts`), ~10 verbatim `SERVICE_TYPE_LABELS` copies, duplicated `isActiveMember`,
+   BUG-036's fixed `sleep 30` in `test.yml`.
+
+### Live demo state, for reference
+20,341 canonical karma rows · 6,800 activity rows · 5,683 trust scores · 8,403 completed matches
+projected · scores 1..52 · backup `~/backups/pre-s126-backfill-20260903T203953Z.dump`.
+
 ## Progress
 
 | Task | State | Commit |
