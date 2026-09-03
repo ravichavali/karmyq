@@ -10,12 +10,16 @@
 > version **v11.46.0**. Tasks 1-13 done. Task 14 is NOT authorized and has not begun. The demo
 > database has only ever been READ.
 >
-> **CI HAS run and is green** — 0 failures across all required checks, including Integration Tests
-> and the new byte-for-byte init.sql gate. (An earlier version of this handoff said CI had not run;
-> that was wrong, and CI was in fact red at the time — see "Review rounds" below.)
+> **CI is green on `17ccbbea`** (head of the branch, round-2 fixes included) — all 20 required
+> checks pass. Verified by reading the runs, not inferred: the Integration Tests step ran
+> `sprint-126-standing-schema` and `sprint-126-standing-backfill` against real Postgres 15 + Redis
+> (5 suites / 56 tests), the init.sql workflow logged `Seeded from base revision f1197a17` and then
+> `Committed init.sql is byte-identical to the canonical regeneration`, and CodeQL reports 0
+> annotations and 0 open alerts on this ref. (An earlier version of this handoff said CI had not
+> run; that was wrong, and CI was in fact red at the time — see "Review rounds" below.)
 >
-> **Two Codex review rounds are complete and their findings are fixed.** A third has not been
-> requested yet. Merge remains unauthorized.
+> **Two Codex review rounds are complete and their findings are fixed** (round 2 in `17ccbbea`).
+> A third has not been requested yet. Merge remains unauthorized, and Task 14 has not begun.
 
 ## Progress
 
