@@ -1,4 +1,4 @@
-# Sprint 126 — Honest Standing Backfill (PR #210 open, CI green, 3 reviews closed, awaiting merge auth)
+# Sprint 126 — Honest Standing Backfill (PR #210 review-clean; BLOCKED on maintainer merge authorization)
 
 > ## State as of 2026-09-03
 >
@@ -10,7 +10,8 @@
 > version **v11.46.0**. Tasks 1-13 done. Task 14 is NOT authorized and has not begun. The demo
 > database has only ever been READ.
 >
-> **PR #210 live state**: `OPEN`, `MERGEABLE`, `REVIEW_REQUIRED`, base `master`. CI is green — 21
+> **PR #210 live state** (head `812fc1a3`): `OPEN`, `MERGEABLE`, `REVIEW_REQUIRED`, base `master`.
+> CI is green — 21
 > checks pass, `Deploy to Demo` correctly skipping (not master). Verified by reading the runs, not
 > inferred from ticks: the Integration Tests step ran `sprint-126-standing-schema` and
 > `sprint-126-standing-backfill` against real Postgres 15 + Redis (5 suites / 56 tests), the
@@ -22,10 +23,38 @@
 > so its pass is not evidence. (An earlier version of this handoff said CI had not run; that was
 > wrong, and CI was in fact red at the time — see "Review rounds" below.)
 >
-> **Three Codex review rounds are complete.** Rounds 1 and 2 raised code findings, all fixed and
-> confirmed closed by round 3. Round 3 confirmed both code fixes and raised four
-> documentation/handoff findings, fixed in the commit that carries this edit. Merge remains
-> unauthorized, and Task 14 has not begun.
+> **Four Codex review rounds are complete and there are NO remaining review blockers.** Rounds 1-2
+> raised code findings; round 3 confirmed those closed and raised four documentation/handoff
+> findings; round 4 confirmed those closed and raised one repository-hygiene finding (generated
+> landing metadata churn), closed in `812fc1a3`. Round 4's verdict: *"no remaining review blockers.
+> PR #210 is ready for the maintainer-controlled merge authorization gate."*
+>
+> ⚠️ **That is NOT merge authorization.** The single remaining blocker is a human decision, and it
+> is two decisions, not one — see *What is actually blocked* below. Task 14 has not begun and the
+> demo database has still only ever been READ.
+
+## What is actually blocked (two separate authorizations)
+
+Sprint 126 needs **two** decisions from the maintainer, and conflating them is the risk this
+sprint's whole thesis is built to avoid. Approving the first does NOT approve the second.
+
+**1. Merge + deploy.** Squash-merge PR #210 to `master`, which triggers a full demo deploy
+(ARM64 build, SSH, `deploy.sh`, health verify, rollback on failure). This ships code only: the
+schema migration, the canonical projection path, the corrected decay/cleanup behaviour, the
+reputation-service 03:30 trust-score refresh, and the operator CLI. **It writes no standing data.**
+The backfill does not run on deploy; it has no cron and no startup hook. Post-deploy the provider
+surface looks exactly as it does today, because BUG-037 stopped karma being written since Sprint 62
+and nothing retroactively fixes that until step 2.
+
+**2. The demo data operation (Task 14).** Running `backfillStanding --apply` against the demo
+database, which writes karma, activity and trust-score rows derived from 7,860 stored completed
+matches. This is the step that changes what the demo shows. Preconditions, all still unmet:
+deploy completed and healthy; a FRESH demo backup taken; a dry run re-executed immediately before
+apply (the live simulator keeps adding matches, so the 2026-08-19 audit is a dated snapshot); and
+explicit authorization naming the data operation itself.
+
+Per ADR-096 and the plan, **deployment approval is not data-operation approval.** The amended
+Task 14 also requires a pre-deploy duplicate-identity check before any apply.
 
 ## Progress
 
@@ -165,6 +194,16 @@ helper left anywhere. Four documentation findings, all correct and all fixed in 
 
 Codex flagged its own confidence limits — it did not rerun the PostgreSQL smuggled-table mutation
 or query demo inventory. Those were verified in round 2 and are unchanged by these doc-only edits.
+
+**Round 4 (Codex).** All three round-3 doc findings confirmed fixed — landing JSON matches
+`CONTEXT.md` byte-for-byte after newline normalization, and the repair command now reproduces CI.
+One new finding, correct and blocking on hygiene grounds: **`89fd7886` carried generated landing
+metadata churn** (`build.json` commitSha/generatedAt/adrCount, `architecture.json` dependency-graph
+timestamp) unrelated to the doc fixes.
+
+Root cause was ORDER, not omission — see rule 11 above. Both files restored to their `7df830ce`
+state and `services/cleanup-service.json` retained, verified per file rather than by reading a diff
+stat. Round-4 verdict: no remaining review blockers.
 
 ## What the gates found (Task 12)
 
