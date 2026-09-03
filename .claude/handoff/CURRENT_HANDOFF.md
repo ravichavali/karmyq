@@ -353,7 +353,15 @@ Sprint 126 and must remain untouched and unstaged throughout execution.
 10. **Do not tune scores to look attractive.** Report the distribution produced by stored facts.
     Human validation checks credibility against histories, not a target bell curve.
 11. **Generated files stay generated.** Regenerate `init.sql` and landing docs from their sources;
-    revert unrelated timestamp/HEAD churn.
+    revert unrelated timestamp/HEAD churn — `apps/landing/src/data/docs/build.json` (commitSha /
+    generatedAt) and `architecture.json` (dependency-graph timestamp) are the two that recur.
+    ⚠️ **Order matters, and getting it wrong is what actually ships the churn.** `npm test` and
+    `npx turbo run test` run the landing prebuild, so they REGENERATE these files. Reverting them
+    and then running the suite puts the churn straight back, and a later `git add -A` commits it —
+    that is exactly how it reached `89fd7886` after being reverted twice. **Revert last: after the
+    final test run, immediately before staging**, and confirm with
+    `git diff <last-good-sha> --stat`. Running `cd tests && npx jest <file>` directly does not
+    regenerate them.
 12. **Demo facts are a dated snapshot.** Re-run preflight immediately before apply because the live
     simulator can add matches after this spec's 2026-08-19 audit.
 13. **Audit every writer before adding uniqueness.** Fusion and fission karma copies must use
