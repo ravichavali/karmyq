@@ -1,4 +1,4 @@
-# Sprint 126 — Honest Standing Backfill (MERGED + DEPLOYED; Task 14 data op still unauthorized)
+# Sprint 126 — Honest Standing Backfill (COMPLETE — merged, deployed, demo backfill applied)
 
 > ## State as of 2026-09-03
 >
@@ -9,6 +9,56 @@
 > **Sprint 126 is open as [PR #210](https://github.com/ravichavali/karmyq/pull/210)**, base `master`,
 > version **v11.46.0**. Tasks 1-13 done. Task 14 is NOT authorized and has not begun. The demo
 > database has only ever been READ.
+>
+> **✅ TASK 14b APPLIED 2026-09-03.** Demo standing backfill ran to convergence, explicitly
+> authorized as its own data operation. Backup `~/backups/pre-s126-backfill-20260903T203953Z.dump`
+> (53 MB, archive validated with `pg_restore --list`, 953 TOC entries) taken first.
+>
+> **Result — predicted exactly, written exactly:**
+>
+> | | predicted | written |
+> |---|---|---|
+> | karma rows | 20,341 | 20,341 |
+> | activity rows | 6,800 | 6,800 |
+> | trust pairs | 5,683 | 5,683 |
+>
+> 8,403 of 8,403 completed matches projected. Second dry run: `alreadyProjected` 8,403, predicted
+> 0 karma / 0 activity, 0 anomalies. Second `--apply`: exit 0, counts unchanged — idempotency
+> proven against live data, not just in tests. Final reasons: `Provided help` 8,403,
+> `Received help` 8,403, `First help in community` 3,480, `10 exchanges milestone` 55.
+>
+> **⚠️ The run initially BLOCKED, and the block was correct.** The first dry run returned
+> `canApply: false` with one `UNEXPECTED_KARMA_PROJECTION`. Cause: after the deploy fixed BUG-037,
+> the live path processed match `d183939e` and minted a `First help in community` bonus — because
+> the stored canonical karma table was still EMPTY, so it counted that as help #1. The helper
+> actually had **3 prior completed matches in that same community** (53 overall), so replay
+> correctly produced no milestone and the safeguard refused to backfill over a fabricated row.
+> This is the ADR-096 blocking rule earning its keep on live data within an hour of shipping.
+> Resolved by deleting all 3 canonical rows from that match (maintainer-authorized, transactional,
+> row-count guarded); the backfill then re-derived them from full history. **Generalisable lesson:
+> between a BUG-037-style fix and the backfill, the live path mints wrong milestones — backfill
+> promptly after deploying, or expect to clean up.**
+>
+> **Realism check (Step 8), including two things that did NOT match the report:**
+> - All 5,683 active membership pairs evaluated; `trust_scores` holds exactly 5,683 rows.
+> - **No user has score 0.** The report predicted 1,518 zero-history pairs at score 0; the stored
+>   minimum is **1** and those pairs land in 1-19 (1,518 + 19 = 1,537, which is exactly the stored
+>   1-19 bucket). The canonical ADR-037 calculator, not Sprint 126, decides this — but the report's
+>   `scoreBuckets` preview disagrees with what `updateTrustScore` actually writes for empty history.
+>   Worth reconciling; it makes the operator preview subtly misleading.
+> - **`providerEligibility` also disagrees**: the report predicts 384 at floor 20, but **499 of 501
+>   distinct providers** have a stored score ≥ 20. Same class of preview-vs-stored gap.
+> - Score range is **1..52** — nothing in 60-79 or 80-100. That is the honest output of stored
+>   facts; per plan rule 10 it was NOT tuned to look attractive.
+> - ⚠️ **Floor 20 is now barely selective** (499/501 providers pass). Before the backfill the gate
+>   admitted nobody, because `trust_scores` was empty. Changing the floor needs its own
+>   authorization and was NOT done.
+> - Traced the top profile end-to-end: score 52, 50 karma rows / 2,015 points across 49 distinct
+>   matches, and **all 49 are real completed matches**. No fabricated lineage.
+>
+> **Legacy repair**: the 174 attributable snake_case rows are gone, replaced by canonical rows for
+> the same matches. By design and atomic — each match's legacy rows are deleted inside the same
+> transaction that writes its projection (`standingBackfillService.ts:913`). No karma was lost.
 >
 > **✅ MERGED 2026-09-03.** PR #210 squash-merged as **`9083a79a`** (admin override — master
 > requires 1 approving review and there is no second reviewer; explicitly authorized by the
@@ -107,7 +157,7 @@ Task 14 also requires a pre-deploy duplicate-identity check before any apply.
 | 12d. pre-commit process review | ✅ done | this commit |
 | 13. Final verification + PR | ✅ done | this commit |
 | 14a. Merge + deploy (code only) | ✅ done | squash `9083a79a` |
-| 14b. Demo `--apply` data operation | ⬜ **NOT AUTHORIZED** | — |
+| 14b. Demo `--apply` data operation | ✅ done | applied + converged 2026-09-03 |
 
 **Verification at Task 11:** full `npx turbo run test --concurrency=2` — **26/26 tasks, 0 failures**.
 Reputation 231 passing / 3 todo / 0 skipped. Against real PostgreSQL 15.15: schema integration
