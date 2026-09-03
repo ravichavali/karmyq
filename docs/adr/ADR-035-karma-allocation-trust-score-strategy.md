@@ -63,6 +63,11 @@ Range: 50–100. Future inputs (connections, recency, tenure) are documented in 
 Two new modules in `services/reputation-service/src/services/`:
 
 - **`karmaAllocation.ts`** — `allocateKarma(configs, totalPool)` — the karma distribution tuning surface
+  > **Superseded by Sprint 126 / [ADR-096](ADR-096-canonical-completed-match-standing-projection.md):**
+  > this module was deleted and its implementation moved to `@karmyq/shared`
+  > (`src/projections/completedMatchStanding.ts`, `allocateCompletedMatchKarma`), so live delivery,
+  > the curated fixture projection, and historical replay share one definition instead of three.
+  > The allocation arithmetic itself is unchanged.
 - **`trustScoreStrategy.ts`** — `computeTrustScore(inputs)` — the trust score computation tuning surface
 
 `karmaService.ts` is updated to call both. No schema changes required.

@@ -309,10 +309,13 @@ export async function executeSplit(
         );
         // Karma records → child, so members don't restart at 0.
         await client.query(
+          // ON CONFLICT DO NOTHING: a re-executed split can re-copy an identity the child already
+          // holds, which uq_karma_match_projection rejects. Without this guard the retry aborts.
           `INSERT INTO reputation.karma_records (user_id, community_id, points, reason, related_entity_id, created_at)
            SELECT user_id, $1, points, reason, related_entity_id, created_at
            FROM reputation.karma_records
-           WHERE community_id = $2 AND user_id = ANY($3::uuid[])`,
+           WHERE community_id = $2 AND user_id = ANY($3::uuid[])
+           ON CONFLICT DO NOTHING`,
           [childId, communityId, group]
         );
       }

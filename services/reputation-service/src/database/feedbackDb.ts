@@ -1,5 +1,50 @@
 import { query } from './db';
 
+export interface WeightedFeedbackRow {
+  rating: number | string;
+  community_id: string;
+  created_at: Date | string;
+}
+
+/** Pure ADR-039 weighting shared by live score refresh and standing-backfill dry-run. */
+export function calculateWeightedAvgFeedback(
+  rows: readonly WeightedFeedbackRow[],
+  communityId: string,
+  nowMs = Date.now(),
+  halfLifeMonths = 6,
+  localWeight = 0.7,
+  globalWeight = 0.3,
+): number | null {
+  if (rows.length === 0) return null;
+
+  const monthMs = 30 * 24 * 60 * 60 * 1000;
+  let localWeightSum = 0;
+  let localWeightedSum = 0;
+  let globalWeightSum = 0;
+  let globalWeightedSum = 0;
+
+  for (const row of rows) {
+    const ageMonths = (nowMs - new Date(row.created_at).getTime()) / monthMs;
+    const weight = Math.max(0.1, Math.pow(0.5, ageMonths / halfLifeMonths));
+    const rating = Number.parseFloat(String(row.rating));
+
+    globalWeightSum += weight;
+    globalWeightedSum += rating * weight;
+    if (row.community_id === communityId) {
+      localWeightSum += weight;
+      localWeightedSum += rating * weight;
+    }
+  }
+
+  const local = localWeightSum > 0 ? localWeightedSum / localWeightSum : null;
+  const globalAverage = globalWeightSum > 0 ? globalWeightedSum / globalWeightSum : null;
+  if (local == null && globalAverage == null) return null;
+  if (local != null && globalAverage != null) {
+    return local * localWeight + globalAverage * globalWeight;
+  }
+  return local ?? globalAverage;
+}
+
 export async function insertFeedback(
   fromUserId: string,
   toUserId: string,
@@ -89,37 +134,14 @@ export async function getWeightedAvgFeedback(
      ORDER BY created_at DESC`,
     [toUserId],
   );
-
-  if (result.rows.length === 0) return null;
-
-  const now = Date.now();
-  const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
-
-  let localWeightSum = 0;
-  let localWeightedSum = 0;
-  let globalWeightSum = 0;
-  let globalWeightedSum = 0;
-
-  for (const row of result.rows) {
-    const ageMonths = (now - new Date(row.created_at).getTime()) / MONTH_MS;
-    const weight = Math.max(0.1, Math.pow(0.5, ageMonths / halfLifeMonths));
-    const rating = parseFloat(row.rating);
-
-    globalWeightSum += weight;
-    globalWeightedSum += rating * weight;
-
-    if (row.community_id === communityId) {
-      localWeightSum += weight;
-      localWeightedSum += rating * weight;
-    }
-  }
-
-  const local = localWeightSum > 0 ? localWeightedSum / localWeightSum : null;
-  const global_ = globalWeightSum > 0 ? globalWeightedSum / globalWeightSum : null;
-
-  if (local == null && global_ == null) return null;
-  if (local != null && global_ != null) return local * localWeight + global_ * globalWeight;
-  return local ?? global_!;
+  return calculateWeightedAvgFeedback(
+    result.rows as WeightedFeedbackRow[],
+    communityId,
+    Date.now(),
+    halfLifeMonths,
+    localWeight,
+    globalWeight,
+  );
 }
 
 export async function getAvgFeedback(toUserId: string): Promise<number | null> {

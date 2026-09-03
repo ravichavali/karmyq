@@ -610,3 +610,41 @@ slow or the image cache is cold. Fix: replace the fixed sleep with a retry/until
 `/health` (and ideally add compose healthchecks plus `docker compose up -d --wait`).
 
 ---
+
+---
+
+## BUG-037 · [2026-08-20] · fixed (Sprint 126, pending deploy)
+
+**Live karma awarding has been failing on every completed match since Sprint 62.**
+
+`karmaService.getCommunityKarmaConfig()` selected `config->'enabled_request_types'` from
+`communities.community_configs`. That table has no `config` column — `enabled_request_types` is a
+top-level `jsonb` column and no migration ever created a `config` column — so PostgreSQL raised
+`42703` at parse time and `awardKarmaForCompletedMatch()` threw on every call.
+
+Found while verifying an unrelated fix; confirmed in live demo logs rather than by inspection:
+
+```
+❌ Failed to award karma for match: <uuid> error: column "config" does not exist
+   code: '42703'
+   at async awardKarmaForCompletedMatch (karmaService.js:112:30)
+```
+
+20 occurrences in 72 hours. Demo state agreed exactly: 7,860 completed matches, **0** karma records
+with live-path reasons, **0** `trust_scores` rows, **0** `activity_log` rows. The only 174 karma
+rows present came from the curated fixture. This is also why ADR-095's reach gate emptied the
+provider layer at any non-zero floor — the gate was correct, there was simply no standing to admit.
+
+**Fixed (Sprint 126, branch `feature/sprint-126-standing-backfill`):** the broken function was
+deleted with the rest of the legacy award path
+(`services/reputation-service/src/services/karmaService.ts`), replaced by
+`standingProjector.ts`, whose candidate query reads the real `enabled_request_types` column. The
+error was invisible to mocked tests — a stubbed pool asserts its own mock, never the column's
+existence — so the correction came from TDD against real facts. Tests:
+`services/reputation-service/tests/regression/sprint-126-standing-projector.test.ts` and
+`tests/integration/sprint-126-standing-schema.integration.test.ts`.
+
+⚠️ **Not yet deployed.** Verify at Task 14 by completing one live match on demo and confirming karma
+rows appear — it will be the first live-path karma written since Sprint 62.
+
+---

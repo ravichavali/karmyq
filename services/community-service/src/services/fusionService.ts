@@ -2,6 +2,33 @@ import { Pool } from 'pg';
 
 const TRUST_CARRY_FACTOR = 0.70;
 
+/**
+ * Karma carry into a merged community, split by whether a row has a projection identity.
+ *
+ * Production splits one karma pool for a single match across up to three shared communities
+ * (reputation karmaService), so the SAME user can hold `(user, A, 'Provided help', match)` and
+ * `(user, B, 'Provided help', match)`. Fusing A and B collapses those onto ONE identity, which
+ * `uq_karma_match_projection` (Sprint 126) enforces. A bare `ON CONFLICT DO NOTHING` would keep
+ * whichever row the executor happened to reach first and silently discard the other's points —
+ * nondeterministic karma loss in exactly the overlap case fusion exists to serve. Summing preserves
+ * the member's total, and the earliest timestamp keeps the history honest.
+ *
+ * Rows with a NULL related_entity_id carry no projection identity and are not constrained by the
+ * index, so they are copied row-for-row. Aggregating them would collapse genuinely distinct manual
+ * adjustments that share a reason.
+ */
+export const KARMA_CARRY_IDENTITY_SQL = `INSERT INTO reputation.karma_records (user_id, community_id, points, reason, related_entity_id, created_at)
+       SELECT user_id, $1, SUM(points)::int, reason, related_entity_id, MIN(created_at)
+       FROM reputation.karma_records
+       WHERE community_id = ANY($2) AND related_entity_id IS NOT NULL
+       GROUP BY user_id, reason, related_entity_id
+       ON CONFLICT DO NOTHING`;
+
+export const KARMA_CARRY_UNIDENTIFIED_SQL = `INSERT INTO reputation.karma_records (user_id, community_id, points, reason, related_entity_id, created_at)
+       SELECT user_id, $1, points, reason, related_entity_id, created_at
+       FROM reputation.karma_records
+       WHERE community_id = ANY($2) AND related_entity_id IS NULL`;
+
 export async function executeFusion(proposalId: string, adminId: string, pool: Pool) {
   const client = await pool.connect();
   try {
@@ -93,14 +120,10 @@ export async function executeFusion(proposalId: string, adminId: string, pool: P
       );
     }
 
-    // 7. Copy karma records from both communities
-    await client.query(
-      `INSERT INTO reputation.karma_records (user_id, community_id, points, reason, related_entity_id, created_at)
-       SELECT user_id, $1, points, reason, related_entity_id, created_at
-       FROM reputation.karma_records
-       WHERE community_id = ANY($2)`,
-      [mergedId, [aId, bId]]
-    );
+    // 7. Copy karma records from both communities (see the SQL constants above for why this is
+    //    split in two and why the identity-bearing half sums rather than discards).
+    await client.query(KARMA_CARRY_IDENTITY_SQL, [mergedId, [aId, bId]]);
+    await client.query(KARMA_CARRY_UNIDENTIFIED_SQL, [mergedId, [aId, bId]]);
 
     // 8. Create fusion_origin community_links (merged↔A and merged↔B)
     await client.query(

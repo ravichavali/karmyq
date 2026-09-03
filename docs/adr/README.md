@@ -131,6 +131,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-093: The `federation` Schema Is Reserved, Not Live](ADR-093-federation-schema-reserved.md) — **Implemented**
 - [ADR-094: Generalized Exemption Registries](ADR-094-generalized-exemption-registries.md) — **Implemented**
 - [ADR-095: Authenticated Provider Directory and Reach-Gated Standing](ADR-095-authenticated-provider-directory-and-reach-gated-standing.md) — **Accepted**
+- [ADR-096: Canonical Completed-Match Standing Projection](ADR-096-canonical-completed-match-standing-projection.md) — **Accepted**
 
 ## Creating a New ADR
 

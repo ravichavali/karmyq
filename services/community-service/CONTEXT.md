@@ -3,6 +3,31 @@
 > **Quick Start**: `cd services/community-service && npm run dev`
 > **Port**: 3002 | **Health**: http://localhost:3002/health
 
+## Recent Changes
+
+- **2026-08-20 (Sprint 126 / ADR-096 — conflict-safe karma carry)**: `fusionService.ts` and
+  `fissionService.ts` copy `reputation.karma_records` between communities, and Sprint 126 added
+  `uq_karma_match_projection` on `(user_id, community_id, reason, related_entity_id)`. Both carry
+  writers had to become conflict-safe or one shared match would abort the whole fusion/split
+  transaction.
+
+  **Fusion also had to stop discarding points.** Production splits one match's karma pool across up
+  to three shared communities, so a member can legitimately hold the same
+  `(reason, related_entity_id)` identity in **both** origin communities. Merging collapses those
+  onto a single identity — and a bare `ON CONFLICT DO NOTHING` would keep whichever row the
+  executor reached first and silently drop the other's points, nondeterministically, in exactly the
+  overlap case fusion exists to serve. The carry is therefore split in two:
+
+  - rows **with** a projection identity are aggregated (`SUM(points)`, `MIN(created_at)`,
+    `GROUP BY user_id, reason, related_entity_id`), so the merged community gets the member's real
+    total and the earliest timestamp;
+  - rows with a **NULL** `related_entity_id` are copied row-for-row, because the index does not
+    constrain them and aggregating would merge genuinely distinct manual adjustments.
+
+  Both statements are exported as `KARMA_CARRY_IDENTITY_SQL` / `KARMA_CARRY_UNIDENTIFIED_SQL` so
+  tests execute the shipped SQL rather than a retyped copy. Fission selects from a single community
+  and cannot collide intra-statement; it carries the guard for re-execution safety.
+
 ## Purpose
 
 Manages communities, membership, and community norms (rules). Enforces Dunbar's number (max 150 members) to maintain meaningful relationships and prevent scaling issues.

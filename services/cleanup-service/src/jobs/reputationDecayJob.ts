@@ -8,130 +8,26 @@ import { logger } from '../utils/logger';
  */
 
 export async function updateDecayedTrustScores(): Promise<void> {
-  logger.info('Starting reputation decay job');
-
-  try {
-    // Get all user-community combinations with trust scores
-    const trustScores = await query(
-      `SELECT
-        ts.id,
-        ts.user_id,
-        ts.community_id,
-        ts.score as current_score,
-        ts.last_activity_at
-       FROM reputation.trust_scores ts
-       ORDER BY ts.community_id, ts.user_id`
-    );
-
-    if (!trustScores.rows.length) {
-      logger.info('No trust scores to update');
-      return;
-    }
-
-    let updatedCount = 0;
-    let unchangedCount = 0;
-
-    for (const row of trustScores.rows) {
-      const { id, user_id, community_id, current_score } = row;
-
-      // Calculate decayed karma using the database function
-      const decayedResult = await query(
-        `SELECT reputation.calculate_decayed_karma($1, $2) as decayed_karma`,
-        [user_id, community_id]
-      );
-
-      const decayedKarma = decayedResult.rows[0]?.decayed_karma || 0;
-
-      // Calculate new trust score (0-100 scale)
-      // Simple formula: min(100, decayed_karma / 10)
-      // Communities can customize this formula later
-      const newScore = Math.min(100, Math.floor(decayedKarma / 10));
-
-      // Only update if score changed
-      if (newScore !== current_score) {
-        await query(
-          `UPDATE reputation.trust_scores
-           SET score = $1, last_updated = CURRENT_TIMESTAMP
-           WHERE id = $2`,
-          [newScore, id]
-        );
-        updatedCount++;
-
-        logger.debug('Updated trust score', {
-          user_id,
-          community_id,
-          old_score: current_score,
-          new_score: newScore,
-          decayed_karma: decayedKarma,
-        });
-      } else {
-        unchangedCount++;
-      }
-    }
-
-    logger.info(`Reputation decay job completed`, {
-      total: trustScores.rows.length,
-      updated: updatedCount,
-      unchanged: unchangedCount,
-    });
-  } catch (error) {
-    logger.error('Error in reputation decay job', { error });
-    throw error;
-  }
-}
-
-/**
- * Activity Tracker
- * Updates last_activity_at when users perform qualifying activities
- */
-export async function recordActivity(
-  userId: string,
-  communityId: string,
-  activityType: string,
-  relatedEntityId?: string
-): Promise<void> {
-  try {
-    // Check if this activity type is enabled for the community
-    const settingsResult = await query(
-      `SELECT activity_types
-       FROM communities.settings
-       WHERE community_id = $1`,
-      [communityId]
-    );
-
-    if (!settingsResult.rows.length) {
-      logger.warn('No community settings found', { communityId });
-      return;
-    }
-
-    const activityTypes = settingsResult.rows[0].activity_types || [];
-
-    // Check if this activity type counts
-    if (!activityTypes.includes(activityType)) {
-      logger.debug('Activity type not tracked', { activityType, communityId });
-      return;
-    }
-
-    // Log the activity
-    await query(
-      `INSERT INTO reputation.activity_log (user_id, community_id, activity_type, related_entity_id)
-       VALUES ($1, $2, $3, $4)`,
-      [userId, communityId, activityType, relatedEntityId]
-    );
-
-    // Update last_activity_at in trust_scores
-    await query(
-      `UPDATE reputation.trust_scores
-       SET last_activity_at = CURRENT_TIMESTAMP
-       WHERE user_id = $1 AND community_id = $2`,
-      [userId, communityId]
-    );
-
-    logger.debug('Recorded activity', { userId, communityId, activityType });
-  } catch (error) {
-    logger.error('Error recording activity', { error, userId, communityId, activityType });
-    // Don't throw - activity logging shouldn't break the main flow
-  }
+  // Sprint 126 (ADR-096): this job no longer writes trust scores, and must not.
+  //
+  // It used to overwrite reputation.trust_scores.score with `min(100, floor(decayed_karma / 10))`
+  // — a pre-ADR-037 formula that predates the multi-signal model entirely. ADR-039 §Phase 2 moved
+  // decay INTO the canonical calculator: `updateTrustScore()` already weights interactions by a
+  // 12-month recency window and blends recency-weighted feedback, so a second, simpler formula
+  // running nightly does not add decay, it discards the real score.
+  //
+  // This was harmless only because reputation.trust_scores held ZERO rows platform-wide (BUG-037 —
+  // the live karma writer had been throwing 42703 since Sprint 62), so the job selected nothing
+  // every night. The moment Sprint 126's backfill populates that table, this job would overwrite
+  // every score it wrote within 24 hours and re-empty ADR-095's provider reach gate. Found by the
+  // Sprint 126 /code-review gate.
+  //
+  // Trust scores are owned by reputation-service. Karma decay itself (ADR-011) is unaffected — it
+  // is computed at read time from karma_records timestamps, not stored here.
+  logger.info(
+    'Reputation decay job is a no-op: trust scores are maintained by reputation-service ' +
+      '(ADR-037/ADR-039/ADR-096). This job no longer writes reputation.trust_scores.',
+  );
 }
 
 /**
@@ -144,9 +40,22 @@ export async function cleanupActivityLogs(): Promise<void> {
     const threshold = new Date();
     threshold.setDate(threshold.getDate() - 90); // Keep 90 days
 
+    // Sprint 126 (ADR-096): rows with a related_entity_id are PROJECTION STATE, not disposable log
+    // noise. They carry a projection identity (uq_activity_match_projection) and the standing
+    // backfill compares stored rows against replay to decide it has converged.
+    //
+    // Deleting them makes retention and projection permanently incompatible: the backfill writes an
+    // activity row dated with its match's real completion time — usually far older than 90 days —
+    // this sweep removes it, the next dry run predicts it again, and the run can never report
+    // convergence. The operator's "second run writes nothing" check would fail forever.
+    //
+    // Unattributable rows (logins and similar, related_entity_id IS NULL) are genuinely transient
+    // and still expire on the 90-day window. The retained rows carry no free text, so ADR-069
+    // memory-retention concerns do not apply.
     const result = await query(
       `DELETE FROM reputation.activity_log
        WHERE created_at <= $1
+         AND related_entity_id IS NULL
        RETURNING id`,
       [threshold.toISOString()]
     );

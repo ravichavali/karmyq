@@ -5,7 +5,10 @@
  * These are pure unit tests — no DB or network required.
  */
 
-import { allocateKarma, CommunityKarmaConfig } from '../../src/services/karmaAllocation';
+import {
+  allocateCompletedMatchKarma as allocateKarma,
+  type CommunityKarmaConfig,
+} from '@karmyq/shared';
 
 const BASE_CONFIG: CommunityKarmaConfig = {
   community_id: 'comm-1',

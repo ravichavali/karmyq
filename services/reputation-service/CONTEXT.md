@@ -5,6 +5,22 @@
 
 ## Recent Changes
 
+- **2026-08-22 (Sprint 126 review round — trust-score refresh, anomaly severity, carry lineage)**:
+  - `src/cron/trustScoreRefresh.ts` sweeps every **active** membership daily at **03:30** through the canonical `updateTrustScore`. `computeTrustScore` reads a moving 12-month window, so a stored score decays only if something recomputes it — and ADR-095's reach gate reads the CACHED value, not a fresh one. When Sprint 126 stopped cleanup-service overwriting scores with its pre-ADR-037 `karma/10` formula, that removed the only refresh cadence and would have frozen dormant providers as permanently eligible. Reputation-service owns trust scores, so the refresh lives here.
+  - **Anomaly severity** splits corrupt source data from routine history. **Blocking**: missing participants, missing `completed_at`, no request community at all, duplicate projection identities, conflicting stored projections. **Informational**: `NO_ELIGIBLE_COMMUNITY` (participants no longer co-members — routine, and guessing a community would fabricate history). Letting a match with broken source facts be silently skipped while apply reported success was fail-open.
+  - **`UNEXPECTED_KARMA_PROJECTION` BLOCKS unconditionally.** An intermediate version made it informational when the destination community had fusion/fission lineage to a request community. That heuristic proved adjacency, not legitimacy, and was wrong four ways: it never validated the row's points, timestamp or carry semantics, so a fabricated row in a linked community passed; the adjacency was undirected, so an invalid reverse carry passed; it was single-hop, so genuine multi-generation history was rejected anyway; and `community_links` was read without a status filter, so a merely PENDING link sufficed. A carried row cannot be derived from the match's own facts, so no graph-walk makes it verifiable — blocking is the honest outcome. It cannot bite the first demo backfill: carry only produces CANONICAL rows once canonical rows exist, and every stored karma row today is legacy snake_case, which the comparison skips. **`NO_ELIGIBLE_COMMUNITY` is the only informational code.**
+  - **`converged`** on the report, and the CLI exits **1** when an apply leaves rows outstanding. Absence of anomalies is not the same as done: the live simulator completes matches during a run, so work can remain with a clean report.
+
+- **2026-08-20 (Sprint 126 — BUG-037: live karma awarding was broken since Sprint 62)**: `karmaService.getCommunityKarmaConfig()` selected `config->'enabled_request_types'` from `communities.community_configs`, which has **no `config` column** — `enabled_request_types` is top-level `jsonb`. PostgreSQL raised `42703` at parse time, so `awardKarmaForCompletedMatch()` threw on **every** completed match. Demo confirmed it: 7,860 completed matches, **0** karma rows from the live path, **0** `trust_scores` rows, **0** `activity_log` rows; the only 174 karma rows came from the curated fixture. This is also why ADR-095's reach gate emptied the provider layer at any non-zero floor. Fixed by deleting the legacy award path entirely; `standingProjector.ts` reads the real column. Mocked tests could not catch it — a stubbed pool asserts its own mock, never a column's existence.
+
+- **2026-08-20 (Sprint 126 — transactional standing projector, ADR-096)**: `standingProjector.ts` is the one database adapter for the canonical policy in `@karmyq/shared`. One transaction per match under `pg_advisory_xact_lock(hashtextextended(matchId, 0))`; all writes `ON CONFLICT DO NOTHING` against the projection identities; community selection and milestone rank read history **strictly before** `(completed_at, match_id)`, which is what makes a replay stable. Rows carry the **stored** `matches.completed_at`, never `NOW()`. The event payload is a message, not a record — participants and status are re-read under the lock and a disagreeing payload is rejected. Historical mode fails closed with no community; only live delivery falls back to one deterministically ordered request community. `karmaService.ts` keeps trust reads and `updateTrustScore` (the deliberate present-state exception) and lost `KARMA_DEFAULTS` plus its second `MAX_COMMUNITIES_PER_KARMA_AWARD`, which duplicated the shared constants.
+
+- **2026-08-20 (Sprint 126 — standing operator CLI, in progress)**: `npm run backfill:standing` is dry-run by default and prints the complete preflight report plus the exact apply command. Only `--apply` reaches `applyStandingBackfill`; `--batch-size N` accepts positive integers and defaults to 100. Unknown, missing, non-integer, zero, and negative arguments exit 2 before any database service call. Apply progress prints batch/match counts and the last committed match ID, never user records or credentials.
+
+- **2026-08-20 (Sprint 126 — bounded standing apply, in progress)**: `standingBackfillService.applyStandingBackfill()` now reruns fail-closed preflight, normalizes only safe unattributable legacy reason labels, reprojects attributable fixture rows oldest-first in per-match transactions, emits bounded progress, and refreshes every active membership including zero-history pairs. Database projection identities are the resume checkpoint. Exact normalization collisions collapse without losing points/timestamps; conflicting collisions abort. A post-preflight community-set change also aborts inside the match transaction so legacy deletion cannot commit without its canonical replacement.
+
+- **2026-08-20 (Sprint 126 — standing preflight, in progress)**: `standingBackfillService.analyzeStandingBackfill()` performs a SELECT-only, oldest-first replay of completed-match facts through the shared standing policy and reports legacy provenance, conflicting/duplicate projections, predicted karma/activity writes, zero-history memberships, trust-score distributions, interaction depth/breadth, and provider reach floors. It fails closed through `canApply` when source facts or stored canonical projections are unsafe. `feedbackDb.calculateWeightedAvgFeedback()` is now the pure ADR-039 weighting function shared by live refresh and preflight. The live projector and preflight read the typed `community_configs.enabled_request_types` column; the former `cc.config->...` expression referenced a column that does not exist.
+
 - **2026-06-18 (Sprint 106 — BUG-013 rating-write hardening, v11.14.0)**: `POST /reputation/feedback` previously accepted a rating from ANY authenticated user for ANY match, guarding only against double-submission per `(from_user_id, request_match_id)`. It now validates participation and lifecycle before `insertFeedback`: new `feedbackDb.getMatchParticipation(matchId)` (joins `requests.matches` → `requests.help_requests` → `requests.request_communities`, cross-schema, returns `{ requesterId, responderId, status, communityIds }`) drives five checks — 404 `MATCH_NOT_FOUND` (unknown match), 403 `NOT_A_PARTICIPANT` (caller is neither party), 400 `INVALID_RATEE` (`to_user_id` is not the counterparty), 409 `MATCH_NOT_COMPLETED` (match not yet `completed`), and 400 `INVALID_COMMUNITY` (body `community_id` is not one the match's request was posted to — prevents a participant attributing feedback/trust to an arbitrary community). The per-`(rater, match)` double-submission guard is unchanged, so both parties still rate independently. Test: `tests/tdd/sprint-106-feedback-constraints.test.ts`.
 
 - **2026-05-21 (Sprint 62 — Karma multipliers)**: `src/services/karmaAllocation.ts` — `allocateKarma()` now accepts optional `requestType?: string` parameter. Added `getRequestTypeMultiplier()` helper that reads `enabled_request_types` from `CommunityKarmaConfig` and returns the configured `karma_multiplier` (defaults to `1.0`). Extended `CommunityKarmaConfig` with optional `enabled_request_types?: RequestTypeConfig[]`. `karmaService.ts` — `getCommunityKarmaConfig()` now fetches `config->'enabled_request_types'` alongside existing columns. `awardKarmaForCompletedMatch()` now resolves `request_type` (from event payload or DB lookup) and passes it to `allocateKarma()`, so per-community multipliers are applied at match completion.
@@ -49,13 +65,32 @@ CREATE TABLE reputation.trust_scores (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     community_id UUID NOT NULL REFERENCES communities.communities(id),
-    score INTEGER DEFAULT 50,              -- Trust score 0-100
+    score INTEGER DEFAULT 0 NOT NULL,      -- Trust score 0-100; 0 cold start (Sprint 126/ADR-096)
     requests_completed INTEGER DEFAULT 0,  -- Number of help requests completed
     offers_accepted INTEGER DEFAULT 0,     -- Number of times helped others
     average_feedback NUMERIC(3,2) DEFAULT 0,
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, community_id)         -- One score per user per community
 );
+
+-- Sprint 126 / ADR-096: projection identity. Idempotent replay is a DATABASE guarantee — an
+-- application-side SELECT-then-INSERT check cannot survive a crash in between. Partial, because
+-- only rows attributable to a source entity have a projection identity at all; manual adjustments
+-- carry a NULL related_entity_id and stay unconstrained.
+CREATE UNIQUE INDEX uq_karma_match_projection
+  ON reputation.karma_records (user_id, community_id, reason, related_entity_id)
+  WHERE related_entity_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_activity_match_projection
+  ON reputation.activity_log (user_id, community_id, activity_type, related_entity_id)
+  WHERE related_entity_id IS NOT NULL;
+
+-- trustMetricsDb self-joins karma_records on related_entity_id ("who else was awarded for this
+-- match") to derive repeat pairs and distinct counterparties. Nothing led on that column, so every
+-- trust-score computation scanned the table — on live match completions, not just during replay.
+CREATE INDEX idx_karma_related_entity
+  ON reputation.karma_records (related_entity_id)
+  WHERE related_entity_id IS NOT NULL;
 
 -- reputation.badges
 CREATE TABLE reputation.badges (
@@ -237,9 +272,9 @@ Karma is awarded via a **fixed-pool model** — a total of `BASE_KARMA_POOL` poi
 | 50 Exchanges | 50 | Completing 50 help exchanges |
 | 100 Exchanges | 100 | Completing 100 help exchanges |
 
-**Tuning surface:** `src/services/karmaAllocation.ts` — `allocateKarma(configs, totalPool, requestType?)`
+**Tuning surface (Sprint 126 / ADR-096):** `@karmyq/shared` `src/projections/completedMatchStanding.ts` — `allocateCompletedMatchKarma(configs, totalPool, requestType?)`. The reputation-service `karmaAllocation.ts` shim was deleted once its importers moved; live delivery, the curated fixture, and historical replay now share one implementation.
 **Request type multipliers:** Per-community multipliers read from `CommunityKarmaConfig.enabled_request_types[].karma_multiplier`. Default: 1.0 (no change). Applied per community before distribution.
-**Configuration defaults:** `src/services/karmaService.ts` — `KARMA_DEFAULTS`
+**Configuration defaults:** `@karmyq/shared` — `COMPLETED_MATCH_REASONS`, `COMPLETED_MATCH_MILESTONES`, `MAX_COMMUNITIES_PER_KARMA_AWARD`, `DEFAULT_KARMA_POOL`. The service-local `KARMA_DEFAULTS` block was removed in Sprint 126; it duplicated these byte-for-byte and nothing could fail if the two drifted.
 
 ## Trust Score Calculation
 
@@ -291,7 +326,7 @@ Defaults: `carry_factor = 0.40`, `carry_cap = 59`. Configurable via `trust_carry
 | `trust_carry_cap` | 59 | Max carried score |
 
 **Tuning surface:** `src/services/trustScoreStrategy.ts` — `computeTrustScore(inputs: TrustScoreInputs)`
-**Feedback weighting:** `src/database/feedbackDb.ts` — `getWeightedAvgFeedback(userId, communityId, halfLifeMonths=6)`
+**Feedback weighting:** `src/database/feedbackDb.ts` — pure `calculateWeightedAvgFeedback(rows, communityId, ...)`, used by both `getWeightedAvgFeedback(userId, communityId, halfLifeMonths=6)` and standing preflight
 **Depth/breadth metrics:** `src/database/trustMetricsDb.ts` — `getTrustMetrics(userId, communityId)`
 **Carry floor:** `src/database/trustCarryDb.ts` — `getMaxOtherCommunityScore(userId, targetCommunityId)`
 
@@ -801,16 +836,22 @@ The reputation service automatically awards karma by listening to events from ot
 
 When a match is completed, the reputation service:
 
-1. Finds shared communities (request communities ∩ both users' active memberships, max 3)
-2. Calls `allocateKarma(communityConfigs, BASE_KARMA_POOL)` to compute per-community integer awards
-3. Awards helper and requester karma in each shared community (fixed pool, no inflation)
-4. Checks if this is helper's first help in the community (+15 bonus)
-5. Checks for milestone bonuses (10, 50, 100 exchanges)
-6. Updates trust scores for both users via `computeTrustScore()`
+1. Re-reads the match's authoritative facts under `pg_advisory_xact_lock` (the payload is a message,
+   not a record; a payload disagreeing with stored participants/status is rejected)
+2. Finds shared communities (request communities ∩ both users' **active** memberships), ranked by
+   the helper's karma from history **strictly before** this match, capped at 3
+3. Calls the canonical `planCompletedMatchStanding()` in `@karmyq/shared` for every row the match
+   produces — helper award, requester award, and at most one milestone bonus per community
+4. Writes them all in ONE transaction with `ON CONFLICT DO NOTHING`, stamped with the match's stored
+   `completed_at` (never `NOW()`)
+5. Refreshes trust scores for both users via `updateTrustScore()` — the deliberate present-state
+   exception, run after every as-of decision
 
-**Event Handler:** `src/events/subscriber.ts:12`
+**Event Handler:** `src/events/subscriber.ts`
 
-**Karma Award Logic:** `src/services/karmaService.ts:20-106`
+**Standing projection:** `src/services/standingProjector.ts` (Sprint 126 / ADR-096). The former
+`karmaService.awardKarmaForCompletedMatch` and `allocateKarma` were **deleted** — see BUG-037 above
+for why that path had been throwing `42703` on every match since Sprint 62.
 
 **Event Payload:**
 ```json
@@ -940,21 +981,23 @@ eventQueue.process('new_event_name', async (job) => {
 
 ### Add New Milestone
 
-```typescript
-// src/services/karmaService.ts - In awardKarmaForCompletedMatch
-const totalHelps = parseInt(helperHistory.rows[0].count);
+Milestones are **policy**, not service code, and live in one place:
+`packages/shared/src/projections/completedMatchStanding.ts`.
 
-// Add new milestone
-if (totalHelps === 250) {
-  await recordKarma({
-    user_id: responder_id,
-    community_id,
-    points: 250,
-    reason: '250 exchanges milestone',
-    related_entity_id: match_id,
-  });
-}
+```typescript
+export const COMPLETED_MATCH_MILESTONES = [
+  { count: 1,   points: 15,  reason: COMPLETED_MATCH_REASONS.first },
+  { count: 10,  points: 25,  reason: COMPLETED_MATCH_REASONS.milestone10 },
+  { count: 50,  points: 50,  reason: COMPLETED_MATCH_REASONS.milestone50 },
+  { count: 100, points: 100, reason: COMPLETED_MATCH_REASONS.milestone100 },
+  { count: 250, points: 250, reason: COMPLETED_MATCH_REASONS.milestone250 }, // new
+];
 ```
+
+Add the matching label to `COMPLETED_MATCH_REASONS` first — the reason strings are a SQL data
+contract, and `updateTrustScore` compares against them literally. Adding it here applies it to live
+delivery, the curated fixture, and historical replay at once, which is the point of the shared
+policy.
 
 ### Change Trust Score Algorithm
 
@@ -1390,3 +1433,63 @@ body was parsed, so `const { x } = req.body` throws a `TypeError` on a bodyless 
 route's catch turns it into a **500**. `app.use(normalizeRequestBody)` is now mounted immediately
 after `express.json()` in `src/index.ts` to restore the Express 4 behaviour. It fills in only a
 *missing* body, so a parsed array or explicit `null` is untouched.
+
+---
+
+## Operator runbook: `backfill:standing` (Sprint 126 / ADR-096)
+
+Projects stored completed-match history through the same production path new activity uses. It
+invents nothing — no matches, no feedback, no score tuning.
+
+```bash
+# From a SOURCE CHECKOUT (has src/ and ts-node) — e.g. ~/karmyq on the demo host:
+npm --workspace karmyq-reputation-service run backfill:standing                      # dry run (DEFAULT)
+npm --workspace karmyq-reputation-service run backfill:standing -- --apply --batch-size 100
+
+# Inside the DEPLOYED CONTAINER, which has only dist/ and installs --omit=dev (no ts-node, no src/):
+npm run backfill:standing:dist
+npm run backfill:standing:dist -- --apply --batch-size 100
+```
+
+⚠️ **Two invocation paths, and the ts-node one does not work in the container.** The image copies
+`dist` only and installs without dev dependencies, so `backfill:standing` (ts-node) is a
+source-checkout command. Use `backfill:standing:dist` in the container. The CLI prints both.
+
+`--batch-size N` and `--batch-size=N` are both accepted; positive integer, default 100. Unknown,
+missing, non-integer, zero, and negative arguments exit 2 **before** any database call.
+
+**The apply enforces its own verification.** After writing, it re-derives every projected row in
+TypeScript and compares it against what SQL actually wrote; any mismatch throws and the CLI exits
+non-zero. Rows already committed are not rolled back — the message says so — but you will never be
+told a data operation succeeded when it did not.
+
+**Authority boundary.** `--apply` against demo is a separately authorized data operation, after
+deployment and a fresh backup. Deployment approval is not data-operation approval.
+
+**Order of operations against a live database:**
+
+1. **Before deploying**, count duplicate projection identities. `CREATE UNIQUE INDEX` does not
+   tolerate duplicate data — `IF NOT EXISTS` guards against the index existing, not against
+   duplicate rows — and a conflict aborts the migration and rolls the deploy back:
+
+   ```sql
+   SELECT COUNT(*) FROM (
+     SELECT 1 FROM reputation.karma_records WHERE related_entity_id IS NOT NULL
+     GROUP BY user_id, community_id, reason, related_entity_id HAVING COUNT(*) > 1) d;
+   ```
+
+2. Deploy schema and code. Prefer a quiet window: migrations apply before images are rebuilt, so
+   the new indexes run against old containers for a few minutes.
+3. Take a fresh backup.
+4. Dry-run and read the report. Re-measure rather than trusting an earlier audit — the simulator
+   keeps completing matches (7,817 on 2026-08-19 → 7,860 on 2026-08-20).
+5. Obtain explicit authorization, then apply in bounded batches.
+6. Dry-run again, then apply again. **Both must report zero new projection writes.** That is the
+   idempotency proof, and it is the point of the whole design.
+
+**Resume safety.** There is no checkpoint file — the database projection identities *are* the
+checkpoint. An interrupted run is resumed by re-running the same command; already-projected matches
+write nothing.
+
+**A zero is a result, not a gap.** Every active membership is evaluated, including pairs with no
+history. They are supposed to score 0.

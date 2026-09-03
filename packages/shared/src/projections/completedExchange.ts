@@ -5,10 +5,28 @@
  * timestamp-aware rules rebuild the trust/connection/karma projection from that history in
  * chronological order, so aging, stability, and karma emerge from the same arithmetic the live
  * platform uses. A cross-workspace equivalence test locks `rawWeight` to production
- * `computeRawWeight` and `allocationsByMatch` to production `allocateKarma` for completed-only
- * input. This module is fixture-only: it is never imported by a live event handler and never
- * changes production reputation behaviour.
+ * `computeRawWeight`.
+ *
+ * Sprint 126 (ADR-096): karma, milestones, community selection and the award cap are no longer
+ * reimplemented here — they are delegated to the canonical policy in `completedMatchStanding.ts`,
+ * the same one live delivery and historical replay use. Before that, this module's private copies
+ * had drifted on all four axes (snake_case reasons the trust calculator cannot read, a 1/5/10/25
+ * milestone schedule counted platform-wide rather than per community, and an uncapped allocation
+ * across every configured community regardless of where the request was posted), which is why the
+ * curated demo looked populated in storage while scoring nothing.
+ *
+ * Still fixture-only: never imported by a live event handler, and it writes no production state.
+ * What it no longer is, is a second definition of the rules.
  */
+
+import {
+  planCompletedMatchStanding,
+  compareReplayKeys,
+  COMPLETED_MATCH_REASONS,
+  type CommunityAllocation,
+  type PlannedStandingKarmaRow,
+  type StandingCommunityCandidate,
+} from './completedMatchStanding';
 
 export interface CompletedExchangeEvent {
   key: string;
@@ -17,6 +35,12 @@ export interface CompletedExchangeEvent {
   communityId: string;
   completedAt: Date;
   requestType: string;
+  /**
+   * Communities this exchange's request reached, i.e. the candidates karma may be awarded in.
+   * Defaults to `[communityId]` — a manifest that declares one community means one community, and
+   * inventing cross-posting would fabricate reach the demo history never had.
+   */
+  eligibleCommunityIds?: string[];
 }
 
 export interface CommunityProjectionConfig {
@@ -53,20 +77,11 @@ export interface ProjectedConnection {
   lastInteractionAt: Date;
 }
 
-export interface ProjectedKarmaRecord {
-  userId: string;
-  communityId: string;
-  points: number;
-  reason: string;
-  relatedEntityId: string;
-  createdAt: Date;
-}
-
-export interface CommunityAllocation {
-  community_id: string;
-  helperPoints: number;
-  requesterPoints: number;
-}
+/**
+ * Sprint 126: the same shape the canonical policy plans, so the fixture cannot describe a karma row
+ * the live path could not produce.
+ */
+export type ProjectedKarmaRecord = PlannedStandingKarmaRow;
 
 export interface CompletedExchangeProjection {
   trustEdges: ProjectedTrustEdge[];
@@ -75,59 +90,8 @@ export interface CompletedExchangeProjection {
   allocationsByMatch: CommunityAllocation[][];
 }
 
-/** Helper-side cumulative milestones (completed-help count → bonus points). */
-const HELP_MILESTONES: ReadonlyArray<{ count: number; points: number; reason: string }> = [
-  { count: 1, points: 15, reason: 'first_help_bonus' },
-  { count: 5, points: 25, reason: 'milestone_help_5' },
-  { count: 10, points: 50, reason: 'milestone_help_10' },
-  { count: 25, points: 100, reason: 'milestone_help_25' },
-];
-
 function normalizePair(userA: string, userB: string): { a: string; b: string } {
   return userA < userB ? { a: userA, b: userB } : { a: userB, b: userA };
-}
-
-/**
- * Fixture copy of production `allocateKarma` (ADR-032). Divides a fixed pool equally across the
- * shared communities, applies each community's helper/requester split, and uses largest-remainder
- * rounding so integer awards sum exactly to the pool. Held identical to production by the
- * equivalence test — change both together.
- */
-function allocateKarmaFixture(
-  configs: CommunityProjectionConfig[],
-  totalPool: number,
-): CommunityAllocation[] {
-  if (configs.length === 0) return [];
-  const basePoolPerCommunity = totalPool / configs.length;
-
-  const exact = configs.map(config => ({
-    community_id: config.community_id,
-    helperExact: basePoolPerCommunity * (config.karma_split_helper / 100),
-    requesterExact: basePoolPerCommunity * (config.karma_split_requestor / 100),
-  }));
-
-  type RoundEntry = { community_id: string; role: 'helper' | 'requester'; floored: number; remainder: number };
-  const entries: RoundEntry[] = exact.flatMap(e => [
-    { community_id: e.community_id, role: 'helper' as const, floored: Math.floor(e.helperExact), remainder: e.helperExact - Math.floor(e.helperExact) },
-    { community_id: e.community_id, role: 'requester' as const, floored: Math.floor(e.requesterExact), remainder: e.requesterExact - Math.floor(e.requesterExact) },
-  ]);
-
-  const adjustedTotal = exact.reduce((sum, e) => sum + e.helperExact + e.requesterExact, 0);
-  const totalFloored = entries.reduce((sum, e) => sum + e.floored, 0);
-  let remainder = Math.round(adjustedTotal - totalFloored);
-
-  entries.sort((a, b) => b.remainder - a.remainder);
-  const awarded = new Map<string, number>();
-  for (const entry of entries) {
-    awarded.set(`${entry.community_id}:${entry.role}`, entry.floored + (remainder > 0 ? 1 : 0));
-    if (remainder > 0) remainder--;
-  }
-
-  return configs.map(config => ({
-    community_id: config.community_id,
-    helperPoints: awarded.get(`${config.community_id}:helper`) ?? 0,
-    requesterPoints: awarded.get(`${config.community_id}:requester`) ?? 0,
-  }));
 }
 
 /**
@@ -139,8 +103,14 @@ export function projectCompletedExchanges(
   events: CompletedExchangeEvent[],
   config: CompletedExchangeProjectionConfig,
 ): CompletedExchangeProjection {
-  const ordered = [...events].sort(
-    (a, b) => a.completedAt.getTime() - b.completedAt.getTime() || a.key.localeCompare(b.key),
+  // compareReplayKeys, not a local re-statement: the fixture and the live projector must agree on
+  // replay order, and localeCompare's collation is locale/ICU-dependent where the canonical
+  // comparison is code-unit.
+  const ordered = [...events].sort((a, b) =>
+    compareReplayKeys(
+      { completedAt: a.completedAt, matchId: a.key },
+      { completedAt: b.completedAt, matchId: b.key },
+    ),
   );
 
   const weightByCommunity = new Map(config.communityConfigs.map(c => [c.community_id, c.matchCompletedWeight]));
@@ -148,7 +118,13 @@ export function projectCompletedExchanges(
   const connections = new Map<string, ProjectedConnection>();
   const karmaRecords: ProjectedKarmaRecord[] = [];
   const allocationsByMatch: CommunityAllocation[][] = [];
-  const helperCompletedCount = new Map<string, number>();
+  const configByCommunity = new Map(config.communityConfigs.map(c => [c.community_id, c]));
+  // As-of accumulators keyed by `${helperId}:${communityId}`. Because events are projected oldest
+  // first and these are updated only AFTER planning an event, reading them yields exactly the
+  // strictly-before history the canonical policy expects — the same boundary the live projector
+  // gets from SQL.
+  const priorHelperKarma = new Map<string, number>();
+  const priorHelperHelps = new Map<string, number>();
 
   for (const event of ordered) {
     const { a, b } = normalizePair(event.requesterId, event.helperId);
@@ -190,45 +166,56 @@ export function projectCompletedExchanges(
       });
     }
 
-    // Karma allocation across shared communities (identical to production allocateKarma).
-    const allocations = allocateKarmaFixture(config.communityConfigs, config.basePool);
-    allocationsByMatch.push(allocations);
-    for (const allocation of allocations) {
-      karmaRecords.push({
-        userId: event.helperId,
-        communityId: allocation.community_id,
-        points: allocation.helperPoints,
-        reason: 'help_provided',
-        relatedEntityId: event.key,
-        createdAt: event.completedAt,
-      });
-      karmaRecords.push({
-        userId: event.requesterId,
-        communityId: allocation.community_id,
-        points: allocation.requesterPoints,
-        reason: 'help_received',
-        relatedEntityId: event.key,
-        createdAt: event.completedAt,
-      });
-    }
+    // Karma, milestones, community selection and the cap all come from the canonical policy —
+    // Sprint 126 removed the fixture's own copies, which had drifted to snake_case reasons, a
+    // 1/5/10/25 milestone schedule counted platform-wide, and an uncapped allocation across every
+    // configured community regardless of where the request was actually posted.
+    const eligible = event.eligibleCommunityIds ?? [event.communityId];
+    const candidates: StandingCommunityCandidate[] = eligible
+      .map(id => configByCommunity.get(id))
+      .filter((c): c is CommunityProjectionConfig => c !== undefined)
+      .map(c => ({
+        community_id: c.community_id,
+        karma_split_helper: c.karma_split_helper,
+        karma_split_requestor: c.karma_split_requestor,
+        priorHelperKarma: priorHelperKarma.get(`${event.helperId}:${c.community_id}`) ?? 0,
+        helperHelpCountThroughAsOf:
+          (priorHelperHelps.get(`${event.helperId}:${c.community_id}`) ?? 0) + 1,
+      }));
 
-    // Helper-side cumulative milestone bonuses, awarded in the exchange's community.
-    const nextCount = (helperCompletedCount.get(event.helperId) ?? 0) + 1;
-    helperCompletedCount.set(event.helperId, nextCount);
-    const milestone = HELP_MILESTONES.find(m => m.count === nextCount);
-    if (milestone) {
-      karmaRecords.push({
-        userId: event.helperId,
-        communityId: event.communityId,
-        points: milestone.points,
-        reason: milestone.reason,
-        relatedEntityId: event.key,
-        createdAt: event.completedAt,
-      });
+    const plan = planCompletedMatchStanding(
+      {
+        matchId: event.key,
+        requesterId: event.requesterId,
+        helperId: event.helperId,
+        requestType: event.requestType,
+        occurredAt: event.completedAt,
+        candidates,
+      },
+      config.basePool,
+    );
+
+    allocationsByMatch.push(plan.allocations);
+    karmaRecords.push(...plan.rows);
+
+    // Advance the as-of accumulators only now, so the next event sees this one as history.
+    //
+    // Accumulate for EVERY participant, not just this event's helper: a user who was the requester
+    // here may be the helper of a later exchange, and their 'Received help' points count toward
+    // priorHelperKarma there. The SQL projector's prior-karma LATERAL sums ALL canonical reasons for
+    // the user, so restricting this to the helper is a fourth drift axis in the module whose whole
+    // purpose is that there is only one definition.
+    for (const row of plan.rows) {
+      const accKey = `${row.userId}:${row.communityId}`;
+      priorHelperKarma.set(accKey, (priorHelperKarma.get(accKey) ?? 0) + row.points);
+      if (row.reason === COMPLETED_MATCH_REASONS.provided) {
+        priorHelperHelps.set(accKey, (priorHelperHelps.get(accKey) ?? 0) + 1);
+      }
     }
   }
 
   karmaRecords.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
 
   return {
     trustEdges: [...edges.values()],

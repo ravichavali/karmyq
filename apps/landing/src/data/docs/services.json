@@ -524,8 +524,16 @@
         "/users/:userId/badges",
         "/feedback",
         "/reputation/provider-reviews",
-        "/reputation/provider-trust/:providerId",
-        "/reputation/provider-reviews/:providerId",
+        {
+          "method": "GET",
+          "path": "/reputation/provider-trust/:providerId",
+          "description": "Provider trust score with display_name, service_type and owner user_id. AUTHENTICATION REQUIRED since Sprint 125 / ADR-095 (was public) — leaving it open kept the provider directory anonymously enumerable through reputation-service after request-service was closed."
+        },
+        {
+          "method": "GET",
+          "path": "/reputation/provider-reviews/:providerId",
+          "description": "Reviews for a provider, including review text and reviewer_name. AUTHENTICATION REQUIRED since Sprint 125 / ADR-095 (was public) — this route returned the real names of members who left reviews to anonymous callers."
+        },
         "/reputation/network-metrics/:communityId",
         "GET /reputation/trust-config/:userId/:communityId",
         "PUT /reputation/trust-config/:userId/:communityId",
@@ -558,7 +566,7 @@
         ]
       },
       "healthCheck": "http://localhost:3004/health",
-      "notes": "",
+      "notes": "Sprint 126 (ADR-096): the match_completed payload is UNCHANGED, but reputation's projection of it is now atomic, idempotent, and timestamp-preserving. One transaction per match under pg_advisory_xact_lock; all writes ON CONFLICT DO NOTHING against uq_karma_match_projection / uq_activity_match_projection, so redelivering a job re-writes nothing. Karma is awarded in at most 3 shared request communities, selected from history STRICTLY BEFORE (completed_at, match_id). Rows carry the stored matches.completed_at, never NOW(). The payload is treated as a message, not a record: participants and status are re-read from the database under the lock and a disagreeing payload is rejected. Badges, provider metrics and trust evolution remain subscriber-owned and live-only — the historical backfill (npm run backfill:standing, dry-run by default) never replays them.",
       "databaseSchemas": [
         "reputation"
       ]
@@ -707,7 +715,7 @@
         "subscribes": []
       },
       "healthCheck": "http://localhost:3008/health",
-      "notes": "CANDIDATE FOR REPLACEMENT: Could be replaced with pg_cron scheduled jobs. Scheduled jobs: dibs expiry (5m), match reminders (15m), mark-expired (hourly), hard-delete (2am), reputation decay (3am), memoryRetentionJob (3:30am, Sprint 90/ADR-069 — anonymizes completed-exchange free-text to '[forgotten]' sentinels + cascade-forgets messages, hard-deletes expired/unmatched requests; karma_records left untouched; per-community retention windows via request_communities → retention_config), trust edge sweep (4:30am), activity log cleanup (weekly), decay report (weekly). Sprint 90 RETIRED requestTtlSweepJob (it hard-deleted completed+rated exchanges at 30d, destroying aggregates before the anonymize window — superseded by memoryRetentionJob). Governed by requests.retention_config.",
+      "notes": "CANDIDATE FOR REPLACEMENT: Could be replaced with pg_cron scheduled jobs. Scheduled jobs: dibs expiry (5m), match reminders (15m), mark-expired (hourly), hard-delete (2am), reputation decay (3am — NO-OP since Sprint 126/ADR-096: it overwrote reputation.trust_scores.score with a pre-ADR-037 karma/10 formula and would have wiped the standing backfill nightly; trust scores are owned by reputation-service), memoryRetentionJob (3:30am, Sprint 90/ADR-069 — anonymizes completed-exchange free-text to '[forgotten]' sentinels + cascade-forgets messages, hard-deletes expired/unmatched requests; karma_records left untouched; per-community retention windows via request_communities → retention_config), trust edge sweep (4:30am), activity log cleanup (weekly), decay report (weekly). Sprint 90 RETIRED requestTtlSweepJob (it hard-deleted completed+rated exchanges at 30d, destroying aggregates before the anonymize window — superseded by memoryRetentionJob). Governed by requests.retention_config.",
       "databaseSchemas": [
         "all"
       ]
@@ -949,5 +957,5 @@
       ]
     }
   },
-  "updated": "2026-07-08"
+  "updated": "2026-08-20"
 }

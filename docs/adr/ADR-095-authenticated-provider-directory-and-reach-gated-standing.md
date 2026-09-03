@@ -77,11 +77,17 @@ The trust-floor condition is `COALESCE(ts.score, 0) >= c.provider_min_personal_t
 `LEFT JOIN`. A provider with no trust row in a community scores **0**, per ADR-037. Any floor above
 0 therefore excludes members with no track record there yet — which is the intent.
 
-⚠️ **A known inconsistency is deferred, not resolved:** `reputation.trust_scores.score` has
-`DEFAULT 50`, so a row that *exists* starts at 50 while a row that *does not exist* is treated as
-0. Two members with no activity can score differently depending only on whether some earlier
-codepath inserted a row. This ADR fails closed at 0 deliberately; reconciling the DEFAULT is
-separate work.
+✅ **RESOLVED by Sprint 126 ([ADR-096](ADR-096-canonical-completed-match-standing-projection.md)).**
+This ADR originally deferred a known inconsistency: `reputation.trust_scores.score` had `DEFAULT 50`,
+so a row that *existed* started at 50 while a row that *did not exist* was treated as 0 — two members
+with no activity could score differently depending only on whether some earlier codepath inserted a
+row. The column is now `DEFAULT 0 NOT NULL`, so stored and missing cold-start standing agree. This
+ADR's fail-closed rule at 0 is unchanged; it is now simply consistent with what the table stores.
+
+Sprint 126 also identified why this ADR's reach gate emptied the provider layer at any non-zero
+floor: the live karma writer had been raising `42703` on every completed match since Sprint 62, so
+`reputation.trust_scores` held **zero rows** platform-wide. The gate was correct; there was no
+standing for it to admit.
 
 ## Consequences
 

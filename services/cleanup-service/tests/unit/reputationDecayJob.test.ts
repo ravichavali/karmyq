@@ -1,4 +1,4 @@
-import { updateDecayedTrustScores } from '../../src/jobs/reputationDecayJob';
+import { updateDecayedTrustScores, cleanupActivityLogs } from '../../src/jobs/reputationDecayJob';
 
 jest.mock('../../src/database/db', () => ({
   query: jest.fn(),
@@ -11,86 +11,87 @@ jest.mock('../../src/utils/logger', () => ({
 import { query } from '../../src/database/db';
 const mockQuery = query as jest.MockedFunction<typeof query>;
 
+/**
+ * Sprint 126 (ADR-096) — this job must NOT write trust scores.
+ *
+ * It previously overwrote `reputation.trust_scores.score` with
+ * `min(100, floor(decayed_karma / 10))`, a pre-ADR-037 formula. ADR-039 Phase 2 moved decay into
+ * the canonical calculator (`updateTrustScore` already applies a 12-month recency window and
+ * recency-weighted feedback), so this second formula did not add decay — it replaced the real
+ * score with a cruder one.
+ *
+ * That was invisible because `trust_scores` held zero rows platform-wide (BUG-037), so the nightly
+ * 03:00 cron selected nothing. Once Sprint 126's backfill populates the table, the old behaviour
+ * would have wiped every projected score within 24 hours and re-emptied ADR-095's provider reach
+ * gate. The tests below exist so that cannot come back.
+ */
 describe('updateDecayedTrustScores', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('fetches all trust score pairs — no update calls when no rows', async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);
+  it('issues no database query at all', async () => {
     await updateDecayedTrustScores();
-    expect(mockQuery).toHaveBeenCalledTimes(1);
+
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 
-  it('calls calculate_decayed_karma with correct userId and communityId', async () => {
+  it('never writes reputation.trust_scores, even if rows exist', async () => {
+    // Arrange a database that WOULD have produced an overwrite under the old formula: a populated
+    // trust_scores table and a decayed-karma value that maps to a different score.
     mockQuery
       .mockResolvedValueOnce({
-        rows: [{ id: 'ts1', user_id: 'u1', community_id: 'c1', current_score: 10 }],
+        rows: [{ id: 'ts1', user_id: 'u1', community_id: 'c1', current_score: 74 }],
         rowCount: 1,
-      } as any)
-      .mockResolvedValueOnce({ rows: [{ decayed_karma: 100 }], rowCount: 1 } as any);
-    // score unchanged (100/10=10 === current_score 10) — no UPDATE
+      } as never)
+      .mockResolvedValueOnce({ rows: [{ decayed_karma: 100 }], rowCount: 1 } as never);
+
     await updateDecayedTrustScores();
-    expect(mockQuery).toHaveBeenCalledWith(
-      expect.stringContaining('calculate_decayed_karma'),
-      expect.arrayContaining(['u1', 'c1'])
+
+    const writes = mockQuery.mock.calls.filter((call) =>
+      /UPDATE\s+reputation\.trust_scores/i.test(String(call[0])),
     );
+    expect(writes).toEqual([]);
   });
 
-  it('applies min(100, floor(karma / 10)) formula — caps new score at 100', async () => {
-    // karma = 1050 → floor(1050/10) = 105 → min(100, 105) = 100; current_score = 50 → update fires
-    mockQuery
-      .mockResolvedValueOnce({
-        rows: [{ id: 'ts1', user_id: 'u1', community_id: 'c1', current_score: 50 }],
-        rowCount: 1,
-      } as any)
-      .mockResolvedValueOnce({ rows: [{ decayed_karma: 1050 }], rowCount: 1 } as any)
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any);
+  it('does not recompute scores through its own formula', async () => {
     await updateDecayedTrustScores();
-    const updateCall = mockQuery.mock.calls[2];
-    expect(updateCall[1]).toContain(100);
+
+    const scoreMath = mockQuery.mock.calls.filter((call) =>
+      /calculate_decayed_karma/i.test(String(call[0])),
+    );
+    // Trust scores are owned by reputation-service. Deriving them here at all is the defect.
+    expect(scoreMath).toEqual([]);
   });
 
-  it('skips UPDATE when calculated score equals current score', async () => {
-    // karma = 100 → floor(100/10) = 10 → min(100, 10) = 10; current_score = 10 → no update
-    mockQuery
-      .mockResolvedValueOnce({
-        rows: [{ id: 'ts1', user_id: 'u1', community_id: 'c1', current_score: 10 }],
-        rowCount: 1,
-      } as any)
-      .mockResolvedValueOnce({ rows: [{ decayed_karma: 100 }], rowCount: 1 } as any);
-    await updateDecayedTrustScores();
-    // Only 2 calls: SELECT + decay calc — no UPDATE
-    expect(mockQuery).toHaveBeenCalledTimes(2);
+  it('resolves without throwing so the cron and admin endpoint stay healthy', async () => {
+    await expect(updateDecayedTrustScores()).resolves.toBeUndefined();
+  });
+});
+
+describe('cleanupActivityLogs', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockQuery.mockResolvedValue({ rows: [], rowCount: 0 } as never);
   });
 
-  it('UPDATE uses the trust score id, not user_id', async () => {
-    mockQuery
-      .mockResolvedValueOnce({
-        rows: [{ id: 'ts-abc', user_id: 'u1', community_id: 'c1', current_score: 0 }],
-        rowCount: 1,
-      } as any)
-      .mockResolvedValueOnce({ rows: [{ decayed_karma: 200 }], rowCount: 1 } as any)
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any);
-    await updateDecayedTrustScores();
-    const updateCall = mockQuery.mock.calls[2];
-    expect(updateCall[1]).toContain('ts-abc');
+  it('spares rows that carry a projection identity', async () => {
+    await cleanupActivityLogs();
+
+    const sql = String(mockQuery.mock.calls[0][0]);
+    // Sprint 126: attributable rows are projection state. Deleting them would make the standing
+    // backfill re-predict and rewrite them forever, so it could never report convergence.
+    expect(sql).toMatch(/related_entity_id IS NULL/);
+    expect(sql).toMatch(/DELETE FROM reputation\.activity_log/);
   });
 
-  it('processes multiple rows — fires correct number of db calls', async () => {
-    // 2 rows: row1 score unchanged, row2 score changed → 1+2+3 = 5 calls total
-    mockQuery
-      .mockResolvedValueOnce({
-        rows: [
-          { id: 'ts1', user_id: 'u1', community_id: 'c1', current_score: 10 },
-          { id: 'ts2', user_id: 'u2', community_id: 'c1', current_score: 5 },
-        ],
-        rowCount: 2,
-      } as any)
-      .mockResolvedValueOnce({ rows: [{ decayed_karma: 100 }], rowCount: 1 } as any) // u1: 10 unchanged
-      .mockResolvedValueOnce({ rows: [{ decayed_karma: 500 }], rowCount: 1 } as any) // u2: 50 > 5 → update
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any); // UPDATE for u2
-    await updateDecayedTrustScores();
-    expect(mockQuery).toHaveBeenCalledTimes(4);
+  it('still expires transient rows on the 90-day window', async () => {
+    await cleanupActivityLogs();
+
+    const [, params] = mockQuery.mock.calls[0] as [string, string[]];
+    const cutoff = new Date(params[0]).getTime();
+    const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    // Within a minute of 90 days ago — the retention window itself is unchanged.
+    expect(Math.abs(cutoff - ninetyDaysAgo)).toBeLessThan(60_000);
   });
 });

@@ -6,6 +6,35 @@
 
 ---
 
+## Curated fixture standing now delegates to the canonical policy (Sprint 126 / ADR-096)
+
+`src/fixtures/curatedDemo/baselineWriter.ts` projects completed exchanges through
+`@karmyq/shared` `projectCompletedExchanges`, which no longer defines its own karma rules — it
+delegates to `completedMatchStanding.ts`, the same policy live delivery and historical replay use.
+
+**Curated karma output changed on four axes.** A reset produces different rows than before, by
+design:
+
+| Axis | Before | Now |
+|---|---|---|
+| Reason labels | `help_provided` / `help_received` / `first_help_bonus` | `Provided help` / `Received help` / `First help in community` |
+| Milestone schedule | 1 / 5 / 10 / 25 | 1 / 10 / 50 / 100 |
+| Milestone scope | platform-wide per helper | per `(helper, community)` |
+| Community selection | every configured community, uncapped | ≤3 eligible, by prior helper karma |
+
+The old labels were the reason curated karma was invisible to standing: `updateTrustScore` compares
+`reason` against the prose strings **in SQL**, so snake_case rows were stored and then ignored.
+
+`CompletedExchangeEvent` gained `eligibleCommunityIds`, defaulting to `[communityId]`. The baseline
+writer passes the exchange's actual request community explicitly — a manifest naming one community
+means one community, and widening it would fabricate reach the demo history never had. Fixture
+karma inserts are `ON CONFLICT DO NOTHING`, because `uq_karma_match_projection` is now the
+authoritative identity for those rows and a re-seed must be a no-op.
+
+`DEFAULT_BASE_KARMA_POOL` was removed in favour of the shared `DEFAULT_KARMA_POOL`.
+
+---
+
 ## Purpose
 
 Generates realistic synthetic activity on the karmyq.com demo environment. Simulates users joining communities, posting requests, offering help, completing matches, registering as providers, and organizing into collectives. Runs continuously on the demo server to keep data fresh.

@@ -51,6 +51,30 @@ describe('PUT /matches/:id/complete — two-phase completion', () => {
     jest.resetAllMocks();
   });
 
+  it('is idempotent: re-completing a completed match re-stamps nothing and republishes nothing', async () => {
+    // Only the SELECT is armed — any further query would be a write we must not make.
+    mockQuery.mockResolvedValueOnce({
+      rowCount: 1,
+      rows: [{ ...BASE_MATCH, status: 'completed' }],
+    });
+
+    const app = await buildApp('requester-user');
+    const res = await request(app).put('/matches/match-1/complete').send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.fully_completed).toBe(true);
+
+    // Exactly one query: the SELECT. No done_at re-stamp, no completed_at re-stamp.
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    const wrote = mockQuery.mock.calls.filter((args: any[]) => /UPDATE|INSERT/i.test(String(args[0])));
+    expect(wrote).toEqual([]);
+
+    // Re-publishing would re-award karma; and the moving completed_at it used to cause shifts the
+    // Sprint 126 as-of boundary, which can mint milestone rows under identities the projection
+    // index cannot absorb and make the backfill refuse with CONFLICTING_KARMA_PROJECTION.
+    expect(mockPublishEvent).not.toHaveBeenCalled();
+  });
+
   it('records requester_done_at but does NOT set status=completed when only requester marks done', async () => {
     // First SELECT returns the match; UPDATE RETURNING shows only requester done
     mockQuery

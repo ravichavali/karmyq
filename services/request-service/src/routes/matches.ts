@@ -592,6 +592,29 @@ router.put('/:id/complete', async (req: AuthenticatedRequest, res: Response) => 
     }
 
     const isRequester = match.requester_id === user_id;
+
+    // Sprint 126: completing an already-completed match is IDEMPOTENT, not a second completion.
+    //
+    // `m.status` was selected here and never checked, so a participant could call this repeatedly.
+    // Each call re-stamped `completed_at = CURRENT_TIMESTAMP` and re-published `match_completed`.
+    // On its own that mostly re-awarded karma; since ADR-096 the projection identity makes the
+    // repeat award a no-op — but the moving `completed_at` is worse than the duplicate was. It
+    // shifts the strictly-before as-of boundary, so a replay can select a different top-3 community
+    // set or cross a 10/50/100 milestone it had not crossed, producing rows under NEW identities
+    // the unique index cannot absorb. It also makes stored rows disagree with what replay derives,
+    // which the backfill reports as a BLOCKING CONFLICTING_KARMA_PROJECTION anomaly — i.e. one
+    // double-click could refuse the whole standing backfill.
+    //
+    // Returning success rather than 409 keeps retrying clients working; the completion they asked
+    // for is, after all, already true.
+    if (match.status === 'completed') {
+      return res.json({
+        success: true,
+        data: { fully_completed: true, waiting_for: null },
+        message: 'Match already completed',
+      });
+    }
+
     const doneAtColumn = isRequester ? 'requester_done_at' : 'responder_done_at';
 
     // Atomic completion: record this party's done_at and, when both parties have now

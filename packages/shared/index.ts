@@ -24,3 +24,4 @@ export * from './src/schemas/relationshipContext';
 
 // Fixture-only completed-exchange projection (Sprint 117 — curated demo reset)
 export * from './src/projections/completedExchange';
+export * from './src/projections/completedMatchStanding';

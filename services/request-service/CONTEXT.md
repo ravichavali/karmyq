@@ -5,6 +5,10 @@
 > **Port:** 3003
 > **Status:** Production (Polymorphic Request System + Curated Feed)
 
+## Recent Changes
+
+- **2026-08-21 (Sprint 126 — idempotent match completion)**: `PUT /matches/:id/complete` selected `m.status` and never checked it, so a participant could call it repeatedly; each call re-stamped `completed_at = CURRENT_TIMESTAMP` and re-published `match_completed`. Now a match already in `completed` returns success without writing or publishing. The duplicate award was already absorbed by ADR-096's projection identity, but the **moving `completed_at` is the real hazard**: it shifts the strictly-before as-of boundary, so a replay can select a different top-3 community set or cross a 10/50/100 milestone, producing rows under NEW identities the unique index cannot absorb — and it makes stored rows disagree with replay, which the standing backfill reports as a BLOCKING `CONFLICTING_KARMA_PROJECTION`. One double-click could have refused the whole backfill. Found by the Sprint 126 `/security-review` gate.
+
 ## Quick Start
 
 ```bash

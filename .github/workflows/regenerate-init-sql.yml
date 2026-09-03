@@ -9,6 +9,10 @@ on:
       - 'scripts/ci-apply-full-schema.sh'
       - 'infrastructure/postgres/seed-data.sql'
       - 'infrastructure/postgres/migrations/**.sql'
+      # init.sql itself must trigger this workflow, or a hand-edit to the generated file alone
+      # would never be compared against the regeneration — which is exactly the hole the
+      # byte-for-byte step below closes.
+      - 'infrastructure/postgres/init.sql'
   workflow_dispatch:
 
 permissions:
@@ -34,6 +38,34 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          # Need the merge base so the generator can be seeded from a revision this PR cannot edit.
+          fetch-depth: 0
+
+      # The generator LOADS an init.sql, applies the migration chain, and dumps the result. Seeding
+      # it with the committed file makes the check circular: an object present in init.sql but
+      # created by no migration survives the round trip and matches itself. Seed from the BASE
+      # revision instead — a revision the PR under review cannot modify — so the comparison is
+      # between "base schema + this branch's migrations" and "what this branch committed".
+      - name: Materialise an independent baseline for the generator
+        id: baseline
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -z "${BASE_SHA:-}" ]; then
+            echo "No PR base (manual dispatch). Falling back to the committed init.sql as the"
+            echo "generator seed; the byte-for-byte comparison is SKIPPED because it would be"
+            echo "comparing the file with itself."
+            echo "independent=false" >> "$GITHUB_OUTPUT"
+            cp infrastructure/postgres/init.sql /tmp/baseline-init.sql
+          else
+            git show "$BASE_SHA:infrastructure/postgres/init.sql" > /tmp/baseline-init.sql
+            echo "independent=true" >> "$GITHUB_OUTPUT"
+            echo "Seeded from base revision $BASE_SHA"
+            if cmp -s /tmp/baseline-init.sql infrastructure/postgres/init.sql; then
+              echo "(base and head init.sql are identical — this PR does not change it)"
+            fi
+          fi
 
       - name: Validate shell scripts
         run: |
@@ -45,6 +77,7 @@ jobs:
           REGEN_PG_CONTAINER: ${{ job.services.postgres.id }}
           REGEN_PG_USER: karmyq_regen
           REGEN_PG_DB: karmyq_regen
+          SOURCE_INIT_SQL: /tmp/baseline-init.sql
         run: |
           bash scripts/regenerate-init-sql.sh
           cp infrastructure/postgres/init.sql.generated /tmp/init.sql.first
@@ -99,6 +132,42 @@ jobs:
         run: |
           bash scripts/ci-apply-full-schema.sh --drift-check | tee /tmp/drift-check.log
           grep -Fq 'Schema drift check passed: no changes after migration replay.' /tmp/drift-check.log
+
+      # Sprint 126: the gate that was missing. Everything above proved the regeneration is
+      # deterministic, boots, and replays cleanly — but nothing compared it to the file actually
+      # committed, so a hand-edited init.sql diverging from the migration chain passed every check.
+      # (One did: a stray blank line survived a hand-applied delta, and only this comparison found
+      # it.) `tests/regression/sprint-120-init-sql-drift-gate.test.ts` is sentinel-strings only and
+      # cannot catch this either.
+      - name: Committed init.sql must match the regeneration byte-for-byte
+        if: steps.baseline.outputs.independent == 'true'
+        env:
+          # Needed by the failure message so it can print the exact, non-circular repair command
+          # (the bare script defaults its seed back to the committed init.sql).
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if ! cmp -s infrastructure/postgres/init.sql infrastructure/postgres/init.sql.generated; then
+            echo "::error::infrastructure/postgres/init.sql does not match the canonical regeneration."
+            echo 'init.sql is GENERATED. Do not hand-edit it. Reproduce THIS run and commit the result.'
+            echo
+            echo 'Seed the generator from the BASE revision, exactly as CI does. A bare'
+            echo '`bash scripts/regenerate-init-sql.sh` defaults SOURCE_INIT_SQL back to the'
+            echo 'committed init.sql (scripts/regenerate-init-sql.sh:111), which regenerates from'
+            echo 'the very file under suspicion and can reproduce the divergence instead of'
+            echo 'correcting it:'
+            echo
+            echo "  git show ${BASE_SHA}:infrastructure/postgres/init.sql > /tmp/baseline-init.sql"
+            echo '  SOURCE_INIT_SQL=/tmp/baseline-init.sql bash scripts/regenerate-init-sql.sh'
+            echo '  cp infrastructure/postgres/init.sql.generated infrastructure/postgres/init.sql'
+            echo
+            echo '(Outside a PR checkout, substitute the merge base:'
+            echo '  BASE_SHA=$(git merge-base origin/master HEAD) )'
+            echo
+            echo 'First 60 lines of the difference. Left is committed, right is regenerated:'
+            diff infrastructure/postgres/init.sql infrastructure/postgres/init.sql.generated | head -60
+            exit 1
+          fi
+          echo "Committed init.sql is byte-identical to the canonical regeneration."
 
       - name: Upload regenerated init.sql
         uses: actions/upload-artifact@v7

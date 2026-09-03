@@ -13,6 +13,9 @@ COPY turbo.json ./
 # Copy workspace packages (needed for dependencies)
 COPY packages ./packages
 COPY services ./services
+# Sprint 126: the integration suites apply infrastructure/postgres/migrations/*.sql directly, so the
+# migration chain must be present in the image. Without it they fail with ENOENT on the migration.
+COPY infrastructure ./infrastructure
 
 # Install all dependencies
 RUN npm ci
