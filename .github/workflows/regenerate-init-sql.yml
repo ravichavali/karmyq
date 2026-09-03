@@ -114,15 +114,15 @@ jobs:
         run: |
           if ! cmp -s infrastructure/postgres/init.sql infrastructure/postgres/init.sql.generated; then
             echo "::error::infrastructure/postgres/init.sql does not match the canonical regeneration."
-            echo "init.sql is GENERATED. Do not hand-edit it — regenerate and commit the result:"
-            echo "  bash scripts/regenerate-init-sql.sh && \"
-            echo "  cp infrastructure/postgres/init.sql.generated infrastructure/postgres/init.sql"
+            echo 'init.sql is GENERATED. Do not hand-edit it. Regenerate and commit the result:'
+            echo '  bash scripts/regenerate-init-sql.sh'
+            echo '  cp infrastructure/postgres/init.sql.generated infrastructure/postgres/init.sql'
             echo
-            echo "First 60 lines of the difference (committed < | regenerated >):"
+            echo 'First 60 lines of the difference. Left is committed, right is regenerated:'
             diff infrastructure/postgres/init.sql infrastructure/postgres/init.sql.generated | head -60
             exit 1
           fi
-          echo "✅ Committed init.sql is byte-identical to the canonical regeneration."
+          echo "Committed init.sql is byte-identical to the canonical regeneration."
 
       - name: Upload regenerated init.sql
         uses: actions/upload-artifact@v7
