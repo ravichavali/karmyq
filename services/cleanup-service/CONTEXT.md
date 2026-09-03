@@ -192,18 +192,39 @@ Daily Job (2 AM)
 └─ Log count of deleted items
 ```
 
-### 2. Reputation Decay Flow
+### 2. Reputation Decay Flow — this service no longer participates
 
 ```
-Daily Job (3 AM)
-├─ For each trust_score:
-│   ├─ Call calculate_decayed_karma(user_id, community_id)
-│   ├─ Compare new score to current score
-│   └─ UPDATE if changed
-└─ Log total updated count
+Daily Job (3 AM)  ← retained so the schedule stays visible; writes NOTHING
+└─ Log that trust scores are owned by reputation-service
+
+Daily Job (3:30 AM, reputation-service/src/cron/trustScoreRefresh.ts)
+├─ For each ACTIVE membership in communities.members:
+│   └─ updateTrustScore(user_id, community_id)   ← the canonical ADR-037 calculator
+└─ Log evaluated / failed counts
 ```
 
-### 3. Decay Formula
+Until Sprint 126 the 3 AM job here overwrote `reputation.trust_scores.score` with
+`min(100, floor(decayed_karma / 10))` — a pre-ADR-037 formula. ADR-039 Phase 2 had already moved
+decay INTO the canonical calculator (a 12-month moving interaction window plus recency-weighted
+feedback), so this second formula did not add decay, it **replaced** the real multi-signal score
+with a cruder one every night.
+
+That was invisible only because `reputation.trust_scores` held zero rows platform-wide (BUG-037 —
+the live karma writer had been throwing `42703` since Sprint 62), so the job selected nothing. The
+moment Sprint 126's backfill populated the table it would have wiped every projected score within
+24 hours and re-emptied ADR-095's provider reach gate. `updateDecayedTrustScores()` is now a
+logging no-op, pinned by four tests in `tests/unit/reputationDecayJob.test.ts`, and the refresh
+cadence moved to reputation-service, which owns both the table and the calculator (ADR-096).
+
+Karma decay itself (ADR-011) is unaffected — it is computed at READ time from `karma_records`
+timestamps and was never stored here.
+
+### 3. Decay Formula (ADR-011 — applied at READ time by reputation-service)
+
+This is the platform's karma-decay formula and it is still live. It is documented here because
+`reputation.calculate_decayed_karma` sits in a schema this service reads, **not** because this
+service applies it — since Sprint 126 nothing here calls it.
 
 ```
 decayed_karma = Σ (karma_points * 0.5^(months_ago / half_life_months))
@@ -221,21 +242,30 @@ When users complete exchanges:
 - `complete_request` - Helped someone (responder)
 - `complete_offer` - Received help (requester)
 
-This resets `last_activity_at`, preventing decay for active users.
+These rows are written by **reputation-service** (`utils/activityTracker.ts`), which upserts
+`reputation.trust_scores.last_activity_at` to `GREATEST(existing, new)` so a historical replay can
+never move a user's last activity backwards. Cleanup-service only ever reads this column (for the
+decay report) and prunes unattributable `activity_log` rows.
 
 ## Common Tasks
 
 ### Manually Run a Job
 
+Every `/jobs/*` endpoint requires a Bearer token whose `userId` is an **active admin of at least
+one community** (`adminAuthMiddleware`, `src/index.ts:97`); without one they return 401/403.
+
 ```bash
+TOKEN=... # JWT for a user with role='admin' in communities.members
+
 # Mark expired data
-curl -X POST http://localhost:3008/jobs/mark-expired
+curl -X POST http://localhost:3008/jobs/mark-expired -H "Authorization: Bearer $TOKEN"
 
-# Update reputation decay
-curl -X POST http://localhost:3008/jobs/update-decay
+# Reputation decay — succeeds but does nothing (Sprint 126 / ADR-096); trust scores are
+# recalculated by reputation-service's 03:30 sweep, not here.
+curl -X POST http://localhost:3008/jobs/update-decay -H "Authorization: Bearer $TOKEN"
 
-# Generate decay report
-curl http://localhost:3008/jobs/decay-report
+# Generate decay report (read-only; logs the report)
+curl http://localhost:3008/jobs/decay-report -H "Authorization: Bearer $TOKEN"
 # Then check logs: docker logs karmyq-cleanup-service
 ```
 
@@ -283,8 +313,11 @@ ORDER BY avg_months_inactive DESC;
 Watch logs for:
 - Items expired per hour
 - Items deleted per day
-- Trust scores updated per day
+- Activity-log rows deleted per week (unattributable rows only — see below)
 - Errors/failures
+
+Trust-score updates are NOT a metric of this service; watch reputation-service's 03:30 refresh
+(`evaluated` / `failed` counts) instead.
 
 ### Health Checks
 
@@ -370,12 +403,14 @@ For communities with millions of records:
 
 - **Mark Expired** (hourly): Low load, updates only
 - **Hard Delete** (daily): Moderate load, batch deletes
-- **Decay Update** (daily): High load, reads all trust_scores
+- **Decay Update** (daily): None — the job is a no-op and issues no query at all
 
 For very large platforms, consider:
 - Partition activity_log by created_at
-- Run decay updates in batches (e.g., 1000 users at a time)
 - Cache community settings
+
+The trust-score sweep that used to dominate this service's load now runs in reputation-service
+(03:30, one `updateTrustScore` call per active membership); batching belongs there, not here.
 
 ## Security
 
@@ -387,9 +422,10 @@ For very large platforms, consider:
 
 ### Access Control
 
-- Manual trigger endpoints should be admin-only
-- Consider adding authentication middleware
-- Currently open for testing
+Every `/jobs/*` endpoint is already gated — `adminRateLimiter` then `adminAuthMiddleware`
+(`src/index.ts:173-267`); only `/health` is open. An earlier version of this section said the
+endpoints were "currently open for testing" and suggested adding authentication. That was stale and
+wrong in the more dangerous direction, describing an authenticated admin surface as unprotected.
 
 ## Integration
 
@@ -398,14 +434,26 @@ For very large platforms, consider:
 ```
 Match Completed
   ↓
-Reputation Service
-  ├─ Award Karma
-  ├─ Update Trust Score
-  └─ Record Activity → Cleanup Service Activity Log
+Reputation Service (ONE transaction — ADR-096)
+  ├─ Award Karma          (reputation.karma_records, keyed by related_entity_id = match id)
+  ├─ Update Trust Score   (reputation.trust_scores, canonical ADR-037 calculator)
+  └─ Record Activity      (reputation.activity_log, same projection identity)
        ↓
-Cleanup Service (Daily 3 AM)
-  └─ Recalculate Decay
+Cleanup Service (Weekly Sun 4 AM)
+  └─ Delete activity_log rows older than 90 days WHERE related_entity_id IS NULL
 ```
+
+⚠️ The activity log is reputation-service's table, not a cleanup-service one, and rows carrying a
+`related_entity_id` are **projection state** rather than disposable log noise: they hold a
+projection identity (`uq_activity_match_projection`) and the standing backfill compares stored rows
+against replay to decide it has converged. Deleting them would make retention and projection
+permanently incompatible — the backfill writes rows stamped with the match's real completion time,
+usually far older than 90 days, this sweep would remove them, the next dry run would predict them
+again, and the run could never report convergence. Unattributable rows (logins and similar,
+`related_entity_id IS NULL`) still expire on the unchanged 90-day window; they carry no free text,
+so ADR-069 memory-retention concerns do not apply.
+
+Cleanup Service no longer recalculates decay — see *Reputation Decay Flow* above.
 
 ### Dependencies
 

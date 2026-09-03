@@ -141,12 +141,27 @@ jobs:
       # cannot catch this either.
       - name: Committed init.sql must match the regeneration byte-for-byte
         if: steps.baseline.outputs.independent == 'true'
+        env:
+          # Needed by the failure message so it can print the exact, non-circular repair command
+          # (the bare script defaults its seed back to the committed init.sql).
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           if ! cmp -s infrastructure/postgres/init.sql infrastructure/postgres/init.sql.generated; then
             echo "::error::infrastructure/postgres/init.sql does not match the canonical regeneration."
-            echo 'init.sql is GENERATED. Do not hand-edit it. Regenerate and commit the result:'
-            echo '  bash scripts/regenerate-init-sql.sh'
+            echo 'init.sql is GENERATED. Do not hand-edit it. Reproduce THIS run and commit the result.'
+            echo
+            echo 'Seed the generator from the BASE revision, exactly as CI does. A bare'
+            echo '`bash scripts/regenerate-init-sql.sh` defaults SOURCE_INIT_SQL back to the'
+            echo 'committed init.sql (scripts/regenerate-init-sql.sh:111), which regenerates from'
+            echo 'the very file under suspicion and can reproduce the divergence instead of'
+            echo 'correcting it:'
+            echo
+            echo "  git show ${BASE_SHA}:infrastructure/postgres/init.sql > /tmp/baseline-init.sql"
+            echo '  SOURCE_INIT_SQL=/tmp/baseline-init.sql bash scripts/regenerate-init-sql.sh'
             echo '  cp infrastructure/postgres/init.sql.generated infrastructure/postgres/init.sql'
+            echo
+            echo '(Outside a PR checkout, substitute the merge base:'
+            echo '  BASE_SHA=$(git merge-base origin/master HEAD) )'
             echo
             echo 'First 60 lines of the difference. Left is committed, right is regenerated:'
             diff infrastructure/postgres/init.sql infrastructure/postgres/init.sql.generated | head -60

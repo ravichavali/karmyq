@@ -1,4 +1,4 @@
-# Sprint 126 — Honest Standing Backfill (PR #210 open, CI green, awaiting re-review + merge auth)
+# Sprint 126 — Honest Standing Backfill (PR #210 open, CI green, 3 reviews closed, awaiting merge auth)
 
 > ## State as of 2026-09-03
 >
@@ -10,16 +10,22 @@
 > version **v11.46.0**. Tasks 1-13 done. Task 14 is NOT authorized and has not begun. The demo
 > database has only ever been READ.
 >
-> **CI is green on `17ccbbea`** (head of the branch, round-2 fixes included) — all 20 required
-> checks pass. Verified by reading the runs, not inferred: the Integration Tests step ran
-> `sprint-126-standing-schema` and `sprint-126-standing-backfill` against real Postgres 15 + Redis
-> (5 suites / 56 tests), the init.sql workflow logged `Seeded from base revision f1197a17` and then
-> `Committed init.sql is byte-identical to the canonical regeneration`, and CodeQL reports 0
-> annotations and 0 open alerts on this ref. (An earlier version of this handoff said CI had not
-> run; that was wrong, and CI was in fact red at the time — see "Review rounds" below.)
+> **PR #210 live state**: `OPEN`, `MERGEABLE`, `REVIEW_REQUIRED`, base `master`. CI is green — 21
+> checks pass, `Deploy to Demo` correctly skipping (not master). Verified by reading the runs, not
+> inferred from ticks: the Integration Tests step ran `sprint-126-standing-schema` and
+> `sprint-126-standing-backfill` against real Postgres 15 + Redis (5 suites / 56 tests), the
+> init.sql workflow logged `Seeded from base revision f1197a17` — so `independent=true` and the
+> byte-for-byte comparison actually EXECUTED rather than being skipped by its guard — then
+> `Committed init.sql is byte-identical to the canonical regeneration`; CodeQL reports 0
+> annotations and 0 open alerts on this ref. That last point matters on its own, because the
+> ADR-060 gate fail-opens on PRs (it polls `refs/pull/N/merge` while CodeQL publishes to `/head`),
+> so its pass is not evidence. (An earlier version of this handoff said CI had not run; that was
+> wrong, and CI was in fact red at the time — see "Review rounds" below.)
 >
-> **Two Codex review rounds are complete and their findings are fixed** (round 2 in `17ccbbea`).
-> A third has not been requested yet. Merge remains unauthorized, and Task 14 has not begun.
+> **Three Codex review rounds are complete.** Rounds 1 and 2 raised code findings, all fixed and
+> confirmed closed by round 3. Round 3 confirmed both code fixes and raised four
+> documentation/handoff findings, fixed in the commit that carries this edit. Merge remains
+> unauthorized, and Task 14 has not begun.
 
 ## Progress
 
@@ -131,6 +137,34 @@ so this check could never have passed.
   canonical rows exist and every stored karma row today is legacy snake_case.
 
 `NO_ELIGIBLE_COMMUNITY` is now the ONLY informational anomaly code.
+
+**Round 3 (Codex).** Both code findings **confirmed fixed** — the independent base artifact seeds
+the PR gate (workflow lines 53 / 80 / 143, corroborated against the live Actions log), and
+unexpected rows block unconditionally at `standingBackfillService.ts:609` with no lineage query or
+helper left anywhere. Four documentation findings, all correct and all fixed in the commit carrying this handoff edit:
+
+- **cleanup-service docs still described the removed writer** in four places the round-2 pass did
+  not reach (`CONTEXT.md` decay-flow, key metrics, database-load, and event-flow sections), and the
+  Access Control section claimed the manual trigger endpoints were "currently open for testing"
+  when every `/jobs/*` route has carried `adminRateLimiter` + `adminAuthMiddleware` all along
+  (`src/index.ts:173-267`). Documenting an authenticated admin surface as unprotected is wrong in
+  the more dangerous direction. Also fixed while in there: the manual-run `curl` examples omitted
+  the required Bearer token, and the decay-formula / activity-tracking sections implied this
+  service applies decay and writes `last_activity_at`. Landing JSON regenerated.
+- **The handoff was stale**: it recorded CI against the superseded head `17ccbbea`, said a third
+  review had not been requested, and still listed the pg_dump normalization limitation as open
+  after Sprint 126 generalized it. All three reconciled; that limitation is now marked CLOSED,
+  which matters because the old hand-listed normalization would have made the new byte-for-byte
+  gate false-fail on any runner with a different pg_dump patch release.
+- **The CI failure message advertised a circular repair** (`bash scripts/regenerate-init-sql.sh`,
+  which defaults `SOURCE_INIT_SQL` back to the committed file at `regenerate-init-sql.sh:111`) — so
+  a developer following it would regenerate from the very file under suspicion. It now prints the
+  base-seeded command CI actually uses, with a `git merge-base` fallback outside a PR checkout.
+  Verified by extracting the step body verbatim from the YAML and running both paths: exit 1 with
+  the base SHA interpolated on a mismatch, exit 0 on a match.
+
+Codex flagged its own confidence limits — it did not rerun the PostgreSQL smuggled-table mutation
+or query demo inventory. Those were verified in round 2 and are unchanged by these doc-only edits.
 
 ## What the gates found (Task 12)
 
@@ -351,10 +385,13 @@ Sprint 126 and must remain untouched and unstaged throughout execution.
   on master and **skips the deploy** (this happened on #209 — merge landed, deploy didn't run until
   the new ids were dismissed and the pipeline re-run). 68 dismissals of this rule and counting. The
   durable fix is a query-level suppression, scoped as its own change.
-- **`init.sql` regeneration is pg_dump-version-sensitive.** `normalize_schema_dump` canonicalizes
-  CHECK-constraint cast placement for exactly 2 constraints and not the other 12, so regenerating
-  on a different PostgreSQL 15 patch release produces cosmetic diff noise. Cannot break CI (both
-  sides of every drift comparison use the same pg_dump). Not logged as a bug — maintainer's call.
+- ~~**`init.sql` regeneration is pg_dump-version-sensitive.**~~ **CLOSED in Sprint 126.**
+  `normalize_schema_dump` used to canonicalize CHECK-constraint cast placement for exactly 2
+  constraints and not the other 12. It is now a generalized `sed -E` rule over every
+  `= ANY (ARRAY[...])` varchar IN-list, so a different PostgreSQL 15 patch release no longer
+  produces cosmetic diff noise. This mattered more than "cosmetic" once the byte-for-byte PR gate
+  landed: with the old hand-listed normalization that gate would have false-failed on any runner
+  whose pg_dump patch differed from the one the committed artifact was generated with.
 - **~10 verbatim copies of `SERVICE_TYPE_LABELS`** remain across the frontend. Sprint 125 added the
   canonical `PROVIDER_SERVICE_TYPE_LABELS` to `packages/shared` and converted its own two files;
   the rest is a separate cleanup.
