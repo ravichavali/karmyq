@@ -479,3 +479,12 @@ unchanged from master.
 node10 structurally cannot do for an `exports`-only subpath. That "impossible pass" was a
 resolution-cache accident and should have been treated as the anomaly to explain, not as the
 baseline of correctness.
+
+---
+
+## [2026-08-19] architecture
+
+We should build features to import networks from Nextdoor, Facebook, Twitter and other social
+networks from their data extracts. This should be able to help with network lock-in.
+
+---
