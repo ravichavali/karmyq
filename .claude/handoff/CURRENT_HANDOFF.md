@@ -1,17 +1,21 @@
-# Sprint 126 — Honest Standing Backfill (Tasks 1-13 done; PR open, awaiting review + merge auth)
+# Sprint 126 — Honest Standing Backfill (PR #210 open, CI green, awaiting re-review + merge auth)
 
-> ## State as of 2026-08-20
+> ## State as of 2026-09-03
 >
 > **Sprint 125 shipped**: PR #209, squash **`f1197a17`**, version **v11.45.0**, deployed and
 > smoke-tested on demo. Archived at
 > [`archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md`](archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md).
 >
-> **Sprint 126 is code-complete and open as [PR #210](https://github.com/ravichavali/karmyq/pull/210).**
-> Tasks 1-13 done; branch pushed (pre-push hook ran and passed), PR `MERGEABLE`, base `master`.
-> Version **v11.46.0**. The demo database has only ever been READ. Remaining is Task 14 only —
-> and every step of it needs maintainer authorization.
+> **Sprint 126 is open as [PR #210](https://github.com/ravichavali/karmyq/pull/210)**, base `master`,
+> version **v11.46.0**. Tasks 1-13 done. Task 14 is NOT authorized and has not begun. The demo
+> database has only ever been READ.
 >
-> **Awaiting: Codex cross-agent review of PR #210**, then CI, then merge authorization.
+> **CI HAS run and is green** — 0 failures across all required checks, including Integration Tests
+> and the new byte-for-byte init.sql gate. (An earlier version of this handoff said CI had not run;
+> that was wrong, and CI was in fact red at the time — see "Review rounds" below.)
+>
+> **Two Codex review rounds are complete and their findings are fixed.** A third has not been
+> requested yet. Merge remains unauthorized.
 
 ## Progress
 
@@ -95,6 +99,34 @@ exits cleanly rather than hanging.
 Note the converged `activityRows: 0` in step 3 is only possible because of the Task 12 settings-gating
 fix — before it, the preflight predicted activity rows for communities that will never receive any,
 so this check could never have passed.
+
+## Review rounds on PR #210
+
+**Round 1 (Codex).** Four blocking findings, all correct:
+- Stored trust scores would have stopped decaying. Neutering cleanup-service's job removed the
+  wrong `karma/10` formula but also the only refresh cadence, and the ADR-095 gate reads the CACHED
+  score. Fixed by a daily 03:30 canonical sweep in reputation-service.
+- Required source-data failures were fail-open. `MISSING_MATCH_PARTICIPANTS`,
+  `MISSING_COMPLETION_TIME` and `NO_REQUEST_COMMUNITY` now block.
+- Unexplained canonical rows were accepted. See round 2.
+- **CI was red** (Integration, CodeQL, ADR-060) while I had reported the branch green from local
+  runs only. All three fixed at the cause, none dismissed.
+
+**Round 2 (Codex).** Two blocking findings, both correct:
+- **init.sql regeneration was self-seeded.** The generator loaded the COMMITTED init.sql, applied
+  migrations, and the workflow compared the dump against that same input — so an object created by
+  no migration survived the round trip and matched itself. Proven, not assumed: a smuggled table in
+  pg_dump's canonical position passed the old design and fails the new one. The generator is now
+  seeded from the **base revision's** init.sql (a revision the PR cannot edit) plus the full
+  migration chain, and the comparison target is HEAD's committed artifact.
+- **Lineage proved adjacency, not legitimacy.** The carve-out never checked the row's points,
+  timestamp or carry semantics; it was undirected, single-hop, and ignored link status. Removed
+  entirely — `UNEXPECTED_KARMA_PROJECTION` now blocks unconditionally. A carried row cannot be
+  derived from the match's own facts, so no graph-walk makes it verifiable; blocking is the honest
+  outcome and cannot bite the first demo backfill, because carry only produces canonical rows once
+  canonical rows exist and every stored karma row today is legacy snake_case.
+
+`NO_ELIGIBLE_COMMUNITY` is now the ONLY informational anomaly code.
 
 ## What the gates found (Task 12)
 

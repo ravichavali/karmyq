@@ -39,9 +39,9 @@ type ProviderFloor = '1' | '20' | '40' | '60';
  * - **Informational** — a match whose participants are no longer co-members of any request
  *   community (`NO_ELIGIBLE_COMMUNITY`). Membership loss is routine, guessing a community would
  *   fabricate history, and one such match must not make the backfill permanently impossible.
- *   Also informational: a stored canonical row in a community with **proven** fusion/fission
- *   lineage to one of the match's request communities — that is legitimate carry (demo has 16
- *   executed splits). An unexplained canonical row still blocks; see `isCarryExplained`.
+ *   `NO_ELIGIBLE_COMMUNITY` is the ONLY informational code. Everything else blocks, including a
+ *   stored canonical row replay does not produce (`UNEXPECTED_KARMA_PROJECTION`) — see the comment
+ *   at that anomaly for why no lineage heuristic can make such a row verifiable.
  *
  * `canApply` originally demanded ZERO anomalies of any kind, which made routine membership loss and
  * legitimate carry permanently fatal.
@@ -143,19 +143,9 @@ interface ProviderRow { provider_id: string; user_id: string; community_id: stri
 /** community_id -> the activity types that community actually tracks. */
 type ActivitySettings = Map<string, Set<string>>;
 
-/**
- * Undirected community lineage: `community -> communities it is related to by fusion or fission`.
- *
- * Fusion writes `community_links(link_type='fusion_origin')` for merged↔A and merged↔B. Fission
- * writes a sibling link (childA↔childB) but no parent link, so parent→child lineage comes from
- * `split_proposals(community_id, child_community_a_id, child_community_b_id)` instead.
- */
-type CommunityLineage = Map<string, Set<string>>;
-
 interface BackfillSnapshot {
   matches: MatchRow[];
   activitySettings: ActivitySettings;
-  lineage: CommunityLineage;
   configs: CommunityConfigRow[];
   karma: KarmaRow[];
   activities: ActivityRow[];
@@ -181,19 +171,6 @@ const LEGACY_REASONS = new Set([
   'milestone_help_25',
 ]);
 const CANONICAL_REASONS = new Set<string>(Object.values(COMPLETED_MATCH_REASONS));
-const LINEAGE_QUERY = `/* standing-backfill:lineage */
-  SELECT community_a_id::text AS a, community_b_id::text AS b
-  FROM communities.community_links
-  WHERE link_type IN ('fusion_origin', 'split_origin')
-  UNION ALL
-  SELECT community_id::text AS a, child_community_a_id::text AS b
-  FROM communities.split_proposals
-  WHERE status = 'executed' AND child_community_a_id IS NOT NULL
-  UNION ALL
-  SELECT community_id::text AS a, child_community_b_id::text AS b
-  FROM communities.split_proposals
-  WHERE status = 'executed' AND child_community_b_id IS NOT NULL`;
-
 const ACTIVITY_SETTINGS_QUERY = `/* standing-backfill:activity-settings */
   SELECT community_id, activity_types FROM communities.settings`;
 
@@ -270,7 +247,7 @@ const PROVIDERS_QUERY = `/* standing-backfill:providers */
   ORDER BY member.community_id, pp.id`;
 
 async function loadSnapshot(): Promise<BackfillSnapshot> {
-  const [matches, configs, karma, activities, memberships, feedback, userConfigs, providers, settings, lineageRows] =
+  const [matches, configs, karma, activities, memberships, feedback, userConfigs, providers, settings] =
     await Promise.all([
       query(MATCHES_QUERY),
       query(COMMUNITY_CONFIGS_QUERY),
@@ -281,7 +258,6 @@ async function loadSnapshot(): Promise<BackfillSnapshot> {
       query(USER_CONFIGS_QUERY),
       query(PROVIDERS_QUERY),
       query(ACTIVITY_SETTINGS_QUERY),
-      query(LINEAGE_QUERY),
     ]);
 
   const activitySettings: ActivitySettings = new Map();
@@ -290,22 +266,9 @@ async function loadSnapshot(): Promise<BackfillSnapshot> {
     activitySettings.set(String(row.community_id), new Set(types));
   }
 
-  const lineage: CommunityLineage = new Map();
-  const linkLineage = (a: string, b: string) => {
-    if (!lineage.has(a)) lineage.set(a, new Set());
-    lineage.get(a)!.add(b);
-  };
-  for (const row of lineageRows.rows as Array<{ a: string; b: string }>) {
-    if (!row.a || !row.b) continue;
-    // Undirected: karma carries merged→origin and parent→child alike.
-    linkLineage(String(row.a), String(row.b));
-    linkLineage(String(row.b), String(row.a));
-  }
-
   return {
     matches: matches.rows as MatchRow[],
     activitySettings,
-    lineage,
     configs: configs.rows as CommunityConfigRow[],
     karma: karma.rows as KarmaRow[],
     activities: activities.rows as ActivityRow[],
@@ -626,41 +589,38 @@ function compareStoredProjection(
   const replayedById = new Map(replayed.map((replay) => [replay.row.id, replay]));
 
   /**
-   * Is a stored canonical row in a community replay never selected explained by fusion/fission?
+   * A stored canonical row that replay does not produce BLOCKS. There is deliberately no carve-out.
    *
-   * Fusion and fission legitimately COPY karma rows into a merged or child community, and replay
-   * will never produce those — it selects only the match's own request communities. That is not a
-   * defect, and demo has 16 executed splits, so treating every such row as fatal would make the
-   * backfill permanently unrunnable.
+   * Fusion and fission do legitimately copy canonical rows into a merged or child community, and an
+   * earlier version of this treated any such row as merely informational when the destination
+   * community had a lineage link to one of the match's request communities. That heuristic proved
+   * adjacency, not legitimacy, and was wrong in four separate ways: it never checked the row's
+   * points, timestamp or carry semantics, so a fabricated row in a linked community passed; the
+   * adjacency was undirected, so an invalid reverse carry passed; it was single-hop, so a genuine
+   * multi-generation history was rejected anyway; and `community_links` was read without a status
+   * filter, so a merely PENDING link an admin had created was enough.
    *
-   * But "unexplained canonical row" and "legitimate carry" are not the same thing, and an arbitrary
-   * or corrupt row influences the stored score exactly as much as a carried one. So carry must be
-   * PROVEN, not assumed: the row's community must be linked by recorded lineage to one of the
-   * match's own request communities. Anything else blocks.
+   * Since a carried row cannot be reproduced from the match's own facts, no amount of graph-walking
+   * makes it verifiable here. Blocking is the honest outcome: the run stops, the operator sees
+   * exactly which row and which match, and reconciles it deliberately. It also cannot bite the
+   * first demo backfill — carry only produces CANONICAL rows once canonical rows exist, and today
+   * every stored karma row is legacy snake_case, which this comparison skips.
    */
-  const isCarryExplained = (communityId: string, replay: ReplayMatch): boolean => {
-    const related = snapshot.lineage.get(communityId);
-    if (!related) return false;
-    const sources = stringArray(replay.row.request_community_ids);
-    return sources.some((source) => related.has(source));
-  };
-
   for (const row of snapshot.karma) {
     if (!row.related_entity_id) continue;
-    const replay = replayedById.get(row.related_entity_id);
-    if (!replay) continue;
+    if (!replayedById.has(row.related_entity_id)) continue;
     if (!CANONICAL_REASONS.has(row.reason)) continue;
     const key = karmaIdentity(row);
     if (expectedKarmaKeys.has(key)) continue;
 
-    const explained = isCarryExplained(String(row.community_id), replay);
     anomalies.push({
       code: 'UNEXPECTED_KARMA_PROJECTION',
-      severity: explained ? 'informational' : 'blocking',
+      severity: 'blocking',
       matchId: row.related_entity_id,
-      detail: explained
-        ? `Stored canonical row not produced by replay for ${row.user_id}/${row.community_id}/${row.reason}, explained by fusion/fission lineage`
-        : `Stored canonical row not produced by replay for ${row.user_id}/${row.community_id}/${row.reason}, with NO fusion/fission lineage to the match's request communities`,
+      detail:
+        `Stored canonical row is not produced by replay for ${row.user_id}/${row.community_id}/${row.reason}. ` +
+        `If this is fusion/fission carry, reconcile it before backfilling — its value cannot be ` +
+        `derived from this match's facts, so it cannot be verified automatically.`,
     });
   }
 

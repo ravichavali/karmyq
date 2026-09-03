@@ -86,9 +86,6 @@ function baseFixture() {
     activitySettings: [
       { community_id: C1, activity_types: ['complete_request', 'complete_offer'] },
     ],
-    // Fusion/fission lineage edges. Empty by default: a stored canonical row in a community with no
-    // recorded lineage to the match's request communities is NOT explainable carry, and blocks.
-    lineage: [] as Array<{ a: string; b: string }>,
     matches: [
       matchRow(),
       matchRow({
@@ -144,7 +141,6 @@ function arm(fixture: Fixture = baseFixture()) {
     if (text.includes('standing-backfill:matches')) return result(fixture.matches);
     if (text.includes('standing-backfill:community-configs')) return result(fixture.configs);
     if (text.includes('standing-backfill:karma')) return result(fixture.karma);
-    if (text.includes('standing-backfill:lineage')) return result(fixture.lineage);
     if (text.includes('standing-backfill:activity-settings')) return result(fixture.activitySettings);
     if (text.includes('standing-backfill:activity')) return result(fixture.activities);
     if (text.includes('standing-backfill:memberships')) return result(fixture.memberships);
@@ -211,9 +207,9 @@ describe('Sprint 126 standing backfill preflight', () => {
     expect(report.anomalies).toEqual([]);
 
     const issuedSql = mockQuery.mock.calls.map(([sql]) => String(sql));
-    // Ten SELECTs, one pass, no per-match queries. The count is pinned so a future edit cannot
+    // Nine SELECTs, one pass, no per-match queries. The count is pinned so a future edit cannot
     // quietly turn the preflight into an N+1 over 7,860 matches.
-    expect(issuedSql).toHaveLength(10);
+    expect(issuedSql).toHaveLength(9);
     for (const sql of issuedSql) {
       expect(sql).not.toMatch(/\b(?:INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|TRUNCATE|BEGIN|COMMIT)\b/i);
     }
@@ -320,11 +316,10 @@ describe('Sprint 126 standing backfill preflight', () => {
     ]);
   });
 
-  it('BLOCKS an unexplained canonical row, but ALLOWS proven fusion/fission carry', async () => {
+  it('BLOCKS any canonical row replay does not produce, including fusion/fission carry', async () => {
     const CARRIED = '10000000-0000-0000-0000-0000000000ff';
     const fixture = baseFixture();
     fixture.matches = [fixture.matches[0]];
-    // A canonical row attributed to MATCH_1 but sitting in a community replay never selects.
     fixture.karma = [...fixture.karma, {
       ...fixture.karma[0],
       id: '50000000-0000-0000-0000-0000000000ff',
@@ -332,23 +327,18 @@ describe('Sprint 126 standing backfill preflight', () => {
       // Canonical reason — legacy snake_case rows are deliberately not compared against replay.
       reason: 'Provided help',
     }];
-
-    // With no recorded lineage this is an arbitrary canonical row that still influences the stored
-    // score, so it must block.
     arm(fixture);
-    const unexplained = await analyzeStandingBackfill();
-    expect(unexplained.canApply).toBe(false);
-    expect(unexplained.anomalies).toContainEqual(
+
+    const report = await analyzeStandingBackfill();
+
+    // There is no lineage carve-out. An earlier version let this through as informational when the
+    // community had a lineage link, but adjacency is not legitimacy: it never checked the row's
+    // points, timestamp or carry semantics, so a fabricated row in a linked community passed.
+    // Since a carried row cannot be derived from this match's facts, blocking is the honest answer.
+    expect(report.canApply).toBe(false);
+    expect(report.blockingAnomalies).toBeGreaterThan(0);
+    expect(report.anomalies).toContainEqual(
       expect.objectContaining({ code: 'UNEXPECTED_KARMA_PROJECTION', severity: 'blocking' }),
-    );
-
-    // Same row, now with fusion/fission lineage to the match's request community: legitimate carry.
-    fixture.lineage = [{ a: CARRIED, b: C1 }];
-    arm(fixture);
-    const explained = await analyzeStandingBackfill();
-    expect(explained.canApply).toBe(true);
-    expect(explained.anomalies).toContainEqual(
-      expect.objectContaining({ code: 'UNEXPECTED_KARMA_PROJECTION', severity: 'informational' }),
     );
   });
 

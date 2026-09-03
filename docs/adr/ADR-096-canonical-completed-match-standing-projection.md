@@ -123,6 +123,28 @@ Every projector predicate is as-of — a function of stored history plus the mat
 current table state. `updateTrustScore` is the deliberate exception: that cache is supposed to
 reflect the present, and it runs *after* every as-of decision.
 
+### 3b. Anomaly severity: corrupt source data blocks; only routine membership loss does not
+
+`canApply` originally demanded zero anomalies of any kind, which made routine data permanently
+fatal. The line is now drawn at **corrupt source facts versus routine history**.
+
+**Blocking** — a completed match missing its participants, its completion time, or any request
+community; duplicate projection identities; a stored canonical row whose points or timestamp
+conflict with replay; and any stored canonical row replay does not produce at all. Silently
+omitting such a match while reporting success is fail-open.
+
+**Informational** — `NO_ELIGIBLE_COMMUNITY` only: the participants are no longer co-members of any
+request community. Membership loss is routine, and guessing a community would fabricate history.
+
+⚠️ **No lineage carve-out for carried rows.** Fusion and fission genuinely copy canonical rows into
+a merged or child community, and replay will never produce them. A draft of this ADR excused such
+rows when `community_links` / `split_proposals` showed a lineage edge — but adjacency is not
+legitimacy. That check never validated the row's points, timestamp or carry semantics, was
+undirected (accepting invalid reverse carries), was single-hop (rejecting real multi-generation
+history), and ignored link status (a pending admin-created link sufficed). Since a carried row
+cannot be derived from the match's own facts, it cannot be verified here at all; the run blocks and
+an operator reconciles it deliberately.
+
 ### 4. One transaction per match, and historical time is data
 
 Each match projects inside one transaction, serialised by

@@ -9,7 +9,7 @@
 The Cleanup Service handles:
 1. **Ephemeral Data (TTL)** - Automatic expiration for requests, offers, messages, notifications
 2. **Data Cleanup** - Hard deletion of expired data after grace period
-3. **Activity Log Cleanup** - Remove `reputation.activity_log` rows older than 90 days
+3. **Activity Log Cleanup** - Remove **transient** `reputation.activity_log` rows older than 90 days. Rows with a `related_entity_id` are projection state (ADR-096) and are deliberately spared: deleting them would make the standing backfill re-predict and rewrite them forever, so it could never report convergence
 4. **Decay Reporting** - Read-only community decay statistics
 
 ⚠️ **This service does NOT compute or write trust scores** (Sprint 126 / ADR-096). See Recent
@@ -52,7 +52,7 @@ Changes below.
 | Mark Expired | Every hour (`:00`) | Soft delete data past `expires_at` (help_requests filtered to `status = 'open'` — Sprint 85 dropped the phantom `'pending'` token, never a real help_requests status) |
 | Hard Delete | Daily 2:00 AM | Permanently delete data expired >7 days |
 | Reputation Decay | Daily 3:00 AM | **NO-OP since Sprint 126** — logs and returns; writes nothing |
-| Activity Log Cleanup | Weekly Sun 4:00 AM | Remove old activity logs (>90 days) |
+| Activity Log Cleanup | Weekly Sun 4:00 AM | Remove old activity logs (>90 days) **where `related_entity_id IS NULL`** — attributable rows are projection state |
 | Decay Report | Weekly Mon 9:00 AM | Generate community decay statistics |
 | Expire Dibs | Every 5 minutes | Find pending `requests.dibs` records past `expires_at`, set `status=expired`, reset `help_requests.status` to `open`, publish `dibs_expired` event |
 | Trust Edge Sweep | Daily 4:30 AM | Delete `social_graph.trust_edges` where `current_weight < disappearance_threshold` (via `trust_edges_live` view) |
@@ -96,8 +96,8 @@ owns the completed-request lifecycle. The job file, its cron, and `/jobs/sweep-r
 
 ### Tables Used
 
-- `communities.settings` - Per-community TTL and decay configuration
-- `reputation.activity_log` - User activity tracking
+- `communities.settings` - Per-community TTL configuration (and `activity_types`, read by reputation-service)
+- `reputation.activity_log` - User activity. **Written by reputation-service**, not here; this service only expires transient rows
 - `reputation.trust_scores` - Trust scores with `last_activity_at`
 - `requests.help_requests` - `expires_at`, `expired` columns; `status` reset to `open` on dibs expiry; Sprint 90: `content_forgotten_at` marker (anonymization stamp)
 - `requests.retention_config` - Sprint 90 (ADR-069): per-community + global retention windows (`completed_request_window_days`/`expired_request_window_days`/`message_window_days`)
@@ -113,7 +113,9 @@ communities.calculate_expires_at(community_id, entity_type, created_at)
   → Returns expiration timestamp based on community TTL settings
 
 reputation.calculate_decayed_karma(user_id, community_id)
-  → Returns karma with exponential time decay applied
+  → Returns karma with exponential time decay applied (ADR-011).
+  ⚠️ NOT used by this service since Sprint 126 — it fed the removed trust-score formula.
+  Karma decay is applied at READ time by reputation-service; nothing here derives a score.
   → Formula: karma * 0.5^(months_ago / half_life_months)
 ```
 
@@ -144,10 +146,12 @@ POST /jobs/hard-delete
   // Manually run hard delete job
 
 POST /jobs/update-decay
-  // Manually recalculate trust scores
+  // NO-OP since Sprint 126 (ADR-096). Returns success with noop: true and writes nothing.
+  // Trust scores are recalculated by reputation-service's own 03:30 canonical sweep.
 
 POST /jobs/cleanup-activity-logs
-  // Manually cleanup old logs
+  // Expire transient activity rows older than 90 days.
+  // Rows with a related_entity_id are projection state and are NOT deleted.
 
 GET /jobs/decay-report
   // Generate decay report (check logs)

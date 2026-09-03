@@ -38,6 +38,34 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          # Need the merge base so the generator can be seeded from a revision this PR cannot edit.
+          fetch-depth: 0
+
+      # The generator LOADS an init.sql, applies the migration chain, and dumps the result. Seeding
+      # it with the committed file makes the check circular: an object present in init.sql but
+      # created by no migration survives the round trip and matches itself. Seed from the BASE
+      # revision instead — a revision the PR under review cannot modify — so the comparison is
+      # between "base schema + this branch's migrations" and "what this branch committed".
+      - name: Materialise an independent baseline for the generator
+        id: baseline
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -z "${BASE_SHA:-}" ]; then
+            echo "No PR base (manual dispatch). Falling back to the committed init.sql as the"
+            echo "generator seed; the byte-for-byte comparison is SKIPPED because it would be"
+            echo "comparing the file with itself."
+            echo "independent=false" >> "$GITHUB_OUTPUT"
+            cp infrastructure/postgres/init.sql /tmp/baseline-init.sql
+          else
+            git show "$BASE_SHA:infrastructure/postgres/init.sql" > /tmp/baseline-init.sql
+            echo "independent=true" >> "$GITHUB_OUTPUT"
+            echo "Seeded from base revision $BASE_SHA"
+            if cmp -s /tmp/baseline-init.sql infrastructure/postgres/init.sql; then
+              echo "(base and head init.sql are identical — this PR does not change it)"
+            fi
+          fi
 
       - name: Validate shell scripts
         run: |
@@ -49,6 +77,7 @@ jobs:
           REGEN_PG_CONTAINER: ${{ job.services.postgres.id }}
           REGEN_PG_USER: karmyq_regen
           REGEN_PG_DB: karmyq_regen
+          SOURCE_INIT_SQL: /tmp/baseline-init.sql
         run: |
           bash scripts/regenerate-init-sql.sh
           cp infrastructure/postgres/init.sql.generated /tmp/init.sql.first
@@ -111,6 +140,7 @@ jobs:
       # it.) `tests/regression/sprint-120-init-sql-drift-gate.test.ts` is sentinel-strings only and
       # cannot catch this either.
       - name: Committed init.sql must match the regeneration byte-for-byte
+        if: steps.baseline.outputs.independent == 'true'
         run: |
           if ! cmp -s infrastructure/postgres/init.sql infrastructure/postgres/init.sql.generated; then
             echo "::error::infrastructure/postgres/init.sql does not match the canonical regeneration."
