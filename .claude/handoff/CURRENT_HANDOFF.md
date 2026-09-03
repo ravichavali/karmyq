@@ -1,4 +1,4 @@
-# Sprint 126 — Honest Standing Backfill (PR #210 review-clean; BLOCKED on maintainer merge authorization)
+# Sprint 126 — Honest Standing Backfill (MERGED + DEPLOYED; Task 14 data op still unauthorized)
 
 > ## State as of 2026-09-03
 >
@@ -10,8 +10,38 @@
 > version **v11.46.0**. Tasks 1-13 done. Task 14 is NOT authorized and has not begun. The demo
 > database has only ever been READ.
 >
-> **PR #210 live state** (head `812fc1a3`): `OPEN`, `MERGEABLE`, `REVIEW_REQUIRED`, base `master`.
-> CI is green — 21
+> **✅ MERGED 2026-09-03.** PR #210 squash-merged as **`9083a79a`** (admin override — master
+> requires 1 approving review and there is no second reviewer; explicitly authorized by the
+> maintainer). The master pipeline passed every gate including the ADR-060 Code Scanning Gate,
+> which really does block on master, and **Deploy to Demo succeeded with all services healthy**.
+>
+> **Verified on demo, read-only, after deploy:**
+> - Migration applied: `uq_karma_match_projection`, `uq_activity_match_projection` and
+>   `idx_karma_related_entity` all exist; `reputation.trust_scores.score` is `NOT NULL`.
+> - **No standing data was written by the deploy**, exactly as predicted: `trust_scores` 0 rows,
+>   `activity_log` 0 rows, 0 karma rows created since the merge.
+> - **The blocking-anomaly precondition holds.** 174 karma rows carry a `related_entity_id`, but
+>   every one has a legacy snake_case reason (`help_provided` 65, `help_received` 65,
+>   `first_help_bonus` 44, all dated 2026-01-05..06-30) — and **0 rows carry a CANONICAL reason**.
+>   So the now-unconditional `UNEXPECTED_KARMA_PROJECTION` cannot bite the first backfill, which is
+>   the claim ADR-096 makes. Confirmed against the live table rather than assumed.
+> - **0 duplicate projection identities**, so the amended Task 14 pre-deploy check currently passes.
+>   Re-run it immediately before apply regardless.
+> - `42703` / `community_configs.config` errors are **gone** from reputation-service logs, and
+>   `✅ Canonical trust-score refresh initialized (runs daily at 3:30 AM)` confirms the new cron.
+>
+> ⚠️ **NOT yet proven: the live write path in production.** Exactly one match completed after the
+> merge (19:31:37Z) and it produced no karma or activity rows — but both services restarted at
+> 19:42:30Z, eleven minutes LATER, so that match was handled by the OLD image with BUG-037 still
+> in it. No match has completed since the restart. **The first post-restart completion is the real
+> test**; check that it writes karma + activity + a trust score in one transaction before treating
+> BUG-037 as closed end-to-end. The absence of the 42703 error is necessary, not sufficient.
+>
+> ⚠️ **Completed matches are now 8,400** (7,817 on 2026-08-19, 7,860 on 2026-09-02). The simulator
+> keeps adding, which is exactly why Task 14 Step 5 re-measures instead of trusting the audit.
+>
+> Superseded PR state (kept for the audit trail) — head `812fc1a3` was `OPEN`/`MERGEABLE`/
+> `REVIEW_REQUIRED`; CI was green — 21
 > checks pass, `Deploy to Demo` correctly skipping (not master). Verified by reading the runs, not
 > inferred from ticks: the Integration Tests step ran `sprint-126-standing-schema` and
 > `sprint-126-standing-backfill` against real Postgres 15 + Redis (5 suites / 56 tests), the
@@ -76,7 +106,8 @@ Task 14 also requires a pre-deploy duplicate-identity check before any apply.
 | 12c. /security-review | ✅ done | `5bd1b7d4` |
 | 12d. pre-commit process review | ✅ done | this commit |
 | 13. Final verification + PR | ✅ done | this commit |
-| 14. Merge, deploy, separately authorized demo apply | ⬜ | — |
+| 14a. Merge + deploy (code only) | ✅ done | squash `9083a79a` |
+| 14b. Demo `--apply` data operation | ⬜ **NOT AUTHORIZED** | — |
 
 **Verification at Task 11:** full `npx turbo run test --concurrency=2` — **26/26 tasks, 0 failures**.
 Reputation 231 passing / 3 todo / 0 skipped. Against real PostgreSQL 15.15: schema integration
