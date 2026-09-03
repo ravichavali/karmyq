@@ -39,9 +39,9 @@ normalize_schema_dump() {
       next
     }
     { blank = 0; print }
-  ' | sed -E "/CONSTRAINT chk_help_requests_(status|urgency) CHECK/ {
+  ' | sed -E "/= ANY \(ARRAY\[\(/ {
     s/\(('[^']*'::character varying)\)::text/\1/g
-    s/ANY \(ARRAY\[(.*)\]\)/ANY ((ARRAY[\1])::text[])/
+    s/= ANY \(ARRAY\[([^]]*)\]\)/= ANY ((ARRAY[\1])::text[])/g
   }"
 }
 

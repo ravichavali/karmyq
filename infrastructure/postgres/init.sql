@@ -4723,7 +4723,6 @@ CREATE INDEX idx_karma_community_id ON reputation.karma_records USING btree (com
 
 CREATE INDEX idx_karma_related_entity ON reputation.karma_records USING btree (related_entity_id) WHERE (related_entity_id IS NOT NULL);
 
-
 --
 -- Name: idx_karma_user_id; Type: INDEX; Schema: reputation; Owner: -
 --

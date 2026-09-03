@@ -257,6 +257,64 @@ describe('apply projects real history', () => {
     expect(pool100).toBe(100);
   }, 60000);
 
+  it('selects the three HIGHEST prior-karma communities, not the three lowest ids', async () => {
+    // The existing cap test above leaves all four communities tied at zero prior karma, so
+    // selection falls through to the community-id tie-break and the assertion cannot tell
+    // "ranked by karma" from "ranked by id". Here the two orderings are deliberately OPPOSITE.
+    //
+    // Strictly-before history, built from real earlier matches:
+    //   C4 -> 3 prior helps  (3x60 + 15 first-help = 195 karma)   <- largest id, most karma
+    //   C3 -> 2 prior helps  (135)
+    //   C2 -> 1 prior help   (75)
+    //   C1 -> 0 prior helps  (0)                                  <- smallest id, no karma
+    //
+    // Ranking by id would pick C1, C2, C3. Ranking by prior karma picks C4, C3, C2 and drops C1.
+    const earlier: Array<[string, string]> = [
+      ['d1', C4], ['d2', C4], ['d3', C4],
+      ['d4', C3], ['d5', C3],
+      ['d6', C2],
+    ];
+    for (const [i, [match, community]] of earlier.entries()) {
+      await seedMatch({
+        matchId: U(match),
+        requestId: U(`b${i + 1}`),
+        communities: [community],
+        completedAt: new Date(Date.UTC(2026, 0, i + 1)).toISOString(),
+      });
+    }
+    // The match under test: eligible in ALL four, and last chronologically so every award above
+    // counts as strictly-before history for it.
+    const FINAL = U('d7');
+    await seedMatch({
+      matchId: FINAL,
+      requestId: U('b7'),
+      communities: ALL_COMMUNITIES,
+      completedAt: new Date(Date.UTC(2026, 0, 7)).toISOString(),
+    });
+
+    await backfill().applyStandingBackfill({ batchSize: 10 });
+
+    const finalRows = await pool.query<{ community_id: string; reason: string; points: number }>(
+      `SELECT community_id, reason, points FROM reputation.karma_records
+       WHERE related_entity_id = $1`,
+      [FINAL],
+    );
+
+    const selected = [...new Set(finalRows.rows.map((r) => r.community_id))].sort();
+    expect(selected).toEqual([C2, C3, C4].sort());
+
+    // The lowest-karma community is excluded even though it has the SMALLEST id — which is the
+    // whole point, and what the tied-at-zero test cannot show.
+    expect(selected).not.toContain(C1);
+    expect(selected).toHaveLength(3);
+
+    // The fixed pool still holds: three communities award exactly 100 points between them.
+    const pool100 = finalRows.rows
+      .filter((r) => r.reason === 'Provided help' || r.reason === 'Received help')
+      .reduce((sum, r) => sum + Number(r.points), 0);
+    expect(pool100).toBe(100);
+  }, 120000);
+
   it('orders matches sharing a timestamp deterministically by match id', async () => {
     // Both complete at the same instant; the milestone must land on the lower id.
     await seedMatch({ matchId: U('f1'), requestId: U('b1'), communities: [C1], completedAt: '2026-03-01T00:00:00Z' });
