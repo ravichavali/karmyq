@@ -1,5 +1,23 @@
 # Sprint 126 — Honest Standing Backfill (COMPLETE — merged, deployed, demo backfill applied)
 
+## 🔀 Active lanes — READ YOUR LANE FILE, NOT THIS ONE
+
+Parallel development runs from two checkouts on two machines. **This file is the router.** Find
+your branch below, then read and update only that lane's file. Never edit another lane's handoff.
+
+| Lane | Machine | Branch | Handoff file | ADR block |
+|---|---|---|---|---|
+| _(none active)_ | — | — | — | — |
+
+**Serialized across lanes** (`CLAUDE.md` → *Parallel Development*): `master` merges, the
+`package.json` version bump, dependency/lockfile edits, ADR numbers, demo-server data ops.
+Highest ADR in use: **ADR-096** — reserve the next block here before writing one.
+
+When a lane ships, archive its lane file and drop its row. When no lanes are active, the sprint
+state below is the handoff.
+
+---
+
 > ## State as of 2026-09-03
 >
 > **Sprint 125 shipped**: PR #209, squash **`f1197a17`**, version **v11.45.0**, deployed and

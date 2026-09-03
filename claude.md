@@ -15,6 +15,10 @@
    carrying state between sessions. If it exists, follow its Quick Start; update it as you
    progress; archive it when the feature ships (create/update via the `handoff`/`update-handoff`
    skill; framework: `.claude/handoff/README.md`).
+   ⚠️ **When parallel lanes are active it is a ROUTER, not the state itself** — its "Active lanes"
+   table maps each branch to its own `lane-<slug>.md`. Read the router, then read and update ONLY
+   your lane's file. Two machines editing one rolling handoff corrupts the one doc that carries
+   all cross-session state.
 3. **Persistent memory** — `MEMORY.md` index + any matching memory file (advisory; verify
    anything it names still exists).
 4. **[`services/registry.json`](services/registry.json)** — services, ports, endpoints, events.
@@ -25,7 +29,9 @@
 **Chat cadence:** one fresh chat per sprint (planning chat produces spec + plan + handoff via the
 `sprint-planning` skill; the NEXT chat executes). Same-PR polish/review follow-ups stay in the
 same chat. For a long multi-PR sprint: per-PR plan files and a fresh chat per PR. Two agents on
-one sprint = one chat per agent branch, orchestrated through handoff/PR state.
+one sprint = one chat per agent branch, orchestrated through handoff/PR state. **Two machines on
+two sprints = one lane file per sprint** (see *Parallel Development*); a chat never reads or
+writes the other lane's handoff.
 
 ---
 
@@ -226,12 +232,24 @@ when green via `scripts/promote-tdd-tests.js`); `integration/` needs a DB. **New
 start in the changed workspace's `tests/tdd/`** (e.g. `services/request-service/tests/tdd/`),
 not root. Infrastructure: `cd infrastructure/docker && docker-compose up -d postgres redis`.
 
-### Windows / Git Bash environment
-This machine is Windows + Git Bash. `curl` flag parsing is unreliable (spurious status `000`),
+### Host environments — check which machine you are on FIRST
+Development runs from **two checkouts on different machines**. The gotchas below are per-host and
+do not transfer; run `uname -s` before applying either set (`MINGW64_NT-*` = Windows box,
+`Darwin` = Mac).
+
+**Windows + Git Bash (primary box):** `curl` flag parsing is unreliable (spurious status `000`),
 `jq` is **not installed**, and PowerShell execution policy blocks dot-sourcing helpers — use
-`node -e` for HTTP probes and JSON parsing instead of `curl`/`jq`. `| tail` masks exit codes.
-Don't attribute a Turbo failure to the first-listed package; read the failing suite name out of
-the raw output.
+`node -e` for HTTP probes and JSON parsing instead of `curl`/`jq`. **No local Docker** — anything
+needing PostgreSQL runs in a disposable container on the demo server over an SSH tunnel.
+
+**macOS (second checkout):** `curl` and `jq` behave normally and Docker may be available locally
+for `postgres`/`redis`. Do **not** apply the Windows workarounds here — they are noise at best.
+Note the root context file is git-tracked lowercase (`claude.md`); this resolves on default
+case-insensitive APFS, but would silently load NOTHING on a case-sensitive volume or a Linux
+devcontainer. Verify with `diskutil info / | grep -i "Case-Sensitive"` before using either.
+
+**Both hosts:** `| tail` masks exit codes — capture the exit code separately. Don't attribute a
+Turbo failure to the first-listed package; read the failing suite name out of the raw output.
 
 ---
 
@@ -308,6 +326,42 @@ package names/versions, env-var loading order.
   API (rate-limited; UI bulk-dismiss for >~50). The gate can false-block the fix-shipping push
   (rescan lag) — re-run after rescan, don't bypass.
 - **Demo-server data ops use DB user `karmyq_prod`.**
+
+---
+
+## Parallel Development (two checkouts, two machines)
+
+Work runs from **two checkouts on different machines** (Windows primary + Mac), each on its own
+sprint and its own branch. There is real branch isolation, so the lane model is now the actual
+mechanism — but the machines cannot see each other's working trees, so **all coordination goes
+through git and PR state, never through tree hygiene.** Neither machine may assume the other is
+idle.
+
+**Serialize these four shared surfaces** — they collide even when sprint scope is fully disjoint:
+
+| Surface | Why it collides | Rule |
+|---|---|---|
+| `master` merges | Every master push is a full deploy with rollback-on-failure; overlapping deploys restart services and 502 the demo | **One merge at a time.** Wait for the deploy AND health verify to finish before the next PR merges. |
+| `package.json` version | One line, bumped every sprint; second merge ships a duplicate or skipped version | First PR to merge takes the bump; the second re-bumps at merge time, not at branch time. |
+| `package.json` / `package-lock.json` | Lockfile conflicts cannot be resolved by regeneration (scratch-regen is forbidden — it rewrites exact pins) | **One lane at a time** may touch dependencies. Open Dependabot PRs count as that lane. |
+| ADR numbers | Both lanes mint the same next number → filename AND `docs/adr/README.md` index conflict; the drift gate requires every ADR indexed | **Reserve a block per sprint up front** and record it in the lane handoff before either lane writes an ADR. |
+
+**Also expect, and handle locally:**
+- `apps/landing/src/data/docs/` is **git-tracked** and regenerated by `npm test` with timestamp /
+  HEAD-sha churn. Two machines on two branches produce competing diffs — reverting that churn
+  before committing is **mandatory** here, not advisory.
+- `docs/BUGS.md` and `docs/IDEAS.md` are append-only from both lanes. Append at the end; resolve
+  the trivial conflicts rather than reordering.
+- **The demo server is a single shared resource** — both machines SSH as the same user and write
+  as `karmyq_prod`. Demo data operations are **exclusive**: announce them in the lane handoff,
+  and never run one while the other lane has a migration or backfill in flight.
+- **Persistent memory does not travel.** `MEMORY.md` and the memory files live outside the repo in
+  `~/.claude/projects/<project>/memory/`. A fresh checkout starts with none of it; sync that
+  directory between machines rather than duplicating it into this file.
+
+**Split sprints on file-disjoint boundaries** — by service. Never run one lane in
+`packages/shared/` while the other is in a consumer of it; a shared-package change plus an
+un-updated importer is exactly the breakage the workspace-dependency rule exists to prevent.
 
 ---
 
