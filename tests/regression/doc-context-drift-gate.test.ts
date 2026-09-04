@@ -27,6 +27,29 @@ function readRootDoc(name: string): string {
   throw new Error(`root doc not found (tried ${name} / ${name.toLowerCase()})`);
 }
 
+/**
+ * Duplicate ADR numbers, as a PURE predicate over filenames.
+ *
+ * Extracted so it can be proven to FAIL. Asserting only against the real docs/adr/
+ * directory would be unfalsifiable in practice — the suite would pass forever without
+ * anyone knowing whether the check works. Two parallel checkouts deriving "the next ADR
+ * number" from the same open-PR list can both mint ADR-097; that collision is the
+ * scenario this exists for.
+ */
+export function duplicateAdrNumbers(filenames: string[]): string[] {
+  const byNumber = new Map<string, string[]>();
+  for (const f of filenames) {
+    const m = /^ADR-(\d+)/.exec(f);
+    if (!m) continue;
+    const n = m[1];
+    byNumber.set(n, [...(byNumber.get(n) ?? []), f]);
+  }
+  return [...byNumber.entries()]
+    .filter(([, files]) => files.length > 1)
+    .map(([n, files]) => `ADR-${n}: ${files.sort().join(', ')}`)
+    .sort();
+}
+
 describe('doc/context drift gate', () => {
   it('CLAUDE.md "Services (N total)" matches services/registry.json', () => {
     const claudeMd = readRootDoc('CLAUDE.md');
@@ -59,6 +82,24 @@ describe('doc/context drift gate', () => {
 
     const missing = adrFiles.filter((f) => !index.includes(`](${f})`));
     expect(missing).toEqual([]);
+  });
+
+  it('no two ADRs share a number (parallel lanes can both mint the next one)', () => {
+    const adrFiles = readdirSync(join(ROOT, 'docs', 'adr')).filter((f) => /^ADR-\d+.*\.md$/.test(f));
+    expect(duplicateAdrNumbers(adrFiles)).toEqual([]);
+  });
+
+  it('the duplicate-ADR check actually FAILS on a collision (indexing alone would not catch it)', () => {
+    // Both files are well-formed and would both be linked in the index, so the
+    // "every ADR is indexed" assertion passes on this input. Uniqueness must be
+    // its own check.
+    expect(
+      duplicateAdrNumbers([
+        'ADR-096-something.md',
+        'ADR-097-lane-a-feature.md',
+        'ADR-097-lane-b-feature.md',
+      ]),
+    ).toEqual(['ADR-097: ADR-097-lane-a-feature.md, ADR-097-lane-b-feature.md']);
   });
 
   it('every landing concepts/guides doc has a nav.json entry (the "nav.json silently reverts" gotcha)', () => {

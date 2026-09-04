@@ -97,10 +97,13 @@ Two separate checkouts, each on its own sprint and branch. Neither can see the o
 tree, so **tree hygiene protects nothing here** — all coordination goes through git and PR state.
 Never assume the other machine is idle.
 
-Four shared surfaces collide even when sprint scope is disjoint, and each is **serialized**:
+Querying live state tells you what is **visible**; allocating ownership still requires
+**serialization**, and with two independent clones and no lock service the maintainer is the only
+serializer. Four shared surfaces collide even when sprint scope is disjoint:
 `master` merges (one at a time — every push is a full deploy; wait for health verify),
 the `package.json` version bump (first to merge takes it), dependency/lockfile edits (one lane
-only; Dependabot counts as that lane), and ADR numbers (reserve a block per sprint up front).
+only — an open Dependabot PR is a queued proposal, NOT the lane holder), and ADR numbers
+(**maintainer-allocated — never self-assigned from a derived list**).
 Full rules and rationale: `CLAUDE.md` → **Parallel Development**.
 
 ### B. Same-machine (Claude + Codex on the Windows box) — shared working tree

@@ -374,19 +374,49 @@ a reservation recorded there is written where the other lane is forbidden to loo
 the form "announce it in the handoff" is therefore **unreliable by construction** — both lanes can
 believe they hold the same resource.
 
-So: **derive contended values from the live arbiter at the moment you need them**, exactly as
-Discipline 5 requires everywhere else.
+**Querying live state establishes what is VISIBLE. Allocating ownership still requires
+SERIALIZATION.** These are different problems and need different mechanisms — conflating them was
+the original error. Deriving "the next ADR number" from open PRs tells you what exists; it does not
+stop the other lane deriving the same answer in the same minute.
 
-| Resource | Live arbiter — query it, do not reserve it |
+**Read-only — derive these, no coordination needed:**
+
+| Resource | Live arbiter |
 |---|---|
-| Next ADR number | `git fetch origin` then the **union** of `docs/adr/` on `origin/master` and the ADR files added by every **open PR** (`gh pr list` → diff). Take the next number above that union, and claim it by pushing the ADR file — first push wins. |
-| Version bump | `origin/master`'s `package.json` at merge time, not at branch time. |
-| Dependency / lockfile lane | `gh pr list` — is another PR (including a Dependabot PR) already touching `package.json`/`package-lock.json`? If yes, you are not the lane. |
-| `master` merge slot | `gh pr list` + the latest deploy run's status. |
-| Demo data operations | **The maintainer.** Ask per operation; there is no file-based lock. |
+| Version bump | `origin/master`'s `package.json` **at merge time**, not at branch time |
+| `master` merge slot | `gh pr list` + the latest deploy run's status — is a deploy in flight? |
 
-**Backstop:** the drift gate asserts ADR numbers are unique, so a genuine collision fails CI rather
-than merging. Derivation narrows the race; the gate closes it.
+**Contended — these need an owner, and the maintainer is the only serializer available:**
+
+| Resource | Allocation |
+|---|---|
+| Next ADR number | **Ask the maintainer to allocate it.** Do not self-assign from a derived list; two lanes reading the same list get the same answer. |
+| Dependency / lockfile lane | **One designated active holder at a time** (below). |
+| Demo data operations | **Ask per operation.** There is no file-based lock. |
+
+There is no shared mutable store between the checkouts, so a human is the only thing that can
+serialize. That is not a workaround — with two independent clones and no lock service, it is the
+only correct answer.
+
+**Detection and reconciliation, because serialization can still fail.** The drift gate now asserts
+ADR numbers are unique (`tests/regression/doc-context-drift-gate.test.ts`, with a negative fixture
+proving it fails on two `ADR-097` files — indexing alone does not catch this). If a collision does
+reach `master`, **the PR that merges second renumbers**: rename the file, update
+`docs/adr/README.md`, and fix every reference to it. The first is already merged and referenced;
+the second is the one that must move.
+
+### The dependency lane: queued proposals vs. the active holder
+
+An open Dependabot PR is a **queued proposal, not a lane holder.** Dependabot PRs sit open for
+weeks — #218 has been open since 2026-09-03 — so treating any open dependency PR as occupying the
+lane would make the lane permanently unavailable, including for the security-exemption renewal that
+must land before **2026-09-15**.
+
+- **Exactly one active dependency task at a time**, designated by the maintainer.
+- **Queued proposals do not hold it.** Dependabot PRs, and PRs awaiting review, are queued.
+- **Ownership transfers explicitly** — the maintainer hands it over; it is never inferred.
+- **Before starting any dependency work, ask who holds the lane.** `gh pr list` shows you what is
+  queued; it cannot tell you who is *working*, because an agent's work is invisible until they push.
 
 **The router is a pointer, not a coordination store.** `CURRENT_HANDOFF.md`'s lane table tells you
 which file is yours. Because it is branch-local it can be stale, and it must never be treated as
