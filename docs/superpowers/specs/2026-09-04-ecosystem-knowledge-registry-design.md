@@ -112,10 +112,12 @@ which is a **serialized cross-lane surface**. The knowledge-registry lane is the
 dependency-independent, and cannot run concurrently with another lane holding the dependency slot
 (including an open Dependabot PR). Lane allocation must account for this.
 
-**Open decision — see Open Questions #5.** Either declare `js-yaml` directly in the owning
-workspace (surgical edit plus in-place lockfile splice, proven with strict `npm ci`), or avoid the
-dependency entirely by using a JSON sidecar rather than YAML frontmatter. Given this repo's
-dependency posture, the zero-dependency option deserves serious weight.
+**RESOLVED — the format is JSON sidecars, so this dependency is not taken at all.** JSON parses
+natively; no parser library is needed. That removes the `package.json`/`package-lock.json` edit
+entirely, which means **the knowledge-registry lane does not contend for the dependency lane** and
+can run concurrently with the security-exemption work. The finding is kept here because the
+reasoning error it exposed — citing `require.resolve` as proof of availability, when it proves only
+hoisting — is the durable lesson.
 
 **Fail-closed-on-error precedent:**
 `tests/regression/sprint-122-adr-060-code-scanning-gate.test.ts:361-374` —
@@ -162,17 +164,38 @@ coordination, and a duplicate slug is impossible because it is a filename.
 
 ### Entry format
 
-Markdown with YAML frontmatter — a structured header the validator parses, a prose body humans read.
+**A JSON sidecar plus a Markdown body** — two files per entry, sharing a slug:
 
-````markdown
----
-title: npm's status page is not a signal for advisory-endpoint health
-owner: ravichavali
-created: 2026-09-04
-expires: 2027-03-04
-see_also: [adr-059-must-fail-closed-on-no-answer]
----
+```
+docs/gotchas/npm-status-page-is-not-a-signal.json    ← metadata, machine-read
+docs/gotchas/npm-status-page-is-not-a-signal.md      ← prose, human-read
+```
 
+Chosen over YAML frontmatter on review recommendation, and it resolves the dependency problem
+rather than deferring it: JSON parses natively, so `js-yaml` is not required and **the
+knowledge-registry lane becomes dependency-independent** — no `package.json` or
+`package-lock.json` edit, so it does not contend for the dependency lane at all.
+
+**Pairing is enforced.** Exactly one `.md` per `.json` and vice versa; an orphan of either kind
+fails the gate. A sidecar with no prose is unreadable knowledge; prose with no sidecar is invisible
+to both the validator and discovery.
+
+`npm-status-page-is-not-a-signal.json`:
+
+```json
+{
+  "title": "npm's status page is not a signal for advisory-endpoint health",
+  "owner": "ravichavali",
+  "created": "2026-09-04",
+  "expires": "2027-03-04",
+  "scope": ["scripts/audit-exemptions.js", "security/audit-exemptions.json"],
+  "see_also": ["adr-059-must-fail-closed-on-no-answer"]
+}
+```
+
+`npm-status-page-is-not-a-signal.md`:
+
+```markdown
 During a 2026-09-03 outage, POST to both `/-/npm/v1/security/audits/quick` and
 `/-/npm/v1/security/advisories/bulk` hung or returned 503, in two independent networks
 (a dev machine and GitHub-hosted runners), while `GET /-/ping` returned 200 and
@@ -180,9 +203,9 @@ During a 2026-09-03 outage, POST to both `/-/npm/v1/security/audits/quick` and
 uptime over 90 days.
 
 Diagnose advisory-endpoint health with a direct probe. Never from the status page.
-````
+```
 
-### Frontmatter schema
+### Sidecar schema
 
 | Field | Required | Notes |
 |---|---|---|
@@ -225,20 +248,30 @@ Two reasons this is non-negotiable:
 A Documentation Map link is not discovery; nobody reads a directory of 40 files on the off-chance.
 Every entry declares the paths it applies to:
 
-```yaml
-scope:
-  - scripts/install-hooks.sh
-  - .husky/
+```json
+"scope": ["scripts/install-hooks.sh", "scripts/git-hooks/"]
 ```
+
+**`scope` must name git-TRACKED paths.** An earlier draft used `.husky/` as an example — which is
+gitignored and machine-local, so its mandatory existence check would fail on every fresh clone
+while the gotcha itself remained perfectly true. A validator that fails on a correct entry trains
+people to ignore it.
+
+The check is therefore `git ls-files`, not `fs.existsSync`: a path counts only if git tracks it.
+That is the same answer on every machine and in CI, which `existsSync` is not.
+
+**Matching is by directory prefix.** A scope entry ending in `/` matches any tracked path beneath
+it; an entry without a trailing `/` must match a tracked file exactly. So
+`scripts/git-hooks/` covers `scripts/git-hooks/pre-push`, and editing that file surfaces the entry.
 
 Discovery then reuses the mechanism that already exists. `CLAUDE.md`'s *Context Follows Directory
 Scope* tells you to read local context for the area you are about to touch; this adds one line to
 that rule — **also read every gotcha whose `scope` matches the paths you are about to change.**
 Same trigger, same moment, no new habit to form.
 
-`scope` is mandatory and machine-checked: the validator asserts every declared path exists. An
-entry scoped to a deleted path is itself evidence the entry is stale, so discovery metadata
-doubles as a rot signal.
+`scope` is mandatory and machine-checked against the tracked file list. An entry scoped to a path
+git no longer tracks is itself evidence the entry is stale, so discovery metadata doubles as a rot
+signal.
 
 ### The validator is hermetic
 
@@ -285,14 +318,26 @@ Not all knowledge can become executable, and pretending otherwise destroys true 
 status page does not reflect advisory-endpoint health" is permanently useful and permanently
 untestable from inside this repo. A rule that eventually deletes it is a bad rule.
 
-So the pressure to promote applies **only where a machine check is possible**:
+**Promotion is a review decision, not a validator rule.** An earlier draft had the validator fail
+after two renewals on "an entry that could carry a `verify` block but doesn't". That is not
+mechanically decidable: an entry that could be checked and one that is inherently unverifiable have
+**identical fields**, and no deterministic validator can infer the difference from prose. The rule
+was unimplementable as written.
 
-- **An entry that could carry a `verify` block but doesn't** is a promotion candidate. After two
-  renewals the validator fails, asking for the check to be written or the entry deleted.
-- **An entry that is inherently unverifiable** renews indefinitely, but **each renewal must carry
-  evidence** — `renewed` entries are `{date, evidence}` pairs, where evidence states how the fact
-  was re-confirmed ("re-probed 2027-03-01: status page green, endpoint 503"). A renewal without
-  evidence fails. This keeps unverifiable knowledge honest without forcing its deletion.
+The split is therefore by what each mechanism can actually establish:
+
+- **The validator enforces only what is decidable** — dates parse and are real, the entry is not
+  past its review date, every renewal carries evidence, exactly one of `verify`/`expires` is
+  present, the `.json`/`.md` pair is complete, `scope` paths are tracked, `see_also` targets exist.
+- **The reviewer decides promotion.** Every renewal is a PR, and that PR is the checkpoint: the
+  reviewer asks whether the fact has become machine-checkable since it was written, and either
+  writes the `verify` block, deletes the entry, or renews it as prose. A human answers the question
+  a validator cannot.
+
+**Every renewal carries evidence.** `renewed` holds `{date, evidence}` pairs, where evidence states
+how the fact was re-confirmed — "re-probed 2027-03-01: status page green, endpoint 503". A renewal
+without evidence fails the gate. This is decidable, so the validator owns it, and it keeps
+unverifiable knowledge honest without pretending the machine can judge verifiability.
 
 **Expiry is relative to the most recent review, not to creation.** `created` is preserved as
 provenance; the deadline is computed from the latest `renewed.date` (or `created` if never
@@ -348,12 +393,13 @@ tomorrow? If it is about the person, it stays personal. If it is about the repo,
 | Entry fails schema | Fail, naming the file and the missing/duplicate field |
 | Both `verify` and `expires` present, or neither | Fail — the rule is exactly one |
 | `expires` in the past | Fail — renew (append to `renewed`) or delete |
-| `expires` span exceeds the cap | Fail — reuse the existing exemption-registry constant |
+| `expires` span exceeds the cap | Fail — using the **registry's own** cadence constant, deliberately longer than ADR-059's security-calibrated cap |
 | `verify` claim no longer holds | Fail, showing expected vs found |
 | `verify` target unreadable or absent | **Fail, never skip** — mirrors ADR-060's refusal to fail open |
 | Credential-shaped content detected | Fail — but see *Screening happens before publication* |
-| `scope` names a path that does not exist | Fail — the entry is stale or misfiled |
+| `scope` names a path git does not track | Fail — stale, misfiled, or pointing at a machine-local artifact |
 | `see_also` names a slug with no matching file | Fail — dangling reference |
+| A `.json` with no `.md`, or a `.md` with no `.json` | Fail — orphaned half of a pair |
 | Two renewals on an entry that could be `verify`-checked | Fail — write the check or delete |
 | A `renewed` item missing its `evidence` | Fail — unverifiable knowledge stays honest by evidence |
 
@@ -400,12 +446,20 @@ fixtures:
 7. `verify.path_exists` pointing at a deleted path
 8. `verify` target unreadable — asserts **failure**, not skip
 9. Credential-shaped body content
-10. Two renewals on an entry that **could** carry a `verify` block — asserts the promote-or-delete
-    failure fires
-11. Two renewals on an inherently unverifiable entry, each carrying evidence — asserts it **passes**,
-    proving the rule does not delete true-but-untestable knowledge
-12. A renewal with **no evidence** — asserts failure
-13. `scope` naming a deleted path
+10. Many evidenced renewals on an unverifiable entry — asserts it **passes**, proving the design
+    does not delete true-but-untestable knowledge. (There is deliberately no fixture for
+    "could have been verified": that is a reviewer's judgment, not a validator's.)
+11. A renewal with **no evidence** — asserts failure
+12. A renewal whose `date` is malformed — asserts failure
+13. `scope` naming an untracked-but-present path (e.g. `.husky/`) — asserts **failure**, since a
+    check that passes only on the author's machine is the defect this rule exists for
+14. `see_also` naming a non-existent slug
+15. All three onboarding docs agreeing on `npm install` — asserts the policy check fires despite
+    perfect consistency
+16. An orphaned `.json` with no `.md`, and an orphaned `.md` with no `.json`
+17. **Discovery exercised from a clean checkout** — the whole registry validates against a
+    `git clone`-fresh tree with no build output, no `node_modules` state, and no machine-local
+    directories present
 14. `see_also` naming a non-existent slug
 15. All three onboarding docs agreeing on `npm install` — asserts the policy check fires despite
     perfect consistency
@@ -416,7 +470,7 @@ fixtures:
 
 ## Rollout
 
-**Phase 1 — mechanism and proof.** Schema, validator with all assertions and the fifteen negative
+**Phase 1 — mechanism and proof.** Schema, validator with all assertions and the seventeen negative
 fixtures, the `/learned` skill, and seeding with the five orphaned learnings from 2026-09-03/04.
 Those five are ideal seeds: fresh, independently verified, and collectively exercising every check
 type.
@@ -489,6 +543,11 @@ defect in this repo.
   *possible*. Inherently unverifiable entries renew indefinitely with per-renewal evidence.
 - ~~Landing docs site~~ — **Resolved: contributor-facing only**, at least initially. The registry is
   working material for people changing the code, not published documentation.
+- ~~YAML or JSON~~ — **Resolved (round 2): JSON sidecars**, one `.json` + one `.md` per entry, with
+  orphans rejected. Adds no dependency, so the lane is dependency-independent.
+- ~~Two-renewal promotion as a validator rule~~ — **Resolved (round 2): withdrawn.** It was not
+  mechanically decidable. Promotion is a reviewer's judgment at renewal; the validator enforces
+  only dates, evidence, pairing, tracked scope, and reference integrity.
 
 **Still open:**
 
@@ -497,10 +556,6 @@ defect in this repo.
    question — it must be fast and offline there — but the strength/hermeticity trade-off is
    unresolved. Leaning toward a local high-recall pattern set at pre-commit, accepting false
    positives as the safer failure direction.
-2. **YAML or JSON?** Resolving `js-yaml` means either declaring it in the owning workspace
-   (surgical `package.json` + in-place lockfile splice, proven with strict `npm ci`, and taking the
-   dependency lane for that sprint) or dropping YAML for a JSON sidecar and adding no dependency at
-   all. This is now the largest unresolved decision in the spec, because it determines whether the
-   lane is dependency-independent.
-3. **Is "gotcha" a stable category?** The boundary between a gotcha and a `CONTEXT.md` line is
-   fuzzier than this spec admits, and may not survive contact with real entries.
+2. **Is "gotcha" a stable category?** The boundary between a gotcha and a `CONTEXT.md` line is
+   fuzzier than this spec admits, and may not survive contact with real entries. This is the one
+   question that only real usage can answer, which is an argument for Phase 1 staying small.
