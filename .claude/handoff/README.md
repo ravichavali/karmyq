@@ -27,8 +27,12 @@ cross-session state, and concurrent edits to it from two checkouts corrupt exact
    pointer. If no row matches, it is not in a lane — the sprint state in that file applies.
 2. A session reads and writes **only its own lane file**. Never edit another lane's handoff;
    that is the cross-machine equivalent of building on another agent's uncommitted WIP.
-3. Cross-lane facts (merge order, who holds the dependency lane, reserved ADR numbers, demo-server
-   data ops in flight) live in the router table, because both machines must see them.
+3. **Cross-lane facts do NOT live here.** Every file in this directory is branch-local, so a fact
+   written on one lane's branch is invisible to the other until it merges. Contended resources
+   (ADR numbers, the version bump, the dependency lane, the merge slot, demo data ops) are
+   **derived from their live arbiters** at the moment they are needed — see `CLAUDE.md` →
+   *Parallel Development* → **Why reservations do not work here**. The router table is a pointer
+   to lane files and nothing more.
 4. When a lane ships, archive its lane file to `archive/` and delete its row.
 
 The serialization rules these lanes must honor are in `CLAUDE.md` → **Parallel Development**.

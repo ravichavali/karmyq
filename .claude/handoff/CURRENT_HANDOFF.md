@@ -1,636 +1,123 @@
-# Sprint 126 — Honest Standing Backfill (COMPLETE — merged, deployed, demo backfill applied)
+# Current Handoff — as of 2026-09-04
 
-## 🔀 Active lanes — READ YOUR LANE FILE, NOT THIS ONE
+**Version:** v11.46.0 · **Branch of record:** `master` at `9083a79a` · **Demo:** deployed and healthy
 
-Parallel development runs from two checkouts on two machines. **This file is the router.** Find
-your branch below, then read and update only that lane's file. Never edit another lane's handoff.
+---
 
-| Lane | Machine | Branch | Handoff file | ADR block |
+## 🔀 Active lanes
+
+Parallel development runs from two checkouts on two machines (Windows primary, Mac second). When
+lanes are active, find your branch below and read/update **only that lane's file**.
+
+| Lane | Machine | Branch | Handoff file | Sprint |
 |---|---|---|---|---|
-| _(none active)_ | — | — | — | — |
+| _(none active yet)_ | — | — | — | — |
 
-**Serialized across lanes** (`CLAUDE.md` → *Parallel Development*): `master` merges, the
-`package.json` version bump, dependency/lockfile edits, ADR numbers, demo-server data ops.
-Highest ADR in use: **ADR-096** — reserve the next block here before writing one.
-
-When a lane ships, archive its lane file and drop its row. When no lanes are active, the sprint
-state below is the handoff.
+⚠️ **This table is a pointer, not a coordination store.** It is a branch-local file, so it can be
+stale and it is **never** the authority on who owns a contended resource. Derive those from their
+live arbiters — see `CLAUDE.md` → *Parallel Development* → **Why reservations do not work here**
+(ADR numbers, version bump, dependency lane, merge slot, demo data ops).
 
 ---
 
-> ## State as of 2026-09-03
->
-> **Sprint 125 shipped**: PR #209, squash **`f1197a17`**, version **v11.45.0**, deployed and
-> smoke-tested on demo. Archived at
-> [`archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md`](archive/2026-08-19-sprint-125-provider-standing-SHIPPED-v11.45.0.md).
->
-> **Sprint 126 is open as [PR #210](https://github.com/ravichavali/karmyq/pull/210)**, base `master`,
-> version **v11.46.0**. Tasks 1-13 done. Task 14 is NOT authorized and has not begun. The demo
-> database has only ever been READ.
->
-> **✅ TASK 14b APPLIED 2026-09-03.** Demo standing backfill ran to convergence, explicitly
-> authorized as its own data operation. Backup `~/backups/pre-s126-backfill-20260903T203953Z.dump`
-> (53 MB, archive validated with `pg_restore --list`, 953 TOC entries) taken first.
->
-> **Result — predicted exactly, written exactly:**
->
-> | | predicted | written |
-> |---|---|---|
-> | karma rows | 20,341 | 20,341 |
-> | activity rows | 6,800 | 6,800 |
-> | trust pairs | 5,683 | 5,683 |
->
-> 8,403 of 8,403 completed matches projected. Second dry run: `alreadyProjected` 8,403, predicted
-> 0 karma / 0 activity, 0 anomalies. Second `--apply`: exit 0, counts unchanged — idempotency
-> proven against live data, not just in tests. Final reasons: `Provided help` 8,403,
-> `Received help` 8,403, `First help in community` 3,480, `10 exchanges milestone` 55.
->
-> **⚠️ The run initially BLOCKED, and the block was correct.** The first dry run returned
-> `canApply: false` with one `UNEXPECTED_KARMA_PROJECTION`. Cause: after the deploy fixed BUG-037,
-> the live path processed match `d183939e` and minted a `First help in community` bonus — because
-> the stored canonical karma table was still EMPTY, so it counted that as help #1. The helper
-> actually had **3 prior completed matches in that same community** (53 overall), so replay
-> correctly produced no milestone and the safeguard refused to backfill over a fabricated row.
-> This is the ADR-096 blocking rule earning its keep on live data within an hour of shipping.
-> Resolved by deleting all 3 canonical rows from that match (maintainer-authorized, transactional,
-> row-count guarded); the backfill then re-derived them from full history. **Generalisable lesson:
-> between a BUG-037-style fix and the backfill, the live path mints wrong milestones — backfill
-> promptly after deploying, or expect to clean up.**
->
-> **Realism check (Step 8), including two things that did NOT match the report:**
-> - All 5,683 active membership pairs evaluated; `trust_scores` holds exactly 5,683 rows.
-> - **No user has score 0.** The report predicted 1,518 zero-history pairs at score 0; the stored
->   minimum is **1** and those pairs land in 1-19 (1,518 + 19 = 1,537, which is exactly the stored
->   1-19 bucket). The canonical ADR-037 calculator, not Sprint 126, decides this — but the report's
->   `scoreBuckets` preview disagrees with what `updateTrustScore` actually writes for empty history.
->   Worth reconciling; it makes the operator preview subtly misleading.
-> - **`providerEligibility` also disagrees**: the report predicts 384 at floor 20, but **499 of 501
->   distinct providers** have a stored score ≥ 20. Same class of preview-vs-stored gap.
-> - Score range is **1..52** — nothing in 60-79 or 80-100. That is the honest output of stored
->   facts; per plan rule 10 it was NOT tuned to look attractive.
-> - ⚠️ **Floor 20 is now barely selective** (499/501 providers pass). Before the backfill the gate
->   admitted nobody, because `trust_scores` was empty. Changing the floor needs its own
->   authorization and was NOT done.
-> - Traced the top profile end-to-end: score 52, 50 karma rows / 2,015 points across 49 distinct
->   matches, and **all 49 are real completed matches**. No fabricated lineage.
->
-> **Legacy repair**: the 174 attributable snake_case rows are gone, replaced by canonical rows for
-> the same matches. By design and atomic — each match's legacy rows are deleted inside the same
-> transaction that writes its projection (`standingBackfillService.ts:913`). No karma was lost.
->
-> **✅ MERGED 2026-09-03.** PR #210 squash-merged as **`9083a79a`** (admin override — master
-> requires 1 approving review and there is no second reviewer; explicitly authorized by the
-> maintainer). The master pipeline passed every gate including the ADR-060 Code Scanning Gate,
-> which really does block on master, and **Deploy to Demo succeeded with all services healthy**.
->
-> **Verified on demo, read-only, after deploy:**
-> - Migration applied: `uq_karma_match_projection`, `uq_activity_match_projection` and
->   `idx_karma_related_entity` all exist; `reputation.trust_scores.score` is `NOT NULL`.
-> - **No standing data was written by the deploy**, exactly as predicted: `trust_scores` 0 rows,
->   `activity_log` 0 rows, 0 karma rows created since the merge.
-> - **The blocking-anomaly precondition holds.** 174 karma rows carry a `related_entity_id`, but
->   every one has a legacy snake_case reason (`help_provided` 65, `help_received` 65,
->   `first_help_bonus` 44, all dated 2026-01-05..06-30) — and **0 rows carry a CANONICAL reason**.
->   So the now-unconditional `UNEXPECTED_KARMA_PROJECTION` cannot bite the first backfill, which is
->   the claim ADR-096 makes. Confirmed against the live table rather than assumed.
-> - **0 duplicate projection identities**, so the amended Task 14 pre-deploy check currently passes.
->   Re-run it immediately before apply regardless.
-> - `42703` / `community_configs.config` errors are **gone** from reputation-service logs, and
->   `✅ Canonical trust-score refresh initialized (runs daily at 3:30 AM)` confirms the new cron.
->
-> ⚠️ **NOT yet proven: the live write path in production.** Exactly one match completed after the
-> merge (19:31:37Z) and it produced no karma or activity rows — but both services restarted at
-> 19:42:30Z, eleven minutes LATER, so that match was handled by the OLD image with BUG-037 still
-> in it. No match has completed since the restart. **The first post-restart completion is the real
-> test**; check that it writes karma + activity + a trust score in one transaction before treating
-> BUG-037 as closed end-to-end. The absence of the 42703 error is necessary, not sufficient.
->
-> ⚠️ **Completed matches are now 8,400** (7,817 on 2026-08-19, 7,860 on 2026-09-02). The simulator
-> keeps adding, which is exactly why Task 14 Step 5 re-measures instead of trusting the audit.
->
-> Superseded PR state (kept for the audit trail) — head `812fc1a3` was `OPEN`/`MERGEABLE`/
-> `REVIEW_REQUIRED`; CI was green — 21
-> checks pass, `Deploy to Demo` correctly skipping (not master). Verified by reading the runs, not
-> inferred from ticks: the Integration Tests step ran `sprint-126-standing-schema` and
-> `sprint-126-standing-backfill` against real Postgres 15 + Redis (5 suites / 56 tests), the
-> init.sql workflow logged `Seeded from base revision f1197a17` — so `independent=true` and the
-> byte-for-byte comparison actually EXECUTED rather than being skipped by its guard — then
-> `Committed init.sql is byte-identical to the canonical regeneration`; CodeQL reports 0
-> annotations and 0 open alerts on this ref. That last point matters on its own, because the
-> ADR-060 gate fail-opens on PRs (it polls `refs/pull/N/merge` while CodeQL publishes to `/head`),
-> so its pass is not evidence. (An earlier version of this handoff said CI had not run; that was
-> wrong, and CI was in fact red at the time — see "Review rounds" below.)
->
-> **Four Codex review rounds are complete and there are NO remaining review blockers.** Rounds 1-2
-> raised code findings; round 3 confirmed those closed and raised four documentation/handoff
-> findings; round 4 confirmed those closed and raised one repository-hygiene finding (generated
-> landing metadata churn), closed in `812fc1a3`. Round 4's verdict: *"no remaining review blockers.
-> PR #210 is ready for the maintainer-controlled merge authorization gate."*
->
-> ⚠️ **That is NOT merge authorization.** The single remaining blocker is a human decision, and it
-> is two decisions, not one — see *What is actually blocked* below. Task 14 has not begun and the
-> demo database has still only ever been READ.
-
-## What is actually blocked (two separate authorizations)
-
-Sprint 126 needs **two** decisions from the maintainer, and conflating them is the risk this
-sprint's whole thesis is built to avoid. Approving the first does NOT approve the second.
-
-**1. Merge + deploy.** Squash-merge PR #210 to `master`, which triggers a full demo deploy
-(ARM64 build, SSH, `deploy.sh`, health verify, rollback on failure). This ships code only: the
-schema migration, the canonical projection path, the corrected decay/cleanup behaviour, the
-reputation-service 03:30 trust-score refresh, and the operator CLI. **It writes no standing data.**
-The backfill does not run on deploy; it has no cron and no startup hook. Post-deploy the provider
-surface looks exactly as it does today, because BUG-037 stopped karma being written since Sprint 62
-and nothing retroactively fixes that until step 2.
-
-**2. The demo data operation (Task 14).** Running `backfillStanding --apply` against the demo
-database, which writes karma, activity and trust-score rows derived from 7,860 stored completed
-matches. This is the step that changes what the demo shows. Preconditions, all still unmet:
-deploy completed and healthy; a FRESH demo backup taken; a dry run re-executed immediately before
-apply (the live simulator keeps adding matches, so the 2026-08-19 audit is a dated snapshot); and
-explicit authorization naming the data operation itself.
-
-Per ADR-096 and the plan, **deployment approval is not data-operation approval.** The amended
-Task 14 also requires a pre-deploy duplicate-identity check before any apply.
-
-## ▶ NEXT CHAT: start here
-
-Sprint 126 is **fully complete** — merged, deployed, demo backfilled and converged. Nothing about
-it is outstanding. This handoff is the record of that, not a to-do list.
-
-**⚠️ Read this file from branch `docs/sprint-126-post-deploy-state`, NOT master.** The
-post-deploy and Task 14b records live only here; master's copy predates the merge. It was kept off
-master deliberately — every master push is a full deploy, and a docs-only push would have
-restarted healthy services twice for no reason. **Fold this file into the next sprint's first PR**
-so master catches up as a side effect of real work.
-
-**Sprint 127 is NOT planned.** Run the `sprint-planning` skill to produce spec + plan + a fresh
-handoff, then execute in the chat after that.
-
-### Candidate work, highest-value first
-
-1. **Two operator-report inaccuracies (found during the 14b run, NOT fixed).** The backfill's
-   dry-run preview disagrees with what the canonical calculator actually stores:
-   - `scoreBuckets` predicts 1,518 pairs at score **0**; the stored minimum is **1** and they land
-     in 1-19 (1,518 + 19 = 1,537 = the stored 1-19 bucket exactly).
-   - `providerEligibility` predicts **384** providers at floor 20; **499 of 501** actually qualify.
-
-   The stored data is correct — the PREVIEW is wrong, which is worse than it sounds: the preview is
-   what an operator reads before authorizing a destructive data operation. Small, well-scoped fix.
-
-2. **ADR-095 floor 20 is now barely selective** — 499/501 providers clear it. Before the backfill
-   the gate admitted nobody (empty `trust_scores`), so the floor was never exercised against real
-   data. Now it is, and it discriminates almost nothing. Needs a deliberate decision about what the
-   floor is FOR, and the score range (1..52, nothing above 52) should inform it. **Changing the
-   floor needs its own authorization** — it was explicitly not done.
-
-3. **⏰ `security/audit-exemptions.json` expires 2026-09-15** (2 GHSA entries). After that every PR
-   blocks on the ADR-059 gate. ~12 days out — either renew with justification or fix the
-   advisories. Do not let this ambush a sprint mid-flight.
-
-4. **Known rough edges** already catalogued below: CodeQL dismissals dying on line shifts (68 and
-   counting on `api.ts`), ~10 verbatim `SERVICE_TYPE_LABELS` copies, duplicated `isActiveMember`,
-   BUG-036's fixed `sleep 30` in `test.yml`.
-
-### Live demo state, for reference
-20,341 canonical karma rows · 6,800 activity rows · 5,683 trust scores · 8,403 completed matches
-projected · scores 1..52 · backup `~/backups/pre-s126-backfill-20260903T203953Z.dump`.
-
-## Progress
-
-| Task | State | Commit |
-|---|---|---|
-| 1. Schema foundation + conflict-safe writers | ✅ done | `915a2590` |
-| 2. Canonical pure standing policy | ✅ done | `0dfca2ca` |
-| 3. Transaction routing + historical activity | ✅ done | `d89ca83f` |
-| 4. Transactional standing projector | ✅ done | `cb94f514` |
-| 5. Live event boundary | ✅ done | `7939a082` |
-| 6. Curated fixture convergence | ✅ done | `00bb1549` |
-| 7. Read-only standing preflight | ✅ done | `5ba3671c` |
-| 8. Bounded apply and legacy repair | ✅ done | `2c0d3f42` |
-| 9. Operator CLI | ✅ done | `88811056` |
-| 10. ADR-096, ADR-037/095 amendments, guide, landing | ✅ done | `33599dd8` |
-| 11. Contexts, registry, version bump, end-to-end proof | ✅ done | `6cea6abf` |
-| 12a. /simplify (4 angles, full branch diff) | ✅ done | `ea663ba8` |
-| 12b. /code-review high | ✅ done | `ac93b30b` |
-| 12c. /security-review | ✅ done | `5bd1b7d4` |
-| 12d. pre-commit process review | ✅ done | this commit |
-| 13. Final verification + PR | ✅ done | this commit |
-| 14a. Merge + deploy (code only) | ✅ done | squash `9083a79a` |
-| 14b. Demo `--apply` data operation | ✅ done | applied + converged 2026-09-03 |
-
-**Verification at Task 11:** full `npx turbo run test --concurrency=2` — **26/26 tasks, 0 failures**.
-Reputation 231 passing / 3 todo / 0 skipped. Against real PostgreSQL 15.15: schema integration
-12/12 and **backfill end-to-end 10/10** — dry run leaves a byte-identical fingerprint, a second
-apply writes nothing, and an interrupted run resumes to the same rows as an uninterrupted one.
-
-**Earlier (Task 6):** full suite — **26/26 tasks, 0 failures**.
-`npm run feedback:check` clean. Suites: shared 171, simulation 99, reputation 192 (0 skipped),
-root policy 32, schema integration 12 against real PostgreSQL 15.15.
-
-## Resume here
-
-1. `git checkout feature/sprint-126-standing-backfill` (already there; tree clean except
-   `docs/IDEAS.md`).
-2. Open the plan: `docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md`.
-3. **Task 14 is all that remains**, and every step of it needs maintainer authorization:
-   merge → deploy → fresh backup → dry-run → **separate** authorization → bounded apply.
-   Do not run `--apply` against demo without that separate approval.
-4. Task 13 re-proves operator behaviour (dry-run → apply → dry-run → apply) against a disposable
-   database. Recipe below.
-
-### Disposable PostgreSQL + Redis (this box has no local Docker)
-
-```bash
-ssh ubuntu@karmyq.com 'docker run -d --name karmyq-s126-e2e   -e POSTGRES_USER=karmyq_test -e POSTGRES_PASSWORD=test_password -e POSTGRES_DB=karmyq_test   -p 127.0.0.1:55434:5432 postgres:15-alpine'
-ssh ubuntu@karmyq.com 'docker run -d --name karmyq-s126-redis -p 127.0.0.1:63799:6379 redis:7-alpine'
-scp infrastructure/postgres/init.sql ubuntu@karmyq.com:/tmp/s126-init.sql
-ssh ubuntu@karmyq.com 'docker exec -i karmyq-s126-e2e psql -v ON_ERROR_STOP=1 -U karmyq_test -d karmyq_test < /tmp/s126-init.sql'
-ssh -f -N -L 55434:127.0.0.1:55434 ubuntu@karmyq.com
-ssh -f -N -L 63799:127.0.0.1:63799 ubuntu@karmyq.com
-
-cd tests && DATABASE_URL='postgresql://karmyq_test:test_password@127.0.0.1:55434/karmyq_test'   REDIS_URL='redis://127.0.0.1:63799'   npx jest --config jest.integration.config.js integration/sprint-126-standing-backfill.integration.test.ts --runInBand --forceExit
-```
-
-⚠️ **REDIS_URL is not optional.** `effectiveParamsCache` is Redis-backed, so without it every
-`updateTrustScore` burns connection retries — apply measured **298s per match** without Redis versus
-**2.1s** with it. If the backfill ever looks pathologically slow, check Redis before suspecting the
-query plan. CI is unaffected (`docker-compose.test.yml` provides `redis-test`).
-
-**Tear both containers down afterwards** — demo must be left as found (17 containers).
-
-## Task 13 — operator behaviour proved against real PostgreSQL 15
-
-Twelve seeded completed matches across two communities, run through the exact four-step sequence
-the runbook prescribes:
-
-| Step | Result |
-|---|---|
-| 1. Dry run (default) | predicts 26 karma / 24 activity rows; wrote **0 / 0 / 0** |
-| 2. `--apply --batch-size 5` | 3 bounded batches; wrote exactly **26 karma / 24 activity / 4 trust** |
-| 3. Second dry run | `alreadyProjectedMatches: 12`, predicts **0** — converged |
-| 4. Second apply | writes nothing; row counts **unchanged** |
-
-Prediction matched reality exactly. Milestones landed per `(helper, community)` — 2 first-help rows
-across 2 communities, not 1 platform-wide. Scores are ADR-037 computed values (37), not invented.
-Argument safety: `--unknown` and `--batch-size=0` both exit **2** before any database call. The CLI
-exits cleanly rather than hanging.
-
-Note the converged `activityRows: 0` in step 3 is only possible because of the Task 12 settings-gating
-fix — before it, the preflight predicted activity rows for communities that will never receive any,
-so this check could never have passed.
-
-## Review rounds on PR #210
-
-**Round 1 (Codex).** Four blocking findings, all correct:
-- Stored trust scores would have stopped decaying. Neutering cleanup-service's job removed the
-  wrong `karma/10` formula but also the only refresh cadence, and the ADR-095 gate reads the CACHED
-  score. Fixed by a daily 03:30 canonical sweep in reputation-service.
-- Required source-data failures were fail-open. `MISSING_MATCH_PARTICIPANTS`,
-  `MISSING_COMPLETION_TIME` and `NO_REQUEST_COMMUNITY` now block.
-- Unexplained canonical rows were accepted. See round 2.
-- **CI was red** (Integration, CodeQL, ADR-060) while I had reported the branch green from local
-  runs only. All three fixed at the cause, none dismissed.
-
-**Round 2 (Codex).** Two blocking findings, both correct:
-- **init.sql regeneration was self-seeded.** The generator loaded the COMMITTED init.sql, applied
-  migrations, and the workflow compared the dump against that same input — so an object created by
-  no migration survived the round trip and matched itself. Proven, not assumed: a smuggled table in
-  pg_dump's canonical position passed the old design and fails the new one. The generator is now
-  seeded from the **base revision's** init.sql (a revision the PR cannot edit) plus the full
-  migration chain, and the comparison target is HEAD's committed artifact.
-- **Lineage proved adjacency, not legitimacy.** The carve-out never checked the row's points,
-  timestamp or carry semantics; it was undirected, single-hop, and ignored link status. Removed
-  entirely — `UNEXPECTED_KARMA_PROJECTION` now blocks unconditionally. A carried row cannot be
-  derived from the match's own facts, so no graph-walk makes it verifiable; blocking is the honest
-  outcome and cannot bite the first demo backfill, because carry only produces canonical rows once
-  canonical rows exist and every stored karma row today is legacy snake_case.
-
-`NO_ELIGIBLE_COMMUNITY` is now the ONLY informational anomaly code.
-
-**Round 3 (Codex).** Both code findings **confirmed fixed** — the independent base artifact seeds
-the PR gate (workflow lines 53 / 80 / 143, corroborated against the live Actions log), and
-unexpected rows block unconditionally at `standingBackfillService.ts:609` with no lineage query or
-helper left anywhere. Four documentation findings, all correct and all fixed in the commit carrying this handoff edit:
-
-- **cleanup-service docs still described the removed writer** in four places the round-2 pass did
-  not reach (`CONTEXT.md` decay-flow, key metrics, database-load, and event-flow sections), and the
-  Access Control section claimed the manual trigger endpoints were "currently open for testing"
-  when every `/jobs/*` route has carried `adminRateLimiter` + `adminAuthMiddleware` all along
-  (`src/index.ts:173-267`). Documenting an authenticated admin surface as unprotected is wrong in
-  the more dangerous direction. Also fixed while in there: the manual-run `curl` examples omitted
-  the required Bearer token, and the decay-formula / activity-tracking sections implied this
-  service applies decay and writes `last_activity_at`. Landing JSON regenerated.
-- **The handoff was stale**: it recorded CI against the superseded head `17ccbbea`, said a third
-  review had not been requested, and still listed the pg_dump normalization limitation as open
-  after Sprint 126 generalized it. All three reconciled; that limitation is now marked CLOSED,
-  which matters because the old hand-listed normalization would have made the new byte-for-byte
-  gate false-fail on any runner with a different pg_dump patch release.
-- **The CI failure message advertised a circular repair** (`bash scripts/regenerate-init-sql.sh`,
-  which defaults `SOURCE_INIT_SQL` back to the committed file at `regenerate-init-sql.sh:111`) — so
-  a developer following it would regenerate from the very file under suspicion. It now prints the
-  base-seeded command CI actually uses, with a `git merge-base` fallback outside a PR checkout.
-  Verified by extracting the step body verbatim from the YAML and running both paths: exit 1 with
-  the base SHA interpolated on a mismatch, exit 0 on a match.
-
-Codex flagged its own confidence limits — it did not rerun the PostgreSQL smuggled-table mutation
-or query demo inventory. Those were verified in round 2 and are unchanged by these doc-only edits.
-
-**Round 4 (Codex).** All three round-3 doc findings confirmed fixed — landing JSON matches
-`CONTEXT.md` byte-for-byte after newline normalization, and the repair command now reproduces CI.
-One new finding, correct and blocking on hygiene grounds: **`89fd7886` carried generated landing
-metadata churn** (`build.json` commitSha/generatedAt/adrCount, `architecture.json` dependency-graph
-timestamp) unrelated to the doc fixes.
-
-Root cause was ORDER, not omission — see rule 11 above. Both files restored to their `7df830ce`
-state and `services/cleanup-service.json` retained, verified per file rather than by reading a diff
-stat. Round-4 verdict: no remaining review blockers.
-
-## What the gates found (Task 12)
-
-Four bugs, three of them in code this sprint wrote, one pre-existing and sprint-invalidating.
-
-**🔴 The nightly decay job would have wiped the entire backfill within 24 hours.**
-cleanup-service's 03:00 cron overwrote `reputation.trust_scores.score` with
-`min(100, floor(decayed_karma / 10))`, a pre-ADR-037 formula. ADR-039 Phase 2 moved decay INTO the
-canonical calculator, so this second formula did not add decay — it replaced the real score nightly
-and would have re-emptied ADR-095's provider reach gate. Invisible until now only because
-`trust_scores` had zero rows (BUG-037). The job no longer writes trust scores; four tests pin that.
-
-**🔴 The live fallback fabricated a milestone.** `loadFallbackCandidate` hardcoded
-`helperHelpCountThroughAsOf: 1`, minting a "First help in community" bonus on every fallback award
-even for a helper with existing history — the projection identity is per-match, so the index
-accepted it. Fabricated standing, in the sprint whose thesis is that standing must be derivable.
-
-**🔴 `canApply` treated every anomaly as fatal**, so routine data was permanently fatal: one member
-leaving a community, or fission carrying karma into a child community (demo has **16 executed
-splits**), would have made the backfill unrunnable forever with no override. Anomalies now carry a
-severity; only blocking ones refuse.
-
-**🔴 Post-apply verification was printed, not enforced.** The apply re-derives every projected row
-in TypeScript and compares it to what SQL wrote — the only SQL-vs-TS cross-check that exists — and
-returned the verdict unchecked while the CLI exited 0. It now throws.
-
-Also fixed: a deadlock window (trust-score locks now taken in one deterministic order),
-`last_activity_at` being stamped falsely fresh during replay, the preflight predicting activity rows
-for the 45 of 53 demo communities that have no `communities.settings` row (which made
-`alreadyProjectedMatches` unable to converge — breaking the operator's own "second run writes
-nothing" check), two O(n²) scans, a test that could not fail, and `isStrictlyBefore`/`isThrough`
-which ADR-096 advertised as the canonical oracle while having zero callers.
-
-**`/security-review` found no vulnerabilities introduced by this branch** and confirmed a hardening
-win: before this sprint, `awardKarmaForCompletedMatch` trusted `requester_id`/`responder_id`
-straight from the Bull payload, so anyone able to inject a job could mint karma for arbitrary users.
-The projector now re-reads participants and status from the database under an advisory lock.
-
-Its one actionable item was adjacent: `PUT /matches/:id/complete` never checked `m.status`, so
-repeated calls re-stamped `completed_at` and re-published. That drift shifts the as-of boundary and
-would have tripped the backfill's own blocking `CONFLICTING_KARMA_PROJECTION` — one double-click
-could have refused the whole run. Completion is now idempotent.
-
-⚠️ **`npm run feedback:check` is a false-green on a committed branch.** `scripts/feedback-loop.js`
-reads `git diff --cached --name-status` with no range, so a branch with everything committed always
-reports clean. It only cross-checks CONTEXT.md when a file under `/routes/` changed, so the
-cleanup-service job change was outside its rules entirely. Replay its rules by hand against
-`origin/master...HEAD`, or stage before trusting it.
-
-## ⚠️ Decisions taken during execution that differ from the written plan
-
-All four are recorded in full in the plan's Task 1 preamble and in the affected task steps.
-
-1. **Test placement.** New tests went to blocking tiers (`tests/integration/`,
-   `services/*/tests/regression/`), not root `tests/tdd/`. A root-`tdd/` test is never promoted and
-   never runs in CI, so it would have gated nothing.
-2. **The migration adds a NULL guard** (`UPDATE trust_scores SET score = 0 WHERE score IS NULL`)
-   before `SET NOT NULL`, which would otherwise abort. The approved DDL alone could not apply.
-3. **`init.sql` carries the semantic delta only, not a regeneration.** Regenerating on PostgreSQL
-   15.15 rewrites 78 lines of unrelated CHECK-constraint casts (the documented pg_dump-patch
-   sensitivity). Verified by loading the edited file into a fresh database and replaying the whole
-   migration chain through `ci-apply-full-schema.sh --drift-check`.
-4. **Fusion karma carry now SUMs rather than discarding.** A bare `ON CONFLICT DO NOTHING` there
-   caused silent, nondeterministic karma LOSS — production splits one match's pool across up to
-   three shared communities, so a user can hold the same `(reason, match)` identity in both origin
-   communities and fusing them collapses those onto one identity. Found by the migration-validator
-   review, not by the plan.
-
-## ⚠️ Carried into Task 14 (deploy)
-
-**Re-measure duplicate projection identities against demo immediately before deploying.** The
-migration's `CREATE UNIQUE INDEX` runs at deploy, BEFORE the backfill collapses duplicates, and
-`IF NOT EXISTS` does not tolerate duplicate data — it aborts the migration and rolls the deploy
-back. The audit found 0 on 2026-08-19, but that is a snapshot and the non-idempotent write path
-this sprint replaces is exactly what would create one. Queries are in the plan at Task 14 Step 3b.
-Prefer a quiet window: `deploy.sh` applies migrations at step 6 but does not rebuild images until
-step 8, so the new indexes are live against OLD images for a few minutes.
-
-## 🔴 LIVE PRODUCTION BUG found on 2026-08-20 — already fixed by this sprint
-
-**Live karma awarding has been failing on demo for every completed match, and still is.**
-
-`karmaService.getCommunityKarmaConfig()` selected `config->'enabled_request_types'` from
-`communities.community_configs`. That table has **no `config` column** — `enabled_request_types` is
-a top-level `jsonb` column (`init.sql`), and no migration ever created a `config` column. So the
-query raises `42703` at parse time and `awardKarmaForCompletedMatch` throws on every single call.
-
-Confirmed in the live reputation-service logs, not inferred:
-
-```
-❌ Failed to award karma for match: <uuid> error: column "config" does not exist
-   code: '42703'
-   at async awardKarmaForCompletedMatch (karmaService.js:112:30)
-```
-
-20 occurrences in the last 72 hours alone. Read-only demo state agrees exactly:
-
-| Measure | Value |
-|---|---|
-| Completed matches | **7,860** (was 7,817 on 2026-08-19 — the simulator is still adding) |
-| `karma_records` with live-path prose reasons | **0** |
-| `karma_records` with fixture snake_case reasons | 174 |
-| `trust_scores` rows | **0** |
-| `activity_log` rows | **0** |
-
-The live path has never written a single karma record, activity row, or trust score. Introduced in
-Sprint 62 (2026-05-21, when the multiplier fetch was added); the Sprint 117 curated reset cleared
-whatever preceded it.
-
-**This deepens the sprint's premise.** The spec attributed the invisible-standing problem to a
-reason-vocabulary mismatch between the fixture and production. That is real, but the primary cause
-is that the production writer was crashing outright. Sprint 126 repairs it incidentally: Task 4
-replaced `getCommunityKarmaConfig` with the projector's own query, and Task 7-9's TDD corrected
-that query to read the real `enabled_request_types` column.
-
-**Consequences to carry:**
-- **Task 10/11:** ADR-096 and reputation `CONTEXT.md` "Recent Fixes" should record this as the true
-  root cause, not just the vocabulary drift. Worth a `docs/BUGS.md` entry marked fixed-in-S126.
-- **Task 14 smoke test:** after deploy, a live match completion will write karma **for the first
-  time**. Verify that directly — it is a behaviour change on demo independent of the backfill, and
-  the cleanest possible proof the repair works.
-- **The 7,860 figure** confirms why Task 14 Step 5 must re-measure rather than trust the audit.
-
-## Known residual risk
-
-**Cap-3 selection has no validation from real demo data.** All 7,817 stored completed matches
-resolve to exactly one eligible community, so multi-community selection, the tie-break, and the cap
-are exercised only by synthetic tests. Task 14's human realism check structurally cannot confirm
-them.
-
-## Sprint goal
-
-Make zero-standing semantics consistent, then project the demo's stored completed-match history
-through one canonical, transactional, idempotent production standing path so the existing provider
-surface shows rich, credible data without invented scores or retroactive feedback.
-
-**Design spec**: [`docs/superpowers/specs/2026-08-19-sprint-126-standing-backfill-design.md`](../../docs/superpowers/specs/2026-08-19-sprint-126-standing-backfill-design.md)
-
-**Implementation plan**: [`docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md`](../../docs/superpowers/plans/2026-08-19-sprint-126-standing-backfill.md)
-
-## ⚠️ Working-tree ownership
-
-`docs/IDEAS.md` contains a pre-existing user edit about importing networks. It is unrelated to
-Sprint 126 and must remain untouched and unstaged throughout execution.
+## Quick Start — read this, then pick from Outstanding below
+
+1. `git fetch origin` and confirm real state before trusting anything written here:
+   `gh pr list` and `git log --oneline origin/master -3`.
+2. Two artifacts are **open and awaiting review** (details below). Neither is merged.
+3. Nothing is mid-implementation. There is no half-finished task to resume.
 
 ---
 
-## Approved scope
+## What shipped
 
-- Foundation: `trust_scores.score DEFAULT 0 NOT NULL` and one canonical reason/milestone contract.
-- One transaction-safe, retry-safe completed-match standing projector shared by live events,
-  curated fixture projection, and the historical operator CLI.
-- Dry-run-first `backfill:standing` CLI; `--apply` remains a separately authorized demo data op.
-- Reproject all stored completed matches oldest-first using their real completion timestamps, then
-  evaluate every active user-community membership.
-- No fabricated feedback, no score-distribution tuning, and no unrelated rough-edge cleanup.
-- Human realism check: PDX provider layer at a meaningful non-zero floor, initially 20 subject to
-  the observed source-derived distribution.
+**Sprint 126 — Honest Standing Backfill.** PR **#210 merged** 2026-09-03, squash `9083a79a`,
+version **v11.46.0**, deployed and smoke-tested. The demo backfill was **applied and converged**
+as an explicitly authorized data operation: 20,341 karma rows, 6,800 activity rows, 5,683 trust
+pairs, 8,403 of 8,403 completed matches projected, idempotency proven against live data. Backup at
+`~/backups/pre-s126-backfill-20260903T203953Z.dump`.
 
----
-
-## ⚠️ Critical Implementation Notes
-
-1. **One projector, not equivalent-looking copies.** Live events, curated reset data, and historical
-   backfill must share canonical reason and milestone policy. An equivalence claim needs a test that
-   can fail.
-2. **Foundation before backfill.** Change `trust_scores.score` to `DEFAULT 0 NOT NULL`; reproject
-   attributable legacy rows from completed-match facts rather than renaming them in place.
-3. **Historical time is data.** Use `matches.completed_at`; stamping replayed rows with `NOW()` makes
-   decay and recent-activity output falsely rich.
-4. **Idempotency lives in PostgreSQL.** Per-match transactions and unique projection identities are
-   required; a CLI checkpoint file or `SELECT`-then-insert check is insufficient.
-5. **Oldest first.** First-help and milestone outcomes depend on chronological history. Sort by
-   completion timestamp and match ID. Define one `asOf = (completed_at, match_id)` key. Historical
-   community priority may read only canonical history lexicographically strictly before `asOf`;
-   milestone rank may count canonical helper history through `asOf`. Current/future replay writes
-   must change neither result.
-6. **No fabricated feedback.** Demo currently has no feedback rows. Keep quality neutral; Sprint 127
-   may create future ratings only through ordinary authenticated workflows.
-7. **Backfill only standing side effects.** Do not replay badges, provider metrics, notifications,
-   trust evolution, or other subscriber work merely because a match is historical.
-8. **Dry-run is the default and must be provably read-only.** `--apply` is a separately authorized
-   demo data operation after deployment and backup.
-9. **Every active membership is evaluated.** A zero is a meaningful result for no history, not a
-   missing batch.
-10. **Do not tune scores to look attractive.** Report the distribution produced by stored facts.
-    Human validation checks credibility against histories, not a target bell curve.
-11. **Generated files stay generated.** Regenerate `init.sql` and landing docs from their sources;
-    revert unrelated timestamp/HEAD churn — `apps/landing/src/data/docs/build.json` (commitSha /
-    generatedAt) and `architecture.json` (dependency-graph timestamp) are the two that recur.
-    ⚠️ **Order matters, and getting it wrong is what actually ships the churn.** `npm test` and
-    `npx turbo run test` run the landing prebuild, so they REGENERATE these files. Reverting them
-    and then running the suite puts the churn straight back, and a later `git add -A` commits it —
-    that is exactly how it reached `89fd7886` after being reverted twice. **Revert last: after the
-    final test run, immediately before staging**, and confirm with
-    `git diff <last-good-sha> --stat`. Running `cd tests && npx jest <file>` directly does not
-    regenerate them.
-12. **Demo facts are a dated snapshot.** Re-run preflight immediately before apply because the live
-    simulator can add matches after this spec's 2026-08-19 audit.
-13. **Audit every writer before adding uniqueness.** Fusion and fission karma copies must use
-    `ON CONFLICT DO NOTHING`, with shared-match regression coverage, before the indexes land.
-14. **Every projector predicate is as-of.** Community selection, milestone eligibility, and any
-    future write decision must be a function only of stored history as of the match plus the match
-    itself—never current table state. `updateTrustScore` is the deliberate exception because its
-    cache is supposed to reflect the present.
+Full record: [`archive/2026-09-03-sprint-126-standing-backfill-SHIPPED-v11.46.0.md`](archive/2026-09-03-sprint-126-standing-backfill-SHIPPED-v11.46.0.md)
+(historical — do not follow its instructions).
 
 ---
 
-## Carried items (nothing here is urgent)
+## Open right now
 
-### From the arc
-- **Sprint 126 — honest demo-data backfill through production math** (the planned next step).
-- **Sprint 127 — live simulation across all users.**
+### PR #219 — parallel-dev process, Sprint 126 post-deploy docs, BUG-038
+Branch `docs/sprint-126-post-deploy-state`. **All checks green**; `mergeStateStatus: BLOCKED`
+solely on the required approving review. Carries the `Parallel Development` rules in `CLAUDE.md`,
+the `AGENTS.md` topology rewrite, the handoff lane convention, and BUG-038.
 
-### ⏰ Dated obligation
-- **`image-size` exemptions expire 2026-09-15.** Both GHSAs, renewed under the amended ADR-059
-  (cap raised 7 → 30 days on maintainer decision, 2026-08-17). The weekly
-  `.github/workflows/image-size-advisory-watch.yml` re-measures upstream and will file an issue
-  when the horizon comes within 7 days, so this should surface itself around **2026-09-08**.
-  **If that workflow is ever deleted or left failing, `MAX_EXEMPTION_DAYS` must go back to 7 in the
-  same change** — the raised cap is defensible only because the monitor exists.
+**Codex reviewed at `9b726c16` and returned two P1/P2 findings against this PR** — reservations not
+reliably shared between branches, and a self-contradictory handoff. Both are now fixed on the
+branch; the PR needs re-review, and its Validation section needs updating to match.
 
-### Known rough edges (surfaced in Sprint 125, deliberately not fixed)
-- **CodeQL dismissals do not survive line shifts.** Any edit to `apps/frontend/src/lib/api.ts`
-  re-raises the documented `js/request-forgery` FP as *new* alert ids, which fails the ADR-060 gate
-  on master and **skips the deploy** (this happened on #209 — merge landed, deploy didn't run until
-  the new ids were dismissed and the pipeline re-run). 68 dismissals of this rule and counting. The
-  durable fix is a query-level suppression, scoped as its own change.
-- ~~**`init.sql` regeneration is pg_dump-version-sensitive.**~~ **CLOSED in Sprint 126.**
-  `normalize_schema_dump` used to canonicalize CHECK-constraint cast placement for exactly 2
-  constraints and not the other 12. It is now a generalized `sed -E` rule over every
-  `= ANY (ARRAY[...])` varchar IN-list, so a different PostgreSQL 15 patch release no longer
-  produces cosmetic diff noise. This mattered more than "cosmetic" once the byte-for-byte PR gate
-  landed: with the old hand-listed normalization that gate would have false-failed on any runner
-  whose pg_dump patch differed from the one the committed artifact was generated with.
-- **~10 verbatim copies of `SERVICE_TYPE_LABELS`** remain across the frontend. Sprint 125 added the
-  canonical `PROVIDER_SERVICE_TYPE_LABELS` to `packages/shared` and converted its own two files;
-  the rest is a separate cleanup.
-- **`isActiveMember` has inline duplicates** at `request-service/src/routes/offers.ts:105` and
-  `requests.ts:1847`, plus per-service copies in social-graph and community services. The two
-  in-service ones are a cheap follow-up; cross-service needs `packages/shared`.
-- **BUG-036 still open**: `.github/workflows/test.yml` uses a fixed `sleep 30` before the Docker
-  health probe, racing cold image pulls.
+### Design spec — ecosystem knowledge registry (Sprint 127 candidate)
+Branch `docs/sprint-127-knowledge-registry-spec`, commit `b352d679`, no PR opened.
+`docs/superpowers/specs/2026-09-04-ecosystem-knowledge-registry-design.md`.
+
+Proposes `docs/gotchas/` — a home for operational knowledge that today lives only in one
+maintainer's private agent memory and reaches nobody else. Every entry carries exactly one of a
+declarative machine check or an expiry date. **Codex returned three findings** (renewal rule too
+blunt, doc-agreement gate asserts weaker than it claims, `js-yaml` undeclared) plus three asks
+(gotcha discovery, contributor-facing scope, credential screening before push). Being integrated.
+
+**No implementation has begun and none should** until the spec is approved.
 
 ---
 
-## Demo environment state (changed by Sprint 125's smoke test)
+## Outstanding — rough priority
 
-**`PDX Service Providers Network` (`6fcbcefb-cd67-40f5-a6c6-542525140d5b`) now has
-`provider_services_enabled = true`** — set deliberately, with maintainer authorization, so the new
-provider layer is actually visible on demo. It surfaces 444 eligible providers.
-
-To revert: `UPDATE communities.community_configs SET provider_services_enabled = false WHERE
-community_id = '6fcbcefb-cd67-40f5-a6c6-542525140d5b';` (prior state was `enabled=f, floor=0,
-allowlist=empty`).
-
-⚠️ **`reputation.trust_scores` has 0 rows on demo** while there are ~2000 provider profiles. With
-the default floor of 0 every provider surfaces; **any floor above 0 will show an empty layer**.
-That is fail-closed working correctly, not a bug — check the floor before debugging.
+1. **BUG-038 — ADR-059 gate cannot distinguish "no advisories" from "no answer."** Independently
+   reproduced by Codex with a synthetic error response: empty registry passes, shipped registry
+   blocks with misleading removal advice. **The pattern to copy already exists in-repo** —
+   `tests/regression/sprint-122-adr-060-code-scanning-gate.test.ts:361-374`, "ADR-060 gate —
+   refuses to fail open on API errors". Strong Sprint 127 candidate.
+2. **⏰ `security/audit-exemptions.json` expires 2026-09-15** (2 GHSA entries). After that every PR
+   blocks on the ADR-059 gate. Same lane as (1); owns the dependency surface.
+3. **PR #218 — Dependabot production-deps group.** Do **not** merge: it bumps 6 React Native
+   packages past Expo SDK 57 pins (`react-native` 0.87.1 vs 0.86.2, plus maps, safe-area-context,
+   reanimated, worklets, screens), caught by
+   `tests/regression/sprint-122-expo-sdk-alignment.test.ts:175`, with 7 consequent TS errors in
+   `apps/mobile`. Regenerates weekly until `.github/dependabot.yml` ignores the SDK-managed
+   packages — and that ignore list must be generated from or verified against the gate's
+   `SDK_PINNED` map, not hand-copied.
+4. **Two operator-report preview inaccuracies** from the Sprint 126 backfill (`scoreBuckets`
+   predicts 1,518 pairs at score 0 where the stored minimum is 1; `providerEligibility` predicts
+   384 providers where 499 of 501 qualify). Stored data is correct; the operator preview is wrong,
+   which matters because it is what an operator reads before authorizing a destructive operation.
+5. **ADR-095 floor 20 is barely selective** — 499/501 providers clear it. Needs a deliberate
+   decision; changing the floor requires its own authorization.
 
 ---
 
-## Machine notes (this dev box)
+## Second machine (Mac) — setup in progress
 
-- **Run the suite as `npx turbo run test --concurrency=2`.** Default concurrency exhausts the
-  machine's 8 GB and aborts with SIGABRT (exit 134) — a *different* set of suites fails each run and
-  every one passes in isolation. Do not chase those failures.
-- **No local Docker.** No Docker Desktop, Podman, or WSL distro. Anything needing PostgreSQL
-  (integration tests, `init.sql` regeneration) runs on the demo server in a **disposable** container
-  reached over an SSH tunnel — never `karmyq-postgres`, never the `~/karmyq` deploy checkout. The
-  recipe is in the archived Sprint 125 handoff.
-- **Provider routes are at `/api/providers`, not `/api/requests/providers`.** The wrong path also
-  401s anonymously, so an anonymous-only smoke test on it is a false pass.
-- `| tail` masks exit codes — it hid a real `npm test` failure during Sprint 125. Capture the exit
-  code separately.
+Steps 1–7 of the setup are unaffected by anything above. Known corrections from the first attempt:
+
+- `git config core.hooksPath` is **empty on a fresh clone** — that is correct. The installer reads
+  it and falls back to `.git/hooks` (`scripts/install-hooks.sh:53-54`). Verify by listing
+  `pre-push`/`pre-commit` at whichever path resolves; on macOS they are **symlinks** (`lrwxr-xr-x`)
+  by design, copies only on Windows.
+- `diskutil info /` has **no** `Case-Sensitive` field on current macOS. Test what matters instead:
+  `ls CLAUDE.md` in the repo — it resolves only on a case-insensitive filesystem, and the root
+  context file is git-tracked lowercase as `claude.md`.
+- `gh` is not installed by default: `brew install gh`.
+- Only the memory directory, the four real `.env` files, `.claude/settings.local.json`, and
+  optionally `~/.claude/settings.json` need manual copying. Everything else arrives with the clone.
 
 ---
 
 ## Standing mechanics
 
-- Branch from `origin/master`; never direct-push to master and never force-push.
+- Branch from `origin/master`; never direct-push to master; never force-push.
 - Every merge needs explicit maintainer authorization; `--admin` override needs its own each time.
 - No docs-only master pushes — every master push is a full deploy.
 - Dependency edits are surgical: no workspace install, dedupe, or lockfile scratch regeneration.
-- All four SDLC gates every sprint: testing, `/simplify`, `/code-review`, `/security-review`,
-  calibrated to diff size.
-- Landing docs regenerate on `npm test`; revert `build.json` / `architecture.json` timestamp and
-  HEAD-sha churn before committing.
+- All four SDLC gates every sprint, calibrated to diff size.
+- Landing docs regenerate on `npm test`; revert timestamp/HEAD-sha churn before committing.
+- Cross-agent review: the agent that did not author an artifact reviews it.
+- **Reconcile this file against `gh pr list` and `git log` before claiming any work complete.**
+  A handoff that contradicts real PR state is a blocking defect — it happened at `9b726c16` and
+  Codex caught it.
