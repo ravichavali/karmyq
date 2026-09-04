@@ -648,3 +648,47 @@ existence — so the correction came from TDD against real facts. Tests:
 rows appear — it will be the first live-path karma written since Sprint 62.
 
 ---
+
+## BUG-038 · [2026-09-03] · open
+
+**The ADR-059 dependency security gate fail-opens when the npm audit endpoint is unavailable.**
+
+Observed during a pre-push hook run on a docs-only diff (2026-09-03). npm's quick-audit endpoint
+returned `400 Bad Request` during the run and `503 Service Unavailable` on a direct probe minutes
+later. With no advisory data returned, the gate does not error — it concludes there is nothing to
+block on and **exits 0**, reporting "zero unexempted high/critical vulnerabilities" when what
+actually happened is that it learned nothing.
+
+Three regression tests caught the symptom (they are the evidence, not the bug):
+- `tests/regression/sprint-75-security-gate.test.ts` — "still reports the raw counts, so an
+  exemption never hides a NEW advisory": `TypeError: Cannot read properties of undefined (reading
+  'vulnerabilities')` at `sprint-75-security-gate.test.ts:26` — `JSON.parse(stdout).metadata` is
+  undefined because npm returned no JSON.
+- `tests/regression/sprint-123-audit-exemption-gate.test.ts` — "the CLI EXITS NON-ZERO against the
+  live audit with an empty registry": expected exit `1`, received `0`. This is the fail-open,
+  directly asserted.
+- Same file — "the CLI exits ZERO with the shipped registry": `scripts/audit-exemptions.js` printed
+  `exemption image-size GHSA-w3rx-r6r6-pgpr matches no current advisory — upstream may be fixed;
+  remove it` and the same for `GHSA-5p2g-fcmc-qvqq`.
+
+**Two distinct defects, one root cause:**
+1. **Fail-open on missing data.** No audit response must be an error, not a pass. A gate that
+   cannot see advisories has not cleared them.
+2. **Staleness detection can't tell "fixed upstream" from "no data".** It advises deleting valid
+   exemptions when the audit is simply unreachable. Acting on that reading would silently remove
+   the two shipped `image-size` exemptions.
+
+**Blast radius:** `.github/workflows/ci.yml` invokes the same shared script, so CI has the same
+fail-open exposure — the gate that is supposed to block PRs would pass them during an npm outage.
+
+**Also noted, separate and not yet breaking:** npm printed `This endpoint is being retired. Use the
+bulk advisory endpoint instead.` The gate should migrate off `/-/npm/v1/security/audits/quick`
+before that retirement lands.
+
+**Interacts with a deadline:** `security/audit-exemptions.json` expires 2026-09-15. Do not act on
+the "matches no current advisory" output while the endpoint is degraded.
+
+Timings corroborate an outage rather than a code change: the failing tests took 423s / 366s / 302s
+(retry storms), against 23s for the one audit call that succeeded in the same run.
+
+---
