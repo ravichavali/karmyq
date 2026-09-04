@@ -286,6 +286,18 @@ Same trigger, same moment, no new habit to form.
 git no longer tracks is itself evidence the entry is stale, so discovery metadata doubles as a rot
 signal.
 
+**Discovery surfaces the entry itself — never a summary of it.** There is no index file
+paraphrasing what each gotcha says, and this is a deliberate constraint rather than an omission.
+A live example from this spec's own review: the private memory covering the landing-docs pipeline
+is correct and detailed ("never hand-author these; add the slug to the generator's lists; then
+regenerate"), but its one-line index entry compressed that to *"grep-verify after every edit"* —
+which inverts the guidance into the workaround it exists to prevent. Acting on the index without
+opening the entry produced a wrong instruction in an earlier draft of this document.
+
+A summary layer over knowledge is a shadow copy, and it drifts exactly like any other shadow copy —
+with the added hazard that it looks authoritative and is cheaper to read than the truth. So
+`scope` matching returns file paths to open, not descriptions to trust.
+
 ### The validator is hermetic
 
 **No network access, ever.** On 2026-09-03 an upstream npm outage failed the `Security Audit` job and
@@ -586,6 +598,12 @@ learns is part of what the project **is**, alongside how it governs and licenses
   This is a small fix with disproportionate value: it is the *source* of a class of mistake, and it
   is a working example of the promotion ladder — an observation that recurs becomes a corrected
   rule, not a repeated workaround.
+
+  **Correction to an earlier claim in this spec:** a previous commit message blamed a private
+  memory for being wrong about this. It was not — that entry is correct and detailed, naming the
+  generator's lists and the regenerate-then-verify step. What misled was its **one-line index
+  summary**, which reduced it to "grep-verify after every edit". The mistake was acting on a
+  summary instead of opening the entry, which is why *Discovery* forbids a summary layer.
 - **`docs/adr/ADR-097`** + its index entry.
 
 **What is NOT published on the docs site:** the entries themselves. They remain **publicly
