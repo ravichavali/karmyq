@@ -260,9 +260,22 @@ people to ignore it.
 The check is therefore `git ls-files`, not `fs.existsSync`: a path counts only if git tracks it.
 That is the same answer on every machine and in CI, which `existsSync` is not.
 
-**Matching is by directory prefix.** A scope entry ending in `/` matches any tracked path beneath
-it; an entry without a trailing `/` must match a tracked file exactly. So
-`scripts/git-hooks/` covers `scripts/git-hooks/pre-push`, and editing that file surfaces the entry.
+**Matching is by directory prefix.** A scope entry ending in `/` matches any path beneath it; an
+entry without a trailing `/` matches that path exactly. So `scripts/git-hooks/` covers
+`scripts/git-hooks/pre-push`.
+
+**Validation and discovery take different inputs, deliberately:**
+
+| | Input | Why |
+|---|---|---|
+| **Validating a scope anchor** | git-**tracked** paths (`git ls-files`) | The anchor must be real and identical on every machine and in CI |
+| **Matching during discovery** | the paths you are **about to change**, including **new files not yet staged or tracked** | Otherwise directory-scoped knowledge misses exactly the case it is most needed for |
+
+That second row matters more than it looks. If someone creates `scripts/git-hooks/pre-merge`, a
+tracked-files-only match would surface **nothing** — the new file isn't tracked yet — even though a
+gotcha scoped to `scripts/git-hooks/` is precisely what they should read before writing a new hook.
+Directory-scoped knowledge exists for new-file creation; a matcher that only sees tracked files
+fails at its primary job.
 
 Discovery then reuses the mechanism that already exists. `CLAUDE.md`'s *Context Follows Directory
 Scope* tells you to read local context for the area you are about to touch; this adds one line to
@@ -400,7 +413,6 @@ tomorrow? If it is about the person, it stays personal. If it is about the repo,
 | `scope` names a path git does not track | Fail — stale, misfiled, or pointing at a machine-local artifact |
 | `see_also` names a slug with no matching file | Fail — dangling reference |
 | A `.json` with no `.md`, or a `.md` with no `.json` | Fail — orphaned half of a pair |
-| Two renewals on an entry that could be `verify`-checked | Fail — write the check or delete |
 | A `renewed` item missing its `evidence` | Fail — unverifiable knowledge stays honest by evidence |
 
 ### Screening happens before publication, not after
@@ -457,14 +469,28 @@ fixtures:
 15. All three onboarding docs agreeing on `npm install` — asserts the policy check fires despite
     perfect consistency
 16. An orphaned `.json` with no `.md`, and an orphaned `.md` with no `.json`
-17. **Discovery exercised from a clean checkout** — the whole registry validates against a
-    `git clone`-fresh tree with no build output, no `node_modules` state, and no machine-local
-    directories present
-14. `see_also` naming a non-existent slug
-15. All three onboarding docs agreeing on `npm install` — asserts the policy check fires despite
-    perfect consistency
+17. **Clean-checkout validation AND discovery** — see below; whole-registry validation alone does
+    not prove discovery works
 
 **Hermeticity:** an explicit assertion that the validator performs no network I/O.
+
+### Fixture 17 in detail
+
+Whole-registry validation from a clean tree proves the *validator* survives a fresh clone. It does
+**not** prove *discovery* returns the right entries, which is the part people actually depend on.
+The fixture therefore does both:
+
+1. **Clone the candidate commit into a temporary directory** and run the validator there with
+   `node`, **installing nothing**. This is possible only because the JSON-sidecar format took no
+   parser dependency — the validator is dependency-free by construction, so "no `npm install`" is a
+   real constraint the design already satisfies rather than a wish.
+2. **Assert the tested commit explicitly** — the fixture records which SHA it validated. A clean-room
+   test that silently validated the wrong tree would be worse than none.
+3. **Invoke discovery for representative changed paths and assert the exact expected entry set** —
+   not merely "non-empty". An exact-set assertion is what makes this falsifiable.
+4. **Include an adjacent-prefix non-match** — e.g. `scripts/git-hooks-old/` must NOT match a
+   `scripts/git-hooks/` scope. Prefix matching that over-matches is a silent correctness bug that a
+   positive-only test cannot see.
 
 ---
 
