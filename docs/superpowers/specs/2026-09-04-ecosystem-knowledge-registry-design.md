@@ -496,8 +496,10 @@ The fixture therefore does both:
 
 ## Rollout
 
-**Phase 1 — mechanism and proof.** Schema, validator with all assertions and the seventeen negative
-fixtures, the `/learned` skill, and seeding with the five orphaned learnings from 2026-09-03/04.
+**Phase 1 — mechanism, proof, and the argument for it.** Schema, validator with all assertions and
+the seventeen negative fixtures, the `/learned` skill, the public concept doc and README section
+(see *Doc Updates* — a learning mechanism nobody knows about does not get used), and seeding with
+the five orphaned learnings from 2026-09-03/04.
 Those five are ideal seeds: fresh, independently verified, and collectively exercising every check
 type.
 
@@ -529,13 +531,42 @@ defect in this repo.
 
 ## Doc Updates
 
-- **ADR-097** — new knowledge surface plus a new blocking gate is architectural; index it in
-  `docs/adr/README.md`
-- **`CLAUDE.md`** — add `docs/gotchas/` to the Documentation Map and the docs feedback loop
-- **`CONTRIBUTING.md`** — describe the registry for external contributors; fix `npm install` →
-  `npm ci`
-- **`README.md`** — fix `npm install` → `npm ci`; add the missing `hooks:install` step
-- **`apps/landing/`** — a concept doc for ADR-097, per the landing docs authoring rules
+**The philosophy is public; the entries are working material.** These are two different artifacts
+and they go to two different audiences. An earlier round resolved "contributor-facing only", which
+was right about the *registry* and wrong about the *idea* — the maintainer has directed that the
+philosophy itself belongs in the public documentation and onboarding, because how this project
+learns is part of what the project **is**, alongside how it governs and licenses itself.
+
+**Public — `apps/landing/` (karmyq.org):**
+
+- **A concept doc under "Why Karmyq"**, beside `open-source-and-agpl`, which is the existing
+  precedent for a governance/philosophy piece in that section. Subject: a project's habits and
+  hard-won knowledge should evolve the way its code does — through review, and with something that
+  fails when they go stale. It should state the problem honestly (knowledge accumulating in one
+  person's head reaches nobody, and an external contributor can never receive it), and the answer
+  (a home, a review path, a rot-check). Wire into `nav.json` per the landing authoring rules, and
+  grep-verify the entry afterwards — `nav.json` silently reverts.
+- **The ADR-097 concept doc**, auto-indexed under "Architecture Decisions".
+
+**Contributor-facing:**
+
+- **`README.md`** — a short section on how the project learns, linking to the concept doc, plus the
+  corrections this work depends on: `npm install` → `npm ci`, and the missing `hooks:install` step.
+- **`CONTRIBUTING.md`** — how to *author* an entry (the sidecar pair, `scope`, `verify` vs
+  `expires`, evidence on renewal), and how discovery works. This is the operating manual; the
+  landing doc is the argument.
+- **`CLAUDE.md`** — `docs/gotchas/` in the Documentation Map and the docs feedback loop; one line in
+  *Context Follows Directory Scope* directing readers to matching gotchas for paths they are about
+  to change.
+- **`docs/adr/ADR-097`** + its index entry.
+
+**What does NOT go public:** the entries themselves. They are working material for people changing
+the code — terse, path-scoped, and meaningless without the repo in front of you. Publishing 40
+gotchas as documentation would bury the argument in operational detail.
+
+**Rollout note:** the concept doc and README section ship in Phase 1, not later. Behaviour changes
+update docs in the same PR, and for this feature the documentation *is* half the deliverable — a
+learning mechanism nobody knows about does not get used.
 
 ---
 
@@ -567,8 +598,10 @@ defect in this repo.
   calibrated to security risk; a stale gotcha is unhelpful, not dangerous.
 - ~~Two-renewal promotion rule~~ — **Resolved.** It applies only where a `verify` block is
   *possible*. Inherently unverifiable entries renew indefinitely with per-renewal evidence.
-- ~~Landing docs site~~ — **Resolved: contributor-facing only**, at least initially. The registry is
-  working material for people changing the code, not published documentation.
+- ~~Landing docs site~~ — **Resolved, then AMENDED by the maintainer (2026-09-04).** Round 1
+  resolved "contributor-facing only". That holds for the **entries**, but not for the **idea**: the
+  philosophy ships publicly on karmyq.org under "Why Karmyq" and in the README, because how the
+  project learns is part of what it is. See *Doc Updates* for the split.
 - ~~YAML or JSON~~ — **Resolved (round 2): JSON sidecars**, one `.json` + one `.md` per entry, with
   orphans rejected. Adds no dependency, so the lane is dependency-independent.
 - ~~Two-renewal promotion as a validator rule~~ — **Resolved (round 2): withdrawn.** It was not
