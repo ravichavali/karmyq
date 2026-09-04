@@ -49,19 +49,33 @@ Branch `docs/sprint-126-post-deploy-state`. **All checks green**; `mergeStateSta
 solely on the required approving review. Carries the `Parallel Development` rules in `CLAUDE.md`,
 the `AGENTS.md` topology rewrite, the handoff lane convention, and BUG-038.
 
-**Codex reviewed at `9b726c16` and returned two P1/P2 findings against this PR** — reservations not
-reliably shared between branches, and a self-contradictory handoff. Both are now fixed on the
-branch; the PR needs re-review, and its Validation section needs updating to match.
+**Codex reviewed three rounds** (`9b726c16`, `ccbc1bbf`, `ad6b38f3`). Round 1: reservations not
+reliably shared between branches; self-contradictory handoff. Round 2: ADR allocation still raced
+and the backstop this PR *claimed* did not exist; an open Dependabot PR permanently occupied the
+dependency lane. Round 3: superseded rules left in the summary table. All fixed on the branch.
+
+The durable correction: **querying live state establishes what is visible; allocating ownership
+still requires serialization.** ADR numbers, the dependency lane and demo operations are now
+maintainer-allocated, and ADR uniqueness is enforced by a real gate
+(`tests/regression/doc-context-drift-gate.test.ts`, 5 → 7 tests, with a negative fixture proving it
+fails on two `ADR-097` files).
 
 ### Design spec — ecosystem knowledge registry (Sprint 127 candidate)
-Branch `docs/sprint-127-knowledge-registry-spec`, commit `b352d679`, no PR opened.
+Branch `docs/sprint-127-knowledge-registry-spec`, commit **`c56935ad`**, no PR opened.
 `docs/superpowers/specs/2026-09-04-ecosystem-knowledge-registry-design.md`.
 
 Proposes `docs/gotchas/` — a home for operational knowledge that today lives only in one
 maintainer's private agent memory and reaches nobody else. Every entry carries exactly one of a
-declarative machine check or an expiry date. **Codex returned three findings** (renewal rule too
-blunt, doc-agreement gate asserts weaker than it claims, `js-yaml` undeclared) plus three asks
-(gotcha discovery, contributor-facing scope, credential screening before push). Being integrated.
+declarative machine check or an expiry date. **Two Codex rounds are integrated.** Round 1: renewal
+rule too blunt, doc-agreement gate asserted weaker than it claimed, `js-yaml` undeclared, plus asks
+on discovery, scope and credential screening. Round 2: the renewal rule needed information the
+schema cannot express (promotion is now a reviewer decision, not a validator rule), and `scope`
+must name git-tracked paths rather than machine-local ones.
+
+**Format decided: JSON sidecars** (one `.json` + one `.md` per entry, orphans rejected), which
+takes no new dependency — so **this lane is dependency-independent** and can run concurrently with
+the ADR-059/exemptions work. Codex has **no further design objections to implementation planning**
+once the remaining text reconciliation lands.
 
 **No implementation has begun and none should** until the spec is approved.
 
