@@ -550,8 +550,13 @@ learns is part of what the project **is**, alongside how it governs and licenses
 
 **Contributor-facing:**
 
-- **`README.md`** — a short section on how the project learns, linking to the concept doc, plus the
-  corrections this work depends on: `npm install` → `npm ci`, and the missing `hooks:install` step.
+- **`README.md`** — **carries the philosophy itself, not merely a link to it.** This is the
+  highest-traffic surface the project has: on a public repo it is what a stranger reads first, and
+  most never click through to the docs site. The section states the idea in its own right — habits
+  and hard-won knowledge should evolve the way code does, through review, with something that fails
+  when they go stale — then links to the concept doc for the full argument and to `CONTRIBUTING.md`
+  for how to add an entry. It also carries the corrections this work depends on: `npm install` →
+  `npm ci`, and the missing `hooks:install` step.
 - **`CONTRIBUTING.md`** — how to *author* an entry (the sidecar pair, `scope`, `verify` vs
   `expires`, evidence on renewal), and how discovery works. This is the operating manual; the
   landing doc is the argument.
