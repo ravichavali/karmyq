@@ -91,8 +91,31 @@ blocks force-pushes and deletions — but `enforce_admins` is **false**, so admi
 
 A contributor following `README.md` therefore ends up with **silently inert git hooks**.
 
-**Tooling available:** `js-yaml` resolves at `node_modules/js-yaml` and is usable from the tests
-workspace.
+**Tooling — NOT available as assumed.** An earlier draft of this spec claimed `js-yaml` "resolves
+at `node_modules/js-yaml` and is usable from the tests workspace", citing `require.resolve`. That
+proves hoisting, not declaration, and is exactly the trap the workspace rule exists to prevent.
+Verified 2026-09-04:
+
+- `tests/package.json` does **not** declare `js-yaml` (it does declare `semver`, `ts-jest`,
+  `typescript` and others — so the workspace does otherwise follow the rule).
+- The **root** `package.json` does not declare it either, in `dependencies` or `devDependencies`.
+  It appears only in `overrides` as `"js-yaml": "4.3.1"` — a **security pin**.
+- It reaches the tree purely transitively, via `ts-jest → @jest/transform → babel-plugin-istanbul
+  → @istanbuljs/load-nyc-config → js-yaml` and via `expo → @expo/cli → @expo/xcpretty → js-yaml`.
+
+Depending on it as-is would mean depending on a package present only because two unrelated
+toolchains happen to pull it, at a version chosen to satisfy an advisory. A ts-jest transform-chain
+change would remove it silently.
+
+**This has a scheduling consequence.** Resolving it edits `package.json` and `package-lock.json`,
+which is a **serialized cross-lane surface**. The knowledge-registry lane is therefore *not*
+dependency-independent, and cannot run concurrently with another lane holding the dependency slot
+(including an open Dependabot PR). Lane allocation must account for this.
+
+**Open decision — see Open Questions #5.** Either declare `js-yaml` directly in the owning
+workspace (surgical edit plus in-place lockfile splice, proven with strict `npm ci`), or avoid the
+dependency entirely by using a JSON sidecar rather than YAML frontmatter. Given this repo's
+dependency posture, the zero-dependency option deserves serious weight.
 
 **Fail-closed-on-error precedent:**
 `tests/regression/sprint-122-adr-060-code-scanning-gate.test.ts:361-374` —
@@ -168,8 +191,9 @@ Diagnose advisory-endpoint health with a direct probe. Never from the status pag
 | `created` | yes | ISO date |
 | `verify` | **exactly one of** | Declarative check block (below) |
 | `expires` | **`verify` or `expires`** | ISO date, bounded span |
-| `renewed` | no | List of ISO dates; drives the promotion rule |
-| `see_also` | no | Slugs of related entries |
+| `renewed` | no | List of `{date, evidence}` pairs; drives the promotion rule |
+| `scope` | yes | Repo paths this entry applies to — drives discovery (below) |
+| `see_also` | no | Slugs of related entries; **the validator asserts each target exists** |
 
 **Exactly one of `verify` or `expires` is mandatory.** This single rule is what makes the collection
 self-pruning rather than accumulating.
@@ -196,6 +220,26 @@ Two reasons this is non-negotiable:
 2. **Cross-platform.** Development now runs on Windows (Git Bash) and macOS. A shell snippet that
    works on one silently fails on the other.
 
+### Discovery — how anyone finds the relevant entries before working
+
+A Documentation Map link is not discovery; nobody reads a directory of 40 files on the off-chance.
+Every entry declares the paths it applies to:
+
+```yaml
+scope:
+  - scripts/install-hooks.sh
+  - .husky/
+```
+
+Discovery then reuses the mechanism that already exists. `CLAUDE.md`'s *Context Follows Directory
+Scope* tells you to read local context for the area you are about to touch; this adds one line to
+that rule — **also read every gotcha whose `scope` matches the paths you are about to change.**
+Same trigger, same moment, no new habit to form.
+
+`scope` is mandatory and machine-checked: the validator asserts every declared path exists. An
+entry scoped to a deleted path is itself evidence the entry is stale, so discovery metadata
+doubles as a rot signal.
+
 ### The validator is hermetic
 
 **No network access, ever.** On 2026-09-03 an upstream npm outage failed the `Security Audit` job and
@@ -221,23 +265,45 @@ unprompted will flood the directory.
 
 ### The promotion ladder
 
-| Tier | Location | Reviewed | Reaches |
-|---|---|---|---|
-| 0 | Private agent memory | No | One person, one machine |
-| 1 | `docs/gotchas/` | PR review | Everyone who clones |
-| 2 | Enforced invariant — drift-gate assertion, `CONTEXT.md`, dependabot ignore rule, ADR | PR review | Everyone, mechanically, read or not |
+| Tier | Location | Reviewed | Reaches | Mechanically enforced? |
+|---|---|---|---|---|
+| 0 | Private agent memory | No | One person, one machine | No |
+| 1 | `docs/gotchas/` | PR review | Everyone who clones | Only if the entry has a `verify` block |
+| 2 | **Executable invariant** — drift-gate assertion, dependabot ignore rule, a test | PR review | Everyone, whether they read it or not | **Yes** |
+| — | Prose relocation — `CONTEXT.md`, an ADR | PR review | Everyone who reads that file | **No** |
 
-Tier 2 is where the two accidental promotions already landed. The registry is the **staging area**
-that makes that transition routine.
+An earlier draft listed `CONTEXT.md` and ADRs as Tier 2. That was wrong: moving prose to a more
+central file changes *who is likely to read it*, not whether anything enforces it. Only the third
+row is mechanical. The distinction matters because the promotion rule below must not pretend a
+relocation is an enforcement.
+
+Tier 2 is where the two accidental promotions already landed — both became test assertions.
 
 ### The evolution rule
 
-**An entry renewed twice must be promoted or deleted.** `renewed` accumulates dates; when it reaches
-two, the validator fails with an instruction to promote to an enforced invariant or delete the entry.
-Surviving two renewal cycles means the knowledge is durable enough to deserve mechanical enforcement
-— or it is not load-bearing and should go. Either outcome is progress.
+Not all knowledge can become executable, and pretending otherwise destroys true facts. "npm's
+status page does not reflect advisory-endpoint health" is permanently useful and permanently
+untestable from inside this repo. A rule that eventually deletes it is a bad rule.
 
-This is a **hard failure, not a warning.** Advisory checks are ignored here by demonstrated
+So the pressure to promote applies **only where a machine check is possible**:
+
+- **An entry that could carry a `verify` block but doesn't** is a promotion candidate. After two
+  renewals the validator fails, asking for the check to be written or the entry deleted.
+- **An entry that is inherently unverifiable** renews indefinitely, but **each renewal must carry
+  evidence** — `renewed` entries are `{date, evidence}` pairs, where evidence states how the fact
+  was re-confirmed ("re-probed 2027-03-01: status page green, endpoint 503"). A renewal without
+  evidence fails. This keeps unverifiable knowledge honest without forcing its deletion.
+
+**Expiry is relative to the most recent review, not to creation.** `created` is preserved as
+provenance; the deadline is computed from the latest `renewed.date` (or `created` if never
+renewed).
+
+**Knowledge-review cadence is separate from the security-exemption cap.** ADR-059's cap exists
+because an unreviewed security exemption is an active risk. A stale gotcha is merely unhelpful.
+Reusing that cap would impose security-grade churn on low-risk content, so the registry gets its
+own, longer interval.
+
+Failures here are **hard, not warnings.** Advisory checks are ignored here by demonstrated
 precedent: `npm run feedback:check` is warn-only and is a documented false-green (it reads
 `git diff --cached` and is therefore clean on any committed branch).
 
@@ -285,8 +351,23 @@ tomorrow? If it is about the person, it stays personal. If it is about the repo,
 | `expires` span exceeds the cap | Fail — reuse the existing exemption-registry constant |
 | `verify` claim no longer holds | Fail, showing expected vs found |
 | `verify` target unreadable or absent | **Fail, never skip** — mirrors ADR-060's refusal to fail open |
-| Credential-shaped content detected | Fail — unrecoverable on a public repo |
-| `renewed` has reached two entries | Fail — promote or delete |
+| Credential-shaped content detected | Fail — but see *Screening happens before publication* |
+| `scope` names a path that does not exist | Fail — the entry is stale or misfiled |
+| `see_also` names a slug with no matching file | Fail — dangling reference |
+| Two renewals on an entry that could be `verify`-checked | Fail — write the check or delete |
+| A `renewed` item missing its `evidence` | Fail — unverifiable knowledge stays honest by evidence |
+
+### Screening happens before publication, not after
+
+Credential screening **must run in the pre-commit hook** (`scripts/git-hooks/pre-commit`), not only
+in the regression gate. A CI rejection arrives after the content is already on a public remote,
+where deletion does not remove it from history. The regression gate keeps the check as
+defence-in-depth — necessary because git hooks in this repo have a documented history of being
+silently inert — but the pre-commit screen is the one that actually prevents publication.
+
+This makes the screen the one part of the design that is deliberately **not** hermetic-only in
+placement: it runs at the earliest point where the content still exists solely on the author's
+machine.
 
 Failure output names both remedies, because whoever hits it is usually not the author:
 
@@ -319,7 +400,15 @@ fixtures:
 7. `verify.path_exists` pointing at a deleted path
 8. `verify` target unreadable — asserts **failure**, not skip
 9. Credential-shaped body content
-10. `renewed` containing two dates
+10. Two renewals on an entry that **could** carry a `verify` block — asserts the promote-or-delete
+    failure fires
+11. Two renewals on an inherently unverifiable entry, each carrying evidence — asserts it **passes**,
+    proving the rule does not delete true-but-untestable knowledge
+12. A renewal with **no evidence** — asserts failure
+13. `scope` naming a deleted path
+14. `see_also` naming a non-existent slug
+15. All three onboarding docs agreeing on `npm install` — asserts the policy check fires despite
+    perfect consistency
 
 **Hermeticity:** an explicit assertion that the validator performs no network I/O.
 
@@ -327,7 +416,7 @@ fixtures:
 
 ## Rollout
 
-**Phase 1 — mechanism and proof.** Schema, validator with all assertions and the ten negative
+**Phase 1 — mechanism and proof.** Schema, validator with all assertions and the fifteen negative
 fixtures, the `/learned` skill, and seeding with the five orphaned learnings from 2026-09-03/04.
 Those five are ideal seeds: fresh, independently verified, and collectively exercising every check
 type.
@@ -338,11 +427,23 @@ and proves durable, via the three intake triggers. The collection grows from evi
 **Phase 3 — audit of the 81 existing memories**, later, informed by which entries proved useful in
 practice. A much better third step than a first one.
 
-**One Tier-2 fix belongs in Phase 1:** a drift-gate assertion that `README.md`, `CONTRIBUTING.md` and
-`CLAUDE.md` agree on the install command (`npm ci`) and that all three include
-`npm run hooks:install`. This is mechanically checkable, so it skips the registry entirely — and it
-fixes the inconsistency that prompted this work, in which a contributor following `README.md` ends up
-with inert hooks.
+**One Tier-2 fix belongs in Phase 1:** a drift-gate assertion covering the onboarding docs. It must
+assert **the policy and the consistency, not consistency alone** — three documents that all
+regressed to `npm install` would be perfectly consistent and uniformly wrong. Concretely, for each
+of `README.md`, `CONTRIBUTING.md` and `CLAUDE.md`:
+
+1. the install command is `npm ci`, and `npm install` does **not** appear as an install
+   instruction;
+2. `npm run hooks:install` is present;
+3. and the three agree with each other.
+
+Assertions 1 and 2 are the policy; 3 catches divergence the policy check would miss (e.g. differing
+flags). This fixes the inconsistency that prompted the work — a contributor following `README.md`
+today ends up with silently inert hooks.
+
+**Required negative fixture: all three documents agreeing on `npm install`.** The gate must fail
+that case. Without it the check asserts weaker than it claims, which is a documented recurring
+defect in this repo.
 
 ---
 
@@ -365,8 +466,12 @@ with inert hooks.
 2. **The validator must not touch the network**, including transitively.
 3. **`docs/gotchas/` is not generated** — it is hand-authored and PR-reviewed. Do not add it to any
    generation pipeline.
-4. **The drift-gate assertion for onboarding docs must compare the three files to each other**, not
-   to a hard-coded expected string — a shadow copy of the expected command would itself drift.
+4. **The onboarding-doc assertion states the policy explicitly AND compares the files.** An earlier
+   draft forbade the explicit string, reasoning it was a drifting shadow copy. That conflated two
+   different things: a *shadow map* duplicates an external arbiter (a registry, an SDK's pins) and
+   drifts because the arbiter moves independently. `npm ci` is not an external arbiter's value — it
+   **is the policy**, decided here, changed only by deliberately editing this rule. Asserting it is
+   correct; asserting only mutual agreement is not, because uniform regression passes.
 5. Landing docs regenerate during `npm test`; revert `build.json`/`architecture.json` timestamp and
    HEAD-sha churn before committing.
 6. New tests begin in the changed workspace's `tests/tdd/` and are promoted to `regression/` when
@@ -374,13 +479,28 @@ with inert hooks.
 
 ---
 
-## Open Questions for Review
+## Open Questions
 
-1. **Expiry cap value.** Reuse ADR-059's exemption cap, or set a longer one? Gotchas are lower-risk
-   than security exemptions, so the same cap may create needless churn.
-2. **Is the two-renewal promotion rule too aggressive?** It forces a decision on knowledge that may
-   simply be stable and untestable.
-3. **Credential detection.** Implement locally, or invoke the existing secret-scanning path? A local
-   regex is hermetic but weaker; the alternative may require network access, which conflicts with the
-   hermeticity requirement.
-4. **Does `docs/gotchas/` belong in the landing docs site**, or is it contributor-facing only?
+**Resolved in review (Codex, 2026-09-04):**
+
+- ~~Expiry cap value~~ — **Resolved.** The registry gets its own, longer interval. ADR-059's cap is
+  calibrated to security risk; a stale gotcha is unhelpful, not dangerous.
+- ~~Two-renewal promotion rule~~ — **Resolved.** It applies only where a `verify` block is
+  *possible*. Inherently unverifiable entries renew indefinitely with per-renewal evidence.
+- ~~Landing docs site~~ — **Resolved: contributor-facing only**, at least initially. The registry is
+  working material for people changing the code, not published documentation.
+
+**Still open:**
+
+1. **Credential detection implementation.** A local regex is hermetic but weak; real secret scanning
+   generally wants the network, which the validator forbids. The pre-commit placement narrows the
+   question — it must be fast and offline there — but the strength/hermeticity trade-off is
+   unresolved. Leaning toward a local high-recall pattern set at pre-commit, accepting false
+   positives as the safer failure direction.
+2. **YAML or JSON?** Resolving `js-yaml` means either declaring it in the owning workspace
+   (surgical `package.json` + in-place lockfile splice, proven with strict `npm ci`, and taking the
+   dependency lane for that sprint) or dropping YAML for a JSON sidecar and adding no dependency at
+   all. This is now the largest unresolved decision in the spec, because it determines whether the
+   lane is dependency-independent.
+3. **Is "gotcha" a stable category?** The boundary between a gotcha and a `CONTEXT.md` line is
+   fuzzier than this spec admits, and may not survive contact with real entries.
