@@ -1,6 +1,6 @@
 # Current Handoff — as of 2026-09-05 (Sprint 127 implemented, unmerged)
 
-**Version:** v11.46.0 · **Branch of record:** `master` at **`ea7ee194`** (PR #219, merged
+**Version:** v11.47.0 (this branch; master is 11.46.0) · **Branch of record:** `master` at **`ea7ee194`** (PR #219, merged
 2026-09-05) · **Demo:** deployed and **smoke-tested healthy** — `GET karmyq.com/` 200,
 `POST /api/auth/login` 401 with the ADR-074 envelope, `karmyq.org/docs/...` 200
 
@@ -79,7 +79,7 @@ Branch `feature/sprint-127-knowledge-registry`, cut from the spec branch (which 
 `master` at `ea7ee194`), so the PR ships spec + plan + implementation together.
 
 **All 13 plan tasks complete.** `npx turbo run test --concurrency=2` → **26/26 tasks, exit 0**;
-602 regression tests pass.
+**647 regression tests**, 106 of them in the new registry gate.
 
 What shipped:
 
@@ -88,9 +88,10 @@ What shipped:
   ADR-059/BUG-038, Dependabot/Expo).
 - `scripts/gotcha-registry.js` — dependency-free CommonJS validator; `scripts/gotcha-check.js` —
   CLI for validation (`--staged`) and discovery (`--for <paths>`).
-- `tests/regression/sprint-127-gotcha-registry-gate.test.ts` — **67 tests**: 12 positive over the
-  real registry, 50 negative fixtures, and a clean-room fixture that clones the candidate commit
-  and runs the validator under bare `node` with no `node_modules`.
+- `tests/regression/sprint-127-gotcha-registry-gate.test.ts` — **106 tests**: positive assertions
+  over the real registry, a negative fixture per assertion, a hostile-input block covering every
+  code-review and security-review finding, and a clean-room fixture that clones the candidate
+  commit and runs the validator under bare `node` with no `node_modules`.
 - Credential screen in `scripts/git-hooks/pre-commit`, proven with four probes in a disposable
   clone (partial-staging bypass, quoted JSON key, orphaned `.md`, and deletion-must-pass).
 - Onboarding-policy assertion in the drift gate; README/CONTRIBUTING/claude.md now state
@@ -106,9 +107,32 @@ gate with "no longer contains"; regressing README to `npm install` fails the onb
 generated ADR page reaches `nav.json` only if its slug is in `ADR_GROUPS` (ADR-097 was missing),
 and the ADR's passing mention of a licence token registered as an unenumerated claim site.
 
-**Still to do before merge:** `/code-review` (high) and `/security-review`; the version bump
-(derive from `origin/master` **at merge time** — it is 11.46.0 as of 2026-09-05, so 11.47.0
-unless another lane merges first); open the PR with the full template body; merge authorization.
+**All four SDLC gates are done.** `/simplify` (4 parallel agents), `/code-review` at high, and
+`/security-review` all ran on the branch diff; every finding was reproduced before being fixed and
+is now pinned by a fixture that fails without the fix.
+
+- **/simplify** — reused `parseUtcDate`/`todayUtc` from the ADR-094 core and `ROOT`/`tracked()`
+  from the test helpers; replaced two divergent check chains with one `CHECKS` dispatch table;
+  made hermeticity an allowlist over the actual require set rather than a blocklist of module
+  names. That reuse **found a real latent bug in shared security-gate code**: `parseUtcDate` threw
+  a `RangeError` on `2026-13-45`, so a malformed date in `security/audit-exemptions.json` would
+  have taken the ADR-059 gate down rather than failing it. Guarded, with the parity test extended.
+- **/code-review (high)** — six findings, all confirmed: four unhandled-crash paths, a false
+  negative in `--for` (an unparseable sidecar answered "No gotchas" with exit 0), a one-day
+  gate/CLI date disagreement, and a false alarm blocking unrelated commits.
+- **/security-review** — two Medium findings, both against path containment, plus a prototype-key
+  crash. **The durable lesson: refusing paths outside the repository root is not a security
+  boundary.** `.git` is *inside* the root and holds the runner's checkout credential; containment
+  was purely lexical so a committed symlink defeated it; and `json_equals` echoed the value it
+  read, which is a direct exfiltration channel into a public CI log. All closed and proven — the
+  symlink case with a directory junction, since the reviewer could not demonstrate it on Windows.
+
+**Version bumped to v11.47.0** (root `package.json` + the two root lockfile fields, spliced in
+place; `npm ci --dry-run` exits 0 with no dependency churn). ⚠️ **Re-derive at merge time** — if
+another PR merges first, re-bump from the new `origin/master` rather than shipping this number.
+
+**Still to do:** push the branch, open the PR with the full template body, and **merge
+authorization** (never self-authorized).
 
 Spec: `docs/superpowers/specs/2026-09-04-ecosystem-knowledge-registry-design.md`.
 Plan: `docs/superpowers/plans/2026-09-04-sprint-127-knowledge-registry.md`.
