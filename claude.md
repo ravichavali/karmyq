@@ -67,6 +67,14 @@ Only the **services** carry `.claude/README.md`; everywhere else the directory-l
    ⚠️ **Hooks only enforce anything after `hooks:install` has run on this clone.** Git reads only
    `core.hooksPath` when that is set, so a push that finishes silently and instantly means **no
    hook ran** — treat that silence as a red flag, not a fast machine.
+
+   Clone setup is exactly two commands, and they must match `README.md` and `CONTRIBUTING.md`
+   verbatim:
+
+   ```bash
+   npm ci
+   npm run hooks:install
+   ```
 4. **Fix forward, not around:** fix the original script, never a workaround copy; ADR if
    architectural.
 5. **Verify before you assert:** every factual claim you write into a spec, plan, handoff or ADR

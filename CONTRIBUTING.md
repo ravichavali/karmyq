@@ -13,7 +13,7 @@ agent). **Source of truth for rules:** [`CLAUDE.md`](CLAUDE.md). If the two disa
 ```bash
 git clone https://github.com/ravichavali/karmyq.git
 cd karmyq
-npm install
+npm ci
 npm run hooks:install   # wire up git hooks (not auto-installed; see CLAUDE.md)
 ```
 
