@@ -296,6 +296,26 @@ function discover(entries, changedPaths) {
   return [...hits].sort();
 }
 
+// The optional quote group is load-bearing. Without it a JSON sidecar containing
+// {"password":"..."} produced NO findings — the character after the key is a quote,
+// not a colon. Confirmed against the earlier pattern set during review, which is why
+// both halves of every pair are now screened in every mode.
+const CREDENTIAL_PATTERNS = [
+  { name: 'private key block', re: /-----BEGIN [A-Z ]*PRIVATE KEY-----/ },
+  {
+    name: 'credential assignment',
+    re: /["']?\b(password|passwd|pwd|secret|token|api[_-]?key|private[_-]?key)\b["']?\s*[:=]\s*["']?\S{6,}/i,
+  },
+  { name: 'bearer token', re: /\bBearer\s+[A-Za-z0-9._-]{20,}/ },
+  { name: 'connection string with credentials', re: /\b[a-z+]+:\/\/[^\s:@/]+:[^\s:@/]+@/i },
+];
+
+function scanCredentials(text, label) {
+  return CREDENTIAL_PATTERNS.filter((p) => p.re.test(text)).map(
+    (p) => `${label}: possible ${p.name} — never commit credentials to a public repo`,
+  );
+}
+
 module.exports = {
   REVIEW_CAP_DAYS,
   GOTCHA_DIR,
@@ -309,4 +329,5 @@ module.exports = {
   checkReferences,
   checkPairing,
   discover,
+  scanCredentials,
 };
