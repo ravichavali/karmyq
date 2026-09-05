@@ -22,6 +22,10 @@
         {
           "label": "Open Source and the AGPL",
           "href": "/docs/concepts/open-source-and-agpl"
+        },
+        {
+          "label": "How Karmyq Learns",
+          "href": "/docs/concepts/how-karmyq-learns"
         }
       ]
     },

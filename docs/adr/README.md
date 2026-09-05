@@ -132,6 +132,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-094: Generalized Exemption Registries](ADR-094-generalized-exemption-registries.md) — **Implemented**
 - [ADR-095: Authenticated Provider Directory and Reach-Gated Standing](ADR-095-authenticated-provider-directory-and-reach-gated-standing.md) — **Accepted**
 - [ADR-096: Canonical Completed-Match Standing Projection](ADR-096-canonical-completed-match-standing-projection.md) — **Accepted**
+- [ADR-097: Ecosystem Knowledge Registry](ADR-097-ecosystem-knowledge-registry.md) — **Implemented**
 
 ## Creating a New ADR
 
