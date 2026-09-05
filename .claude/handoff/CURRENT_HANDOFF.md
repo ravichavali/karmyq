@@ -1,7 +1,8 @@
 # Current Handoff — as of 2026-09-05
 
 **Version:** v11.46.0 · **Branch of record:** `master` at **`ea7ee194`** (PR #219, merged
-2026-09-05) · **Demo:** deploy triggered by that merge — verify before assuming healthy
+2026-09-05) · **Demo:** deployed and **smoke-tested healthy** — `GET karmyq.com/` 200,
+`POST /api/auth/login` 401 with the ADR-074 envelope, `karmyq.org/docs/...` 200
 
 ---
 

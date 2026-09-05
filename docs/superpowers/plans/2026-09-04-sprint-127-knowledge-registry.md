@@ -2120,6 +2120,12 @@ In `scripts/generate-docs.ts`:
 
 **Do not edit `apps/landing/src/data/docs/nav.json`.** It is regenerated and any hand edit is lost.
 
+⚠️ **The docs site is `karmyq.org`, NOT `karmyq.com`.** `karmyq.com` serves the application;
+`karmyq.org` serves the landing site from a separate nginx server block
+(`infrastructure/nginx/nginx.conf`). Verified 2026-09-05: `karmyq.com/docs/...` returns **404**,
+while `karmyq.org/docs/concepts/<slug>/` returns 200. Note the **trailing slash** — the unslashed
+form 301-redirects to it, so link the canonical slashed URL.
+
 - [ ] **Step 3: Regenerate and verify the output**
 
 ```bash
@@ -2145,7 +2151,7 @@ cost — and an external contributor can never receive them at all.
 review date, so an entry that stops being true fails the build instead of quietly misleading the
 next person. Adding one is a pull request, like any other change.
 
-The argument is at [How Karmyq Learns](https://karmyq.com/docs/concepts/how-karmyq-learns);
+The argument is at [How Karmyq Learns](https://karmyq.org/docs/concepts/how-karmyq-learns/);
 how to add an entry is in [CONTRIBUTING.md](CONTRIBUTING.md).
 ```
 
