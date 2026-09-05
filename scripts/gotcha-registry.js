@@ -10,7 +10,7 @@ const REVIEW_CAP_DAYS = 400;
 // Posix-separated on every platform: compared directly against git output.
 const GOTCHA_DIR = 'docs/gotchas';
 const REQUIRED = ['title', 'owner', 'created', 'scope'];
-const CHECK_TYPES = ['path_exists', 'file_matches', 'file_not_matches', 'json_equals'];
+// CHECK_TYPES is derived from the CHECKS table below — never a second hand-written list.
 
 function loadRegistry(rootDir) {
   const dir = path.join(rootDir, GOTCHA_DIR);
@@ -89,112 +89,173 @@ function validateSchema(entry) {
   return errs;
 }
 
-// Each check type's arguments are validated up front, so a typo fails as a schema
-// error naming the field rather than as a confusing runtime failure.
-function validateCheckArgs(entry) {
-  const v = entry.data.verify;
-  if (!v || typeof v !== 'object' || Array.isArray(v)) return [];
-  const errs = [];
-  for (const [type, arg] of Object.entries(v)) {
-    if (!CHECK_TYPES.includes(type)) {
-      errs.push(`${entry.jsonPath}: unsupported check type "${type}" (allowed: ${CHECK_TYPES.join(', ')})`);
-      continue;
-    }
-    if (type === 'path_exists') {
-      if (typeof arg !== 'string' || arg === '') {
-        errs.push(`${entry.jsonPath}: path_exists takes a non-empty path string`);
+// Read a file, or fail closed. Never a skip: an unreadable target is exactly when a
+// check must speak, mirroring ADR-060's refusal to treat an API error as "nothing found".
+function readOrFailClosed(rootDir, rel, entry, type, errs) {
+  try {
+    return fs.readFileSync(path.join(rootDir, rel), 'utf8');
+  } catch (e) {
+    errs.push(`${entry.jsonPath}: ${type} target "${rel}" is unreadable — failing closed`);
+    return null;
+  }
+}
+
+/**
+ * The four declarative check types, each with its argument validator and its executor.
+ *
+ * One table rather than two parallel if-chains: a type that exists in one chain but not
+ * the other would either validate without running or run without validating, and nothing
+ * structurally prevented that when these were separate. Adding a type is now one entry.
+ *
+ * There is deliberately no check type that executes a string from an entry file — this is
+ * a public repo accepting fork PRs, and that would be arbitrary code execution (ADR-097).
+ */
+const CHECKS = {
+  path_exists: {
+    validateArgs: (arg, entry) =>
+      typeof arg === 'string' && arg !== ''
+        ? []
+        : [`${entry.jsonPath}: path_exists takes a non-empty path string`],
+    run: (rootDir, arg, entry) =>
+      fs.existsSync(path.join(rootDir, arg))
+        ? []
+        : [`${entry.jsonPath}: path_exists "${arg}" does not exist`],
+  },
+
+  file_matches: {
+    validateArgs: (arg, entry) => patternArgErrors(arg, entry, 'file_matches'),
+    run: (rootDir, arg, entry) => {
+      const errs = [];
+      const text = readOrFailClosed(rootDir, arg.path, entry, 'file_matches', errs);
+      if (text === null) return errs;
+      if (!new RegExp(arg.pattern).test(text)) {
+        errs.push(`${entry.jsonPath}: ${arg.path} no longer contains /${arg.pattern}/`);
       }
-      continue;
-    }
-    if (typeof arg !== 'object' || arg === null) {
-      errs.push(`${entry.jsonPath}: ${type} takes an object`);
-      continue;
-    }
-    if (typeof arg.path !== 'string' || arg.path === '') {
-      errs.push(`${entry.jsonPath}: ${type} requires a non-empty "path"`);
-    }
-    if (type === 'file_matches' || type === 'file_not_matches') {
-      if (typeof arg.pattern !== 'string' || arg.pattern === '') {
-        errs.push(`${entry.jsonPath}: ${type} requires a non-empty "pattern"`);
-      } else {
-        try {
-          new RegExp(arg.pattern);
-        } catch (e) {
-          errs.push(`${entry.jsonPath}: ${type} "pattern" is not a valid regex (${e.message})`);
-        }
+      return errs;
+    },
+  },
+
+  file_not_matches: {
+    validateArgs: (arg, entry) => patternArgErrors(arg, entry, 'file_not_matches'),
+    run: (rootDir, arg, entry) => {
+      const errs = [];
+      const text = readOrFailClosed(rootDir, arg.path, entry, 'file_not_matches', errs);
+      if (text === null) return errs;
+      if (new RegExp(arg.pattern).test(text)) {
+        errs.push(`${entry.jsonPath}: ${arg.path} unexpectedly contains /${arg.pattern}/`);
       }
-    }
-    if (type === 'json_equals') {
+      return errs;
+    },
+  },
+
+  json_equals: {
+    validateArgs: (arg, entry) => {
+      const errs = objectArgErrors(arg, entry, 'json_equals');
+      if (errs.length && !isPlainObject(arg)) return errs;
       if (typeof arg.key !== 'string' || arg.key === '') {
         errs.push(`${entry.jsonPath}: json_equals requires a non-empty "key"`);
       }
       if (!('value' in arg)) {
         errs.push(`${entry.jsonPath}: json_equals requires a "value"`);
       }
-    }
+      return errs;
+    },
+    run: (rootDir, arg, entry) => {
+      const errs = [];
+      const text = readOrFailClosed(rootDir, arg.path, entry, 'json_equals', errs);
+      if (text === null) return errs;
+      let cur;
+      try {
+        cur = arg.key.split('.').reduce((o, k) => (o == null ? undefined : o[k]), JSON.parse(text));
+      } catch (e) {
+        errs.push(`${entry.jsonPath}: ${arg.path} is not valid JSON — failing closed`);
+        return errs;
+      }
+      if (cur !== arg.value) {
+        errs.push(`${entry.jsonPath}: ${arg.path} ${arg.key} expected ${JSON.stringify(arg.value)}, found ${JSON.stringify(cur)}`);
+      }
+      return errs;
+    },
+  },
+};
+
+const CHECK_TYPES = Object.keys(CHECKS);
+
+function isPlainObject(v) {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function objectArgErrors(arg, entry, type) {
+  if (!isPlainObject(arg)) return [`${entry.jsonPath}: ${type} takes an object`];
+  return typeof arg.path === 'string' && arg.path !== ''
+    ? []
+    : [`${entry.jsonPath}: ${type} requires a non-empty "path"`];
+}
+
+function patternArgErrors(arg, entry, type) {
+  const errs = objectArgErrors(arg, entry, type);
+  if (!isPlainObject(arg)) return errs;
+  if (typeof arg.pattern !== 'string' || arg.pattern === '') {
+    errs.push(`${entry.jsonPath}: ${type} requires a non-empty "pattern"`);
+    return errs;
+  }
+  try {
+    new RegExp(arg.pattern);
+  } catch (e) {
+    errs.push(`${entry.jsonPath}: ${type} "pattern" is not a valid regex (${e.message})`);
   }
   return errs;
 }
 
-function readOr(rootDir, rel) {
-  try {
-    return fs.readFileSync(path.join(rootDir, rel), 'utf8');
-  } catch (e) {
-    return null; // caller turns this into a failure, never a skip
+// One home for this message, so validation and execution can never disagree about
+// which types exist — and so the CLI, which concatenates both, cannot print it twice.
+function unsupportedType(entry, type) {
+  return `${entry.jsonPath}: unsupported check type "${type}" (allowed: ${CHECK_TYPES.join(', ')})`;
+}
+
+// Each check type's arguments are validated up front, so a typo fails as a schema
+// error naming the field rather than as a confusing runtime failure.
+function validateCheckArgs(entry) {
+  const v = entry.data.verify;
+  if (!isPlainObject(v)) return [];
+  const errs = [];
+  for (const [type, arg] of Object.entries(v)) {
+    const check = CHECKS[type];
+    if (!check) {
+      errs.push(unsupportedType(entry, type));
+      continue;
+    }
+    errs.push(...check.validateArgs(arg, entry));
   }
+  return errs;
 }
 
 function runVerify(rootDir, entry) {
   const v = entry.data.verify;
   if (!v) return [];
   const errs = [];
-  for (const type of Object.keys(v)) {
-    if (!CHECK_TYPES.includes(type)) {
-      errs.push(`${entry.jsonPath}: unsupported check type "${type}" (allowed: ${CHECK_TYPES.join(', ')})`);
+  for (const [type, arg] of Object.entries(v)) {
+    const check = CHECKS[type];
+    if (!check) {
+      errs.push(unsupportedType(entry, type));
       continue;
     }
-    const arg = v[type];
-    if (type === 'path_exists') {
-      if (!fs.existsSync(path.join(rootDir, arg))) {
-        errs.push(`${entry.jsonPath}: path_exists "${arg}" does not exist`);
-      }
-      continue;
-    }
-    const text = readOr(rootDir, arg.path);
-    if (text === null) {
-      errs.push(`${entry.jsonPath}: ${type} target "${arg.path}" is unreadable — failing closed`);
-      continue;
-    }
-    if (type === 'file_matches' && !new RegExp(arg.pattern).test(text)) {
-      errs.push(`${entry.jsonPath}: ${arg.path} no longer contains /${arg.pattern}/`);
-    }
-    if (type === 'file_not_matches' && new RegExp(arg.pattern).test(text)) {
-      errs.push(`${entry.jsonPath}: ${arg.path} unexpectedly contains /${arg.pattern}/`);
-    }
-    if (type === 'json_equals') {
-      let cur;
-      try {
-        cur = arg.key.split('.').reduce((o, k) => (o == null ? undefined : o[k]), JSON.parse(text));
-      } catch (e) {
-        errs.push(`${entry.jsonPath}: ${arg.path} is not valid JSON — failing closed`);
-        continue;
-      }
-      if (cur !== arg.value) {
-        errs.push(`${entry.jsonPath}: ${arg.path} ${arg.key} expected ${JSON.stringify(arg.value)}, found ${JSON.stringify(cur)}`);
-      }
-    }
+    errs.push(...check.run(rootDir, arg, entry));
   }
   return errs;
 }
 
-const ISO = /^\d{4}-\d{2}-\d{2}$/;
+// Date primitives come from the shared registry core (ADR-094), which exports them
+// precisely so callers do not re-implement them — a hand-rolled copy in
+// check-image-size-upstream.js once dropped the shape check and the rollover guard.
+// The core has zero requires and reaches neither the network nor a subprocess, so this
+// stays runnable under bare `node` in the clean-room clone and keeps hermeticity intact.
+const { parseUtcDate, todayUtc } = require('./lib/exemption-registry');
 
+// Local adapter: this module signals "not a date" with null rather than a NaN-bearing Date.
 function parseIso(s) {
-  if (typeof s !== 'string' || !ISO.test(s)) return null;
-  const d = new Date(`${s}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return null;
-  if (d.toISOString().slice(0, 10) !== s) return null; // rejects 2026-13-45
-  return d;
+  const d = parseUtcDate(s);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 function checkDates(entry, today) {
@@ -249,11 +310,23 @@ function scopeMatches(scopeEntry, candidatePath) {
   return s.endsWith('/') ? c.startsWith(s) : c === s;
 }
 
+// One home for the scope coercion, shared by checkScope and discover.
+function scopeOf(entry) {
+  return Array.isArray(entry.data.scope) ? entry.data.scope : [];
+}
+
 function checkScope(entry, trackedPaths) {
   const errs = [];
-  const scope = Array.isArray(entry.data.scope) ? entry.data.scope : [];
-  for (const s of scope) {
-    const hit = trackedPaths.some((t) => scopeMatches(s, t));
+  for (const s of scopeOf(entry)) {
+    // Normalize the anchor ONCE, not once per candidate. This scan is
+    // O(scopes x repo size) — ~2,200 tracked files here, and the registry is meant to
+    // grow — so re-normalizing a loop-invariant string inside it is pure waste.
+    // Candidates come from `git ls-files`, which always emits forward slashes.
+    const normalized = normalizePath(s);
+    const isPrefix = normalized.endsWith('/');
+    const hit = trackedPaths.some((t) =>
+      isPrefix ? t.startsWith(normalized) : t === normalized,
+    );
     if (!hit) {
       errs.push(
         `${entry.jsonPath}: scope "${s}" matches no git-tracked path — stale, misfiled, or machine-local`,
@@ -285,8 +358,7 @@ function checkPairing(rootDir) {
 function discover(entries, changedPaths) {
   const hits = new Set();
   for (const entry of entries) {
-    const scope = Array.isArray(entry.data.scope) ? entry.data.scope : [];
-    for (const s of scope) {
+    for (const s of scopeOf(entry)) {
       if (changedPaths.some((c) => scopeMatches(s, c))) {
         hits.add(entry.slug);
         break;
@@ -316,6 +388,21 @@ function scanCredentials(text, label) {
   );
 }
 
+/**
+ * Screen BOTH halves of an entry pair.
+ *
+ * This exists as a function rather than a convention because scanning only the body was
+ * a real defect: a credential in a sidecar passed the blocking gate. Expressed as two
+ * call sites, the gate could only ever prove the copy it wrote itself — a third caller
+ * screening one half would go unnoticed.
+ */
+function scanEntry(entry) {
+  return [
+    ...scanCredentials(entry.body, entry.bodyPath),
+    ...scanCredentials(JSON.stringify(entry.data, null, 1), entry.jsonPath),
+  ];
+}
+
 module.exports = {
   REVIEW_CAP_DAYS,
   GOTCHA_DIR,
@@ -330,4 +417,8 @@ module.exports = {
   checkPairing,
   discover,
   scanCredentials,
+  scanEntry,
+  // Re-exported so callers compare against the same UTC-midnight boundary these dates
+  // live on, rather than a wall-clock Date.
+  todayUtc,
 };

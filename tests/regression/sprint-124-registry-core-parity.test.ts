@@ -140,10 +140,27 @@ describe('Sprint 124 shared exemption registry core', () => {
       );
     });
 
-    it.each(['not-a-date', '2026-02-31'])('rejects an invalid created date: %s', (created) => {
-      expect(
-        core.validateRegistry(registry([validEntry({ created })]), spec, NOW).join(' ')
-      ).toMatch(/"created" must be a valid YYYY-MM-DD date/);
+    // '2026-13-45' is the case the first two miss, and it is a different failure MODE, not
+    // just another bad string: month 13 yields an Invalid Date, whose toISOString() THROWS.
+    // Before the guard in parseUtcDate, this crashed validateRegistry with an unhandled
+    // RangeError — a malformed date in a shipped registry took the ADR-059 gate down
+    // instead of failing it. '2026-02-31' cannot expose that, because it rolls over to a
+    // real date and round-trips cleanly.
+    it.each(['not-a-date', '2026-02-31', '2026-13-45', '9999-99-99'])(
+      'rejects an invalid created date without throwing: %s',
+      (created) => {
+        expect(() =>
+          core.validateRegistry(registry([validEntry({ created })]), spec, NOW)
+        ).not.toThrow();
+        expect(
+          core.validateRegistry(registry([validEntry({ created })]), spec, NOW).join(' ')
+        ).toMatch(/"created" must be a valid YYYY-MM-DD date/);
+      }
+    );
+
+    it('parseUtcDate returns a NaN date rather than throwing on an impossible month', () => {
+      expect(() => core.parseUtcDate('2026-13-45')).not.toThrow();
+      expect(Number.isNaN(core.parseUtcDate('2026-13-45').getTime())).toBe(true);
     });
   });
 

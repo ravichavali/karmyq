@@ -57,8 +57,7 @@ node scripts/feedback-loop.js
 # Credential screen for gotcha entries - runs BEFORE publication. A CI rejection
 # would arrive after the content is already on a public remote, where deletion
 # does not remove it from git history.
-staged_gotchas=$(echo "$changed_files" | grep '^docs/gotchas/' || true)
-if [ -n "$staged_gotchas" ]; then
+if echo "$changed_files" | grep -q '^docs/gotchas/'; then
   echo ""
   echo "Screening staged gotcha entries for credentials..."
   if ! node scripts/gotcha-check.js --staged; then

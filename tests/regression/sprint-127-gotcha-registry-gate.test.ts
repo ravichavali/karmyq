@@ -3,11 +3,11 @@ import { join } from 'path';
 import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 
-const reg = require('../../scripts/gotcha-registry.js');
-const ROOT = join(__dirname, '..', '..');
+// ROOT and tracked() are the repo's canonical git-tracked-file enumeration, extracted in
+// Sprint 122 PR 4 precisely so gates stop carrying byte-identical copies of this scan.
+import { ROOT, tracked } from './helpers/workspaces';
 
-const tracked = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' })
-  .split('\n').map((s) => s.trim()).filter(Boolean);
+const reg = require('../../scripts/gotcha-registry.js');
 
 describe('Sprint 127 — gotcha registry gate', () => {
   const { entries, errors } = reg.loadRegistry(ROOT);
@@ -30,7 +30,7 @@ describe('Sprint 127 — gotcha registry gate', () => {
   });
 
   it('every scope anchor is git-tracked', () => {
-    expect(entries.flatMap((e: any) => reg.checkScope(e, tracked))).toEqual([]);
+    expect(entries.flatMap((e: any) => reg.checkScope(e, tracked()))).toEqual([]);
   });
 
   it('every see_also resolves', () => {
@@ -45,12 +45,15 @@ describe('Sprint 127 — gotcha registry gate', () => {
   // sidecar passed this blocking gate and would have been caught only later, by the
   // clean-room CLI, after the content was already committed.
   it('no entry contains credential-shaped content, in either half of the pair', () => {
-    expect(
-      entries.flatMap((e: any) => [
-        ...reg.scanCredentials(e.body, e.bodyPath),
-        ...reg.scanCredentials(JSON.stringify(e.data, null, 1), e.jsonPath),
-      ]),
-    ).toEqual([]);
+    expect(entries.flatMap((e: any) => reg.scanEntry(e))).toEqual([]);
+  });
+
+  // scanEntry is the shared mechanism the CLI also calls, so prove it screens the sidecar
+  // and not merely the body — the half that was originally missed.
+  it('scanEntry screens the JSON sidecar, not just the body', () => {
+    const bodyOnly = { slug: 'x', jsonPath: 'x.json', bodyPath: 'x.md',
+                       data: { password: 'synthetic-example-value' }, body: 'harmless prose' };
+    expect(reg.scanEntry(bodyOnly)).toEqual([expect.stringContaining('x.json')]);
   });
 
   it('the credential scan catches a QUOTED JSON key, not just a bare assignment', () => {
@@ -91,12 +94,39 @@ describe('Sprint 127 — gotcha registry gate', () => {
     expect(status).toBe(2);
   });
 
-  // Hermeticity: the module must not reach the network, directly or transitively.
-  it('the validator makes no network calls', () => {
+  // Hermeticity (ADR-097 §4): the module must not reach the network, directly OR
+  // transitively.
+  //
+  // Asserted as an ALLOWLIST over the actual require set, not a blocklist of known-bad
+  // module names. A blocklist has to be extended for every spelling it does not yet
+  // know — `require('node:http')` defeats one, and so does a helper module that does the
+  // requiring. An allowlist fails on anything new, which is the property the ADR claims.
+  const ALLOWED_REQUIRES = new Set(['fs', 'path', './lib/exemption-registry']);
+
+  function requiresOf(absPath: string): string[] {
+    const src = readFileSync(absPath, 'utf8');
+    return [...src.matchAll(/require\(\s*['"]([^'"]+)['"]\s*\)/g)].map((m) => m[1]);
+  }
+
+  it('the validator requires nothing outside the hermetic allowlist', () => {
+    const found = requiresOf(join(ROOT, 'scripts', 'gotcha-registry.js'));
+    expect(found.filter((r) => !ALLOWED_REQUIRES.has(r))).toEqual([]);
+    // Guard the guard: the extractor must actually find the requires that are there,
+    // or "no disallowed requires" would be vacuously true.
+    expect(found).toEqual(expect.arrayContaining(['fs', 'path']));
+  });
+
+  // "Transitively" is only meaningful if the local modules it pulls in are checked too.
+  it('the local module the validator depends on is itself hermetic', () => {
+    const found = requiresOf(join(ROOT, 'scripts', 'lib', 'exemption-registry.js'));
+    expect(found).toEqual([]);
+  });
+
+  it('the validator never spawns a process or fetches', () => {
     const src = readFileSync(join(ROOT, 'scripts', 'gotcha-registry.js'), 'utf8');
-    expect(src).not.toMatch(/require\(['"](https?|net|dns|tls)['"]\)/);
     expect(src).not.toMatch(/\bfetch\s*\(/);
     expect(src).not.toMatch(/child_process/);
+    expect(src).not.toMatch(/\bimport\s*\(/); // dynamic import bypasses the require scan
   });
 });
 
@@ -304,6 +334,37 @@ describe('negative fixtures — the gate must be able to FAIL', () => {
         expect.stringContaining('unsupported check type'),
       ]);
       rmSync(r, { recursive: true, force: true });
+    });
+
+    // Validation and execution each reject an unknown type independently, so each is
+    // usable alone. They must produce the IDENTICAL string, or the CLI — which
+    // concatenates both — would show the operator the same problem twice in two wordings.
+    it('validation and execution reject an unknown type in exactly the same words', () => {
+      const r = root({ 'a.sh': 'x' });
+      const e = entryWith({ run_shell: 'rm -rf /' });
+      const fromValidation = reg.validateSchema(e).filter((m: string) =>
+        m.includes('unsupported check type'),
+      );
+      const fromExecution = reg.runVerify(r, e);
+      expect(fromValidation).toEqual(fromExecution);
+      expect(new Set([...fromValidation, ...fromExecution]).size).toBe(1);
+      rmSync(r, { recursive: true, force: true });
+    });
+
+    // The four types the executor knows and the four the validator knows are one list.
+    it('every advertised check type has both a validator and an executor', () => {
+      const advertised = reg.runVerify('.', entryWith({ nope: 1 }))[0]
+        .match(/allowed: (.*)\)/)[1]
+        .split(', ');
+      expect(advertised).toEqual([
+        'path_exists', 'file_matches', 'file_not_matches', 'json_equals',
+      ]);
+      for (const type of advertised) {
+        // A type in the list but missing from either half would surface here as an
+        // "unsupported check type" error rather than a type-specific one.
+        const errs = reg.validateSchema(entryWith({ [type]: null }));
+        expect(errs.join(' ')).not.toContain('unsupported check type');
+      }
     });
   });
 
@@ -531,12 +592,17 @@ describe('negative fixtures — the gate must be able to FAIL', () => {
 describe('Sprint 127 — clean-room: validator and discovery from a fresh clone', () => {
   let clone: string;
   let sha: string;
+  let cleanReg: any;
+  let cleanEntries: any[];
 
   beforeAll(() => {
     sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
     clone = mkdtempSync(join(tmpdir(), 'gotcha-clean-'));
     execFileSync('git', ['clone', '--quiet', '--no-hardlinks', ROOT, clone], { encoding: 'utf8' });
     execFileSync('git', ['checkout', '--quiet', sha], { cwd: clone, encoding: 'utf8' });
+    // The clone is immutable across these tests, so load it once.
+    cleanReg = require(join(clone, 'scripts', 'gotcha-registry.js'));
+    cleanEntries = cleanReg.loadRegistry(clone).entries;
   }, 120000);
 
   afterAll(() => {
@@ -560,18 +626,14 @@ describe('Sprint 127 — clean-room: validator and discovery from a fresh clone'
   });
 
   it('discovery returns the EXACT expected entries for representative paths', () => {
-    const cleanReg = require(join(clone, 'scripts', 'gotcha-registry.js'));
-    const { entries } = cleanReg.loadRegistry(clone);
-    expect(cleanReg.discover(entries, ['scripts/install-hooks.sh']))
+    expect(cleanReg.discover(cleanEntries, ['scripts/install-hooks.sh']))
       .toEqual(['hooks-install-to-git-hooks-on-a-fresh-clone']);
-    expect(cleanReg.discover(entries, ['scripts/audit-exemptions.js']).sort())
+    expect(cleanReg.discover(cleanEntries, ['scripts/audit-exemptions.js']).sort())
       .toEqual(['adr-059-cannot-tell-no-answer-from-no-advisories',
                 'npm-status-page-is-not-a-signal'].sort());
   });
 
   it('discovery rejects an adjacent prefix', () => {
-    const cleanReg = require(join(clone, 'scripts', 'gotcha-registry.js'));
-    const { entries } = cleanReg.loadRegistry(clone);
-    expect(cleanReg.discover(entries, ['scripts/git-hooks-old/pre-push'])).toEqual([]);
+    expect(cleanReg.discover(cleanEntries, ['scripts/git-hooks-old/pre-push'])).toEqual([]);
   });
 });

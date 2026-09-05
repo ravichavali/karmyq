@@ -23,7 +23,7 @@ function runDiscovery(paths) {
   const slugs = reg.discover(entries, paths.map(reg.normalizePath));
   if (!slugs.length) {
     console.log('No gotchas scoped to those paths.');
-    return 0;
+    return;
   }
   console.log(`${slugs.length} gotcha(s) apply to those paths — read them before changing:\n`);
   for (const slug of slugs) {
@@ -31,7 +31,6 @@ function runDiscovery(paths) {
     console.log(`  ${entry.data.title}`);
     console.log(`    ${entry.bodyPath}`);
   }
-  return 0;
 }
 
 function main() {
@@ -42,12 +41,12 @@ function main() {
       console.error('Usage: node scripts/gotcha-check.js --for <path> [<path>...]');
       process.exit(2);
     }
-    process.exit(runDiscovery(paths));
+    runDiscovery(paths);
+    process.exit(0); // discovery reports; it never fails
   }
   const stagedOnly = process.argv.includes('--staged');
   const { entries, errors } = reg.loadRegistry(ROOT);
   const all = [...errors];
-  const slugs = entries.map((e) => e.slug);
 
   if (stagedOnly) {
     // Publication-preventing screen. Reads each staged BLOB from the index, never the
@@ -75,23 +74,27 @@ function main() {
     }
   } else {
     const t = tracked();
+    const slugs = entries.map((e) => e.slug);
+    const today = reg.todayUtc(); // compare against the UTC midnight these dates live on
     all.push(...reg.checkPairing(ROOT));
     for (const e of entries) {
       all.push(...reg.validateSchema(e));
       all.push(...reg.runVerify(ROOT, e));
-      all.push(...reg.checkDates(e, new Date()));
+      all.push(...reg.checkDates(e, today));
       all.push(...reg.checkScope(e, t));
       all.push(...reg.checkReferences(e, slugs));
-      // BOTH halves of the pair, in every mode. Scanning only the body left the
-      // sidecar unscreened, and a credential sits as easily in a JSON field.
-      all.push(...reg.scanCredentials(e.body, e.bodyPath));
-      all.push(...reg.scanCredentials(JSON.stringify(e.data, null, 1), e.jsonPath));
+      all.push(...reg.scanEntry(e)); // BOTH halves of the pair
     }
   }
 
-  if (all.length) {
+  // Schema validation and execution are independent checks that legitimately reach the
+  // same conclusion — an unsupported check type is reported by both, by design, so each
+  // function is usable on its own. The operator should still see it once.
+  const unique = [...new Set(all)];
+
+  if (unique.length) {
     console.error('\n❌ Gotcha registry check failed:\n');
-    for (const e of all) console.error(`  ✗ ${e}`);
+    for (const e of unique) console.error(`  ✗ ${e}`);
     console.error('\n  → Fix the entry, or delete it if it no longer applies.\n');
     process.exit(1);
   }

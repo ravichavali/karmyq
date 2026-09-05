@@ -146,13 +146,14 @@ export function extractInstallCommands(text: string): string[] {
     .filter((c) => !/--workspace/.test(c)); // workspace examples are illustrative, not the policy
 }
 
+const IS_NPM_CI = /^npm ci\b/;
+
 export function onboardingDocIssues(docs: Record<string, string>): string[] {
   const issues: string[] = [];
-  const perDoc: Record<string, string[]> = {};
+  const ciCommands = new Set<string>();
 
   for (const [name, text] of Object.entries(docs)) {
     const cmds = extractInstallCommands(text);
-    perDoc[name] = cmds;
     // 1. POLICY: no forbidden command, regardless of flags.
     for (const c of cmds) {
       if (/^npm install\b/.test(c)) {
@@ -160,9 +161,10 @@ export function onboardingDocIssues(docs: Record<string, string>): string[] {
       }
     }
     // 2. POLICY: the required commands are present.
-    if (!cmds.some((c) => /^npm ci\b/.test(c))) {
-      issues.push(`${name}: has no "npm ci" install command`);
-    }
+    const ci = cmds.find((c) => IS_NPM_CI.test(c));
+    if (ci) ciCommands.add(ci);
+    else issues.push(`${name}: has no "npm ci" install command`);
+
     if (!/npm run hooks:install/.test(text)) {
       issues.push(`${name}: does not mention "npm run hooks:install"`);
     }
@@ -170,12 +172,10 @@ export function onboardingDocIssues(docs: Record<string, string>): string[] {
 
   // 3. CONSISTENCY: the install command must be identical across documents, flags
   //    included — this catches divergence the policy check alone would miss.
-  const canonical = Object.entries(perDoc)
-    .map(([name, cmds]) => [name, cmds.find((c) => /^npm ci\b/.test(c))] as const)
-    .filter(([, c]) => c);
-  const distinct = [...new Set(canonical.map(([, c]) => c))];
-  if (distinct.length > 1) {
-    issues.push(`onboarding docs disagree on the install command: ${distinct.join(' | ')}`);
+  if (ciCommands.size > 1) {
+    issues.push(
+      `onboarding docs disagree on the install command: ${[...ciCommands].join(' | ')}`,
+    );
   }
 
   return issues.sort();
