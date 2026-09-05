@@ -23,6 +23,22 @@
 - Landing docs regenerate during `npm test`; revert `build.json`/`architecture.json` timestamp and HEAD-sha churn before committing.
 - Branch from `origin/master`. ADR number is **maintainer-allocated** — ask before writing ADR-097.
 
+## Prerequisites — do these before Task 1
+
+1. **PR #219 must be merged first.** This plan's branch is cut from `master`, and `master`'s
+   `.claude/handoff/CURRENT_HANDOFF.md` is the **pre-merge Sprint 126 copy** — it still says PR #210
+   is open, Task 14 is unauthorized, and the demo database has only been read. All three are false:
+   #210 merged 2026-09-03 and the backfill wrote 20,341 karma rows. The reconciled handoff, the
+   maintainer-allocated ADR rules, and the ADR-uniqueness gate this plan depends on all live in
+   #219. Starting before it merges means working from a handoff that will actively mislead.
+2. **Ask the maintainer to allocate the ADR number** (Task 12). Do not derive it from the directory
+   listing — two lanes reading the same listing get the same answer.
+3. **Confirm the dependency lane is free.** This plan takes no dependencies, so it should not
+   contend — but verify no one has designated an active dependency task that touches
+   `package.json`, and remember an open Dependabot PR is a queued proposal, not the holder.
+4. **Fresh chat.** This plan was authored in the chat that produced the spec; per the cadence rule,
+   the next chat executes.
+
 ---
 
 ## File Structure
@@ -34,7 +50,7 @@
 | `tests/regression/sprint-127-gotcha-registry-gate.test.ts` | **Create.** The blocking gate. Positive assertions over the real registry plus every negative fixture. |
 | `tests/regression/doc-context-drift-gate.test.ts` | **Modify.** Add the onboarding-doc policy assertion. |
 | `scripts/git-hooks/pre-commit` | **Modify.** Add the credential screen for staged `docs/gotchas/` files. |
-| `docs/gotchas/*.json` + `*.md` | **Create.** Five seed entries. |
+| `docs/gotchas/*.json` + `*.md` | **Create.** Six seed entries. |
 | `.claude/skills/learned/SKILL.md` | **Create.** The `/learned` capture skill. |
 | `docs/concepts/how-karmyq-learns.md` | **Create.** Public philosophy page source. |
 | `scripts/generate-docs.ts` | **Modify.** Add the slug to `CONCEPT_ORDER` (~line 246) and `whyKarmyq` (line 585). |
@@ -136,6 +152,57 @@ describe('gotcha registry — schema', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
+  // These three all passed an earlier draft: an entry asserting nothing, with no
+  // review date, satisfied "exactly one of". That defeats the whole invariant.
+  it.each([null, false, {}, [], 'yes'])('FAILS when verify is %p (asserts nothing)', (bad) => {
+    const { expires, ...noExpires } = VALID;
+    const root = fixtureRoot({
+      'docs/gotchas/a.json': JSON.stringify({ ...noExpires, verify: bad }),
+      'docs/gotchas/a.md': 'body',
+    });
+    const { entries } = reg.loadRegistry(root);
+    expect(reg.validateSchema(entries[0]).length).toBeGreaterThan(0);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it.each([
+    ['renewed', 'not-an-array'],
+    ['see_also', { a: 1 }],
+  ])('FAILS when %s is malformed rather than silently treating it as empty', (field, bad) => {
+    const root = fixtureRoot({
+      'docs/gotchas/a.json': JSON.stringify({ ...VALID, [field]: bad }),
+      'docs/gotchas/a.md': 'body',
+    });
+    const { entries } = reg.loadRegistry(root);
+    expect(reg.validateSchema(entries[0])).toEqual([expect.stringContaining(field)]);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('FAILS a check with malformed arguments', () => {
+    const { expires, ...noExpires } = VALID;
+    const root = fixtureRoot({
+      'docs/gotchas/a.json': JSON.stringify({
+        ...noExpires,
+        verify: { file_matches: { path: 'a.sh', pattern: '[unclosed' } },
+      }),
+      'docs/gotchas/a.md': 'body',
+    });
+    const { entries } = reg.loadRegistry(root);
+    expect(reg.validateSchema(entries[0])).toEqual([expect.stringContaining('not a valid regex')]);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('loads a body whose path is repo-relative, not double-joined', () => {
+    const root = fixtureRoot({
+      'docs/gotchas/a.json': JSON.stringify(VALID),
+      'docs/gotchas/a.md': 'the body text',
+    });
+    const { entries } = reg.loadRegistry(root);
+    expect(entries[0].bodyPath).toBe('docs/gotchas/a.md');
+    expect(entries[0].body).toBe('the body text');
+    rmSync(root, { recursive: true, force: true });
+  });
+
   it('reports malformed JSON as a load error rather than throwing', () => {
     const root = fixtureRoot({
       'docs/gotchas/a.json': '{ not json',
@@ -166,8 +233,10 @@ const path = require('path');
 // impose security-grade churn on low-risk content.
 const REVIEW_CAP_DAYS = 400;
 
-const GOTCHA_DIR = path.join('docs', 'gotchas');
+// Posix-separated on every platform: compared directly against git output.
+const GOTCHA_DIR = 'docs/gotchas';
 const REQUIRED = ['title', 'owner', 'created', 'scope'];
+const CHECK_TYPES = ['path_exists', 'file_matches', 'file_not_matches', 'json_equals'];
 
 function loadRegistry(rootDir) {
   const dir = path.join(rootDir, GOTCHA_DIR);
@@ -178,8 +247,12 @@ function loadRegistry(rootDir) {
   for (const file of fs.readdirSync(dir).sort()) {
     if (!file.endsWith('.json')) continue;
     const slug = file.replace(/\.json$/, '');
-    const jsonPath = path.join(dir, file);
-    const bodyPath = path.join(dir, `${slug}.md`);
+    // Entry paths are ALWAYS repository-relative, posix-separated. They are compared
+    // against `git ls-files` and `git diff --cached` output, which is relative and
+    // posix. Resolve to disk exactly once, at read time — never store an absolute
+    // path in an Entry.
+    const jsonPath = `${GOTCHA_DIR}/${file}`;
+    const bodyPath = `${GOTCHA_DIR}/${slug}.md`;
     let data;
     try {
       data = JSON.parse(fs.readFileSync(path.join(rootDir, jsonPath), 'utf8'));
@@ -187,9 +260,8 @@ function loadRegistry(rootDir) {
       errors.push(`${jsonPath}: not valid JSON (${e.message})`);
       continue;
     }
-    const body = fs.existsSync(path.join(rootDir, bodyPath))
-      ? fs.readFileSync(path.join(rootDir, bodyPath), 'utf8')
-      : '';
+    const bodyAbs = path.join(rootDir, bodyPath);
+    const body = fs.existsSync(bodyAbs) ? fs.readFileSync(bodyAbs, 'utf8') : '';
     entries.push({ slug, jsonPath, bodyPath, data, body });
   }
   return { entries, errors };
@@ -206,14 +278,86 @@ function validateSchema(entry) {
   if (d.scope !== undefined && (!Array.isArray(d.scope) || d.scope.length === 0)) {
     errs.push(`${entry.jsonPath}: "scope" must be a non-empty array`);
   }
-  const hasVerify = d.verify !== undefined;
+
+  // `verify` counts as present only if it is a NON-EMPTY plain object. Without this,
+  // `verify: null`, `verify: false` and `verify: {}` all satisfy "exactly one of" while
+  // asserting nothing and carrying no review date — bypassing the invariant that makes
+  // the collection self-pruning. Verified: all three passed an earlier draft.
+  const verifyPresent = d.verify !== undefined;
+  const verifyUsable =
+    verifyPresent &&
+    typeof d.verify === 'object' &&
+    d.verify !== null &&
+    !Array.isArray(d.verify) &&
+    Object.keys(d.verify).length > 0;
+  if (verifyPresent && !verifyUsable) {
+    errs.push(`${entry.jsonPath}: "verify" must be a non-empty object of declarative checks`);
+  }
   const hasExpires = d.expires !== undefined;
-  if (hasVerify === hasExpires) {
+  if (verifyUsable === hasExpires) {
     errs.push(
       `${entry.jsonPath}: exactly one of "verify" or "expires" is required (found ${
-        hasVerify ? 'both' : 'neither'
+        verifyUsable ? 'both' : 'neither'
       })`,
     );
+  }
+
+  // Malformed containers must fail loudly. Treating a string or object as an empty
+  // array silently drops the very data these fields exist to carry.
+  if (d.renewed !== undefined && !Array.isArray(d.renewed)) {
+    errs.push(`${entry.jsonPath}: "renewed" must be an array of {date, evidence} objects`);
+  }
+  if (d.see_also !== undefined && !Array.isArray(d.see_also)) {
+    errs.push(`${entry.jsonPath}: "see_also" must be an array of slugs`);
+  }
+
+  errs.push(...validateCheckArgs(entry));
+  return errs;
+}
+
+// Each check type's arguments are validated up front, so a typo fails as a schema
+// error naming the field rather than as a confusing runtime failure.
+function validateCheckArgs(entry) {
+  const v = entry.data.verify;
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return [];
+  const errs = [];
+  for (const [type, arg] of Object.entries(v)) {
+    if (!CHECK_TYPES.includes(type)) {
+      errs.push(`${entry.jsonPath}: unsupported check type "${type}" (allowed: ${CHECK_TYPES.join(', ')})`);
+      continue;
+    }
+    if (type === 'path_exists') {
+      if (typeof arg !== 'string' || arg === '') {
+        errs.push(`${entry.jsonPath}: path_exists takes a non-empty path string`);
+      }
+      continue;
+    }
+    if (typeof arg !== 'object' || arg === null) {
+      errs.push(`${entry.jsonPath}: ${type} takes an object`);
+      continue;
+    }
+    if (typeof arg.path !== 'string' || arg.path === '') {
+      errs.push(`${entry.jsonPath}: ${type} requires a non-empty "path"`);
+    }
+    if (type === 'file_matches' || type === 'file_not_matches') {
+      if (typeof arg.pattern !== 'string' || arg.pattern === '') {
+        errs.push(`${entry.jsonPath}: ${type} requires a non-empty "pattern"`);
+      } else {
+        try {
+          new RegExp(arg.pattern);
+        } catch (e) {
+          errs.push(`${entry.jsonPath}: ${type} "pattern" is not a valid regex (${e.message})`);
+        }
+      }
+    }
+    if (type === 'json_equals') {
+      if (typeof arg.key !== 'string' || arg.key === '') {
+        errs.push(`${entry.jsonPath}: json_equals requires a non-empty "key"`);
+      }
+      if (!('value' in arg)) {
+        errs.push(`${entry.jsonPath}: json_equals requires a "value"`);
+      }
+    }
   }
   return errs;
 }
@@ -348,7 +492,7 @@ Expected: FAIL — `reg.runVerify is not a function`
 Append to `scripts/gotcha-registry.js`, and add `runVerify` to `module.exports`:
 
 ```javascript
-const CHECK_TYPES = ['path_exists', 'file_matches', 'file_not_matches', 'json_equals'];
+// CHECK_TYPES is defined in Task 1 — do not redeclare it here.
 
 function readOr(rootDir, rel) {
   try {
@@ -444,8 +588,11 @@ describe('gotcha registry — dates and renewal', () => {
     expect(reg.checkDates(e({ created: '2026-09-04', expires: '2027-01-01' }), TODAY)).toEqual([]);
   });
 
-  it('FAILS an entry past its review date', () => {
-    expect(reg.checkDates(e({ created: '2025-01-01', expires: '2026-09-03' }), TODAY)).toEqual([
+  // The span here is deliberately INSIDE the cap so this fixture isolates the expiry
+  // failure. An earlier draft used created 2025-01-01, which is a 610-day span and
+  // therefore produced two errors while asserting exactly one.
+  it('FAILS an entry past its review date, and only for that reason', () => {
+    expect(reg.checkDates(e({ created: '2026-08-01', expires: '2026-09-03' }), TODAY)).toEqual([
       expect.stringContaining('past its review date'),
     ]);
   });
@@ -910,10 +1057,16 @@ Expected: FAIL — `reg.scanCredentials is not a function`
 Append to `scripts/gotcha-registry.js`:
 
 ```javascript
+// The optional quote group is load-bearing. Without it a JSON sidecar containing
+// {"password":"..."} produced NO findings — the character after the key is a quote,
+// not a colon. Confirmed against the earlier pattern set during review, which is why
+// both halves of every pair are now screened in every mode.
 const CREDENTIAL_PATTERNS = [
   { name: 'private key block', re: /-----BEGIN [A-Z ]*PRIVATE KEY-----/ },
-  { name: 'password assignment', re: /\b(password|passwd|pwd)\s*[:=]\s*\S{6,}/i },
-  { name: 'secret/token assignment', re: /\b(secret|token|api[_-]?key)\s*[:=]\s*\S{8,}/i },
+  {
+    name: 'credential assignment',
+    re: /["']?\b(password|passwd|pwd|secret|token|api[_-]?key|private[_-]?key)\b["']?\s*[:=]\s*["']?\S{6,}/i,
+  },
   { name: 'bearer token', re: /\bBearer\s+[A-Za-z0-9._-]{20,}/ },
   { name: 'connection string with credentials', re: /\b[a-z+]+:\/\/[^\s:@/]+:[^\s:@/]+@/i },
 ];
@@ -941,20 +1094,64 @@ function tracked() {
     .split('\n').map((s) => s.trim()).filter(Boolean);
 }
 
+// Discovery entry point. Without this, discover() is reachable only from tests and the
+// spec's central promise — "read the gotchas scoped to what you are about to change" —
+// has no way to be acted on. Accepts paths that do NOT yet exist, which is the case
+// directory-scoped knowledge exists for.
+function runDiscovery(paths) {
+  const { entries } = reg.loadRegistry(ROOT);
+  const slugs = reg.discover(entries, paths.map((p) => p.replace(/\/g, '/')));
+  if (!slugs.length) {
+    console.log('No gotchas scoped to those paths.');
+    return 0;
+  }
+  console.log(`${slugs.length} gotcha(s) apply to those paths — read them before changing:\n`);
+  for (const slug of slugs) {
+    const entry = entries.find((e) => e.slug === slug);
+    console.log(`  ${entry.data.title}`);
+    console.log(`    ${entry.bodyPath}`);
+  }
+  return 0;
+}
+
 function main() {
+  const forIndex = process.argv.indexOf('--for');
+  if (forIndex !== -1) {
+    const paths = process.argv.slice(forIndex + 1).filter((a) => !a.startsWith('--'));
+    if (!paths.length) {
+      console.error('Usage: node scripts/gotcha-check.js --for <path> [<path>...]');
+      process.exit(2);
+    }
+    process.exit(runDiscovery(paths));
+  }
   const stagedOnly = process.argv.includes('--staged');
   const { entries, errors } = reg.loadRegistry(ROOT);
   const all = [...errors];
   const slugs = entries.map((e) => e.slug);
 
   if (stagedOnly) {
-    // Publication-preventing screen: only credential content, only staged entries.
-    const staged = execFileSync('git', ['diff', '--cached', '--name-only'], { cwd: ROOT, encoding: 'utf8' })
-      .split('\n').map((s) => s.trim()).filter((f) => f.startsWith('docs/gotchas/'));
-    for (const e of entries) {
-      if (!staged.includes(e.jsonPath.replace(/\\/g, '/')) && !staged.includes(e.bodyPath.replace(/\\/g, '/'))) continue;
-      all.push(...reg.scanCredentials(e.body, e.bodyPath));
-      all.push(...reg.scanCredentials(JSON.stringify(e.data), e.jsonPath));
+    // Publication-preventing screen. Reads each staged BLOB from the index, never the
+    // working tree: staging a credential and then editing it out WITHOUT staging the
+    // removal would otherwise pass this screen while the commit still carries it.
+    // Iterating loaded entries is also wrong — it would miss a staged .md with no .json.
+    const statusLines = execFileSync(
+      'git', ['diff', '--cached', '--name-status', '--', 'docs/gotchas'],
+      { cwd: ROOT, encoding: 'utf8' },
+    ).split('\n').map((s) => s.trim()).filter(Boolean);
+
+    for (const line of statusLines) {
+      const parts = line.split('\t');
+      const status = parts[0][0];              // A, M, D, R...
+      const file = parts[parts.length - 1];    // for renames, the destination path
+      if (status === 'D') continue;            // a deletion publishes nothing
+      let blob;
+      try {
+        blob = execFileSync('git', ['show', ':' + file], { cwd: ROOT, encoding: 'utf8' });
+      } catch (e) {
+        all.push(file + ': could not read the staged blob — failing closed');
+        continue;
+      }
+      all.push(...reg.scanCredentials(blob, file));
     }
   } else {
     const t = tracked();
@@ -965,7 +1162,10 @@ function main() {
       all.push(...reg.checkDates(e, new Date()));
       all.push(...reg.checkScope(e, t));
       all.push(...reg.checkReferences(e, slugs));
+      // BOTH halves of the pair, in every mode. Scanning only the body left the
+      // sidecar unscreened, and a credential sits as easily in a JSON field.
       all.push(...reg.scanCredentials(e.body, e.bodyPath));
+      all.push(...reg.scanCredentials(JSON.stringify(e.data, null, 1), e.jsonPath));
     }
   }
 
@@ -1003,7 +1203,54 @@ fi
 Run: `cd tests && npx jest tdd/sprint-127-gotcha-credentials.test.ts`
 Expected: PASS — 6 tests
 
-Then prove the hook blocks, and clean up:
+Then prove the hook blocks the cases that matter. **Reinstall the hook first** — on Windows the
+installer copies rather than symlinks, so an edited `scripts/git-hooks/pre-commit` is not live
+until `npm run hooks:install` runs again:
+
+```bash
+npm run hooks:install
+```
+
+**Case A — the partial-staging bypass.** This is the case the working-tree screen missed entirely:
+stage a credential, then remove it from the working tree WITHOUT staging the removal. The commit
+still carries the credential.
+
+```bash
+mkdir -p docs/gotchas
+printf '{"title":"t","owner":"o","created":"2026-09-04","expires":"2027-01-01","scope":["README.md"]}' > docs/gotchas/tmp-probe.json
+printf 'password: hunter2seventeen\n' > docs/gotchas/tmp-probe.md
+git add docs/gotchas/tmp-probe.json docs/gotchas/tmp-probe.md
+printf 'clean now\n' > docs/gotchas/tmp-probe.md      # working tree clean, INDEX still dirty
+git commit -m "probe A: must be blocked"              # expect exit 1
+```
+
+**Case B — a credential in the JSON sidecar**, which the body-only scan never saw:
+
+```bash
+printf '{"title":"t","owner":"o","created":"2026-09-04","expires":"2027-01-01","scope":["README.md"],"note":"password: hunter2seventeen"}' > docs/gotchas/tmp-probe.json
+printf 'clean\n' > docs/gotchas/tmp-probe.md
+git add docs/gotchas/tmp-probe.*
+git commit -m "probe B: must be blocked"              # expect exit 1
+```
+
+**Case C — an orphaned staged `.md` with no `.json`**, which iterating loaded entries skipped:
+
+```bash
+git reset HEAD docs/gotchas/tmp-probe.* >/dev/null
+rm -f docs/gotchas/tmp-probe.json
+printf 'token = abcdef123456789\n' > docs/gotchas/tmp-orphan.md
+git add docs/gotchas/tmp-orphan.md
+git commit -m "probe C: must be blocked"              # expect exit 1
+```
+
+**Case D — a staged deletion must NOT block**, since deleting publishes nothing:
+
+```bash
+git reset HEAD docs/gotchas/ >/dev/null && rm -f docs/gotchas/tmp-*
+git rm --cached -q docs/gotchas/tmp-orphan.md 2>/dev/null || true
+```
+
+Clean up:
 
 ```bash
 mkdir -p docs/gotchas
@@ -1027,7 +1274,7 @@ git commit -m "feat: credential screening at pre-commit, before publication"
 
 **Files:**
 - Create: `tests/regression/sprint-127-gotcha-registry-gate.test.ts`
-- Delete: the five `tests/tdd/sprint-127-gotcha-*.test.ts` files (their assertions move here)
+- Delete: the six `tests/tdd/sprint-127-gotcha-*.test.ts` files (their assertions move here)
 
 **Interfaces:**
 - Consumes: every function from Tasks 1–6.
@@ -1198,7 +1445,7 @@ git commit -m "test: clean-room validator + discovery fixture (red until seeds l
 
 ---
 
-## Task 9: Seed the five entries
+## Task 9: Seed the six entries
 
 **Files:**
 - Create: `docs/gotchas/hooks-install-to-git-hooks-on-a-fresh-clone.{json,md}`
@@ -1206,12 +1453,26 @@ git commit -m "test: clean-room validator + discovery fixture (red until seeds l
 - Create: `docs/gotchas/adr-059-cannot-tell-no-answer-from-no-advisories.{json,md}`
 - Create: `docs/gotchas/landing-docs-are-generated-never-authored.{json,md}`
 - Create: `docs/gotchas/dependabot-regenerates-expo-sdk-breaks.{json,md}`
+- Create: `docs/gotchas/node-24-is-a-gate-locked-floor.{json,md}`
 
 **Interfaces:**
 - Consumes: the schema from Task 1.
 - Produces: the slugs Task 8 asserts on.
 
-Each entry exercises a different check type, so a broken executor is caught by real content rather than only by fixtures.
+**Coverage, stated honestly.** An earlier draft claimed "each entry exercises a different check
+type". That was false — both executable seeds used `file_matches`. Actual coverage:
+
+| Check type | Seed coverage | Fixture coverage |
+|---|---|---|
+| `file_matches` | hooks, landing | ✅ |
+| `path_exists` | hooks (second check) | ✅ |
+| `json_equals` | node-24-floor | ✅ |
+| `file_not_matches` | **none** | ✅ |
+
+`file_not_matches` has no seed because no current gotcha truthfully needs one. **A seed must never
+be contrived to satisfy a coverage target** — an entry that exists to exercise the validator rather
+than to record a true fact is exactly the rot this registry is meant to prevent. If a real
+`file_not_matches` gotcha appears later, it gets an entry then.
 
 - [ ] **Step 1: Write the two executable entries**
 
@@ -1227,9 +1488,38 @@ Each entry exercises a different check type, so a broken executor is caught by r
     "file_matches": {
       "path": "scripts/install-hooks.sh",
       "pattern": "hooks_dir=\"\\.git/hooks\""
-    }
+    },
+    "path_exists": "scripts/git-hooks/pre-push"
   }
 }
+```
+
+`docs/gotchas/node-24-is-a-gate-locked-floor.json`:
+
+```json
+{
+  "title": "Node 24 is gate-locked across images, engines and CI — they move as one",
+  "owner": "ravichavali",
+  "created": "2026-09-04",
+  "scope": ["package.json", ".github/workflows/ci.yml"],
+  "verify": {
+    "json_equals": { "path": "package.json", "key": "engines.node", "value": ">=24.0.0" }
+  }
+}
+```
+
+`docs/gotchas/node-24-is-a-gate-locked-floor.md`:
+
+```markdown
+Container images run `node:24-alpine`, the root `engines.node` is `>=24.0.0`, and CI's
+`NODE_VERSION` is `24.x`. Per ADR-090 these are **gate-locked to one major** — changing any one
+of them alone puts the runtime, the manifest and CI out of agreement.
+
+Older majors install with `EBADENGINE` warnings rather than failing outright, so the breakage is
+quiet until something else surfaces it.
+
+This entry carries a `json_equals` check, so bumping the floor without updating this gotcha fails
+the build — which is the point: the entry and the fact move together.
 ```
 
 `docs/gotchas/hooks-install-to-git-hooks-on-a-fresh-clone.md`:
@@ -1375,25 +1665,54 @@ When adding that ignore list, **generate it from or verify it against the gate's
 A hand-copied YAML list is a shadow map and will drift.
 ```
 
-- [ ] **Step 3: Run the gate and the clean-room fixture**
+- [ ] **Step 3: Run the WORKING-TREE checks only**
 
-Run: `cd tests && npx jest regression/sprint-127-gotcha-registry-gate.test.ts`
-Expected: PASS — including the clean-room discovery assertions from Task 8
+The clean-room fixture clones `HEAD`, and the seeds exist only in the working tree at this
+point — so it cannot pass yet, and running it here would prove nothing.
 
-- [ ] **Step 4: Prove the gate fails on a stale seed**
+```bash
+node scripts/gotcha-check.js
+cd tests && npx jest regression/sprint-127-gotcha-registry-gate.test.ts -t "gotcha registry gate"
+cd ..
+```
+
+Expected: `✅ Gotcha registry clean (6 entries).` and the non-clean-room assertions pass.
+
+- [ ] **Step 4: Prove the gate fails on a stale seed, before committing**
 
 ```bash
 sed -i 's/hooks_dir=".git\/hooks"/hooks_dir="ELSEWHERE"/' scripts/install-hooks.sh
-cd tests && npx jest regression/sprint-127-gotcha-registry-gate.test.ts   # expect FAIL
-cd .. && git checkout scripts/install-hooks.sh
+node scripts/gotcha-check.js                                    # expect exit 1
+cd .. 2>/dev/null; git checkout scripts/install-hooks.sh
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Verify discovery answers from the CLI**
+
+```bash
+node scripts/gotcha-check.js --for scripts/git-hooks/pre-merge
+```
+
+Expected: names the hooks entry — a file that does not exist, which is exactly the case
+directory-scoped knowledge exists for.
+
+- [ ] **Step 6: Commit the seeds**
 
 ```bash
 git add docs/gotchas
-git commit -m "docs: seed the registry with five verified entries"
+git commit -m "docs: seed the registry with six verified entries"
 ```
+
+- [ ] **Step 7: NOW run the clean-room fixture**
+
+`HEAD` contains the seeds only after Step 6, so this is the first point at which the clone
+under test has a populated registry.
+
+```bash
+cd tests && npx jest regression/sprint-127-gotcha-registry-gate.test.ts && cd ..
+```
+
+Expected: PASS — including the clean-room discovery assertions from Task 8, which were
+committed red and go green here.
 
 ---
 
@@ -1413,15 +1732,48 @@ git commit -m "docs: seed the registry with five verified entries"
 
 ```typescript
 // add to tests/regression/doc-context-drift-gate.test.ts
+// Extracts every `npm install|ci` invocation WITH its flags, so the check compares
+// actual commands rather than asserting that two independent strings are present
+// somewhere in the file. An earlier draft passed `npm install --legacy-peer-deps`
+// whenever "npm ci" appeared anywhere else in the document.
+export function extractInstallCommands(text: string): string[] {
+  return [...text.matchAll(/^\s*(npm (?:install|ci)[^\n]*)$/gm)]
+    .map((m) => m[1].trim())
+    .filter((c) => !/--workspace/.test(c)); // workspace examples are illustrative, not the policy
+}
+
 export function onboardingDocIssues(docs: Record<string, string>): string[] {
   const issues: string[] = [];
+  const perDoc: Record<string, string[]> = {};
+
   for (const [name, text] of Object.entries(docs)) {
-    if (/^\s*npm install\s*$/m.test(text)) {
-      issues.push(`${name}: uses "npm install" as an install instruction; the policy is "npm ci"`);
+    const cmds = extractInstallCommands(text);
+    perDoc[name] = cmds;
+    // 1. POLICY: no forbidden command, regardless of flags.
+    for (const c of cmds) {
+      if (/^npm install\b/.test(c)) {
+        issues.push(`${name}: uses "${c}"; the policy is "npm ci"`);
+      }
     }
-    if (!/npm ci/.test(text)) issues.push(`${name}: does not mention "npm ci"`);
-    if (!/npm run hooks:install/.test(text)) issues.push(`${name}: does not mention "npm run hooks:install"`);
+    // 2. POLICY: the required commands are present.
+    if (!cmds.some((c) => /^npm ci\b/.test(c))) {
+      issues.push(`${name}: has no "npm ci" install command`);
+    }
+    if (!/npm run hooks:install/.test(text)) {
+      issues.push(`${name}: does not mention "npm run hooks:install"`);
+    }
   }
+
+  // 3. CONSISTENCY: the install command must be identical across documents, flags
+  //    included — this catches divergence the policy check alone would miss.
+  const canonical = Object.entries(perDoc)
+    .map(([name, cmds]) => [name, cmds.find((c) => /^npm ci\b/.test(c))] as const)
+    .filter(([, c]) => c);
+  const distinct = [...new Set(canonical.map(([, c]) => c))];
+  if (distinct.length > 1) {
+    issues.push(`onboarding docs disagree on the install command: ${distinct.join(' | ')}`);
+  }
+
   return issues.sort();
 }
 
@@ -1436,14 +1788,56 @@ describe('onboarding docs state the policy, not merely agree', () => {
     expect(onboardingDocIssues(docs)).toEqual([]);
   });
 
-  // Uniform regression is perfectly consistent and uniformly wrong.
+  // Each failure gets its OWN fixture. An earlier draft used a single fixture that
+  // also removed "npm ci" and "hooks:install", so it fired three different errors and
+  // could not prove the forbidden-command check worked at all.
+  const OK = 'npm ci\nnpm run hooks:install\n';
+
+  it('FAILS the forbidden command even when npm ci is also present', () => {
+    const docs = {
+      'README.md': 'npm install\nnpm ci\nnpm run hooks:install\n',
+      'CONTRIBUTING.md': OK,
+      'claude.md': OK,
+    };
+    expect(onboardingDocIssues(docs)).toEqual([expect.stringContaining('uses "npm install"')]);
+  });
+
+  // Flags must not launder a forbidden command past the check.
+  it('FAILS "npm install --legacy-peer-deps" even with npm ci elsewhere', () => {
+    const docs = {
+      'README.md': 'npm install --legacy-peer-deps\nnpm ci\nnpm run hooks:install\n',
+      'CONTRIBUTING.md': OK,
+      'claude.md': OK,
+    };
+    expect(onboardingDocIssues(docs)).toEqual([expect.stringContaining('--legacy-peer-deps')]);
+  });
+
+  it('FAILS a missing hooks:install on its own', () => {
+    const docs = { 'README.md': 'npm ci\n', 'CONTRIBUTING.md': OK, 'claude.md': OK };
+    expect(onboardingDocIssues(docs)).toEqual([expect.stringContaining('hooks:install')]);
+  });
+
+  // Uniform regression is perfectly consistent and uniformly wrong — consistency alone
+  // cannot catch it, which is why the policy is asserted explicitly.
   it('FAILS when all three agree on the wrong command', () => {
     const wrong = {
-      'README.md': 'npm install\n',
-      'CONTRIBUTING.md': 'npm install\n',
-      'claude.md': 'npm install\n',
+      'README.md': 'npm install\nnpm run hooks:install\n',
+      'CONTRIBUTING.md': 'npm install\nnpm run hooks:install\n',
+      'claude.md': 'npm install\nnpm run hooks:install\n',
     };
-    expect(onboardingDocIssues(wrong).length).toBeGreaterThan(0);
+    const issues = onboardingDocIssues(wrong);
+    expect(issues.filter((i) => i.includes('uses "npm install"'))).toHaveLength(3);
+  });
+
+  it('FAILS when documents disagree on the install command flags', () => {
+    const docs = {
+      'README.md': 'npm ci --no-audit\nnpm run hooks:install\n',
+      'CONTRIBUTING.md': OK,
+      'claude.md': OK,
+    };
+    expect(onboardingDocIssues(docs)).toEqual([
+      expect.stringContaining('disagree on the install command'),
+    ]);
   });
 });
 ```
@@ -1547,16 +1941,42 @@ this, but do not rely on it.
   drifts and looks authoritative while doing it.
 ```
 
-- [ ] **Step 2: Verify the skill loads and the CLI it references works**
+- [ ] **Step 2: Add the `/ship` capture checkpoint**
 
-Run: `node scripts/gotcha-check.js`
-Expected: `✅ Gotcha registry clean (5 entries).`
+The spec names three intake triggers; mid-session capture and recurrence are covered by the skill
+above, but the **sprint-ship checkpoint** had no implementation task. Add to
+`.claude/skills/ship/SKILL.md`, in its pre-merge section:
 
-- [ ] **Step 3: Commit**
+```markdown
+### Capture what the sprint taught
+
+Before opening the PR, ask: **what did this sprint teach that is not yet captured?**
+
+Candidates are facts that are neither a bug, an ADR, nor an idea — the things that would otherwise
+survive only in one agent's private memory. Check them against `docs/gotchas/`:
 
 ```bash
-git add .claude/skills/learned/SKILL.md
-git commit -m "feat: /learned skill for capturing gotchas mid-session"
+node scripts/gotcha-check.js --for <the paths this sprint changed>
+```
+
+If a durable fact has no entry, propose one with the `learned` skill. Propose — the maintainer
+decides what lands. This is the trigger that catches what mid-session capture missed.
+```
+
+- [ ] **Step 3: Verify the skill loads and the CLI it references works**
+
+```bash
+node scripts/gotcha-check.js
+node scripts/gotcha-check.js --for scripts/install-hooks.sh
+```
+
+Expected: `✅ Gotcha registry clean (6 entries).` and the discovery command naming the hooks entry.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add .claude/skills/learned/SKILL.md .claude/skills/ship/SKILL.md
+git commit -m "feat: /learned skill and the sprint-ship capture checkpoint"
 ```
 
 ---
@@ -1706,7 +2126,26 @@ git push -u origin feature/sprint-127-knowledge-registry
 
 ## Self-Review
 
-**Spec coverage.** Storage → T1, T9. Sidecar schema → T1. Declarative verification → T2. Hermeticity → T2, T7. Dates/cap/evidence → T3. Scope + references + pairing → T4. Discovery → T5, T8. Credential screening at pre-commit → T6. Failure table (11 conditions) → T1–T4, T6. Seventeen negative fixtures → T1–T6, promoted in T7. Fixture 17 → T8. Rollout Phase 1 seeds → T9. Onboarding policy assertion → T10. `/learned` → T11. Public philosophy, CONTRIBUTING manual, `claude.md:126` fix, ADR → T12.
+**Spec coverage.** Storage → T1, T9. Sidecar schema → T1. Declarative verification → T2.
+Hermeticity → T2, T7. Dates/cap/evidence → T3. Scope + references + pairing → T4. Discovery →
+T5, T7 (CLI), T8. Credential screening at pre-commit → T6. Failure table → T1–T4, T6. Negative
+fixtures → T1–T6, promoted in T7. Fixture 17 → T8, exercised in T9 Step 7. Rollout Phase 1 seeds →
+T9. Onboarding policy assertion → T10. Intake triggers: mid-session `/learned` → T11 Step 1,
+sprint-ship checkpoint → T11 Step 2, recurrence → documented in the skill. Public philosophy,
+CONTRIBUTING manual, `claude.md:126` fix, ADR → T12.
+
+**Review-round corrections folded in (Codex, plan round 1).** Entry paths are repository-relative
+and resolved once — an earlier draft stored absolute paths and double-joined them, so every body
+read produced `C:\repo\C:\repo\...` and no sidecar could load. The staged screen reads blobs from
+the index rather than the working tree, because staging a credential and then editing it out
+without staging the removal bypassed the earlier version entirely. Both halves of every pair are
+screened in every mode, and the credential pattern accepts quoted JSON keys — `{"password":"..."}`
+returned no findings before. `verify: null`, `false`, `{}`, `[]` and `"yes"` are all rejected;
+previously each satisfied "exactly one of" while asserting nothing and carrying no review date.
+Malformed `renewed`/`see_also` fail instead of silently becoming empty arrays. Task 9 runs
+working-tree checks, commits, then the clean-room fixture, because the clone is of `HEAD`. Task 10
+extracts and compares commands rather than testing for string presence, with one fixture per
+failure mode.
 
 **Deliberately deferred:** Phases 2 and 3 (opportunistic promotion; the 81-memory audit) are not tasks — they are ongoing practice and a later sprint.
 
