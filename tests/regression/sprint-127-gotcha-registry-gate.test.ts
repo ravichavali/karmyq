@@ -1,6 +1,8 @@
 import { execFileSync } from 'child_process';
 import { join } from 'path';
-import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
+import {
+  readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, symlinkSync,
+} from 'fs';
 import { tmpdir } from 'os';
 
 // ROOT and tracked() are the repo's canonical git-tracked-file enumeration, extracted in
@@ -636,6 +638,68 @@ describe('negative fixtures — the gate must be able to FAIL', () => {
       ]);
       rmSync(r, { recursive: true, force: true });
     });
+
+    // .git is INSIDE the root, so lexical containment alone let it through. On a GitHub
+    // Actions runner .git/config holds the credential actions/checkout persists, and a
+    // fork PR's check results are readable in the public CI log.
+    it.each(['.git/config', './.git/config', 'docs/../.git/config', '.git'])(
+      'refuses a target inside .git: %s',
+      (p) => {
+        const r = root({ 'a.txt': 'x' });
+        mkdirSync(join(r, '.git'), { recursive: true });
+        writeFileSync(join(r, '.git', 'config'), 'extraheader = AUTHORIZATION: basic SECRET', 'utf8');
+        expect(reg.runVerify(r, entryWith({ file_matches: { path: p, pattern: 'SECRET' } })))
+          .toEqual([expect.stringContaining('escapes the repository root')]);
+        rmSync(r, { recursive: true, force: true });
+      },
+    );
+
+    // Containment by path.resolve+startsWith is purely LEXICAL. Git stores symlinks as
+    // blobs whose target may be absolute, so a committed link inside the repo reaches
+    // anywhere on the runner unless the real path is checked.
+    it('refuses a symlinked path that resolves outside the root', () => {
+      const r = mkdtempSync(join(tmpdir(), 'gh-sym-'));
+      const outside = mkdtempSync(join(tmpdir(), 'gh-out-'));
+      mkdirSync(join(r, 'docs', 'gotchas'), { recursive: true });
+      writeFileSync(join(outside, 'secret.txt'), 'SENTINEL-OUTSIDE-ROOT', 'utf8');
+      // 'junction' works without privilege on Windows; realpathSync resolves both it and
+      // a POSIX symlink, so this exercises the same code path on either platform.
+      symlinkSync(outside, join(r, 'linked'), 'junction');
+      expect(
+        reg.runVerify(r, entryWith({
+          file_matches: { path: 'linked/secret.txt', pattern: 'SENTINEL-OUTSIDE-ROOT' },
+        })),
+      ).toEqual([expect.stringContaining('escapes the repository root')]);
+      rmSync(r, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    });
+
+    // json_equals echoed the value it READ, which is a direct exfiltration channel: an
+    // entry pointing at any JSON file printed its contents into the public CI log with no
+    // oracle search at all.
+    it('json_equals reports the mismatch WITHOUT echoing the value it read', () => {
+      const r = root({ 'p.json': JSON.stringify({ token: 'SUPER-SECRET-VALUE' }) });
+      const errs = reg.runVerify(r, entryWith({
+        json_equals: { path: 'p.json', key: 'token', value: 'guess' },
+      }));
+      expect(errs).toEqual([expect.stringContaining('does not equal the expected')]);
+      expect(errs.join(' ')).not.toContain('SUPER-SECRET-VALUE');
+      rmSync(r, { recursive: true, force: true });
+    });
+
+    // A verify key that resolves through Object.prototype made CHECKS[type] truthy and
+    // check.validateArgs undefined — a TypeError instead of "unsupported check type".
+    it.each(['constructor', 'toString', '__proto__', 'hasOwnProperty', 'valueOf'])(
+      'reports rather than throws on the prototype-colliding check type %s',
+      (key) => {
+        const r = root({ 'a.txt': 'x' });
+        const e = entryWith({ [key]: 1 });
+        expect(() => reg.runVerify(r, e)).not.toThrow();
+        expect(() => reg.validateSchema(e)).not.toThrow();
+        expect(reg.runVerify(r, e)).toEqual([expect.stringContaining('unsupported check type')]);
+        rmSync(r, { recursive: true, force: true });
+      },
+    );
 
     // /(a+)+$/ against 31 characters measured ~108 SECONDS on this machine. A fork PR
     // supplies both the pattern and the file, so one entry could hang CI indefinitely.

@@ -77,7 +77,23 @@ still dangerous:
 
 - **Arbitrary read.** `"path": "../../.ssh/id_rsa"` resolved outside the repository, turning
   `file_matches` into an oracle: its pass/fail result reports whether a pattern occurs in any file
-  the CI runner can read. Every check now resolves its target inside the repository root or refuses.
+  the CI runner can read, and on a public repo those results are visible in the CI log. Every check
+  now resolves its target inside the repository root or refuses.
+
+  Security review then showed that root containment **alone is not a security boundary**, and both
+  gaps are closed:
+
+  - **`.git` is inside the root.** On a GitHub Actions runner `.git/config` carries the credential
+    `actions/checkout` persists, so "inside the repository" is not the same as "safe to read".
+    `.git` is refused by path segment regardless of how an entry spells it.
+  - **Containment was purely lexical.** Git stores a symlink as a blob whose target may be
+    absolute, so a committed link inside the repo reached anywhere on the runner while passing a
+    `path.resolve` + `startsWith` test. Targets are now resolved with `realpathSync` and
+    re-checked, verified against a directory junction resolving outside the root.
+
+  `json_equals` additionally **echoed the value it read** into its failure message, which is not an
+  oracle but a direct exfiltration channel — one entry pointing at any JSON file in the workspace
+  printed its contents into a public log. It now reports only that the claim did not hold.
 - **Denial of service.** `/(a+)+$/` against 31 characters measured **~108 seconds**. One entry could
   hang CI indefinitely. Node offers no regex timeout, and the validator may not spawn a process
   (§4), so the pattern itself is the only place to stop this: nested quantifiers and patterns over

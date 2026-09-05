@@ -105,16 +105,54 @@ function validateSchema(entry) {
  * Resolve a check's target inside the repository, or refuse.
  *
  * Entries arrive by pull request, including from forks, so the `path` in a check is
- * attacker-supplied. Without containment, `../../../.ssh/id_rsa` turns file_matches into
- * an oracle: the pass/fail result reports whether a pattern occurs in any file readable
- * by the CI runner. ADR-097 §3 removes arbitrary code execution; this closes the
- * arbitrary-read that sat beside it.
+ * attacker-supplied. A check result is an oracle — pass/fail reports whether a pattern
+ * occurs in the target — and on a public repo those results are visible in CI logs.
+ * ADR-097 §3 removes arbitrary code execution; this closes the arbitrary READ beside it.
+ *
+ * Three separate defences, because the first one alone was not a security boundary:
+ *
+ *  1. Lexical containment — `../../../.ssh/id_rsa` resolves outside and is refused.
+ *  2. `.git` is refused even though it is INSIDE the root. On a GitHub Actions runner
+ *     `.git/config` holds the checkout credential that actions/checkout persists, so
+ *     "inside the repository" is not the same as "safe to read".
+ *  3. Symlink resolution. Containment by path.resolve + startsWith is purely lexical, and
+ *     git happily stores a symlink whose target is absolute. A committed
+ *     `docs/gotchas/evidence.txt -> /proc/self/environ` passes a lexical check and then
+ *     reads whatever the link points at, defeating (1) entirely.
  */
+const REFUSED_SEGMENTS = new Set(['.git']);
+
 function resolveInsideRoot(rootDir, rel) {
   const root = path.resolve(rootDir);
   const target = path.resolve(root, rel);
   const prefix = root.endsWith(path.sep) ? root : root + path.sep;
-  return target === root || target.startsWith(prefix) ? target : null;
+  const contained = (p) => p === root || p.startsWith(prefix);
+
+  if (!contained(target)) return null;
+
+  // Refuse by path segment, on the RELATIVE path, so `.git`, `x/.git` and `./.git/config`
+  // are all caught regardless of how the entry spelled it.
+  const segments = normalizePath(path.relative(root, target)).split('/');
+  if (segments.some((s) => REFUSED_SEGMENTS.has(s))) return null;
+
+  // Follow symlinks and re-apply containment to where they actually land. realpathSync
+  // throws when the target does not exist, which is legitimate for path_exists — fall
+  // back to the deepest existing ancestor so a missing file still reports "does not
+  // exist" rather than being refused, while a symlinked ANCESTOR is still caught.
+  let probe = target;
+  for (;;) {
+    try {
+      const real = fs.realpathSync(probe);
+      const realRoot = fs.realpathSync(root);
+      const realPrefix = realRoot.endsWith(path.sep) ? realRoot : realRoot + path.sep;
+      if (!(real === realRoot || real.startsWith(realPrefix))) return null;
+      return target;
+    } catch (e) {
+      const parent = path.dirname(probe);
+      if (parent === probe || !contained(parent)) return target; // nothing resolvable; let the read fail closed
+      probe = parent;
+    }
+  }
 }
 
 // Read a file, or fail closed. Never a skip: an unreadable target is exactly when a
@@ -237,7 +275,15 @@ const CHECKS = {
         return errs;
       }
       if (cur !== arg.value) {
-        errs.push(`${entry.jsonPath}: ${arg.path} ${arg.key} expected ${JSON.stringify(arg.value)}, found ${JSON.stringify(cur)}`);
+        // Deliberately does NOT echo the value that was read. Echoing it turned
+        // json_equals into a direct exfiltration channel: an entry pointing at any JSON
+        // file in the workspace printed its contents into a public CI log, no oracle
+        // search required. The expected value is the entry author's own input, so
+        // reporting that is safe and still says which claim broke.
+        errs.push(
+          `${entry.jsonPath}: ${arg.path} ${arg.key} does not equal the expected ` +
+            `${JSON.stringify(arg.value)}`,
+        );
       }
       return errs;
     },
@@ -287,7 +333,11 @@ function validateCheckArgs(entry) {
   if (!isPlainObject(v)) return [];
   const errs = [];
   for (const [type, arg] of Object.entries(v)) {
-    const check = CHECKS[type];
+    // Object.hasOwn, not a truthiness test: a verify key of "constructor" or
+    // "toString" resolves through the prototype chain, so CHECKS[type] is truthy and
+    // check.validateArgs is undefined — which threw instead of reporting an
+    // unsupported type. Same defect class as the parseUtcDate guard above.
+    const check = Object.hasOwn(CHECKS, type) ? CHECKS[type] : null;
     if (!check) {
       errs.push(unsupportedType(entry, type));
       continue;
@@ -302,7 +352,11 @@ function runVerify(rootDir, entry) {
   if (!isPlainObject(v)) return [];
   const errs = [];
   for (const [type, arg] of Object.entries(v)) {
-    const check = CHECKS[type];
+    // Object.hasOwn, not a truthiness test: a verify key of "constructor" or
+    // "toString" resolves through the prototype chain, so CHECKS[type] is truthy and
+    // check.validateArgs is undefined — which threw instead of reporting an
+    // unsupported type. Same defect class as the parseUtcDate guard above.
+    const check = Object.hasOwn(CHECKS, type) ? CHECKS[type] : null;
     if (!check) {
       errs.push(unsupportedType(entry, type));
       continue;
