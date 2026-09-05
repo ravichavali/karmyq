@@ -26,8 +26,13 @@ live arbiters — see `CLAUDE.md` → *Parallel Development* → **Why reservati
 
 1. `git fetch origin` and confirm real state before trusting anything written here:
    `gh pr list` and `git log --oneline origin/master -3`.
-2. Two artifacts are **open and awaiting review** (details below). Neither is merged.
+2. **PR #219 is MERGED** (squash `ea7ee194`), deployed, and smoke-tested. The Sprint 127 spec and
+   implementation plan are **review-approved and unmerged** on
+   `docs/sprint-127-knowledge-registry-spec`, with no PR opened.
 3. Nothing is mid-implementation. There is no half-finished task to resume.
+4. **To execute Sprint 127:** branch from `origin/master` at or after `ea7ee194`, open a fresh
+   chat, and follow `docs/superpowers/plans/2026-09-04-sprint-127-knowledge-registry.md` from its
+   Prerequisites. The ADR number is **maintainer-allocated** — ask before Task 12.
 
 ---
 
@@ -66,12 +71,15 @@ maintainer-allocated, and ADR uniqueness is enforced by a real gate
 fails on two `ADR-097` files).
 
 ### Design spec — ecosystem knowledge registry (Sprint 127 candidate)
-Branch `docs/sprint-127-knowledge-registry-spec`, commit **`c56935ad`**, no PR opened.
+Branch `docs/sprint-127-knowledge-registry-spec`, commit **`0a231e6f`**, no PR opened. Current with
+`master` via a merge commit, so it carries the reconciled handoff rather than the pre-merge copy.
 `docs/superpowers/specs/2026-09-04-ecosystem-knowledge-registry-design.md`.
 
 Proposes `docs/gotchas/` — a home for operational knowledge that today lives only in one
 maintainer's private agent memory and reaches nobody else. Every entry carries exactly one of a
-declarative machine check or an expiry date. **Two Codex rounds are integrated.** Round 1: renewal
+declarative machine check or an expiry date. **Review-approved: "no remaining plan blockers"
+(Codex, round 4).** Two rounds on the spec and four on the plan are integrated; 25+ findings, zero
+false positives. Spec round 1: renewal
 rule too blunt, doc-agreement gate asserted weaker than it claimed, `js-yaml` undeclared, plus asks
 on discovery, scope and credential screening. Round 2: the renewal rule needed information the
 schema cannot express (promotion is now a reviewer decision, not a validator rule), and `scope`
@@ -108,6 +116,12 @@ once the remaining text reconciliation lands.
    which matters because it is what an operator reads before authorizing a destructive operation.
 5. **ADR-095 floor 20 is barely selective** — 499/501 providers clear it. Needs a deliberate
    decision; changing the floor requires its own authorization.
+6. **Is a non-blocking linter still the policy?** `.github/workflows/ci.yml:78` runs
+   `npm run lint --if-present || echo "...non-blocking"`, so lint failures never fail CI, while the
+   `apps/mobile` type-check at `:75` does block. That is configured intent, not a defect — but it
+   was written before the current posture that a gate which cannot fail is worse than no gate.
+   Worth a deliberate yes or no rather than leaving it implicit. Surfaced 2026-09-05 when a green
+   `Lint & Type Check` job carried an `npm run lint exited (1)` annotation.
 
 ---
 
@@ -138,5 +152,11 @@ Steps 1–7 of the setup are unaffected by anything above. Known corrections fro
 - Landing docs regenerate on `npm test`; revert timestamp/HEAD-sha churn before committing.
 - Cross-agent review: the agent that did not author an artifact reviews it.
 - **Reconcile this file against `gh pr list` and `git log` before claiming any work complete.**
-  A handoff that contradicts real PR state is a blocking defect — it happened at `9b726c16` and
-  Codex caught it.
+  A handoff that contradicts real PR state is a blocking defect. It happened **three times in one
+  session** (2026-09-04/05): at `9b726c16` the body still described a merged PR as open; after the
+  #219 merge the header still named the old branch of record; and its Quick Start still said
+  "neither is merged" minutes after one was. Codex caught all three.
+
+  This file is the most staleness-prone artifact in the repo precisely because it is the only one
+  carrying cross-session state — every merge, every push, and every review round invalidates part
+  of it. Treat "update the handoff" as a step of the action, not a task that follows it.
