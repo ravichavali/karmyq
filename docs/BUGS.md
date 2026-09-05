@@ -648,3 +648,77 @@ existence — so the correction came from TDD against real facts. Tests:
 rows appear — it will be the first live-path karma written since Sprint 62.
 
 ---
+
+## BUG-038 · [2026-09-03] · open
+
+**The ADR-059 dependency security gate cannot distinguish "no advisories" from "no answer" — and
+its own remediation advice converts a fail-closed into a fail-open.**
+
+Observed during a pre-push hook run on a docs-only diff (2026-09-03), then reproduced in CI on
+[PR #219](https://github.com/ravichavali/karmyq/pull/219) (run `33831125511`, Security Audit job),
+which proves the outage was global rather than local to one dev machine. npm's advisory service
+returned `400 Bad Request` during the local run and `503 Service Unavailable` on a direct probe;
+`POST` to BOTH `/-/npm/v1/security/audits/quick` and `/-/npm/v1/security/advisories/bulk` hung,
+while `GET /-/ping` returned `200`. So the registry was healthy and only the advisory service was
+down — migrating to the bulk endpoint would NOT have helped.
+
+**The behavior is conditional on the exemption registry, which is the important part:**
+
+| Registry state | What happens | Verdict |
+|---|---|---|
+| **Shipped** (2 `image-size` exemptions) | Stale-exemption check trips → `ADR-059 gate FAILED`, exit 1 | Fails **closed** — right outcome, wrong reason: it blocks because it believes the exemptions are obsolete, not because it detected an outage |
+| **Empty** (no exemptions) | No advisories seen → nothing to block → exit 0 | Fails **OPEN** — reports "zero unexempted high/critical vulnerabilities" when it learned nothing |
+
+**The trap:** during an outage the gate prints `upstream may be fixed; remove it` for every shipped
+exemption. Following that instruction empties the registry — moving the gate out of fail-closed and
+into fail-open, exactly when it is least able to tell you so. This bites hardest around the
+`security/audit-exemptions.json` expiry on **2026-09-15**, since the registry trends toward empty
+as those entries age out.
+
+Three regression tests caught the symptom (they are the evidence, not the bug):
+- `tests/regression/sprint-75-security-gate.test.ts` — "still reports the raw counts, so an
+  exemption never hides a NEW advisory": `TypeError: Cannot read properties of undefined (reading
+  'vulnerabilities')` at `sprint-75-security-gate.test.ts:26` — `JSON.parse(stdout).metadata` is
+  undefined because npm returned no JSON.
+- `tests/regression/sprint-123-audit-exemption-gate.test.ts` — "the CLI EXITS NON-ZERO against the
+  live audit with an empty registry": expected exit `1`, received `0`. This is the fail-open,
+  directly asserted — and note it is the EMPTY-registry path, which is why the shipped registry
+  still blocked in CI.
+- Same file — "the CLI exits ZERO with the shipped registry": `scripts/audit-exemptions.js` printed
+  `exemption image-size GHSA-w3rx-r6r6-pgpr matches no current advisory — upstream may be fixed;
+  remove it` and the same for `GHSA-5p2g-fcmc-qvqq`.
+
+**Two distinct defects, one root cause:**
+1. **Fail-open on missing data.** No audit response must be an error, not a pass. A gate that
+   cannot see advisories has not cleared them.
+2. **Staleness detection can't tell "fixed upstream" from "no data".** It advises deleting valid
+   exemptions when the audit is simply unreachable. Acting on that reading would silently remove
+   the two shipped `image-size` exemptions.
+
+**Blast radius:** `.github/workflows/ci.yml` invokes the same shared script, so CI carries the same
+conditional behavior. Confirmed empirically on PR #219: with the shipped registry CI **blocked**
+(`ADR-059 gate FAILED`). The exposure is therefore not "CI silently passes today" — it is that CI's
+verdict depends on whether the exemption registry happens to be non-empty, which is not a property
+anyone is tracking, and which the gate's own advice erodes.
+
+**npm's status page is NOT a usable signal for this failure.** Throughout the outage
+<https://status.npmjs.org/> reported *All Systems Operational* and claimed **100% Security Audit
+uptime over 90 days**. Ruled out payload size as a cause by auditing a throwaway project with a
+single dependency (`lodash@4.17.20`) — it returned the same `503 Service Unavailable`. So the
+endpoint was failing for even a trivial request, in two independent networks (dev machine and
+GitHub-hosted runners), while the dashboard showed green. Diagnose this class of failure from a
+direct probe, never from the status page.
+
+**Also noted:** npm printed `This endpoint is being retired. Use the bulk advisory endpoint
+instead.` The gate should migrate off `/-/npm/v1/security/audits/quick` before that retirement
+lands — but note that during THIS outage the bulk endpoint hung too, so the migration is a
+robustness fix for the future, not a workaround for this failure mode. The real fix is that
+"no answer" must be its own explicit, fast, non-zero outcome, distinct from "no advisories".
+
+**Interacts with a deadline:** `security/audit-exemptions.json` expires 2026-09-15. Do not act on
+the "matches no current advisory" output while the endpoint is degraded.
+
+Timings corroborate an outage rather than a code change: the failing tests took 423s / 366s / 302s
+(retry storms), against 23s for the one audit call that succeeded in the same run.
+
+---
