@@ -1,0 +1,139 @@
+'use strict';
+const fs = require('fs');
+const path = require('path');
+
+// Deliberately longer than ADR-059's security-exemption cap. A stale gotcha is
+// unhelpful; a stale security exemption is an active risk. Reusing that cap would
+// impose security-grade churn on low-risk content.
+const REVIEW_CAP_DAYS = 400;
+
+// Posix-separated on every platform: compared directly against git output.
+const GOTCHA_DIR = 'docs/gotchas';
+const REQUIRED = ['title', 'owner', 'created', 'scope'];
+const CHECK_TYPES = ['path_exists', 'file_matches', 'file_not_matches', 'json_equals'];
+
+function loadRegistry(rootDir) {
+  const dir = path.join(rootDir, GOTCHA_DIR);
+  const entries = [];
+  const errors = [];
+  if (!fs.existsSync(dir)) return { entries, errors };
+
+  for (const file of fs.readdirSync(dir).sort()) {
+    if (!file.endsWith('.json')) continue;
+    const slug = file.replace(/\.json$/, '');
+    // Entry paths are ALWAYS repository-relative, posix-separated. They are compared
+    // against `git ls-files` and `git diff --cached` output, which is relative and
+    // posix. Resolve to disk exactly once, at read time — never store an absolute
+    // path in an Entry.
+    const jsonPath = `${GOTCHA_DIR}/${file}`;
+    const bodyPath = `${GOTCHA_DIR}/${slug}.md`;
+    let data;
+    try {
+      data = JSON.parse(fs.readFileSync(path.join(rootDir, jsonPath), 'utf8'));
+    } catch (e) {
+      errors.push(`${jsonPath}: not valid JSON (${e.message})`);
+      continue;
+    }
+    const bodyAbs = path.join(rootDir, bodyPath);
+    const body = fs.existsSync(bodyAbs) ? fs.readFileSync(bodyAbs, 'utf8') : '';
+    entries.push({ slug, jsonPath, bodyPath, data, body });
+  }
+  return { entries, errors };
+}
+
+function validateSchema(entry) {
+  const errs = [];
+  const d = entry.data;
+  for (const field of REQUIRED) {
+    if (d[field] === undefined || d[field] === null || d[field] === '') {
+      errs.push(`${entry.jsonPath}: missing required field "${field}"`);
+    }
+  }
+  if (d.scope !== undefined && (!Array.isArray(d.scope) || d.scope.length === 0)) {
+    errs.push(`${entry.jsonPath}: "scope" must be a non-empty array`);
+  }
+
+  // `verify` counts as present only if it is a NON-EMPTY plain object. Without this,
+  // `verify: null`, `verify: false` and `verify: {}` all satisfy "exactly one of" while
+  // asserting nothing and carrying no review date — bypassing the invariant that makes
+  // the collection self-pruning. Verified: all three passed an earlier draft.
+  const verifyPresent = d.verify !== undefined;
+  const verifyUsable =
+    verifyPresent &&
+    typeof d.verify === 'object' &&
+    d.verify !== null &&
+    !Array.isArray(d.verify) &&
+    Object.keys(d.verify).length > 0;
+  if (verifyPresent && !verifyUsable) {
+    errs.push(`${entry.jsonPath}: "verify" must be a non-empty object of declarative checks`);
+  }
+  const hasExpires = d.expires !== undefined;
+  if (verifyUsable === hasExpires) {
+    errs.push(
+      `${entry.jsonPath}: exactly one of "verify" or "expires" is required (found ${
+        verifyUsable ? 'both' : 'neither'
+      })`,
+    );
+  }
+
+  // Malformed containers must fail loudly. Treating a string or object as an empty
+  // array silently drops the very data these fields exist to carry.
+  if (d.renewed !== undefined && !Array.isArray(d.renewed)) {
+    errs.push(`${entry.jsonPath}: "renewed" must be an array of {date, evidence} objects`);
+  }
+  if (d.see_also !== undefined && !Array.isArray(d.see_also)) {
+    errs.push(`${entry.jsonPath}: "see_also" must be an array of slugs`);
+  }
+
+  errs.push(...validateCheckArgs(entry));
+  return errs;
+}
+
+// Each check type's arguments are validated up front, so a typo fails as a schema
+// error naming the field rather than as a confusing runtime failure.
+function validateCheckArgs(entry) {
+  const v = entry.data.verify;
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return [];
+  const errs = [];
+  for (const [type, arg] of Object.entries(v)) {
+    if (!CHECK_TYPES.includes(type)) {
+      errs.push(`${entry.jsonPath}: unsupported check type "${type}" (allowed: ${CHECK_TYPES.join(', ')})`);
+      continue;
+    }
+    if (type === 'path_exists') {
+      if (typeof arg !== 'string' || arg === '') {
+        errs.push(`${entry.jsonPath}: path_exists takes a non-empty path string`);
+      }
+      continue;
+    }
+    if (typeof arg !== 'object' || arg === null) {
+      errs.push(`${entry.jsonPath}: ${type} takes an object`);
+      continue;
+    }
+    if (typeof arg.path !== 'string' || arg.path === '') {
+      errs.push(`${entry.jsonPath}: ${type} requires a non-empty "path"`);
+    }
+    if (type === 'file_matches' || type === 'file_not_matches') {
+      if (typeof arg.pattern !== 'string' || arg.pattern === '') {
+        errs.push(`${entry.jsonPath}: ${type} requires a non-empty "pattern"`);
+      } else {
+        try {
+          new RegExp(arg.pattern);
+        } catch (e) {
+          errs.push(`${entry.jsonPath}: ${type} "pattern" is not a valid regex (${e.message})`);
+        }
+      }
+    }
+    if (type === 'json_equals') {
+      if (typeof arg.key !== 'string' || arg.key === '') {
+        errs.push(`${entry.jsonPath}: json_equals requires a non-empty "key"`);
+      }
+      if (!('value' in arg)) {
+        errs.push(`${entry.jsonPath}: json_equals requires a "value"`);
+      }
+    }
+  }
+  return errs;
+}
+
+module.exports = { REVIEW_CAP_DAYS, GOTCHA_DIR, loadRegistry, validateSchema };
