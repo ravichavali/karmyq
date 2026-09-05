@@ -1210,9 +1210,22 @@ fi
 Run: `cd tests && npx jest tdd/sprint-127-gotcha-credentials.test.ts`
 Expected: PASS — 6 tests
 
-Then prove the hook blocks the cases that matter. **Reinstall the hook first** — on Windows the
-installer copies rather than symlinks, so an edited `scripts/git-hooks/pre-commit` is not live
-until `npm run hooks:install` runs again:
+- [ ] **Step 5: Commit the implementation FIRST**
+
+The probes below run in a disposable clone, and `git clone .` copies **`HEAD`, not the working
+tree**. Probing before this commit would clone Task 5's tree — no `gotcha-check.js`, no credential
+scanner, and the *old* pre-commit hook, which `npm run hooks:install` would then dutifully install.
+Every probe would exercise code that is not the code under test.
+
+```bash
+git add scripts/gotcha-registry.js scripts/gotcha-check.js scripts/git-hooks/pre-commit tests/tdd/sprint-127-gotcha-credentials.test.ts
+git commit -m "feat: credential screening at pre-commit, before publication"
+```
+
+- [ ] **Step 6: Prove the hook blocks, in a disposable clone of the commit you just made**
+
+**Reinstall hooks inside the clone** — hooks are per-clone, and on Windows the installer copies
+rather than symlinks, so the hook is not live until `npm run hooks:install` runs there:
 
 ```bash
 npm run hooks:install
@@ -1283,12 +1296,8 @@ echo "D: staged deletion allowed"
 cd - >/dev/null && rm -rf "$PROBE"
 ```
 
-- [ ] **Step 5: Commit**
-
-```bash
-git add scripts/gotcha-registry.js scripts/gotcha-check.js scripts/git-hooks/pre-commit tests/tdd/sprint-127-gotcha-credentials.test.ts
-git commit -m "feat: credential screening at pre-commit, before publication"
-```
+If any probe fails, fix the implementation and **amend** the Step 5 commit rather than adding a
+follow-up — the probes and the code they exercise belong in one reviewable unit.
 
 ---
 
@@ -1373,11 +1382,29 @@ describe('Sprint 127 — gotcha registry gate', () => {
   // The CLI is the entry point for the hook and the clean room. A syntax error in it
   // disables all three at once, and every probe that asserts only "exit 1" would still
   // look like it passed.
-  it('the CLI parses and its discovery mode answers', () => {
-    const out = execFileSync(process.execPath, ['scripts/gotcha-check.js', '--for', 'scripts/install-hooks.sh'], {
-      cwd: ROOT, encoding: 'utf8',
-    });
-    expect(out).toMatch(/gotcha\(s\) apply/);
+  // At this task the registry is EMPTY — the seeds land in Task 9. So assert the
+  // empty-registry response, which still proves the script parses and runs. The
+  // positive discovery assertion belongs in Task 9, where entries exist. An earlier
+  // draft asserted "gotcha(s) apply" here and could never have gone green.
+  it('the CLI parses and answers, even with an empty registry', () => {
+    const out = execFileSync(
+      process.execPath,
+      ['scripts/gotcha-check.js', '--for', 'scripts/install-hooks.sh'],
+      { cwd: ROOT, encoding: 'utf8' },
+    );
+    expect(out).toMatch(/No gotchas scoped to those paths\.|gotcha\(s\) apply/);
+  });
+
+  it('the CLI rejects --for with no paths rather than doing something surprising', () => {
+    let status = 0;
+    try {
+      execFileSync(process.execPath, ['scripts/gotcha-check.js', '--for'], {
+        cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch (e: any) {
+      status = e.status;
+    }
+    expect(status).toBe(2);
   });
 
   // Hermeticity: the module must not reach the network, directly or transitively.
@@ -1524,7 +1551,7 @@ be contrived to satisfy a coverage target** — an entry that exists to exercise
 than to record a true fact is exactly the rot this registry is meant to prevent. If a real
 `file_not_matches` gotcha appears later, it gets an entry then.
 
-- [ ] **Step 1: Write the two executable entries**
+- [ ] **Step 1: Write the three executable entries** (hooks, landing, node-24 floor)
 
 `docs/gotchas/hooks-install-to-git-hooks-on-a-fresh-clone.json`:
 
@@ -1626,7 +1653,7 @@ and stating it that way has already caused one wrong instruction to be written i
 The file reverts *because it is generated*; the fix is always at the source.
 ```
 
-- [ ] **Step 2: Write the three expiring entries**
+- [ ] **Step 2: Write the three expiring entries** (npm status page, ADR-059, Dependabot/Expo)
 
 `docs/gotchas/npm-status-page-is-not-a-signal.json`:
 
@@ -1742,14 +1769,22 @@ git checkout -- scripts/install-hooks.sh
 git diff --quiet scripts/install-hooks.sh && echo "restored"
 ```
 
-- [ ] **Step 5: Verify discovery answers from the CLI**
+- [ ] **Step 5: Verify discovery answers POSITIVELY from the CLI**
+
+Task 7's smoke test could only assert the empty-registry response, because the registry was empty
+there. This is the first point where a positive assertion is possible.
 
 ```bash
 node scripts/gotcha-check.js --for scripts/git-hooks/pre-merge
+node scripts/gotcha-check.js --for scripts/audit-exemptions.js
+node scripts/gotcha-check.js --for scripts/git-hooks-old/pre-push
 ```
 
-Expected: names the hooks entry — a file that does not exist, which is exactly the case
-directory-scoped knowledge exists for.
+Expected, in order:
+1. names the hooks entry — for a file that **does not exist**, which is exactly the case
+   directory-scoped knowledge exists for;
+2. names both the ADR-059 and npm-status-page entries;
+3. `No gotchas scoped to those paths.` — the adjacent prefix must NOT match.
 
 - [ ] **Step 6: Commit the seeds**
 
@@ -2231,4 +2266,18 @@ failure mode.
 
 **Type consistency.** `Entry` is `{slug, jsonPath, bodyPath, data, body}` throughout. `scopeMatches` is defined in T4 and reused in T5. Every validator returns `string[]`. `REVIEW_CAP_DAYS` is defined once in T1 and consumed in T3.
 
-**Known risk.** Task 8's clean-room fixture clones the repository and is the slowest test in the suite; its `beforeAll` carries a 120s timeout. If it proves flaky on the 8 GB Windows box under `turbo`, run it directly rather than weakening the assertion — a weaker approximation of the check that catches machine-local assumptions is worse than none.
+**Ordering is the recurring hazard in this plan — check it before anything else.** Three separate
+defects were the same mistake: *an assertion that runs before the thing it asserts on exists.*
+Task 9 ran the clean-room fixture while the seeds were uncommitted; Task 6 probed a clone made
+before its own implementation commit; Task 7's CLI smoke test expected seeds that arrive two tasks
+later. **`git clone .` copies `HEAD`, not the working tree** — that single fact explains all three.
+
+The resulting rule, applied throughout: anything that reads from a clone or from `HEAD` runs
+**after** the commit that puts the code or data there, and any assertion running earlier must
+assert only what is true at that point. Task 7 asserts the empty-registry response; Task 9 adds the
+positive one.
+
+**Known risk.** Task 8's clean-room fixture clones the repository and is the slowest test in the
+suite; its `beforeAll` carries a 120s timeout. If it proves flaky on the 8 GB Windows box under
+`turbo`, run it directly rather than weakening the assertion — a weaker approximation of the check
+that catches machine-local assumptions is worse than none.
