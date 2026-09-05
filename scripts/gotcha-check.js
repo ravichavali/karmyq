@@ -16,7 +16,18 @@ function tracked() {
 // has no way to be acted on. Accepts paths that do NOT yet exist, which is the case
 // directory-scoped knowledge exists for.
 function runDiscovery(paths) {
-  const { entries } = reg.loadRegistry(ROOT);
+  const { entries, errors } = reg.loadRegistry(ROOT);
+  // A sidecar that fails to parse is INVISIBLE to discovery — it is simply not in
+  // `entries`. Staying silent would answer "No gotchas scoped to those paths" while a
+  // gotcha that does apply sits unreadable on disk, and this is the command claude.md
+  // tells every agent to run before changing code. Say so.
+  for (const e of errors) console.error(`  ⚠️  ${e}`);
+  if (errors.length) {
+    console.error(
+      `  ⚠️  ${errors.length} entr${errors.length === 1 ? 'y' : 'ies'} could not be read — ` +
+        `the answer below may be incomplete.\n`,
+    );
+  }
   // normalizePath is exported from gotcha-registry.js (Task 4) — do not re-implement the
   // separator fix inline. An earlier draft did, and shipped a SyntaxError that disabled
   // validation, discovery AND the pre-commit hook at once.
@@ -46,7 +57,10 @@ function main() {
   }
   const stagedOnly = process.argv.includes('--staged');
   const { entries, errors } = reg.loadRegistry(ROOT);
-  const all = [...errors];
+  // The staged screen judges the INDEX, not the working tree. Seeding it with working-tree
+  // parse errors blocked an unrelated commit — under the message "possible credential in a
+  // gotcha entry", which was not even true. Full mode still reports them.
+  const all = stagedOnly ? [] : [...errors];
 
   if (stagedOnly) {
     // Publication-preventing screen. Reads each staged BLOB from the index, never the

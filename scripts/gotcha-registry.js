@@ -34,6 +34,13 @@ function loadRegistry(rootDir) {
       errors.push(`${jsonPath}: not valid JSON (${e.message})`);
       continue;
     }
+    // `null`, `[]` and `"text"` are all valid JSON but are not entries. Without this the
+    // sidecar loads with no error and every later check dereferences it — the shared
+    // registry core guards the same shape for the same reason.
+    if (!isPlainObject(data)) {
+      errors.push(`${jsonPath}: must be a JSON object describing one entry`);
+      continue;
+    }
     const bodyAbs = path.join(rootDir, bodyPath);
     const body = fs.existsSync(bodyAbs) ? fs.readFileSync(bodyAbs, 'utf8') : '';
     entries.push({ slug, jsonPath, bodyPath, data, body });
@@ -44,6 +51,11 @@ function loadRegistry(rootDir) {
 function validateSchema(entry) {
   const errs = [];
   const d = entry.data;
+  // loadRegistry rejects this shape, but validateSchema is exported and called directly
+  // by the gate, so it must not assume a well-formed Entry reached it.
+  if (!isPlainObject(d)) {
+    return [`${entry.jsonPath}: must be a JSON object describing one entry`];
+  }
   for (const field of REQUIRED) {
     if (d[field] === undefined || d[field] === null || d[field] === '') {
       errs.push(`${entry.jsonPath}: missing required field "${field}"`);
@@ -89,15 +101,65 @@ function validateSchema(entry) {
   return errs;
 }
 
+/**
+ * Resolve a check's target inside the repository, or refuse.
+ *
+ * Entries arrive by pull request, including from forks, so the `path` in a check is
+ * attacker-supplied. Without containment, `../../../.ssh/id_rsa` turns file_matches into
+ * an oracle: the pass/fail result reports whether a pattern occurs in any file readable
+ * by the CI runner. ADR-097 §3 removes arbitrary code execution; this closes the
+ * arbitrary-read that sat beside it.
+ */
+function resolveInsideRoot(rootDir, rel) {
+  const root = path.resolve(rootDir);
+  const target = path.resolve(root, rel);
+  const prefix = root.endsWith(path.sep) ? root : root + path.sep;
+  return target === root || target.startsWith(prefix) ? target : null;
+}
+
 // Read a file, or fail closed. Never a skip: an unreadable target is exactly when a
 // check must speak, mirroring ADR-060's refusal to treat an API error as "nothing found".
 function readOrFailClosed(rootDir, rel, entry, type, errs) {
+  const abs = resolveInsideRoot(rootDir, rel);
+  if (abs === null) {
+    errs.push(`${entry.jsonPath}: ${type} path "${rel}" escapes the repository root — refused`);
+    return null;
+  }
   try {
-    return fs.readFileSync(path.join(rootDir, rel), 'utf8');
+    return fs.readFileSync(abs, 'utf8');
   } catch (e) {
     errs.push(`${entry.jsonPath}: ${type} target "${rel}" is unreadable — failing closed`);
     return null;
   }
+}
+
+/**
+ * Reject regex shapes that backtrack catastrophically.
+ *
+ * A fork PR supplies BOTH the pattern and the file it runs against. `(a+)+$` against 31
+ * characters takes ~108 seconds here — measured, not theoretical — so a single entry can
+ * hang CI indefinitely. Node has no regex timeout, and the validator may not spawn a
+ * process (hermeticity), so the pattern itself is where this has to be stopped.
+ *
+ * This is a conservative HEURISTIC, not a proof of linear-time matching: it rejects a
+ * quantifier applied to a group that already contains one, which is the classic
+ * exponential shape. Patterns needing that construction should be rewritten; every seed
+ * entry here is a plain literal or character class.
+ */
+const NESTED_QUANTIFIER = /\([^)]*[+*][^)]*\)\s*[+*{]/;
+const MAX_PATTERN_LENGTH = 200;
+
+function patternSafetyErrors(pattern, entry, type) {
+  if (pattern.length > MAX_PATTERN_LENGTH) {
+    return [`${entry.jsonPath}: ${type} "pattern" exceeds ${MAX_PATTERN_LENGTH} characters`];
+  }
+  if (NESTED_QUANTIFIER.test(pattern)) {
+    return [
+      `${entry.jsonPath}: ${type} "pattern" nests a quantifier inside a quantified group ` +
+        `(/${pattern}/), which can backtrack catastrophically — rewrite it without the nesting`,
+    ];
+  }
+  return [];
 }
 
 /**
@@ -116,10 +178,13 @@ const CHECKS = {
       typeof arg === 'string' && arg !== ''
         ? []
         : [`${entry.jsonPath}: path_exists takes a non-empty path string`],
-    run: (rootDir, arg, entry) =>
-      fs.existsSync(path.join(rootDir, arg))
-        ? []
-        : [`${entry.jsonPath}: path_exists "${arg}" does not exist`],
+    run: (rootDir, arg, entry) => {
+      const abs = resolveInsideRoot(rootDir, arg);
+      if (abs === null) {
+        return [`${entry.jsonPath}: path_exists "${arg}" escapes the repository root — refused`];
+      }
+      return fs.existsSync(abs) ? [] : [`${entry.jsonPath}: path_exists "${arg}" does not exist`];
+    },
   },
 
   file_matches: {
@@ -203,7 +268,9 @@ function patternArgErrors(arg, entry, type) {
     new RegExp(arg.pattern);
   } catch (e) {
     errs.push(`${entry.jsonPath}: ${type} "pattern" is not a valid regex (${e.message})`);
+    return errs;
   }
+  errs.push(...patternSafetyErrors(arg.pattern, entry, type));
   return errs;
 }
 
@@ -232,12 +299,22 @@ function validateCheckArgs(entry) {
 
 function runVerify(rootDir, entry) {
   const v = entry.data.verify;
-  if (!v) return [];
+  if (!isPlainObject(v)) return [];
   const errs = [];
   for (const [type, arg] of Object.entries(v)) {
     const check = CHECKS[type];
     if (!check) {
       errs.push(unsupportedType(entry, type));
+      continue;
+    }
+    // Arguments are validated BEFORE the executor touches them. runVerify is a public
+    // entry point — the gate and the CLI both call it directly — so it cannot assume
+    // validateSchema ran first. Without this, `{"path_exists": null}` threw an unhandled
+    // TypeError and took down the whole check with a stack trace instead of reporting
+    // the schema error. An unusable argument is a failure, never a skip.
+    const argErrors = check.validateArgs(arg, entry);
+    if (argErrors.length) {
+      errs.push(...argErrors);
       continue;
     }
     errs.push(...check.run(rootDir, arg, entry));

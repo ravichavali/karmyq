@@ -25,8 +25,18 @@ describe('Sprint 127 — gotcha registry gate', () => {
     expect(entries.flatMap((e: any) => reg.runVerify(ROOT, e))).toEqual([]);
   });
 
+  // todayUtc(), NOT new Date() — the same boundary the CLI compares against. With a
+  // wall-clock Date, an entry expiring TODAY passes `node scripts/gotcha-check.js` and
+  // fails this gate, so `npm test` would red a day before the documented tool agreed.
   it('no entry is past its review date, and every renewal carries evidence', () => {
-    expect(entries.flatMap((e: any) => reg.checkDates(e, new Date()))).toEqual([]);
+    expect(entries.flatMap((e: any) => reg.checkDates(e, reg.todayUtc()))).toEqual([]);
+  });
+
+  it('the gate and the CLI agree on an entry that expires today', () => {
+    const today = reg.todayUtc().toISOString().slice(0, 10);
+    const e = { slug: 'a', jsonPath: 'a.json', bodyPath: 'a.md',
+                data: { created: today, expires: today }, body: '' };
+    expect(reg.checkDates(e, reg.todayUtc())).toEqual([]);
   });
 
   it('every scope anchor is git-tracked', () => {
@@ -551,6 +561,112 @@ describe('negative fixtures — the gate must be able to FAIL', () => {
         reg.discover(ENTRIES, ['scripts/install-hooks.sh', 'scripts/git-hooks/pre-push']),
       ).toEqual(['hooks-path']);
     });
+  });
+
+  // Every one of these reproduces a defect found by /code-review on this branch. Each
+  // CRASHED or silently passed before the fix; the assertion is that it now reports.
+  describe('hostile and malformed input (code-review findings)', () => {
+    function root(files: Record<string, string>): string {
+      const r = mkdtempSync(join(tmpdir(), 'gh-'));
+      mkdirSync(join(r, 'docs', 'gotchas'), { recursive: true });
+      for (const [rel, c] of Object.entries(files)) {
+        mkdirSync(join(r, rel, '..'), { recursive: true });
+        writeFileSync(join(r, rel), c, 'utf8');
+      }
+      return r;
+    }
+    function entryWith(verify: any) {
+      return { slug: 'a', jsonPath: 'docs/gotchas/a.json', bodyPath: 'docs/gotchas/a.md',
+               data: { verify }, body: '' };
+    }
+
+    // Threw an unhandled TypeError from all four executors, killing the CLI and the gate
+    // with a stack trace instead of reporting a schema error.
+    it.each(['path_exists', 'file_matches', 'file_not_matches', 'json_equals'])(
+      'REPORTS rather than throws when %s has a null argument',
+      (type) => {
+        const r = root({ 'a.txt': 'x' });
+        const e = entryWith({ [type]: null });
+        expect(() => reg.runVerify(r, e)).not.toThrow();
+        expect(reg.runVerify(r, e).length).toBeGreaterThan(0);
+        rmSync(r, { recursive: true, force: true });
+      },
+    );
+
+    // A sidecar containing bare `null` is valid JSON. It loaded with no error, then every
+    // later check dereferenced it.
+    it.each(['null', '[]', '"just a string"', '42'])(
+      'rejects a sidecar whose JSON is not an object: %s',
+      (json) => {
+        const r = root({ 'docs/gotchas/a.json': json, 'docs/gotchas/a.md': 'body' });
+        const { entries: loaded, errors: loadErrors } = reg.loadRegistry(r);
+        expect(loadErrors).toEqual([expect.stringContaining('must be a JSON object')]);
+        expect(loaded).toEqual([]);
+        rmSync(r, { recursive: true, force: true });
+      },
+    );
+
+    it('validateSchema refuses a non-object entry rather than throwing', () => {
+      const e = { slug: 'a', jsonPath: 'a.json', bodyPath: 'a.md', data: null, body: '' };
+      expect(() => reg.validateSchema(e)).not.toThrow();
+      expect(reg.validateSchema(e)).toEqual([expect.stringContaining('must be a JSON object')]);
+    });
+
+    // Entries arrive by fork PR, so `path` is attacker-supplied. Traversal turned
+    // file_matches into an oracle over any file the CI runner could read.
+    it.each(['file_matches', 'file_not_matches', 'json_equals'])(
+      'refuses a %s path that escapes the repository root',
+      (type) => {
+        const r = root({ 'a.txt': 'x' });
+        writeFileSync(join(r, '..', 'gh-outside-probe.txt'), 'SENTINEL', 'utf8');
+        const arg = type === 'json_equals'
+          ? { path: '../gh-outside-probe.txt', key: 'a', value: 1 }
+          : { path: '../gh-outside-probe.txt', pattern: 'SENTINEL' };
+        const errs = reg.runVerify(r, entryWith({ [type]: arg }));
+        expect(errs).toEqual([expect.stringContaining('escapes the repository root')]);
+        rmSync(join(r, '..', 'gh-outside-probe.txt'), { force: true });
+        rmSync(r, { recursive: true, force: true });
+      },
+    );
+
+    it('refuses path_exists that escapes the repository root', () => {
+      const r = root({ 'a.txt': 'x' });
+      expect(reg.runVerify(r, entryWith({ path_exists: '../../..' }))).toEqual([
+        expect.stringContaining('escapes the repository root'),
+      ]);
+      rmSync(r, { recursive: true, force: true });
+    });
+
+    // /(a+)+$/ against 31 characters measured ~108 SECONDS on this machine. A fork PR
+    // supplies both the pattern and the file, so one entry could hang CI indefinitely.
+    it.each(['(a+)+$', '(a*)*b', '([a-z]+)+!', '(\\d+)+x'])(
+      'rejects the catastrophically-backtracking pattern %s at validation time',
+      (pattern) => {
+        const e = entryWith({ file_matches: { path: 'a.txt', pattern } });
+        expect(reg.validateSchema(e)).toEqual(
+          expect.arrayContaining([expect.stringContaining('backtrack catastrophically')]),
+        );
+      },
+    );
+
+    it('rejects an over-long pattern', () => {
+      const e = entryWith({ file_matches: { path: 'a.txt', pattern: 'a'.repeat(201) } });
+      expect(reg.validateSchema(e)).toEqual(
+        expect.arrayContaining([expect.stringContaining('exceeds 200 characters')]),
+      );
+    });
+
+    // Guard the guard: the safety check must not reject the ordinary patterns the seeds
+    // actually use, or it would be enforced by making the feature unusable.
+    it.each(['hooks_dir="\\.git/hooks"', 'const whyKarmyq', 'apps/landing/src/data/docs', '^npm ci\\b'])(
+      'still accepts the ordinary pattern %s',
+      (pattern) => {
+        const e = entryWith({ file_matches: { path: 'a.txt', pattern } });
+        expect(reg.validateSchema(e).filter((m: string) =>
+          m.includes('backtrack') || m.includes('exceeds'),
+        )).toEqual([]);
+      },
+    );
   });
 
   describe('credential screening', () => {
