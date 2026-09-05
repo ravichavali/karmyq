@@ -1,6 +1,7 @@
-# Current Handoff — as of 2026-09-04
+# Current Handoff — as of 2026-09-05
 
-**Version:** v11.46.0 · **Branch of record:** `master` at `9083a79a` · **Demo:** deployed and healthy
+**Version:** v11.46.0 · **Branch of record:** `master` at **`ea7ee194`** (PR #219, merged
+2026-09-05) · **Demo:** deploy triggered by that merge — verify before assuming healthy
 
 ---
 
@@ -44,15 +45,18 @@ Full record: [`archive/2026-09-03-sprint-126-standing-backfill-SHIPPED-v11.46.0.
 
 ## Open right now
 
-### PR #219 — parallel-dev process, Sprint 126 post-deploy docs, BUG-038
-Branch `docs/sprint-126-post-deploy-state`. **All checks green**; `mergeStateStatus: BLOCKED`
-solely on the required approving review. Carries the `Parallel Development` rules in `CLAUDE.md`,
-the `AGENTS.md` topology rewrite, the handoff lane convention, and BUG-038.
+### PR #219 — MERGED 2026-09-05, squash `ea7ee194`
+Shipped the `Parallel Development` rules in `CLAUDE.md`, the `AGENTS.md` topology rewrite, the
+handoff lane convention, BUG-038, and a **real ADR-number uniqueness assertion** in the drift gate
+(5 → 7 tests) replacing a backstop the earlier text claimed but had never implemented.
+
+Merged with `--admin` under explicit maintainer authorization: the required approving review could
+not be self-provided (the PR was authored by the same account), and all 20 checks passed.
 
 **Codex reviewed three rounds** (`9b726c16`, `ccbc1bbf`, `ad6b38f3`). Round 1: reservations not
 reliably shared between branches; self-contradictory handoff. Round 2: ADR allocation still raced
-and the backstop this PR *claimed* did not exist; an open Dependabot PR permanently occupied the
-dependency lane. Round 3: superseded rules left in the summary table. All fixed on the branch.
+and the claimed backstop did not exist; an open Dependabot PR permanently occupied the dependency
+lane. Round 3: superseded rules left in the summary table. All fixed before merge.
 
 The durable correction: **querying live state establishes what is visible; allocating ownership
 still requires serialization.** ADR numbers, the dependency lane and demo operations are now

@@ -25,12 +25,11 @@
 
 ## Prerequisites — do these before Task 1
 
-1. **PR #219 must be merged first.** This plan's branch is cut from `master`, and `master`'s
-   `.claude/handoff/CURRENT_HANDOFF.md` is the **pre-merge Sprint 126 copy** — it still says PR #210
-   is open, Task 14 is unauthorized, and the demo database has only been read. All three are false:
-   #210 merged 2026-09-03 and the backfill wrote 20,341 karma rows. The reconciled handoff, the
-   maintainer-allocated ADR rules, and the ADR-uniqueness gate this plan depends on all live in
-   #219. Starting before it merges means working from a handoff that will actively mislead.
+1. ~~**PR #219 must be merged first.**~~ **SATISFIED** — #219 merged 2026-09-05 as squash
+   `ea7ee194`. `master` now carries the reconciled handoff, the maintainer-allocated ADR rules, and
+   the ADR-uniqueness gate this plan depends on. Branch from `origin/master` at or after
+   `ea7ee194`; a branch cut earlier carries the pre-merge Sprint 126 handoff, which still claims
+   PR #210 is open and the demo database has only been read — both false.
 2. **Ask the maintainer to allocate the ADR number** (Task 12). Do not derive it from the directory
    listing — two lanes reading the same listing get the same answer.
 3. **Confirm the dependency lane is free.** This plan takes no dependencies, so it should not
