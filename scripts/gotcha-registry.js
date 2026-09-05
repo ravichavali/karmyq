@@ -238,4 +238,60 @@ function checkDates(entry, today) {
   return errs;
 }
 
-module.exports = { REVIEW_CAP_DAYS, GOTCHA_DIR, loadRegistry, validateSchema, runVerify, checkDates };
+function normalizePath(p) {
+  return String(p).replace(/\\/g, '/');
+}
+
+// A trailing slash means "directory prefix"; anything else must match exactly.
+function scopeMatches(scopeEntry, candidatePath) {
+  const s = normalizePath(scopeEntry);
+  const c = normalizePath(candidatePath);
+  return s.endsWith('/') ? c.startsWith(s) : c === s;
+}
+
+function checkScope(entry, trackedPaths) {
+  const errs = [];
+  const scope = Array.isArray(entry.data.scope) ? entry.data.scope : [];
+  for (const s of scope) {
+    const hit = trackedPaths.some((t) => scopeMatches(s, t));
+    if (!hit) {
+      errs.push(
+        `${entry.jsonPath}: scope "${s}" matches no git-tracked path — stale, misfiled, or machine-local`,
+      );
+    }
+  }
+  return errs;
+}
+
+function checkReferences(entry, allSlugs) {
+  const refs = Array.isArray(entry.data.see_also) ? entry.data.see_also : [];
+  return refs
+    .filter((r) => !allSlugs.includes(r))
+    .map((r) => `${entry.jsonPath}: see_also "${r}" has no matching entry`);
+}
+
+function checkPairing(rootDir) {
+  const dir = path.join(rootDir, GOTCHA_DIR);
+  if (!fs.existsSync(dir)) return [];
+  const files = fs.readdirSync(dir);
+  const jsons = new Set(files.filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)));
+  const mds = new Set(files.filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3)));
+  const errs = [];
+  for (const s of jsons) if (!mds.has(s)) errs.push(`docs/gotchas/${s}.json has no matching ${s}.md`);
+  for (const s of mds) if (!jsons.has(s)) errs.push(`docs/gotchas/${s}.md has no matching ${s}.json`);
+  return errs.sort();
+}
+
+module.exports = {
+  REVIEW_CAP_DAYS,
+  GOTCHA_DIR,
+  loadRegistry,
+  validateSchema,
+  runVerify,
+  checkDates,
+  normalizePath,
+  scopeMatches,
+  checkScope,
+  checkReferences,
+  checkPairing,
+};
