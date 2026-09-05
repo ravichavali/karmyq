@@ -15,6 +15,10 @@
    carrying state between sessions. If it exists, follow its Quick Start; update it as you
    progress; archive it when the feature ships (create/update via the `handoff`/`update-handoff`
    skill; framework: `.claude/handoff/README.md`).
+   ⚠️ **When parallel lanes are active it is a ROUTER, not the state itself** — its "Active lanes"
+   table maps each branch to its own `lane-<slug>.md`. Read the router, then read and update ONLY
+   your lane's file. Two machines editing one rolling handoff corrupts the one doc that carries
+   all cross-session state.
 3. **Persistent memory** — `MEMORY.md` index + any matching memory file (advisory; verify
    anything it names still exists).
 4. **[`services/registry.json`](services/registry.json)** — services, ports, endpoints, events.
@@ -25,7 +29,9 @@
 **Chat cadence:** one fresh chat per sprint (planning chat produces spec + plan + handoff via the
 `sprint-planning` skill; the NEXT chat executes). Same-PR polish/review follow-ups stay in the
 same chat. For a long multi-PR sprint: per-PR plan files and a fresh chat per PR. Two agents on
-one sprint = one chat per agent branch, orchestrated through handoff/PR state.
+one sprint = one chat per agent branch, orchestrated through handoff/PR state. **Two machines on
+two sprints = one lane file per sprint** (see *Parallel Development*); a chat never reads or
+writes the other lane's handoff.
 
 ---
 
@@ -226,12 +232,24 @@ when green via `scripts/promote-tdd-tests.js`); `integration/` needs a DB. **New
 start in the changed workspace's `tests/tdd/`** (e.g. `services/request-service/tests/tdd/`),
 not root. Infrastructure: `cd infrastructure/docker && docker-compose up -d postgres redis`.
 
-### Windows / Git Bash environment
-This machine is Windows + Git Bash. `curl` flag parsing is unreliable (spurious status `000`),
+### Host environments — check which machine you are on FIRST
+Development runs from **two checkouts on different machines**. The gotchas below are per-host and
+do not transfer; run `uname -s` before applying either set (`MINGW64_NT-*` = Windows box,
+`Darwin` = Mac).
+
+**Windows + Git Bash (primary box):** `curl` flag parsing is unreliable (spurious status `000`),
 `jq` is **not installed**, and PowerShell execution policy blocks dot-sourcing helpers — use
-`node -e` for HTTP probes and JSON parsing instead of `curl`/`jq`. `| tail` masks exit codes.
-Don't attribute a Turbo failure to the first-listed package; read the failing suite name out of
-the raw output.
+`node -e` for HTTP probes and JSON parsing instead of `curl`/`jq`. **No local Docker** — anything
+needing PostgreSQL runs in a disposable container on the demo server over an SSH tunnel.
+
+**macOS (second checkout):** `curl` and `jq` behave normally and Docker may be available locally
+for `postgres`/`redis`. Do **not** apply the Windows workarounds here — they are noise at best.
+Note the root context file is git-tracked lowercase (`claude.md`); this resolves on default
+case-insensitive APFS, but would silently load NOTHING on a case-sensitive volume or a Linux
+devcontainer. Verify with `diskutil info / | grep -i "Case-Sensitive"` before using either.
+
+**Both hosts:** `| tail` masks exit codes — capture the exit code separately. Don't attribute a
+Turbo failure to the first-listed package; read the failing suite name out of the raw output.
 
 ---
 
@@ -308,6 +326,101 @@ package names/versions, env-var loading order.
   API (rate-limited; UI bulk-dismiss for >~50). The gate can false-block the fix-shipping push
   (rescan lag) — re-run after rescan, don't bypass.
 - **Demo-server data ops use DB user `karmyq_prod`.**
+
+---
+
+## Parallel Development (two checkouts, two machines)
+
+Work runs from **two checkouts on different machines** (Windows primary + Mac), each on its own
+sprint and its own branch. There is real branch isolation, so the lane model is now the actual
+mechanism — but the machines cannot see each other's working trees, so **all coordination goes
+through git and PR state, never through tree hygiene.** Neither machine may assume the other is
+idle.
+
+**Serialize these four shared surfaces** — they collide even when sprint scope is fully disjoint:
+
+| Surface | Why it collides | Rule |
+|---|---|---|
+| `master` merges | Every master push is a full deploy with rollback-on-failure; overlapping deploys restart services and 502 the demo | **One merge at a time.** Wait for the deploy AND health verify to finish before the next PR merges. |
+| `package.json` version | One line, bumped every sprint; second merge ships a duplicate or skipped version | First PR to merge takes the bump; the second re-bumps at merge time, not at branch time. |
+| `package.json` / `package-lock.json` | Lockfile conflicts cannot be resolved by regeneration (scratch-regen is forbidden — it rewrites exact pins) | **One maintainer-designated active holder.** An open Dependabot PR is a queued proposal, NOT the holder (below). |
+| ADR numbers | Both lanes mint the same next number → filename AND `docs/adr/README.md` index conflict | **Maintainer-allocated** — never self-assigned from a derived list. Uniqueness is gate-enforced (below). |
+
+**Also expect, and handle locally:**
+- `apps/landing/src/data/docs/` is **git-tracked** and regenerated by `npm test` with timestamp /
+  HEAD-sha churn. Two machines on two branches produce competing diffs — reverting that churn
+  before committing is **mandatory** here, not advisory.
+- `docs/BUGS.md` and `docs/IDEAS.md` are append-only from both lanes. Append at the end; resolve
+  the trivial conflicts rather than reordering.
+- **The demo server is a single shared resource** — both machines SSH as the same user and write
+  as `karmyq_prod`. Demo data operations are **exclusive, and the maintainer is the lock**: every
+  demo data operation already requires its own explicit per-operation authorization, so ask before
+  each one and say which lane is asking. Do NOT rely on a written announcement to reserve the
+  server — see *Why reservations do not work here*.
+- **Persistent memory does not travel.** `MEMORY.md` and the memory files live outside the repo in
+  `~/.claude/projects/<project>/memory/`. A fresh checkout starts with none of it; sync that
+  directory between machines rather than duplicating it into this file.
+
+**Split sprints on file-disjoint boundaries** — by service. Never run one lane in
+`packages/shared/` while the other is in a consumer of it; a shared-package change plus an
+un-updated importer is exactly the breakage the workspace-dependency rule exists to prevent.
+
+### Why reservations do not work here — derive instead
+
+There is **no shared mutable store between the two checkouts.** Every handoff file, including the
+lane router, is a **branch-local file**: a reservation written on lane A's branch is invisible on
+lane B's branch until it merges to `master`. A lane is also told to read only its own lane file, so
+a reservation recorded there is written where the other lane is forbidden to look. Any protocol of
+the form "announce it in the handoff" is therefore **unreliable by construction** — both lanes can
+believe they hold the same resource.
+
+**Querying live state establishes what is VISIBLE. Allocating ownership still requires
+SERIALIZATION.** These are different problems and need different mechanisms — conflating them was
+the original error. Deriving "the next ADR number" from open PRs tells you what exists; it does not
+stop the other lane deriving the same answer in the same minute.
+
+**Read-only — derive these, no coordination needed:**
+
+| Resource | Live arbiter |
+|---|---|
+| Version bump | `origin/master`'s `package.json` **at merge time**, not at branch time |
+| `master` merge slot | `gh pr list` + the latest deploy run's status — is a deploy in flight? |
+
+**Contended — these need an owner, and the maintainer is the only serializer available:**
+
+| Resource | Allocation |
+|---|---|
+| Next ADR number | **Ask the maintainer to allocate it.** Do not self-assign from a derived list; two lanes reading the same list get the same answer. |
+| Dependency / lockfile lane | **One designated active holder at a time** (below). |
+| Demo data operations | **Ask per operation.** There is no file-based lock. |
+
+There is no shared mutable store between the checkouts, so a human is the only thing that can
+serialize. That is not a workaround — with two independent clones and no lock service, it is the
+only correct answer.
+
+**Detection and reconciliation, because serialization can still fail.** The drift gate now asserts
+ADR numbers are unique (`tests/regression/doc-context-drift-gate.test.ts`, with a negative fixture
+proving it fails on two `ADR-097` files — indexing alone does not catch this). If a collision does
+reach `master`, **the PR that merges second renumbers**: rename the file, update
+`docs/adr/README.md`, and fix every reference to it. The first is already merged and referenced;
+the second is the one that must move.
+
+### The dependency lane: queued proposals vs. the active holder
+
+An open Dependabot PR is a **queued proposal, not a lane holder.** Dependabot PRs sit open for
+weeks — #218 has been open since 2026-09-03 — so treating any open dependency PR as occupying the
+lane would make the lane permanently unavailable, including for the security-exemption renewal that
+must land before **2026-09-15**.
+
+- **Exactly one active dependency task at a time**, designated by the maintainer.
+- **Queued proposals do not hold it.** Dependabot PRs, and PRs awaiting review, are queued.
+- **Ownership transfers explicitly** — the maintainer hands it over; it is never inferred.
+- **Before starting any dependency work, ask who holds the lane.** `gh pr list` shows you what is
+  queued; it cannot tell you who is *working*, because an agent's work is invisible until they push.
+
+**The router is a pointer, not a coordination store.** `CURRENT_HANDOFF.md`'s lane table tells you
+which file is yours. Because it is branch-local it can be stale, and it must never be treated as
+the authority on who owns a resource — the arbiters above are.
 
 ---
 

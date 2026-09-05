@@ -57,8 +57,11 @@ agents live in [`.claude/agents/`](.claude/agents/) (`migration-validator`, `pro
 - **Dependency edits are surgical:** never `npm install --workspace`, `npm dedupe`, or a lockfile
   scratch-regen; edit + splice in place and prove with strict `npm ci`.
 - **Solo dev, no git worktrees.** Feature branches only.
-- **Host is Windows/PowerShell** (`$null`, `$env:VAR`); in Git Bash `jq` is absent and `curl`
-  returns spurious `000` — use `node -e` for HTTP probes and JSON parsing.
+- **Two hosts — check with `uname -s` before applying any host workaround.** Windows/PowerShell
+  box (`$null`, `$env:VAR`; in Git Bash `jq` is absent and `curl` returns spurious `000` — use
+  `node -e` for HTTP probes and JSON parsing; no local Docker) vs the Mac checkout, where `curl`,
+  `jq` and Docker behave normally and the Windows workarounds are noise. Details in `CLAUDE.md`
+  → *Host environments*.
 - **Update the handoff before stopping** — and reconcile it against `gh pr list` / `git log`; a
   stale handoff is a blocking defect.
 
@@ -73,7 +76,7 @@ Enforced multi-agent PR process; shared state lives in the repo, never in agent-
   cross-agent conflicts (pause and request reassignment).
 - One agent per branch; no pushes to another agent's branch; no direct commits to `master`.
   Agent lane `agent/<name>/<slug>`; human lanes `feature/`, `fix/`, `docs/`, `refactor/`, `chore/`.
-- **Enforcement reality:** on this machine every agent shares the maintainer's admin
+- **Enforcement reality:** on either machine every agent shares the maintainer's admin
   credentials, so branch rules are convention enforced by this document, not a hard gate —
   honor them by discipline.
 
@@ -84,10 +87,28 @@ template — copy [`.github/pull_request_template.md`](.github/pull_request_temp
 without all gates green. PR body = per-task detail; handoff = rolling cross-session state; don't
 duplicate one into the other.
 
-## Same-machine reality: shared working tree, time-sliced
+## Topology: two machines, and a shared tree on one of them
 
-Claude and Codex are two VS Code sessions on the SAME folder — one working tree, one checked-out
-branch, **no file-level isolation**. The real clash rules:
+**Two things are true at once.** Establish which one you are in before touching anything —
+`uname -s` for the machine, `git branch --show-current` and `git status` for the tree.
+
+### A. Cross-machine (Windows box ↔ Mac) — real branch isolation
+Two separate checkouts, each on its own sprint and branch. Neither can see the other's working
+tree, so **tree hygiene protects nothing here** — all coordination goes through git and PR state.
+Never assume the other machine is idle.
+
+Querying live state tells you what is **visible**; allocating ownership still requires
+**serialization**, and with two independent clones and no lock service the maintainer is the only
+serializer. Four shared surfaces collide even when sprint scope is disjoint:
+`master` merges (one at a time — every push is a full deploy; wait for health verify),
+the `package.json` version bump (first to merge takes it), dependency/lockfile edits (one lane
+only — an open Dependabot PR is a queued proposal, NOT the lane holder), and ADR numbers
+(**maintainer-allocated — never self-assigned from a derived list**).
+Full rules and rationale: `CLAUDE.md` → **Parallel Development**.
+
+### B. Same-machine (Claude + Codex on the Windows box) — shared working tree
+Two VS Code sessions on the SAME folder: one working tree, one checked-out branch, **no
+file-level isolation**. The real clash rules:
 
 1. **One agent edits at a time** — never edit while the other has work in flight.
 2. **Clean tree at every role handoff** — commit or stash before switching agents; never build on
@@ -95,3 +116,8 @@ branch, **no file-level isolation**. The real clash rules:
 3. **Per-task file ownership** — the orchestrator names which files each agent owns (handoff or
    PR body); stay out of the other's files.
 4. **Read-only when in doubt** — cross-cutting audits stay read-only until the tree is clean.
+
+### Handoff routing (both topologies)
+When parallel lanes are active, `CURRENT_HANDOFF.md` is a **router**: its "Active lanes" table
+maps each branch to its own `lane-<slug>.md`. Read the router, then read and write ONLY your
+lane's file. Never edit another lane's handoff.

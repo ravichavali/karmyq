@@ -8,9 +8,34 @@ When a conversation ends mid-feature, create a handoff document here so the next
 
 ## Files
 
-- **`CURRENT_HANDOFF.md`** - The active handoff document (gets replaced with each new handoff)
+- **`CURRENT_HANDOFF.md`** - The active handoff document (gets replaced with each new handoff).
+  When parallel lanes are active it becomes a **router** — see below.
+- **`lane-<slug>.md`** - One per active parallel lane (e.g. `lane-sprint-127-provider-search.md`)
 - **`TEMPLATE.md`** - Template for creating new handoff documents
 - **`archive/`** - Previous handoff documents (optional, for reference)
+
+## Parallel lanes (two checkouts on two machines)
+
+A single rolling handoff cannot serve two machines — it is the one file that carries all
+cross-session state, and concurrent edits to it from two checkouts corrupt exactly that.
+
+**The rule:** when more than one sprint is in flight, `CURRENT_HANDOFF.md` holds only the
+**Active lanes** table (branch → lane file → reserved ADR block). Each lane gets its own
+`lane-<slug>.md`, created from `TEMPLATE.md`, owned by exactly one machine.
+
+1. A session reads `CURRENT_HANDOFF.md`, matches its current branch to a row, and follows the
+   pointer. If no row matches, it is not in a lane — the sprint state in that file applies.
+2. A session reads and writes **only its own lane file**. Never edit another lane's handoff;
+   that is the cross-machine equivalent of building on another agent's uncommitted WIP.
+3. **Cross-lane facts do NOT live here.** Every file in this directory is branch-local, so a fact
+   written on one lane's branch is invisible to the other until it merges. Contended resources
+   (ADR numbers, the version bump, the dependency lane, the merge slot, demo data ops) are
+   **derived from their live arbiters** at the moment they are needed — see `CLAUDE.md` →
+   *Parallel Development* → **Why reservations do not work here**. The router table is a pointer
+   to lane files and nothing more.
+4. When a lane ships, archive its lane file to `archive/` and delete its row.
+
+The serialization rules these lanes must honor are in `CLAUDE.md` → **Parallel Development**.
 
 ## How It Works
 
