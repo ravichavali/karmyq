@@ -71,10 +71,33 @@ This is a public repository that accepts pull requests from forks. A free-form c
 be arbitrary code execution running in CI with repository credentials — the precise class of risk
 ADR-061 exists to close. The constraint costs expressiveness and is worth it.
 
+**Declarative is not automatically safe, and the first implementation proved it.** A fork supplies
+both the `path` a check reads and the `pattern` it applies, and code review found two ways that was
+still dangerous:
+
+- **Arbitrary read.** `"path": "../../.ssh/id_rsa"` resolved outside the repository, turning
+  `file_matches` into an oracle: its pass/fail result reports whether a pattern occurs in any file
+  the CI runner can read. Every check now resolves its target inside the repository root or refuses.
+- **Denial of service.** `/(a+)+$/` against 31 characters measured **~108 seconds**. One entry could
+  hang CI indefinitely. Node offers no regex timeout, and the validator may not spawn a process
+  (§4), so the pattern itself is the only place to stop this: nested quantifiers and patterns over
+  200 characters are refused at validation, before anything executes them.
+
+The pattern rule is a conservative **heuristic**, not a proof of linear-time matching. It is stated
+that way deliberately — a check that claimed more than it establishes is the failure mode this
+repository keeps rediscovering. Fixtures assert both that it rejects the exponential shapes and that
+it still accepts every pattern the seed entries use.
+
 ### 4. The validator is hermetic — no network I/O, directly or transitively
 
-Asserted by the gate, which reads the module source and rejects `http`/`net`/`dns`/`tls` requires,
-`fetch(`, and `child_process`.
+Asserted by the gate as an **allowlist over the actual require set**, not a blocklist of known-bad
+module names. A blocklist must be extended for every spelling it does not yet know —
+`require('node:http')` defeats one — so it would assert weaker than this section claims. The gate
+checks that `gotcha-registry.js` requires nothing outside `{fs, path, ./lib/exemption-registry}`,
+that the extractor actually finds the requires that are there (or "no disallowed requires" would be
+vacuously true), that the one local module it depends on is itself require-free — which is what
+makes "transitively" real — and that the source contains no `fetch(`, no `child_process`, and no
+dynamic `import()` that would bypass the scan.
 
 The motivating evidence is recent and local: during the 2026-09-03 npm outage the ADR-059 gate
 could not distinguish "no advisories" from "no answer" and blocked every pull request (BUG-038). A
