@@ -8,7 +8,12 @@ To add a concept page:
    (nav placement) in `scripts/generate-docs.ts`.
 3. Regenerate, then verify the produced page and nav entry.
 
-Missing either list fails the doc-context drift gate.
+To add an **ADR**, the nav list is a different one: write `docs/adr/ADR-{NNN}-{slug}.md`, index it
+in `docs/adr/README.md`, and add the slug to a group in **`ADR_GROUPS`**. An ADR that is not in any
+`ADR_GROUPS` group generates a page with **no nav entry at all** — the generator does not fall back
+to listing it. Observed 2026-09-04: ADR-097 generated cleanly and still failed the drift gate.
+
+Missing any of these lists fails the doc-context drift gate.
 
 ⚠️ Do not record this as "grep-verify nav.json after every edit". That is the symptom's workaround,
 and stating it that way has already caused one wrong instruction to be written into a design spec.
