@@ -187,4 +187,55 @@ function runVerify(rootDir, entry) {
   return errs;
 }
 
-module.exports = { REVIEW_CAP_DAYS, GOTCHA_DIR, loadRegistry, validateSchema, runVerify };
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseIso(s) {
+  if (typeof s !== 'string' || !ISO.test(s)) return null;
+  const d = new Date(`${s}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  if (d.toISOString().slice(0, 10) !== s) return null; // rejects 2026-13-45
+  return d;
+}
+
+function checkDates(entry, today) {
+  const errs = [];
+  const d = entry.data;
+  const created = parseIso(d.created);
+  if (d.created !== undefined && !created) {
+    errs.push(`${entry.jsonPath}: "created" (${d.created}) is not a valid ISO date`);
+  }
+
+  const renewals = Array.isArray(d.renewed) ? d.renewed : [];
+  let latestReview = created;
+  for (const r of renewals) {
+    const rd = parseIso(r && r.date);
+    if (!rd) {
+      errs.push(`${entry.jsonPath}: renewal date "${r && r.date}" is not a valid ISO date`);
+      continue;
+    }
+    if (!r.evidence || String(r.evidence).trim() === '') {
+      errs.push(`${entry.jsonPath}: renewal ${r.date} is missing "evidence" — say how the fact was re-confirmed`);
+    }
+    if (!latestReview || rd > latestReview) latestReview = rd;
+  }
+
+  if (d.expires !== undefined) {
+    const expires = parseIso(d.expires);
+    if (!expires) {
+      errs.push(`${entry.jsonPath}: "expires" (${d.expires}) is not a valid ISO date`);
+    } else {
+      if (expires < today) {
+        errs.push(`${entry.jsonPath}: past its review date (${d.expires}) — renew with evidence, or delete it`);
+      }
+      if (latestReview) {
+        const span = Math.round((expires - latestReview) / 86400000);
+        if (span > REVIEW_CAP_DAYS) {
+          errs.push(`${entry.jsonPath}: review span ${span}d exceeds the review cap of ${REVIEW_CAP_DAYS}d`);
+        }
+      }
+    }
+  }
+  return errs;
+}
+
+module.exports = { REVIEW_CAP_DAYS, GOTCHA_DIR, loadRegistry, validateSchema, runVerify, checkDates };
