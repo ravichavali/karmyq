@@ -136,4 +136,55 @@ function validateCheckArgs(entry) {
   return errs;
 }
 
-module.exports = { REVIEW_CAP_DAYS, GOTCHA_DIR, loadRegistry, validateSchema };
+function readOr(rootDir, rel) {
+  try {
+    return fs.readFileSync(path.join(rootDir, rel), 'utf8');
+  } catch (e) {
+    return null; // caller turns this into a failure, never a skip
+  }
+}
+
+function runVerify(rootDir, entry) {
+  const v = entry.data.verify;
+  if (!v) return [];
+  const errs = [];
+  for (const type of Object.keys(v)) {
+    if (!CHECK_TYPES.includes(type)) {
+      errs.push(`${entry.jsonPath}: unsupported check type "${type}" (allowed: ${CHECK_TYPES.join(', ')})`);
+      continue;
+    }
+    const arg = v[type];
+    if (type === 'path_exists') {
+      if (!fs.existsSync(path.join(rootDir, arg))) {
+        errs.push(`${entry.jsonPath}: path_exists "${arg}" does not exist`);
+      }
+      continue;
+    }
+    const text = readOr(rootDir, arg.path);
+    if (text === null) {
+      errs.push(`${entry.jsonPath}: ${type} target "${arg.path}" is unreadable — failing closed`);
+      continue;
+    }
+    if (type === 'file_matches' && !new RegExp(arg.pattern).test(text)) {
+      errs.push(`${entry.jsonPath}: ${arg.path} no longer contains /${arg.pattern}/`);
+    }
+    if (type === 'file_not_matches' && new RegExp(arg.pattern).test(text)) {
+      errs.push(`${entry.jsonPath}: ${arg.path} unexpectedly contains /${arg.pattern}/`);
+    }
+    if (type === 'json_equals') {
+      let cur;
+      try {
+        cur = arg.key.split('.').reduce((o, k) => (o == null ? undefined : o[k]), JSON.parse(text));
+      } catch (e) {
+        errs.push(`${entry.jsonPath}: ${arg.path} is not valid JSON — failing closed`);
+        continue;
+      }
+      if (cur !== arg.value) {
+        errs.push(`${entry.jsonPath}: ${arg.path} ${arg.key} expected ${JSON.stringify(arg.value)}, found ${JSON.stringify(cur)}`);
+      }
+    }
+  }
+  return errs;
+}
+
+module.exports = { REVIEW_CAP_DAYS, GOTCHA_DIR, loadRegistry, validateSchema, runVerify };
