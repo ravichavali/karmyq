@@ -282,6 +282,20 @@ function checkPairing(rootDir) {
   return errs.sort();
 }
 
+function discover(entries, changedPaths) {
+  const hits = new Set();
+  for (const entry of entries) {
+    const scope = Array.isArray(entry.data.scope) ? entry.data.scope : [];
+    for (const s of scope) {
+      if (changedPaths.some((c) => scopeMatches(s, c))) {
+        hits.add(entry.slug);
+        break;
+      }
+    }
+  }
+  return [...hits].sort();
+}
+
 module.exports = {
   REVIEW_CAP_DAYS,
   GOTCHA_DIR,
@@ -294,4 +308,5 @@ module.exports = {
   checkScope,
   checkReferences,
   checkPairing,
+  discover,
 };
