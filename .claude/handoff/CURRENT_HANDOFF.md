@@ -1,4 +1,4 @@
-# Current Handoff — as of 2026-09-05
+# Current Handoff — as of 2026-09-05 (Sprint 127 implemented, unmerged)
 
 **Version:** v11.46.0 · **Branch of record:** `master` at **`ea7ee194`** (PR #219, merged
 2026-09-05) · **Demo:** deployed and **smoke-tested healthy** — `GET karmyq.com/` 200,
@@ -13,7 +13,10 @@ lanes are active, find your branch below and read/update **only that lane's file
 
 | Lane | Machine | Branch | Handoff file | Sprint |
 |---|---|---|---|---|
-| _(none active yet)_ | — | — | — | — |
+| Knowledge registry | Windows (primary) | `feature/sprint-127-knowledge-registry` | this file | 127 |
+
+Only one lane is active, so this file *is* the lane state — no separate `lane-<slug>.md` is needed
+until a second machine picks up a concurrent sprint.
 
 ⚠️ **This table is a pointer, not a coordination store.** It is a branch-local file, so it can be
 stale and it is **never** the authority on who owns a contended resource. Derive those from their
@@ -26,13 +29,13 @@ live arbiters — see `CLAUDE.md` → *Parallel Development* → **Why reservati
 
 1. `git fetch origin` and confirm real state before trusting anything written here:
    `gh pr list` and `git log --oneline origin/master -3`.
-2. **PR #219 is MERGED** (squash `ea7ee194`), deployed, and smoke-tested. The Sprint 127 spec and
-   implementation plan are **review-approved and unmerged** on
-   `docs/sprint-127-knowledge-registry-spec`, with no PR opened.
-3. Nothing is mid-implementation. There is no half-finished task to resume.
-4. **To execute Sprint 127:** branch from `origin/master` at or after `ea7ee194`, open a fresh
-   chat, and follow `docs/superpowers/plans/2026-09-04-sprint-127-knowledge-registry.md` from its
-   Prerequisites. The ADR number is **maintainer-allocated** — ask before Task 12.
+2. **PR #219 is MERGED** (squash `ea7ee194`), deployed, and smoke-tested.
+3. **Sprint 127 is IMPLEMENTED and unmerged** on `feature/sprint-127-knowledge-registry`
+   (13 implementation commits on top of the spec branch, so the spec, plan and implementation
+   ship as one PR). All 13 plan tasks are complete; `npx turbo run test` is **26/26 green**.
+4. **What remains before merge:** the `/code-review` and `/security-review` gates, the version
+   bump, opening the PR, and merge authorization. See *Sprint 127 — state* below.
+5. ADR number **097** was maintainer-allocated and is in use.
 
 ---
 
@@ -70,10 +73,47 @@ maintainer-allocated, and ADR uniqueness is enforced by a real gate
 (`tests/regression/doc-context-drift-gate.test.ts`, 5 → 7 tests, with a negative fixture proving it
 fails on two `ADR-097` files).
 
-### Design spec — ecosystem knowledge registry (Sprint 127 candidate)
-Branch `docs/sprint-127-knowledge-registry-spec`, commit **`0a231e6f`**, no PR opened. Current with
-`master` via a merge commit, so it carries the reconciled handoff rather than the pre-merge copy.
-`docs/superpowers/specs/2026-09-04-ecosystem-knowledge-registry-design.md`.
+### Sprint 127 — state: IMPLEMENTED, not yet merged
+
+Branch `feature/sprint-127-knowledge-registry`, cut from the spec branch (which already carried
+`master` at `ea7ee194`), so the PR ships spec + plan + implementation together.
+
+**All 13 plan tasks complete.** `npx turbo run test --concurrency=2` → **26/26 tasks, exit 0**;
+602 regression tests pass.
+
+What shipped:
+
+- `docs/gotchas/` with **six seed entries** — three carrying declarative machine checks
+  (hooks path, landing generation, Node 24 floor), three carrying review dates (npm status page,
+  ADR-059/BUG-038, Dependabot/Expo).
+- `scripts/gotcha-registry.js` — dependency-free CommonJS validator; `scripts/gotcha-check.js` —
+  CLI for validation (`--staged`) and discovery (`--for <paths>`).
+- `tests/regression/sprint-127-gotcha-registry-gate.test.ts` — **67 tests**: 12 positive over the
+  real registry, 50 negative fixtures, and a clean-room fixture that clones the candidate commit
+  and runs the validator under bare `node` with no `node_modules`.
+- Credential screen in `scripts/git-hooks/pre-commit`, proven with four probes in a disposable
+  clone (partial-staging bypass, quoted JSON key, orphaned `.md`, and deletion-must-pass).
+- Onboarding-policy assertion in the drift gate; README/CONTRIBUTING/claude.md now state
+  `npm ci` + `npm run hooks:install` identically.
+- `.claude/skills/learned/SKILL.md` and a capture checkpoint in the `ship` skill.
+- `docs/concepts/how-karmyq-learns.md` (public), CONTRIBUTING authoring manual, and
+  **ADR-097**.
+
+**Both new gates were proven falsifiable**: breaking `hooks_dir=".git/hooks"` fails the registry
+gate with "no longer contains"; regressing README to `npm install` fails the onboarding assertion.
+
+**Two real defects were caught by the suite after the docs commit** and fixed in `f2ea4958`: a
+generated ADR page reaches `nav.json` only if its slug is in `ADR_GROUPS` (ADR-097 was missing),
+and the ADR's passing mention of a licence token registered as an unenumerated claim site.
+
+**Still to do before merge:** `/code-review` (high) and `/security-review`; the version bump
+(derive from `origin/master` **at merge time** — it is 11.46.0 as of 2026-09-05, so 11.47.0
+unless another lane merges first); open the PR with the full template body; merge authorization.
+
+Spec: `docs/superpowers/specs/2026-09-04-ecosystem-knowledge-registry-design.md`.
+Plan: `docs/superpowers/plans/2026-09-04-sprint-127-knowledge-registry.md`.
+
+### Design spec — how it got here
 
 Proposes `docs/gotchas/` — a home for operational knowledge that today lives only in one
 maintainer's private agent memory and reaches nobody else. Every entry carries exactly one of a
@@ -90,7 +130,8 @@ takes no new dependency — so **this lane is dependency-independent** and can r
 the ADR-059/exemptions work. Codex has **no further design objections to implementation planning**
 once the remaining text reconciliation lands.
 
-**No implementation has begun and none should** until the spec is approved.
+The spec was approved and **implementation is complete** — see *Sprint 127 — state* above. This
+section is retained as the record of how the design was reached.
 
 ---
 
@@ -100,7 +141,10 @@ once the remaining text reconciliation lands.
    reproduced by Codex with a synthetic error response: empty registry passes, shipped registry
    blocks with misleading removal advice. **The pattern to copy already exists in-repo** —
    `tests/regression/sprint-122-adr-060-code-scanning-gate.test.ts:361-374`, "ADR-060 gate —
-   refuses to fail open on API errors". Strong Sprint 127 candidate.
+   refuses to fail open on API errors". Still unfixed — Sprint 127 **documented** it as
+   `docs/gotchas/adr-059-cannot-tell-no-answer-from-no-advisories.md` (review date 2027-03-04),
+   which stops the misleading advice being acted on but does not repair the gate. Next sprint
+   candidate.
 2. **⏰ `security/audit-exemptions.json` expires 2026-09-15** (2 GHSA entries). After that every PR
    blocks on the ADR-059 gate. Same lane as (1); owns the dependency surface.
 3. **PR #218 — Dependabot production-deps group.** Do **not** merge: it bumps 6 React Native
