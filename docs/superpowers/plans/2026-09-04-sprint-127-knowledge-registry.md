@@ -833,14 +833,14 @@ Expected: FAIL — `reg.checkScope is not a function`
 Append to `scripts/gotcha-registry.js`, add all three to exports:
 
 ```javascript
-function normalize(p) {
+function normalizePath(p) {
   return String(p).replace(/\\/g, '/');
 }
 
 // A trailing slash means "directory prefix"; anything else must match exactly.
 function scopeMatches(scopeEntry, candidatePath) {
-  const s = normalize(scopeEntry);
-  const c = normalize(candidatePath);
+  const s = normalizePath(scopeEntry);
+  const c = normalizePath(candidatePath);
   return s.endsWith('/') ? c.startsWith(s) : c === s;
 }
 
@@ -973,7 +973,11 @@ function discover(entries, changedPaths) {
 }
 ```
 
-Add `discover` and `scopeMatches` to `module.exports`.
+Add `discover`, `scopeMatches` and **`normalizePath`** to `module.exports`.
+
+`normalizePath` is exported because callers outside this module — the discovery CLI in Task 6 —
+need identical separator handling. Re-implementing it inline is exactly how a `SyntaxError` that
+disabled validation, discovery and the pre-commit hook simultaneously reached an earlier draft.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -1100,7 +1104,10 @@ function tracked() {
 // directory-scoped knowledge exists for.
 function runDiscovery(paths) {
   const { entries } = reg.loadRegistry(ROOT);
-  const slugs = reg.discover(entries, paths.map((p) => p.replace(/\/g, '/')));
+  // normalizePath is exported from gotcha-registry.js (Task 4) — do not re-implement the
+  // separator fix inline. An earlier draft did, and shipped a SyntaxError that disabled
+  // validation, discovery AND the pre-commit hook at once.
+  const slugs = reg.discover(entries, paths.map(reg.normalizePath));
   if (!slugs.length) {
     console.log('No gotchas scoped to those paths.');
     return 0;
@@ -1211,54 +1218,69 @@ until `npm run hooks:install` runs again:
 npm run hooks:install
 ```
 
-**Case A — the partial-staging bypass.** This is the case the working-tree screen missed entirely:
-stage a credential, then remove it from the working tree WITHOUT staging the removal. The commit
-still carries the credential.
+**Run every probe in a DISPOSABLE clone**, never in your working repo — Case D needs a committed
+file to delete, and you must not commit probe content to the real branch.
+
+```bash
+PROBE=$(mktemp -d) && git clone --quiet --no-hardlinks . "$PROBE" && cd "$PROBE"
+npm run hooks:install    # hooks are per-clone; on Windows the installer copies, so this is required
+```
+
+**Every probe asserts the DIAGNOSTIC, not just a non-zero exit.** A syntax error in the CLI also
+exits non-zero — an earlier draft's probes would have passed against a completely broken script.
+
+**Case A — the partial-staging bypass.** Stage a credential, then remove it from the working tree
+WITHOUT staging the removal. The commit still carries it.
 
 ```bash
 mkdir -p docs/gotchas
-printf '{"title":"t","owner":"o","created":"2026-09-04","expires":"2027-01-01","scope":["README.md"]}' > docs/gotchas/tmp-probe.json
-printf 'password: hunter2seventeen\n' > docs/gotchas/tmp-probe.md
-git add docs/gotchas/tmp-probe.json docs/gotchas/tmp-probe.md
-printf 'clean now\n' > docs/gotchas/tmp-probe.md      # working tree clean, INDEX still dirty
-git commit -m "probe A: must be blocked"              # expect exit 1
+printf '{"title":"t","owner":"o","created":"2026-09-04","expires":"2027-01-01","scope":["README.md"]}' > docs/gotchas/tmp-a.json
+printf 'password: hunter2seventeen\n' > docs/gotchas/tmp-a.md
+git add docs/gotchas/tmp-a.json docs/gotchas/tmp-a.md
+printf 'clean now\n' > docs/gotchas/tmp-a.md          # working tree clean, INDEX still dirty
+git commit -m "probe A" 2>&1 | tee /tmp/a.txt; test ${PIPESTATUS[0]} -ne 0
+grep -q "credential assignment" /tmp/a.txt && echo "A: blocked for the right reason"
+git reset -q HEAD . && rm -f docs/gotchas/tmp-a.*
 ```
 
-**Case B — a credential in the JSON sidecar**, which the body-only scan never saw:
+**Case B — a genuine quoted JSON key**, which is the format the earlier regex missed. Note the
+credential is a real `"password"` **key**, not prose inside a `note` field.
 
 ```bash
-printf '{"title":"t","owner":"o","created":"2026-09-04","expires":"2027-01-01","scope":["README.md"],"note":"password: hunter2seventeen"}' > docs/gotchas/tmp-probe.json
-printf 'clean\n' > docs/gotchas/tmp-probe.md
-git add docs/gotchas/tmp-probe.*
-git commit -m "probe B: must be blocked"              # expect exit 1
+printf '{"title":"t","owner":"o","created":"2026-09-04","expires":"2027-01-01","scope":["README.md"],"password":"synthetic-example-value"}' > docs/gotchas/tmp-b.json
+printf 'body\n' > docs/gotchas/tmp-b.md
+git add docs/gotchas/tmp-b.*
+git commit -m "probe B" 2>&1 | tee /tmp/b.txt; test ${PIPESTATUS[0]} -ne 0
+grep -q "credential assignment" /tmp/b.txt && echo "B: quoted JSON key caught"
+git reset -q HEAD . && rm -f docs/gotchas/tmp-b.*
 ```
 
-**Case C — an orphaned staged `.md` with no `.json`**, which iterating loaded entries skipped:
+**Case C — an orphaned staged `.md` with no `.json`**, which iterating loaded entries skipped.
 
 ```bash
-git reset HEAD docs/gotchas/tmp-probe.* >/dev/null
-rm -f docs/gotchas/tmp-probe.json
-printf 'token = abcdef123456789\n' > docs/gotchas/tmp-orphan.md
-git add docs/gotchas/tmp-orphan.md
-git commit -m "probe C: must be blocked"              # expect exit 1
+printf 'token = abcdef123456789\n' > docs/gotchas/tmp-c.md
+git add docs/gotchas/tmp-c.md
+git commit -m "probe C" 2>&1 | tee /tmp/c.txt; test ${PIPESTATUS[0]} -ne 0
+grep -q "credential assignment" /tmp/c.txt && echo "C: orphan .md caught"
+git reset -q HEAD . && rm -f docs/gotchas/tmp-c.md
 ```
 
-**Case D — a staged deletion must NOT block**, since deleting publishes nothing:
+**Case D — deleting a COMMITTED file must NOT block**, because a deletion publishes nothing. This
+needs a real commit first; unstaging an uncommitted file never invokes the screen at all.
 
 ```bash
-git reset HEAD docs/gotchas/ >/dev/null && rm -f docs/gotchas/tmp-*
-git rm --cached -q docs/gotchas/tmp-orphan.md 2>/dev/null || true
+printf '{"title":"harmless","owner":"o","created":"2026-09-04","expires":"2027-01-01","scope":["README.md"]}' > docs/gotchas/tmp-d.json
+printf 'nothing sensitive here\n' > docs/gotchas/tmp-d.md
+git add docs/gotchas/tmp-d.* && git commit -q -m "probe D setup"   # must SUCCEED
+git rm -q docs/gotchas/tmp-d.json docs/gotchas/tmp-d.md
+git commit -m "probe D: deletion must pass"                        # must SUCCEED, exit 0
+echo "D: staged deletion allowed"
 ```
 
-Clean up:
+**Tear the probe clone down:**
 
 ```bash
-mkdir -p docs/gotchas
-printf '{"title":"t","owner":"o","created":"2026-09-04","expires":"2027-01-01","scope":["README.md"]}' > docs/gotchas/tmp-probe.json
-printf 'password: hunter2seventeen\n' > docs/gotchas/tmp-probe.md
-git add docs/gotchas/tmp-probe.json docs/gotchas/tmp-probe.md
-git commit -m "probe: must be blocked"   # expect exit 1, "possible password assignment"
-git reset HEAD docs/gotchas/tmp-probe.*  && rm docs/gotchas/tmp-probe.*
+cd - >/dev/null && rm -rf "$PROBE"
 ```
 
 - [ ] **Step 5: Commit**
@@ -1326,8 +1348,36 @@ describe('Sprint 127 — gotcha registry gate', () => {
     expect(reg.checkPairing(ROOT)).toEqual([]);
   });
 
-  it('no entry contains credential-shaped content', () => {
-    expect(entries.flatMap((e: any) => reg.scanCredentials(e.body, e.bodyPath))).toEqual([]);
+  // BOTH halves. An earlier draft asserted over bodies only, so a credential in a
+  // sidecar passed this blocking gate and would have been caught only later, by the
+  // clean-room CLI, after the content was already committed.
+  it('no entry contains credential-shaped content, in either half of the pair', () => {
+    expect(
+      entries.flatMap((e: any) => [
+        ...reg.scanCredentials(e.body, e.bodyPath),
+        ...reg.scanCredentials(JSON.stringify(e.data, null, 1), e.jsonPath),
+      ]),
+    ).toEqual([]);
+  });
+
+  it('the credential scan catches a QUOTED JSON key, not just a bare assignment', () => {
+    expect(reg.scanCredentials('{"password":"synthetic-example-value"}', 'x.json')).toEqual([
+      expect.stringContaining('x.json'),
+    ]);
+  });
+
+  it('the credential scan still ignores descriptive prose', () => {
+    expect(reg.scanCredentials('The runbook explains where the password is stored.', 'x.md')).toEqual([]);
+  });
+
+  // The CLI is the entry point for the hook and the clean room. A syntax error in it
+  // disables all three at once, and every probe that asserts only "exit 1" would still
+  // look like it passed.
+  it('the CLI parses and its discovery mode answers', () => {
+    const out = execFileSync(process.execPath, ['scripts/gotcha-check.js', '--for', 'scripts/install-hooks.sh'], {
+      cwd: ROOT, encoding: 'utf8',
+    });
+    expect(out).toMatch(/gotcha\(s\) apply/);
   });
 
   // Hermeticity: the module must not reach the network, directly or transitively.
@@ -1681,9 +1731,15 @@ Expected: `✅ Gotcha registry clean (6 entries).` and the non-clean-room assert
 - [ ] **Step 4: Prove the gate fails on a stale seed, before committing**
 
 ```bash
+# Restore is guaranteed by trap, and there is NO cd — step 3 already returned to the
+# repo root. An earlier draft added a stray `cd ..`, which left the repo entirely and
+# so left scripts/install-hooks.sh mutated for every later step.
+trap 'git checkout -- scripts/install-hooks.sh' EXIT
 sed -i 's/hooks_dir=".git\/hooks"/hooks_dir="ELSEWHERE"/' scripts/install-hooks.sh
-node scripts/gotcha-check.js                                    # expect exit 1
-cd .. 2>/dev/null; git checkout scripts/install-hooks.sh
+node scripts/gotcha-check.js 2>&1 | tee /tmp/stale.txt; test ${PIPESTATUS[0]} -eq 1
+grep -q "no longer contains" /tmp/stale.txt   # the RIGHT failure, not just a non-zero exit
+git checkout -- scripts/install-hooks.sh
+git diff --quiet scripts/install-hooks.sh && echo "restored"
 ```
 
 - [ ] **Step 5: Verify discovery answers from the CLI**
@@ -1866,15 +1922,39 @@ npm run hooks:install
 
 In `CONTRIBUTING.md` change `npm install` to `npm ci` in the Quick start block.
 
+**`claude.md` also needs the commands, and this is not optional.** It currently mentions `npm ci`
+only inline in prose (`claude.md:205`, inside the dependency-edits paragraph) and `hooks:install`
+only inline at `:58` and `:221`. The extractor requires a **standalone** command line, so applying
+only the README and CONTRIBUTING edits leaves the test red with
+`claude.md: has no "npm ci" install command` — verified by running the predicate against the real
+files. Add to Discipline 3, immediately after the `npm run hooks:install` sentence:
+
+```markdown
+   Clone setup is exactly two commands, and they must match `README.md` and `CONTRIBUTING.md`
+   verbatim:
+
+   ```bash
+   npm ci
+   npm run hooks:install
+   ```
+```
+
+All three documents must then carry the **identical** `npm ci` line — no extra flags in one and not
+the others, or the consistency assertion fires.
+
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd tests && npx jest regression/doc-context-drift-gate.test.ts`
-Expected: PASS — 9 tests
+```bash
+cd tests && npx jest regression/doc-context-drift-gate.test.ts && cd ..
+```
+
+Expected: PASS. If it reports `claude.md: has no "npm ci" install command`, Step 3's `claude.md`
+edit was skipped — that is the failure mode this step exists to catch.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tests/regression/doc-context-drift-gate.test.ts README.md CONTRIBUTING.md
+git add tests/regression/doc-context-drift-gate.test.ts README.md CONTRIBUTING.md claude.md
 git commit -m "fix: assert the onboarding policy, not merely agreement between docs"
 ```
 

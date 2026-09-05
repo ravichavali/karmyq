@@ -511,9 +511,12 @@ The fixture therefore does both:
 **Phase 1 — mechanism, proof, and the argument for it.** Schema, validator with all assertions and
 the seventeen negative fixtures, the `/learned` skill, the public concept doc and README section
 (see *Doc Updates* — a learning mechanism nobody knows about does not get used), and seeding with
-the five orphaned learnings from 2026-09-03/04.
-Those five are ideal seeds: fresh, independently verified, and collectively exercising every check
-type.
+the orphaned learnings from 2026-09-03/04, plus the ADR-090 node-24 floor.
+Those seeds are fresh and independently verified. They exercise `file_matches`, `path_exists` and
+`json_equals`; **`file_not_matches` has fixture coverage only**, because no current gotcha
+truthfully needs one. A seed must never be contrived to satisfy a coverage target — an entry
+existing to exercise the validator rather than to record a true fact is precisely the rot this
+registry prevents. Agreed in review, 2026-09-04.
 
 **Phase 2 — opportunistic promotion.** No migration project. A memory earns an entry when it is used
 and proves durable, via the three intake triggers. The collection grows from evidence.
