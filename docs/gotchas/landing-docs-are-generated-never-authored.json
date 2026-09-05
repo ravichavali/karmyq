@@ -1,0 +1,10 @@
+{
+  "title": "apps/landing/src/data/docs/ is generated — author docs/concepts/ and the generator's lists",
+  "owner": "ravichavali",
+  "created": "2026-09-04",
+  "scope": ["scripts/generate-docs.ts", "docs/concepts/", "docs/guides/"],
+  "verify": {
+    "file_matches": { "path": "scripts/generate-docs.ts", "pattern": "const whyKarmyq" }
+  },
+  "see_also": ["npm-status-page-is-not-a-signal"]
+}

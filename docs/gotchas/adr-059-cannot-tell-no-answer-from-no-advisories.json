@@ -1,0 +1,8 @@
+{
+  "title": "The ADR-059 gate cannot distinguish no advisories from no answer",
+  "owner": "ravichavali",
+  "created": "2026-09-04",
+  "expires": "2027-03-04",
+  "scope": ["scripts/audit-exemptions.js", "security/audit-exemptions.json", ".github/workflows/ci.yml"],
+  "see_also": ["npm-status-page-is-not-a-signal"]
+}

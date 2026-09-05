@@ -1,0 +1,13 @@
+{
+  "title": "Git hooks install to .git/hooks on a fresh clone; .husky only where husky already ran",
+  "owner": "ravichavali",
+  "created": "2026-09-04",
+  "scope": ["scripts/install-hooks.sh", "scripts/git-hooks/"],
+  "verify": {
+    "file_matches": {
+      "path": "scripts/install-hooks.sh",
+      "pattern": "hooks_dir=\"\\.git/hooks\""
+    },
+    "path_exists": "scripts/git-hooks/pre-push"
+  }
+}
