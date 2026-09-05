@@ -31,10 +31,11 @@ live arbiters — see `CLAUDE.md` → *Parallel Development* → **Why reservati
    `gh pr list` and `git log --oneline origin/master -3`.
 2. **PR #219 is MERGED** (squash `ea7ee194`), deployed, and smoke-tested.
 3. **Sprint 127 is IMPLEMENTED and unmerged** on `feature/sprint-127-knowledge-registry`
-   (13 implementation commits on top of the spec branch, so the spec, plan and implementation
-   ship as one PR). All 13 plan tasks are complete; `npx turbo run test` is **26/26 green**.
-4. **What remains before merge:** the `/code-review` and `/security-review` gates, the version
-   bump, opening the PR, and merge authorization. See *Sprint 127 — state* below.
+   (on top of the spec branch, so the spec, plan and implementation ship as one PR). All 13 plan
+   tasks are complete, **all four SDLC gates have run**, and the version is bumped to v11.47.0;
+   `npx turbo run test` is **26/26 green** with 647 regression tests.
+4. **What remains:** push the branch, open the PR, and **merge authorization** — nothing else.
+   See *Sprint 127 — state* below for what each gate found.
 5. ADR number **097** was maintainer-allocated and is in use.
 
 ---
