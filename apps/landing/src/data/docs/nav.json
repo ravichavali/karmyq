@@ -548,6 +548,10 @@
           "divider": true
         },
         {
+          "label": "Ecosystem Knowledge Registry",
+          "href": "/docs/concepts/adr-097-ecosystem-knowledge-registry"
+        },
+        {
           "label": "Generalized Exemption Registries",
           "href": "/docs/concepts/adr-094-generalized-exemption-registries"
         },

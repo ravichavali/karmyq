@@ -524,6 +524,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
   {
     label: '— Infrastructure —',
     slugs: [
+      'adr-097-ecosystem-knowledge-registry',
       'adr-094-generalized-exemption-registries',
       'adr-092-agpl-licensing-and-manifesto-audit',
       'adr-093-federation-schema-reserved',

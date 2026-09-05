@@ -17,7 +17,8 @@ maintainer's private agent memory at `~/.claude/projects/<project>/memory/`.
 That location is outside the repository. It does not travel with a clone, it does not travel
 between the project's own two development machines, and an external contributor who forks the
 project can never receive it. The knowledge that makes the repository workable was, in effect,
-unlicensed and undistributed while the code itself is AGPLv3 (ADR-092).
+undistributed — while the code itself is openly published under the terms recorded in
+[ADR-092](ADR-092-agpl-licensing-and-manifesto-audit.md).
 
 Simply committing the notes is not sufficient. Documentation nobody checks becomes confidently
 wrong, which is worse than absent: missing knowledge sends a reader looking, while wrong knowledge
