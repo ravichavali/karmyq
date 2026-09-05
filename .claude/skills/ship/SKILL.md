@@ -31,6 +31,20 @@ Run on the branch diff, in this order. These are the standing quality gates — 
 
 If any gate surfaces a finding, fix it and re-run that gate before moving on.
 
+### Capture what the sprint taught
+
+Before opening the PR, ask: **what did this sprint teach that is not yet captured?**
+
+Candidates are facts that are neither a bug, an ADR, nor an idea — the things that would otherwise
+survive only in one agent's private memory. Check them against `docs/gotchas/`:
+
+```bash
+node scripts/gotcha-check.js --for <the paths this sprint changed>
+```
+
+If a durable fact has no entry, propose one with the `learned` skill. Propose — the maintainer
+decides what lands. This is the trigger that catches what mid-session capture missed.
+
 ## Phase 2 — Verify the security gates are clear
 
 - **CI deps audit (ADR-059)** and **CodeQL (ADR-060)** must be green.
