@@ -527,3 +527,51 @@ describe('negative fixtures — the gate must be able to FAIL', () => {
     });
   });
 });
+
+describe('Sprint 127 — clean-room: validator and discovery from a fresh clone', () => {
+  let clone: string;
+  let sha: string;
+
+  beforeAll(() => {
+    sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
+    clone = mkdtempSync(join(tmpdir(), 'gotcha-clean-'));
+    execFileSync('git', ['clone', '--quiet', '--no-hardlinks', ROOT, clone], { encoding: 'utf8' });
+    execFileSync('git', ['checkout', '--quiet', sha], { cwd: clone, encoding: 'utf8' });
+  }, 120000);
+
+  afterAll(() => {
+    if (clone) rmSync(clone, { recursive: true, force: true });
+  });
+
+  it('validated the commit under test, not some other tree', () => {
+    const cloneSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: clone, encoding: 'utf8' }).trim();
+    expect(cloneSha).toBe(sha);
+  });
+
+  it('has no node_modules — the validator must need none', () => {
+    expect(existsSync(join(clone, 'node_modules'))).toBe(false);
+  });
+
+  it('the validator runs under bare node and exits 0', () => {
+    const out = execFileSync(process.execPath, ['scripts/gotcha-check.js'], {
+      cwd: clone, encoding: 'utf8',
+    });
+    expect(out).toMatch(/Gotcha registry clean/);
+  });
+
+  it('discovery returns the EXACT expected entries for representative paths', () => {
+    const cleanReg = require(join(clone, 'scripts', 'gotcha-registry.js'));
+    const { entries } = cleanReg.loadRegistry(clone);
+    expect(cleanReg.discover(entries, ['scripts/install-hooks.sh']))
+      .toEqual(['hooks-install-to-git-hooks-on-a-fresh-clone']);
+    expect(cleanReg.discover(entries, ['scripts/audit-exemptions.js']).sort())
+      .toEqual(['adr-059-cannot-tell-no-answer-from-no-advisories',
+                'npm-status-page-is-not-a-signal'].sort());
+  });
+
+  it('discovery rejects an adjacent prefix', () => {
+    const cleanReg = require(join(clone, 'scripts', 'gotcha-registry.js'));
+    const { entries } = cleanReg.loadRegistry(clone);
+    expect(cleanReg.discover(entries, ['scripts/git-hooks-old/pre-push'])).toEqual([]);
+  });
+});
