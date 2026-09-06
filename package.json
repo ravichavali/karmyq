@@ -73,7 +73,7 @@
     "@xmldom/xmldom": "^0.8.13",
     "node-forge": ">=1.4.0",
     "fast-uri": ">=4.1.4",
-    "qs": ">=6.15.2",
+    "qs": ">=6.16.0",
     "ip-address": ">=10.3.1",
     "browserslist": ">=4.28.8",
     "postcss": "^8.5.25",
