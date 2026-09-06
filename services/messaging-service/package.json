@@ -13,7 +13,7 @@
   "dependencies": {
     "@karmyq/shared": "*",
     "helmet": "^8.3.0",
-    "redis": "^6.2.0",
+    "redis": "^6.2.1",
     "socket.io": "^4.6.1"
   },
   "devDependencies": {
@@ -21,7 +21,7 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.10.5",
-    "@types/pg": "^8.10.9",
+    "@types/pg": "^8.23.1",
     "nodemon": "^3.0.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
