@@ -1,0 +1,7 @@
+{
+  "title": "Dependabot regenerates an Expo-SDK-breaking group PR weekly until the packages are ignored",
+  "owner": "ravichavali",
+  "created": "2026-09-04",
+  "expires": "2027-03-04",
+  "scope": [".github/dependabot.yml", "apps/mobile/package.json"]
+}

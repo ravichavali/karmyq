@@ -1,0 +1,8 @@
+{
+  "title": "npm's status page is not a signal for advisory-endpoint health",
+  "owner": "ravichavali",
+  "created": "2026-09-04",
+  "expires": "2027-09-04",
+  "scope": ["scripts/audit-exemptions.js", "security/audit-exemptions.json"],
+  "see_also": ["adr-059-cannot-tell-no-answer-from-no-advisories"]
+}

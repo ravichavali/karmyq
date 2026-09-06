@@ -135,3 +135,112 @@ describe('doc/context drift gate', () => {
     expect(setup).toMatch(/useRouter/);
   });
 });
+
+// Extracts every `npm install|ci` invocation WITH its flags, so the check compares
+// actual commands rather than asserting that two independent strings are present
+// somewhere in the file. An earlier draft passed `npm install --legacy-peer-deps`
+// whenever "npm ci" appeared anywhere else in the document.
+export function extractInstallCommands(text: string): string[] {
+  return [...text.matchAll(/^\s*(npm (?:install|ci)[^\n]*)$/gm)]
+    .map((m) => m[1].trim())
+    .filter((c) => !/--workspace/.test(c)); // workspace examples are illustrative, not the policy
+}
+
+const IS_NPM_CI = /^npm ci\b/;
+
+export function onboardingDocIssues(docs: Record<string, string>): string[] {
+  const issues: string[] = [];
+  const ciCommands = new Set<string>();
+
+  for (const [name, text] of Object.entries(docs)) {
+    const cmds = extractInstallCommands(text);
+    // 1. POLICY: no forbidden command, regardless of flags.
+    for (const c of cmds) {
+      if (/^npm install\b/.test(c)) {
+        issues.push(`${name}: uses "${c}"; the policy is "npm ci"`);
+      }
+    }
+    // 2. POLICY: the required commands are present.
+    const ci = cmds.find((c) => IS_NPM_CI.test(c));
+    if (ci) ciCommands.add(ci);
+    else issues.push(`${name}: has no "npm ci" install command`);
+
+    if (!/npm run hooks:install/.test(text)) {
+      issues.push(`${name}: does not mention "npm run hooks:install"`);
+    }
+  }
+
+  // 3. CONSISTENCY: the install command must be identical across documents, flags
+  //    included — this catches divergence the policy check alone would miss.
+  if (ciCommands.size > 1) {
+    issues.push(
+      `onboarding docs disagree on the install command: ${[...ciCommands].join(' | ')}`,
+    );
+  }
+
+  return issues.sort();
+}
+
+describe('onboarding docs state the policy, not merely agree', () => {
+  const docs = {
+    'README.md': read('README.md'),
+    'CONTRIBUTING.md': read('CONTRIBUTING.md'),
+    'claude.md': readRootDoc('CLAUDE.md'),
+  };
+
+  it('all three state npm ci and hooks:install', () => {
+    expect(onboardingDocIssues(docs)).toEqual([]);
+  });
+
+  // Each failure gets its OWN fixture. An earlier draft used a single fixture that
+  // also removed "npm ci" and "hooks:install", so it fired three different errors and
+  // could not prove the forbidden-command check worked at all.
+  const OK = 'npm ci\nnpm run hooks:install\n';
+
+  it('FAILS the forbidden command even when npm ci is also present', () => {
+    const docs = {
+      'README.md': 'npm install\nnpm ci\nnpm run hooks:install\n',
+      'CONTRIBUTING.md': OK,
+      'claude.md': OK,
+    };
+    expect(onboardingDocIssues(docs)).toEqual([expect.stringContaining('uses "npm install"')]);
+  });
+
+  // Flags must not launder a forbidden command past the check.
+  it('FAILS "npm install --legacy-peer-deps" even with npm ci elsewhere', () => {
+    const docs = {
+      'README.md': 'npm install --legacy-peer-deps\nnpm ci\nnpm run hooks:install\n',
+      'CONTRIBUTING.md': OK,
+      'claude.md': OK,
+    };
+    expect(onboardingDocIssues(docs)).toEqual([expect.stringContaining('--legacy-peer-deps')]);
+  });
+
+  it('FAILS a missing hooks:install on its own', () => {
+    const docs = { 'README.md': 'npm ci\n', 'CONTRIBUTING.md': OK, 'claude.md': OK };
+    expect(onboardingDocIssues(docs)).toEqual([expect.stringContaining('hooks:install')]);
+  });
+
+  // Uniform regression is perfectly consistent and uniformly wrong — consistency alone
+  // cannot catch it, which is why the policy is asserted explicitly.
+  it('FAILS when all three agree on the wrong command', () => {
+    const wrong = {
+      'README.md': 'npm install\nnpm run hooks:install\n',
+      'CONTRIBUTING.md': 'npm install\nnpm run hooks:install\n',
+      'claude.md': 'npm install\nnpm run hooks:install\n',
+    };
+    const issues = onboardingDocIssues(wrong);
+    expect(issues.filter((i) => i.includes('uses "npm install"'))).toHaveLength(3);
+  });
+
+  it('FAILS when documents disagree on the install command flags', () => {
+    const docs = {
+      'README.md': 'npm ci --no-audit\nnpm run hooks:install\n',
+      'CONTRIBUTING.md': OK,
+      'claude.md': OK,
+    };
+    expect(onboardingDocIssues(docs)).toEqual([
+      expect.stringContaining('disagree on the install command'),
+    ]);
+  });
+});

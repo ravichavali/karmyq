@@ -246,6 +246,7 @@ interface ConceptPage {
 const CONCEPT_ORDER = [
   'platform-overview',
   'the-village-model',
+  'how-karmyq-learns',
   'ux-design-principles',
   'neighborhood-service-layer',
   'what-is-karma',
@@ -523,6 +524,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
   {
     label: '— Infrastructure —',
     slugs: [
+      'adr-097-ecosystem-knowledge-registry',
       'adr-094-generalized-exemption-registries',
       'adr-092-agpl-licensing-and-manifesto-audit',
       'adr-093-federation-schema-reserved',
@@ -582,7 +584,7 @@ function generateNav(
   }
 
   // Non-technical concept pages (split into Why Karmyq / How It Works)
-  const whyKarmyq = ['platform-overview', 'the-village-model', 'neighborhood-service-layer', 'community-design', 'open-source-and-agpl'];
+  const whyKarmyq = ['platform-overview', 'the-village-model', 'neighborhood-service-layer', 'community-design', 'open-source-and-agpl', 'how-karmyq-learns'];
   const howItWorks = ['ux-design-principles', 'trust-and-karma', 'trust-score', 'reading-the-trust-graph', 'what-is-karma', 'trust-paths', 'trust-path', 'reputation-decay', 'designed-to-forget', 'why-ratings-are-private', 'unified-feed', 'community-home', 'community-and-provider-two-facets', 'community-scale', 'community-identity', 'network-cohesion', 'trust-model-evolution', 'community-evolution', 'fractal-feed', 'community-discovery', 'provider-mode', 'trust-questions', 'governance', 'observability', 'time-boxed-exemptions'];
 
   const nav = {

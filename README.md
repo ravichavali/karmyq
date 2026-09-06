@@ -21,12 +21,16 @@ git clone https://github.com/your-org/karmyq.git
 cd karmyq
 
 # 2. Install dependencies (npm workspaces + Turborepo)
-npm install
+npm ci
 
-# 3. Copy environment file
+# 3. Wire up git hooks — REQUIRED. .npmrc sets ignore-scripts=true, so hooks
+#    do NOT install themselves. A push that finishes silently means no hook ran.
+npm run hooks:install
+
+# 4. Copy environment file
 cp .env.example .env
 
-# 4. Start everything with Docker
+# 5. Start everything with Docker
 cd infrastructure/docker
 docker-compose up --build
 
@@ -78,6 +82,19 @@ npm run lint
 ```
 
 See [Turborepo Guide](docs/development/turborepo.md) for more.
+
+## How this project learns
+
+Code evolves through commits, review, and tests that fail when it rots. Habits and hard-won
+knowledge usually have no such mechanism, so they are learned repeatedly, by each person, at full
+cost — and an external contributor can never receive them at all.
+
+`docs/gotchas/` is where that knowledge lives here. Each entry carries either a machine check or a
+review date, so an entry that stops being true fails the build instead of quietly misleading the
+next person. Adding one is a pull request, like any other change.
+
+The argument is at [How Karmyq Learns](https://karmyq.org/docs/concepts/how-karmyq-learns/);
+how to add an entry is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 📚 Documentation
 

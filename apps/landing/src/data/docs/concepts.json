@@ -751,6 +751,14 @@
       "status": "accepted",
       "description": "**Status**: Accepted",
       "filename": "ADR-096-canonical-completed-match-standing-projection.md"
+    },
+    {
+      "slug": "adr-097-ecosystem-knowledge-registry",
+      "number": "097",
+      "title": "ADR-097: Ecosystem Knowledge Registry",
+      "status": "implemented",
+      "description": "**Status:** Implemented",
+      "filename": "ADR-097-ecosystem-knowledge-registry.md"
     }
   ]
 }

@@ -22,6 +22,10 @@
         {
           "label": "Open Source and the AGPL",
           "href": "/docs/concepts/open-source-and-agpl"
+        },
+        {
+          "label": "How Karmyq Learns",
+          "href": "/docs/concepts/how-karmyq-learns"
         }
       ]
     },
@@ -542,6 +546,10 @@
           "label": "— Infrastructure —",
           "href": "/docs/concepts",
           "divider": true
+        },
+        {
+          "label": "Ecosystem Knowledge Registry",
+          "href": "/docs/concepts/adr-097-ecosystem-knowledge-registry"
         },
         {
           "label": "Generalized Exemption Registries",

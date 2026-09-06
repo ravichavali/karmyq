@@ -1,0 +1,9 @@
+{
+  "title": "Node 24 is gate-locked across images, engines and CI — they move as one",
+  "owner": "ravichavali",
+  "created": "2026-09-04",
+  "scope": ["package.json", ".github/workflows/ci.yml"],
+  "verify": {
+    "json_equals": { "path": "package.json", "key": "engines.node", "value": ">=24.0.0" }
+  }
+}

@@ -4,6 +4,12 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 function parseUtcDate(value) {
   if (typeof value !== 'string' || !ISO_DATE.test(value)) return new Date(NaN);
   const date = new Date(`${value}T00:00:00Z`);
+  // A shape-valid but impossible date such as 2026-13-45 yields an Invalid Date, and
+  // toISOString() THROWS on those. Without this guard the round-trip check below crashed
+  // validateRegistry with an unhandled RangeError instead of reporting a validation
+  // error — i.e. a malformed date in a registry took the gate down rather than failing
+  // it. 2026-02-31 does not expose this, because it rolls over to a valid date.
+  if (Number.isNaN(date.getTime())) return new Date(NaN);
   // Rejects real-looking but invalid dates such as 2026-02-31, which Date would roll over.
   return date.toISOString().slice(0, 10) === value ? date : new Date(NaN);
 }
