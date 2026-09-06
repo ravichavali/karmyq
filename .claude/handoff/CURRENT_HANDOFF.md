@@ -34,7 +34,10 @@ live arbiters — see `CLAUDE.md` → *Parallel Development* → **Why reservati
    (on top of the spec branch, so the spec, plan and implementation ship as one PR). All 13 plan
    tasks are complete, **all four SDLC gates have run**, and the version is bumped to v11.47.0;
    `npx turbo run test` is **26/26 green** with 647 regression tests.
-4. **What remains:** push the branch, open the PR, and **merge authorization** — nothing else.
+4. **PR #220 is OPEN** and pushed, with all four gates run and the version bumped. CodeQL alert
+   **#584** (`js/user-controlled-bypass` on the `--for` usage guard) was dismissed as a false
+   positive under explicit maintainer authorization — `process.argv` in a local CLI is the
+   invoker's own input, not a privilege boundary, and the guard it flags is asserted by a test.
    See *Sprint 127 — state* below for what each gate found.
 5. ADR number **097** was maintainer-allocated and is in use.
 
