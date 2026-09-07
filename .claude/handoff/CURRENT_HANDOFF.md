@@ -1,22 +1,26 @@
-# Current Handoff — as of 2026-09-05 (Sprint 127 implemented, unmerged)
+# Current Handoff — as of 2026-09-07 (Sprint 128 planned, one stream)
 
-**Version:** v11.47.0 (this branch; master is 11.46.0) · **Branch of record:** `master` at **`ea7ee194`** (PR #219, merged
-2026-09-05) · **Demo:** deployed and **smoke-tested healthy** — `GET karmyq.com/` 200,
-`POST /api/auth/login` 401 with the ADR-074 envelope, `karmyq.org/docs/...` 200
+**Version:** v11.47.0 (`package.json:3`). **Base:** `origin/master` at `a7dde43e`.
+PR #220 merged 2026-09-06, verified with `gh pr view 220` on 2026-09-07.
+Its CI/CD Pipeline [run 34058385551](https://github.com/ravichavali/karmyq/actions/runs/34058385551)
+succeeded. No fresh demo smoke test was performed in this planning session.
 
 ---
 
 ## 🔀 Active lanes
 
-Parallel development runs from two checkouts on two machines (Windows primary, Mac second). When
-lanes are active, find your branch below and read/update **only that lane's file**.
+Sprint 128 runs on the Windows checkout with one active editor. The maintainer confirmed that
+the second laptop is not set up. Future concurrent lanes use router-to-lane handoffs; they are
+not active in this sprint.
 
 | Lane | Machine | Branch | Handoff file | Sprint |
 |---|---|---|---|---|
-| Knowledge registry | Windows (primary) | `feature/sprint-127-knowledge-registry` | this file | 127 |
+| Framework / PR A | Windows (primary) | `agent/codex/sprint-128-planning` | this file | 128 |
 
-Only one lane is active, so this file *is* the lane state — no separate `lane-<slug>.md` is needed
-until a second machine picks up a concurrent sprint.
+The maintainer approved framework refinement, security/dependency maintenance and standing-preview
+corrections, executed sequentially. This stream holds the scheduled dependency work during PR B;
+reconcile ownership only if new competing work is introduced. Exemption renewal, merge, ADR
+allocation and demo data-operation decisions retain their separate authority requirements.
 
 ⚠️ **This table is a pointer, not a coordination store.** It is a branch-local file, so it can be
 stale and it is **never** the authority on who owns a contended resource. Derive those from their
@@ -25,21 +29,67 @@ live arbiters — see `CLAUDE.md` → *Parallel Development* → **Why reservati
 
 ---
 
-## Quick Start — read this, then pick from Outstanding below
+## Quick Start — execute PR A in the next fresh chat
 
 1. `git fetch origin` and confirm real state before trusting anything written here:
    `gh pr list` and `git log --oneline origin/master -3`.
-2. **PR #219 is MERGED** (squash `ea7ee194`), deployed, and smoke-tested.
-3. **Sprint 127 is IMPLEMENTED and unmerged** on `feature/sprint-127-knowledge-registry`
-   (on top of the spec branch, so the spec, plan and implementation ship as one PR). All 13 plan
-   tasks are complete, **all four SDLC gates have run**, and the version is bumped to v11.47.0;
-   `npx turbo run test` is **26/26 green** with 647 regression tests.
-4. **PR #220 is OPEN** and pushed, with all four gates run and the version bumped. CodeQL alert
-   **#584** (`js/user-controlled-bypass` on the `--for` usage guard) was dismissed as a false
-   positive under explicit maintainer authorization — `process.argv` in a local CLI is the
-   invoker's own input, not a privilege boundary, and the guard it flags is asserted by a test.
-   See *Sprint 127 — state* below for what each gate found.
-5. ADR number **097** was maintainer-allocated and is in use.
+2. **PRs #219 and #220 are MERGED.** Do not reopen, push, or seek merge authorization for them.
+3. Use existing branch `agent/codex/sprint-128-planning`; do not recreate it. Planning artifacts
+   and PR A implementation ship together. **Implementation has not started.**
+4. Read the [spec](../../docs/superpowers/specs/2026-09-07-sprint-128-single-stream-design.md),
+   [sprint index](../../docs/superpowers/plans/2026-09-07-sprint-128-single-stream.md), and
+   [PR A plan](../../docs/superpowers/plans/2026-09-07-sprint-128-a-framework.md).
+   Execute sequentially with `superpowers:executing-plans`; one editor, no worktrees.
+5. **Goal:** make delivery easy to resume and review, repair security evidence handling and dated
+   dependency decisions, and make standing-backfill previews match the real score writer.
+6. PR A owns workflow skills/handoff templates/contributor docs. PR B owns audit/SDK maintenance;
+   PR C owns reputation preview correction. Exact write paths, validation and review/deploy steps
+   are in the per-PR plans. B/C start from refreshed `origin/master` after the preceding PR's
+   authorized merge and deployment verification. Fresh chat per PR; independent non-author review.
+7. Deadline: both audit exemptions first become invalid September 15; target measured resolution
+   by September 12. Prepare exact proposals before asking for renewal decisions. Do not let process
+   polish postpone urgent remediation. If sequencing must change, reconcile scope with maintainer.
+8. Read-only GitHub snapshot on September 7: open PRs #211, #212, #214, #216, #217, #218 are
+   dependency proposals. Scheduled Expo SDK drift [run 34127716361](https://github.com/ravichavali/karmyq/actions/runs/34127716361)
+   failed with drift detected. [Issue #206](https://github.com/ravichavali/karmyq/issues/206) lists
+   eight Expo-family patch drifts; remeasure live before selecting versions. The image-size watch
+   run 34124767949 succeeded. Refresh live state before execution.
+9. Preview parity must exercise the real score writer on a disposable DB. Historical report counts
+   below are not fresh measurements; the full provider discrepancy remains UNVERIFIED until reproduced.
+10. No release version or ADR number is allocated for this sprint. No implementation PR is open
+    for Sprint 128 at the latest snapshot. Planning checks and commit status: see next paragraph.
+
+Planning artifacts are written and verified. Spec/plan self-review and the required independent
+process review found no planning blockers. `npm test` exited 0: 26/26 Turbo tasks (25 cached),
+root unit 101/101 and regression 647/647. Gotcha validation, local Markdown links, matching critical
+notes, staged feedback and diff whitespace checks passed. Initial test attempts exposed sandbox
+access restrictions and a PowerShell PATH selecting WSL Bash/missing Unix utilities; the successful
+run used network/subprocess access and prepended the installed `C:\Program Files\Git\usr\bin`
+to that process's PATH. No machine-wide setting was changed. PR A Task 1 records the startup check.
+
+Planning commits stay on this branch; no Sprint 128 PR has been opened or pushed in this session.
+The next action is PR A Task 1. Independent implementation/code review remains a PR A gate;
+implementation and its four SDLC gates have not run. Use git history for the planning commit identity.
+
+## Critical implementation notes
+
+1. One active stream on Windows; the second laptop is not set up. One editor at a time and a clean tree at role handoff.
+2. A → B → C are sequential PRs, each based on refreshed `origin/master`; no worktrees or direct master pushes.
+3. `CURRENT_HANDOFF.md` holds this stream's state. A future router is a pointer, never a lock or proof of ownership.
+4. Security exemptions become invalid on September 15, 2026. Remeasure and obtain the exact renewal/remediation decision; do not assume approval.
+5. Invalid audit evidence must fail before exemption matching for both empty and populated registries.
+6. Preserve the trust formula and provider floors. Preview equivalence must exercise the real score writer, not a mocked return value.
+7. New reputation tests begin in its `tests/tdd/` and promote when green; root cross-repo gates belong in `tests/regression/` because root TDD does not auto-promote.
+8. Declare every imported dependency, edit manifests/lockfile surgically, and prove dependency changes with strict `npm ci`.
+9. Every PR runs tests, simplify, independent code review and security review; maintainer authorization precedes merge, and deploy plus health verification precede the next merge.
+10. Write source docs, remove generated timestamp/HEAD churn, and reconcile the handoff against live git/PR state before stopping.
+
+## Deferred / retrospective
+
+Actual second-machine activation and concurrent delivery are deferred. Also deferred: provider
+floor selectivity, blocking-lint policy, network import/onboarding features and major toolchain
+upgrades. The sprint records review rounds, late findings, handoff corrections and ownership or
+decision waiting; no new telemetry infrastructure. Claude assesses sprint completion after delivery.
 
 ---
 
@@ -56,7 +106,7 @@ Full record: [`archive/2026-09-03-sprint-126-standing-backfill-SHIPPED-v11.46.0.
 
 ---
 
-## Open right now
+## Previous sprint record — historical validation, not current instructions
 
 ### PR #219 — MERGED 2026-09-05, squash `ea7ee194`
 Shipped the `Parallel Development` rules in `CLAUDE.md`, the `AGENTS.md` topology rewrite, the
@@ -77,7 +127,7 @@ maintainer-allocated, and ADR uniqueness is enforced by a real gate
 (`tests/regression/doc-context-drift-gate.test.ts`, 5 → 7 tests, with a negative fixture proving it
 fails on two `ADR-097` files).
 
-### Sprint 127 — state: IMPLEMENTED, not yet merged
+### Sprint 127 — PR #220 merged September 6 (implementation record follows)
 
 Branch `feature/sprint-127-knowledge-registry`, cut from the spec branch (which already carried
 `master` at `ea7ee194`), so the PR ships spec + plan + implementation together.
@@ -131,12 +181,10 @@ is now pinned by a fixture that fails without the fix.
   read, which is a direct exfiltration channel into a public CI log. All closed and proven — the
   symlink case with a directory junction, since the reviewer could not demonstrate it on Windows.
 
-**Version bumped to v11.47.0** (root `package.json` + the two root lockfile fields, spliced in
-place; `npm ci --dry-run` exits 0 with no dependency churn). ⚠️ **Re-derive at merge time** — if
-another PR merges first, re-bump from the new `origin/master` rather than shipping this number.
+**Version shipped: v11.47.0.** Historical validation: root `package.json` + the two root lockfile
+fields were spliced in place; `npm ci --dry-run` exited 0 with no dependency churn.
 
-**Still to do:** push the branch, open the PR with the full template body, and **merge
-authorization** (never self-authorized).
+**No remaining PR #220 push/open/merge action.** GitHub confirms the PR merged at `a7dde43e`.
 
 Spec: `docs/superpowers/specs/2026-09-04-ecosystem-knowledge-registry-design.md`.
 Plan: `docs/superpowers/plans/2026-09-04-sprint-127-knowledge-registry.md`.
@@ -158,7 +206,7 @@ takes no new dependency — so **this lane is dependency-independent** and can r
 the ADR-059/exemptions work. Codex has **no further design objections to implementation planning**
 once the remaining text reconciliation lands.
 
-The spec was approved and **implementation is complete** — see *Sprint 127 — state* above. This
+The spec was approved and **implementation is complete** — see the Sprint 127 record above. This
 section is retained as the record of how the design was reached.
 
 ---
@@ -171,8 +219,8 @@ section is retained as the record of how the design was reached.
    `tests/regression/sprint-122-adr-060-code-scanning-gate.test.ts:361-374`, "ADR-060 gate —
    refuses to fail open on API errors". Still unfixed — Sprint 127 **documented** it as
    `docs/gotchas/adr-059-cannot-tell-no-answer-from-no-advisories.md` (review date 2027-03-04),
-   which stops the misleading advice being acted on but does not repair the gate. Next sprint
-   candidate.
+   which stops the misleading advice being acted on but does not repair the gate. Scheduled for
+   Sprint 128 PR B.
 2. **⏰ `security/audit-exemptions.json` expires 2026-09-15** (2 GHSA entries). After that every PR
    blocks on the ADR-059 gate. Same lane as (1); owns the dependency surface.
 3. **PR #218 — Dependabot production-deps group.** Do **not** merge: it bumps 6 React Native
@@ -197,7 +245,7 @@ section is retained as the record of how the design was reached.
 
 ---
 
-## Second machine (Mac) — setup in progress
+## Second machine (Mac) — setup deferred; historical notes
 
 Steps 1–7 of the setup are unaffected by anything above. Known corrections from the first attempt:
 
