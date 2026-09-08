@@ -180,14 +180,28 @@ range `<= 2.0.2`, no first patched version. Metro latest 0.87.0 still declares `
 Resolved mobile chain remains `expo@57.0.12 → @expo/metro@56.0.0 → metro@0.84.4 → image-size@1.2.1`.
 The monitor returned `ok: true` (nothing newly actionable), not proof that the package is safe.
 
-Propose preserving exact identities `image-size|GHSA-w3rx-r6r6-pgpr` and
+Preserve exact identities `image-size|GHSA-w3rx-r6r6-pgpr` and
 `image-size|GHSA-5p2g-fcmc-qvqq`, severity high and owner `ravichavali`; set `created` to
 `2026-09-07` and `expires` to `2026-10-07` (first invalid day, 30-day span). In each entry, replace
 the rationale with the measurement above plus the existing measured mobile-only bundler reach
-and default-export incompatibility rationale; retain the weekly monitor. Record the actual
-maintainer decision only after approval. Recheck upstream/installed-tree evidence after SDK edits;
-if remediation becomes compatible, use it and remove the now-unmatched entries instead. Registry
-is unchanged in this planning revision; approval is pending and expires if the evidence changes.
+and default-export incompatibility rationale; retain the weekly monitor. Recheck
+upstream/installed-tree evidence after SDK edits; if remediation becomes compatible, use it and
+remove the now-unmatched entries instead.
+
+**APPROVED — maintainer `ravichavali`, 2026-09-07, in the Sprint 128 plan-review session.**
+This is the reviewed human decision `scripts/claude.md:18` requires; the `decision` field of both
+entries cites it. The registry is still unchanged in this planning revision — PR B Task 4 applies
+it, and no other task may.
+
+The approval is **conditional on the evidence above being unchanged at apply time**. If the
+September 7 measurement no longer holds — a patched version published, an advisory withdrawn or
+re-scored, Metro's declared range moved, or the resolved mobile chain changed by PR B's own SDK
+edits — this authorization lapses and PR B must return with a fresh measured proposal rather than
+applying it. Verified against the validator before approval: the span is exactly `MAX_EXEMPTION_DAYS`
+(30) so it passes `scripts/audit-exemptions.js:118`, `created` is not future-dated (`:109`), and
+`expires` is read as the first invalid day (`:123-126`), so the live window ends 2026-10-06.
+Anchoring `created` to the measurement date means a later merge shortens the usable window; that is
+intended, and it is not grounds for re-dating the entries.
 
 ### D1 — isolated PR C database validation operation
 

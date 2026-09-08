@@ -96,13 +96,31 @@ drift gate. C builds one index per projected dataset, makes isolated PG/Redis pr
 baseline a Task 1 hard gate, and preserves existing provider filters and fixed what-if floors.
 The counting unit is provider-profile/community; two profiles for one user in one community count twice.
 
-Concrete requests are in spec **E1** and **D1**, both pending approval. E1 renews the same two
-image-size GHSA entries (`created: 2026-09-07`, `expires: 2026-10-07`) using measurements at
+**E1 is APPROVED — maintainer `ravichavali`, 2026-09-07.** It renews the same two image-size GHSA
+entries (`created: 2026-09-07`, `expires: 2026-10-07`) using measurements at
 `2026-09-07T23:56:52.195Z`: latest image-size 2.0.2 still affected, no patched version, Metro still
-depends on it. D1 provisions separate task-labeled PostgreSQL/Redis containers and network on the
-demo host (loopback ports 55438/63808), loads only schema/synthetic fixtures, tunnels to Windows,
-runs PR C validation and removes only those resources. Read-only host feasibility checks passed;
-no server resource or security registry was changed. Never infer approval from this record.
+depends on it. **PR B Task 4 applies it; no other task may, and the registry is still unchanged.**
+The approval lapses if that evidence moves before apply time — a patched version, a withdrawn or
+re-scored advisory, a changed Metro range, or a resolved-chain change caused by PR B's own SDK
+edits all require a fresh measured proposal instead. Full terms and the validator check are in
+spec **E1**.
+
+**D1 is NOT approved and was not granted in that session.** Plan review found a verified blocker
+in the proposal itself: `scripts/deploy.sh:227` runs
+`docker ps -aq --filter "name=karmyq-" | xargs -r docker rm -f`, and Docker's name filter is a
+substring match — so the proposed `karmyq-s128-preview-pg` / `karmyq-s128-preview-redis` are
+force-removed by **any** deploy that lands mid-run, including PR B's own merge deploy. The failure
+surfaces as connection errors inside the parity suite, which is exactly the evidence PR C exists to
+produce, so it is readable as a false parity failure. Before re-requesting D1, rename all three
+resources so none contains `karmyq-` (e.g. `s128-preview-pg`, `s128-preview-redis`,
+`s128-preview-net`) and add a post-run assertion that the containers still exist, so a mid-run
+removal reports as an environment failure rather than a test result. Lines 225 and 326 of
+`deploy.sh` were checked and do not reach these resources. The rest of D1 — tmpfs storage, no demo
+volume or network attachment, repo-generated schema rather than a demo dump, private ephemeral
+credentials, loopback-only binds, `current_database()`/`current_user` verification — was reviewed
+and is sound. **PR C Task 1 is blocked until a corrected D1 is separately authorized.**
+Read-only host feasibility checks passed; no server resource or security registry was changed.
+Never infer approval from this record.
 
 Review revision verified: independent process review found no blockers; `npm test` exited 0
 with 26/26 Turbo tasks (25 cached), root unit 101/101 and regression 647/647. Staged
@@ -110,7 +128,8 @@ with 26/26 Turbo tasks (25 cached), root unit 101/101 and regression 647/647. St
 diff whitespace checks passed. Tests used the same process-local Git utilities PATH and
 network/subprocess access described above. Changes are planning-only; implementation and the
 new planned regression fixtures have not run. Planning commits remain local on this branch;
-use git history for their identities. E1 and D1 remain pending maintainer decisions.
+use git history for their identities. E1 is approved (terms above); D1 remains pending a corrected
+proposal and a separate authorization.
 
 Actual second-machine activation and concurrent delivery are deferred. Also deferred: provider
 floor selectivity, blocking-lint policy, network import/onboarding features and major toolchain

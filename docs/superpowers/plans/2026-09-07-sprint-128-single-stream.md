@@ -46,7 +46,8 @@ uncommitted work. No new service, route, migration or shared-package export is p
 - [ ] All per-PR task checkboxes and independent reviews have evidence; missing integration is a blocker, not a pass.
 - [ ] Before September 15, verify the audit succeeds against real evidence and any approved exemptions are valid.
 - [ ] Resume PR A and C from their handoffs in fresh chats after security PR B; record any clarification needed.
-- [ ] Resolve spec decisions E1 (exact exemption renewal) and D1 (scoped disposable PostgreSQL/Redis operation). Provisioning and baseline are PR C Task 1 entry gates.
+- [x] Spec decision **E1** (exact exemption renewal) approved 2026-09-07, conditional on unchanged evidence; PR B Task 4 applies it.
+- [ ] Spec decision **D1** (scoped disposable PostgreSQL/Redis operation) is NOT approved — the proposed `karmyq-` container names are force-removed by `scripts/deploy.sh:227` on any mid-run deploy. Rename off that prefix and re-request separately. Provisioning and baseline remain PR C Task 1 entry gates, so PR C cannot start until it is authorized.
 - [ ] Verify report counts against real SQL on a disposable database and inspect the rendered trust guide.
 - [ ] Read CI/deployment results for the merged commits and perform applicable health checks.
 - [ ] Record review rounds, late findings, stale-state corrections and waiting in the handoff; recommend at most three process changes.

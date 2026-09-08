@@ -111,7 +111,8 @@ return {
 **Files:** Audit registry, mobile manifest/lockfile, dependency config and alignment test; divergence registry if evidence requires.
 
 - [ ] Read spec decision E1: the measured September 7 proposal renews the same two high-only GHSA
-  entries through October 6 (`expires: 2026-10-07`), pending maintainer approval. Revalidate its
+  entries through October 6 (`expires: 2026-10-07`), **approved by maintainer `ravichavali` on
+  2026-09-07** and conditional on unchanged evidence — this task applies it. Revalidate its
   evidence before applying; do not repeat an already granted decision unless the facts/scope change.
 - [ ] Use Task 1 measurements to select a compatible fix or prepare exact proposed exemption
   entries (identity, reason, owner, decision, creation/expiry). Obtain maintainer decision on the

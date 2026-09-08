@@ -26,6 +26,16 @@ No request-service edits, public API change, migration, new dependency or provid
 
 ## Task 1: Provision isolated test dependencies and pass the baseline — hard entry gate
 
+> ⛔ **BLOCKED: D1 was not approved on 2026-09-07.** Plan review found that the resource names
+> below all contain `karmyq-`, and `scripts/deploy.sh:227` runs
+> `docker ps -aq --filter "name=karmyq-" | xargs -r docker rm -f` — a substring match. Any deploy
+> landing mid-run force-removes these containers, and the parity suite reports that as connection
+> errors indistinguishable from a real preview-versus-writer mismatch. **Do not provision under
+> these names.** Re-request D1 with all three resources renamed off the `karmyq-` prefix
+> (`s128-preview-pg`, `s128-preview-redis`, `s128-preview-net`) plus a post-run assertion that the
+> containers still exist, so a mid-run removal reports as an environment failure rather than a test
+> result. `deploy.sh:225` and `:326` were checked and do not reach these resources.
+
 **Files:** File map plus service `.claude/README.md`, `CONTEXT.md`, `tests/claude.md`, scoped gotchas.
 
 - [ ] Confirm PR A deployed and checkout is clean; fetch and create this branch from `origin/master`.
