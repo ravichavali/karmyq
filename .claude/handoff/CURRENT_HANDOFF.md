@@ -1,4 +1,4 @@
-# Current Handoff — as of 2026-09-08 (Sprint 128 PR B verified; publication approval needed)
+# Current Handoff — as of 2026-09-08 (Sprint 128 PR B open as #221; CI/review pending)
 
 **Version:** v11.47.0 (`package.json:3`). **Base:** `origin/master` at `a7dde43e`.
 PR #220 merged 2026-09-06, verified with `gh pr view 220` on 2026-09-07.
@@ -30,13 +30,13 @@ live arbiters — see `CLAUDE.md` → *Parallel Development* → **Why reservati
 
 ---
 
-## Quick Start — publish PR B after explicit authorization
+## Quick Start — review PR B #221 and verify its latest checks
 
 1. `git fetch origin` and confirm real state before trusting anything written here:
    `gh pr list` and `git log --oneline origin/master -3`.
 2. **PRs #219 and #220 are MERGED.** Do not reopen, push, or seek merge authorization for them.
 3. Use existing branch `agent/codex/sprint-128-planning`; do not recreate it. Planning artifacts
-   and PR B implementation ship together. **Implementation is committed and verified; publication is blocked by automatic approval review.**
+   and PR B implementation ship together. **PR B is published as [#221](https://github.com/ravichavali/karmyq/pull/221); inspect checks on its latest head before recommending readiness.**
 4. Read the [spec](../../docs/superpowers/specs/2026-09-07-sprint-128-single-stream-design.md),
    [sprint index](../../docs/superpowers/plans/2026-09-07-sprint-128-single-stream.md), and
    [PR B plan](../../docs/superpowers/plans/2026-09-07-sprint-128-b-security-maintenance.md).
@@ -61,9 +61,10 @@ live arbiters — see `CLAUDE.md` → *Parallel Development* → **Why reservati
    run 34124767949 succeeded. Refresh live state before execution.
 9. Preview parity must exercise the real score writer on a disposable DB. Historical report counts
    below are not fresh measurements; the full provider discrepancy remains UNVERIFIED until reproduced.
-10. No release version or ADR number is allocated. No Sprint 128 PR is open. Implementation commit
-    is `352ffde2`. Obtain explicit authorization to publish this branch to public GitHub repository
-    `ravichavali/karmyq`, then use normal push hooks and open PR B with the full template.
+10. No release version or ADR number is allocated. PR B #221 is OPEN; implementation commit is
+    `352ffde2`. The maintainer explicitly authorized publication to public `ravichavali/karmyq`
+    and PR creation on September 8. Claude readiness review and separate maintainer merge
+    authorization remain required. Re-derive the release version from master at merge preparation.
 
 Original planning artifacts were verified before this review revision. Spec/plan self-review and the required independent
 process review found no planning blockers. `npm test` exited 0: 26/26 Turbo tasks (25 cached),
@@ -73,7 +74,7 @@ access restrictions and a PowerShell PATH selecting WSL Bash/missing Unix utilit
 run used network/subprocess access and prepended the installed `C:\Program Files\Git\usr\bin`
 to that process's PATH. No machine-wide setting was changed. PR A Task 1 records the startup check.
 
-Planning commits stay on this branch; no Sprint 128 PR has been opened or pushed in this session.
+Planning commits stay on this branch and are included in PR B #221.
 Use git history for the planning commit identity. Current implementation evidence supersedes the
 historical planning-only verification below.
 
@@ -107,15 +108,21 @@ historical planning-only verification below.
 - Staged feedback passed; ADR index/status reminders were resolved by reviewing the status and
   updating the index. Pre-commit review found no remaining material issues. Implementation is
   committed as `352ffde2`; the working tree was clean before this publication-status update.
-- **Publication blocker:** automatic approval review rejected `git push -u origin
-  agent/codex/sprint-128-planning` because it requires explicit user authorization for source-code
-  publication to GitHub. No push or PR occurred; do not retry by an indirect method. Destination
-  verified read-only: public `https://github.com/ravichavali/karmyq`. Request authorization for
-  that exact branch/repository and PR creation. Local PR description is prepared at
-  `C:\Users\ravic\AppData\Local\Temp\s128-pr-body.md` (machine-local convenience, not shared state).
-  Rebuild from `.github/pull_request_template.md` and this evidence if the temporary file is absent.
-- No server operation occurred. D1 remains for PR C. After authorization, push normally, open
-  PR B, monitor CI and reconcile this handoff. Claude readiness review and
+- **Publication completed:** after the initial automatic approval rejection, the maintainer
+  explicitly approved the exact public repository/branch push and PR creation ("go for it").
+  Normal push hooks passed 26/26 test tasks and 711/711 regression tests; branch head `9108b18c`
+  was published and [PR #221](https://github.com/ravichavali/karmyq/pull/221) opened with the full
+  template. No merge or deployment was performed.
+- Initial remote snapshot for `9108b18c`: PR Contract passed; CI/CD Pipeline
+  [run 34261559237](https://github.com/ravichavali/karmyq/actions/runs/34261559237), Tests
+  [run 34261559226](https://github.com/ravichavali/karmyq/actions/runs/34261559226), and CodeQL
+  [run 34261556683](https://github.com/ravichavali/karmyq/actions/runs/34261556683) were still
+  running. This is not a green verdict for a later head; refresh the latest checks after this
+  handoff update is pushed. `origin/master` remains `a7dde43e`; the same six dependency PRs remain open.
+- The advisory TDD hook printed a success message after Turbo reported a missing `test:tdd`
+  task. This does not constitute a TDD pass; required unit/regression tasks passed independently.
+  Record this existing hook-reporting issue for PR A's framework refinement.
+- No server operation occurred. D1 remains for PR C. Monitor PR #221's latest CI. Claude readiness review and
   explicit maintainer merge authorization remain gates; A starts only after B deploy verification.
 
 ## Critical implementation notes

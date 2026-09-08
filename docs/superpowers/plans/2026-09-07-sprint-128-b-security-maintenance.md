@@ -13,8 +13,10 @@ orphaned lock entries and unmatched exemptions removed after a live zero-high/cr
 No renewal was applied. Historical Task 4 renewal instructions apply only if remediation fails.
 Tests-workspace broad type-check retains 70 baseline e2e/TDD diagnostics, with no new diagnostics
 or errors in any changed test file. Required full regression suite passes 711/711. Implementation
-committed as `352ffde2`; Task 7 publication awaits explicit authorization required by automatic
-approval review. No remote branch push or PR creation has occurred.
+committed as `352ffde2`; the maintainer authorized publication and PR B is open as
+[#221](https://github.com/ravichavali/karmyq/pull/221). Normal push hooks passed all 26 test tasks.
+Task 7 still requires latest-head CI verification and release-version preparation before merge;
+Claude readiness review and explicit maintainer merge authorization remain pending.
 **Global constraints:** All ten Critical implementation notes in the sprint index apply verbatim.
 
 ## File map
@@ -191,10 +193,10 @@ return {
 
 **Files:** Handoff, source docs, release fields and complete PR template.
 
-- [ ] Confirm mobile `npm run type-check`; run tests workspace `npx tsc --noEmit` for changed TypeScript tests.
+- [x] Confirm mobile `npm run type-check`; run tests workspace `npx tsc --noEmit` for changed TypeScript tests.
   Confirm Task 6's `npm test` result and run staged `npm run feedback:check`. Repeat install/tests/type-check
   only if later changes invalidate their evidence; do not replace strict `npm ci` with a dry-run.
-- [ ] Revert only generated timestamp/HEAD churn; `git diff --check`; pre-commit-check before commit.
+- [x] Revert only generated timestamp/HEAD churn; `git diff --check`; pre-commit-check before commit.
 - [ ] Re-derive version from master, push with normal hooks, open PR B with full template and
   exact approved security decisions. No bulk merge/dismissal/closure of unrelated proposals.
 - [ ] Verification: CI is green and exemptions remain valid at the actual merge date; if expired, resolve the exact decision first.
