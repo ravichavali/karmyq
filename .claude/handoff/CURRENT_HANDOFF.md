@@ -1,4 +1,4 @@
-# Current Handoff — as of 2026-09-08 (Sprint 128 PR B in progress, one stream)
+# Current Handoff — as of 2026-09-08 (Sprint 128 PR B verified; publication approval needed)
 
 **Version:** v11.47.0 (`package.json:3`). **Base:** `origin/master` at `a7dde43e`.
 PR #220 merged 2026-09-06, verified with `gh pr view 220` on 2026-09-07.
@@ -30,13 +30,13 @@ live arbiters — see `CLAUDE.md` → *Parallel Development* → **Why reservati
 
 ---
 
-## Quick Start — continue PR B implementation
+## Quick Start — publish PR B after explicit authorization
 
 1. `git fetch origin` and confirm real state before trusting anything written here:
    `gh pr list` and `git log --oneline origin/master -3`.
 2. **PRs #219 and #220 are MERGED.** Do not reopen, push, or seek merge authorization for them.
 3. Use existing branch `agent/codex/sprint-128-planning`; do not recreate it. Planning artifacts
-   and PR B implementation ship together. **PR B implementation is in progress; see current evidence below.**
+   and PR B implementation ship together. **Implementation is committed and verified; publication is blocked by automatic approval review.**
 4. Read the [spec](../../docs/superpowers/specs/2026-09-07-sprint-128-single-stream-design.md),
    [sprint index](../../docs/superpowers/plans/2026-09-07-sprint-128-single-stream.md), and
    [PR B plan](../../docs/superpowers/plans/2026-09-07-sprint-128-b-security-maintenance.md).
@@ -61,8 +61,9 @@ live arbiters — see `CLAUDE.md` → *Parallel Development* → **Why reservati
    run 34124767949 succeeded. Refresh live state before execution.
 9. Preview parity must exercise the real score writer on a disposable DB. Historical report counts
    below are not fresh measurements; the full provider discrepancy remains UNVERIFIED until reproduced.
-10. No release version or ADR number is allocated for this sprint. No implementation PR is open
-    for Sprint 128 at the latest snapshot. Planning checks and commit status: see next paragraph.
+10. No release version or ADR number is allocated. No Sprint 128 PR is open. Implementation commit
+    is `352ffde2`. Obtain explicit authorization to publish this branch to public GitHub repository
+    `ravichavali/karmyq`, then use normal push hooks and open PR B with the full template.
 
 Original planning artifacts were verified before this review revision. Spec/plan self-review and the required independent
 process review found no planning blockers. `npm test` exited 0: 26/26 Turbo tasks (25 cached),
@@ -98,13 +99,23 @@ historical planning-only verification below.
   old fixture assumptions about nonempty registries/old Router pins; repaired without weakening
   assertions, and those suites pass directly (87/87). Final full suite passed: 26/26 Turbo tasks
   (23 cached), 101/101 root unit and 711/711 regression tests across 29 regression suites.
-- Tests-workspace `tsc --noEmit` reports 70 pre-existing diagnostics. An in-memory comparison
-  against committed test sources produced the same 70, zero new diagnostics and none in the
-  initially changed files. These broad e2e/TDD issues remain a disclosed limitation.
+- Tests-workspace `tsc --noEmit` reports 70 pre-existing diagnostics. Final in-memory comparison
+  against committed test sources produced the same 70, zero new diagnostics and none in any
+  changed test file. These broad e2e/TDD issues remain a disclosed limitation.
 - Independent simplify/code/security review has no remaining material findings. Source docs,
   gotchas, mobile context and generated landing docs are updated; dependency analysis regenerated.
-- No server operation, push or PR has been performed yet. D1 remains for PR C. Finish staged
-  feedback and pre-commit checks, then commit/push/open PR B. Claude readiness review and
+- Staged feedback passed; ADR index/status reminders were resolved by reviewing the status and
+  updating the index. Pre-commit review found no remaining material issues. Implementation is
+  committed as `352ffde2`; the working tree was clean before this publication-status update.
+- **Publication blocker:** automatic approval review rejected `git push -u origin
+  agent/codex/sprint-128-planning` because it requires explicit user authorization for source-code
+  publication to GitHub. No push or PR occurred; do not retry by an indirect method. Destination
+  verified read-only: public `https://github.com/ravichavali/karmyq`. Request authorization for
+  that exact branch/repository and PR creation. Local PR description is prepared at
+  `C:\Users\ravic\AppData\Local\Temp\s128-pr-body.md` (machine-local convenience, not shared state).
+  Rebuild from `.github/pull_request_template.md` and this evidence if the temporary file is absent.
+- No server operation occurred. D1 remains for PR C. After authorization, push normally, open
+  PR B, monitor CI and reconcile this handoff. Claude readiness review and
   explicit maintainer merge authorization remain gates; A starts only after B deploy verification.
 
 ## Critical implementation notes

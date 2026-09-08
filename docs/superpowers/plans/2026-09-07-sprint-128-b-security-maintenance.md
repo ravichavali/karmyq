@@ -12,7 +12,9 @@ strict install, mobile type-check/tests, audit/SDK gates and all 26 test tasks p
 orphaned lock entries and unmatched exemptions removed after a live zero-high/critical audit.
 No renewal was applied. Historical Task 4 renewal instructions apply only if remediation fails.
 Tests-workspace broad type-check retains 70 baseline e2e/TDD diagnostics, with no new diagnostics
-or errors in the initially changed files. Required full regression suite passes 711/711.
+or errors in any changed test file. Required full regression suite passes 711/711. Implementation
+committed as `352ffde2`; Task 7 publication awaits explicit authorization required by automatic
+approval review. No remote branch push or PR creation has occurred.
 **Global constraints:** All ten Critical implementation notes in the sprint index apply verbatim.
 
 ## File map
