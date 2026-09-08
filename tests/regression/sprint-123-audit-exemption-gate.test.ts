@@ -341,17 +341,18 @@ describe('ADR-059 gate — CI and the test tier share ONE registry', () => {
     expect(ci).not.toMatch(/npm audit --package-lock-only --audit-level=high/);
   });
 
-  it('the CLI EXITS NON-ZERO against the live audit with an empty registry', () => {
-    // Proves the executable path, not just the exported function: an evaluator returning ok:false
-    // while the CLI exits 0 would be a silently inert gate. Points the real script at an empty
-    // registry, so the live image-size highs must block.
+  it('the CLI agrees with the evaluator on a live audit with an empty registry', () => {
+    // Sprint 128 removes image-size through Metro's supported patch. A gate test must not require
+    // retaining a vulnerability to pass. The hermetic CLI high-finding proof lives in
+    // sprint-128-audit-response-contract.test.ts; this retains live acquisition/CLI parity.
     //
     // KARMYQ_AUDIT_REGISTRY names a FIXTURE KEY, not a path: an env var that could name any file
     // on disk is a path-injection sink, which CodeQL flagged. The allowlist removes the sink.
     let status = 0;
     let out = '';
+    const expected = gate.evaluateAudit(gate.runAudit(ROOT), { exemptions: [] });
     try {
-      execFileSync(process.execPath, [join(ROOT, 'scripts/audit-exemptions.js')], {
+      out = execFileSync(process.execPath, [join(ROOT, 'scripts/audit-exemptions.js')], {
         cwd: ROOT,
         encoding: 'utf8',
         env: { ...process.env, KARMYQ_AUDIT_REGISTRY: 'empty' },
@@ -363,9 +364,8 @@ describe('ADR-059 gate — CI and the test tier share ONE registry', () => {
       out = `${e.stdout ?? ''}${e.stderr ?? ''}`;
     }
 
-    expect(status).toBe(1);
-    expect(out).toMatch(/BLOCKING \(high\): image-size/);
-    expect(out).toMatch(/ADR-059 gate FAILED/);
+    expect(status).toBe(expected.ok ? 0 : 1);
+    expect(out).toMatch(expected.ok ? /ADR-059 gate clean/ : /ADR-059 gate FAILED/);
   });
 
   it.each(['../../../etc/passwd', '/etc/passwd', 'security/audit-exemptions.json', 'nope'])(

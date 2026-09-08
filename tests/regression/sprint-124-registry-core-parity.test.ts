@@ -100,14 +100,19 @@ describe('Sprint 124 shared exemption registry core', () => {
       readFileSync(join(ROOT, 'security', 'expo-divergences.json'), 'utf8')
     );
     expect(core.validateRegistry(expoRegistry, EXPO_SPEC, NOW)).toEqual([]);
-    // The audit registry is time-boxed, so it is checked for structure at its own creation date.
+    // Populated registries use their creation date; a remediated empty registry has no date.
     expect(
-      core.validateRegistry(auditRegistry, AUDIT_SPEC, new Date(`${auditRegistry.exemptions[0].created}T12:00:00Z`))
+      core.validateRegistry(auditRegistry, AUDIT_SPEC, auditRegistry.exemptions.length
+        ? new Date(`${auditRegistry.exemptions[0].created}T12:00:00Z`) : NOW)
     ).toEqual([]);
   });
 
   describe.each(specs)('$name registry shared invariants', ({ spec, validEntry }) => {
     const registry = (entries: unknown) => ({ [spec.collection]: entries });
+
+    it('accepts an empty collection after all exceptions are remediated', () => {
+      expect(core.validateRegistry(registry([]), spec, NOW)).toEqual([]);
+    });
 
     it('accepts a valid entry, so every rejection below is caused by the injected defect', () => {
       expect(core.validateRegistry(registry([validEntry()]), spec, NOW)).toEqual([]);

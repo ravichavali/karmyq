@@ -1,4 +1,4 @@
-# Current Handoff — as of 2026-09-07 (Sprint 128 implementation plan ready, one stream)
+# Current Handoff — as of 2026-09-08 (Sprint 128 PR B in progress, one stream)
 
 **Version:** v11.47.0 (`package.json:3`). **Base:** `origin/master` at `a7dde43e`.
 PR #220 merged 2026-09-06, verified with `gh pr view 220` on 2026-09-07.
@@ -19,8 +19,8 @@ not active in this sprint.
 
 The maintainer approved framework refinement, security/dependency maintenance and standing-preview
 corrections, executed sequentially. This stream holds the scheduled dependency work during PR B;
-reconcile ownership only if new competing work is introduced. E1 exemption renewal and D1 isolated
-test operation are approved under the spec's terms. Merge, ADR allocation and operations outside
+reconcile ownership only if new competing work is introduced. E1 is resolved through remediation;
+D1's isolated test operation remains approved under the spec's terms. Merge, ADR allocation and operations outside
 those terms retain their separate authority requirements.
 
 ⚠️ **This table is a pointer, not a coordination store.** It is a branch-local file, so it can be
@@ -30,13 +30,13 @@ live arbiters — see `CLAUDE.md` → *Parallel Development* → **Why reservati
 
 ---
 
-## Quick Start — execute PR B in the next fresh chat
+## Quick Start — continue PR B implementation
 
 1. `git fetch origin` and confirm real state before trusting anything written here:
    `gh pr list` and `git log --oneline origin/master -3`.
 2. **PRs #219 and #220 are MERGED.** Do not reopen, push, or seek merge authorization for them.
 3. Use existing branch `agent/codex/sprint-128-planning`; do not recreate it. Planning artifacts
-   and PR B implementation ship together. **Implementation has not started.**
+   and PR B implementation ship together. **PR B implementation is in progress; see current evidence below.**
 4. Read the [spec](../../docs/superpowers/specs/2026-09-07-sprint-128-single-stream-design.md),
    [sprint index](../../docs/superpowers/plans/2026-09-07-sprint-128-single-stream.md), and
    [PR B plan](../../docs/superpowers/plans/2026-09-07-sprint-128-b-security-maintenance.md).
@@ -48,9 +48,9 @@ live arbiters — see `CLAUDE.md` → *Parallel Development* → **Why reservati
    PR C owns reputation preview correction. Exact write paths, validation and review/deploy steps
    are in the per-PR plans. A/C start from refreshed `origin/master` after the preceding PR's
    authorized merge and deployment verification. Fresh chat per PR; independent non-author review.
-7. Deadline: both current audit exemptions first become invalid September 15; target measured resolution
-   by September 12. E1 is approved conditionally; remeasure and apply in PR B Task 4 without asking
-   again if the evidence is unchanged. D1 is approved for PR C's isolated synthetic test operation;
+7. E1's September 15 expiry is resolved through supported remediation in PR B: Metro 0.84.5
+   drops image-size; orphaned lock entries and the two unmatched exemptions are removed. No renewal
+   was applied. Verify the final install/audit before declaring PR B ready. D1 is approved for PR C's isolated synthetic test operation;
    use corrected `s128-preview-*` resource names and pre/post environment checks. Do not let process
    polish postpone urgent remediation. PR B follows canonical PR-only merge rules directly;
    it does not depend on the still-stale deploy skill being corrected by A.
@@ -73,15 +73,46 @@ run used network/subprocess access and prepended the installed `C:\Program Files
 to that process's PATH. No machine-wide setting was changed. PR A Task 1 records the startup check.
 
 Planning commits stay on this branch; no Sprint 128 PR has been opened or pushed in this session.
-The next action is PR B Task 1. Independent implementation/code review remains a gate for every PR;
-implementation and its four SDLC gates have not run. Use git history for the planning commit identity.
+Use git history for the planning commit identity. Current implementation evidence supersedes the
+historical planning-only verification below.
+
+### PR B implementation — September 8
+
+- Refreshed git/GitHub: same six dependency PRs; `origin/master` remains `a7dde43e`.
+- Task 1: live image-size evidence at `2026-09-08T12:18:31.984Z` matched E1 before dependency
+  edits; monitor exit 1 was the seven-day expiry warning. Live Expo gate reported 14 drifts.
+- Audit contract: original code failed 43/44 new cases; initial fix passed 44/44, plus 38/38
+  existing audit/exemption cases. Independent review reproduced stderr leakage and severity-graph
+  weaknesses (six additional red cases). Corrections and ordering fixtures passed; all four
+  directly changed audit/SDK suites passed 106/106 before the final remediation fixture additions.
+- SDK declarations/required transitive lock nodes and SDK-managed Dependabot version-update
+  ignores are edited. The new config assertion first failed on the missing ignore list (15 other
+  tests passed). Tests now directly declare the already-installed `yaml` parser.
+- Final strict `npm ci` passed after removing the two proven orphaned image-size/queue lock
+  entries. Metro 0.84.5 uses its internal image parser and no longer declares image-size. The
+  installed-tree monitor at `2026-09-08T12:39:01.720Z` reports `resolved: []`, `exemptions: []`,
+  `ok: true`; the live audit passes with zero high/critical (five moderate remain). Expo drift
+  gate passes with only the two existing registered Jest divergences.
+- E1 is resolved via its approved remediation alternative: both unmatched exemptions removed,
+  no renewal applied. Mobile type-check and tests (2/2) pass. Full tests initially exposed three
+  old fixture assumptions about nonempty registries/old Router pins; repaired without weakening
+  assertions, and those suites pass directly (87/87). Final full suite passed: 26/26 Turbo tasks
+  (23 cached), 101/101 root unit and 711/711 regression tests across 29 regression suites.
+- Tests-workspace `tsc --noEmit` reports 70 pre-existing diagnostics. An in-memory comparison
+  against committed test sources produced the same 70, zero new diagnostics and none in the
+  initially changed files. These broad e2e/TDD issues remain a disclosed limitation.
+- Independent simplify/code/security review has no remaining material findings. Source docs,
+  gotchas, mobile context and generated landing docs are updated; dependency analysis regenerated.
+- No server operation, push or PR has been performed yet. D1 remains for PR C. Finish staged
+  feedback and pre-commit checks, then commit/push/open PR B. Claude readiness review and
+  explicit maintainer merge authorization remain gates; A starts only after B deploy verification.
 
 ## Critical implementation notes
 
 1. One active stream on Windows; the second laptop is not set up. One editor at a time and a clean tree at role handoff.
 2. B → A → C are sequential PRs, each based on refreshed `origin/master`; no worktrees or direct master pushes.
 3. `CURRENT_HANDOFF.md` holds this stream's state. A future router is a pointer, never a lock or proof of ownership.
-4. Current security exemptions become invalid September 15, 2026. E1 renewal is approved through October 6 only under the spec's unchanged-evidence condition; remeasure before applying in PR B Task 4.
+4. PR B resolves E1 through SDK-aligned removal of image-size and its two unmatched exemptions; verify the live audit passes with the empty registry. No renewal was applied.
 5. Invalid audit evidence must fail before exemption matching for both empty and populated registries.
 6. Preserve the trust formula and provider floors. Preview equivalence must exercise the real score writer, not a mocked return value.
 7. New reputation tests begin in its `tests/tdd/` and promote when green; root cross-repo gates belong in `tests/regression/` because root TDD does not auto-promote.
@@ -99,14 +130,9 @@ drift gate. C builds one index per projected dataset, makes isolated PG/Redis pr
 baseline a Task 1 hard gate, and preserves existing provider filters and fixed what-if floors.
 The counting unit is provider-profile/community; two profiles for one user in one community count twice.
 
-**E1 is APPROVED — maintainer `ravichavali`, 2026-09-07.** It renews the same two image-size GHSA
-entries (`created: 2026-09-07`, `expires: 2026-10-07`) using measurements at
-`2026-09-07T23:56:52.195Z`: latest image-size 2.0.2 still affected, no patched version, Metro still
-depends on it. **PR B Task 4 applies it; no other task may, and the registry is still unchanged.**
-The approval lapses if that evidence moves before apply time — a patched version, a withdrawn or
-re-scored advisory, a changed Metro range, or a resolved-chain change caused by PR B's own SDK
-edits all require a fresh measured proposal instead. Full terms and the validator check are in
-spec **E1**.
+**E1 resolved, 2026-09-08:** supported SDK/Metro remediation removes image-size and both
+unmatched exemptions. The earlier conditional renewal was not applied. Its original approval
+terms and the measured remediation are retained in spec **E1**; do not reintroduce the entries.
 
 **D1 is APPROVED by the maintainer's latest confirmation, 2026-09-07.** This supersedes the
 earlier pending decision. Implement the approved isolation scope using `s128-preview-pg`,
@@ -119,28 +145,11 @@ counts/task labels and require healthy DB/Redis. A lost/restarted dependency is 
 failure, not parity evidence. Preserve Jest's own exit status. Clean up only recorded task
 resources on completion or abandonment; record any cleanup failure.
 Historical host feasibility checks passed; availability of the corrected names is UNVERIFIED
-until Task 1 rechecks them. No server resource or security registry was changed. Provisioning and
+until Task 1 rechecks them. No D1 server resource was created. Provisioning and
 baseline remain PR C's hard entry gate; authorization is no longer the blocker. Scope expansion
 still needs its own decision. Full operation terms are in spec D1.
 
-Review revision verified: independent process review found no blockers; `npm test` exited 0
-with 26/26 Turbo tasks (25 cached), root unit 101/101 and regression 647/647. Staged
-`npm run feedback:check`, gotcha validation, local Markdown links, matching critical notes and
-diff whitespace checks passed. Tests used the same process-local Git utilities PATH and
-network/subprocess access described above. Changes are planning-only; implementation and the
-new planned regression fixtures have not run. Planning commits remain local on this branch;
-use git history for their identities. E1 and D1 are approved under the terms above.
-
-The implementation-plan finalization adds a PR B kickoff instruction and per-PR evidence
-checkpoints, reconciles all approval states and corrects D1 naming/continuity checks. All
-implementation checkboxes remain unperformed. Next fresh chat: execute **PR B Task 1** using
-`superpowers:executing-plans`; preserve the existing planning branch. Finalization verification:
-independent process review found no material blockers; `npm test` exited 0 with 26/26 Turbo tasks
-(25 cached), 101/101 root unit tests and 647/647 regression tests. Jest emitted a worker-teardown
-warning; this planning-only change does not establish clean integration teardown. Staged feedback,
-gotcha validation, all local plan links, identical critical notes and whitespace checks passed.
-Live open PRs remain #211/#212/#214/#216/#217/#218; `origin/master` remains `a7dde43e`.
-No Sprint 128 push, PR, implementation or server provisioning was performed.
+Historical planning verification is in the planning commits; current PR B evidence is above.
 
 Actual second-machine activation and concurrent delivery are deferred. Also deferred: provider
 floor selectivity, blocking-lint policy, network import/onboarding features and major toolchain
@@ -269,23 +278,16 @@ section is retained as the record of how the design was reached.
 
 ## Outstanding — rough priority
 
-1. **BUG-038 — ADR-059 gate cannot distinguish "no advisories" from "no answer."** Independently
-   reproduced by Codex with a synthetic error response: empty registry passes, shipped registry
-   blocks with misleading removal advice. **The pattern to copy already exists in-repo** —
-   `tests/regression/sprint-122-adr-060-code-scanning-gate.test.ts:361-374`, "ADR-060 gate —
-   refuses to fail open on API errors". Still unfixed — Sprint 127 **documented** it as
-   `docs/gotchas/adr-059-cannot-tell-no-answer-from-no-advisories.md` (review date 2027-03-04),
-   which stops the misleading advice being acted on but does not repair the gate. Scheduled for
-   Sprint 128 PR B.
-2. **⏰ `security/audit-exemptions.json` expires 2026-09-15** (2 GHSA entries). After that every PR
-   blocks on the ADR-059 gate. Same lane as (1); owns the dependency surface.
+1. **PR B review/merge/deploy:** BUG-038 is fixed on this branch; deployment remains pending.
+   The new contract/CLI regressions enforce unavailable-evidence rejection before registry matching.
+2. **Master still has the September 15 exemption deadline.** This branch removes image-size and
+   the two exemptions through supported remediation; deploy PR B before that date.
 3. **PR #218 — Dependabot production-deps group.** Do **not** merge: it bumps 6 React Native
    packages past Expo SDK 57 pins (`react-native` 0.87.1 vs 0.86.2, plus maps, safe-area-context,
    reanimated, worklets, screens), caught by
    `tests/regression/sprint-122-expo-sdk-alignment.test.ts:175`, with 7 consequent TS errors in
-   `apps/mobile`. Regenerates weekly until `.github/dependabot.yml` ignores the SDK-managed
-   packages — and that ignore list must be generated from or verified against the gate's
-   `SDK_PINNED` map, not hand-copied.
+   `apps/mobile` (historical review). PR B adds the SDK-derived ignore-list assertion and config;
+   it does not merge or close these queued dependency proposals.
 4. **Two operator-report preview inaccuracies** from the Sprint 126 backfill (`scoreBuckets`
    predicts 1,518 pairs at score 0 where the stored minimum is 1; `providerEligibility` predicts
    384 providers where 499 of 501 qualify). Stored data is correct; the operator preview is wrong,

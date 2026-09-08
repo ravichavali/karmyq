@@ -23,13 +23,9 @@ type ExpoCheckResult = {
   output: string;
 };
 
-// Derived from the shipped registry, never a frozen literal. This suite exercises the real
-// time-boxed audit registry, which by design must be renewed before it expires — and since an
-// exemption's `created` may not be in the future, a hardcoded clock goes red on the next renewal
-// instead of on a real defect. Reading the registry's own `created` pins the clock to the moment
-// the entries were written, which is what these assertions actually mean.
-const SHIPPED_AUDIT_REGISTRY = auditGate.readRegistry();
-const NOW = new Date(`${SHIPPED_AUDIT_REGISTRY.exemptions[0].created}T12:00:00Z`);
+// Namespace isolation must remain testable when remediation empties the shipped registry.
+// Use a controlled populated audit fixture with its own clock, plus an explicit empty case.
+const NOW = new Date('2026-09-08T12:00:00Z');
 
 const advisory = (id: string) => ({
   source: 123456,
@@ -54,6 +50,12 @@ const auditReport = {
   },
 };
 
+const auditFixture = { exemptions: auditReport.vulnerabilities['image-size'].via.map(via => ({
+  package: 'image-size', advisory: via.url.split('/').pop(), severity: 'high',
+  rationale: 'Controlled namespace-isolation test; not a shipped exemption.',
+  decision: 'Test fixture only', owner: 'test', created: '2026-09-08', expires: '2026-09-15',
+})) };
+
 // Synthesised FROM the shipped Expo registry rather than hardcoded. This suite feeds the real
 // registry to the gate, and the drift issue the workflow files tells maintainers to "update or
 // remove the entry in security/expo-divergences.json" — with the arbiter output frozen here,
@@ -75,10 +77,10 @@ const expoCheck: ExpoCheckResult = {
 };
 
 describe('Sprint 124 audit and Expo registry independence', () => {
-  const auditRegistry = SHIPPED_AUDIT_REGISTRY;
+  const auditRegistry = auditFixture;
   const expoRegistry = SHIPPED_EXPO_REGISTRY;
 
-  it('the shipped audit registry clears only audit findings and cannot clear Expo drift', () => {
+  it('a populated audit registry clears only audit findings and cannot clear Expo drift', () => {
     const nativeResult = auditGate.evaluateAudit(auditReport, auditRegistry, NOW);
     expect(nativeResult.ok).toBe(true);
     expect(nativeResult.cleared.map((entry) => entry.package)).toEqual(['image-size']);
@@ -87,6 +89,13 @@ describe('Sprint 124 audit and Expo registry independence', () => {
     expect(crossResult.ok).toBe(false);
     expect(crossResult.errors).toEqual(['registry.divergences must be an array']);
     expect(crossResult.cleared).toEqual([]);
+  });
+
+  it('an empty audit registry cannot clear audit findings or Expo drift', () => {
+    const empty = { exemptions: [] };
+    expect(auditGate.evaluateAudit(auditReport, empty, NOW).ok).toBe(false);
+    expect(expoGate.evaluate(expoCheck, empty).errors).toEqual(['registry.divergences must be an array']);
+    expect(auditGate.evaluateAudit({ vulnerabilities: {} }, empty, NOW).ok).toBe(true);
   });
 
   it('the shipped Expo registry clears only Expo drift and cannot exempt audit findings', () => {

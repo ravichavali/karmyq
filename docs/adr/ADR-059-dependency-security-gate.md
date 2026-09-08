@@ -111,6 +111,28 @@ This is the **dependency** half of the standing security posture. Code scanning 
 
 ---
 
+## Amendment (Sprint 128, 2026-09-08): unavailable evidence is a failure
+
+BUG-038 exposed that a parsed npm error response could be treated as an empty vulnerability map.
+The audit boundary now rejects missing/malformed maps, npm error objects and inconsistent severity
+graphs before registry matching. Subprocess spawn errors, signals, timeouts and unsupported exit
+statuses also fail; stderr is captured and upstream error bodies are not printed. The process has
+a 120-second timeout. Valid success and finding responses preserve exemption policy, with critical
+findings always blocking. Unmatched-entry removal advice requires valid evidence.
+
+`tests/regression/sprint-128-audit-response-contract.test.ts` proves the empty/populated registry
+cases, CLI behavior and real child-stderr containment. Sprint 75 raw-count reporting uses the same
+validated acquisition boundary. This changes evidence handling, not the 30-day renewal authority
+or severity policy.
+
+The SDK-aligned update also removes the need for the two image-size exemptions. Expo 57.0.20
+uses `@expo/metro` 56.0.2, which pins Metro 0.84.5. Its installed `src/Assets.js` imports the
+internal `./lib/imageSize` parser; its manifest no longer declares `image-size`. After confirming
+no remaining dependency edges, PR B removes the orphaned image-size/queue lock entries and their
+two unmatched GHSA exemptions. Live lockfile audit on September 8 reports zero high/critical
+findings with an empty registry. The approved conditional renewal was therefore not applied;
+the existing remediation alternative resolves the deadline without extending an exception.
+
 ## Amendment (Sprint 123, 2026-08-10): time-boxed exemptions
 
 ### Why

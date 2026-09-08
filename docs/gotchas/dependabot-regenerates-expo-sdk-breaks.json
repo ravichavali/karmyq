@@ -1,5 +1,5 @@
 {
-  "title": "Dependabot regenerates an Expo-SDK-breaking group PR weekly until the packages are ignored",
+  "title": "Keep Dependabot version-update ignores aligned with the Expo SDK inventory",
   "owner": "ravichavali",
   "created": "2026-09-04",
   "expires": "2027-03-04",

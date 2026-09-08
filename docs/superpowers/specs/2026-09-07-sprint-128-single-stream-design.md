@@ -172,7 +172,15 @@ If provisioning/baseline fails, stop PR C before new implementation. A demo-data
 
 ## Authorized implementation decisions
 
-### E1 — renew the two existing audit exemptions
+### E1 — resolved through remediation; renewal not applied
+
+**Resolution, 2026-09-08:** the planned SDK update installs Expo 57.0.20 → `@expo/metro` 56.0.2
+→ Metro 0.84.5. Read from installed manifests and `metro/src/Assets.js`: image-size is no longer
+a dependency, and the asset code uses an internal parser. No other lockfile dependency points to
+image-size; queue was referenced only by that orphan. PR B removes both orphaned lock entries and
+the two now-unmatched exemptions. Live `runAudit`/`evaluateAudit` passes with zero high/critical
+and an empty registry. This uses the already-authorized compatible-remediation alternative;
+the conditional renewal below is historical and was not applied.
 
 Read-only `node scripts/check-image-size-upstream.js --json` measurement at
 `2026-09-07T23:56:52.195Z`: image-size latest 2.0.2; both GHSA advisories remain high, not withdrawn,
@@ -261,7 +269,7 @@ or policy change discovered during execution requires a revised design and revie
 1. One active stream on Windows; the second laptop is not set up. One editor at a time and a clean tree at role handoff.
 2. B → A → C are sequential PRs, each based on refreshed `origin/master`; no worktrees or direct master pushes.
 3. `CURRENT_HANDOFF.md` holds this stream's state. A future router is a pointer, never a lock or proof of ownership.
-4. Current security exemptions become invalid September 15, 2026. E1 renewal is approved through October 6 only under the spec's unchanged-evidence condition; remeasure before applying in PR B Task 4.
+4. PR B resolves E1 through SDK-aligned removal of image-size and its two unmatched exemptions; verify the live audit passes with the empty registry. No renewal was applied.
 5. Invalid audit evidence must fail before exemption matching for both empty and populated registries.
 6. Preserve the trust formula and provider floors. Preview equivalence must exercise the real score writer, not a mocked return value.
 7. New reputation tests begin in its `tests/tdd/` and promote when green; root cross-repo gates belong in `tests/regression/` because root TDD does not auto-promote.

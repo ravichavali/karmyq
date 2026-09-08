@@ -1,29 +1,23 @@
-import { execSync } from 'child_process';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
 const ROOT = join(__dirname, '..', '..');
 
-// `npm audit` exits non-zero when vulnerabilities are present, which makes
-// execSync throw. The error still carries the JSON report on stdout, so we
-// capture it either way and parse the metadata.
+// Reuse the validated acquisition boundary; transport errors are not clean reports.
 function auditMetadata(): {
   critical: number;
   high: number;
   moderate: number;
   low: number;
 } {
-  let stdout: string;
-  try {
-    stdout = execSync('npm audit --package-lock-only --json', {
-      cwd: ROOT,
-      encoding: 'utf8',
-      maxBuffer: 32 * 1024 * 1024,
-    });
-  } catch (err: any) {
-    stdout = err.stdout?.toString() ?? '';
+  const gate = require('../../scripts/audit-exemptions');
+  const counts = gate.runAudit(ROOT).metadata?.vulnerabilities;
+  if (!counts || ['critical', 'high', 'moderate', 'low'].some(
+    severity => !Number.isInteger(counts[severity]) || counts[severity] < 0,
+  )) {
+    throw new Error('Audit metadata unavailable or invalid; raw counts cannot be reported.');
   }
-  return JSON.parse(stdout).metadata.vulnerabilities;
+  return counts;
 }
 
 describe('Sprint 75 — dependency security gate', () => {
