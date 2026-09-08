@@ -6,7 +6,7 @@
 **Architecture:** Harden the current audit boundary, retain exact reviewed exception registries and verify dependency policy against the SDK-managed inventory.
 **Tech stack:** CommonJS scripts, Jest/TypeScript, npm lockfile, Expo SDK 57, YAML.
 **Spec:** `docs/superpowers/specs/2026-09-07-sprint-128-single-stream-design.md`, PR B.
-**Branch:** `agent/codex/sprint-128-security-maintenance`, created after PR A deploy verification.
+**Branch:** Existing `agent/codex/sprint-128-planning`; PR B is first and carries the planning artifacts.
 **Global constraints:** All ten Critical implementation notes in the sprint index apply verbatim.
 
 ## File map
@@ -30,10 +30,15 @@ No service dependency/endpoint change is anticipated; update registry/CONTEXT on
 
 **Files:** Canonical context, `scripts/claude.md`, `tests/claude.md`, `apps/mobile/claude.md`, scoped gotchas, manifests and security registries.
 
-- [ ] Confirm PR A merged/deployed and clean checkout. Record the approved single stream as the
+- [ ] Confirm a clean checkout on the existing planning branch. Record the approved single stream as the
   dependency holder for PR B; reconcile with the maintainer only if a new competing task exists.
   Open Dependabot proposals do not hold the lane. Planning approval did not renew the exemptions.
-- [ ] Fetch then create this branch from `origin/master`; update the single-stream handoff immediately.
+- [ ] Fetch `origin/master` and verify the existing branch base; retain its planning commits and
+  update the single-stream handoff immediately. There is no dependency on PR A and no new branch to create.
+- [ ] Use the canonical `claude.md` PR-only merge rules throughout B. Until PR A repairs the deploy
+  skill, disregard its conflicting local-master merge/push steps; do not wait for that cleanup.
+- [ ] Verify the Windows test PATH uses Git's Bash/Unix tools as recorded in the handoff; this
+  environment setup belongs before B's first tests, even though the durable bootstrap cleanup is in A.
 - [ ] Read all matching gotchas with `node scripts/gotcha-check.js --for scripts/audit-exemptions.js .github/dependabot.yml apps/mobile/package.json`.
 - [ ] Capture actual stdout and exit statuses from `node scripts/check-image-size-upstream.js --json`
   and `node scripts/expo-divergences.js`. Check issue #206 and the latest scheduled run as supporting history.
@@ -105,6 +110,9 @@ return {
 
 **Files:** Audit registry, mobile manifest/lockfile, dependency config and alignment test; divergence registry if evidence requires.
 
+- [ ] Read spec decision E1: the measured September 7 proposal renews the same two high-only GHSA
+  entries through October 6 (`expires: 2026-10-07`), pending maintainer approval. Revalidate its
+  evidence before applying; do not repeat an already granted decision unless the facts/scope change.
 - [ ] Use Task 1 measurements to select a compatible fix or prepare exact proposed exemption
   entries (identity, reason, owner, decision, creation/expiry). Obtain maintainer decision on the
   concrete entries before recording approval or extending validity. No wider than 30 days; no
@@ -165,9 +173,12 @@ return {
 
 **Files:** GitHub PR/run state and handoff.
 
-- [ ] Claude recommends readiness; obtain explicit maintainer merge authorization and use corrected deploy skill.
+- [ ] Claude recommends readiness; obtain explicit maintainer merge authorization and follow the
+  canonical PR-only procedure in `claude.md`: complete template/checks → authorized GitHub PR merge
+  → identify deployment by merged SHA → await completion → verify health. Do not use the still-stale
+  deploy skill's local-master recipe and do not defer B until A fixes it.
 - [ ] Wait for deploy plus health verification. Verify fresh audit/SDK evidence and link the runs;
   an old green scheduled check is not verification of the merged dependency tree.
-- [ ] Record completed fixes and unresolved queued dependency proposals. Next fresh chat executes PR C
+- [ ] Record completed fixes and unresolved queued dependency proposals. Next fresh chat executes PR A
   from updated `origin/master`. Capture any deadline/ownership/review friction for the retrospective.
 - [ ] Verification: clean tree, deployed PR B, no expired exception and no hidden integration/dependency blocker.

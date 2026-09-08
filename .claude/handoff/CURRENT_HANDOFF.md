@@ -15,7 +15,7 @@ not active in this sprint.
 
 | Lane | Machine | Branch | Handoff file | Sprint |
 |---|---|---|---|---|
-| Framework / PR A | Windows (primary) | `agent/codex/sprint-128-planning` | this file | 128 |
+| Security maintenance / PR B (first) | Windows (primary) | `agent/codex/sprint-128-planning` | this file | 128 |
 
 The maintainer approved framework refinement, security/dependency maintenance and standing-preview
 corrections, executed sequentially. This stream holds the scheduled dependency work during PR B;
@@ -29,26 +29,28 @@ live arbiters — see `CLAUDE.md` → *Parallel Development* → **Why reservati
 
 ---
 
-## Quick Start — execute PR A in the next fresh chat
+## Quick Start — execute PR B in the next fresh chat
 
 1. `git fetch origin` and confirm real state before trusting anything written here:
    `gh pr list` and `git log --oneline origin/master -3`.
 2. **PRs #219 and #220 are MERGED.** Do not reopen, push, or seek merge authorization for them.
 3. Use existing branch `agent/codex/sprint-128-planning`; do not recreate it. Planning artifacts
-   and PR A implementation ship together. **Implementation has not started.**
+   and PR B implementation ship together. **Implementation has not started.**
 4. Read the [spec](../../docs/superpowers/specs/2026-09-07-sprint-128-single-stream-design.md),
    [sprint index](../../docs/superpowers/plans/2026-09-07-sprint-128-single-stream.md), and
-   [PR A plan](../../docs/superpowers/plans/2026-09-07-sprint-128-a-framework.md).
+   [PR B plan](../../docs/superpowers/plans/2026-09-07-sprint-128-b-security-maintenance.md).
    Execute sequentially with `superpowers:executing-plans`; one editor, no worktrees.
 5. **Goal:** make delivery easy to resume and review, repair security evidence handling and dated
    dependency decisions, and make standing-backfill previews match the real score writer.
-6. PR A owns workflow skills/handoff templates/contributor docs. PR B owns audit/SDK maintenance;
+6. Execute **B → A → C**. PR B owns audit/SDK maintenance and this existing branch. PR A owns
+   workflow skills/handoff templates/contributor docs plus the doc drift assertion;
    PR C owns reputation preview correction. Exact write paths, validation and review/deploy steps
-   are in the per-PR plans. B/C start from refreshed `origin/master` after the preceding PR's
+   are in the per-PR plans. A/C start from refreshed `origin/master` after the preceding PR's
    authorized merge and deployment verification. Fresh chat per PR; independent non-author review.
 7. Deadline: both audit exemptions first become invalid September 15; target measured resolution
    by September 12. Prepare exact proposals before asking for renewal decisions. Do not let process
-   polish postpone urgent remediation. If sequencing must change, reconcile scope with maintainer.
+   polish postpone urgent remediation. PR B follows canonical PR-only merge rules directly;
+   it does not depend on the still-stale deploy skill being corrected by A.
 8. Read-only GitHub snapshot on September 7: open PRs #211, #212, #214, #216, #217, #218 are
    dependency proposals. Scheduled Expo SDK drift [run 34127716361](https://github.com/ravichavali/karmyq/actions/runs/34127716361)
    failed with drift detected. [Issue #206](https://github.com/ravichavali/karmyq/issues/206) lists
@@ -59,7 +61,7 @@ live arbiters — see `CLAUDE.md` → *Parallel Development* → **Why reservati
 10. No release version or ADR number is allocated for this sprint. No implementation PR is open
     for Sprint 128 at the latest snapshot. Planning checks and commit status: see next paragraph.
 
-Planning artifacts are written and verified. Spec/plan self-review and the required independent
+Original planning artifacts were verified before this review revision. Spec/plan self-review and the required independent
 process review found no planning blockers. `npm test` exited 0: 26/26 Turbo tasks (25 cached),
 root unit 101/101 and regression 647/647. Gotcha validation, local Markdown links, matching critical
 notes, staged feedback and diff whitespace checks passed. Initial test attempts exposed sandbox
@@ -68,13 +70,13 @@ run used network/subprocess access and prepended the installed `C:\Program Files
 to that process's PATH. No machine-wide setting was changed. PR A Task 1 records the startup check.
 
 Planning commits stay on this branch; no Sprint 128 PR has been opened or pushed in this session.
-The next action is PR A Task 1. Independent implementation/code review remains a PR A gate;
+The next action is PR B Task 1. Independent implementation/code review remains a gate for every PR;
 implementation and its four SDLC gates have not run. Use git history for the planning commit identity.
 
 ## Critical implementation notes
 
 1. One active stream on Windows; the second laptop is not set up. One editor at a time and a clean tree at role handoff.
-2. A → B → C are sequential PRs, each based on refreshed `origin/master`; no worktrees or direct master pushes.
+2. B → A → C are sequential PRs, each based on refreshed `origin/master`; no worktrees or direct master pushes.
 3. `CURRENT_HANDOFF.md` holds this stream's state. A future router is a pointer, never a lock or proof of ownership.
 4. Security exemptions become invalid on September 15, 2026. Remeasure and obtain the exact renewal/remediation decision; do not assume approval.
 5. Invalid audit evidence must fail before exemption matching for both empty and populated registries.
@@ -85,6 +87,30 @@ implementation and its four SDLC gates have not run. Use git history for the pla
 10. Write source docs, remove generated timestamp/HEAD churn, and reconcile the handoff against live git/PR state before stopping.
 
 ## Deferred / retrospective
+
+### Review revision and pending decisions
+
+The external review required security first; the plan now keeps labels stable while sequencing
+B → A → C. A adds a direct-master recipe assertion with negative fixtures to the existing doc
+drift gate. C builds one index per projected dataset, makes isolated PG/Redis provisioning plus
+baseline a Task 1 hard gate, and preserves existing provider filters and fixed what-if floors.
+The counting unit is provider-profile/community; two profiles for one user in one community count twice.
+
+Concrete requests are in spec **E1** and **D1**, both pending approval. E1 renews the same two
+image-size GHSA entries (`created: 2026-09-07`, `expires: 2026-10-07`) using measurements at
+`2026-09-07T23:56:52.195Z`: latest image-size 2.0.2 still affected, no patched version, Metro still
+depends on it. D1 provisions separate task-labeled PostgreSQL/Redis containers and network on the
+demo host (loopback ports 55438/63808), loads only schema/synthetic fixtures, tunnels to Windows,
+runs PR C validation and removes only those resources. Read-only host feasibility checks passed;
+no server resource or security registry was changed. Never infer approval from this record.
+
+Review revision verified: independent process review found no blockers; `npm test` exited 0
+with 26/26 Turbo tasks (25 cached), root unit 101/101 and regression 647/647. Staged
+`npm run feedback:check`, gotcha validation, local Markdown links, matching critical notes and
+diff whitespace checks passed. Tests used the same process-local Git utilities PATH and
+network/subprocess access described above. Changes are planning-only; implementation and the
+new planned regression fixtures have not run. Planning commits remain local on this branch;
+use git history for their identities. E1 and D1 remain pending maintainer decisions.
 
 Actual second-machine activation and concurrent delivery are deferred. Also deferred: provider
 floor selectivity, blocking-lint policy, network import/onboarding features and major toolchain

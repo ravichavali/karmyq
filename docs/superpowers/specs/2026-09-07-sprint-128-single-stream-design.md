@@ -3,7 +3,7 @@
 **Date:** 2026-09-07
 **Status:** Scope approved by the maintainer in this planning session; detailed design ready for independent review.
 **Current version:** v11.47.0 (`package.json:3`); derive each release bump from `origin/master` at merge time.
-**First branch:** `agent/codex/sprint-128-planning` (planning artifacts and PR A implementation stay together).
+**First branch:** `agent/codex/sprint-128-planning` (planning artifacts and PR B implementation stay together).
 
 ## Overview
 
@@ -12,8 +12,9 @@ Windows checkout, one active editing agent, and sequential work. The other lapto
 (maintainer confirmation, September 7). Prepare the instructions for future parallel streams,
 but do not count a two-machine trial as a Sprint 128 deliverable.
 
-Ship three sequential PRs: reconcile the framework, repair urgent security/dependency maintenance,
-and correct the standing-backfill operator preview. Each PR has its own plan, review and deploy
+Ship three sequential PRs in **B → A → C** order: repair urgent security/dependency maintenance,
+reconcile the framework, then correct the standing-backfill operator preview. Keep the existing
+PR labels and filenames so review references remain stable. Each PR has its own plan, review and deploy
 checkpoint. A fresh chat executes each PR; this chat produces planning artifacts only.
 
 ### Core principle
@@ -30,7 +31,7 @@ Make ownership and the next action explicit, and prove claimed behavior against 
 | `.claude/skills/sprint-planning/SKILL.md:199`, `:208`, `:214` | Review cadence, test placement and handoff writing lag canonical rules |
 | `.claude/skills/deploy/SKILL.md`, Steps 1–3; `.claude/skills/ship/SKILL.md`, Phase 3 | Local-master merge/direct-push recipes contradict the protected-PR workflow |
 | `.claude/agents/process-reviewer.md`, Test suite step | Its output pipe hides the original exit code and supplies a questionable Turbo argument |
-| `scripts/audit-exemptions.js:194`, `:280` | Missing audit findings become an empty map; parsed process-error JSON reaches the evaluator |
+| `scripts/audit-exemptions.js:194`, `:281` | Missing audit findings become an empty map; parsed process-error JSON reaches the evaluator |
 | `security/audit-exemptions.json:12`, `:22` | Both exemptions become invalid on September 15; target resolution by September 12 for review margin |
 | [Expo issue #206](https://github.com/ravichavali/karmyq/issues/206), read September 7 | Eight Expo-family patch drifts were reported; remeasure before selecting versions |
 | `standingBackfillService.ts:638`, `:695` under `services/reputation-service/src/services/` | Preview derives metrics from replayed matches and uses them for score/provider distributions |
@@ -41,11 +42,11 @@ Make ownership and the next action explicit, and prove claimed behavior against 
 
 | PR | Outcome | Branch | Primary ownership |
 |---|---|---|---|
-| A | Instructions work for one stream and describe a safe future second stream | Existing planning branch | `.claude/` workflow files, `AGENTS.md`, `claude.md`, `CONTRIBUTING.md`, learning concept, planning docs |
-| B | Audit errors fail clearly; dated security decisions remain valid; SDK drift addressed | `agent/codex/sprint-128-security-maintenance` | Audit script/tests, security registries, Dependabot config, mobile dependency surface, relevant docs |
+| B (first) | Audit errors fail clearly; dated security decisions remain valid; SDK drift addressed | Existing planning branch | Audit script/tests, security registries, Dependabot config, mobile dependency surface, relevant docs and planning artifacts |
+| A (second) | Instructions work for one stream and describe a safe future second stream | `agent/codex/sprint-128-framework` | `.claude/` workflow files, doc drift gate, `AGENTS.md`, `claude.md`, `CONTRIBUTING.md`, learning concept |
 | C | Backfill preview agrees with the score writer and provider reach semantics | `agent/codex/sprint-128-standing-preview` | Reputation backfill implementation/tests/context, relevant docs |
 
-Branches B and C are created from freshly fetched `origin/master` only after the prior PR lands
+Branches A and C are created from freshly fetched `origin/master` only after the prior PR lands
 and its deploy/health checks finish. No worktrees, concurrent implementers, stacked branches or
 second laptop setup. Codex may implement; Claude reviews artifacts it did not author, recommends
 merge readiness, and executes a merge only after explicit maintainer authorization. A same-machine
@@ -55,13 +56,18 @@ authority. The approved single stream owns the scheduled dependency work during 
 allocation only if another active task is introduced. Planning approval is not an exemption-renewal
 or merge decision.
 
-If PR A threatens the security deadline, stop adding process polish and ask the maintainer to
-reorder A/B. Do not bury the expiry behind an open-ended framework cleanup.
+PR B has no dependency on PR A. Until the deploy skill is repaired, follow `claude.md`'s canonical
+PR-only merge procedure and the handoff's Standing mechanics. Do not execute the obsolete local
+master merge/push recipe. The security deadline takes precedence over framework polish.
 
 ## PR A — framework refinements
 
-Update existing playbooks; do not introduce a coordinator service, reservation file, dashboard,
-or new automatic gate. The existing canonical rules remain the source of authority.
+Update existing playbooks and add one assertion to the existing doc/context drift gate; do not
+introduce a coordinator service, reservation file or dashboard. The canonical rules remain the
+source of authority. The assertion scans workflow-skill command examples for literal pushes to
+master, with an isolated negative fixture reproducing the current deploy recipe. It also covers
+the ship skill's inline command example. Test the checker against the real discovered skill files;
+do not assert that a general-purpose shell/authorization analyzer has been built.
 
 - Explicit single-stream mode: `CURRENT_HANDOFF.md` contains the active PR's actionable state.
 - Future multi-stream mode: router plus one owned lane file per stream. A missing branch row in
@@ -82,7 +88,7 @@ or new automatic gate. The existing canonical rules remain the source of authori
   names file-disjoint owners and dependency holder, allocates ADRs if needed, and confirms the
   serialized merge/deploy procedure. This checklist is reviewed here; execution is deferred.
 
-Validate with walkthroughs: fresh single-stream chat, author-to-reviewer transfer, merged PR with
+Retain walkthroughs for facts that a static gate cannot prove: fresh single-stream chat, author-to-reviewer transfer, merged PR with
 stale handoff, unmatched branch in router mode, and two hypothetical requests for one dependency
 lane/ADR/merge slot. Documentation walkthroughs are evidence, not a claim of live concurrency.
 
@@ -128,6 +134,11 @@ a new floor: with default breadth weight 0.4, a member with no local history but
 canonical activity elsewhere has a breadth contribution rounding to 1. A member with no history
 anywhere and no feedback has score 0. Pin both cases.
 
+Build a reusable preview index once per projected dataset: `buildPreviewIndex(rows)` followed by
+`computePreviewMetrics(index, userId, communityId, nowMs)` for each membership. Precompute global
+breadth and local counterpart/repeat metrics; store sorted local canonical timestamps so the
+recent-interaction boundary can be answered by binary search, without a full-row rescan per member.
+
 The preview must model canonical karma as it will exist after the proposed backfill: preserve
 unaffected rows, account for planned inserts/replacements, and never double-count already
 projected identities. Global breadth and local counterpart/repeat metrics must follow the actual
@@ -135,10 +146,13 @@ SQL semantics in `trustMetricsDb.ts`, rather than only the replay membership map
 pure score/feedback functions. Freeze the evaluation time in tests and use the same configuration
 and effective-parameter assumptions as live refresh; verify cache-related differences explicitly.
 
-For `providerEligibility`, count eligible provider/community pairs consistently with the current
-report contract and request-service reach filters (active profile/member, enabled community,
-allowlist, personal standing). Document the counting unit so it cannot be confused with unique
-providers across communities. The full cause of the historical 384-versus-499 discrepancy is
+For `providerEligibility`, retain the existing provider-profile/community pair unit, keyed by
+`provider_id|community_id`: two profiles owned by one user in the same community count twice.
+`PROVIDERS_QUERY` already applies the active profile/member, enabled community and allowlist
+filters (`standingBackfillService.ts:236`). No filter change is expected or authorized by this
+diagnosis. Fixed floors 1/20/40/60 are intentional what-if scenarios; the live reach query instead
+uses the community's configured floor. Correct score inputs while preserving this report contract.
+The full cause of the historical 384-versus-499 discrepancy is
 UNVERIFIED until a fixed dataset reproduces it; do not hardcode those historical totals or assume
 it comes entirely from the score-bucket defect.
 
@@ -149,10 +163,49 @@ multi-community history, no history, mixed legacy/canonical rows, preserved unre
 history, boundary timestamps, null/zero config overrides, negative scores and provider filters.
 Preview must remain read-only, repeatable on a fixed dataset, and idempotent after apply.
 
-Windows has no local Docker according to canonical host guidance. Use an explicitly authorized
-disposable DB/container for integration; never point the fixture/apply test at demo data. If that
-environment is unavailable, record integration as blocked and leave PR C unmerged. A demo backfill
-is not required to deliver this fix.
+Windows has no local Docker. PR C Task 1 is a hard preflight gate before implementation: obtain
+the scoped operation authorization below, provision separate PostgreSQL 15 and Redis 7 containers
+on the demo host, load repository-generated schema plus synthetic fixtures, establish SSH tunnels,
+and run the existing integration baseline. The prior mechanism is documented in the Sprint 126
+archive at lines 254–273; do not copy its obsolete `--forceExit` flag or assume old containers remain.
+If provisioning/baseline fails, stop PR C before new implementation. A demo-data backfill is not required.
+
+## Concrete decisions pending maintainer approval
+
+### E1 — renew the two existing audit exemptions
+
+Read-only `node scripts/check-image-size-upstream.js --json` measurement at
+`2026-09-07T23:56:52.195Z`: image-size latest 2.0.2; both GHSA advisories remain high, not withdrawn,
+range `<= 2.0.2`, no first patched version. Metro latest 0.87.0 still declares `image-size ^1.0.2`.
+Resolved mobile chain remains `expo@57.0.12 → @expo/metro@56.0.0 → metro@0.84.4 → image-size@1.2.1`.
+The monitor returned `ok: true` (nothing newly actionable), not proof that the package is safe.
+
+Propose preserving exact identities `image-size|GHSA-w3rx-r6r6-pgpr` and
+`image-size|GHSA-5p2g-fcmc-qvqq`, severity high and owner `ravichavali`; set `created` to
+`2026-09-07` and `expires` to `2026-10-07` (first invalid day, 30-day span). In each entry, replace
+the rationale with the measurement above plus the existing measured mobile-only bundler reach
+and default-export incompatibility rationale; retain the weekly monitor. Record the actual
+maintainer decision only after approval. Recheck upstream/installed-tree evidence after SDK edits;
+if remediation becomes compatible, use it and remove the now-unmatched entries instead. Registry
+is unchanged in this planning revision; approval is pending and expires if the evidence changes.
+
+### D1 — isolated PR C database validation operation
+
+Propose one bounded operation at PR C Task 1: create `karmyq-s128-preview-pg` from the existing
+`postgres:15-alpine` image and `karmyq-s128-preview-redis` from existing `redis:7-alpine` on
+`ubuntu@karmyq.com`; bind only host loopback ports 55438 and 63808, respectively. Use private
+ephemeral credentials, database/user `karmyq_s128_preview`, independent temporary storage, and
+a new task-labeled bridge `karmyq-s128-preview-net` with only these two containers attached.
+No demo volume or demo-network attachment. Limits: PG 768 MiB/1 CPU; Redis 128 MiB/0.25 CPU.
+Load only the repo schema and synthetic fixtures; tunnel those two ports to Windows, run baseline
+and PR C parity tests, then remove only these newly created resources and close the tunnels.
+
+Read-only host check September 7: both images exist; proposed container names and ports are unused; available
+memory was 21,722 MiB. This is a dated feasibility check, not a reservation. Recheck names/ports,
+capacity and deployment state before starting. Existing application containers, `karmyq-postgres`,
+`karmyq-redis`, their networks/volumes, ports 5432/6379 and demo data are outside this operation.
+The approval request covers provisioning, schema/fixture writes and teardown of these specific
+test resources only. No resource has been provisioned; approval is pending.
 
 ## Data model, APIs and frontend
 
@@ -178,7 +231,7 @@ or policy change discovered during execution requires a revised design and revie
 ## Critical implementation notes
 
 1. One active stream on Windows; the second laptop is not set up. One editor at a time and a clean tree at role handoff.
-2. A → B → C are sequential PRs, each based on refreshed `origin/master`; no worktrees or direct master pushes.
+2. B → A → C are sequential PRs, each based on refreshed `origin/master`; no worktrees or direct master pushes.
 3. `CURRENT_HANDOFF.md` holds this stream's state. A future router is a pointer, never a lock or proof of ownership.
 4. Security exemptions become invalid on September 15, 2026. Remeasure and obtain the exact renewal/remediation decision; do not assume approval.
 5. Invalid audit evidence must fail before exemption matching for both empty and populated registries.

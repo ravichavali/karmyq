@@ -6,7 +6,7 @@
 **Architecture:** Derive preview metrics from the projected canonical karma state, retaining the existing pure score and feedback functions. Verify against the real DB writer.
 **Tech stack:** TypeScript, Jest, PostgreSQL; existing reputation service and operator CLI.
 **Spec:** `docs/superpowers/specs/2026-09-07-sprint-128-single-stream-design.md`, PR C.
-**Branch:** `agent/codex/sprint-128-standing-preview`, created after PR B deploy verification.
+**Branch:** `agent/codex/sprint-128-standing-preview`, created after PR A deploy verification; C is third.
 **Global constraints:** All ten Critical implementation notes in the sprint index apply verbatim.
 
 ## File map
@@ -24,15 +24,61 @@ Read-only arbiters: reputation `karmaService.ts`, `trustMetricsDb.ts`, `feedback
 `trustConfigDb.ts`, `effectiveParamsCache.ts`, and request `providerReachService.ts`.
 No request-service edits, public API change, migration, new dependency or provider-floor change.
 
-## Task 1: Establish context and reproduce on fixed facts
+## Task 1: Provision isolated test dependencies and pass the baseline — hard entry gate
 
 **Files:** File map plus service `.claude/README.md`, `CONTEXT.md`, `tests/claude.md`, scoped gotchas.
 
-- [ ] Confirm PR B deployed and checkout is clean; fetch and create this branch from `origin/master`.
+- [ ] Confirm PR A deployed and checkout is clean; fetch and create this branch from `origin/master`.
+- [ ] Read the existing integration fixture before any baseline run: its `beforeAll` calls
+  `seedWorld` and `wipe` deletes fixture rows; it has no strong target guard
+  (`tests/integration/sprint-126-standing-backfill.integration.test.ts:21`, `:155`). Read
+  `infrastructure/claude.md` and the generated schema header before provisioning/loading schema.
+- [ ] **Do not start Task 2/3 until this task passes.** Resolve spec decision D1 for the named
+  provisioning/schema/fixture/test/teardown operation. Reuse an explicit recorded approval for
+  that exact scope; if absent, request it before writing to the shared server.
+- [ ] Recheck the September 7 read-only findings: PostgreSQL/Redis images exist, names
+  `karmyq-s128-preview-pg`, `karmyq-s128-preview-redis` and network `karmyq-s128-preview-net` are
+  unused, loopback ports 55438/63808 are free, and capacity/deploy state permits the bounded run.
+  Abort on collisions; never remove/reuse an existing resource to make the recipe work.
+- [ ] Follow this named mechanism, adapted from the verified Sprint 126 archive at lines 254–273:
+  create a dedicated Docker bridge network with label `karmyq.task=sprint128-preview`; create only
+  the two containers below on it, without attaching any existing network/volume or loading a demo dump.
+  All data stays on temporary container storage. Generate credentials privately for this operation;
+  do not use demo credentials, echo connection URLs, or commit passwords.
+
+| Resource | Configuration |
+|---|---|
+| `karmyq-s128-preview-pg` | Existing `postgres:15-alpine`; label `karmyq.task=sprint128-preview`; host `127.0.0.1:55438` → 5432; user/database `karmyq_s128_preview`; 768 MiB RAM, 1 CPU; tmpfs at `/var/lib/postgresql/data` limited to 512 MiB |
+| `karmyq-s128-preview-redis` | Existing `redis:7-alpine`; same task label; host `127.0.0.1:63808` → 6379; 128 MiB RAM, 0.25 CPU; private password; persistence disabled; temporary `/data` storage |
+| `karmyq-s128-preview-net` | New task-labeled bridge used only by these test containers |
+
+- [ ] Wait for container health using `pg_isready`/authenticated Redis ping. Stream the current
+  repository's `infrastructure/postgres/init.sql` into `docker exec -i karmyq-s128-preview-pg psql
+  -v ON_ERROR_STOP=1 -U karmyq_s128_preview -d karmyq_s128_preview`; never copy the live DB or
+  run the full-stack demo compose file. Verify the source checksum and fail on schema-load errors.
+- [ ] Open a foreground SSH tunnel, or a hidden background process with recorded PID, using the
+  exact forwards below (on Windows, `Start-Process` must use `-WindowStyle Hidden`):
+
+```text
+ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:55438:127.0.0.1:55438 -L 127.0.0.1:63808:127.0.0.1:63808 ubuntu@karmyq.com
+```
+
+- [ ] Set `DATABASE_URL` and `REDIS_URL` only in the test process, using the generated test
+  credentials and the two forwarded loopback ports. Verify parsed host/port/database values before
+  importing/running the integration suite. Query `current_database()` and `current_user` and
+  compare both to `karmyq_s128_preview`; verify the corresponding Docker container IDs/task labels
+  and port mappings. Do not rely on the suite's fallback URL or `.env.test` to choose a safe target.
+- [ ] Run the unmodified baseline from `tests/` with both DB and Redis explicitly configured:
+
+```powershell
+npx jest --config jest.integration.config.js --runInBand --runTestsByPath integration/sprint-126-standing-backfill.integration.test.ts
+```
+
+- [ ] Require exit 0 without `--forceExit`, healthy dependencies and clean connection teardown.
+  Record the selected container IDs/schema checksum and baseline result. An unavailable or red
+  environment blocks PR C implementation here, not after the code is written.
 - [ ] Read the live score writer and its DB helpers end-to-end, including cache behavior; compare
   its inputs to `calculateDistributions`. Record the exact divergent inputs, not just output totals.
-- [ ] Read the existing integration fixture and its disposable-DB protections before running it.
-  Confirm the database target explicitly; no demo data writes are authorized by the sprint plan.
 - [ ] Reproduce a member active in C1/C2, with canonical activity only in C1 and no feedback:
   global breadth is one in both communities; C2's default score is 1. A separate globally idle
   member scores 0. No arbitrary score floor is introduced.
@@ -62,25 +108,35 @@ export interface PreviewMetrics {
   distinctPeople: number;
   distinctCommunities: number;
 }
+export interface PreviewIndex {
+  readonly byPair: ReadonlyMap<string, {
+    readonly canonicalTimestamps: readonly number[]; // sorted ascending, multiplicity retained
+    readonly repeatPairs: number;
+    readonly distinctPeople: number;
+  }>;
+  readonly communitiesByUser: ReadonlyMap<string, number>;
+}
+export function buildPreviewIndex(rows: readonly PreviewKarmaRow[]): PreviewIndex;
 export function computePreviewMetrics(
-  rows: readonly PreviewKarmaRow[], userId: string, communityId: string, nowMs: number,
+  index: PreviewIndex, userId: string, communityId: string, nowMs: number,
 ): PreviewMetrics;
 ```
 
 - [ ] Add this first red test against the proposed helper:
 
 ```typescript
-import { computePreviewMetrics } from '../../src/services/standingPreview';
+import { buildPreviewIndex, computePreviewMetrics } from '../../src/services/standingPreview';
 it('retains global breadth for a membership with no local history', () => {
   const now = Date.parse('2026-09-07T12:00:00Z');
   const rows = [
     { user_id: 'u', community_id: 'c1', reason: 'Provided help', related_entity_id: 'm1', created_at: new Date(now) },
     { user_id: 'v', community_id: 'c1', reason: 'Received help', related_entity_id: 'm1', created_at: new Date(now) },
   ];
-  expect(computePreviewMetrics(rows, 'u', 'c2', now)).toEqual({
+  const index = buildPreviewIndex(rows);
+  expect(computePreviewMetrics(index, 'u', 'c2', now)).toEqual({
     recentInteractions: 0, repeatPairs: 0, distinctPeople: 0, distinctCommunities: 1,
   });
-  expect(computePreviewMetrics(rows, 'idle', 'c2', now)).toEqual({
+  expect(computePreviewMetrics(index, 'idle', 'c2', now)).toEqual({
     recentInteractions: 0, repeatPairs: 0, distinctPeople: 0, distinctCommunities: 0,
   });
 });
@@ -88,7 +144,10 @@ it('retains global breadth for a membership with no local history', () => {
 
 - [ ] Add cases for canonical reason filtering, 365-day inclusive boundary, null match identity,
   multiple community rows for one match, two matches with one counterparty, globally unrelated
-  canonical history and no mutation of input rows.
+  canonical history and no mutation of input rows. Test many membership lookups from the same
+  index, varying `nowMs` at the 365-day boundary. Build through a `Proxy.revocable` view of the
+  input, revoke it after construction, then perform lookups to prove the index is materialized
+  rather than retaining/rescanning the input array.
 - [ ] Add full `analyzeStandingBackfill` fixture tests for 0-versus-1 score buckets, mixed legacy /
   canonical records, existing projections, numeric-string/zero overrides and negative scores.
   Assert query calls remain SELECT-only and no projector/updateTrustScore invocation during preview.
@@ -102,9 +161,11 @@ it('retains global breadth for a membership with no local history', () => {
 - [ ] Implement helper with SQL-equivalent semantics from `trustMetricsDb.ts`: global distinct
   canonical communities; local recent canonical row count; counterpart join on non-null match id,
   different user and canonical reasons; repeat count by distinct match IDs. Do not restrict the
-  counterpart row to the local community when SQL does not. Avoid an all-rows nested scan per
-  membership: build reusable indexes for user/community and match participants if the baseline
-  dataset makes the direct implementation expensive, while preserving the declared test interface.
+  counterpart row to the local community when SQL does not. `buildPreviewIndex` materializes global
+  community counts, user/community metrics, match participant sets and sorted local timestamps.
+  Build it exactly once after constructing each projected dataset, before iterating memberships.
+  `computePreviewMetrics` uses map lookups plus lower-bound binary search for recent row count;
+  it must not receive raw rows, rebuild indexes, or repeat counterpart joins per membership.
 - [ ] Construct the post-apply karma view from snapshot plus replay. Mirror
   `normalizeUnattributableLegacy`, deletion of attributable legacy rows and planned canonical
   inserts. Preserve unaffected canonical rows and distinguish canonical identity from DB row id:
@@ -130,14 +191,18 @@ Compute metrics for every active membership using the resulting canonical rows.
 
 **Files:** Service TDD test, backfill distributions, existing root standing integration test.
 
-- [ ] Preserve `providerEligibility` keys 1/20/40/60 and document the unit as provider/community
-  pairs, deduplicated by provider id plus community id. Exercise active/inactive profile/member,
+- [ ] Preserve `providerEligibility` keys 1/20/40/60 and its intentional fixed-floor what-if meaning.
+  Live reach uses the configured community floor. `PROVIDERS_QUERY:236–247` already matches the
+  four non-score reach filters; expect no filter change. Any proposed filter change needs a separate
+  reproduced defect and review, not this score-input diagnosis.
+- [ ] Document the unit as provider-profile/community pairs keyed by `provider_id|community_id`.
+  Add a fixture where one user has two profiles in one community: both count. Exercise active/inactive profile/member,
   disabled/missing config, empty/restricted service list, missing score, multi-community providers,
   and scores exactly equal to each threshold. Compare against actual request reach SQL semantics.
 - [ ] Extend the existing disposable-DB integration fixture to call real `analyzeStandingBackfill`,
   real `applyStandingBackfill` and real `updateTrustScore`. Do not stub the formula, metrics query
-  or writer. Mock external Redis only to a consistent cache-miss behavior for the baseline, then
-  test equal effective parameters separately; a stale cache discrepancy must be documented, not hidden.
+  or writer. Use the isolated real Redis from Task 1 with controlled cold/warm cache states and
+  equal effective parameters; a stale cache discrepancy must be documented, not hidden.
 - [ ] Freeze JavaScript time (preserving real network timers) and keep the fixture DB quiescent.
   Query all resulting trust scores; compute the six buckets independently from stored values and
   compare exact equality with the preflight report. Query eligible profile/community pairs for
@@ -150,8 +215,9 @@ Compute metrics for every active membership using the resulting canonical rows.
 npx jest --config jest.integration.config.js --runInBand --runTestsByPath integration/sprint-126-standing-backfill.integration.test.ts
 ```
 
-- [ ] Verification: integration executes (not skipped) and matches real storage. If no safe DB
-  environment is available, leave this task blocked and PR C unmerged; continue docs/review work.
+- [ ] Verification: integration executes (not skipped) and matches real storage. Task 1 already
+  established the environment; if it subsequently fails, pause dependent work, retain failure
+  evidence and use only the approved named-resource recovery/teardown scope. PR C remains unmerged.
 
 ## Task 5: Promote tests and update operator/user documentation
 
@@ -198,6 +264,11 @@ npx jest --config jest.integration.config.js --runInBand --runTestsByPath integr
 - [ ] Claude recommends readiness and requests explicit maintainer merge authorization; follow the corrected deploy skill.
 - [ ] Wait for deployment/health verification and inspect the rendered trust guide. Confirm compiled
   CLI report behavior on the disposable fixture if using deployed build artifacts; do not apply to demo.
+- [ ] Tear down the D1 resources after testing: verify names, recorded IDs and
+  `karmyq.task=sprint128-preview` labels before removing only the two created containers and their
+  dedicated network; close only the recorded SSH tunnel process and remove private test credentials.
+  Repeat read-only application-container/health checks to confirm the shared host remains healthy.
+  No broad Docker prune, compose down, volume deletion or demo-container restart.
 - [ ] Record per-PR review rounds, late CI findings, handoff corrections and ownership/decision waiting
   from actual observations. Recommend at most three improvements and retain the future activation checklist.
 - [ ] Verification: all three PR outcomes have evidence, remaining ideas are deferred explicitly,
