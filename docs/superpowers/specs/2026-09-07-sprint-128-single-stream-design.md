@@ -1,7 +1,7 @@
 # Sprint 128: Reliable delivery, one stream — Design Spec
 
 **Date:** 2026-09-07
-**Status:** Scope approved by the maintainer in this planning session; detailed design ready for independent review.
+**Status:** Scope and implementation planning approved; review refinements incorporated. E1 and D1 authorized on 2026-09-07; implementation has not started.
 **Current version:** v11.47.0 (`package.json:3`); derive each release bump from `origin/master` at merge time.
 **First branch:** `agent/codex/sprint-128-planning` (planning artifacts and PR B implementation stay together).
 
@@ -53,8 +53,8 @@ merge readiness, and executes a merge only after explicit maintainer authorizati
 role change requires a clean committed tree and an explicit transfer, without pushing another
 agent's branch. Maintainer retains scope, dependency ownership, ADR allocation and data-operation
 authority. The approved single stream owns the scheduled dependency work during PR B; revisit
-allocation only if another active task is introduced. Planning approval is not an exemption-renewal
-or merge decision.
+allocation only if another active task is introduced. Separate E1/D1 approvals are recorded below;
+neither planning approval nor those operation decisions authorize a merge.
 
 PR B has no dependency on PR A. Until the deploy skill is repaired, follow `claude.md`'s canonical
 PR-only merge procedure and the handoff's Standing mechanics. Do not execute the obsolete local
@@ -109,9 +109,9 @@ constant fixture allowlist, without adding arbitrary environment-selected file r
 ### Exemptions and dependency maintenance
 
 Remeasure `image-size` using the existing upstream-check script. Prefer a compatible remediation
-if available. Otherwise prepare exact renewed entries with measured rationale for maintainer
-approval, then apply the approved decision before September 15 (first invalid day). Never invent
-approval text, extend the 30-day cap, or widen the exemption identities.
+if available. Otherwise apply the exact approved E1 entries before September 15 (first invalid
+day), after confirming the unchanged-evidence condition. Changed evidence requires a fresh
+measured proposal. Never invent approval text, extend the 30-day cap, or widen the identities.
 
 Resolve current Expo SDK 57 drift from `node scripts/expo-divergences.js`, retaining documented
 Jest divergences only while they still match. Issue #206 is a lead, not a current version oracle.
@@ -163,14 +163,14 @@ multi-community history, no history, mixed legacy/canonical rows, preserved unre
 history, boundary timestamps, null/zero config overrides, negative scores and provider filters.
 Preview must remain read-only, repeatable on a fixed dataset, and idempotent after apply.
 
-Windows has no local Docker. PR C Task 1 is a hard preflight gate before implementation: obtain
-the scoped operation authorization below, provision separate PostgreSQL 15 and Redis 7 containers
+Windows has no local Docker. PR C Task 1 is a hard preflight gate before implementation: use
+the recorded scoped operation authorization below, provision separate PostgreSQL 15 and Redis 7 containers
 on the demo host, load repository-generated schema plus synthetic fixtures, establish SSH tunnels,
 and run the existing integration baseline. The prior mechanism is documented in the Sprint 126
 archive at lines 254–273; do not copy its obsolete `--forceExit` flag or assume old containers remain.
 If provisioning/baseline fails, stop PR C before new implementation. A demo-data backfill is not required.
 
-## Concrete decisions pending maintainer approval
+## Authorized implementation decisions
 
 ### E1 — renew the two existing audit exemptions
 
@@ -205,21 +205,35 @@ intended, and it is not grounds for re-dating the entries.
 
 ### D1 — isolated PR C database validation operation
 
-Propose one bounded operation at PR C Task 1: create `karmyq-s128-preview-pg` from the existing
-`postgres:15-alpine` image and `karmyq-s128-preview-redis` from existing `redis:7-alpine` on
+**APPROVED — maintainer's latest confirmation, 2026-09-07, following the E1/D1 approval request.**
+This supersedes the earlier handoff's pending D1 decision. The resource-name correction below
+is an implementation detail to preserve the approved isolation scope, not an expanded operation.
+
+Perform one bounded operation at PR C Task 1: create `s128-preview-pg` from the existing
+`postgres:15-alpine` image and `s128-preview-redis` from existing `redis:7-alpine` on
 `ubuntu@karmyq.com`; bind only host loopback ports 55438 and 63808, respectively. Use private
 ephemeral credentials, database/user `karmyq_s128_preview`, independent temporary storage, and
-a new task-labeled bridge `karmyq-s128-preview-net` with only these two containers attached.
+a new task-labeled bridge `s128-preview-net` with only these two containers attached.
 No demo volume or demo-network attachment. Limits: PG 768 MiB/1 CPU; Redis 128 MiB/0.25 CPU.
 Load only the repo schema and synthetic fixtures; tunnel those two ports to Windows, run baseline
 and PR C parity tests, then remove only these newly created resources and close the tunnels.
 
-Read-only host check September 7: both images exist; proposed container names and ports are unused; available
-memory was 21,722 MiB. This is a dated feasibility check, not a reservation. Recheck names/ports,
-capacity and deployment state before starting. Existing application containers, `karmyq-postgres`,
+The original names collided with `scripts/deploy.sh:227` (container filter `karmyq-`) and `:228`
+(network filter `karmyq`). The corrected names contain neither string; keep all Compose project
+labels and existing app-network attachments off these resources. Before and after each baseline/
+parity run, including failed runs, compare recorded container IDs, running state, start times,
+restart counts and task labels, then check authenticated DB/Redis health. Lost continuity is an
+environment failure; never accept it as parity evidence or mask a nonzero test exit status.
+
+Read-only host check September 7: both images existed; the original proposed container names and
+ports were unused; available memory was 21,722 MiB. Corrected name availability is UNVERIFIED.
+This is a dated feasibility check, not a reservation. Check corrected names/ports, capacity and
+deployment state before starting. Existing application containers, `karmyq-postgres`,
 `karmyq-redis`, their networks/volumes, ports 5432/6379 and demo data are outside this operation.
-The approval request covers provisioning, schema/fixture writes and teardown of these specific
-test resources only. No resource has been provisioned; approval is pending.
+Authorization covers provisioning, schema/fixture writes, baseline/parity tests and teardown of
+these test resources only. No resource has been provisioned. Reuse this approval within its scope;
+changed operation scope requires a separate decision. On failure/abandonment, perform the same
+scoped cleanup and record any remaining resource IDs; no broad prune or demo-container restart.
 
 ## Data model, APIs and frontend
 
@@ -247,7 +261,7 @@ or policy change discovered during execution requires a revised design and revie
 1. One active stream on Windows; the second laptop is not set up. One editor at a time and a clean tree at role handoff.
 2. B → A → C are sequential PRs, each based on refreshed `origin/master`; no worktrees or direct master pushes.
 3. `CURRENT_HANDOFF.md` holds this stream's state. A future router is a pointer, never a lock or proof of ownership.
-4. Security exemptions become invalid on September 15, 2026. Remeasure and obtain the exact renewal/remediation decision; do not assume approval.
+4. Current security exemptions become invalid September 15, 2026. E1 renewal is approved through October 6 only under the spec's unchanged-evidence condition; remeasure before applying in PR B Task 4.
 5. Invalid audit evidence must fail before exemption matching for both empty and populated registries.
 6. Preserve the trust formula and provider floors. Preview equivalence must exercise the real score writer, not a mocked return value.
 7. New reputation tests begin in its `tests/tdd/` and promote when green; root cross-repo gates belong in `tests/regression/` because root TDD does not auto-promote.

@@ -7,6 +7,7 @@
 **Tech stack:** TypeScript, Jest, PostgreSQL; existing reputation service and operator CLI.
 **Spec:** `docs/superpowers/specs/2026-09-07-sprint-128-single-stream-design.md`, PR C.
 **Branch:** `agent/codex/sprint-128-standing-preview`, created after PR A deploy verification; C is third.
+**Status:** Planned after A. D1 is authorized; provisioning, baseline and implementation remain unperformed.
 **Global constraints:** All ten Critical implementation notes in the sprint index apply verbatim.
 
 ## File map
@@ -26,15 +27,12 @@ No request-service edits, public API change, migration, new dependency or provid
 
 ## Task 1: Provision isolated test dependencies and pass the baseline — hard entry gate
 
-> ⛔ **BLOCKED: D1 was not approved on 2026-09-07.** Plan review found that the resource names
-> below all contain `karmyq-`, and `scripts/deploy.sh:227` runs
-> `docker ps -aq --filter "name=karmyq-" | xargs -r docker rm -f` — a substring match. Any deploy
-> landing mid-run force-removes these containers, and the parity suite reports that as connection
-> errors indistinguishable from a real preview-versus-writer mismatch. **Do not provision under
-> these names.** Re-request D1 with all three resources renamed off the `karmyq-` prefix
-> (`s128-preview-pg`, `s128-preview-redis`, `s128-preview-net`) plus a post-run assertion that the
-> containers still exist, so a mid-run removal reports as an environment failure rather than a test
-> result. `deploy.sh:225` and `:326` were checked and do not reach these resources.
+> **D1 authorized by the maintainer's latest confirmation, 2026-09-07.** Use the operation scope
+> in the spec and the corrected names below. `scripts/deploy.sh:227` removes containers matching
+> `karmyq-`, and `:228` removes networks matching `karmyq`; none of our names contains either.
+> This naming correction implements the approved isolation scope. Do not attach Compose project
+> labels or existing app networks. Reuse the approval; recheck current host state before execution.
+> Provisioning plus a healthy baseline remains a hard gate even with authorization granted.
 
 **Files:** File map plus service `.claude/README.md`, `CONTEXT.md`, `tests/claude.md`, scoped gotchas.
 
@@ -43,12 +41,12 @@ No request-service edits, public API change, migration, new dependency or provid
   `seedWorld` and `wipe` deletes fixture rows; it has no strong target guard
   (`tests/integration/sprint-126-standing-backfill.integration.test.ts:21`, `:155`). Read
   `infrastructure/claude.md` and the generated schema header before provisioning/loading schema.
-- [ ] **Do not start Task 2/3 until this task passes.** Resolve spec decision D1 for the named
-  provisioning/schema/fixture/test/teardown operation. Reuse an explicit recorded approval for
-  that exact scope; if absent, request it before writing to the shared server.
-- [ ] Recheck the September 7 read-only findings: PostgreSQL/Redis images exist, names
-  `karmyq-s128-preview-pg`, `karmyq-s128-preview-redis` and network `karmyq-s128-preview-net` are
-  unused, loopback ports 55438/63808 are free, and capacity/deploy state permits the bounded run.
+- [ ] **Do not start Task 2/3 until this task passes.** Read the approved D1 scope before the
+  provisioning/schema/fixture/test/teardown operation; it grants no demo-data writes or deployment.
+- [ ] Refresh the September 7 host feasibility evidence and check the corrected names for the
+  first time: `s128-preview-pg`, `s128-preview-redis` and network `s128-preview-net` must be
+  unused. Verify PostgreSQL/Redis images exist, loopback ports 55438/63808 are free, and current
+  capacity/deploy state permits the bounded run. Name availability is UNVERIFIED until this step.
   Abort on collisions; never remove/reuse an existing resource to make the recipe work.
 - [ ] Follow this named mechanism, adapted from the verified Sprint 126 archive at lines 254–273:
   create a dedicated Docker bridge network with label `karmyq.task=sprint128-preview`; create only
@@ -58,12 +56,12 @@ No request-service edits, public API change, migration, new dependency or provid
 
 | Resource | Configuration |
 |---|---|
-| `karmyq-s128-preview-pg` | Existing `postgres:15-alpine`; label `karmyq.task=sprint128-preview`; host `127.0.0.1:55438` → 5432; user/database `karmyq_s128_preview`; 768 MiB RAM, 1 CPU; tmpfs at `/var/lib/postgresql/data` limited to 512 MiB |
-| `karmyq-s128-preview-redis` | Existing `redis:7-alpine`; same task label; host `127.0.0.1:63808` → 6379; 128 MiB RAM, 0.25 CPU; private password; persistence disabled; temporary `/data` storage |
-| `karmyq-s128-preview-net` | New task-labeled bridge used only by these test containers |
+| `s128-preview-pg` | Existing `postgres:15-alpine`; label `karmyq.task=sprint128-preview`; host `127.0.0.1:55438` → 5432; user/database `karmyq_s128_preview`; 768 MiB RAM, 1 CPU; tmpfs at `/var/lib/postgresql/data` limited to 512 MiB |
+| `s128-preview-redis` | Existing `redis:7-alpine`; same task label; host `127.0.0.1:63808` → 6379; 128 MiB RAM, 0.25 CPU; private password; persistence disabled; temporary `/data` storage |
+| `s128-preview-net` | New task-labeled bridge used only by these test containers |
 
 - [ ] Wait for container health using `pg_isready`/authenticated Redis ping. Stream the current
-  repository's `infrastructure/postgres/init.sql` into `docker exec -i karmyq-s128-preview-pg psql
+  repository's `infrastructure/postgres/init.sql` into `docker exec -i s128-preview-pg psql
   -v ON_ERROR_STOP=1 -U karmyq_s128_preview -d karmyq_s128_preview`; never copy the live DB or
   run the full-stack demo compose file. Verify the source checksum and fail on schema-load errors.
 - [ ] Open a foreground SSH tunnel, or a hidden background process with recorded PID, using the
@@ -78,6 +76,21 @@ ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:55438:127.0.0.1:55438 -L 127.0.0
   importing/running the integration suite. Query `current_database()` and `current_user` and
   compare both to `karmyq_s128_preview`; verify the corresponding Docker container IDs/task labels
   and port mappings. Do not rely on the suite's fallback URL or `.env.test` to choose a safe target.
+- [ ] Capture identity/continuity evidence immediately before and after **every baseline/parity
+  run**, including when Jest exits nonzero. Use a `try/finally` runner or equivalent to ensure the
+  post-run check executes, preserving the Jest exit code separately. Read only these fields on the
+  remote host; a full Docker inspect can expose the private credentials:
+
+```bash
+docker inspect --format '{{.Id}} {{.State.Running}} {{.State.StartedAt}} {{.RestartCount}} {{index .Config.Labels "karmyq.task"}}' s128-preview-pg s128-preview-redis
+```
+
+  Require both IDs to match the original provisioning record, `Running=true`, the expected task
+  label, and unchanged `StartedAt`/`RestartCount` across the run. Also require authenticated DB/
+  Redis health after the run. Missing/replaced/restarted containers or failed health is an
+  **environment failure**: retain test output but do not use it as parity proof or diagnosis.
+  Even with stable dependencies, nonzero Jest is a failed test; never overwrite it with a green
+  post-run command. Rebuild synthetic fixtures and rerun the baseline after any allowed recovery.
 - [ ] Run the unmodified baseline from `tests/` with both DB and Redis explicitly configured:
 
 ```powershell
@@ -85,7 +98,7 @@ npx jest --config jest.integration.config.js --runInBand --runTestsByPath integr
 ```
 
 - [ ] Require exit 0 without `--forceExit`, healthy dependencies and clean connection teardown.
-  Record the selected container IDs/schema checksum and baseline result. An unavailable or red
+  Record pre/post container state, selected IDs/schema checksum and baseline result. An unavailable or red
   environment blocks PR C implementation here, not after the code is written.
 - [ ] Read the live score writer and its DB helpers end-to-end, including cache behavior; compare
   its inputs to `calculateDistributions`. Record the exact divergent inputs, not just output totals.
@@ -219,7 +232,8 @@ Compute metrics for every active membership using the resulting canonical rows.
   each floor and compare exact counts. Assert the 0-versus-1 golden member rows individually.
 - [ ] Snapshot relevant tables before and after preview to prove no writes; run apply and preview
   again to prove no duplicate projection and unchanged distributions at fixed time.
-- [ ] Run from `tests/` on the explicitly authorized disposable DB:
+- [ ] Run from `tests/` on the authorized disposable DB, using Task 1's pre/post environment checks
+  and preserving the Jest exit status even if the post-run check fails:
 
 ```powershell
 npx jest --config jest.integration.config.js --runInBand --runTestsByPath integration/sprint-126-standing-backfill.integration.test.ts
@@ -279,6 +293,8 @@ npx jest --config jest.integration.config.js --runInBand --runTestsByPath integr
   dedicated network; close only the recorded SSH tunnel process and remove private test credentials.
   Repeat read-only application-container/health checks to confirm the shared host remains healthy.
   No broad Docker prune, compose down, volume deletion or demo-container restart.
+  Perform the same scoped cleanup on abandonment/failure; do not leave resources behind merely
+  because PR C cannot merge. Record any cleanup failure and exact remaining IDs in the handoff.
 - [ ] Record per-PR review rounds, late CI findings, handoff corrections and ownership/decision waiting
   from actual observations. Recommend at most three improvements and retain the future activation checklist.
 - [ ] Verification: all three PR outcomes have evidence, remaining ideas are deferred explicitly,

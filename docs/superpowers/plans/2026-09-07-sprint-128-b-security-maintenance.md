@@ -7,6 +7,7 @@
 **Tech stack:** CommonJS scripts, Jest/TypeScript, npm lockfile, Expo SDK 57, YAML.
 **Spec:** `docs/superpowers/specs/2026-09-07-sprint-128-single-stream-design.md`, PR B.
 **Branch:** Existing `agent/codex/sprint-128-planning`; PR B is first and carries the planning artifacts.
+**Status:** Ready to execute in the next fresh chat. E1 approved; no registry/dependency changes have been applied.
 **Global constraints:** All ten Critical implementation notes in the sprint index apply verbatim.
 
 ## File map
@@ -32,13 +33,29 @@ No service dependency/endpoint change is anticipated; update registry/CONTEXT on
 
 - [ ] Confirm a clean checkout on the existing planning branch. Record the approved single stream as the
   dependency holder for PR B; reconcile with the maintainer only if a new competing task exists.
-  Open Dependabot proposals do not hold the lane. Planning approval did not renew the exemptions.
+  Open Dependabot proposals do not hold the lane. E1 approval is recorded; the registry still
+  contains the old dates until Task 4 applies the conditional decision.
 - [ ] Fetch `origin/master` and verify the existing branch base; retain its planning commits and
   update the single-stream handoff immediately. There is no dependency on PR A and no new branch to create.
 - [ ] Use the canonical `claude.md` PR-only merge rules throughout B. Until PR A repairs the deploy
   skill, disregard its conflicting local-master merge/push steps; do not wait for that cleanup.
 - [ ] Verify the Windows test PATH uses Git's Bash/Unix tools as recorded in the handoff; this
   environment setup belongs before B's first tests, even though the durable bootstrap cleanup is in A.
+
+```powershell
+& 'C:\Program Files\Git\usr\bin\uname.exe' -s
+git branch --show-current
+git status --short
+git fetch origin
+git log -3 --oneline origin/master
+gh pr list
+# Only on this verified Windows host, for this process:
+$env:Path = 'C:\Program Files\Git\usr\bin;' + $env:Path
+Get-Command bash, basename, tr
+```
+
+  Verify each native command's exit status before continuing. A different branch or dirty tree
+  requires ownership reconciliation, not a blind checkout/reset; do not discard existing work.
 - [ ] Read all matching gotchas with `node scripts/gotcha-check.js --for scripts/audit-exemptions.js .github/dependabot.yml apps/mobile/package.json`.
 - [ ] Capture actual stdout and exit statuses from `node scripts/check-image-size-upstream.js --json`
   and `node scripts/expo-divergences.js`. Check issue #206 and the latest scheduled run as supporting history.
@@ -114,10 +131,11 @@ return {
   entries through October 6 (`expires: 2026-10-07`), **approved by maintainer `ravichavali` on
   2026-09-07** and conditional on unchanged evidence — this task applies it. Revalidate its
   evidence before applying; do not repeat an already granted decision unless the facts/scope change.
-- [ ] Use Task 1 measurements to select a compatible fix or prepare exact proposed exemption
-  entries (identity, reason, owner, decision, creation/expiry). Obtain maintainer decision on the
-  concrete entries before recording approval or extending validity. No wider than 30 days; no
-  critical exemption. Recheck that exact advisories still apply after any SDK patch changes.
+- [ ] Use Task 1 measurements to select a compatible fix or apply the exact approved E1 entries
+  (identity, reason, owner, decision, creation/expiry). Reuse the recorded approval if its evidence
+  is unchanged; only changed facts/scope require a fresh measured proposal. No wider than 30 days;
+  no critical exemption. Recheck exact advisories and the resolved chain after SDK patch changes;
+  the conditional decision must still hold for the final dependency tree before the PR is ready.
 - [ ] Inventory importers/declarers before dependency changes. For each SDK drift, read the live
   expected range and resolved package metadata; surgically edit mobile manifest and matching lock
   nodes/edges. Keep SDK major 57 and existing deliberate Jest divergences when still valid.

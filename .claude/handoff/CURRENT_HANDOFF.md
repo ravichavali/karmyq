@@ -1,4 +1,4 @@
-# Current Handoff — as of 2026-09-07 (Sprint 128 planned, one stream)
+# Current Handoff — as of 2026-09-07 (Sprint 128 implementation plan ready, one stream)
 
 **Version:** v11.47.0 (`package.json:3`). **Base:** `origin/master` at `a7dde43e`.
 PR #220 merged 2026-09-06, verified with `gh pr view 220` on 2026-09-07.
@@ -19,8 +19,9 @@ not active in this sprint.
 
 The maintainer approved framework refinement, security/dependency maintenance and standing-preview
 corrections, executed sequentially. This stream holds the scheduled dependency work during PR B;
-reconcile ownership only if new competing work is introduced. Exemption renewal, merge, ADR
-allocation and demo data-operation decisions retain their separate authority requirements.
+reconcile ownership only if new competing work is introduced. E1 exemption renewal and D1 isolated
+test operation are approved under the spec's terms. Merge, ADR allocation and operations outside
+those terms retain their separate authority requirements.
 
 ⚠️ **This table is a pointer, not a coordination store.** It is a branch-local file, so it can be
 stale and it is **never** the authority on who owns a contended resource. Derive those from their
@@ -47,8 +48,10 @@ live arbiters — see `CLAUDE.md` → *Parallel Development* → **Why reservati
    PR C owns reputation preview correction. Exact write paths, validation and review/deploy steps
    are in the per-PR plans. A/C start from refreshed `origin/master` after the preceding PR's
    authorized merge and deployment verification. Fresh chat per PR; independent non-author review.
-7. Deadline: both audit exemptions first become invalid September 15; target measured resolution
-   by September 12. Prepare exact proposals before asking for renewal decisions. Do not let process
+7. Deadline: both current audit exemptions first become invalid September 15; target measured resolution
+   by September 12. E1 is approved conditionally; remeasure and apply in PR B Task 4 without asking
+   again if the evidence is unchanged. D1 is approved for PR C's isolated synthetic test operation;
+   use corrected `s128-preview-*` resource names and pre/post environment checks. Do not let process
    polish postpone urgent remediation. PR B follows canonical PR-only merge rules directly;
    it does not depend on the still-stale deploy skill being corrected by A.
 8. Read-only GitHub snapshot on September 7: open PRs #211, #212, #214, #216, #217, #218 are
@@ -78,7 +81,7 @@ implementation and its four SDLC gates have not run. Use git history for the pla
 1. One active stream on Windows; the second laptop is not set up. One editor at a time and a clean tree at role handoff.
 2. B → A → C are sequential PRs, each based on refreshed `origin/master`; no worktrees or direct master pushes.
 3. `CURRENT_HANDOFF.md` holds this stream's state. A future router is a pointer, never a lock or proof of ownership.
-4. Security exemptions become invalid on September 15, 2026. Remeasure and obtain the exact renewal/remediation decision; do not assume approval.
+4. Current security exemptions become invalid September 15, 2026. E1 renewal is approved through October 6 only under the spec's unchanged-evidence condition; remeasure before applying in PR B Task 4.
 5. Invalid audit evidence must fail before exemption matching for both empty and populated registries.
 6. Preserve the trust formula and provider floors. Preview equivalence must exercise the real score writer, not a mocked return value.
 7. New reputation tests begin in its `tests/tdd/` and promote when green; root cross-repo gates belong in `tests/regression/` because root TDD does not auto-promote.
@@ -88,7 +91,7 @@ implementation and its four SDLC gates have not run. Use git history for the pla
 
 ## Deferred / retrospective
 
-### Review revision and pending decisions
+### Implementation plan and authorized decisions
 
 The external review required security first; the plan now keeps labels stable while sequencing
 B → A → C. A adds a direct-master recipe assertion with negative fixtures to the existing doc
@@ -105,22 +108,20 @@ re-scored advisory, a changed Metro range, or a resolved-chain change caused by 
 edits all require a fresh measured proposal instead. Full terms and the validator check are in
 spec **E1**.
 
-**D1 is NOT approved and was not granted in that session.** Plan review found a verified blocker
-in the proposal itself: `scripts/deploy.sh:227` runs
-`docker ps -aq --filter "name=karmyq-" | xargs -r docker rm -f`, and Docker's name filter is a
-substring match — so the proposed `karmyq-s128-preview-pg` / `karmyq-s128-preview-redis` are
-force-removed by **any** deploy that lands mid-run, including PR B's own merge deploy. The failure
-surfaces as connection errors inside the parity suite, which is exactly the evidence PR C exists to
-produce, so it is readable as a false parity failure. Before re-requesting D1, rename all three
-resources so none contains `karmyq-` (e.g. `s128-preview-pg`, `s128-preview-redis`,
-`s128-preview-net`) and add a post-run assertion that the containers still exist, so a mid-run
-removal reports as an environment failure rather than a test result. Lines 225 and 326 of
-`deploy.sh` were checked and do not reach these resources. The rest of D1 — tmpfs storage, no demo
-volume or network attachment, repo-generated schema rather than a demo dump, private ephemeral
-credentials, loopback-only binds, `current_database()`/`current_user` verification — was reviewed
-and is sound. **PR C Task 1 is blocked until a corrected D1 is separately authorized.**
-Read-only host feasibility checks passed; no server resource or security registry was changed.
-Never infer approval from this record.
+**D1 is APPROVED by the maintainer's latest confirmation, 2026-09-07.** This supersedes the
+earlier pending decision. Implement the approved isolation scope using `s128-preview-pg`,
+`s128-preview-redis` and `s128-preview-net`: the earlier names collided with `scripts/deploy.sh:227`
+(container cleanup filter `karmyq-`) and `:228` (network cleanup filter `karmyq`). No Compose
+project labels, demo volumes or existing app-network attachments. The spec and PR C Task 1 name
+the images, limits, loopback ports, schema-only/synthetic input and credential/target checks.
+Before and after every test run (even a failed one), compare container IDs/start times/restart
+counts/task labels and require healthy DB/Redis. A lost/restarted dependency is an environment
+failure, not parity evidence. Preserve Jest's own exit status. Clean up only recorded task
+resources on completion or abandonment; record any cleanup failure.
+Historical host feasibility checks passed; availability of the corrected names is UNVERIFIED
+until Task 1 rechecks them. No server resource or security registry was changed. Provisioning and
+baseline remain PR C's hard entry gate; authorization is no longer the blocker. Scope expansion
+still needs its own decision. Full operation terms are in spec D1.
 
 Review revision verified: independent process review found no blockers; `npm test` exited 0
 with 26/26 Turbo tasks (25 cached), root unit 101/101 and regression 647/647. Staged
@@ -128,8 +129,18 @@ with 26/26 Turbo tasks (25 cached), root unit 101/101 and regression 647/647. St
 diff whitespace checks passed. Tests used the same process-local Git utilities PATH and
 network/subprocess access described above. Changes are planning-only; implementation and the
 new planned regression fixtures have not run. Planning commits remain local on this branch;
-use git history for their identities. E1 is approved (terms above); D1 remains pending a corrected
-proposal and a separate authorization.
+use git history for their identities. E1 and D1 are approved under the terms above.
+
+The implementation-plan finalization adds a PR B kickoff instruction and per-PR evidence
+checkpoints, reconciles all approval states and corrects D1 naming/continuity checks. All
+implementation checkboxes remain unperformed. Next fresh chat: execute **PR B Task 1** using
+`superpowers:executing-plans`; preserve the existing planning branch. Finalization verification:
+independent process review found no material blockers; `npm test` exited 0 with 26/26 Turbo tasks
+(25 cached), 101/101 root unit tests and 647/647 regression tests. Jest emitted a worker-teardown
+warning; this planning-only change does not establish clean integration teardown. Staged feedback,
+gotcha validation, all local plan links, identical critical notes and whitespace checks passed.
+Live open PRs remain #211/#212/#214/#216/#217/#218; `origin/master` remains `a7dde43e`.
+No Sprint 128 push, PR, implementation or server provisioning was performed.
 
 Actual second-machine activation and concurrent delivery are deferred. Also deferred: provider
 floor selectivity, blocking-lint policy, network import/onboarding features and major toolchain
