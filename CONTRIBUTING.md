@@ -21,7 +21,8 @@ External contributors: fork first, then clone your fork.
 
 ## Workflow
 
-1. Branch off `master`. Naming:
+1. Branch off a freshly fetched `origin/master` — never a stale local `master`, whose unpushed
+   commits would leak in through the squash-merge. Naming:
    - Humans: `feature/`, `fix/`, `docs/`, `refactor/`, `chore/`
    - Agents: `agent/<agent-name>/<slug>` (e.g. `agent/codex/dashboard-retry`)
 2. Make scoped changes. One agent per branch; no direct commits to `master`.
@@ -33,6 +34,31 @@ External contributors: fork first, then clone your fork.
    The `pr-contract` check fails the PR if required sections are missing.
 5. A reviewer (maintainer/Claude) verifies the contract and merges. Contributor agents never
    self-merge.
+
+### One editor at a time
+
+Work runs from one checkout with **one active editor**. Two roles, never simultaneously on the
+same branch:
+
+- The **author** writes and pushes their own branch.
+- The **reviewer** is a non-author who reads the diff. Reviewers do not co-edit or push the
+  author's branch — a review that edits the work is no longer an independent check.
+
+Leave a clean tree when you hand the role over. If a second machine is ever activated, work
+through the activation checklist in [`.claude/handoff/README.md`](.claude/handoff/README.md) first.
+
+### Two kinds of knowledge, and only one of them travels
+
+| | Lives in | Travels with a clone? |
+|---|---|---|
+| **Handoff** — state of the work in flight (branch, next task, blockers) | `.claude/handoff/`, in the repo, **branch-local** | Yes, but only on that branch |
+| **Gotchas** — durable repo-scoped operational facts | [`docs/gotchas/`](docs/gotchas/), in the repo | Yes, to everyone |
+| **Agent memory** — one agent's private notes | `~/.claude/projects/<project>/memory/`, **outside the repo** | **No** |
+
+The practical consequence: a fact that everyone who clones needs is a **gotcha**, not a memory and
+not a handoff line. Because handoff files are branch-local, one branch cannot see what another
+wrote there — so a handoff can record state but can never reserve a shared resource. Contended
+resources are allocated by the maintainer; see [`CLAUDE.md`](CLAUDE.md) → *Parallel Development*.
 
 ## Tests
 

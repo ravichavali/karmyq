@@ -33,10 +33,19 @@ Run: `npm run feedback:check`
 - ✅ if it passes
 - ❌ with the specific missing item if it fails
 
+⚠️ `feedback:check` is **advisory** and reads the **staged** diff. On an already-committed branch
+that diff is empty, so it reports clean regardless. An empty result is **not** proof the docs are
+complete — check the changed paths yourself.
+
 ### 6. Test suite
-Run: `npm test -- --passWithNoTests 2>&1 | tail -5`
-- ✅ if all pass
-- ❌ with the failing test name if any fail
+Run: `npm test`
+- ✅ only if it **exits 0** — read the actual suite results
+- ❌ with the failing suite and test name if any fail
+
+⚠️ Do not pipe the run through `tail`/`head`. A pipe reports the exit status of the *last* command
+in the pipeline, so a failing `npm test` reads as success. To trim output, capture the status
+separately (`npm test > out.txt 2>&1; echo "EXIT=$?"`) and report that status. Turbo lists the
+failing suite name in the raw output — do not attribute a failure to the first-listed package.
 
 ## Output Format
 

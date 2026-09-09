@@ -63,8 +63,11 @@ Before invoking it, confirm branch hygiene:
 - **Never force-push or direct-push master.** If the base is broken, open a fresh replacement PR.
 - Fold docs into this PR — no separate post-merge docs push (it triggers a second deploy → demo 502).
 
-Then run the `deploy` skill end-to-end (merge → `git push origin master` → watch GitHub Actions
-go green → run any plan-listed server scripts).
+Then run the `deploy` skill end-to-end. It owns the sequence: branch checks → the four gates → PR
+with the full template → independent review → Claude's readiness recommendation → the maintainer's
+explicit merge authorization → the authorized PR merge, which is what triggers the pipeline →
+CI/deploy/health verification → any plan-listed server scripts. Do not restate its git commands
+here, and do not merge or push master yourself.
 
 ## Phase 4 — Post-deploy smoke test
 

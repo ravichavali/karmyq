@@ -244,3 +244,141 @@ describe('onboarding docs state the policy, not merely agree', () => {
     ]);
   });
 });
+
+/**
+ * Direct-to-master push recipes in workflow playbooks, as a PURE predicate.
+ *
+ * Sprint 128: `.claude/skills/deploy/SKILL.md` carried a literal `git push origin master`
+ * recipe and `ship/SKILL.md` repeated it inside prose, while CLAUDE.md's merge discipline
+ * says never direct-push to master. An agent following the playbook would have deployed
+ * straight past the PR gates. Prose alone never detected the contradiction across the two
+ * documents, so this turns it into a blocking check.
+ *
+ * Scope: this recognises literal command RECIPES — `git push origin master`,
+ * `git push origin HEAD:master`, and their force variants — in fenced blocks or inline
+ * prose. It is NOT a shell interpreter and cannot catch a push hidden behind a variable,
+ * an alias, or a generated refspec. A prohibition therefore belongs in prose; keeping a
+ * runnable forbidden recipe "as an example" is what this gate exists to reject.
+ */
+export function workflowRecipeIssues(docs: Record<string, string>): string[] {
+  const issues: string[] = [];
+
+  for (const [name, text] of Object.entries(docs)) {
+    text.split(/\r?\n/).forEach((line, i) => {
+      // Stop each match at a shell/markdown boundary so a trailing sentence or a closing
+      // backtick is not swallowed into the refspec.
+      for (const m of line.matchAll(/git\s+push\b([^\n`;|&]*)/g)) {
+        const targets = m[1]
+          .split(/\s+/)
+          // Drop flags (-f, --force, --force-with-lease) so they cannot launder the target.
+          .filter((t) => t && !t.startsWith('-'));
+        const hit = targets.find((t) => {
+          const ref = t
+            .replace(/^["']|["']$/g, '') // quoted args: git push "origin" "master"
+            .replace(/^\+/, '') // +master is a force refspec
+            .replace(/refs\/heads\//g, ''); // fully-qualified refspec, before or after a colon
+          return ref === 'master' || ref.endsWith(':master');
+        });
+        if (hit) {
+          issues.push(`${name}:${i + 1}: direct-to-master push recipe "${m[0].trim()}"`);
+        }
+      }
+    });
+  }
+
+  return issues.sort();
+}
+
+/** Every SKILL.md under .claude/skills, at any depth, keyed by path relative to that root. */
+function findSkillDocs(dir: string, rel = ''): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const abs = join(dir, e.name);
+    const r = rel ? `${rel}/${e.name}` : e.name;
+    if (e.isDirectory()) Object.assign(out, findSkillDocs(abs, r));
+    else if (e.name === 'SKILL.md') out[r] = readFileSync(abs, 'utf8');
+  }
+  return out;
+}
+
+describe('workflow playbooks carry no direct-to-master push recipe', () => {
+  const skillDocs = findSkillDocs(join(ROOT, '.claude', 'skills'));
+
+  // A silently-empty or shallow scan would make the assertion below vacuously true.
+  // Assert IDENTITY of the two playbooks that actually carried the defect, not a count.
+  it('discovers the playbooks it claims to guard', () => {
+    expect(Object.keys(skillDocs)).toEqual(
+      expect.arrayContaining(['deploy/SKILL.md', 'ship/SKILL.md']),
+    );
+  });
+
+  it('no .claude/skills/**/SKILL.md contains a direct-to-master push recipe', () => {
+    expect(workflowRecipeIssues(skillDocs)).toEqual([]);
+  });
+
+  it('rejects the historical deploy recipe even when PR guidance is present', () => {
+    const docs = {
+      'deploy/SKILL.md': 'Use reviewed PRs.\n```bash\ngit push origin master\n```\n',
+    };
+    expect(workflowRecipeIssues(docs)).toEqual([
+      expect.stringContaining('deploy/SKILL.md'),
+    ]);
+  });
+
+  it('accepts a feature-branch push', () => {
+    expect(
+      workflowRecipeIssues({
+        'ship/SKILL.md': '```bash\ngit push origin agent/codex/task\n```',
+      }),
+    ).toEqual([]);
+  });
+
+  // ship's recipe was never in a fenced block — a fenced-block-only scan would miss it.
+  it('rejects an inline prose command, not only a fenced block', () => {
+    expect(
+      workflowRecipeIssues({
+        'ship/SKILL.md': 'Then run `deploy` end-to-end (merge -> `git push origin master` -> watch).',
+      }),
+    ).toEqual([expect.stringContaining('ship/SKILL.md:1')]);
+  });
+
+  it('rejects the HEAD:master refspec', () => {
+    expect(workflowRecipeIssues({ 'd/SKILL.md': 'git push origin HEAD:master' })).toEqual([
+      expect.stringContaining('HEAD:master'),
+    ]);
+  });
+
+  it('rejects force variants, which flags alone would otherwise hide', () => {
+    expect(
+      workflowRecipeIssues({
+        'a/SKILL.md': 'git push --force-with-lease origin master',
+        'b/SKILL.md': 'git push -f origin master',
+        'c/SKILL.md': 'git push origin +master',
+      }),
+    ).toHaveLength(3);
+  });
+
+  it('reports file and line exactly, so the recipe can be found', () => {
+    expect(workflowRecipeIssues({ 'x/SKILL.md': 'intro\n\ngit push origin master\n' })).toEqual([
+      'x/SKILL.md:3: direct-to-master push recipe "git push origin master"',
+    ]);
+  });
+
+  // Proves the check is not merely "contains the word master".
+  it('does not flag a branch whose name merely contains "master"', () => {
+    expect(workflowRecipeIssues({ 'x/SKILL.md': 'git push origin fix/master-recipe' })).toEqual([]);
+  });
+
+  // Quoting must not launder the target past the check.
+  it('rejects a quoted target', () => {
+    expect(workflowRecipeIssues({ 'x/SKILL.md': 'git push "origin" "master"' })).toEqual([
+      expect.stringContaining('direct-to-master push recipe'),
+    ]);
+  });
+
+  it('rejects a fully-qualified refs/heads/master refspec', () => {
+    expect(workflowRecipeIssues({ 'x/SKILL.md': 'git push origin HEAD:refs/heads/master' })).toEqual(
+      [expect.stringContaining('refs/heads/master')],
+    );
+  });
+});

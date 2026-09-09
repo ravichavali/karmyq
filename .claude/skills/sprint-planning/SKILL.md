@@ -134,7 +134,7 @@ File: `docs/superpowers/plans/YYYY-MM-DD-sprint-NN-{slug}.md`
 
 **Architecture:** [Two sentences: what's new + how it fits in.]
 
-**Tech Stack:** Node.js/Express/TypeScript, Next.js 14, PostgreSQL 15, Bull queue.
+**Tech Stack:** the canonical stack in `CLAUDE.md` → *System Architecture*. Do not restate version numbers here — a pinned example goes stale and then gets copied into specs.
 
 ---
 
@@ -196,7 +196,7 @@ File: `docs/superpowers/plans/YYYY-MM-DD-sprint-NN-{slug}.md`
 | Gate | How | When |
 |------|-----|------|
 | **Testing** | TDD tests written before implementation; `npm test` (unit + regression) green | Throughout + final |
-| **Simplify** | `/simplify` after each implementation task, and a final pass on the diff | Per-task + Task N-1 |
+| **Simplify** | `/simplify` on the PR diff; per-task only for substantial tasks | Calibrated to diff size |
 | **Code review** | `/code-review` on the branch diff; resolve correctness findings before merge | Task N-1 |
 | **Security review** | `/security-review` on the branch diff; resolve real findings, justify dismissals | Task N-1 |
 
@@ -204,8 +204,13 @@ The Task N-1 quality-gate task MUST list `/simplify`, `/code-review`, and `/secu
 
 **TDD requirement — embed in the test task:**
 - Unit tests are written BEFORE implementation (TDD) — the task that creates the test file must precede the implementation task
-- Integration/TDD test file goes in `tests/tdd/`
-- Unit test files go in `tests/unit/{service}/`
+- **New sprint tests start in the CHANGED workspace's `tests/tdd/`** (e.g.
+  `services/request-service/tests/tdd/`), and auto-promote to `regression/` when green
+- **Root `tests/tdd/` does NOT auto-promote** — `scripts/promote-tdd-tests.js` only walks
+  `services/*` and `apps/*`. A rule "enforced" by a root `tests/tdd/` test is not enforced
+- A test that spans workspaces or asserts a repo-wide invariant goes straight in
+  `tests/regression/` (see `regression/doc-context-drift-gate.test.ts`)
+- Read `tests/claude.md` before adding or moving any test
 
 **Minimum tasks:** 8. **Typical range:** 10–14. Do not artificially inflate or compress.
 
@@ -221,7 +226,9 @@ The handoff **Quick Start** section MUST include:
 ## Quick Start
 
 1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-NN-{slug}`
+2. Reuse the existing task branch if one exists; otherwise `git fetch origin` then
+   `git switch -c feature/sprint-NN-{slug} origin/master`. Never branch off a stale local master —
+   unpushed local-master commits leak in via the squash-merge.
 3. Open plan: `docs/superpowers/plans/YYYY-MM-DD-sprint-NN-{slug}.md`
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 ```
