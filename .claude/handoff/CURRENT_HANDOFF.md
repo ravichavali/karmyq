@@ -44,12 +44,12 @@ exact failure the corrected `update-handoff` skill now tells the next session to
 1. Read this handoff, then confirm live state before trusting it:
    `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
 2. **Reuse the existing branch `agent/codex/sprint-128-framework`** — do not recreate it, and do
-   not branch again from master. Three commits are already on it.
+   not branch again from master. Four commits are already on it.
 3. Open the plan: `docs/superpowers/plans/2026-09-07-sprint-128-a-framework.md`.
-4. Remaining work is plan Tasks 6–8 — see *Still owed before merge* at the bottom.
+4. Remaining work is plan Tasks 7–8 — see *Still owed before merge* at the bottom.
 
-**Next unchecked task**: Task 6 — `/security-review` on the branch diff (testing and `/simplify`
-are done; `/code-review` findings are resolved), then Task 7 push + open PR A.
+**Next unchecked task**: Task 7 — push the branch and open PR A with the full template. All four
+SDLC gates are complete; an independent non-author review and merge authorization remain.
 
 ## What changed on this branch
 
@@ -133,6 +133,24 @@ Every finding was reproduced against the repo before being fixed.
 9. **`how-karmyq-learns.md`: "Only the first is distribution"** resolved to *memory* — the first
    item in its own sentence — inverting the thesis. Now names the gotcha explicitly.
 
+## Review round — `/security-review`, no findings
+
+Diff is 13 markdown files (excluded from findings by policy) plus one test file. The substantive
+check, given Sprint 127's finding that a gate echoing what it read is an exfiltration channel into
+a public CI log: **`workflowRecipeIssues` cannot echo arbitrary content.** It emits a match only
+when a whitespace token on the line resolves to `master` or `…:master`, and echoes only that
+`git push …` fragment — never the file body, a hash, or non-matching content. The other assertions
+echo path keys only.
+
+Also ruled out: argument injection via `tracked(...PLAYBOOK_PATHSPECS)` (`execFileSync` with argv,
+no shell; all 11 pathspecs hardcoded, none option-shaped — `:(exclude)…` is pathspec magic, not an
+option prefix); path traversal through `read()` (git refuses to index a `..` component); and
+symlink escape (no tracked symlinks exist, and `ci.yml` triggers on `pull_request`, so fork PRs get
+a read-only token and no secrets).
+
+Note: `tests/regression/helpers/workspaces.ts` is **not** modified by this PR — it is pre-existing
+from Sprint 122. This branch is only its first caller in this file.
+
 ## Blockers and decisions
 
 - **Decision (maintainer, this session)**: commit BUG-039 inside PR A even though `docs/BUGS.md` is
@@ -166,8 +184,9 @@ Every finding was reproduced against the repo before being fixed.
 
 ## Still owed before merge
 
-- **`/security-review`** on the branch diff (testing, `/simplify` and `/code-review` are done).
-- **Independent non-author review.** Both review rounds so far were run by agents on my own diff.
+- ~~`/security-review`~~ — **done, no findings.** All four SDLC gates complete.
+- **Independent non-author review.** All three gate rounds were run by agents on my own diff; the
+  plan asks for a non-author reviewer (a fresh session or Codex).
 - **Push + open PR A**, then **explicit maintainer merge authorization** (plan Task 8).
 - **Your decision, not mine**: `master` branch protection has `enforce_admins: false`, so the admin
   identity can bypass all six required checks with a direct push. This PR fixes what the playbooks
