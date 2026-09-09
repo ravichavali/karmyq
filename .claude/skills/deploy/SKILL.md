@@ -23,19 +23,19 @@ git log -1 --oneline origin/master
 The branch must be based on a fetched `origin/master`. Update a diverged branch with a merge
 commit, never a rebase and force-push.
 
-## Step 2: Run all four SDLC gates on the branch diff
+## Step 2: Confirm the quality gates are green
+
+The four standing SDLC gates are **owned by the `ship` skill's Phase 1** — that is the one place
+they are enumerated. This step confirms they were run and are clean; it does not re-run them. If
+you invoked `deploy` standalone, go run Phase 1's gates first, then come back here.
 
 ```bash
-npm test                  # unit + regression; must exit 0
 npm run feedback:check    # advisory docs to-do list for the diff
 ```
 
-`npm test` blocks. `feedback:check` is **advisory** and reads the *staged* diff — an empty staged
-diff is not proof that the docs are complete.
-
-The four standing SDLC gates are enumerated **once**, in the `ship` skill's *Phase 1* — run them
-from there rather than from a second list here, with effort calibrated to diff size. If any gate
-surfaces a finding, fix it and re-run that gate before continuing.
+`feedback:check` is **advisory** and reads the *staged* diff — on an already-committed branch that
+diff is empty, so a clean result is **not** proof the docs are complete. Check the changed paths
+yourself.
 
 ## Step 3: Open the PR with the full template
 

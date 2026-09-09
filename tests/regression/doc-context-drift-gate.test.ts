@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
+import { tracked } from './helpers/workspaces';
 
 /**
  * Doc / context drift gate.
@@ -245,75 +246,95 @@ describe('onboarding docs state the policy, not merely agree', () => {
   });
 });
 
+
 /**
- * Direct-to-master push recipes in workflow playbooks, as a PURE predicate.
+ * Direct-to-master push recipes in agent-facing playbooks, as a PURE predicate.
  *
  * Sprint 128: `.claude/skills/deploy/SKILL.md` carried a literal `git push origin master`
- * recipe and `ship/SKILL.md` repeated it inside prose, while CLAUDE.md's merge discipline
- * says never direct-push to master. An agent following the playbook would have deployed
- * straight past the PR gates. Prose alone never detected the contradiction across the two
- * documents, so this turns it into a blocking check.
+ * recipe, `ship/SKILL.md` repeated it inside prose, and `docs/GITHUB_ACTIONS_SETUP.md` — which
+ * CLAUDE.md names as the deployment reference — gave it twice, once as the *fix* for a workflow
+ * that did not trigger. Meanwhile CLAUDE.md's merge discipline says never direct-push master.
+ * Every master push is a full deploy, so a playbook-following agent would have deployed straight
+ * past the PR gates. Prose alone never detected the contradiction across four documents.
  *
  * Scope: this recognises literal command RECIPES — `git push origin master`,
- * `git push origin HEAD:master`, and their force variants — in fenced blocks or inline
- * prose. It is NOT a shell interpreter and cannot catch a push hidden behind a variable,
- * an alias, or a generated refspec. A prohibition therefore belongs in prose; keeping a
- * runnable forbidden recipe "as an example" is what this gate exists to reject.
+ * `git push origin HEAD:master`, and their force / quoted / `refs/heads/` variants — in fenced
+ * blocks or inline prose. It is NOT a shell interpreter and cannot catch a push hidden behind a
+ * variable, an alias, or a generated refspec. Nor is it the only thing standing in the way: it
+ * governs what the playbooks TELL an agent to do. A prohibition therefore belongs in prose;
+ * keeping a runnable forbidden recipe "as an example" is what this gate exists to reject.
  */
+function pushesToMaster(token: string): boolean {
+  const ref = token
+    .replace(/["']/g, '') // quoted args: git push "origin" "master"
+    .replace(/^\+/, '') // +master is a force refspec
+    .replace(/refs\/heads\//g, ''); // fully-qualified refspec, before or after a colon
+  return ref === 'master' || ref.endsWith(':master');
+}
+
 export function workflowRecipeIssues(docs: Record<string, string>): string[] {
   const issues: string[] = [];
 
   for (const [name, text] of Object.entries(docs)) {
-    text.split(/\r?\n/).forEach((line, i) => {
+    const lines = text.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
       // Stop each match at a shell/markdown boundary so a trailing sentence or a closing
       // backtick is not swallowed into the refspec.
-      for (const m of line.matchAll(/git\s+push\b([^\n`;|&]*)/g)) {
+      for (const m of lines[i].matchAll(/git\s+push\b([^`;|&]*)/g)) {
         const targets = m[1]
           .split(/\s+/)
           // Drop flags (-f, --force, --force-with-lease) so they cannot launder the target.
           .filter((t) => t && !t.startsWith('-'));
-        const hit = targets.find((t) => {
-          const ref = t
-            .replace(/^["']|["']$/g, '') // quoted args: git push "origin" "master"
-            .replace(/^\+/, '') // +master is a force refspec
-            .replace(/refs\/heads\//g, ''); // fully-qualified refspec, before or after a colon
-          return ref === 'master' || ref.endsWith(':master');
-        });
-        if (hit) {
+        if (targets.some(pushesToMaster)) {
           issues.push(`${name}:${i + 1}: direct-to-master push recipe "${m[0].trim()}"`);
         }
       }
-    });
+    }
   }
 
   return issues.sort();
 }
 
-/** Every SKILL.md under .claude/skills, at any depth, keyed by path relative to that root. */
-function findSkillDocs(dir: string, rel = ''): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const e of readdirSync(dir, { withFileTypes: true })) {
-    const abs = join(dir, e.name);
-    const r = rel ? `${rel}/${e.name}` : e.name;
-    if (e.isDirectory()) Object.assign(out, findSkillDocs(abs, r));
-    else if (e.name === 'SKILL.md') out[r] = readFileSync(abs, 'utf8');
-  }
-  return out;
-}
+/**
+ * The LIVE agent-facing playbook set — the documents that tell an agent what to do.
+ *
+ * Enumerated from git (`tracked`), never a directory glob: an untracked or gitignored file is not
+ * something CI would ever see, and a silently-empty scan is how a discovery gate goes vacuously
+ * green. Historical records are deliberately excluded — `docs/superpowers/plans/**` and the
+ * archives contain ~40 accurate accounts of what was done at the time, and rewriting history to
+ * satisfy a gate would be worse than the drift it prevents.
+ */
+const PLAYBOOK_PATHSPECS = [
+  '.claude/skills/**/*.md',
+  '.claude/agents/*.md',
+  'docs/guides/*.md',
+  'docs/GITHUB_ACTIONS_SETUP.md',
+  'CONTRIBUTING.md',
+  'AGENTS.md',
+  'README.md',
+  'claude.md',
+];
 
-describe('workflow playbooks carry no direct-to-master push recipe', () => {
-  const skillDocs = findSkillDocs(join(ROOT, '.claude', 'skills'));
+describe('agent-facing playbooks carry no direct-to-master push recipe', () => {
+  const playbooks = Object.fromEntries(
+    tracked(...PLAYBOOK_PATHSPECS).map((p) => [p, read(p)]),
+  );
 
-  // A silently-empty or shallow scan would make the assertion below vacuously true.
-  // Assert IDENTITY of the two playbooks that actually carried the defect, not a count.
+  // A silently-empty or too-narrow scan would make the assertion below vacuously true. Assert
+  // IDENTITY of the documents that actually carried the defect, not a count.
   it('discovers the playbooks it claims to guard', () => {
-    expect(Object.keys(skillDocs)).toEqual(
-      expect.arrayContaining(['deploy/SKILL.md', 'ship/SKILL.md']),
+    expect(Object.keys(playbooks)).toEqual(
+      expect.arrayContaining([
+        '.claude/skills/deploy/SKILL.md',
+        '.claude/skills/ship/SKILL.md',
+        'docs/GITHUB_ACTIONS_SETUP.md',
+        'claude.md',
+      ]),
     );
   });
 
-  it('no .claude/skills/**/SKILL.md contains a direct-to-master push recipe', () => {
-    expect(workflowRecipeIssues(skillDocs)).toEqual([]);
+  it('no live playbook contains a direct-to-master push recipe', () => {
+    expect(workflowRecipeIssues(playbooks)).toEqual([]);
   });
 
   it('rejects the historical deploy recipe even when PR guidance is present', () => {
@@ -364,12 +385,6 @@ describe('workflow playbooks carry no direct-to-master push recipe', () => {
     ]);
   });
 
-  // Proves the check is not merely "contains the word master".
-  it('does not flag a branch whose name merely contains "master"', () => {
-    expect(workflowRecipeIssues({ 'x/SKILL.md': 'git push origin fix/master-recipe' })).toEqual([]);
-  });
-
-  // Quoting must not launder the target past the check.
   it('rejects a quoted target', () => {
     expect(workflowRecipeIssues({ 'x/SKILL.md': 'git push "origin" "master"' })).toEqual([
       expect.stringContaining('direct-to-master push recipe'),
@@ -380,5 +395,10 @@ describe('workflow playbooks carry no direct-to-master push recipe', () => {
     expect(workflowRecipeIssues({ 'x/SKILL.md': 'git push origin HEAD:refs/heads/master' })).toEqual(
       [expect.stringContaining('refs/heads/master')],
     );
+  });
+
+  // Proves the check is not merely "contains the word master".
+  it('does not flag a branch whose name merely contains "master"', () => {
+    expect(workflowRecipeIssues({ 'x/SKILL.md': 'git push origin fix/master-recipe' })).toEqual([]);
   });
 });

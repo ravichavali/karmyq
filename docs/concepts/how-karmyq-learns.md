@@ -53,17 +53,6 @@ And nothing summarises these entries. Discovery points you at the entry itself; 
 paraphrases. A summary layer drifts away from what it summarises, and looks authoritative while
 doing it.
 
-## Using it
-
-Ask what applies to the code you are about to touch:
-
-```bash
-node scripts/gotcha-check.js --for <paths you are changing>
-```
-
-It answers for files that do not exist yet, which is the case directory-scoped knowledge exists
-for — the moment before you create something is exactly when you want to know the rule.
-
 ## Why this is not just notes
 
 There are three places a fact can end up, and only one of them reaches everybody:
@@ -81,6 +70,17 @@ It has a sharper consequence too. Because a handoff is branch-local, one branch 
 another wrote there — so a handoff can *record* that work is happening, but it can never *reserve*
 anything. Writing "I have taken this" in a file the other side is not reading is not coordination;
 it only looks like it. Genuinely contended things are allocated by a person instead.
+
+## Using it
+
+Ask what applies to the code you are about to touch:
+
+```bash
+node scripts/gotcha-check.js --for <paths you are changing>
+```
+
+It answers for files that do not exist yet, which is the case directory-scoped knowledge exists
+for — the moment before you create something is exactly when you want to know the rule.
 
 The point is not the directory. The point is that a `git clone` becomes the only distribution
 mechanism this knowledge needs.

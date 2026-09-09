@@ -205,12 +205,10 @@ The Task N-1 quality-gate task MUST list `/simplify`, `/code-review`, and `/secu
 **TDD requirement — embed in the test task:**
 - Unit tests are written BEFORE implementation (TDD) — the task that creates the test file must precede the implementation task
 - **New sprint tests start in the CHANGED workspace's `tests/tdd/`** (e.g.
-  `services/request-service/tests/tdd/`), and auto-promote to `regression/` when green
-- **Root `tests/tdd/` does NOT auto-promote** — `scripts/promote-tdd-tests.js` only walks
-  `services/*` and `apps/*`. A rule "enforced" by a root `tests/tdd/` test is not enforced
-- A test that spans workspaces or asserts a repo-wide invariant goes straight in
-  `tests/regression/` (see `regression/doc-context-drift-gate.test.ts`)
-- Read `tests/claude.md` before adding or moving any test
+  `services/request-service/tests/tdd/`), not in root `tests/`
+- **Read [`tests/claude.md`](../../../tests/claude.md) before placing any test.** It states the
+  tier contract and the promotion mechanism next to the script that implements them — including
+  why a rule "enforced" by a root `tests/tdd/` test is not enforced at all
 
 **Minimum tasks:** 8. **Typical range:** 10–14. Do not artificially inflate or compress.
 

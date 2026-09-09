@@ -47,7 +47,7 @@ same branch:
 Leave a clean tree when you hand the role over. If a second machine is ever activated, work
 through the activation checklist in [`.claude/handoff/README.md`](.claude/handoff/README.md) first.
 
-### Two kinds of knowledge, and only one of them travels
+### Three kinds of knowledge, and only one reaches everyone
 
 | | Lives in | Travels with a clone? |
 |---|---|---|
@@ -55,10 +55,9 @@ through the activation checklist in [`.claude/handoff/README.md`](.claude/handof
 | **Gotchas** — durable repo-scoped operational facts | [`docs/gotchas/`](docs/gotchas/), in the repo | Yes, to everyone |
 | **Agent memory** — one agent's private notes | `~/.claude/projects/<project>/memory/`, **outside the repo** | **No** |
 
-The practical consequence: a fact that everyone who clones needs is a **gotcha**, not a memory and
-not a handoff line. Because handoff files are branch-local, one branch cannot see what another
-wrote there — so a handoff can record state but can never reserve a shared resource. Contended
-resources are allocated by the maintainer; see [`CLAUDE.md`](CLAUDE.md) → *Parallel Development*.
+A fact everyone who clones needs is a **gotcha**, not a memory and not a handoff line —
+[`docs/concepts/how-karmyq-learns.md`](docs/concepts/how-karmyq-learns.md) explains why, including
+why a branch-local file can record work but never reserve it.
 
 ## Tests
 

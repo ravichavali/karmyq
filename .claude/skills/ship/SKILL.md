@@ -63,11 +63,12 @@ Before invoking it, confirm branch hygiene:
 - **Never force-push or direct-push master.** If the base is broken, open a fresh replacement PR.
 - Fold docs into this PR — no separate post-merge docs push (it triggers a second deploy → demo 502).
 
-Then run the `deploy` skill end-to-end. It owns the sequence: branch checks → the four gates → PR
-with the full template → independent review → Claude's readiness recommendation → the maintainer's
-explicit merge authorization → the authorized PR merge, which is what triggers the pipeline →
-CI/deploy/health verification → any plan-listed server scripts. Do not restate its git commands
-here, and do not merge or push master yourself.
+Then run the `deploy` skill end-to-end. Phase 1 above owns the four gates; `deploy` picks up from
+there and owns the rest of the sequence: branch checks → PR with the full template → independent
+review → Claude's readiness recommendation → the maintainer's explicit merge authorization → the
+authorized PR merge, which is what triggers the pipeline → CI/deploy/health verification → any
+plan-listed server scripts. Do not restate its git commands here, and do not merge or push master
+yourself.
 
 ## Phase 4 — Post-deploy smoke test
 
@@ -85,8 +86,8 @@ Plus a quick API smoke + UI check for the feature just shipped (per the plan's v
 
 ## Phase 5 — Update the handoff
 
-Invoke the **`update-handoff`** skill (or `deploy` Phase 7): mark the sprint deployed, record
-post-deploy notes/follow-ups, and set the next-sprint direction if known.
+Invoke the **`update-handoff`** skill (`deploy` Step 9 defers to it too): mark the sprint deployed,
+record post-deploy notes/follow-ups, and set the next-sprint direction if known.
 
 ---
 
