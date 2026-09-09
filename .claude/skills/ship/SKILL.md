@@ -55,7 +55,9 @@ decides what lands. This is the trigger that catches what mid-session capture mi
 
 ## Phase 3 — Merge & deploy
 
-Hand off to the **`deploy` skill** for the mechanical merge → push → pipeline → health steps.
+Hand off to the **`deploy` skill** for the PR → independent review → authorized merge → pipeline →
+health steps. It does not push master, and neither do you.
+
 Before invoking it, confirm branch hygiene:
 
 - Branch is based on **`origin/master`** (not a stale local master); planning/handoff commits live

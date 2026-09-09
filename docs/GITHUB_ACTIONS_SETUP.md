@@ -91,8 +91,12 @@ git switch -c test/deploy-check origin/master
 echo "# Test deployment" >> README.md
 git commit -am "test: trigger GitHub Actions deployment"
 git push -u origin test/deploy-check
-gh pr create --fill
-# after review + explicit merge authorization:
+
+# Fill in every section of the template first, then create the PR with it.
+# `--fill` would omit the required sections and fail the pr-contract check.
+gh pr create --body-file .github/pull_request_template.md
+
+# Only after review and explicit merge authorization:
 gh pr merge --squash
 ```
 

@@ -40,9 +40,9 @@ The serialization rules these lanes must honor are in `CLAUDE.md` → **Parallel
 
 ### Single stream is the default
 
-**Until a second machine is actually activated, `CURRENT_HANDOFF.md` is the state, not a router.**
-Do not create a lane table for one stream — an unnecessary router adds a level of indirection that
-can only go stale.
+**When only one sprint is in flight, `CURRENT_HANDOFF.md` is the state, not a router.** Do not
+create a lane table for a single stream — an unnecessary router adds a level of indirection that
+can only go stale. Add the table when a second lane actually starts.
 
 ### Checklist before activating a second machine
 

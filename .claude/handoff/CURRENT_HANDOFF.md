@@ -39,11 +39,17 @@ The prior handoff stated PR #221 was OPEN and "no merge or deployment has occurr
 PR A's entry gate (B merged **and** deploy verified) is therefore satisfied. This correction is the
 exact failure the corrected `update-handoff` skill now tells the next session to check for first.
 
-## Next action
+## Quick Start
 
-**Next unchecked task**: Plan Task 6/7 — run the non-author `/simplify`, `/code-review` and
-`/security-review` gates on this branch diff, then commit and open PR A with the full
-`.github/pull_request_template.md` body. Task 8 (merge) needs **explicit maintainer authorization**.
+1. Read this handoff, then confirm live state before trusting it:
+   `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
+2. **Reuse the existing branch `agent/codex/sprint-128-framework`** — do not recreate it, and do
+   not branch again from master. Three commits are already on it.
+3. Open the plan: `docs/superpowers/plans/2026-09-07-sprint-128-a-framework.md`.
+4. Remaining work is plan Tasks 6–8 — see *Still owed before merge* at the bottom.
+
+**Next unchecked task**: Task 6 — `/security-review` on the branch diff (testing and `/simplify`
+are done; `/code-review` findings are resolved), then Task 7 push + open PR A.
 
 ## What changed on this branch
 
@@ -100,6 +106,33 @@ Efficiency found nothing (new code is ~0.17% of suite runtime, measured).
 - Fixture tests kept one-per-case rather than table-driven: the file's existing rationale (each
   failure mode gets its own fixture) is worth more than ~20 saved lines.
 
+## Review round — `/code-review` (high), all 9 findings resolved
+
+Every finding was reproduced against the repo before being fixed.
+
+1. **The gate's pathspec was wrong in a way that inverted its scope.** `.claude/handoff/**/*.md`
+   matches only files *below* a subdirectory, so it scanned the 10 **archived** handoffs and missed
+   the 3 live ones — the opposite of what its own comment claimed. Corrected to `dir/*.md` plus an
+   explicit `:(exclude)` for `archive/`, and **proven by injection in both directions**.
+   The old discovery assertion would not have caught this, so it now asserts live-file identity
+   *and* that no archived file is in scope.
+2. **`gh pr create --fill`** (added by me in `GITHUB_ACTIONS_SETUP.md`) omits the four sections
+   `.github/workflows/pr-contract.yml:31` requires, so the documented deploy path could not merge.
+   Now `--body-file .github/pull_request_template.md`.
+3. **Gate scope still missed `docs/gotchas/*.md`** — mandatory agent reading. Added.
+4. **`TEMPLATE.md` dropped Quick Start**, which `claude.md:15`, `AGENTS.md:13` and
+   `sprint-planning/SKILL.md:221` all require. Restored, and instantiated in this handoff.
+5. **`deploy` Step 9 hardcoded `CURRENT_HANDOFF.md`**, contradicting the routing rule this PR adds;
+   in router mode that corrupts the shared router. It now invokes `update-handoff`.
+6. **`ship` Phase 3 lead-in** still promised "mechanical merge → push", contradicting the new text
+   six lines below it.
+7. **`CONTRIBUTING.md` said "one checkout"** while `claude.md:252` says two. Reworded to one active
+   editor per branch, deferring to CLAUDE.md for the two-machine rules.
+8. **`handoff/README.md`'s "Until a second machine is activated"** contradicted its own section
+   heading. Reworded to "when only one sprint is in flight".
+9. **`how-karmyq-learns.md`: "Only the first is distribution"** resolved to *memory* — the first
+   item in its own sentence — inverting the thesis. Now names the gotcha explicitly.
+
 ## Blockers and decisions
 
 - **Decision (maintainer, this session)**: commit BUG-039 inside PR A even though `docs/BUGS.md` is
@@ -133,6 +166,9 @@ Efficiency found nothing (new code is ~0.17% of suite runtime, measured).
 
 ## Still owed before merge
 
-- `/code-review` and `/security-review` on the branch diff (the `/simplify` gate is done).
-- Independent **non-author** review — the `/simplify` round was run by agents on my own diff.
-- Push + open PR A, then explicit maintainer merge authorization (plan Task 8).
+- **`/security-review`** on the branch diff (testing, `/simplify` and `/code-review` are done).
+- **Independent non-author review.** Both review rounds so far were run by agents on my own diff.
+- **Push + open PR A**, then **explicit maintainer merge authorization** (plan Task 8).
+- **Your decision, not mine**: `master` branch protection has `enforce_admins: false`, so the admin
+  identity can bypass all six required checks with a direct push. This PR fixes what the playbooks
+  *say*; it cannot close that. `enforce_admins: true` is one API call.

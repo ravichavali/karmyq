@@ -63,8 +63,8 @@ There are three places a fact can end up, and only one of them reaches everybody
 - An **agent's memory** lives outside the repository entirely, on one machine.
 
 The distinction matters more than it first sounds. A durable fact recorded as a memory reaches one
-agent on one machine; recorded in a handoff it reaches one branch and then goes stale with it. Only
-the first is distribution.
+agent on one machine; recorded in a handoff it reaches one branch and goes stale with it. Only the
+gotcha is distribution.
 
 It has a sharper consequence too. Because a handoff is branch-local, one branch cannot read what
 another wrote there — so a handoff can *record* that work is happening, but it can never *reserve*

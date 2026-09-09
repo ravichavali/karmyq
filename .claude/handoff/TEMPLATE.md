@@ -26,7 +26,15 @@
 - **Plan**: `docs/superpowers/plans/<file>.md`
 - **PR**: #NNN (link)
 
-## Next action
+## Quick Start
+
+1. Read this handoff, then confirm live state before trusting it:
+   `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
+2. Reuse the existing task branch if one exists; otherwise
+   `git switch -c <branch> origin/master`. Never branch off a stale local master —
+   unpushed local-master commits leak in via the squash-merge.
+3. Open the plan linked above.
+4. Run `/execute-plan` (uses `superpowers:subagent-driven-development`).
 
 **Next unchecked task**: Task N — [one line, with the file path to start from]
 

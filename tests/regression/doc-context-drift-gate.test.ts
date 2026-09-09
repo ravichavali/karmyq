@@ -305,9 +305,15 @@ export function workflowRecipeIssues(docs: Record<string, string>): string[] {
  * satisfy a gate would be worse than the drift it prevents.
  */
 const PLAYBOOK_PATHSPECS = [
-  '.claude/skills/**/*.md',
+  // NB: a git pathspec `*` already crosses directory separators. `dir/**/*.md` matches only files
+  // BELOW a subdirectory, so it would have scanned .claude/handoff/archive/ while missing the live
+  // CURRENT_HANDOFF.md — backwards. Use `dir/*.md` plus an explicit exclude.
+  '.claude/skills/*.md',
   '.claude/agents/*.md',
+  '.claude/handoff/*.md',
+  ':(exclude).claude/handoff/archive/*',
   'docs/guides/*.md',
+  'docs/gotchas/*.md',
   'docs/GITHUB_ACTIONS_SETUP.md',
   'CONTRIBUTING.md',
   'AGENTS.md',
@@ -322,15 +328,25 @@ describe('agent-facing playbooks carry no direct-to-master push recipe', () => {
 
   // A silently-empty or too-narrow scan would make the assertion below vacuously true. Assert
   // IDENTITY of the documents that actually carried the defect, not a count.
-  it('discovers the playbooks it claims to guard', () => {
-    expect(Object.keys(playbooks)).toEqual(
+  it('discovers the live playbooks it claims to guard, and excludes historical records', () => {
+    const keys = Object.keys(playbooks);
+    // IDENTITY, not a count: every document that has actually carried this defect, plus the
+    // live handoff — an earlier pathspec matched only .claude/handoff/archive/ and missed
+    // CURRENT_HANDOFF.md entirely, which a count-based assertion would not have caught.
+    expect(keys).toEqual(
       expect.arrayContaining([
         '.claude/skills/deploy/SKILL.md',
         '.claude/skills/ship/SKILL.md',
+        '.claude/agents/process-reviewer.md',
+        '.claude/handoff/CURRENT_HANDOFF.md',
+        '.claude/handoff/TEMPLATE.md',
         'docs/GITHUB_ACTIONS_SETUP.md',
         'claude.md',
       ]),
     );
+    // Archived handoffs are accurate records of what was done at the time. Rewriting history to
+    // satisfy a gate would be worse than the drift, so they are deliberately out of scope.
+    expect(keys.filter((k) => k.includes('/archive/'))).toEqual([]);
   });
 
   it('no live playbook contains a direct-to-master push recipe', () => {

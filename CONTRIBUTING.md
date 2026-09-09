@@ -37,15 +37,17 @@ External contributors: fork first, then clone your fork.
 
 ### One editor at a time
 
-Work runs from one checkout with **one active editor**. Two roles, never simultaneously on the
-same branch:
+The repo is developed from up to two checkouts on different machines (`CLAUDE.md` →
+*Parallel Development* has the rules that apply when both are active, including how contended
+resources are allocated). Whichever is running, a branch has **one active editor** at a time, in
+one of two roles — never both at once:
 
 - The **author** writes and pushes their own branch.
 - The **reviewer** is a non-author who reads the diff. Reviewers do not co-edit or push the
   author's branch — a review that edits the work is no longer an independent check.
 
-Leave a clean tree when you hand the role over. If a second machine is ever activated, work
-through the activation checklist in [`.claude/handoff/README.md`](.claude/handoff/README.md) first.
+Leave a clean tree when you hand the role over. Before activating a second machine, work through
+the checklist in [`.claude/handoff/README.md`](.claude/handoff/README.md).
 
 ### Three kinds of knowledge, and only one reaches everyone
 

@@ -95,6 +95,9 @@ node -e "fetch('https://karmyq.com/api/auth/login',{method:'POST',headers:{'cont
 
 ## Step 9: Update the handoff
 
-Mark deployment complete in `CURRENT_HANDOFF.md`, recording the merged SHA and the verified run.
-Record any post-deploy notes or follow-up issues found during deploy. Do this on the next task
+Invoke the **`update-handoff`** skill. It decides *which* handoff file you own — single stream, or
+the lane the router points at — rather than assuming `CURRENT_HANDOFF.md`; in router mode, writing
+the router instead of your lane file corrupts the one document carrying cross-session state.
+
+Record the merged SHA, the verified run, and any post-deploy follow-ups. Do this on the next task
 branch — a docs-only master push would trigger a second deploy.
