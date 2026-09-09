@@ -15,8 +15,22 @@ Tests-workspace broad type-check retains 70 baseline e2e/TDD diagnostics, with n
 or errors in any changed test file. Required full regression suite passes 711/711. Implementation
 committed as `352ffde2`; the maintainer authorized publication and PR B is open as
 [#221](https://github.com/ravichavali/karmyq/pull/221). Normal push hooks passed all 26 test tasks.
-Task 7 still requires latest-head CI verification and release-version preparation before merge;
-Claude readiness review and explicit maintainer merge authorization remain pending.
+Release version 11.48.0 is prepared in the root manifest and both root lockfile fields after
+refreshing master (still 11.47.0). All checks at pre-bump head ec4e4af1 succeeded (deploy skipped).
+Task 7 requires fresh CI verification after the version push; Claude readiness review of that
+head and explicit maintainer merge authorization remain pending.
+**Approved release follow-up:** fresh audit failures reproduced on the unchanged pre-bump lock;
+the maintainer approved fixing them in PR B. Both web apps move to Next.js 15.5.24, with existing
+overrides updated for Sharp 0.35.4, xmldom 0.8.15 and js-yaml 4.3.2. Validate strict install,
+live audit, native image processing, both web builds and the full tests before pushing.
+The live SDK check also advanced Expo/Router to 57.0.21/57.0.20; update their nine required
+package nodes and reverify compatibility. Added write scope: both web manifests and app context,
+plus root overrides/lockfile and the existing mobile manifest/context. Run the final full suite
+with `npm test -- --concurrency=2`; no test tier is skipped.
+**Final local verification, September 9:** strict install, native AVIF processing, mobile
+type-check, live audit/SDK checks and all 26 tasks passed, including both web production builds.
+Root unit 101/101 and regression 711/711; zero high/critical, four moderate audit findings.
+Independent review has no material findings. Publish the follow-up and verify its own CI before merge.
 **Global constraints:** All ten Critical implementation notes in the sprint index apply verbatim.
 
 ## File map

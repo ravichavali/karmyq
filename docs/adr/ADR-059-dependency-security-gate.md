@@ -133,6 +133,33 @@ two unmatched GHSA exemptions. Live lockfile audit on September 8 reports zero h
 findings with an empty registry. The approved conditional renewal was therefore not applied;
 the existing remediation alternative resolves the deadline without extending an exception.
 
+### Release-time advisory refresh
+
+Later on September 8, fresh audit evidence blocked release preparation even though the previous
+CI head was green. Auditing the unchanged `ec4e4af1` lockfile in a temporary manifest snapshot
+reproduced one critical and three high vulnerable packages. The maintainer authorized remediation
+in PR B. A green historical run is evidence for its measurement time, not a permanent security verdict.
+
+- Both web apps raise their Next.js minimum from 15.5.21 to 15.5.24, including matching
+  `@next/env` and SWC packages. This addresses the
+  [Windows-hosted RCE](https://github.com/advisories/GHSA-p293-qw3h-jr36) and
+  [AVIF image optimization RCE](https://github.com/advisories/GHSA-2xp9-vwfh-vxw4) advisories.
+- The existing Sharp override becomes `sharp@<0.35.4: 0.35.4`; its native packages move to
+  0.35.4 and libvips packages to 1.3.3, following the published manifests. The
+  [Sharp advisory](https://github.com/advisories/GHSA-rgj7-g3m4-5g8c) requires this update
+  independently of the Next.js patch.
+- Existing XML/YAML overrides move to `@xmldom/xmldom ^0.8.15` and `js-yaml 4.3.2`, addressing
+  the audit's XML parser/serializer findings and the
+  [YAML merge CPU exhaustion advisory](https://github.com/advisories/GHSA-2883-xcg3-v3hh).
+
+The lockfile is spliced using published package metadata, preserving unrelated resolutions and
+all platform variants. These are dependency updates under the existing policy; no exemptions,
+new production dependencies, image-optimization bypass or severity-policy changes are introduced.
+The live SDK compatibility check subsequently advanced Expo/Router to 57.0.21/57.0.20; PR B
+follows those releases' required dependency closure while retaining SDK 57 and React Native 0.86.3.
+Strict install, live audit, native image processing, both web builds and the required tests must
+pass on the final tree before publication. Deployment remains pending PR review and authorization.
+
 ## Amendment (Sprint 123, 2026-08-10): time-boxed exemptions
 
 ### Why

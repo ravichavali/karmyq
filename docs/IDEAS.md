@@ -488,3 +488,25 @@ We should build features to import networks from Nextdoor, Facebook, Twitter and
 networks from their data extracts. This should be able to help with network lock-in.
 
 ---
+
+## [2026-09-08] other
+
+PR #221 follow-up: make the integration PostgreSQL readiness probe use an explicit TCP host
+(`pg_isready -h ...`). The independent review relayed by the maintainer attributes the transient
+Integration Tests failure to a Unix-socket startup race; the rerun passed. Verified source:
+`tests/docker-compose.test.yml:26` currently runs `pg_isready -U karmyq_test` without a host;
+`.github/workflows/ci.yml:299` starts that test environment. Preserve the failure/rerun evidence
+and verify the startup behavior when implementing. Track separately from PR B's release bump.
+
+---
+
+## [2026-09-08] other
+
+PR #221 follow-up: close the `eslint-config-expo` SDK policy coverage gap. It is declared in
+`apps/mobile/package.json:60`, but the `expoFamily` predicate at
+`tests/regression/sprint-122-expo-sdk-alignment.test.ts:117` excludes its name and `SDK_PINNED`
+at line 103 does not include it. Consequently the derived SDK-managed ignore inventory at
+line 120 omits it, and `.github/dependabot.yml` has no explicit entry. Extend inventory coverage
+with a failing fixture and validate the intended SDK/security-update policy in a separate task.
+
+---

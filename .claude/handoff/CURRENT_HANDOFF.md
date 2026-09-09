@@ -1,6 +1,7 @@
-# Current Handoff — as of 2026-09-08 (Sprint 128 PR B open as #221; CI/review pending)
+# Current Handoff — as of 2026-09-09 (Sprint 128 PR B #221; v11.48.0 remediation verified locally)
 
-**Version:** v11.47.0 (`package.json:3`). **Base:** `origin/master` at `a7dde43e`.
+**Branch version:** v11.48.0 (`package.json:3`), prepared for release, not deployed.
+**Deployed/base version:** v11.47.0; refreshed `origin/master` remains `a7dde43e`.
 PR #220 merged 2026-09-06, verified with `gh pr view 220` on 2026-09-07.
 Its CI/CD Pipeline [run 34058385551](https://github.com/ravichavali/karmyq/actions/runs/34058385551)
 succeeded. No fresh demo smoke test was performed in this planning session.
@@ -61,10 +62,11 @@ live arbiters — see `CLAUDE.md` → *Parallel Development* → **Why reservati
    run 34124767949 succeeded. Refresh live state before execution.
 9. Preview parity must exercise the real score writer on a disposable DB. Historical report counts
    below are not fresh measurements; the full provider discrepancy remains UNVERIFIED until reproduced.
-10. No release version or ADR number is allocated. PR B #221 is OPEN; implementation commit is
+10. Release version 11.48.0 is prepared in the root manifest and both root lockfile fields after
+    verifying master is still 11.47.0. No new ADR number is allocated. PR B #221 is OPEN; implementation commit is
     `352ffde2`. The maintainer explicitly authorized publication to public `ravichavali/karmyq`
     and PR creation on September 8. Claude readiness review and separate maintainer merge
-    authorization remain required. Re-derive the release version from master at merge preparation.
+    authorization remain required. Recheck master before merge if another release lands first.
 
 Original planning artifacts were verified before this review revision. Spec/plan self-review and the required independent
 process review found no planning blockers. `npm test` exited 0: 26/26 Turbo tasks (25 cached),
@@ -124,6 +126,47 @@ historical planning-only verification below.
   Record this existing hook-reporting issue for PR A's framework refinement.
 - No server operation occurred. D1 remains for PR C. Monitor PR #221's latest CI. Claude readiness review and
   explicit maintainer merge authorization remain gates; A starts only after B deploy verification.
+
+### PR B release preparation — September 8
+
+- Verified GitHub at pre-bump head `ec4e4af1`: 20 successful checks, one expected skipped deploy,
+  zero failing/running checks. CI/CD [run 34265963485](https://github.com/ravichavali/karmyq/actions/runs/34265963485)
+  succeeded after the integration rerun; Tests run 34265963555 and PR Contract run 34265963495 succeeded.
+- The maintainer relayed an independent review verifying code, tests, docs and lockfile and
+  attributing the initial integration failure to the Unix-socket readiness race. That diagnosis
+  is review evidence; this turn verified rerun success and the missing host in the health probe,
+  not a new reproduction. Follow-ups are captured separately in `docs/IDEAS.md` (September 8).
+- Root `package.json:3`, `package-lock.json:3` and `package-lock.json:9` now specify 11.48.0.
+  The initial version-only diff changed exactly those fields, but fresh tests then failed the
+  live audit. An unchanged pre-bump manifest/lock snapshot reproduced critical Next.js plus high
+  xmldom, js-yaml and Sharp findings. The maintainer explicitly approved remediation in PR #221.
+- Release remediation now raises both web Next.js minimums to 15.5.24 and existing overrides to
+  Sharp 0.35.4, xmldom ^0.8.15 and js-yaml 4.3.2. A surgical metadata-based lock edit changes
+  39 package nodes (including required SWC/Sharp/libvips platform variants), two app entries and
+  the release fields; no package node is added or removed. Strict install and native AVIF
+  encode/resize/decode passed; the live audit returned zero high/critical and four moderate findings.
+- The subsequent live Expo check required Expo 57.0.21 and Router 57.0.20. Their manifests require
+  nine updated nodes total, including `expo-modules-core` 57.0.17's `expo-modules-jsi` 57.1.0.
+  The combined final diff updates 48 existing package nodes and three app entries, with no nodes
+  added or removed. No independent SDK migration is being attempted.
+- The broad unconstrained test run was interrupted before completion when the final SDK update
+  became necessary; it is not passing evidence. Final verification completed with
+  `npm test -- --concurrency=2`: 26/26 tasks (13 cached), root unit 101/101, root regression
+  711/711; both web builds passed (frontend 42 pages, landing 177). Final strict `npm ci` passed
+  with zero high/critical and four moderate findings. Mobile type-check and the live Expo gate
+  passed with only the two existing Jest divergences. On September 9, refreshed live audit/SDK
+  checks passed again, and a native Sharp AVIF encode/resize/decode probe passed on the final install.
+- Independent simplify/code/security reviews found no material issue in either the 39-node
+  security update or nine-node Expo closure. Source app context/ADR/index and generated landing
+  ADR are updated; dependency analysis regenerated. The two review follow-ups remain separately
+  captured in `docs/IDEAS.md`; neither readiness-probe nor SDK-inventory behavior is changed here.
+- Publish this reviewed remediation plus release version to the existing PR #221 with normal
+  hooks, then verify CI on that new head. The old green result does not cover the new diff.
+  September 9 live GitHub refresh: master still `a7dde43e`, PR #221 still OPEN at `ec4e4af1`
+  before this follow-up push; queued dependency PRs are #211, #212, #216, #217, #218 and #222.
+- GitHub reported `BLOCKED` / `REVIEW_REQUIRED` at `ec4e4af1`. No merge or `--admin` override is
+  authorized by this version preparation. Claude must assess readiness on the final head, and
+  the maintainer must explicitly authorize any merge and required admin override.
 
 ## Critical implementation notes
 
