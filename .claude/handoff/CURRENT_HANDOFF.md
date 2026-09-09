@@ -1,4 +1,4 @@
-# Current Handoff — as of 2026-09-09 (Sprint 128 PR B #221; v11.48.0 remediation verified locally)
+# Current Handoff — as of 2026-09-09 (Sprint 128 PR B #221; v11.48.0 remediation published)
 
 **Branch version:** v11.48.0 (`package.json:3`), prepared for release, not deployed.
 **Deployed/base version:** v11.47.0; refreshed `origin/master` remains `a7dde43e`.
@@ -62,9 +62,9 @@ live arbiters — see `CLAUDE.md` → *Parallel Development* → **Why reservati
    run 34124767949 succeeded. Refresh live state before execution.
 9. Preview parity must exercise the real score writer on a disposable DB. Historical report counts
    below are not fresh measurements; the full provider discrepancy remains UNVERIFIED until reproduced.
-10. Release version 11.48.0 is prepared in the root manifest and both root lockfile fields after
+10. Release version 11.48.0 is published in the root manifest and both root lockfile fields after
     verifying master is still 11.47.0. No new ADR number is allocated. PR B #221 is OPEN; implementation commit is
-    `352ffde2`. The maintainer explicitly authorized publication to public `ravichavali/karmyq`
+    `352ffde2`, with release/security follow-up `c5210480`. The maintainer explicitly authorized publication to public `ravichavali/karmyq`
     and PR creation on September 8. Claude readiness review and separate maintainer merge
     authorization remain required. Recheck master before merge if another release lands first.
 
@@ -160,10 +160,14 @@ historical planning-only verification below.
   security update or nine-node Expo closure. Source app context/ADR/index and generated landing
   ADR are updated; dependency analysis regenerated. The two review follow-ups remain separately
   captured in `docs/IDEAS.md`; neither readiness-probe nor SDK-inventory behavior is changed here.
-- Publish this reviewed remediation plus release version to the existing PR #221 with normal
-  hooks, then verify CI on that new head. The old green result does not cover the new diff.
-  September 9 live GitHub refresh: master still `a7dde43e`, PR #221 still OPEN at `ec4e4af1`
-  before this follow-up push; queued dependency PRs are #211, #212, #216, #217, #218 and #222.
+- Release/security follow-up **`c5210480` is pushed to PR #221**. Normal push hooks passed the
+  required unit/regression suite; the full PR description now records both remediations and the
+  release version. PR #221 is OPEN; its latest head/check results on GitHub are the authority for
+  readiness (including any documentation follow-up after the implementation commit).
+- Next action: Claude assesses the latest PR head and checks, then seeks the maintainer's explicit
+  merge/admin-override authorization. No merge or deployment has occurred. Historical pre-bump
+  checks do not establish readiness for the new diff. September 9 remote snapshot: master remains
+  `a7dde43e`; queued dependency PRs are #211, #212, #216, #217, #218 and #222.
 - GitHub reported `BLOCKED` / `REVIEW_REQUIRED` at `ec4e4af1`. No merge or `--admin` override is
   authorized by this version preparation. Claude must assess readiness on the final head, and
   the maintainer must explicitly authorize any merge and required admin override.

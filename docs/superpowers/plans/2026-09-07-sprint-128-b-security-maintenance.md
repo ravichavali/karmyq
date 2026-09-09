@@ -30,7 +30,8 @@ with `npm test -- --concurrency=2`; no test tier is skipped.
 **Final local verification, September 9:** strict install, native AVIF processing, mobile
 type-check, live audit/SDK checks and all 26 tasks passed, including both web production builds.
 Root unit 101/101 and regression 711/711; zero high/critical, four moderate audit findings.
-Independent review has no material findings. Publish the follow-up and verify its own CI before merge.
+Independent review has no material findings. Follow-up `c5210480` is published in PR #221;
+verify checks on the latest PR head before merge.
 **Global constraints:** All ten Critical implementation notes in the sprint index apply verbatim.
 
 ## File map
@@ -211,7 +212,7 @@ return {
   Confirm Task 6's `npm test` result and run staged `npm run feedback:check`. Repeat install/tests/type-check
   only if later changes invalidate their evidence; do not replace strict `npm ci` with a dry-run.
 - [x] Revert only generated timestamp/HEAD churn; `git diff --check`; pre-commit-check before commit.
-- [ ] Re-derive version from master, push with normal hooks, open PR B with full template and
+- [x] Re-derive version from master, push with normal hooks, open PR B with full template and
   exact approved security decisions. No bulk merge/dismissal/closure of unrelated proposals.
 - [ ] Verification: CI is green and exemptions remain valid at the actual merge date; if expired, resolve the exact decision first.
 
