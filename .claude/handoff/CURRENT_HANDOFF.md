@@ -44,7 +44,7 @@ exact failure the corrected `update-handoff` skill now tells the next session to
 1. Read this handoff, then confirm live state before trusting it:
    `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
 2. **Reuse the existing branch `agent/codex/sprint-128-framework`** — do not recreate it, and do
-   not branch again from master. Four commits are already on it.
+   not branch again from master. Six commits are already on it.
 3. Open the plan: `docs/superpowers/plans/2026-09-07-sprint-128-a-framework.md`.
 4. Remaining work is plan Tasks 7–8 — see *Still owed before merge* at the bottom.
 
@@ -53,7 +53,7 @@ SDLC gates are complete; an independent non-author review and merge authorizatio
 
 ## What changed on this branch
 
-- **New drift-gate assertion** (`tests/regression/doc-context-drift-gate.test.ts`, 13 → 24 tests):
+- **New drift-gate assertion** (`tests/regression/doc-context-drift-gate.test.ts`, 13 → 30 tests):
   a pure `workflowRecipeIssues()` predicate over the **live agent-facing playbook set** — enumerated
   from git via the shared `tracked()` helper, never a directory glob — rejecting direct-to-master
   push recipes including `HEAD:master`, force, quoted and `refs/heads/` variants, with a negative
@@ -151,6 +151,32 @@ a read-only token and no secrets).
 Note: `tests/regression/helpers/workspaces.ts` is **not** modified by this PR — it is pre-existing
 from Sprint 122. This branch is only its first caller in this file.
 
+## Independent non-author review — 2 findings, both real, both fixed
+
+A non-author reviewer was asked to **defeat** the gate rather than confirm it. It found the most
+important defect of the whole sprint:
+
+1. **A bare `git push` was not caught.** The predicate only flagged a push whose *arguments* named
+   master. But the original defect's own shape was `git checkout master` … `git push origin master`
+   across two steps — and rewriting that last line as a plain `git push` names master **nowhere**.
+   `git push origin` (remote, no refspec) was missed for the same reason, as was
+   `git -C <dir> push origin master`, where a global option separates `git` from `push`.
+   Reproduced outside Jest before fixing.
+   **Fix:** the scan now tracks the checked-out branch **across the whole document** (not per
+   fenced block — the real defect spanned Step 1 and Step 3) and flags a refspec-less push while
+   master is checked out. Two false-positive guards pin the other direction: a bare push after
+   `git switch -c <feature>` is the *correct* workflow and stays clean, and a bare push with no
+   checkout anywhere is unattributable and is not guessed at.
+2. **`.claude/PROMPTS.md` was out of scope** — a tracked, agent-facing file with a copy-paste
+   *Deploy* prompt. Added to `PLAYBOOK_PATHSPECS`.
+
+The reviewer also independently confirmed, against GitHub and `git-scm.com`, that PR #221 merged at
+`095fc856` with a successful Deploy-to-Demo job, that the pathspec-crossing-slash fix is correct,
+and that every `file:line` citation in this handoff resolves. It could not verify
+`enforce_admins: false` (no authenticated access) — that remains the maintainer's call.
+
+Gate is now **30 tests**; root regression **728**.
+
 ## Blockers and decisions
 
 - **Decision (maintainer, this session)**: commit BUG-039 inside PR A even though `docs/BUGS.md` is
@@ -169,9 +195,9 @@ from Sprint 122. This branch is only its first caller in this file.
 ## Verification references
 
 - `npm test -- --concurrency=2` → **exit 0**; 26/26 Turbo tasks, root unit **101/101**, root
-  regression **722/722** across 29 suites (2026-09-09, after all review fixes).
+  regression **728/728** across 29 suites (2026-09-09, after all review fixes).
 - Drift gate direct: `cd tests && npx jest regression/doc-context-drift-gate.test.ts --runInBand`
-  → **24/24, exit 0**.
+  → **30/30, exit 0**.
 - **Falsifiability proven twice**: the assertion failed on the two original defects
   (`deploy/SKILL.md:30`, `ship/SKILL.md:66`) before the fix; and after widening, a temporary
   injection into `docs/GITHUB_ACTIONS_SETUP.md` failed the gate at the expected file and line.
@@ -185,8 +211,8 @@ from Sprint 122. This branch is only its first caller in this file.
 ## Still owed before merge
 
 - ~~`/security-review`~~ — **done, no findings.** All four SDLC gates complete.
-- **Independent non-author review.** All three gate rounds were run by agents on my own diff; the
-  plan asks for a non-author reviewer (a fresh session or Codex).
+- ~~Independent non-author review~~ — **done**; 2 findings, both fixed (above). A second pair of
+  eyes via Codex is still available if you want it.
 - **Push + open PR A**, then **explicit maintainer merge authorization** (plan Task 8).
 - **Your decision, not mine**: `master` branch protection has `enforce_admins: false`, so the admin
   identity can bypass all six required checks with a direct push. This PR fixes what the playbooks

@@ -257,14 +257,24 @@ describe('onboarding docs state the policy, not merely agree', () => {
  * Every master push is a full deploy, so a playbook-following agent would have deployed straight
  * past the PR gates. Prose alone never detected the contradiction across four documents.
  *
- * Scope: this recognises literal command RECIPES — `git push origin master`,
- * `git push origin HEAD:master`, and their force / quoted / `refs/heads/` variants — in fenced
- * blocks or inline prose. It is NOT a shell interpreter and cannot catch a push hidden behind a
- * variable, an alias, or a generated refspec. Nor is it the only thing standing in the way: it
- * governs what the playbooks TELL an agent to do. A prohibition therefore belongs in prose;
- * keeping a runnable forbidden recipe "as an example" is what this gate exists to reject.
+ * Two shapes are caught, because naming master is not required to push to it:
+ *   1. An argument names master — `git push origin master`, `HEAD:master`, and their force,
+ *      quoted and `refs/heads/` variants.
+ *   2. The push has NO refspec (`git push`, `git push origin`) while the recipe has master
+ *      checked out. This is the shape the original defect actually had — `git checkout master`
+ *      in one step and the push several steps later — and it names master nowhere. An earlier
+ *      draft of this gate missed it entirely, which is why the branch is tracked across the
+ *      whole document rather than per fenced block.
+ *
+ * Scope: it recognises command RECIPES, in fenced blocks or inline prose, including a push
+ * hidden behind a git global option (`git -C <dir> push`). It is NOT a shell interpreter: a
+ * push behind a variable, an alias, a generated refspec, or split across a line continuation
+ * is out of reach. Nor is it the only thing standing in the way — it governs what the playbooks
+ * TELL an agent to do, not what git permits. A prohibition therefore belongs in prose; keeping
+ * a runnable forbidden recipe "as an example" is what this gate exists to reject.
  */
-function pushesToMaster(token: string): boolean {
+/** Does this `git push` argument name master? Handles quoting, `+force`, and full refspecs. */
+function namesMaster(token: string): boolean {
   const ref = token
     .replace(/["']/g, '') // quoted args: git push "origin" "master"
     .replace(/^\+/, '') // +master is a force refspec
@@ -272,21 +282,44 @@ function pushesToMaster(token: string): boolean {
   return ref === 'master' || ref.endsWith(':master');
 }
 
+// `git` accepts global options before the subcommand, some taking a separate value
+// (`git -C <dir> push`, `git -c k=v push`). Without this a recipe hides behind `-C`.
+const GIT_PUSH = /\bgit\s+(?:-C\s+\S+\s+|-c\s+\S+\s+|-{1,2}\S+\s+)*push\b([^`;|&]*)/g;
+const GIT_SWITCH = /\bgit\s+(?:-C\s+\S+\s+|-c\s+\S+\s+|-{1,2}\S+\s+)*(?:checkout|switch)\b([^`;|&]*)/g;
+
+const nonFlagArgs = (raw: string): string[] =>
+  raw.split(/\s+/).filter((t) => t && !t.startsWith('-'));
+
 export function workflowRecipeIssues(docs: Record<string, string>): string[] {
   const issues: string[] = [];
 
   for (const [name, text] of Object.entries(docs)) {
+    // Track the branch the recipe has checked out, ACROSS the whole document — the original
+    // defect spread `git checkout master` (Step 1) and the push (Step 3) over two separate
+    // fenced blocks, so resetting per block would have missed it.
+    let branch: string | null = null;
+
     const lines = text.split(/\r?\n/);
     for (let i = 0; i < lines.length; i++) {
-      // Stop each match at a shell/markdown boundary so a trailing sentence or a closing
-      // backtick is not swallowed into the refspec.
-      for (const m of lines[i].matchAll(/git\s+push\b([^`;|&]*)/g)) {
-        const targets = m[1]
-          .split(/\s+/)
-          // Drop flags (-f, --force, --force-with-lease) so they cannot launder the target.
-          .filter((t) => t && !t.startsWith('-'));
-        if (targets.some(pushesToMaster)) {
-          issues.push(`${name}:${i + 1}: direct-to-master push recipe "${m[0].trim()}"`);
+      for (const m of lines[i].matchAll(GIT_SWITCH)) {
+        // `-b`/`-c` are filtered as flags, so the first bare word is the branch either way.
+        branch = nonFlagArgs(m[1])[0] ?? branch;
+      }
+
+      for (const m of lines[i].matchAll(GIT_PUSH)) {
+        const args = nonFlagArgs(m[1]);
+        const recipe = m[0].trim();
+
+        if (args.some(namesMaster)) {
+          issues.push(`${name}:${i + 1}: direct-to-master push recipe "${recipe}"`);
+          continue;
+        }
+        // No refspec means "push the current branch". `git push` and `git push <remote>` are
+        // the most natural way to write the forbidden recipe, and name master nowhere.
+        if (args.length <= 1 && branch === 'master') {
+          issues.push(
+            `${name}:${i + 1}: pushes the checked-out master branch — "${recipe}"`,
+          );
         }
       }
     }
@@ -310,6 +343,7 @@ const PLAYBOOK_PATHSPECS = [
   // CURRENT_HANDOFF.md — backwards. Use `dir/*.md` plus an explicit exclude.
   '.claude/skills/*.md',
   '.claude/agents/*.md',
+  '.claude/PROMPTS.md',
   '.claude/handoff/*.md',
   ':(exclude).claude/handoff/archive/*',
   'docs/guides/*.md',
@@ -416,5 +450,50 @@ describe('agent-facing playbooks carry no direct-to-master push recipe', () => {
   // Proves the check is not merely "contains the word master".
   it('does not flag a branch whose name merely contains "master"', () => {
     expect(workflowRecipeIssues({ 'x/SKILL.md': 'git push origin fix/master-recipe' })).toEqual([]);
+  });
+
+  // The ORIGINAL deploy recipe was `git checkout master` + merge + push. Rewriting its last
+  // line as a bare `git push` names master nowhere, and is the most natural way to write it.
+  it('rejects a bare push while master is the checked-out branch', () => {
+    expect(
+      workflowRecipeIssues({
+        'x/SKILL.md': 'git checkout master\ngit merge feature/x\ngit push\n',
+      }),
+    ).toEqual([expect.stringContaining('pushes the checked-out master branch')]);
+  });
+
+  it('rejects a remote-only push while on master (no refspec means current branch)', () => {
+    expect(
+      workflowRecipeIssues({ 'x/SKILL.md': 'git switch master\ngit push origin\n' }),
+    ).toEqual([expect.stringContaining('pushes the checked-out master branch')]);
+  });
+
+  // The tracking must span fenced blocks: the real defect had checkout in Step 1 and the push
+  // in Step 3, several blocks apart.
+  it('tracks the checked-out branch across separate fenced blocks', () => {
+    const doc = '## Step 1\n```bash\ngit checkout master\n```\n## Step 3\n```bash\ngit push\n```\n';
+    expect(workflowRecipeIssues({ 'x/SKILL.md': doc })).toEqual([
+      expect.stringContaining('pushes the checked-out master branch'),
+    ]);
+  });
+
+  // False-positive guard: a bare push on a feature branch is the CORRECT workflow.
+  it('accepts a bare push after checking out a feature branch', () => {
+    expect(
+      workflowRecipeIssues({
+        'x/SKILL.md': 'git switch -c agent/codex/task origin/master\ngit push\n',
+      }),
+    ).toEqual([]);
+  });
+
+  // With no checkout in the document, a bare push is unattributable — do not guess.
+  it('does not flag a bare push when no branch was checked out', () => {
+    expect(workflowRecipeIssues({ 'x/SKILL.md': 'git push\n' })).toEqual([]);
+  });
+
+  it('rejects a recipe hiding behind a git global option', () => {
+    expect(workflowRecipeIssues({ 'x/SKILL.md': 'git -C /repo push origin master' })).toEqual([
+      expect.stringContaining('direct-to-master push recipe'),
+    ]);
   });
 });
