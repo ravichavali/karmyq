@@ -649,7 +649,12 @@ rows appear — it will be the first live-path karma written since Sprint 62.
 
 ---
 
-## BUG-038 · [2026-09-03] · open
+## BUG-038 · [2026-09-03] · fixed in Sprint 128 PR B (deployment pending)
+
+**Fix, 2026-09-08:** validate audit evidence before exemption matching; reject npm error objects,
+malformed maps/severity graphs and failed/timeout/signaled acquisitions. Capture subprocess stderr
+and emit a sanitized unavailable-evidence error. New contract/CLI regressions reproduce the old
+empty-registry pass and misleading removal advice, then pass with the fix. Historical diagnosis follows.
 
 **The ADR-059 dependency security gate cannot distinguish "no advisories" from "no answer" — and
 its own remediation advice converts a fail-closed into a fail-open.**

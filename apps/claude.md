@@ -27,6 +27,11 @@ This file covers only what's shared or otherwise homeless.
 
 ## `landing/` — the public site and docs portal
 
+Sprint 128 PR B raises the Next.js minimum to 15.5.24 alongside the frontend security patch.
+The landing site retains `output: 'export'` and unoptimized images (`landing/next.config.js`);
+verify its static production build with the patched runtime. ADR-059 records the shared
+Sharp, XML and YAML dependency remediation.
+
 ```
 src/app/         App Router pages
 src/components/

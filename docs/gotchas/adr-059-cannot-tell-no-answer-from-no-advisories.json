@@ -1,5 +1,5 @@
 {
-  "title": "The ADR-059 gate cannot distinguish no advisories from no answer",
+  "title": "Audit evidence must be valid before removing unmatched exemptions",
   "owner": "ravichavali",
   "created": "2026-09-04",
   "expires": "2027-03-04",

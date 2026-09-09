@@ -41,6 +41,14 @@ the DB user `karmyq_prod`.
 
 ## Docs, deps & maintenance
 
+`audit-exemptions.js` validates audit evidence before matching the ADR-059 registry (Sprint 128,
+BUG-038). Empty/malformed reports, npm error objects, invalid severity graphs, unsupported exit
+statuses, signals and timeouts fail with an unavailable-evidence error. The subprocess captures
+stderr and has a 120-second timeout; upstream error bodies are not echoed. Only valid npm success
+or finding output is evaluated. A critical finding cannot be exempted. Retry unavailable evidence;
+remove an unmatched exemption only after a valid report establishes that it no longer matches.
+`tests/regression/sprint-128-audit-response-contract.test.ts` covers the boundary and actual CLI.
+
 `generate-docs.ts` (build-time landing-docs generator — the landing prebuild runs it, which is why
 `npm test` can leave `apps/landing/src/data/docs/` dirty; revert timestamp/HEAD-sha churn before
 committing) · `update-service-deps.js` · `update-service-tdd-docs.js` · `add-tdd-scripts.js` ·

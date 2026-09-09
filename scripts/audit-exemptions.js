@@ -21,7 +21,7 @@
  *      advisory on the same package must still block.
  *   3. `high` only. `critical` is never exemptible.
  *   4. Rationale, decision reference, owner, created, expires — all required.
- *   5. Expiry at most 7 days after creation, and not in the past.
+ *   5. Expiry at most 30 days after creation, and not in the past.
  *   6. FAIL CLOSED on: malformed entry, expired entry, an exemption that matches nothing
  *      (upstream shipped a fix, or the id was mistyped), and any unexempted high/critical.
  *   7. A parent finding clears only when EVERY advisory reachable through its `via` graph is
@@ -144,6 +144,30 @@ function validateRegistry(registry, now = new Date()) {
   return validateWithSpec(registry, AUDIT_SPEC, now);
 }
 
+const INVALID_AUDIT = 'Audit evidence unavailable or invalid; retry the audit before evaluating exemptions.';
+const SEVERITIES = new Set(['info', 'low', 'moderate', 'high', 'critical']);
+const severityRank = (severity) => [...SEVERITIES].indexOf(severity);
+const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const owns = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+
+// Validate only the report contract consumed here. Unknown or partial entries cannot be
+// silently skipped: that would make absence of understood evidence look like a clean audit.
+function validAuditReport(report) {
+  if (!isRecord(report) || owns(report, 'error') || !owns(report, 'vulnerabilities') ||
+      !isRecord(report.vulnerabilities)) return false;
+  const vulns = report.vulnerabilities;
+  return Object.entries(vulns).every(([name, entry]) =>
+    isRecord(entry) && entry.name === name && SEVERITIES.has(entry.severity) &&
+    Array.isArray(entry.via) && entry.via.every((via) => {
+      if (typeof via === 'string') return owns(vulns, via) &&
+        isRecord(vulns[via]) && severityRank(vulns[via].severity) <= severityRank(entry.severity);
+      return isRecord(via) && SEVERITIES.has(via.severity) &&
+        severityRank(via.severity) <= severityRank(entry.severity) &&
+        typeof via.url === 'string' && /^https:\/\/github\.com\/advisories\/GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/.test(via.url);
+    })
+  );
+}
+
 /**
  * Every root advisory reachable from `name` through the `via` graph.
  *
@@ -188,10 +212,13 @@ function reachableAdvisories(vulns, name, visiting = new Set()) {
  * @returns {{ok: boolean, errors: string[], blocking: object[], cleared: object[], unused: object[]}}
  */
 function evaluateAudit(report, registry, now = new Date()) {
+  if (!validAuditReport(report)) {
+    return { ok: false, errors: [INVALID_AUDIT], blocking: [], cleared: [], unused: [] };
+  }
   const errors = validateRegistry(registry, now);
   if (errors.length) return { ok: false, errors, blocking: [], cleared: [], unused: [] };
 
-  const vulns = (report && report.vulnerabilities) || {};
+  const vulns = report.vulnerabilities;
   const exempt = new Map(registry.exemptions.map((e) => [`${e.package}|${e.advisory}`, e]));
   const matched = new Set();
 
@@ -200,6 +227,11 @@ function evaluateAudit(report, registry, now = new Date()) {
 
   for (const [name, entry] of Object.entries(vulns)) {
     if (entry.severity !== 'high' && entry.severity !== 'critical') continue;
+
+    if (entry.severity === 'critical') {
+      blocking.push({ package: name, severity: 'critical', reason: 'critical is never exemptible' });
+      continue;
+    }
 
     const advisories = [...reachableAdvisories(vulns, name).values()];
 
@@ -279,26 +311,32 @@ function readRegistry(file = registryPath()) {
 }
 
 function runAudit(cwd = ROOT) {
-  // npm audit exits non-zero when findings exist; the JSON still arrives on stdout.
+  // npm's findings exit (1) is supported; transport/spawn failures are not reports, even
+  // when their partial stdout happens to parse. Never echo upstream error output/credentials.
+  let stdout;
   try {
-    return JSON.parse(
       // Windows: Node 24 refuses to execFile a `.cmd` directly (spawnSync npm.cmd EINVAL), and
       // `shell: true` both triggers DEP0190 and concatenates argv unescaped — the shape of the
       // js/command-line-injection finding this repo has already fixed once. Going through
       // cmd.exe with a real argv array avoids all three.
-      execFileSync(...(process.platform === 'win32'
+    stdout = execFileSync(...(process.platform === 'win32'
         ? ['cmd.exe', ['/c', 'npm', 'audit', '--package-lock-only', '--json']]
         : ['npm', ['audit', '--package-lock-only', '--json']]), {
         cwd,
         encoding: 'utf8',
+        stdio: 'pipe',
         maxBuffer: 64 * 1024 * 1024,
-      })
-    );
+        timeout: 120000,
+      });
   } catch (err) {
-    const out = err.stdout ? err.stdout.toString() : '';
-    if (!out) throw err;
-    return JSON.parse(out);
+    if (err.status !== 1 || err.signal || err.code || err.killed) throw new Error(INVALID_AUDIT);
+    stdout = err.stdout;
   }
+  let report;
+  try { report = JSON.parse(stdout?.toString() || ''); }
+  catch { throw new Error(INVALID_AUDIT); }
+  if (!validAuditReport(report)) throw new Error(INVALID_AUDIT);
+  return report;
 }
 
 function main() {

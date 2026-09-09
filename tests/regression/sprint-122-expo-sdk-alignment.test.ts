@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import semver from 'semver';
+import { parse as parseYaml } from 'yaml';
 
 /**
  * Sprint 122 PR 2 — Expo SDK alignment (ADR-088).
@@ -102,7 +103,7 @@ const SDK_MAJOR = 57;
 const SDK_PINNED: Record<string, string> = {
   react: '19.2.3',
   'react-dom': '19.2.3',
-  'react-native': '0.86.2',
+  'react-native': '0.86.3',
   'react-native-maps': '1.27.2',
   'react-native-safe-area-context': '~5.7.0',
   'react-native-reanimated': '4.5.1',
@@ -115,6 +116,47 @@ const SDK_PINNED: Record<string, string> = {
 
 const expoFamily = (name: string) =>
   name === 'expo' || name.startsWith('expo-') || name.startsWith('@expo/');
+
+const sdkManagedNames = [...new Set([
+  ...Object.keys(SDK_PINNED),
+  ...Object.keys(allDeps).filter(name => expoFamily(name) && !(name in INDEPENDENTLY_VERSIONED)),
+])].sort();
+const versionUpdateTypes = ['version-update:semver-major', 'version-update:semver-minor', 'version-update:semver-patch'];
+
+function ignoreIssues(document: any): string[] {
+  const roots = document.updates.filter((item: any) => item['package-ecosystem'] === 'npm' && item.directory === '/');
+  if (roots.length !== 1) return ['expected one root npm update entry'];
+  const ignores = roots[0].ignore ?? [];
+  const names = ignores.map((item: any) => item['dependency-name']).sort();
+  const issues: string[] = [];
+  if (JSON.stringify(names) !== JSON.stringify(sdkManagedNames)) issues.push('SDK-managed ignore identities differ');
+  for (const entry of ignores) {
+    if (JSON.stringify([...(entry['update-types'] ?? [])].sort()) !== JSON.stringify(versionUpdateTypes) || entry.versions) {
+      issues.push('ignore must apply only to the three version-update types');
+    }
+  }
+  return issues;
+}
+
+describe('Dependabot leaves SDK-managed version updates to Expo maintenance', () => {
+  it('checks the real root config against the SDK inventory', () => {
+    expect(ignoreIssues(parseYaml(readFileSync(join(ROOT, '.github/dependabot.yml'), 'utf8')))).toEqual([]);
+  });
+  const fixture = () => ({ updates: [{ 'package-ecosystem': 'npm', directory: '/',
+    ignore: sdkManagedNames.map(name => ({ 'dependency-name': name, 'update-types': [...versionUpdateTypes] })),
+  }] });
+  it('accepts the exact identity/type set', () => expect(ignoreIssues(fixture())).toEqual([]));
+  it.each(['missing', 'unrelated', 'renamed', 'duplicate', 'all updates', 'partial types'])('rejects %s ignore policy', mutation => {
+    const doc = fixture(); const ignores = doc.updates[0].ignore;
+    if (mutation === 'missing') ignores.pop();
+    if (mutation === 'unrelated') ignores.push({ 'dependency-name': 'axios', 'update-types': [...versionUpdateTypes] });
+    if (mutation === 'renamed') ignores[0]['dependency-name'] += '-wrong';
+    if (mutation === 'duplicate') ignores.push(ignores[0]);
+    if (mutation === 'all updates') delete (ignores[0] as any)['update-types'];
+    if (mutation === 'partial types') ignores[0]['update-types'].pop();
+    expect(ignoreIssues(doc).length).toBeGreaterThan(0);
+  });
+});
 
 /** Resolve what npm actually installed for an apps/mobile dependency. */
 function installedVersion(name: string): string {

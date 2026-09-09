@@ -2,6 +2,11 @@
 
 Next.js 15, **Pages Router**, Tailwind CSS v4. Port 3000.
 
+Sprint 128 PR B raises the Next.js minimum to 15.5.24 and resolves Sharp 0.35.4 with
+libvips 1.3.3 packages for the September 8 security advisories. Image optimization remains
+enabled in `next.config.js`; validate the patched native image pipeline and production build
+alongside the app tests. See ADR-059's Sprint 128 amendment for the dependency decisions.
+
 ```
 src/
 ├── components/   # React components (Layout.tsx = shell + nav)

@@ -236,6 +236,9 @@ describe('Sprint 124 Expo divergence gate', () => {
 
   it('rejects a stale registration alongside a valid current Jest registration', () => {
     const stale = fixtureRegistry('expo-divergences-stale.json').divergences[0];
+    // Isolate stale evidence from declaration mismatch when the SDK patch line moves.
+    const mobile = JSON.parse(readFileSync(join(ROOT, 'apps/mobile/package.json'), 'utf8'));
+    stale.declared = mobile.dependencies[stale.package];
     const result = gate.evaluate(
       { status: 1, output: jestDrift },
       { divergences: [validEntry(), stale] }

@@ -34,6 +34,12 @@ So every entry carries **exactly one** of two things:
 An entry that can be checked, is. An entry that cannot be checked, expires. Nothing sits in the
 directory quietly decaying.
 
+Checks also need to distinguish an answer from a missing answer. Our dependency audit once
+mistook an unavailable advisory response for an empty set of findings. With exemptions present,
+it advised removing them; without exemptions, it passed. The repaired boundary rejects unavailable
+evidence before making either decision. Regression cases prove both failures stay closed, while
+a valid clean response still passes. That is how a learned rule becomes a verifiable safeguard.
+
 ## What is deliberately not here
 
 The checks are **declarative only** — four fixed kinds, no free-form commands. This is a public

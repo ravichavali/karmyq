@@ -1,0 +1,231 @@
+# Sprint 128 PR B: Security maintenance — Implementation Plan
+
+> **For agentic workers:** Use `superpowers:executing-plans` sequentially; one dependency holder.
+
+**Goal:** Distinguish unavailable audit evidence from a clean report and resolve dated security/SDK maintenance.
+**Architecture:** Harden the current audit boundary, retain exact reviewed exception registries and verify dependency policy against the SDK-managed inventory.
+**Tech stack:** CommonJS scripts, Jest/TypeScript, npm lockfile, Expo SDK 57, YAML.
+**Spec:** `docs/superpowers/specs/2026-09-07-sprint-128-single-stream-design.md`, PR B.
+**Branch:** Existing `agent/codex/sprint-128-planning`; PR B is first and carries the planning artifacts.
+**Status:** Tasks 1–6 complete, 2026-09-08. Audit fix and SDK/Dependabot changes verified;
+strict install, mobile type-check/tests, audit/SDK gates and all 26 test tasks pass. E1 resolved via Metro 0.84.5 dropping image-size:
+orphaned lock entries and unmatched exemptions removed after a live zero-high/critical audit.
+No renewal was applied. Historical Task 4 renewal instructions apply only if remediation fails.
+Tests-workspace broad type-check retains 70 baseline e2e/TDD diagnostics, with no new diagnostics
+or errors in any changed test file. Required full regression suite passes 711/711. Implementation
+committed as `352ffde2`; the maintainer authorized publication and PR B is open as
+[#221](https://github.com/ravichavali/karmyq/pull/221). Normal push hooks passed all 26 test tasks.
+Release version 11.48.0 is prepared in the root manifest and both root lockfile fields after
+refreshing master (still 11.47.0). All checks at pre-bump head ec4e4af1 succeeded (deploy skipped).
+Task 7 requires fresh CI verification after the version push; Claude readiness review of that
+head and explicit maintainer merge authorization remain pending.
+**Approved release follow-up:** fresh audit failures reproduced on the unchanged pre-bump lock;
+the maintainer approved fixing them in PR B. Both web apps move to Next.js 15.5.24, with existing
+overrides updated for Sharp 0.35.4, xmldom 0.8.15 and js-yaml 4.3.2. Validate strict install,
+live audit, native image processing, both web builds and the full tests before pushing.
+The live SDK check also advanced Expo/Router to 57.0.21/57.0.20; update their nine required
+package nodes and reverify compatibility. Added write scope: both web manifests and app context,
+plus root overrides/lockfile and the existing mobile manifest/context. Run the final full suite
+with `npm test -- --concurrency=2`; no test tier is skipped.
+**Final local verification, September 9:** strict install, native AVIF processing, mobile
+type-check, live audit/SDK checks and all 26 tasks passed, including both web production builds.
+Root unit 101/101 and regression 711/711; zero high/critical, four moderate audit findings.
+Independent review has no material findings. Follow-up `c5210480` is published in PR #221;
+verify checks on the latest PR head before merge.
+**Global constraints:** All ten Critical implementation notes in the sprint index apply verbatim.
+
+## File map
+
+Modify `scripts/audit-exemptions.js`, `tests/regression/sprint-75-security-gate.test.ts`,
+`tests/regression/sprint-123-audit-exemption-gate.test.ts`, `.github/dependabot.yml`,
+`tests/regression/sprint-122-expo-sdk-alignment.test.ts`, `security/audit-exemptions.json` when an
+exact decision is approved, `apps/mobile/package.json`, `package-lock.json`, `apps/mobile/claude.md`,
+`scripts/claude.md`, `docs/BUGS.md`, `docs/adr/ADR-059-dependency-security-gate.md`,
+`docs/concepts/how-karmyq-learns.md`, `.claude/handoff/CURRENT_HANDOFF.md`.
+Update `docs/gotchas/adr-059-cannot-tell-no-answer-from-no-advisories.md` and its `.json` sidecar,
+and `docs/gotchas/dependabot-regenerates-expo-sdk-breaks.md` and its `.json` sidecar, so they
+describe the fixed state.
+Create `tests/regression/sprint-128-audit-response-contract.test.ts` for cross-repo audit behavior.
+Remediation also updates `tests/regression/sprint-124-registry-core-parity.test.ts`,
+`tests/regression/sprint-124-registry-independence.test.ts` and
+`tests/regression/sprint-124-expo-divergence-gate.test.ts`: empty-registry and moving-SDK fixtures
+must keep testing their original invariant after image-size removal.
+If needed, modify `tests/package.json` solely to declare a parser actually imported by the new
+Dependabot assertion; do not rely on hoisted/transitive availability. `security/expo-divergences.json`
+changes only if the live result proves an existing entry stale/mismatched or a new decision is approved.
+No service dependency/endpoint change is anticipated; update registry/CONTEXT only if the actual dependency impact requires it.
+
+## Task 1: Take the sequential dependency task and capture evidence
+
+**Files:** Canonical context, `scripts/claude.md`, `tests/claude.md`, `apps/mobile/claude.md`, scoped gotchas, manifests and security registries.
+
+- [x] Confirm a clean checkout on the existing planning branch. Record the approved single stream as the
+  dependency holder for PR B; reconcile with the maintainer only if a new competing task exists.
+  Open Dependabot proposals do not hold the lane. E1 approval is recorded; the registry still
+  contains the old dates until Task 4 applies the conditional decision.
+- [x] Fetch `origin/master` and verify the existing branch base; retain its planning commits and
+  update the single-stream handoff immediately. There is no dependency on PR A and no new branch to create.
+- [x] Use the canonical `claude.md` PR-only merge rules throughout B. Until PR A repairs the deploy
+  skill, disregard its conflicting local-master merge/push steps; do not wait for that cleanup.
+- [x] Verify the Windows test PATH uses Git's Bash/Unix tools as recorded in the handoff; this
+  environment setup belongs before B's first tests, even though the durable bootstrap cleanup is in A.
+
+```powershell
+& 'C:\Program Files\Git\usr\bin\uname.exe' -s
+git branch --show-current
+git status --short
+git fetch origin
+git log -3 --oneline origin/master
+gh pr list
+# Only on this verified Windows host, for this process:
+$env:Path = 'C:\Program Files\Git\usr\bin;' + $env:Path
+Get-Command bash, basename, tr
+```
+
+  Verify each native command's exit status before continuing. A different branch or dirty tree
+  requires ownership reconciliation, not a blind checkout/reset; do not discard existing work.
+- [x] Read all matching gotchas with `node scripts/gotcha-check.js --for scripts/audit-exemptions.js .github/dependabot.yml apps/mobile/package.json`.
+- [x] Capture actual stdout and exit statuses from `node scripts/check-image-size-upstream.js --json`
+  and `node scripts/expo-divergences.js`. Check issue #206 and the latest scheduled run as supporting history.
+- [x] Verification: list exact current blockers and the expiry date. Plan remediation by September 12;
+  if the date has passed, make security resolution the immediate blocking task and alert the maintainer.
+
+## Task 2: Prove BUG-038 and its subprocess cases before changing logic
+
+**Files:** Create the audit response contract regression; extend the existing exemption regression.
+
+- [x] Use systematic-debugging and TDD. Add a failing direct evaluator test with both registries:
+
+```typescript
+const gate = require('../../scripts/audit-exemptions');
+const now = new Date('2026-09-07T12:00:00Z');
+const entry = {
+  package: 'image-size', advisory: 'GHSA-w3rx-r6r6-pgpr', severity: 'high',
+  rationale: 'Synthetic test of unavailable audit evidence, not an approved real exemption.',
+  decision: 'Test fixture only', owner: 'test', created: '2026-09-01', expires: '2026-09-10',
+};
+it.each([{ exemptions: [] }, { exemptions: [entry] }])(
+  'rejects npm error JSON before matching exemptions', registry => {
+    const result = gate.evaluateAudit({ error: { code: 'E503', summary: 'unavailable' } }, registry, now);
+    expect(result.ok).toBe(false);
+    expect(result.unused).toEqual([]);
+    expect(result.errors.join(' ')).toMatch(/audit.*(unavailable|invalid)/i);
+    expect(result.errors.join(' ')).not.toMatch(/remove it|upstream may be fixed/i);
+  },
+);
+```
+
+- [x] Add exact cases: null, array, `{}`, absent/null/array vulnerabilities, error plus an empty
+  vulnerability map, malformed entries, invalid JSON, empty stdout, process spawn error/signal,
+  timeout, valid zero report, valid nonzero advisory report, valid unmatched exemption.
+- [x] Test process behavior by injecting a fake `child_process.execFileSync` at the module boundary
+  in a child test harness, preserving real `runAudit`/CLI evaluation; do not mock the evaluator or
+  add a production environment flag to bypass npm. Follow the repository's constant-fixture
+  patterns. Assert exit code and absence of clean/removal output for each unavailable case.
+- [x] Run from `tests/`: `npx jest regression/sprint-128-audit-response-contract.test.ts --runInBand`.
+  Verification: reproduce the original empty-registry false pass before implementation.
+
+## Task 3: Validate audit evidence before exemption evaluation
+
+**Files:** `scripts/audit-exemptions.js`, existing audit tests.
+
+- [x] Define an internal validator for the report shape actually consumed. At minimum require a
+  non-array object, no own `error` field, a non-array object `vulnerabilities`, and valid
+  vulnerability entries (`name`, recognized severity, `via` array). Reject unknown report structure
+  explicitly; do not silently drop malformed high/critical entries.
+- [x] Preserve `evaluateAudit(report, registry, now)` and its result keys. Its error return must be:
+
+```javascript
+return {
+  ok: false,
+  errors: ['Audit evidence unavailable or invalid; retry the audit before evaluating exemptions.'],
+  blocking: [], cleared: [], unused: [],
+};
+```
+
+- [x] Apply report validation before unmatched-exemption logic. Reuse it in `runAudit`; process
+  failure/timeout/signal is not a clean result even if partial stdout parses. Accept only supported
+  npm success/finding exit statuses with a valid report. Keep shell execution arguments constant.
+- [x] Route Sprint 75's raw-metadata read through the validated acquisition and give a clear error
+  if metadata is unavailable; keep raw count assertions rather than deleting them.
+- [x] Run new and existing audit regressions directly. Verification: all negative cases fail for
+  the right reason; valid zero/advisory cases retain previous policy and critical always blocks.
+
+## Task 4: Resolve expiry and align the mobile dependency surface
+
+**Files:** Audit registry, mobile manifest/lockfile, dependency config and alignment test; divergence registry if evidence requires.
+
+- [x] Read spec decision E1: the measured September 7 proposal renews the same two high-only GHSA
+  entries through October 6 (`expires: 2026-10-07`), **approved by maintainer `ravichavali` on
+  2026-09-07** and conditional on unchanged evidence — this task applies it. Revalidate its
+  evidence before applying; do not repeat an already granted decision unless the facts/scope change.
+- [x] Use Task 1 measurements to select a compatible fix or apply the exact approved E1 entries
+  (identity, reason, owner, decision, creation/expiry). Reuse the recorded approval if its evidence
+  is unchanged; only changed facts/scope require a fresh measured proposal. No wider than 30 days;
+  no critical exemption. Recheck exact advisories and the resolved chain after SDK patch changes;
+  the conditional decision must still hold for the final dependency tree before the PR is ready.
+- [x] Inventory importers/declarers before dependency changes. For each SDK drift, read the live
+  expected range and resolved package metadata; surgically edit mobile manifest and matching lock
+  nodes/edges. Keep SDK major 57 and existing deliberate Jest divergences when still valid.
+- [x] Add version-update ignores for SDK-managed names to the root npm update entry. In the
+  existing SDK alignment regression, parse real `.github/dependabot.yml` and require exact set
+  equality with `Object.keys(SDK_PINNED)` plus Expo-family mobile declarations minus the existing
+  `INDEPENDENTLY_VERSIONED` exclusions. Define version-update ignores explicitly; do not weaken
+  independent security-advisory handling. Avoid global wildcards swallowing unrelated packages.
+- [x] Add negative fixtures removing a managed ignore, adding an unrelated ignore and changing a
+  managed name. Test failure is required; a hand-copied second list is not the expected set.
+- [x] If YAML parsing needs a direct test dependency, read its installed manifest/version and
+  declare it in `tests/package.json` with surgical lockfile edits. No install-workspace or regeneration.
+- [x] Run strict `npm ci`; inspect lockfile diff for unrelated churn. Run `node scripts/expo-divergences.js`,
+  `node scripts/audit-exemptions.js`, mobile tests and mobile `npm run type-check`.
+  Verification: real gates succeed; no forced green via ignored failures or widened exceptions.
+
+## Task 5: Update durable docs and regression tier
+
+**Files:** Documentation paths in file map; existing gotcha sidecars and prose.
+
+- [x] Close BUG-038 only after its reproduction passes. Update ADR-059 to distinguish invalid
+  evidence from stale entries; preserve expiry policy. Update existing gotchas to describe the
+  repaired behavior and supporting regression rather than leaving their defect claims current.
+- [x] Record actual mobile versions and tested commands in `apps/mobile/claude.md`; do not copy issue #206's old pins.
+- [x] Update learning concept with the verified unavailable-evidence example; regenerate landing docs from sources.
+- [x] Run `node scripts/gotcha-check.js`, direct doc gate, both audit gates, Expo alignment/divergence
+  regressions. Root cross-repo tests remain in blocking regression, not root TDD.
+- [x] Verification: no endpoint/event change means no invented registry API entry. If dependencies
+  affect a service, update its CONTEXT/registry and run `npm run analyze:services` for that real change.
+
+## Task 6: All SDLC gates
+
+**Files:** Full PR B diff and validation evidence.
+
+- [x] **Testing:** run direct changed regressions, strict install, mobile type-check/tests and full `npm test`; verify real exit statuses.
+- [x] **`/simplify`:** one PR pass; verify the validator and SDK identity checks avoid duplicate policy maps.
+- [x] **`/code-review`:** independent reviewer uses high effort for security/process boundaries; verify schema/exit-status fixtures cover actual failure routes.
+- [x] **`/security-review`:** verify no arbitrary path/command input, secret-bearing error echoes, expiry bypass or weakened severity policy; resolve findings.
+- [x] Verification: each gate's result and finding disposition is recorded in the PR, not merely a checked box.
+
+## Task 7: Final type-check, commit and PR preparation
+
+**Files:** Handoff, source docs, release fields and complete PR template.
+
+- [x] Confirm mobile `npm run type-check`; run tests workspace `npx tsc --noEmit` for changed TypeScript tests.
+  Confirm Task 6's `npm test` result and run staged `npm run feedback:check`. Repeat install/tests/type-check
+  only if later changes invalidate their evidence; do not replace strict `npm ci` with a dry-run.
+- [x] Revert only generated timestamp/HEAD churn; `git diff --check`; pre-commit-check before commit.
+- [x] Re-derive version from master, push with normal hooks, open PR B with full template and
+  exact approved security decisions. No bulk merge/dismissal/closure of unrelated proposals.
+- [ ] Verification: CI is green and exemptions remain valid at the actual merge date; if expired, resolve the exact decision first.
+
+## Task 8: Authorized merge/deploy and next handoff
+
+**Files:** GitHub PR/run state and handoff.
+
+- [ ] Claude recommends readiness; obtain explicit maintainer merge authorization and follow the
+  canonical PR-only procedure in `claude.md`: complete template/checks → authorized GitHub PR merge
+  → identify deployment by merged SHA → await completion → verify health. Do not use the still-stale
+  deploy skill's local-master recipe and do not defer B until A fixes it.
+- [ ] Wait for deploy plus health verification. Verify fresh audit/SDK evidence and link the runs;
+  an old green scheduled check is not verification of the merged dependency tree.
+- [ ] Record completed fixes and unresolved queued dependency proposals. Next fresh chat executes PR A
+  from updated `origin/master`. Capture any deadline/ownership/review friction for the retrospective.
+- [ ] Verification: clean tree, deployed PR B, no expired exception and no hidden integration/dependency blocker.

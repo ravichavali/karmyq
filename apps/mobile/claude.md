@@ -19,7 +19,7 @@ tests/
 
 ## Tech stack
 
-Expo SDK 57 · React Native 0.86.2 · React 19.2.3 · Expo Router · **Zustand 5.0.14** · axios ·
+Expo SDK 57 · React Native 0.86.3 · React 19.2.3 · Expo Router · **Zustand 5.0.14** · axios ·
 `@expo/vector-icons` · `react-native-maps` · `react-native-reanimated` · `expo-secure-store` ·
 `expo-notifications` · `expo-camera` / `-location` / `-image-picker`.
 
@@ -27,6 +27,17 @@ Expo SDK 57 · React Native 0.86.2 · React 19.2.3 · Expo Router · **Zustand 5
 hand-rolled with `@expo/vector-icons`; state is the one Zustand store in `store/auth.ts`.
 
 ## Recent changes
+
+- **Sprint 128 PR B:** align 14 declarations to the live SDK map, with a release-time refresh to
+  Expo 57.0.21 and Router 57.0.20; React Native remains 0.86.3. Transitive Metro moves to
+  0.84.5 via `@expo/metro` 56.0.2. The manifest/lockfile carry exact selections; run
+  `node scripts/expo-divergences.js` from the repository root for fresh evidence. Dependabot
+  version-update ignores are checked against the SDK inventory; Jest divergences retain ADR-094
+  review policy. Verification results belong in the PR/handoff, not a claim inferred from pins.
+  Metro 0.84.5 removes its image-size dependency; the unreferenced image-size/queue lock entries
+  and their audit exemptions are removed in the same PR.
+  The final Expo refresh also updates its required CLI, module-core/JSI, Babel preset, UI and
+  glass-effect dependencies. These follow the published Expo manifests, not independent upgrades.
 
 - **Sprint 122 PR 6:** Zustand 4.5.7 → 5.0.14. The sole store already used the supported named
   `create` export and touches neither the removed default-export shim nor the

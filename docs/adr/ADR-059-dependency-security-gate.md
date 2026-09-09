@@ -111,6 +111,55 @@ This is the **dependency** half of the standing security posture. Code scanning 
 
 ---
 
+## Amendment (Sprint 128, 2026-09-08): unavailable evidence is a failure
+
+BUG-038 exposed that a parsed npm error response could be treated as an empty vulnerability map.
+The audit boundary now rejects missing/malformed maps, npm error objects and inconsistent severity
+graphs before registry matching. Subprocess spawn errors, signals, timeouts and unsupported exit
+statuses also fail; stderr is captured and upstream error bodies are not printed. The process has
+a 120-second timeout. Valid success and finding responses preserve exemption policy, with critical
+findings always blocking. Unmatched-entry removal advice requires valid evidence.
+
+`tests/regression/sprint-128-audit-response-contract.test.ts` proves the empty/populated registry
+cases, CLI behavior and real child-stderr containment. Sprint 75 raw-count reporting uses the same
+validated acquisition boundary. This changes evidence handling, not the 30-day renewal authority
+or severity policy.
+
+The SDK-aligned update also removes the need for the two image-size exemptions. Expo 57.0.20
+uses `@expo/metro` 56.0.2, which pins Metro 0.84.5. Its installed `src/Assets.js` imports the
+internal `./lib/imageSize` parser; its manifest no longer declares `image-size`. After confirming
+no remaining dependency edges, PR B removes the orphaned image-size/queue lock entries and their
+two unmatched GHSA exemptions. Live lockfile audit on September 8 reports zero high/critical
+findings with an empty registry. The approved conditional renewal was therefore not applied;
+the existing remediation alternative resolves the deadline without extending an exception.
+
+### Release-time advisory refresh
+
+Later on September 8, fresh audit evidence blocked release preparation even though the previous
+CI head was green. Auditing the unchanged `ec4e4af1` lockfile in a temporary manifest snapshot
+reproduced one critical and three high vulnerable packages. The maintainer authorized remediation
+in PR B. A green historical run is evidence for its measurement time, not a permanent security verdict.
+
+- Both web apps raise their Next.js minimum from 15.5.21 to 15.5.24, including matching
+  `@next/env` and SWC packages. This addresses the
+  [Windows-hosted RCE](https://github.com/advisories/GHSA-p293-qw3h-jr36) and
+  [AVIF image optimization RCE](https://github.com/advisories/GHSA-2xp9-vwfh-vxw4) advisories.
+- The existing Sharp override becomes `sharp@<0.35.4: 0.35.4`; its native packages move to
+  0.35.4 and libvips packages to 1.3.3, following the published manifests. The
+  [Sharp advisory](https://github.com/advisories/GHSA-rgj7-g3m4-5g8c) requires this update
+  independently of the Next.js patch.
+- Existing XML/YAML overrides move to `@xmldom/xmldom ^0.8.15` and `js-yaml 4.3.2`, addressing
+  the audit's XML parser/serializer findings and the
+  [YAML merge CPU exhaustion advisory](https://github.com/advisories/GHSA-2883-xcg3-v3hh).
+
+The lockfile is spliced using published package metadata, preserving unrelated resolutions and
+all platform variants. These are dependency updates under the existing policy; no exemptions,
+new production dependencies, image-optimization bypass or severity-policy changes are introduced.
+The live SDK compatibility check subsequently advanced Expo/Router to 57.0.21/57.0.20; PR B
+follows those releases' required dependency closure while retaining SDK 57 and React Native 0.86.3.
+Strict install, live audit, native image processing, both web builds and the required tests must
+pass on the final tree before publication. Deployment remains pending PR review and authorization.
+
 ## Amendment (Sprint 123, 2026-08-10): time-boxed exemptions
 
 ### Why
