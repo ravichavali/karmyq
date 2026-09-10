@@ -338,6 +338,10 @@ function stripShellComment(line: string, inFence: boolean): string {
  * `git checkout -- <path>` (and `git checkout <ref> -- <path>`) restores files; it does NOT
  * switch branches. Recording the pathname as the current branch would silently clear master
  * attribution and let the following push through.
+ *
+ * ⚠️ `checkout` ONLY. `git switch` has no path-restoration form — that is `git restore` — so in
+ * `git switch -- master` the `--` merely ends option parsing and the operand is still a branch.
+ * Applying this guard there both misses a switch TO master and ignores a switch AWAY from it.
  */
 const isPathCheckout = (raw: string): boolean =>
   raw.split(/\s+/).some((t) => t === '--') || nonFlagArgs(raw)[0] === '.';
@@ -367,7 +371,8 @@ export function workflowRecipeIssues(docs: Record<string, string>): string[] {
         const args = nonFlagArgs(m[2]);
 
         if (subcommand !== 'push') {
-          if (isPathCheckout(m[2])) continue; // restores files; branch is unchanged
+          // Only `checkout` has a path-restoration form; `git switch --` still names a branch.
+          if (subcommand === 'checkout' && isPathCheckout(m[2])) continue;
           // `-b`/`-c` are filtered as flags, so the first bare word is the branch either way.
           branch = args[0] ? unquote(args[0]) : branch;
           continue;
@@ -637,6 +642,24 @@ describe('agent-facing playbooks carry no direct-to-master push recipe', () => {
     expect(
       workflowRecipeIssues({
         'x/SKILL.md': '```bash\ngit checkout master\ngit push origin feature/x\n```\n',
+      }),
+    ).toEqual([]);
+  });
+
+  // `git switch` has NO path-restoration form (that is `git restore`), so `--` there merely ends
+  // option parsing and the operand is still a branch. Treating it like `checkout -- <path>`
+  // loses the switch to master entirely.
+  it('treats `git switch -- master` as a real branch switch', () => {
+    expect(
+      workflowRecipeIssues({ 'x/SKILL.md': '```bash\ngit switch -- master\ngit push\n```\n' }),
+    ).toEqual([expect.stringContaining('pushes the checked-out master branch')]);
+  });
+
+  // The same bug in reverse: a switch AWAY from master must be honoured, not ignored.
+  it('honours `git switch -- <feature>` when switching away from master', () => {
+    expect(
+      workflowRecipeIssues({
+        'x/SKILL.md': '```bash\ngit checkout master\ngit switch -- feature/foo\ngit push\n```\n',
       }),
     ).toEqual([]);
   });

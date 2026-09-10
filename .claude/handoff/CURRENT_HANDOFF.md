@@ -44,7 +44,7 @@ exact failure the corrected `update-handoff` skill now tells the next session to
 1. Read this handoff, then confirm live state before trusting it:
    `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
 2. **Reuse the existing branch `agent/codex/sprint-128-framework`** — do not recreate it, and do
-   not branch again from master. Eight commits are already on it.
+   not branch again from master. Nine commits are already on it.
 3. Open the plan: `docs/superpowers/plans/2026-09-07-sprint-128-a-framework.md`.
 4. Remaining work is plan Tasks 7–8 — see *Still owed before merge* at the bottom.
 
@@ -53,7 +53,7 @@ SDLC gates are complete; an independent non-author review and merge authorizatio
 
 ## What changed on this branch
 
-- **New drift-gate assertion** (`tests/regression/doc-context-drift-gate.test.ts`, 13 → 39 tests):
+- **New drift-gate assertion** (`tests/regression/doc-context-drift-gate.test.ts`, 13 → 41 tests):
   a pure `workflowRecipeIssues()` predicate over the **live agent-facing playbook set** — enumerated
   from git via the shared `tracked()` helper, never a directory glob — rejecting direct-to-master
   push recipes including `HEAD:master`, force, quoted and `refs/heads/` variants, with a negative
@@ -238,7 +238,28 @@ the suite doesn't. The independence came from **separately chosen cases and expe
 and cases only protect the repo if they live in the gate — all 11 are now fixtures. The probe was
 scaffolding, not evidence.
 
-Gate is now **39 tests**.
+Gate stood at 39 tests after that round.
+
+## Third maintainer review — 1 finding, fixed
+
+The path-restoration guard added in the previous round was applied to **both** `checkout` and
+`switch`. But `git switch` has no path-restoration form — that is `git restore` — so in
+`git switch -- master` the `--` merely ends option parsing and the operand is still a branch.
+
+The guard therefore broke detection in both directions: a switch **to** master was ignored, so a
+following push went unflagged; and a switch **away** from master was ignored, so a correct feature
+push was falsely flagged. The maintainer verified both transitions against real git in a
+disposable repository. The guard now applies only when the subcommand is `checkout`, with a
+fixture for each direction and the distinction recorded in the function's docstring.
+
+Gate is now **41 tests**.
+
+**Pattern worth carrying forward.** Every defect in this predicate after the first has been a
+*semantic* one — what a git command actually does — not a scoping or plumbing error: a push that
+names no branch, a comment that is not a comment, a checkout that does not check out, a `--` that
+means opposite things either side of one subcommand. Reading the diff harder does not surface
+these; checking each command's real behaviour against git's documentation or a disposable repo
+does. Anything added to this gate later should be verified that way before it is trusted.
 
 ## Blockers and decisions
 
@@ -258,9 +279,9 @@ Gate is now **39 tests**.
 ## Verification references
 
 - `npm test -- --concurrency=2` → **exit 0**; 26/26 Turbo tasks, root unit **101/101**, root
-  regression **737/737** across 29 suites (2026-09-09, after all review fixes).
+  regression **739/739** across 29 suites (2026-09-09, after all review fixes).
 - Drift gate direct: `cd tests && npx jest regression/doc-context-drift-gate.test.ts --runInBand`
-  → **39/39, exit 0**.
+  → **41/41, exit 0**.
 - **Falsifiability proven twice**: the assertion failed on the two original defects
   (`deploy/SKILL.md:30`, `ship/SKILL.md:66`) before the fix; and after widening, a temporary
   injection into `docs/GITHUB_ACTIONS_SETUP.md` failed the gate at the expected file and line.
