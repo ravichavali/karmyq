@@ -24,7 +24,7 @@
 
 - **Spec**: `docs/superpowers/specs/2026-09-07-sprint-128-single-stream-design.md`
 - **Plan**: `docs/superpowers/plans/2026-09-07-sprint-128-a-framework.md`
-- **PR**: not yet opened
+- **PR**: [#232](https://github.com/ravichavali/karmyq/pull/232) — OPEN
 
 ## PR B is DONE — the previous handoff was wrong about this
 
@@ -44,12 +44,12 @@ exact failure the corrected `update-handoff` skill now tells the next session to
 1. Read this handoff, then confirm live state before trusting it:
    `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
 2. **Reuse the existing branch `agent/codex/sprint-128-framework`** — do not recreate it, and do
-   not branch again from master. Nine commits are already on it.
+   not branch again from master. Ten commits are already on it, and it is published as #232.
 3. Open the plan: `docs/superpowers/plans/2026-09-07-sprint-128-a-framework.md`.
-4. Remaining work is plan Tasks 7–8 — see *Still owed before merge* at the bottom.
+4. Remaining work is plan Task 8 — see *Still owed before merge* at the bottom.
 
-**Next unchecked task**: Task 7 — push the branch and open PR A with the full template. All four
-SDLC gates are complete; an independent non-author review and merge authorization remain.
+**Next unchecked task**: Task 8 — PR [#232](https://github.com/ravichavali/karmyq/pull/232) is open with all checks green. It needs the required
+approving review (not self-providable) and explicit maintainer merge authorization.
 
 ## What changed on this branch
 
@@ -292,12 +292,28 @@ does. Anything added to this gate later should be verified that way before it is
 ⚠️ GitHub status above is a dated observation. Re-derive with `gh pr view` and
 `git log origin/master` before trusting it.
 
+## PR A is open — [#232](https://github.com/ravichavali/karmyq/pull/232)
+
+Pushed 2026-09-10 at `bee2fbe3`. **All 20 checks SUCCESS**, plus `Deploy to Demo` SKIPPED, which is
+expected — it runs only on a `master` push. `mergeStateStatus` is **BLOCKED** on the required
+approving review, which cannot be self-provided on a PR authored by the same account.
+
+`pr-contract` passed, confirming the `--body-file` fix: `gh pr create --fill` would have failed it.
+
+**One unexplained transient.** The first push attempt failed the pre-push hook — `@karmyq/tests#test`
+failed in the regression tier — but the hook's captured output was truncated to npm wrapper noise,
+so **the failing test could not be identified**. Three direct reruns passed 739/739 and the retry
+pushed cleanly. Recorded as unidentified rather than attributed to one of the known flakes without
+evidence. If it recurs, capture the hook's full output before concluding anything.
+
 ## Still owed before merge
 
-- ~~`/security-review`~~ — **done, no findings.** All four SDLC gates complete.
-- ~~Independent non-author review~~ — **done**; 2 findings, both fixed (above). A second pair of
-  eyes via Codex is still available if you want it.
-- **Push + open PR A**, then **explicit maintainer merge authorization** (plan Task 8).
-- **Your decision, not mine**: `master` branch protection has `enforce_admins: false`, so the admin
-  identity can bypass all six required checks with a direct push. This PR fixes what the playbooks
-  *say*; it cannot close that. `enforce_admins: true` is one API call.
+- **Required approving review on #232** — cannot be self-provided; a human or a second account.
+- **Explicit maintainer merge authorization**, then merge → CI/CD → deploy → health verify.
+  Only after that does PR C start, from a refreshed `origin/master`.
+- **Your decision, not mine**: `master` has `enforce_admins: false` (maintainer-confirmed with
+  authenticated access), so the admin identity bypasses all six required checks and the required
+  approval with a direct push. This PR fixes what the playbooks *say*; it cannot close that.
+- **Unrelated to this PR**: GitHub reported 4 vulnerabilities on the default branch during the push
+  (1 high, 3 moderate). The high is inside the repo's own ≤ 1 week SLA — worth checking
+  independently of #232.
