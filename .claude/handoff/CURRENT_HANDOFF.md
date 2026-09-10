@@ -1,7 +1,7 @@
 # Sprint 128 PR C — Standing preview parity — Handoff
 
 **Date**: 2026-09-10
-**Outcome**: implementation complete and all four SDLC gates run; **PR not yet opened**
+**Outcome**: implementation complete, all four SDLC gates run, **PR [#233](https://github.com/ravichavali/karmyq/pull/233) OPEN with all 20 checks green** — awaiting the required approving review and explicit maintainer merge authorization
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router — there is no second machine.
 > This file is branch-local and reserves nothing; contended resources are allocated by the
@@ -24,17 +24,32 @@
 
 - **Spec**: `docs/superpowers/specs/2026-09-07-sprint-128-single-stream-design.md`
 - **Plan**: `docs/superpowers/plans/2026-09-07-sprint-128-c-standing-preview.md`
-- **PR**: not yet opened
+- **PR**: [#233](https://github.com/ravichavali/karmyq/pull/233) — OPEN, head `c606662b`
 
 ## Quick Start
 
-1. Confirm live state before trusting this file: `git fetch origin`, `gh pr list`,
+1. Confirm live state before trusting this file: `git fetch origin`, `gh pr view 233`,
    `git log --oneline origin/master -3`.
-2. **Reuse this branch.** Work is committed on it.
-3. Remaining: open PR C, obtain the approving review and merge authorization, deploy, then
+2. **Reuse this branch.** Work is committed and pushed as `c606662b`.
+3. Remaining: the approving review and merge authorization, then deploy and health verify, then
    **tear down the D1 resources** (they are still up).
 
-**Next unchecked task**: Plan Task 7's final step — open PR C with the full template.
+**Next unchecked task**: Plan Task 8 — the approving review on #233 (cannot be self-provided),
+explicit merge authorization, deploy, then D1 teardown and the sprint retrospective.
+
+## PR #233 status — verified 2026-09-10
+
+**All 20 checks PASS**; `Deploy to Demo` SKIPPING, which is expected — it runs only on a `master`
+push. `mergeStateStatus` is **BLOCKED** solely on `REVIEW_REQUIRED`.
+
+Each workflow run's `headSha` was queried directly rather than read off the rollup, which is the
+check PR A's handoff says to make: CI/CD Pipeline, Tests and PR Contract all report `success`
+against `c606662b`, and that is still the PR head. `pr-contract` passing confirms the full template
+body was supplied rather than `--fill`.
+
+Codex reviewed the pushed branch independently and confirmed the remote commit, the template and
+the contract check, and flagged that this handoff still said "PR not yet opened" — corrected here.
+That staleness is the blocking defect `CLAUDE.md` → *Session Workflow* names explicitly.
 
 ## What this PR fixes
 
@@ -185,5 +200,12 @@ Recorded before this file's final edit; re-run if anything changes after it.
 - Root standing-projection equivalence regression **32/32**.
 - Falsifiability proven three times by injection, each reverted: the recency-window gate, the
   order-independence regression, and the integration oracle.
+- Pre-commit and pre-push hooks both **actually ran** on this clone (gotcha credential screening at
+  commit; the blocking suite across 15 packages at push). That is worth recording — `MEMORY.md` had
+  them as inert on this checkout.
+- **Caveat on one gate**: the `process-reviewer` agent was killed mid-run by a session rate limit,
+  so its checklist was run directly instead — CONTEXT.md updated, registry a one-line valid-JSON
+  diff, the one new logic file covered by two new test files, no never-hand-edit generated file
+  staged. Every item passed, but that gate was self-administered rather than independently run.
 
 ⚠️ GitHub status is a dated observation. Re-derive with `gh pr view` and `git log origin/master`.
