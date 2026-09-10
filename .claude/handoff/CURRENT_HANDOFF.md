@@ -1,7 +1,7 @@
 # Sprint 128 PR A — Framework refinement — Handoff
 
-**Date**: 2026-09-09
-**Outcome**: in progress — implementation complete, PR not yet opened
+**Date**: 2026-09-10
+**Outcome**: implementation complete; PR #232 OPEN, awaiting required review and maintainer merge authorization
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router — there is no second machine.
 > This file is branch-local and reserves nothing; contended resources are allocated by the
@@ -15,8 +15,8 @@
 |---|---|
 | **Branch** | `agent/codex/sprint-128-framework` |
 | **Base** | `origin/master` at `095fc856` (fetched 2026-09-09) |
-| **Active editor** | Claude (this session) — one editor |
-| **Reviewer role** | non-author review still owed (`/simplify`, `/code-review`, `/security-review`) |
+| **Active editor** | Codex — handoff reconciliation only; implementation handed off by Claude |
+| **Reviewer role** | Review rounds recorded below; GitHub required approving review still owed |
 | **Owned paths** | `.claude/skills/*`, `.claude/agents/process-reviewer.md`, `.claude/handoff/*`, `CONTRIBUTING.md`, `docs/concepts/how-karmyq-learns.md`, `tests/regression/doc-context-drift-gate.test.ts`, plus `docs/BUGS.md` (maintainer-approved deviation) |
 | **Shared resources needed** | none — no ADR minted, no dependency change. Version bump is re-derived from `origin/master` **at merge time** |
 
@@ -44,7 +44,8 @@ exact failure the corrected `update-handoff` skill now tells the next session to
 1. Read this handoff, then confirm live state before trusting it:
    `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
 2. **Reuse the existing branch `agent/codex/sprint-128-framework`** — do not recreate it, and do
-   not branch again from master. Ten commits are already on it, and it is published as #232.
+   not branch again from master. It is published as #232; compare local HEAD with the live PR head
+   before treating CI evidence as covering local changes.
 3. Open the plan: `docs/superpowers/plans/2026-09-07-sprint-128-a-framework.md`.
 4. Remaining work is plan Task 8 — see *Still owed before merge* at the bottom.
 
@@ -307,6 +308,29 @@ pushed cleanly. Recorded as unidentified rather than attributed to one of the kn
 evidence. If it recurs, capture the hook's full output before concluding anything.
 
 ## Still owed before merge
+
+### Head-specific verification (2026-09-10)
+
+Codex independently queried each run with `gh run view --json headSha,status,conclusion`:
+[CI/CD Pipeline](https://github.com/ravichavali/karmyq/actions/runs/34482723027),
+[Tests](https://github.com/ravichavali/karmyq/actions/runs/34482723029),
+[PR Contract](https://github.com/ravichavali/karmyq/actions/runs/34482723024), and
+[CodeQL](https://github.com/ravichavali/karmyq/actions/runs/34482719806) all reported completed/success
+for the published PR head `107e6ef0b99922de7d56ed88205f39ef34b02284`. This evidence covers that
+published revision, not subsequent local handoff edits. Live PR state was OPEN / BLOCKED /
+REVIEW_REQUIRED with no submitted reviews. The authenticated account and PR author were both
+`ravichavali`; branch protection required one approval and six checks, with `enforce_admins: false`.
+Fetched `origin/master` remained `095fc856`; no merge or settings change was performed.
+
+**Watcher failure reported by the previous session:** its 90-second wait ended while the rollup
+still displayed the preceding head's completed checks and new runs had not registered. Zero
+in-progress checks is not evidence of success. Before accepting green, require the expected
+workflows to exist, verify each run's `headSha` against the current PR head, require successful
+completion, and re-read the PR head to detect another push. Missing runs mean pending/unknown.
+The earlier `gh run list --commit` lookup returned nothing; do not interpret an empty lookup as
+passing. Use the run IDs and inspect their head SHAs directly.
+
+### Remaining actions
 
 - **Required approving review on #232** — cannot be self-provided; a human or a second account.
 - **Explicit maintainer merge authorization**, then merge → CI/CD → deploy → health verify.
