@@ -27,8 +27,13 @@ rather than a blank, while a member who has never completed an exchange anywhere
 their first one. The carry is deliberately small: it says you take part somewhere, and nothing more.
 What actually builds your standing here is the exchanges you complete here.
 
-Communities that would rather not carry anything across can set breadth to zero in their trust
-model, and every new member then starts level.
+**Ratings travel too.** Feedback counts 70% from this community and 30% from everywhere else — but
+until someone has rated you *here*, your rating from elsewhere is all there is, so it counts in
+full. Someone others have consistently vouched for is not a stranger on their first day.
+
+A community can set breadth to zero in its trust model, and range of participation then stops
+counting. That narrows what carries across; it does not end it, because ratings still do. Only a
+member with no history and no ratings anywhere starts at a true zero.
 
 ## Reading the Trust Path
 

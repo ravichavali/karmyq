@@ -1532,8 +1532,23 @@ second one:
 | No history anywhere | 0 | 0 | 0 | **0** |
 
 **1 is not a floor** — it is what the default 0.4 breadth weight produces from one community of
-canonical activity. A member with no history anywhere still scores 0, and a community that sets
-`breadth_weight = 0` returns those memberships to 0.
+canonical activity. A member with no history anywhere still scores 0.
+
+⚠️ **`breadth_weight = 0` does NOT remove all cross-community standing** — it removes only the
+breadth term. Feedback is the second, independent cross-community channel:
+`calculateWeightedAvgFeedback` blends 70% local / 30% global but returns `local ?? global`
+(`database/feedbackDb.ts:39-45`), so a member with no LOCAL rating is scored on their global average
+**whole**. Verified against `computeTrustScore`:
+
+| breadth_weight | prior feedback | Score |
+|---|---|---|
+| 0 | 5★ elsewhere | **25** |
+| 0 | none | 0 |
+| 0.4 | 5★ elsewhere | 26 |
+| 0.4 | none | 1 |
+
+So only a member with no history **and** no feedback anywhere scores 0. Setting breadth to zero does
+not make a community's scoring purely local, and nothing in the current configuration surface does.
 
 `zeroHistoryPairs` counts pairs with no **local** history, so it does not equal the `'0'` score
 bucket. Reading it as "how many will score 0" is the mistake the old wording invited.

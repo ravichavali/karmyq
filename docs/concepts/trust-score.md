@@ -42,9 +42,17 @@ show you are a real participant somewhere, and not enough to substitute for show
 who has never completed an exchange anywhere starts at zero, and stays there until their first one.
 
 It is a deliberately modest carry. Your reputation in one community is evidence that you take part;
-it is not a claim on anyone's trust in another. Depth, feedback, and the exchanges you actually
-complete here are what move your standing in this community, and a community that weights breadth at
-zero opts out of the carry entirely.
+it is not a claim on anyone's trust in another. Depth and the exchanges you actually complete here
+are what move your standing in this community.
+
+Breadth is not the only thing that travels, though. **Feedback does too.** Ratings are weighted 70%
+from this community and 30% from everywhere else — but until you have been rated *here*, your rating
+from elsewhere is all there is, so it counts in full. That is deliberate: someone people have
+consistently vouched for elsewhere is not a stranger, even on their first day here.
+
+A community can turn the breadth weight down to zero, and then range of participation stops
+counting. That narrows the carry; it does not end it, because feedback still crosses. Only someone
+with no history and no ratings anywhere starts at a true zero.
 
 ---
 

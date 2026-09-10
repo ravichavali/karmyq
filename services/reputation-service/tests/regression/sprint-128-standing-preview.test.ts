@@ -199,6 +199,57 @@ describe('buildPreviewIndex / computePreviewMetrics', () => {
 });
 
 /**
+ * What `breadth_weight = 0` does and does not switch off.
+ *
+ * The Sprint 128 docs originally claimed a community could set breadth to zero and have every new
+ * member "start level". That is false, and the numbers below are the reason: feedback is a SECOND,
+ * independent cross-community channel. `calculateWeightedAvgFeedback` blends 70% local / 30% global
+ * but returns `local ?? global` (`database/feedbackDb.ts:39-45`), so a member with no local rating
+ * is scored on their global average whole, whatever breadth is set to.
+ *
+ * These four values are the table in `CONTEXT.md`'s runbook. Pinning them means the prose cannot
+ * drift away from the arithmetic again without a test failing.
+ */
+describe('breadth_weight = 0 removes the breadth term, not all cross-community standing', () => {
+  const { computeTrustScore } = require('../../src/services/trustScoreStrategy');
+
+  const newcomer = (breadth_weight: number, avg_feedback_score: number | null) => computeTrustScore({
+    recent_interactions: 0,          // no local history
+    repeat_interaction_pairs: 0,
+    distinct_people_count: 0,
+    distinct_communities_count: 1,   // active in exactly one OTHER community
+    avg_feedback_score,
+    depth_weight: 0.6,
+    breadth_weight,
+    feedback_threshold: 3.0,
+    min_interactions_for_bonus: 1,
+    negative_allowed: false,
+  });
+
+  it('still scores 25 with zero breadth and five-star feedback earned elsewhere', () => {
+    expect(newcomer(0, 5)).toBe(25);
+  });
+
+  it('scores 0 with zero breadth only when there is no feedback anywhere either', () => {
+    expect(newcomer(0, null)).toBe(0);
+  });
+
+  it('adds the breadth term back at the default weight', () => {
+    expect(newcomer(0.4, 5)).toBe(26);
+    expect(newcomer(0.4, null)).toBe(1);
+  });
+
+  it('scores 0 for a member with no history and no feedback anywhere', () => {
+    expect(computeTrustScore({
+      recent_interactions: 0, repeat_interaction_pairs: 0, distinct_people_count: 0,
+      distinct_communities_count: 0, avg_feedback_score: null,
+      depth_weight: 0.6, breadth_weight: 0.4, feedback_threshold: 3.0,
+      min_interactions_for_bonus: 1, negative_allowed: false,
+    })).toBe(0);
+  });
+});
+
+/**
  * Report-level behaviour, over the Sprint 126 fixture conventions.
  *
  * That fixture never had a membership whose history sat in ANOTHER community, which is exactly why
