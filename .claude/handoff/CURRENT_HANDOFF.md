@@ -1,7 +1,7 @@
 # Sprint 128 PR A — Framework refinement — Handoff
 
 **Date**: 2026-09-10
-**Outcome**: implementation complete; PR #232 OPEN, awaiting required review and maintainer merge authorization
+**Outcome**: implementation complete; PR #232 OPEN with CI green and **v11.49.0** prepared, awaiting the required approving review and maintainer merge authorization
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router — there is no second machine.
 > This file is branch-local and reserves nothing; contended resources are allocated by the
@@ -18,7 +18,7 @@
 | **Active editor** | Codex — handoff reconciliation only; implementation handed off by Claude |
 | **Reviewer role** | Review rounds recorded below; GitHub required approving review still owed |
 | **Owned paths** | `.claude/skills/*`, `.claude/agents/process-reviewer.md`, `.claude/handoff/*`, `CONTRIBUTING.md`, `docs/concepts/how-karmyq-learns.md`, `tests/regression/doc-context-drift-gate.test.ts`, plus `docs/BUGS.md` (maintainer-approved deviation) |
-| **Shared resources needed** | none — no ADR minted, no dependency change. Version bump is re-derived from `origin/master` **at merge time** |
+| **Shared resources needed** | none — no ADR minted, no dependency change. Version bumped to **v11.49.0** at merge time, re-derived from `origin/master` (11.48.0) |
 
 ## Links
 
