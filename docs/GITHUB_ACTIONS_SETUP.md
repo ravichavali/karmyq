@@ -82,13 +82,22 @@ ssh ubuntu@karmyq.com "cd ~/karmyq && git status"
 ```
 
 ### 3. Trigger a Deployment
+
+Deployment is triggered by **merging an approved PR into `master`**, not by pushing `master`.
+Open a PR from your task branch, get it reviewed and explicitly authorized, then merge it:
+
 ```bash
-# Make a small change and push to master
-git checkout master
+git switch -c test/deploy-check origin/master
 echo "# Test deployment" >> README.md
-git add README.md
-git commit -m "test: trigger GitHub Actions deployment"
-git push origin master
+git commit -am "test: trigger GitHub Actions deployment"
+git push -u origin test/deploy-check
+
+# Fill in every section of the template first, then create the PR with it.
+# `--fill` would omit the required sections and fail the pr-contract check.
+gh pr create --body-file .github/pull_request_template.md
+
+# Only after review and explicit merge authorization:
+gh pr merge --squash
 ```
 
 ### 4. Monitor Deployment
@@ -247,14 +256,14 @@ docker compose restart <service-name>
 ```
 
 ### Workflow Doesn't Trigger
-**Cause:** Push was to wrong branch
+**Cause:** The change never landed on `master` — the deploy workflow only runs there.
 
-**Fix:**
+**Fix:** Merge the approved PR. The merge itself is what triggers the pipeline; never push the
+`master` branch directly to force it (see `CLAUDE.md` → *Merge, Deploy & Security-Gate Discipline*).
+
 ```bash
-# Workflow only runs on master branch
-git checkout master
-git merge your-feature-branch
-git push origin master
+gh pr checks <N>      # all required checks green?
+gh pr merge <N> --squash   # only with explicit maintainer authorization
 ```
 
 ## Disabling Automatic Deployment

@@ -53,6 +53,24 @@ And nothing summarises these entries. Discovery points you at the entry itself; 
 paraphrases. A summary layer drifts away from what it summarises, and looks authoritative while
 doing it.
 
+## Why this is not just notes
+
+There are three places a fact can end up, and only one of them reaches everybody:
+
+- A **gotcha** lives in the repository. Everyone who clones gets it.
+- A **handoff** also lives in the repository, but on a *branch* — it carries the state of work in
+  flight, so it is invisible to every other branch until it merges.
+- An **agent's memory** lives outside the repository entirely, on one machine.
+
+The distinction matters more than it first sounds. A durable fact recorded as a memory reaches one
+agent on one machine; recorded in a handoff it reaches one branch and goes stale with it. Only the
+gotcha is distribution.
+
+It has a sharper consequence too. Because a handoff is branch-local, one branch cannot read what
+another wrote there — so a handoff can *record* that work is happening, but it can never *reserve*
+anything. Writing "I have taken this" in a file the other side is not reading is not coordination;
+it only looks like it. Genuinely contended things are allocated by a person instead.
+
 ## Using it
 
 Ask what applies to the code you are about to touch:

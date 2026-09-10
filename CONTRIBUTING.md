@@ -21,7 +21,8 @@ External contributors: fork first, then clone your fork.
 
 ## Workflow
 
-1. Branch off `master`. Naming:
+1. Branch off a freshly fetched `origin/master` — never a stale local `master`, whose unpushed
+   commits would leak in through the squash-merge. Naming:
    - Humans: `feature/`, `fix/`, `docs/`, `refactor/`, `chore/`
    - Agents: `agent/<agent-name>/<slug>` (e.g. `agent/codex/dashboard-retry`)
 2. Make scoped changes. One agent per branch; no direct commits to `master`.
@@ -33,6 +34,32 @@ External contributors: fork first, then clone your fork.
    The `pr-contract` check fails the PR if required sections are missing.
 5. A reviewer (maintainer/Claude) verifies the contract and merges. Contributor agents never
    self-merge.
+
+### One editor at a time
+
+The repo is developed from up to two checkouts on different machines (`CLAUDE.md` →
+*Parallel Development* has the rules that apply when both are active, including how contended
+resources are allocated). Whichever is running, a branch has **one active editor** at a time, in
+one of two roles — never both at once:
+
+- The **author** writes and pushes their own branch.
+- The **reviewer** is a non-author who reads the diff. Reviewers do not co-edit or push the
+  author's branch — a review that edits the work is no longer an independent check.
+
+Leave a clean tree when you hand the role over. Before activating a second machine, work through
+the checklist in [`.claude/handoff/README.md`](.claude/handoff/README.md).
+
+### Three kinds of knowledge, and only one reaches everyone
+
+| | Lives in | Travels with a clone? |
+|---|---|---|
+| **Handoff** — state of the work in flight (branch, next task, blockers) | `.claude/handoff/`, in the repo, **branch-local** | Yes, but only on that branch |
+| **Gotchas** — durable repo-scoped operational facts | [`docs/gotchas/`](docs/gotchas/), in the repo | Yes, to everyone |
+| **Agent memory** — one agent's private notes | `~/.claude/projects/<project>/memory/`, **outside the repo** | **No** |
+
+A fact everyone who clones needs is a **gotcha**, not a memory and not a handoff line —
+[`docs/concepts/how-karmyq-learns.md`](docs/concepts/how-karmyq-learns.md) explains why, including
+why a branch-local file can record work but never reserve it.
 
 ## Tests
 

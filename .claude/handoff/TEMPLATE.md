@@ -1,150 +1,61 @@
-# [Feature Name] - Implementation Plan
-
-## Handoff Document for New Conversation
+# [Sprint / PR name] — Handoff
 
 **Date**: YYYY-MM-DD
-**Current Version**: vX.X.X
-**Feature**: [Feature Name]
-**Complexity**: Low | Medium | High
-**Impact**: Low | Medium | High | Very High
-**Estimated Time**: X weeks/days
+**Outcome**: in progress | blocked | merged, deploy pending | shipped
+
+> The handoff carries **state between sessions**. It is not a copy of the plan — link the plan
+> and name the next unchecked task instead. It is branch-local, so it can reserve nothing; see
+> `CLAUDE.md` → *Parallel Development* for how contended resources are actually allocated.
 
 ---
 
-## Context
+## Ownership and base
 
-### What We Just Completed
-- ✅ [Previous work item 1]
-- ✅ [Previous work item 2]
-- ✅ [Previous work item 3]
+| Field | Value |
+|---|---|
+| **Branch** | `agent/<owner>/<slug>` |
+| **Base** | `origin/master` at `<sha>` (fetched YYYY-MM-DD) |
+| **Active editor** | who is writing right now — exactly one |
+| **Reviewer role** | who reviews; a non-author. Reviewers read the diff, they do not co-edit |
+| **Owned paths** | the paths this branch may change |
+| **Shared resources needed** | ADR number / version bump / dependency lane / demo data op / merge slot — each needs its own maintainer authorization; none is reserved by writing it here |
 
-### Why This Feature
-**Problem**: [Describe the problem this feature solves]
+## Links
 
-**Solution**: [Describe the solution approach]
+- **Spec**: `docs/superpowers/specs/<file>.md`
+- **Plan**: `docs/superpowers/plans/<file>.md`
+- **PR**: #NNN (link)
 
-**Impact**: [Describe the business/technical impact]
+## Quick Start
 
----
+1. Read this handoff, then confirm live state before trusting it:
+   `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
+2. Reuse the existing task branch if one exists; otherwise
+   `git switch -c <branch> origin/master`. Never branch off a stale local master —
+   unpushed local-master commits leak in via the squash-merge.
+3. Open the plan linked above.
+4. Run `/execute-plan` (uses `superpowers:subagent-driven-development`).
 
-## Current State (vX.X.X)
+**Next unchecked task**: Task N — [one line, with the file path to start from]
 
-### ✅ Already Implemented
-- [Component/feature 1 that already exists]
-- [Component/feature 2 that already exists]
-- Key files: `path/to/file.ts`, `path/to/another.ts`
+Anyone should be able to read only this file and start, with no machine-local memory.
 
-### ❌ Not Yet Implemented
-- [Missing component 1]
-- [Missing component 2]
-- [Missing component 3]
+## Blockers and decisions
 
----
+- **Blocker**: [what is stopping progress, and who unblocks it]
+- **Decision**: [what was decided and **why**, so the next session does not re-debate it]
 
-## Implementation Plan
+## Verification references
 
-### Phase 1: [Phase Name] (Week 1)
+Cite evidence, not impressions — a command and its result, a run link, or a dated observation.
 
-#### 1.1 [Sub-task Name]
+- `npm test` → exit 0, N unit / N regression (YYYY-MM-DD)
+- CI run: [link] — observed <status> on YYYY-MM-DD
+- Deploy verified: run link + health probe result
 
-**New Files**:
-- `path/to/new/file.ts`
-- `path/to/another/file.ts`
+⚠️ **GitHub status goes stale.** Record it as a link or a dated observation, never as a standing
+fact. Re-derive PR and deploy state with `gh pr view <N>` and `git log origin/master` before
+trusting anything written here — a handoff saying "awaiting merge" for an already-merged PR is a
+blocking defect.
 
-**Files to Modify**:
-- `path/to/existing/file.ts`
-
-**Implementation Steps**:
-1. Step 1
-2. Step 2
-3. Step 3
-
-**Testing**:
-- Unit tests for X
-- Integration test: Y
-- Regression test: Z
-
----
-
-### Phase 2: [Phase Name] (Week 2)
-[Repeat structure from Phase 1]
-
----
-
-## Critical Files Reference
-
-### Backend
-- `path/to/backend/file.ts` - Description
-
-### Frontend
-- `path/to/frontend/file.tsx` - Description
-
-### Mobile
-- `path/to/mobile/file.tsx` - Description
-
----
-
-## Existing Patterns to Reuse
-
-### 1. [Pattern Name]
-**File**: `path/to/file.ts` (lines X-Y)
-- Description of what can be reused
-
----
-
-## Testing Strategy
-
-### Unit Tests
-- Test description 1
-- Test description 2
-
-### Integration Tests
-- Test description 1
-
-### E2E Tests
-- Test description 1
-
----
-
-## Quick Start for Next Session
-
-### To begin implementation:
-
-1. **Start with [first step]**:
-   ```bash
-   cd [directory]
-   [command to run]
-   ```
-
-2. **[Second step]**
-
-3. **[Third step]**
-
----
-
-## Success Definition
-
-This feature is "done" when:
-- ✅ [Success criterion 1]
-- ✅ [Success criterion 2]
-- ✅ [Success criterion 3]
-
----
-
-## File Checklist
-
-### New Files to Create
-- [ ] `path/to/file1.ts`
-- [ ] `path/to/file2.ts`
-
-### Files to Modify
-- [ ] `path/to/existing1.ts`
-- [ ] `path/to/existing2.ts`
-
-### Tests to Write
-- [ ] Unit test for X
-- [ ] Integration test for Y
-
----
-
-**Ready to start!** This document contains everything needed to implement [Feature Name].
+⚠️ **Never record this document's own final commit SHA** — it cannot know it.

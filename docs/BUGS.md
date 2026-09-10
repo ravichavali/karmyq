@@ -727,3 +727,33 @@ Timings corroborate an outage rather than a code change: the failing tests took 
 (retry storms), against 23s for the one audit call that succeeded in the same run.
 
 ---
+
+## BUG-039 · [2026-09-09] · open
+
+**The guided Maria demo at `karmyq.com/demo` cannot start a session.**
+
+`POST /api/auth/demo-session` returns **503 `DEMO_UNAVAILABLE`**, so `demo.tsx`'s `startSession()`
+catch sets `phase='unavailable'` and the page renders "The live demo isn't available right now.
+You can still explore Karmyq another way." (`apps/frontend/src/pages/demo.tsx:116`).
+
+Reproduced live on 2026-09-09 against deployed v11.47.0:
+
+```
+POST https://karmyq.com/api/auth/demo-session -> 503 (233ms)
+{"success":false,"message":"Demo session is unavailable","error":"DEMO_UNAVAILABLE",...}
+```
+
+The rest of the auth service is healthy — `POST /api/auth/login` as
+`maria.reyes@test.karmyq.com` returns **200 with a token** — so this is not an outage, not an
+nginx routing fault, and not a general auth failure. Only demo-session issuance is affected.
+
+**Diagnosis needs server logs.** By design (ADR-084) every failure collapses to one opaque 503 so
+resource existence is never leaked (`services/auth-service/src/routes/auth.ts:250`), and only
+unexpected non-`DemoSessionUnavailableError` failures are logged. Candidate causes: the Maria
+demo persona//stories missing from the demo DB, or demo session config absent from the deployed
+auth-service environment. Check `pm2 logs karmyq-auth-service` (or the container logs) on the
+demo server, then confirm the persona and its two seeded stories exist.
+
+Unrelated to Sprint 128 PR B, which does not touch demo-session code.
+
+---

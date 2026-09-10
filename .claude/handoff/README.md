@@ -20,7 +20,8 @@ A single rolling handoff cannot serve two machines — it is the one file that c
 cross-session state, and concurrent edits to it from two checkouts corrupt exactly that.
 
 **The rule:** when more than one sprint is in flight, `CURRENT_HANDOFF.md` holds only the
-**Active lanes** table (branch → lane file → reserved ADR block). Each lane gets its own
+**Active lanes** table (branch → lane file). That table **reserves nothing** — an ADR number is
+maintainer-allocated and is never blocked out here. Each lane gets its own
 `lane-<slug>.md`, created from `TEMPLATE.md`, owned by exactly one machine.
 
 1. A session reads `CURRENT_HANDOFF.md`, matches its current branch to a row, and follows the
@@ -36,6 +37,33 @@ cross-session state, and concurrent edits to it from two checkouts corrupt exact
 4. When a lane ships, archive its lane file to `archive/` and delete its row.
 
 The serialization rules these lanes must honor are in `CLAUDE.md` → **Parallel Development**.
+
+### Single stream is the default
+
+**When only one sprint is in flight, `CURRENT_HANDOFF.md` is the state, not a router.** Do not
+create a lane table for a single stream — an unnecessary router adds a level of indirection that
+can only go stale. Add the table when a second lane actually starts.
+
+### Checklist before activating a second machine
+
+**Sequencing only — the rules themselves live in `CLAUDE.md`.** Restating them here would create a
+second, ungated copy that drifts, which is the failure this framework exists to prevent. Work
+through the pointers in order:
+
+- [ ] **Host gotchas applied** — `CLAUDE.md` → *Host environments*. Run `uname -s` on each machine;
+      they do not transfer.
+- [ ] **Clone bootstrapped** — `CLAUDE.md` → *Development Disciplines* §3, and
+      `docs/gotchas/hooks-install-to-git-hooks-on-a-fresh-clone.md`.
+- [ ] **Hooks proven live** — same discipline's ⚠️ block: a silent, instant push means no hook ran.
+- [ ] **Agent memory synced** — `CLAUDE.md` → *Parallel Development*; it lives outside the repo and
+      a fresh clone has none of it.
+- [ ] **File ownership split, shared-package consumers kept together** — `CLAUDE.md` →
+      *Parallel Development* (split sprints on file-disjoint boundaries).
+- [ ] **ADR number and dependency lane allocated by the maintainer** — `CLAUDE.md` →
+      *Why reservations do not work here*, and *The dependency lane*.
+- [ ] **Deploy slot serialized** — `CLAUDE.md` → *Parallel Development* (`master` merges row).
+- [ ] **Generated-doc churn handled** — `docs/gotchas/landing-docs-are-generated-never-authored.md`.
+- [ ] **Each lane's file created** from `TEMPLATE.md`, with its owned paths recorded.
 
 ## How It Works
 
@@ -61,29 +89,27 @@ When ending a conversation mid-feature, ask Claude to create a handoff:
 Create a handoff document for the next conversation
 ```
 
-Claude will:
-1. Document what was just completed
-2. Explain why the feature matters
-3. List what's already implemented
-4. Provide a detailed implementation plan
-5. Include file paths, code patterns to reuse
-6. Define success criteria
-7. Write everything to `CURRENT_HANDOFF.md`
+This is the **`update-handoff`** skill's procedure — invoke it rather than reproducing the steps.
+In outline, Claude will:
+
+1. Determine which file it owns — single stream, or the lane the router points at
+2. Reconcile against live git/PR state **before** writing anything
+3. Record what was completed, and the decisions behind it
+4. Name the next unchecked task and any blockers
+5. Cite verification evidence
+6. Write **the file chosen in step 1** — the lane file in router mode, *never* the router —
+   committed on the task branch
 
 ### 3. **Handoff Document Structure**
 
-Each handoff should include:
+The handoff carries **state**, not a copy of the plan. Link the plan and name the next unchecked
+task rather than duplicating it. `TEMPLATE.md` is the full structure; its sections are:
 
-- ✅ **Context**: What was completed, why we're doing this feature
-- ✅ **Current State**: What's implemented, what's missing
-- ✅ **Implementation Plan**: Week-by-week breakdown with file paths
-- ✅ **Critical Files**: All files that need to be touched
-- ✅ **Existing Patterns**: What code can be reused
-- ✅ **Testing Strategy**: How to verify the work
-- ✅ **Quick Start**: Exact commands to begin
-- ✅ **Success Definition**: How to know when it's done
-
-See `TEMPLATE.md` for the full structure.
+- ✅ **Ownership and base**: branch, base SHA, active editor, reviewer, owned paths, shared resources
+- ✅ **Links**: spec, plan, PR
+- ✅ **Next action**: the next unchecked task, concrete enough to start from cold
+- ✅ **Blockers and decisions**: what is stopping progress; what was decided, and why
+- ✅ **Verification references**: commands and their results, run links, dated observations
 
 ## Best Practices
 
@@ -91,10 +117,9 @@ See `TEMPLATE.md` for the full structure.
 
 - **Update the handoff** when priorities change
 - **Be specific** with file paths and line numbers
-- **Include code examples** for complex patterns
-- **Reference existing code** that can be reused
-- **Define clear success criteria**
-- **Provide quick start commands**
+- **Reconcile against live state** (`gh pr view`, `git log origin/master`) before writing
+- **Link the plan** rather than restating it
+- **Record decisions with their reasons**, so the next session does not re-debate them
 
 ### Don't ❌
 
