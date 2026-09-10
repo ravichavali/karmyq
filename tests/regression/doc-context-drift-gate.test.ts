@@ -273,22 +273,40 @@ describe('onboarding docs state the policy, not merely agree', () => {
  * TELL an agent to do, not what git permits. A prohibition therefore belongs in prose; keeping
  * a runnable forbidden recipe "as an example" is what this gate exists to reject.
  */
+/** Shell quoting must not launder a branch name or a refspec. */
+const unquote = (token: string): string => token.replace(/["']/g, '');
+
 /** Does this `git push` argument name master? Handles quoting, `+force`, and full refspecs. */
 function namesMaster(token: string): boolean {
-  const ref = token
-    .replace(/["']/g, '') // quoted args: git push "origin" "master"
+  const ref = unquote(token)
     .replace(/^\+/, '') // +master is a force refspec
     .replace(/refs\/heads\//g, ''); // fully-qualified refspec, before or after a colon
   return ref === 'master' || ref.endsWith(':master');
 }
 
-// `git` accepts global options before the subcommand, some taking a separate value
-// (`git -C <dir> push`, `git -c k=v push`). Without this a recipe hides behind `-C`.
-const GIT_PUSH = /\bgit\s+(?:-C\s+\S+\s+|-c\s+\S+\s+|-{1,2}\S+\s+)*push\b([^`;|&]*)/g;
-const GIT_SWITCH = /\bgit\s+(?:-C\s+\S+\s+|-c\s+\S+\s+|-{1,2}\S+\s+)*(?:checkout|switch)\b([^`;|&]*)/g;
+/**
+ * ONE pattern for both subcommands, so `matchAll` yields them in TEXTUAL order.
+ * Scanning all checkouts before all pushes reorders `git checkout master && git push`
+ * into something that looks safe, and falsely flags a feature push followed by a checkout.
+ *
+ * `git` accepts global options before the subcommand, some taking a separate value
+ * (`git -C <dir> push`, `git -c k=v push`); without that a recipe hides behind `-C`.
+ * The argument capture stops at a shell separator, which is also what splits a `&&` chain
+ * into the separate commands this relies on.
+ */
+const GIT_CMD =
+  /\bgit\s+(?:-C\s+\S+\s+|-c\s+\S+\s+|-{1,2}\S+\s+)*(push|checkout|switch)\b([^`;|&]*)/g;
 
+/**
+ * Arguments after the subcommand: trailing shell comment removed, then flags dropped.
+ * A comment does not change where git pushes, so counting its words as arguments would let
+ * `git push origin # deploy` masquerade as having an explicit refspec.
+ */
 const nonFlagArgs = (raw: string): string[] =>
-  raw.split(/\s+/).filter((t) => t && !t.startsWith('-'));
+  raw
+    .split('#')[0]
+    .split(/\s+/)
+    .filter((t) => t && !t.startsWith('-'));
 
 export function workflowRecipeIssues(docs: Record<string, string>): string[] {
   const issues: string[] = [];
@@ -301,15 +319,17 @@ export function workflowRecipeIssues(docs: Record<string, string>): string[] {
 
     const lines = text.split(/\r?\n/);
     for (let i = 0; i < lines.length; i++) {
-      for (const m of lines[i].matchAll(GIT_SWITCH)) {
-        // `-b`/`-c` are filtered as flags, so the first bare word is the branch either way.
-        branch = nonFlagArgs(m[1])[0] ?? branch;
-      }
+      for (const m of lines[i].matchAll(GIT_CMD)) {
+        const subcommand = m[1];
+        const args = nonFlagArgs(m[2]);
 
-      for (const m of lines[i].matchAll(GIT_PUSH)) {
-        const args = nonFlagArgs(m[1]);
+        if (subcommand !== 'push') {
+          // `-b`/`-c` are filtered as flags, so the first bare word is the branch either way.
+          branch = args[0] ? unquote(args[0]) : branch;
+          continue;
+        }
+
         const recipe = m[0].trim();
-
         if (args.some(namesMaster)) {
           issues.push(`${name}:${i + 1}: direct-to-master push recipe "${recipe}"`);
           continue;
@@ -317,9 +337,7 @@ export function workflowRecipeIssues(docs: Record<string, string>): string[] {
         // No refspec means "push the current branch". `git push` and `git push <remote>` are
         // the most natural way to write the forbidden recipe, and name master nowhere.
         if (args.length <= 1 && branch === 'master') {
-          issues.push(
-            `${name}:${i + 1}: pushes the checked-out master branch — "${recipe}"`,
-          );
+          issues.push(`${name}:${i + 1}: pushes the checked-out master branch — "${recipe}"`);
         }
       }
     }
@@ -495,5 +513,40 @@ describe('agent-facing playbooks carry no direct-to-master push recipe', () => {
     expect(workflowRecipeIssues({ 'x/SKILL.md': 'git -C /repo push origin master' })).toEqual([
       expect.stringContaining('direct-to-master push recipe'),
     ]);
+  });
+
+  // A trailing comment does not change git's push destination, so its words must not be
+  // counted as arguments and read as an explicit refspec.
+  it('rejects a bare push whose only "argument" is a trailing comment', () => {
+    expect(
+      workflowRecipeIssues({
+        'x/SKILL.md': 'git checkout master\ngit push origin # deploy the release\n',
+      }),
+    ).toEqual([expect.stringContaining('pushes the checked-out master branch')]);
+  });
+
+  // Commands must be read in textual order: scanning every checkout on a line before any push
+  // would let the switch at the END of this chain retroactively excuse the push in the middle.
+  it('rejects a master push in a && chain that later switches away', () => {
+    expect(
+      workflowRecipeIssues({
+        'x/SKILL.md': 'git checkout master && git push && git switch -c feature/foo\n',
+      }),
+    ).toEqual([expect.stringContaining('pushes the checked-out master branch')]);
+  });
+
+  // The same ordering bug in reverse: this is a correct feature push and must stay clean.
+  it('accepts a feature-branch push followed by switching to master', () => {
+    expect(
+      workflowRecipeIssues({
+        'x/SKILL.md': 'git switch -c feature/x origin/master\ngit push && git checkout master\n',
+      }),
+    ).toEqual([]);
+  });
+
+  it('rejects a bare push after a QUOTED master checkout', () => {
+    expect(
+      workflowRecipeIssues({ 'x/SKILL.md': 'git checkout "master"\ngit push\n' }),
+    ).toEqual([expect.stringContaining('pushes the checked-out master branch')]);
   });
 });

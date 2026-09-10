@@ -89,13 +89,16 @@ When ending a conversation mid-feature, ask Claude to create a handoff:
 Create a handoff document for the next conversation
 ```
 
-Claude will:
+This is the **`update-handoff`** skill's procedure — invoke it rather than reproducing the steps.
+In outline, Claude will:
+
 1. Determine which file it owns — single stream, or the lane the router points at
 2. Reconcile against live git/PR state **before** writing anything
 3. Record what was completed, and the decisions behind it
 4. Name the next unchecked task and any blockers
 5. Cite verification evidence
-6. Write it to `CURRENT_HANDOFF.md`, committed on the task branch
+6. Write **the file chosen in step 1** — the lane file in router mode, *never* the router —
+   committed on the task branch
 
 ### 3. **Handoff Document Structure**
 

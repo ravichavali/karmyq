@@ -44,7 +44,7 @@ exact failure the corrected `update-handoff` skill now tells the next session to
 1. Read this handoff, then confirm live state before trusting it:
    `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
 2. **Reuse the existing branch `agent/codex/sprint-128-framework`** — do not recreate it, and do
-   not branch again from master. Six commits are already on it.
+   not branch again from master. Seven commits are already on it.
 3. Open the plan: `docs/superpowers/plans/2026-09-07-sprint-128-a-framework.md`.
 4. Remaining work is plan Tasks 7–8 — see *Still owed before merge* at the bottom.
 
@@ -53,7 +53,7 @@ SDLC gates are complete; an independent non-author review and merge authorizatio
 
 ## What changed on this branch
 
-- **New drift-gate assertion** (`tests/regression/doc-context-drift-gate.test.ts`, 13 → 30 tests):
+- **New drift-gate assertion** (`tests/regression/doc-context-drift-gate.test.ts`, 13 → 34 tests):
   a pure `workflowRecipeIssues()` predicate over the **live agent-facing playbook set** — enumerated
   from git via the shared `tracked()` helper, never a directory glob — rejecting direct-to-master
   push recipes including `HEAD:master`, force, quoted and `refs/heads/` variants, with a negative
@@ -156,17 +156,17 @@ from Sprint 122. This branch is only its first caller in this file.
 A non-author reviewer was asked to **defeat** the gate rather than confirm it. It found the most
 important defect of the whole sprint:
 
-1. **A bare `git push` was not caught.** The predicate only flagged a push whose *arguments* named
-   master. But the original defect's own shape was `git checkout master` … `git push origin master`
-   across two steps — and rewriting that last line as a plain `git push` names master **nowhere**.
-   `git push origin` (remote, no refspec) was missed for the same reason, as was
-   `git -C <dir> push origin master`, where a global option separates `git` from `push`.
+1. **A push that names master nowhere was not caught.** The predicate only flagged a push whose
+   *arguments* named master. But the original defect's own shape checked master out in one step and
+   pushed several steps later — so rewriting that final line as an argument-less push, the most
+   natural form, named master nowhere and slipped through. A remote-only push (no refspec) missed
+   for the same reason, as did a push separated from `git` by a global option such as `-C`.
    Reproduced outside Jest before fixing.
    **Fix:** the scan now tracks the checked-out branch **across the whole document** (not per
    fenced block — the real defect spanned Step 1 and Step 3) and flags a refspec-less push while
-   master is checked out. Two false-positive guards pin the other direction: a bare push after
-   `git switch -c <feature>` is the *correct* workflow and stays clean, and a bare push with no
-   checkout anywhere is unattributable and is not guessed at.
+   master is checked out. Two false-positive guards pin the other direction: an argument-less push
+   after creating a feature branch is the *correct* workflow and stays clean, and such a push with
+   no checkout anywhere is unattributable and is not guessed at.
 2. **`.claude/PROMPTS.md` was out of scope** — a tracked, agent-facing file with a copy-paste
    *Deploy* prompt. Added to `PLAYBOOK_PATHSPECS`.
 
@@ -176,6 +176,41 @@ and that every `file:line` citation in this handoff resolves. It could not verif
 `enforce_admins: false` (no authenticated access) — that remains the maintainer's call.
 
 Gate is now **30 tests**; root regression **728**.
+
+## Maintainer review of `233296a2` — 5 findings, all fixed
+
+**P1 — the committed handoff broke the gate, and the reported result was wrong.** This file's
+review notes quoted four forbidden command examples verbatim. Because `.claude/handoff/*.md` is now
+in scope, the gate failed on them: **29 passed, 1 failed, exit 1** at that commit. The "30/30 /
+728" figures in that commit message describe the tree *before* the final handoff edit.
+
+**Root cause, and the rule that follows:** the suite was run, then a scanned file was edited, then
+the commit was made without re-running. Now that `CURRENT_HANDOFF.md` is itself a gated document,
+**every handoff edit invalidates a prior test result.** The handoff must be finished *before* the
+verification run, not after it. The examples are now prose.
+
+**P2 — three ways the bare-push rule could be evaded or misfire:**
+- *Trailing comments counted as arguments*, so a remote-only push followed by `# deploy…` looked
+  like it carried an explicit refspec. A comment does not change git's destination; comments are
+  now stripped before arguments are counted.
+- *Checkouts and pushes were scanned in two separate passes*, so every checkout on a line was
+  processed before any push on it. A chain that pushed while on master and only afterwards
+  switched away passed, and the reverse — a correct feature push followed by a checkout of master
+  — was falsely flagged. One combined pattern now yields both subcommands in **textual order**.
+- *Quoted checkout operands lost attribution*: a quoted master checkout followed by a bare push
+  went unflagged while the unquoted form was caught. Operands are normalized.
+
+**P2 — `handoff/README.md` still told agents to overwrite the router.** Its step 1 selects the file
+to own, and its step 6 said to write `CURRENT_HANDOFF.md` regardless — the exact contradiction this
+PR set out to remove. It now writes the file chosen in step 1, never the router, and defers to the
+`update-handoff` skill rather than reproducing its steps.
+
+The maintainer also confirmed with authenticated access that `enforce_admins: false`, six required
+checks, and one required approving review. That closes the item the earlier reviewer left
+UNVERIFIED — the bypass is real, and remains the maintainer's call.
+
+Gate is now **34 tests**, plus an 11-case parser probe run outside Jest (7 must-flag, 4 must-stay-
+clean) so the predicate is checked independently of the suite that ships with it.
 
 ## Blockers and decisions
 
@@ -195,9 +230,9 @@ Gate is now **30 tests**; root regression **728**.
 ## Verification references
 
 - `npm test -- --concurrency=2` → **exit 0**; 26/26 Turbo tasks, root unit **101/101**, root
-  regression **728/728** across 29 suites (2026-09-09, after all review fixes).
+  regression **732/732** across 29 suites (2026-09-09, after all review fixes).
 - Drift gate direct: `cd tests && npx jest regression/doc-context-drift-gate.test.ts --runInBand`
-  → **30/30, exit 0**.
+  → **34/34, exit 0**.
 - **Falsifiability proven twice**: the assertion failed on the two original defects
   (`deploy/SKILL.md:30`, `ship/SKILL.md:66`) before the fix; and after widening, a temporary
   injection into `docs/GITHUB_ACTIONS_SETUP.md` failed the gate at the expected file and line.
