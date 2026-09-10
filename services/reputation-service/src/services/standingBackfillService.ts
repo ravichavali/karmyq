@@ -14,6 +14,7 @@ import {
 } from '../database/feedbackDb';
 import { TRUST_CONFIG_DEFAULTS } from '../database/trustConfigDb';
 import { computeTrustScore } from './trustScoreStrategy';
+import { buildPreviewIndex, computePreviewMetrics, type PreviewKarmaRow } from './standingPreview';
 import { updateTrustScore } from './karmaService';
 import { projectCompletedMatchStanding } from './standingProjector';
 // The same enum the writer uses (activityTracker), so a rename cannot break the writer while the
@@ -233,7 +234,8 @@ const USER_CONFIGS_QUERY = `/* standing-backfill:user-configs */
   SELECT user_id, community_id, depth_weight, breadth_weight
   FROM reputation.user_trust_configs`;
 
-const PROVIDERS_QUERY = `/* standing-backfill:providers */
+/** Exported so the integration suite can run the REAL reach filters instead of a copy of them. */
+export const PROVIDERS_QUERY = `/* standing-backfill:providers */
   SELECT pp.id AS provider_id, pp.user_id, member.community_id
   FROM requests.provider_profiles pp
   JOIN communities.members member
@@ -627,53 +629,99 @@ function compareStoredProjection(
   return { predictedKarma, predictedActivity, alreadyProjectedMatches };
 }
 
-interface InteractionMetrics {
-  recentInteractions: number;
-  repeatPairs: number;
-  distinctPeople: number;
-  distinctCommunities: number;
-}
+/**
+ * The karma rows as they will exist AFTER apply — the state the score writer will actually read.
+ *
+ * The preview previously derived its metrics from the replayed match list instead, which is a
+ * different thing: it knows only the matches being backfilled, so it saw neither pre-existing
+ * canonical history nor the user's activity in OTHER communities. The visible defect was a
+ * membership with no local history reported at 0 and stored at 1 — breadth is global, and the
+ * report was dropping it whenever the local pair had no replayed match.
+ *
+ * This mirrors apply's three mutations, in apply's order:
+ *   1. `normalizeUnattributableLegacy` renames the three normalizable legacy reasons on rows that
+ *      are NOT attributable to a completed match, collapsing onto an existing row when the
+ *      normalized identity already exists (`:841`).
+ *   2. Each replayed match deletes its attributable legacy rows (`:913`).
+ *   3. The projector inserts the planned canonical rows (`:918`).
+ *
+ * Identity is user/community/reason/related-entity, never the database row id, so an
+ * already-projected row is recognised and not counted twice. Conflicting projections stay the
+ * business of the existing anomaly checks; nothing here decides whether the run may proceed.
+ */
+function projectedKarmaRows(snapshot: BackfillSnapshot, replayed: ReplayMatch[]): PreviewKarmaRow[] {
+  const attributable = attributableMatchIds(snapshot);
+  const replayedMatchIds = new Set(replayed.map((replay) => String(replay.row.id)));
 
-function interactionMetrics(
-  replayed: ReplayMatch[],
-  nowMs: number,
-): Map<string, InteractionMetrics> {
-  const pairMatches = new Map<string, Map<string, Set<string>>>();
-  const recent = new Map<string, number>();
-  const communities = new Map<string, Set<string>>();
-  const recentBoundary = nowMs - 365 * 24 * 60 * 60 * 1000;
+  const rows: PreviewKarmaRow[] = [];
+  const present = new Set<string>();
+  const normalized: PreviewKarmaRow[] = [];
 
-  const add = (userId: string, counterpartId: string, communityId: string, matchId: string, at: Date) => {
-    const pairKey = `${userId}|${communityId}`;
-    const counterparts = pairMatches.get(pairKey) ?? new Map<string, Set<string>>();
-    const matches = counterparts.get(counterpartId) ?? new Set<string>();
-    matches.add(matchId);
-    counterparts.set(counterpartId, matches);
-    pairMatches.set(pairKey, counterparts);
-    const userCommunities = communities.get(userId) ?? new Set<string>();
-    userCommunities.add(communityId);
-    communities.set(userId, userCommunities);
-    if (at.getTime() >= recentBoundary) recent.set(pairKey, (recent.get(pairKey) ?? 0) + 1);
-  };
+  for (const row of snapshot.karma) {
+    // (2) Apply deletes every legacy row attributable to a match it replays.
+    if (row.related_entity_id
+      && replayedMatchIds.has(row.related_entity_id)
+      && LEGACY_REASONS.has(row.reason)) {
+      continue;
+    }
 
+    // (1) Normalization, through the SAME predicate the apply path uses.
+    const normalizedReason = normalizedReasonFor(row, attributable);
+    const projected: PreviewKarmaRow = {
+      user_id: String(row.user_id),
+      community_id: String(row.community_id),
+      reason: normalizedReason ?? row.reason,
+      related_entity_id: row.related_entity_id,
+      created_at: row.created_at,
+    };
+
+    // Rows apply leaves alone are kept as-is, INCLUDING pre-existing exact duplicates: apply does
+    // not remove those either, it reports them as anomalies.
+    if (normalizedReason == null) {
+      present.add(karmaIdentity(projected));
+      rows.push(projected);
+      continue;
+    }
+    normalized.push(projected);
+  }
+
+  // Normalized rows are resolved only after every untouched row has claimed its identity.
+  //
+  // Doing this inline was order-dependent and could double-count: apply's collision check
+  // (`standing-backfill:legacy-collision`) asks whether ANY OTHER row already holds the normalized
+  // identity, which is a question about the whole table, not about the rows seen so far. A legacy
+  // row appearing BEFORE its canonical twin in `KARMA_QUERY`'s `created_at, id` order would
+  // therefore survive alongside it, and the pair counted as two interactions where apply produces
+  // one. Deferring the whole set makes the outcome independent of row order, exactly as the SQL is.
+  for (const projected of normalized) {
+    const key = karmaIdentity(projected);
+    // Collision → apply DELETES the legacy row and keeps the one already holding that identity.
+    // This also collapses two legacy rows that normalize onto each other, which apply handles the
+    // same way once the first has been renamed inside its transaction.
+    if (present.has(key)) continue;
+    present.add(key);
+    rows.push(projected);
+  }
+
+  // (3) Planned canonical inserts, skipping identities already stored so an already-projected
+  // match contributes once rather than twice.
   for (const replay of replayed) {
-    for (const communityId of replay.communityIds) {
-      add(String(replay.row.responder_id), String(replay.row.requester_id), communityId, replay.row.id, replay.completedAt);
-      add(String(replay.row.requester_id), String(replay.row.responder_id), communityId, replay.row.id, replay.completedAt);
+    for (const planned of replay.rows) {
+      const projected: PreviewKarmaRow = {
+        user_id: planned.userId,
+        community_id: planned.communityId,
+        reason: planned.reason,
+        related_entity_id: planned.relatedEntityId,
+        created_at: planned.createdAt,
+      };
+      const key = karmaIdentity(projected);
+      if (present.has(key)) continue;
+      present.add(key);
+      rows.push(projected);
     }
   }
 
-  const output = new Map<string, InteractionMetrics>();
-  for (const [pairKey, counterparts] of pairMatches) {
-    const userId = pairKey.split('|')[0];
-    output.set(pairKey, {
-      recentInteractions: recent.get(pairKey) ?? 0,
-      repeatPairs: [...counterparts.values()].filter((matches) => matches.size >= 2).length,
-      distinctPeople: counterparts.size,
-      distinctCommunities: communities.get(userId)?.size ?? 0,
-    });
-  }
-  return output;
+  return rows;
 }
 
 function scoreBucket(score: number): ScoreBucket {
@@ -693,8 +741,11 @@ function interactionBucket(value: number): InteractionBucket {
 }
 
 function calculateDistributions(snapshot: BackfillSnapshot, replayed: ReplayMatch[]) {
+  // One analysis instant for the whole report, and one index built once for every membership.
+  // Equivalence with the live writer holds at the same dataset, time and configuration; a database
+  // that keeps changing, or a warm effective-params cache, can still move the writer's answer.
   const nowMs = Date.now();
-  const metrics = interactionMetrics(replayed, nowMs);
+  const previewIndex = buildPreviewIndex(projectedKarmaRows(snapshot, replayed));
   const configs = new Map(snapshot.configs.map((row) => [String(row.community_id), row]));
   const userConfigs = new Map(snapshot.userConfigs.map((row) => [`${row.user_id}|${row.community_id}`, row]));
   const feedbackByUser = new Map<string, BackfillSnapshot['feedback']>();
@@ -718,10 +769,18 @@ function calculateDistributions(snapshot: BackfillSnapshot, replayed: ReplayMatc
 
   for (const membership of snapshot.memberships) {
     const pairKey = `${membership.user_id}|${membership.community_id}`;
-    const values = metrics.get(pairKey) ?? {
-      recentInteractions: 0, repeatPairs: 0, distinctPeople: 0, distinctCommunities: 0,
-    };
-    if (values.recentInteractions > 0 || values.distinctPeople > 0) sourcedPairs += 1;
+    const values = computePreviewMetrics(
+      previewIndex, membership.user_id, membership.community_id, nowMs,
+    );
+    // "Sourced" means the membership has ANY local canonical history, which is exactly what having
+    // an index entry means. The old test — recent interactions or counterparties — silently
+    // excluded two real cases: history older than the 365-day window, and rows with a NULL match id,
+    // which is precisely what legacy normalization produces. Both are local history, and both were
+    // being reported as zero-history.
+    //
+    // A membership carrying only GLOBAL breadth is still zero-history here, and still scores 1.
+    // That distinction is the one the runbook has to spell out.
+    if (previewIndex.byPair.has(pairKey)) sourcedPairs += 1;
     const config = configs.get(membership.community_id) ?? defaultConfig(membership.community_id);
     const userConfig = userConfigs.get(pairKey);
     const score = computeTrustScore({
@@ -838,23 +897,42 @@ const NORMALIZED_LEGACY_REASONS: Readonly<Record<string, string>> = {
   first_help_bonus: COMPLETED_MATCH_REASONS.first,
 };
 
-async function normalizeUnattributableLegacy(
-  snapshot: BackfillSnapshot,
-): Promise<void> {
-  const attributableMatchIds = new Set(
+/** Matches a legacy row can be attributed to. Completed with a timestamp — nothing else qualifies. */
+function attributableMatchIds(snapshot: BackfillSnapshot): Set<string> {
+  return new Set(
     snapshot.matches
       .filter((match) => match.completed_at != null)
       .map((match) => String(match.id)),
   );
-  const rows = snapshot.karma.filter((row) =>
-    NORMALIZED_LEGACY_REASONS[row.reason]
-    && (!row.related_entity_id || !attributableMatchIds.has(row.related_entity_id)),
-  );
+}
+
+/**
+ * The reason normalization will give this row, or null if it leaves the row alone.
+ *
+ * ONE definition, called by both the apply path that performs the rename and the preview that has
+ * to predict it. They were separate copies of the same predicate, which is the exact shape of
+ * drift this sprint exists to remove.
+ */
+function normalizedReasonFor(
+  row: Pick<KarmaRow, 'reason' | 'related_entity_id'>,
+  attributable: ReadonlySet<string>,
+): string | null {
+  const normalized = NORMALIZED_LEGACY_REASONS[row.reason];
+  if (!normalized) return null;
+  const unattributable = !row.related_entity_id || !attributable.has(row.related_entity_id);
+  return unattributable ? normalized : null;
+}
+
+async function normalizeUnattributableLegacy(
+  snapshot: BackfillSnapshot,
+): Promise<void> {
+  const attributable = attributableMatchIds(snapshot);
+  const rows = snapshot.karma.filter((row) => normalizedReasonFor(row, attributable) != null);
   if (rows.length === 0) return;
 
   await withTransaction(async () => {
     for (const row of rows) {
-      const normalizedReason = NORMALIZED_LEGACY_REASONS[row.reason];
+      const normalizedReason = normalizedReasonFor(row, attributable) as string;
       const collision = await query(
         `/* standing-backfill:legacy-collision */
          SELECT id, points, created_at

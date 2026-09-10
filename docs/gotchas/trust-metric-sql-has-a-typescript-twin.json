@@ -1,0 +1,17 @@
+{
+  "title": "The trust-metric SQL has a TypeScript twin — change one and you must change standingPreview.ts",
+  "owner": "ravichavali",
+  "created": "2026-09-10",
+  "scope": [
+    "services/reputation-service/src/database/trustMetricsDb.ts",
+    "services/reputation-service/src/services/karmaService.ts",
+    "services/reputation-service/src/services/standingPreview.ts"
+  ],
+  "verify": {
+    "file_matches": {
+      "path": "services/reputation-service/src/services/standingPreview.ts",
+      "pattern": "trustMetricsDb"
+    }
+  },
+  "see_also": ["landing-docs-are-generated-never-authored"]
+}

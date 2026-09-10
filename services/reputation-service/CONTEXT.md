@@ -5,6 +5,31 @@
 
 ## Recent Changes
 
+- **2026-09-10 (Sprint 128 PR C — the backfill preview now agrees with the score writer)**:
+  `analyzeStandingBackfill` used to derive its trust inputs from the **replayed match list**, which
+  is not what the writer reads. It therefore saw neither pre-existing canonical history nor activity
+  in other communities, and dropped a membership's metrics to all zeros whenever the local pair had
+  no replayed match. Because breadth is global, those memberships stored **1** while the report
+  printed **0** — and the same score gap propagated into `providerEligibility`.
+  - New pure helper `src/services/standingPreview.ts`: `buildPreviewIndex(rows)` once per projected
+    dataset, then `computePreviewMetrics(index, userId, communityId, nowMs)` per membership — map
+    lookups plus a binary search over sorted local timestamps, no per-membership rescan.
+  - It reproduces the writer's SQL, not the replay map: global community count; local recent row
+    count with an inclusive `>= now-365d` boundary; counterparty join on non-null match id with the
+    `other` side **not** community-filtered; repeats by distinct match id. It filters on exactly
+    `('Provided help', 'Received help')` — **narrower than `CANONICAL_REASONS`**, which also holds
+    the first-help and milestone reasons that the writer's SQL ignores.
+  - `calculateDistributions` now scores the **post-apply karma view**, built by mirroring apply's
+    three mutations in order: normalize unattributable legacy reasons (collapsing on collision),
+    delete legacy rows attributable to a replayed match, then overlay the planned canonical rows by
+    identity so an already-projected row is not counted twice.
+  - No change to the trust formula, provider floors, `PROVIDERS_QUERY` filters, the report's fields,
+    the apply authorization boundary, or any endpoint/schema/event. Verified on a disposable
+    PostgreSQL 15 + Redis 7 instance by running the real projector and the real `updateTrustScore`
+    and comparing exact score buckets and provider-floor counts (`tests/integration/`
+    `sprint-126-standing-backfill.integration.test.ts`, "Sprint 128 — preview equals the real
+    writer"). See the runbook below for what a score of 1 means and why it is not a floor.
+
 - **2026-08-22 (Sprint 126 review round — trust-score refresh, anomaly severity, carry lineage)**:
   - `src/cron/trustScoreRefresh.ts` sweeps every **active** membership daily at **03:30** through the canonical `updateTrustScore`. `computeTrustScore` reads a moving 12-month window, so a stored score decays only if something recomputes it — and ADR-095's reach gate reads the CACHED value, not a fresh one. When Sprint 126 stopped cleanup-service overwriting scores with its pre-ADR-037 `karma/10` formula, that removed the only refresh cadence and would have frozen dormant providers as permanently eligible. Reputation-service owns trust scores, so the refresh lives here.
   - **Anomaly severity** splits corrupt source data from routine history. **Blocking**: missing participants, missing `completed_at`, no request community at all, duplicate projection identities, conflicting stored projections. **Informational**: `NO_ELIGIBLE_COMMUNITY` (participants no longer co-members — routine, and guessing a community would fabricate history). Letting a match with broken source facts be silently skipped while apply reported success was fail-open.
@@ -1492,4 +1517,44 @@ checkpoint. An interrupted run is resumed by re-running the same command; alread
 write nothing.
 
 **A zero is a result, not a gap.** Every active membership is evaluated, including pairs with no
-history. They are supposed to score 0.
+history in that community.
+
+**But "no local history" does NOT mean "scores 0"** (corrected Sprint 128 — the report used to say
+it did, and used to print it). Trust breadth is **global**: `getTrustMetrics`' community count
+(`src/database/trustMetricsDb.ts:26-32`) filters on `user_id` alone, with no community predicate.
+So a member who is active in one community and merely joined a second carries that breadth into the
+second one:
+
+| Membership | recent | people | communities | Score |
+|---|---|---|---|---|
+| Active in this community | 1 | 1 | 1 | `10 + (2+3)×0.4 + 5` = **17** |
+| No local history, active elsewhere | 0 | 0 | 1 | `(0 + 3)×0.4` = 1.2 → **1** |
+| No history anywhere | 0 | 0 | 0 | **0** |
+
+**1 is not a floor** — it is what the default 0.4 breadth weight produces from one community of
+canonical activity. A member with no history anywhere still scores 0, and a community that sets
+`breadth_weight = 0` returns those memberships to 0.
+
+`zeroHistoryPairs` counts pairs with no **local** history, so it does not equal the `'0'` score
+bucket. Reading it as "how many will score 0" is the mistake the old wording invited.
+
+Its definition was also corrected in Sprint 128: "sourced" now means the membership has **any**
+local canonical history, where it previously meant recent interactions or counterparties. That
+older test silently reported two real cases as zero-history — history older than the 365-day
+window, and rows with a NULL match id, which is exactly what legacy normalization leaves behind.
+Ordinary data is unaffected; the counts move only for those two shapes.
+
+**Report timing and configuration assumptions.** The preview equals the writer *at the same dataset,
+the same instant and the same configuration*. Three things legitimately move the writer's answer
+afterwards: the 365-day recency window slides, the simulator keeps completing matches, and
+`updateTrustScore` reads depth/breadth weights through a 4-hour Redis cache
+(`effectiveParamsCache.ts:10`) while the preview reads `user_trust_configs` directly — so a weight
+changed within the last 4 hours can leave the writer using the older value. Rerun the dry run
+immediately before applying rather than trusting an earlier report.
+
+**Provider counting unit.** `providerEligibility` counts **provider-profile/community pairs**, keyed
+`provider_id|community_id` — not people. `requests.provider_profiles` has no `community_id` and is
+unique on `(user_id, service_type)`, so one user offering two service types in one community is two
+eligible pairs. Its floors 1/20/40/60 are fixed what-if scenarios; live reach instead uses each
+community's configured `provider_min_personal_trust_score`, so these counts answer "how many pairs
+would clear this floor", not "how many are reachable today".

@@ -1,7 +1,7 @@
 # Sprint 128 PR C — Standing preview parity — Handoff
 
 **Date**: 2026-09-10
-**Outcome**: not started — PR A and PR B are shipped; PR C is next
+**Outcome**: implementation complete and all four SDLC gates run; **PR not yet opened**
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router — there is no second machine.
 > This file is branch-local and reserves nothing; contended resources are allocated by the
@@ -13,12 +13,12 @@
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-128-c-standing-preview` (created, carries only this handoff) |
+| **Branch** | `agent/claude/sprint-128-c-standing-preview` |
 | **Base** | `origin/master` at `bcb7617e` (fetched 2026-09-10), version **v11.49.0** |
-| **Active editor** | unassigned — next session takes it |
-| **Reviewer role** | non-author; the maintainer has been reviewing each round |
-| **Owned paths** | reputation service + its `tests/tdd/`; root `tests/regression/` for cross-repo gates |
-| **Shared resources needed** | **D1 demo/DB operation is pre-approved** (see below). No ADR allocated — ask the maintainer if one is needed. Version bump is re-derived from `origin/master` **at merge time** |
+| **Active editor** | Claude — implementation complete |
+| **Reviewer role** | GitHub required approving review still owed; it cannot be self-provided |
+| **Owned paths** | reputation service, root `tests/integration/`, `docs/gotchas/`, ADR-096, trust docs |
+| **Shared resources needed** | D1 provisioned and **still running** (see teardown below). No ADR minted. Version bump re-derived from `origin/master` **at merge time** |
 
 ## Links
 
@@ -28,86 +28,162 @@
 
 ## Quick Start
 
-1. Read this handoff, then confirm live state before trusting it:
-   `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
-2. **Reuse this branch** — it exists and is based on refreshed `origin/master`.
-3. Open the plan above.
-4. **Task 1 is a hard entry gate**: provision isolated PG/Redis and take the baseline before any
-   preview implementation. Do not start Task 2 until it passes.
+1. Confirm live state before trusting this file: `git fetch origin`, `gh pr list`,
+   `git log --oneline origin/master -3`.
+2. **Reuse this branch.** Work is committed on it.
+3. Remaining: open PR C, obtain the approving review and merge authorization, deploy, then
+   **tear down the D1 resources** (they are still up).
 
-**Next unchecked task**: Task 1 — isolated `s128-preview-pg` / `s128-preview-redis` /
-`s128-preview-net` provisioning plus baseline capture.
+**Next unchecked task**: Plan Task 7's final step — open PR C with the full template.
 
-## What shipped before this
+## What this PR fixes
 
-**Sprint 128 PR B — [#221](https://github.com/ravichavali/karmyq/pull/221)**, squash `095fc856`,
-**v11.48.0**. Fail-closed audits and dependency security remediation. Deployed and verified.
+`analyzeStandingBackfill` derived its trust inputs from the **replayed match list**, which is not
+what the score writer reads. It therefore saw neither pre-existing canonical history nor activity in
+other communities, and zeroed a membership's metrics whenever its local pair had no replayed match.
+Because breadth is global, those memberships stored **1** while the report printed **0**, and the
+same gap propagated into `providerEligibility`.
 
-**Sprint 128 PR A — [#232](https://github.com/ravichavali/karmyq/pull/232)**, squash `bcb7617e`,
-**v11.49.0**, merged 2026-09-10T17:52:26Z. Deployed: CI/CD
-[run 34510864842](https://github.com/ravichavali/karmyq/actions/runs/34510864842), all 14 jobs
-success **including `Deploy to Demo`**. Smoke-tested live on 2026-09-10 — landing `200`;
-`POST /api/auth/login` and `GET /api/requests/feed` both return `401` in the ADR-074 error shape
-(not `502`), so every service is up.
+Reproduced exactly on the disposable database before any code changed:
 
-⚠️ **PR A was merged with `gh pr merge --squash --admin`** under explicit maintainer authorization,
-bypassing the required approving review. All 20 checks were green on the merged head `cefb183a`
-first, verified by `headSha`; master was unchanged and no deploy was in flight. Recorded here
-because the override is exactly the `enforce_admins: false` gap PR A documents but cannot close.
+| | preview | writer |
+|---|---|---|
+| score buckets | `{'0': 7, '1-19': 2}` | `{'0': 1, '1-19': 8}` |
+| provider floor 1 | 2 | 4 |
 
-What PR A changed: the four playbooks that told agents to push `master` directly
-(`deploy`/`ship` skills, `docs/GITHUB_ACTIONS_SETUP.md` twice) are corrected, and
-`tests/regression/doc-context-drift-gate.test.ts` grew 13 → 41 tests enforcing it. `TEMPLATE.md` is
-a handoff again rather than a duplicated plan; `update-handoff` is canonical with a lane-routing
-procedure; `process-reviewer` no longer pipes `npm test` through `tail`, which had been reporting
-failing suites as passes.
+Six of nine memberships were misreported. After the fix both sides agree exactly, and `LONELY`
+(no history anywhere) still stores 0 — **1 is not a new floor**.
 
-## Blockers and decisions
+**The provider discrepancy is diagnosed, not guessed**: running `PROVIDERS_QUERY`'s own filters
+verbatim against real stored scores gave 4 where the preview said 2, with an identical filter set
+and pair unit. The difference comes **entirely from score inputs**. No filter change was needed or
+made, exactly as the spec predicted.
 
-- **D1 is APPROVED** (maintainer, 2026-09-07) for PR C's isolated synthetic test operation. Use
-  `s128-preview-pg`, `s128-preview-redis`, `s128-preview-net` — the earlier names collided with
-  `scripts/deploy.sh:227` (container filter `karmyq-`) and `:228` (network filter `karmyq`).
-  No Compose project labels, no demo volumes, no existing app-network attachments. Before and
-  after **every** run, even a failed one, compare container IDs / start times / restart counts and
-  require healthy DB+Redis; a lost or restarted dependency is an environment failure, not parity
-  evidence. Preserve Jest's own exit status. Clean up only recorded task resources; record any
-  cleanup failure. Scope expansion needs its own decision.
-- **Preview parity must exercise the real score writer** on a disposable DB — not a mocked return.
-  Preserve the trust formula and provider floors. The full provider discrepancy remains
-  **UNVERIFIED** until reproduced.
-- **New tests start in the reputation service's `tests/tdd/`** and promote when green. Root
-  `tests/tdd/` never auto-promotes, so repo-wide invariants go straight in `tests/regression/`.
+## What changed
+
+- **New `src/services/standingPreview.ts`** — `buildPreviewIndex(rows)` once per projected dataset,
+  then `computePreviewMetrics(index, userId, communityId, nowMs)` per membership.
+- **It reproduces the writer's SQL, not the replay map**: global community count; local recent row
+  count with an inclusive boundary; counterparty join on non-null match id with the `other` side
+  **not** community-filtered; repeats by distinct match id. It filters on exactly
+  `('Provided help', 'Received help')` — **narrower than `CANONICAL_REASONS`**, which also holds the
+  first-help and milestone reasons the writer's SQL ignores.
+- **`calculateDistributions` scores the post-apply karma view**, mirroring apply's three mutations
+  in order: normalize unattributable legacy reasons, delete legacy rows attributable to a replayed
+  match, overlay planned canonical rows by identity so an already-projected row is not double-counted.
+- **`sourcedPairs` semantics corrected** — "sourced" now means any local canonical history. The old
+  test (recent interactions or counterparties) reported two real cases as zero-history: history
+  older than the window, and rows with a NULL match id, which is what legacy normalization produces.
+  Ordinary data is unaffected; Sprint 126's expectation of 3 is unchanged.
+- **`attributableMatchIds` / `normalizedReasonFor` extracted** so preview and apply share one
+  predicate rather than two copies of it.
+- Unchanged: the trust formula, provider floors, `PROVIDERS_QUERY` filters, the report's fields, the
+  apply authorization boundary, every endpoint, schema and event.
+
+## Review rounds
+
+### `/simplify` — 4 parallel agents
+
+Applied: merged two pair-keyed maps and added an `addTo` helper (~30 lines and one nesting level);
+named `PreviewPairEntry`; counterparty tracker became a counter rather than a `Set` (provably
+equivalent — each pair is visited once); shared apply predicate extracted; a comment that overclaimed
+was corrected; dead `return` removed.
+
+Skipped deliberately: dropping the binary search and the `communitiesByUser` count shape (both are
+the approved plan's named mechanism and interface), the `PreviewMetrics` field rename
+(plan-specified), and a shared test-helper module (would edit Sprint 126's file, outside this diff).
+
+### `/code-review` (high) — 3 findings
+
+1. **CONFIRMED bug, fixed.** The normalization collapse in `projectedKarmaRows` was
+   **row-order dependent**. The guard only fired when the legacy row was visited second; with the
+   legacy row first, both it and its canonical twin survived and the pair counted as two
+   interactions where apply produces one. Now resolved in a second pass, after every untouched row
+   has claimed its identity — order-independent, as the SQL is. Pinned by a regression test that was
+   **proven to fail against the old logic**.
+2. `sourcedPairs` semantics — fixed, above.
+3. Generated-file churn — `build.json` reverted.
+
+### `/security-review` — no findings
+
+Verified: the preview issues only SELECTs and `analyzeSnapshot` is synchronous so it cannot await a
+write; no new SQL and no interpolation; the report's field set is byte-for-byte unchanged and emits
+only integer aggregates; `standingPreview.ts` has no logger, no `console`, no `throw`; the preview
+never reaches the projector or the score writer; no new secrets. Exporting the static
+`PROVIDERS_QUERY` constant adds no sink.
+
+## The most important lesson from this PR
+
+**Score buckets are too coarse to be an equivalence oracle.** The first version of the integration
+test compared `preview.scoreBuckets` against stored buckets. A deliberately broken reason set was
+injected — and the test still passed, because an extra community moves a score by about one point
+and the pair stays inside the same bucket. The original 0-versus-1 defect was caught by buckets only
+because bucket `'0'` happens to be exactly `score <= 0`.
+
+The oracle now compares **all four metrics per membership** against the real `getTrustMetrics` SQL on
+real rows. Re-injecting the same fault fails it immediately (`distinctCommunities` 2 versus 3). Both
+the weak and the strong version were run against the injected fault; only the strong one caught it.
+
+The fixture is now seeded so each dimension differs from what the plausible wrong implementation
+would produce, with four `saw*` guards asserting the fixture has not degenerated back to the trivial
+case.
+
+## Deferred — worth a following PR, not this one
+
+- **One definition instead of two.** `feedbackDb.ts` already splits `calculateWeightedAvgFeedback`
+  (pure) from `getWeightedAvgFeedback` (fetch), and both the writer and the dry run call the pure
+  half. `getTrustMetrics` has the same shape and could be split the same way, collapsing
+  `standingPreview.ts` to a thin adapter. It edits the live writer, so it needs its own PR and its
+  own regression coverage first.
+- **A single `projectApply(snapshot, replayed)`** owning "what the karma table looks like after
+  apply", with `compareStoredProjection` deriving `predictedKarma` from it. There are currently two
+  in-memory models of post-apply state; unifying them touches the convergence signal the demo
+  backfill already relies on.
+- **The reason-set derivation runs one way.** `standingPreview.ts` builds its filter from
+  `COMPLETED_MATCH_REASONS`, but the writer's SQL hardcodes the literals, so renaming the constant
+  would move the projector and the preview and silently leave the SQL matching a dead string.
+  Recorded in the new gotcha; interpolating the constants into the SQL is the real fix.
+
+## D1 resources are STILL RUNNING — tear down after deploy
+
+Provisioned 2026-09-10 under the approved D1 scope, verified free beforehand:
+
+| Resource | Id / detail |
+|---|---|
+| `s128-preview-pg` | `c4691774d4d3` … `StartedAt=2026-09-10T19:23:46.670695332Z`, `127.0.0.1:55438` |
+| `s128-preview-redis` | `24f19f645f2e` … `StartedAt=2026-09-10T19:23:46.911398035Z`, `127.0.0.1:63808` |
+| `s128-preview-net` | task-labeled bridge, only these two attached |
+
+All three carry `karmyq.task=sprint128-preview`. Every run compared container ids, running state,
+start times and restart counts before and after, with authenticated DB and Redis health — all
+identical throughout, so no result rests on a restarted dependency. Remote temp files were removed
+after the schema load. Credentials are in the session scratchpad and were never echoed.
+
+**Teardown is owed**: remove only those two containers and that one network, after verifying ids and
+labels, and close the recorded SSH tunnel. No broad prune, no compose down, no demo-container
+restart. Do it even if PR C is abandoned.
 
 ## Open, not caused by this sprint
 
-- **BUG-039** — `POST /api/auth/demo-session` returns 503 `DEMO_UNAVAILABLE` on deployed
-  karmyq.com, so the guided Maria demo cannot start. Reproduced live 2026-09-09. Needs server logs;
-  ADR-084 collapses every failure into one opaque 503 by design.
-- **4 vulnerabilities on the default branch** (1 high, 3 moderate), reported by GitHub during the
-  PR A pushes. The high is inside the repo's own ≤ 1 week SLA.
-- **`enforce_admins: false`** on `master` — maintainer-confirmed with authenticated access. Six
-  required checks and one required approval are all admin-bypassable. One API call to close.
-- **One unidentified pre-push transient.** A push attempt failed the hook in the regression tier,
-  but the captured log was truncated to npm wrapper noise, so the failing test could not be named.
-  Three direct reruns passed. If it recurs, capture the hook's full output before concluding.
+- **BUG-039** — `POST /api/auth/demo-session` returns 503 `DEMO_UNAVAILABLE` on deployed karmyq.com.
+- **4 vulnerabilities on the default branch** (1 high, 3 moderate). The high is inside the ≤ 1 week SLA.
+- **`enforce_admins: false`** on `master` — six required checks and one approval are admin-bypassable.
+- **`apps/landing/src/data/docs/` is only PARTIALLY git-tracked.** `apps/landing/.gitignore:2`
+  ignores the directory, but ~160 files were committed before that and are still tracked; ADRs 095+
+  are not. CLAUDE.md calls the directory "git-tracked" without qualification, which is misleading —
+  an ADR edit appears not to propagate when in fact it reaches the site via the build-time prebuild.
+- **The committed landing docs were stale**, last generated at `8777c5dd` (2026-08-08).
 
 ## Verification references
 
-- `npm test -- --concurrency=2` on `bcb7617e`'s content → exit 0, 26/26 Turbo tasks, root unit
-  **101/101**, root regression **739/739** across 29 suites.
-- Drift gate direct → **41/41**. `npm ci --dry-run` after the version bump → exit 0, no churn.
-- Deploy verified via the run link above **and** a live smoke test, not by the merge alone.
+Recorded before this file's final edit; re-run if anything changes after it.
 
-⚠️ GitHub status above is a dated observation. Re-derive with `gh pr view` and
-`git log origin/master` before trusting it.
+- Reputation service, direct: **16 suites, 276 passed, 3 todo**. `npx tsc --noEmit` exit 0.
+- Integration on the disposable DB: **17/17**, no `--forceExit`, clean teardown, container
+  continuity OK before and after.
+- Drift gate direct **41/41**. `node scripts/gotcha-check.js` clean, **7 entries**.
+- Root standing-projection equivalence regression **32/32**.
+- Falsifiability proven three times by injection, each reverted: the recency-window gate, the
+  order-independence regression, and the integration oracle.
 
-## Lesson carried forward
-
-`CURRENT_HANDOFF.md` is itself scanned by the drift gate now, so **every handoff edit invalidates a
-prior test result** — finish the handoff *before* the verification run, not after. Shipping a
-commit whose stated test result predated its own final edit is how PR A briefly carried a false
-green.
-
-Related: reach for the live arbiter, and do not truncate it. `gh run list --limit 8` was entirely
-consumed by Dependabot runs and hid the deploy pipeline completely, which briefly looked like a
-failed deploy.
+⚠️ GitHub status is a dated observation. Re-derive with `gh pr view` and `git log origin/master`.

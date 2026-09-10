@@ -179,6 +179,21 @@ different community.
 `reputation.trust_scores.score` becomes `DEFAULT 0 NOT NULL`, so a stored cold-start row and a
 missing row finally agree. This resolves the inconsistency ADR-095 recorded as deferred.
 
+**Clarified Sprint 128 (PR C) — cold start means no history ANYWHERE, not no history *here*.**
+The original wording was read as "a membership with no local history scores 0", and the preflight
+report was built that way. That is not what the writer does: trust breadth is global
+(`getTrustMetrics`' community count filters on `user_id` alone), so a member active in one community
+who merely joins a second carries breadth into the second and scores `(0 + min(10, 1×3)) × 0.4` =
+1.2 → **1** there. Only a member with no canonical history in any community scores 0.
+
+This clarifies a semantic the decision always had; it is **not** a new decision, and no floor was
+introduced. What changed in Sprint 128 is that the operator preview stopped disagreeing with it: the
+preview now derives its metrics from the projected post-apply karma rows rather than from the
+replayed match list, which had no way to see history outside the matches being backfilled. The
+formula, the provider floors, the `PROVIDERS_QUERY` filters and the apply authorization boundary are
+unchanged. Preview/apply equivalence is now proved against a real database running the real writer,
+rather than against a mocked one.
+
 ## Consequences
 
 ### Positive Consequences
