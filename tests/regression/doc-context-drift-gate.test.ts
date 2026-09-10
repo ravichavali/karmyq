@@ -302,11 +302,45 @@ const GIT_CMD =
  * A comment does not change where git pushes, so counting its words as arguments would let
  * `git push origin # deploy` masquerade as having an explicit refspec.
  */
+/** Arguments after the subcommand, with flags dropped. Comments are removed before discovery. */
 const nonFlagArgs = (raw: string): string[] =>
-  raw
-    .split('#')[0]
-    .split(/\s+/)
-    .filter((t) => t && !t.startsWith('-'));
+  raw.split(/\s+/).filter((t) => t && !t.startsWith('-'));
+
+/**
+ * Remove a shell comment from a line, respecting token boundaries and quoting.
+ *
+ * `#` only opens a comment at a token boundary and outside quotes, so a branch name that
+ * legitimately contains one (`feature/#123`) keeps the refspec that follows it. Truncating at
+ * every `#` silently dropped a trailing `master`.
+ *
+ * A line-leading `#` outside a fence is a markdown HEADING, not a comment — a heading can carry
+ * a recipe in its text, so discarding the line would throw away what the gate is meant to read.
+ */
+function stripShellComment(line: string, inFence: boolean): string {
+  const firstNonSpace = line.search(/\S/);
+  let single = false;
+  let double = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === "'" && !double) single = !single;
+    else if (c === '"' && !single) double = !double;
+    else if (c === '#' && !single && !double && (i === 0 || /\s/.test(line[i - 1]))) {
+      // Outside a fence, a line-leading `#` is a markdown HEADING, and a heading can carry a
+      // recipe in its text. Keep scanning rather than discarding the line.
+      if (!inFence && i === firstNonSpace) continue;
+      return line.slice(0, i);
+    }
+  }
+  return line;
+}
+
+/**
+ * `git checkout -- <path>` (and `git checkout <ref> -- <path>`) restores files; it does NOT
+ * switch branches. Recording the pathname as the current branch would silently clear master
+ * attribution and let the following push through.
+ */
+const isPathCheckout = (raw: string): boolean =>
+  raw.split(/\s+/).some((t) => t === '--') || nonFlagArgs(raw)[0] === '.';
 
 export function workflowRecipeIssues(docs: Record<string, string>): string[] {
   const issues: string[] = [];
@@ -316,14 +350,24 @@ export function workflowRecipeIssues(docs: Record<string, string>): string[] {
     // defect spread `git checkout master` (Step 1) and the push (Step 3) over two separate
     // fenced blocks, so resetting per block would have missed it.
     let branch: string | null = null;
+    let inFence = false;
 
     const lines = text.split(/\r?\n/);
     for (let i = 0; i < lines.length; i++) {
-      for (const m of lines[i].matchAll(GIT_CMD)) {
+      if (/^\s*```/.test(lines[i])) {
+        inFence = !inFence;
+        continue;
+      }
+      // Comments are removed BEFORE discovery: a commented-out `git switch` is not a command,
+      // and must not update the tracked branch.
+      const line = stripShellComment(lines[i], inFence);
+
+      for (const m of line.matchAll(GIT_CMD)) {
         const subcommand = m[1];
         const args = nonFlagArgs(m[2]);
 
         if (subcommand !== 'push') {
+          if (isPathCheckout(m[2])) continue; // restores files; branch is unchanged
           // `-b`/`-c` are filtered as flags, so the first bare word is the branch either way.
           branch = args[0] ? unquote(args[0]) : branch;
           continue;
@@ -548,5 +592,52 @@ describe('agent-facing playbooks carry no direct-to-master push recipe', () => {
     expect(
       workflowRecipeIssues({ 'x/SKILL.md': 'git checkout "master"\ngit push\n' }),
     ).toEqual([expect.stringContaining('pushes the checked-out master branch')]);
+  });
+
+  // A commented-out command is not a command. Discovery must exclude comments, not merely
+  // strip them from the arguments of a command it has already matched.
+  it('ignores a commented-out checkout when tracking the branch', () => {
+    expect(
+      workflowRecipeIssues({
+        'x/SKILL.md': '```bash\ngit checkout master\n# git switch -c feature/foo\ngit push\n```\n',
+      }),
+    ).toEqual([expect.stringContaining('pushes the checked-out master branch')]);
+  });
+
+  // `git checkout -- <path>` restores files; it does not switch branches, so it must not
+  // clear master attribution by recording the pathname as the current branch.
+  it('does not treat a path checkout as a branch switch', () => {
+    expect(
+      workflowRecipeIssues({
+        'x/SKILL.md': '```bash\ngit checkout master\ngit checkout -- README.md\ngit push\n```\n',
+      }),
+    ).toEqual([expect.stringContaining('pushes the checked-out master branch')]);
+  });
+
+  // `#` only starts a shell comment at a token boundary. Truncating at every `#` would drop
+  // the real refspec that follows a branch name legitimately containing one.
+  it('does not treat a # inside a refspec as a comment', () => {
+    expect(
+      workflowRecipeIssues({
+        'x/SKILL.md': '```bash\ngit push origin feature/#123 master\n```\n',
+      }),
+    ).toEqual([expect.stringContaining('direct-to-master push recipe')]);
+  });
+
+  // Markdown prose is not shell: a heading must not be mistaken for a comment and dropped.
+  it('still scans a recipe that appears inside a markdown heading', () => {
+    expect(
+      workflowRecipeIssues({ 'x/SKILL.md': '## Step 3: run git push origin master to deploy\n' }),
+    ).toEqual([expect.stringContaining('direct-to-master push recipe')]);
+  });
+
+  // An EXPLICIT non-master refspec is safe even while master is checked out — the refspec, not
+  // the checked-out branch, decides the destination.
+  it('accepts an explicit feature refspec pushed from master', () => {
+    expect(
+      workflowRecipeIssues({
+        'x/SKILL.md': '```bash\ngit checkout master\ngit push origin feature/x\n```\n',
+      }),
+    ).toEqual([]);
   });
 });

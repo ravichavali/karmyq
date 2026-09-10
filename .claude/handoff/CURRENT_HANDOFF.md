@@ -44,7 +44,7 @@ exact failure the corrected `update-handoff` skill now tells the next session to
 1. Read this handoff, then confirm live state before trusting it:
    `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
 2. **Reuse the existing branch `agent/codex/sprint-128-framework`** — do not recreate it, and do
-   not branch again from master. Seven commits are already on it.
+   not branch again from master. Eight commits are already on it.
 3. Open the plan: `docs/superpowers/plans/2026-09-07-sprint-128-a-framework.md`.
 4. Remaining work is plan Tasks 7–8 — see *Still owed before merge* at the bottom.
 
@@ -53,7 +53,7 @@ SDLC gates are complete; an independent non-author review and merge authorizatio
 
 ## What changed on this branch
 
-- **New drift-gate assertion** (`tests/regression/doc-context-drift-gate.test.ts`, 13 → 34 tests):
+- **New drift-gate assertion** (`tests/regression/doc-context-drift-gate.test.ts`, 13 → 39 tests):
   a pure `workflowRecipeIssues()` predicate over the **live agent-facing playbook set** — enumerated
   from git via the shared `tracked()` helper, never a directory glob — rejecting direct-to-master
   push recipes including `HEAD:master`, force, quoted and `refs/heads/` variants, with a negative
@@ -175,7 +175,8 @@ The reviewer also independently confirmed, against GitHub and `git-scm.com`, tha
 and that every `file:line` citation in this handoff resolves. It could not verify
 `enforce_admins: false` (no authenticated access) — that remains the maintainer's call.
 
-Gate is now **30 tests**; root regression **728**.
+At that point the gate stood at 30 tests and root regression at 728; both were superseded by the
+two review rounds below.
 
 ## Maintainer review of `233296a2` — 5 findings, all fixed
 
@@ -209,8 +210,35 @@ The maintainer also confirmed with authenticated access that `enforce_admins: fa
 checks, and one required approving review. That closes the item the earlier reviewer left
 UNVERIFIED — the bypass is real, and remains the maintainer's call.
 
-Gate is now **34 tests**, plus an 11-case parser probe run outside Jest (7 must-flag, 4 must-stay-
-clean) so the predicate is checked independently of the suite that ships with it.
+Gate was 34 tests at that point (see the round below for the correction to the probe claim);
+all of those cases are now fixtures.
+
+## Second maintainer review — 3 more findings, all fixed
+
+All three were consequences of the comment-stripping fix from the previous round — a fix that
+introduced two new evasions and one false negative.
+
+- **Commented-out commands still counted.** Comments were stripped from a matched command's
+  *arguments*, but discovery ran first, so a commented-out branch switch was read as a real one
+  and cleared master attribution. Comments are now removed **before** discovery.
+- **File restoration was read as a branch switch.** `git checkout -- <path>` restores files without
+  switching; the tracker recorded the pathname as the current branch. A `--` operand (and a bare
+  `.`) now leaves branch state untouched.
+- **Truncating at every `#` hid a real refspec.** A branch name may legitimately contain one, so
+  truncation dropped the `master` that followed it. `#` now opens a comment only at a token
+  boundary and outside quotes.
+
+Getting the comment rule right needed one more distinction the first attempt missed: **a
+line-leading `#` outside a fenced block is a markdown heading, not a comment.** Stripping there
+would discard a heading whose text carries a recipe — so that case has its own fixture too.
+
+**Correcting an overclaim.** The previous round described an out-of-Jest probe as independent
+verification. That was wrong: running the same predicate through a different runner proves nothing
+the suite doesn't. The independence came from **separately chosen cases and expected behavior**,
+and cases only protect the repo if they live in the gate — all 11 are now fixtures. The probe was
+scaffolding, not evidence.
+
+Gate is now **39 tests**.
 
 ## Blockers and decisions
 
@@ -230,9 +258,9 @@ clean) so the predicate is checked independently of the suite that ships with it
 ## Verification references
 
 - `npm test -- --concurrency=2` → **exit 0**; 26/26 Turbo tasks, root unit **101/101**, root
-  regression **732/732** across 29 suites (2026-09-09, after all review fixes).
+  regression **737/737** across 29 suites (2026-09-09, after all review fixes).
 - Drift gate direct: `cd tests && npx jest regression/doc-context-drift-gate.test.ts --runInBand`
-  → **34/34, exit 0**.
+  → **39/39, exit 0**.
 - **Falsifiability proven twice**: the assertion failed on the two original defects
   (`deploy/SKILL.md:30`, `ship/SKILL.md:66`) before the fix; and after widening, a temporary
   injection into `docs/GITHUB_ACTIONS_SETUP.md` failed the gate at the expected file and line.
