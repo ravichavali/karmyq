@@ -438,3 +438,345 @@ describe('legacy curated rows', () => {
     expect(canonical.rows[0].c).toBe(1);
   }, 60000);
 });
+
+/**
+ * Sprint 128 PR C — the preflight report must agree with what the writer actually stores.
+ *
+ * The mocked `updateTrustScore` in the service-level suite cannot prove this: it asserts the
+ * preview against itself. Here `applyStandingBackfill` runs the real projector and the real
+ * `karmaService.updateTrustScore`, so the buckets are compared against rows PostgreSQL holds.
+ *
+ * The defect this pins: breadth is global (`trustMetricsDb.ts:26-32` has no community predicate),
+ * so a membership with no LOCAL history still scores 1 under the default 0.4 breadth weight. The
+ * report derived its metrics from the replayed match list and reported those memberships as 0.
+ */
+describe('Sprint 128 — preview equals the real writer', () => {
+  const FROZEN = new Date('2026-06-15T12:00:00.000Z');
+  const COMPLETED = '2026-06-01T00:00:00.000Z';
+
+  /** Fake ONLY Date. Real timers must keep running or pg and ioredis never settle. */
+  const FAKE_DATE_ONLY = {
+    doNotFake: [
+      'hrtime', 'nextTick', 'performance', 'queueMicrotask',
+      'requestAnimationFrame', 'cancelAnimationFrame',
+      'requestIdleCallback', 'cancelIdleCallback',
+      'setImmediate', 'clearImmediate', 'setInterval', 'clearInterval',
+      'setTimeout', 'clearTimeout',
+    ] as const,
+  };
+
+  const scoreBucketOf = (score: number): string =>
+    score <= 0 ? '0'
+      : score < 20 ? '1-19'
+        : score < 40 ? '20-39'
+          : score < 60 ? '40-59'
+            : score < 80 ? '60-79' : '80-100';
+
+  /** Buckets recomputed from stored rows, deliberately not via the service's own helper. */
+  async function storedScoreBuckets(): Promise<Record<string, number>> {
+    const buckets: Record<string, number> = {
+      '0': 0, '1-19': 0, '20-39': 0, '40-59': 0, '60-79': 0, '80-100': 0,
+    };
+    const rows = await pool.query(
+      `SELECT score FROM reputation.trust_scores WHERE community_id = ANY($1::uuid[])`,
+      [ALL_COMMUNITIES]);
+    for (const row of rows.rows) buckets[scoreBucketOf(Number(row.score))] += 1;
+    return buckets;
+  }
+
+  /**
+   * Provider eligibility recomputed from STORED scores, running the service's OWN reach query.
+   *
+   * Deliberately not a re-typed copy of that SQL: a copy would drift the moment `PROVIDERS_QUERY`
+   * changed, and it could never prove the filters anyway — it would only prove that two identical
+   * strings agree. Running the real query means this asserts exactly what it can: that the score
+   * lookup and the floor comparison match the writer. The filters themselves are proved
+   * behaviourally by the inactive-membership test below, against real rows.
+   */
+  async function storedProviderEligibility(): Promise<Record<string, number>> {
+    const { PROVIDERS_QUERY } = require('../../services/reputation-service/src/services/standingBackfillService');
+    const pairs = await pool.query(PROVIDERS_QUERY);
+    const scores = await pool.query(
+      `SELECT user_id, community_id, score FROM reputation.trust_scores
+       WHERE community_id = ANY($1::uuid[])`, [ALL_COMMUNITIES]);
+    const byPair = new Map<string, number>();
+    for (const row of scores.rows) byPair.set(`${row.user_id}|${row.community_id}`, Number(row.score));
+
+    const counts: Record<string, number> = { '1': 0, '20': 0, '40': 0, '60': 0 };
+    const seen = new Set<string>();
+    for (const pair of pairs.rows) {
+      // The real query is repo-wide; this fixture owns only these communities.
+      if (!ALL_COMMUNITIES.includes(pair.community_id)) continue;
+      const key = `${pair.provider_id}|${pair.community_id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const score = byPair.get(`${pair.user_id}|${pair.community_id}`) ?? 0;
+      for (const floor of [1, 20, 40, 60]) if (score >= floor) counts[String(floor)] += 1;
+    }
+    return counts;
+  }
+
+  /** A cold cache, so preview (which reads user_trust_configs directly) and the writer (which
+   *  reads Redis) start from the same effective parameters. A warm STALE entry would legitimately
+   *  move the writer's answer — that is a real property of the writer, not something to hide. */
+  async function coldEffectiveParamsCache(): Promise<void> {
+    const { invalidateEffectiveParamsCache } = await import(
+      '../../services/reputation-service/src/services/effectiveParamsCache');
+    for (const communityId of ALL_COMMUNITIES) {
+      for (const userId of ALL_USERS) {
+        await invalidateEffectiveParamsCache(userId, communityId);
+      }
+    }
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers(FAKE_DATE_ONLY as never);
+    jest.setSystemTime(FROZEN);
+  });
+
+  afterEach(async () => {
+    jest.useRealTimers();
+    await pool.query('DELETE FROM requests.provider_profiles WHERE user_id = ANY($1::uuid[])', [ALL_USERS]);
+    await pool.query(
+      `UPDATE communities.community_configs
+       SET provider_services_enabled = FALSE, provider_services_list = '{}'::text[]
+       WHERE community_id = ANY($1::uuid[])`, [ALL_COMMUNITIES]);
+  });
+
+  it('reports the same score buckets the writer then stores', async () => {
+    // One match posted to C1 only. HELPER and REQUESTER are active members of C1..C4, so their
+    // C2/C3/C4 memberships have global breadth and no local history — the divergent case.
+    await seedMatch({ matchId: U('d1'), requestId: U('b1'), communities: [C1], completedAt: COMPLETED });
+    await coldEffectiveParamsCache();
+
+    const before = await fingerprint();
+    const preview = await backfill().analyzeStandingBackfill();
+    expect(await fingerprint()).toBe(before); // preview wrote nothing
+
+    await backfill().applyStandingBackfill({ batchSize: 10 });
+
+    expect(await storedScoreBuckets()).toEqual(preview.scoreBuckets);
+    // And exactly, so a future regression cannot pass by making both sides equally wrong.
+    expect(preview.scoreBuckets).toEqual({
+      '0': 1, '1-19': 8, '20-39': 0, '40-59': 0, '60-79': 0, '80-100': 0,
+    });
+  }, 120000);
+
+  it('stores 1 for the golden global-breadth membership and 0 for the golden idle one', async () => {
+    await seedMatch({ matchId: U('d1'), requestId: U('b1'), communities: [C1], completedAt: COMPLETED });
+    await coldEffectiveParamsCache();
+    await backfill().applyStandingBackfill({ batchSize: 10 });
+
+    const golden = await pool.query(
+      `SELECT user_id, community_id, score FROM reputation.trust_scores
+       WHERE (user_id = $1 AND community_id = $2) OR (user_id = $3 AND community_id = $4)
+       ORDER BY score DESC`, [HELPER, C2, LONELY, C1]);
+
+    // HELPER is active in C2 with no C2 history, but one community of canonical activity:
+    // breadth = min(10, 1 * 3) * 0.4 = 1.2 → 1. LONELY has no history anywhere → 0.
+    expect(golden.rows.map((r) => ({ ...r, score: Number(r.score) }))).toEqual([
+      { user_id: HELPER, community_id: C2, score: 1 },
+      { user_id: LONELY, community_id: C1, score: 0 },
+    ]);
+  }, 120000);
+
+  it('reports the same provider-floor counts the real reach filters produce', async () => {
+    await seedMatch({ matchId: U('d1'), requestId: U('b1'), communities: [C1], completedAt: COMPLETED });
+
+    // C1 enabled with an empty allowlist (all service types); C2 enabled but restricted to 'ride';
+    // C3 and C4 left disabled, which is the column default.
+    await pool.query(
+      `UPDATE communities.community_configs SET provider_services_enabled = TRUE
+       WHERE community_id = ANY($1::uuid[])`, [[C1, C2]]);
+    await pool.query(
+      `UPDATE communities.community_configs SET provider_services_list = ARRAY['ride']::text[]
+       WHERE community_id = $1`, [C2]);
+    await pool.query(
+      `INSERT INTO requests.provider_profiles (id, user_id, service_type, display_name, is_active)
+       VALUES ($1, $2, 'ride',   'Helper Rides',   TRUE),
+              ($3, $2, 'repair', 'Helper Repairs', TRUE),
+              ($4, $5, 'ride',   'Requester Ride', FALSE),
+              ($6, $7, 'ride',   'Lonely Ride',    TRUE)`,
+      [U('f1'), HELPER, U('f2'), U('f3'), REQUESTER, U('f4'), LONELY]);
+    await coldEffectiveParamsCache();
+
+    const preview = await backfill().analyzeStandingBackfill();
+    await backfill().applyStandingBackfill({ batchSize: 10 });
+
+    // Surviving pairs: HELPER ride + HELPER repair in C1 (both 17), LONELY ride in C1 (0), and
+    // HELPER ride in C2 (1) — repair is excluded there by the allowlist. REQUESTER's profile is
+    // inactive; C3/C4 are disabled communities.
+    expect(await storedProviderEligibility()).toEqual(preview.providerEligibility);
+    expect(preview.providerEligibility).toEqual({ '1': 3, '20': 0, '40': 0, '60': 0 });
+  }, 120000);
+
+  it('drops a provider pair when the membership stops being active', async () => {
+    await seedMatch({ matchId: U('d1'), requestId: U('b1'), communities: [C1], completedAt: COMPLETED });
+    await pool.query(
+      `UPDATE communities.community_configs SET provider_services_enabled = TRUE
+       WHERE community_id = $1`, [C1]);
+    await pool.query(
+      `INSERT INTO requests.provider_profiles (id, user_id, service_type, display_name, is_active)
+       VALUES ($1, $2, 'ride', 'Helper Rides', TRUE)`, [U('f1'), HELPER]);
+    await coldEffectiveParamsCache();
+
+    const active = await backfill().analyzeStandingBackfill();
+    expect(active.providerEligibility['1']).toBe(1);
+
+    await pool.query(
+      `UPDATE communities.members SET status = 'inactive'
+       WHERE user_id = $1 AND community_id = $2`, [HELPER, C1]);
+    try {
+      const inactive = await backfill().analyzeStandingBackfill();
+      expect(inactive.providerEligibility).toEqual({ '1': 0, '20': 0, '40': 0, '60': 0 });
+    } finally {
+      await pool.query(
+        `UPDATE communities.members SET status = 'active'
+         WHERE user_id = $1 AND community_id = $2`, [HELPER, C1]);
+    }
+  }, 120000);
+
+  /**
+   * The equivalence oracle has to discriminate ALL FOUR metric semantics, not just the one that was
+   * broken. A fixture with a single recent match in one community cannot tell a correct
+   * implementation from one that community-filters the counterparty join, uses the wrong repeat
+   * threshold, or gets the recency boundary wrong — every such variant produces the same numbers.
+   * Then the only thing pinning those three is a hand-written expectation, which is a shadow map of
+   * the SQL rather than an arbiter over it.
+   *
+   * So each dimension below is seeded to a value that DIFFERS from what the plausible wrong
+   * implementation would produce, and the assertion is against what PostgreSQL actually stored.
+   */
+  it('discriminates every metric the writer computes, not only the one that was broken', async () => {
+    const SYNTHETIC_PAIR = U('e1');   // shared entity id that is NOT a replayed match
+    const SYNTHETIC_BONUS = U('e2');
+
+    // repeat_pairs: the SAME counterparty across TWO matches. A wrong `>= 3` threshold gives 0.
+    await seedMatch({ matchId: U('d1'), requestId: U('b1'), communities: [C1], completedAt: COMPLETED });
+    await seedMatch({ matchId: U('d2'), requestId: U('b2'), communities: [C1], completedAt: '2026-05-01T00:00:00.000Z' });
+
+    // recency boundary: a match completed well OUTSIDE the 365-day window. It still contributes
+    // breadth and counterparties, but must NOT count as a recent interaction. An implementation
+    // that forgot the window, or applied it to the wrong metric, disagrees here.
+    await seedMatch({ matchId: U('d3'), requestId: U('b3'), communities: [C2], completedAt: '2024-01-01T00:00:00.000Z' });
+
+    // `other` is NOT community-filtered: LONELY's canonical row sits in C3, a community LONELY is
+    // not even a member of, sharing an entity id with a HELPER row in C1. The live SQL joins on
+    // related_entity_id alone, so LONELY counts as HELPER's counterparty in C1. Add a community
+    // predicate to that join and this pair vanishes.
+    //
+    // The entity id is deliberately NOT a replayed match, so these rows are outside the
+    // UNEXPECTED_KARMA_PROJECTION check (which only inspects rows whose entity id replay owns).
+    await pool.query(
+      `INSERT INTO reputation.karma_records (user_id, community_id, points, reason, related_entity_id, created_at)
+       VALUES ($1, $2, 60, 'Provided help', $3, $4), ($5, $6, 40, 'Received help', $3, $4)`,
+      [HELPER, C1, SYNTHETIC_PAIR, COMPLETED, LONELY, C3]);
+
+    // Canonical but NOT an interaction: a milestone row carrying an entity id, in a community that
+    // appears nowhere else in HELPER's history. The writer's SQL names only the two interaction
+    // reasons, so this must not lift breadth, volume, or counterparties. An implementation reusing
+    // the wider CANONICAL_REASONS set would count C4 and diverge.
+    await pool.query(
+      `INSERT INTO reputation.karma_records (user_id, community_id, points, reason, related_entity_id, created_at)
+       VALUES ($1, $2, 15, 'First help in community', $3, $4)`,
+      [HELPER, C4, SYNTHETIC_BONUS, COMPLETED]);
+
+    await coldEffectiveParamsCache();
+    await backfill().applyStandingBackfill({ batchSize: 10 });
+
+    // THE ORACLE — the TypeScript metric implementation against the SQL one, per membership, at
+    // FULL RESOLUTION.
+    //
+    // Comparing score buckets is not good enough and it is worth recording why: an extra community
+    // moves breadth by min(10, n*3) * 0.4, so a wrong metric shifts a score by ~1 and the pair stays
+    // inside the same bucket. The original 0-versus-1 defect was caught by buckets only because
+    // bucket '0' happens to be exactly `score <= 0`. Buckets round away precisely the differences
+    // this test exists to find, so compare the four numbers themselves.
+    const { buildPreviewIndex, computePreviewMetrics } =
+      require('../../services/reputation-service/src/services/standingPreview');
+    const { getTrustMetrics } = require('../../services/reputation-service/src/database/trustMetricsDb');
+
+    // Every karma row in the database, unfiltered — global breadth and the counterparty join both
+    // reach outside the local community, so narrowing this would hide the very semantics under test.
+    const allRows = await pool.query(
+      `SELECT user_id, community_id, reason, related_entity_id, created_at
+       FROM reputation.karma_records`);
+    const index = buildPreviewIndex(allRows.rows);
+
+    const cutoff = new Date(FROZEN.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString();
+    const pairs = await pool.query(
+      `SELECT DISTINCT user_id, community_id FROM reputation.karma_records
+       UNION
+       SELECT user_id, community_id FROM communities.members
+        WHERE community_id = ANY($1::uuid[]) AND status = 'active'`, [ALL_COMMUNITIES]);
+    expect(pairs.rows.length).toBeGreaterThan(5);
+
+    let sawRepeat = false;
+    let sawCrossCommunityCounterparty = false;
+    let sawStaleExcluded = false;
+    let sawMilestoneExcluded = false;
+
+    for (const { user_id, community_id } of pairs.rows) {
+      const sql = await getTrustMetrics(user_id, community_id);
+      const recent = await pool.query(
+        `SELECT COUNT(*)::int AS c FROM reputation.karma_records
+         WHERE user_id = $1 AND community_id = $2
+           AND reason IN ('Provided help', 'Received help') AND created_at >= $3`,
+        [user_id, community_id, cutoff]);
+      const allTime = await pool.query(
+        `SELECT COUNT(*)::int AS c FROM reputation.karma_records
+         WHERE user_id = $1 AND community_id = $2
+           AND reason IN ('Provided help', 'Received help')`, [user_id, community_id]);
+
+      const ts = computePreviewMetrics(index, user_id, community_id, FROZEN.getTime());
+
+      expect({ pair: `${user_id}|${community_id}`, ...ts }).toEqual({
+        pair: `${user_id}|${community_id}`,
+        recentInteractions: recent.rows[0].c,
+        repeatPairs: sql.repeat_interaction_pairs,
+        distinctPeople: sql.distinct_people_count,
+        distinctCommunities: sql.distinct_communities_count,
+      });
+
+      if (sql.repeat_interaction_pairs > 0) sawRepeat = true;
+      if (allTime.rows[0].c > recent.rows[0].c) sawStaleExcluded = true;
+      if (user_id === HELPER && community_id === C1 && sql.distinct_people_count >= 2) {
+        sawCrossCommunityCounterparty = true; // LONELY's row lives in C3, and still counts
+      }
+      if (user_id === HELPER && community_id === C4) {
+        sawMilestoneExcluded = sql.distinct_people_count === 0 && recent.rows[0].c === 0;
+      }
+    }
+
+    // The fixture must actually exercise all four dimensions, or the loop above proves nothing.
+    // Each of these fails if a future edit degenerates the fixture back to the trivial case.
+    expect(sawRepeat).toBe(true);
+    expect(sawCrossCommunityCounterparty).toBe(true);
+    expect(sawStaleExcluded).toBe(true);
+    expect(sawMilestoneExcluded).toBe(true);
+    // Breadth counts C1 and C2 for HELPER, and NOT C4, whose only row is the milestone.
+    expect((await getTrustMetrics(HELPER, C1)).distinct_communities_count).toBe(2);
+  }, 180000);
+
+  it('is idempotent: a preview after apply converges with identical distributions', async () => {
+    await seedMatch({ matchId: U('d1'), requestId: U('b1'), communities: [C1], completedAt: COMPLETED });
+    await seedMatch({ matchId: U('d2'), requestId: U('b2'), communities: [C1, C2], completedAt: COMPLETED });
+    await coldEffectiveParamsCache();
+
+    const first = await backfill().analyzeStandingBackfill();
+    await backfill().applyStandingBackfill({ batchSize: 10 });
+
+    const afterApply = await fingerprint();
+    const second = await backfill().analyzeStandingBackfill();
+
+    expect(await fingerprint()).toBe(afterApply); // the second preview still writes nothing
+    expect(second.converged).toBe(true);
+    expect(second.predicted.karmaRows).toBe(0);
+    // Same dataset, same frozen instant, same config → identical distributions, and no identity
+    // projected twice.
+    expect(second.scoreBuckets).toEqual(first.scoreBuckets);
+    expect(second.interactionDepthBuckets).toEqual(first.interactionDepthBuckets);
+    expect(second.interactionBreadthBuckets).toEqual(first.interactionBreadthBuckets);
+    expect(await storedScoreBuckets()).toEqual(second.scoreBuckets);
+  }, 180000);
+});

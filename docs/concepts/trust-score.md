@@ -30,6 +30,30 @@ Communities can configure their trust model along two axes:
 
 **Balanced:** Most communities sit in between — valuing both depth and breadth.
 
+### Breadth reaches across communities
+
+Depth is always **local**: it counts the exchanges you have had in *this* community, and the people
+here you have helped more than once. Breadth is different. It counts the range of your participation
+across **every** community you are active in.
+
+That has a consequence worth stating plainly: when you join a new community, you do not arrive with
+nothing. If you have been active elsewhere, a small amount of standing comes with you — enough to
+show you are a real participant somewhere, and not enough to substitute for showing up here. Someone
+who has never completed an exchange anywhere starts at zero, and stays there until their first one.
+
+It is a deliberately modest carry. Your reputation in one community is evidence that you take part;
+it is not a claim on anyone's trust in another. Depth and the exchanges you actually complete here
+are what move your standing in this community.
+
+Breadth is not the only thing that travels, though. **Feedback does too.** Ratings are weighted 70%
+from this community and 30% from everywhere else — but until you have been rated *here*, your rating
+from elsewhere is all there is, so it counts in full. That is deliberate: someone people have
+consistently vouched for elsewhere is not a stranger, even on their first day here.
+
+A community can turn the breadth weight down to zero, and then range of participation stops
+counting. That narrows the carry; it does not end it, because feedback still crosses. Only someone
+with no history and no ratings anywhere starts at a true zero.
+
 ---
 
 ## Trust Paths
