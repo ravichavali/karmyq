@@ -1,0 +1,236 @@
+name: Demo health
+
+# Sprint 129, BUG-040. `karmyq.com/demo` is the one page a stranger can see without an account, and
+# it was dead from roughly 2026-09-09 to 2026-09-12 because nothing watched it (BUG-039). The demo's
+# story rows are deleted on a schedule by cleanup-service, so the configuration goes stale on a
+# timer: rotation is now a single command, but that only helps if somebody runs it before the rows
+# disappear — which is exactly the assumption that already failed once.
+#
+# This asks two questions daily:
+#   1. Can a demo session actually be issued right now?
+#   2. Are the configured story rows more than 14 days from deletion?
+#
+# The second question is the point. A monitor that only fires once the demo is already dead
+# shortens an outage; this one is meant to prevent it.
+#
+# READ-ONLY. It never rotates, seeds or writes anything — auto-rotation would mean unattended
+# scheduled writes to the demo database and the persona password as a CI secret, a larger security
+# surface than the problem justifies.
+#
+# Deliberately NOT a pull_request trigger: that would make every merge depend on karmyq.com being
+# reachable. A stale demo is a "fix within a day" problem, not a "block this merge" problem.
+#
+# ── Why the reporting steps use always() ───────────────────────────────────────────────────────
+# GitHub applies an implicit success() to every `if:`. A reporting step gated only on
+# `steps.check.outputs.*` is SKIPPED once an earlier step fails, so a broken checkout or a crashed
+# check files nothing and the run goes red with nobody told. `expo-sdk-drift.yml` still has that
+# gap at :154, :232 and :262 — this workflow must not inherit it. The condition also tests
+# `issue != '0'` rather than `issue == '1'`, because a check that exits 0 without writing
+# GITHUB_OUTPUT leaves `issue` empty, and an equality test reads that as "nothing to report".
+# Covered by tests/regression/sprint-129-demo-health-workflow.test.ts.
+
+on:
+  schedule:
+    # 06:20 UTC daily — well before the 02:00 cleanup window has a fresh effect to report, and off
+    # the hour to avoid GitHub's peak-of-hour scheduling backlog.
+    - cron: "20 6 * * *"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Override the demo base URL. Point it somewhere unreachable to prove the gate still files an issue."
+        required: false
+        default: ""
+
+concurrency:
+  group: demo-health
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  NODE_VERSION: "24.x"
+  HEALTH_LABEL: demo-health
+
+jobs:
+  check-demo-health:
+    name: Check the guided demo is alive and not about to expire
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # No `npm ci`: scripts/check-demo-health.js has no dependencies, and every install is another
+      # way for this job to fail before it can report anything.
+
+      - name: Setup SSH for the read-only story probe
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PROD_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.PROD_SERVER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Probe the demo and evaluate its retention headroom
+        id: check
+        env:
+          DEMO_BASE_URL: ${{ github.event.inputs.base_url || 'https://karmyq.com' }}
+        run: |
+          set +e
+          # Read the story rows inside the auth container, using its own DATABASE_URL. SELECT only.
+          rows=$(ssh -o BatchMode=yes -o ConnectTimeout=20 \
+            "${{ secrets.PROD_SERVER_USER }}@${{ secrets.PROD_SERVER_HOST }}" \
+            'docker exec -i karmyq-auth-service node' < scripts/demo/probe-story-rows.js 2>/dev/null)
+          ssh_status=$?
+          set -e
+
+          if [ "$ssh_status" -ne 0 ] || [ -z "$rows" ]; then
+            # Do not silently continue with zero rows: "no rows" would otherwise read as an absence
+            # of news rather than as news.
+            rows='{"stories":[],"errors":["could not read the demo story rows over SSH"]}'
+          fi
+
+          printf '%s' "$rows" | node scripts/check-demo-health.js > "$RUNNER_TEMP/health.out"
+          check_status=$?
+
+          cat "$RUNNER_TEMP/health.out"
+
+          result=$(sed -n 's/^result=//p' "$RUNNER_TEMP/health.out")
+          issue=$(sed -n 's/^issue=//p' "$RUNNER_TEMP/health.out")
+
+          # An exit code of 0 is not evidence of a successful check. An empty payload means the
+          # check produced no evidence at all, which is a finding, not a pass.
+          if [ -z "$result" ]; then
+            echo "The demo-health check emitted no result payload." >&2
+            issue=1
+          fi
+          if [ "$issue" != "0" ]; then
+            issue=1
+          fi
+
+          echo "status=$check_status" >> "$GITHUB_OUTPUT"
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+          echo "issue=$issue" >> "$GITHUB_OUTPUT"
+
+      - name: File or update the demo-health issue
+        id: notify
+        # Default to NOTIFYING. Only an explicit, well-formed issue=0 earns silence. See the header.
+        if: >-
+          always() &&
+          (failure() ||
+           steps.check.outcome != 'success' ||
+           steps.check.outputs.issue != '0' ||
+           steps.check.outputs.result == '')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RESULT: ${{ steps.check.outputs.result }}
+          OUTCOME: ${{ steps.check.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create "$HEALTH_LABEL" \
+            --description "The guided Maria demo is failing or close to expiring" \
+            --color 'B60205' 2>/dev/null || true
+
+          # Fall back to a generic body when there is no payload to render — which is precisely the
+          # case where the step must still speak.
+          details=$(RESULT="$RESULT" OUTCOME="$OUTCOME" node -e '
+          const raw = process.env.RESULT || "";
+          if (raw.trim() === "") {
+            process.stdout.write(
+              "### The demo-health check did not complete\n\n" +
+              "It produced no result payload, so the demo state is UNKNOWN — treat this as a\n" +
+              "failure until proven otherwise. Check step outcome: `" + (process.env.OUTCOME || "did not run") + "`.\n\n" +
+              "Verify by hand: `POST https://karmyq.com/api/auth/demo-session` should return 200.",
+            );
+            process.exit(0);
+          }
+          let result;
+          try {
+            result = JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
+          } catch (error) {
+            process.stdout.write("### The demo-health payload was unreadable\n\n- " + error.message);
+            process.exit(0);
+          }
+          const sections = [];
+          if (Array.isArray(result.errors) && result.errors.length) {
+            sections.push("### Findings\n" + result.errors.map((e) => "- " + e).join("\n"));
+          }
+          if (Array.isArray(result.stories) && result.stories.length) {
+            sections.push(
+              "### Story retention\n" +
+                result.stories
+                  .map(
+                    (s) =>
+                      "- **" + s.kind + "** — " +
+                      (Number.isFinite(s.daysRemaining) ? s.daysRemaining.toFixed(1) + " days" : "not deletable") +
+                      " from deletion (basis: " + s.basis + (s.safe ? ", safe" : ", NOT safe") + ")",
+                  )
+                  .join("\n"),
+            );
+          }
+          if (!sections.length) sections.push("### The check reported a problem but rendered no detail");
+          process.stdout.write(sections.join("\n\n"));
+          ')
+
+          body=$(cat <<EOF
+          The guided Maria demo at https://karmyq.com/demo needs attention.
+
+          $details
+
+          **To fix**, rotate the finite live stories from the demo host:
+
+          \`\`\`bash
+          cd ~/karmyq && set -a && . ./.env.demo.rotation && set +a
+          npm --workspace @karmyq/simulation-service run rotate:demo-stories -- --apply --publish-config
+          \`\`\`
+
+          Rotation creates fresh stories through ordinary APIs, verifies them, republishes the
+          \`DEMO_*\` config, recreates auth-service and re-verifies a live demo session. See
+          \`docs/guides/demo-data.md\`. Background: BUG-039 and BUG-040 in \`docs/BUGS.md\`.
+
+          Run: $RUN_URL
+          EOF
+          )
+
+          existing=$(gh issue list --state open --label "$HEALTH_LABEL" \
+            --json number --jq '.[0].number // empty')
+
+          if [ -n "$existing" ]; then
+            echo "Updating existing issue #$existing"
+            gh issue comment "$existing" --body "$body"
+          else
+            echo "Filing a new demo-health issue"
+            gh issue create \
+              --title "Demo health: the guided Maria demo is failing or close to expiring" \
+              --label "$HEALTH_LABEL" \
+              --body "$body"
+          fi
+
+      - name: Close a stale demo-health issue when the demo is healthy again
+        id: close_stale
+        if: always() && steps.check.outcome == 'success' && steps.check.outputs.issue == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          existing=$(gh issue list --state open --label "$HEALTH_LABEL" --json number --jq '.[].number')
+          if [ -n "$existing" ]; then
+            for issue in $existing; do
+              echo "Closing resolved demo-health issue #$issue"
+              gh issue close "$issue" --comment "The guided demo is healthy again. Verified by $RUN_URL."
+            done
+          else
+            echo "No stale demo-health issue is open."
+          fi
+
+      - name: Fail the run when the demo is unhealthy
+        id: verdict
+        if: always() && (failure() || steps.check.outputs.issue != '0' || steps.check.outputs.result == '')
+        run: |
+          echo "Demo health check did not pass; failing so the scheduled run is visibly red." >&2
+          exit 1

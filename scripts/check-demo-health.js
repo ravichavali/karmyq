@@ -190,10 +190,125 @@ function interpretPayload(raw) {
   return { ok, issue: ok ? 0 : 1, errors: parsed.errors, stories: parsed.stories };
 }
 
+/**
+ * Probe `POST /auth/demo-session`. Resolves to a plain result rather than throwing, so a network
+ * fault becomes a reported error instead of an unhandled rejection that skips notification.
+ *
+ * Never returns or logs the issued token.
+ */
+function probeDemoSession(baseUrl) {
+  return new Promise((resolve) => {
+    let url;
+    try {
+      url = new URL('/api/auth/demo-session', baseUrl);
+    } catch (error) {
+      resolve({ error: `invalid base URL: ${error.message}` });
+      return;
+    }
+
+    const transport = url.protocol === 'http:' ? require('http') : require('https');
+    const body = '{}';
+    const req = transport.request(
+      {
+        hostname: url.hostname,
+        port: url.port || undefined,
+        path: url.pathname,
+        method: 'POST',
+        timeout: 15000,
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      },
+      (res) => {
+        // Drain without retaining: the success body contains a live demo JWT.
+        res.resume();
+        res.on('end', () => resolve({ status: res.statusCode }));
+      },
+    );
+
+    req.on('timeout', () => { req.destroy(); resolve({ error: 'demo-session probe timed out' }); });
+    req.on('error', (error) => resolve({ error: error.code || error.message }));
+    req.write(body);
+    req.end();
+  });
+}
+
+function readStdin() {
+  return new Promise((resolve) => {
+    let data = '';
+    if (process.stdin.isTTY) { resolve(''); return; }
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', (chunk) => { data += chunk; });
+    process.stdin.on('end', () => resolve(data));
+    process.stdin.on('error', () => resolve(''));
+  });
+}
+
+/**
+ * CLI: probe the demo, combine with story rows piped in from `scripts/demo/probe-story-rows.js`,
+ * and emit the workflow contract on stdout:
+ *
+ *   result=<base64 JSON>
+ *   issue=<0|1>
+ *
+ * Exits 0 when healthy and 1 otherwise, but the workflow must NOT rely on that exit code alone —
+ * see `issue=` and the notify condition. A crashed gate is the loudest case, not the quietest.
+ */
+async function main() {
+  const baseUrl = process.env.DEMO_BASE_URL || 'https://karmyq.com';
+  let result;
+
+  try {
+    const raw = await readStdin();
+    let probed = { stories: [], errors: ['no story rows were piped to the demo-health check'] };
+    if (raw.trim() !== '') {
+      try {
+        const parsed = JSON.parse(raw);
+        probed = {
+          stories: Array.isArray(parsed.stories) ? parsed.stories : [],
+          errors: Array.isArray(parsed.errors) ? parsed.errors : [],
+        };
+      } catch (error) {
+        probed = { stories: [], errors: [`story probe output was unparseable: ${error.message}`] };
+      }
+    }
+
+    const session = await probeDemoSession(baseUrl);
+    result = evaluate({ session, stories: probed.stories, nowMs: Date.now() });
+
+    // Errors raised by the probe itself (a missing row, an unreadable column) are real findings,
+    // not noise — fold them in rather than letting a successful evaluate() mask them.
+    if (probed.errors.length > 0) {
+      result = { ...result, ok: false, issue: 1, errors: [...result.errors, ...probed.errors] };
+    }
+  } catch (error) {
+    result = failed([`demo-health check crashed: ${(error && error.message) || String(error)}`]);
+  }
+
+  const encoded = Buffer.from(JSON.stringify(result), 'utf8').toString('base64');
+  process.stdout.write(`result=${encoded}\n`);
+  process.stdout.write(`issue=${result.issue}\n`);
+
+  for (const error of result.errors) console.error(`DEMO-HEALTH: ${error}`);
+  console.error(result.ok ? 'Demo health OK.' : 'Demo health FAILED.');
+
+  process.exitCode = result.ok ? 0 : 1;
+}
+
 module.exports = {
   WARN_DAYS,
   DELETE_GRACE_DAYS,
   evaluate,
   interpretPayload,
   deadlineFor,
+  probeDemoSession,
 };
+
+if (require.main === module) {
+  main().catch((error) => {
+    // Last-resort: still emit a well-formed payload so the workflow has something to report.
+    const result = failed([`demo-health check crashed: ${(error && error.message) || String(error)}`]);
+    process.stdout.write(`result=${Buffer.from(JSON.stringify(result), 'utf8').toString('base64')}\n`);
+    process.stdout.write('issue=1\n');
+    console.error('Demo health FAILED (crashed).');
+    process.exitCode = 1;
+  });
+}
