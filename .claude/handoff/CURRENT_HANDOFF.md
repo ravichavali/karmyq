@@ -1,7 +1,7 @@
-# Sprint 128 PR C — Standing preview parity — Handoff
+# Sprint 129 — Maintenance: demo, dependencies, bugs — Handoff
 
-**Date**: 2026-09-10
-**Outcome**: implementation complete, all four SDLC gates run, **PR [#233](https://github.com/ravichavali/karmyq/pull/233) OPEN and green at `79c58939` (v11.50.0)**; D1 torn down; the merge itself is blocked on tooling, not on readiness
+**Date**: 2026-09-12
+**Outcome**: Sprint 129 is PLANNED and ready to execute. Spec and plan written; no branch yet.
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router — there is no second machine.
 > This file is branch-local and reserves nothing; contended resources are allocated by the
@@ -9,231 +9,192 @@
 
 ---
 
+## Sprint goal
+
+Restore the public Maria demo and make its next failure diagnosable, clear the dependency and
+security backlog to zero open alerts, and silence the `/communities` 404 storm.
+
 ## Ownership and base
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-128-c-standing-preview` |
-| **Base** | `origin/master` at `bcb7617e` (fetched 2026-09-10), version **v11.49.0** |
-| **Active editor** | Claude — implementation complete |
-| **Reviewer role** | GitHub required approving review still owed; it cannot be self-provided |
-| **Owned paths** | reputation service, root `tests/integration/`, `docs/gotchas/`, ADR-096, trust docs |
-| **Shared resources needed** | D1 provisioned, used, and **torn down** (below). No ADR minted. Version bumped to **v11.50.0**, re-derived from `origin/master` at merge time |
-
-## Links
-
-- **Spec**: `docs/superpowers/specs/2026-09-07-sprint-128-single-stream-design.md`
-- **Plan**: `docs/superpowers/plans/2026-09-07-sprint-128-c-standing-preview.md`
-- **PR**: [#233](https://github.com/ravichavali/karmyq/pull/233) — OPEN and green, head `79c58939` (v11.50.0)
+| **Branch** | none yet — branch from freshly fetched `origin/master` |
+| **Base** | `origin/master` at `55a536fc`, version **v11.50.0** |
+| **Active editor** | unassigned |
+| **Shared resources needed** | **Demo-server operations required** (see gate below). No ADR allocated — none needed; ADR-084 is amended in place. |
 
 ## Quick Start
 
-1. Confirm live state before trusting this file: `git fetch origin`, `gh pr view 233`,
-   `git log --oneline origin/master -3`.
-2. **Reuse this branch.** Work is committed and pushed; head is `79c58939`.
-3. Remaining: unblock and execute the merge (below), then deploy and health verify, then the
-   sprint retrospective. **D1 teardown is already done.**
+1. Read this handoff
+2. Reuse the existing task branch if one exists; otherwise `git fetch origin` then
+   `git switch -c feature/sprint-129-demo-session origin/master`. Never branch off a stale local
+   master — unpushed local-master commits leak in via the squash-merge.
+3. Open plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md)
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
-**Next unchecked task**: Plan Task 8 — **the merge itself, which is BLOCKED on tooling, not on
-readiness**. See *Merge is blocked* below. D1 teardown is DONE; deploy and the retrospective remain.
+**Next unchecked task**: PR A, Task A1 — branch, reproduce, then **stop and request demo-server
+authorization**.
 
-## Merge is blocked — 2026-09-11
+## Artifacts
 
-The maintainer authorized the merge explicitly. It could not be executed:
+- **Spec**: [`docs/superpowers/specs/2026-09-12-sprint-129-maintenance-design.md`](../../docs/superpowers/specs/2026-09-12-sprint-129-maintenance-design.md)
+- **Plan**: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md)
 
-- **GitHub forbids self-approval.** The PR author and the authenticated account are both
-  `ravichavali`, so the required approving review cannot be supplied by this account at all.
-- **`gh pr merge --squash --admin`** — the override PR A used — was **refused by the local agent
-  permission classifier** (`[Merge Without Review]`). A plain `gh pr merge --squash`, which would
-  have respected the review requirement, was refused by the same rule.
+## Three PRs, merged in order
 
-So the merge needs one of, and this is the maintainer's choice:
-1. A second GitHub account or a human reviewer approving #233, then a normal merge;
-2. The maintainer merging in the GitHub UI;
-3. A local Bash permission rule allowing the merge command, if the admin override is intended;
-4. Setting `enforce_admins: true` and adding a reviewer — the durable fix, since the review
-   requirement is currently advisory in practice.
-
-**#233 is green and ready**; nothing about the code or the checks is outstanding.
-
-## PR #233 status — verified 2026-09-11 at head `79c58939`
-
-**All 20 checks PASS**; `Deploy to Demo` SKIPPING, which is expected — it runs only on a `master`
-push. `mergeStateStatus` is **BLOCKED** solely on `REVIEW_REQUIRED`.
-
-Each workflow run's `headSha` was queried directly rather than read off the rollup, which is the
-check PR A's handoff says to make: CI/CD Pipeline, Tests and PR Contract all report `success`
-against `79c58939`, and that is still the PR head. `pr-contract` passing confirms the full template
-body was supplied rather than `--fill`.
-
-Codex reviewed the pushed branch independently and confirmed the remote commit, the template and
-the contract check, and flagged that this handoff still said "PR not yet opened" — corrected here.
-That staleness is the blocking defect `CLAUDE.md` → *Session Workflow* names explicitly.
-
-## What this PR fixes
-
-`analyzeStandingBackfill` derived its trust inputs from the **replayed match list**, which is not
-what the score writer reads. It therefore saw neither pre-existing canonical history nor activity in
-other communities, and zeroed a membership's metrics whenever its local pair had no replayed match.
-Because breadth is global, those memberships stored **1** while the report printed **0**, and the
-same gap propagated into `providerEligibility`.
-
-Reproduced exactly on the disposable database before any code changed:
-
-| | preview | writer |
+| PR | Branch | Scope |
 |---|---|---|
-| score buckets | `{'0': 7, '1-19': 2}` | `{'0': 1, '1-19': 8}` |
-| provider floor 1 | 2 | 4 |
+| **A** | `feature/sprint-129-demo-session` | BUG-039: restore the demo + make it diagnosable |
+| **B** | `feature/sprint-129-deps` | 6 Dependabot PRs, 4 security alerts, Expo SDK drift (#234) |
+| **C** | `feature/sprint-129-community-aggregate` | BUG-031: the `/communities` 404 storm |
 
-Six of nine memberships were misreported. After the fix both sides agree exactly, and `LONELY`
-(no history anywhere) still stores 0 — **1 is not a new floor**.
+⚠️ **One merge at a time.** Every master push is a full deploy; overlapping deploys restart services
+and 502 the demo — the thing this sprint is fixing.
 
-**The provider discrepancy is diagnosed, not guessed**: running `PROVIDERS_QUERY`'s own filters
-verbatim against real stored scores gave 4 where the preview said 2, with an identical filter set
-and pair unit. The difference comes **entirely from score inputs**. No filter change was needed or
-made, exactly as the spec predicted.
+---
 
-## What changed
+## ⚠️ Operational gate — PR A cannot proceed without it
 
-- **New `src/services/standingPreview.ts`** — `buildPreviewIndex(rows)` once per projected dataset,
-  then `computePreviewMetrics(index, userId, communityId, nowMs)` per membership.
-- **It reproduces the writer's SQL, not the replay map**: global community count; local recent row
-  count with an inclusive boundary; counterparty join on non-null match id with the `other` side
-  **not** community-filtered; repeats by distinct match id. It filters on exactly
-  `('Provided help', 'Received help')` — **narrower than `CANONICAL_REASONS`**, which also holds the
-  first-help and milestone reasons the writer's SQL ignores.
-- **`calculateDistributions` scores the post-apply karma view**, mirroring apply's three mutations
-  in order: normalize unattributable legacy reasons, delete legacy rows attributable to a replayed
-  match, overlay planned canonical rows by identity so an already-projected row is not double-counted.
-- **`sourcedPairs` semantics corrected** — "sourced" now means any local canonical history. The old
-  test (recent interactions or counterparties) reported two real cases as zero-history: history
-  older than the window, and rows with a NULL match id, which is what legacy normalization produces.
-  Ordinary data is unaffected; Sprint 126's expectation of 3 is unchanged.
-- **`attributableMatchIds` / `normalizedReasonFor` extracted** so preview and apply share one
-  predicate rather than two copies of it.
-- Unchanged: the trust formula, provider floors, `PROVIDERS_QUERY` filters, the report's fields, the
-  apply authorization boundary, every endpoint, schema and event.
+Diagnosing BUG-039 requires reading the deployed auth-service environment, and probably querying the
+demo DB as `karmyq_prod`. **Every demo-server operation needs its own explicit, per-operation
+maintainer authorization.** Task A1 is a *request*, not an autonomous step.
 
-## Review rounds
+Three separate operations, authorized separately:
+1. Read-only: which of the six `DEMO_*` vars are set (names and set/unset, **not values**)
+2. Read-only: do the five referenced story rows exist and belong to the persona
+3. Write: set the missing env, or re-point the story ids
 
-### `/simplify` — 4 parallel agents
+---
 
-Applied: merged two pair-keyed maps and added an `addTo` helper (~30 lines and one nesting level);
-named `PreviewPairEntry`; counterparty tracker became a counter rather than a `Set` (provably
-equivalent — each pair is visited once); shared apply predicate extracted; a comment that overclaimed
-was corrected; dead `return` removed.
+## Scope decisions taken at planning (do not re-litigate)
 
-Skipped deliberately: dropping the binary search and the `communitiesByUser` count shape (both are
-the approved plan's named mechanism and interface), the `PreviewMetrics` field rename
-(plan-specified), and a shared test-helper module (would edit Sprint 126's file, outside this diff).
-
-### `/code-review` (high) — 3 findings
-
-1. **CONFIRMED bug, fixed.** The normalization collapse in `projectedKarmaRows` was
-   **row-order dependent**. The guard only fired when the legacy row was visited second; with the
-   legacy row first, both it and its canonical twin survived and the pair counted as two
-   interactions where apply produces one. Now resolved in a second pass, after every untouched row
-   has claimed its identity — order-independent, as the SQL is. Pinned by a regression test that was
-   **proven to fail against the old logic**.
-2. `sourcedPairs` semantics — fixed, above.
-3. Generated-file churn — `build.json` reverted.
-
-### `/security-review` — no findings
-
-Verified: the preview issues only SELECTs and `analyzeSnapshot` is synchronous so it cannot await a
-write; no new SQL and no interpolation; the report's field set is byte-for-byte unchanged and emits
-only integer aggregates; `standingPreview.ts` has no logger, no `console`, no `throw`; the preview
-never reaches the projector or the score writer; no new secrets. Exporting the static
-`PROVIDERS_QUERY` constant adds no sink.
-
-## The most important lesson from this PR
-
-**Score buckets are too coarse to be an equivalence oracle.** The first version of the integration
-test compared `preview.scoreBuckets` against stored buckets. A deliberately broken reason set was
-injected — and the test still passed, because an extra community moves a score by about one point
-and the pair stays inside the same bucket. The original 0-versus-1 defect was caught by buckets only
-because bucket `'0'` happens to be exactly `score <= 0`.
-
-The oracle now compares **all four metrics per membership** against the real `getTrustMetrics` SQL on
-real rows. Re-injecting the same fault fails it immediately (`distinctCommunities` 2 versus 3). Both
-the weak and the strong version were run against the injected fault; only the strong one caught it.
-
-The fixture is now seeded so each dimension differs from what the plausible wrong implementation
-would produce, with four `saw*` guards asserting the fixture has not degenerated back to the trivial
-case.
-
-## Deferred — worth a following PR, not this one
-
-- **One definition instead of two.** `feedbackDb.ts` already splits `calculateWeightedAvgFeedback`
-  (pure) from `getWeightedAvgFeedback` (fetch), and both the writer and the dry run call the pure
-  half. `getTrustMetrics` has the same shape and could be split the same way, collapsing
-  `standingPreview.ts` to a thin adapter. It edits the live writer, so it needs its own PR and its
-  own regression coverage first.
-- **A single `projectApply(snapshot, replayed)`** owning "what the karma table looks like after
-  apply", with `compareStoredProjection` deriving `predictedKarma` from it. There are currently two
-  in-memory models of post-apply state; unifying them touches the convergence signal the demo
-  backfill already relies on.
-- **The reason-set derivation runs one way.** `standingPreview.ts` builds its filter from
-  `COMPLETED_MATCH_REASONS`, but the writer's SQL hardcodes the literals, so renaming the constant
-  would move the projector and the preview and silently leave the SQL matching a dead string.
-  Recorded in the new gotcha; interpolating the constants into the SQL is the real fix.
-
-## D1 resources — TORN DOWN 2026-09-11, nothing owed
-
-Removed by verified container id after re-confirming each id and its
-`karmyq.task=sprint128-preview` label against the provisioning record immediately before deletion.
-Post-removal: zero containers by name, zero by label, zero networks. The demo host still shows its
-18 application containers with `karmyq-postgres` and `karmyq-redis` healthy and untouched; no
-prune, no compose down, no demo-container restart was performed. Remote temp files were already
-removed after the schema load, and `/tmp/s128-*` is empty. The SSH tunnel is closed
-(`ECONNREFUSED` on 55438) and the private test credentials are destroyed.
-
-**No cleanup failure, and no resource left behind.** The provisioning record is retained below only
-as evidence of what was created and removed.
-
-### What was provisioned (historical)
-
-Provisioned 2026-09-10 under the approved D1 scope, verified free beforehand:
-
-| Resource | Id / detail |
+| Area | Decision |
 |---|---|
-| `s128-preview-pg` | `c4691774d4d3` … `StartedAt=2026-09-10T19:23:46.670695332Z`, `127.0.0.1:55438` |
-| `s128-preview-redis` | `24f19f645f2e` … `StartedAt=2026-09-10T19:23:46.911398035Z`, `127.0.0.1:63808` |
-| `s128-preview-net` | task-labeled bridge, only these two attached |
+| Dependencies | **Safe + security only.** The seven single **major** bumps stay open with a written triage comment each. |
+| BUG-039 | **Fix it *and* make it diagnosable.** Not the full "resolve the story by query" redesign. |
+| Open bugs | **BUG-031 only.** BUG-033, BUG-034, BUG-036 stay open and out of scope. |
 
-All three carry `karmyq.task=sprint128-preview`. Every run compared container ids, running state,
-start times and restart counts before and after, with authenticated DB and Redis health — all
-identical throughout, so no result rests on a restarted dependency. Credentials were never echoed
-and have since been destroyed.
+---
 
-## Open, not caused by this sprint
+## Critical implementation notes (verbatim from the spec)
 
-- **BUG-039** — `POST /api/auth/demo-session` returns 503 `DEMO_UNAVAILABLE` on deployed karmyq.com.
-- **4 vulnerabilities on the default branch** (1 high, 3 moderate). The high is inside the ≤ 1 week SLA.
-- **`enforce_admins: false`** on `master` — six required checks and one approval are admin-bypassable.
+1. **The demo-session HTTP contract does not change.** Same status, same error code, same body.
+   ADR-084's opacity is preserved exactly. Only the server-side log gains the reason. A test must
+   assert the response is byte-identical before and after.
+2. **Never log the reason to the client, and never log the JWT.** Reason strings go to `req.logger`
+   only. The startup self-check must not log the issued token.
+3. **`qs` is an existing override, not a new one.** Raise `overrides.qs` from `">=6.15.2"` to
+   `">=6.16.0"` in place. Do not add a second entry.
+4. **Prove the `decode-uri-component` override actually lands.** It reaches the tree only through
+   `apps/mobile`, and root `overrides` are known not to reach `apps/*` subtrees reliably. Verify
+   with strict `npm ci` then `npm ls decode-uri-component --all` — never from the manifest alone.
+   Check first whether the `expo-router` patch bump resolves it without an override.
+5. **Dependency edits are surgical.** Edit `package.json` and splice `package-lock.json` in place.
+   Never `npm install --workspace`, never `npm dedupe`, never a scratch lockfile regen. Prove with
+   strict `npm ci`.
+6. **Do not widen `security/expo-divergences.json` to silence drift.** The two existing entries
+   cleared correctly. A divergence matching no current drift must be *deleted*, not kept.
+7. **The Expo bump must move `SDK_PINNED` too.** Updating `apps/mobile/package.json` alone leaves
+   the gate green against a stale shadow — the exact false-green that made the drift monitor
+   necessary.
+8. **BUG-031's fix must keep denial and absence indistinguishable.** Both return the identical 200.
+   Returning 200 only for the uncomputed case would leak ADR-082's hidden distinction. A test must
+   assert the two responses are identical.
+9. **BUG-031 has two call sites, not one**, and the bug's recorded line reference is wrong. Cover
+   `communities/index.tsx:124` and `useCommunityData.ts:153`.
+10. **`apps/landing/src/data/docs/` churns on every `npm test`.** Revert `build.json` and
+    `architecture.json` before committing — mandatory.
+11. **Merge one PR at a time.** Wait for each deploy and health verify before merging the next.
+12. **The version bump is taken at merge time** from `origin/master`'s `package.json`.
+
+---
+
+## What planning established (so it isn't re-derived)
+
+**BUG-039 is undiagnosable by design, and that is the real defect.** ADR-084 collapses all fourteen
+failure causes into one opaque 503, and `auth.ts:252` logs **only** non-`DemoSessionUnavailableError`
+failures — so every expected cause is silent in the server logs. BUG-039's advice to "check
+`pm2 logs`" cannot work. Reproduced again 2026-09-12 against v11.50.0: 503 `DEMO_UNAVAILABLE`, while
+ordinary login as Maria returns 200.
+
+**The two likeliest causes are both config.** `DEMO_SESSION_ENABLED` defaults to **`false`**
+(`docker-compose.yml:90`) and the five `DEMO_*` id vars default to empty (`:91-95`). The ids are
+hardcoded UUIDs pointing at specific mutable DB rows, so any demo reseed silently invalidates them.
+
+**The "failing Expo workflow" in the last handoff is not a failure.** `expo-sdk-drift.yml` is a
+monitor working exactly as designed, reporting real drift as
+[issue #234](https://github.com/ravichavali/karmyq/issues/234): twelve `expo-*` packages each one
+patch behind SDK 57. Folded into PR B.
+
+**`security/audit-exemptions.json` is now EMPTY.** The two entries expiring 2026-09-15 were resolved
+by Sprint 128 PR B. **No renewal is owed** — the note in persistent memory is stale and should be
+dropped.
+
+**The grouped Dependabot PRs were inspected and contain no majors** — #223 (6 prod deps) and #231
+(15 dev deps) are all minor/patch. Safe to take.
+
+**`qs` already carries an override** at `">=6.15.2"` — precisely the floor the new advisory
+invalidates.
+
+**`decode-uri-component` arrives only via `apps/mobile`:**
+`@karmyq/mobile → expo-router@57.0.20 → query-string@7.1.3 → decode-uri-component@0.2.2`
+(vulnerable ≤0.4.2, patched 0.5.0).
+
+**BUG-031's recorded caller line is stale** — it cites `api.ts:754`, which is `getLeaderboard`. The
+real definition is `api.ts:746`; the N+1 is `communities/index.tsx:124`; and there is a second,
+unrecorded caller at `useCommunityData.ts:153`.
+
+**`denyAggregate` (`reputation.ts:44`) returns the same 404 for two different situations** —
+authorization denied, and aggregate not yet computed. That indistinguishability is an ADR-082
+**privacy property**, not an oversight. The fix returns an identical 200 for both; returning 200
+only for the uncomputed case would leak what ADR-082 hides.
+
+---
+
+## Deferred, with reasons
+
+- **BUG-034** — messaging-service has zero tests. A Critical service needing a Socket.io harness
+  built from nothing. Its own sprint.
+- **BUG-033** — TDD promoter blind to `.tsx`. Extending the filter moves ~442 tests into the
+  blocking tier in one change; deferred by maintainer decision in Sprint 122.
+- **BUG-036** — CI healthcheck races a fixed `sleep 30`. Small and real, but a CI flake, not
+  user-visible. Next maintenance sprint.
+- **The seven major bumps** — #229 `next` 16, #227 `zod` 4, #225 `node-fetch` 3 (ESM-only),
+  #224 `express-rate-limit` 8, #226 `dotenv` 17, #228 `node-cron` 4, #230 `expo-server-sdk` 7.
+- **Resolving the demo story by query** instead of five hardcoded UUIDs — the durable fix, needs an
+  ADR, must not ride along with an outage fix. → `docs/IDEAS.md`.
+- **Batching the community-trust fan-out** into one request — changes the reputation service's
+  public surface. → `docs/IDEAS.md`.
+
+---
+
+## Still open, not in this sprint
+
+- **`enforce_admins: false`** on `master`. Six required checks and one required approval are all
+  admin-bypassable, yet the review requirement is also what stalls every sprint's end: the PR author
+  and the authenticated account are the same, so the required approval can never be self-provided.
+  **This has shaped the end of three consecutive sprints.** One API call either way.
 - **`apps/landing/src/data/docs/` is only PARTIALLY git-tracked.** `apps/landing/.gitignore:2`
-  ignores the directory, but ~160 files were committed before that and are still tracked; ADRs 095+
-  are not. CLAUDE.md calls the directory "git-tracked" without qualification, which is misleading —
-  an ADR edit appears not to propagate when in fact it reaches the site via the build-time prebuild.
-- **The committed landing docs were stale**, last generated at `8777c5dd` (2026-08-08).
+  ignores the directory, but ~160 files were committed before that and remain tracked; ADRs 095+ are
+  not. `CLAUDE.md` calls it "git-tracked" without qualification, which is misleading.
+- **Sprint 128 PR C architectural follow-through** — three deferred items (one definition of the
+  trust metrics instead of a SQL copy and a TypeScript copy; a single `projectApply`; interpolating
+  `COMPLETED_MATCH_REASONS` into the SQL). Detail in
+  `.claude/handoff/archive/2026-09-11-sprint-128-standing-preview-SHIPPED-v11.50.0.md`.
 
-## Verification references
+## Process notes worth carrying
 
-Recorded before this file's final edit; re-run if anything changes after it.
+- **An agent cannot merge a PR here.** GitHub forbids self-approval, and the local permission
+  classifier refuses `gh pr merge` in both `--admin` and plain form. Plan sprints to end at
+  "PR green and ready", not "merged".
+- **`gh run list` on master is drowned by Dependabot.** Filter by `--workflow=ci.yml`, and verify
+  the `Deploy to Demo` **job**, not just the run.
+- **Git hooks are LIVE on this clone** — a push costs a full suite run. A silent, instant push means
+  no hook ran; treat that as the alarm.
+- **`/health` is not exposed via nginx.** Smoke-test with `POST /api/auth/login`, and now also
+  `POST /api/auth/demo-session`.
+- **Windows + Git Bash:** `curl` flag parsing is unreliable and `jq` is not installed — use
+  `node -e` for HTTP probes and JSON parsing. No local Docker.
 
-- Reputation service, direct: **16 suites, 276 passed, 3 todo**. `npx tsc --noEmit` exit 0.
-- Integration on the disposable DB: **17/17**, no `--forceExit`, clean teardown, container
-  continuity OK before and after.
-- Drift gate direct **41/41**. `node scripts/gotcha-check.js` clean, **7 entries**.
-- Root standing-projection equivalence regression **32/32**.
-- Falsifiability proven three times by injection, each reverted: the recency-window gate, the
-  order-independence regression, and the integration oracle.
-- Pre-commit and pre-push hooks both **actually ran** on this clone (gotcha credential screening at
-  commit; the blocking suite across 15 packages at push). That is worth recording — `MEMORY.md` had
-  them as inert on this checkout.
-- **Caveat on one gate**: the `process-reviewer` agent was killed mid-run by a session rate limit,
-  so its checklist was run directly instead — CONTEXT.md updated, registry a one-line valid-JSON
-  diff, the one new logic file covered by two new test files, no never-hand-edit generated file
-  staged. Every item passed, but that gate was self-administered rather than independently run.
-
-⚠️ GitHub status is a dated observation. Re-derive with `gh pr view` and `git log origin/master`.
+⚠️ Every GitHub status above is a dated observation (2026-09-12). Re-derive with `gh pr list`,
+`gh run list` and `git log origin/master` before trusting any of it.
