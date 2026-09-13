@@ -20,7 +20,7 @@ hits it**; clear the dependency and security backlog to zero open alerts; silenc
 
 | Field | Value |
 |---|---|
-| **Branch** | `feature/sprint-129-demo-session` (exists, 2 commits, **not yet pushed**) |
+| **Branch** | `feature/sprint-129-demo-session` (exists, **3 commits**, not yet pushed) |
 | **Base** | `origin/master` at `55a536fc`, version **v11.50.0** |
 | **Active editor** | Claude — PR A in progress |
 | **Shared resources** | Demo-server rotation **performed and complete** 2026-09-12 (authorized). No further demo write is needed or authorized. No ADR minted — ADR-084 is amended in place. |
@@ -29,7 +29,7 @@ hits it**; clear the dependency and security backlog to zero open alerts; silenc
 
 1. Read this handoff
 2. **Reuse the existing branch** — `git switch feature/sprint-129-demo-session`. Do NOT re-branch;
-   two commits are already on it. Never branch off a stale local master.
+   three commits are already on it. Never branch off a stale local master.
 3. Open plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md)
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
@@ -123,7 +123,7 @@ safety mechanism could not run, which is why the stories aged out silently. Stor
 API-created, so the demo stays truthful rather than hand-inserted.
 
 ⏰ **The recurrence is NOT gone — it is now tracked as BUG-040.** The replacement stories expire
-**2026-11-12** and are hard-deleted **~2026-11-19**. Rotation being one command does not help if
+**2026-11-12** and are hard-deleted **~2026-11-19** (conservative estimate — see note 18; the real deadline is mark-time + 7 days, not `expires_at` + 7 days). Rotation being one command does not help if
 nobody runs it, which is exactly the assumption that just failed. Tasks A9/A10 add the scheduled
 monitor that warns 14 days ahead.
 
@@ -143,34 +143,63 @@ monitor that warns 14 days ahead.
 
 ## Critical implementation notes (verbatim from the spec)
 
-1. **The demo-session HTTP contract does not change.** Same status, same error code, same body.
-   ADR-084's opacity is preserved exactly. Only the server-side log gains the reason. A test must
-   assert the response is byte-identical before and after.
-2. **Never log the reason to the client, and never log the JWT.** Reason strings go to `req.logger`
-   only. The startup self-check must not log the issued token.
-3. **`qs` is an existing override, not a new one.** Raise `overrides.qs` from `">=6.15.2"` to
-   `">=6.16.0"` in place. Do not add a second entry.
-4. **Prove the `decode-uri-component` override actually lands.** It reaches the tree only through
-   `apps/mobile`, and root `overrides` are known not to reach `apps/*` subtrees reliably. Verify
-   with strict `npm ci` then `npm ls decode-uri-component --all` — never from the manifest alone.
+1. **The demo-session HTTP contract does not change.** A test must assert the response is
+   byte-identical across two *different* causes while the log reasons differ. A test asserting only
+   the log would pass a version that leaks the reason to the client.
+2. **Never log the reason to the client, and never log the JWT.** The startup self-check must not log
+   the issued token, and must never throw.
+3. **A crashed monitor is the loudest case, not the quietest.** Any non-green outcome — including the
+   check crashing or emitting no payload — files the issue. This is the BUG-035 lesson already
+   encoded in `expo-sdk-drift.yml`.
+4. **The monitor must not write to the demo.** Read-only assertions only; no rotation, no seeding.
+5. **`qs` is an existing override, not a new one.** Raise it in place; do not add a second entry.
+6. **Prove the `decode-uri-component` override actually lands.** It reaches the tree only via
+   `apps/mobile → expo-router → query-string@7.1.3`, and root `overrides` are known not to reach
+   `apps/*` subtrees reliably. Verify with strict `npm ci` then `npm ls decode-uri-component --all`.
    Check first whether the `expo-router` patch bump resolves it without an override.
-5. **Dependency edits are surgical.** Edit `package.json` and splice `package-lock.json` in place.
-   Never `npm install --workspace`, never `npm dedupe`, never a scratch lockfile regen. Prove with
-   strict `npm ci`.
-6. **Do not widen `security/expo-divergences.json` to silence drift.** The two existing entries
-   cleared correctly. A divergence matching no current drift must be *deleted*, not kept.
-7. **The Expo bump must move `SDK_PINNED` too.** Updating `apps/mobile/package.json` alone leaves
-   the gate green against a stale shadow — the exact false-green that made the drift monitor
-   necessary.
-8. **BUG-031's fix must keep denial and absence indistinguishable.** Both return the identical 200.
-   Returning 200 only for the uncomputed case would leak ADR-082's hidden distinction. A test must
-   assert the two responses are identical.
-9. **BUG-031 has two call sites, not one**, and the bug's recorded line reference is wrong. Cover
-   `communities/index.tsx:124` and `useCommunityData.ts:153`.
-10. **`apps/landing/src/data/docs/` churns on every `npm test`.** Revert `build.json` and
-    `architecture.json` before committing — mandatory.
-11. **Merge one PR at a time.** Wait for each deploy and health verify before merging the next.
-12. **The version bump is taken at merge time** from `origin/master`'s `package.json`.
+7. **Dependency edits are surgical.** Never `npm install --workspace`, `npm dedupe`, or a scratch
+   lockfile regen. Prove with strict `npm ci`.
+8. **Do not widen `security/expo-divergences.json`.** Both entries cleared correctly; a divergence
+   matching no current drift must be *deleted*.
+9. **The Expo bump must move `SDK_PINNED` too**, or the gate stays green against a stale shadow.
+10. **BUG-031 is about authorization denial only.** `denyAggregate` is reached solely from
+    `reputation.ts:171`; the uncomputed path returns 200 after calculating on demand
+    (`reputation.ts:180-185`). `checkAggregateAccess` (`utils/disclosureAuth.ts:74-82`) denies
+    unknown-community, non-member and undersized-cohort alike so existence and size stay hidden.
+    **Never add a 404-for-unknown-community branch.** Assert deep-equality *between* the three
+    responses, not merely that each is 200.
+11. **BUG-031 has two call sites**, and the bug's recorded line reference is wrong.
+12. **`apps/landing/src/data/docs/` churns on every `npm test`** — revert `build.json` and
+    `architecture.json` before committing.
+13. **Merge one PR at a time.** Every master push is a full deploy; overlapping deploys 502 the demo.
+14. **The version bump is taken at merge time** from `origin/master`.
+15. **Host traps, now recorded:** `npm --workspace` sets cwd to the workspace dir; the rotation env
+    file is shell-sourced (quote values with spaces; LF only); compose on the demo host reads the
+    **process environment** across **two** compose files.
+16. **New tests start in the changed workspace's `tests/tdd/`**, not root. Read
+    [`tests/claude.md`](../../../tests/claude.md) before placing any test.
+17. **Git hooks are LIVE.** A silent, instant push means no hook ran — treat that as the alarm.
+18. **`expires_at + 7 days` is NOT the deletion deadline.** Cleanup is two stages: marking
+    (`expirationJob.ts:18-22`, hourly) sets `expired = TRUE, updated_at = CURRENT_TIMESTAMP` and only
+    for `status = 'open'`; deletion (`:84-88`, 02:00) keys off that **`updated_at`**. So the real
+    deadline is mark-time + 7 days, a later write to `updated_at` restarts the clock, and a row that
+    was never `open` at expiry is never deleted at all. Compute from the live row; where the
+    approximation is used, label it conservative.
+19. **`if:` carries an implicit `success()`.** A step condition referencing `steps.<id>.outputs.*`
+    is skipped entirely when an earlier step fails, so setup/install failures file nothing. Every
+    reporting step needs `always() && (...)` plus an empty-payload fallback. This is a gap in
+    `expo-sdk-drift.yml` (`:154`, `:232`, `:262`) — do not inherit it.
+20. **`workflow_dispatch` requires the workflow on the DEFAULT branch.** A new workflow cannot be
+    dispatched while its PR is open. Pre-merge evidence is fixtures + a YAML parse; dispatch and
+    run verification belong in Task E, after deploy.
+21. **`bash -n a.sh b.sh` checks only `a.sh`** — the remaining arguments become positional
+    parameters to it. Verified by reproduction: `bash -n good.sh bad.sh` exits 0 while
+    `bash -n bad.sh` exits 2. Loop one file per invocation, and use `node --check` for JS.
+22. **The demo-health expiry probe reads over the EXISTING deploy SSH path**, not a new secret and not a new public endpoint. `ci.yml:419-430` already provides `PROD_SSH_PRIVATE_KEY`,
+    `PROD_SERVER_HOST` and `PROD_SERVER_USER`. The request routes never select the request's own
+    `expires_at` (only the unrelated `boosted_expires_at`), so an API read would mean a real
+    contract change; adding it to the demo-session response would violate note 1; and shipping
+    `DATABASE_URL` to Actions is a worse secret than the one already there.
 
 ---
 

@@ -17,8 +17,9 @@ because the investigation showed the demo had neither property, and that is why 
 went unnoticed for days.
 
 The diagnosis is worth stating precisely, because it changed the shape of the work twice.
-`cleanup-service` hard-deletes expired help requests seven days after they expire
-(`expirationJob.ts:84-88`, daily at 02:00). Maria's two demo requests aged out and were deleted; the
+`cleanup-service` hard-deletes expired help requests roughly a week after they expire — precisely,
+seven days after the hourly marking job flags them (`expirationJob.ts:18-22` marks, `:84-88` deletes
+at 02:00; see note 18, the deadline is *not* simply `expires_at + 7 days`). Maria's two demo requests aged out and were deleted; the
 match and provider offer went with them. The demo's five hardcoded `DEMO_*` UUIDs are therefore on a
 **timer**. The design already knew this — `docs/guides/demo-data.md` says the persona's stories are
 "rotated explicitly before they age out", and `rotate:demo-stories` exists to do it — but that
@@ -94,7 +95,7 @@ The replacement stories were measured the day they were created:
 | | value |
 |---|---|
 | `expires_at`, both requests | **2026-11-12** |
-| hard-deleted by cleanup (expiry + 7d) | **~2026-11-19** |
+| hard-deleted by cleanup (conservative estimate, see note 18) | **~2026-11-19** |
 
 So the demo has a **66-day fuse**, and rotation being one command does not help if nobody runs it —
 which is precisely the assumption that just failed. The monitor asserts two things daily:
@@ -103,11 +104,36 @@ which is precisely the assumption that just failed. The monitor asserts two thin
 2. The configured story rows are **more than 14 days from hard deletion** — so the warning arrives
    with time to act, not after the demo is already dead.
 
+**The deletion deadline must be computed, not approximated as `expires_at + 7 days`.** Cleanup is
+two stages and the second keys off a timestamp the first writes: marking (`expirationJob.ts:18-22`,
+hourly) sets `expired = TRUE, updated_at = CURRENT_TIMESTAMP` and only where `status = 'open'`;
+deletion (`:84-88`, 02:00) selects `expired = TRUE AND updated_at <= now - 7 days`. So a row already
+marked has a clock running from its **`updated_at`**, any later write restarts it, and a row that was
+not `open` at expiry is never deleted by this job at all. The check reads the live row and branches
+on `expired` / `status`; where it falls back to `expires_at + 7 days` it must **say it is a
+conservative lower bound**, because marking and deletion both lag, so real deletion is always later.
+
+**Data source — decided, not deferred.** The expiry half reads over the **SSH path CI already has**
+(`ci.yml:419-430`: `PROD_SSH_PRIVATE_KEY`, `PROD_SERVER_HOST`, `PROD_SERVER_USER`), running a
+read-only script inside `karmyq-auth-service`. The alternatives were each worse: the request routes
+never select the request's own `expires_at` (only the unrelated `boosted_expires_at`), so reading it
+via API means a real contract change plus CONTEXT, registry and tests to publish retention metadata;
+adding it to the demo-session response would break the promise in note 1; and shipping
+`DATABASE_URL` to Actions introduces a more dangerous secret than the one already present.
+⚠️ This does mean a **scheduled** workflow now exercises the deploy SSH key, which previously ran
+only on a master push — `/security-review` must cover that explicitly.
+
 It follows `expo-sdk-drift.yml` exactly: scheduled (not `pull_request`, so a merge never depends on
 karmyq.com being reachable), fails visibly, ensures its label exists, then files or updates one
 labelled issue. It **never writes to the demo** — auto-rotation would mean unattended scheduled
 writes to the demo database and the persona password as a CI secret, which is a larger security
 surface than the problem justifies.
+
+⚠️ **Reporting steps must survive an earlier step failing.** `expo-sdk-drift.yml` gates its notify
+steps on `steps.check.outputs.*` (`:154`, `:232`, `:262`), and GitHub applies an **implicit
+`success()`** to every `if:` — so a failure in checkout, setup-node or `npm ci` skips all of them and
+files nothing. The demo monitor must use `always() && (...)` and fall back to a generic body when the
+result payload is empty.
 
 ⚠️ **A crashed monitor must file an issue, not go quiet.** `expo-sdk-drift.yml` learned this the
 hard way (BUG-035): narrowing issue-filing to "detected drift" left crashes and unparseable output
@@ -142,11 +168,25 @@ real drift.
 
 `communities/index.tsx:124` fans out one request per card; each returns 404 `AGGREGATE_NOT_AVAILABLE`.
 
-⚠️ **`denyAggregate` (`reputation.ts:44`) returns the same 404 for two different situations** —
-authorization denied (ADR-082: active member of a ≥5-member cohort) and aggregate-not-yet-computed.
-That indistinguishability is a **privacy property**. So the fix is *not* "200 when uncomputed, 404
-when denied" — that would leak exactly what ADR-082 hides. Both return an **identical 200** with an
-explicitly empty aggregate; 404 is reserved for "no such community".
+**Corrected diagnosis (plan review, 2026-09-13).** An earlier draft of this spec said `denyAggregate`
+serves both "authorization denied" and "aggregate not yet computed". **That is wrong.**
+`denyAggregate` is reached from exactly one place — `reputation.ts:171`, `if (!access.allowed)`. The
+uncomputed case never reaches it: `reputation.ts:180-185` calculates on demand and returns **200**.
+So every one of BUG-031's 404s is an **authorization denial**, and this is not an empty-state
+problem at all.
+
+⚠️ **All three denial causes are deliberately indistinguishable, and must stay that way.**
+`checkAggregateAccess` (`utils/disclosureAuth.ts:74-82`) returns `allowed: false` for an **unknown
+community**, a **non-member**, and an **undersized cohort** alike. Its docstring states the reason
+outright: *"the caller is never told which, so we do not leak community existence or size."*
+
+So the fix is that `denyAggregate` returns an **identical 200** with an explicitly empty aggregate
+for all three. An absent aggregate is a legitimate empty state, not a failure.
+
+⚠️ **404 is NOT reserved for "no such community".** An earlier draft said it was; that would make
+existence observable and **introduce** the very leak `disclosureAuth.ts` exists to prevent. Unknown
+is one of the denial causes, not a separate outcome. The test must assert deep-equality *between*
+the three responses, not merely that each is 200.
 
 ⚠️ **BUG-031's recorded caller reference is stale** — it cites `api.ts:754`, which is
 `getLeaderboard`. The real definition is `api.ts:746`, and there is a **second** caller the bug never
@@ -169,7 +209,7 @@ created through the public API.)
 | Method | Path | Change |
 |---|---|---|
 | POST | `/auth/demo-session` | **Contract unchanged.** Same 503, same code, same body. Server-side logging only. |
-| GET | `/reputation/community-trust/:communityId` | `404 AGGREGATE_NOT_AVAILABLE` → `200 { success: true, data: { aggregate: null } }` for **both** the denied and uncomputed cases. 404 now means "no such community". |
+| GET | `/reputation/community-trust/:communityId` | `404 AGGREGATE_NOT_AVAILABLE` → `200 { success: true, data: { aggregate: null } }` for **all three denial causes** (unknown community, non-member, undersized cohort), which stay byte-identical. The uncomputed path is unchanged — it already returns 200 after calculating on demand. |
 
 ---
 
@@ -221,8 +261,12 @@ created through the public API.)
 8. **Do not widen `security/expo-divergences.json`.** Both entries cleared correctly; a divergence
    matching no current drift must be *deleted*.
 9. **The Expo bump must move `SDK_PINNED` too**, or the gate stays green against a stale shadow.
-10. **BUG-031's fix must keep denial and absence indistinguishable** — assert the two responses are
-    identical, not merely that each is 200.
+10. **BUG-031 is about authorization denial only.** `denyAggregate` is reached solely from
+    `reputation.ts:171`; the uncomputed path returns 200 after calculating on demand
+    (`reputation.ts:180-185`). `checkAggregateAccess` (`utils/disclosureAuth.ts:74-82`) denies
+    unknown-community, non-member and undersized-cohort alike so existence and size stay hidden.
+    **Never add a 404-for-unknown-community branch.** Assert deep-equality *between* the three
+    responses, not merely that each is 200.
 11. **BUG-031 has two call sites**, and the bug's recorded line reference is wrong.
 12. **`apps/landing/src/data/docs/` churns on every `npm test`** — revert `build.json` and
     `architecture.json` before committing.
@@ -231,6 +275,30 @@ created through the public API.)
 15. **Host traps, now recorded:** `npm --workspace` sets cwd to the workspace dir; the rotation env
     file is shell-sourced (quote values with spaces; LF only); compose on the demo host reads the
     **process environment** across **two** compose files.
+16. **New tests start in the changed workspace's `tests/tdd/`**, not root. Read
+    [`tests/claude.md`](../../../tests/claude.md) before placing any test.
+17. **Git hooks are LIVE.** A silent, instant push means no hook ran — treat that as the alarm.
+18. **`expires_at + 7 days` is NOT the deletion deadline.** Cleanup is two stages: marking
+    (`expirationJob.ts:18-22`, hourly) sets `expired = TRUE, updated_at = CURRENT_TIMESTAMP` and only
+    for `status = 'open'`; deletion (`:84-88`, 02:00) keys off that **`updated_at`**. So the real
+    deadline is mark-time + 7 days, a later write to `updated_at` restarts the clock, and a row that
+    was never `open` at expiry is never deleted at all. Compute from the live row; where the
+    approximation is used, label it conservative.
+19. **`if:` carries an implicit `success()`.** A step condition referencing `steps.<id>.outputs.*`
+    is skipped entirely when an earlier step fails, so setup/install failures file nothing. Every
+    reporting step needs `always() && (...)` plus an empty-payload fallback. This is a gap in
+    `expo-sdk-drift.yml` (`:154`, `:232`, `:262`) — do not inherit it.
+20. **`workflow_dispatch` requires the workflow on the DEFAULT branch.** A new workflow cannot be
+    dispatched while its PR is open. Pre-merge evidence is fixtures + a YAML parse; dispatch and
+    run verification belong in Task E, after deploy.
+21. **`bash -n a.sh b.sh` checks only `a.sh`** — the remaining arguments become positional
+    parameters to it. Verified by reproduction: `bash -n good.sh bad.sh` exits 0 while
+    `bash -n bad.sh` exits 2. Loop one file per invocation, and use `node --check` for JS.
+22. **The demo-health expiry probe reads over the EXISTING deploy SSH path**, not a new secret and not a new public endpoint. `ci.yml:419-430` already provides `PROD_SSH_PRIVATE_KEY`,
+    `PROD_SERVER_HOST` and `PROD_SERVER_USER`. The request routes never select the request's own
+    `expires_at` (only the unrelated `boosted_expires_at`), so an API read would mean a real
+    contract change; adding it to the demo-session response would violate note 1; and shipping
+    `DATABASE_URL` to Actions is a worse secret than the one already there.
 
 ---
 
@@ -240,7 +308,9 @@ created through the public API.)
 - A deliberately broken demo config produces a **specific reason** in the log while the HTTP response
   stays byte-identical — proven by a test
 - The demo-health workflow runs green, and **fails with a filed issue** when the demo is broken or
-  within 14 days of hard deletion — proven against a deliberately failing fixture, not just a green run
+  within 14 days of hard deletion — proven against deliberately failing fixtures (including a
+  workflow-level failure before the check step runs), not just a green run. Dispatch verification
+  happens **after merge**: `workflow_dispatch` needs the file on the default branch.
 - **Zero** open Dependabot security alerts
 - Six Dependabot PRs merged; seven majors open, each carrying a triage comment
 - Expo drift workflow green; issue #234 closed

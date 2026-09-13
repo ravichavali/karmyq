@@ -95,8 +95,14 @@ this sprint exists to fix.
 7. **Dependency edits are surgical.** Never `npm install --workspace`, `npm dedupe`, or a scratch regen.
 8. **Do not widen `security/expo-divergences.json`.**
 9. **The Expo bump must move `SDK_PINNED` too.**
-10. **BUG-031's fix must keep denial and absence indistinguishable** — assert the two responses are
-    identical, not merely that each is 200.
+10. **BUG-031 is about authorization denial only, and all three denial causes must stay identical.**
+    `denyAggregate` is reached from exactly one place, `reputation.ts:171` (`!access.allowed`). The
+    "not yet computed" case does **not** reach it — `reputation.ts:180-185` calculates on demand and
+    returns 200. `checkAggregateAccess` (`utils/disclosureAuth.ts:74-82`) returns `allowed:false` for
+    **unknown community, non-member, and undersized cohort alike**, and its docstring says why: "the
+    caller is never told which, so we do not leak community existence or size." **Never add a
+    404-for-unknown-community branch** — that introduces an existence leak that does not exist today.
+    Assert deep-equality *between* the three responses, not merely that each is 200.
 11. **BUG-031 has two call sites**, and the bug's recorded line reference is wrong.
 12. **`apps/landing/src/data/docs/` churns on every `npm test`** — revert before committing.
 13. **Merge one PR at a time.**
@@ -107,6 +113,27 @@ this sprint exists to fix.
 16. **New tests start in the changed workspace's `tests/tdd/`**, not root. Read
     [`tests/claude.md`](../../../tests/claude.md) before placing any test.
 17. **Git hooks are LIVE.** A silent, instant push means no hook ran — treat that as the alarm.
+18. **`expires_at + 7 days` is NOT the deletion deadline.** Cleanup is two stages: marking
+    (`expirationJob.ts:18-22`, hourly) sets `expired = TRUE, updated_at = CURRENT_TIMESTAMP` and only
+    for `status = 'open'`; deletion (`:84-88`, 02:00) keys off that **`updated_at`**. So the real
+    deadline is mark-time + 7 days, a later write to `updated_at` restarts the clock, and a row that
+    was never `open` at expiry is never deleted at all. Compute from the live row; where the
+    approximation is used, label it conservative.
+19. **`if:` carries an implicit `success()`.** A step condition referencing `steps.<id>.outputs.*`
+    is skipped entirely when an earlier step fails, so setup/install failures file nothing. Every
+    reporting step needs `always() && (...)` plus an empty-payload fallback. This is a gap in
+    `expo-sdk-drift.yml` (`:154`, `:232`, `:262`) — do not inherit it.
+20. **`workflow_dispatch` requires the workflow on the DEFAULT branch.** A new workflow cannot be
+    dispatched while its PR is open. Pre-merge evidence is fixtures + a YAML parse; dispatch and
+    run verification belong in Task E, after deploy.
+21. **`bash -n a.sh b.sh` checks only `a.sh`** — the remaining arguments become positional
+    parameters to it. Verified by reproduction: `bash -n good.sh bad.sh` exits 0 while
+    `bash -n bad.sh` exits 2. Loop one file per invocation, and use `node --check` for JS.
+22. **The demo-health expiry probe reads over the EXISTING deploy SSH path**, not a new secret and not a new public endpoint. `ci.yml:419-430` already provides `PROD_SSH_PRIVATE_KEY`,
+    `PROD_SERVER_HOST` and `PROD_SERVER_USER`. The request routes never select the request's own
+    `expires_at` (only the unrelated `boosted_expires_at`), so an API read would mean a real
+    contract change; adding it to the demo-session response would violate note 1; and shipping
+    `DATABASE_URL` to Actions is a worse secret than the one already there.
 
 ---
 
@@ -196,11 +223,44 @@ must be *proven* able to fail.
 - boundary:           exactly 14 days                                   -> assert the chosen side
 - crashed:            check throws / emits no payload                   -> FAIL + issue  (note 3)
 - unreachable:        network error contacting karmyq.com               -> FAIL + issue
+- already expired:    expired = TRUE, marked 3 days ago                 -> FAIL + issue  (note 18)
+- clock restarted:    expired = TRUE but updated_at bumped since        -> deadline MOVED later
+- never deletable:    expires_at passed while status != 'open'          -> never marked, no warning
 ```
 
 - [ ] **Implement `check-demo-health.js`.** Two assertions: `POST /auth/demo-session` returns 200,
-      and the configured stories are **> 14 days** from hard deletion (`expires_at + 7 days`).
-      Emits a result payload and an `issue=1|0` flag, mirroring `scripts/expo-divergences.js`.
+      and the configured stories are **> 14 days** from hard deletion. Emits a result payload and an
+      `issue=1|0` flag, mirroring `scripts/expo-divergences.js`.
+
+- [ ] **Model the real deletion predicate, not `expires_at + 7 days`** — note 18. Cleanup is two
+      stages and the second keys off a timestamp the first one writes:
+
+```
+mark   (hourly,  expirationJob.ts:18-22):
+  UPDATE ... SET expired = TRUE, updated_at = CURRENT_TIMESTAMP
+  WHERE expires_at <= now AND expired = FALSE AND status = 'open'
+
+delete (02:00,   expirationJob.ts:84-88):
+  DELETE ... WHERE expired = TRUE AND updated_at <= now - 7 days
+```
+
+So the true deadline is **mark-time + 7 days**, and mark-time is not `expires_at`: a row is only
+marked while `status = 'open'`, and any later write to `updated_at` restarts the seven days.
+Compute from the live row:
+
+```
+if expired = TRUE   -> deadline = updated_at + 7 days          (the real, already-running clock)
+if expired = FALSE and status = 'open'
+                    -> deadline ≈ expires_at + 7 days          (CONSERVATIVE: marking lags by
+                                                                up to 1h, deletion by up to 24h,
+                                                                so real deletion is always LATER)
+if expired = FALSE and status <> 'open'
+                    -> not deletable by this job; report "safe", do not warn
+```
+
+- [ ] **Label the conservative branch as conservative in the code and the issue body.** It warns
+      earlier than strictly necessary, which is the safe direction; presenting it as exact is what
+      the review correctly rejected.
 - [ ] **Read-only. No writes to the demo** — note 4.
 - [ ] **Never print the demo token** or any story UUID into logs an issue body will carry.
 
@@ -217,17 +277,61 @@ cd tests && npx jest regression/sprint-129-demo-health-gate.test.ts
 - [ ] Model on `.github/workflows/expo-sdk-drift.yml`: `schedule` + `workflow_dispatch` only
       (**never `pull_request`** — a merge must not depend on karmyq.com being reachable),
       `concurrency` group, `permissions: contents: read, issues: write`.
-- [ ] Ensure the label exists, then file **or update** a single labelled issue.
-- [ ] **Any non-green outcome is issue-worthy**, crashes included — note 3.
-- [ ] How the expiry half reads story state without DB credentials in CI must be decided explicitly:
-      prefer an authenticated read through the public API over shipping `DATABASE_URL` to Actions.
-      **Record the choice in the workflow header.**
 
-- [ ] Verify by dispatching it manually and reading the run
+- [ ] **Data source — DECIDED, do not defer (note 22).** The expiry half reads the live rows
+      **over the SSH path CI already has**, running a read-only script inside
+      `karmyq-auth-service` with the container's own `DATABASE_URL`:
+
+```
+secrets: PROD_SSH_PRIVATE_KEY, PROD_SERVER_HOST, PROD_SERVER_USER   (ci.yml:419-430, already exist)
+probe:   ssh <user>@<host> 'docker exec -i karmyq-auth-service node' < scripts/check-demo-health.js
+```
+
+Rejected alternatives, recorded so this is not re-opened:
+- **Add `expires_at` to a request endpoint** — the request routes never select it (only the
+  unrelated `boosted_expires_at`), so this means a real API change, CONTEXT + registry updates and
+  its own tests, to expose retention metadata publicly. Disproportionate.
+- **Add it to the demo-session response** — directly contradicts note 1, which promises that
+  contract does not change.
+- **Ship `DATABASE_URL` to Actions** — a new, more dangerous secret than the one already present.
+
+⚠️ **Security-review must cover this**: a *scheduled* workflow now exercises the deploy SSH key, which
+previously only ran on a master push. The script is read-only and must stay so (note 4).
+
+- [ ] `permissions` stays `contents: read` + `issues: write` — SSH is via secrets, not `GITHUB_TOKEN`.
+- [ ] Ensure the label exists, then file **or update** a single labelled issue.
+
+- [ ] **Any non-green outcome is issue-worthy, including a failure BEFORE the check step runs**
+      — notes 3 and 19. `expo-sdk-drift.yml` gates its notify steps on `steps.check.outputs.*`
+      (`:154`, `:232`, `:262`); `if:` carries an **implicit `success()`**, so a failure in checkout,
+      setup-node or `npm ci` skips all of them and files nothing. Do not inherit that:
+
+```yaml
+# Every reporting step must survive an earlier failure.
+- name: File or update the demo-health issue
+  if: always() && (steps.check.outputs.issue == '1' || steps.check.outcome != 'success' || failure())
+```
+
+Give the check step an `id`, and have the issue body fall back to a generic
+"the demo-health check did not complete" when `steps.check.outputs.result` is empty — an empty
+payload must still produce an issue, never a silent red run.
+
+- [ ] **Validate before merge with fixtures, not dispatch** — note 20. `workflow_dispatch` only
+      works once the workflow exists on the **default branch**, so `gh workflow run` cannot exercise
+      this file while PR A is open. Pre-merge evidence is Task A9's regression suite plus a YAML
+      parse check:
 
 ```bash
-gh workflow run demo-health.yml && sleep 45 && gh run list --workflow=demo-health.yml --limit 1
+cd tests && npx jest regression/sprint-129-demo-health-gate.test.ts
+node -e "require('js-yaml').load(require('fs').readFileSync('.github/workflows/demo-health.yml','utf8'));console.log('workflow YAML parses')"
 ```
+
+- [ ] **Also add a failure-path fixture at the workflow level**, not only the module's `issue=1`
+      result: assert the notify step's `if:` expression still evaluates true when the check step
+      did not succeed. A unit test of `check-demo-health.js` cannot catch an implicit-`success()`
+      skip — that bug lives in the YAML.
+
+- [ ] **Dispatch verification moves to Task E, after merge and deploy** (see Task E).
 
 ## Task A11: Docs for PR A
 
@@ -257,7 +361,16 @@ gh workflow run demo-health.yml && sleep 45 && gh run list --workflow=demo-healt
 - [ ] `npx tsc --noEmit` in `services/auth-service`
 - [ ] `npm test` — **capture the exit code separately**; `| tail` masks it
 - [ ] `npm run feedback:check`
-- [ ] `bash -n scripts/demo/*.sh scripts/check-demo-health.js` — syntax-check the shipped scripts
+- [ ] **Syntax-check every shipped script — one file per invocation** (note 21)
+
+```bash
+# `bash -n a.sh b.sh` checks ONLY a.sh; the rest become positional parameters to it.
+# Verified by reproduction: `bash -n good.sh bad.sh` exits 0 while `bash -n bad.sh` exits 2.
+rc=0
+for f in scripts/demo/*.sh; do bash -n "$f" || rc=1; done
+node --check scripts/check-demo-health.js || rc=1
+[ "$rc" -eq 0 ] && echo "all scripts parse" || { echo "SYNTAX FAILURE"; exit 1; }
+```
 - [ ] Revert `apps/landing/src/data/docs/` churn
 - [ ] Confirm no `.env*` file except `*.example` is staged
 - [ ] Bump the version, read from `origin/master` at merge time
@@ -371,26 +484,44 @@ gh api repos/ravichavali/karmyq/dependabot/alerts --paginate -q '[.[] | select(.
 **Files:** Create `services/reputation-service/tests/tdd/sprint-129-community-aggregate.test.ts`
 
 - [ ] Branch from freshly fetched `origin/master` **after PR B has merged and deployed**
-- [ ] **Write the failing test — indistinguishability is the assertion**
+
+- [ ] **Read the corrected diagnosis first** (note 10). `denyAggregate` is reached from exactly one
+      place — `reputation.ts:171`, `if (!access.allowed)`. The "not yet computed" case does **not**
+      reach it: `reputation.ts:180-185` calculates on demand and returns **200**. So every one of
+      BUG-031's 404s is an **authorization denial**, and the fix is about denial only.
+
+- [ ] **Write the failing test — indistinguishability across all THREE denial causes**
 
 ```ts
-// The load-bearing claim is that the two cases are IDENTICAL, not that each is 200:
-//   - caller denied the aggregate (not active / cohort < 5, ADR-082)
-//   - aggregate simply not computed yet
-// Same status AND deep-equal body. A test checking only "returns 200" would pass a fix
-// that leaks ADR-082's hidden distinction.
+// checkAggregateAccess (utils/disclosureAuth.ts:74-82) returns allowed:false for
+//   (a) unknown community      -> getActiveMembership finds nothing
+//   (b) caller not an active member
+//   (c) cohort < MIN_AGGREGATE_COHORT
+// Its docstring is explicit: "the caller is never told which, so we do not leak community
+// existence or size." All three MUST stay byte-identical after this change.
+// Assert deep-equality BETWEEN the three responses, not merely that each is 200.
 ```
 
-- [ ] Add a case asserting a genuinely unknown community still returns **404**
+- [ ] ⚠️ **Do NOT add a 404-for-unknown-community case.** An earlier draft of this plan required
+      404 for unknown and 200 for denied; that would make existence observable and **introduce**
+      the leak `disclosureAuth.ts` exists to prevent. Unknown is one of the denial causes, not a
+      separate outcome.
+
+- [ ] Add a case proving a *permitted* caller with a real aggregate still receives it unchanged
 
 ## Task C2: Change the response
 
-- [ ] `denyAggregate` (`reputation.ts:44`) → `200` with `{ success: true, data: { aggregate: null } }`
-- [ ] **Grep every call site** — do not assume `community-trust` is the only one
+- [ ] `denyAggregate` (`reputation.ts:44`) → `200` with `{ success: true, data: { aggregate: null } }`.
+      It is the single shared exit for all three denial causes, so changing it in one place keeps
+      them identical by construction — do not branch inside it.
+- [ ] **Grep every call site** — do not assume `community-trust` is the only one; each one must be
+      re-checked for whether a 200-with-null is correct there too
 
 ```bash
-grep -rn "denyAggregate" services/reputation-service/src
+grep -rn "denyAggregate\|checkAggregateAccess" services/reputation-service/src
 ```
+
+- [ ] Confirm no caller distinguishes the three causes downstream (logs, metrics, error mapping)
 
 ## Task C3: Frontend — both call sites
 
@@ -441,7 +572,21 @@ Use the `/deploy` skill. **One PR at a time**, A → B → C.
 ## Task E: Close out
 
 - [ ] Re-read `CURRENT_HANDOFF.md` end-to-end against real state and reconcile before claiming done
-- [ ] Confirm the demo-health workflow's first scheduled run is green; close **BUG-040**
+- [ ] **Dispatch and verify the demo-health workflow — only possible now** (note 20): it must be on
+      the default branch before `workflow_dispatch` is available. Verify the **specific completed
+      run**, not merely that a run appears:
+
+```bash
+gh workflow run demo-health.yml
+sleep 60
+run_id=$(gh run list --workflow=demo-health.yml --limit 1 --json databaseId -q '.[0].databaseId')
+gh run watch "$run_id" --exit-status && echo "demo-health green (run $run_id)"
+```
+
+- [ ] **Prove it can still fail after merge.** A green gate that cannot fail is worse than no gate:
+      re-run the Task A9 negative fixtures against the merged code, or temporarily point the check
+      at an unreachable base URL via `workflow_dispatch` input and confirm an issue is filed.
+- [ ] Close **BUG-040** only once both the green run and the can-fail evidence exist
 - [ ] Confirm the Expo drift run is green; close issue **#234**
 - [ ] Verify `https://karmyq.com/demo` still reaches `phase === 'active'` after all three deploys
 - [ ] Archive the handoff and open a clean slate for Sprint 130
