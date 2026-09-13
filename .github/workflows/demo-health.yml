@@ -57,6 +57,10 @@ jobs:
   check-demo-health:
     name: Check the guided demo is alive and not about to expire
     runs-on: ubuntu-latest
+    # Bound the whole job. Two waits inside it are otherwise unbounded — a blocked query in the
+    # story probe (no statement timeout) and a hung DNS lookup (Node's socket timeout does not
+    # cover resolution) — and GitHub's default is SIX HOURS of runner time reporting nothing.
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v7
@@ -95,8 +99,14 @@ jobs:
             rows='{"stories":[],"errors":["could not read the demo story rows over SSH"]}'
           fi
 
+          # `set +e` around the check is LOAD-BEARING, not tidiness. The check exits 1 whenever the
+          # demo is unhealthy — the exact case this workflow exists to report — and under `set -e`
+          # (GitHub runs `bash -e {0}`) that aborts the step here, before the payload is read and
+          # before anything reaches GITHUB_OUTPUT. The notify step would still fire, but render the
+          # generic "did not complete" body instead of the actual findings.
+          set +e
           printf '%s' "$rows" | node scripts/check-demo-health.js > "$RUNNER_TEMP/health.out"
-          check_status=$?
+          set -e
 
           cat "$RUNNER_TEMP/health.out"
 
@@ -104,16 +114,15 @@ jobs:
           issue=$(sed -n 's/^issue=//p' "$RUNNER_TEMP/health.out")
 
           # An exit code of 0 is not evidence of a successful check. An empty payload means the
-          # check produced no evidence at all, which is a finding, not a pass.
+          # check produced no evidence at all, which is a finding, not a pass. The `!= "0"` mapping
+          # below already covers the empty case; the echo is what makes it visible in the log.
           if [ -z "$result" ]; then
             echo "The demo-health check emitted no result payload." >&2
-            issue=1
           fi
           if [ "$issue" != "0" ]; then
             issue=1
           fi
 
-          echo "status=$check_status" >> "$GITHUB_OUTPUT"
           echo "result=$result" >> "$GITHUB_OUTPUT"
           echo "issue=$issue" >> "$GITHUB_OUTPUT"
 
@@ -136,46 +145,10 @@ jobs:
             --description "The guided Maria demo is failing or close to expiring" \
             --color 'B60205' 2>/dev/null || true
 
-          # Fall back to a generic body when there is no payload to render — which is precisely the
-          # case where the step must still speak.
-          details=$(RESULT="$RESULT" OUTCOME="$OUTCOME" node -e '
-          const raw = process.env.RESULT || "";
-          if (raw.trim() === "") {
-            process.stdout.write(
-              "### The demo-health check did not complete\n\n" +
-              "It produced no result payload, so the demo state is UNKNOWN — treat this as a\n" +
-              "failure until proven otherwise. Check step outcome: `" + (process.env.OUTCOME || "did not run") + "`.\n\n" +
-              "Verify by hand: `POST https://karmyq.com/api/auth/demo-session` should return 200.",
-            );
-            process.exit(0);
-          }
-          let result;
-          try {
-            result = JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
-          } catch (error) {
-            process.stdout.write("### The demo-health payload was unreadable\n\n- " + error.message);
-            process.exit(0);
-          }
-          const sections = [];
-          if (Array.isArray(result.errors) && result.errors.length) {
-            sections.push("### Findings\n" + result.errors.map((e) => "- " + e).join("\n"));
-          }
-          if (Array.isArray(result.stories) && result.stories.length) {
-            sections.push(
-              "### Story retention\n" +
-                result.stories
-                  .map(
-                    (s) =>
-                      "- **" + s.kind + "** — " +
-                      (Number.isFinite(s.daysRemaining) ? s.daysRemaining.toFixed(1) + " days" : "not deletable") +
-                      " from deletion (basis: " + s.basis + (s.safe ? ", safe" : ", NOT safe") + ")",
-                  )
-                  .join("\n"),
-            );
-          }
-          if (!sections.length) sections.push("### The check reported a problem but rendered no detail");
-          process.stdout.write(sections.join("\n\n"));
-          ')
+          # Rendering lives in a script so it can be unit-tested and so a stray apostrophe in any
+          # message cannot terminate a shell quote. It validates through the same interpretPayload
+          # the regression suite exercises, rather than re-checking the payload a third way here.
+          details=$(RESULT="$RESULT" OUTCOME="$OUTCOME" node scripts/demo/render-health-issue.js)
 
           body=$(cat <<EOF
           The guided Maria demo at https://karmyq.com/demo needs attention.

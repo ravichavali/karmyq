@@ -99,11 +99,20 @@ async function start() {
 
       // Sprint 129 (BUG-039): report whether the guided demo can actually issue a session, so a
       // stale DEMO_* config shows up in the deploy log instead of waiting for a visitor to find it.
-      // Runs AFTER listen so it never delays serving, and is intentionally not awaited — it is a
-      // report, not a gate. `reportDemoSessionHealth` never rejects (see its contract), but the
-      // .catch stays as belt-and-braces: an unhandled rejection inside the startup try/catch would
-      // reach a catch that calls process.exit(1), taking auth down over an optional feature.
-      void reportDemoSessionHealth(logger).catch(() => { /* never blocks startup */ });
+      // It is a report, not a gate — never awaited, and `reportDemoSessionHealth` never rejects
+      // (see its contract). The .catch stays as belt-and-braces: an unhandled rejection inside the
+      // startup try/catch would reach a catch that calls process.exit(1), taking auth down over an
+      // optional feature.
+      //
+      // Deferred past the boot burst rather than run inline. The check exercises the full issuance
+      // path, whose Promise.all fires four queries at once against a pool of max 5 that holds one
+      // warm connection at boot — three extra handshakes competing with the real login traffic
+      // arriving at a cold instance, on a Critical service with seven dependents. `unref()` keeps
+      // the "changes nothing about process liveness" property: this timer alone will not hold the
+      // process open.
+      setTimeout(() => {
+        void reportDemoSessionHealth(logger).catch(() => { /* never blocks startup */ });
+      }, 5000).unref();
     });
   } catch (error) {
     logger.error('Failed to start server', error instanceof Error ? error : new Error(String(error)));

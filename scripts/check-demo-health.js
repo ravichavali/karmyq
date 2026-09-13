@@ -42,12 +42,20 @@ const DELETE_GRACE_DAYS = 7;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Fields every well-formed payload must carry. Used to reject truncated-but-parseable output. */
-const REQUIRED_PAYLOAD_FIELDS = ['ok', 'issue', 'errors', 'stories'];
-
 function failed(errors) {
-  return { ok: false, issue: 1, errors: Array.isArray(errors) ? errors : [String(errors)], stories: [] };
+  return { ok: false, issue: 1, errors, stories: [] };
 }
+
+/**
+ * Fields every well-formed payload must carry, DERIVED from the payload shape itself rather than
+ * restated — adding a field to `failed()` without adding it here was the one way this could rot.
+ *
+ * This check is redundant for the VERDICT: the array guard and the final `ok` computation below
+ * both already fail closed on everything it catches. What it adds is diagnosis — naming which
+ * field is missing instead of a generic shape error — and a regression test pins exactly that, so
+ * it is not dead weight to be deleted as duplicated logic.
+ */
+const REQUIRED_PAYLOAD_FIELDS = Object.keys(failed([]));
 
 function toMs(value) {
   if (value === null || value === undefined) return NaN;
@@ -68,7 +76,7 @@ function deadlineFor(row, nowMs) {
     // The clock is already running, from updated_at. This is the exact answer.
     const marked = toMs(row.updated_at);
     if (Number.isNaN(marked)) {
-      return { kind, basis: 'unknown', safe: false, error: `${kind}: expired row has an unreadable updated_at` };
+      return { kind, basis: 'unknown', error: `${kind}: expired row has an unreadable updated_at` };
     }
     const deadline = marked + DELETE_GRACE_DAYS * DAY_MS;
     return { kind, basis: 'marked', deadlineMs: deadline, daysRemaining: (deadline - nowMs) / DAY_MS };
@@ -76,12 +84,14 @@ function deadlineFor(row, nowMs) {
 
   if (row?.status !== 'open') {
     // Never marked, so this job never deletes it. Warning would be a false alarm.
-    return { kind, basis: 'not-deletable', safe: true, daysRemaining: Infinity };
+    // Infinity is the honest value and makes `safe` fall out of the same comparison as every
+    // other branch, rather than needing a stored flag the caller has to special-case.
+    return { kind, basis: 'not-deletable', daysRemaining: Infinity };
   }
 
   const expires = toMs(row?.expires_at);
   if (Number.isNaN(expires)) {
-    return { kind, basis: 'unknown', safe: false, error: `${kind}: open row has an unreadable expires_at` };
+    return { kind, basis: 'unknown', error: `${kind}: open row has an unreadable expires_at` };
   }
 
   // CONSERVATIVE, deliberately. Marking lags expiry by up to an hour and deletion by up to a day,
@@ -128,8 +138,10 @@ function evaluate(input) {
 
     const stories = rows.map((row) => {
       const d = deadlineFor(row, nowMs);
-      // `safe` is explicit rather than implied, so the JSON the workflow renders is self-describing.
-      const safe = d.safe === true ? true : Number.isFinite(d.daysRemaining) ? d.daysRemaining > WARN_DAYS : false;
+      // One comparison covers every branch: Infinity > WARN_DAYS is true (not deletable),
+      // undefined > WARN_DAYS is false (both unreadable-timestamp branches). `safe` is still
+      // emitted so the JSON the workflow renders stays self-describing.
+      const safe = !d.error && d.daysRemaining > WARN_DAYS;
       if (d.error) errors.push(d.error);
       else if (!safe) {
         errors.push(

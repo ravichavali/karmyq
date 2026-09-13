@@ -44,6 +44,34 @@ function steps(wf: any): any[] {
   return job(wf).steps ?? [];
 }
 
+/**
+ * The lines a run-script actually EXECUTES.
+ *
+ * Joins shell line-continuations — the probe invocation is wrapped in `$(...)` and split across
+ * three lines, so a naive per-line scan finds nothing and passes vacuously — then drops heredoc
+ * bodies, because content between `<<EOF` and its terminator is data the script prints, not a
+ * command it runs. Indentation cannot tell them apart: YAML block scalars are dedented on parse.
+ */
+function executedLines(runs: string[]): string[] {
+  const out: string[] = [];
+  for (const run of runs) {
+    let heredoc: string | null = null;
+    for (const line of run.replace(/\\\n\s*/g, ' ').split('\n')) {
+      if (heredoc) {
+        if (line.trim() === heredoc) heredoc = null;
+        continue;
+      }
+      const opened = line.match(/<<-?\s*'?([A-Za-z_][A-Za-z0-9_]*)'?/);
+      if (opened) {
+        heredoc = opened[1];
+        continue;
+      }
+      out.push(line);
+    }
+  }
+  return out;
+}
+
 function stepWithId(wf: any, id: string): any {
   const found = steps(wf).find((s) => s.id === id);
   expect(found).toBeDefined();
@@ -170,42 +198,20 @@ describe('demo-health workflow — the check step', () => {
       .map((s) => s.run)
       .filter((r): r is string => typeof r === 'string');
 
-    // Join shell line-continuations first: the probe invocation is wrapped in $(...) and split
-    // across three lines, so a naive per-line scan finds nothing and would pass vacuously.
-    const logicalLines = runs
-      .map((r) => r.replace(/\\\n\s*/g, ' '))
-      .flatMap((r) => r.split('\n'));
+    // One parse for both assertions — see executedLines(). The ssh check previously used a weaker
+    // continuation-only parse; sharing the heredoc-aware one strengthens it for free.
+    const executed = executedLines(runs);
 
-    const sshLines = logicalLines.filter(
+    const sshLines = executed.filter(
       (line) => /[\s($]ssh\s/.test(line) && !/ssh-keyscan/.test(line),
     );
 
     expect(sshLines).toHaveLength(1);
     expect(sshLines[0]).toMatch(/probe-story-rows\.js/);
 
-    // And nothing anywhere actually INVOKES rotation or a reset.
-    //
-    // The remediation snippet does mention the rotation command, inside the issue body heredoc —
-    // that is data the workflow prints, not a command it runs. Distinguish them by tracking
-    // heredoc state rather than by indentation: YAML block scalars are dedented on parse, so the
-    // snippet has no leading whitespace to key on.
-    const executed: string[] = [];
-    for (const run of runs) {
-      let heredoc: string | null = null;
-      for (const line of run.replace(/\\\n\s*/g, ' ').split('\n')) {
-        if (heredoc) {
-          if (line.trim() === heredoc) heredoc = null;
-          continue; // inside a heredoc: data, not execution
-        }
-        const opened = line.match(/<<-?\s*'?([A-Za-z_][A-Za-z0-9_]*)'?/);
-        if (opened) {
-          heredoc = opened[1];
-          continue;
-        }
-        executed.push(line);
-      }
-    }
-
+    // And nothing anywhere actually INVOKES rotation or a reset. The remediation snippet does
+    // mention the rotation command, but inside the issue body heredoc — data the workflow prints,
+    // not a command it runs — which executedLines has already excluded.
     expect(executed.filter((l) => /rotate:demo-stories|reset:demo|--apply/.test(l))).toEqual([]);
     // Sanity-check the scanner itself: it must still be seeing the real commands, or the
     // assertion above passes vacuously.
