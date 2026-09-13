@@ -143,8 +143,85 @@ Because the platform models real time, demo content behaves like the real produc
 - **Designed to forget:** content past the retention window is redacted to a `[forgotten]` sentinel,
   exactly as it would be for real users — the demo demonstrates the forgetting behaviour, it does not
   hide it.
-- **Finite live stories:** the guided persona's live decisions are real, finite, and rotated
-  explicitly before they age out.
+- **Finite live stories:** the guided persona's live decisions are real, finite, and **must be
+  rotated explicitly before they age out** — see *Rotating the stories* below. This is a standing
+  operational obligation, not a background process.
 
 Everything you see is illustrative synthetic data — real numbers and names would belong to real
 people. It is not a frozen screenshot; it is the actual product running on curated, truthful history.
+
+---
+
+## Rotating the stories (Sprint 129)
+
+⚠️ **The demo dies on a timer if nobody rotates it.** This is not hypothetical: it is BUG-039, which
+left `karmyq.com/demo` dead from roughly 2026-09-09 to 2026-09-12.
+
+`cleanup-service` marks an open request expired once `expires_at` passes
+(`expirationJob.ts:18-22`, hourly) and **hard-deletes** it seven days after that marking (`:84-88`,
+daily at 02:00). The `DEMO_*` variables hold four ids pointing at those rows, so when they are
+deleted the config silently points at nothing and every `POST /auth/demo-session` returns 503.
+
+> **Historical note.** `rotate:demo-stories` has existed since Sprint 117 and this guide has always
+> said the stories are rotated before they age out. **It was never actually operational on the demo
+> host**: simulation-service is not deployed there, and `.env.demo.example` carried none of the five
+> variables rotation requires. The documented safety mechanism could not run, which is why the
+> stories aged out silently instead of being rotated. Sprint 129 wired it.
+
+### Running a rotation
+
+On the demo host, from the repo root:
+
+```bash
+cd ~/karmyq
+set -a && . ./.env.demo.rotation && set +a
+
+# Dry run first — reports the steps and changes nothing.
+npm --workspace @karmyq/simulation-service run rotate:demo-stories
+
+# Then apply.
+npm --workspace @karmyq/simulation-service run rotate:demo-stories -- --apply --publish-config
+```
+
+Rotation creates replacement stories **through ordinary APIs** (so the demo stays the real product
+on real data, not hand-inserted rows), verifies them, backs up and rewrites only the five allowlisted
+keys in `.env.demo`, re-enables the demo, recreates auth-service, and re-verifies a live demo
+session. It is fail-closed at every step: if verification fails, no config is published.
+
+### The wiring, and why it is a separate file
+
+`.env.demo.rotation` (template: `.env.demo.rotation.example`, chmod 600, never committed) holds the
+five variables rotation needs plus two host commands. It is **deliberately not** part of `.env.demo`,
+because that file is injected into every service container and must never carry
+`DEMO_PERSONA_PASSWORD`.
+
+| Variable | Purpose |
+|---|---|
+| `API_BASE_URL` | Where rotation drives the ordinary APIs |
+| `DEMO_MARIA_EMAIL` | The persona (falls back to `DEMO_PERSONA_EMAIL`) |
+| `DEMO_HELPER_EMAIL` | Offers help on the ordinary request — **must share a community with Maria** or rotation refuses |
+| `DEMO_PROVIDER_EMAIL` | Submits the provider offer |
+| `DEMO_UNRELATED_EMAIL` | Proves an out-of-audience viewer is denied — **must share ZERO communities with Maria** |
+| `DEMO_PERSONA_PASSWORD` | Shared simulation password |
+| `DEMO_ENV_FILE` | Absolute path to the compose env file the ids are published into |
+| `DEMO_ENABLE_CMD` / `DEMO_RESTART_AUTH_CMD` | `scripts/demo/enable-demo.sh` and `scripts/demo/restart-auth.sh`; both fail-closed if unset |
+
+⚠️ **Re-derive the account emails; do not trust a stored list.** Demo accounts do not outlive a
+re-seed, and an account that was unrelated at seed time can be joined into Maria's communities by
+ambient simulation — which had already happened to the previously-recorded unrelated account by
+2026-09-12, quietly weakening the verifier's negative check.
+
+Three traps, all hit while wiring this:
+
+- **`npm --workspace` sets cwd to the workspace directory**, not the repo root, so relative paths in
+  those command variables misresolve. Use absolute paths (the scripts also re-anchor themselves).
+- **The file is shell-sourced**, so a value containing spaces must be quoted, and CRLF fails as
+  `$'\r': command not found` on every line. `.gitattributes` pins `.env*` to LF.
+- **Compose reads the process environment**, not an env file: `deploy.sh` does
+  `set -a; source .env.demo`. `restart-auth.sh` reproduces that, across **both** compose files.
+
+### You will be warned before it breaks
+
+`.github/workflows/demo-health.yml` runs daily and asserts both that a demo session can be issued
+**and** that the story rows are more than 14 days from deletion, filing a labelled issue otherwise.
+It is read-only — it never rotates for you. When that issue appears, run the rotation above.

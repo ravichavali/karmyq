@@ -119,7 +119,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-081: Belonging Graph System — One Engine, One Language, One Explorer](ADR-081-belonging-graph-system.md) — **Proposed**
 - [ADR-082: Reputation Disclosure Boundary](ADR-082-reputation-disclosure-boundary.md) — **Accepted**
 - [ADR-083: Contextual Belonging Graph Rendering (Earned Structure)](ADR-083-contextual-belonging-graph-rendering.md) — **Accepted**
-- [ADR-084: Context-Bound Connection Visibility](ADR-084-context-bound-connection-visibility.md) — **Accepted** (amended Sprint 117: curated historical floor + API verification)
+- [ADR-084: Context-Bound Connection Visibility](ADR-084-context-bound-connection-visibility.md) — **Accepted** (amended Sprint 117: curated historical floor + API verification; amended Sprint 129: opacity binds the response, not the log)
 - [ADR-085: Invited Arrival & the Edge Lifecycle](ADR-085-invited-arrival-and-edge-lifecycle.md) — **Implemented**
 - [ADR-086: Scale Answers — One Question per Zoom Level](ADR-086-scale-answers-one-question-per-zoom-level.md) — **Implemented**
 - [ADR-087: One Seed Path — init.sql Regeneration](ADR-087-one-seed-path-init-sql-regeneration.md) — **Implemented**

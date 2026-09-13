@@ -1,0 +1,18 @@
+{
+  "title": "Scripts run on the demo host: npm --workspace changes cwd, sourced env files need quoting and LF, and compose reads the process environment across two files",
+  "owner": "ravichavali",
+  "created": "2026-09-13",
+  "scope": [
+    "scripts/demo/",
+    "scripts/deploy.sh",
+    ".env.demo.rotation.example",
+    ".gitattributes"
+  ],
+  "verify": {
+    "file_matches": {
+      "path": "scripts/deploy.sh",
+      "pattern": "source .env.demo"
+    }
+  },
+  "see_also": ["demo-story-rows-are-deleted-on-a-cleanup-timer"]
+}

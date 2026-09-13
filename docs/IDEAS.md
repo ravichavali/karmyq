@@ -510,3 +510,41 @@ line 120 omits it, and `.github/dependabot.yml` has no explicit entry. Extend in
 with a failing fixture and validate the intended SDK/security-update policy in a separate task.
 
 ---
+
+## [2026-09-13] architecture
+
+Resolve the guided demo's story from the database at request time instead of storing four ids in
+`DEMO_*` environment variables.
+
+Sprint 129 made the current design survivable — rotation is wired, the failure reason is logged, and
+a daily monitor warns ~14 days before the rows are deleted. But the design itself is still "four
+hardcoded ids pointing at rows that a cron job deletes", and every safeguard added is compensating
+for that. Resolving Maria's most recent coherent story by query (own request + its match; own service
+request + its offer; persona active and non-admin) would make the configuration unable to go stale:
+no rotation to forget, no monitor to heed, no `.env.demo` rewrite on a live host.
+
+It is deliberately NOT in Sprint 129: it changes what the demo *is* (a fixed curated story versus a
+derived one), it needs an ADR, and it must not ride along with an outage fix. Weigh it against the
+"finite live stories" principle in `docs/guides/demo-data.md`, which is a deliberate choice rather
+than an accident. Background: BUG-039, BUG-040.
+
+---
+
+## [2026-09-13] other
+
+`.github/workflows/expo-sdk-drift.yml` still has the silent-failure gap that Sprint 129 fixed in the
+new demo-health workflow.
+
+Its reporting steps are gated on `steps.check.outputs.*` at `:154`, `:232` and `:262`. GitHub applies
+an implicit `success()` to every `if:`, so a failure in checkout, setup-node or `npm ci` skips all
+three: the run goes red and no issue is filed. That is precisely the ignored-signal problem BUG-035
+was filed for, reappearing one layer up. It also tests `issue == '1'`, which reads an empty output —
+what a check that exits 0 without writing `GITHUB_OUTPUT` leaves behind — as "nothing to report".
+
+Fix shape is known and already implemented next door: `always() && (failure() || outcome != 'success'
+|| issue != '0' || result == '')`, plus a generic fallback body when the payload is empty. See
+`.github/workflows/demo-health.yml` and `tests/regression/sprint-129-demo-health-workflow.test.ts`,
+whose state table would port across directly.
+
+---
+

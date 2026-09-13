@@ -787,7 +787,7 @@ one-command job, but it is still a recurring obligation. See [BUG-040].
 
 ---
 
-## BUG-040 · [2026-09-12] · open
+## BUG-040 · [2026-09-12] · monitor built (Sprint 129 PR A) — NOT yet verified live
 
 **The guided demo has a 66-day fuse and nothing watches it.**
 
@@ -816,5 +816,23 @@ with time to act rather than after the demo is already down.
 Sprint 129 PR A adds the two server-side halves (a reason log on the opaque 503, and a startup
 self-check) so the failure is *diagnosable* the next time. Neither makes it *detectable* before a
 user hits it. Related: BUG-039.
+
+### Update — 2026-09-13: the monitor exists, but is not yet proven on GitHub
+
+`.github/workflows/demo-health.yml` + `scripts/check-demo-health.js` +
+`scripts/demo/probe-story-rows.js` now implement the daily check: a demo session must be issuable
+**and** the story rows must be more than 14 days from deletion, or it files a labelled issue. It is
+read-only and never rotates.
+
+Covered by two regression suites — `sprint-129-demo-health-gate.test.ts` (the check logic, proven
+able to fail by injection) and `sprint-129-demo-health-workflow.test.ts` (the notify condition,
+evaluated against six run states; replacing it with expo-sdk-drift's `issue == '1'` fails seven
+tests).
+
+⚠️ **This stays OPEN until the workflow has actually run on GitHub.** `workflow_dispatch` only works
+once a workflow is on the **default branch**, so it cannot be exercised while PR A is open, and the
+condition evaluator in the test is a *model* of GitHub's expression semantics, not GitHub. Close this
+only after: a dispatched run is green, **and** a deliberately failing run (dispatch with an
+unreachable `base_url`) files an issue.
 
 ---
