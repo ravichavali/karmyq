@@ -11,6 +11,7 @@ import foundingCircleRoutes from './routes/foundingCircle';
 import { initDatabase } from './database/db';
 import { initEventPublisher } from './events/publisher';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
+import { reportDemoSessionHealth } from './services/demoSessionSelfCheck';
 import { globalRateLimiter, rateLimiters, normalizeRequestBody } from '@karmyq/shared/middleware';
 import { requestIdMiddleware, sendSuccess, sendInternalError } from '@karmyq/shared/utils/response';
 
@@ -95,6 +96,14 @@ async function start() {
         environment: process.env.NODE_ENV || 'development',
         url: `http://localhost:${PORT}`
       });
+
+      // Sprint 129 (BUG-039): report whether the guided demo can actually issue a session, so a
+      // stale DEMO_* config shows up in the deploy log instead of waiting for a visitor to find it.
+      // Runs AFTER listen so it never delays serving, and is intentionally not awaited — it is a
+      // report, not a gate. `reportDemoSessionHealth` never rejects (see its contract), but the
+      // .catch stays as belt-and-braces: an unhandled rejection inside the startup try/catch would
+      // reach a catch that calls process.exit(1), taking auth down over an optional feature.
+      void reportDemoSessionHealth(logger).catch(() => { /* never blocks startup */ });
     });
   } catch (error) {
     logger.error('Failed to start server', error instanceof Error ? error : new Error(String(error)));
