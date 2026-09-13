@@ -1,9 +1,8 @@
 # Sprint 129 — Maintenance: demo, dependencies, bugs — Handoff
 
-**Date**: 2026-09-12
-**Outcome**: Sprint 129 is PLANNED. Spec and plan committed at `85e6d667` on
-`feature/sprint-129-demo-session`; Task A1 environment presence inspection completed with
-maintainer authorization. Root cause remains undiagnosed; the next read-only check awaits approval.
+**Date**: 2026-09-12 · **Revised**: 2026-09-13
+**Outcome**: PR A is IN PROGRESS — **the demo is restored and live**. Tasks A1–A5 done
+(`10600546`); remaining: reason logging, startup self-check, the BUG-040 monitor, docs, gates.
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router — there is no second machine.
 > This file is branch-local and reserves nothing; contended resources are allocated by the
@@ -13,58 +12,42 @@ maintainer authorization. Root cause remains undiagnosed; the next read-only che
 
 ## Sprint goal
 
-Restore the public Maria demo and make its next failure diagnosable, clear the dependency and
-security backlog to zero open alerts, and silence the `/communities` 404 storm.
+Restore the public demo and make its next failure both diagnosable and **detected before a visitor
+hits it**; clear the dependency and security backlog to zero open alerts; silence the
+`/communities` 404 storm.
 
 ## Ownership and base
 
 | Field | Value |
 |---|---|
-| **Branch** | `feature/sprint-129-demo-session` — reuse the existing planning branch |
+| **Branch** | `feature/sprint-129-demo-session` (exists, 2 commits, **not yet pushed**) |
 | **Base** | `origin/master` at `55a536fc`, version **v11.50.0** |
-| **Active editor** | unassigned |
-| **Shared resources needed** | **Demo-server operations required** (see gate below). No ADR allocated — none needed; ADR-084 is amended in place. |
+| **Active editor** | Claude — PR A in progress |
+| **Shared resources** | Demo-server rotation **performed and complete** 2026-09-12 (authorized). No further demo write is needed or authorized. No ADR minted — ADR-084 is amended in place. |
 
 ## Quick Start
 
 1. Read this handoff
-2. Reuse the existing task branch if one exists; otherwise `git fetch origin` then
-   `git switch -c feature/sprint-129-demo-session origin/master`. Never branch off a stale local
-   master — unpushed local-master commits leak in via the squash-merge.
+2. **Reuse the existing branch** — `git switch feature/sprint-129-demo-session`. Do NOT re-branch;
+   two commits are already on it. Never branch off a stale local master.
 3. Open plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md)
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
-**Next unchecked task**: PR A, Task A1 — request authorization for the next read-only check:
-whether the enable flag equals `true`, and whether the configured persona and four story rows
-exist, with valid memberships, request ownership, and match/offer linkage. Return diagnostic
-booleans only; use `karmyq_prod` for DB reads. No write authorization has been granted.
+**Next unchecked task**: **Task A6** — write the demo-session logging test (TDD). Tasks A1–A5 are
+DONE; do not redo them.
 
-**Bootstrap reconciliation (2026-09-12)**: local branch and planning commit verified with
-`git branch --show-current` / `git log`; tree was clean. After `git fetch origin`,
-`origin/master` remains `55a536fc`. Live `gh pr list` shows 13 Dependabot PRs and no Sprint 129
-PR. No demo-server operation was performed in this bootstrap session.
+## ✅ Done already — commit `10600546`, verified live 2026-09-12
 
-**Inspection precision**: the six variables are the enable flag, persona **email**, and four
-story UUIDs (`infrastructure/docker/docker-compose.yml:90`). Step 1 reports only each variable's
-name and non-empty set/unset status. A non-empty `false` flag will report set; this inspection
-alone cannot establish whether the demo is enabled. The plan's `grep -c` command only counts
-variables and must be replaced by an explicit six-name check before execution.
+| Delivered | Evidence |
+|---|---|
+| Demo restored | `POST /api/auth/demo-session` → **200**, both stories, 30-min token |
+| Read-only guarantee | write with demo token → **403 `FORBIDDEN`** |
+| State checks | **16/16 green** (was 8 true / 8 false) |
+| Rotation wired | `.env.demo.rotation.example` + `scripts/demo/{enable-demo,restart-auth}.sh` |
+| Secret hygiene | `.gitignore` → `.env*` + `!.env*.example`; `.gitattributes` pins `.env*` to LF |
+| Bugs | BUG-039 closed with root cause; **BUG-040 filed** |
 
-**Authorized step 1 result (2026-09-12)**: maintainer replied "yes" to the six-name presence
-inspection. SSH executed a fixed Node script in `karmyq-auth-service`; exit 0. Each of
-`DEMO_SESSION_ENABLED`, `DEMO_PERSONA_EMAIL`, `DEMO_ORDINARY_REQUEST_ID`,
-`DEMO_ORDINARY_MATCH_ID`, `DEMO_PROVIDER_REQUEST_ID`, and `DEMO_PROVIDER_OFFER_ID` reported
-**set** (non-empty). No values were printed, no DB queries ran, and no server configuration
-changed. This does not establish that the flag equals `true` or that the configured rows are
-valid. The local validation predicates are in
-`services/auth-service/src/services/demoSessionService.ts:117` and `:197`.
-
-**Bootstrap validation**: `feedback:check` passed. `npm test` failed even after one retry outside
-the sandbox: `sprint-122-adr-060-code-scanning-gate.test.ts` invoked WSL with no installed
-distribution; `sprint-123-git-hooks-installed.test.ts` could not find `basename` / `tr`.
-The retry reported 2 failed regression suites (23 failed tests). No test infrastructure was
-changed. This handoff correction remains uncommitted because the pre-commit skill requires a
-passing suite; verify the Windows Git Bash tool environment before retrying the checks.
+⚠️ **The branch is not pushed.** Hooks are live, so the first push costs a full suite run.
 
 ## Artifacts
 
@@ -75,7 +58,7 @@ passing suite; verify the Windows Git Bash tool environment before retrying the 
 
 | PR | Branch | Scope |
 |---|---|---|
-| **A** | `feature/sprint-129-demo-session` | BUG-039: restore the demo + make it diagnosable |
+| **A** | `feature/sprint-129-demo-session` | BUG-039 restore *(done)* + diagnosability + **BUG-040 monitor** |
 | **B** | `feature/sprint-129-deps` | 6 Dependabot PRs, 4 security alerts, Expo SDK drift (#234) |
 | **C** | `feature/sprint-129-community-aggregate` | BUG-031: the `/communities` 404 storm |
 
@@ -84,16 +67,21 @@ and 502 the demo — the thing this sprint is fixing.
 
 ---
 
-## ⚠️ Operational gate — PR A cannot proceed without it
+## ✅ Operational gate — SATISFIED, nothing further authorized
 
-Diagnosing BUG-039 requires reading the deployed auth-service environment, and probably querying the
-demo DB as `karmyq_prod`. **Every demo-server operation needs its own explicit, per-operation
-maintainer authorization.** Task A1 is a *request*, not an autonomous step.
+The maintainer authorized the read-only diagnosis and then the seed + env update; both were carried
+out on 2026-09-12 and the demo is live. **No further demo-server write is needed or authorized.**
+The remaining PR A work is entirely local code, tests, a workflow and docs.
 
-Three separate operations, authorized separately:
-1. Read-only: which of the six `DEMO_*` vars are set (names and set/unset, **not values**)
-2. Read-only: do the five referenced story rows exist and belong to the persona
-3. Write: set the missing env, or re-point the story ids
+The rotation is now repeatable by one command on the demo host:
+
+```bash
+cd ~/karmyq && set -a && . ./.env.demo.rotation && set +a
+npm --workspace @karmyq/simulation-service run rotate:demo-stories -- --apply --publish-config
+```
+
+`.env.demo.rotation` exists on the host (chmod 600, not tracked). A pre-change backup of the compose
+env is at `~/karmyq/.env.demo.bak.s129`.
 
 ---
 
@@ -127,8 +115,17 @@ Eliminated by this check, so do not re-investigate: missing/disabled config, a p
 RLS (enabled on only `auth.user_invitations`, `auth.social_distances`, `auth.inviter_stats` — none
 on the demo path, so the missing `setDbContext` in `demoSessionService.ts` is not a factor).
 
-⚠️ **This is new information that postdates the scope decision below.** The "re-point the ids" fix
-originally scoped for A5 will break again on the next expiry+7 days. See *Durability choice* below.
+**Resolved by wiring rotation, not by re-pointing the ids.** `docs/guides/demo-data.md` always said
+the stories are "rotated explicitly before they age out" and `rotate:demo-stories` existed to do it,
+but the mechanism had **never been wired on the demo host** — simulation-service is not deployed
+there and `.env.demo.example` carried none of the five variables rotation requires. The documented
+safety mechanism could not run, which is why the stories aged out silently. Stories are now
+API-created, so the demo stays truthful rather than hand-inserted.
+
+⏰ **The recurrence is NOT gone — it is now tracked as BUG-040.** The replacement stories expire
+**2026-11-12** and are hard-deleted **~2026-11-19**. Rotation being one command does not help if
+nobody runs it, which is exactly the assumption that just failed. Tasks A9/A10 add the scheduled
+monitor that warns 14 days ahead.
 
 ---
 
@@ -139,6 +136,8 @@ originally scoped for A5 will break again on the next expiry+7 days. See *Durabi
 | Dependencies | **Safe + security only.** The seven single **major** bumps stay open with a written triage comment each. |
 | BUG-039 | **Fix it *and* make it diagnosable.** Not the full "resolve the story by query" redesign. |
 | Open bugs | **BUG-031 only.** BUG-033, BUG-034, BUG-036 stay open and out of scope. |
+| BUG-040 *(added 2026-09-13)* | **In this sprint, PR A.** Scheduled demo-health monitor: warn early + file an issue, modelled on `expo-sdk-drift.yml`. **Never writes to the demo** — auto-rotation would mean unattended scheduled DB writes and the persona password as a CI secret. |
+| PR A shape | **Kept whole** — restore + diagnosability + monitor is one cohesive story, and the `.gitignore` fix rides along (found in flight, two files). |
 
 ---
 
@@ -249,6 +248,19 @@ only for the uncomputed case would leak what ADR-082 hides.
   `.claude/handoff/archive/2026-09-11-sprint-128-standing-preview-SHIPPED-v11.50.0.md`.
 
 ## Process notes worth carrying
+
+**Demo-host traps, all hit and fixed while wiring rotation — they will recur:**
+- **`npm --workspace` sets cwd to the WORKSPACE directory**, not the repo root, so a relative path
+  in an env var silently misresolves under `services/<name>/`. Both host scripts now re-anchor to
+  the repo root from `${BASH_SOURCE[0]}`, and the env file uses absolute paths.
+- **The rotation env file is SHELL-SOURCED.** A value containing spaces must be quoted or
+  `set -a; . ./file` executes it instead of assigning it. CRLF fails as `$'\r': command not found`
+  on every line — `.gitattributes` now pins `.env*` to LF.
+- **Compose on the demo host reads the PROCESS ENVIRONMENT**, not an env_file: `deploy.sh` does
+  `set -a; source .env.demo`. There is no `.env` on the host. It also uses **two** compose files
+  (base + `docker-compose.prod.yml`) — recreating a container without both drops every prod override.
+- **`grep -q $'\r'` is not a reliable CRLF check** in a loop; count bytes instead
+  (`python -c "...count(b'\r')"`). It reported clean on a file with 59 CR bytes.
 
 - **An agent cannot merge a PR here.** GitHub forbids self-approval, and the local permission
   classifier refuses `gh pr merge` in both `--admin` and plain form. Plan sprints to end at

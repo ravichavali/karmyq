@@ -3,12 +3,16 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Restore the public Maria demo and make its next failure diagnosable, clear the dependency
-and security backlog down to zero open alerts, and silence the `/communities` 404 storm.
+**Revised 2026-09-13** — PR A Tasks A1–A5 are DONE and committed (`10600546`). BUG-040's monitor is
+now in scope. Start at **Task A6**.
+
+**Goal:** Restore the public demo and make its next failure both diagnosable and detected before a
+visitor hits it; clear the dependency and security backlog to zero open alerts; silence the
+`/communities` 404 storm.
 
 **Architecture:** No new services, no schema changes, no new endpoints. One response-shape change in
-reputation-service, one server-side logging channel added to auth-service behind an unchanged HTTP
-contract, and dependency manifest edits.
+reputation-service, one server-side logging channel behind an unchanged HTTP contract, one scheduled
+GitHub Actions monitor modelled on `expo-sdk-drift.yml`, and dependency manifest edits.
 
 **Tech Stack:** the canonical stack in `CLAUDE.md` → *System Architecture*.
 
@@ -18,14 +22,14 @@ contract, and dependency manifest edits.
 
 ## Three PRs, merged in this order
 
-| PR | Branch | Scope | Why this order |
+| PR | Branch | Scope | State |
 |---|---|---|---|
-| **A** | `feature/sprint-129-demo-session` | BUG-039: restore + diagnose | The user-visible outage. Ships first. |
-| **B** | `feature/sprint-129-deps` | Dependency backlog, 4 security alerts, Expo drift | Largest diff; the high is past SLA. |
-| **C** | `feature/sprint-129-community-aggregate` | BUG-031: the 404 storm | Smallest, lowest risk, cosmetic-but-visible. |
+| **A** | `feature/sprint-129-demo-session` | BUG-039 restore + diagnosability + BUG-040 monitor | **in progress** — restore done |
+| **B** | `feature/sprint-129-deps` | Dependency backlog, 4 security alerts, Expo drift | not started |
+| **C** | `feature/sprint-129-community-aggregate` | BUG-031 the 404 storm | not started |
 
-Each branches fresh from `origin/master`. **Merge one at a time** — every master push is a full
-deploy, and overlapping deploys 502 the demo this sprint exists to fix.
+**Merge one at a time** — every master push is a full deploy, and overlapping deploys 502 the demo
+this sprint exists to fix.
 
 ---
 
@@ -35,10 +39,23 @@ deploy, and overlapping deploys 502 the demo this sprint exists to fix.
 
 | File | Responsibility |
 |------|---------------|
-| `services/auth-service/tests/tdd/sprint-129-demo-session-logging.test.ts` | Asserts the 503 response is byte-identical while the reason reaches the logger |
-| `services/auth-service/src/services/demoSessionSelfCheck.ts` | Startup self-check; logs demo reachability at boot |
-| `services/reputation-service/tests/tdd/sprint-129-community-aggregate.test.ts` | Asserts denial and absence return identical 200s |
-| `docs/gotchas/demo-session-config-is-five-hardcoded-uuids.md` | Authored via the `learned` skill |
+| `services/auth-service/tests/tdd/sprint-129-demo-session-logging.test.ts` | Response byte-identical across causes; reasons differ in the log |
+| `services/auth-service/src/services/demoSessionSelfCheck.ts` | Startup self-check; never throws, never logs the token |
+| `.github/workflows/demo-health.yml` | Scheduled monitor; fails visibly and files one labelled issue |
+| `scripts/check-demo-health.js` | The assertions, as a testable module + CLI (not inline YAML) |
+| `tests/regression/sprint-129-demo-health-gate.test.ts` | Proves the gate FAILS on broken/near-expiry fixtures |
+| `services/reputation-service/tests/tdd/sprint-129-community-aggregate.test.ts` | Denial and absence return identical 200s |
+| `docs/gotchas/demo-story-rows-expire-on-a-cleanup-timer.md` | Via the `learned` skill |
+| `docs/gotchas/npm-workspace-cwd-and-shell-sourced-env.md` | Via the `learned` skill |
+
+### Created already (commit `10600546`)
+
+| File | Purpose |
+|------|---------|
+| `.env.demo.rotation.example` | Rotation env template; shell-sourced, LF, quoted, absolute paths |
+| `scripts/demo/enable-demo.sh` | `DEMO_ENABLE_CMD` — idempotent, asserts its post-condition |
+| `scripts/demo/restart-auth.sh` | `DEMO_RESTART_AUTH_CMD` — sources env, both compose files, health-waits |
+| `.gitignore`, `.gitattributes` | `.env*` ignored except `*.example`; `.env*` pinned to LF |
 
 ### Existing files to modify
 
@@ -47,209 +64,202 @@ deploy, and overlapping deploys 502 the demo this sprint exists to fix.
 | `services/auth-service/src/routes/auth.ts` | Line ~252 — log `DemoSessionUnavailableError` at `warn`; response untouched |
 | `services/auth-service/src/index.ts` | Wire the startup self-check |
 | `services/auth-service/CONTEXT.md` | Demo config surface, self-check, BUG-039 in Recent Fixes |
-| `services/reputation-service/src/routes/reputation.ts` | `denyAggregate` (line 44) → identical 200 for both cases |
-| `services/reputation-service/CONTEXT.md` | Response change + why both cases are identical |
-| `apps/frontend/src/lib/api.ts` | `getCommunityTrust` (line 746) — consume the null-aggregate shape |
+| `docs/guides/demo-data.md` | Rotation is now runnable — command, env file, host scripts, 14-day warning |
+| `docs/adr/ADR-084-*.md` | Amendment: opacity binds the client response, not the operator log |
+| `scripts/CLAUDE.md` | Document the new `scripts/demo/` subdirectory |
+| `services/reputation-service/src/routes/reputation.ts` | `denyAggregate` (line 44) → identical 200 |
+| `apps/frontend/src/lib/api.ts` | `getCommunityTrust` (line 746) |
 | `apps/frontend/src/pages/communities/index.tsx` | Line 124 fan-out |
 | `apps/frontend/src/hooks/useCommunityData.ts` | Line 153 — second call site |
-| `package.json` | `overrides.qs` `">=6.15.2"` → `">=6.16.0"`; possibly `decode-uri-component` |
-| `package-lock.json` | Surgical splice only |
+| `package.json` / `package-lock.json` | `overrides.qs` raise; possibly `decode-uri-component` |
 | `apps/mobile/package.json` | 12 Expo patch bumps |
-| `tests/regression/sprint-122-expo-sdk-alignment.test.ts` | `SDK_PINNED` shadow map — must move with the manifest |
-| `docs/adr/ADR-084-*.md` | Amendment: opacity binds the client response, not the operator log |
-| `docs/BUGS.md` | BUG-039 fixed; BUG-031 fixed + stale line reference corrected |
-| `docs/IDEAS.md` | Two deferrals appended |
+| `tests/regression/sprint-122-expo-sdk-alignment.test.ts` | `SDK_PINNED` must move with the manifest |
+| `docs/BUGS.md` | BUG-031 fixed + stale reference corrected; BUG-040 closed when the monitor ships |
 
 ---
 
-## ⚠️ Critical Implementation Notes (read before Task 2)
+## ⚠️ Critical Implementation Notes (read before Task A6)
 
-1. **The demo-session HTTP contract does not change.** Same status, same error code, same body.
-   ADR-084's opacity is preserved exactly. Only the server-side log gains the reason. A test must
-   assert the response is byte-identical before and after.
-2. **Never log the reason to the client, and never log the JWT.** Reason strings go to `req.logger`
-   only. The startup self-check must not log the issued token.
-3. **`qs` is an existing override, not a new one.** Raise `overrides.qs` from `">=6.15.2"` to
-   `">=6.16.0"` in place. Do not add a second entry.
-4. **Prove the `decode-uri-component` override actually lands.** It reaches the tree only through
-   `apps/mobile`, and root `overrides` are known not to reach `apps/*` subtrees reliably. Verify
-   with strict `npm ci` then `npm ls decode-uri-component --all` — never from the manifest alone.
-   Check first whether the `expo-router` patch bump resolves it without an override.
-5. **Dependency edits are surgical.** Edit `package.json` and splice `package-lock.json` in place.
-   Never `npm install --workspace`, never `npm dedupe`, never a scratch lockfile regen. Prove with
-   strict `npm ci`.
-6. **Do not widen `security/expo-divergences.json` to silence drift.** The two existing entries
-   cleared correctly. A divergence matching no current drift must be *deleted*, not kept.
-7. **The Expo bump must move `SDK_PINNED` too.** Updating `apps/mobile/package.json` alone leaves
-   the gate green against a stale shadow — the exact false-green that made the drift monitor
-   necessary.
-8. **BUG-031's fix must keep denial and absence indistinguishable.** Both return the identical 200.
-   Returning 200 only for the uncomputed case would leak ADR-082's hidden distinction. A test must
-   assert the two responses are identical.
-9. **BUG-031 has two call sites, not one**, and the bug's recorded line reference is wrong. Cover
-   `communities/index.tsx:124` and `useCommunityData.ts:153`.
-10. **`apps/landing/src/data/docs/` churns on every `npm test`.** Revert `build.json` and
-    `architecture.json` before committing — mandatory.
-11. **Merge one PR at a time.** Wait for each deploy and health verify before merging the next.
-12. **The version bump is taken at merge time** from `origin/master`'s `package.json`.
-13. **New tests start in the changed workspace's `tests/tdd/`**, not root `tests/`. Read
+1. **The demo-session HTTP contract does not change.** A test must assert the response is
+   byte-identical across two *different* causes while the log reasons differ. A test asserting only
+   the log would pass a version that leaks the reason to the client.
+2. **Never log the reason to the client, and never log the JWT.** The startup self-check must not log
+   the issued token, and must never throw.
+3. **A crashed monitor is the loudest case, not the quietest.** Any non-green outcome — including the
+   check crashing or emitting no payload — files the issue (the BUG-035 lesson already encoded in
+   `expo-sdk-drift.yml`).
+4. **The monitor must not write to the demo.** Read-only assertions only.
+5. **`qs` is an existing override, not a new one.** Raise it in place.
+6. **Prove the `decode-uri-component` override actually lands** with strict `npm ci` then
+   `npm ls decode-uri-component --all`. Check first whether the `expo-router` bump resolves it.
+7. **Dependency edits are surgical.** Never `npm install --workspace`, `npm dedupe`, or a scratch regen.
+8. **Do not widen `security/expo-divergences.json`.**
+9. **The Expo bump must move `SDK_PINNED` too.**
+10. **BUG-031's fix must keep denial and absence indistinguishable** — assert the two responses are
+    identical, not merely that each is 200.
+11. **BUG-031 has two call sites**, and the bug's recorded line reference is wrong.
+12. **`apps/landing/src/data/docs/` churns on every `npm test`** — revert before committing.
+13. **Merge one PR at a time.**
+14. **The version bump is taken at merge time** from `origin/master`.
+15. **Host traps:** `npm --workspace` sets cwd to the workspace dir; the rotation env file is
+    shell-sourced (quote values with spaces; LF only); compose on the demo host reads the **process
+    environment** across **two** compose files.
+16. **New tests start in the changed workspace's `tests/tdd/`**, not root. Read
     [`tests/claude.md`](../../../tests/claude.md) before placing any test.
-14. **Git hooks are LIVE on this clone.** A push runs the full suite. A silent, instant push means
-    no hook ran — treat that as an alarm.
+17. **Git hooks are LIVE.** A silent, instant push means no hook ran — treat that as the alarm.
 
 ---
 
-# PR A — BUG-039: restore the demo and make it diagnosable
+# PR A — demo: restore, diagnose, detect
 
-## Task A1: Branch, and request the diagnosis
+## ✅ Tasks A1–A5 — DONE (commit `10600546`)
 
-**Files:** none yet.
+Diagnosed BUG-039 (all four story rows hard-deleted by `cleanup-service`), wired the rotation that
+the design always assumed but had never been operational, ran it, and verified live: demo-session
+**200**, write with demo token **403**, 16/16 state checks green. Fixed two `.gitignore` security
+gaps found in flight. Filed BUG-040.
 
-- [ ] Branch from freshly fetched `origin/master`
-
-```bash
-git fetch origin
-git switch -c feature/sprint-129-demo-session origin/master
-```
-
-- [ ] Confirm the bug still reproduces against the deployed site
+**Do not redo these.** Verify current state before continuing:
 
 ```bash
-node -e "
-const https=require('https');const b=JSON.stringify({});
-const r=https.request({hostname:'karmyq.com',path:'/api/auth/demo-session',method:'POST',headers:{'Content-Type':'application/json','Content-Length':b.length}},s=>{let d='';s.on('data',c=>d+=c);s.on('end',()=>console.log(s.statusCode,d));});
-r.write(b);r.end();"
+node -e "const h=require('https'),b='{}';const r=h.request({hostname:'karmyq.com',path:'/api/auth/demo-session',method:'POST',headers:{'Content-Type':'application/json','Content-Length':2}},s=>{let d='';s.on('data',c=>d+=c);s.on('end',()=>console.log(s.statusCode))});r.write(b);r.end()"
 ```
 
-- [ ] **⚠️ STOP — ask the maintainer to authorize a read-only demo-server inspection.**
-
-State exactly what will be read: the six `DEMO_*` environment variables on the deployed
-auth-service. This is a demo-server operation and needs its own explicit authorization. Do not
-proceed without it.
-
-- [ ] Once authorized: read the deployed auth-service environment
-
-```bash
-# Confirm which of the six are set. Print names and whether each is non-empty — NOT the values.
-ssh ubuntu@karmyq.com 'docker exec karmyq-auth-service printenv | grep -c "^DEMO_" || true'
-```
-
-- [ ] If config is present, request a **second** authorization to query the demo DB for the five
-      referenced rows' existence and ownership. Separate operation, separate approval.
-
-- [ ] Record the diagnosed cause in the handoff before writing any fix
-
-## Task A2: Test the logging change first (TDD)
+## Task A6: Test the logging change first (TDD)
 
 **Files:**
 - Create: `services/auth-service/tests/tdd/sprint-129-demo-session-logging.test.ts`
 
-- [ ] Write the failing test — the response must be byte-identical, and the reason must reach the logger
-
-The test drives `POST /auth/demo-session` with a deliberately broken config (e.g.
-`DEMO_SESSION_ENABLED` unset) and asserts both halves:
+- [ ] **Write the failing test — assert BOTH halves together**
 
 ```ts
-// Assert BOTH, in one test, so the contract and the diagnosis move together:
-//  1. status === 503, body deep-equals the exact ADR-074 envelope shipped today
+// The contract and the diagnosis must move together:
+//  1. status === 503 and the body deep-equals today's exact ADR-074 envelope
 //     ({ success:false, message:'Demo session is unavailable', error:'DEMO_UNAVAILABLE' })
 //  2. the injected logger received a warn carrying the SPECIFIC reason
-//     ('Demo sessions are disabled'), proving the operator channel is real
-// A test asserting only (2) would pass while silently leaking the reason to the client.
+// Asserting only (2) would pass a version that leaks the reason to the client.
 ```
 
-- [ ] Add a second case proving the response is identical across two *different* causes
+- [ ] **Add the indistinguishability case** — two *different* causes (disabled flag vs. persona not
+      found) produce byte-identical HTTP responses but *different* log reasons. This is the whole
+      design in one assertion.
 
-```ts
-// Disabled-flag and persona-not-found must produce byte-identical HTTP responses
-// while producing DIFFERENT log reasons. This is the whole design in one assertion.
-```
-
-- [ ] Verify the test fails for the right reason (no reason is logged today)
+- [ ] **Verify it fails for the right reason** (no reason is logged today)
 
 ```bash
 cd services/auth-service && npx jest tests/tdd/sprint-129-demo-session-logging.test.ts
 ```
 
-## Task A3: Log the reason
+## Task A7: Log the reason
 
-**Files:**
-- Modify: `services/auth-service/src/routes/auth.ts`
+**Files:** Modify `services/auth-service/src/routes/auth.ts`
 
-- [ ] At the `catch` (line ~250-266), log `DemoSessionUnavailableError` at `warn` with its message;
-      keep the existing `error`-level log for unexpected failures. The `sendError` call is untouched.
+- [ ] At the catch (line ~250-266), log `DemoSessionUnavailableError` at `warn` with its message.
+      Keep the existing `error`-level log for unexpected failures. **`sendError` is untouched.**
 
-- [ ] Verify the TDD test now passes and the existing regression suites still pass
+- [ ] Verify the new test passes and the Sprint 116 regressions still do
 
 ```bash
 cd services/auth-service && npx jest tests/tdd/sprint-129-demo-session-logging.test.ts tests/regression/sprint-116-demo-session.route.test.ts tests/regression/sprint-116-demo-session.test.ts
 ```
 
-## Task A4: Startup self-check
+## Task A8: Startup self-check
 
 **Files:**
 - Create: `services/auth-service/src/services/demoSessionSelfCheck.ts`
 - Modify: `services/auth-service/src/index.ts`
 
-- [ ] Implement the self-check: on boot, if `DEMO_SESSION_ENABLED === 'true'`, attempt one demo
-      session and log success or the specific failure reason. If the flag is not `'true'`, log once
-      that demo sessions are disabled — so "disabled" is never mistaken for "broken".
-
-- [ ] **Must not log the issued token.** Log only the outcome.
-- [ ] **Must never throw.** A failing self-check logs; it does not prevent auth-service from booting
-      — auth is Critical with 7 dependents and the demo is optional.
-
-- [ ] Add a test asserting the self-check swallows failures and never rejects
+- [ ] On boot: if `DEMO_SESSION_ENABLED === 'true'`, attempt one demo session and log the outcome;
+      otherwise log once that demo sessions are disabled — so "off" is never read as "broken".
+- [ ] **Must not log the issued token.** **Must never throw** — auth is Critical with 7 dependents.
+- [ ] Test: a failing self-check is swallowed and never rejects
 
 ```bash
 cd services/auth-service && npx jest tests/tdd/
 ```
 
-## Task A5: Restore the demo on the server
+## Task A9: The demo-health check module (TDD) — BUG-040
 
-- [ ] **⚠️ STOP — request maintainer authorization for the demo-server write**, naming the exact
-      change (set the missing env vars, or re-point the story ids).
+**Files:**
+- Create: `scripts/check-demo-health.js`
+- Create: `tests/regression/sprint-129-demo-health-gate.test.ts`
 
-- [ ] Apply the fix and restart the auth service
-- [ ] Verify live
+Put the logic in a module, not inline YAML — inline workflow JS cannot be unit-tested, and this gate
+must be *proven* able to fail.
 
-```bash
-node -e "
-const https=require('https');const b=JSON.stringify({});
-const r=https.request({hostname:'karmyq.com',path:'/api/auth/demo-session',method:'POST',headers:{'Content-Type':'application/json','Content-Length':b.length}},s=>{let d='';s.on('data',c=>d+=c);s.on('end',()=>console.log('EXPECT 200 ->',s.statusCode));});
-r.write(b);r.end();"
+- [ ] **Write the failing gate test first.** Fixtures must include:
+
+```
+- healthy:            demo-session 200, stories 60 days from deletion   -> ok, no issue
+- broken:             demo-session 503                                  -> FAIL + issue
+- near expiry:        demo-session 200, stories 9 days from deletion    -> FAIL + issue
+- boundary:           exactly 14 days                                   -> assert the chosen side
+- crashed:            check throws / emits no payload                   -> FAIL + issue  (note 3)
+- unreachable:        network error contacting karmyq.com               -> FAIL + issue
 ```
 
-- [ ] Load `https://karmyq.com/demo` and confirm it reaches `phase === 'active'` with Maria's two
-      stories rendered. **A 200 from the endpoint is not sufficient evidence the page works.**
+- [ ] **Implement `check-demo-health.js`.** Two assertions: `POST /auth/demo-session` returns 200,
+      and the configured stories are **> 14 days** from hard deletion (`expires_at + 7 days`).
+      Emits a result payload and an `issue=1|0` flag, mirroring `scripts/expo-divergences.js`.
+- [ ] **Read-only. No writes to the demo** — note 4.
+- [ ] **Never print the demo token** or any story UUID into logs an issue body will carry.
 
-## Task A6: Docs for PR A
+- [ ] Verify the gate genuinely fails on every negative fixture
 
-- [ ] Amend `docs/adr/ADR-084-*.md` — opacity binds the client-facing response; operator-side
-      logging is explicitly not a violation. Keep the ADR's status; add an "Amendment (Sprint 129)"
-      section.
-- [ ] Update `services/auth-service/CONTEXT.md` — the six `DEMO_*` vars, that the flag defaults
-      **off**, the self-check, the reason log, and BUG-039 under "Recent Fixes".
-- [ ] Add the gotcha via the `learned` skill: the demo's five hardcoded story UUIDs silently
-      invalidate on any demo reseed, and the endpoint cannot report it to the client by design.
-- [ ] Add the demo-session probe to the documented demo smoke-test paths.
-- [ ] Mark BUG-039 fixed in `docs/BUGS.md` with the actual diagnosed cause.
-- [ ] Append to `docs/IDEAS.md`: resolve the demo story by query instead of five hardcoded UUIDs.
+```bash
+cd tests && npx jest regression/sprint-129-demo-health-gate.test.ts
+```
 
-## Task A7: Quality gates for PR A
+## Task A10: The scheduled workflow
+
+**Files:** Create `.github/workflows/demo-health.yml`
+
+- [ ] Model on `.github/workflows/expo-sdk-drift.yml`: `schedule` + `workflow_dispatch` only
+      (**never `pull_request`** — a merge must not depend on karmyq.com being reachable),
+      `concurrency` group, `permissions: contents: read, issues: write`.
+- [ ] Ensure the label exists, then file **or update** a single labelled issue.
+- [ ] **Any non-green outcome is issue-worthy**, crashes included — note 3.
+- [ ] How the expiry half reads story state without DB credentials in CI must be decided explicitly:
+      prefer an authenticated read through the public API over shipping `DATABASE_URL` to Actions.
+      **Record the choice in the workflow header.**
+
+- [ ] Verify by dispatching it manually and reading the run
+
+```bash
+gh workflow run demo-health.yml && sleep 45 && gh run list --workflow=demo-health.yml --limit 1
+```
+
+## Task A11: Docs for PR A
+
+- [ ] `docs/adr/ADR-084-*.md` — "Amendment (Sprint 129)": opacity binds the client-facing response;
+      operator-side logging is not a violation. Keep the ADR's status.
+- [ ] `docs/guides/demo-data.md` — **rotation is now runnable**: the env file, the two host scripts,
+      the exact command, and the 14-day warning. Correct the implication it was already operational.
+- [ ] `services/auth-service/CONTEXT.md` — the six `DEMO_*` vars, flag defaults **off**, self-check,
+      reason log, BUG-039 in "Recent Fixes".
+- [ ] `scripts/CLAUDE.md` — the new `scripts/demo/` subdirectory.
+- [ ] Two gotchas via the `learned` skill (see File Map).
+- [ ] `docs/BUGS.md` — close **BUG-040** once the monitor ships.
+- [ ] `docs/IDEAS.md` — defer "resolve the demo story by query instead of five stored UUIDs".
+
+## Task A12: Quality gates for PR A
 
 - [ ] `/simplify` on the branch diff
-- [ ] `/code-review` on the branch diff — **medium** (small, well-specified diff)
-- [ ] `/security-review` on the branch diff — this PR adds a logging channel to a deliberately
-      opaque endpoint; the review must confirm no reason string and no token can reach the client
+- [ ] `/code-review` on the branch diff — **high** (the diff is now substantial: shell scripts, a
+      workflow, a logging change on a security-sensitive endpoint)
+- [ ] `/security-review` on the branch diff — must confirm: no reason string or token can reach the
+      client; the monitor cannot write; no secret reaches the issue body or CI logs; the `.gitignore`
+      change actually covers every env file
 - [ ] Resolve or dismiss every finding with written justification
 
-## Task A8: Verify and open PR A
+## Task A13: Verify and open PR A
 
 - [ ] `npx tsc --noEmit` in `services/auth-service`
-- [ ] `npm test` — capture the exit code separately; `| tail` masks it
+- [ ] `npm test` — **capture the exit code separately**; `| tail` masks it
 - [ ] `npm run feedback:check`
+- [ ] `bash -n scripts/demo/*.sh scripts/check-demo-health.js` — syntax-check the shipped scripts
 - [ ] Revert `apps/landing/src/data/docs/` churn
+- [ ] Confirm no `.env*` file except `*.example` is staged
 - [ ] Bump the version, read from `origin/master` at merge time
 - [ ] Open the PR; **stop at "green and ready"** — an agent cannot merge here
 
@@ -257,124 +267,72 @@ r.write(b);r.end();"
 
 # PR B — Dependencies, security alerts, Expo drift
 
-## Task B1: Branch and establish the baseline
+## Task B1: Branch and baseline
 
 - [ ] Branch from freshly fetched `origin/master` **after PR A has merged and deployed**
-
-```bash
-git fetch origin
-git switch -c feature/sprint-129-deps origin/master
-```
-
-- [ ] Record the live alert set as the baseline to prove against at the end
+- [ ] Record the live alert set to prove against at the end
 
 ```bash
 gh api repos/ravichavali/karmyq/dependabot/alerts --paginate \
   -q '.[] | select(.state=="open") | "\(.security_advisory.severity)\t\(.dependency.package.name)\t\(.dependency.manifest_path)"' | sort
 ```
 
-Expect exactly four: the `@faker-js/faker` high in `scripts/`, two `qs`, one
-`decode-uri-component`.
+Expect four: the `@faker-js/faker` high in `scripts/`, two `qs`, one `decode-uri-component`.
 
-## Task B2: The Expo SDK drift (issue #234)
+## Task B2: Expo SDK drift (issue #234)
 
-**Files:**
-- Modify: `apps/mobile/package.json`, `package-lock.json`,
-  `tests/regression/sprint-122-expo-sdk-alignment.test.ts`
-
-- [ ] Bump all twelve `expo-*` packages one patch each, per issue #234
-- [ ] **Move the `SDK_PINNED` shadow map in the same commit** — note 7
-- [ ] Re-resolve the lockfile **surgically** — note 5
-- [ ] Leave `security/expo-divergences.json` alone — both entries cleared correctly — note 6
-
-- [ ] Verify against the live arbiter, not the shadow
+- [ ] Bump all twelve `expo-*` packages one patch each
+- [ ] **Move `SDK_PINNED` in the same commit** — note 9
+- [ ] Re-resolve the lockfile **surgically** — note 7
+- [ ] Leave `security/expo-divergences.json` alone — note 8
 
 ```bash
 cd apps/mobile && EXPO_NO_TELEMETRY=1 npx expo install --check
 node scripts/expo-divergences.js
+npm ls decode-uri-component --all   # did expo-router move query-string?
 ```
 
-- [ ] **Check whether the `expo-router` bump moved `query-string`** — this may resolve
-      `decode-uri-component` without an override
-
-```bash
-npm ls decode-uri-component --all
-```
-
-Record the answer; Task B4 depends on it.
+Record that last answer — Task B4 depends on it.
 
 ## Task B3: `qs` — raise the existing override
 
-**Files:** `package.json`, `package-lock.json`
-
-- [ ] Raise `overrides.qs` from `">=6.15.2"` to `">=6.16.0"` **in place** — note 3
-- [ ] Splice the lockfile surgically
+- [ ] `overrides.qs` `">=6.15.2"` → `">=6.16.0"` **in place** — note 5
 - [ ] Prove the resolved version, not the manifest
 
 ```bash
-npm ci && npm ls qs --all | grep -c "qs@6.1[0-5]" # expect 0 matches below 6.16.0
+npm ci && npm ls qs --all
 ```
 
 ## Task B4: `decode-uri-component`
 
-**Files:** `package.json` and/or `apps/mobile/package.json`, `package-lock.json`
-
-- [ ] **If Task B2 already resolved it to ≥0.5.0, do nothing and record why.** Adding a dead
-      override would later trip the audit gate as unmatched — note 4.
-- [ ] Otherwise add the override, then **prove it reaches the `apps/mobile` subtree**
-
-```bash
-npm ci
-npm ls decode-uri-component --all   # every resolved copy must be >= 0.5.0
-```
-
-- [ ] If the root override does not reach `apps/mobile`, fall back to bumping `query-string` inside
-      `apps/mobile` — note 4
+- [ ] **If B2 already resolved it to ≥0.5.0, do nothing and record why** — a dead override would
+      later trip the audit gate as unmatched.
+- [ ] Otherwise add it and **prove it reaches the `apps/mobile` subtree** — note 6
+- [ ] Fallback if the root override does not reach it: bump `query-string` inside `apps/mobile`
 
 ## Task B5: `@faker-js/faker` — the high, past SLA
 
-- [ ] Take PR #216's change: `scripts/package-lock.json`, 8.4.1 → 10.5.0
-- [ ] **Two major versions.** Verify the seed/simulation scripts that import faker still run — the
-      `helpers.fake` API is the vulnerable surface and its signature may have moved
+- [ ] Take PR #216: `scripts/package-lock.json`, 8.4.1 → 10.5.0
+- [ ] **Two majors** — verify the scripts that import faker still run; `helpers.fake` is the
+      vulnerable surface and its signature may have moved
 
 ```bash
 grep -rn "faker" scripts/ --include=*.js --include=*.ts | grep -v package-lock | head -20
 ```
 
-- [ ] Run each affected script far enough to prove it still works
+## Task B6: Merge the six safe PRs
 
-## Task B6: Merge the safe Dependabot PRs
-
-- [ ] Confirm each is still all-minor/patch before taking it — re-read the dependency table; a
-      Dependabot PR can be force-updated after it is opened
-
-| PR | Contents |
-|---|---|
-| #223 | production-deps group, 6 updates, no majors |
-| #231 | dev-deps group, 15 updates, no majors |
-| #217 | `qs` 6.15.2 → 6.16.0 (may be subsumed by Task B3) |
-| #212 | `docker/setup-buildx-action` 4.2.0 → 4.3.0 |
-| #211 | `google/osv-scanner-action` 2.3.8 → 2.5.1 |
-
-- [ ] Where a PR's change is already carried by this branch, close it with a comment saying so
-      rather than merging a duplicate
+- [ ] Re-read each dependency table before taking it — a Dependabot PR can be force-updated after opening
+- [ ] #223, #231, #217, #216, #212, #211
+- [ ] Where this branch already carries the change, **close the PR with a comment** rather than
+      merging a duplicate
 
 ## Task B7: Triage the seven majors
 
-- [ ] Post a one-sentence triage comment on each — why it is held, what would unblock it
-
-| PR | Bump |
-|---|---|
-| #229 | `next` 15 → **16** |
-| #227 | `zod` 3 → **4** |
-| #225 | `node-fetch` 2 → **3** (ESM-only) |
-| #224 | `express-rate-limit` 7 → **8** |
-| #226 | `dotenv` 16 → **17** |
-| #228 | `node-cron` 3 → **4** |
-| #230 | `expo-server-sdk` 6 → **7** |
-
-- [ ] Record the `eslint-config-next` 16.x / `next` 15.x mismatch found during planning — either as
-      a note on #229 or in `docs/IDEAS.md`
+- [ ] One-sentence comment on each: why held, what unblocks it — #229 `next` 16, #227 `zod` 4,
+      #225 `node-fetch` 3 (ESM-only), #224 `express-rate-limit` 8, #226 `dotenv` 17,
+      #228 `node-cron` 4, #230 `expo-server-sdk` 7
+- [ ] Record the `eslint-config-next` 16.x / `next` 15.x mismatch (on #229 or in `docs/IDEAS.md`)
 
 ## Task B8: Docs for PR B
 
@@ -384,9 +342,7 @@ grep -rn "faker" scripts/ --include=*.js --include=*.ts | grep -v package-lock |
 
 ## Task B9: Quality gates for PR B
 
-- [ ] `/simplify` on the branch diff
-- [ ] `/code-review` on the branch diff — **high** (large diff, dependency surface)
-- [ ] `/security-review` on the branch diff
+- [ ] `/simplify` · `/code-review` **high** (large diff, dependency surface) · `/security-review`
 - [ ] Resolve or dismiss every finding with written justification
 
 ## Task B10: Verify and open PR B
@@ -397,18 +353,14 @@ grep -rn "faker" scripts/ --include=*.js --include=*.ts | grep -v package-lock |
 rm -rf node_modules && npm ci
 ```
 
-- [ ] `npx tsc --noEmit` across changed workspaces
-- [ ] `npm test` — capture the exit code separately
-- [ ] **Prove zero open security alerts** against the live API, not from the manifest
+- [ ] `npx tsc --noEmit` across changed workspaces; `npm test` (exit code captured separately)
+- [ ] **Prove zero open alerts against the live API**
 
 ```bash
-gh api repos/ravichavali/karmyq/dependabot/alerts --paginate \
-  -q '[.[] | select(.state=="open")] | length'   # expect 0
+gh api repos/ravichavali/karmyq/dependabot/alerts --paginate -q '[.[] | select(.state=="open")] | length'
 ```
 
-- [ ] Revert `apps/landing/src/data/docs/` churn
-- [ ] Bump the version, read from `origin/master` at merge time
-- [ ] Open the PR; stop at "green and ready"
+- [ ] Revert landing-docs churn; bump the version at merge time; open the PR
 
 ---
 
@@ -416,97 +368,80 @@ gh api repos/ravichavali/karmyq/dependabot/alerts --paginate \
 
 ## Task C1: Branch and test first (TDD)
 
-**Files:**
-- Create: `services/reputation-service/tests/tdd/sprint-129-community-aggregate.test.ts`
+**Files:** Create `services/reputation-service/tests/tdd/sprint-129-community-aggregate.test.ts`
 
 - [ ] Branch from freshly fetched `origin/master` **after PR B has merged and deployed**
-
-- [ ] Write the failing test — and make indistinguishability the assertion
+- [ ] **Write the failing test — indistinguishability is the assertion**
 
 ```ts
-// The load-bearing assertion is that the two cases are IDENTICAL, not that each is 200:
-//  - caller denied the aggregate (not an active member / cohort < 5, ADR-082)
-//  - aggregate simply not computed yet
-// Both must produce the same status AND a deep-equal body.
-// A test checking only "returns 200" would pass a fix that leaks ADR-082's hidden
-// distinction — which is exactly the regression to prevent.
+// The load-bearing claim is that the two cases are IDENTICAL, not that each is 200:
+//   - caller denied the aggregate (not active / cohort < 5, ADR-082)
+//   - aggregate simply not computed yet
+// Same status AND deep-equal body. A test checking only "returns 200" would pass a fix
+// that leaks ADR-082's hidden distinction.
 ```
 
 - [ ] Add a case asserting a genuinely unknown community still returns **404**
 
 ## Task C2: Change the response
 
-**Files:** `services/reputation-service/src/routes/reputation.ts`
-
-- [ ] `denyAggregate` (line 44) → `200` with `{ success: true, data: { aggregate: null } }`
-- [ ] Confirm every call site of `denyAggregate` should move — grep them all; do not assume the
-      `community-trust` route is the only one
+- [ ] `denyAggregate` (`reputation.ts:44`) → `200` with `{ success: true, data: { aggregate: null } }`
+- [ ] **Grep every call site** — do not assume `community-trust` is the only one
 
 ```bash
 grep -rn "denyAggregate" services/reputation-service/src
 ```
 
-- [ ] Ensure "no such community" still returns 404
-
 ## Task C3: Frontend — both call sites
 
-**Files:** `apps/frontend/src/lib/api.ts`, `apps/frontend/src/pages/communities/index.tsx`,
-`apps/frontend/src/hooks/useCommunityData.ts`
-
-- [ ] `getCommunityTrust` (api.ts:746) — consume the null-aggregate shape. Remember the interceptor
-      already unwraps: it is `res.data`, not `res.data.data`.
-- [ ] `communities/index.tsx:124` — the fan-out renders the empty state without erroring
-- [ ] `useCommunityData.ts:153` — the second call site — note 9
-- [ ] Frontend tests: renders with a null aggregate, and no error is logged
+- [ ] `api.ts:746` — consume the null shape. The interceptor already unwraps: `res.data`, not
+      `res.data.data`.
+- [ ] `communities/index.tsx:124` — fan-out renders the empty state without erroring
+- [ ] `useCommunityData.ts:153` — the second call site — note 11
+- [ ] Frontend tests: renders with a null aggregate; no error logged
 
 ## Task C4: Verify the storm is gone
 
-- [ ] Load `/communities` as `maria.reyes` and confirm **zero** console errors. The bug is defined
-      by console output; a green unit test is not evidence it is fixed.
+- [ ] Load `/communities` as `maria.reyes` and confirm **zero** console errors. The bug is defined by
+      console output; a green unit test is not evidence.
 
 ## Task C5: Docs for PR C
 
-- [ ] `services/reputation-service/CONTEXT.md` — the response change and why both cases are identical
-- [ ] `docs/BUGS.md` — BUG-031 fixed, **and correct its stale `api.ts:754` reference to `api.ts:746`,
-      adding the missing `useCommunityData.ts:153` call site**
-- [ ] `docs/IDEAS.md` — defer batching the fan-out into one request
-- [ ] User guide / concept page updates if the community trust display description changes
+- [ ] `services/reputation-service/CONTEXT.md` — the change and why both cases are identical
+- [ ] `docs/BUGS.md` — BUG-031 fixed, **and correct `api.ts:754` → `api.ts:746`, adding the missing
+      `useCommunityData.ts:153` call site**
+- [ ] `docs/IDEAS.md` — defer batching the fan-out
+- [ ] Guide/concept updates if the trust display description changes
 
 ## Task C6: Quality gates for PR C
 
-- [ ] `/simplify` on the branch diff
-- [ ] `/code-review` on the branch diff — **medium** (small, well-specified diff)
-- [ ] `/security-review` on the branch diff — this changes a response that deliberately hides an
-      authorization outcome; confirm the new shape leaks nothing the old one hid
+- [ ] `/simplify` · `/code-review` **medium** (small, well-specified) · `/security-review` — this
+      changes a response that deliberately hides an authorization outcome; confirm the new shape
+      leaks nothing the old one hid
 - [ ] Resolve or dismiss every finding with written justification
 
 ## Task C7: Verify and open PR C
 
-- [ ] `npx tsc --noEmit`
-- [ ] `npm test` — capture the exit code separately
-- [ ] `npm run feedback:check`
-- [ ] Revert `apps/landing/src/data/docs/` churn
-- [ ] Bump the version, read from `origin/master` at merge time
-- [ ] Open the PR; stop at "green and ready"
+- [ ] `npx tsc --noEmit`; `npm test` (exit code captured separately); `npm run feedback:check`
+- [ ] Revert landing-docs churn; bump the version at merge time; open the PR
 
 ---
 
 ## Task D: Merge and deploy
 
-Use the `/deploy` skill. **One PR at a time**, in order A → B → C.
+Use the `/deploy` skill. **One PR at a time**, A → B → C.
 
 - [ ] Confirm no deploy is in flight: `gh run list --workflow=ci.yml --limit 3`
-- [ ] Request merge authorization — an agent cannot merge here; `gh pr merge` is refused in both
-      plain and `--admin` form
-- [ ] After each merge: watch the **`Deploy to Demo` job**, not just the run
-- [ ] After each deploy: smoke-test. `/health` is not exposed via nginx — use
-      `POST /api/auth/login`, and now also `POST /api/auth/demo-session`
-- [ ] Only then merge the next PR
+- [ ] Request merge authorization — an agent cannot merge here
+- [ ] After each merge, watch the **`Deploy to Demo` job**, not just the run
+- [ ] Smoke-test after each: `/health` is not exposed via nginx — use `POST /api/auth/login` **and
+      `POST /api/auth/demo-session`**
+- [ ] Only then merge the next
 
 ## Task E: Close out
 
-- [ ] Re-read `CURRENT_HANDOFF.md` end-to-end against real state (`gh pr list`, `git log`,
-      current branch) and reconcile before claiming done
-- [ ] Confirm the next scheduled Expo drift run is green; close issue #234
+- [ ] Re-read `CURRENT_HANDOFF.md` end-to-end against real state and reconcile before claiming done
+- [ ] Confirm the demo-health workflow's first scheduled run is green; close **BUG-040**
+- [ ] Confirm the Expo drift run is green; close issue **#234**
 - [ ] Verify `https://karmyq.com/demo` still reaches `phase === 'active'` after all three deploys
 - [ ] Archive the handoff and open a clean slate for Sprint 130
