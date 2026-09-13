@@ -122,7 +122,10 @@ this sprint exists to fix.
 19. **`if:` carries an implicit `success()`.** A step condition referencing `steps.<id>.outputs.*`
     is skipped entirely when an earlier step fails, so setup/install failures file nothing. Every
     reporting step needs `always() && (...)` plus an empty-payload fallback. This is a gap in
-    `expo-sdk-drift.yml` (`:154`, `:232`, `:262`) — do not inherit it.
+    `expo-sdk-drift.yml` (`:154`, `:232`, `:262`) — do not inherit it. **Test for `issue != '0'`,
+    never `issue == '1'`**: a step that exits 0 without writing `GITHUB_OUTPUT` leaves it empty,
+    which an `== '1'` test reads as "nothing to report" and skips. Default to notifying; only an
+    explicit, well-formed `0` earns silence.
 20. **`workflow_dispatch` requires the workflow on the DEFAULT branch.** A new workflow cannot be
     dispatched while its PR is open. Pre-merge evidence is fixtures + a YAML parse; dispatch and
     run verification belong in Task E, after deploy.
@@ -134,6 +137,11 @@ this sprint exists to fix.
     `expires_at` (only the unrelated `boosted_expires_at`), so an API read would mean a real
     contract change; adding it to the demo-session response would violate note 1; and shipping
     `DATABASE_URL` to Actions is a worse secret than the one already there.
+23. **An exit code of 0 is not evidence of a successful check.** The payload must be parsed and
+    structurally validated — `ok` present, a per-story array, a computed deadline per story — and a
+    parse failure or missing field treated as `issue=1`. An empty-string guard alone passes a
+    non-empty but malformed payload. Fixtures must cover **exit 0 with empty output** and **exit 0
+    with a malformed payload**, both of which must still file an issue.
 
 ---
 
@@ -226,6 +234,8 @@ must be *proven* able to fail.
 - already expired:    expired = TRUE, marked 3 days ago                 -> FAIL + issue  (note 18)
 - clock restarted:    expired = TRUE but updated_at bumped since        -> deadline MOVED later
 - never deletable:    expires_at passed while status != 'open'          -> never marked, no warning
+- silent success:     exit 0 but GITHUB_OUTPUT empty                    -> FAIL + issue  (note 23)
+- malformed payload:  exit 0, result present but unparseable            -> FAIL + issue  (note 23)
 ```
 
 - [ ] **Implement `check-demo-health.js`.** Two assertions: `POST /auth/demo-session` returns 200,
@@ -307,14 +317,46 @@ previously only ran on a master push. The script is read-only and must stay so (
       setup-node or `npm ci` skips all of them and files nothing. Do not inherit that:
 
 ```yaml
-# Every reporting step must survive an earlier failure.
+# Every reporting step must survive an earlier failure AND a silent one.
+# Default to NOTIFYING: only an explicit, well-formed `issue=0` earns silence.
 - name: File or update the demo-health issue
-  if: always() && (steps.check.outputs.issue == '1' || steps.check.outcome != 'success' || failure())
+  if: >-
+    always() &&
+    (failure() ||
+     steps.check.outcome != 'success' ||
+     steps.check.outputs.issue != '0' ||
+     steps.check.outputs.result == '')
 ```
 
-Give the check step an `id`, and have the issue body fall back to a generic
-"the demo-health check did not complete" when `steps.check.outputs.result` is empty — an empty
-payload must still produce an issue, never a silent red run.
+⚠️ **The inversion is the point — `issue != '0'`, not `issue == '1'`.** A step that exits 0 without
+writing `GITHUB_OUTPUT` leaves `issue` as the empty string. Under an `issue == '1'` test that reads
+false, `outcome` is `success`, and `failure()` is false — so the step is **skipped and nothing is
+filed**, which is the silent pass this whole note exists to prevent. It also made the fallback body
+below unreachable: the step never ran to render it.
+
+| check state | `issue` | old condition | new condition |
+|---|---|---|---|
+| green | `0` | skip ✅ | skip ✅ |
+| problem found | `1` | fire ✅ | fire ✅ |
+| **exit 0, empty output** | `''` | **skip ❌** | **fire ✅** |
+| crashed / step failed | `''` | fire ✅ | fire ✅ |
+| earlier step failed | n/a | fire ✅ | fire ✅ |
+
+- [ ] **Validate the payload's STRUCTURE before treating success as success** (note 23). A non-empty
+      but malformed `result` passes the `== ''` guard. The check must parse its own payload and
+      assert the expected shape — `ok`, and a per-story array with a computed deadline — and treat a
+      parse failure or a missing field as `issue=1`, not as green.
+- [ ] Give the check step an `id`, and have the issue body fall back to a generic "the demo-health
+      check did not complete" when `steps.check.outputs.result` is empty or unparseable.
+- [ ] **Fixtures for both silent-success shapes** (added to Task A9's list):
+
+```
+- exit 0, empty GITHUB_OUTPUT        -> notify step MUST fire, generic body
+- exit 0, malformed/truncated payload -> notify step MUST fire, generic body
+```
+
+⚠️ The condition above follows GitHub's documented expression semantics but is **unproven by
+execution** — the workflow-level fixture below is what settles it, not this table.
 
 - [ ] **Validate before merge with fixtures, not dispatch** — note 20. `workflow_dispatch` only
       works once the workflow exists on the **default branch**, so `gh workflow run` cannot exercise
@@ -322,9 +364,16 @@ payload must still produce an issue, never a silent red run.
       parse check:
 
 ```bash
-cd tests && npx jest regression/sprint-129-demo-health-gate.test.ts
+# Run jest in a SUBSHELL: a bare `cd tests &&` leaves the shell there, and the next line's
+# .github/ path then resolves to tests/.github/ and silently finds nothing.
+# Verified: from tests/, existsSync('.github/workflows/expo-sdk-drift.yml') === false.
+(cd tests && npx jest regression/sprint-129-demo-health-gate.test.ts)
 node -e "require('js-yaml').load(require('fs').readFileSync('.github/workflows/demo-health.yml','utf8'));console.log('workflow YAML parses')"
 ```
+
+`js-yaml` resolves from the repo root (4.3.2, verified) — but **a successful parse is not a passing
+workflow**. It proves the file is well-formed YAML, nothing about whether the `if:` expression is
+correct.
 
 - [ ] **Also add a failure-path fixture at the workflow level**, not only the module's `issue=1`
       result: assert the notify step's `if:` expression still evaluates true when the check step

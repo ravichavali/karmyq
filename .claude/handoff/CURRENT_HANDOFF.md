@@ -20,7 +20,7 @@ hits it**; clear the dependency and security backlog to zero open alerts; silenc
 
 | Field | Value |
 |---|---|
-| **Branch** | `feature/sprint-129-demo-session` (exists, **3 commits**, not yet pushed) |
+| **Branch** | `feature/sprint-129-demo-session` — exists, **not yet pushed**. Read the count with `git rev-list --count origin/master..HEAD`; a number written here goes stale on the next commit. |
 | **Base** | `origin/master` at `55a536fc`, version **v11.50.0** |
 | **Active editor** | Claude — PR A in progress |
 | **Shared resources** | Demo-server rotation **performed and complete** 2026-09-12 (authorized). No further demo write is needed or authorized. No ADR minted — ADR-084 is amended in place. |
@@ -29,7 +29,8 @@ hits it**; clear the dependency and security backlog to zero open alerts; silenc
 
 1. Read this handoff
 2. **Reuse the existing branch** — `git switch feature/sprint-129-demo-session`. Do NOT re-branch;
-   three commits are already on it. Never branch off a stale local master.
+   work is already committed on it (`git log --oneline origin/master..HEAD`). Never branch off a
+   stale local master.
 3. Open plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md)
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
@@ -149,33 +150,30 @@ monitor that warns 14 days ahead.
 2. **Never log the reason to the client, and never log the JWT.** The startup self-check must not log
    the issued token, and must never throw.
 3. **A crashed monitor is the loudest case, not the quietest.** Any non-green outcome — including the
-   check crashing or emitting no payload — files the issue. This is the BUG-035 lesson already
-   encoded in `expo-sdk-drift.yml`.
-4. **The monitor must not write to the demo.** Read-only assertions only; no rotation, no seeding.
-5. **`qs` is an existing override, not a new one.** Raise it in place; do not add a second entry.
-6. **Prove the `decode-uri-component` override actually lands.** It reaches the tree only via
-   `apps/mobile → expo-router → query-string@7.1.3`, and root `overrides` are known not to reach
-   `apps/*` subtrees reliably. Verify with strict `npm ci` then `npm ls decode-uri-component --all`.
-   Check first whether the `expo-router` patch bump resolves it without an override.
-7. **Dependency edits are surgical.** Never `npm install --workspace`, `npm dedupe`, or a scratch
-   lockfile regen. Prove with strict `npm ci`.
-8. **Do not widen `security/expo-divergences.json`.** Both entries cleared correctly; a divergence
-   matching no current drift must be *deleted*.
-9. **The Expo bump must move `SDK_PINNED` too**, or the gate stays green against a stale shadow.
-10. **BUG-031 is about authorization denial only.** `denyAggregate` is reached solely from
-    `reputation.ts:171`; the uncomputed path returns 200 after calculating on demand
-    (`reputation.ts:180-185`). `checkAggregateAccess` (`utils/disclosureAuth.ts:74-82`) denies
-    unknown-community, non-member and undersized-cohort alike so existence and size stay hidden.
-    **Never add a 404-for-unknown-community branch.** Assert deep-equality *between* the three
-    responses, not merely that each is 200.
+   check crashing or emitting no payload — files the issue (the BUG-035 lesson already encoded in
+   `expo-sdk-drift.yml`).
+4. **The monitor must not write to the demo.** Read-only assertions only.
+5. **`qs` is an existing override, not a new one.** Raise it in place.
+6. **Prove the `decode-uri-component` override actually lands** with strict `npm ci` then
+   `npm ls decode-uri-component --all`. Check first whether the `expo-router` bump resolves it.
+7. **Dependency edits are surgical.** Never `npm install --workspace`, `npm dedupe`, or a scratch regen.
+8. **Do not widen `security/expo-divergences.json`.**
+9. **The Expo bump must move `SDK_PINNED` too.**
+10. **BUG-031 is about authorization denial only, and all three denial causes must stay identical.**
+    `denyAggregate` is reached from exactly one place, `reputation.ts:171` (`!access.allowed`). The
+    "not yet computed" case does **not** reach it — `reputation.ts:180-185` calculates on demand and
+    returns 200. `checkAggregateAccess` (`utils/disclosureAuth.ts:74-82`) returns `allowed:false` for
+    **unknown community, non-member, and undersized cohort alike**, and its docstring says why: "the
+    caller is never told which, so we do not leak community existence or size." **Never add a
+    404-for-unknown-community branch** — that introduces an existence leak that does not exist today.
+    Assert deep-equality *between* the three responses, not merely that each is 200.
 11. **BUG-031 has two call sites**, and the bug's recorded line reference is wrong.
-12. **`apps/landing/src/data/docs/` churns on every `npm test`** — revert `build.json` and
-    `architecture.json` before committing.
-13. **Merge one PR at a time.** Every master push is a full deploy; overlapping deploys 502 the demo.
+12. **`apps/landing/src/data/docs/` churns on every `npm test`** — revert before committing.
+13. **Merge one PR at a time.**
 14. **The version bump is taken at merge time** from `origin/master`.
-15. **Host traps, now recorded:** `npm --workspace` sets cwd to the workspace dir; the rotation env
-    file is shell-sourced (quote values with spaces; LF only); compose on the demo host reads the
-    **process environment** across **two** compose files.
+15. **Host traps:** `npm --workspace` sets cwd to the workspace dir; the rotation env file is
+    shell-sourced (quote values with spaces; LF only); compose on the demo host reads the **process
+    environment** across **two** compose files.
 16. **New tests start in the changed workspace's `tests/tdd/`**, not root. Read
     [`tests/claude.md`](../../../tests/claude.md) before placing any test.
 17. **Git hooks are LIVE.** A silent, instant push means no hook ran — treat that as the alarm.
@@ -188,7 +186,10 @@ monitor that warns 14 days ahead.
 19. **`if:` carries an implicit `success()`.** A step condition referencing `steps.<id>.outputs.*`
     is skipped entirely when an earlier step fails, so setup/install failures file nothing. Every
     reporting step needs `always() && (...)` plus an empty-payload fallback. This is a gap in
-    `expo-sdk-drift.yml` (`:154`, `:232`, `:262`) — do not inherit it.
+    `expo-sdk-drift.yml` (`:154`, `:232`, `:262`) — do not inherit it. **Test for `issue != '0'`,
+    never `issue == '1'`**: a step that exits 0 without writing `GITHUB_OUTPUT` leaves it empty,
+    which an `== '1'` test reads as "nothing to report" and skips. Default to notifying; only an
+    explicit, well-formed `0` earns silence.
 20. **`workflow_dispatch` requires the workflow on the DEFAULT branch.** A new workflow cannot be
     dispatched while its PR is open. Pre-merge evidence is fixtures + a YAML parse; dispatch and
     run verification belong in Task E, after deploy.
@@ -200,6 +201,11 @@ monitor that warns 14 days ahead.
     `expires_at` (only the unrelated `boosted_expires_at`), so an API read would mean a real
     contract change; adding it to the demo-session response would violate note 1; and shipping
     `DATABASE_URL` to Actions is a worse secret than the one already there.
+23. **An exit code of 0 is not evidence of a successful check.** The payload must be parsed and
+    structurally validated — `ok` present, a per-story array, a computed deadline per story — and a
+    parse failure or missing field treated as `issue=1`. An empty-string guard alone passes a
+    non-empty but malformed payload. Fixtures must cover **exit 0 with empty output** and **exit 0
+    with a malformed payload**, both of which must still file an issue.
 
 ---
 
