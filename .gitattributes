@@ -11,6 +11,11 @@
 *.yaml text eol=lf
 *.sh text eol=lf
 
+# Env templates are SHELL-SOURCED on the Linux demo host (`set -a; . ./.env.demo.rotation`).
+# A CRLF file there fails as `$'\r': command not found` on every line and silently appends \r to
+# values, so the eol rule is load-bearing, not cosmetic. No extension rule above matches `.env*`.
+.env* text eol=lf
+
 # The AGPL text must stay byte-exact in the working tree, not just in the blob —
 # core.autocrlf=true would otherwise check it out with CRLF (ADR-092).
 LICENSE text eol=lf

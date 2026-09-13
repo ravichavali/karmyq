@@ -1,7 +1,9 @@
 # Sprint 129 — Maintenance: demo, dependencies, bugs — Handoff
 
 **Date**: 2026-09-12
-**Outcome**: Sprint 129 is PLANNED and ready to execute. Spec and plan written; no branch yet.
+**Outcome**: Sprint 129 is PLANNED. Spec and plan committed at `85e6d667` on
+`feature/sprint-129-demo-session`; Task A1 environment presence inspection completed with
+maintainer authorization. Root cause remains undiagnosed; the next read-only check awaits approval.
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router — there is no second machine.
 > This file is branch-local and reserves nothing; contended resources are allocated by the
@@ -18,7 +20,7 @@ security backlog to zero open alerts, and silence the `/communities` 404 storm.
 
 | Field | Value |
 |---|---|
-| **Branch** | none yet — branch from freshly fetched `origin/master` |
+| **Branch** | `feature/sprint-129-demo-session` — reuse the existing planning branch |
 | **Base** | `origin/master` at `55a536fc`, version **v11.50.0** |
 | **Active editor** | unassigned |
 | **Shared resources needed** | **Demo-server operations required** (see gate below). No ADR allocated — none needed; ADR-084 is amended in place. |
@@ -32,8 +34,37 @@ security backlog to zero open alerts, and silence the `/communities` 404 storm.
 3. Open plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md)
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
-**Next unchecked task**: PR A, Task A1 — branch, reproduce, then **stop and request demo-server
-authorization**.
+**Next unchecked task**: PR A, Task A1 — request authorization for the next read-only check:
+whether the enable flag equals `true`, and whether the configured persona and four story rows
+exist, with valid memberships, request ownership, and match/offer linkage. Return diagnostic
+booleans only; use `karmyq_prod` for DB reads. No write authorization has been granted.
+
+**Bootstrap reconciliation (2026-09-12)**: local branch and planning commit verified with
+`git branch --show-current` / `git log`; tree was clean. After `git fetch origin`,
+`origin/master` remains `55a536fc`. Live `gh pr list` shows 13 Dependabot PRs and no Sprint 129
+PR. No demo-server operation was performed in this bootstrap session.
+
+**Inspection precision**: the six variables are the enable flag, persona **email**, and four
+story UUIDs (`infrastructure/docker/docker-compose.yml:90`). Step 1 reports only each variable's
+name and non-empty set/unset status. A non-empty `false` flag will report set; this inspection
+alone cannot establish whether the demo is enabled. The plan's `grep -c` command only counts
+variables and must be replaced by an explicit six-name check before execution.
+
+**Authorized step 1 result (2026-09-12)**: maintainer replied "yes" to the six-name presence
+inspection. SSH executed a fixed Node script in `karmyq-auth-service`; exit 0. Each of
+`DEMO_SESSION_ENABLED`, `DEMO_PERSONA_EMAIL`, `DEMO_ORDINARY_REQUEST_ID`,
+`DEMO_ORDINARY_MATCH_ID`, `DEMO_PROVIDER_REQUEST_ID`, and `DEMO_PROVIDER_OFFER_ID` reported
+**set** (non-empty). No values were printed, no DB queries ran, and no server configuration
+changed. This does not establish that the flag equals `true` or that the configured rows are
+valid. The local validation predicates are in
+`services/auth-service/src/services/demoSessionService.ts:117` and `:197`.
+
+**Bootstrap validation**: `feedback:check` passed. `npm test` failed even after one retry outside
+the sandbox: `sprint-122-adr-060-code-scanning-gate.test.ts` invoked WSL with no installed
+distribution; `sprint-123-git-hooks-installed.test.ts` could not find `basename` / `tr`.
+The retry reported 2 failed regression suites (23 failed tests). No test infrastructure was
+changed. This handoff correction remains uncommitted because the pre-commit skill requires a
+passing suite; verify the Windows Git Bash tool environment before retrying the checks.
 
 ## Artifacts
 
@@ -63,6 +94,41 @@ Three separate operations, authorized separately:
 1. Read-only: which of the six `DEMO_*` vars are set (names and set/unset, **not values**)
 2. Read-only: do the five referenced story rows exist and belong to the persona
 3. Write: set the missing env, or re-point the story ids
+
+---
+
+## ✅ BUG-039 DIAGNOSED — 2026-09-12, read-only check inside `karmyq-auth-service`
+
+Config is **entirely healthy**. All four story rows are **gone**.
+
+```
+flag_is_exactly_true=true          persona_found=true
+all_five_ids_nonempty=true         resolved_persona_is_synthetic=true
+jwt_secret_present=true            persona_has_active_membership=true
+configured_email_is_synthetic=true persona_is_not_admin=true
+
+ordinary_request_exists=false      provider_request_exists=false
+match_exists=false                 offer_exists=false
+```
+
+**Root cause: `cleanup-service` deletes them on a schedule.**
+`services/cleanup-service/src/jobs/expirationJob.ts:84-88` runs daily at **02:00**
+(`index.ts:314`, `cron.schedule('0 2 * * *')`) and executes:
+
+```sql
+DELETE FROM requests.help_requests WHERE expired = TRUE AND updated_at <= now() - 7 days
+```
+
+Maria's two demo requests expired, sat out the 7-day grace period, and were permanently deleted;
+the match and offer went with them. **The five hardcoded `DEMO_*` UUIDs are therefore on a timer** —
+re-pointing them is a fix with a built-in expiry date, not a repair.
+
+Eliminated by this check, so do not re-investigate: missing/disabled config, a persona problem, and
+RLS (enabled on only `auth.user_invitations`, `auth.social_distances`, `auth.inviter_stats` — none
+on the demo path, so the missing `setDbContext` in `demoSessionService.ts` is not a factor).
+
+⚠️ **This is new information that postdates the scope decision below.** The "re-point the ids" fix
+originally scoped for A5 will break again on the next expiry+7 days. See *Durability choice* below.
 
 ---
 

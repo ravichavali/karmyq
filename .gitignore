@@ -7,12 +7,17 @@ yarn-error.log*
 # They ensure reproducible builds across environments
 
 # Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env.*.users  # Simulated user credentials - never commit!
+# Environment files. Every .env* is a secret EXCEPT the committed *.example templates.
+# Deliberately broad: .env.demo and .env.demo.rotation live in the working tree ON THE DEMO HOST
+# and carry POSTGRES_PASSWORD, JWT_SECRET, INTERNAL_SECRET and DATABASE_URL, so an enumerated list
+# leaks the moment someone adds a new name.
+#
+# NOTE: .gitignore does NOT support trailing inline comments. The previous
+#   .env.*.users  # Simulated user credentials - never commit!
+# was parsed as one literal pattern including the comment text, so it matched nothing and the
+# simulated user credentials it named were never actually ignored. Keep comments on their own line.
+.env*
+!.env*.example
 
 # Build outputs
 dist/
