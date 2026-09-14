@@ -2,8 +2,8 @@
 
 **Date**: 2026-09-12 · **Revised**: 2026-09-14
 **Outcome**: PR A **MERGED and DEPLOYED** (`b22dbf15`, #235, v11.51.0). **PR B implementation
-COMPLETE** on `feature/sprint-129-deps` (v11.52.0), all four gates run — **next: push + open the PR,
-then close the six Dependabot PRs linking it.** PR C not started. **Task E (BUG-040) still owed.**
+COMPLETE** on `feature/sprint-129-deps` (v11.52.0), all four gates run — **OPEN as [#237](https://github.com/ravichavali/karmyq/pull/237), CI green, BLOCKED on REVIEW_REQUIRED (agent cannot merge).**
+The six Dependabot PRs carry a comment linking #237 (left open until merge). PR C not started. **Task E (BUG-040) still owed.**
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router — there is no second machine.
 > This file is branch-local and reserves nothing; contended resources are allocated by the
@@ -30,8 +30,8 @@ hits it**; clear the dependency and security backlog to zero open alerts; silenc
 ## Quick Start
 
 1. `git fetch origin`; confirm `origin/master` is still `b22dbf15` (else merge it in — merge commit).
-2. `git switch feature/sprint-129-deps`. If PR B is not yet open: push, open it, then close
-   #223 #231 #216 #217 #212 #211 with a comment linking PR B.
+2. PR B is open (#237), pushed with `SKIP_PREPUSH=1` by maintainer authorization (parallel hook OOM; serial 26/26 at `1e171406`). After merge, close any of
+   #223 #231 #216 #217 #212 #211 Dependabot has not auto-closed.
 3. After merge: verify alerts #151/#157/#159 auto-close (`gh api .../dependabot/alerts?state=open`
    should list **zero**), close issue #234 once `expo-sdk-drift.yml` runs green.
 4. Then PR C — plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md), **Task C1**.
@@ -141,7 +141,7 @@ Closing it on a local green would be exactly the false-green this sprint kept fi
 | PR | Branch | Scope | State |
 |---|---|---|---|
 | **A** | `feature/sprint-129-demo-session` | BUG-039 restore + diagnosability + BUG-040 monitor | **MERGED** `b22dbf15` (#235), deployed — Task E still owed |
-| **B** | `feature/sprint-129-deps` | 6 Dependabot PRs, 4 security alerts, Expo SDK drift (#234) | **Implementation complete** (v11.52.0), gates run — PR being opened; merge after review |
+| **B** | `feature/sprint-129-deps` | 6 Dependabot PRs, 4 security alerts, Expo SDK drift (#234) | **OPEN [#237](https://github.com/ravichavali/karmyq/pull/237)** (v11.52.0), CI green — awaiting review + maintainer merge |
 | **C** | `feature/sprint-129-community-aggregate` | BUG-031: the `/communities` 404 storm | not started — branch after B merges |
 
 ⚠️ **One merge at a time.** Every master push is a full deploy; overlapping deploys restart services
