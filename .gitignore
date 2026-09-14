@@ -19,6 +19,14 @@ yarn-error.log*
 .env*
 !.env*.example
 
+# Three non-template env files are already TRACKED and hold only public URLs and simulation knobs —
+# no secrets. Without these negations the rule above matches them anyway: git keeps honouring the
+# index, so nothing breaks today, but they could not be re-added after a `git rm --cached` without
+# `-f`, and `git clean -x` would delete them. Keep the ignore rules agreeing with reality.
+!apps/frontend/.env.production
+!services/simulation-service/.env.production
+!services/simulation-service/.env.test
+
 # Build outputs
 dist/
 build/

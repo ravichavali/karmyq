@@ -89,8 +89,18 @@ function deadlineFor(row, nowMs) {
     return { kind, basis: 'not-deletable', daysRemaining: Infinity };
   }
 
-  const expires = toMs(row?.expires_at);
+  // A NULL expires_at is a legitimate value, not corruption: `requests.help_requests.expires_at`
+  // is nullable with no default (init.sql), and SQL three-valued logic means `NULL <= now` is never
+  // true — so the marking UPDATE never matches the row and this job never deletes it. Treating it
+  // as unreadable would fail the gate and file an issue every single day about a story that is
+  // permanently safe.
+  if (row?.expires_at === null || row?.expires_at === undefined) {
+    return { kind, basis: 'not-deletable', daysRemaining: Infinity };
+  }
+
+  const expires = toMs(row.expires_at);
   if (Number.isNaN(expires)) {
+    // Present but unparseable IS corruption, and stays a finding.
     return { kind, basis: 'unknown', error: `${kind}: open row has an unreadable expires_at` };
   }
 
@@ -307,7 +317,9 @@ async function main() {
           errors: Array.isArray(parsed.errors) ? parsed.errors : [],
         };
       } catch (error) {
-        probed = { stories: [], errors: [`story probe output was unparseable: ${error.message}`] };
+        // Deliberately does NOT include error.message: Node embeds a snippet of the parsed input
+        // in JSON.parse errors, and that input is probe output bound for a PUBLIC issue body.
+        probed = { stories: [], errors: ['story probe output was unparseable'] };
       }
     }
 

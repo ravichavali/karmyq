@@ -39,11 +39,17 @@ function renderStories(stories) {
     '### Story retention\n' +
     stories
       .map((s) => {
-        const remaining = Number.isFinite(s.daysRemaining)
-          ? `${s.daysRemaining.toFixed(1)} days`
-          : 'not deletable by the cleanup job';
+        // Key on `basis`, not on whether daysRemaining is finite. Infinity and undefined both
+        // survive JSON as non-finite, so a finiteness test rendered an UNREADABLE timestamp as
+        // "not deletable by the cleanup job" — telling the operator a corrupt row was safe.
         const verdict = s.safe ? 'safe' : '**NOT safe**';
-        return `- **${s.kind}** — ${remaining} from deletion (basis: ${s.basis}, ${verdict})`;
+        if (s.basis === 'not-deletable') {
+          return `- **${s.kind}** — not deletable by the cleanup job (${verdict})`;
+        }
+        if (s.basis === 'unknown' || !Number.isFinite(s.daysRemaining)) {
+          return `- **${s.kind}** — deletion deadline UNKNOWN, its timestamps could not be read (${verdict})`;
+        }
+        return `- **${s.kind}** — ${s.daysRemaining.toFixed(1)} days from deletion (basis: ${s.basis}, ${verdict})`;
       })
       .join('\n')
   );

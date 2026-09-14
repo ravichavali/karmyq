@@ -328,3 +328,78 @@ describe('demo-health workflow — the evaluator itself can fail', () => {
     expect(() => evaluateCondition('always() && hashFiles("x") != ""', STATES[0].ctx)).toThrow();
   });
 });
+
+describe('demo-host scripts — enable-demo cannot corrupt the env file', () => {
+  const script = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'scripts', 'demo', 'enable-demo.sh'),
+    'utf8',
+  );
+
+  it('guarantees a terminal newline before appending the flag', () => {
+    // publishDemoConfig leaves the file untouched when it has nothing to append, so .env.demo can
+    // legitimately end without a newline. A bare `>>` then welds the flag onto the last line:
+    //   JWT_SECRET=abc123DEMO_SESSION_ENABLED=true
+    // corrupting the secret AND losing the flag in one write.
+    expect(script).toMatch(/tail -c 1/);
+    const guardAt = script.indexOf('tail -c 1');
+    const appendAt = script.indexOf("printf 'DEMO_SESSION_ENABLED=true");
+    expect(guardAt).toBeGreaterThan(-1);
+    expect(appendAt).toBeGreaterThan(guardAt);
+  });
+
+  it('validates the staged file BEFORE it replaces the live one', () => {
+    // Checking after `mv` is loud but too late: the bad edit is already committed, with nothing to
+    // roll back to.
+    const validateAt = script.lastIndexOf('refusing to publish');
+    const mvAt = script.indexOf('mv "$tmp" "$ENV_FILE"');
+    expect(validateAt).toBeGreaterThan(-1);
+    expect(mvAt).toBeGreaterThan(validateAt);
+  });
+
+  it('refuses to publish a staged file that lost lines', () => {
+    expect(script).toMatch(/wc -l < "\$tmp"/);
+  });
+});
+
+describe('demo-health probe — the public-issue contract is enforced, not just claimed', () => {
+  // probe-story-rows.js states in its header that its output "carries NO story UUIDs, no persona
+  // email and no token: the result is rendered into a PUBLIC GitHub issue". The first version
+  // enforced that with a deny-list — any message not matching /:\/\/|password|secret/ passed
+  // through — which let ordinary pg failures publish internal detail verbatim on a PUBLIC repo:
+  // internal Docker addresses, container hostnames, the DB role, and in the malformed-id case the
+  // configured story UUID itself. A deny-list cannot enforce that contract; only an allow-list can.
+  /**
+   * Strip comments before asserting. These files DOCUMENT the old deny-list in prose, so a raw
+   * source scan matches the very text explaining why the pattern was removed — an assertion that
+   * cannot tell code from commentary is worse than none.
+   */
+  function codeOnly(file: string): string {
+    return fs
+      .readFileSync(path.join(__dirname, '..', '..', file), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n')
+      .map((l: string) => l.replace(/\/\/.*$/, ''))
+      .join('\n');
+  }
+
+  const probe = codeOnly('scripts/demo/probe-story-rows.js');
+
+  it('never interpolates a driver error MESSAGE into its output', () => {
+    expect(probe).not.toMatch(/error\.message/);
+  });
+
+  it('emits an error CODE instead', () => {
+    expect(probe).toMatch(/error\.code/);
+  });
+
+  it('does not rely on a deny-list of substrings', () => {
+    // The exact pattern that failed: it redacted only 1 of 6 realistic pg failure messages.
+    expect(probe).not.toMatch(/password\|secret/);
+  });
+
+  it('the health check does not leak JSON.parse input either', () => {
+    // Node embeds a snippet of the parsed input in JSON.parse error messages, and that input is
+    // probe output bound for the same public issue body.
+    expect(codeOnly('scripts/check-demo-health.js')).not.toMatch(/unparseable.*error\.message/);
+  });
+});

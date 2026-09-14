@@ -398,3 +398,56 @@ describe('demo-health gate — the emitted verdict is re-validated, not trusted'
     expect(verifyEmittedPayload(b64(evaluate(input())))).toBe(0);
   });
 });
+
+describe('demo-health gate — a NULL expiry is not corruption', () => {
+  // requests.help_requests.expires_at is nullable with no default (init.sql), and SQL three-valued
+  // logic means `NULL <= now` is never true — so cleanup's marking UPDATE never matches the row and
+  // the delete job never reaches it. Treating NULL as an unreadable timestamp made the scheduled
+  // workflow file an issue and go red EVERY DAY about a story that is permanently safe.
+
+  it('treats a NULL expires_at on an open row as not-deletable, not as an error', () => {
+    const r = evaluate(input({ stories: [story('ordinary', { expires_at: null })] }));
+    expect(r.ok).toBe(true);
+    expect(r.issue).toBe(0);
+    expect(r.stories[0].basis).toBe('not-deletable');
+    expect(r.stories[0].safe).toBe(true);
+  });
+
+  it('treats a missing expires_at key the same way', () => {
+    const row: Record<string, unknown> = story('ordinary');
+    delete row.expires_at;
+    const r = evaluate(input({ stories: [row] }));
+    expect(r.ok).toBe(true);
+    expect(r.stories[0].basis).toBe('not-deletable');
+  });
+
+  it('still FAILS on an expires_at that is present but unparseable — that IS corruption', () => {
+    const r = evaluate(input({ stories: [story('ordinary', { expires_at: 'not-a-date' })] }));
+    expect(r.ok).toBe(false);
+    expect(r.issue).toBe(1);
+    expect(r.stories[0].basis).toBe('unknown');
+  });
+});
+
+describe('demo-health issue body — an unknown deadline must not read as safe', () => {
+  const encode = (obj: unknown) => Buffer.from(JSON.stringify(obj), 'utf8').toString('base64');
+
+  it('does not describe an unreadable row as "not deletable"', () => {
+    // Infinity and undefined both survive JSON as non-finite, so keying the wording on
+    // Number.isFinite told the operator a corrupt row was safely out of reach.
+    const r = evaluate(input({ stories: [story('provider', { expired: true, updated_at: 'not-a-date' })] }));
+    const body = render(encode(r), 'success');
+
+    expect(body).toMatch(/UNKNOWN/);
+    expect(body).toMatch(/NOT safe/);
+    expect(body).not.toMatch(/provider\*\* — not deletable/);
+  });
+
+  it('describes a genuinely not-deletable row as such, without the stray "from deletion"', () => {
+    const r = evaluate(input({ stories: [story('ordinary', { status: 'completed' })] }));
+    const body = render(encode(r), 'success');
+
+    expect(body).toMatch(/not deletable by the cleanup job \(safe\)/);
+    expect(body).not.toMatch(/not deletable by the cleanup job from deletion/);
+  });
+});

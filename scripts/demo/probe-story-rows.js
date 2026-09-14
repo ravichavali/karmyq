@@ -68,13 +68,19 @@ async function main() {
       });
     }
   } catch (error) {
-    // Never echo a message that could carry a connection string or credential.
-    const message = String((error && error.message) || error);
-    errors.push(
-      /:\/\/|password|secret/i.test(message)
-        ? 'story probe failed: [redacted]'
-        : `story probe failed: ${message}`,
-    );
+    // ALLOW-LIST, not a deny-list. This output is rendered into a PUBLIC GitHub issue, and an
+    // earlier version passed through any message not matching /:\/\/|password|secret/. That let
+    // ordinary pg failures publish internal detail verbatim — `connect ECONNREFUSED 172.19.0.4:5432`
+    // (internal Docker address), `getaddrinfo ENOTFOUND karmyq-postgres` (container hostname),
+    // `role "karmyq_prod" does not exist` (DB role), and `invalid input syntax for type uuid:
+    // "<configured story id>"`, which published the very UUID this file's header promises to
+    // withhold. A deny-list cannot enforce that contract; only an allow-list can.
+    //
+    // Emit the driver's CODE and nothing else. pg gives ECONNREFUSED/ENOTFOUND/ETIMEDOUT and
+    // SQLSTATE codes (42P01 undefined_table, 28P01 invalid_password, 22P02 invalid_text_
+    // representation) — enough for an operator to act on, with no host, role, or row identity.
+    const code = (error && (error.code || error.name)) || 'unknown';
+    errors.push(`story probe failed (code: ${String(code).slice(0, 40)})`);
   } finally {
     await pool.end().catch(() => {});
   }
@@ -85,7 +91,9 @@ async function main() {
 main().catch((error) => {
   // Emit a well-formed payload even on catastrophic failure: a silent probe would let the gate
   // read "no rows" as an absence of news rather than as news.
+  // Same allow-list rule as the catch above: a code, never a message.
+  const code = (error && (error.code || error.name)) || 'unknown';
   process.stdout.write(
-    JSON.stringify({ stories: [], errors: [`story probe crashed: ${error && error.message}`] }),
+    JSON.stringify({ stories: [], errors: [`story probe crashed (code: ${String(code).slice(0, 40)})`] }),
   );
 });
