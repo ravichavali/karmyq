@@ -24,8 +24,8 @@ hits it**; clear the dependency and security backlog to zero open alerts; silenc
 | **Branch** | `feature/sprint-129-deps` — created off `origin/master` at `b22dbf15`, **local only, not yet pushed**. Holds only this handoff update. |
 | **Base version** | **v11.51.0** on master. Re-derive PR B's bump from `origin/master` at **merge** time, not now. |
 | **PR A** | [#235](https://github.com/ravichavali/karmyq/pull/235) — **merged** `b22dbf15`; deploy confirmed by the maintainer 2026-09-14 |
-| **Active editor** | unassigned — PR B starts in a fresh chat |
-| **Shared resources** | ⚠️ **PR B is the dependency lane.** Per `CLAUDE.md` it needs a maintainer-designated active holder — **confirm the lane before editing `package.json` / `package-lock.json`.** No demo-server operation is needed or authorized. |
+| **Active editor** | PR B chat (Windows), started 2026-09-14 |
+| **Shared resources** | ✅ **Dependency lane HELD by the PR B chat** — maintainer-designated 2026-09-14. No demo-server operation is needed or authorized. |
 
 ## Quick Start
 
