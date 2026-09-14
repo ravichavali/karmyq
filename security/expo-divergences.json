@@ -3,7 +3,7 @@
   "divergences": [
     {
       "package": "jest",
-      "declared": "^30.4.2",
+      "declared": "^30.5.1",
       "expoPins": "~29.7.0",
       "sdk": "57",
       "rationale": "Expo pins jest to keep jest-expo's preset in sync with the SDK. apps/mobile declares no jest-expo and apps/mobile/jest.config.js uses no Expo preset (testEnvironment: 'node' only), so the pin does not bind this project. Moved to jest 30 by Sprint 122 PR 4 (c3d623b2) for tier parity with the rest of the monorepo.",
