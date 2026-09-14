@@ -19,6 +19,7 @@ const {
   interpretPayload,
   WARN_DAYS,
   DELETE_GRACE_DAYS,
+  verifyEmittedPayload,
 } = require('../../scripts/check-demo-health.js');
 
 const { render } = require('../../scripts/demo/render-health-issue.js');
@@ -359,5 +360,41 @@ describe('demo-health issue body — the one thing a human actually reads', () =
     expect(body).not.toContain('54645df7');
     expect(body).not.toContain('@test.karmyq.com');
     expect(body).not.toMatch(/token/i);
+  });
+});
+
+describe('demo-health gate — the emitted verdict is re-validated, not trusted', () => {
+  // The workflow reads `result=` and `issue=` back out of a file, and the two can disagree: a
+  // corrupted or truncated payload can arrive alongside a stale `issue=0`. Trusting the flag skips
+  // notification AND satisfies the close-stale condition, so a malformed run would silently CLOSE
+  // an open demo-health issue. Validation has to gate the exported verdict, not just the body.
+
+  const b64 = (obj: unknown) => Buffer.from(JSON.stringify(obj), 'utf8').toString('base64');
+
+  it('rejects a truncated payload even when it claims issue=0', () => {
+    expect(verifyEmittedPayload(b64({ ok: true, issue: 0 }))).toBe(1);
+  });
+
+  it('rejects a payload whose stories field is missing', () => {
+    expect(verifyEmittedPayload(b64({ ok: true, issue: 0, errors: [] }))).toBe(1);
+  });
+
+  it('rejects undecodable and non-JSON payloads', () => {
+    expect(verifyEmittedPayload('!!!not base64!!!')).toBe(1);
+    expect(verifyEmittedPayload(Buffer.from('not json', 'utf8').toString('base64'))).toBe(1);
+  });
+
+  it('rejects an absent payload — absence of evidence is not evidence of health', () => {
+    expect(verifyEmittedPayload('')).toBe(1);
+    expect(verifyEmittedPayload('   ')).toBe(1);
+    expect(verifyEmittedPayload(undefined as unknown as string)).toBe(1);
+  });
+
+  it('preserves a failing verdict rather than overriding it', () => {
+    expect(verifyEmittedPayload(b64(evaluate(input({ session: { status: 503 } }))))).toBe(1);
+  });
+
+  it('accepts ONLY a well-formed healthy payload', () => {
+    expect(verifyEmittedPayload(b64(evaluate(input())))).toBe(0);
   });
 });

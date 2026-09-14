@@ -113,13 +113,25 @@ jobs:
           result=$(sed -n 's/^result=//p' "$RUNNER_TEMP/health.out")
           issue=$(sed -n 's/^issue=//p' "$RUNNER_TEMP/health.out")
 
-          # An exit code of 0 is not evidence of a successful check. An empty payload means the
-          # check produced no evidence at all, which is a finding, not a pass. The `!= "0"` mapping
-          # below already covers the empty case; the echo is what makes it visible in the log.
           if [ -z "$result" ]; then
             echo "The demo-health check emitted no result payload." >&2
           fi
-          if [ "$issue" != "0" ]; then
+
+          # VALIDATE BEFORE EXPORTING, not only on the notification path. `result` and `issue` are
+          # read back out of a file and can disagree: a corrupted or truncated payload can arrive
+          # alongside a stale `issue=0`. Trusting the flag would skip notification AND satisfy the
+          # close-stale condition, so a malformed run would silently CLOSE an open demo-health
+          # issue. This re-runs the same interpretPayload the regression suite exercises.
+          set +e
+          verified=$(RESULT="$result" node scripts/check-demo-health.js --verify)
+          verify_status=$?
+          set -e
+
+          # Absence of evidence is not evidence of health: anything other than a clean "0" is a 1.
+          if [ "$verify_status" -ne 0 ] || [ "$verified" != "0" ] || [ "$issue" != "0" ]; then
+            if [ "$verified" != "$issue" ]; then
+              echo "Payload validation disagreed with the emitted flag (verified=$verified, emitted=$issue); taking the validated verdict." >&2
+            fi
             issue=1
           fi
 
@@ -137,6 +149,7 @@ jobs:
            steps.check.outputs.result == '')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           RESULT: ${{ steps.check.outputs.result }}
           OUTCOME: ${{ steps.check.outcome }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -148,7 +161,30 @@ jobs:
           # Rendering lives in a script so it can be unit-tested and so a stray apostrophe in any
           # message cannot terminate a shell quote. It validates through the same interpretPayload
           # the regression suite exercises, rather than re-checking the payload a third way here.
-          details=$(RESULT="$RESULT" OUTCOME="$OUTCOME" node scripts/demo/render-health-issue.js)
+          #
+          # But this step must survive the checkout ITSELF having failed — that is half of why it
+          # runs under always(). In that case the renderer does not exist on disk, node exits
+          # non-zero, and under `bash -e` the assignment would abort the step before any issue was
+          # filed: reporting would be silent in exactly the case it exists for. Fall back instead.
+          set +e
+          details=$(RESULT="$RESULT" OUTCOME="$OUTCOME" node scripts/demo/render-health-issue.js 2>/dev/null)
+          render_status=$?
+          set -e
+
+          if [ "$render_status" -ne 0 ] || [ -z "$details" ]; then
+            details=$(cat <<FALLBACK
+          ### The demo-health check could not be rendered
+
+          The renderer was unavailable — most likely the checkout or Node setup failed before the
+          check ran, so the state of the demo is **unknown**. Treat this as a failure until proven
+          otherwise.
+
+          - Check step outcome: \`${OUTCOME:-did not run}\`
+
+          Verify by hand: \`POST https://karmyq.com/api/auth/demo-session\` should return 200.
+          FALLBACK
+          )
+          fi
 
           body=$(cat <<EOF
           The guided Maria demo at https://karmyq.com/demo needs attention.
@@ -189,6 +225,7 @@ jobs:
         if: always() && steps.check.outcome == 'success' && steps.check.outputs.issue == '0'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           existing=$(gh issue list --state open --label "$HEALTH_LABEL" --json number --jq '.[].number')

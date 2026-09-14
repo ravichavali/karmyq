@@ -228,9 +228,56 @@ describe('demo-health workflow — the check step', () => {
     expect(probe).not.toMatch(/\b(INSERT|UPDATE|DELETE|TRUNCATE|DROP|ALTER)\s/i);
   });
 
+  it('re-validates the payload BEFORE exporting the verdict', () => {
+    // Otherwise a corrupted payload paired with a stale issue=0 skips notification AND satisfies
+    // the close-stale condition, silently closing an open issue.
+    const run = stepWithId(loadWorkflow(), 'check').run as string;
+    expect(run).toMatch(/check-demo-health\.js --verify/);
+    // The validated verdict must be what reaches GITHUB_OUTPUT.
+    const verifyAt = run.indexOf('--verify');
+    const exportAt = run.lastIndexOf('issue=$issue" >> "$GITHUB_OUTPUT');
+    expect(verifyAt).toBeGreaterThan(-1);
+    expect(exportAt).toBeGreaterThan(verifyAt);
+  });
+
   it('does not ship a database URL to Actions', () => {
     const raw = fs.readFileSync(WORKFLOW_PATH, 'utf8');
     expect(raw).not.toMatch(/secrets\.DATABASE_URL/);
+  });
+});
+
+describe('demo-health workflow — reporting survives the checkout itself failing', () => {
+  // always() selects the notify step when an earlier step fails — including checkout. In that case
+  // the repo is not on disk, so the renderer script does not exist. Under `bash -e` a failing
+  // command substitution aborts the step, which would have meant NO issue filed in exactly the
+  // scenario always() exists to cover. (Introduced when the renderer was extracted from an inline
+  // `node -e`, which needed no repo file.)
+
+  function notifyRun(): string {
+    const wf = loadWorkflow();
+    return stepWithId(wf, 'notify').run as string;
+  }
+
+  it('does not let a missing renderer abort before the issue is filed', () => {
+    const run = notifyRun();
+    // The renderer invocation must be shielded and its failure handled.
+    expect(run).toMatch(/set \+e[\s\S]*render-health-issue\.js/);
+    expect(run).toMatch(/render_status/);
+  });
+
+  it('falls back to a body that names the demo state as unknown', () => {
+    const run = notifyRun();
+    expect(run).toMatch(/render_status.*-ne 0.*\|\|.*-z "\$details"|-z "\$details".*\|\|.*render_status/s);
+    expect(run).toMatch(/unknown/i);
+  });
+
+  it('scopes every gh call to the repository, which is not inferable without a checkout', () => {
+    const wf = loadWorkflow();
+    for (const id of ['notify', 'close_stale']) {
+      const step = stepWithId(wf, id);
+      expect(step.env).toBeDefined();
+      expect(step.env.GH_REPO).toBeDefined();
+    }
   });
 });
 

@@ -264,7 +264,35 @@ function readStdin() {
  * Exits 0 when healthy and 1 otherwise, but the workflow must NOT rely on that exit code alone —
  * see `issue=` and the notify condition. A crashed gate is the loudest case, not the quietest.
  */
+/**
+ * `--verify` mode: re-validate an already-emitted payload and print the verdict it earns.
+ *
+ * The workflow reads `result=` and `issue=` back out of a file, and those two can disagree — a
+ * corrupted or truncated payload can arrive alongside a stale `issue=0`. Trusting the flag then
+ * skips notification AND satisfies the close-stale condition, so a malformed run would silently
+ * CLOSE an open demo-health issue. Validation therefore has to happen before the verdict is
+ * exported, not only on the notification path.
+ *
+ * Reads base64 `RESULT` from the environment, prints `0` or `1`. Never throws: an unreadable
+ * payload is a `1`, because the absence of evidence is not evidence of health.
+ */
+function verifyEmittedPayload(raw) {
+  if (typeof raw !== 'string' || raw.trim() === '') return 1;
+  let decoded;
+  try {
+    decoded = Buffer.from(raw, 'base64').toString('utf8');
+  } catch {
+    return 1;
+  }
+  return interpretPayload(decoded).issue;
+}
+
 async function main() {
+  if (process.argv.slice(2).includes('--verify')) {
+    process.stdout.write(String(verifyEmittedPayload(process.env.RESULT)));
+    return;
+  }
+
   const baseUrl = process.env.DEMO_BASE_URL || 'https://karmyq.com';
   let result;
 
@@ -312,6 +340,7 @@ module.exports = {
   interpretPayload,
   deadlineFor,
   probeDemoSession,
+  verifyEmittedPayload,
 };
 
 if (require.main === module) {
