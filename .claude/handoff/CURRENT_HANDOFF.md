@@ -1,8 +1,9 @@
 # Sprint 129 — Maintenance: demo, dependencies, bugs — Handoff
 
-**Date**: 2026-09-12 · **Revised**: 2026-09-13
-**Outcome**: **PR A is OPEN at [#235](https://github.com/ravichavali/karmyq/pull/235) — awaiting CI
-and review.** The demo is restored and live. Tasks A1–A13 are DONE. PR B and PR C have not started.
+**Date**: 2026-09-12 · **Revised**: 2026-09-14
+**Outcome**: **PR A MERGED and DEPLOYED** as `b22dbf15` (#235, v11.51.0). The demo is live.
+**Next: PR B** (dependencies + security alerts + Expo drift). PR C not started. **Task E (verifying
+the demo-health monitor, closing BUG-040) is still owed** and needs GitHub access — see below.
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router — there is no second machine.
 > This file is branch-local and reserves nothing; contended resources are allocated by the
@@ -20,27 +21,37 @@ hits it**; clear the dependency and security backlog to zero open alerts; silenc
 
 | Field | Value |
 |---|---|
-| **Branch** | `feature/sprint-129-demo-session` — **pushed**, tracking `origin/`. Read the head with `git rev-parse --short origin/feature/sprint-129-demo-session`; a sha written here is stale on the next commit. |
-| **PR** | **[#235](https://github.com/ravichavali/karmyq/pull/235) OPEN** — `mergeable=MERGEABLE`, `mergeStateStatus=BLOCKED` on `REVIEW_REQUIRED` |
-| **Base** | `origin/master` at `55a536fc`; branch bumps the version to **v11.51.0** |
-| **Active editor** | Claude — PR A implementation complete |
-| **Shared resources** | Demo-server rotation **performed and complete** 2026-09-12 (authorized). No further demo write is needed or authorized. No ADR minted — ADR-084 is amended in place. |
+| **Branch** | `feature/sprint-129-deps` — created off `origin/master` at `b22dbf15`, **local only, not yet pushed**. Holds only this handoff update. |
+| **Base version** | **v11.51.0** on master. Re-derive PR B's bump from `origin/master` at **merge** time, not now. |
+| **PR A** | [#235](https://github.com/ravichavali/karmyq/pull/235) — **merged** `b22dbf15`; deploy confirmed by the maintainer 2026-09-14 |
+| **Active editor** | unassigned — PR B starts in a fresh chat |
+| **Shared resources** | ⚠️ **PR B is the dependency lane.** Per `CLAUDE.md` it needs a maintainer-designated active holder — **confirm the lane before editing `package.json` / `package-lock.json`.** No demo-server operation is needed or authorized. |
 
 ## Quick Start
 
-1. Confirm live state before trusting this file: `gh pr view 235`, `gh pr checks 235`,
-   `git log --oneline origin/master -1`.
-2. **PR A needs no more implementation.** Do not re-run Tasks A1–A13.
-3. If PR A has merged: start **PR B** — `git fetch origin` then
-   `git switch -c feature/sprint-129-deps origin/master`, and re-derive the version bump from
-   `origin/master` at that point.
-4. Plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md)
+1. Confirm live state: `git fetch origin`, `git log --oneline origin/master -1` (expect `b22dbf15` or
+   later), `gh pr list`. Re-read the Dependabot alert set — it moves.
+2. **Reuse this branch**: `git switch feature/sprint-129-deps`. If master has moved, merge
+   `origin/master` in (merge commit, never rebase + force).
+3. **Ask the maintainer to confirm you hold the dependency lane** before the first manifest edit.
+4. Plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md) — **start at Task B1**.
+5. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
-**Next unchecked task**: **Task D — merge and deploy PR A**, which is blocked on a human approving
-#235 (an agent cannot self-approve here). After the deploy, **Task E** verifies the demo-health
-workflow and closes BUG-040. PR B follows.
+**Next unchecked task**: **Task B1** — baseline the live Dependabot alert set (expect four: the
+`@faker-js/faker` high in `scripts/`, two `qs`, one `decode-uri-component`).
 
-## ✅ PR A — implementation complete
+## ⏳ Task E — owed, and blocked on GitHub permission
+
+After the PR A deploy, the monitor must be proven on GitHub before BUG-040 closes. **Both** are
+required: (1) `gh workflow run demo-health.yml` completes **green** — verify the specific run; and
+(2) a dispatch with an **unreachable `base_url`** input **files an issue**.
+
+⚠️ The Claude Code auto-mode classifier blocked `gh pr view` and `gh run list` right after the
+admin-override merge (`[Merge Without Review]`), so an agent will very likely be refused
+`gh workflow run` too. Either the maintainer dispatches both runs, or adds a Bash permission rule for
+read-only `gh run`/`gh pr view` and `gh workflow run` on this repo. Do not work around the denial.
+
+## ✅ PR A — merged and deployed
 
 | Delivered | Evidence |
 |---|---|
@@ -92,8 +103,8 @@ Closing it on a local green would be exactly the false-green this sprint kept fi
 
 | PR | Branch | Scope | State |
 |---|---|---|---|
-| **A** | `feature/sprint-129-demo-session` | BUG-039 restore + diagnosability + BUG-040 monitor | **[#235](https://github.com/ravichavali/karmyq/pull/235) OPEN** — awaiting CI and review |
-| **B** | `feature/sprint-129-deps` | 6 Dependabot PRs, 4 security alerts, Expo SDK drift (#234) | not started — branch after A merges |
+| **A** | `feature/sprint-129-demo-session` | BUG-039 restore + diagnosability + BUG-040 monitor | **MERGED** `b22dbf15` (#235), deployed — Task E still owed |
+| **B** | `feature/sprint-129-deps` | 6 Dependabot PRs, 4 security alerts, Expo SDK drift (#234) | **NEXT** — branch `feature/sprint-129-deps` exists locally, start at Task B1 |
 | **C** | `feature/sprint-129-community-aggregate` | BUG-031: the `/communities` 404 storm | not started — branch after B merges |
 
 ⚠️ **One merge at a time.** Every master push is a full deploy; overlapping deploys restart services
