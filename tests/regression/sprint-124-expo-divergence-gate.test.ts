@@ -14,9 +14,8 @@ const FIXTURES = join(__dirname, 'fixtures');
 const REAL_EXPO_OUTPUT = readFileSync(join(FIXTURES, 'expo-check-drift.txt'), 'utf8');
 // The gate compares `declared` against the live apps/mobile manifest, so a valid entry must read
 // it from there too. A hand-copied range breaks on every routine Jest patch bump.
-const MOBILE_DEV_DEPS: Record<string, string> = JSON.parse(
-  readFileSync(join(ROOT, 'apps', 'mobile', 'package.json'), 'utf8')
-).devDependencies;
+const MOBILE_PKG = JSON.parse(readFileSync(join(ROOT, 'apps', 'mobile', 'package.json'), 'utf8'));
+const MOBILE_DEV_DEPS: Record<string, string> = MOBILE_PKG.devDependencies;
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 type Drift = {
@@ -53,9 +52,7 @@ const gate = require('../../scripts/expo-divergences') as {
 // Read from the shipped spec, not re-declared here: the per-field rejection cases below are
 // generated from this list, so a hand-written copy would silently delete a field's own test case
 // when that field was dropped. The literal below pins it by identity so the deletion fails loudly.
-const REQUIRED_FIELDS = gate.expoSpec(
-  JSON.parse(readFileSync(join(ROOT, 'apps', 'mobile', 'package.json'), 'utf8'))
-).requiredFields;
+const REQUIRED_FIELDS = gate.expoSpec(MOBILE_PKG).requiredFields;
 
 it('pins the shipped divergence schema', () => {
   expect(REQUIRED_FIELDS).toEqual([
@@ -243,8 +240,7 @@ describe('Sprint 124 Expo divergence gate', () => {
   it('rejects a stale registration alongside a valid current Jest registration', () => {
     const stale = fixtureRegistry('expo-divergences-stale.json').divergences[0];
     // Isolate stale evidence from declaration mismatch when the SDK patch line moves.
-    const mobile = JSON.parse(readFileSync(join(ROOT, 'apps/mobile/package.json'), 'utf8'));
-    stale.declared = mobile.dependencies[stale.package];
+    stale.declared = MOBILE_PKG.dependencies[stale.package];
     const result = gate.evaluate(
       { status: 1, output: jestDrift },
       { divergences: [validEntry(), stale] }
