@@ -1,9 +1,9 @@
 # Sprint 129 — Maintenance: demo, dependencies, bugs — Handoff
 
 **Date**: 2026-09-12 · **Revised**: 2026-09-14
-**Outcome**: **PR A MERGED and DEPLOYED** as `b22dbf15` (#235, v11.51.0). The demo is live.
-**Next: PR B** (dependencies + security alerts + Expo drift). PR C not started. **Task E (verifying
-the demo-health monitor, closing BUG-040) is still owed** and needs GitHub access — see below.
+**Outcome**: PR A **MERGED and DEPLOYED** (`b22dbf15`, #235, v11.51.0). **PR B implementation
+COMPLETE** on `feature/sprint-129-deps` (v11.52.0), all four gates run — **next: push + open the PR,
+then close the six Dependabot PRs linking it.** PR C not started. **Task E (BUG-040) still owed.**
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router — there is no second machine.
 > This file is branch-local and reserves nothing; contended resources are allocated by the
@@ -21,24 +21,61 @@ hits it**; clear the dependency and security backlog to zero open alerts; silenc
 
 | Field | Value |
 |---|---|
-| **Branch** | `feature/sprint-129-deps` — created off `origin/master` at `b22dbf15`, **local only, not yet pushed**. Holds only this handoff update. |
-| **Base version** | **v11.51.0** on master. Re-derive PR B's bump from `origin/master` at **merge** time, not now. |
-| **PR A** | [#235](https://github.com/ravichavali/karmyq/pull/235) — **merged** `b22dbf15`; deploy confirmed by the maintainer 2026-09-14 |
-| **Active editor** | PR B chat (Windows), started 2026-09-14 |
-| **Shared resources** | ✅ **Dependency lane HELD by the PR B chat** — maintainer-designated 2026-09-14. No demo-server operation is needed or authorized. |
+| **Branch** | `feature/sprint-129-deps` off `origin/master` at `b22dbf15`. Read the head with `git rev-parse --short HEAD`; a sha written here goes stale. |
+| **Version** | Bumped to **v11.52.0** from master's v11.51.0 — **re-check against `origin/master` at merge time** (re-bump if PR C lands first). |
+| **PR A** | [#235](https://github.com/ravichavali/karmyq/pull/235) — merged `b22dbf15`, deployed |
+| **Active editor** | PR B chat (Windows), 2026-09-14 |
+| **Shared resources** | ✅ **Dependency lane HELD by the PR B chat** (maintainer-designated 2026-09-14) — **release it once PR B merges.** No demo-server operation needed or authorized. |
 
 ## Quick Start
 
-1. Confirm live state: `git fetch origin`, `git log --oneline origin/master -1` (expect `b22dbf15` or
-   later), `gh pr list`. Re-read the Dependabot alert set — it moves.
-2. **Reuse this branch**: `git switch feature/sprint-129-deps`. If master has moved, merge
-   `origin/master` in (merge commit, never rebase + force).
-3. **Ask the maintainer to confirm you hold the dependency lane** before the first manifest edit.
-4. Plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md) — **start at Task B1**.
-5. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+1. `git fetch origin`; confirm `origin/master` is still `b22dbf15` (else merge it in — merge commit).
+2. `git switch feature/sprint-129-deps`. If PR B is not yet open: push, open it, then close
+   #223 #231 #216 #217 #212 #211 with a comment linking PR B.
+3. After merge: verify alerts #151/#157/#159 auto-close (`gh api .../dependabot/alerts?state=open`
+   should list **zero**), close issue #234 once `expo-sdk-drift.yml` runs green.
+4. Then PR C — plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md), **Task C1**.
 
-**Next unchecked task**: **Task B1** — baseline the live Dependabot alert set (expect four: the
-`@faker-js/faker` high in `scripts/`, two `qs`, one `decode-uri-component`).
+## PR B — task status (all complete)
+
+| Task | Result |
+|---|---|
+| B1 baseline | exactly four alerts: #151 faker (high), #157/#159 qs, #150 decode-uri-component |
+| B2 Expo drift #234 | 12 `expo-*` one patch; live `expo install --check` + divergence gate clean. `SDK_PINNED` unchanged (it holds only non-expo pins; none drifted) |
+| B3 qs | override `>=6.15.2` → `>=6.16.0` in place; installs 6.16.0 |
+| B4 decode-uri-component | **no fix exists** — dismissed `tolerable_risk` by maintainer decision, **BUG-041**, re-check by 2026-11-14 |
+| B5 faker | #216 cherry-picked; `location.streetName` → `street` (removed in faker 9) |
+| B6 six safe PRs | #223 + #231 merged in (merge commits), #212 + #211 cherry-picked (SHAs verified vs tags), #217 superseded by B3. **PRs not yet closed** |
+| B7 majors | triage comment posted on #224–#230; eslint-config-next 16 / next 15 mismatch recorded on #229 |
+| B8 docs | `apps/mobile/claude.md` recent-changes; `analyze:services` no diff; registry tracks service deps only |
+| B9 gates | `/simplify` (1 fix), `/code-review` high (1 finding → fixed), `/security-review` (no findings) |
+| B10 verify | strict `npm ci` @ npm 11.19.0 ✅; serial turbo test 26/26 ✅ (+ affected re-run 6/6 after last lock fix); CI type-check set ✅ |
+
+**Alerts are only closed on merge.** Pre-merge the live count is 3 open (#151, #157, #159) + #150
+dismissed. Zero-open must be proven **after** the deploy, against the live API.
+
+## PR B findings worth keeping
+
+- **Lock method on this Windows box:** prune target entries → `npm install --package-lock-only` →
+  **splice only intended entries onto the base lock**. A raw Windows re-resolve strips 20 Linux
+  `libc` fields (npm 10.8.2 AND 11.6.2); 11.6.2 also drops the `fast-uri` override node.
+  **CI runs npm 11.19.0** — prove with `npx -y npm@11.19.0 ci`. PATH `npm` here is a user-level
+  10.8.2 shadowing Node's bundled 11.6.2; master's own lock fails `npm ci` under 11.6.2.
+- **npm 10.8.2's re-resolve is itself unreliable:** it dropped `expo/node_modules/{@jest/schemas,
+  @sinclair/typebox,ansi-styles}` while keeping the `pretty-format@29.7.0` that needs them. Strict
+  `npm ci` does NOT catch that — **`npm ls --all | grep invalid` does.** Baseline: 3 pre-existing
+  invalids on master (color-string, ms, picomatch).
+- **Dependabot merges:** entry- then field-level 3-way merge against the merge base, verified both
+  directions (merged vs theirs = only our entries; merged vs ours = only theirs).
+- **#223 silently downgraded `uuid`** in `packages/shared` + `cleanup-service` to 11.1.1 (the Sprint
+  75 root override) while manifests said `^14.0.2`. Nothing imports `uuid` → dead declarations
+  (+ `@types/uuid`) removed.
+- **#231 moved `apps/mobile` jest → `^30.5.1`** → `security/expo-divergences.json` `declared`
+  updated (same divergence; gate proven to fail on the stale value).
+  `sprint-124-expo-divergence-gate.test.ts` had hand-copied live ranges → now reads the manifest.
+- **decode-uri-component (BUG-041):** `expo-router` needs `query-string ^7.1.3` in every dist-tag
+  (57.0.21, next 58.0.2, canary); patched 0.5.0 is ESM-only → `require()` returns `{default}` →
+  `d is not a function` (reproduced). Never add an override for it.
 
 ## ⏳ Task E — owed, and blocked on GitHub permission
 
@@ -104,7 +141,7 @@ Closing it on a local green would be exactly the false-green this sprint kept fi
 | PR | Branch | Scope | State |
 |---|---|---|---|
 | **A** | `feature/sprint-129-demo-session` | BUG-039 restore + diagnosability + BUG-040 monitor | **MERGED** `b22dbf15` (#235), deployed — Task E still owed |
-| **B** | `feature/sprint-129-deps` | 6 Dependabot PRs, 4 security alerts, Expo SDK drift (#234) | **NEXT** — branch `feature/sprint-129-deps` exists locally, start at Task B1 |
+| **B** | `feature/sprint-129-deps` | 6 Dependabot PRs, 4 security alerts, Expo SDK drift (#234) | **Implementation complete** (v11.52.0), gates run — PR being opened; merge after review |
 | **C** | `feature/sprint-129-community-aggregate` | BUG-031: the `/communities` 404 storm | not started — branch after B merges |
 
 ⚠️ **One merge at a time.** Every master push is a full deploy; overlapping deploys restart services
