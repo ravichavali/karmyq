@@ -1,8 +1,8 @@
 # Sprint 129 — Maintenance: demo, dependencies, bugs — Handoff
 
 **Date**: 2026-09-12 · **Revised**: 2026-09-13
-**Outcome**: PR A is IN PROGRESS — **the demo is restored and live**. Tasks A1–A5 done
-(`10600546`); remaining: reason logging, startup self-check, the BUG-040 monitor, docs, gates.
+**Outcome**: **PR A is OPEN at [#235](https://github.com/ravichavali/karmyq/pull/235) — awaiting CI
+and review.** The demo is restored and live. Tasks A1–A13 are DONE. PR B and PR C have not started.
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router — there is no second machine.
 > This file is branch-local and reserves nothing; contended resources are allocated by the
@@ -20,48 +20,81 @@ hits it**; clear the dependency and security backlog to zero open alerts; silenc
 
 | Field | Value |
 |---|---|
-| **Branch** | `feature/sprint-129-demo-session` — exists, **not yet pushed**. Read the count with `git rev-list --count origin/master..HEAD`; a number written here goes stale on the next commit. |
-| **Base** | `origin/master` at `55a536fc`, version **v11.50.0** |
-| **Active editor** | Claude — PR A in progress |
+| **Branch** | `feature/sprint-129-demo-session` — **pushed**, tracking `origin/`. Read the head with `git rev-parse --short origin/feature/sprint-129-demo-session`; a sha written here is stale on the next commit. |
+| **PR** | **[#235](https://github.com/ravichavali/karmyq/pull/235) OPEN** — `mergeable=MERGEABLE`, `mergeStateStatus=BLOCKED` on `REVIEW_REQUIRED` |
+| **Base** | `origin/master` at `55a536fc`; branch bumps the version to **v11.51.0** |
+| **Active editor** | Claude — PR A implementation complete |
 | **Shared resources** | Demo-server rotation **performed and complete** 2026-09-12 (authorized). No further demo write is needed or authorized. No ADR minted — ADR-084 is amended in place. |
 
 ## Quick Start
 
-1. Read this handoff
-2. **Reuse the existing branch** — `git switch feature/sprint-129-demo-session`. Do NOT re-branch;
-   work is already committed on it (`git log --oneline origin/master..HEAD`). Never branch off a
-   stale local master.
-3. Open plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md)
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+1. Confirm live state before trusting this file: `gh pr view 235`, `gh pr checks 235`,
+   `git log --oneline origin/master -1`.
+2. **PR A needs no more implementation.** Do not re-run Tasks A1–A13.
+3. If PR A has merged: start **PR B** — `git fetch origin` then
+   `git switch -c feature/sprint-129-deps origin/master`, and re-derive the version bump from
+   `origin/master` at that point.
+4. Plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md)
 
-**Next unchecked task**: **Task A6** — write the demo-session logging test (TDD). Tasks A1–A5 are
-DONE; do not redo them.
+**Next unchecked task**: **Task D — merge and deploy PR A**, which is blocked on a human approving
+#235 (an agent cannot self-approve here). After the deploy, **Task E** verifies the demo-health
+workflow and closes BUG-040. PR B follows.
 
-## ✅ Done already — commit `10600546`, verified live 2026-09-12
+## ✅ PR A — implementation complete
 
 | Delivered | Evidence |
 |---|---|
-| Demo restored | `POST /api/auth/demo-session` → **200**, both stories, 30-min token |
-| Read-only guarantee | write with demo token → **403 `FORBIDDEN`** |
-| State checks | **16/16 green** (was 8 true / 8 false) |
-| Rotation wired | `.env.demo.rotation.example` + `scripts/demo/{enable-demo,restart-auth}.sh` |
-| Secret hygiene | `.gitignore` → `.env*` + `!.env*.example`; `.gitattributes` pins `.env*` to LF |
-| Bugs | BUG-039 closed with root cause; **BUG-040 filed** |
+| Demo restored (BUG-039) | `POST /api/auth/demo-session` → **200**, both stories; write with demo token → **403**; 16/16 state checks green (was 8) |
+| Rotation wired | `.env.demo.rotation.example` + `scripts/demo/{enable-demo,restart-auth}.sh`; one command, documented in `docs/guides/demo-data.md` |
+| Failure is legible | `auth.ts` logs the reason at `warn`; response byte-identical (ADR-084 Sprint 129 amendment) |
+| Boot self-check | `demoSessionSelfCheck.ts` — never throws, never logs the token, distinguishes *disabled* from *broken* |
+| Monitor built (BUG-040) | `demo-health.yml` + `check-demo-health.js` + `probe-story-rows.js` + `render-health-issue.js` |
+| Secret hygiene | `.gitignore` → `.env*` + `!.env*.example` (+3 tracked-file negations); `.gitattributes` pins `.env*` to LF |
+| Gates | `/simplify`, `/code-review` high, `/security-review` — all run; findings fixed, one false positive recorded with evidence |
 
-⚠️ **The branch is not pushed.** Hooks are live, so the first push costs a full suite run.
+## ⚠️ Two things the next session must know
+
+**The pre-push hook was bypassed with `SKIP_PREPUSH=1`, with maintainer authorization.** It blocked
+four consecutive pushes on *unrelated* timeout flakes, in four different workspace combinations,
+none reproducible standalone and none in files this branch touches. The verification the hook exists
+to provide was satisfied another way first: `npx turbo run test --concurrency=1 --force` →
+**26 tasks, 26 successful, exit 0**. CI on Linux then confirmed it — **Test Backend Services** and
+**Test Auth Service** both pass on #235. This is documented in the PR body, not hidden.
+
+**Turbo parallelism on this Windows box is unreliable.** Suites run ~60x slower under load (4.8s
+standalone → jest *estimating* 301s), which pushes ordinary tests past the 5s default and explicit
+10s timeouts. Triage: read `Failed: <pkg>#test`, re-run that package alone, and check whether the
+branch touches it at all. Use `--output-logs=full` — turbo suppresses jest detail on failure. And
+**capture exit codes separately**: a background-task notification reported "exit code 0" twice while
+the underlying command had exited 1.
 
 ## Artifacts
 
 - **Spec**: [`docs/superpowers/specs/2026-09-12-sprint-129-maintenance-design.md`](../../docs/superpowers/specs/2026-09-12-sprint-129-maintenance-design.md)
 - **Plan**: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md)
 
+## BUG-040 — stays OPEN until verified after merge
+
+The monitor cannot be proven before merge: `workflow_dispatch` only works once a workflow is on the
+**default branch**, and the condition evaluator in `sprint-129-demo-health-workflow.test.ts` is a
+*model* of GitHub's expression semantics, not GitHub. Close it only when **both** exist (Task E):
+
+1. A dispatched run of `demo-health.yml` that completes green — verify the **specific run**, not
+   merely that a run appears.
+2. A deliberately failing run — dispatch with an unreachable `base_url` input — that **files an
+   issue**.
+
+Closing it on a local green would be exactly the false-green this sprint kept finding.
+
+---
+
 ## Three PRs, merged in order
 
-| PR | Branch | Scope |
-|---|---|---|
-| **A** | `feature/sprint-129-demo-session` | BUG-039 restore *(done)* + diagnosability + **BUG-040 monitor** |
-| **B** | `feature/sprint-129-deps` | 6 Dependabot PRs, 4 security alerts, Expo SDK drift (#234) |
-| **C** | `feature/sprint-129-community-aggregate` | BUG-031: the `/communities` 404 storm |
+| PR | Branch | Scope | State |
+|---|---|---|---|
+| **A** | `feature/sprint-129-demo-session` | BUG-039 restore + diagnosability + BUG-040 monitor | **[#235](https://github.com/ravichavali/karmyq/pull/235) OPEN** — awaiting CI and review |
+| **B** | `feature/sprint-129-deps` | 6 Dependabot PRs, 4 security alerts, Expo SDK drift (#234) | not started — branch after A merges |
+| **C** | `feature/sprint-129-community-aggregate` | BUG-031: the `/communities` 404 storm | not started — branch after B merges |
 
 ⚠️ **One merge at a time.** Every master push is a full deploy; overlapping deploys restart services
 and 502 the demo — the thing this sprint is fixing.
@@ -72,7 +105,11 @@ and 502 the demo — the thing this sprint is fixing.
 
 The maintainer authorized the read-only diagnosis and then the seed + env update; both were carried
 out on 2026-09-12 and the demo is live. **No further demo-server write is needed or authorized.**
-The remaining PR A work is entirely local code, tests, a workflow and docs.
+PR A needed no further server access after that; everything since was code, tests, a workflow and
+docs, and is now complete in #235.
+
+⚠️ **Task E will need GitHub access, not demo-server access** — dispatching `demo-health.yml` runs
+the read-only probe through CI's existing SSH secrets. No new demo-server authorization is implied.
 
 The rotation is now repeatable by one command on the demo host:
 
@@ -125,8 +162,8 @@ API-created, so the demo stays truthful rather than hand-inserted.
 
 ⏰ **The recurrence is NOT gone — it is now tracked as BUG-040.** The replacement stories expire
 **2026-11-12** and are hard-deleted **~2026-11-19** (conservative estimate — see note 18; the real deadline is mark-time + 7 days, not `expires_at` + 7 days). Rotation being one command does not help if
-nobody runs it, which is exactly the assumption that just failed. Tasks A9/A10 add the scheduled
-monitor that warns 14 days ahead.
+nobody runs it, which is exactly the assumption that just failed. The scheduled monitor that
+warns 14 days ahead is now **built** (PR A, #235) but **not yet verified on GitHub** — see BUG-040.
 
 ---
 
@@ -273,7 +310,8 @@ only for the uncomputed case would leak what ADR-082 hides.
 - **`enforce_admins: false`** on `master`. Six required checks and one required approval are all
   admin-bypassable, yet the review requirement is also what stalls every sprint's end: the PR author
   and the authenticated account are the same, so the required approval can never be self-provided.
-  **This has shaped the end of three consecutive sprints.** One API call either way.
+  **This has shaped the end of four consecutive sprints** — Sprint 129's PR #235 is blocked on it too.
+  One API call either way.
 - **`apps/landing/src/data/docs/` is only PARTIALLY git-tracked.** `apps/landing/.gitignore:2`
   ignores the directory, but ~160 files were committed before that and remain tracked; ADRs 095+ are
   not. `CLAUDE.md` calls it "git-tracked" without qualification, which is misleading.
