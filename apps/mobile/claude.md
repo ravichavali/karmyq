@@ -28,6 +28,13 @@ hand-rolled with `@expo/vector-icons`; state is the one Zustand store in `store/
 
 ## Recent changes
 
+- **Sprint 129 PR B:** twelve `expo-*` packages move one patch to match the live SDK 57 map
+  (issue #234: Expo 57.0.22, Router 57.0.21). `SDK_PINNED` is unchanged because it shadows only
+  non-expo pins, none of which drifted. `jest` → `^30.5.1` updates the registered divergence's
+  `declared` range in `security/expo-divergences.json`, same divergence, not widened.
+  `decode-uri-component` (via `expo-router` → `query-string@7`) stays at 0.2.2: the patched 0.5.0
+  is ESM-only and breaks `query-string@7`'s `require()`. The alert is dismissed and tracked as
+  **BUG-041**, so do not add an override for it.
 - **Sprint 128 PR B:** align 14 declarations to the live SDK map, with a release-time refresh to
   Expo 57.0.21 and Router 57.0.20; React Native remains 0.86.3. Transitive Metro moves to
   0.84.5 via `@expo/metro` 56.0.2. The manifest/lockfile carry exact selections; run
