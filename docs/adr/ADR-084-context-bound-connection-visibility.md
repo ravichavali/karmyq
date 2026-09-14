@@ -124,3 +124,41 @@ API-created live story verified through ordinary APIs**:
 
 This keeps the ADR-084 contract (named, context-bound, privacy-respecting connection visibility) while
 making the demo that demonstrates it reproducible and self-verifying.
+
+---
+
+## Sprint 129 amendment (2026-09-13): opacity binds the response, not the log
+
+The opaque `503 DEMO_UNAVAILABLE` this ADR specifies had been applied to the **operator** as well as
+the caller, and that cost a multi-day outage.
+
+`POST /auth/demo-session` collapses all fourteen distinct failure causes into one response so that
+resource existence is never leaked. `routes/auth.ts` then logged **only** failures that were *not*
+`DemoSessionUnavailableError` — so every *expected* cause (disabled flag, missing config, persona
+absent, a story row no longer owned by the persona) was silent by construction. The specific,
+operator-ready reason strings in `demoSessionService.ts` were built and then discarded.
+
+The result was BUG-039: `karmyq.com/demo` returned 503 from roughly 2026-09-09 to 2026-09-12, and
+the bug report's own advice — check `pm2 logs` — could not have worked, because there was nothing
+there to find.
+
+**Amendment.** This ADR's opacity is a property of **what crosses the network to an unauthenticated
+caller**. It was never intended to blind the person holding the server. Specifically:
+
+- The HTTP contract is unchanged and must stay unchanged: same `503`, same `DEMO_UNAVAILABLE`, same
+  body, byte-identical across every cause.
+- `DemoSessionUnavailableError` is now logged server-side at `warn` with its reason in a structured
+  field. This is **not** a violation of this ADR.
+- Secrets never enter that channel: no token, ever.
+- A boot-time self-check (`services/demoSessionSelfCheck.ts`) reports the same reason at startup, so
+  a misconfigured demo announces itself at deploy time rather than at first visitor. It never throws
+  — auth-service is Critical with seven dependents and the demo is optional.
+
+**The general rule, for any future deliberately-opaque failure path:** a response that refuses to
+say why is a privacy feature; a *log* that refuses to say why is just a missing log. Pair the two,
+and assert both halves in one test — that the response is byte-identical across two different
+causes, **and** that the logs differ. A test asserting only the log would pass a version that leaks
+the reason to the client; a test asserting only the response is what let this ship.
+
+Covered by `services/auth-service/tests/tdd/sprint-129-demo-session-logging.test.ts`, which proves
+both halves by injection.

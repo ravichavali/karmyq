@@ -14,6 +14,7 @@ script — prefer those**, since they carry the right arguments and working dire
 | `npm run health:check` | `health-check.sh` | Health of every production service in the registry |
 | `npm run dashboard` | `dashboard.js` | Interactive service dashboard |
 | `npm run hooks:install` | `install-hooks.sh` | Installs `git-hooks/` into the **active** hooks dir (once after clone) |
+| Demo health workflow | `check-demo-health.js` | Asserts a demo session can be issued **and** that the story rows are >14 days from cleanup's hard delete. Models the real two-stage deletion predicate (mark sets `updated_at`; delete keys off it) rather than `expires_at + 7 days`, and reports a `basis` so an operator can tell a running clock from an estimate. Read-only; `tests/regression/sprint-129-demo-health-gate.test.ts` proves it can fail |
 | Expo SDK drift workflow | `expo-divergences.js` | Applies the SDK-major-scoped divergence registry to the complete output of Expo's live compatibility check; malformed, stale, or unregistered drift fails closed (ADR-094) |
 | `image-size` advisory watch workflow | `check-image-size-upstream.js` | Re-takes the ADR-059 exemption measurements from live arbiters (npm registry, GitHub advisory API, resolved tree). Exits non-zero only when something is actionable. **Never writes `security/audit-exemptions.json`** — renewal is a reviewed human decision |
 
@@ -78,6 +79,17 @@ covered by `tests/regression/dependency-guard-hook.test.ts`.
   vestigial** installer that reintroduces husky — don't run it.
   `pre-push` runs `npm test` (unit + regression, blocking), integration if a DB is reachable, and
   `test:tdd` for reporting only. `SKIP_PREPUSH=1` skips it; `--no-verify` for emergencies only.
+- **`demo/`** — demo-host wiring for `rotate:demo-stories` (Sprint 129, BUG-039).
+  `enable-demo.sh` (`DEMO_ENABLE_CMD`) idempotently sets `DEMO_SESSION_ENABLED=true` and asserts the
+  post-condition on **every** occurrence of the key — the env file is known to carry duplicates, and
+  last-wins means one stale line would disable the demo while the first looked right.
+  `restart-auth.sh` (`DEMO_RESTART_AUTH_CMD`) recreates the auth container so compose re-interpolates
+  the republished ids — a plain `docker restart` reuses the old environment and would not.
+  `probe-story-rows.js` is the read-only retention probe the demo-health workflow pipes into
+  `docker exec -i karmyq-auth-service node`; **SELECT only**, and it emits story *kinds* rather than
+  UUIDs because its output is rendered into a public GitHub issue.
+  ⚠️ Both shell scripts re-anchor to the repo root from `${BASH_SOURCE[0]}`: `npm --workspace` sets
+  cwd to the *workspace* directory, so a relative path would resolve under `services/…` and miss.
 - **`setup/`** — server and first-run setup: `init-production-database.sh`, `run-migrations.sh`,
   `setup-registry*.sh`, `setup-logging.sh`, git-hook installers, `restart-services.sh`.
 - **`test-utils/`** — `test-validation.js`.

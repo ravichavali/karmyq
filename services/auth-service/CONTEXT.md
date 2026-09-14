@@ -287,6 +287,36 @@ wrong persona, incoherent rows, or an unexpected error — collapses to a single
 **Implementation:** `src/services/demoSessionService.ts` + `src/routes/auth.ts`; read-only write guard in
 `packages/shared/middleware/auth.ts` (Sprint 116, ADR-084).
 
+#### The config surface, and how it goes stale (Sprint 129)
+
+⚠️ **`DEMO_SESSION_ENABLED` defaults to `false`** (`infrastructure/docker/docker-compose.yml:90`) and
+the five id vars default to empty (`:91-95`). The check is a strict `!== 'true'`, so `false`, `1` and
+`TRUE` are all OFF while still looking "set".
+
+⚠️ **The four story ids point at rows that are deleted on a schedule.** `cleanup-service` marks an
+open request expired once `expires_at` passes (`expirationJob.ts:18-22`, hourly) and hard-deletes it
+seven days after that marking (`:84-88`, daily at 02:00). The demo config therefore goes stale on a
+timer — this is what caused BUG-039. The answer is to **rotate** before they age out:
+
+```bash
+cd ~/karmyq && set -a && . ./.env.demo.rotation && set +a
+npm --workspace @karmyq/simulation-service run rotate:demo-stories -- --apply --publish-config
+```
+
+See `docs/guides/demo-data.md`. `.github/workflows/demo-health.yml` warns ~14 days ahead.
+
+#### Diagnosing a 503 (Sprint 129)
+
+The opaque response is deliberate and unchanged, but the **reason is now logged server-side** at
+`warn` with a structured `reason` field — ADR-084's opacity binds the client, not the operator (see
+its Sprint 129 amendment). Before this, every expected cause was silent and the endpoint was
+undiagnosable by design.
+
+`src/services/demoSessionSelfCheck.ts` also runs once at boot: it reports healthy, reports the
+specific failure reason, or says explicitly that demo sessions are **disabled** — so "off" is never
+mistaken for "broken". It never throws (auth is Critical with seven dependents; the demo is
+optional) and never logs the issued token.
+
 ### GET /verify
 Verify JWT token and return user info.
 
@@ -809,6 +839,24 @@ src/
 - Database queries use connection pooling (max 20 connections)
 
 ## Recent Changes
+
+### Sprint 129: the demo failure is now legible (2026-09-13) — BUG-039
+- **FIXED (BUG-039)**: `karmyq.com/demo` returned `503 DEMO_UNAVAILABLE` from ~2026-09-09 to
+  2026-09-12. Root cause was **not** in this service: `cleanup-service` had hard-deleted all four
+  demo story rows, so the configured ids pointed at nothing. Restored by wiring and running
+  `rotate:demo-stories`, which had existed since Sprint 117 but had never been operational on the
+  demo host.
+- **CHANGED**: `src/routes/auth.ts` — `DemoSessionUnavailableError` is now logged at `warn` with a
+  structured `reason`. Previously only *unexpected* errors were logged, so every expected cause was
+  silent and the endpoint could not be diagnosed from logs at all. **The HTTP response is
+  unchanged** — same 503, same code, same body, byte-identical across causes (ADR-084 Sprint 129
+  amendment).
+- **NEW**: `src/services/demoSessionSelfCheck.ts` — boot-time report of demo health, wired in
+  `src/index.ts` after `listen`. Never throws, never logs the token, and distinguishes *disabled*
+  from *broken*.
+- **Tests**: `tests/tdd/sprint-129-demo-session-logging.test.ts` (response byte-identical across two
+  causes while the logs differ) and `tests/tdd/sprint-129-demo-session-selfcheck.test.ts` (never
+  throws, never leaks the token). Both proven by injection, not just by a green run.
 
 ### Sprint 56: Publisher + Logger centralization (2026-05-17)
 - **CHANGED**: `src/events/publisher.ts` — now delegates to `createPublisher('auth-service')` from `@karmyq/shared`; local 37-line Bull setup removed

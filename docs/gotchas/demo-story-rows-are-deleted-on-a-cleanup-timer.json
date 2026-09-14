@@ -1,0 +1,17 @@
+{
+  "title": "The demo's DEMO_* story ids point at rows cleanup deletes on a timer — and the deadline is mark-time + 7 days, not expires_at + 7 days",
+  "owner": "ravichavali",
+  "created": "2026-09-13",
+  "scope": [
+    "services/cleanup-service/src/jobs/expirationJob.ts",
+    "services/auth-service/src/services/demoSessionService.ts",
+    "scripts/check-demo-health.js",
+    "docs/guides/demo-data.md"
+  ],
+  "verify": {
+    "file_matches": {
+      "path": "services/cleanup-service/src/jobs/expirationJob.ts",
+      "pattern": "expired = TRUE AND updated_at <="
+    }
+  }
+}

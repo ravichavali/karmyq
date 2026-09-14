@@ -247,9 +247,18 @@ router.post('/demo-session', async (req: any, res) => {
     const session = await createDemoSession();
     return sendSuccess(res, session, HTTP_STATUS.OK, { requestId: req.id });
   } catch (error) {
-    // Every failure collapses to one opaque 503 so resource existence is never leaked.
-    // Only unexpected (non-DemoSessionUnavailableError) failures are logged.
-    if (!(error instanceof DemoSessionUnavailableError)) {
+    // Every failure collapses to one opaque 503 so resource existence is never leaked FROM THE
+    // RESPONSE. That opacity binds the client, not the operator (Sprint 129, ADR-084 amendment):
+    // the reason is logged server-side, where it is not observable by the caller.
+    //
+    // Sprint 129 / BUG-039: this branch used to log ONLY unexpected failures, so every expected
+    // cause — disabled flag, missing config, persona absent, story rows no longer owned — was
+    // silent by construction. The demo stayed dead for days while the reason was constructed and
+    // then discarded. The messages in demoSessionService are already written as operator-facing
+    // diagnoses; they just had nowhere to go.
+    if (error instanceof DemoSessionUnavailableError) {
+      req.logger?.warn('Demo session unavailable', { reason: error.message });
+    } else {
       req.logger?.error(
         'Demo session issuance failed unexpectedly',
         error instanceof Error ? error : new Error(String(error))

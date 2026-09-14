@@ -728,7 +728,7 @@ Timings corroborate an outage rather than a code change: the failing tests took 
 
 ---
 
-## BUG-039 · [2026-09-09] · open
+## BUG-039 · [2026-09-09] · fixed (Sprint 129 PR A, restored live 2026-09-12)
 
 **The guided Maria demo at `karmyq.com/demo` cannot start a session.**
 
@@ -755,5 +755,84 @@ auth-service environment. Check `pm2 logs karmyq-auth-service` (or the container
 demo server, then confirm the persona and its two seeded stories exist.
 
 Unrelated to Sprint 128 PR B, which does not touch demo-session code.
+
+### Resolution — 2026-09-12
+
+**Diagnosis was not possible from logs, and that was the first defect.** ADR-084 collapses all
+fourteen causes into one opaque 503, and `auth.ts:252` logged only failures that were *not*
+`DemoSessionUnavailableError` — so every expected cause was silent by construction. The advice
+above to check `pm2 logs` could never have worked. A read-only probe run inside
+`karmyq-auth-service` (reproducing the service's own checks without short-circuiting) reported
+config entirely healthy and **all four story rows absent**.
+
+**Root cause: the story rows are deleted on a schedule.**
+`services/cleanup-service/src/jobs/expirationJob.ts:84-88` runs daily at 02:00 (`index.ts:314`) and
+executes `DELETE FROM requests.help_requests WHERE expired = TRUE AND updated_at <= now() - 7 days`.
+Maria's two demo requests expired, sat out the 7-day grace, and were hard-deleted; the match and
+provider offer went with them. The five hardcoded `DEMO_*` UUIDs are therefore on a timer.
+
+**Why it was never rotated.** `docs/guides/demo-data.md` says the guided persona's stories are
+"rotated explicitly before they age out", and `rotate:demo-stories` exists to do it — but the
+mechanism had **never been wired on the demo host**: simulation-service is not deployed there, and
+`.env.demo.example` carried none of the five variables rotation requires. The documented safety
+mechanism could not run, so the stories aged out silently instead.
+
+**Fixed by** wiring rotation (`.env.demo.rotation.example`, `scripts/demo/enable-demo.sh`,
+`scripts/demo/restart-auth.sh`) and running it. Stories are API-created, not hand-inserted, so the
+demo stays truthful. Verified live: `POST /api/auth/demo-session` → **200** with both stories, a
+write with the demo token → **403 FORBIDDEN**, and all sixteen state checks green (was 8 false).
+
+⏰ **The new stories expire 2026-11-12 and are hard-deleted ~2026-11-19.** Rotation is now a
+one-command job, but it is still a recurring obligation. See [BUG-040].
+
+---
+
+## BUG-040 · [2026-09-12] · monitor built (Sprint 129 PR A) — NOT yet verified live
+
+**The guided demo has a 66-day fuse and nothing watches it.**
+
+Sprint 129 restored the demo (BUG-039) and made rotation a one-command job, but did not remove the
+recurrence. The replacement stories were measured on the demo server the day they were created:
+
+| | value |
+|---|---|
+| `expires_at` (both requests) | **2026-11-12** |
+| hard-deleted by `cleanup-service` (expiry + 7d) | **~2026-11-19** |
+| current status | `open`, `expired = false` |
+
+On that date `POST /api/auth/demo-session` starts returning 503 again and `karmyq.com/demo` goes
+dead — the identical failure BUG-039 describes. The only thing standing between the demo and
+another silent multi-day outage is a human remembering to run
+`npm --workspace @karmyq/simulation-service run rotate:demo-stories -- --apply --publish-config`
+before mid-November. That is exactly the assumption that failed last time: `docs/guides/demo-data.md`
+has always said the stories are "rotated explicitly before they age out", and they were not.
+
+**This is a monitoring gap, not a data problem.** The repo already has the right pattern for it —
+`.github/workflows/expo-sdk-drift.yml` runs on a schedule, fails visibly, and files a labelled
+issue. An equivalent demo-health workflow should assert `POST /api/auth/demo-session` returns 200
+**and** that the configured stories are more than N days from hard deletion, so the warning arrives
+with time to act rather than after the demo is already down.
+
+Sprint 129 PR A adds the two server-side halves (a reason log on the opaque 503, and a startup
+self-check) so the failure is *diagnosable* the next time. Neither makes it *detectable* before a
+user hits it. Related: BUG-039.
+
+### Update — 2026-09-13: the monitor exists, but is not yet proven on GitHub
+
+`.github/workflows/demo-health.yml` + `scripts/check-demo-health.js` +
+`scripts/demo/probe-story-rows.js` now implement the daily check: a demo session must be issuable
+**and** the story rows must be more than 14 days from deletion, or it files a labelled issue. It is
+read-only and never rotates.
+
+Covered by two regression suites — `sprint-129-demo-health-gate.test.ts` (the check logic, proven
+able to fail by injection) and `sprint-129-demo-health-workflow.test.ts` (the notify condition,
+evaluated against six run states; replacing it with expo-sdk-drift's `issue == '1'` fails seven
+tests).
+
+⚠️ **This stays OPEN until the workflow has actually run on GitHub.** `workflow_dispatch` only works
+once a workflow is on the **default branch**, so it cannot be exercised while PR A is open, and the
+condition evaluator in the test is a *model* of GitHub's expression semantics, not GitHub. Close this
+only after: a dispatched run is green, **and** a deliberately failing run (dispatch with an
+unreachable `base_url`) files an issue.
 
 ---
