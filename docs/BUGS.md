@@ -836,3 +836,23 @@ only after: a dispatched run is green, **and** a deliberately failing run (dispa
 unreachable `base_url`) files an issue.
 
 ---
+
+## BUG-041 · [2026-09-14] · open
+
+**`decode-uri-component` alert #150 cannot be remediated by a dependency change.**
+GHSA-vcc3-ghjq-m6fr / CVE-2026-45822, medium: denial of service via exponential decoding of
+malformed percent-encoded input, vulnerable `<=0.4.2`, patched `0.5.0`.
+
+Path: `apps/mobile` → `expo-router` (every dist-tag, including `next` 58.0.2 and `canary`) →
+`query-string ^7.1.3` → `decode-uri-component ^0.2.2`. Patched 0.5.0 is ESM-only; `query-string@7`
+does `require('decode-uri-component')` and calls the result, which reproduces as
+`d is not a function`. An override would break expo-router URL decoding at runtime while the lock
+gates stay green. `query-string` 8+ is also ESM-only, so bumping it fails the same way.
+
+Exposure: client-side deep-link parsing on the user's own device; availability-only.
+Alert dismissed as `tolerable_risk` on 2026-09-14 by maintainer decision (Sprint 129 PR B, Task B4).
+
+Re-check trigger: expo-router drops `query-string@7`, or the SDK 58 migration — **re-check by
+2026-11-14** at the latest.
+
+---
