@@ -1,12 +1,27 @@
-# Sprint 129 — Maintenance: demo, dependencies, bugs — Handoff
+# Sprint 129 — Maintenance: demo, dependencies, bugs — SHIPPED v11.53.0
 
-**Date**: 2026-09-12 · **Revised**: 2026-09-15
-**Outcome**: PR A **MERGED and DEPLOYED** (`b22dbf15`, #235, v11.51.0). **PR B MERGED and DEPLOYED**
-(`df501a8e`, #237, v11.52.0) — post-merge verified 2026-09-15: Deploy to Demo job success,
-**0 open Dependabot alerts** (#151/#157/#159 fixed, #150 dismissed → BUG-041), `expo-sdk-drift.yml`
-green on `df501a8e` (run 34923248008), #234 closed, all six carried Dependabot PRs closed,
-`POST /api/auth/demo-session` → 200. **PR C (BUG-031) implementation COMPLETE**, all three gates run, OPEN as [#240](https://github.com/ravichavali/karmyq/pull/240) (v11.53.0). Independent review 2026-09-14 at `4811ee9c`: **no blocking code/security findings**, `data: null` deviation confirmed correct, 248/248 affected tests + doc/disclosure checks re-run green; its two doc corrections (handoff reconciliation, registry contract) are integrated. **Awaiting the required approving review + merge authorization** (agent cannot merge).
-**Task E verified on GitHub; BUG-040 closed** (2026-09-14, evidence below).
+**Shipped**: 2026-09-15 · **Squashes**: PR A `b22dbf15` ([#235](https://github.com/ravichavali/karmyq/pull/235), v11.51.0) · PR B `df501a8e` ([#237](https://github.com/ravichavali/karmyq/pull/237), v11.52.0) · PR C `6752f925` ([#240](https://github.com/ravichavali/karmyq/pull/240), v11.53.0)
+**Outcome**: all three PRs merged and deployed. PR C was admin-merged on explicit maintainer authorization, after an independent review with no blocking findings. CI/CD run [34926732432](https://github.com/ravichavali/karmyq/actions/runs/34926732432): every job succeeded, including `Deploy to Demo`.
+
+**PR C post-deploy verification (2026-09-15):**
+- Smoke: `POST /api/auth/login` returned 200 with a token; `POST /api/auth/demo-session` returned 200.
+- Live contract: of 20 communities listed for `maria.reyes`, community-trust returned **18 × `200 {"success":true,"data":null}`, 2 × 200 with a score, and no 404s**. An unknown community id returned the identical null body.
+- **Task C4 passed:** `/communities` as `maria.reyes` at 1440px (Playwright) showed **0 console errors and 0 warnings**, and 37/37 community-trust requests returned 200. BUG-031 had produced 32 console errors on this page. **BUG-031 closed.**
+- ⚠️ **Correction found in C4 (BUG-044):** PR C claimed the "★ N% trust" badge now renders. The unit test proves the render path, but in production the badge **cannot** render on a discovery card. The grid excludes joined communities (`index.tsx:610`), while ADR-082 grants the aggregate only to members, so every per-card request is a guaranteed denial. Maria's two scored communities appear only as "Your Communities" chips. The docs that overstate the badge (the BUGS.md BUG-031 note, reputation `CONTEXT.md`, both admin guides) are corrected in Sprint 130 together with the code fix, not by a docs-only master push.
+
+**Carried to Sprint 130:**
+- Bugs: BUG-042, BUG-043, BUG-044.
+- Dependabot #239.
+- Code scanning #540–#542 (`js/log-injection`, geocoding-service) and #578 (`js/file-access-to-http`).
+- The seven majors #224–#230 remain separately planned.
+
+**Dated obligations:**
+- Demo story rotation: the stories expire 2026-11-12, and the monitor warns 14 days ahead.
+- BUG-041: re-check by 2026-11-14.
+
+---
+
+*Below is the final working handoff as it stood at merge, kept verbatim for reference.*
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router — there is no second machine.
 > This file is branch-local and reserves nothing; contended resources are allocated by the
