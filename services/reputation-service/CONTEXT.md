@@ -5,6 +5,26 @@
 
 ## Recent Changes
 
+- **2026-09-14 (Sprint 129 PR C — BUG-031: a denied community-trust aggregate is an empty state)**:
+  `GET /reputation/community-trust/:communityId` used to deny with `404 AGGREGATE_NOT_AVAILABLE`.
+  It now answers **`200 { success: true, data: null }`**. `/communities` requests this once per
+  card, so every card the caller could not see logged a console 404.
+  - All three denial causes (unknown community, non-member, cohort < 5) still share one exit,
+    `denyAggregate` in `routes/reputation.ts`. **Do not branch inside it**, and never add a 404 for
+    an unknown community: that would leak existence. The denial is also byte-identical to a
+    permitted community whose score cannot be computed, which already returned `data: null`.
+  - A denied caller never reads or computes the aggregate, not even with `?recalculate=true`.
+  - Proven by `tests/regression/sprint-129-community-aggregate.test.ts`, which compares the responses to
+    each other. The two Sprint 112 regression cases were moved to the new contract. ADR-082 carries
+    the amendment.
+  - **Unchanged on purpose:** `routes/health.ts` has its own `denyAggregate` for `community-health`,
+    `milestones` and `network-metrics`, which still returns 404. None is fanned out per list item.
+  - Frontend: `pages/communities/index.tsx` read `response.data.data.score`, which is always
+    undefined after the api client's unwrap, so the "★ N% trust" badge had never rendered. It now
+    reads `response.data.score`.
+  - Found, not fixed: BUG-042 (the People tab fans out to self-only `/trust/:userId/:communityId`)
+    and BUG-043 (`/communities` double-fetches when the saved discovery mode is "interests").
+
 - **2026-09-10 (Sprint 128 PR C — the backfill preview now agrees with the score writer)**:
   `analyzeStandingBackfill` used to derive its trust inputs from the **replayed match list**, which
   is not what the writer reads. It therefore saw neither pre-existing canonical history nor activity
@@ -692,6 +712,11 @@ Get the community trust score (ADR-040). Computed daily; recalculates on demand 
   }
 }
 ```
+
+**Access (ADR-082):** the caller must be an active member of a community with at least 5 active
+members. Otherwise, and also when no score can be computed, the response is
+`200 { "success": true, "data": null }`, identical for every cause (Sprint 129, BUG-031). Clients
+treat `data === null` as "no aggregate to show", never as an error.
 
 **Implementation:** `src/routes/reputation.ts` | `src/services/communityTrustService.ts:calculateCommunityTrustScore()`
 

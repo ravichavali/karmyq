@@ -520,7 +520,11 @@
         "/karma/leaderboard",
         "/trust-scores",
         "/trust/:userId",
-        "/community-trust/:communityId",
+        {
+          "method": "GET",
+          "path": "/community-trust/:communityId",
+          "description": "Community trust score (ADR-040), a community_aggregate under ADR-082: caller must be an active member of a community with at least 5 active members. Every denial (unknown community, non-member, cohort < 5) returns 200 {success:true, data:null}, byte-identical across causes and identical to a permitted community with no computable score; never 404 (Sprint 129, BUG-031). A denied caller never triggers computation, including with ?recalculate=true."
+        },
         "/users/:userId/badges",
         "/feedback",
         "/reputation/provider-reviews",

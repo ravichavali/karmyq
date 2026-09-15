@@ -209,7 +209,7 @@ created through the public API.)
 | Method | Path | Change |
 |---|---|---|
 | POST | `/auth/demo-session` | **Contract unchanged.** Same 503, same code, same body. Server-side logging only. |
-| GET | `/reputation/community-trust/:communityId` | `404 AGGREGATE_NOT_AVAILABLE` → `200 { success: true, data: { aggregate: null } }` for **all three denial causes** (unknown community, non-member, undersized cohort), which stay byte-identical. The uncomputed path is unchanged — it already returns 200 after calculating on demand. |
+| GET | `/reputation/community-trust/:communityId` | `404 AGGREGATE_NOT_AVAILABLE` → `200 { success: true, data: null }` *(shipped shape; the draft said `data: { aggregate: null }`, which is truthy and would have rendered an empty steward trust panel, see ADR-082 Sprint 129 amendment)* for **all three denial causes** (unknown community, non-member, undersized cohort), which stay byte-identical. The uncomputed path is unchanged — it already returns 200 after calculating on demand. |
 
 ---
 

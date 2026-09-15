@@ -548,3 +548,20 @@ whose state table would port across directly.
 
 ---
 
+
+## [2026-09-14] architecture
+
+**Batch the `/communities` community-trust fan-out into one request.** After BUG-031 the per-card
+calls no longer error, but the page still makes one `GET /reputation/community-trust/:id` per card
+(N+1, `pages/communities/index.tsx:124`). A batch read, for example
+`GET /reputation/community-trust?ids=…`, would collapse that to one call.
+
+It was deferred from Sprint 129 because it changes reputation-service's public surface. It also has
+a privacy constraint that a naive batch would break: the response must not reveal which ids were
+unknown, non-member or undersized. Every denied id must come back exactly as a permitted id with no
+score does (`null`), and the batch must not echo, drop or reorder ids in a way that separates those
+cases. Carry the cross-cause equality test from
+`services/reputation-service/tests/regression/sprint-129-community-aggregate.test.ts` over to it. BUG-043
+(the double fetch) is the cheaper win and should land first.
+
+---

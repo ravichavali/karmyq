@@ -39,10 +39,11 @@ function denyNotFound(res: Response) {
   return res.status(404).json({ success: false, message: 'Reputation not found', error: 'REPUTATION_NOT_FOUND' });
 }
 
-// Community aggregates are membership + cohort gated (ADR-082). Non-member and undersized-cohort
-// both return the same 404 so we never reveal which — or that the community exists.
+// Community aggregates are membership + cohort gated (ADR-082). Unknown community, non-member and
+// undersized cohort all get this empty state, the same as a permitted caller with no score (BUG-031).
+// Do not branch in here: one shared exit is what keeps the causes identical.
 function denyAggregate(res: Response) {
-  return res.status(404).json({ success: false, message: 'Community aggregate not available', error: 'AGGREGATE_NOT_AVAILABLE' });
+  return res.json({ success: true, data: null });
 }
 
 // GET /reputation/me/community-summary?community_id= — Sprint 112 (ADR-082) canonical self summary.

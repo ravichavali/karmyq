@@ -1,9 +1,11 @@
 # Sprint 129 — Maintenance: demo, dependencies, bugs — Handoff
 
-**Date**: 2026-09-12 · **Revised**: 2026-09-14
-**Outcome**: PR A **MERGED and DEPLOYED** (`b22dbf15`, #235, v11.51.0). **PR B implementation
-COMPLETE** on `feature/sprint-129-deps` (v11.52.0), all four gates run — **OPEN as [#237](https://github.com/ravichavali/karmyq/pull/237), CI green, BLOCKED on REVIEW_REQUIRED (agent cannot merge).**
-The six Dependabot PRs carry a comment linking #237 (left open until merge). PR C not started.
+**Date**: 2026-09-12 · **Revised**: 2026-09-15
+**Outcome**: PR A **MERGED and DEPLOYED** (`b22dbf15`, #235, v11.51.0). **PR B MERGED and DEPLOYED**
+(`df501a8e`, #237, v11.52.0) — post-merge verified 2026-09-15: Deploy to Demo job success,
+**0 open Dependabot alerts** (#151/#157/#159 fixed, #150 dismissed → BUG-041), `expo-sdk-drift.yml`
+green on `df501a8e` (run 34923248008), #234 closed, all six carried Dependabot PRs closed,
+`POST /api/auth/demo-session` → 200. **PR C (BUG-031) implementation COMPLETE**, all three gates run, OPEN as [#240](https://github.com/ravichavali/karmyq/pull/240) (v11.53.0). Independent review 2026-09-14 at `4811ee9c`: **no blocking code/security findings**, `data: null` deviation confirmed correct, 248/248 affected tests + doc/disclosure checks re-run green; its two doc corrections (handoff reconciliation, registry contract) are integrated. **Awaiting the required approving review + merge authorization** (agent cannot merge).
 **Task E verified on GitHub; BUG-040 closed** (2026-09-14, evidence below).
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router — there is no second machine.
@@ -22,22 +24,36 @@ hits it**; clear the dependency and security backlog to zero open alerts; silenc
 
 | Field | Value |
 |---|---|
-| **Branch** | `feature/sprint-129-deps` off `origin/master` at `b22dbf15`. Read the head with `git rev-parse --short HEAD`; a sha written here goes stale. |
-| **Version** | Bumped to **v11.52.0** from master's v11.51.0 — **re-check against `origin/master` at merge time** (re-bump if PR C lands first). |
+| **Branch** | **PR C:** `feature/sprint-129-community-aggregate` off `origin/master` at `df501a8e`. Read the head with `git rev-parse --short HEAD`. |
+| **Version** | PR C bumped to **v11.53.0** from master v11.52.0 — **re-check against `origin/master` at merge time**. |
+| **PR B** | [#237](https://github.com/ravichavali/karmyq/pull/237) — merged `df501a8e`, deployed |
 | **PR A** | [#235](https://github.com/ravichavali/karmyq/pull/235) — merged `b22dbf15`, deployed |
-| **Active editor** | PR B chat (Windows), 2026-09-14 |
-| **Shared resources** | ✅ **Dependency lane HELD by the PR B chat** (maintainer-designated 2026-09-14) — **release it once PR B merges.** No demo-server operation needed or authorized. |
+| **Active editor** | Claude (Sprint 129 PR C chat, 2026-09-14) |
+| **Shared resources** | **Dependency lane RELEASED** (PR B merged 2026-09-15). PR C touches no manifests; ask the maintainer before any. No demo-server operation needed or authorized. |
 
 ## Quick Start
 
-1. `git fetch origin`; confirm `origin/master` is still `b22dbf15` (else merge it in — merge commit).
-2. PR B is open (#237), pushed with `SKIP_PREPUSH=1` by maintainer authorization (parallel hook OOM; serial 26/26 at `1e171406`). After merge, close any of
-   #223 #231 #216 #217 #212 #211 Dependabot has not auto-closed.
-3. After merge: verify alerts #151/#157/#159 auto-close (`gh api .../dependabot/alerts?state=open`
-   should list **zero**), close issue #234 once `expo-sdk-drift.yml` runs green.
-4. Then PR C — plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md), **Task C1**.
+1. `git fetch origin`; confirm `origin/master` is `df501a8e` or later (else merge it in — merge commit).
+2. `git switch feature/sprint-129-community-aggregate` (local, off `df501a8e`).
+3. PR C is open as [#240](https://github.com/ravichavali/karmyq/pull/240). Remaining: required review, merge authorization, then Task D/E for PR C (watch the **Deploy to Demo job**; smoke `POST /api/auth/login` + `/demo-session`; load `/communities` as `maria.reyes` and confirm **zero** console errors — Task C4, only possible after deploy).
+4. Sprint closes after PR C merges and C4 is verified: archive this handoff, update the sprint memory.
+5. **Queued for Sprint 130** (review recommendation 2026-09-14: Sprint 129’s remaining scope is PR C deployment verification only). Also BUG-042 and BUG-043. Items: Dependabot #239 (two dev patch bumps — needs the dependency lane designated), code-scanning #540–#542 (`js/log-injection`, geocoding-service) and #578 (`js/file-access-to-http`, `scripts/check-image-size-upstream.js`, likely dismiss with justification). The seven majors #224–#230 stay separately planned. 0 open Dependabot security alerts as of 2026-09-14.
 
-## PR B — task status (all complete)
+## PR C — task status
+
+| Task | Result |
+|---|---|
+| C1 TDD | `services/reputation-service/tests/regression/sprint-129-community-aggregate.test.ts` — DB modelled as data; unknown / non-member / undersized compared byte-for-byte to EACH OTHER and to permitted-but-unscored; denied caller never reads or computes (incl. `?recalculate=true`). Red for the right reason, then green. |
+| C2 response | `denyAggregate` → `200 { success: true, data: null }`. **Deviation from plan:** not `data: { aggregate: null }` — that object is truthy and `StewardRequestsAdmin.tsx:317` would render a fake "0 / 40" panel; `data: null` is also what the permitted-unscored path already returned. Spec + plan annotated. `routes/health.ts` has its OWN `denyAggregate` (community-health, milestones, network-metrics) — deliberately unchanged, still 404. Sprint 112 regression cases moved to the new contract. |
+| C3 frontend | `api.ts` untouched (passthrough; line shifts re-raise the CodeQL FP). `pages/communities/index.tsx` read `data.data.score` — always undefined after the unwrap, so the trust badge NEVER rendered; now `data.score`. `useCommunityData.ts:153` already handled null. Test: `apps/frontend/tests/tdd/sprint-129-community-trust-empty-state.test.tsx`. |
+| C4 storm gone | **Pending deploy** — cannot be verified pre-merge. |
+| C5 docs | reputation `CONTEXT.md`; `services/registry.json` `/community-trust/:communityId` now an object entry describing the null-denial contract (added after review — a response-contract change is not exempt); ADR-082 Sprint 129 amendment + index; BUGS.md BUG-031 fixed with corrected references; **BUG-042** (People tab fans out to self-only `/trust/:userId/:communityId`, N−1 404s) and **BUG-043** (`/communities` double-fetches when persisted mode is interests) filed; IDEAS.md batching (with its privacy constraint); both admin guides corrected (score is members-only, cohort ≥5). |
+| C6 gates | `/simplify` (4 angles; 6 cleanups applied, shared-helper extraction skipped — the two exits now carry different contracts); `/code-review` medium — no findings; `/security-review` — no findings (verified no nginx caching on `/api/reputation`). |
+| C7 verify | tsc clean (reputation-service, frontend); serial `npx turbo run test --concurrency=1 --force` → **26/26 tasks successful, exit 0**; promoter exit 0. The backend test was auto-promoted to `tests/regression/` (refs updated). The promoter ALSO moved five unrelated tdd files (PR A auth x2, Sprint 125 x3) — **reverted to keep PR C scoped; they remain promotable in a later PR**. The frontend `.tsx` test stays in `tdd/` (BUG-033). Landing timestamp churn (`architecture.json`, `build.json`) reverted; content-bearing regenerations kept. Version → v11.53.0. |
+
+**Gotchas hit:** root `jest.config.js` has `resetMocks: true` (wipes `jest.fn` implementations — install fakes in `beforeEach`); the frontend jest config does NOT clear mocks between tests (call counts accumulate — `jest.clearAllMocks()`).
+
+## PR B — task status (all complete, merged `df501a8e`)
 
 | Task | Result |
 |---|---|
@@ -151,8 +167,8 @@ not used as closure evidence. Story rotation remains an operator obligation when
 | PR | Branch | Scope | State |
 |---|---|---|---|
 | **A** | `feature/sprint-129-demo-session` | BUG-039 restore + diagnosability + BUG-040 monitor | **MERGED** `b22dbf15` (#235), deployed — Task E verified, BUG-040 closed |
-| **B** | `feature/sprint-129-deps` | 6 Dependabot PRs, 4 security alerts, Expo SDK drift (#234) | **OPEN [#237](https://github.com/ravichavali/karmyq/pull/237)** (v11.52.0), CI green — awaiting review + maintainer merge |
-| **C** | `feature/sprint-129-community-aggregate` | BUG-031: the `/communities` 404 storm | not started — branch after B merges |
+| **B** | `feature/sprint-129-deps` | 6 Dependabot PRs, 4 security alerts, Expo SDK drift (#234) | **MERGED** `df501a8e` (#237, v11.52.0), deployed, post-merge verified |
+| **C** | `feature/sprint-129-community-aggregate` | BUG-031: the `/communities` 404 storm | **OPEN** [#240](https://github.com/ravichavali/karmyq/pull/240), v11.53.0 — reviewed (no blocking findings), awaiting approval + merge authorization; C4 verifies after deploy |
 
 ⚠️ **One merge at a time.** Every master push is a full deploy; overlapping deploys restart services
 and 502 the demo — the thing this sprint is fixing.
@@ -368,7 +384,7 @@ only for the uncomputed case would leak what ADR-082 hides.
 - **`enforce_admins: false`** on `master`. Six required checks and one required approval are all
   admin-bypassable, yet the review requirement is also what stalls every sprint's end: the PR author
   and the authenticated account are the same, so the required approval can never be self-provided.
-  **This has shaped the end of four consecutive sprints** — PR #235 has merged; #237 currently awaits review.
+  **This has shaped the end of four consecutive sprints** — PRs #235 and #237 have merged; #240 currently awaits review.
   One API call either way.
 - **`apps/landing/src/data/docs/` is only PARTIALLY git-tracked.** `apps/landing/.gitignore:2`
   ignores the directory, but ~160 files were committed before that and remain tracked; ADRs 095+ are
