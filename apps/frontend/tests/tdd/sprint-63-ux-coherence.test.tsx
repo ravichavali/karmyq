@@ -57,7 +57,6 @@ const baseCommunity: any = {
 const baseActiveTabProps = {
   community: baseCommunity,
   norms: [],
-  memberTrustScores: {},
   currentUser: { id: 'admin-1' },
   isAdmin: true,
   isAdminOrMod: true,

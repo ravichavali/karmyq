@@ -6,9 +6,9 @@ Karmyq starts with geography because mutual aid is fundamentally local — the p
 
 ## Your Communities
 
-At the top of the communities page, you'll see a **Your Communities** strip listing every community you've already joined. Each chip is a direct link to that community's page, and shows your role (member, admin, etc.) as a small badge.
+At the top of the communities page, you'll see a **Your Communities** strip listing every community you've already joined. Each chip is a direct link to that community's page, and shows your role (member, admin, etc.) as a small badge. A community with at least five active members also shows its **★ N% trust** score on the chip.
 
-This strip is populated entirely from the information in your login token — no extra API call is made. It updates when you log in or rejoin, and disappears when you're not signed in or haven't joined any communities yet.
+The list itself comes from your login token, so no extra call is needed to build it; only the trust scores are fetched, and only for the communities you belong to. It updates when you log in or rejoin, and disappears when you're not signed in or haven't joined any communities yet.
 
 Communities in this strip are automatically excluded from the discover grid below it, so you only see new communities to explore.
 
@@ -59,7 +59,7 @@ Admins set their community's tags from the community admin page (Settings tab). 
 
 ## Your Discovery Mode Persists
 
-The toggle you choose (Geography or By Interest) is saved in your browser. The next time you open the communities page, you'll return to whichever mode you were using last.
+The toggle you choose (Near Me or By Interest) is saved in your browser when you click it. The next time you open the communities page, you'll return to whichever mode you were using last.
 
 This uses your browser's `localStorage` — it's device-specific and doesn't sync across devices or browsers.
 

@@ -177,3 +177,19 @@ own `404 AGGREGATE_NOT_AVAILABLE`. None is fanned out per list item, and changin
 scope. The self-only `404 REPUTATION_NOT_FOUND` contract is also untouched, including for
 `GET /trust/:userId/:communityId`. Its un-migrated per-member client caller is tracked as BUG-042,
 and the fix there is to remove the fan-out, not to change the status.
+
+## Sprint 130 note (2026-09-15): the client stops asking for what it cannot be given
+
+No server contract changed. Two client fan-outs that this ADR guarantees will be denied were removed
+instead:
+
+- **`/communities`** asked for the community-trust aggregate of every card in the discovery grid. That
+  grid only shows communities the caller has **not** joined, and the aggregate is granted only to an
+  active member, so every one of those requests was denied (BUG-044). The page now asks only for the
+  caller's joined communities and shows the badge on their "Your Communities" chips.
+- **The community People tab** asked for `GET /trust/:userId/:communityId` for every active member.
+  That route is self-only and answers `404 REPUTATION_NOT_FOUND` for anyone else (BUG-042). The
+  per-member fan-out and its score pill are gone; the self-only 404 is unchanged.
+
+The Sprint 113 description of those per-member 404s as expected during a client migration window is
+now historical: the migration is complete. Regression coverage: `apps/frontend/tests/regression/sprint-130-reputation-fanout.test.tsx`.

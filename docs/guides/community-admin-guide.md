@@ -81,7 +81,7 @@ From the **Requests** tab (admins only), you can browse all requests in your com
 
 ## Community Trust Score
 
-Your community has a trust score (0–100). Members see it as a "★ N% trust" badge on the community discovery page once the community has at least five active members. It is a community aggregate, so people outside the community, and communities too small for the number to stay anonymous, show no badge (ADR-082). It reflects the quality and depth of exchanges in your community — not just how many members you have. Communities with consistent, well-reviewed exchanges build higher trust scores over time.
+Your community has a trust score (0–100). Members see it as a "★ N% trust" badge on that community's chip in the **Your Communities** strip at the top of the discovery page, once the community has at least five active members. It is a community aggregate, so it is shown only to members: communities you have not joined, and communities too small for the number to stay anonymous, show no badge (ADR-082). It reflects the quality and depth of exchanges in your community — not just how many members you have. Communities with consistent, well-reviewed exchanges build higher trust scores over time.
 
 The score is calculated from member trust signals and updated periodically. You cannot set it manually; it reflects what actually happens in your community.
 

@@ -64,7 +64,6 @@ export function useCommunityData(communityId: string | undefined) {
   const [networkMetrics, setNetworkMetrics] = useState<any>(null)
   const [communityRequests, setCommunityRequests] = useState<any[]>([])
   const [loadingRequests, setLoadingRequests] = useState(false)
-  const [memberTrustScores, setMemberTrustScores] = useState<Record<string, number | null>>({})
   const [communityCollectives, setCommunityCollectives] = useState<any[]>([])
 
   useEffect(() => {
@@ -185,20 +184,6 @@ export function useCommunityData(communityId: string | undefined) {
     }
   }
 
-  const fetchMemberTrustScores = async (members?: Member[]) => {
-    const activeMembers = (members ?? community?.members ?? []).filter((m: any) => m.status === 'active')
-    if (!activeMembers.length || !communityId) return
-    const results = await Promise.allSettled(
-      activeMembers.map((m: any) => reputationService.getTrustScore(m.user_id, communityId))
-    )
-    const scores: Record<string, number | null> = {}
-    activeMembers.forEach((m: any, i: number) => {
-      const r = results[i]
-      scores[m.user_id] = r.status === 'fulfilled' ? (r.value.data?.data?.score ?? null) : null
-    })
-    setMemberTrustScores(scores)
-  }
-
   const fetchCommunityCollectives = async () => {
     if (!communityId) return
     try {
@@ -218,7 +203,8 @@ export function useCommunityData(communityId: string | undefined) {
     communityTrust, loadingTrust,
     networkMetrics,
     communityRequests, loadingRequests,
-    memberTrustScores,
+    // Sprint 130 (BUG-042): no per-member trust scores. They are self-only under ADR-082, so the
+    // People tab's fan-out could only be denied for every other member.
     communityCollectives,
     refetchCommunity: fetchCommunity,
     refetchNorms: fetchNorms,
@@ -226,7 +212,6 @@ export function useCommunityData(communityId: string | undefined) {
     refetchCommunityTrust: fetchCommunityTrust,
     refetchNetworkMetrics: fetchNetworkMetrics,
     refetchCommunityRequests: fetchCommunityRequests,
-    refetchMemberTrustScores: fetchMemberTrustScores,
     refetchCommunityCollectives: fetchCommunityCollectives,
   }
 }

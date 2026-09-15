@@ -49,7 +49,6 @@ const mockCommunityData = {
   networkMetrics: null,
   communityRequests: [],
   loadingRequests: false,
-  memberTrustScores: {},
   communityCollectives: [],
   refetchCommunity: jest.fn(),
   refetchNorms: jest.fn(),
@@ -57,7 +56,6 @@ const mockCommunityData = {
   refetchCommunityTrust: jest.fn(),
   refetchNetworkMetrics: jest.fn(),
   refetchCommunityRequests: jest.fn(),
-  refetchMemberTrustScores: jest.fn(),
   refetchCommunityCollectives: jest.fn(),
 }
 

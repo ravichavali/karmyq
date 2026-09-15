@@ -896,7 +896,7 @@ Re-check trigger: expo-router drops `query-string@7`, or the SDK 58 migration �
 
 ---
 
-## BUG-042 · [2026-09-14] · open
+## BUG-042 · [2026-09-14] · fixed (Sprint 130 PR A)
 
 **The community People tab fans out to a self-only endpoint, one 404 per member.**
 `pages/communities/[id].tsx:80` calls `refetchMemberTrustScores()` whenever the People tab opens.
@@ -916,9 +916,16 @@ Fix shape: remove the fan-out. The People tab must not ask for other members' ex
 aggregate denial, this 404 is the self-only disclosure contract. Found while fixing BUG-031 (Sprint
 129 PR C); left out of that PR by the sprint's scope decision.
 
+**Fixed (Sprint 130 PR A):** the fan-out, `memberTrustScores`, `refetchMemberTrustScores` and the
+`ActiveTab` score pill are removed, per the maintainer decision not to show a per-member score. The
+route's self-only 404 is unchanged. Test: `apps/frontend/tests/regression/sprint-130-reputation-fanout.test.tsx` (BUG-042 block) opens the People tab on the real
+page with the real hook, after the community has loaded, and asserts no `getTrustScore` call. A cold
+`?tab=people` load would have passed even before the fix, because the old fan-out ran before
+members loaded.
+
 ---
 
-## BUG-043 · [2026-09-14] · open
+## BUG-043 · [2026-09-14] · fixed (Sprint 130 PR A)
 
 **`/communities` fetches the community list twice on load when the saved discovery mode is
 "interests".** `pages/communities/index.tsx:90` initialises `discoveryMode` to `'geography'`. The
@@ -949,9 +956,15 @@ The fix needs both halves:
 A lazy `useState(readDiscoveryMode)` is unsafe because the page is prerendered, so it would log a
 hydration mismatch. Planned in Sprint 130 PR A (Task 4).
 
+**Fixed (Sprint 130 PR A):** `DiscoveryToggle` persists only a user's click, never on mount, and the
+page's mode effect waits for `modeResolved` before its first fetch. With the real toggle, saved
+`interests` survives mount with exactly one list request; saved `geography` (position granted,
+denied, or no geolocation) also fetches exactly once. Reverting the fetch gate doubles every case.
+Test: `apps/frontend/tests/regression/sprint-130-reputation-fanout.test.tsx` (BUG-043 block).
+
 ---
 
-## BUG-044 · [2026-09-15] · open
+## BUG-044 · [2026-09-15] · fixed (Sprint 130 PR A)
 
 **The `/communities` trust badge can never render on a discovery card, so the per-card
 community-trust fan-out is a guaranteed denial every time.** Found during Sprint 129 PR C's live C4
@@ -986,5 +999,11 @@ Fix shape is a product decision:
 
 Either way, never fetch an aggregate for a community the page already knows the caller has not
 joined.
+
+**Fixed (Sprint 130 PR A), option (b):** trust is fetched for the joined ids from `user.communities`
+only, and the badge renders on the "Your Communities" chips. The discovery-card badge is removed.
+Test: `apps/frontend/tests/regression/sprint-130-reputation-fanout.test.tsx` (BUG-044 block) asserts the exact requested ids, and
+`sprint-129-community-trust-empty-state.test.tsx` was reworked onto a reachable joined-chip
+fixture. Both now run in the blocking `regression/` tier.
 
 ---

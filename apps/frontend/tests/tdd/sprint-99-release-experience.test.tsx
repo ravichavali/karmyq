@@ -145,7 +145,7 @@ describe('S99-006: People roster does not leak emails to non-admins', () => {
     ],
   }
   const baseProps: any = {
-    community, norms: [], memberTrustScores: {}, currentUser: { id: 'me' },
+    community, norms: [], currentUser: { id: 'me' },
     isMember: true, communityId: 'c1', refetchCommunity: jest.fn(), refetchNorms: jest.fn(),
   }
 

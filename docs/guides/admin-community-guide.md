@@ -53,7 +53,7 @@ The People tab consolidates member management and community norms in one place.
 
 Use the **sub-toggle** at the top of the tab to switch between two views:
 
-- **Members** — Browse all current members, see their karma and trust scores, and manage roles
+- **Members** — Browse all current members and manage roles (exact karma and trust scores stay private to each member, ADR-082)
 - **Norms** — An accordion of your community's stated norms, values, and conduct expectations
 
 This keeps community culture and membership in context with each other, since a community's norms define the expectations its members are held to.
@@ -188,7 +188,7 @@ For each enabled type, set a **karma multiplier** — how much karma helpers ear
 
 ## Community Trust Score
 
-Your community has a trust score (0–100). Members see it as a "★ N% trust" badge on the community discovery page once the community has at least five active members. It is a community aggregate, so people outside the community, and communities too small for the number to stay anonymous, show no badge (ADR-082). It reflects the quality and depth of exchanges in your community — not just how many members you have. Communities with consistent, well-reviewed exchanges build higher trust scores over time.
+Your community has a trust score (0–100). Members see it as a "★ N% trust" badge on that community's chip in the **Your Communities** strip at the top of the discovery page, once the community has at least five active members. It is a community aggregate, so it is shown only to members: communities you have not joined, and communities too small for the number to stay anonymous, show no badge (ADR-082). It reflects the quality and depth of exchanges in your community — not just how many members you have. Communities with consistent, well-reviewed exchanges build higher trust scores over time.
 
 The score is calculated from member trust signals and updated periodically. You cannot set it manually; it reflects what actually happens in your community.
 
