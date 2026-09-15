@@ -1,9 +1,11 @@
 # Sprint 129 — Maintenance: demo, dependencies, bugs — Handoff
 
-**Date**: 2026-09-12 · **Revised**: 2026-09-14
-**Outcome**: PR A **MERGED and DEPLOYED** (`b22dbf15`, #235, v11.51.0). **PR B implementation
-COMPLETE** on `feature/sprint-129-deps` (v11.52.0), all four gates run — **OPEN as [#237](https://github.com/ravichavali/karmyq/pull/237), CI green, BLOCKED on REVIEW_REQUIRED (agent cannot merge).**
-The six Dependabot PRs carry a comment linking #237 (left open until merge). PR C not started.
+**Date**: 2026-09-12 · **Revised**: 2026-09-15
+**Outcome**: PR A **MERGED and DEPLOYED** (`b22dbf15`, #235, v11.51.0). **PR B MERGED and DEPLOYED**
+(`df501a8e`, #237, v11.52.0) — post-merge verified 2026-09-15: Deploy to Demo job success,
+**0 open Dependabot alerts** (#151/#157/#159 fixed, #150 dismissed → BUG-041), `expo-sdk-drift.yml`
+green on `df501a8e` (run 34923248008), #234 closed, all six carried Dependabot PRs closed,
+`POST /api/auth/demo-session` → 200. **Next: PR C** (BUG-031) on `feature/sprint-129-community-aggregate`.
 **Task E verified on GitHub; BUG-040 closed** (2026-09-14, evidence below).
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router — there is no second machine.
@@ -22,22 +24,21 @@ hits it**; clear the dependency and security backlog to zero open alerts; silenc
 
 | Field | Value |
 |---|---|
-| **Branch** | `feature/sprint-129-deps` off `origin/master` at `b22dbf15`. Read the head with `git rev-parse --short HEAD`; a sha written here goes stale. |
-| **Version** | Bumped to **v11.52.0** from master's v11.51.0 — **re-check against `origin/master` at merge time** (re-bump if PR C lands first). |
+| **Branch** | **PR C:** `feature/sprint-129-community-aggregate` off `origin/master` at `df501a8e` — local, holds only this handoff update. |
+| **Version** | master is **v11.52.0**; PR C bumps at merge time from `origin/master`. |
+| **PR B** | [#237](https://github.com/ravichavali/karmyq/pull/237) — merged `df501a8e`, deployed |
 | **PR A** | [#235](https://github.com/ravichavali/karmyq/pull/235) — merged `b22dbf15`, deployed |
-| **Active editor** | PR B chat (Windows), 2026-09-14 |
-| **Shared resources** | ✅ **Dependency lane HELD by the PR B chat** (maintainer-designated 2026-09-14) — **release it once PR B merges.** No demo-server operation needed or authorized. |
+| **Active editor** | unassigned — PR C starts in a fresh chat |
+| **Shared resources** | **Dependency lane RELEASED** (PR B merged 2026-09-15). PR C touches no manifests; ask the maintainer before any. No demo-server operation needed or authorized. |
 
 ## Quick Start
 
-1. `git fetch origin`; confirm `origin/master` is still `b22dbf15` (else merge it in — merge commit).
-2. PR B is open (#237), pushed with `SKIP_PREPUSH=1` by maintainer authorization (parallel hook OOM; serial 26/26 at `1e171406`). After merge, close any of
-   #223 #231 #216 #217 #212 #211 Dependabot has not auto-closed.
-3. After merge: verify alerts #151/#157/#159 auto-close (`gh api .../dependabot/alerts?state=open`
-   should list **zero**), close issue #234 once `expo-sdk-drift.yml` runs green.
-4. Then PR C — plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md), **Task C1**.
+1. `git fetch origin`; confirm `origin/master` is `df501a8e` or later (else merge it in — merge commit).
+2. `git switch feature/sprint-129-community-aggregate` (local, off `df501a8e`).
+3. Plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md) — **start at Task C1** (TDD first). Read critical notes 10–11 below before touching `reputation.ts`.
+4. Sprint closes after PR C merges: archive this handoff, update the sprint memory.
 
-## PR B — task status (all complete)
+## PR B — task status (all complete, merged `df501a8e`)
 
 | Task | Result |
 |---|---|
@@ -151,8 +152,8 @@ not used as closure evidence. Story rotation remains an operator obligation when
 | PR | Branch | Scope | State |
 |---|---|---|---|
 | **A** | `feature/sprint-129-demo-session` | BUG-039 restore + diagnosability + BUG-040 monitor | **MERGED** `b22dbf15` (#235), deployed — Task E verified, BUG-040 closed |
-| **B** | `feature/sprint-129-deps` | 6 Dependabot PRs, 4 security alerts, Expo SDK drift (#234) | **OPEN [#237](https://github.com/ravichavali/karmyq/pull/237)** (v11.52.0), CI green — awaiting review + maintainer merge |
-| **C** | `feature/sprint-129-community-aggregate` | BUG-031: the `/communities` 404 storm | not started — branch after B merges |
+| **B** | `feature/sprint-129-deps` | 6 Dependabot PRs, 4 security alerts, Expo SDK drift (#234) | **MERGED** `df501a8e` (#237, v11.52.0), deployed, post-merge verified |
+| **C** | `feature/sprint-129-community-aggregate` | BUG-031: the `/communities` 404 storm | **NEXT** — branch exists locally off `df501a8e`, start at Task C1 |
 
 ⚠️ **One merge at a time.** Every master push is a full deploy; overlapping deploys restart services
 and 502 the demo — the thing this sprint is fixing.
