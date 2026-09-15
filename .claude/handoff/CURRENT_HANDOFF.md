@@ -1,7 +1,7 @@
 # Sprint 130 — Stop Asking for Reputation We Can't Be Given — Handoff
 
 **Date**: 2026-09-15
-**Outcome**: **PR A IMPLEMENTED** on `feature/sprint-130-maintenance` (Tasks 1–9): code, tests, docs and all three gates done; full serial suite green (26/26 turbo tasks, exit 0), v11.54.0 bumped; **PR #241 open**, awaiting checks + merge authorization. PR B not started (branches after PR A merges and deploys).
+**Outcome**: **PR A SHIPPED v11.54.0** (#241, squash `8e940560`, Deploy to Demo job success, live-verified 2026-09-15). **PR B READY** on `feature/sprint-130-security`: log-injection fix + test, #578 dismissed, #239 spliced, docs, all gates clean (code-review medium: 0 findings), full suite 26/26, v11.55.0.
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router: there is no second machine.
 > This file is branch-local and reserves nothing. Contended resources are allocated by the
@@ -31,7 +31,7 @@ to **0 open code-scanning alerts**.
 | **Branch (PR A)** | `feature/sprint-130-maintenance` off `origin/master` at `6752f925`. It already holds the Sprint 129 close-out (`71b4efe8`: archived handoff, BUG-031 verified, BUG-044 filed) plus this planning commit. |
 | **Branch (PR B)** | `feature/sprint-130-security`, branched from `origin/master` **after PR A merges and deploys**. |
 | **Version** | master is **v11.53.0**. PR A → **v11.54.0 (bumped on the branch)**, PR B → v11.55.0, each re-derived from `origin/master` at merge time. |
-| **Active editor** | Claude (Windows box), executing PR A |
+| **Active editor** | Claude (Windows box), executing PR B |
 | **Shared resources** | **Claude holds the dependency lane for PR B** (maintainer decision 2026-09-15). PR A touches no manifests. No demo-server data operation is needed; the live checks are read-only browser loads as `maria.reyes`. |
 
 ## Quick Start
@@ -44,6 +44,43 @@ to **0 open code-scanning alerts**.
 3. Open the plan: [`docs/superpowers/plans/2026-09-15-sprint-130-maintenance.md`](../../docs/superpowers/plans/2026-09-15-sprint-130-maintenance.md)
 4. Run `/execute-plan` (uses superpowers:subagent-driven-development). **Start at Task 1**, and
    write the tests first (Task 2).
+
+## PR A post-deploy verification (2026-09-15) — PASSED
+
+- #241 merged as `8e940560`; CI/CD run 35016914690 success, **Deploy to Demo job success**; master v11.54.0.
+- Smoke: `POST /api/auth/login` 200, `POST /api/auth/demo-session` 200.
+- Browser as `maria.reyes` at 1440px, fresh login, saved mode seeded to `interests`:
+  - `/communities` (first load AND reload): **0 console errors**; **exactly 6** community-trust requests,
+    equal to her 6 joined ids (was 37 discovery-card requests); **one** `GET /communities`; all 6 chips
+    badged (★ 2/1/17/18/5/4% trust); 0 discovery cards with a badge; storage still `interests` and
+    "By Interest" `aria-pressed=true` after reload.
+  - Portland Mutual Aid Network People tab (157 members), opened after load: **0 `/reputation/trust/`
+    requests**, 0 score pills, 0 errors on open.
+- Found, pre-existing, out of scope: that community page logs 2 console errors on load from
+  `GET /communities/:id/config` → 404 → filed as **BUG-045** (rides PR B).
+- The login page's 6 errors in the Playwright profile were a stale expired token from an earlier
+  session, gone after a fresh login.
+
+## PR B execution record (2026-09-15, in progress)
+
+- Branch `feature/sprint-130-security` off `origin/master` `8e940560`.
+- Baseline: open code-scanning exactly #540, #541, #542, #578; 0 open Dependabot alerts.
+  `npm ls --all | grep -c invalid` prints **15** on this box, but that counts tree lines (deduped
+  repeats plus `character-reference-invalid`). **Distinct** `npm error invalid:` packages = **3**
+  (color-string, ms, picomatch), matching the plan's baseline. Compare distinct counts.
+- **#540–#542:** `tests/regression/sprint-130-log-injection.test.js` (11 cases: `\n`, `\r\n`, U+2028 on
+  miss/hit/cached paths + cache-key contract). Red pre-fix (6 hostile log cases + the normal-query log
+  line); contract cases green before and after. Fix: the three log lines use `normalized`. Geocoding
+  suite 18/18.
+- **#578:** dismissed once as false positive (host fixed to `api.github.com`; package name from the
+  repo's own file, URL-encoded). 170-char comment.
+- **#239:** spliced by script, 13 lock lines + 3 manifests. Semantically identical to #239's head lock for
+  every changed entry, except two deliberate skips: Dependabot rewrote the tests workspace pin to
+  `^2.9.1` (kept exact `2.9.1`, matching the manifest) and the lock root version (not bumped, as in
+  previous sprints). Its `expo/node_modules/*` reordering was key-order-only. Strict
+  `npx -y npm@11.19.0 ci` exit 0 (lock unchanged); distinct invalids 3; `eslint-config-next@16.3.5`, `yaml@2.9.1` single versions; `next` 15.5.24 unchanged; eslint counts on PR A files identical to 16.3.4.
+- **Tooling trap hit twice:** escape sequences typed into sed/Write/node -e (`\n`, `\u2028`) became literal
+  characters and broke files. Use `String.fromCharCode` or line-index rewrites for such content.
 
 ## PR A execution record (2026-09-15)
 
@@ -123,8 +160,8 @@ application code changed.
 
 | PR | Branch | Scope | State |
 |---|---|---|---|
-| **A** | `feature/sprint-130-maintenance` | BUG-044 (badge on joined chips, no discovery fan-out), BUG-043 (one list fetch), BUG-042 (remove per-member score pill and fan-out), plus doc corrections | **OPEN as [#241](https://github.com/ravichavali/karmyq/pull/241)**, gates done; next: checks green → explicit merge auth (`--admin`) → deploy → live check (Task 10) |
-| **B** | `feature/sprint-130-security` | #540–#542 log-injection fix, #578 dismissal, #239 surgical dependency bump | after PR A deploys |
+| **A** | `feature/sprint-130-maintenance` | BUG-044, BUG-043, BUG-042 + doc corrections | **SHIPPED** v11.54.0 (#241, `8e940560`), live-verified |
+| **B** | `feature/sprint-130-security` | #540–#542 log-injection fix, #578 dismissal, #239 surgical dependency bump | **Tasks 11–17 done**, suite 26/26, v11.55.0 bumped; PR opening → CodeQL PR-head evidence → merge auth → deploy → master rescan |
 
 ⚠️ **One merge at a time.** Every master push is a full deploy.
 
