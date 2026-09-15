@@ -31,6 +31,7 @@ jest.mock('@/lib/api', () => ({
     getNorms: jest.fn(),
     getConfig: jest.fn(),
     getSettings: jest.fn(),
+    joinCommunity: jest.fn(),
   },
   requestService: {},
   collectiveService: {},
@@ -158,6 +159,40 @@ describe('BUG-044: trust is fetched for joined communities and badged on their c
     // No discovery card carries a badge: the only badge on the page is the chip's.
     expect(screen.getAllByText(/% trust/)).toHaveLength(1)
     expect(consoleError).not.toHaveBeenCalled()
+  })
+
+  it('a slow request from before a join cannot wipe the newly joined chip badge', async () => {
+    // Round one (before the join) is held open; round two (after the join) answers at once.
+    const heldRoundOne: Array<() => void> = []
+    let joined = false
+    reputationService.getCommunityTrust.mockImplementation((id: string) => {
+      const answer = { data: SCORES[id] != null ? { community_id: id, score: SCORES[id] } : null }
+      if (joined) return Promise.resolve(answer)
+      return new Promise(resolve => heldRoundOne.push(() => resolve(answer)))
+    })
+    const payload = { communities: [...USER.communities, { id: D1.id, name: D1.name, role: 'member' }] }
+    const token = `h.${Buffer.from(JSON.stringify(payload)).toString('base64url')}.s`
+    communityService.joinCommunity.mockImplementation(() => {
+      joined = true
+      return Promise.resolve({ data: { token } })
+    })
+
+    render(<CommunitiesPage />)
+    await screen.findByText(D1.name)
+    await settle()
+    expect(heldRoundOne).toHaveLength(2)
+
+    await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: 'Join Community' })[0]) })
+    const chips = screen.getByTestId('your-communities')
+    await waitFor(() =>
+      expect(within(chips).getByRole('link', { name: /Oakland Tool Library/ })).toHaveTextContent('★ 48% trust'),
+    )
+
+    // The stale round now lands, and must not overwrite the newer scores.
+    await act(async () => { heldRoundOne.forEach(release => release()) })
+    await settle()
+    expect(within(chips).getByRole('link', { name: /Oakland Tool Library/ })).toHaveTextContent('★ 48% trust')
+    expect(within(chips).getByRole('link', { name: /Maplewood Mutual Aid/ })).toHaveTextContent('★ 62% trust')
   })
 
   it('asks for nothing when the member has joined no community', async () => {

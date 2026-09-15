@@ -209,8 +209,11 @@ export default function CommunitiesPage() {
   const joinedIdsKey: string = (user?.communities ?? []).map((c: { id: string }) => c.id).join(',')
   useEffect(() => {
     if (!joinedIdsKey) return
+    // A superseded request (memberships changed, e.g. after a join) must not overwrite newer scores.
+    let stale = false
     const communityIds = joinedIdsKey.split(',')
     Promise.allSettled(communityIds.map(id => reputationService.getCommunityTrust(id))).then(results => {
+      if (stale) return
       const scores: TrustScores = {}
       communityIds.forEach((id, i) => {
         const result = results[i]
@@ -220,6 +223,7 @@ export default function CommunitiesPage() {
       })
       setTrustScores(scores)
     })
+    return () => { stale = true }
   }, [joinedIdsKey])
 
   // Initial mount: auth check + read persisted mode + fetch tags
