@@ -212,7 +212,7 @@ describe('communities welcome-flow first join', () => {
       data: { communities: [COMMUNITY], fallback: false },
     })
     communityService.joinCommunity.mockResolvedValue({ data: { token: undefined } })
-    reputationService.getCommunityTrust.mockResolvedValue({ data: { data: { score: null } } })
+    reputationService.getCommunityTrust.mockResolvedValue({ data: null })
   })
 
   it('routes the first public join to /welcome with arrival context and does NOT pre-set any onboarded key', async () => {

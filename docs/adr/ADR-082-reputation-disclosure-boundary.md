@@ -71,6 +71,7 @@ fields. UI copy standardizes on **Reputation score** (0–100) and **Current kar
 - Cross-user reads of `:userId` reputation/config endpoints return ADR-074 `404 REPUTATION_NOT_FOUND`
   (not 403 — we do not confirm a user has reputation data). No admin exception on trust-config.
 - Community aggregates require active membership + ≥5 cohort, else `404 AGGREGATE_NOT_AVAILABLE`.
+  *(Community-trust only: amended in Sprint 129 to `200 { data: null }`. See the amendment at the end.)*
 - The member leaderboard is retired: `410 REPUTATION_LEADERBOARD_RETIRED`, no rows.
 - `GET /trust/edge` is retired: `410 TRUST_EDGE_ENDPOINT_RETIRED` (internal `getTrustEdge()` kept).
 - Person graph nodes/links, trust cards, paths, invitations, governance, and exports carry identity,
@@ -147,3 +148,32 @@ These are validated by a two-user check (non-zero sentinels) before ADR-082 flip
 Two ordered PRs: **PR A** (this) ships the API-enforced boundary + CI gate + canonical self summary
 + frontend contract alignment. **PR B** adds My Network navigation prominence, the Home preview, the
 shared self-summary UI, and retires the leaderboard UI — built only on PR A's safe contracts.
+
+## Sprint 129 amendment (2026-09-14): a denied community-trust aggregate is an empty state
+
+`GET /reputation/community-trust/:communityId` no longer denies with `404 AGGREGATE_NOT_AVAILABLE`.
+It answers **`200 { "success": true, "data": null }`** (BUG-031).
+
+**Why.** `/communities` asks for this aggregate once per card. For every card the caller may not see,
+the 404 surfaced as a console error: 32 on a single demo page load. Denial is the normal case on a
+discovery page, since most cards are communities the caller doesn't belong to, so it was being
+transported as a failure.
+
+**What is preserved, and how it is proven.** The property this ADR cares about is that the caller
+cannot tell *why* there is no aggregate. `checkAggregateAccess` denies an unknown community, a
+non-member and an undersized cohort alike, and all three still reach one shared exit
+(`denyAggregate` in `routes/reputation.ts`), which must not branch. The new response is also exactly
+what a *permitted* caller already received when no score could be computed. A denial is now
+indistinguishable from a genuine empty state, which reveals strictly less than the old 404 did.
+`services/reputation-service/tests/tdd/sprint-129-community-aggregate.test.ts` compares the four
+responses to each other byte for byte, and asserts that a denied caller never reads or computes the
+aggregate, even with `?recalculate=true`.
+
+**Explicitly not done.** No `404` for "no such community": that would make existence observable,
+which is exactly the leak this ADR prevents.
+
+**Unchanged.** `community-health`, `milestones` and `network-metrics` (`routes/health.ts`) keep their
+own `404 AGGREGATE_NOT_AVAILABLE`. None is fanned out per list item, and changing them was out of
+scope. The self-only `404 REPUTATION_NOT_FOUND` contract is also untouched, including for
+`GET /trust/:userId/:communityId`. Its un-migrated per-member client caller is tracked as BUG-042,
+and the fix there is to remove the fan-out, not to change the status.

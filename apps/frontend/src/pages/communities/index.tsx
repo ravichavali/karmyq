@@ -126,7 +126,9 @@ export default function CommunitiesPage() {
     const scores: TrustScores = {}
     communityIds.forEach((id, i) => {
       const result = results[i]
-      scores[id] = result.status === 'fulfilled' ? (result.value.data?.data?.score ?? null) : null
+      // The client already unwraps the envelope; data is the score row, or null when there is no
+      // aggregate this caller may see (BUG-031 — denials are an empty state, not a 404).
+      scores[id] = result.status === 'fulfilled' ? (result.value.data?.score ?? null) : null
     })
     setTrustScores(prev => ({ ...prev, ...scores }))
   }, [])

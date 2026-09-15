@@ -188,7 +188,7 @@ For each enabled type, set a **karma multiplier** — how much karma helpers ear
 
 ## Community Trust Score
 
-Your community has a public trust score (0–100) visible on the community discovery page. This reflects the quality and depth of exchanges in your community — not just how many members you have. Communities with consistent, well-reviewed exchanges build higher trust scores over time.
+Your community has a trust score (0–100). Members see it as a "★ N% trust" badge on the community discovery page once the community has at least five active members. It is a community aggregate, so people outside the community, and communities too small for the number to stay anonymous, show no badge (ADR-082). It reflects the quality and depth of exchanges in your community — not just how many members you have. Communities with consistent, well-reviewed exchanges build higher trust scores over time.
 
 The score is calculated from member trust signals and updated periodically. You cannot set it manually; it reflects what actually happens in your community.
 

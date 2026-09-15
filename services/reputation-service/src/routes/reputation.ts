@@ -39,10 +39,14 @@ function denyNotFound(res: Response) {
   return res.status(404).json({ success: false, message: 'Reputation not found', error: 'REPUTATION_NOT_FOUND' });
 }
 
-// Community aggregates are membership + cohort gated (ADR-082). Non-member and undersized-cohort
-// both return the same 404 so we never reveal which — or that the community exists.
+// Community aggregates are membership + cohort gated (ADR-082). Unknown community, non-member and
+// undersized cohort all get this one response so we never reveal which — or that the community
+// exists. Sprint 129 (BUG-031): it is the empty state `200 { data: null }`, not a 404, because
+// /communities asks once per card and a 404 per card flooded the console. It is also exactly what a
+// permitted caller gets when no score can be computed, so a denial is not distinguishable from that.
+// Do not branch in here: one shared exit is what keeps the causes identical.
 function denyAggregate(res: Response) {
-  return res.status(404).json({ success: false, message: 'Community aggregate not available', error: 'AGGREGATE_NOT_AVAILABLE' });
+  return res.json({ success: true, data: null });
 }
 
 // GET /reputation/me/community-summary?community_id= — Sprint 112 (ADR-082) canonical self summary.

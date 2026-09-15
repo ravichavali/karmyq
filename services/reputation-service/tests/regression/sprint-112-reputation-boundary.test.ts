@@ -200,20 +200,22 @@ describe('GET /reputation/leaderboard/:communityId — retired', () => {
 describe('community aggregates — active member + >=5-member cohort (Task 4)', () => {
   const member = { rows: [{ community_id: COMMUNITY, role: 'member', community_name: 'Maplewood' }] };
 
-  it('community-trust: non-member -> 404 AGGREGATE_NOT_AVAILABLE', async () => {
+  // Sprint 129 (BUG-031): community-trust denials are the empty state 200 { data: null }, not 404.
+  // The cross-cause indistinguishability proof lives in tests/tdd/sprint-129-community-aggregate.
+  it('community-trust: non-member -> 200 with no aggregate', async () => {
     mockQuery.mockResolvedValueOnce({ rows: [] }); // getActiveMembership -> none
     const res = await request(app()).get(`/reputation/community-trust/${COMMUNITY}`);
-    expect(res.status).toBe(404);
-    expectAdr074(res.body, 'AGGREGATE_NOT_AVAILABLE');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true, data: null });
   });
 
-  it('community-trust: cohort of 4 is suppressed -> 404 AGGREGATE_NOT_AVAILABLE', async () => {
+  it('community-trust: cohort of 4 is suppressed -> 200 with no aggregate', async () => {
     mockQuery
       .mockResolvedValueOnce(member) // membership
       .mockResolvedValueOnce({ rows: [{ n: 4 }] }); // cohort < 5
     const res = await request(app()).get(`/reputation/community-trust/${COMMUNITY}`);
-    expect(res.status).toBe(404);
-    expectAdr074(res.body, 'AGGREGATE_NOT_AVAILABLE');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true, data: null });
   });
 
   it('community-trust: member + cohort of 5 succeeds', async () => {

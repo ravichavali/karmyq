@@ -481,7 +481,7 @@ is logged. Covered by `sprint-120-bug-030-fractional-score.test.ts`.
 
 ---
 
-## BUG-031 · [2026-07-22] · open
+## BUG-031 · [2026-07-22] · fixed (Sprint 129 PR C)
 
 `/communities` fires one `GET /api/reputation/community-trust/{id}` per community card and every one
 returns **404**, producing **32 console errors on a single page load** (observed on demo as
@@ -494,6 +494,26 @@ N+1 request pattern on a list page. Route is
 `apps/frontend/src/lib/api.ts:754`. Fix shape: return 200 with a null/empty aggregate for the
 "not computed yet" case (404 should mean "no such community"), and/or batch the lookup into one
 request for the visible cards.
+
+**Corrections to the report above (verified 2026-09-14).** The 404s were never "not computed yet":
+that case already calculated on demand and returned 200. Every 404 was an ADR-082 **authorization
+denial**: unknown community, non-member or undersized cohort. `checkAggregateAccess` makes those
+three indistinguishable on purpose, so the suggested "404 means no such community" would have
+*introduced* an existence leak. The caller reference was stale: `api.ts:754` is `getLeaderboard`;
+the definition is `api.ts:746`, the fan-out is `pages/communities/index.tsx:124`, and a second
+caller the report missed is `hooks/useCommunityData.ts:153` (the steward trust panel).
+
+**Fixed (Sprint 129 PR C):** the single shared denial exit in `routes/reputation.ts` now answers
+`200 { success: true, data: null }`. That is byte-identical across all three causes, and identical
+to a permitted community with no computable score. Proven by
+`services/reputation-service/tests/tdd/sprint-129-community-aggregate.test.ts`, which compares the
+responses to each other rather than checking each is 200. It also confirms a denied caller never
+reads or computes the aggregate, not even with `?recalculate=true`. ADR-082 carries the amendment.
+The fix also exposed a second defect on the same line: the page read `response.data.data.score`,
+which is always `undefined` after the client's unwrap, so the "★ N% trust" badge had never rendered
+for anyone. It now reads `response.data.score`
+(`apps/frontend/tests/tdd/sprint-129-community-trust-empty-state.test.tsx`). Batching the fan-out is
+deferred to `docs/IDEAS.md`. Two sibling defects found while fixing this are BUG-042 and BUG-043.
 
 ---
 
@@ -869,5 +889,41 @@ Alert dismissed as `tolerable_risk` on 2026-09-14 by maintainer decision (Sprint
 
 Re-check trigger: expo-router drops `query-string@7`, or the SDK 58 migration — **re-check by
 2026-11-14** at the latest.
+
+---
+
+## BUG-042 · [2026-09-14] · open
+
+**The community People tab fans out to a self-only endpoint, one 404 per member.**
+`pages/communities/[id].tsx:80` calls `refetchMemberTrustScores()` whenever the People tab opens.
+`hooks/useCommunityData.ts:188-199` then issues `GET /reputation/trust/:userId/:communityId` for
+**every active member**. Since Sprint 112 that route is self-only (`routes/reputation.ts:146`) and
+returns `404 REPUTATION_NOT_FOUND` for anyone else, deliberately, so it never confirms that another
+user has reputation data. A community of N members therefore produces N−1 console 404s per tab
+open. ADR-082 recorded these 404s as the correct boundary behavior for the length of a client
+migration window. The client was never migrated.
+
+The hook also reads `r.value.data?.data?.score`, which is always `undefined` after the api client's
+unwrap, so not even the caller's own score renders in `components/community/tabs/ActiveTab.tsx:203`.
+
+Fix shape: remove the fan-out. The People tab must not ask for other members' exact scores at all
+(ADR-082). If the caller's own score belongs there, read it once from
+`/reputation/me/community-summary`. **Do not** turn this route's 404 into a 200: unlike BUG-031's
+aggregate denial, this 404 is the self-only disclosure contract. Found while fixing BUG-031 (Sprint
+129 PR C); left out of that PR by the sprint's scope decision.
+
+---
+
+## BUG-043 · [2026-09-14] · open
+
+**`/communities` fetches the community list twice on load when the saved discovery mode is
+"interests".** `pages/communities/index.tsx:90` initialises `discoveryMode` to `'geography'`. The
+mount effect then applies the persisted mode, and the mode effect (`:266-301`) fires once for each
+value, so the list and its whole per-card community-trust fan-out are requested twice. The two
+responses can also resolve out of order, which lets the geography result overwrite the interests
+result the user actually chose. Reproduced in jsdom while writing
+`apps/frontend/tests/tdd/sprint-129-community-trust-empty-state.test.tsx`, where a mocked
+`readDiscoveryMode` returning `'interests'` doubled every call. Fix shape: initialise the state from
+`readDiscoveryMode()` (lazy `useState` initialiser) rather than correcting it in an effect.
 
 ---
