@@ -161,7 +161,7 @@ application code changed.
 | PR | Branch | Scope | State |
 |---|---|---|---|
 | **A** | `feature/sprint-130-maintenance` | BUG-044, BUG-043, BUG-042 + doc corrections | **SHIPPED** v11.54.0 (#241, `8e940560`), live-verified |
-| **B** | `feature/sprint-130-security` | #540–#542 log-injection fix, #578 dismissal, #239 surgical dependency bump | **Tasks 11–17 done**, suite 26/26, v11.55.0 bumped; PR opening → CodeQL PR-head evidence → merge auth → deploy → master rescan |
+| **B** | `feature/sprint-130-security` | #540–#542 log-injection fix, #578 dismissal, #239 surgical dependency bump | **Tasks 11–17 done**, suite 26/26, v11.55.0 bumped; **OPEN as [#242](https://github.com/ravichavali/karmyq/pull/242)** → CodeQL PR-head evidence → merge auth → deploy → master rescan |
 
 ⚠️ **One merge at a time.** Every master push is a full deploy.
 
