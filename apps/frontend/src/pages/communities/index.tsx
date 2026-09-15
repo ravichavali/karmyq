@@ -122,20 +122,6 @@ export default function CommunitiesPage() {
     setMembershipStatus(statusMap)
   }, [])
 
-  const fetchTrustScores = useCallback(async (communityIds: string[]) => {
-    const results = await Promise.allSettled(
-      communityIds.map(id => reputationService.getCommunityTrust(id))
-    )
-    const scores: TrustScores = {}
-    communityIds.forEach((id, i) => {
-      const result = results[i]
-      // The client already unwraps the envelope; data is the score row, or null when there is no
-      // aggregate this caller may see (BUG-031 — denials are an empty state, not a 404).
-      scores[id] = result.status === 'fulfilled' ? (result.value.data?.score ?? null) : null
-    })
-    setTrustScores(prev => ({ ...prev, ...scores }))
-  }, [])
-
   const fetchCommunities = useCallback(async (opts: {
     loadMore?: boolean
     mode?: DiscoveryMode
@@ -220,10 +206,21 @@ export default function CommunitiesPage() {
 
   // Sprint 130 (BUG-044): a caller only ever gets the aggregate of a community they belong to
   // (ADR-082), so ask for the joined ids only — never a discovery card's.
-  const joinedIdsKey = (user?.communities ?? []).map((c: { id: string }) => c.id).join(',')
+  const joinedIdsKey: string = (user?.communities ?? []).map((c: { id: string }) => c.id).join(',')
   useEffect(() => {
-    if (joinedIdsKey) fetchTrustScores(joinedIdsKey.split(','))
-  }, [joinedIdsKey, fetchTrustScores])
+    if (!joinedIdsKey) return
+    const communityIds = joinedIdsKey.split(',')
+    Promise.allSettled(communityIds.map(id => reputationService.getCommunityTrust(id))).then(results => {
+      const scores: TrustScores = {}
+      communityIds.forEach((id, i) => {
+        const result = results[i]
+        // The client already unwraps the envelope; data is the score row, or null when there is no
+        // aggregate this caller may see (BUG-031 — denials are an empty state, not a 404).
+        scores[id] = result.status === 'fulfilled' ? (result.value.data?.score ?? null) : null
+      })
+      setTrustScores(scores)
+    })
+  }, [joinedIdsKey])
 
   // Initial mount: auth check + read persisted mode + fetch tags
   useEffect(() => {
