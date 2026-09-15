@@ -1,7 +1,7 @@
 # Sprint 130 — Stop Asking for Reputation We Can't Be Given — Handoff
 
 **Date**: 2026-09-15
-**Outcome**: **PR A IMPLEMENTED** on `feature/sprint-130-maintenance` (Tasks 1–9): code, tests, docs and all three gates done; full serial suite green (26/26 turbo tasks, exit 0), v11.54.0 bumped; PR open next. PR B not started (branches after PR A merges and deploys).
+**Outcome**: **PR A IMPLEMENTED** on `feature/sprint-130-maintenance` (Tasks 1–9): code, tests, docs and all three gates done; full serial suite green (26/26 turbo tasks, exit 0), v11.54.0 bumped; **PR #241 open**, awaiting checks + merge authorization. PR B not started (branches after PR A merges and deploys).
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router: there is no second machine.
 > This file is branch-local and reserves nothing. Contended resources are allocated by the
@@ -123,7 +123,7 @@ application code changed.
 
 | PR | Branch | Scope | State |
 |---|---|---|---|
-| **A** | `feature/sprint-130-maintenance` | BUG-044 (badge on joined chips, no discovery fan-out), BUG-043 (one list fetch), BUG-042 (remove per-member score pill and fan-out), plus doc corrections | **IMPLEMENTED**, gates done; next: open PR, merge auth, deploy, live check (Task 10) |
+| **A** | `feature/sprint-130-maintenance` | BUG-044 (badge on joined chips, no discovery fan-out), BUG-043 (one list fetch), BUG-042 (remove per-member score pill and fan-out), plus doc corrections | **OPEN as [#241](https://github.com/ravichavali/karmyq/pull/241)**, gates done; next: checks green → explicit merge auth (`--admin`) → deploy → live check (Task 10) |
 | **B** | `feature/sprint-130-security` | #540–#542 log-injection fix, #578 dismissal, #239 surgical dependency bump | after PR A deploys |
 
 ⚠️ **One merge at a time.** Every master push is a full deploy.
