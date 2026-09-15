@@ -108,14 +108,16 @@ function createGeocodingService({ pool, fetchImpl, logger = console, throttleInt
         'UPDATE geocoding_cache SET hit_count = hit_count + 1, last_accessed = NOW() WHERE query = $1',
         [normalized]
       )
-      logger.log?.(`Cache HIT for: "${query}" (hits: ${Number(cached.rows[0].hit_count || 0) + 1})`)
+      logger.log?.(`Cache HIT for: "${normalized}" (hits: ${Number(cached.rows[0].hit_count || 0) + 1})`)
       return {
         ok: true,
         data: { results: cached.rows[0].results, source: 'cache', cached: true },
       }
     }
 
-    logger.log?.(`Cache MISS for: "${query}" - calling Nominatim API`)
+    // Log the normalised value, never the raw query: normalizeQuery collapses every whitespace run,
+    // line breaks included, to one space, so a caller cannot forge a log line (CodeQL #540-#542).
+    logger.log?.(`Cache MISS for: "${normalized}" - calling Nominatim API`)
     const apiResults = await throttleExternal(() => callNominatimAPI(fetchImpl, normalized, logger))
 
     if (apiResults.length > 0) {
@@ -126,7 +128,7 @@ function createGeocodingService({ pool, fetchImpl, logger = console, throttleInt
          SET results = $2, hit_count = geocoding_cache.hit_count + 1, last_accessed = NOW()`,
         [normalized, JSON.stringify(apiResults)]
       )
-      logger.log?.(`Cached ${apiResults.length} results for: "${query}"`)
+      logger.log?.(`Cached ${apiResults.length} results for: "${normalized}"`)
     }
 
     return {

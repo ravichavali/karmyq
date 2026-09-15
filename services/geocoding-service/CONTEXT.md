@@ -9,6 +9,23 @@
 It keeps browser autocomplete local-cache-first, shares PostgreSQL cache hits across users, centralizes
 Nominatim application identification, and throttles outbound public Nominatim calls.
 
+## Sprint 130 PR B - Log injection fixed (2026-09-15)
+
+CodeQL #540–#542 (`js/log-injection`) were **real**. `SAFE_ADDRESS_QUERY_PATTERN` allows `\s`, and
+validation trims only the ends, so a query like `"Main St<newline>FORGED 200 OK"` passed validation.
+The cache HIT, cache MISS and "Cached N results" log lines in `search()` interpolated that **raw**
+query, so a caller could write a forged log line.
+
+- The three lines now log `normalized`, the validated value. `normalizeQuery` collapses every
+  whitespace run (`\n`, `\r`, U+2028 included) to one space.
+- **Unchanged:** `normalizeQuery`, `validateSearchQuery` and the cache key. The key was already
+  lowercased and whitespace-collapsed, so e.g. `"main st forged 200 ok"` is exactly what it was.
+- Visible change: those log lines now show the lowercased, collapsed query instead of the raw one.
+- Test: `tests/regression/sprint-130-log-injection.test.js` covers the miss, hit and cached paths for
+  `\n`, `\r\n` and U+2028, and pins the cache key. Geocoding tests are `.js`, which the TDD promoter
+  cannot see, so the file was moved to `regression/` by hand.
+- Remaining `logger.` calls take no caller input (a fixed string, an HTTP status, an error message).
+
 ## Sprint 109 - Geocoding Cache Hardening (2026-06-22)
 
 - `geocoding-service` is retained as Karmyq's shared geocoding cache and external API policy boundary.
