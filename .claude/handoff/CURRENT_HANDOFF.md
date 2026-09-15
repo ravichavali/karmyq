@@ -1,7 +1,7 @@
 # Sprint 130 — Stop Asking for Reputation We Can't Be Given — Handoff
 
 **Date**: 2026-09-15
-**Outcome**: **PLANNED, review corrections APPLIED, ready to execute.** Spec + plan on `feature/sprint-130-maintenance`. Nothing implemented yet. Codex reviewed the plan on 2026-09-15; all five findings were verified and applied (see the review checkpoint below).
+**Outcome**: **PR A IMPLEMENTED** on `feature/sprint-130-maintenance` (Tasks 1–9): code, tests, docs and all three gates done; full serial suite green (26/26 turbo tasks, exit 0), v11.54.0 bumped; PR open next. PR B not started (branches after PR A merges and deploys).
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router: there is no second machine.
 > This file is branch-local and reserves nothing. Contended resources are allocated by the
@@ -30,8 +30,8 @@ to **0 open code-scanning alerts**.
 |---|---|
 | **Branch (PR A)** | `feature/sprint-130-maintenance` off `origin/master` at `6752f925`. It already holds the Sprint 129 close-out (`71b4efe8`: archived handoff, BUG-031 verified, BUG-044 filed) plus this planning commit. |
 | **Branch (PR B)** | `feature/sprint-130-security`, branched from `origin/master` **after PR A merges and deploys**. |
-| **Version** | master is **v11.53.0**. PR A → v11.54.0, PR B → v11.55.0, each re-derived from `origin/master` at merge time. |
-| **Active editor** | unassigned; execution starts in a fresh chat |
+| **Version** | master is **v11.53.0**. PR A → **v11.54.0 (bumped on the branch)**, PR B → v11.55.0, each re-derived from `origin/master` at merge time. |
+| **Active editor** | Claude (Windows box), executing PR A |
 | **Shared resources** | **Claude holds the dependency lane for PR B** (maintainer decision 2026-09-15). PR A touches no manifests. No demo-server data operation is needed; the live checks are read-only browser loads as `maria.reyes`. |
 
 ## Quick Start
@@ -44,6 +44,25 @@ to **0 open code-scanning alerts**.
 3. Open the plan: [`docs/superpowers/plans/2026-09-15-sprint-130-maintenance.md`](../../docs/superpowers/plans/2026-09-15-sprint-130-maintenance.md)
 4. Run `/execute-plan` (uses superpowers:subagent-driven-development). **Start at Task 1**, and
    write the tests first (Task 2).
+
+## PR A execution record (2026-09-15)
+
+- **Commits:** `4146f86d` (implementation + docs), `e245d09a` (/simplify), `1f016f95` (/code-review fix).
+- **Tests:** `apps/frontend/tests/regression/sprint-130-reputation-fanout.test.tsx` (11 cases) and the reworked
+  `sprint-129-community-trust-empty-state.test.tsx`, both moved to `regression/` by hand. Proven red pre-fix;
+  mutation checks: reverting the `modeResolved` gate doubles every fetch, and removing the stale-response guard
+  fails the join race test.
+- **Found while testing:** a cold `?tab=people` load passed even pre-fix (the old fan-out ran before members
+  loaded), so the People-tab test opens the tab after load. Recorded in BUG-042's fix note.
+- **/simplify:** inlined the single-use trust fetch into its effect (also cleared a new
+  `react-hooks/set-state-in-effect` lint finding; file back to its 16 pre-existing errors).
+- **/code-review (medium):** 1 finding, real, introduced by the /simplify change: a slow pre-join trust
+  response could overwrite newer scores. Fixed with a cleanup ignore flag + regression test.
+- **/security-review:** no findings. The chip badge only asks for the caller's joined ids; the server's live
+  membership check still decides. Per-member reads removed.
+- **Also changed:** `DiscoveryToggle` buttons gained `aria-pressed`; `finding-communities-guide.md` and
+  `concepts/community-discovery.md` updated (badge on chips; mode saved on click).
+- `getTrustScore(` call sites: exactly one (`LeftSidebar.tsx:42`).
 
 ## Plan review checkpoint (2026-09-15) — RESOLVED
 
@@ -104,7 +123,7 @@ application code changed.
 
 | PR | Branch | Scope | State |
 |---|---|---|---|
-| **A** | `feature/sprint-130-maintenance` | BUG-044 (badge on joined chips, no discovery fan-out), BUG-043 (one list fetch), BUG-042 (remove per-member score pill and fan-out), plus doc corrections | **NEXT**: Task 1 |
+| **A** | `feature/sprint-130-maintenance` | BUG-044 (badge on joined chips, no discovery fan-out), BUG-043 (one list fetch), BUG-042 (remove per-member score pill and fan-out), plus doc corrections | **IMPLEMENTED**, gates done; next: open PR, merge auth, deploy, live check (Task 10) |
 | **B** | `feature/sprint-130-security` | #540–#542 log-injection fix, #578 dismissal, #239 surgical dependency bump | after PR A deploys |
 
 ⚠️ **One merge at a time.** Every master push is a full deploy.
