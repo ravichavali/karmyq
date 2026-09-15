@@ -1007,3 +1007,15 @@ Test: `apps/frontend/tests/regression/sprint-130-reputation-fanout.test.tsx` (BU
 fixture. Both now run in the blocking `regression/` tier.
 
 ---
+
+## BUG-045 · [2026-09-15] · open
+
+**The community page logs two console errors on load when a community has no config row.**
+`GET /api/communities/:id/config` answers 404, and `useCommunityData.fetchConfig` logs
+`Failed to load configuration`. Seen live on 2026-09-15 as `maria.reyes` on
+`/communities/7f48de77-e6cc-5eba-819b-cb6f50d3c662` (Portland Mutual Aid Network) during Sprint 130
+PR A's post-deploy check. Pre-existing: PR A did not touch `fetchConfig` or
+`services/community-service/src/routes/config.ts`. Not investigated: whether a missing row should
+be an empty/default config (the `fetchSettings` pattern) rather than a 404.
+
+---
