@@ -19,7 +19,7 @@ tests/
 
 ## Tech stack
 
-Expo SDK 57 · React Native 0.86.3 · React 19.2.3 · Expo Router · **Zustand 5.0.14** · axios ·
+Expo SDK 57 · React Native 0.86.3 · React 19.2.3 · Expo Router · **Zustand 5** · axios ·
 `@expo/vector-icons` · `react-native-maps` · `react-native-reanimated` · `expo-secure-store` ·
 `expo-notifications` · `expo-camera` / `-location` / `-image-picker`.
 

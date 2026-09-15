@@ -3,7 +3,8 @@
 **Date**: 2026-09-12 · **Revised**: 2026-09-14
 **Outcome**: PR A **MERGED and DEPLOYED** (`b22dbf15`, #235, v11.51.0). **PR B implementation
 COMPLETE** on `feature/sprint-129-deps` (v11.52.0), all four gates run — **OPEN as [#237](https://github.com/ravichavali/karmyq/pull/237), CI green, BLOCKED on REVIEW_REQUIRED (agent cannot merge).**
-The six Dependabot PRs carry a comment linking #237 (left open until merge). PR C not started. **Task E (BUG-040) still owed.**
+The six Dependabot PRs carry a comment linking #237 (left open until merge). PR C not started.
+**Task E verified on GitHub; BUG-040 closed** (2026-09-14, evidence below).
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router — there is no second machine.
 > This file is branch-local and reserves nothing; contended resources are allocated by the
@@ -54,6 +55,18 @@ hits it**; clear the dependency and security backlog to zero open alerts; silenc
 **Alerts are only closed on merge.** Pre-merge the live count is 3 open (#151, #157, #159) + #150
 dismissed. Zero-open must be proven **after** the deploy, against the live API.
 
+**Independent review, 2026-09-14:** Codex reviewed `b22dbf15..1e171406` and posted the assessment
+on [#237](https://github.com/ravichavali/karmyq/pull/237): no blocking code/security findings.
+The one minor finding (mobile context's old Zustand patch version) is corrected in the docs
+follow-up. GitHub's 20 successful checks apply to `1e171406`; re-check the latest head before merge.
+The required approving review remains outstanding. An admin override requires the maintainer's
+separate explicit authorization (`.claude/skills/deploy/SKILL.md`, Step 5).
+
+The documentation follow-up passed a serialized full test run (**26/26 tasks successful**),
+`feedback:check`, and `git diff --check`. The initial restricted-environment run failed because
+WSL bash could not launch and live npm audit had no network access; the retry used Git Bash on
+the process PATH and approved network access. No test or hook was weakened.
+
 ## PR B findings worth keeping
 
 - **Lock method on this Windows box:** prune target entries → `npm install --package-lock-only` →
@@ -77,16 +90,20 @@ dismissed. Zero-open must be proven **after** the deploy, against the live API.
   (57.0.21, next 58.0.2, canary); patched 0.5.0 is ESM-only → `require()` returns `{default}` →
   `d is not a function` (reproduced). Never add an override for it.
 
-## ⏳ Task E — owed, and blocked on GitHub permission
+## ✅ Task E — verified on GitHub, 2026-09-14
 
-After the PR A deploy, the monitor must be proven on GitHub before BUG-040 closes. **Both** are
-required: (1) `gh workflow run demo-health.yml` completes **green** — verify the specific run; and
-(2) a dispatch with an **unreachable `base_url`** input **files an issue**.
+All three dispatches ran on master at `b22dbf15`, after PR A's successful deploy and health check
+([deployment run](https://github.com/ravichavali/karmyq/actions/runs/34842871023)).
 
-⚠️ The Claude Code auto-mode classifier blocked `gh pr view` and `gh run list` right after the
-admin-override merge (`[Merge Without Review]`), so an agent will very likely be refused
-`gh workflow run` too. Either the maintainer dispatches both runs, or adds a Bash permission rule for
-read-only `gh run`/`gh pr view` and `gh workflow run` on this repo. Do not work around the denial.
+- [Normal run 34893727164](https://github.com/ravichavali/karmyq/actions/runs/34893727164): **success**.
+- [Deliberate failure 34893802574](https://github.com/ravichavali/karmyq/actions/runs/34893802574):
+  `base_url=http://127.0.0.1:1`, **failure**, finding `demo-session unreachable: ECONNREFUSED`;
+  notification step succeeded and created [test issue #238](https://github.com/ravichavali/karmyq/issues/238).
+- [Recovery run 34893881142](https://github.com/ravichavali/karmyq/actions/runs/34893881142):
+  **success**, automatically closed #238 with a comment linking the successful run.
+
+BUG-040's two close criteria are satisfied. No demo data was changed. The Codex session's workflow
+dispatches were approved; the earlier Claude permission denial did not block this verification.
 
 ## ✅ PR A — merged and deployed
 
@@ -121,18 +138,11 @@ the underlying command had exited 1.
 - **Spec**: [`docs/superpowers/specs/2026-09-12-sprint-129-maintenance-design.md`](../../docs/superpowers/specs/2026-09-12-sprint-129-maintenance-design.md)
 - **Plan**: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md)
 
-## BUG-040 — stays OPEN until verified after merge
+## BUG-040 — closed after GitHub verification
 
-The monitor cannot be proven before merge: `workflow_dispatch` only works once a workflow is on the
-**default branch**, and the condition evaluator in `sprint-129-demo-health-workflow.test.ts` is a
-*model* of GitHub's expression semantics, not GitHub. Close it only when **both** exist (Task E):
-
-1. A dispatched run of `demo-health.yml` that completes green — verify the **specific run**, not
-   merely that a run appears.
-2. A deliberately failing run — dispatch with an unreachable `base_url` input — that **files an
-   issue**.
-
-Closing it on a local green would be exactly the false-green this sprint kept finding.
+Task E above records the actual healthy, deliberately failing, and recovery runs. The deployed
+monitor reported the injected failure and closed its alert on recovery; local fixtures alone were
+not used as closure evidence. Story rotation remains an operator obligation when the monitor warns.
 
 ---
 
@@ -140,7 +150,7 @@ Closing it on a local green would be exactly the false-green this sprint kept fi
 
 | PR | Branch | Scope | State |
 |---|---|---|---|
-| **A** | `feature/sprint-129-demo-session` | BUG-039 restore + diagnosability + BUG-040 monitor | **MERGED** `b22dbf15` (#235), deployed — Task E still owed |
+| **A** | `feature/sprint-129-demo-session` | BUG-039 restore + diagnosability + BUG-040 monitor | **MERGED** `b22dbf15` (#235), deployed — Task E verified, BUG-040 closed |
 | **B** | `feature/sprint-129-deps` | 6 Dependabot PRs, 4 security alerts, Expo SDK drift (#234) | **OPEN [#237](https://github.com/ravichavali/karmyq/pull/237)** (v11.52.0), CI green — awaiting review + maintainer merge |
 | **C** | `feature/sprint-129-community-aggregate` | BUG-031: the `/communities` 404 storm | not started — branch after B merges |
 
@@ -156,8 +166,8 @@ out on 2026-09-12 and the demo is live. **No further demo-server write is needed
 PR A needed no further server access after that; everything since was code, tests, a workflow and
 docs, and is now complete in #235.
 
-⚠️ **Task E will need GitHub access, not demo-server access** — dispatching `demo-health.yml` runs
-the read-only probe through CI's existing SSH secrets. No new demo-server authorization is implied.
+**Task E used GitHub dispatches** — `demo-health.yml` ran the read-only probe through CI's existing
+SSH secrets. It performed no demo data writes.
 
 The rotation is now repeatable by one command on the demo host:
 
@@ -208,10 +218,10 @@ there and `.env.demo.example` carried none of the five variables rotation requir
 safety mechanism could not run, which is why the stories aged out silently. Stories are now
 API-created, so the demo stays truthful rather than hand-inserted.
 
-⏰ **The recurrence is NOT gone — it is now tracked as BUG-040.** The replacement stories expire
+⏰ **Rotation remains an operator obligation; BUG-040's monitoring gap is closed.** The replacement stories expire
 **2026-11-12** and are hard-deleted **~2026-11-19** (conservative estimate — see note 18; the real deadline is mark-time + 7 days, not `expires_at` + 7 days). Rotation being one command does not help if
 nobody runs it, which is exactly the assumption that just failed. The scheduled monitor that
-warns 14 days ahead is now **built** (PR A, #235) but **not yet verified on GitHub** — see BUG-040.
+warns 14 days ahead is now **built and verified on GitHub** — see Task E and BUG-040.
 
 ---
 
@@ -358,7 +368,7 @@ only for the uncomputed case would leak what ADR-082 hides.
 - **`enforce_admins: false`** on `master`. Six required checks and one required approval are all
   admin-bypassable, yet the review requirement is also what stalls every sprint's end: the PR author
   and the authenticated account are the same, so the required approval can never be self-provided.
-  **This has shaped the end of four consecutive sprints** — Sprint 129's PR #235 is blocked on it too.
+  **This has shaped the end of four consecutive sprints** — PR #235 has merged; #237 currently awaits review.
   One API call either way.
 - **`apps/landing/src/data/docs/` is only PARTIALLY git-tracked.** `apps/landing/.gitignore:2`
   ignores the directory, but ~160 files were committed before that and remain tracked; ADRs 095+ are
@@ -395,5 +405,5 @@ only for the uncomputed case would leak what ADR-082 hides.
 - **Windows + Git Bash:** `curl` flag parsing is unreliable and `jq` is not installed — use
   `node -e` for HTTP probes and JSON parsing. No local Docker.
 
-⚠️ Every GitHub status above is a dated observation (2026-09-12). Re-derive with `gh pr list`,
+⚠️ GitHub observations were reconciled on 2026-09-14. Re-derive with `gh pr list`,
 `gh run list` and `git log origin/master` before trusting any of it.
