@@ -12,6 +12,11 @@ const ROOT = join(__dirname, '..', '..');
 const SCRIPT = join(ROOT, 'scripts', 'expo-divergences.js');
 const FIXTURES = join(__dirname, 'fixtures');
 const REAL_EXPO_OUTPUT = readFileSync(join(FIXTURES, 'expo-check-drift.txt'), 'utf8');
+// The gate compares `declared` against the live apps/mobile manifest, so a valid entry must read
+// it from there too. A hand-copied range breaks on every routine Jest patch bump.
+const MOBILE_PKG = JSON.parse(readFileSync(join(ROOT, 'apps', 'mobile', 'package.json'), 'utf8'));
+const MOBILE_DEV_DEPS: Record<string, string> = MOBILE_PKG.devDependencies;
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 type Drift = {
   package: string;
@@ -47,9 +52,7 @@ const gate = require('../../scripts/expo-divergences') as {
 // Read from the shipped spec, not re-declared here: the per-field rejection cases below are
 // generated from this list, so a hand-written copy would silently delete a field's own test case
 // when that field was dropped. The literal below pins it by identity so the deletion fails loudly.
-const REQUIRED_FIELDS = gate.expoSpec(
-  JSON.parse(readFileSync(join(ROOT, 'apps', 'mobile', 'package.json'), 'utf8'))
-).requiredFields;
+const REQUIRED_FIELDS = gate.expoSpec(MOBILE_PKG).requiredFields;
 
 it('pins the shipped divergence schema', () => {
   expect(REQUIRED_FIELDS).toEqual([
@@ -79,7 +82,7 @@ const bothJestDrifts = driftOutput(
 
 const validEntry = (overrides: Divergence = {}): Divergence => ({
   package: 'jest',
-  declared: '^30.4.2',
+  declared: MOBILE_DEV_DEPS.jest,
   expoPins: '~29.7.0',
   sdk: '57',
   rationale: 'apps/mobile does not use the Expo Jest preset.',
@@ -94,7 +97,7 @@ const validRegistry = (): Registry => ({
     validEntry(),
     validEntry({
       package: '@types/jest',
-      declared: '^30.0.0',
+      declared: MOBILE_DEV_DEPS['@types/jest'],
       expoPins: '29.5.14',
       rationale: 'Types for the deliberately divergent Jest version.',
     }),
@@ -237,8 +240,7 @@ describe('Sprint 124 Expo divergence gate', () => {
   it('rejects a stale registration alongside a valid current Jest registration', () => {
     const stale = fixtureRegistry('expo-divergences-stale.json').divergences[0];
     // Isolate stale evidence from declaration mismatch when the SDK patch line moves.
-    const mobile = JSON.parse(readFileSync(join(ROOT, 'apps/mobile/package.json'), 'utf8'));
-    stale.declared = mobile.dependencies[stale.package];
+    stale.declared = MOBILE_PKG.dependencies[stale.package];
     const result = gate.evaluate(
       { status: 1, output: jestDrift },
       { divergences: [validEntry(), stale] }
@@ -284,7 +286,9 @@ describe('Sprint 124 Expo divergence gate', () => {
     );
 
     expect(result.ok).toBe(false);
-    expect(result.errors.join(' ')).toMatch(/jest.*declared.*\^29\.7\.0.*\^30\.4\.2/i);
+    expect(result.errors.join(' ')).toMatch(
+      new RegExp(`jest.*declared.*\\^29\\.7\\.0.*${escapeRegExp(MOBILE_DEV_DEPS.jest)}`, 'i')
+    );
   });
 
   it('rejects a recorded Expo pin that no longer matches the arbiter output', () => {

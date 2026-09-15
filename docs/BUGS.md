@@ -787,7 +787,7 @@ one-command job, but it is still a recurring obligation. See [BUG-040].
 
 ---
 
-## BUG-040 · [2026-09-12] · monitor built (Sprint 129 PR A) — NOT yet verified live
+## BUG-040 · [2026-09-12] · closed (2026-09-14, GitHub verification)
 
 **The guided demo has a 66-day fuse and nothing watches it.**
 
@@ -834,5 +834,40 @@ once a workflow is on the **default branch**, so it cannot be exercised while PR
 condition evaluator in the test is a *model* of GitHub's expression semantics, not GitHub. Close this
 only after: a dispatched run is green, **and** a deliberately failing run (dispatch with an
 unreachable `base_url`) files an issue.
+
+### Resolution — 2026-09-14: Task E verified on GitHub
+
+The deployed workflow on master at `b22dbf15` satisfied both close criteria:
+
+- [Normal dispatch 34893727164](https://github.com/ravichavali/karmyq/actions/runs/34893727164)
+  completed **successfully**.
+- [Deliberate failure 34893802574](https://github.com/ravichavali/karmyq/actions/runs/34893802574),
+  using `base_url=http://127.0.0.1:1`, failed with `demo-session unreachable: ECONNREFUSED` and
+  created [issue #238](https://github.com/ravichavali/karmyq/issues/238).
+- [Recovery dispatch 34893881142](https://github.com/ravichavali/karmyq/actions/runs/34893881142)
+  completed **successfully** and automatically closed #238 with a link to that run.
+
+This closes the monitoring gap. Rotation remains an operator obligation when the monitor warns;
+these checks did not change demo data.
+
+---
+
+## BUG-041 · [2026-09-14] · open
+
+**`decode-uri-component` alert #150 cannot be remediated by a dependency change.**
+GHSA-vcc3-ghjq-m6fr / CVE-2026-45822, medium: denial of service via exponential decoding of
+malformed percent-encoded input, vulnerable `<=0.4.2`, patched `0.5.0`.
+
+Path: `apps/mobile` → `expo-router` (every dist-tag, including `next` 58.0.2 and `canary`) →
+`query-string ^7.1.3` → `decode-uri-component ^0.2.2`. Patched 0.5.0 is ESM-only; `query-string@7`
+does `require('decode-uri-component')` and calls the result, which reproduces as
+`d is not a function`. An override would break expo-router URL decoding at runtime while the lock
+gates stay green. `query-string` 8+ is also ESM-only, so bumping it fails the same way.
+
+Exposure: client-side deep-link parsing on the user's own device; availability-only.
+Alert dismissed as `tolerable_risk` on 2026-09-14 by maintainer decision (Sprint 129 PR B, Task B4).
+
+Re-check trigger: expo-router drops `query-string@7`, or the SDK 58 migration — **re-check by
+2026-11-14** at the latest.
 
 ---

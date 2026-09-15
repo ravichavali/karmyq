@@ -1,6 +1,6 @@
 {
   "name": "karmyq",
-  "version": "11.51.0",
+  "version": "11.52.0",
   "license": "AGPL-3.0-or-later",
   "private": true,
   "description": "Community Mutual Aid Platform - Privacy-First Community Health Platform",
@@ -41,16 +41,16 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "semver": "^7.8.5",
-    "tsx": "^4.23.1",
-    "turbo": "^2.10.8"
+    "tsx": "^4.23.13",
+    "turbo": "^2.10.12"
   },
   "engines": {
     "node": ">=24.0.0",
     "npm": ">=9.0.0"
   },
   "dependencies": {
-    "@alloc/quick-lru": "^5.2.0",
-    "axios": "^1.19.0",
+    "@alloc/quick-lru": "^5.3.0",
+    "axios": "^1.20.0",
     "bcryptjs": "^2.4.3",
     "bull": "^4.11.5",
     "cors": "^2.8.5",
@@ -59,8 +59,8 @@
     "express-rate-limit": "^8.2.2",
     "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.22.0",
-    "redis": "^6.2.0",
+    "pg": "^8.23.0",
+    "redis": "^6.2.1",
     "winston": "^3.18.3",
     "zod": "^4.1.12"
   },
@@ -73,7 +73,7 @@
     "@xmldom/xmldom": "^0.8.15",
     "node-forge": ">=1.4.0",
     "fast-uri": ">=4.1.4",
-    "qs": ">=6.15.2",
+    "qs": ">=6.16.0",
     "ip-address": ">=10.3.1",
     "browserslist": ">=4.28.8",
     "postcss": "^8.5.25",

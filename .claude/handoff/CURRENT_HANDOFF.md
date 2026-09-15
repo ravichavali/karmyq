@@ -1,8 +1,10 @@
 # Sprint 129 — Maintenance: demo, dependencies, bugs — Handoff
 
-**Date**: 2026-09-12 · **Revised**: 2026-09-13
-**Outcome**: **PR A is OPEN at [#235](https://github.com/ravichavali/karmyq/pull/235) — awaiting CI
-and review.** The demo is restored and live. Tasks A1–A13 are DONE. PR B and PR C have not started.
+**Date**: 2026-09-12 · **Revised**: 2026-09-14
+**Outcome**: PR A **MERGED and DEPLOYED** (`b22dbf15`, #235, v11.51.0). **PR B implementation
+COMPLETE** on `feature/sprint-129-deps` (v11.52.0), all four gates run — **OPEN as [#237](https://github.com/ravichavali/karmyq/pull/237), CI green, BLOCKED on REVIEW_REQUIRED (agent cannot merge).**
+The six Dependabot PRs carry a comment linking #237 (left open until merge). PR C not started.
+**Task E verified on GitHub; BUG-040 closed** (2026-09-14, evidence below).
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router — there is no second machine.
 > This file is branch-local and reserves nothing; contended resources are allocated by the
@@ -20,27 +22,90 @@ hits it**; clear the dependency and security backlog to zero open alerts; silenc
 
 | Field | Value |
 |---|---|
-| **Branch** | `feature/sprint-129-demo-session` — **pushed**, tracking `origin/`. Read the head with `git rev-parse --short origin/feature/sprint-129-demo-session`; a sha written here is stale on the next commit. |
-| **PR** | **[#235](https://github.com/ravichavali/karmyq/pull/235) OPEN** — `mergeable=MERGEABLE`, `mergeStateStatus=BLOCKED` on `REVIEW_REQUIRED` |
-| **Base** | `origin/master` at `55a536fc`; branch bumps the version to **v11.51.0** |
-| **Active editor** | Claude — PR A implementation complete |
-| **Shared resources** | Demo-server rotation **performed and complete** 2026-09-12 (authorized). No further demo write is needed or authorized. No ADR minted — ADR-084 is amended in place. |
+| **Branch** | `feature/sprint-129-deps` off `origin/master` at `b22dbf15`. Read the head with `git rev-parse --short HEAD`; a sha written here goes stale. |
+| **Version** | Bumped to **v11.52.0** from master's v11.51.0 — **re-check against `origin/master` at merge time** (re-bump if PR C lands first). |
+| **PR A** | [#235](https://github.com/ravichavali/karmyq/pull/235) — merged `b22dbf15`, deployed |
+| **Active editor** | PR B chat (Windows), 2026-09-14 |
+| **Shared resources** | ✅ **Dependency lane HELD by the PR B chat** (maintainer-designated 2026-09-14) — **release it once PR B merges.** No demo-server operation needed or authorized. |
 
 ## Quick Start
 
-1. Confirm live state before trusting this file: `gh pr view 235`, `gh pr checks 235`,
-   `git log --oneline origin/master -1`.
-2. **PR A needs no more implementation.** Do not re-run Tasks A1–A13.
-3. If PR A has merged: start **PR B** — `git fetch origin` then
-   `git switch -c feature/sprint-129-deps origin/master`, and re-derive the version bump from
-   `origin/master` at that point.
-4. Plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md)
+1. `git fetch origin`; confirm `origin/master` is still `b22dbf15` (else merge it in — merge commit).
+2. PR B is open (#237), pushed with `SKIP_PREPUSH=1` by maintainer authorization (parallel hook OOM; serial 26/26 at `1e171406`). After merge, close any of
+   #223 #231 #216 #217 #212 #211 Dependabot has not auto-closed.
+3. After merge: verify alerts #151/#157/#159 auto-close (`gh api .../dependabot/alerts?state=open`
+   should list **zero**), close issue #234 once `expo-sdk-drift.yml` runs green.
+4. Then PR C — plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md), **Task C1**.
 
-**Next unchecked task**: **Task D — merge and deploy PR A**, which is blocked on a human approving
-#235 (an agent cannot self-approve here). After the deploy, **Task E** verifies the demo-health
-workflow and closes BUG-040. PR B follows.
+## PR B — task status (all complete)
 
-## ✅ PR A — implementation complete
+| Task | Result |
+|---|---|
+| B1 baseline | exactly four alerts: #151 faker (high), #157/#159 qs, #150 decode-uri-component |
+| B2 Expo drift #234 | 12 `expo-*` one patch; live `expo install --check` + divergence gate clean. `SDK_PINNED` unchanged (it holds only non-expo pins; none drifted) |
+| B3 qs | override `>=6.15.2` → `>=6.16.0` in place; installs 6.16.0 |
+| B4 decode-uri-component | **no fix exists** — dismissed `tolerable_risk` by maintainer decision, **BUG-041**, re-check by 2026-11-14 |
+| B5 faker | #216 cherry-picked; `location.streetName` → `street` (removed in faker 9) |
+| B6 six safe PRs | #223 + #231 merged in (merge commits), #212 + #211 cherry-picked (SHAs verified vs tags), #217 superseded by B3. **PRs not yet closed** |
+| B7 majors | triage comment posted on #224–#230; eslint-config-next 16 / next 15 mismatch recorded on #229 |
+| B8 docs | `apps/mobile/claude.md` recent-changes; `analyze:services` no diff; registry tracks service deps only |
+| B9 gates | `/simplify` (1 fix), `/code-review` high (1 finding → fixed), `/security-review` (no findings) |
+| B10 verify | strict `npm ci` @ npm 11.19.0 ✅; serial turbo test 26/26 ✅ (+ affected re-run 6/6 after last lock fix); CI type-check set ✅ |
+
+**Alerts are only closed on merge.** Pre-merge the live count is 3 open (#151, #157, #159) + #150
+dismissed. Zero-open must be proven **after** the deploy, against the live API.
+
+**Independent review, 2026-09-14:** Codex reviewed `b22dbf15..1e171406` and posted the assessment
+on [#237](https://github.com/ravichavali/karmyq/pull/237): no blocking code/security findings.
+The one minor finding (mobile context's old Zustand patch version) is corrected in the docs
+follow-up. GitHub's 20 successful checks apply to `1e171406`; re-check the latest head before merge.
+The required approving review remains outstanding. An admin override requires the maintainer's
+separate explicit authorization (`.claude/skills/deploy/SKILL.md`, Step 5).
+
+The documentation follow-up passed a serialized full test run (**26/26 tasks successful**),
+`feedback:check`, and `git diff --check`. The initial restricted-environment run failed because
+WSL bash could not launch and live npm audit had no network access; the retry used Git Bash on
+the process PATH and approved network access. No test or hook was weakened.
+
+## PR B findings worth keeping
+
+- **Lock method on this Windows box:** prune target entries → `npm install --package-lock-only` →
+  **splice only intended entries onto the base lock**. A raw Windows re-resolve strips 20 Linux
+  `libc` fields (npm 10.8.2 AND 11.6.2); 11.6.2 also drops the `fast-uri` override node.
+  **CI runs npm 11.19.0** — prove with `npx -y npm@11.19.0 ci`. PATH `npm` here is a user-level
+  10.8.2 shadowing Node's bundled 11.6.2; master's own lock fails `npm ci` under 11.6.2.
+- **npm 10.8.2's re-resolve is itself unreliable:** it dropped `expo/node_modules/{@jest/schemas,
+  @sinclair/typebox,ansi-styles}` while keeping the `pretty-format@29.7.0` that needs them. Strict
+  `npm ci` does NOT catch that — **`npm ls --all | grep invalid` does.** Baseline: 3 pre-existing
+  invalids on master (color-string, ms, picomatch).
+- **Dependabot merges:** entry- then field-level 3-way merge against the merge base, verified both
+  directions (merged vs theirs = only our entries; merged vs ours = only theirs).
+- **#223 silently downgraded `uuid`** in `packages/shared` + `cleanup-service` to 11.1.1 (the Sprint
+  75 root override) while manifests said `^14.0.2`. Nothing imports `uuid` → dead declarations
+  (+ `@types/uuid`) removed.
+- **#231 moved `apps/mobile` jest → `^30.5.1`** → `security/expo-divergences.json` `declared`
+  updated (same divergence; gate proven to fail on the stale value).
+  `sprint-124-expo-divergence-gate.test.ts` had hand-copied live ranges → now reads the manifest.
+- **decode-uri-component (BUG-041):** `expo-router` needs `query-string ^7.1.3` in every dist-tag
+  (57.0.21, next 58.0.2, canary); patched 0.5.0 is ESM-only → `require()` returns `{default}` →
+  `d is not a function` (reproduced). Never add an override for it.
+
+## ✅ Task E — verified on GitHub, 2026-09-14
+
+All three dispatches ran on master at `b22dbf15`, after PR A's successful deploy and health check
+([deployment run](https://github.com/ravichavali/karmyq/actions/runs/34842871023)).
+
+- [Normal run 34893727164](https://github.com/ravichavali/karmyq/actions/runs/34893727164): **success**.
+- [Deliberate failure 34893802574](https://github.com/ravichavali/karmyq/actions/runs/34893802574):
+  `base_url=http://127.0.0.1:1`, **failure**, finding `demo-session unreachable: ECONNREFUSED`;
+  notification step succeeded and created [test issue #238](https://github.com/ravichavali/karmyq/issues/238).
+- [Recovery run 34893881142](https://github.com/ravichavali/karmyq/actions/runs/34893881142):
+  **success**, automatically closed #238 with a comment linking the successful run.
+
+BUG-040's two close criteria are satisfied. No demo data was changed. The Codex session's workflow
+dispatches were approved; the earlier Claude permission denial did not block this verification.
+
+## ✅ PR A — merged and deployed
 
 | Delivered | Evidence |
 |---|---|
@@ -73,18 +138,11 @@ the underlying command had exited 1.
 - **Spec**: [`docs/superpowers/specs/2026-09-12-sprint-129-maintenance-design.md`](../../docs/superpowers/specs/2026-09-12-sprint-129-maintenance-design.md)
 - **Plan**: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md)
 
-## BUG-040 — stays OPEN until verified after merge
+## BUG-040 — closed after GitHub verification
 
-The monitor cannot be proven before merge: `workflow_dispatch` only works once a workflow is on the
-**default branch**, and the condition evaluator in `sprint-129-demo-health-workflow.test.ts` is a
-*model* of GitHub's expression semantics, not GitHub. Close it only when **both** exist (Task E):
-
-1. A dispatched run of `demo-health.yml` that completes green — verify the **specific run**, not
-   merely that a run appears.
-2. A deliberately failing run — dispatch with an unreachable `base_url` input — that **files an
-   issue**.
-
-Closing it on a local green would be exactly the false-green this sprint kept finding.
+Task E above records the actual healthy, deliberately failing, and recovery runs. The deployed
+monitor reported the injected failure and closed its alert on recovery; local fixtures alone were
+not used as closure evidence. Story rotation remains an operator obligation when the monitor warns.
 
 ---
 
@@ -92,8 +150,8 @@ Closing it on a local green would be exactly the false-green this sprint kept fi
 
 | PR | Branch | Scope | State |
 |---|---|---|---|
-| **A** | `feature/sprint-129-demo-session` | BUG-039 restore + diagnosability + BUG-040 monitor | **[#235](https://github.com/ravichavali/karmyq/pull/235) OPEN** — awaiting CI and review |
-| **B** | `feature/sprint-129-deps` | 6 Dependabot PRs, 4 security alerts, Expo SDK drift (#234) | not started — branch after A merges |
+| **A** | `feature/sprint-129-demo-session` | BUG-039 restore + diagnosability + BUG-040 monitor | **MERGED** `b22dbf15` (#235), deployed — Task E verified, BUG-040 closed |
+| **B** | `feature/sprint-129-deps` | 6 Dependabot PRs, 4 security alerts, Expo SDK drift (#234) | **OPEN [#237](https://github.com/ravichavali/karmyq/pull/237)** (v11.52.0), CI green — awaiting review + maintainer merge |
 | **C** | `feature/sprint-129-community-aggregate` | BUG-031: the `/communities` 404 storm | not started — branch after B merges |
 
 ⚠️ **One merge at a time.** Every master push is a full deploy; overlapping deploys restart services
@@ -108,8 +166,8 @@ out on 2026-09-12 and the demo is live. **No further demo-server write is needed
 PR A needed no further server access after that; everything since was code, tests, a workflow and
 docs, and is now complete in #235.
 
-⚠️ **Task E will need GitHub access, not demo-server access** — dispatching `demo-health.yml` runs
-the read-only probe through CI's existing SSH secrets. No new demo-server authorization is implied.
+**Task E used GitHub dispatches** — `demo-health.yml` ran the read-only probe through CI's existing
+SSH secrets. It performed no demo data writes.
 
 The rotation is now repeatable by one command on the demo host:
 
@@ -160,10 +218,10 @@ there and `.env.demo.example` carried none of the five variables rotation requir
 safety mechanism could not run, which is why the stories aged out silently. Stories are now
 API-created, so the demo stays truthful rather than hand-inserted.
 
-⏰ **The recurrence is NOT gone — it is now tracked as BUG-040.** The replacement stories expire
+⏰ **Rotation remains an operator obligation; BUG-040's monitoring gap is closed.** The replacement stories expire
 **2026-11-12** and are hard-deleted **~2026-11-19** (conservative estimate — see note 18; the real deadline is mark-time + 7 days, not `expires_at` + 7 days). Rotation being one command does not help if
 nobody runs it, which is exactly the assumption that just failed. The scheduled monitor that
-warns 14 days ahead is now **built** (PR A, #235) but **not yet verified on GitHub** — see BUG-040.
+warns 14 days ahead is now **built and verified on GitHub** — see Task E and BUG-040.
 
 ---
 
@@ -310,7 +368,7 @@ only for the uncomputed case would leak what ADR-082 hides.
 - **`enforce_admins: false`** on `master`. Six required checks and one required approval are all
   admin-bypassable, yet the review requirement is also what stalls every sprint's end: the PR author
   and the authenticated account are the same, so the required approval can never be self-provided.
-  **This has shaped the end of four consecutive sprints** — Sprint 129's PR #235 is blocked on it too.
+  **This has shaped the end of four consecutive sprints** — PR #235 has merged; #237 currently awaits review.
   One API call either way.
 - **`apps/landing/src/data/docs/` is only PARTIALLY git-tracked.** `apps/landing/.gitignore:2`
   ignores the directory, but ~160 files were committed before that and remain tracked; ADRs 095+ are
@@ -347,5 +405,5 @@ only for the uncomputed case would leak what ADR-082 hides.
 - **Windows + Git Bash:** `curl` flag parsing is unreliable and `jq` is not installed — use
   `node -e` for HTTP probes and JSON parsing. No local Docker.
 
-⚠️ Every GitHub status above is a dated observation (2026-09-12). Re-derive with `gh pr list`,
+⚠️ GitHub observations were reconciled on 2026-09-14. Re-derive with `gh pr list`,
 `gh run list` and `git log origin/master` before trusting any of it.

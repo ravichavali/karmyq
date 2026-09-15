@@ -332,7 +332,7 @@ class DataGenerator {
       let name: string;
       if (Math.random() < 0.6) {
         // City-based
-        const neighborhood = faker.location.streetName();
+        const neighborhood = faker.location.street();
         name = `${city.name} - ${neighborhood}`;
       } else {
         // Interest-based

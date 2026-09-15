@@ -9,7 +9,7 @@
     "seed:demo": "node -e \"console.log('Use ./scripts/seed-demo-data.sh to generate demo data via the simulation service')\""
   },
   "dependencies": {
-    "@faker-js/faker": "^8.3.1",
+    "@faker-js/faker": "^10.5.0",
     "pg": "^8.11.3",
     "bcryptjs": "^2.4.3"
   },
