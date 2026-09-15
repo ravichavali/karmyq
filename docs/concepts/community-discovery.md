@@ -50,7 +50,7 @@ Interest mode is designed for:
 
 ## Persistence
 
-The discovery mode you choose (Geography or By Interest) is saved to your browser's `localStorage` under the key `community_discovery_mode`. The default is `'geography'`.
+The discovery mode you choose (Near Me or By Interest) is saved to your browser's `localStorage` under the key `community_discovery_mode` when you click the toggle; opening the page never overwrites it. The default is `'geography'`.
 
 This means:
 - Your preference persists across page reloads and browser sessions

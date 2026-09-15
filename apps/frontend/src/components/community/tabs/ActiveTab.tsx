@@ -15,7 +15,6 @@ interface Norm {
 interface Props {
   community: Community
   norms: Norm[]
-  memberTrustScores: Record<string, number | null>
   currentUser: any
   isAdmin: boolean
   isAdminOrMod: boolean
@@ -26,7 +25,7 @@ interface Props {
 }
 
 export default function ActiveTab({
-  community, norms, memberTrustScores, currentUser,
+  community, norms, currentUser,
   isAdmin, isAdminOrMod, isMember, communityId,
   refetchCommunity, refetchNorms,
 }: Props) {
@@ -199,19 +198,6 @@ export default function ActiveTab({
                 <span className={`px-3 py-1 rounded text-sm font-medium ${
                   member.role === 'admin' ? 'bg-accent-light text-accent-dark' : 'bg-surface-raised text-text-muted'
                 }`}>{member.role}</span>
-                {(() => {
-                  const score = memberTrustScores[member.user_id]
-                  const colorClass = score === null || score === undefined
-                    ? 'bg-surface-raised text-text-subtle'
-                    : score >= 75 ? 'bg-green-100 text-green-700'
-                    : score >= 50 ? 'bg-amber-100 text-amber-700'
-                    : 'bg-surface-raised text-text-subtle'
-                  return (
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
-                      {score !== null && score !== undefined ? `★ ${score}` : '—'}
-                    </span>
-                  )
-                })()}
                 <span className="text-xs text-text-subtle">
                   {new Date(member.joined_at).toLocaleDateString()}
                 </span>

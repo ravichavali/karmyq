@@ -5,6 +5,16 @@
 
 ## Recent Changes
 
+- **2026-09-15 (Sprint 130 PR A — the frontend stops asking for denied reputation)**: **No server
+  change.** Two frontend call patterns changed:
+  - `/communities` requests `GET /reputation/community-trust/:communityId` only for the caller's
+    joined communities, not for every discovery card (BUG-044). About 37 requests per demo load
+    become the member's joined count.
+  - The community People tab no longer requests `GET /reputation/trust/:userId/:communityId` per
+    member (BUG-042). `LeftSidebar`'s self read is the only remaining caller of that route.
+  - The self-only 404 and the aggregate's `200 { data: null }` denial are untouched. Tests:
+    `apps/frontend/tests/regression/sprint-130-reputation-fanout.test.tsx`.
+
 - **2026-09-14 (Sprint 129 PR C — BUG-031: a denied community-trust aggregate is an empty state)**:
   `GET /reputation/community-trust/:communityId` used to deny with `404 AGGREGATE_NOT_AVAILABLE`.
   It now answers **`200 { success: true, data: null }`**. `/communities` requests this once per
@@ -20,8 +30,9 @@
   - **Unchanged on purpose:** `routes/health.ts` has its own `denyAggregate` for `community-health`,
     `milestones` and `network-metrics`, which still returns 404. None is fanned out per list item.
   - Frontend: `pages/communities/index.tsx` read `response.data.data.score`, which is always
-    undefined after the api client's unwrap, so the "★ N% trust" badge had never rendered. It now
-    reads `response.data.score`.
+    undefined after the api client's unwrap. It now reads `response.data.score`.
+    ⚠️ **Correction (Sprint 130):** this did not make the badge render. It sat on discovery cards,
+    where the caller is never a member, so no score could exist (BUG-044). Sprint 130 moved it.
   - Found, not fixed: BUG-042 (the People tab fans out to self-only `/trust/:userId/:communityId`)
     and BUG-043 (`/communities` double-fetches when the saved discovery mode is "interests").
 

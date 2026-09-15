@@ -564,4 +564,8 @@ cases. Carry the cross-cause equality test from
 `services/reputation-service/tests/regression/sprint-129-community-aggregate.test.ts` over to it. BUG-043
 (the double fetch) is the cheaper win and should land first.
 
+**Largely obsolete (Sprint 130 PR A):** `/communities` now requests the aggregate only for the
+caller's joined communities (BUG-044), so the N+1 is bounded by membership count, not the list size.
+Revisit only if members commonly belong to many communities.
+
 ---

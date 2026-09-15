@@ -87,7 +87,10 @@ export default function CommunitiesPage() {
   const [joiningId, setJoiningId] = useState<string | null>(null)
 
   // Discovery mode
+  // Prerendered as 'geography'; the persisted mode is read after mount (a lazy initialiser reading
+  // storage would mismatch on hydration). The first list fetch waits for it — Sprint 130, BUG-043.
   const [discoveryMode, setDiscoveryMode] = useState<DiscoveryMode>('geography')
+  const [modeResolved, setModeResolved] = useState(false)
   const [locationDenied, setLocationDenied] = useState(false)
   const [geoFallback, setGeoFallback] = useState(false)
 
@@ -117,20 +120,6 @@ export default function CommunitiesPage() {
       statusMap[community.id] = membershipMap.has(community.id) ? 'active' : null
     }
     setMembershipStatus(statusMap)
-  }, [])
-
-  const fetchTrustScores = useCallback(async (communityIds: string[]) => {
-    const results = await Promise.allSettled(
-      communityIds.map(id => reputationService.getCommunityTrust(id))
-    )
-    const scores: TrustScores = {}
-    communityIds.forEach((id, i) => {
-      const result = results[i]
-      // The client already unwraps the envelope; data is the score row, or null when there is no
-      // aggregate this caller may see (BUG-031 — denials are an empty state, not a 404).
-      scores[id] = result.status === 'fulfilled' ? (result.value.data?.score ?? null) : null
-    })
-    setTrustScores(prev => ({ ...prev, ...scores }))
   }, [])
 
   const fetchCommunities = useCallback(async (opts: {
@@ -198,7 +187,6 @@ export default function CommunitiesPage() {
       }
 
       setHasMore(newCommunities.length === PAGE_SIZE)
-      fetchTrustScores(newCommunities.map((c: Community) => c.id))
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load communities')
     } finally {
@@ -214,8 +202,29 @@ export default function CommunitiesPage() {
     categoryFilter,
     hasSpaceFilter,
     buildMembershipStatusFromToken,
-    fetchTrustScores,
   ])
+
+  // Sprint 130 (BUG-044): a caller only ever gets the aggregate of a community they belong to
+  // (ADR-082), so ask for the joined ids only — never a discovery card's.
+  const joinedIdsKey: string = (user?.communities ?? []).map((c: { id: string }) => c.id).join(',')
+  useEffect(() => {
+    if (!joinedIdsKey) return
+    // A superseded request (memberships changed, e.g. after a join) must not overwrite newer scores.
+    let stale = false
+    const communityIds = joinedIdsKey.split(',')
+    Promise.allSettled(communityIds.map(id => reputationService.getCommunityTrust(id))).then(results => {
+      if (stale) return
+      const scores: TrustScores = {}
+      communityIds.forEach((id, i) => {
+        const result = results[i]
+        // The client already unwraps the envelope; data is the score row, or null when there is no
+        // aggregate this caller may see (BUG-031 — denials are an empty state, not a 404).
+        scores[id] = result.status === 'fulfilled' ? (result.value.data?.score ?? null) : null
+      })
+      setTrustScores(scores)
+    })
+    return () => { stale = true }
+  }, [joinedIdsKey])
 
   // Initial mount: auth check + read persisted mode + fetch tags
   useEffect(() => {
@@ -245,8 +254,8 @@ export default function CommunitiesPage() {
       }
     }
 
-    const persistedMode = readDiscoveryMode()
-    setDiscoveryMode(persistedMode)
+    setDiscoveryMode(readDiscoveryMode())
+    setModeResolved(true)
 
     // Fetch available tags for interests mode
     communityService.getCommunityTags().then((res) => {
@@ -265,8 +274,9 @@ export default function CommunitiesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, locationFilter, categoryFilter, hasSpaceFilter, sortBy])
 
-  // React to discovery mode change (including on first init)
+  // React to discovery mode change (including on first init, once the persisted mode is read)
   useEffect(() => {
+    if (!modeResolved) return
     if (discoveryMode === 'geography') {
       setLocationDenied(false)
       // Show skeleton immediately, then request geolocation
@@ -300,7 +310,7 @@ export default function CommunitiesPage() {
       fetchCommunities({ mode: 'interests', tags: selectedTags })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [discoveryMode])
+  }, [discoveryMode, modeResolved])
 
   // Re-fetch when selected tags change (interests mode only)
   useEffect(() => {
@@ -425,9 +435,10 @@ export default function CommunitiesPage() {
             </div>
           )}
 
-          {/* Your Communities strip — zero API calls, reads JWT from user state */}
+          {/* Your Communities strip — the list reads the JWT from user state; the trust badge is the
+              only request, and only for these ids (Sprint 130, BUG-044) */}
           {user && (user.communities ?? []).length > 0 && (
-            <div className="mb-6">
+            <div className="mb-6" data-testid="your-communities">
               <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wide mb-3">
                 Your Communities
               </h2>
@@ -442,6 +453,11 @@ export default function CommunitiesPage() {
                     <span className="text-xs text-text-subtle capitalize bg-surface px-1.5 py-0.5 rounded-full">
                       {c.role}
                     </span>
+                    {trustScores[c.id] != null && (
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium">
+                        ★ {trustScores[c.id]}% trust
+                      </span>
+                    )}
                   </Link>
                 ))}
               </div>
@@ -709,7 +725,7 @@ export default function CommunitiesPage() {
                           />
                         </div>
 
-                        {/* Activity layer distribution + trust score */}
+                        {/* Activity layer distribution */}
                         {community.current_members > 0 && (
                           <div className="flex flex-wrap gap-2 mb-4 text-xs items-center">
                             {community.inner_circle_count > 0 && (
@@ -725,11 +741,6 @@ export default function CommunitiesPage() {
                             {community.extended_network_count > 0 && (
                               <span className="px-2 py-0.5 rounded-full bg-surface border border-border text-text-subtle">
                                 {community.extended_network_count} extended
-                              </span>
-                            )}
-                            {trustScores[community.id] != null && (
-                              <span className="ml-auto px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium">
-                                ★ {trustScores[community.id]}% trust
                               </span>
                             )}
                           </div>

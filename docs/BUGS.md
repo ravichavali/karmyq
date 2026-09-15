@@ -481,7 +481,7 @@ is logged. Covered by `sprint-120-bug-030-fractional-score.test.ts`.
 
 ---
 
-## BUG-031 · [2026-07-22] · fixed (Sprint 129 PR C)
+## BUG-031 · [2026-07-22] · closed (Sprint 129 PR C, verified live 2026-09-15)
 
 `/communities` fires one `GET /api/reputation/community-trust/{id}` per community card and every one
 returns **404**, producing **32 console errors on a single page load** (observed on demo as
@@ -510,10 +510,14 @@ to a permitted community with no computable score. Proven by
 responses to each other rather than checking each is 200. It also confirms a denied caller never
 reads or computes the aggregate, not even with `?recalculate=true`. ADR-082 carries the amendment.
 The fix also exposed a second defect on the same line: the page read `response.data.data.score`,
-which is always `undefined` after the client's unwrap, so the "★ N% trust" badge had never rendered
-for anyone. It now reads `response.data.score`
+which is always `undefined` after the client's unwrap. It now reads `response.data.score`
 (`apps/frontend/tests/tdd/sprint-129-community-trust-empty-state.test.tsx`). Batching the fan-out is
 deferred to `docs/IDEAS.md`. Two sibling defects found while fixing this are BUG-042 and BUG-043.
+
+**Verified live (2026-09-15, after deploy `6752f925`):** `/communities` as `maria.reyes` at 1440px
+showed **0 console errors and 0 warnings**, and 37/37 community-trust requests returned 200.
+⚠️ **Correction:** PR C also claimed the "★ N% trust" badge now renders. It does not, and on a
+discovery card it cannot. Fixing the read was necessary but not sufficient. See BUG-044.
 
 ---
 
@@ -892,7 +896,7 @@ Re-check trigger: expo-router drops `query-string@7`, or the SDK 58 migration �
 
 ---
 
-## BUG-042 · [2026-09-14] · open
+## BUG-042 · [2026-09-14] · fixed (Sprint 130 PR A)
 
 **The community People tab fans out to a self-only endpoint, one 404 per member.**
 `pages/communities/[id].tsx:80` calls `refetchMemberTrustScores()` whenever the People tab opens.
@@ -912,9 +916,16 @@ Fix shape: remove the fan-out. The People tab must not ask for other members' ex
 aggregate denial, this 404 is the self-only disclosure contract. Found while fixing BUG-031 (Sprint
 129 PR C); left out of that PR by the sprint's scope decision.
 
+**Fixed (Sprint 130 PR A):** the fan-out, `memberTrustScores`, `refetchMemberTrustScores` and the
+`ActiveTab` score pill are removed, per the maintainer decision not to show a per-member score. The
+route's self-only 404 is unchanged. Test: `apps/frontend/tests/regression/sprint-130-reputation-fanout.test.tsx` (BUG-042 block) opens the People tab on the real
+page with the real hook, after the community has loaded, and asserts no `getTrustScore` call. A cold
+`?tab=people` load would have passed even before the fix, because the old fan-out ran before
+members loaded.
+
 ---
 
-## BUG-043 · [2026-09-14] · open
+## BUG-043 · [2026-09-14] · fixed (Sprint 130 PR A)
 
 **`/communities` fetches the community list twice on load when the saved discovery mode is
 "interests".** `pages/communities/index.tsx:90` initialises `discoveryMode` to `'geography'`. The
@@ -925,5 +936,74 @@ result the user actually chose. Reproduced in jsdom while writing
 `apps/frontend/tests/tdd/sprint-129-community-trust-empty-state.test.tsx`, where a mocked
 `readDiscoveryMode` returning `'interests'` doubled every call. Fix shape: initialise the state from
 `readDiscoveryMode()` (lazy `useState` initialiser) rather than correcting it in an effect.
+
+**Re-diagnosed (Sprint 130 plan review, 2026-09-15). The report above is wrong for the real page,
+and its fix shape is unsafe.** The double fetch only happens when `DiscoveryToggle` is mocked out, as
+it was in the test that surfaced this bug.
+
+With the real toggle, its mount effect (`components/DiscoveryToggle.tsx:14-18`) writes the initial
+`'geography'` to storage. A child's effects run before its parent's, so this happens before the
+page's mount effect reads storage (`index.tsx:248`). Reproduced in jsdom with the real toggle: saved
+`interests` became `geography`, with exactly one unfiltered list request.
+
+**The real defect is that the saved discovery mode never survives a reload.**
+
+The fix needs both halves:
+- The toggle must not persist on mount.
+- The first fetch must wait for the resolved mode. Without this, fixing the overwrite brings the
+  double fetch back.
+
+A lazy `useState(readDiscoveryMode)` is unsafe because the page is prerendered, so it would log a
+hydration mismatch. Planned in Sprint 130 PR A (Task 4).
+
+**Fixed (Sprint 130 PR A):** `DiscoveryToggle` persists only a user's click, never on mount, and the
+page's mode effect waits for `modeResolved` before its first fetch. With the real toggle, saved
+`interests` survives mount with exactly one list request; saved `geography` (position granted,
+denied, or no geolocation) also fetches exactly once. Reverting the fetch gate doubles every case.
+Test: `apps/frontend/tests/regression/sprint-130-reputation-fanout.test.tsx` (BUG-043 block).
+
+---
+
+## BUG-044 · [2026-09-15] · fixed (Sprint 130 PR A)
+
+**The `/communities` trust badge can never render on a discovery card, so the per-card
+community-trust fan-out is a guaranteed denial every time.** Found during Sprint 129 PR C's live C4
+check.
+
+- `pages/communities/index.tsx:610` builds the grid as `communities.filter(c => !joinedIds.has(c.id))`,
+  so the grid shows only communities the caller has **not** joined.
+- ADR-082 grants the community-trust aggregate only to an **active member** of a community with at
+  least 5 active members.
+- Both conditions can't hold for the same card. Every discovery card's request is denied
+  (`200 { data: null }`), and the "★ N% trust" badge at `:728-732` never renders.
+- `fetchTrustScores` (`:122-133`) still requests every card on the list: 37 wasted requests per
+  load on the demo.
+- Verified live 2026-09-15 as `maria.reyes`: her only two scored communities (score 1 and 2)
+  appeared solely as "Your Communities" chips, which carry no badge.
+
+The Sprint 129 unit test is correct but proves only the render path. It mocked a score for a card
+the real grid would have filtered out.
+
+**Docs that overstate the badge**, to correct together with the code fix and not as a docs-only
+master push:
+- BUG-031's fix note.
+- `services/reputation-service/CONTEXT.md` Sprint 129 entry.
+- `docs/guides/community-admin-guide.md` and `docs/guides/admin-community-guide.md`, which say
+  members see it on the discovery page.
+
+Fix shape is a product decision:
+- **(a)** Stop the fan-out for grid cards entirely. This is the cheapest option, and it also removes
+  most of the N+1 that `docs/IDEAS.md` wanted to batch.
+- **(b)** Move the badge to the "Your Communities" chips, where the caller is a member and a score
+  can exist.
+
+Either way, never fetch an aggregate for a community the page already knows the caller has not
+joined.
+
+**Fixed (Sprint 130 PR A), option (b):** trust is fetched for the joined ids from `user.communities`
+only, and the badge renders on the "Your Communities" chips. The discovery-card badge is removed.
+Test: `apps/frontend/tests/regression/sprint-130-reputation-fanout.test.tsx` (BUG-044 block) asserts the exact requested ids, and
+`sprint-129-community-trust-empty-state.test.tsx` was reworked onto a reachable joined-chip
+fixture. Both now run in the blocking `regression/` tier.
 
 ---

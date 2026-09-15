@@ -26,9 +26,9 @@ export default function CommunityDetailPage() {
   const {
     community, loading, error, currentUser, norms, config, settings,
     stats, loadingStats, communityTrust, loadingTrust, networkMetrics,
-    communityRequests, loadingRequests, memberTrustScores, communityCollectives,
+    communityRequests, loadingRequests, communityCollectives,
     refetchCommunity, refetchNorms, refetchConfig, refetchStats, refetchCommunityTrust, refetchNetworkMetrics,
-    refetchCommunityRequests, refetchMemberTrustScores, refetchCommunityCollectives,
+    refetchCommunityRequests, refetchCommunityCollectives,
   } = useCommunityData(communityId)
 
   const [activeTab, setActiveTab] = useState<CommunityTab>('home')
@@ -76,9 +76,8 @@ export default function CommunityDetailPage() {
   // Trigger tab-specific data fetches.
   useEffect(() => {
     if (!communityId) return
-    if (activeTab === 'people') {
-      refetchMemberTrustScores()
-    } else if (activeTab === 'stewardship') {
+    // Sprint 130 (BUG-042): the People tab fetches nothing extra — member trust scores are self-only.
+    if (activeTab === 'stewardship') {
       refetchCommunityRequests()
       // S99-001: GET /communities/:id/stats is admin-only (403 for members). Only admins fetch it.
       if (canViewCommunityStats({ isAdmin: !!isAdmin }) && !stats) refetchStats()
@@ -261,7 +260,7 @@ export default function CommunityDetailPage() {
           )}
           {activeTab === 'people' && (
             <ActiveTab
-              community={community} norms={norms} memberTrustScores={memberTrustScores}
+              community={community} norms={norms}
               currentUser={currentUser} isAdmin={isAdmin ?? false} isAdminOrMod={isAdminOrMod ?? false}
               isMember={isMember ?? false} communityId={communityId!}
               refetchCommunity={refetchCommunity} refetchNorms={refetchNorms}
