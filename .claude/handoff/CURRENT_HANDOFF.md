@@ -30,20 +30,49 @@ to **0 open code-scanning alerts**.
 |---|---|
 | **Branch (PR A)** | `feature/sprint-130-maintenance` off `origin/master` at `6752f925`. It already holds the Sprint 129 close-out (`71b4efe8`: archived handoff, BUG-031 verified, BUG-044 filed) plus this planning commit. |
 | **Branch (PR B)** | `feature/sprint-130-security`, branched from `origin/master` **after PR A merges and deploys**. |
-| **Version** | master is **v11.53.0**. PR A → **v11.54.0 (bumped on the branch)**, PR B → v11.55.0, each re-derived from `origin/master` at merge time. |
-| **Active editor** | Claude (Windows box), executing PR B |
+| **Version** | master is **v11.54.0** at `8e940560` (PR A shipped); PR B carries **v11.55.0**. Recheck master at merge time. |
+| **Active editor** | Claude owns PR B; Codex reviewed `ccf9022e` on 2026-09-15. Merge authorized; **maintainer to run the merge** (classifier refused Claude). |
 | **Shared resources** | **Claude holds the dependency lane for PR B** (maintainer decision 2026-09-15). PR A touches no manifests. No demo-server data operation is needed; the live checks are read-only browser loads as `maria.reyes`. |
 
 ## Quick Start
 
 1. Read this handoff.
-2. Reuse the existing task branch: `git fetch origin && git switch feature/sprint-130-maintenance`,
-   then confirm it contains `origin/master`. If master moved, merge it in with a merge commit; never
-   rebase or force-push. PR B later: `git switch -c feature/sprint-130-security origin/master`.
-   Never branch off a stale local master: unpushed local-master commits leak in via the squash-merge.
+2. Reuse `feature/sprint-130-security`; PR B is already open as
+   [#242](https://github.com/ravichavali/karmyq/pull/242). Confirm the working tree is clean before
+   switching agents. Do not restart PR A or create PR B again.
 3. Open the plan: [`docs/superpowers/plans/2026-09-15-sprint-130-maintenance.md`](../../docs/superpowers/plans/2026-09-15-sprint-130-maintenance.md)
-4. Run `/execute-plan` (uses superpowers:subagent-driven-development). **Start at Task 1**, and
-   write the tests first (Task 2).
+4. Resume **Task 18**: recheck the current PR head's checks and master deploy status, then the
+   **maintainer merges** (`gh pr merge 242 --squash --admin`). Maintainer authorized the merge on
+   2026-09-15, but the Claude Code permission classifier refused the admin merge as "Merge Without
+   Review" (same as Sprint 128), so Claude hands it back rather than retrying variants. Monitor deployment,
+   smoke-test, and verify alert closure after the master rescan. Task 19 follows; nothing is merged
+   or declared complete by this review.
+
+## Independent PR B review (Codex, 2026-09-15)
+
+- Reviewed `8e940560...ccf9022e`: no code correctness or security findings. Three log sinks use
+  the existing validated normalization; cache behavior is unchanged
+  (`services/geocoding-service/src/geocodingService.js:111`, `:120`, `:131`).
+- Fresh local `npm test` in geocoding-service: **5 unit + 18 regression tests passed**, including
+  the 11 new cases. An independent in-memory base/head probe exercised LF, CR, U+2028 and U+2029
+  on hit and miss paths: all 8 leaked line breaks on base, none on head, and cache keys matched.
+- Semantic lock comparison: only the three workspace dependency entries, `eslint-config-next`,
+  `@next/eslint-plugin-next` and `yaml` changed; each workspace's devDependencies matches its lock
+  entry. The full monorepo suite and strict install were not repeated during this review; the
+  current PR's CI evidence was inspected instead.
+- Live GitHub checks on `ccf9022e`: **20 success**, PR deploy skipped, review required. Both CodeQL
+  categories completed on the exact head with no analysis error. The latest master run
+  `35016914690`, including **Deploy to Demo**, succeeded; the three latest master CI runs were
+  completed. #578 is dismissed with the recorded justification; #540–#542 remain open on master;
+  open Dependabot security alerts = 0. #239 remains open for post-merge closure.
+- **CodeQL evidence correction, superseding historical note 16 below:** PR analyses are
+  incremental and the current head reports 0 results. An empty PR result set is not proof that
+  existing master alerts are fixed, even when the sinks are changed lines. The pre-merge evidence
+  is the reviewed data flow, regression tests, and clean PR checks; the master rescan must confirm
+  closure on the merge SHA. See GitHub's explanation:
+  https://github.blog/changelog/2025-05-28-incremental-security-analysis-makes-codeql-up-to-20-faster-in-pull-requests/.
+- Corrected this handoff's stale Quick Start (PR A / Task 1) and master version. Review changed
+  only this handoff; no application code, merge, push, dismissal or external comment was performed.
 
 ## PR A post-deploy verification (2026-09-15) — PASSED
 
@@ -174,7 +203,7 @@ application code changed.
 | BUG-042 | **Remove the per-member score pill**; no per-member reputation reads. |
 | Dependency lane | **Claude holds it** for PR B (#239). |
 
-## What planning established (so it isn't re-derived)
+## What planning established (historical pre-implementation baseline)
 
 - **#540–#542 are REAL, not false positives.** `SAFE_ADDRESS_QUERY_PATTERN`
   (`geocodingService.js:2`) allows `\s`, and `trim()` removes only the ends, so `"Main St\nFORGED"`
