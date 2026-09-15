@@ -481,7 +481,7 @@ is logged. Covered by `sprint-120-bug-030-fractional-score.test.ts`.
 
 ---
 
-## BUG-031 · [2026-07-22] · fixed (Sprint 129 PR C)
+## BUG-031 · [2026-07-22] · closed (Sprint 129 PR C, verified live 2026-09-15)
 
 `/communities` fires one `GET /api/reputation/community-trust/{id}` per community card and every one
 returns **404**, producing **32 console errors on a single page load** (observed on demo as
@@ -510,10 +510,14 @@ to a permitted community with no computable score. Proven by
 responses to each other rather than checking each is 200. It also confirms a denied caller never
 reads or computes the aggregate, not even with `?recalculate=true`. ADR-082 carries the amendment.
 The fix also exposed a second defect on the same line: the page read `response.data.data.score`,
-which is always `undefined` after the client's unwrap, so the "★ N% trust" badge had never rendered
-for anyone. It now reads `response.data.score`
+which is always `undefined` after the client's unwrap. It now reads `response.data.score`
 (`apps/frontend/tests/tdd/sprint-129-community-trust-empty-state.test.tsx`). Batching the fan-out is
 deferred to `docs/IDEAS.md`. Two sibling defects found while fixing this are BUG-042 and BUG-043.
+
+**Verified live (2026-09-15, after deploy `6752f925`):** `/communities` as `maria.reyes` at 1440px
+showed **0 console errors and 0 warnings**, and 37/37 community-trust requests returned 200.
+⚠️ **Correction:** PR C also claimed the "★ N% trust" badge now renders. It does not, and on a
+discovery card it cannot. Fixing the read was necessary but not sufficient. See BUG-044.
 
 ---
 
@@ -925,5 +929,43 @@ result the user actually chose. Reproduced in jsdom while writing
 `apps/frontend/tests/tdd/sprint-129-community-trust-empty-state.test.tsx`, where a mocked
 `readDiscoveryMode` returning `'interests'` doubled every call. Fix shape: initialise the state from
 `readDiscoveryMode()` (lazy `useState` initialiser) rather than correcting it in an effect.
+
+---
+
+## BUG-044 · [2026-09-15] · open
+
+**The `/communities` trust badge can never render on a discovery card, so the per-card
+community-trust fan-out is a guaranteed denial every time.** Found during Sprint 129 PR C's live C4
+check.
+
+- `pages/communities/index.tsx:610` builds the grid as `communities.filter(c => !joinedIds.has(c.id))`,
+  so the grid shows only communities the caller has **not** joined.
+- ADR-082 grants the community-trust aggregate only to an **active member** of a community with at
+  least 5 active members.
+- Both conditions can't hold for the same card. Every discovery card's request is denied
+  (`200 { data: null }`), and the "★ N% trust" badge at `:728-732` never renders.
+- `fetchTrustScores` (`:122-133`) still requests every card on the list: 37 wasted requests per
+  load on the demo.
+- Verified live 2026-09-15 as `maria.reyes`: her only two scored communities (score 1 and 2)
+  appeared solely as "Your Communities" chips, which carry no badge.
+
+The Sprint 129 unit test is correct but proves only the render path. It mocked a score for a card
+the real grid would have filtered out.
+
+**Docs that overstate the badge**, to correct together with the code fix and not as a docs-only
+master push:
+- BUG-031's fix note.
+- `services/reputation-service/CONTEXT.md` Sprint 129 entry.
+- `docs/guides/community-admin-guide.md` and `docs/guides/admin-community-guide.md`, which say
+  members see it on the discovery page.
+
+Fix shape is a product decision:
+- **(a)** Stop the fan-out for grid cards entirely. This is the cheapest option, and it also removes
+  most of the N+1 that `docs/IDEAS.md` wanted to batch.
+- **(b)** Move the badge to the "Your Communities" chips, where the caller is a member and a score
+  can exist.
+
+Either way, never fetch an aggregate for a community the page already knows the caller has not
+joined.
 
 ---
