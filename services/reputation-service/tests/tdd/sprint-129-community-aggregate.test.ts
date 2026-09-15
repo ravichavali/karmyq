@@ -80,9 +80,11 @@ function app() {
   return a;
 }
 
-async function trust(communityId: string) {
-  const res = await request(app()).get(`/reputation/community-trust/${communityId}`);
-  return { status: res.status, contentType: res.headers['content-type'], body: res.body, text: res.text };
+const DENIAL_TEXT = '{"success":true,"data":null}';
+
+async function trust(communityId: string, query = '') {
+  const res = await request(app()).get(`/reputation/community-trust/${communityId}${query}`);
+  return { status: res.status, contentType: res.headers['content-type'], text: res.text };
 }
 
 beforeEach(() => {
@@ -96,7 +98,7 @@ describe('community-trust denial is an empty state, identical across every cause
   it('returns exactly 200 { success: true, data: null } for a denial', async () => {
     const res = await trust(NOT_MINE);
     expect(res.status).toBe(200);
-    expect(res.text).toBe('{"success":true,"data":null}');
+    expect(res.text).toBe(DENIAL_TEXT);
   });
 
   it('unknown community, non-member and undersized cohort are byte-identical', async () => {
@@ -126,9 +128,9 @@ describe('community-trust denial is an empty state, identical across every cause
   });
 
   it('?recalculate=true does not let a denied caller trigger a computation', async () => {
-    const res = await request(app()).get(`/reputation/community-trust/${NOT_MINE}?recalculate=true`);
+    const res = await trust(NOT_MINE, '?recalculate=true');
 
-    expect(res.text).toBe('{"success":true,"data":null}');
+    expect(res.text).toBe(DENIAL_TEXT);
     expect(mockCalculate).not.toHaveBeenCalled();
   });
 });
@@ -138,7 +140,7 @@ describe('a permitted caller is unchanged', () => {
     const res = await trust(MINE);
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ success: true, data: SCORE_ROW });
+    expect(JSON.parse(res.text)).toEqual({ success: true, data: SCORE_ROW });
     expect(mockCalculate).not.toHaveBeenCalled();
   });
 });

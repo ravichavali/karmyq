@@ -13,7 +13,6 @@
 import { render, screen, waitFor, act, renderHook } from '@testing-library/react'
 
 jest.mock('@/lib/api', () => ({
-  api: { post: jest.fn(), defaults: { headers: { common: {} } } },
   communityService: {
     getCommunities: jest.fn(),
     getCommunityTags: jest.fn(),
@@ -22,9 +21,10 @@ jest.mock('@/lib/api', () => ({
     getConfig: jest.fn(),
     getSettings: jest.fn(),
   },
-  requestService: { getRequests: jest.fn() },
+  // Imported by useCommunityData but never called on the trust path.
+  requestService: {},
   collectiveService: {},
-  reputationService: { getCommunityTrust: jest.fn(), getNetworkMetrics: jest.fn() },
+  reputationService: { getCommunityTrust: jest.fn() },
 }))
 jest.mock('@/components/Layout', () => ({
   __esModule: true,
@@ -109,6 +109,7 @@ describe('/communities trust badges', () => {
     render(<CommunitiesPage />)
 
     await screen.findByText('Maplewood Mutual Aid')
+    // Wait for both fetches to settle before asserting that nothing rendered.
     await waitFor(() => expect(reputationService.getCommunityTrust).toHaveBeenCalledTimes(2))
     expect(screen.queryByText(/% trust/)).toBeNull()
     expect(consoleError).not.toHaveBeenCalled()

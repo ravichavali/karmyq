@@ -560,7 +560,7 @@ gh api repos/ravichavali/karmyq/dependabot/alerts --paginate -q '[.[] | select(.
 
 ## Task C2: Change the response
 
-- [ ] `denyAggregate` (`reputation.ts:44`) → `200` with `{ success: true, data: { aggregate: null } }`.
+- [ ] `denyAggregate` (`reputation.ts:44`) → `200` with `{ success: true, data: null }` *(shipped shape; `{ aggregate: null }` was truthy and broke `StewardRequestsAdmin`)*.
       It is the single shared exit for all three denial causes, so changing it in one place keeps
       them identical by construction — do not branch inside it.
 - [ ] **Grep every call site** — do not assume `community-trust` is the only one; each one must be

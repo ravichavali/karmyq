@@ -117,7 +117,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-079: Karmyq Visual Design System v2 (finish the warm system + harden it into tokens)](ADR-079-visual-design-system-v2.md) — **Implemented**
 - [ADR-080: Retain Geocoding Cache as External API Policy Boundary](ADR-080-geocoding-cache-policy-boundary.md) — **Implemented**
 - [ADR-081: Belonging Graph System — One Engine, One Language, One Explorer](ADR-081-belonging-graph-system.md) — **Proposed**
-- [ADR-082: Reputation Disclosure Boundary](ADR-082-reputation-disclosure-boundary.md) — **Accepted**
+- [ADR-082: Reputation Disclosure Boundary](ADR-082-reputation-disclosure-boundary.md) — **Accepted** (amended Sprint 129: a denied community-trust aggregate is `200 { data: null }`, identical across causes)
 - [ADR-083: Contextual Belonging Graph Rendering (Earned Structure)](ADR-083-contextual-belonging-graph-rendering.md) — **Accepted**
 - [ADR-084: Context-Bound Connection Visibility](ADR-084-context-bound-connection-visibility.md) — **Accepted** (amended Sprint 117: curated historical floor + API verification; amended Sprint 129: opacity binds the response, not the log)
 - [ADR-085: Invited Arrival & the Edge Lifecycle](ADR-085-invited-arrival-and-edge-lifecycle.md) — **Implemented**

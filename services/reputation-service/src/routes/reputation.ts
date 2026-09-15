@@ -40,10 +40,7 @@ function denyNotFound(res: Response) {
 }
 
 // Community aggregates are membership + cohort gated (ADR-082). Unknown community, non-member and
-// undersized cohort all get this one response so we never reveal which — or that the community
-// exists. Sprint 129 (BUG-031): it is the empty state `200 { data: null }`, not a 404, because
-// /communities asks once per card and a 404 per card flooded the console. It is also exactly what a
-// permitted caller gets when no score can be computed, so a denial is not distinguishable from that.
+// undersized cohort all get this empty state, the same as a permitted caller with no score (BUG-031).
 // Do not branch in here: one shared exit is what keeps the causes identical.
 function denyAggregate(res: Response) {
   return res.json({ success: true, data: null });
