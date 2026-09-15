@@ -109,14 +109,16 @@ Dependabot #239 surgically.
     - Community People tab: 0 `/reputation/trust/` requests.
 16. **CodeQL: PR evidence and master evidence are different things.**
     - **Before merge:** confirm the CodeQL analyses for the PR's **exact head SHA** have *completed*
-      (not just that a check exists), and read the ref-scoped findings for the PR ref: check-run
-      annotations or `code-scanning/alerts?ref=refs/pull/N/head`. They must show #540–#542's rule
+      (not just that a check exists), and read the ref-scoped open findings for the PR ref:
+      `code-scanning/alerts?ref=refs/pull/N/head&state=open`, with check-run annotations as
+      supplementary evidence. They must show #540–#542's rule
       no longer firing at those lines.
     - **After merge:** wait for the master rescan to complete, then verify default-branch alert
       closure.
     - An alert still open on master before that rescan is expected (GitHub's alert status is per
       branch) and never justifies another sanitiser change.
-    - Recall the memory: the ADR-060 gate polls the merge ref while CodeQL publishes to `/head`.
+    - The ADR-060 gate already targets the PR head ref and head SHA
+      (`.github/workflows/ci.yml:129-130`); the merge-ref mismatch is historical.
 
 **Host traps (Windows primary box):**
 - Use `node -e` rather than `curl`/`jq`.
@@ -326,7 +328,7 @@ npm ls eslint-config-next yaml --all
 - [ ] `npx turbo run test --concurrency=1 --force` (exit code captured); `npm run feedback:check`; restore unrelated promotions.
 - [ ] Bump the version from `origin/master` at merge time (expected **v11.55.0**). Update the handoff before opening.
 - [ ] Push (the hook runs visibly); open PR B from the template.
-- [ ] **Before merge (PR evidence, note 16):** confirm the CodeQL analyses for PR B's **exact head SHA** have **completed** (`gh api "repos/ravichavali/karmyq/code-scanning/analyses?ref=refs/pull/<N>/head"`, matching `commit_sha`). Then read the ref-scoped findings (`code-scanning/alerts?ref=refs/pull/<N>/head` and the check-run annotations): `js/log-injection` must not fire at `geocodingService.js:111/118/129`. Only if it **does** fire on the PR head is another sanitiser change warranted.
+- [ ] **Before merge (PR evidence, note 16):** confirm the CodeQL analyses for PR B's **exact head SHA** have **completed** (`gh api "repos/ravichavali/karmyq/code-scanning/analyses?ref=refs/pull/<N>/head"`, matching `commit_sha` and requiring the `javascript-typescript` category with no analysis error). Then read the ref-scoped open findings (`code-scanning/alerts?ref=refs/pull/<N>/head&state=open` and the check-run annotations): `js/log-injection` must not fire at the three affected log sites in `geocodingService.js`. Only if it **does** fire on the PR head is another sanitiser change warranted.
 - [ ] Get explicit merge authorization and merge; watch the **Deploy to Demo job**; smoke login + demo-session.
 - [ ] **After merge (master evidence, note 16):** wait for the master CodeQL analysis on the squash SHA to complete, then verify #540–#542 read `fixed` on the default branch. Before that rescan, open alerts on master are expected and are **not** grounds for more changes.
 - [ ] Post-merge: **0 open code-scanning alerts**, **0 open Dependabot security alerts**, and #239 closed with a link.

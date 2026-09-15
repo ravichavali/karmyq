@@ -204,14 +204,16 @@ score and ADR-082 permits it. Only the per-member fan-out goes.
     - Community People tab: 0 `/reputation/trust/` requests.
 16. **CodeQL: PR evidence and master evidence are different things.**
     - **Before merge:** confirm the CodeQL analyses for the PR's **exact head SHA** have *completed*
-      (not just that a check exists), and read the ref-scoped findings for the PR ref: check-run
-      annotations or `code-scanning/alerts?ref=refs/pull/N/head`. They must show #540–#542's rule
+      (not just that a check exists), and read the ref-scoped open findings for the PR ref:
+      `code-scanning/alerts?ref=refs/pull/N/head&state=open`, with check-run annotations as
+      supplementary evidence. They must show #540–#542's rule
       no longer firing at those lines.
     - **After merge:** wait for the master rescan to complete, then verify default-branch alert
       closure.
     - An alert still open on master before that rescan is expected (GitHub's alert status is per
       branch) and never justifies another sanitiser change.
-    - Recall the memory: the ADR-060 gate polls the merge ref while CodeQL publishes to `/head`.
+    - The ADR-060 gate already targets the PR head ref and head SHA
+      (`.github/workflows/ci.yml:129-130`); the merge-ref mismatch is historical.
 
 ## Done looks like
 

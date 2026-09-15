@@ -52,7 +52,13 @@ All five findings were verified by Claude against the repo and **applied to the 
 - F2: `apps/frontend/package.json` `test` = unit + regression only.
 - F3: `normalizeQuery("Main St\nFORGED 200 OK")` → `"main st forged 200 ok"`; `validateSearchQuery` returns `ok: true`.
 - F4: `index.tsx:167-174`.
-- F5: accepted as process.
+- F5: accepted as process. Follow-up review of `e1fc1f3f` verified the API shapes on PR #240:
+  `analyses?ref=refs/pull/240/head` returned `commit_sha`, `category` and an empty `error` for both
+  JavaScript/TypeScript and Actions on `16eaf4cd`; the ref-scoped open-alert query succeeded with
+  no results. PR #239 returned no analyses, so its empty alert list alone proves nothing.
+  Corrected note 16 in all three artifacts: `.github/workflows/ci.yml:129-130` already targets
+  the PR head, not the merge ref. Task 18 now explicitly checks the JavaScript analysis and open
+  findings. Recognition of the future sanitizer remains an execution-time check.
 
 BUG-043 in `docs/BUGS.md` is re-diagnosed accordingly: the saved mode is lost on every load; the double fetch was a mock artefact.
 
@@ -196,14 +202,16 @@ application code changed.
     - Community People tab: 0 `/reputation/trust/` requests.
 16. **CodeQL: PR evidence and master evidence are different things.**
     - **Before merge:** confirm the CodeQL analyses for the PR's **exact head SHA** have *completed*
-      (not just that a check exists), and read the ref-scoped findings for the PR ref: check-run
-      annotations or `code-scanning/alerts?ref=refs/pull/N/head`. They must show #540–#542's rule
+      (not just that a check exists), and read the ref-scoped open findings for the PR ref:
+      `code-scanning/alerts?ref=refs/pull/N/head&state=open`, with check-run annotations as
+      supplementary evidence. They must show #540–#542's rule
       no longer firing at those lines.
     - **After merge:** wait for the master rescan to complete, then verify default-branch alert
       closure.
     - An alert still open on master before that rescan is expected (GitHub's alert status is per
       branch) and never justifies another sanitiser change.
-    - Recall the memory: the ADR-060 gate polls the merge ref while CodeQL publishes to `/head`.
+    - The ADR-060 gate already targets the PR head ref and head SHA
+      (`.github/workflows/ci.yml:129-130`); the merge-ref mismatch is historical.
 
 ## Dated obligations (carried)
 
