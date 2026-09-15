@@ -24,22 +24,23 @@ Dependabot #239 surgically.
 ### New files to create
 | File | Responsibility |
 |------|---------------|
-| `apps/frontend/tests/tdd/sprint-130-reputation-fanout.test.tsx` | BUG-042/043/044: request-pattern and render assertions |
+| `apps/frontend/tests/tdd/sprint-130-reputation-fanout.test.tsx` | BUG-042/043/044: request-pattern and render assertions, **moved to `tests/regression/` by hand once green** (note 12) |
 | `services/geocoding-service/tests/tdd/sprint-130-log-injection.test.js` | #540–#542, moved to `tests/regression/` by hand before PR B opens (note 9) |
 
 ### Existing files to modify
 | File | Change | PR |
 |------|--------|----|
 | `apps/frontend/src/pages/communities/index.tsx` | Trust for joined ids only, badge on chips, discovery badge removed, `modeResolved` gate | A |
+| `apps/frontend/src/components/DiscoveryToggle.tsx` | No storage write on mount; persist only after initialisation (BUG-043 half a) | A |
 | `apps/frontend/src/hooks/useCommunityData.ts` | Delete `memberTrustScores` + `fetchMemberTrustScores` + return keys | A |
 | `apps/frontend/src/pages/communities/[id].tsx` | Delete the `refetchMemberTrustScores()` call and prop | A |
 | `apps/frontend/src/components/community/tabs/ActiveTab.tsx` | Delete the `memberTrustScores` prop and score pill | A |
-| `apps/frontend/tests/tdd/sprint-129-community-trust-empty-state.test.tsx` | Rework the badge cases to the chip placement (that fixture was unreachable) | A |
+| `apps/frontend/tests/tdd/sprint-129-community-trust-empty-state.test.tsx` | Rework the badge cases to the chip placement (that fixture was unreachable), then **move to `tests/regression/`** | A |
 | Existing tests passing `memberTrustScores` (grep) | Drop the prop | A |
 | `docs/guides/community-admin-guide.md`, `docs/guides/admin-community-guide.md` | Badge location; `:56` member scores claim | A |
 | `docs/adr/ADR-082-reputation-disclosure-boundary.md` | Sprint 130 note | A |
 | `services/reputation-service/CONTEXT.md`, `docs/BUGS.md`, `docs/IDEAS.md` | Corrections and closures | A |
-| `services/geocoding-service/src/geocodingService.js` | Whitespace-collapse normalisation; log `normalized` only | B |
+| `services/geocoding-service/src/geocodingService.js` | Log `normalized` (not raw `query`) at `:111`, `:118`, `:129`; `normalizeQuery` unchanged | B |
 | `services/geocoding-service/CONTEXT.md` | Recent fix | B |
 | `apps/frontend/package.json`, `apps/landing/package.json`, `tests/package.json`, `package-lock.json` | #239 surgical bump | B |
 | `package.json` | Version bump at merge time | A, B |
@@ -48,10 +49,18 @@ Dependabot #239 surgically.
 
 ## ⚠️ Critical Implementation Notes (read before Task 2)
 
-1. **Never fix BUG-043 with a lazy `useState` initialiser that reads localStorage.** The page is
-   prerendered, so a client/server mismatch logs a hydration error to the console. Gate the first
-   fetch on a resolved flag instead. Prove it with a test that asserts `getCommunities` is called
-   **exactly once**, with the persisted mode, for both `'interests'` and `'geography'`.
+1. **BUG-043 needs both halves, tested with the REAL `DiscoveryToggle`.**
+   - (a) The toggle must not write storage on mount.
+   - (b) The first fetch waits for the resolved mode.
+   - Never use a lazy `useState` initialiser that reads localStorage: the page is prerendered, and a
+     mismatch logs a hydration error.
+   - **Do not mock `@/components/DiscoveryToggle` in BUG-043 tests.** The mock hid the overwrite.
+   - Assert, per case:
+     - Saved `interests`: storage still reads `interests` after mount, exactly one `getCommunities`
+       call, and no `mode`/`tags` params, because tags start empty.
+     - Saved `geography` with `navigator.geolocation` mocked to succeed: exactly one call with
+       `mode: 'geography'`, `lat` and `lng`.
+     - Geography fallback (no geolocation, or denied): exactly one unfiltered call.
 2. **A test must reach a state the real page can reach.** Sprint 129's badge test mocked a score for a
    card the real grid filters out, and passed while the feature was dead (BUG-044). Every PR A
    render test builds its fixture from the page's real filters: joined ids come from
@@ -66,8 +75,10 @@ Dependabot #239 surgically.
 6. **Don't edit `apps/frontend/src/lib/api.ts`.** A line shift re-raises the CodeQL
    `js/request-forgery` false positive as new alert ids and blocks the master deploy.
 7. **#540–#542 are real, so fix them, never dismiss.** `\s` in `SAFE_ADDRESS_QUERY_PATTERN` admits
-   `\n`/`\r` mid-query. The regression test must feed a query containing `\n` and assert that no
-   logged string contains `\n` or `\r`, and that the cache key is whitespace-collapsed.
+   `\n`/`\r` mid-query, and the three log lines print the raw query. The regression test feeds
+   `"Main St\nFORGED 200 OK"` and asserts two things. First, no logged string contains `\n` or `\r`
+   on the miss, hit and cached paths. Second, the cache key stays exactly what `normalizeQuery`
+   produces today (`"main st forged 200 ok"`): the lowercase contract is preserved, not changed.
 8. **#578 is one dismissal, with its justification recorded in the PR body.** Never loop the
    dismissal API.
 9. **Geocoding tests are `.js`, and the promoter only moves `*.test.ts`** (`promote-tdd-tests.js:33`,
@@ -81,7 +92,11 @@ Dependabot #239 surgically.
 11. **`eslint-config-next` is already 16.x against `next` 15** (the mismatch recorded on #229). #239
     is a patch within 16, and it must not become a `next` bump.
 12. **The TDD promoter sweeps unrelated files.** After any full `npm test`, restore promotions that
-    don't belong to the PR.
+    don't belong to the PR. **Frontend `.tsx` tests never promote** (BUG-033), and
+    `apps/frontend/package.json`'s blocking `test` runs only `tests/unit` + `tests/regression`. So
+    **move this sprint's green `.tsx` tests to `apps/frontend/tests/regression/` by hand**, as for
+    geocoding's `.js`. That includes the reworked Sprint 129 test, which has sat non-blocking in
+    `tdd/` since it shipped. BUG-033 itself stays deferred.
 13. **`apps/landing/src/data/docs/` is only partly tracked, and its directory is gitignored.** Stage
     tracked regenerations with `git add -u`, keep content changes, and revert `architecture.json` and
     `build.json` timestamp churn.
@@ -89,9 +104,19 @@ Dependabot #239 surgically.
     Take the version bump from `origin/master` at merge time.
 15. **Verify live after each deploy, in a browser, as `maria.reyes`:**
     - `/communities`: 0 console errors, **no** community-trust request for a discovery-card id,
-      exactly one `GET /communities` for the saved mode, and a badge on any joined chip whose score
-      is non-null.
+      exactly one `GET /communities`, a badge on any joined chip whose score is non-null, and **a
+      saved "By Interest" mode still selected after a reload**.
     - Community People tab: 0 `/reputation/trust/` requests.
+16. **CodeQL: PR evidence and master evidence are different things.**
+    - **Before merge:** confirm the CodeQL analyses for the PR's **exact head SHA** have *completed*
+      (not just that a check exists), and read the ref-scoped findings for the PR ref: check-run
+      annotations or `code-scanning/alerts?ref=refs/pull/N/head`. They must show #540–#542's rule
+      no longer firing at those lines.
+    - **After merge:** wait for the master rescan to complete, then verify default-branch alert
+      closure.
+    - An alert still open on master before that rescan is expected (GitHub's alert status is per
+      branch) and never justifies another sanitiser change.
+    - Recall the memory: the ADR-060 gate polls the merge ref while CodeQL publishes to `/head`.
 
 **Host traps (Windows primary box):**
 - Use `node -e` rather than `curl`/`jq`.
@@ -128,9 +153,13 @@ Read `tests/claude.md` and `apps/frontend/claude.md` first. Model the page mocks
   - The J1 chip contains `★ 62% trust`; the J2 chip has no badge.
   - No discovery card contains `% trust`.
   - `console.error` was not called.
-- [ ] **BUG-043, one list fetch.** Parametrise over the persisted mode (`'interests'`, `'geography'`) by mocking `readDiscoveryMode`. Assert `getCommunities` is called **exactly once**, with `params.mode` matching the persisted mode, after all effects settle (`waitFor` on the grid, then flush).
+- [ ] **BUG-043, saved mode survives and one list fetch.** Use the **real** `DiscoveryToggle`; do not mock `@/components/DiscoveryToggle` in this `describe` (note 1). Seed `localStorage.community_discovery_mode`, let all effects settle, then assert per case:
+  - **Saved `interests`:** storage still reads `interests`, the "By Interest" button is the selected one, and `getCommunities` is called **exactly once** with **no** `mode` or `tags` params (tags start empty, `index.tsx:167-174`).
+  - **Saved `geography`, geolocation succeeds** (mock `navigator.geolocation.getCurrentPosition` to call back with coordinates): exactly one call with `mode: 'geography'`, `lat` and `lng`.
+  - **Geography fallback** (no `navigator.geolocation`, and separately a denied callback): exactly one unfiltered call.
+  - Pre-fix, the `interests` case must fail on the storage assertion (reproduced 2026-09-15: saved `interests` became `geography`).
 - [ ] **BUG-042, People tab.** Render `ActiveTab` with members and no `memberTrustScores` prop. Assert no `★` pill renders for any member. Through `useCommunityData`, assert the hook no longer exposes `refetchMemberTrustScores`, and that `reputationService.getTrustScore` is never called.
-- [ ] Run and confirm it is **red for the right reasons**: trust is called with discovery ids, no chip badge, `getCommunities` called twice for `'interests'`, a pill renders.
+- [ ] Run and confirm it is **red for the right reasons**: trust is called with discovery ids, no chip badge, saved `interests` is overwritten to `geography`, a pill renders.
 
 ```bash
 cd apps/frontend && npx jest tests/tdd/sprint-130-reputation-fanout.test.tsx
@@ -145,13 +174,16 @@ cd apps/frontend && npx jest tests/tdd/sprint-130-reputation-fanout.test.tsx
 - [ ] Render `★ {score}% trust` inside the chip `Link` when `trustScores[c.id] != null`, and remove the discovery-card badge block.
 - [ ] Task 2's BUG-044 cases go green.
 
-## Task 4: BUG-043, gate the first fetch on the resolved mode
+## Task 4: BUG-043, stop the mount-time overwrite and gate the first fetch
 
-**Files:** Modify `apps/frontend/src/pages/communities/index.tsx`
+**Files:** Modify `apps/frontend/src/components/DiscoveryToggle.tsx`, `apps/frontend/src/pages/communities/index.tsx`
+
+- [ ] **Half (a):** `DiscoveryToggle` must not write storage on mount. Either persist on a user-initiated change (inside the click handler, before `onChange`), or accept a `persist` prop that the page keeps false until `modeResolved`. Remove the unconditional `useEffect(() => localStorage.setItem(...), [mode])`. The page is the toggle's only consumer (grep confirmed).
+- [ ] **Half (b):** the steps below.
 
 - [ ] Add `const [modeResolved, setModeResolved] = useState(false)`. The mount effect calls `setDiscoveryMode(readDiscoveryMode())` and then `setModeResolved(true)`.
 - [ ] The mode effect returns early while `!modeResolved`, and its dependency list becomes `[discoveryMode, modeResolved]`. **No** lazy `useState` initialiser reading localStorage (note 1).
-- [ ] Task 2's BUG-043 cases go green for both modes.
+- [ ] Task 2's BUG-043 cases go green for all three cases. Then prove the test can fail: with (a) fixed but (b) reverted, the `interests` "exactly once" assertion must fail.
 
 ## Task 5: BUG-042, remove the per-member score fan-out
 
@@ -201,7 +233,8 @@ cd apps/frontend && npx jest tests/tdd/sprint-130-reputation-fanout.test.tsx tes
 ## Task 9: Verify and open PR A
 
 - [ ] `npx tsc --noEmit -p apps/frontend`: clean.
-- [ ] `npx turbo run test --concurrency=1 --force`, with the exit code captured separately. Promote only this PR's `.ts` tests; restore any others the promoter moved (note 12). The `.tsx` tests stay in `tdd/` (BUG-033).
+- [ ] **Move this PR's green frontend tests to `apps/frontend/tests/regression/` by hand** (note 12): `sprint-130-reputation-fanout.test.tsx` and the reworked `sprint-129-community-trust-empty-state.test.tsx`. Update any doc references to their paths and re-run them from the new location.
+- [ ] `npx turbo run test --concurrency=1 --force`, with the exit code captured separately. Restore anything unrelated the promoter moved (note 12).
 - [ ] `npm run feedback:check`.
 - [ ] Bump `package.json` from `origin/master` at merge time (expected **v11.54.0**).
 - [ ] Update the handoff **before** opening the PR (so no docs-only master push is needed later).
@@ -236,7 +269,7 @@ Use the `/deploy` skill.
 Model it on `services/geocoding-service/tests/unit/geocodingService.test.js`: inject `pool`, `fetchImpl` and a capturing `logger`.
 
 - [ ] A query `"Main St\nFORGED 200 OK"` (passes validation today) produces **no** logged string containing `\n` or `\r`, on the cache-miss path and the cache-hit path.
-- [ ] The cache key passed to `pool.query` for `"Main  St\n\tPortland"` is `"Main St Portland"`.
+- [ ] The cache key passed to `pool.query` is exactly what `normalizeQuery` produces today: `"main st forged 200 ok"` for the query above. **The contract is preserved, not changed** (note 7). Assert it both before and after the fix.
 - [ ] A normal query's results and cache behaviour are unchanged.
 - [ ] Prove red: `cd services/geocoding-service && npx jest tests/tdd/sprint-130-log-injection.test.js`.
 
@@ -244,8 +277,8 @@ Model it on `services/geocoding-service/tests/unit/geocodingService.test.js`: in
 
 **Files:** Modify `services/geocoding-service/src/geocodingService.js`
 
-- [ ] In `validateSearchQuery`, collapse whitespace runs to a single space before length and pattern checks (`trimmed.replace(/\s+/g, ' ')`), and return that as `value`.
-- [ ] The three `logger.log` lines log `normalized`, never raw `query`.
+- [ ] **Do not change `normalizeQuery` or `validateSearchQuery`.** Normalisation already lowercases, trims and collapses whitespace (`:4-5`, used at `:23`).
+- [ ] The three `logger.log` lines (`:111`, `:118`, `:129`) interpolate `normalized`, never the raw `query`. Grep `logger\.` for any other site that interpolates `query`.
 - [ ] Green. Then **move the test file to `tests/regression/` by hand** (note 9) and re-run it there.
 - [ ] Run the full geocoding suite: `cd services/geocoding-service && npm test`.
 
@@ -293,8 +326,9 @@ npm ls eslint-config-next yaml --all
 - [ ] `npx turbo run test --concurrency=1 --force` (exit code captured); `npm run feedback:check`; restore unrelated promotions.
 - [ ] Bump the version from `origin/master` at merge time (expected **v11.55.0**). Update the handoff before opening.
 - [ ] Push (the hook runs visibly); open PR B from the template.
-- [ ] After the CodeQL rescan on the PR, verify #540–#542 are **fixed** (not merely absent from the PR annotations). If they are still open, add an explicit `.replace(/[\r\n]/g, '')` at the log sites and re-push.
+- [ ] **Before merge (PR evidence, note 16):** confirm the CodeQL analyses for PR B's **exact head SHA** have **completed** (`gh api "repos/ravichavali/karmyq/code-scanning/analyses?ref=refs/pull/<N>/head"`, matching `commit_sha`). Then read the ref-scoped findings (`code-scanning/alerts?ref=refs/pull/<N>/head` and the check-run annotations): `js/log-injection` must not fire at `geocodingService.js:111/118/129`. Only if it **does** fire on the PR head is another sanitiser change warranted.
 - [ ] Get explicit merge authorization and merge; watch the **Deploy to Demo job**; smoke login + demo-session.
+- [ ] **After merge (master evidence, note 16):** wait for the master CodeQL analysis on the squash SHA to complete, then verify #540–#542 read `fixed` on the default branch. Before that rescan, open alerts on master are expected and are **not** grounds for more changes.
 - [ ] Post-merge: **0 open code-scanning alerts**, **0 open Dependabot security alerts**, and #239 closed with a link.
 
 ## Task 19: Close the sprint

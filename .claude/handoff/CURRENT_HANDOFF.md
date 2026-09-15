@@ -1,7 +1,7 @@
 # Sprint 130 — Stop Asking for Reputation We Can't Be Given — Handoff
 
 **Date**: 2026-09-15
-**Outcome**: **PLANNED, ready to execute.** Spec + plan committed on `feature/sprint-130-maintenance`. Nothing implemented yet.
+**Outcome**: **PLANNED, review corrections APPLIED, ready to execute.** Spec + plan on `feature/sprint-130-maintenance`. Nothing implemented yet. Codex reviewed the plan on 2026-09-15; all five findings were verified and applied (see the review checkpoint below).
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router: there is no second machine.
 > This file is branch-local and reserves nothing. Contended resources are allocated by the
@@ -44,6 +44,49 @@ to **0 open code-scanning alerts**.
 3. Open the plan: [`docs/superpowers/plans/2026-09-15-sprint-130-maintenance.md`](../../docs/superpowers/plans/2026-09-15-sprint-130-maintenance.md)
 4. Run `/execute-plan` (uses superpowers:subagent-driven-development). **Start at Task 1**, and
    write the tests first (Task 2).
+
+## Plan review checkpoint (2026-09-15) — RESOLVED
+
+All five findings were verified by Claude against the repo and **applied to the spec, the plan and critical notes 1, 7, 12, 15 and 16**. Evidence:
+- F1: reproduced with the real toggle; saved `interests` became `geography` with one unfiltered request.
+- F2: `apps/frontend/package.json` `test` = unit + regression only.
+- F3: `normalizeQuery("Main St\nFORGED 200 OK")` → `"main st forged 200 ok"`; `validateSearchQuery` returns `ok: true`.
+- F4: `index.tsx:167-174`.
+- F5: accepted as process.
+
+BUG-043 in `docs/BUGS.md` is re-diagnosed accordingly: the saved mode is lost on every load; the double fetch was a mock artefact.
+
+The reviewer's original findings, kept for the record:
+
+- **Saved mode is overwritten on mount.** The real `DiscoveryToggle` writes its initial mode to
+  storage (`apps/frontend/src/components/DiscoveryToggle.tsx:14`) before the page reads storage
+  (`apps/frontend/src/pages/communities/index.tsx:248`). A focused render of the actual page and
+  toggle with saved `interests` yielded saved `geography` and one unfiltered list request. Task 4's
+  fetch gate does not gate the toggle's write; Task 2's mock hides it. Preserve storage until mode
+  resolution and test the real toggle.
+- **Request assertion does not match the builder.** Task 2 (`plan:131`) requires `params.mode` on
+  every initial fetch, but the builder only sends it with coordinates or nonempty tags
+  (`apps/frontend/src/pages/communities/index.tsx:167`). Tags start empty. Define assertions for
+  geography success/fallback and initial interests without silently changing the API contract.
+- **Promote frontend tests manually.** Task 9 (`plan:204`) leaves green `.tsx` tests in `tdd/`,
+  outside the blocking scripts (`apps/frontend/package.json:11`). Move this sprint's green tests
+  to `regression/`, as Task 13 already does for JavaScript; BUG-033 can remain deferred.
+- **Preserve the existing cache normalization.** Tasks 12/13 (`plan:239`, `plan:247`) specify a
+  mixed-case key and returning collapsed input. `normalizeQuery` already lowercases and collapses
+  whitespace (`services/geocoding-service/src/geocodingService.js:5`), and validation already uses
+  it (`:23`). A direct call returned `main st portland`. Fix raw-query logging while retaining
+  the lowercase cache contract; correct the spec's claim that whitespace collapse is new.
+- **Separate PR and master scan verification.** Task 18 (`plan:296`) must verify completed analyses
+  for the PR head and ref-scoped findings before merge; verify default-branch alert closure after
+  merge and the master rescan. An open default-branch alert alone is not evidence that the PR's
+  sanitizer failed. GitHub documents the distinction at
+  https://docs.github.com/en/code-security/concepts/code-scanning/code-scanning-alerts.
+
+`plan` above means `docs/superpowers/plans/2026-09-15-sprint-130-maintenance.md`.
+Live read-only reconciliation: master remains `6752f925`; no Sprint 130 PR is open; #239 is open,
+MERGEABLE, with the four planned files; #540–#542 and #578 remain open on master (all medium).
+Review validation: source tracing plus isolated Node/jsdom probes; no full test suite run and no
+application code changed.
 
 ## Artifacts
 
@@ -93,10 +136,18 @@ to **0 open code-scanning alerts**.
 
 ## Critical implementation notes (verbatim from the spec)
 
-1. **Never fix BUG-043 with a lazy `useState` initialiser that reads localStorage.** The page is
-   prerendered, so a client/server mismatch logs a hydration error to the console. Gate the first
-   fetch on a resolved flag instead. Prove it with a test that asserts `getCommunities` is called
-   **exactly once**, with the persisted mode, for both `'interests'` and `'geography'`.
+1. **BUG-043 needs both halves, tested with the REAL `DiscoveryToggle`.**
+   - (a) The toggle must not write storage on mount.
+   - (b) The first fetch waits for the resolved mode.
+   - Never use a lazy `useState` initialiser that reads localStorage: the page is prerendered, and a
+     mismatch logs a hydration error.
+   - **Do not mock `@/components/DiscoveryToggle` in BUG-043 tests.** The mock hid the overwrite.
+   - Assert, per case:
+     - Saved `interests`: storage still reads `interests` after mount, exactly one `getCommunities`
+       call, and no `mode`/`tags` params, because tags start empty.
+     - Saved `geography` with `navigator.geolocation` mocked to succeed: exactly one call with
+       `mode: 'geography'`, `lat` and `lng`.
+     - Geography fallback (no geolocation, or denied): exactly one unfiltered call.
 2. **A test must reach a state the real page can reach.** Sprint 129's badge test mocked a score for a
    card the real grid filters out, and passed while the feature was dead (BUG-044). Every PR A
    render test builds its fixture from the page's real filters: joined ids come from
@@ -111,8 +162,10 @@ to **0 open code-scanning alerts**.
 6. **Don't edit `apps/frontend/src/lib/api.ts`.** A line shift re-raises the CodeQL
    `js/request-forgery` false positive as new alert ids and blocks the master deploy.
 7. **#540–#542 are real, so fix them, never dismiss.** `\s` in `SAFE_ADDRESS_QUERY_PATTERN` admits
-   `\n`/`\r` mid-query. The regression test must feed a query containing `\n` and assert that no
-   logged string contains `\n` or `\r`, and that the cache key is whitespace-collapsed.
+   `\n`/`\r` mid-query, and the three log lines print the raw query. The regression test feeds
+   `"Main St\nFORGED 200 OK"` and asserts two things. First, no logged string contains `\n` or `\r`
+   on the miss, hit and cached paths. Second, the cache key stays exactly what `normalizeQuery`
+   produces today (`"main st forged 200 ok"`): the lowercase contract is preserved, not changed.
 8. **#578 is one dismissal, with its justification recorded in the PR body.** Never loop the
    dismissal API.
 9. **Geocoding tests are `.js`, and the promoter only moves `*.test.ts`** (`promote-tdd-tests.js:33`,
@@ -126,7 +179,11 @@ to **0 open code-scanning alerts**.
 11. **`eslint-config-next` is already 16.x against `next` 15** (the mismatch recorded on #229). #239
     is a patch within 16, and it must not become a `next` bump.
 12. **The TDD promoter sweeps unrelated files.** After any full `npm test`, restore promotions that
-    don't belong to the PR.
+    don't belong to the PR. **Frontend `.tsx` tests never promote** (BUG-033), and
+    `apps/frontend/package.json`'s blocking `test` runs only `tests/unit` + `tests/regression`. So
+    **move this sprint's green `.tsx` tests to `apps/frontend/tests/regression/` by hand**, as for
+    geocoding's `.js`. That includes the reworked Sprint 129 test, which has sat non-blocking in
+    `tdd/` since it shipped. BUG-033 itself stays deferred.
 13. **`apps/landing/src/data/docs/` is only partly tracked, and its directory is gitignored.** Stage
     tracked regenerations with `git add -u`, keep content changes, and revert `architecture.json` and
     `build.json` timestamp churn.
@@ -134,9 +191,19 @@ to **0 open code-scanning alerts**.
     Take the version bump from `origin/master` at merge time.
 15. **Verify live after each deploy, in a browser, as `maria.reyes`:**
     - `/communities`: 0 console errors, **no** community-trust request for a discovery-card id,
-      exactly one `GET /communities` for the saved mode, and a badge on any joined chip whose score
-      is non-null.
+      exactly one `GET /communities`, a badge on any joined chip whose score is non-null, and **a
+      saved "By Interest" mode still selected after a reload**.
     - Community People tab: 0 `/reputation/trust/` requests.
+16. **CodeQL: PR evidence and master evidence are different things.**
+    - **Before merge:** confirm the CodeQL analyses for the PR's **exact head SHA** have *completed*
+      (not just that a check exists), and read the ref-scoped findings for the PR ref: check-run
+      annotations or `code-scanning/alerts?ref=refs/pull/N/head`. They must show #540–#542's rule
+      no longer firing at those lines.
+    - **After merge:** wait for the master rescan to complete, then verify default-branch alert
+      closure.
+    - An alert still open on master before that rescan is expected (GitHub's alert status is per
+      branch) and never justifies another sanitiser change.
+    - Recall the memory: the ADR-060 gate polls the merge ref while CodeQL publishes to `/head`.
 
 ## Dated obligations (carried)
 

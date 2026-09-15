@@ -930,6 +930,25 @@ result the user actually chose. Reproduced in jsdom while writing
 `readDiscoveryMode` returning `'interests'` doubled every call. Fix shape: initialise the state from
 `readDiscoveryMode()` (lazy `useState` initialiser) rather than correcting it in an effect.
 
+**Re-diagnosed (Sprint 130 plan review, 2026-09-15). The report above is wrong for the real page,
+and its fix shape is unsafe.** The double fetch only happens when `DiscoveryToggle` is mocked out, as
+it was in the test that surfaced this bug.
+
+With the real toggle, its mount effect (`components/DiscoveryToggle.tsx:14-18`) writes the initial
+`'geography'` to storage. A child's effects run before its parent's, so this happens before the
+page's mount effect reads storage (`index.tsx:248`). Reproduced in jsdom with the real toggle: saved
+`interests` became `geography`, with exactly one unfiltered list request.
+
+**The real defect is that the saved discovery mode never survives a reload.**
+
+The fix needs both halves:
+- The toggle must not persist on mount.
+- The first fetch must wait for the resolved mode. Without this, fixing the overwrite brings the
+  double fetch back.
+
+A lazy `useState(readDiscoveryMode)` is unsafe because the page is prerendered, so it would log a
+hydration mismatch. Planned in Sprint 130 PR A (Task 4).
+
 ---
 
 ## BUG-044 · [2026-09-15] · open

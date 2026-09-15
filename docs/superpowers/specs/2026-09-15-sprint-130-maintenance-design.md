@@ -20,8 +20,13 @@ that ADR-082 will never give them, on every page load:
 - **BUG-042:** the community People tab requests `GET /reputation/trust/:userId/:communityId` for
   every member. That route is self-only, so N−1 requests return 404, and the pill shows "—" for
   everyone except the caller.
-- **BUG-043:** `/communities` loads the community list, plus its whole per-card fan-out, twice when
-  the saved discovery mode is "interests".
+- **BUG-043 (re-diagnosed in plan review, 2026-09-15):** the saved discovery mode never survives a
+  reload. `DiscoveryToggle`'s mount effect (`DiscoveryToggle.tsx:14-18`) writes the initial
+  `'geography'` to storage. A child's effects run before its parent's, so this happens before the
+  page's mount effect reads storage (`index.tsx:248`). Reproduced with the real toggle: saved
+  `interests` became `geography`, with one unfiltered list request. The "double fetch" originally
+  filed exists only when the toggle is mocked away. It **reappears** as soon as the overwrite is
+  fixed, unless the first fetch waits for the resolved mode, so both halves are required.
 
 The same sprint clears the carried security and dependency backlog. Code-scanning alerts #540–#542
 (`js/log-injection`, geocoding-service) are **real**. #578 (`js/file-access-to-http`) is the monitor
@@ -72,16 +77,24 @@ score and ADR-082 permits it. Only the per-member fan-out goes.
    - Fetch trust for `user.communities` ids once `user` is known, and render `★ N% trust` on the
      matching "Your Communities" chip (`:436-446`) when the score is non-null.
    - A null score (for example a joined community under 5 members) renders no badge and logs nothing.
-2. **`pages/communities/index.tsx`, BUG-043.** Don't start the first list fetch until the persisted
-   mode has been read.
-   - Today the mode effect (`:266-301`) fires for the initial `'geography'` state (`:90`) and again
-     after the mount effect applies `readDiscoveryMode()`.
-   - **Do not** fix this with `useState(readDiscoveryMode)`. The page has no
+2. **`pages/communities/index.tsx` + `components/DiscoveryToggle.tsx`, BUG-043.** Two halves, both
+   required:
+   - **Stop the mount-time overwrite.** `DiscoveryToggle` must not persist until initialisation has
+     completed. Persist on a user-initiated change (the click handler), or accept a `persist`/ready
+     prop from the page that stays false until the saved mode has been read. Either way, no write
+     happens on mount.
+   - **Gate the first fetch on the resolved mode.** A `modeResolved` flag is set by the mount effect
+     after `readDiscoveryMode()`, and the mode effect checks it before fetching. Without this, fixing
+     the overwrite makes the mode effect fire for `'geography'` (`:90`) and again for `'interests'`.
+   - **Do not** use `useState(readDiscoveryMode)`. The page has no
      `getServerSideProps`/`getStaticProps`, so Next.js prerenders it with `'geography'`, and a
      client-side lazy initialiser that returns `'interests'` causes a hydration mismatch. React logs
-     that as a console error, which reintroduces exactly the noise Sprint 129 removed.
-   - Gate instead: a `modeResolved` flag set by the mount effect, which the mode effect checks before
-     it fetches.
+     that as a console error.
+   - **The request builder doesn't always send `mode`** (`index.tsx:167-174`). It sends
+     `mode=geography` only with coordinates, and `mode=interests` only with non-empty tags. Initial
+     interests (tags start empty) and geography fallback (no geolocation or denied) both send an
+     unfiltered request. That contract is unchanged, so tests assert it per case rather than
+     requiring `params.mode`.
 3. **People tab, BUG-042**
    - `hooks/useCommunityData.ts`: delete `memberTrustScores` state, `fetchMemberTrustScores` (`:188-200`)
      and the two return keys.
@@ -91,15 +104,17 @@ score and ADR-082 permits it. Only the per-member fan-out goes.
 ## Backend Changes (PR B)
 
 1. **`services/geocoding-service/src/geocodingService.js`, #540–#542**
-   - `validateSearchQuery` allows `\s` in the middle of a query (`SAFE_ADDRESS_QUERY_PATTERN`,
-     `:2`), and `trim()` strips only the ends. A query with an embedded `\n` therefore reaches the
-     three `logger.log` lines (`:111`, `:118`, `:129`) raw. Those lines also log `query`, not the
-     validated value.
-   - Fix at the source: collapse every whitespace run to a single space during normalisation, and
-     log only `normalized`.
-   - This also improves the cache key: `"a\nb"` and `"a b"` become one entry.
-   - If the CodeQL rescan doesn't recognise the sanitiser, add an explicit `.replace(/[\r\n]/g, '')`
-     at the log sites. Never dismiss these alerts; they're real.
+   - `SAFE_ADDRESS_QUERY_PATTERN` (`:2`) allows `\s` mid-query, so `"Main St\nFORGED"` passes
+     validation. The cache path is already safe: `normalizeQuery` (`:4-5`) lowercases, trims and
+     collapses whitespace, and validation returns that value (`:23`), so the cache key is
+     `"main st forged"`. **The defect is only the three log lines** (`:111`, `:118`, `:129`), which
+     interpolate the raw `query` instead of `normalized`.
+   - **Fix:** log `normalized` at those three sites. **Do not change `normalizeQuery` or the
+     lowercase cache contract** (corrected in plan review; an earlier draft wrongly proposed a
+     mixed-case collapsed key, which would split the cache).
+   - Pre-merge evidence is the PR head's completed CodeQL analysis (see note 16). An alert still open
+     on master before the post-merge rescan is not evidence that the fix failed, so don't add another
+     sanitiser on that basis. Never dismiss these alerts; they're real.
 2. **#578 `scripts/check-image-size-upstream.js`: dismiss with justification.** The "file data" is
    the package name read from the repo's own `security/audit-exemptions.json`, sent URL-encoded to
    `api.github.com`'s advisory API. That is the script's whole purpose, and the file is
@@ -122,17 +137,25 @@ score and ADR-082 permits it. Only the per-member fan-out goes.
 | `services/reputation-service/CONTEXT.md` | Correct the Sprint 129 entry's "badge now renders" line, and note the call-pattern change. | A |
 | `docs/BUGS.md` | BUG-042, BUG-043, BUG-044 → fixed; correct BUG-031's badge sentence cross-reference. | A |
 | `docs/IDEAS.md` | The batching idea is largely obsolete (only joined communities are fetched now). Annotate rather than delete. | A |
-| `services/geocoding-service/CONTEXT.md` | Recent fix: log injection via embedded whitespace; whitespace normalisation of the cache key. | B |
+| `services/geocoding-service/CONTEXT.md` | Recent fix: log injection via embedded whitespace. The logs now use the normalised query; the cache contract is unchanged. | B |
 | Landing docs | Regenerate from sources, keep content changes, revert timestamp churn. | A, B |
 
 ---
 
 ## Critical Implementation Notes
 
-1. **Never fix BUG-043 with a lazy `useState` initialiser that reads localStorage.** The page is
-   prerendered, so a client/server mismatch logs a hydration error to the console. Gate the first
-   fetch on a resolved flag instead. Prove it with a test that asserts `getCommunities` is called
-   **exactly once**, with the persisted mode, for both `'interests'` and `'geography'`.
+1. **BUG-043 needs both halves, tested with the REAL `DiscoveryToggle`.**
+   - (a) The toggle must not write storage on mount.
+   - (b) The first fetch waits for the resolved mode.
+   - Never use a lazy `useState` initialiser that reads localStorage: the page is prerendered, and a
+     mismatch logs a hydration error.
+   - **Do not mock `@/components/DiscoveryToggle` in BUG-043 tests.** The mock hid the overwrite.
+   - Assert, per case:
+     - Saved `interests`: storage still reads `interests` after mount, exactly one `getCommunities`
+       call, and no `mode`/`tags` params, because tags start empty.
+     - Saved `geography` with `navigator.geolocation` mocked to succeed: exactly one call with
+       `mode: 'geography'`, `lat` and `lng`.
+     - Geography fallback (no geolocation, or denied): exactly one unfiltered call.
 2. **A test must reach a state the real page can reach.** Sprint 129's badge test mocked a score for a
    card the real grid filters out, and passed while the feature was dead (BUG-044). Every PR A
    render test builds its fixture from the page's real filters: joined ids come from
@@ -147,8 +170,10 @@ score and ADR-082 permits it. Only the per-member fan-out goes.
 6. **Don't edit `apps/frontend/src/lib/api.ts`.** A line shift re-raises the CodeQL
    `js/request-forgery` false positive as new alert ids and blocks the master deploy.
 7. **#540–#542 are real, so fix them, never dismiss.** `\s` in `SAFE_ADDRESS_QUERY_PATTERN` admits
-   `\n`/`\r` mid-query. The regression test must feed a query containing `\n` and assert that no
-   logged string contains `\n` or `\r`, and that the cache key is whitespace-collapsed.
+   `\n`/`\r` mid-query, and the three log lines print the raw query. The regression test feeds
+   `"Main St\nFORGED 200 OK"` and asserts two things. First, no logged string contains `\n` or `\r`
+   on the miss, hit and cached paths. Second, the cache key stays exactly what `normalizeQuery`
+   produces today (`"main st forged 200 ok"`): the lowercase contract is preserved, not changed.
 8. **#578 is one dismissal, with its justification recorded in the PR body.** Never loop the
    dismissal API.
 9. **Geocoding tests are `.js`, and the promoter only moves `*.test.ts`** (`promote-tdd-tests.js:33`,
@@ -162,7 +187,11 @@ score and ADR-082 permits it. Only the per-member fan-out goes.
 11. **`eslint-config-next` is already 16.x against `next` 15** (the mismatch recorded on #229). #239
     is a patch within 16, and it must not become a `next` bump.
 12. **The TDD promoter sweeps unrelated files.** After any full `npm test`, restore promotions that
-    don't belong to the PR.
+    don't belong to the PR. **Frontend `.tsx` tests never promote** (BUG-033), and
+    `apps/frontend/package.json`'s blocking `test` runs only `tests/unit` + `tests/regression`. So
+    **move this sprint's green `.tsx` tests to `apps/frontend/tests/regression/` by hand**, as for
+    geocoding's `.js`. That includes the reworked Sprint 129 test, which has sat non-blocking in
+    `tdd/` since it shipped. BUG-033 itself stays deferred.
 13. **`apps/landing/src/data/docs/` is only partly tracked, and its directory is gitignored.** Stage
     tracked regenerations with `git add -u`, keep content changes, and revert `architecture.json` and
     `build.json` timestamp churn.
@@ -170,14 +199,26 @@ score and ADR-082 permits it. Only the per-member fan-out goes.
     Take the version bump from `origin/master` at merge time.
 15. **Verify live after each deploy, in a browser, as `maria.reyes`:**
     - `/communities`: 0 console errors, **no** community-trust request for a discovery-card id,
-      exactly one `GET /communities` for the saved mode, and a badge on any joined chip whose score
-      is non-null.
+      exactly one `GET /communities`, a badge on any joined chip whose score is non-null, and **a
+      saved "By Interest" mode still selected after a reload**.
     - Community People tab: 0 `/reputation/trust/` requests.
+16. **CodeQL: PR evidence and master evidence are different things.**
+    - **Before merge:** confirm the CodeQL analyses for the PR's **exact head SHA** have *completed*
+      (not just that a check exists), and read the ref-scoped findings for the PR ref: check-run
+      annotations or `code-scanning/alerts?ref=refs/pull/N/head`. They must show #540–#542's rule
+      no longer firing at those lines.
+    - **After merge:** wait for the master rescan to complete, then verify default-branch alert
+      closure.
+    - An alert still open on master before that rescan is expected (GitHub's alert status is per
+      branch) and never justifies another sanitiser change.
+    - Recall the memory: the ADR-060 gate polls the merge ref while CodeQL publishes to `/head`.
 
 ## Done looks like
 
 - `/communities` as `maria.reyes`: 0 console errors, community-trust requests equal to her joined
-  communities (6, not 37), one list fetch, and badges on her scored chips (live scores were 1 and 2).
+  communities (6, not 37), one list fetch, badges on her scored chips (live scores were 1 and 2), and
+  the saved discovery mode survives a reload.
+- All of this sprint's frontend tests live in `tests/regression/` (blocking), not `tdd/`.
 - People tab: 0 reputation requests, and no per-member score pill.
 - Code-scanning alerts #540–#542 **closed by the fix** (verified on the rescan), #578 dismissed with
   justification: **0 open code-scanning alerts**.
