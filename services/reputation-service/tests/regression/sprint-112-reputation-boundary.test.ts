@@ -201,7 +201,7 @@ describe('community aggregates — active member + >=5-member cohort (Task 4)', 
   const member = { rows: [{ community_id: COMMUNITY, role: 'member', community_name: 'Maplewood' }] };
 
   // Sprint 129 (BUG-031): community-trust denials are the empty state 200 { data: null }, not 404.
-  // The cross-cause indistinguishability proof lives in tests/tdd/sprint-129-community-aggregate.
+  // The cross-cause indistinguishability proof lives in tests/regression/sprint-129-community-aggregate.
   it('community-trust: non-member -> 200 with no aggregate', async () => {
     mockQuery.mockResolvedValueOnce({ rows: [] }); // getActiveMembership -> none
     const res = await request(app()).get(`/reputation/community-trust/${COMMUNITY}`);

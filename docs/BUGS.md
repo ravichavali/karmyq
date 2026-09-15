@@ -506,7 +506,7 @@ caller the report missed is `hooks/useCommunityData.ts:153` (the steward trust p
 **Fixed (Sprint 129 PR C):** the single shared denial exit in `routes/reputation.ts` now answers
 `200 { success: true, data: null }`. That is byte-identical across all three causes, and identical
 to a permitted community with no computable score. Proven by
-`services/reputation-service/tests/tdd/sprint-129-community-aggregate.test.ts`, which compares the
+`services/reputation-service/tests/regression/sprint-129-community-aggregate.test.ts`, which compares the
 responses to each other rather than checking each is 200. It also confirms a denied caller never
 reads or computes the aggregate, not even with `?recalculate=true`. ADR-082 carries the amendment.
 The fix also exposed a second defect on the same line: the page read `response.data.data.score`,

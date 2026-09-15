@@ -165,7 +165,7 @@ non-member and an undersized cohort alike, and all three still reach one shared 
 (`denyAggregate` in `routes/reputation.ts`), which must not branch. The new response is also exactly
 what a *permitted* caller already received when no score could be computed. A denial is now
 indistinguishable from a genuine empty state, which reveals strictly less than the old 404 did.
-`services/reputation-service/tests/tdd/sprint-129-community-aggregate.test.ts` compares the four
+`services/reputation-service/tests/regression/sprint-129-community-aggregate.test.ts` compares the four
 responses to each other byte for byte, and asserts that a denied caller never reads or computes the
 aggregate, even with `?recalculate=true`.
 

@@ -5,7 +5,7 @@
 (`df501a8e`, #237, v11.52.0) — post-merge verified 2026-09-15: Deploy to Demo job success,
 **0 open Dependabot alerts** (#151/#157/#159 fixed, #150 dismissed → BUG-041), `expo-sdk-drift.yml`
 green on `df501a8e` (run 34923248008), #234 closed, all six carried Dependabot PRs closed,
-`POST /api/auth/demo-session` → 200. **Next: PR C** (BUG-031) on `feature/sprint-129-community-aggregate`.
+`POST /api/auth/demo-session` → 200. **PR C (BUG-031) implementation COMPLETE**, all three gates run, pushed and opened as a PR (v11.53.0) — **awaiting review + merge authorization** (agent cannot merge).
 **Task E verified on GitHub; BUG-040 closed** (2026-09-14, evidence below).
 
 > Single stream. `CURRENT_HANDOFF.md` **is** the state, not a router — there is no second machine.
@@ -24,19 +24,34 @@ hits it**; clear the dependency and security backlog to zero open alerts; silenc
 
 | Field | Value |
 |---|---|
-| **Branch** | **PR C:** `feature/sprint-129-community-aggregate` off `origin/master` at `df501a8e` — local, holds only this handoff update. |
-| **Version** | master is **v11.52.0**; PR C bumps at merge time from `origin/master`. |
+| **Branch** | **PR C:** `feature/sprint-129-community-aggregate` off `origin/master` at `df501a8e`. Read the head with `git rev-parse --short HEAD`. |
+| **Version** | PR C bumped to **v11.53.0** from master v11.52.0 — **re-check against `origin/master` at merge time**. |
 | **PR B** | [#237](https://github.com/ravichavali/karmyq/pull/237) — merged `df501a8e`, deployed |
 | **PR A** | [#235](https://github.com/ravichavali/karmyq/pull/235) — merged `b22dbf15`, deployed |
-| **Active editor** | unassigned — PR C starts in a fresh chat |
+| **Active editor** | Claude (Sprint 129 PR C chat, 2026-09-14) |
 | **Shared resources** | **Dependency lane RELEASED** (PR B merged 2026-09-15). PR C touches no manifests; ask the maintainer before any. No demo-server operation needed or authorized. |
 
 ## Quick Start
 
 1. `git fetch origin`; confirm `origin/master` is `df501a8e` or later (else merge it in — merge commit).
 2. `git switch feature/sprint-129-community-aggregate` (local, off `df501a8e`).
-3. Plan: [`docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md`](../../docs/superpowers/plans/2026-09-12-sprint-129-maintenance.md) — **start at Task C1** (TDD first). Read critical notes 10–11 below before touching `reputation.ts`.
-4. Sprint closes after PR C merges: archive this handoff, update the sprint memory.
+3. PR C is open — `gh pr list --head feature/sprint-129-community-aggregate`. Remaining: required review, merge authorization, then Task D/E for PR C (watch the **Deploy to Demo job**; smoke `POST /api/auth/login` + `/demo-session`; load `/communities` as `maria.reyes` and confirm **zero** console errors — Task C4, only possible after deploy).
+4. Sprint closes after PR C merges and C4 is verified: archive this handoff, update the sprint memory.
+5. **Queued next (maintainer to decide PR D vs Sprint 130):** Dependabot #239 (two dev patch bumps — needs the dependency lane designated), code-scanning #540–#542 (`js/log-injection`, geocoding-service) and #578 (`js/file-access-to-http`, `scripts/check-image-size-upstream.js`, likely dismiss with justification). The seven majors #224–#230 stay separately planned. 0 open Dependabot security alerts as of 2026-09-14.
+
+## PR C — task status
+
+| Task | Result |
+|---|---|
+| C1 TDD | `services/reputation-service/tests/regression/sprint-129-community-aggregate.test.ts` — DB modelled as data; unknown / non-member / undersized compared byte-for-byte to EACH OTHER and to permitted-but-unscored; denied caller never reads or computes (incl. `?recalculate=true`). Red for the right reason, then green. |
+| C2 response | `denyAggregate` → `200 { success: true, data: null }`. **Deviation from plan:** not `data: { aggregate: null }` — that object is truthy and `StewardRequestsAdmin.tsx:317` would render a fake "0 / 40" panel; `data: null` is also what the permitted-unscored path already returned. Spec + plan annotated. `routes/health.ts` has its OWN `denyAggregate` (community-health, milestones, network-metrics) — deliberately unchanged, still 404. Sprint 112 regression cases moved to the new contract. |
+| C3 frontend | `api.ts` untouched (passthrough; line shifts re-raise the CodeQL FP). `pages/communities/index.tsx` read `data.data.score` — always undefined after the unwrap, so the trust badge NEVER rendered; now `data.score`. `useCommunityData.ts:153` already handled null. Test: `apps/frontend/tests/tdd/sprint-129-community-trust-empty-state.test.tsx`. |
+| C4 storm gone | **Pending deploy** — cannot be verified pre-merge. |
+| C5 docs | reputation `CONTEXT.md`; ADR-082 Sprint 129 amendment + index; BUGS.md BUG-031 fixed with corrected references; **BUG-042** (People tab fans out to self-only `/trust/:userId/:communityId`, N−1 404s) and **BUG-043** (`/communities` double-fetches when persisted mode is interests) filed; IDEAS.md batching (with its privacy constraint); both admin guides corrected (score is members-only, cohort ≥5). |
+| C6 gates | `/simplify` (4 angles; 6 cleanups applied, shared-helper extraction skipped — the two exits now carry different contracts); `/code-review` medium — no findings; `/security-review` — no findings (verified no nginx caching on `/api/reputation`). |
+| C7 verify | tsc clean (reputation-service, frontend); serial `npx turbo run test --concurrency=1 --force` → **26/26 tasks successful, exit 0**; promoter exit 0. The backend test was auto-promoted to `tests/regression/` (refs updated). The promoter ALSO moved five unrelated tdd files (PR A auth x2, Sprint 125 x3) — **reverted to keep PR C scoped; they remain promotable in a later PR**. The frontend `.tsx` test stays in `tdd/` (BUG-033). Landing timestamp churn (`architecture.json`, `build.json`) reverted; content-bearing regenerations kept. Version → v11.53.0. |
+
+**Gotchas hit:** root `jest.config.js` has `resetMocks: true` (wipes `jest.fn` implementations — install fakes in `beforeEach`); the frontend jest config does NOT clear mocks between tests (call counts accumulate — `jest.clearAllMocks()`).
 
 ## PR B — task status (all complete, merged `df501a8e`)
 

@@ -14,7 +14,7 @@
     an unknown community: that would leak existence. The denial is also byte-identical to a
     permitted community whose score cannot be computed, which already returned `data: null`.
   - A denied caller never reads or computes the aggregate, not even with `?recalculate=true`.
-  - Proven by `tests/tdd/sprint-129-community-aggregate.test.ts`, which compares the responses to
+  - Proven by `tests/regression/sprint-129-community-aggregate.test.ts`, which compares the responses to
     each other. The two Sprint 112 regression cases were moved to the new contract. ADR-082 carries
     the amendment.
   - **Unchanged on purpose:** `routes/health.ts` has its own `denyAggregate` for `community-health`,
