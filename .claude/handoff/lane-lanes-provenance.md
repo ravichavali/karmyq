@@ -28,7 +28,7 @@
 ## Links
 
 - **Spec**: [Lanes, stages and provenance](../../docs/superpowers/specs/2026-09-16-lanes-stages-provenance-design.md)
-- **Plan**: not yet written
+- **Plan (this lane, PR 1 of 3)**: [Provenance gate](../../docs/superpowers/plans/2026-09-16-lanes-provenance.md)
 - **PR**: none
 
 ## Quick Start
@@ -37,12 +37,13 @@
 2. `git switch lane/lanes-provenance`. Never commit this work on a Sprint 131 branch.
 3. Read the spec. If the maintainer has approved it, invoke `superpowers:writing-plans` to write the plan.
 
-**Next unchecked task**: write the implementation plan (`superpowers:writing-plans`) and stop for review.
+**Next unchecked task**: maintainer review of the plan. On approval the planner writes the `plan -> execute` boundary commit (plan Task 0), and execution starts at Task 1.
 
 ## Blockers and decisions
 
 - **Decision (2026-09-16):** the contributor model is split into four sub-projects (stages/provenance → agent-neutral rules → onboarding; memory as a separate track). This is sub-project 1. All design decisions D1–D13 are recorded in the spec.
 - **Decision:** kept apart from Sprint 131 PR B (test readiness) to avoid scope creep. PR B continues under the current rules and is grandfathered.
+- **Decision (2026-09-16):** three lanes, one PR each, replacing the single PR (maintainer: "3 PRs sound good"). The branch can't outlive its squash-merge, so they are `lanes-provenance` (this), `lanes-work-queue` and `lanes-rules`; the later two start at `plan` on fresh branches. The spec's *Rollout* is amended, and `execute -> verify` plus all of `verify` are issue comments, never commits.
 - **Decision (2026-09-16):** spec approved, ADR-098 allocated, and labels use GitHub's default colours (maintainer: "yes on all three").
 
 ## Verification references

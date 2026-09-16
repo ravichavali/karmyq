@@ -121,7 +121,7 @@ Implemented as `scripts/work.js` and run as `npm run work -- <command>`. Plain N
 | `work new <slug> --stage <s> [--touches-dependencies]` | Creates the issue and pushes `lane/<slug>` from `origin/master`. |
 | `work claim <slug> --agent <a>` | Assigns the caller, sets `status:claimed` and takes the dependency lane if applicable, then verifies (see *Concurrency*). Checks out the branch and records the agent in local git config (`karmyq.agent`) for commit trailers. Refuses to run until `karmyq.machine` is set. |
 | `work release <slug> --next "<pointer>"` | Writes and pushes a partial boundary commit (an issue comment in `verify`), unassigns, and returns the same stage to `status:available`. Releases a held dependency lane. |
-| `work advance <slug>` | Writes and pushes a boundary commit to the next stage, relabels, unassigns and releases the dependency lane. Leaving `execute` requires the PR **merged** and the merge slot **free**. In `verify` it writes an issue comment instead of a commit, and leaving `verify` closes the issue. |
+| `work advance <slug>` | Relabels to the next stage, unassigns and releases the dependency lane. While the PR is unmerged (leaving `spec` or `plan`) it first writes and pushes a boundary commit. Leaving `execute` requires the PR **merged** and the merge slot **free**, and is recorded as an issue comment because the branch is already merged. The same applies in `verify`, and leaving `verify` closes the issue. |
 
 State transitions:
 
@@ -138,10 +138,12 @@ slot clears on deploy health → `work advance` out of `execute` → `verify` be
 `work advance` refuses to leave `execute` until the PR is **merged** and the merge slot is
 **free**, so `verify` can never be claimed before the deploy it verifies has finished.
 
-**Where each stage's record lives.** While `spec`, `plan` and `execute` are in progress, the lane
-branch is unmerged, so boundary commits live on it. Once the PR is squash-merged the branch is
-done, and `verify` writes **no commits** to it. Instead, `verify`'s claim, release (`Next:`
-pointer) and advance are recorded only as **issue comments**, in the same trailer format. Its
+**Where each stage's record lives.** While the PR is unmerged, the lane branch is live, so
+handovers (`spec -> plan`, `plan -> execute`) and partial releases during `spec`, `plan` and
+`execute` are boundary commits on it. Once the PR is squash-merged the branch is done: the
+`execute -> verify` advance and every `verify` claim, release (`Next:` pointer) and advance are
+recorded only as **issue comments**, in the same trailer format. No commit is ever pushed to a
+merged lane branch. Its
 evidence (the lane handoff update) lands as an ordinary commit on whichever lane branch is next
 touched, not as a boundary commit. Leaving `verify` closes the issue.
 
@@ -151,8 +153,8 @@ touched, not as a boundary commit. Leaving `verify` closes the issue.
 `lanes.config.json`. A `prepare-commit-msg` hook, added to `scripts/git-hooks/` beside `pre-commit` and `pre-push`, fills it from `git config karmyq.agent` where hooks
 are installed; CI enforces it regardless.
 
-**Boundary commit** (may be empty), written only by `work advance` and `work release` during
-`spec`, `plan` and `execute` (`verify` uses issue comments; see *Commands*):
+**Boundary commit** (may be empty), written only by `work advance` and `work release` while the
+PR is unmerged. `execute -> verify` and all of `verify` use issue comments; see *Commands*:
 
 ```
 lane(<slug>): <from> -> <to>
@@ -179,7 +181,7 @@ on master. It uses the API's author **login** as the human. It fails when:
 1. the PR's branch is neither `lane/<slug>` nor matched by `exemptBranches` in config;
 2. a commit lacks `Agent:`, or names an agent not in config;
 3. a commit's author has **no linked GitHub login** (the API returns `null`); contributors have write access, so the fix is to link the commit email, and the gate fails closed rather than guessing;
-4. two consecutive commits differ in `human/agent` with no boundary commit between them, or the boundary's `Handed-off-by` does not match the commit before it;
+4. two consecutive commits differ in `human/agent` with no boundary commit between them, or a boundary's `Handed-off-by` does not match that boundary commit's own `human/agent` (the outgoing contributor writes the boundary, so an identity change is only legal straight after one);
 5. a boundary lacks `Machine:`, its `Lane:` does not match the branch slug, or its `Stage:` skips or reverses order (a partial release repeats the current stage);
 6. `Dependency-lane: taken` appears twice without a `released` between them.
 
@@ -194,10 +196,14 @@ Emergency fixes use a `lane/` branch that starts at `execute`. An exempt PR pass
 GitHub cannot restrict who clicks merge to "not the executor", so enforcement has two parts:
 
 - **Preventive:** check `merge-eligibility` (in `lanes-pr.yml`, triggered by `pull_request` and `pull_request_review`) passes only once a PR has an approving review
-  from a human other than the executor (the human in the `Handed-off-by` trailer of the boundary commit that ends `execute`). It
-  re-runs on review events. It passes trivially when `allowSelfMerge` is `true`.
+  from a human who is not an **executor**. It re-runs on review events. It passes trivially when `allowSelfMerge` is `true`.
 - **Detective:** `.github/workflows/lanes-audit.yml`, on every master push, compares the merger with the executor. If the rule
   was broken while `allowSelfMerge` is `false`, it opens an issue labelled `lane-audit`.
+
+**Executors** are the GitHub logins that authored the PR's non-merge commits after its last boundary
+into `execute` (`plan -> execute`, or a later `execute (partial)`), or all of the PR's non-merge
+commits if the lane started at `execute`. With partial releases several people can have executed,
+and none of them may be the approver or merger.
 
 Branch protection today already requires one approving review plus six checks (`pr-contract`,
 `Lint & Type Check`, `Test Frontend`, `Test Backend Services (Unit + Regression)`, `Code Scanning
@@ -247,7 +253,9 @@ progress).
 
 ## Rule and documentation changes
 
-Made in this sub-project's PR, with `claude.md` and `AGENTS.md` changed identically in substance:
+Made in lane `lanes-rules` (PR 3), with `claude.md` and `AGENTS.md` changed identically in substance.
+The exception is `scripts/claude.md`: each lane documents the scripts it ships in its own PR (docs
+feedback loop).
 
 - **`claude.md` → Parallel Development** (`:352-446`): rewrite around "GitHub is the serializer":
   lanes, stages, claims, the dependency lane, the merge slot, ADR derivation. Remove "a human is the
@@ -258,7 +266,7 @@ Made in this sub-project's PR, with `claude.md` and `AGENTS.md` changed identica
 - **`.claude/handoff/README.md`, `TEMPLATE.md`:** as in *Handoff files*.
 - **New ADR-098, "Lanes, stages and provenance":** number allocated by the maintainer, 2026-09-16 (D13; verified unused on every remote branch and open PR that day).
   Supersedes the parallel-development serialization rules. Indexed in `docs/adr/README.md`.
-- **`scripts/claude.md`:** entries for `work.js` and `lane-provenance.js`, and the three workflows `lanes-pr.yml`, `lanes-audit.yml` and `lanes-expiry.yml`.
+- **`scripts/claude.md`:** `lane-provenance.js` and `lanes-pr.yml` (lane `lanes-provenance`); `work.js`, `lanes-audit.yml` and `lanes-expiry.yml` (lane `lanes-work-queue`).
 - **`package.json`:** `work` script. No new dependencies.
 
 ## Testing
@@ -273,15 +281,26 @@ Made in this sub-project's PR, with `claude.md` and `AGENTS.md` changed identica
 - **GitHub adapter:** a thin module is the only code that performs HTTP. Tests run it against a
   local HTTP server that replays recorded GitHub API response shapes, including paging and 403/404.
 - **Workflow wiring:** YAML-parse tests (using the declared `yaml` package, as
-  `tests/regression/sprint-129-demo-health-workflow.test.ts:22-25` does) assert the triggers,
+  `tests/regression/sprint-129-demo-health-workflow.test.ts:22-27` does) assert the triggers,
   permissions and invoked scripts of `lanes-pr.yml`, `lanes-audit.yml` and `lanes-expiry.yml`.
 - **Honest limit:** tests cannot prove GitHub delivers events or honors permissions. The first real
   lanes after merge are that evidence (see *Rollout*).
 
 ## Rollout
 
-1. **This PR** ships config, CLI, gate, audits, expiry workflow, docs and ADR. New checks run on PRs
-   but are **not required** in branch protection, so they report only.
+1. **Three lanes, one PR each** (maintainer decision, 2026-09-16, amending the original single PR).
+   They share this spec; each has its own focused plan and they merge one at a time. `lanes-provenance`
+   (this branch) runs `spec` through `execute`; `lanes-work-queue` and `lanes-rules` start at `plan`
+   on fresh branches from `origin/master` after the previous lane merges. New checks run on PRs but are **not required**
+   in branch protection, so they report only.
+
+   | Lane / PR | Contents |
+   |---|---|
+   | **`lanes-provenance`** | `lanes.config.json`, trailer parser, pure provenance rules, minimal GitHub compare adapter, `lane-provenance.js`, `lanes-pr.yml` (report-only), `prepare-commit-msg` hook, ADR-098 as **Proposed** |
+   | **`lanes-work-queue`** | full GitHub adapter, `work` CLI (list/new/claim/release/advance), claim and dependency-lane verification, ADR-number derivation, `merge-eligibility`, `lanes-audit.yml`, `lanes-expiry.yml` |
+   | **`lanes-rules`** | `claude.md`, `AGENTS.md`, handoff README/TEMPLATE; ADR-098 → **Accepted**; post-merge creation of the remaining Sprint 131 lanes |
+
+   The rules change only in PR 3, once the tools they describe exist.
 2. **Grandfathering:** work in flight when this merges continues under the old rules on its
    existing branch, listed by name in `exemptBranches`. Sprint 131 PR B on
    `agent/codex/sprint-131-test-readiness` is the known case. The gate reports such branches as exempt.
@@ -331,7 +350,8 @@ contributors (D11 assumes write access).
 10. No repository-settings changes. Required-check promotion is a later explicit maintainer action.
 11. `claude.md` and `AGENTS.md` change together and agree in substance. Sub-project 2 later changes which one is the authority.
 12. Grandfather in-flight branches; never retro-validate history made before this ships.
-13. `verify` writes no commits to its merged branch. Its record is issue comments in trailer format, and expiry reads issue activity for it.
+13. No commit is pushed to a merged lane branch. `execute -> verify` and all of `verify` are issue comments in trailer format, and expiry reads issue activity for `verify`.
 14. Exemptions are an explicit `exemptBranches` list. A branch outside `lane/*` that is not listed fails the gate.
 15. A commit author with no linked GitHub login fails the gate closed.
 16. No new npm dependencies. Plain Node 24 and existing workspace-declared packages only.
+17. One lane is one branch and at most one PR. Work that needs several PRs is several lanes sharing a spec; later lanes start at `plan`.
