@@ -1,6 +1,6 @@
 # Sprint 131 — Maintenance Backlog — Handoff
 
-**Date**: 2026-09-15
+**Date**: 2026-09-16
 
 **Outcome**: Planning revised; implementation not started. PR C rollout approval deferred.
 
@@ -27,7 +27,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 
 | PR | Scope | State / next action |
 |---|---|---|
-| A | BUG-045 expected missing config + planning/archive | Next implementation: Task 2 after planning commit |
+| A | BUG-045 expected missing config + planning/archive | Next implementation: focused PR A plan, Task 1 Step 1 |
 | B | BUG-034 messaging coverage/declarations + BUG-036 Docker readiness | After A deploys; B must precede D1 |
 | D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
@@ -52,7 +52,7 @@ inventory against the then-current base. BUG-033 remains open until actually del
    the merged Sprint 130 branch.
 3. Read the linked spec and plan. Task 1's planning validation is complete; confirm its commit in the log.
 4. Start a fresh PR A execution chat and run `/execute-plan` using executing-plans, or explicitly
-   delegated subagent-driven development. Start at Task 2; tests precede behavior changes.
+   delegated subagent-driven development. Use the focused PR A plan, Task 1; tests precede behavior changes.
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
@@ -92,6 +92,27 @@ then write `apps/frontend/tests/tdd/sprint-131-community-config-empty-state.test
 - The handoff now names ownership, base, shared-resource allocation, next task and verification.
 
 ## Verification references
+
+Plan review, 2026-09-16:
+
+- Reviewed focused plan commit `e2c03a56`; prior sprint planning is committed as `b47c0fe6`.
+  Extracted its literal five-case test into a temporary review file and ran it against the unchanged
+  hook: 2 failed / 3 passed. The initial 404 case fails on logging; the stale-config case first
+  fails on `config` still holding the old object. Corrected the plan's assertion-level red expectations.
+- Reproduced `git mv` rejecting that untracked test. The plan now uses a checked filesystem move;
+  the temporary review test was removed. No application implementation was made.
+- Corrected pre-commit sequencing, restoration of unintended promotions, attribution, and handoff
+  ordering. A remains the next task until review, merge, deployment and health verification finish;
+  no future PR number or verification date is invented. BUG-045 retains its caller-only boundary.
+- Live `gh pr list` / `git log origin/master` reconciliation: master remains `9fae79f4`, no Sprint 131
+  implementation PR exists. #227 and #229 are closed; current zod/next proposals are #247/#246.
+  #224/#225/#226/#228/#230 remain open. New #243–#245 proposals are outside the approved sprint
+  scope pending triage; their existence does not transfer the Codex dependency lane. D plans must
+  refresh proposal IDs before execution; the sprint tables retain their dated baseline IDs.
+- Corrected-plan verification passed: local links, temporary-probe cleanup and staged whitespace;
+  required process review and `feedback:check`; full `npm test -- --concurrency=1` exited 0
+  (26/26 Turbo tasks successful, 25 cached; fresh tests-workspace run: 41 suites / 908 tests).
+  Existing worker-teardown warning was nonblocking. No generated changes or promotions occurred.
 
 Observed 2026-09-15:
 

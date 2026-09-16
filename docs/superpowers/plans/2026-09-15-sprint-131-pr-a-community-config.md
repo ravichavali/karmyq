@@ -11,8 +11,9 @@
 `communities.community_configs` holds no row for the community; that is the server contract and it
 does not change. `useCommunityData.fetchConfig` currently logs every rejection, so a config-less
 community logs on every page load. The fix is a narrow `err.response.status === 404` branch that
-sets `config` to `null` and returns, leaving 500s, network errors and malformed responses on the
-existing logging path.
+sets `config` to `null` and returns, leaving non-404 rejections and exceptions on the
+existing logging path. It adds no response-shape validation: a successful `{ data: {} }`
+response still assigns `undefined` without throwing, so do not claim all malformed responses log.
 
 **Tech Stack:** Next.js 15 (Pages Router), React 19 hooks, TypeScript, Jest + `next/jest` with
 jsdom, `@testing-library/react` (`renderHook`, `act`, `waitFor`).
@@ -59,7 +60,12 @@ Copied from the spec's Critical Implementation Notes; every task below inherits 
 | `package.json` | Version bump, derived at merge time | Modify (Task 3) |
 | `.claude/handoff/CURRENT_HANDOFF.md` | PR state, evidence, next task | Modify (Task 3) |
 
-Nothing else changes. No new component, no API change, no schema change, no ADR.
+Inspect affected guide/onboarding and generated landing documentation; include substantive updates
+if required by the source change. No new component, API change, schema change or ADR is planned.
+
+Commands run at the repository root in PowerShell unless stated otherwise. Before **every commit**,
+run `.claude/skills/pre-commit-check/SKILL.md`, including its process review, full tests and staged
+feedback check. Do not bypass hooks. Record actual execution dates and actual author attribution.
 
 ---
 
@@ -278,9 +284,11 @@ npm exec --workspace=apps/frontend -- jest --runTestsByPath tests/tdd/sprint-131
 
 Expected: **2 failed, 3 passed.** The two failures are
 `treats an expected 404 as an empty config and logs nothing` and
-`clears a previously loaded config when the row goes away`, both failing on
-`expect(consoleError).not.toHaveBeenCalled()` — *"Expected number of calls: 0, Received number of
-calls: 1"*. Record those two names.
+`clears a previously loaded config when the row goes away`. The first fails on
+`expect(consoleError).not.toHaveBeenCalled()` (one configuration-error call). The second fails
+earlier on `expect(result.current.config).toBeNull()` because it still holds `CONFIG`; its logging
+assertion is not reached. This exact outcome was reproduced against the unchanged hook during
+the 2026-09-16 plan review. Record both names and their distinct failing assertions.
 
 An import error, a "Cannot read properties of undefined" from a missing mock, or "No tests found"
 is **not** red. Fix the test first if you see any of those.
@@ -336,9 +344,12 @@ Add this comment directly above the `describe` block so the next reader does not
 
 The promoter matches `.test.ts` only, so move this `.tsx` file by hand:
 
-```bash
-git mv apps/frontend/tests/tdd/sprint-131-community-config-empty-state.test.tsx apps/frontend/tests/regression/sprint-131-community-config-empty-state.test.tsx
+```powershell
+Move-Item -LiteralPath apps/frontend/tests/tdd/sprint-131-community-config-empty-state.test.tsx -Destination apps/frontend/tests/regression/sprint-131-community-config-empty-state.test.tsx
 ```
+
+This file is new and untracked until Step 9; `git mv` would fail with “not under version control”.
+Check the destination does not already exist; never overwrite another suite.
 
 Then prove it runs from its new home, and that the blocking tier command picks it up:
 
@@ -351,36 +362,15 @@ Expected: the listing names the `regression/` path, and `test:regression` passes
 suite included. Note `test:regression` carries `--passWithNoTests`, so confirm the suite count
 went up rather than trusting the exit code alone.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 9: Stage the implementation; keep its documentation in the same commit**
 
 ```bash
 git add apps/frontend/tests/regression/sprint-131-community-config-empty-state.test.tsx apps/frontend/src/hooks/useCommunityData.ts
 git status --short
 ```
 
-Confirm only those two paths are staged, then:
-
-```bash
-git commit -F - <<'EOF'
-fix(frontend): an absent community config is an empty state, not an error (BUG-045)
-
-GET /communities/:id/config answers 404 when communities.community_configs holds
-no row for the community. useCommunityData.fetchConfig logged every rejection, so
-every config-less community wrote "Failed to load configuration" to the console on
-page load — seen live on Portland Mutual Aid Network during Sprint 130 PR A's
-post-deploy check.
-
-fetchConfig now treats only HTTP 404 as an expected empty state: config is set to
-null and nothing is logged. A 500, a network failure, or a malformed response still
-logs, because those are real breakage. The server contract is unchanged, so the
-browser's own 404 network entry remains.
-
-fetchNorms and fetchStats deliberately keep logging: the norms list route has no
-404 path, and a stats 404 means the community itself is missing.
-
-Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
-EOF
-```
+Confirm only those two paths are staged. Continue to Task 2 before committing so the behavior
+and its documentation are reviewed together by the staged feedback check.
 
 ---
 
@@ -402,8 +392,8 @@ Then append this to the end of the entry, immediately before its `---` separator
 
 ```markdown
 **Fixed (Sprint 131 PR A):** `useCommunityData.fetchConfig` now treats HTTP 404 as an expected
-empty state — `config` is set to `null` and nothing is logged. 500s, network failures and
-malformed responses still log. The server contract is unchanged: `GET /communities/:id/config`
+empty state — `config` is set to `null` and no application error is logged. Non-404 rejections
+and exceptions still log; response-shape validation is unchanged. The server contract is unchanged: `GET /communities/:id/config`
 still answers 404 when `communities.community_configs` has no row, which was the deliberate
 choice — the alternative (an empty/default config body, the `fetchSettings` pattern) would have
 changed the API for every consumer to silence one caller.
@@ -434,7 +424,7 @@ follows `## Overview` (currently before `## Sprint 120 PR C Five-Second Clarity`
 community-service config route answers `404` when `communities.community_configs` has no row for
 the community; that is the contract, not an error. `fetchConfig` catches only
 `err.response.status === 404`, sets `config` to `null`, and returns without logging. Every other
-rejection — 500, network, malformed — still reaches `console.error('Failed to load configuration', …)`.
+non-404 rejection or exception still reaches `console.error('Failed to load configuration', …)`.
 
 This works because `lib/api.ts`'s `errorInterceptor` ends in `return Promise.reject(error)`, so the
 axios error reaches callers with `response.status` intact. A caller that needs to tell an expected
@@ -461,13 +451,16 @@ Expected: the drift gate passes (41 tests at time of writing), and `feedback:che
 outstanding context updates. `feedback:check` reads the **staged** diff, so stage first — on an
 already-committed branch it is otherwise a false green.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: Verify documentation coverage and commit**
+
+Inspect relevant guide/onboarding text and landing generator inputs. Record why registry/ADR
+updates are unnecessary when endpoints, schema, events and dependencies are unchanged. Regenerate
+landing docs if affected, retaining substantive content updates and removing only proven metadata
+churn. Add only the reviewed paths. Run the pre-commit-check skill on the combined staged diff.
 
 ```bash
 git status --short
-git commit -m "docs(bug-045): record the fix, its boundary and the sibling audit
-
-Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+git commit -m "fix(frontend): handle expected missing community config (BUG-045)"
 ```
 
 ---
@@ -503,12 +496,15 @@ git status --short
 
 Expected: exit 0. Then **inspect the tree before staging anything**. Two known side effects:
 
-1. `posttest` runs `scripts/promote-tdd-tests.js`, which promotes *every* green `.test.ts` under
-   `tests/tdd/` repo-wide — not just yours. Restore any file it moved that is not part of this PR:
-   `git checkout -- <path>` for the regression copy and `git mv` it back, or simply
-   `git restore --source=HEAD --staged --worktree <paths>`.
+1. `posttest` runs `scripts/promote-tdd-tests.js`, which promotes green `.test.ts` suites under
+   service/app `tests/tdd/` directories. Compare against a status snapshot taken before the run.
+   For an unintended move, verify the source/destination pair and move that destination back with
+   `Move-Item -LiteralPath <destination> -Destination <original-source>`, only when the source is
+   absent. Git restore alone does not remove an untracked destination. Preserve pre-existing WIP
+   and investigate collisions rather than issuing a blanket restore.
 2. The landing prebuild regenerates `apps/landing/src/data/docs/` with timestamp/HEAD-sha churn.
-   Revert it: `git checkout -- apps/landing/src/data/docs/`.
+   Inspect each diff; revert only proven timestamp/HEAD metadata churn. Preserve substantive
+   generated updates from Task 2 rather than restoring the entire directory.
 
 Your own test is a `.test.tsx` already sitting in `regression/`, so the promoter cannot touch it.
 
@@ -526,19 +522,18 @@ unless master has moved.)
 
 - [ ] **Step 4: Update the handoff to real state**
 
-In `.claude/handoff/CURRENT_HANDOFF.md`: set **Outcome** to PR A open with its number, move
-**Next unchecked task** to PR B's first task, and add to *Verification references* — dated
-2026-09-15 — the red-then-green test evidence (2 failed → 5 passed), the `feedback:check` and
-drift-gate results, and the PR link. Do not record this commit's own SHA; it cannot know it.
+In `.claude/handoff/CURRENT_HANDOFF.md`: record PR A ready to open (no invented PR number),
+with the next task to open A and obtain review/merge authorization. Add dated red-then-green
+evidence (2 failed → 5 passed), feedback/drift-gate results and any limitations using the actual
+execution date. PR B remains blocked until A is merged, deployed and health-verified. Do not
+record this commit's own SHA; it cannot know it.
 
 - [ ] **Step 5: Commit and push**
 
 ```bash
 git add package.json .claude/handoff/CURRENT_HANDOFF.md
 git status --short
-git commit -m "chore: bump version for Sprint 131 PR A, update handoff
-
-Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+git commit -m "chore: bump version for Sprint 131 PR A, update handoff"
 git push --set-upstream origin agent/codex/sprint-131-maintenance
 ```
 
@@ -555,11 +550,11 @@ Fill in every section of `.github/pull_request_template.md` (Lane: codex). Body 
 acceptance boundary in the maintainer's words: *no application log on an expected 404; the
 browser's own 404 network entry remains because the server contract is unchanged.*
 
-End the PR description with:
+Use the actual executor's attribution; do not claim Claude authored a Codex implementation.
 
-```
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-```
+After creation, record the real PR number/link in the handoff. Keep its next task on PR A's
+review/authorization/deployment checks. Commit the handoff update with the mandatory pre-commit
+checks and push it to this same branch. Wait for checks on that final head before reporting status.
 
 Then **stop.** Do not merge. Report the PR number and the check status. The maintainer authorizes
 the merge; the deploy and the browser verification below happen after that.
@@ -571,12 +566,14 @@ Watch the **Deploy to Demo** job on the master run and wait for its health verif
 at 1440px with the console open, and confirm:
 
 - no `Failed to load configuration` entry;
-- the browser's own `404` network entry for `/config` **is** still there — that is expected and is
-  the boundary, not a regression;
+- if the community still has no config row, the `/config` response remains 404; any browser
+  diagnostic is expected. If it now has a row, record that this fixture no longer proves the
+  absence case; do not delete demo data or require a browser-generated console message;
 - the page renders its default configuration UI rather than an error state.
 
 Record the observation, dated, in the handoff. Do not induce server failures on the demo to test
-the 500 path — that is covered by the regression suite.
+the 500 path — that is covered by the regression suite. Only after deployment and health verification
+move the next task to PR B. Carry post-merge handoff changes on B's branch, not a docs-only master push.
 
 ---
 
