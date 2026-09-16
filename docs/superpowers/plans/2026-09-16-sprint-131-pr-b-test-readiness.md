@@ -86,7 +86,7 @@ Copied or derived from the spec's Critical Implementation Notes. Every task inhe
 | `docker-build` job has no `setup-node` step; other jobs in the file use `actions/setup-node@v7` with `node-version: '24'` | `.github/workflows/test.yml:49-51,91-93,108-139` |
 | Workflow tests parse YAML with the declared `yaml` package, not `js-yaml` | `tests/regression/sprint-129-demo-health-workflow.test.ts:22-25` |
 | Registry messaging entry has no npm-dependency or test fields: **no registry change needed** | `services/registry.json` `services["messaging-service"]` keys |
-| `docs/guides/testing-guide.md` is not in `GUIDE_ORDER`, so it is not published to landing; messaging `CONTEXT.md` **is** (`apps/landing/src/data/docs/services/messaging-service.json`) | `scripts/generate-docs.ts:120,315` |
+| `docs/guides/testing-guide.md` is not in `GUIDE_ORDER`, so it is not published to landing; messaging `CONTEXT.md` **is** (`apps/landing/src/data/docs/services/messaging-service.json`) | `scripts/generate-docs.ts:315` (`GUIDE_ORDER`), `:120` (service `CONTEXT.md` read) |
 | Scoped gotchas for every path in this plan: none | `node scripts/gotcha-check.js --for …` |
 
 ---
@@ -208,7 +208,13 @@ function run(args: string[]): Promise<{ code: number | null; output: string; ela
   });
 }
 
-const bounds = (attempts: number, timeoutMs = 300) => [
+/**
+ * Generous per-request timeout by default. CI runs this under Turbo's parallel load, where a
+ * healthy 200 from an in-process server can arrive late. With a short timeout that 200 would
+ * count as a failed attempt and break the exact hit counts below. Only the hang case passes a
+ * short timeout, because timing out is what it tests.
+ */
+const bounds = (attempts: number, timeoutMs = 5000) => [
   '--attempts', String(attempts),
   '--interval-ms', '50',
   '--timeout-ms', String(timeoutMs),
@@ -262,12 +268,16 @@ describe('scripts/wait-for-http.js (BUG-036)', () => {
     const { code, output, elapsedMs } = await run([...bounds(3, 300), hang.url]);
 
     expect(code).toBe(1);
-    expect(hang.hits()).toBe(3);
+    // At least one request really reached the server and got no answer. Not an exact count: under
+    // load, an aborted request may never reach the server before its 300ms timeout.
+    expect(hang.hits()).toBeGreaterThanOrEqual(1);
+    expect(output).toContain('attempt 3/3 not ready');
     expect(output).toContain('no response within 300ms');
     expect(output).toContain('gave up after 3 attempts');
-    // 3 × 300ms timeouts + 2 × 50ms pauses = 1000ms of real waiting, plus process startup slack.
-    expect(elapsedMs).toBeGreaterThanOrEqual(900);
-    expect(elapsedMs).toBeLessThan(1000 + 4000);
+    // Timers never fire early, so 3 × 300ms timeouts + 2 × 50ms pauses is a hard FLOOR: the script
+    // really waited. There is no ceiling assertion, since load makes any fixed ceiling flaky.
+    // The proof it cannot hang forever is this test's own 20s Jest timeout.
+    expect(elapsedMs).toBeGreaterThanOrEqual(1000);
   }, 20_000);
 
   it('treats a refused connection as not ready', async () => {
@@ -275,7 +285,9 @@ describe('scripts/wait-for-http.js (BUG-036)', () => {
     await gone.close(); // port is now closed
     open.splice(open.indexOf(gone), 1);
 
-    const { code, output } = await run([...bounds(2), gone.url]);
+    // 1000ms: Linux refuses instantly; Windows loopback may retry SYNs for ~2s. That is enough to
+    // reach a verdict either way without stretching this case to 2 × 5000ms under CI load.
+    const { code, output } = await run([...bounds(2, 1000), gone.url]);
 
     // Reason text is platform-dependent (ECONNREFUSED on Linux; Windows loopback may time out
     // first), so assert the verdict, the URL and the give-up, not the reason.
@@ -434,9 +446,11 @@ if (require.main === module) {
 
 - [ ] **Step 6: Run it green**
 
-Same command as Step 4. Expected: **7 passed**, exit 0. Run it twice more to catch timing
-flakiness on this machine; if the elapsed-time case is flaky, report the measured values before
-widening any slack. Do not remove the lower bound: it is what proves the timeouts really waited.
+Same command as Step 4. Expected: **7 passed**, exit 0. Run it twice more, then once under the
+load CI applies (`npm test -- --force`, which runs Turbo's parallel workspaces), and confirm it
+stays 7/7. If a case flakes, report the measured values; do not add a short timeout to a
+non-hang case or a ceiling on elapsed time. Keep the 1000ms floor: it proves the timeouts
+really waited.
 
 - [ ] **Step 7: Commit**
 
@@ -657,7 +671,11 @@ Create `tests/regression/sprint-131-messaging-declarations.test.ts` (Write tool)
 
 ```ts
 /**
- * Sprint 131 PR B (BUG-034): services/messaging-service declares every package it imports.
+ * Sprint 131 PR B: services/messaging-service declares every package it imports.
+ *
+ * Not BUG-034 (that report covers zero tests only). This is the "declare what you import" class
+ * already fixed here for @karmyq/shared and redis (CONTEXT.md, Sprint 122 sections), scoped into PR B
+ * by the Sprint 131 spec.
  *
  * It imported express, cors, dotenv, jsonwebtoken and pg while declaring none of them, alive only
  * because root declares them and npm hoists. A root bump (D1: dotenv 17) would silently change or
@@ -698,7 +716,7 @@ function importedPackages(): string[] {
 const resolved = (name: string): string | undefined =>
   lock.packages[`${WS}/node_modules/${name}`]?.version ?? lock.packages[`node_modules/${name}`]?.version;
 
-describe('services/messaging-service declares what it imports (BUG-034)', () => {
+describe('services/messaging-service declares what it imports (Sprint 131 PR B)', () => {
   it('the import scan is not vacuous', () => {
     expect(importedPackages()).toEqual(expect.arrayContaining(['@karmyq/shared', 'express', 'socket.io']));
   });
@@ -900,7 +918,7 @@ so Turbo still skips it). Inspect `git status` for promoter/landing churn per Ta
 
 ```bash
 git add tests/regression/sprint-131-messaging-declarations.test.ts services/messaging-service/package.json package-lock.json services/messaging-service/jest.config.js
-git commit -m "fix(messaging): declare imported runtime packages and the jest toolchain (BUG-034)"
+git commit -m "fix(messaging): declare imported runtime packages; add jest harness for BUG-034"
 ```
 
 ---
@@ -1284,11 +1302,16 @@ BUG-034:
 `test` scripts (blocking `test:regression` has no `--passWithNoTests`) and
 `tests/regression/messageService.test.ts`: 6 tests against the real `getMessages`/`sendMessage`
 with only the database module mocked, each authorization/ordering guard proven by a reverted
-mutation. It also declares the five runtime packages it imported without declaring (`cors`, `dotenv`,
-`express`, `jsonwebtoken`, `pg`, at root's exact ranges, so nothing upgraded) plus its Jest toolchain;
-`tests/regression/sprint-131-messaging-declarations.test.ts` derives imports from `src` and fails on
-any new undeclared one. Sprint 122's zero-test exemptions were replaced by positive assertions
-(`sprint-122-turbo-test-inputs`, `sprint-122-tier-parity`).
+mutation. The Jest toolchain (`jest`, `ts-jest`, `@types/jest`) is now declared by the workspace.
+Sprint 122's zero-test exemptions were replaced by positive assertions (`sprint-122-turbo-test-inputs`,
+`sprint-122-tier-parity`).
+
+**Shipped alongside, not part of this report:** the same PR declares the five runtime packages
+messaging imported without declaring (`cors`, `dotenv`, `express`, `jsonwebtoken`, `pg`, at root's
+exact ranges, so nothing upgraded). That is the "declare what you import" class previously fixed
+here for `@karmyq/shared` and `redis` (messaging `CONTEXT.md`, Sprint 122 sections), scoped into PR B
+by the Sprint 131 spec. `tests/regression/sprint-131-messaging-declarations.test.ts` fails on any new
+undeclared import.
 
 **Not covered:** `getOrCreateConversation`, `getUserConversations`, `getConversation`,
 `markMessagesAsRead`, the REST routes, the Socket.IO handler and Redis pub/sub. A live message
@@ -1500,6 +1523,15 @@ bound plus retry count/delay (Task 1 Step 5); retries and exhaustion proven with
 outcomes, not a YAML regex (Task 1 Step 2). *Notes 5, 6, 9, 11, 13* map to Global Constraints and
 Tasks 3, 4, 7. *Docs (spec "User guide" B list):* messaging CONTEXT, registry (verified no change),
 testing guide, BUG-034/036, workflow documentation via `scripts/claude.md` (Task 6).
+
+**Bug attribution.** BUG-034's report covers only "zero tests, no `test` script". The runtime
+declarations come from the spec's PR B scope, not the bug. They are labelled "Sprint 131 PR B"
+in their test, commit and close-out, and never presented as fixing BUG-034 (Kimi review, 2026-09-16).
+
+**CI-load robustness.** Task 1's cases that expect a server to answer use a 5000ms per-request timeout. The refused-connection
+case uses 1000ms, since its verdict does not depend on timing. The hang case asserts a
+time floor, not a ceiling, and at-least-one hit rather than an exact count. Short timeouts or ceilings
+would flake under Turbo's parallel load in CI (added after review, 2026-09-16).
 
 **Deviation from the sprint plan, stated:** the sprint plan suggested an inline `curl` loop. This
 plan uses a Node script because the spec requires proof by scripted HTTP outcomes, which an inline

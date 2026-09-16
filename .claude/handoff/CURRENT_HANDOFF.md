@@ -5,7 +5,7 @@
 **Outcome**: PR A **shipped v11.56.0** — [#249](https://github.com/ravichavali/karmyq/pull/249) merged
 as `d35a3fad` (2026-09-16T18:30:39Z), deployed and health-verified, live check passed. Codex reviewed
 it with no actionable issues. PR B is next on `agent/codex/sprint-131-test-readiness`; its focused
-plan is written and awaits review. PR C rollout approval deferred.
+plan is written and reviewed (Kimi, approve with two minor corrections, applied). PR C rollout approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
 session state, not reservations inferred from branch-local text.
@@ -31,7 +31,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 | PR | Scope | State / next action |
 |---|---|---|
 | A | BUG-045 expected missing config + planning/archive | **Shipped** — #249 merged `d35a3fad`, v11.56.0, deployed + live-verified 2026-09-16 |
-| B | BUG-034 messaging coverage/declarations + BUG-036 Docker readiness | **Next.** Focused plan written; awaiting review before execution. B must precede D1 |
+| B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Next.** Focused plan reviewed and corrected (2026-09-16); ready to execute from Task 1. B must precede D1 |
 | D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
@@ -54,13 +54,13 @@ inventory against the then-current base. BUG-033 remains open until actually del
 2. Work on `agent/codex/sprint-131-test-readiness`, cut from deployed `origin/master` `d35a3fad`.
    `agent/codex/sprint-131-maintenance` is merged (#249); never commit on it.
 3. Read the linked spec, sprint plan and the **PR B focused plan**. PR A is complete — do not reopen it.
-4. Once the maintainer approves the PR B plan, start a fresh execution chat and invoke
+4. The PR B plan is reviewed and corrected. Start a fresh execution chat and invoke
    `superpowers:subagent-driven-development` (or `superpowers:executing-plans`) on it directly.
    There is no `/execute-plan` slash command. Tests precede behavior changes.
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
-**Next unchecked task**: maintainer review of the PR B focused plan. After approval: PR B Task 1.
+**Next unchecked task**: PR B focused plan, Task 1 Step 1 (bounded readiness script).
 Claude holds the dependency lane and executes B, including its messaging declarations and lockfile splice.
 
 ## Blockers and decisions
@@ -102,6 +102,18 @@ Claude holds the dependency lane and executes B, including its messaging declara
 - The handoff now names ownership, base, shared-resource allocation, next task and verification.
 
 ## Verification references
+
+PR B plan review, 2026-09-16 (Kimi, reviewer role; no branch edits):
+
+- Verdict: approve with two minor corrections. It fact-checked the plan's load-bearing claims
+  (messageService SQL/params, the 8-line lock splice, root range overlap, Sprint 122 gate lines,
+  test.yml docker-build lines 108-139, compose 127.0.0.1 ports, BUGS.md:560/615).
+- Applied: (1) swapped `scripts/generate-docs.ts` citation (`GUIDE_ORDER` is :315, service CONTEXT read is :120);
+  (2) the runtime declarations are no longer attributed to BUG-034, whose report covers only zero tests.
+  They are labelled Sprint 131 PR B spec scope in the test, the commit and the close-out.
+- Also applied (Claude, not raised by either reviewer): Task 1 timing tests hardened for Turbo
+  parallel load in CI. Non-hang cases use a 5000ms timeout; the hang case keeps a 1000ms floor with no
+  ceiling and asserts at least one hit rather than an exact count.
 
 PR A merge, deploy and live check, 2026-09-16 (Claude; focused plan Task 3 Step 7):
 
