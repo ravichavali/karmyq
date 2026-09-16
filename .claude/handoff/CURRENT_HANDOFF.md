@@ -39,6 +39,7 @@ inventory against the then-current base. BUG-033 remains open until actually del
 
 - **Spec**: [Sprint 131 design](../../docs/superpowers/specs/2026-09-15-sprint-131-maintenance-design.md)
 - **Plan**: [Sprint 131 implementation](../../docs/superpowers/plans/2026-09-15-sprint-131-maintenance.md)
+- **PR A focused plan**: [Expected missing community config (BUG-045)](../../docs/superpowers/plans/2026-09-15-sprint-131-pr-a-community-config.md)
 - **Sprint 131 PR**: none opened in this planning session.
 - **Sprint 130 archive**: [v11.55.0](archive/2026-09-15-sprint-130-maintenance-SHIPPED-v11.55.0.md)
 
@@ -55,8 +56,9 @@ inventory against the then-current base. BUG-033 remains open until actually del
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
-**Next unchecked task**: Task 2 —
-`apps/frontend/tests/tdd/sprint-131-community-config-empty-state.test.tsx`.
+**Next unchecked task**: PR A focused plan, Task 1 Step 1 — read `apps/frontend/claude.md`,
+`tests/claude.md` and `apps/frontend/tests/regression/sprint-129-community-trust-empty-state.test.tsx`,
+then write `apps/frontend/tests/tdd/sprint-131-community-config-empty-state.test.tsx` red.
 
 ## Blockers and decisions
 
