@@ -51,8 +51,10 @@ inventory against the then-current base. BUG-033 remains open until actually del
    130 archive moved from the old branch. Do not create a branch from local master or commit on
    the merged Sprint 130 branch.
 3. Read the linked spec and plan. Task 1's planning validation is complete; confirm its commit in the log.
-4. Start a fresh PR A execution chat and run `/execute-plan` using executing-plans, or explicitly
-   delegated subagent-driven development. Use the focused PR A plan, Task 1; tests precede behavior changes.
+4. Start a fresh PR A execution chat and invoke the skill directly:
+   `superpowers:subagent-driven-development` (the focused plan's REQUIRED SUB-SKILL) or
+   `superpowers:executing-plans`. There is no `/execute-plan` slash command — superpowers removed
+   it as a deprecated stub. Use the focused PR A plan, Task 1; tests precede behavior changes.
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 

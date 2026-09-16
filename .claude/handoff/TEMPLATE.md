@@ -34,7 +34,8 @@
    `git switch -c <branch> origin/master`. Never branch off a stale local master —
    unpushed local-master commits leak in via the squash-merge.
 3. Open the plan linked above.
-4. Run `/execute-plan` (uses `superpowers:subagent-driven-development`).
+4. Invoke `superpowers:subagent-driven-development` (or `superpowers:executing-plans`) directly.
+   There is no `/execute-plan` slash command — superpowers removed it as a deprecated stub.
 
 **Next unchecked task**: Task N — [one line, with the file path to start from]
 

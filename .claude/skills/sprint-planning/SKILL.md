@@ -228,7 +228,8 @@ The handoff **Quick Start** section MUST include:
    `git switch -c feature/sprint-NN-{slug} origin/master`. Never branch off a stale local master —
    unpushed local-master commits leak in via the squash-merge.
 3. Open plan: `docs/superpowers/plans/YYYY-MM-DD-sprint-NN-{slug}.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`).
+   There is no `/execute-plan` slash command — superpowers removed it as a deprecated stub.
 ```
 
 The handoff MUST include:
@@ -257,7 +258,7 @@ git commit -m "docs: Sprint NN spec + plan — ready to execute"
 | Starting to write the plan before user confirms goal | Always get explicit confirmation after Step 2 |
 | Forgetting `⚠️ Critical Implementation Notes` section in plan | These prevent the most common bugs — copy from spec verbatim |
 | Task N-1 missing TDD test | Every plan ends with a docs/registry task then a verification task |
-| Handoff Quick Start doesn't mention `/execute-plan` | Next conversation won't know how to start |
+| Handoff Quick Start doesn't name the execution skill | Next conversation won't know how to start — name `superpowers:subagent-driven-development`, never the removed `/execute-plan` |
 | Sprint number guessed instead of read from git | Always `git log --oneline -5` first |
 | Setting `evolution_enabled` defaults to `false` (opt-in) when it should be `true` (opt-out) | See `docs/IDEAS.md` [2026-03-20] — evolution defaults are opt-out |
 | Treating docs as optional ("no ADR this sprint") | User guides MUST be updated every sprint — even without an ADR, update affected guides and concept pages in `apps/landing/` |
