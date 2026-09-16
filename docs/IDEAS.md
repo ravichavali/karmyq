@@ -569,3 +569,28 @@ caller's joined communities (BUG-044), so the N+1 is bounded by membership count
 Revisit only if members commonly belong to many communities.
 
 ---
+
+## [2026-09-16] architecture
+
+**Dependabot #244 (`@eslint/js` 9 → 10) and #245 (ioredis 5 → 6) are deferred to Sprint 132.**
+Maintainer decision, 2026-09-16. Both are majors that appeared after Sprint 131's scope was
+approved, so they are outside its D-series (#224–#230, of which #227/#229 were superseded by
+#247/#246). Sprint 131 ships its approved seven; these two are the head of Sprint 132's dependency
+queue.
+
+Why each needs its own PR rather than a grouped bump:
+
+- **#245 ioredis 5 → 6** is the riskier one. Check which workspaces actually import `ioredis`
+  before bumping — messaging-service uses `redis`, not `ioredis`, so the importer set is not the
+  obvious one. Bull/queue consumers are the likely holders, which puts the event pipeline
+  (`karmyq-events`) in the blast radius.
+- **#244 `@eslint/js` 9 → 10** is dev-only but a flat-config major; expect lint-config breakage
+  rather than runtime breakage, and verify the repo's eslint config shape against the new major.
+
+**#243 (bcryptjs + `@types/bcryptjs`) is still untriaged** — it is not a major and was not part of
+this decision. Triage it when Sprint 132 is scoped.
+
+Refresh every proposal number against `gh pr list` before acting: Dependabot closes and reopens
+these as new versions publish, which is exactly how #227/#229 became #247/#246.
+
+---

@@ -76,6 +76,11 @@ then write `apps/frontend/tests/tdd/sprint-131-community-config-empty-state.test
   HTTP failure diagnostic can remain. No API contract change and no blanket console-silence claim.
 - **Risk split:** messaging/CI readiness ship before major upgrades; mass promotion has its own PR.
   Major upgrades stay separate because their runtime and migration risks differ.
+- **New proposals triaged (2026-09-16):** #244 (`@eslint/js` 9→10) and #245 (ioredis 5→6) are
+  **deferred to Sprint 132** by maintainer decision — they are majors that appeared after Sprint 131's
+  scope was approved. #243 (bcryptjs) remains untriaged. Recorded in `docs/IDEAS.md` [2026-09-16] so
+  the decision outlives this handoff's archival. Sprint 131's D-series is unchanged: #224, #225, #226,
+  #228, #230, plus #247/#246 which superseded the closed #227/#229.
 - **No rollout or merge authorization is implied by planning ownership.**
 
 ## Review corrections applied
