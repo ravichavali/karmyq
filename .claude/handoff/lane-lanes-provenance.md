@@ -43,6 +43,7 @@
 
 - **Decision (2026-09-16):** the contributor model is split into four sub-projects (stages/provenance → agent-neutral rules → onboarding; memory as a separate track). This is sub-project 1. All design decisions D1–D13 are recorded in the spec.
 - **Decision:** kept apart from Sprint 131 PR B (test readiness) to avoid scope creep. PR B continues under the current rules and is grandfathered.
+- **Decision (2026-09-16):** this lane is scheduled as **Sprint 132**. Sprint 131 finishes first (PR B, D1–D7, C if approved), and the execute stage stays available until Sprint 132 starts (maintainer: "We probably can do this as next sprint").
 - **Decision (2026-09-16):** plan approved (maintainer: "go for it"); the planner wrote the `plan -> execute` boundary.
 - **Decision (2026-09-16):** three lanes, one PR each, replacing the single PR (maintainer: "3 PRs sound good"). The branch can't outlive its squash-merge, so they are `lanes-provenance` (this), `lanes-work-queue` and `lanes-rules`; the later two start at `plan` on fresh branches. The spec's *Rollout* is amended, and `execute -> verify` plus all of `verify` are issue comments, never commits.
 - **Decision (2026-09-16):** spec approved, ADR-098 allocated, and labels use GitHub's default colours (maintainer: "yes on all three").
