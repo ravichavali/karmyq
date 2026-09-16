@@ -44,6 +44,7 @@ const EXPECTED_JEST_WORKSPACES = [
   'services/cleanup-service',
   'services/community-service',
   'services/geocoding-service',
+  'services/messaging-service', // Sprint 131 PR B (BUG-034): its first jest suite
   'services/notification-service',
   'services/reputation-service',
   'services/request-service',
@@ -54,9 +55,9 @@ const EXPECTED_JEST_WORKSPACES = [
 
 /**
  * Workspaces whose resolved jest config compiles through ts-jest — including the
- * five that get it implicitly by spreading the root config's `preset`/`transform`
- * (cleanup, notification, reputation, request, simulation). Explicit for the same
- * reason as the jest roster: a new one must fail here rather than slip through.
+ * six that get it implicitly by spreading the root config's `preset`/`transform`
+ * (cleanup, messaging, notification, reputation, request, simulation). Explicit for
+ * the same reason as the jest roster: a new one must fail here rather than slip through.
  */
 const EXPECTED_TS_JEST_WORKSPACES = [
   'apps/landing',
@@ -64,6 +65,7 @@ const EXPECTED_TS_JEST_WORKSPACES = [
   'services/auth-service',
   'services/cleanup-service',
   'services/community-service',
+  'services/messaging-service', // Sprint 131 PR B (BUG-034)
   'services/notification-service',
   'services/reputation-service',
   'services/request-service',
