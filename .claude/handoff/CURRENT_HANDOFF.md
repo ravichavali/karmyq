@@ -2,8 +2,8 @@
 
 **Date**: 2026-09-16
 
-**Outcome**: PR A implemented and gated on `agent/codex/sprint-131-maintenance` (v11.56.0); ready to
-open for review. Executed by Claude (maintainer handed execution to Claude, 2026-09-16). PR C rollout
+**Outcome**: PR A open as [#249](https://github.com/ravichavali/karmyq/pull/249) from
+`agent/codex/sprint-131-maintenance` (v11.56.0); awaiting review and maintainer merge authorization. Executed by Claude (maintainer handed execution to Claude, 2026-09-16). PR C rollout
 approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
@@ -29,7 +29,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 
 | PR | Scope | State / next action |
 |---|---|---|
-| A | BUG-045 expected missing config + planning/archive | Implemented + gates clean; open PR, then maintainer review/merge authorization |
+| A | BUG-045 expected missing config + planning/archive | [#249](https://github.com/ravichavali/karmyq/pull/249) open, gates clean; awaiting maintainer review/merge authorization |
 | B | BUG-034 messaging coverage/declarations + BUG-036 Docker readiness | After A deploys; B must precede D1 |
 | D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
@@ -42,7 +42,7 @@ inventory against the then-current base. BUG-033 remains open until actually del
 - **Spec**: [Sprint 131 design](../../docs/superpowers/specs/2026-09-15-sprint-131-maintenance-design.md)
 - **Plan**: [Sprint 131 implementation](../../docs/superpowers/plans/2026-09-15-sprint-131-maintenance.md)
 - **PR A focused plan**: [Expected missing community config (BUG-045)](../../docs/superpowers/plans/2026-09-15-sprint-131-pr-a-community-config.md)
-- **Sprint 131 PR A**: not yet opened (see Quick Start).
+- **Sprint 131 PR A**: [#249](https://github.com/ravichavali/karmyq/pull/249) (opened 2026-09-16).
 - **Sprint 130 archive**: [v11.55.0](archive/2026-09-15-sprint-130-maintenance-SHIPPED-v11.55.0.md)
 
 ## Quick Start
@@ -60,8 +60,8 @@ inventory against the then-current base. BUG-033 remains open until actually del
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
-**Next unchecked task**: PR A focused plan, Task 3 Step 6 — open PR A, record its number here, wait for
-checks, then obtain the maintainer's merge authorization. After merge: Task 3 Step 7 (deploy health +
+**Next unchecked task**: PR A focused plan, Task 3 Step 6 is done — #249 is open. Confirm its checks
+are green on the latest head, then obtain the maintainer's merge authorization. After merge: Task 3 Step 7 (deploy health +
 live check). PR B stays blocked until A is merged, deployed and health-verified.
 
 ## Blockers and decisions
@@ -116,6 +116,7 @@ PR A execution, 2026-09-16 (Claude, superpowers:subagent-driven-development then
   plan-mandated) left as-is; `/code-review medium` 0 findings (noted: a proxy-level 404 would also
   be silenced — misconfiguration only); `/security-review` 0 findings (404 is only the no-row path;
   401/403 untouched; `config` consumers are display-only).
+- Frontend `npx tsc --noEmit` exit 0. Pre-push hook ran the suite on push (exit 0, ~79s).
 - Full `npm test -- --concurrency=1` exit 0 twice (26/26 Turbo tasks; frontend a cache miss on
   the first run); git status identical before/after — no promoter moves, no landing churn.
 - Version: `origin/master` still `9fae79f4` at 11.55.0 → root `package.json` 11.56.0. The lockfile's
