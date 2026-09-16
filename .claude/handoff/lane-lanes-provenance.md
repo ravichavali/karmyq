@@ -1,7 +1,7 @@
 # Lanes, Stages and Provenance (contributor-model sub-project 1) — Handoff
 
 **Date**: 2026-09-16
-**Outcome**: in progress (spec drafted, awaiting maintainer review)
+**Outcome**: in progress (spec approved 2026-09-16; plan stage)
 
 > Narrative only. This lane predates its own tooling, so stage and holder are recorded here by hand
 > until `npm run work` exists. Re-derive branch and PR state with `git log` / `gh pr list` before trusting it.
@@ -20,10 +20,10 @@
 |---|---|
 | **Branch** | `lane/lanes-provenance` (upstream unset on purpose; first push needs `--set-upstream`) |
 | **Base** | `origin/master` at `d35a3fadd0912ab0ef076eb16c6fd1f23df80acd` (fetched 2026-09-16; v11.56.0) |
-| **Stage / active editor** | `spec`, by ravichavali/claude |
+| **Stage / active editor** | `plan`, by ravichavali/claude (boundary commit `spec -> plan`, 2026-09-16) |
 | **Reviewer role** | Maintainer reviews the spec; any non-author agent may review later stages read-only |
 | **Owned paths** | the spec below, this file; implementation paths per the future plan |
-| **Shared resources needed** | ADR number (maintainer-allocated, the last by hand). Merge only after Sprint 131 PR B has deployed and passed its health check. No dependency lane (no new npm packages). |
+| **Shared resources needed** | ADR-098 (allocated by the maintainer 2026-09-16, the last by hand). Merge only after Sprint 131 PR B has deployed and passed its health check. No dependency lane (no new npm packages). |
 
 ## Links
 
@@ -37,13 +37,13 @@
 2. `git switch lane/lanes-provenance`. Never commit this work on a Sprint 131 branch.
 3. Read the spec. If the maintainer has approved it, invoke `superpowers:writing-plans` to write the plan.
 
-**Next unchecked task**: maintainer review of the spec; then allocate the ADR number.
+**Next unchecked task**: write the implementation plan (`superpowers:writing-plans`) and stop for review.
 
 ## Blockers and decisions
 
 - **Decision (2026-09-16):** the contributor model is split into four sub-projects (stages/provenance → agent-neutral rules → onboarding; memory as a separate track). This is sub-project 1. All design decisions D1–D13 are recorded in the spec.
 - **Decision:** kept apart from Sprint 131 PR B (test readiness) to avoid scope creep. PR B continues under the current rules and is grandfathered.
-- **Blocker:** the ADR number must come from the maintainer.
+- **Decision (2026-09-16):** spec approved, ADR-098 allocated, and labels use GitHub's default colours (maintainer: "yes on all three").
 
 ## Verification references
 

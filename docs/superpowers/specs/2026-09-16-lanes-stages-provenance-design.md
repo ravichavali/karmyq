@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16
 
-**Status**: Draft for maintainer review
+**Status**: Approved by the maintainer, 2026-09-16 (ADR-098)
 
 **Branch**: `lane/lanes-provenance`, cut from `origin/master` `d35a3fadd0912ab0ef076eb16c6fd1f23df80acd` (v11.56.0)
 
@@ -256,7 +256,7 @@ Made in this sub-project's PR, with `claude.md` and `AGENTS.md` changed identica
 - **`AGENTS.md` → Lanes & Merge Authority and Topology** (`:68-123`): the same model; the branch
   convention becomes `lane/<slug>`; "never self-merge" becomes the non-executor rule with `allowSelfMerge`.
 - **`.claude/handoff/README.md`, `TEMPLATE.md`:** as in *Handoff files*.
-- **New ADR, "Lanes, stages and provenance":** number allocated by the maintainer (D13).
+- **New ADR-098, "Lanes, stages and provenance":** number allocated by the maintainer, 2026-09-16 (D13; verified unused on every remote branch and open PR that day).
   Supersedes the parallel-development serialization rules. Indexed in `docs/adr/README.md`.
 - **`scripts/claude.md`:** entries for `work.js` and `lane-provenance.js`, and the three workflows `lanes-pr.yml`, `lanes-audit.yml` and `lanes-expiry.yml`.
 - **`package.json`:** `work` script. No new dependencies.
@@ -312,10 +312,10 @@ Made in this sub-project's PR, with `claude.md` and `AGENTS.md` changed identica
 Also out: changing repository settings or branch protection; migrating closed history; fork-based
 contributors (D11 assumes write access).
 
-## Open items for the maintainer
+## Maintainer answers (2026-09-16)
 
-1. **ADR number** for this spec's ADR (D13).
-2. **Label colours/descriptions:** default to GitHub's palette unless you have a preference.
+1. **ADR number:** ADR-098.
+2. **Label colours/descriptions:** GitHub's default palette.
 
 ## Critical Implementation Notes
 
