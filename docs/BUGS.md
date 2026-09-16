@@ -1008,7 +1008,7 @@ fixture. Both now run in the blocking `regression/` tier.
 
 ---
 
-## BUG-045 · [2026-09-15] · open
+## BUG-045 · [2026-09-15] · fixed (Sprint 131 PR A)
 
 **The community page logs two console errors on load when a community has no config row.**
 `GET /api/communities/:id/config` answers 404, and `useCommunityData.fetchConfig` logs
@@ -1017,5 +1017,23 @@ fixture. Both now run in the blocking `regression/` tier.
 PR A's post-deploy check. Pre-existing: PR A did not touch `fetchConfig` or
 `services/community-service/src/routes/config.ts`. Not investigated: whether a missing row should
 be an empty/default config (the `fetchSettings` pattern) rather than a 404.
+
+**Fixed (Sprint 131 PR A):** `useCommunityData.fetchConfig` now treats HTTP 404 as an expected
+empty state — `config` is set to `null` and no application error is logged. Non-404 rejections
+and exceptions still log; response-shape validation is unchanged. The server contract is unchanged: `GET /communities/:id/config`
+still answers 404 when `communities.community_configs` has no row, which was the deliberate
+choice — the alternative (an empty/default config body, the `fetchSettings` pattern) would have
+changed the API for every consumer to silence one caller.
+
+**Boundary — the second console entry is the browser's, not the application's.** The bug was filed
+as "two console errors". Only one of them was ours. The other is the browser's own
+`Failed to load resource: the server responded with a status of 404` entry for the preserved 404,
+which no caller-side change can suppress. Removing it would require changing the endpoint's status
+code. Covered by `apps/frontend/tests/regression/sprint-131-community-config-empty-state.test.tsx`
+(5 cases: expected 404, cleared-after-load, 500, network failure, success).
+
+**Siblings audited, deliberately unchanged:** `fetchNorms` (`routes/norms.ts:8` has no 404 path)
+and `fetchStats` (`routes/stats.ts:177` 404s only when the community itself is missing, and it is
+not fetched on mount).
 
 ---

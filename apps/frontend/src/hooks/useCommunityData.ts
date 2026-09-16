@@ -114,6 +114,13 @@ export function useCommunityData(communityId: string | undefined) {
       const response = await communityService.getConfig(communityId)
       setConfig(response.data.config)
     } catch (err: any) {
+      // BUG-045: the route answers 404 when communities.community_configs holds no row for this
+      // community (routes/config.ts:69). That is an expected empty state, not a failure — the page
+      // renders its defaults — so it must not log. The 404 contract itself is unchanged.
+      if (err?.response?.status === 404) {
+        setConfig(null)
+        return
+      }
       console.error('Failed to load configuration', { error: err instanceof Error ? err.message : String(err) })
     }
   }
