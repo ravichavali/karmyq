@@ -1,10 +1,30 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-07-22 (v11.32.0 Sprint 120 PR C — five-second clarity)
+**Last updated**: 2026-09-15 (Sprint 131 PR A — expected config absence, BUG-045)
 
 ## Overview
 
 Next.js 15 web application (Pages Router) consuming all Karmyq backend services.
+
+---
+
+## Sprint 131 PR A — Expected config absence (2026-09-15, BUG-045)
+
+`useCommunityData.fetchConfig` distinguishes an **expected** empty state from a failure. The
+community-service config route answers `404` when `communities.community_configs` has no row for
+the community; that is the contract, not an error. `fetchConfig` catches only
+`err.response.status === 404`, sets `config` to `null`, and returns without logging. Every other
+non-404 rejection or exception still reaches `console.error('Failed to load configuration', …)`.
+
+This works because `lib/api.ts`'s `errorInterceptor` ends in `return Promise.reject(error)`, so the
+axios error reaches callers with `response.status` intact. A caller that needs to tell an expected
+absence from a real failure reads that status; it does not need a change in `api.ts`.
+
+**The 404 stays.** The browser still records its own failed-request entry in the Network/Console
+panel. "No application log" is the contract here, not "an empty console".
+
+`fetchNorms` and `fetchStats` are deliberately NOT given this treatment — the norms list route has
+no 404 path, and a stats 404 means the community itself is missing.
 
 ---
 
