@@ -12,9 +12,21 @@
  * - path aliases (`@/`) come from each workspace's tsconfig `paths`;
  * - resolved versions come from package-lock.json.
  *
- * Scopes: a file that never ships (tests, __tests__/__mocks__, *.test/*.spec, jest/eslint/playwright
- * config, the whole tests workspace) may satisfy an import from devDependencies. Everything else is
- * runtime and needs dependencies or peerDependencies, because the Dockerfiles install --omit=dev.
+ * Scopes: a file that never ships (tests, __tests__/__mocks__, *.test/*.spec, build-tooling config,
+ * the whole tests workspace) may satisfy an import from devDependencies. Everything else is runtime
+ * and needs dependencies — or, for a library in packages/, a peerDependency — because the
+ * Dockerfiles install --omit=dev.
+ *
+ * Known limits, all deliberate and none with a live instance today:
+ * - A type-only import counts as RUNTIME. TypeScript erases it, so strictly it could be a
+ *   devDependency; this gate stays conservative because `tsc` must still resolve it and the
+ *   over-requirement is a declaration, not a shipped package (shared's `pg` is a peer, not a dep).
+ *   The cost is that a future build-time-only `import type` is pushed into `dependencies`.
+ * - Only STATIC specifiers are seen. `require.resolve('pkg')`, `jest.mock('pkg')` without a
+ *   matching import, and any computed specifier (`require(name)`) are invisible.
+ * - A locally shadowed `require` parameter would be reported as an import.
+ * - The dev/runtime split is a path convention, so a shipping file placed under a `tests/`
+ *   directory would be under-checked.
  */
 import { join } from 'path';
 import { builtinModules } from 'module';
@@ -29,8 +41,18 @@ type LockNode = Manifest & { version?: string; link?: boolean };
 
 const lock: { packages: Record<string, LockNode> } = JSON.parse(read('package-lock.json'));
 
+/**
+ * Paths that never ship, so a devDependency satisfies them.
+ *
+ * The build-tooling configs matter as much as the test paths: `next`, `postcss`, `tailwind`,
+ * `babel`, `metro` and pm2's `ecosystem` configs run on a build machine, never inside a
+ * `--omit=dev` image, so requiring them to declare at runtime scope would push build-only packages
+ * into production `dependencies`. Seven such files exist today: `next.config.js` and
+ * `postcss.config.js` in both `apps/frontend` and `apps/landing`, `babel.config.js` and
+ * `metro.config.js` in `apps/mobile`, and `ecosystem.config.js` in `services/simulation-service`.
+ */
 const DEV_ONLY =
-  /^(tests|e2e)\/|(^|\/)__(tests|mocks)__\/|\.(test|spec)\.[cm]?[jt]sx?$|^(jest|eslint|playwright)\.(config|setup)\.[cm]?[jt]s$/;
+  /^(tests|e2e)\/|(^|\/)__(tests|mocks)__\/|\.(test|spec)\.[cm]?[jt]sx?$|(^|\/)(jest|eslint|playwright|next|postcss|tailwind|babel|metro|ecosystem)\.(config|setup)\.[cm]?[jt]sx?$/;
 
 /**
  * Runtime-scope imports that are knowingly undeclared, keyed per file. Every entry must still be a
@@ -193,14 +215,25 @@ function strandedFromRoot(): Array<{ key: string; detail: string }> {
   );
 }
 
+/**
+ * A `peerDependency` only counts as a runtime declaration for a LIBRARY workspace (`packages/*`).
+ *
+ * `.npmrc` sets `legacy-peer-deps=true`, so npm never installs a peer — the consumer provides it.
+ * That is a real contract for a package others depend on (shared's `express` and `pg`), but for a
+ * service or app, which is a leaf that ships its own image, nothing downstream provides anything.
+ * Accepting a peer there would let a workspace satisfy this gate while the import still resolved
+ * purely through root hoisting, which is precisely BUG-046.
+ */
+const peerCountsAsRuntime = (ws: string): boolean => ws.startsWith('packages/');
+
 function undeclared(devOnly: boolean): string[] {
-  return workspaces.flatMap(({ pkg, imports }) =>
+  return workspaces.flatMap(({ ws, pkg, imports }) =>
     imports
       .filter((i) => i.devOnly === devOnly)
       .filter(
         (i) =>
           !pkg.dependencies?.[i.name] &&
-          !pkg.peerDependencies?.[i.name] &&
+          !(peerCountsAsRuntime(ws) && pkg.peerDependencies?.[i.name]) &&
           !(devOnly && pkg.devDependencies?.[i.name]),
       )
       .map((i) => i.key),
