@@ -136,6 +136,25 @@ misattributed it; `preProcessFile` was rejected in plan review round 2 because i
 
 ## Verification references
 
+PR B2 CI evidence, 2026-09-17 — [#251](https://github.com/ravichavali/karmyq/pull/251), head `371cd375`
+([run 35268575872](https://github.com/ravichavali/karmyq/actions/runs/35268575872)). **20 checks pass, 1 skipping**
+(Deploy to Demo, skipped on PRs). Confirmed from job logs, not ticks:
+
+- **Strict lock acceptance on Linux:** `npm ci` → `added 1703 packages, and audited 1722 packages in 26s`, no npm error.
+  The hand-spliced lockfile is accepted on a clean Linux install, not just on this Windows box.
+- **The gate runs and passes in CI:** `PASS regression/sprint-131-workspace-declarations.test.ts (20.859 s)`; root regression
+  totals 37 suites / 343 tests. No reference to the deleted messaging gate anywhere in the run.
+- **Lint & Type Check**, **Integration Tests**, **Test Frontend**, **Test Auth Service**, **Test Docker Build** — all pass.
+- **Images build against the changed manifests:** all 7 `Build Docker Images` jobs pass (auth-service `DONE`, no npm error),
+  plus Build Landing Page. This is the real proof that `--omit=dev` images still resolve every runtime declaration.
+- **Security Audit (ADR-059)** and **Code Scanning Gate (ADR-060)** pass; **CodeQL** pass; **pr-contract** pass. No new
+  advisory, as expected — no resolved version changed.
+
+**Next: merge authorization.** Per CLAUDE.md the agent cannot self-merge; ask the maintainer, confirm no master deploy is in
+flight, then `gh pr merge 251 --squash --admin`, watch the master run through Deploy to Demo, smoke
+`POST https://karmyq.com/api/auth/login`, and update this handoff. After that: **B3** (Expo drift #248 — re-run
+`npx expo install --check` first), then **D1**.
+
 PR B2 execution, 2026-09-17 (Claude, `superpowers:executing-plans`; 9 commits, `0edd49ad`…`98c911b0`, base `d2edb286`):
 
 - **Gate red then green.** Red at the planned counts exactly: 2 failed / 6 passed, **95 runtime + 94 dev** violations, with
