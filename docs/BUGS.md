@@ -1118,7 +1118,20 @@ excludes from the build (ADR-028), so they are never compiled or shipped. The ga
 violation, so the allowlist can only shrink.
 
 The gate is `tests/regression/sprint-131-workspace-declarations.test.ts` (blocking, repo-wide), which replaced the
-messaging-only gate. **No resolved version changed**: every added range is already satisfied by the hoisted version
+messaging-only gate.
+
+**Caught during PR B2's own process review:** the first draft relied on range satisfaction to make a root-only bump
+fail, and that does not work. When a root bump strands a workspace range, npm nests a satisfying older copy under
+that workspace, so a satisfaction check reads the nested node and stays green. The repo already contained the
+counterexample — root hoists `express-rate-limit@8.5.2` while `packages/shared` and `services/geocoding-service` each
+run a nested `7.5.1`, with the gate green. The gate therefore carries a **second, separate check**: root's *hoisted*
+version must satisfy every range a workspace declares for a package root also declares, with a three-entry
+`DIVERGENCE_ALLOWLIST` (the two `express-rate-limit@^7` holdbacks and shared's `zod@^3.22.4`) plus a stale-entry test.
+Proven by injection: with root hoisting `dotenv@17.4.2` and `dotenv@16.6.1` nested under all nine declarers, the
+satisfaction check stays **green** and only the new check goes **red**. This is what actually forces a D-series root
+bump to bump the workspace manifests in the same PR.
+
+**No resolved version changed**: every added range is already satisfied by the hoisted version
 the lockfile resolves, so `package-lock.json` changed only inside the 11 workspace nodes — no new package nodes and no
 version edits — and strict `npx -y npm@11.19.0 ci` accepted it without rewriting the lock.
 

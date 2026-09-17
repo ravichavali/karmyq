@@ -1,6 +1,6 @@
 # @karmyq/shared — Context
 
-**Last Updated**: 2026-07-29 (Sprint 122 Express 5 peer contract)
+**Last Updated**: 2026-09-17 (Sprint 131 PR B2 declared imports)
 
 Shared TypeScript library consumed by all Karmyq services and frontend apps.
 
@@ -66,6 +66,12 @@ the raw Express 5 behaviour so the shim cannot be quietly removed.
 
 *(Also pre-existing: `apps/frontend` consumes this package without providing Express at all, so the
 peer is unsatisfied there and `.npmrc`'s `legacy-peer-deps=true` silences it.)*
+
+Since Sprint 131 PR B2 these two rows are also the `DIVERGENCE_ALLOWLIST` entries in
+`tests/regression/sprint-131-workspace-declarations.test.ts` (with `services/geocoding-service`'s
+`express-rate-limit ^7.0.0`). That gate otherwise fails when root's hoisted version stops satisfying a range a
+workspace declares, so these holdbacks have to be declared deliberate rather than drifting silently; a stale-entry
+test removes a row as soon as it stops being a divergence.
 
 ---
 
