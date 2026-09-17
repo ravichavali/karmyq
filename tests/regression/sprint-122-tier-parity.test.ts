@@ -2,7 +2,7 @@ import { execFileSync } from 'child_process';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join, relative, sep } from 'path';
 
-import { ROOT, allWorkspaces } from './helpers/workspaces';
+import { ROOT, allWorkspaces, read } from './helpers/workspaces';
 
 /**
  * Sprint 122 PR 2 — tier coverage (ADR-088).
@@ -161,9 +161,8 @@ describe('tier coverage: npm test runs every blocking test on disk', () => {
     const invocations = jestInvocations(pkg);
 
     if (invocations.length === 0) {
-      // No jest invocation at all is acceptable ONLY with nothing to run.
-      // services/messaging-service is the sole such workspace (0 test files) —
-      // a real gap, logged in docs/BUGS.md, but not a cache-key or tier lie.
+      // No jest invocation at all is acceptable ONLY with nothing to run. Critical services are
+      // additionally required to have a non-empty blocking suite (below).
       expect({ ws, uncovered: onDisk }).toEqual({ ws, uncovered: [] });
       return;
     }
@@ -173,6 +172,25 @@ describe('tier coverage: npm test runs every blocking test on disk', () => {
 
     expect({ ws, uncovered }).toEqual({ ws, uncovered: [] });
   }, 300_000);
+
+  it('every Critical service in services/registry.json has a non-empty blocking suite (BUG-034)', () => {
+    // The generic cases above accept a workspace with no test script as long as it has no test
+    // files. That allowance is right in general, and it is exactly how messaging-service, a Critical
+    // service, sat at zero tests unnoticed. Discovery of those files is the it.each case's job; this
+    // requires every Critical service to have something to discover.
+    const registry = JSON.parse(read('services/registry.json'));
+    const critical = Object.values(registry.services as Record<string, { path: string; criticality?: string }>)
+      .filter((s) => s.criticality === 'critical')
+      .map((s) => s.path);
+    expect(critical.length).toBeGreaterThan(0);
+
+    const withoutBlockingSuite = critical.filter((path) => {
+      const regression = join(ROOT, path, 'tests', 'regression');
+      const pkg = JSON.parse(read(`${path}/package.json`));
+      return jestInvocations(pkg).length === 0 || !existsSync(regression) || testFilesUnder(regression).length === 0;
+    });
+    expect(withoutBlockingSuite).toEqual([]);
+  });
 
   it('no workspace that has test files silently runs none of them', () => {
     // The general form of the invariant, covering workspaces the tier cases
@@ -194,8 +212,8 @@ describe('tier coverage: npm test runs every blocking test on disk', () => {
       })
       .map(({ ws }) => ws);
 
-    // messaging-service is absent from this list because it has zero test
-    // files — a real gap tracked in docs/BUGS.md, not a silent-run defect.
+    // A workspace with zero test files is not "silent" and is not listed here; the Critical-service
+    // case above keeps a Critical service from sitting at zero.
     expect(silent).toEqual([]);
   }, 300_000);
 

@@ -2,9 +2,10 @@
 
 **Date**: 2026-09-16
 
-**Outcome**: PR A open as [#249](https://github.com/ravichavali/karmyq/pull/249) from
-`agent/codex/sprint-131-maintenance` (v11.56.0); awaiting review and maintainer merge authorization. Executed by Claude (maintainer handed execution to Claude, 2026-09-16). PR C rollout
-approval deferred.
+**Outcome**: PR A **shipped v11.56.0** — [#249](https://github.com/ravichavali/karmyq/pull/249) merged
+as `d35a3fad` (2026-09-16T18:30:39Z), deployed and health-verified, live check passed. Codex reviewed
+it with no actionable issues. PR B (v11.57.0) is implemented, gated and verified on
+`agent/codex/sprint-131-test-readiness` and open as [#250](https://github.com/ravichavali/karmyq/pull/250), all checks green; awaiting maintainer merge authorization. PR C rollout approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
 session state, not reservations inferred from branch-local text.
@@ -13,13 +14,13 @@ session state, not reservations inferred from branch-local text.
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/codex/sprint-131-maintenance` (planning + PR A) |
-| **Base** | `origin/master` at `9fae79f461a909a7337859825f57c678a990d1bc`, fetched 2026-09-15; v11.55.0 |
+| **Branch** | `agent/codex/sprint-131-test-readiness` (PR B). PR A's `agent/codex/sprint-131-maintenance` is merged — do not commit on it |
+| **Base** | `origin/master` at `d35a3fadd0912ab0ef076eb16c6fd1f23df80acd` (PR A merge), fetched 2026-09-16; v11.56.0 |
 | **Active editor** | Claude executed PR A (2026-09-16); planning was authored by Codex under maintainer transfer |
 | **Reviewer role** | A non-author reviews the completed diff; reviewers do not co-edit |
 | **Owned paths now** | Sprint 131 spec/plan, CURRENT_HANDOFF, preserved Sprint 130 archive |
 | **Owned implementation paths** | Per-PR file map in the plan; no implementation in this planning session |
-| **Shared resources needed** | Dependency/lockfile lane explicitly allocated to **Codex**, including messaging declarations (2026-09-15). No ADR allocation or demo data operation planned. Version comes from master at merge time; merges need per-PR maintainer authorization. |
+| **Shared resources needed** | Dependency/lockfile lane held by **Claude** since 2026-09-16 (was Codex from 2026-09-15), including messaging declarations. No ADR allocation or demo data operation planned. Version comes from master at merge time; merges need per-PR maintainer authorization. |
 
 ## Goal and arc
 
@@ -29,9 +30,10 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 
 | PR | Scope | State / next action |
 |---|---|---|
-| A | BUG-045 expected missing config + planning/archive | [#249](https://github.com/ravichavali/karmyq/pull/249) open, gates clean; awaiting maintainer review/merge authorization |
-| B | BUG-034 messaging coverage/declarations + BUG-036 Docker readiness | After A deploys; B must precede D1 |
-| D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B |
+| A | BUG-045 expected missing config + planning/archive | **Shipped** — #249 merged `d35a3fad`, v11.56.0, deployed + live-verified 2026-09-16 |
+| B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Open, green: [#250](https://github.com/ravichavali/karmyq/pull/250)** (v11.57.0). CI logs verified. Waiting on maintainer merge authorization, then deploy + smoke (Task 7 Step 7). B must precede D1 |
+| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **New (maintainer, 2026-09-16).** One dependency PR after B, **before D1**. Needs its own focused plan; dependency lane (Claude) |
+| D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B **and B2** |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
 Do not hold the other nine PRs while waiting for C. If C resumes after the upgrades, repeat its
@@ -41,33 +43,33 @@ inventory against the then-current base. BUG-033 remains open until actually del
 
 - **Spec**: [Sprint 131 design](../../docs/superpowers/specs/2026-09-15-sprint-131-maintenance-design.md)
 - **Plan**: [Sprint 131 implementation](../../docs/superpowers/plans/2026-09-15-sprint-131-maintenance.md)
+- **PR B focused plan**: [Messaging coverage + Docker readiness (BUG-034, BUG-036)](../../docs/superpowers/plans/2026-09-16-sprint-131-pr-b-test-readiness.md)
 - **PR A focused plan**: [Expected missing community config (BUG-045)](../../docs/superpowers/plans/2026-09-15-sprint-131-pr-a-community-config.md)
-- **Sprint 131 PR A**: [#249](https://github.com/ravichavali/karmyq/pull/249) (opened 2026-09-16).
+- **Sprint 131 PR A**: [#249](https://github.com/ravichavali/karmyq/pull/249) (merged `d35a3fad` 2026-09-16; [CI/CD run 35134858026](https://github.com/ravichavali/karmyq/actions/runs/35134858026)).
 - **Sprint 130 archive**: [v11.55.0](archive/2026-09-15-sprint-130-maintenance-SHIPPED-v11.55.0.md)
 
 ## Quick Start
 
 1. Confirm current branch, clean handoff and live state with `git status --short`, `gh pr list`
    and `git log --oneline origin/master -3`.
-2. Reuse `agent/codex/sprint-131-maintenance`; it already carries the revised planning and the Sprint
-   130 archive moved from the old branch. Do not create a branch from local master or commit on
-   the merged Sprint 130 branch.
-3. Read the linked spec and plan. Task 1's planning validation is complete; confirm its commit in the log.
-4. Start a fresh PR A execution chat and invoke the skill directly:
-   `superpowers:subagent-driven-development` (the focused plan's REQUIRED SUB-SKILL) or
-   `superpowers:executing-plans`. There is no `/execute-plan` slash command — superpowers removed
-   it as a deprecated stub. Use the focused PR A plan, Task 1; tests precede behavior changes.
+2. Work on `agent/codex/sprint-131-test-readiness`, cut from deployed `origin/master` `d35a3fad`.
+   `agent/codex/sprint-131-maintenance` is merged (#249); never commit on it.
+3. Read the linked spec, sprint plan and the **PR B focused plan**. PR A is complete — do not reopen it.
+4. The PR B plan is reviewed and corrected. Start a fresh execution chat and invoke
+   `superpowers:subagent-driven-development` (or `superpowers:executing-plans`) on it directly.
+   There is no `/execute-plan` slash command. Tests precede behavior changes.
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
-**Next unchecked task**: PR A focused plan, Task 3 Step 6 is done — #249 is open. Confirm its checks
-are green on the latest head, then obtain the maintainer's merge authorization. After merge: Task 3 Step 7 (deploy health +
-live check). PR B stays blocked until A is merged, deployed and health-verified.
+**Next unchecked task**: PR B Task 7 Step 7 — **after the maintainer authorizes and merges #250**: watch Deploy to Demo through health verification (no rollback), then smoke `GET /api/conversations` → 200 as maria.reyes; record it on the B2 branch (no docs-only master push). Then plan B2 (BUG-046).
+Claude holds the dependency lane and executes B, including its messaging declarations and lockfile splice.
 
 ## Blockers and decisions
 
-- **Dependency lane allocated:** “Codex holds the implementation dependency lane” (maintainer,
-  2026-09-15). Includes B's runtime/test declarations as well as D1–D7.
+- **Dependency lane → Claude (2026-09-16):** “yes and you own this lane now. The execute plan command
+  implicitly gives ownership of the lane. review doesn't” (maintainer). Rule: executing a plan transfers the lane to the executor; reviewing does not. Covers B's
+  runtime/test declarations and D1–D7 while Claude executes them. Superseded: “Codex holds the
+  implementation dependency lane” (maintainer, 2026-09-15). Codex's #249 review did not hold the lane.
 - **Promoter approval deferred:** “Plan the fix, but defer rollout approval” (maintainer,
   2026-09-15). Do not broaden the matcher or trigger mass moves until the actual inventory and
   proposed move list are approved. Root `posttest` makes a matcher-only commit a rollout risk.
@@ -78,6 +80,20 @@ live check). PR B stays blocked until A is merged, deployed and health-verified.
   HTTP failure diagnostic can remain. No API contract change and no blanket console-silence claim.
 - **Risk split:** messaging/CI readiness ship before major upgrades; mass promotion has its own PR.
   Major upgrades stay separate because their runtime and migration risks differ.
+- **BUG-036 approach changed (maintainer, 2026-09-16):** "I am okay with your recommendations". The `/simplify`
+  altitude finding replaced PR B's Node polling script (`scripts/wait-for-http.js`) with compose healthchecks
+  (`auth-service`, `frontend` probing `$(hostname)`) plus `docker compose up -d --wait --wait-timeout 300 <named>`.
+  It covers both `test.yml` Test Docker Build and `ci.yml` Integration Tests (the same `sleep 30` race). Proof comes
+  from the PR's own CI runs, not local tests (no Docker on this box). Healthcheck interval is 30s because the base
+  compose also runs on the demo host (disk 88% full).
+- **BUG-046 scheduled (maintainer, 2026-09-16):** 8 services also import undeclared packages. One dependency PR
+  (B2) fixes all of them before D1; PR B stays messaging-only. **BUG-047** (pre-existing `npm ls` picomatch
+  ELSPROBLEMS) logged for triage.
+- **Lanes/stages/provenance work is Sprint 132 (maintainer, 2026-09-16):** its spec, plan and handoff live on the
+  pushed branch `lane/lanes-provenance` (`.claude/handoff/lane-lanes-provenance.md`). The execute stage is available.
+- **Dependabot majors not rolled into B (maintainer, 2026-09-16):** asked whether the ~10 open Dependabot PRs
+  should join PR B; answered no — all are majors, 0 open Dependabot security alerts; one major per PR after B and B2.
+  #243 (bcryptjs 2→3, auth password hashing) is **still untriaged** — maintainer to choose D8 vs Sprint 132.
 - **New proposals triaged (2026-09-16):** #244 (`@eslint/js` 9→10) and #245 (ioredis 5→6) are
   **deferred to Sprint 132** by maintainer decision — they are majors that appeared after Sprint 131's
   scope was approved. #243 (bcryptjs) remains untriaged. Recorded in `docs/IDEAS.md` [2026-09-16] so
@@ -101,6 +117,77 @@ live check). PR B stays blocked until A is merged, deployed and health-verified.
 - The handoff now names ownership, base, shared-resource allocation, next task and verification.
 
 ## Verification references
+
+PR B Task 7 gates and close-out, 2026-09-16 (Claude, executing-plans):
+
+- `/simplify`: committed `ace904bd`; its altitude finding (maintainer-approved) replaced the polling script with compose
+  healthchecks + `up --wait` (`ae2024a7`).
+- `/code-review high`: one finding (in-container healthchecks can't see a broken `ports:` mapping) fixed in `4f5591b8`
+  (runner-side curls after the wait; gate 8/8 with both breakage proofs). Re-run on the final diff: **0 findings**.
+- `/security-review`: **0 findings** (no new triggers/untrusted expressions in workflows; no `ports:` change; `$(hostname)`
+  not attacker-controlled; the eight messaging declarations already resolve from registry.npmjs.org in the lock, no new nodes).
+- Full `npm test -- --concurrency=1 --force`: **exit 0, Tasks 27/27**; `karmyq-messaging-service:test` ran
+  `tests/regression/messageService.test.ts` — **6 passed / 6**. No promoter moves. Landing churn was timestamp/sha only
+  (`architecture.json` generated time, `build.json` sha/dates) and was reverted.
+- `npm run type-check --workspace=services/messaging-service`: exit 0.
+- Version: `origin/master` `d35a3fad` = 11.56.0 → root `package.json` **11.57.0**.
+- Pushed `ead6d983` (pre-push hook ran, 128s, exit 0); opened [#250](https://github.com/ravichavali/karmyq/pull/250).
+  All checks pass on that head (Deploy to Demo skipped on PR). Confirmed from logs, not ticks:
+  - [CI run 35186279944](https://github.com/ravichavali/karmyq/actions/runs/35186279944) Test Backend Services:
+    `PASS messaging-service tests/regression/messageService.test.ts`, **6 passed / 6**.
+  - [Tests run 35186279956](https://github.com/ravichavali/karmyq/actions/runs/35186279956) Test Docker Build, **run attempt 1**:
+    `up -d --wait --wait-timeout 300 auth-service frontend` → frontend Healthy 05:38:13Z, auth-service Healthy 05:38:17Z;
+    "Check published ports from the runner" (curl :3001/health, :3000/) succeeded, no `##[error]`.
+  - Integration Tests: the wait on the 8 healthchecked test services reached request-service Healthy 05:42:21Z;
+    integration tests ran and the job passed. No `##[error]` in either Docker job.
+
+PR B plan review, 2026-09-16 (Kimi, reviewer role; no branch edits):
+
+- Verdict: approve with two minor corrections. It fact-checked the plan's load-bearing claims
+  (messageService SQL/params, the 8-line lock splice, root range overlap, Sprint 122 gate lines,
+  test.yml docker-build lines 108-139, compose 127.0.0.1 ports, BUGS.md:560/615).
+- Applied: (1) swapped `scripts/generate-docs.ts` citation (`GUIDE_ORDER` is :315, service CONTEXT read is :120);
+  (2) the runtime declarations are no longer attributed to BUG-034, whose report covers only zero tests.
+  They are labelled Sprint 131 PR B spec scope in the test, the commit and the close-out.
+- Also applied (Claude, not raised by either reviewer): Task 1 timing tests hardened for Turbo
+  parallel load in CI. Non-hang cases use a 5000ms timeout; the hang case keeps a 1000ms floor with no
+  ceiling and asserts at least one hit rather than an exact count.
+
+PR A merge, deploy and live check, 2026-09-16 (Claude; focused plan Task 3 Step 7):
+
+- `gh pr view 249`: state MERGED, merge commit `d35a3fadd0912ab0ef076eb16c6fd1f23df80acd`,
+  mergedAt 2026-09-16T18:30:39Z. `origin/master` `package.json` = 11.56.0.
+- [CI/CD run 35134858026](https://github.com/ravichavali/karmyq/actions/runs/35134858026) on
+  `d35a3fad`: completed / **success**; all 14 jobs success, including Code Scanning Gate (ADR-060)
+  and **Deploy to Demo**. Deploy log: `DEPLOYMENT SUCCESSFUL`, "All critical services healthy",
+  no rollback; post-deploy health step reported all 9 services healthy (3001–3006, 3008–3010).
+  Observed in the same log: demo root filesystem **88.2% of 44.07GB** used, and "System restart
+  required" — not acted on; worth watching before the D-series image builds.
+- Live, Playwright at 1440×900, logged in as `maria.reyes@test.karmyq.com` via `POST /api/auth/login`,
+  `/communities/7f48de77-e6cc-5eba-819b-cb6f50d3c662` (title "Portland Mutual Aid Network"):
+  `GET …/config` → **404** (the community still has no config row, so the fixture still proves the
+  absence case); norms/settings/curated/pulse → 200. Console (debug level): 4 messages, 1 error —
+  the browser's own `Failed to load resource … 404 … /config`. **No `Failed to load configuration`
+  entry.** Because the 404 still occurs, the missing log proves the deployed bundle is the new code.
+  The page rendered normally (headings: community name, "This week in the neighbourhood", "Ways
+  neighbours can help here", "No open requests right now"); snapshot contained no error text.
+  No demo data was read or modified outside the member's own UI session.
+
+Codex review, 2026-09-16, PR [#249](https://github.com/ravichavali/karmyq/pull/249), head `de7aacc35f2e0640181d80d43bf6ed695454c17c`:
+
+- No actionable correctness or security findings in PR A. Checked the hook, config route,
+  interceptor, config consumers, five-case regression, documentation and focused plan.
+- Fresh frontend Jest unit + regression run: **42 suites / 405 tests passed**, exit 0.
+  Separate uncached BUG-045 regression run: **5 tests passed**, exit 0. That run emitted a
+  nonblocking duplicate-package warning from the existing `.next/standalone` build output.
+- Frontend `tsc --noEmit --incremental false`: exit 0. Branch whitespace check passed;
+  scoped gotcha check found none. Application files remained unchanged during review.
+- Live PR checks passed on the reviewed head; deployment is skipped on the PR run.
+  GitHub reports `REVIEW_REQUIRED`, with no submitted reviews; master protection requires one
+  approving review. This local assessment does not satisfy that GitHub gate.
+- At review time, `gh pr list`, PR state and local git log showed #249 open and `origin/master`
+  at `9fae79f4`. **Superseded:** #249 merged afterwards as `d35a3fad` with no submitted GitHub
+  review (merge under maintainer authorization), then deployed — see *PR A merge, deploy and live check*.
 
 PR A execution, 2026-09-16 (Claude, superpowers:subagent-driven-development then executing-plans):
 
@@ -178,8 +265,8 @@ Observed 2026-09-15:
 
 ## Critical Implementation Notes
 
-1. Planning belongs on `agent/codex/sprint-131-maintenance`, created from `origin/master` before committing the carried WIP and Sprint 130 archive. Never commit Sprint 131 work on the merged Sprint 130 branch.
-2. Codex holds the implementation dependency/lockfile lane by the maintainer's 2026-09-15 decision, including messaging declarations. This is explicit allocation, not a reservation inferred from this handoff.
+1. Planning and PR A lived on `agent/codex/sprint-131-maintenance` (merged as #249), created from `origin/master` before committing the carried WIP and Sprint 130 archive. Never commit Sprint 131 work on the merged Sprint 130 branch.
+2. Codex held the implementation dependency/lockfile lane by the maintainer's 2026-09-15 decision, including messaging declarations. **Amended 2026-09-16:** Claude holds it now; executing a plan transfers the lane to the executor; reviewing does not (maintainer). The spec and sprint plan keep the original wording as history.
 3. BUG-033 rollout approval is **deferred**. Inventory is read-only. Do not enable the wider matcher, run a mass promotion, or merge PR C before the maintainer approves the freshly measured promotion set.
 4. Root `package.json:17` runs the promoter as `posttest`. A matcher-only change can therefore trigger mass moves through `npm test`; a separate commit alone does not isolate rollout.
 5. Root regression commands must use the tests workspace: `npm exec --workspace=tests -- jest --runTestsByPath regression/<file>.test.ts --runInBand`. Prove discovery and an assertion failure; a configuration error or zero-test exit is not TDD red.

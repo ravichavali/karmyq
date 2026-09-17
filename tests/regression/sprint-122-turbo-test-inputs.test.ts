@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import { existsSync, readdirSync, readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 
 /**
@@ -37,27 +37,6 @@ const inputsOf = (taskId: string): string[] => {
   return Object.keys(task.inputs || {});
 };
 
-// The one exempted taskId, matched exactly (not by substring) so the exemption
-// can't accidentally swallow an unrelated task whose name merely contains
-// "messaging-service".
-const MESSAGING_SERVICE_TEST_TASK = 'karmyq-messaging-service#test';
-
-/** Recursively counts *.test.* / *.spec.* files under a directory. */
-function countTestFiles(dir: string): number {
-  if (!existsSync(dir)) return 0;
-  let count = 0;
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === 'node_modules') continue;
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      count += countTestFiles(full);
-    } else if (/\.(test|spec)\.[jt]sx?$/.test(entry.name)) {
-      count += 1;
-    }
-  }
-  return count;
-}
-
 describe('turbo test-task inputs are honest', () => {
   it('the three tasks that hashed exactly one file now hash their real sources', () => {
     // Regression floor: each of these hashed ONLY package.json on 2026-07-30.
@@ -83,26 +62,10 @@ describe('turbo test-task inputs are honest', () => {
     const isTestFile = (p: string) => /\.(test|spec)\.[jt]sx?$/.test(p);
 
     const blind = testTasks
-      .filter((t) => {
-        // messaging-service declares no test script and has zero test files —
-        // a real gap (BUG-034), not a cache-key lie. Exact match, not
-        // substring: a future taskId that merely contains "messaging-service"
-        // must not be swallowed by this exemption.
-        if (t.taskId === MESSAGING_SERVICE_TEST_TASK) return false;
-        return !Object.keys(t.inputs || {}).some(isTestFile);
-      })
+      .filter((t) => !Object.keys(t.inputs || {}).some(isTestFile))
       .map((t) => t.taskId);
 
     expect(blind).toEqual([]);
-  });
-
-  it('the messaging-service exemption is still justified — it must have zero test files', () => {
-    // Mirrors the Expo gate's staleness checks: the exemption above is only
-    // honest while this is true. Once BUG-034 is fixed and messaging-service
-    // gains test files, this assertion fails loudly instead of letting the
-    // exemption silently keep un-gating the cache key forever.
-    const count = countTestFiles(join(ROOT, 'services', 'messaging-service'));
-    expect(count).toBe(0);
   });
 
   it('a workspace jest config is part of its own test cache key', () => {

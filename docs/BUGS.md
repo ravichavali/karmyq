@@ -557,7 +557,7 @@ change. Found while fixing the `APPS_DIR` walk, which is what made the gap reach
 
 ---
 
-## BUG-034 · [2026-07-30] · open
+## BUG-034 · [2026-07-30] · fixed (Sprint 131 PR B, pending deploy)
 
 `services/messaging-service` has zero test coverage. A **Critical** service (port 3006, Socket.io
 presence/pubsub) with **zero** test files and **no `test` script** in its `package.json`. Its
@@ -565,6 +565,26 @@ presence/pubsub) with **zero** test files and **no `test` script** in its `packa
 `tests/regression/sprint-122-tier-parity.test.ts` can bite on it, and a "every Critical service
 has tests" gate cannot be added while it would land red. Found Sprint 122 PR 1, confirmed PR 2.
 Related: [ADR-088](adr/ADR-088-test-tier-truthfulness.md).
+
+**Fixed (Sprint 131 PR B).** `services/messaging-service` now has a local `jest.config.js`, tiered
+`test` scripts (blocking `test:regression` has no `--passWithNoTests`) and
+`tests/regression/messageService.test.ts`: 6 tests against the real `getMessages`/`sendMessage`
+with only the database module mocked, each authorization/ordering guard proven by a reverted
+mutation. The Jest toolchain (`jest`, `ts-jest`, `@types/jest`) is now declared by the workspace.
+Sprint 122's zero-test exemptions were replaced by positive assertions (`sprint-122-turbo-test-inputs`,
+`sprint-122-tier-parity`), and messaging joined the `sprint-122-jest-toolchain-gate` rosters. Messaging's
+`tsconfig.json` `types` gained `"jest"`, matching the other services (ts-jest failed with TS2304 without it).
+
+**Shipped alongside, not part of this report:** the same PR declares the five runtime packages
+messaging imported without declaring (`cors`, `dotenv`, `express`, `jsonwebtoken`, `pg`, at root's
+exact ranges, so nothing upgraded). That is the "declare what you import" class previously fixed
+here for `@karmyq/shared` and `redis` (messaging `CONTEXT.md`, Sprint 122 sections), scoped into PR B
+by the Sprint 131 spec. `tests/regression/sprint-131-messaging-declarations.test.ts` fails on any new
+undeclared import.
+
+**Not covered:** `getOrCreateConversation`, `getUserConversations`, `getConversation`,
+`markMessagesAsRead`, the REST routes, the Socket.IO handler and Redis pub/sub. A live message
+round-trip is still a manual post-deploy check.
 
 ---
 
@@ -612,7 +632,7 @@ remain separate policies.
 
 ---
 
-## BUG-036 · [2026-08-13] · open
+## BUG-036 · [2026-08-13] · fixed (Sprint 131 PR B, pending deploy)
 
 **CI "Test Docker Build" health check races service startup.**
 
@@ -632,6 +652,20 @@ failure cannot have been caused by the change under test. Passed on re-run with 
 The step is a fixed-duration guess rather than a readiness wait, so it fails whenever the runner is
 slow or the image cache is cold. Fix: replace the fixed sleep with a retry/until loop against
 `/health` (and ideally add compose healthchecks plus `docker compose up -d --wait`).
+
+**Fixed (Sprint 131 PR B), at the root cause.** The services CI probed had no compose healthcheck,
+so nothing could report readiness and the workflows guessed with `sleep 30`.
+`infrastructure/docker/docker-compose.yml` now gives `auth-service` (`/health` on 127.0.0.1:3001) and
+`frontend` healthchecks. The frontend check probes `$(hostname):3000`, because Next.js standalone binds to
+`$HOSTNAME` (the container id), not loopback. `Test Docker Build` keeps `up -d` and then runs
+`up -d --wait --wait-timeout 300 auth-service frontend`. The same race in `ci.yml`'s **Integration Tests** job
+(`sleep 30` after `docker-compose.test.yml up -d`) is fixed the same way, waiting on exactly the
+test services that already had healthchecks. It names them because the one-shot `test-runner` exits by
+design, which a bare `--wait` treats as failure. `tests/regression/sprint-131-ci-readiness-workflow.test.ts`
+pins the wiring, and proves that a loopback frontend probe or a `test-runner` in the wait list fails it.
+An earlier Node polling script (`scripts/wait-for-http.js`) was replaced by this within the same PR
+(`/simplify` altitude finding, maintainer-approved). The base compose healthchecks also apply to the
+demo deploy (`docker-compose.yml` + `.prod.yml`); they only report health, and nothing there waits on them.
 
 ---
 
@@ -1035,5 +1069,56 @@ code. Covered by `apps/frontend/tests/regression/sprint-131-community-config-emp
 **Siblings audited, deliberately unchanged:** `fetchNorms` (`routes/norms.ts:8` has no 404 path)
 and `fetchStats` (`routes/stats.ts:177` 404s only when the community itself is missing, and it is
 not fetched on mount).
+
+---
+
+## BUG-046 · [2026-09-16] · open
+
+**Undeclared direct imports across 8 services** (repo-wide "declare what you import" violation).
+
+Found by the Sprint 131 PR B `/simplify` altitude review (2026-09-16), a read-only scan of each
+workspace's `src` with the declarations-gate regex:
+
+| Service | Imported but undeclared |
+|---|---|
+| auth, community, request | `pg`, `express`, `cors`, `dotenv`, `jsonwebtoken` |
+| cleanup | the same five, plus `express-rate-limit`, `winston` |
+| notification | `pg`, `bull`, `express`, `cors`, `dotenv` |
+| reputation | `pg`, `bull`, `express`, `cors`, `dotenv`, `ioredis` |
+| social-graph | `pg`, `bull`, `express`, `cors` |
+| simulation | `bcryptjs` |
+
+All of these survive only on root hoisting, so Sprint 131 D1 (dotenv 16→17, #226), or any other root
+bump, can silently change or de-hoist what these services run. Messaging was fixed in PR B
+(`tests/regression/sprint-131-messaging-declarations.test.ts`).
+
+**Maintainer decision (2026-09-16):** one dependency PR, before D1, that:
+- declares the missing packages in all 8 services at root's exact ranges (surgical lock splice +
+  strict `npm ci` per manifest);
+- generalizes the declarations gate to every workspace, with an allowlist of known violations.
+
+Caveats for the generalized scanner: path aliases `@/` and `~`, test helpers under `src`
+(packages/shared: `@jest/globals`, `supertest`), and string false positives in apps/frontend. The scan
+counts above are **UNVERIFIED** until that PR re-runs them.
+
+---
+
+## BUG-047 · [2026-09-16] · open
+
+**`npm ls --all` fails repo-wide with `ELSPROBLEMS`: `picomatch@2.3.2` is invalid for fdir.**
+
+Seen during the Sprint 131 PR B strict-install proof (2026-09-16). `npx -y npm@11.19.0 ls --all
+--workspace=<ws>` exits 1 with `npm error invalid: picomatch@2.3.2 …\node_modules\picomatch`, reported as
+`invalid: ">=4.0.4" from node_modules/fdir`. It reproduced identically on services/messaging-service and on
+the untouched services/notification-service, and the PR's lockfile diff contained no picomatch or fdir
+lines, so it predates that PR.
+
+Likely mechanism (not yet confirmed):
+- root `package.json` override `"picomatch@3.0.0 - 3.0.1": ">=4.0.4"`;
+- `fdir` 6.5.0 peer range `picomatch ^3 || ^4` (optional);
+- hoisted `node_modules/picomatch` resolved at 2.3.2.
+
+Impact: `npm ls` cannot be used as a clean-tree proof until this is fixed, and every dependency PR has to
+explain the same red. Strict `npm ci` still succeeds.
 
 ---
