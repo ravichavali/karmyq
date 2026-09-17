@@ -4,8 +4,8 @@
 
 **Outcome**: PR A **shipped v11.56.0** — [#249](https://github.com/ravichavali/karmyq/pull/249) merged
 as `d35a3fad` (2026-09-16T18:30:39Z), deployed and health-verified, live check passed. Codex reviewed
-it with no actionable issues. PR B is next on `agent/codex/sprint-131-test-readiness`; its focused
-plan is written and reviewed (Kimi, approve with two minor corrections, applied). PR C rollout approval deferred.
+it with no actionable issues. PR B (v11.57.0) is implemented, gated and verified on
+`agent/codex/sprint-131-test-readiness`; next is push + open PR, then maintainer merge authorization. PR C rollout approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
 session state, not reservations inferred from branch-local text.
@@ -31,7 +31,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 | PR | Scope | State / next action |
 |---|---|---|
 | A | BUG-045 expected missing config + planning/archive | **Shipped** — #249 merged `d35a3fad`, v11.56.0, deployed + live-verified 2026-09-16 |
-| B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **In progress.** Tasks 1–6 and `/simplify` committed on `agent/codex/sprint-131-test-readiness` (unpushed); next `/code-review high`, `/security-review`, then Task 7. B must precede D1 |
+| B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Ready to open.** Tasks 1–6, all three gates and the full suite done; version 11.57.0. Next: push, open PR, confirm CI logs (Task 7 Step 6), stop for merge authorization. B must precede D1 |
 | B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **New (maintainer, 2026-09-16).** One dependency PR after B, **before D1**. Needs its own focused plan; dependency lane (Claude) |
 | D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B **and B2** |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
@@ -61,7 +61,7 @@ inventory against the then-current base. BUG-033 remains open until actually del
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
-**Next unchecked task**: PR B Task 7 Step 1 — `/code-review high` then `/security-review` on the branch diff (`/simplify` done), then Task 7 Steps 2–6.
+**Next unchecked task**: PR B Task 7 Step 5 — push `agent/codex/sprint-131-test-readiness`, then Step 6: open the PR and confirm from CI logs that `karmyq-messaging-service:test` ran 6 tests and Test Docker Build's `up --wait` + post-wait port checks passed on the first run (the plan's "ready after n attempt(s)" grep is stale — the polling script was deleted). Stop; do not merge.
 Claude holds the dependency lane and executes B, including its messaging declarations and lockfile splice.
 
 ## Blockers and decisions
@@ -91,6 +91,9 @@ Claude holds the dependency lane and executes B, including its messaging declara
   ELSPROBLEMS) logged for triage.
 - **Lanes/stages/provenance work is Sprint 132 (maintainer, 2026-09-16):** its spec, plan and handoff live on the
   pushed branch `lane/lanes-provenance` (`.claude/handoff/lane-lanes-provenance.md`). The execute stage is available.
+- **Dependabot majors not rolled into B (maintainer, 2026-09-16):** asked whether the ~10 open Dependabot PRs
+  should join PR B; answered no — all are majors, 0 open Dependabot security alerts; one major per PR after B and B2.
+  #243 (bcryptjs 2→3, auth password hashing) is **still untriaged** — maintainer to choose D8 vs Sprint 132.
 - **New proposals triaged (2026-09-16):** #244 (`@eslint/js` 9→10) and #245 (ioredis 5→6) are
   **deferred to Sprint 132** by maintainer decision — they are majors that appeared after Sprint 131's
   scope was approved. #243 (bcryptjs) remains untriaged. Recorded in `docs/IDEAS.md` [2026-09-16] so
@@ -114,6 +117,20 @@ Claude holds the dependency lane and executes B, including its messaging declara
 - The handoff now names ownership, base, shared-resource allocation, next task and verification.
 
 ## Verification references
+
+PR B Task 7 gates and close-out, 2026-09-16 (Claude, executing-plans):
+
+- `/simplify`: committed `ace904bd`; its altitude finding (maintainer-approved) replaced the polling script with compose
+  healthchecks + `up --wait` (`ae2024a7`).
+- `/code-review high`: one finding (in-container healthchecks can't see a broken `ports:` mapping) fixed in `4f5591b8`
+  (runner-side curls after the wait; gate 8/8 with both breakage proofs). Re-run on the final diff: **0 findings**.
+- `/security-review`: **0 findings** (no new triggers/untrusted expressions in workflows; no `ports:` change; `$(hostname)`
+  not attacker-controlled; the eight messaging declarations already resolve from registry.npmjs.org in the lock, no new nodes).
+- Full `npm test -- --concurrency=1 --force`: **exit 0, Tasks 27/27**; `karmyq-messaging-service:test` ran
+  `tests/regression/messageService.test.ts` — **6 passed / 6**. No promoter moves. Landing churn was timestamp/sha only
+  (`architecture.json` generated time, `build.json` sha/dates) and was reverted.
+- `npm run type-check --workspace=services/messaging-service`: exit 0.
+- Version: `origin/master` `d35a3fad` = 11.56.0 → root `package.json` **11.57.0**.
 
 PR B plan review, 2026-09-16 (Kimi, reviewer role; no branch edits):
 
