@@ -653,13 +653,19 @@ The step is a fixed-duration guess rather than a readiness wait, so it fails whe
 slow or the image cache is cold. Fix: replace the fixed sleep with a retry/until loop against
 `/health` (and ideally add compose healthchecks plus `docker compose up -d --wait`).
 
-**Fixed (Sprint 131 PR B).** `Test Docker Build` now runs `scripts/wait-for-http.js` after `up -d`:
-up to 30 attempts, 5 s per-request timeout, 5 s between attempts (worst case ≈ 5 min), and both
-`127.0.0.1:3001/health` and `127.0.0.1:3000` must succeed in the same attempt; compose logs still
-print on failure. `tests/regression/sprint-131-wait-for-http.test.ts` proves retry, same-attempt,
-per-request timeout, exhaustion and usage against real scripted servers;
-`sprint-131-ci-readiness-workflow.test.ts` pins the wiring. Compose healthchecks /
-`up --wait` were not added (optional in the original report).
+**Fixed (Sprint 131 PR B), at the root cause.** The services CI probed had no compose healthcheck,
+so nothing could report readiness and the workflows guessed with `sleep 30`.
+`infrastructure/docker/docker-compose.yml` now gives `auth-service` (`/health` on 127.0.0.1:3001) and
+`frontend` healthchecks. The frontend check probes `$(hostname):3000`, because Next.js standalone binds to
+`$HOSTNAME` (the container id), not loopback. `Test Docker Build` keeps `up -d` and then runs
+`up -d --wait --wait-timeout 300 auth-service frontend`. The same race in `ci.yml`'s **Integration Tests** job
+(`sleep 30` after `docker-compose.test.yml up -d`) is fixed the same way, waiting on exactly the
+test services that already had healthchecks. It names them because the one-shot `test-runner` exits by
+design, which a bare `--wait` treats as failure. `tests/regression/sprint-131-ci-readiness-workflow.test.ts`
+pins the wiring, and proves that a loopback frontend probe or a `test-runner` in the wait list fails it.
+An earlier Node polling script (`scripts/wait-for-http.js`) was replaced by this within the same PR
+(`/simplify` altitude finding, maintainer-approved). The base compose healthchecks also apply to the
+demo deploy (`docker-compose.yml` + `.prod.yml`); they only report health, and nothing there waits on them.
 
 ---
 

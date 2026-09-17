@@ -106,6 +106,14 @@ services:
     networks:
       - karmyq-network
     command: npm start
+    # Readiness signal for `docker compose up --wait` (BUG-036). Busybox wget ships in node:24-alpine.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3001/health || exit 1"]
+      # 30s, not 5s: this also runs on the demo host, where every probe is a logged /health request.
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   # Community Service
   community-service:
@@ -343,6 +351,14 @@ services:
     networks:
       - karmyq-network
     # command removed - using CMD from Dockerfile (npm start for production build)
+    # Readiness signal for `docker compose up --wait` (BUG-036). Next.js standalone binds to $HOSTNAME,
+    # which Docker sets to the container id, so probe that address; loopback would never answer.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null \"http://$$(hostname):3000/\" || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 
     # ============= OBSERVABILITY STACK =============
 

@@ -297,8 +297,13 @@ jobs:
         run: |
           cd tests
           docker compose -f docker-compose.test.yml up -d
-          echo "Waiting for services to be healthy..."
-          sleep 30
+
+      # BUG-036: wait on the compose healthchecks instead of `sleep 30`; fails after 300 s. Named
+      # services only: test-runner is a one-shot container that exits, which a bare --wait treats as failure.
+      - name: Wait for the test environment to be healthy
+        run: |
+          cd tests
+          docker compose -f docker-compose.test.yml up -d --wait --wait-timeout 300 auth-service-test community-service-test notification-service-test postgres-test redis-test reputation-service-test request-service-test social-graph-service-test
 
       - name: Check service health
         run: |

@@ -87,6 +87,13 @@ docker-compose logs -f auth-service
 docker-compose down -v                    # ⚠️ destroys volumes; next up re-runs init.sql
 ```
 
+**Healthchecks and `--wait`.** `auth-service` and `frontend` define compose healthchecks (BUG-036), so CI
+waits with `docker compose up -d --wait --wait-timeout 300 <named services>` instead of sleeping. Name
+the services: a bare `--wait` also waits on containers with no healthcheck and fails on one-shot
+containers that exit (the test compose's `test-runner`). The frontend probe targets `$(hostname):3000`,
+**not** loopback: Next.js standalone binds to `$HOSTNAME`, which Docker sets to the container id. Nothing
+in the demo deploy waits on these healthchecks; they only report.
+
 Compose files are environment-specific: `docker-compose.yml` (dev), `.test.yml` (isolated test DB),
 `.qa.yml`, `.staging.yml`, `.prod.yml`, `.observability.yml`. Images are `node:24-alpine`, gate-locked
 to one major by [ADR-090](../docs/adr/ADR-090-container-runtime-floor.md) — a new service copied from
