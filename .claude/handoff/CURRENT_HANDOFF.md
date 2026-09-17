@@ -32,8 +32,9 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 |---|---|---|
 | A | BUG-045 expected missing config + planning/archive | **Shipped** — #249 merged `d35a3fad`, v11.56.0, deployed + live-verified 2026-09-16 |
 | B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Shipped** — #250 merged `d2edb286`, v11.57.0, deployed + smoke-checked 2026-09-17 |
-| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Next.** Branch `agent/claude/sprint-131-undeclared-imports` cut from `d2edb286`. Needs its focused plan (writing-plans) before code; dependency lane (Claude). Precedes D1 |
-| D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B **and B2** |
+| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Next.** Branch `agent/claude/sprint-131-undeclared-imports` cut from `d2edb286`. Needs its focused plan (writing-plans) before code; dependency lane (Claude). Precedes D1. **Execute in a fresh chat** (maintainer, 2026-09-17) |
+| B3 | Expo SDK drift catch-up (#248): expo, expo-image-picker, expo-location, expo-notifications to Expo's live patch pins | **Scheduled (maintainer, 2026-09-17): small PR right after B2**, before D1. Surgical lock edit; prove with `npx expo install --check` + divergence gate green; closes #248 on the next scheduled green run. Re-run the check first — pins may have moved again |
+| D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B, **B2 and B3** |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
 Do not hold the other nine PRs while waiting for C. If C resumes after the upgrades, repeat its
@@ -61,7 +62,7 @@ inventory against the then-current base. BUG-033 remains open until actually del
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
-**Next unchecked task**: write the PR B2 focused plan (BUG-046: declare every imported package in the 8 affected services; generalize `tests/regression/sprint-131-messaging-declarations.test.ts` to all workspaces), get it reviewed, then execute. Re-measure the importer/declarer sets from source first — BUGS.md's list is a hypothesis.
+**Start a fresh chat for B2** ("Let's do b2 on a new chat", maintainer, 2026-09-17). **Next unchecked task**: write the PR B2 focused plan (BUG-046: declare every imported package in the 8 affected services; generalize `tests/regression/sprint-131-messaging-declarations.test.ts` to all workspaces), get it reviewed, then execute. Re-measure the importer/declarer sets from source first — BUGS.md's list is a hypothesis. After B2 ships: B3 (Expo drift), then D1.
 Claude holds the dependency lane and executes B, including its messaging declarations and lockfile splice.
 
 ## Blockers and decisions
@@ -97,8 +98,8 @@ Claude holds the dependency lane and executes B, including its messaging declara
 - **Expo SDK drift (observed 2026-09-17, not scheduled):** the daily `expo-sdk-drift.yml` run is red and issue #248 is open.
   Cause is patch lag only: expo 57.0.22→~57.0.23, expo-image-picker/expo-location 57.0.17→~57.0.18,
   expo-notifications 57.0.18→~57.0.19 (jest/@types/jest 30 are registered divergences). 0 open Dependabot alerts;
-  changelogs not read, so "no security content" is UNVERIFIED. Claude suggested a small separate dependency PR after B2;
-  **awaiting maintainer decision**.
+  changelogs not read, so "no security content" is UNVERIFIED. **Decided (maintainer, 2026-09-17):** "I also want to get
+  the expo drift handled in a small PR after b2" → PR B3.
 - **New proposals triaged (2026-09-16):** #244 (`@eslint/js` 9→10) and #245 (ioredis 5→6) are
   **deferred to Sprint 132** by maintainer decision — they are majors that appeared after Sprint 131's
   scope was approved. #243 (bcryptjs, a major) joined them on 2026-09-17. Recorded in `docs/IDEAS.md` [2026-09-16] so
