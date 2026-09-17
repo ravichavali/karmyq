@@ -32,10 +32,10 @@ function waitStep(all: Step[]) {
   return { index, run, timeout, services };
 }
 
-function noGuessing(all: Step[]) {
-  const runs = all.map((s) => s.run ?? '').join('\n');
-  expect(runs).not.toMatch(/\bsleep\s+\d+/);
-  expect(runs).not.toMatch(/\bcurl\b/);
+/** No fixed sleep anywhere, and no probe before readiness is proven (a pre-wait curl is the old race). */
+function noGuessing(all: Step[], waitIndex: number) {
+  expect(all.map((s) => s.run ?? '').join('\n')).not.toMatch(/\bsleep\s+\d+/);
+  expect(all.slice(0, waitIndex + 1).map((s) => s.run ?? '').join('\n')).not.toMatch(/\bcurl\b/);
 }
 
 describe('Test Docker Build waits on healthchecks (BUG-036)', () => {
@@ -50,7 +50,15 @@ describe('Test Docker Build waits on healthchecks (BUG-036)', () => {
     expect(wait.timeout).toBeGreaterThan(0);
     expect(wait.timeout).toBeLessThanOrEqual(MAX_WAIT_SECONDS);
     expect(wait.services.sort()).toEqual(['auth-service', 'frontend']);
-    noGuessing(all);
+    noGuessing(all, wait.index);
+  });
+
+  it('after the wait, checks from the runner that both published ports answer', () => {
+    // Healthchecks run inside the containers, so they cannot see a broken `ports:` mapping.
+    const wait = waitStep(all);
+    const check = all.findIndex((s, i) => i > wait.index && /curl -f\S* .*127\.0\.0\.1:3001\/health/.test(s.run ?? ''));
+    expect(check).toBeGreaterThan(wait.index);
+    expect(all[check].run).toMatch(/curl -f\S* .*127\.0\.0\.1:3000\//);
   });
 
   it('every service it waits on has a healthcheck in the compose file', () => {
@@ -97,6 +105,6 @@ describe('Integration Tests waits on healthchecks (BUG-036)', () => {
     expect(wait.timeout).toBeGreaterThan(0);
     expect(wait.timeout).toBeLessThanOrEqual(MAX_WAIT_SECONDS);
     expect(wait.services.sort()).toEqual(healthchecked);
-    noGuessing(all.slice(0, wait.index + 1));
+    noGuessing(all.slice(0, wait.index + 1), wait.index);
   });
 });

@@ -127,6 +127,12 @@ jobs:
       - name: Wait for auth-service and frontend to be healthy
         run: docker compose -f infrastructure/docker/docker-compose.yml up -d --wait --wait-timeout 300 auth-service frontend
 
+      # The healthchecks run inside the containers; this proves the published ports answer from the host.
+      - name: Check published ports from the runner
+        run: |
+          curl -fsS -o /dev/null http://127.0.0.1:3001/health
+          curl -fsS -o /dev/null http://127.0.0.1:3000/
+
       - name: Show logs on failure
         if: failure()
         run: docker compose -f infrastructure/docker/docker-compose.yml logs
