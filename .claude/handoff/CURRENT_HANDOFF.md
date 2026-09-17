@@ -63,7 +63,7 @@ inventory against the then-current base. BUG-033 remains open until actually del
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
-**Start a fresh chat for B2** ("Let's do b2 on a new chat", maintainer, 2026-09-17). **Next unchecked task**: plan review DONE (approved with minor corrections, applied 2026-09-17) — execute the [PR B2 focused plan](../../docs/superpowers/plans/2026-09-17-sprint-131-pr-b2-undeclared-imports.md) (written 2026-09-17; importer sets re-measured with `ts.preProcessFile`, 95 runtime + 94 dev-scope violations; the literal Task 1 gate was run red 2 failed / 5 passed with those exact counts), then execute it in a fresh chat from Task 1 via `superpowers:subagent-driven-development` or `superpowers:executing-plans`. After B2 ships: B3 (Expo drift), then D1.
+**Start a fresh chat for B2** ("Let's do b2 on a new chat", maintainer, 2026-09-17). **Next unchecked task**: plan review DONE (three rounds; all findings applied 2026-09-17) — execute the [PR B2 focused plan](../../docs/superpowers/plans/2026-09-17-sprint-131-pr-b2-undeclared-imports.md) (written 2026-09-17; importer sets re-measured with `ts.preProcessFile`, 95 runtime + 94 dev-scope violations; the literal Task 1 gate was run red 2 failed / 5 passed with those exact counts), then execute it in a fresh chat from Task 1 via `superpowers:subagent-driven-development` or `superpowers:executing-plans`. After B2 ships: B3 (Expo drift), then D1.
 Claude holds the dependency lane and executes B, including its messaging declarations and lockfile splice.
 
 ## Blockers and decisions
@@ -130,6 +130,19 @@ Claude holds the dependency lane and executes B, including its messaging declara
 - The handoff now names ownership, base, shared-resource allocation, next task and verification.
 
 ## Verification references
+
+PR B2 plan review round 3, 2026-09-17 (reviewer; one P2 finding, CONFIRMED and fixed):
+
+- **Type queries bypassed the walker.** `ts.isImportTypeNode` was unhandled, so `type T = import('pkg').X`,
+  `typeof import('pkg')` and a type query nested in a generic all returned nothing (reproduced). The gate now handles
+  it, with three added regression cases. Repo impact today is nil — no tracked file uses a type-position `import()` —
+  so the counts are unchanged: **95 runtime / 94 dev** red, **2 failed / 6 passed of 8**. Injecting
+  `type Leak = import("left-pad").Foo;` into messaging `src/index.ts` now yields exactly
+  `services/messaging-service: left-pad (src/index.ts)`; reverted.
+- Reviewer re-verified the plan end to end: 95/94 before declarations, 8/8 after (in memory), template-require injection
+  fails correctly, and the normalized `npm ls` comparison keeps new dependency problems while ignoring log timestamps.
+- Cleanup applied: stale `7/7` in a commit template, and two descriptions still crediting the pre-processor.
+- **Counts note:** the three type-query cases joined the existing import-forms test, so the suite is still **8 tests**.
 
 PR B2 plan review round 2, 2026-09-17 (reviewer; two P2 findings, both CONFIRMED and fixed):
 

@@ -174,7 +174,7 @@ Create `tests/regression/sprint-131-workspace-declarations.test.ts` with the Wri
  * would silently change or de-hoist what those workspaces run.
  *
  * Nothing here is a hand-written list of imports:
- * - imports come from the TypeScript compiler's own pre-processor over TRACKED files, so strings and
+ * - imports come from a TypeScript AST walk over TRACKED files, so strings and
  *   comments that merely look like `from "x"` are not imports;
  * - path aliases (`@/`) come from each workspace's tsconfig `paths`;
  * - resolved versions come from package-lock.json.
@@ -236,7 +236,8 @@ const SCRIPT_KIND: Record<string, ts.ScriptKind> = {
  *
  * NOT ts.preProcessFile: its lightweight scanner misses `require()` inside a template interpolation
  * (measured 2026-09-17), which would let an undeclared package through silently. The walk is a strict
- * superset of the pre-processor over this repo, and costs ~1.4s for all 1021 tracked files.
+ * superset of the pre-processor over this repo, and costs ~1.4s for all 1021 tracked files. It also covers
+ * type-only positions (`import('pkg').T`, `typeof import('pkg')`), which the pre-processor drops.
  */
 export function specifiersOf(file: string, source: string): string[] {
   const kind = SCRIPT_KIND[file.slice(file.lastIndexOf('.'))] ?? ts.ScriptKind.TS;
@@ -250,6 +251,10 @@ export function specifiersOf(file: string, source: string): string[] {
       if (spec) found.add(spec);
     } else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
       const spec = literal(node.moduleReference.expression);
+      if (spec) found.add(spec);
+    } else if (ts.isImportTypeNode(node) && node.argument && ts.isLiteralTypeNode(node.argument)) {
+      // Type queries: `type T = import('pkg').X`, `typeof import('pkg')`, `Map<string, import('pkg').X>`.
+      const spec = literal(node.argument.literal);
       if (spec) found.add(spec);
     } else if (ts.isCallExpression(node)) {
       const isRequire = ts.isIdentifier(node.expression) && node.expression.text === 'require';
@@ -317,8 +322,9 @@ describe('every workspace declares what it imports (Sprint 131 PR B2, BUG-046)',
   });
 
   it('finds every import form, including the ones ts.preProcessFile misses', () => {
-    // Regression: preProcessFile returned [] for a require() inside a template interpolation
-    // (measured 2026-09-17), so an undeclared package could hide there. Each case is a whole file.
+    // Regression: preProcessFile returned [] for a require() inside a template interpolation, and an AST
+    // walk without isImportTypeNode returned [] for type queries (both measured 2026-09-17), so an
+    // undeclared package could hide in either. Each case is a whole file.
     const cases: Array<[string, string, string[]]> = [
       ['x.ts', "import a from 'left-pad';", ['left-pad']],
       ['x.ts', "export { a } from 'left-pad';", ['left-pad']],
@@ -327,6 +333,9 @@ describe('every workspace declares what it imports (Sprint 131 PR B2, BUG-046)',
       ['x.ts', 'const s = `${require("left-pad")}`;', ['left-pad']],
       ['x.ts', 'const s = `${`${require("left-pad")}`}`;', ['left-pad']],
       ['x.ts', "const p = import('left-pad');", ['left-pad']],
+      ['x.ts', "type Leak = import('left-pad').T;", ['left-pad']],
+      ['x.ts', "const x: typeof import('left-pad') = y;", ['left-pad']],
+      ['x.ts', "type M = Map<string, import('left-pad').T>;", ['left-pad']],
       ['x.tsx', "const C = () => <div>{require('left-pad')}</div>;", ['left-pad']],
       ['x.ts', 'const a = require(someVariable);', []],
       ['x.ts', "// require('left-pad')\nconst s = \"require('left-pad')\";", []],
@@ -401,17 +410,20 @@ Run the Step 3 command after each injection, confirm the named failure, then rev
 
 1. **Runtime scope:** append `import 'left-pad';` to `services/messaging-service/src/index.ts`. Expect the runtime
    test to list `services/messaging-service: left-pad (src/index.ts)`. Revert: `git checkout -- services/messaging-service/src/index.ts`.
-2. **Dev scope:** append `import 'left-pad';` to `services/messaging-service/tests/regression/messageService.test.ts`.
+2. **Type-query scope:** append ``type Leak = import('left-pad').Foo;`` to `services/messaging-service/src/index.ts`.
+   Expect the same runtime entry. A type-only import still needs a declaration: `tsc` resolves it, and the package is
+   absent from a `--omit=dev` image. Revert with `git checkout --`.
+3. **Dev scope:** append `import 'left-pad';` to `services/messaging-service/tests/regression/messageService.test.ts`.
    Expect `services/messaging-service: left-pad (tests/regression/messageService.test.ts)` under the **dev** test and
    not the runtime test. Revert with `git checkout --`.
-3. **A devDependency does not satisfy runtime:** in `services/messaging-service/package.json` move `"cors": "^2.8.5"`
+4. **A devDependency does not satisfy runtime:** in `services/messaging-service/package.json` move `"cors": "^2.8.5"`
    from `dependencies` to `devDependencies`. Expect the runtime test to list `services/messaging-service: cors (src/index.ts)`
    **and** the mirror test to list `services/messaging-service dependencies` and `… devDependencies`. Revert with `git checkout --`.
-4. **Ranges:** set messaging's `"pg"` to `"^9.0.0"`. Expect `services/messaging-service dependencies: pg@^9.0.0 resolves 8.23.0`
+5. **Ranges:** set messaging's `"pg"` to `"^9.0.0"`. Expect `services/messaging-service dependencies: pg@^9.0.0 resolves 8.23.0`
    (plus mirror drift). Revert with `git checkout --`.
-5. **Stale allowlist:** add `'packages/shared: left-pad (api/client.ts)': 'probe',` to `ALLOWLIST`. Expect the stale-entry
+6. **Stale allowlist:** add `'packages/shared: left-pad (api/client.ts)': 'probe',` to `ALLOWLIST`. Expect the stale-entry
    test to list that key. Remove the line by hand.
-6. **Discovery:** temporarily change `names('apps/frontend')).toContain('next')` to `toContain('nextx')`. Expect that test to fail. Restore.
+7. **Discovery:** temporarily change `names('apps/frontend')).toContain('next')` to `toContain('nextx')`. Expect that test to fail. Restore.
 
 - [ ] **Step 5: Commit the red gate**
 
@@ -421,7 +433,8 @@ git commit -F- <<'EOF'
 test(gates): repo-wide declare-what-you-import gate (BUG-046), red
 
 Imports come from a TypeScript AST walk over tracked files (preProcessFile
-misses require() in a template interpolation), aliases from tsconfig paths,
+misses require() in a template interpolation; type queries need
+isImportTypeNode), aliases from tsconfig paths,
 resolution from package-lock.json. Red: 2 failed / 6 passed, 95 runtime
 and 94 dev-scope violations, matching the planning inventory. Each passing
 assertion was proven able to fail by a reverted injection.
@@ -666,7 +679,7 @@ jest-cli. Lock changes only in those three workspace nodes; strict
 npm@11.19.0 ci exit 0 without rewriting it; npm ls errors unchanged (BUG-047).
 Turbo now builds @karmyq/shared before @karmyq/tests.
 
-The repo-wide gate is green (7/7) and subsumes
+The repo-wide gate is green (8/8) and subsumes
 sprint-131-messaging-declarations. Its root-range equality check is dropped on
 purpose: range satisfaction already fails when a root bump strands a
 workspace range, and several existing ranges differ from root legitimately.
@@ -729,7 +742,7 @@ In `services/messaging-service/CONTEXT.md` (Sprint 131 PR B section, "Declaratio
 
 - `docs/BUGS.md:582` (BUG-034 entry): same filename replacement as Step 3.
 - BUG-046 heading: `open` → `fixed`. Replace the "Caveats… **UNVERIFIED**" paragraph with a **Resolution** paragraph.
-  It must state the re-measurement (compiler pre-processor, tracked files, tsconfig aliases; 95 runtime + 94 dev-scope
+  It must state the re-measurement (TypeScript AST walk, tracked files, tsconfig aliases; 95 runtime + 94 dev-scope
   violations; the 8-service table confirmed), the widened scope (shared runtime incl. the `pg` peer; test/tooling scope
   in notification/reputation/social-graph, frontend, tests), the 2 allowlisted build-excluded shared files, the gate
   path, and "no resolved version changed". Also update the line-1093 messaging gate reference.
@@ -865,13 +878,16 @@ B2 shipped, next = B3 (Expo drift; re-run `npx expo install --check` first), the
   The four SDLC gates, version and merge discipline → Task 5.
 - **Gate honesty:** each passing assertion has its own injection (Task 1 Step 4). The allowlist has a stale check. Discovery
   asserts per-workspace non-emptiness plus known imports, not a total count. The dropped root-equality check is justified in writing.
-- **Red verified in planning (re-run after the scanner change):** the literal Task 1 gate code, extracted from this
-  file into a temporary `tests/regression/` copy, ran **2 failed / 6 passed** with **95** runtime and **94** dev entries
-  — the same counts the pre-processor version produced, so switching to the AST walk changed no measurement. Injecting
-  `` const leak = `${require("left-pad")}`; `` into `services/messaging-service/src/index.ts` produced exactly
-  `services/messaging-service: left-pad (src/index.ts)`; the same injection was **invisible** to `ts.preProcessFile`.
-  Both the copy and the injection were reverted. The post-Task-2 (3/14) and green (0/0) counts come from the same logic
-  applied to in-memory manifests, so they are **not yet executed**, and strict `npm ci` remains unverified until Task 2.
+- **Red verified in planning (re-run after each scanner change):** the literal Task 1 gate code, extracted from this
+  file into a temporary `tests/regression/` copy, ran **2 failed / 6 passed of 8** with **95** runtime and **94** dev
+  entries. Those counts are identical across all three scanner versions (`preProcessFile`, the AST walk, and the AST walk
+  with `isImportTypeNode`), so neither fix changed a measurement: the repo contains no type-position `import()` today and
+  only 4 missed `require()` literals, all aliases, relative paths or builtins. Two injections into
+  `services/messaging-service/src/index.ts` each produced exactly `services/messaging-service: left-pad (src/index.ts)`:
+  `` const leak = `${require("left-pad")}`; `` (invisible to `preProcessFile`) and `type Leak = import("left-pad").Foo;`
+  (invisible to an AST walk without `isImportTypeNode`). Copies and injections were reverted. The post-Task-2 (3/14) and
+  green (0/0) counts come from the same logic applied to in-memory manifests, so they are **not yet executed**, and
+  strict `npm ci` remains unverified until Task 2.
 - **Known limits (state in the PR):** the walk sees static specifiers only — not `require.resolve('x')`,
   `jest.mock('x')` without a matching import, or a computed specifier (`require(name)`). A locally shadowed
   `require` parameter would be reported as an import (no such case in the repo today). `jsx`/`js` files outside tracked source aren't scanned. The `DEV_ONLY` path rule is a convention, so a
