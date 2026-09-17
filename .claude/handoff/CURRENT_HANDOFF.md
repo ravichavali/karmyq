@@ -131,6 +131,19 @@ Claude holds the dependency lane and executes B, including its messaging declara
 
 ## Verification references
 
+PR B2 plan review round 2, 2026-09-17 (reviewer; two P2 findings, both CONFIRMED and fixed):
+
+- **Scanner could miss imports.** `ts.preProcessFile` returns `[]` for `require()` inside a template interpolation
+  (reproduced). Repo-wide impact today is nil — only 4 missed literals, all aliases, relative paths or builtins — but the
+  gate is now a real AST walk (`ts.createSourceFile` + `forEachChild`), a strict superset over this repo (1021 files,
+  ~1.4s). Added a regression test with 10 import forms, including the template and JSX cases and two negatives.
+  Re-ran the gate: **2 failed / 6 passed**, still 95 runtime / 94 dev; the template-require injection is now caught.
+- **`npm ls` comparison was self-inconsistent.** Two consecutive runs on the unchanged tree differed only in the
+  timestamped `…-debug-0.log` path. The plan now compares normalized dependency problems
+  (`code|invalid|missing|extraneous|peer dep`). Also corrected: the BUG-047 baseline is **not** picomatch alone — it is
+  3 `invalid` (picomatch, color-string, ms) + 1 `missing` (@react-native/metro-config, required by react-native-worklets).
+- Reviewer confirmed the planned declarations clear the scanner's violations in memory; strict install is still unverified.
+
 PR B2 plan review, 2026-09-17 (non-author reviewer; no branch edits):
 
 - Verdict: **approve with minor corrections**. Independently verified root ranges and all 13 lock resolutions, shared's import

@@ -7,14 +7,14 @@ it in `dependencies`/`peerDependencies`; test and tooling code may also use `dev
 repo-wide blocking gate replaces the messaging-only gate, so no workspace can regress.
 
 **Architecture:** A root regression gate (`tests/regression/sprint-131-workspace-declarations.test.ts`)
-takes its import sets from the TypeScript compiler's own pre-processor (`ts.preProcessFile`). It reads
+takes its import sets from a TypeScript AST walk (`ts.createSourceFile` + `forEachChild`). It reads
 tracked files (`git ls-files`), path aliases from each workspace's `tsconfig.json`, and resolved versions
 from `package-lock.json`, so there are no hand-written import lists. Declarations are added at root's
 exact ranges. Every added range is already satisfied by the hoisted version the lockfile resolves, so
 the lockfile changes **only** in the workspace nodes (surgical splice), with **no new package nodes and
 no version change**.
 
-**Tech Stack:** Jest 30 (tests workspace), `typescript` 5.9.3 (`preProcessFile`, `readConfigFile`),
+**Tech Stack:** Jest 30 (tests workspace), `typescript` 5.9.3 (`createSourceFile`, `readConfigFile`),
 `semver`, npm 11.19.0 lockfile v3, Turborepo.
 
 **Spec:** [Sprint 131 design](../specs/2026-09-15-sprint-131-maintenance-design.md) (dependency and
@@ -39,7 +39,7 @@ the maintainer on 2026-09-17 (see *Scope decisions*). Sprint plan:
 
 ## Scope decisions (maintainer, 2026-09-17)
 
-Re-measured in the planning chat with the gate's own logic (prototype in the planning scratchpad) over
+Re-measured in the planning chat with the gate's own logic (AST prototype in the planning scratchpad) over
 every tracked `.ts/.tsx/.js/.jsx/.mjs/.cjs` file in all 15 workspaces:
 
 1. **BUGS.md's table is confirmed exactly** for the 8 services (runtime scope).
@@ -145,12 +145,20 @@ node -e "const P=require('./package-lock.json').packages;for(const n of ['bcrypt
 ```
 Expected exactly the *Verified facts* versions (and the link object for `@karmyq/shared`). Any difference → stop.
 
-Capture the `npm ls` baseline (BUG-047 makes it exit 1 today). Write outputs to the session scratchpad:
+Capture the `npm ls` baseline (BUG-047 makes it exit 1 today). Keep only **dependency problems**: the
+`npm error A complete log of this run can be found in: …-debug-0.log` line carries a timestamp, so two
+identical runs differ on it and a raw `grep "^npm error"` comparison always reports a false difference
+(measured 2026-09-17: two consecutive runs on the unchanged tree differed by exactly that line).
+
 ```bash
+lsproblems () { grep -E "^npm error (code|invalid|missing|extraneous|peer dep)" "$1" | sort; }
 npx -y npm@11.19.0 ls --all > "$SCRATCH/ls-before.out" 2> "$SCRATCH/ls-before.err"; echo "exit $?"
-grep "^npm error" "$SCRATCH/ls-before.err" | sort > "$SCRATCH/ls-before.errors"; cat "$SCRATCH/ls-before.errors"
+lsproblems "$SCRATCH/ls-before.err" > "$SCRATCH/ls-before.errors"; cat "$SCRATCH/ls-before.errors"
 ```
-Expected: exit 1; errors are the picomatch/fdir `invalid` lines only (BUG-047). Keep the file for Task 3.
+Expected: exit 1, and on 2026-09-17 the baseline was `code ELSPROBLEMS`, three `invalid` lines
+(`picomatch@2.3.2`, `color-string@2.1.4`, `ms@2.0.0`) and one `missing: @react-native/metro-config@*,
+required by react-native-worklets@0.10.1` — **not** picomatch alone. Whatever it prints is the baseline;
+record it verbatim in the handoff and keep the file for Task 3. Define `lsproblems` again in that Bash call.
 
 - [ ] **Step 2: Write the gate**
 
@@ -214,6 +222,47 @@ function pathAliases(ws: string): string[] {
     .filter(Boolean);
 }
 
+const SCRIPT_KIND: Record<string, ts.ScriptKind> = {
+  '.ts': ts.ScriptKind.TS,
+  '.tsx': ts.ScriptKind.TSX,
+  '.js': ts.ScriptKind.JS,
+  '.jsx': ts.ScriptKind.JSX,
+  '.mjs': ts.ScriptKind.JS,
+  '.cjs': ts.ScriptKind.JS,
+};
+
+/**
+ * Every module specifier in one file, from a real AST walk.
+ *
+ * NOT ts.preProcessFile: its lightweight scanner misses `require()` inside a template interpolation
+ * (measured 2026-09-17), which would let an undeclared package through silently. The walk is a strict
+ * superset of the pre-processor over this repo, and costs ~1.4s for all 1021 tracked files.
+ */
+export function specifiersOf(file: string, source: string): string[] {
+  const kind = SCRIPT_KIND[file.slice(file.lastIndexOf('.'))] ?? ts.ScriptKind.TS;
+  const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, false, kind);
+  const found = new Set<string>();
+  const literal = (node?: ts.Node): string | undefined =>
+    node && ts.isStringLiteralLike(node) ? node.text : undefined;
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+      const spec = literal(node.moduleSpecifier);
+      if (spec) found.add(spec);
+    } else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
+      const spec = literal(node.moduleReference.expression);
+      if (spec) found.add(spec);
+    } else if (ts.isCallExpression(node)) {
+      const isRequire = ts.isIdentifier(node.expression) && node.expression.text === 'require';
+      const isDynamicImport = node.expression.kind === ts.SyntaxKind.ImportKeyword;
+      const spec = literal(node.arguments[0]);
+      if ((isRequire || isDynamicImport) && spec) found.add(spec);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return [...found];
+}
+
 type Import = { key: string; name: string; devOnly: boolean };
 
 function importsOf(ws: string): Import[] {
@@ -225,7 +274,7 @@ function importsOf(ws: string): Import[] {
   for (const file of files) {
     const rel = file.slice(ws.length + 1);
     const devOnly = ws === 'tests' || DEV_ONLY.test(rel);
-    for (const { fileName: spec } of ts.preProcessFile(read(file), true, true).importedFiles) {
+    for (const spec of specifiersOf(file, read(file))) {
       if (/^[./]/.test(spec) || spec.startsWith('node:') || aliases.some((alias) => spec.startsWith(alias))) continue;
       const name = packageName(spec);
       if (builtinModules.includes(name)) continue;
@@ -265,6 +314,26 @@ describe('every workspace declares what it imports (Sprint 131 PR B2, BUG-046)',
     expect(names('apps/mobile')).toContain('expo-router');
     expect(names('packages/shared')).toContain('jsonwebtoken');
     expect(names('tests')).toContain('semver');
+  });
+
+  it('finds every import form, including the ones ts.preProcessFile misses', () => {
+    // Regression: preProcessFile returned [] for a require() inside a template interpolation
+    // (measured 2026-09-17), so an undeclared package could hide there. Each case is a whole file.
+    const cases: Array<[string, string, string[]]> = [
+      ['x.ts', "import a from 'left-pad';", ['left-pad']],
+      ['x.ts', "export { a } from 'left-pad';", ['left-pad']],
+      ['x.ts', "import a = require('left-pad');", ['left-pad']],
+      ['x.ts', "const a = require('left-pad');", ['left-pad']],
+      ['x.ts', 'const s = `${require("left-pad")}`;', ['left-pad']],
+      ['x.ts', 'const s = `${`${require("left-pad")}`}`;', ['left-pad']],
+      ['x.ts', "const p = import('left-pad');", ['left-pad']],
+      ['x.tsx', "const C = () => <div>{require('left-pad')}</div>;", ['left-pad']],
+      ['x.ts', 'const a = require(someVariable);', []],
+      ['x.ts', "// require('left-pad')\nconst s = \"require('left-pad')\";", []],
+    ];
+    for (const [file, source, expected] of cases) {
+      expect([file, source, specifiersOf(file, source)]).toEqual([file, source, expected]);
+    }
   });
 
   it('reads path aliases from tsconfig, so `@/…` is never mistaken for a package', () => {
@@ -318,7 +387,7 @@ describe('every workspace declares what it imports (Sprint 131 PR B2, BUG-046)',
 npm exec --workspace=tests -- jest --runTestsByPath regression/sprint-131-workspace-declarations.test.ts --runInBand > "$SCRATCH/gate-red.txt" 2>&1; echo "exit $?"
 grep -E "✓|✕|Tests:" "$SCRATCH/gate-red.txt"
 ```
-Expected: exit 1; **2 failed / 5 passed**. The failures are exactly `runtime imports are declared…` and
+Expected: exit 1; **2 failed / 6 passed**. The failures are exactly `runtime imports are declared…` and
 `test and tooling imports are declared…`. Count the entries in each received array (lines matching
 `^\s+"(services|apps|packages|tests)`): **95** under the runtime test and **94** under the dev test.
 Spot-check that `"services/simulation-service: bcryptjs (src/fixtures/curatedDemo/resetCoordinator.ts)"`
@@ -351,8 +420,9 @@ git add tests/regression/sprint-131-workspace-declarations.test.ts
 git commit -F- <<'EOF'
 test(gates): repo-wide declare-what-you-import gate (BUG-046), red
 
-Imports come from ts.preProcessFile over tracked files, aliases from tsconfig
-paths, resolution from package-lock.json. Red: 2 failed / 5 passed, 95 runtime
+Imports come from a TypeScript AST walk over tracked files (preProcessFile
+misses require() in a template interpolation), aliases from tsconfig paths,
+resolution from package-lock.json. Red: 2 failed / 6 passed, 95 runtime
 and 94 dev-scope violations, matching the planning inventory. Each passing
 assertion was proven able to fail by a reverted injection.
 
@@ -476,7 +546,7 @@ command; stop and report.
 
 - [ ] **Step 5: Run the gate — services green, shared/frontend/tests still red**
 
-Run the Task 1 Step 3 command. Expected: **2 failed / 5 passed**, now with **3** runtime entries (all `packages/shared`:
+Run the Task 1 Step 3 command. Expected: **2 failed / 6 passed**, now with **3** runtime entries (all `packages/shared`:
 bull, jsonwebtoken, pg) and **14** dev entries (none under `services/`). The range and mirror tests pass.
 Any `services/` entry left → the script table missed it. Fix the table, `git checkout -- .`, re-run from Step 3.
 
@@ -537,15 +607,16 @@ Run Task 2 Step 4 (logging to `ci-rest.log`). Expected: exit 0 and `lock untouch
 Windows installs have half-resolved before, so read the log for warnings about `apps/frontend`.
 
 ```bash
+lsproblems () { grep -E "^npm error (code|invalid|missing|extraneous|peer dep)" "$1" | sort; }
 npx -y npm@11.19.0 ls --all > "$SCRATCH/ls-after.out" 2> "$SCRATCH/ls-after.err"; echo "exit $?"
-grep "^npm error" "$SCRATCH/ls-after.err" | sort | diff "$SCRATCH/ls-before.errors" - && echo "npm ls errors unchanged"
+lsproblems "$SCRATCH/ls-after.err" | diff "$SCRATCH/ls-before.errors" - && echo "npm ls dependency problems unchanged"
 ```
-Expected: `npm ls errors unchanged` (exit code still 1 from BUG-047). A new error line (e.g. an unmet `pg` peer
+Expected: `npm ls dependency problems unchanged` (exit code still 1 from BUG-047). A new problem line (e.g. an unmet `pg` peer
 under `apps/frontend`) → stop and report it with the line; do not suppress it.
 
 - [ ] **Step 4: The gate goes fully green**
 
-Run the Task 1 Step 3 command. Expected: exit 0, **7 passed**.
+Run the Task 1 Step 3 command. Expected: exit 0, **8 passed**.
 
 - [ ] **Step 5: Retire the messaging-only gate and prove nothing it checked is lost**
 
@@ -725,7 +796,7 @@ This diff touches 11 manifests, the lockfile and a blocking repo-wide gate, so c
 - [ ] **Step 1: SDLC gates on the branch diff**
 
 `/simplify` (one pass), then `/code-review high`, then `/security-review`. For the security review, confirm the lock
-diff adds no `resolved`/`integrity` lines, and the gate executes nothing from the files it scans (`preProcessFile` only
+diff adds no `resolved`/`integrity` lines, and the gate executes nothing from the files it scans (`createSourceFile` only
 parses). Resolve findings or dismiss them with written justification in the handoff. Re-run `/code-review` on the final
 diff if the first pass led to code changes.
 
@@ -768,7 +839,7 @@ bump workspace declarations), docs touched, and the attribution footer.
 
 For the PR head, confirm from job logs:
 - **Install:** the CI `npm ci` step succeeded (strict lock acceptance on Linux).
-- **Test Backend Services / root regression:** `PASS … regression/sprint-131-workspace-declarations.test.ts` with 7 tests.
+- **Test Backend Services / root regression:** `PASS … regression/sprint-131-workspace-declarations.test.ts` with 8 tests.
 - **Lint & Type Check:** success.
 - **Test Docker Build:** the auth-service and frontend images built (their Dockerfiles `npm install` against the changed
   manifests), and the healthcheck wait reported Healthy.
@@ -794,10 +865,14 @@ B2 shipped, next = B3 (Expo drift; re-run `npx expo install --check` first), the
   The four SDLC gates, version and merge discipline → Task 5.
 - **Gate honesty:** each passing assertion has its own injection (Task 1 Step 4). The allowlist has a stale check. Discovery
   asserts per-workspace non-emptiness plus known imports, not a total count. The dropped root-equality check is justified in writing.
-- **Red verified in planning:** the literal Task 1 gate code, extracted from this file into a temporary
-  `tests/regression/` copy on `35cf956a`, ran **2 failed / 5 passed** with **95** runtime and **94** dev entries,
-  including simulation's `bcryptjs`, with no `@/` specifier. The copy was deleted. The post-Task-2 (3/14) and green (0/0)
-  counts come from the same logic applied to in-memory manifests (planning prototype), so they are **not yet executed**.
-- **Known limits (state in the PR):** `ts.preProcessFile` doesn't see `require.resolve('x')` or `jest.mock('x')` without a
-  matching import. `jsx`/`js` files outside tracked source aren't scanned. The `DEV_ONLY` path rule is a convention, so a
+- **Red verified in planning (re-run after the scanner change):** the literal Task 1 gate code, extracted from this
+  file into a temporary `tests/regression/` copy, ran **2 failed / 6 passed** with **95** runtime and **94** dev entries
+  — the same counts the pre-processor version produced, so switching to the AST walk changed no measurement. Injecting
+  `` const leak = `${require("left-pad")}`; `` into `services/messaging-service/src/index.ts` produced exactly
+  `services/messaging-service: left-pad (src/index.ts)`; the same injection was **invisible** to `ts.preProcessFile`.
+  Both the copy and the injection were reverted. The post-Task-2 (3/14) and green (0/0) counts come from the same logic
+  applied to in-memory manifests, so they are **not yet executed**, and strict `npm ci` remains unverified until Task 2.
+- **Known limits (state in the PR):** the walk sees static specifiers only — not `require.resolve('x')`,
+  `jest.mock('x')` without a matching import, or a computed specifier (`require(name)`). A locally shadowed
+  `require` parameter would be reported as an import (no such case in the repo today). `jsx`/`js` files outside tracked source aren't scanned. The `DEV_ONLY` path rule is a convention, so a
   shipping file placed under a `tests/` directory would be under-checked.
