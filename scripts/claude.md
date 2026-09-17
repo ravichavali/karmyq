@@ -52,9 +52,17 @@ remove an unmatched exemption only after a valid report establishes that it no l
 
 `generate-docs.ts` (build-time landing-docs generator — the landing prebuild runs it, which is why
 `npm test` can leave `apps/landing/src/data/docs/` dirty; revert timestamp/HEAD-sha churn before
-committing) · `update-service-deps.js` · `update-service-tdd-docs.js` · `add-tdd-scripts.js` ·
+committing) · `update-service-tdd-docs.js` · `add-tdd-scripts.js` ·
 `check-storage.sh` · `clean-docker-logs.sh` · `setup-log-rotation.sh` · `start-dev-services.sh` ·
 `test-all.{sh,bat}` / `test-local.{sh,bat}`.
+
+**Deleted in Sprint 131 PR B2: `update-service-deps.js`.** It stripped a hardcoded `HOISTED_DEPS`
+list (`express`, `pg`, `redis`, `bull`, `winston`, `zod`, `dotenv`, `express-rate-limit`, `bcryptjs`,
+`jsonwebtoken`, `ioredis`, `cors`) out of every `services/*/package.json` "since they're now in the
+root package.json" — which is precisely the "declare what you import" violation that became BUG-046.
+Nothing invoked it (no npm script, no CI step); re-running it would have reverted this PR's
+declarations. `tests/regression/sprint-131-workspace-declarations.test.ts` now blocks that state, so
+the script was a landmine with no remaining use.
 
 ## Claude Code hooks
 

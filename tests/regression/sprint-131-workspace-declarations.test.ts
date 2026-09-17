@@ -62,8 +62,32 @@ const DIVERGENCE_ALLOWLIST: Record<string, string> = {
 const packageName = (spec: string): string =>
   spec.startsWith('@') ? spec.split('/').slice(0, 2).join('/') : spec.split('/')[0];
 
+const SOURCE_EXTS = ['ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'];
+const GENERATED = /(^|\/)(dist|\.next|build)\//;
+
+/**
+ * One `git ls-files` for the whole repo, bucketed per workspace in JS.
+ *
+ * A spawn costs ~41ms on Windows regardless of how narrow the pathspec is, and the previous shape
+ * (one spawn per workspace in importsOf, another in pathAliases) cost 30 spawns / ~1.2s — more than
+ * parsing all 987 files. Git is still the arbiter of what is tracked; only the extension and prefix
+ * filtering moved into JS. Verified to select exactly the same 987 files, with the same
+ * workspace assignment, as the per-workspace pathspecs it replaces.
+ *
+ * There is deliberately NO "skip files whose text lacks import/require" prefilter: 5 of the 103
+ * files that would skip contain `export … from '…'`, which is a real import this gate must see, so
+ * a barrel re-exporting an undeclared package would pass invisibly. The ~60ms is not worth that.
+ */
+const trackedPaths = tracked();
+const trackedSet = new Set(trackedPaths);
+const sourceFiles = trackedPaths.filter(
+  (file) => SOURCE_EXTS.includes(file.slice(file.lastIndexOf('.') + 1)) && !GENERATED.test(file),
+);
+
 function pathAliases(ws: string): string[] {
-  if (tracked(`${ws}/tsconfig.json`).length === 0) return [];
+  // `ts.readConfigFile` does not resolve `extends`; no workspace keeps its `paths` in a base config
+  // today (apps/mobile extends expo/tsconfig.base but declares its own).
+  if (!trackedSet.has(`${ws}/tsconfig.json`)) return [];
   const { config, error } = ts.readConfigFile(join(ROOT, ws, 'tsconfig.json'), ts.sys.readFile);
   if (error) throw new Error(`${ws}/tsconfig.json: ${ts.flattenDiagnosticMessageText(error.messageText, '\n')}`);
   return Object.keys(config?.compilerOptions?.paths ?? {})
@@ -85,31 +109,29 @@ const SCRIPT_KIND: Record<string, ts.ScriptKind> = {
  *
  * NOT ts.preProcessFile: its lightweight scanner misses `require()` inside a template interpolation
  * (measured 2026-09-17), which would let an undeclared package through silently. The walk is a strict
- * superset of the pre-processor over this repo, and costs ~1.4s for all 1021 tracked files. It also covers
+ * superset of the pre-processor over this repo, and costs ~1.2s for the 987 workspace source files it
+ * scans (1020 are tracked repo-wide; this gate never sees scripts/, infrastructure/ or root files). It also covers
  * type-only positions (`import('pkg').T`, `typeof import('pkg')`), which the pre-processor drops.
  */
-export function specifiersOf(file: string, source: string): string[] {
+function specifiersOf(file: string, source: string): string[] {
   const kind = SCRIPT_KIND[file.slice(file.lastIndexOf('.'))] ?? ts.ScriptKind.TS;
   const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, false, kind);
   const found = new Set<string>();
-  const literal = (node?: ts.Node): string | undefined =>
-    node && ts.isStringLiteralLike(node) ? node.text : undefined;
+  const add = (node?: ts.Node): void => {
+    if (node && ts.isStringLiteralLike(node)) found.add(node.text);
+  };
   const visit = (node: ts.Node): void => {
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
-      const spec = literal(node.moduleSpecifier);
-      if (spec) found.add(spec);
+      add(node.moduleSpecifier);
     } else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
-      const spec = literal(node.moduleReference.expression);
-      if (spec) found.add(spec);
+      add(node.moduleReference.expression);
     } else if (ts.isImportTypeNode(node) && node.argument && ts.isLiteralTypeNode(node.argument)) {
       // Type queries: `type T = import('pkg').X`, `typeof import('pkg')`, `Map<string, import('pkg').X>`.
-      const spec = literal(node.argument.literal);
-      if (spec) found.add(spec);
+      add(node.argument.literal);
     } else if (ts.isCallExpression(node)) {
       const isRequire = ts.isIdentifier(node.expression) && node.expression.text === 'require';
       const isDynamicImport = node.expression.kind === ts.SyntaxKind.ImportKeyword;
-      const spec = literal(node.arguments[0]);
-      if ((isRequire || isDynamicImport) && spec) found.add(spec);
+      if (isRequire || isDynamicImport) add(node.arguments[0]);
     }
     ts.forEachChild(node, visit);
   };
@@ -121,9 +143,7 @@ type Import = { key: string; name: string; devOnly: boolean };
 
 function importsOf(ws: string): Import[] {
   const aliases = pathAliases(ws);
-  const files = tracked(...['ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'].map((ext) => `${ws}/*.${ext}`)).filter(
-    (file) => !/(^|\/)(dist|\.next|build)\//.test(file),
-  );
+  const files = sourceFiles.filter((file) => file.startsWith(`${ws}/`));
   const seen = new Map<string, Import>();
   for (const file of files) {
     const rel = file.slice(ws.length + 1);
@@ -148,7 +168,7 @@ const workspaces = allWorkspaces().map(({ ws }) => ({
 /**
  * Declared ranges that root's HOISTED copy no longer satisfies.
  *
- * Deliberately ignores the workspace-nested node that the range-satisfaction test above consults.
+ * Deliberately ignores the workspace-nested node that the range-satisfaction test below consults.
  * That test cannot detect a de-hoist: when a root bump strands a workspace range, npm's answer is to
  * nest a satisfying older copy under that workspace, so satisfaction still holds and the check stays
  * green (live proof: root hoists express-rate-limit 8.5.2 while packages/shared and
@@ -269,10 +289,21 @@ describe('every workspace declares what it imports (Sprint 131 PR B2, BUG-046)',
   });
 
   it("each workspace's lockfile node mirrors its manifest", () => {
+    // Reports the differing entries, not just the field: CLAUDE.md mandates hand-splicing
+    // package-lock.json, so this fires on a typo or a missed entry and a bare "<ws> <field>" would
+    // leave you reconstructing the diff by hand. Key order matters too (JSON.stringify comparison),
+    // so a reordered field is reported even when the entries match.
     const drift = workspaces.flatMap(({ ws, pkg }) =>
-      FIELDS.filter(
-        (field) => JSON.stringify(lock.packages[ws]?.[field] ?? {}) !== JSON.stringify(pkg[field] ?? {}),
-      ).map((field) => `${ws} ${field}`),
+      FIELDS.flatMap((field) => {
+        const inLock = lock.packages[ws]?.[field] ?? {};
+        const inManifest = pkg[field] ?? {};
+        if (JSON.stringify(inLock) === JSON.stringify(inManifest)) return [];
+        const names = [...new Set([...Object.keys(inLock), ...Object.keys(inManifest)])].sort();
+        const differing = names
+          .filter((name) => inLock[name] !== inManifest[name])
+          .map((name) => `${name}: lock ${inLock[name] ?? '(absent)'} vs manifest ${inManifest[name] ?? '(absent)'}`);
+        return [`${ws} ${field}: ${differing.length ? differing.join(', ') : 'same entries, different key order'}`];
+      }),
     );
     expect(drift).toEqual([]);
   });
