@@ -43,6 +43,22 @@ const ALLOWLIST: Record<string, string> = {
     'excluded from the shared build (packages/shared/tsconfig.json exclude, ADR-028); never compiled or shipped',
 };
 
+/**
+ * Declarations knowingly stranded off root's hoisted copy, keyed `ws field: name@range`. Every entry
+ * must still be a divergence (see the stale-entry test), so this list can only shrink.
+ *
+ * These are deliberate holdbacks, not accidents: shared and geocoding stayed on express-rate-limit 7
+ * and shared on zod 3 while root moved ahead.
+ */
+const DIVERGENCE_ALLOWLIST: Record<string, string> = {
+  'packages/shared dependencies: express-rate-limit@^7.1.5':
+    'deliberately held at 7 while root is on 8; npm nests 7.5.1 under this workspace',
+  'packages/shared dependencies: zod@^3.22.4':
+    'deliberately held at 3 while root is on 4; npm nests 3.25.76 under this workspace',
+  'services/geocoding-service dependencies: express-rate-limit@^7.0.0':
+    'deliberately held at 7 while root is on 8; npm nests 7.5.1 under this workspace',
+};
+
 const packageName = (spec: string): string =>
   spec.startsWith('@') ? spec.split('/').slice(0, 2).join('/') : spec.split('/')[0];
 
@@ -129,6 +145,34 @@ const workspaces = allWorkspaces().map(({ ws }) => ({
   imports: importsOf(ws),
 }));
 
+/**
+ * Declared ranges that root's HOISTED copy no longer satisfies.
+ *
+ * Deliberately ignores the workspace-nested node that the range-satisfaction test above consults.
+ * That test cannot detect a de-hoist: when a root bump strands a workspace range, npm's answer is to
+ * nest a satisfying older copy under that workspace, so satisfaction still holds and the check stays
+ * green (live proof: root hoists express-rate-limit 8.5.2 while packages/shared and
+ * services/geocoding-service each run a nested 7.5.1). Comparing against root's hoisted version is
+ * what actually fails when a root-only major bump would strand a workspace.
+ */
+function strandedFromRoot(): Array<{ key: string; detail: string }> {
+  const rootPkg = JSON.parse(read('package.json')) as Manifest;
+  const rootDeclares = { ...rootPkg.dependencies, ...rootPkg.devDependencies };
+  return workspaces.flatMap(({ ws, pkg }) =>
+    FIELDS.flatMap((field) =>
+      Object.entries(pkg[field] ?? {}).flatMap(([name, range]) => {
+        if (!rootDeclares[name]) return []; // root doesn't declare it, so there is nothing to strand from
+        const hoisted = lock.packages[`node_modules/${name}`];
+        if (!hoisted?.version) return [];
+        const key = `${ws} ${field}: ${name}@${range}`;
+        return semver.satisfies(hoisted.version, range)
+          ? []
+          : [{ key, detail: `${key} vs root-hoisted ${hoisted.version}` }];
+      }),
+    ),
+  );
+}
+
 function undeclared(devOnly: boolean): string[] {
   return workspaces.flatMap(({ pkg, imports }) =>
     imports
@@ -210,6 +254,18 @@ describe('every workspace declares what it imports (Sprint 131 PR B2, BUG-046)',
       ),
     );
     expect(unsatisfied).toEqual([]);
+  });
+
+  it("a root bump cannot silently strand a workspace: root's hoisted copy satisfies every range it also declares", () => {
+    const stranded = strandedFromRoot()
+      .filter(({ key }) => !(key in DIVERGENCE_ALLOWLIST))
+      .map(({ detail }) => detail);
+    expect(stranded).toEqual([]);
+  });
+
+  it('every divergence-allowlist entry is still a divergence, so that allowlist cannot go stale', () => {
+    const stranded = new Set(strandedFromRoot().map(({ key }) => key));
+    expect(Object.keys(DIVERGENCE_ALLOWLIST).filter((key) => !stranded.has(key))).toEqual([]);
   });
 
   it("each workspace's lockfile node mirrors its manifest", () => {

@@ -30,6 +30,19 @@ or ships Express 4 any more, so a dual range would advertise support that no run
 - Async handler rejections now auto-forward to the error middleware, so the ADR-074 envelope must
   keep coming from a real error handler; `res.status()` throws `RangeError` on an out-of-range code.
 
+## Declared imports (Sprint 131 PR B2, 2026-09-17)
+
+`bull` (`events/publisher.ts`) and `jsonwebtoken` (`middleware/auth.ts`) are now `dependencies` at root's ranges.
+**`pg` is a `peerDependency` (`^8.23.0`)**: `middleware/dbContext.ts` uses `Pool` only as a parameter type, and the
+consuming service constructs the pool. This is the same single-provider contract as Express above. As with Express,
+`apps/frontend` doesn't provide it, and `.npmrc` `legacy-peer-deps=true` silences that. The peer covers the runtime
+package only: the `Pool` type resolves from `@types/pg` (this package's `devDependencies`).
+
+This package's build excludes three `api/` files (`tsconfig.json` `exclude`, ADR-028). Two of them, `api/client.ts`
+(axios) and `api/mobile-storage.ts` (`@react-native-async-storage/async-storage`), still import undeclared packages, so
+they are the only allowlist entries in `tests/regression/sprint-131-workspace-declarations.test.ts`. That gate fails if they
+stop being violations, so delete an entry when its file is fixed or removed.
+
 **⚠️ `normalizeRequestBody` (`middleware/bodyDefaults`) — mount it after `express.json()`.**
 body-parser 1 initialised `req.body` to `{}` on every request; body-parser 2 leaves it
 **`undefined`** unless a body was actually parsed. **76 handlers across 7 services** do

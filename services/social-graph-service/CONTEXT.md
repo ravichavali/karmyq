@@ -1160,3 +1160,15 @@ body was parsed, so `const { x } = req.body` throws a `TypeError` on a bodyless 
 route's catch turns it into a **500**. `app.use(normalizeRequestBody)` is now mounted immediately
 after `express.json()` in `src/index.ts` to restore the Express 4 behaviour. It fills in only a
 *missing* body, so a parsed array or explicit `null` is untouched.
+
+## Sprint 131 PR B2 — declared imports (2026-09-17)
+
+Now declares `bull`, `cors`, `express`, `pg` in `dependencies` and `@jest/globals`, `jsonwebtoken` in
+`devDependencies` (BUG-046). `bull`, `cors`, `express`, `pg` and `jsonwebtoken` use root's exact ranges;
+`@jest/globals` uses `^30.4.1`, the range `packages/shared` and the `tests` workspace already declare, because root
+declares it nowhere. They were imported but undeclared, resolving only through root hoisting. Resolved versions are
+unchanged. `tests/regression/sprint-131-workspace-declarations.test.ts` fails on any undeclared import, and fails
+its range check if root bumps a major without this manifest, so a root dependency bump (e.g. D1 dotenv 17) must
+bump this manifest in the same PR.
+
+No endpoint, payload, event or schema change.

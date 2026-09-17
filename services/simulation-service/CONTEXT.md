@@ -328,3 +328,13 @@ The simulation service now owns two distinct populations:
 The verifier is the only authority that publishes the four server-generated story IDs, and only after
 authoritative privacy-scoped readback. Health is read-only; rotation replaces only finite live stories.
 The legacy `scripts/truncate-database.*` paths now delegate to `reset:demo` or refuse.
+
+## Sprint 131 PR B2 — declared imports (2026-09-17)
+
+Now declares `bcryptjs` in `dependencies` at root's exact
+ranges (BUG-046). They were imported but undeclared, resolving only through root hoisting. Resolved versions are
+unchanged. `tests/regression/sprint-131-workspace-declarations.test.ts` fails on any undeclared import, and fails
+its range check if root bumps a major without this manifest, so a root dependency bump (e.g. D1 dotenv 17) must
+bump this manifest in the same PR.
+
+No endpoint, payload, event or schema change.

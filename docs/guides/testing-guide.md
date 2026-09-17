@@ -147,6 +147,24 @@ own review. See `docs/BUGS.md` and ADR-088's Consequences section.
   on millisecond timestamps roughly 2 times in 1000 runs. A lone red run on this specific test in
   CI is expected noise — rerun the job rather than investigating it as a regression.
 
+## Declare what you import — the workspace declarations gate
+
+`tests/regression/sprint-131-workspace-declarations.test.ts` (blocking) reads every tracked source file in every
+workspace and fails when a file imports a package its own `package.json` doesn't declare. Root hoisting makes an
+undeclared import work locally until a root bump de-hoists or changes it.
+
+- **Shipping code** (anything not in `tests/`, `e2e/`, `__tests__/`, `__mocks__/`, a `*.test.*`/`*.spec.*` file, or a
+  jest/eslint/playwright config) must use `dependencies` or `peerDependencies`. Images install with `--omit=dev`.
+- **Tests and tooling** may use `devDependencies`.
+- Use root's exact range when root declares the package. The gate also fails when a declared range isn't satisfied
+  by the version `package-lock.json` resolves, so bumping a root major means bumping every workspace that declares it.
+- After editing a manifest, splice the same field into that workspace's `package-lock.json` node and prove it with
+  `npx -y npm@11.19.0 ci` (see CLAUDE.md "Workspace dependencies"). The gate checks that the two mirror each other.
+- The range check covers **every** existing declaration in every workspace, not just the ones your diff adds. If it goes
+  red on a change that doesn't touch that manifest, your change moved a resolved version in `package-lock.json` and
+  stranded someone else's range. Fix that range in the same PR; the gate is not reporting a regression in your own code.
+- Path aliases come from `tsconfig.json` `paths`. Only a file that is really never built belongs on the gate's allowlist.
+
 ## Don't trust a suspiciously-green run after deletes or renames
 
 Turbo's cache can miss cross-workspace test inputs — a test in `tests/regression/` that reads

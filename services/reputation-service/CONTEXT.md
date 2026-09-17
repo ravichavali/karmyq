@@ -1609,3 +1609,13 @@ unique on `(user_id, service_type)`, so one user offering two service types in o
 eligible pairs. Its floors 1/20/40/60 are fixed what-if scenarios; live reach instead uses each
 community's configured `provider_min_personal_trust_score`, so these counts answer "how many pairs
 would clear this floor", not "how many are reachable today".
+
+## Sprint 131 PR B2 — declared imports (2026-09-17)
+
+Now declares `bull`, `cors`, `dotenv`, `express`, `ioredis`, `pg` in `dependencies`, and `jsonwebtoken` in `devDependencies` at root's exact
+ranges (BUG-046). They were imported but undeclared, resolving only through root hoisting. Resolved versions are
+unchanged. `tests/regression/sprint-131-workspace-declarations.test.ts` fails on any undeclared import, and fails
+its range check if root bumps a major without this manifest, so a root dependency bump (e.g. D1 dotenv 17) must
+bump this manifest in the same PR.
+
+No endpoint, payload, event or schema change.
