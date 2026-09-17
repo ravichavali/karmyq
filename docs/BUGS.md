@@ -1071,3 +1071,54 @@ and `fetchStats` (`routes/stats.ts:177` 404s only when the community itself is m
 not fetched on mount).
 
 ---
+
+## BUG-046 · [2026-09-16] · open
+
+**Undeclared direct imports across 8 services** (repo-wide "declare what you import" violation).
+
+Found by the Sprint 131 PR B `/simplify` altitude review (2026-09-16), a read-only scan of each
+workspace's `src` with the declarations-gate regex:
+
+| Service | Imported but undeclared |
+|---|---|
+| auth, community, request | `pg`, `express`, `cors`, `dotenv`, `jsonwebtoken` |
+| cleanup | the same five, plus `express-rate-limit`, `winston` |
+| notification | `pg`, `bull`, `express`, `cors`, `dotenv` |
+| reputation | `pg`, `bull`, `express`, `cors`, `dotenv`, `ioredis` |
+| social-graph | `pg`, `bull`, `express`, `cors` |
+| simulation | `bcryptjs` |
+
+All of these survive only on root hoisting, so Sprint 131 D1 (dotenv 16→17, #226), or any other root
+bump, can silently change or de-hoist what these services run. Messaging was fixed in PR B
+(`tests/regression/sprint-131-messaging-declarations.test.ts`).
+
+**Maintainer decision (2026-09-16):** one dependency PR, before D1, that:
+- declares the missing packages in all 8 services at root's exact ranges (surgical lock splice +
+  strict `npm ci` per manifest);
+- generalizes the declarations gate to every workspace, with an allowlist of known violations.
+
+Caveats for the generalized scanner: path aliases `@/` and `~`, test helpers under `src`
+(packages/shared: `@jest/globals`, `supertest`), and string false positives in apps/frontend. The scan
+counts above are **UNVERIFIED** until that PR re-runs them.
+
+---
+
+## BUG-047 · [2026-09-16] · open
+
+**`npm ls --all` fails repo-wide with `ELSPROBLEMS`: `picomatch@2.3.2` is invalid for fdir.**
+
+Seen during the Sprint 131 PR B strict-install proof (2026-09-16). `npx -y npm@11.19.0 ls --all
+--workspace=<ws>` exits 1 with `npm error invalid: picomatch@2.3.2 …\node_modules\picomatch`, reported as
+`invalid: ">=4.0.4" from node_modules/fdir`. It reproduced identically on services/messaging-service and on
+the untouched services/notification-service, and the PR's lockfile diff contained no picomatch or fdir
+lines, so it predates that PR.
+
+Likely mechanism (not yet confirmed):
+- root `package.json` override `"picomatch@3.0.0 - 3.0.1": ">=4.0.4"`;
+- `fdir` 6.5.0 peer range `picomatch ^3 || ^4` (optional);
+- hoisted `node_modules/picomatch` resolved at 2.3.2.
+
+Impact: `npm ls` cannot be used as a clean-tree proof until this is fixed, and every dependency PR has to
+explain the same red. Strict `npm ci` still succeeds.
+
+---

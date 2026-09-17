@@ -31,8 +31,9 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 | PR | Scope | State / next action |
 |---|---|---|
 | A | BUG-045 expected missing config + planning/archive | **Shipped** — #249 merged `d35a3fad`, v11.56.0, deployed + live-verified 2026-09-16 |
-| B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Next.** Focused plan reviewed and corrected (2026-09-16); ready to execute from Task 1. B must precede D1 |
-| D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B |
+| B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **In progress.** Tasks 1–6 and `/simplify` committed on `agent/codex/sprint-131-test-readiness` (unpushed); next `/code-review high`, `/security-review`, then Task 7. B must precede D1 |
+| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **New (maintainer, 2026-09-16).** One dependency PR after B, **before D1**. Needs its own focused plan; dependency lane (Claude) |
+| D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B **and B2** |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
 Do not hold the other nine PRs while waiting for C. If C resumes after the upgrades, repeat its
@@ -60,7 +61,7 @@ inventory against the then-current base. BUG-033 remains open until actually del
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
-**Next unchecked task**: PR B focused plan, Task 1 Step 1 (bounded readiness script).
+**Next unchecked task**: PR B Task 7 Step 1 — `/code-review high` then `/security-review` on the branch diff (`/simplify` done), then Task 7 Steps 2–6.
 Claude holds the dependency lane and executes B, including its messaging declarations and lockfile splice.
 
 ## Blockers and decisions
@@ -79,6 +80,17 @@ Claude holds the dependency lane and executes B, including its messaging declara
   HTTP failure diagnostic can remain. No API contract change and no blanket console-silence claim.
 - **Risk split:** messaging/CI readiness ship before major upgrades; mass promotion has its own PR.
   Major upgrades stay separate because their runtime and migration risks differ.
+- **BUG-036 approach changed (maintainer, 2026-09-16):** "I am okay with your recommendations". The `/simplify`
+  altitude finding replaced PR B's Node polling script (`scripts/wait-for-http.js`) with compose healthchecks
+  (`auth-service`, `frontend` probing `$(hostname)`) plus `docker compose up -d --wait --wait-timeout 300 <named>`.
+  It covers both `test.yml` Test Docker Build and `ci.yml` Integration Tests (the same `sleep 30` race). Proof comes
+  from the PR's own CI runs, not local tests (no Docker on this box). Healthcheck interval is 30s because the base
+  compose also runs on the demo host (disk 88% full).
+- **BUG-046 scheduled (maintainer, 2026-09-16):** 8 services also import undeclared packages. One dependency PR
+  (B2) fixes all of them before D1; PR B stays messaging-only. **BUG-047** (pre-existing `npm ls` picomatch
+  ELSPROBLEMS) logged for triage.
+- **Lanes/stages/provenance work is Sprint 132 (maintainer, 2026-09-16):** its spec, plan and handoff live on the
+  pushed branch `lane/lanes-provenance` (`.claude/handoff/lane-lanes-provenance.md`). The execute stage is available.
 - **New proposals triaged (2026-09-16):** #244 (`@eslint/js` 9→10) and #245 (ioredis 5→6) are
   **deferred to Sprint 132** by maintainer decision — they are majors that appeared after Sprint 131's
   scope was approved. #243 (bcryptjs) remains untriaged. Recorded in `docs/IDEAS.md` [2026-09-16] so
