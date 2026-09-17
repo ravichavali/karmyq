@@ -9,6 +9,9 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "type-check": "tsc --noEmit",
+    "test": "npm run test:unit && npm run test:regression",
+    "test:unit": "jest --testPathPatterns=tests/unit/ --passWithNoTests",
+    "test:regression": "jest --testPathPatterns=tests/regression/",
     "test:tdd": "jest --testPathPatterns=tests/tdd/ --passWithNoTests"
   },
   "dependencies": {
