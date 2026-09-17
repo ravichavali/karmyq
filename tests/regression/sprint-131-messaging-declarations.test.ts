@@ -7,31 +7,26 @@
  *
  * It imported express, cors, dotenv, jsonwebtoken and pg while declaring none of them, alive only
  * because root declares them and npm hoists. A root bump (D1: dotenv 17) would silently change or
- * de-hoist what messaging runs. The import list is DERIVED from src on every run, so a new
- * undeclared import fails here without anyone maintaining a list.
+ * de-hoist what messaging runs. The import list is DERIVED from tracked src on every run, so a new
+ * undeclared import fails here without anyone maintaining a list. The jest toolchain declarations
+ * are sprint-122-jest-toolchain-gate's job, not this file's.
  */
-import { readdirSync, readFileSync } from 'fs';
 import { builtinModules } from 'module';
-import { join } from 'path';
 import * as semver from 'semver';
 
-const ROOT = join(__dirname, '..', '..');
-const WS = 'services/messaging-service';
-const pkg = JSON.parse(readFileSync(join(ROOT, WS, 'package.json'), 'utf8'));
-const rootPkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
-const lock = JSON.parse(readFileSync(join(ROOT, 'package-lock.json'), 'utf8'));
+import { read, tracked } from './helpers/workspaces';
 
-function sourceFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
-    e.isDirectory() ? sourceFiles(join(dir, e.name)) : /\.tsx?$/.test(e.name) ? [join(dir, e.name)] : [],
-  );
-}
+const WS = 'services/messaging-service';
+const pkg = JSON.parse(read(`${WS}/package.json`));
+const rootPkg = JSON.parse(read('package.json'));
+const lock = JSON.parse(read('package-lock.json'));
+
+const SPECIFIER = /(?:\bfrom\s+|\bimport\s+|\brequire\(\s*|\bimport\(\s*)['"]([^'"]+)['"]/g;
 
 function importedPackages(): string[] {
   const names = new Set<string>();
-  const specifier = /(?:\bfrom\s+|\bimport\s+|\brequire\(\s*|\bimport\(\s*)['"]([^'"]+)['"]/g;
-  for (const file of sourceFiles(join(ROOT, WS, 'src'))) {
-    for (const [, spec] of readFileSync(file, 'utf8').matchAll(specifier)) {
+  for (const file of tracked(`${WS}/src/*.ts`, `${WS}/src/*.tsx`)) {
+    for (const [, spec] of read(file).matchAll(SPECIFIER)) {
       if (spec.startsWith('.') || spec.startsWith('node:')) continue;
       const name = spec.startsWith('@') ? spec.split('/').slice(0, 2).join('/') : spec.split('/')[0];
       if (!builtinModules.includes(name)) names.add(name);
@@ -40,26 +35,20 @@ function importedPackages(): string[] {
   return [...names].sort();
 }
 
+const imported = importedPackages();
+
 /** Resolved version as npm would find it from the workspace: nested first, then hoisted. */
 const resolved = (name: string): string | undefined =>
   lock.packages[`${WS}/node_modules/${name}`]?.version ?? lock.packages[`node_modules/${name}`]?.version;
 
 describe('services/messaging-service declares what it imports (Sprint 131 PR B)', () => {
   it('the import scan is not vacuous', () => {
-    expect(importedPackages()).toEqual(expect.arrayContaining(['@karmyq/shared', 'express', 'socket.io']));
+    expect(imported).toEqual(expect.arrayContaining(['@karmyq/shared', 'express', 'socket.io']));
   });
 
   it('every imported package is a production dependency', () => {
     // Production, not dev: the Dockerfile's runtime stage installs with --omit=dev.
-    const missing = importedPackages().filter((name) => !pkg.dependencies?.[name]);
-    expect(missing).toEqual([]);
-  });
-
-  it('a jest test script brings its own jest toolchain', () => {
-    const usesJest = Object.values<string>(pkg.scripts ?? {}).some((s) => /^jest\b/.test(s));
-    expect(usesJest).toBe(true);
-    const missing = ['jest', 'ts-jest', '@types/jest'].filter((name) => !pkg.devDependencies?.[name]);
-    expect(missing).toEqual([]);
+    expect(imported.filter((name) => !pkg.dependencies?.[name])).toEqual([]);
   });
 
   it('every declared range is satisfied by the version the lockfile resolves', () => {

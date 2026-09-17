@@ -37,11 +37,6 @@ const inputsOf = (taskId: string): string[] => {
   return Object.keys(task.inputs || {});
 };
 
-// messaging-service was exempted from the "hashes a test file" rule while it had no tests
-// (BUG-034). Sprint 131 PR B gave it a blocking suite, so the exemption is gone and this task id is
-// now asserted positively below.
-const MESSAGING_SERVICE_TEST_TASK = 'karmyq-messaging-service#test';
-
 describe('turbo test-task inputs are honest', () => {
   it('the three tasks that hashed exactly one file now hash their real sources', () => {
     // Regression floor: each of these hashed ONLY package.json on 2026-07-30.
@@ -71,12 +66,6 @@ describe('turbo test-task inputs are honest', () => {
       .map((t) => t.taskId);
 
     expect(blind).toEqual([]);
-  });
-
-  it('messaging-service hashes its own jest config and blocking suite (BUG-034)', () => {
-    expect(inputsOf(MESSAGING_SERVICE_TEST_TASK)).toEqual(
-      expect.arrayContaining(['jest.config.js', 'tests/regression/messageService.test.ts']),
-    );
   });
 
   it('a workspace jest config is part of its own test cache key', () => {
