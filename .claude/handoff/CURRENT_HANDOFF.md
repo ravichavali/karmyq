@@ -5,7 +5,7 @@
 **Outcome**: PR A **shipped v11.56.0** ([#249](https://github.com/ravichavali/karmyq/pull/249), `d35a3fad`). PR B **shipped v11.57.0** —
 [#250](https://github.com/ravichavali/karmyq/pull/250) merged as `d2edb286` (2026-09-17T13:00:59Z, admin merge on explicit
 maintainer authorization), deployed, health-verified and smoke-checked. Next is PR B2 (BUG-046) on
-`agent/claude/sprint-131-undeclared-imports`; its focused plan is written and awaits non-author review. PR C rollout approval deferred.
+`agent/claude/sprint-131-undeclared-imports`; its focused plan is reviewed and corrected; execution is next. PR C rollout approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
 session state, not reservations inferred from branch-local text.
@@ -32,7 +32,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 |---|---|---|
 | A | BUG-045 expected missing config + planning/archive | **Shipped** — #249 merged `d35a3fad`, v11.56.0, deployed + live-verified 2026-09-16 |
 | B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Shipped** — #250 merged `d2edb286`, v11.57.0, deployed + smoke-checked 2026-09-17 |
-| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Planned 2026-09-17** — [focused plan](../../docs/superpowers/plans/2026-09-17-sprint-131-pr-b2-undeclared-imports.md) committed on `agent/claude/sprint-131-undeclared-imports` (from `d2edb286`); scope widened to shared + test/tooling imports (see decisions). **Next: plan review (non-author), then execute in a fresh chat.** Dependency lane (Claude). Precedes D1 |
+| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Planned 2026-09-17** — [focused plan](../../docs/superpowers/plans/2026-09-17-sprint-131-pr-b2-undeclared-imports.md) committed on `agent/claude/sprint-131-undeclared-imports` (from `d2edb286`); scope widened to shared + test/tooling imports (see decisions). **Plan reviewed + corrected. Next: execute in a fresh chat from Task 1.** Dependency lane (Claude). Precedes D1 |
 | B3 | Expo SDK drift catch-up (#248): expo, expo-image-picker, expo-location, expo-notifications to Expo's live patch pins | **Scheduled (maintainer, 2026-09-17): small PR right after B2**, before D1. Surgical lock edit; prove with `npx expo install --check` + divergence gate green; closes #248 on the next scheduled green run. Re-run the check first — pins may have moved again |
 | D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B, **B2 and B3** |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
@@ -57,13 +57,13 @@ inventory against the then-current base. BUG-033 remains open until actually del
 2. Work on `agent/claude/sprint-131-undeclared-imports`, cut from deployed `origin/master` `d2edb286`.
    The PR A (#249) and PR B (#250) branches are merged; never commit on them.
 3. Read the linked spec, sprint plan and the **PR B2 focused plan**. PR A and PR B are complete — do not reopen them.
-4. The PR B2 plan needs a non-author review first. After review, start a fresh execution chat and invoke
+4. The PR B2 plan is reviewed and corrected. Start a fresh execution chat and invoke
    `superpowers:subagent-driven-development` (or `superpowers:executing-plans`) on it directly.
    There is no `/execute-plan` slash command. Tests precede behavior changes.
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
-**Start a fresh chat for B2** ("Let's do b2 on a new chat", maintainer, 2026-09-17). **Next unchecked task**: non-author review of the [PR B2 focused plan](../../docs/superpowers/plans/2026-09-17-sprint-131-pr-b2-undeclared-imports.md) (written 2026-09-17; importer sets re-measured with `ts.preProcessFile`, 95 runtime + 94 dev-scope violations; the literal Task 1 gate was run red 2 failed / 5 passed with those exact counts), then execute it in a fresh chat from Task 1 via `superpowers:subagent-driven-development` or `superpowers:executing-plans`. After B2 ships: B3 (Expo drift), then D1.
+**Start a fresh chat for B2** ("Let's do b2 on a new chat", maintainer, 2026-09-17). **Next unchecked task**: plan review DONE (approved with minor corrections, applied 2026-09-17) — execute the [PR B2 focused plan](../../docs/superpowers/plans/2026-09-17-sprint-131-pr-b2-undeclared-imports.md) (written 2026-09-17; importer sets re-measured with `ts.preProcessFile`, 95 runtime + 94 dev-scope violations; the literal Task 1 gate was run red 2 failed / 5 passed with those exact counts), then execute it in a fresh chat from Task 1 via `superpowers:subagent-driven-development` or `superpowers:executing-plans`. After B2 ships: B3 (Expo drift), then D1.
 Claude holds the dependency lane and executes B, including its messaging declarations and lockfile splice.
 
 ## Blockers and decisions
@@ -130,6 +130,18 @@ Claude holds the dependency lane and executes B, including its messaging declara
 - The handoff now names ownership, base, shared-resource allocation, next task and verification.
 
 ## Verification references
+
+PR B2 plan review, 2026-09-17 (non-author reviewer; no branch edits):
+
+- Verdict: **approve with minor corrections**. Independently verified root ranges and all 13 lock resolutions, shared's import
+  sites (publisher.ts:10, auth.ts:103, type-only `Pool` at dbContext.ts:2), `legacy-peer-deps`, discovery anchors, splice
+  arithmetic (42 + 7 declarations), subsumption of the messaging gate, base `d2edb286`. Did not re-run the red gate.
+- Applied (Claude, each re-measured first): (1) drift count: "eleven" is correct on the basis deps+devDeps vs root
+  deps+devDeps; twelve counting shared's `peerDependencies.express`. Basis now stated. (2) shared's tsconfig excludes
+  **three** `api/` files (`tsconfig.json:25-27`), two allowlisted; fixed in scope section, commit text and CONTEXT template.
+  (3) testing-guide section now says the range check covers every existing declaration. (4) `pg` peer covers the runtime
+  package only; `Pool` types come from `@types/pg`. Stated in scope section and shared CONTEXT template.
+- **Next:** execute the plan in a fresh chat from Task 1.
 
 PR B merge, deploy and smoke, 2026-09-17 (Claude; focused plan Task 7 Step 7):
 

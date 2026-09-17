@@ -48,9 +48,13 @@ every tracked `.ts/.tsx/.js/.jsx/.mjs/.cjs` file in all 15 workspaces:
    at :10) and `pg` (`middleware/dbContext.ts:2`, used **only as a type**: `pool: Pool` at :22/:64/:83/:107/:125).
    `jsonwebtoken`/`bull` → `dependencies`; `pg` → `peerDependencies`. The consumer constructs and passes the
    `Pool`, which is the same contract as shared's Express peer (`packages/shared/CONTEXT.md` "Express 5 peer
-   contract"). `api/client.ts` (axios) and `api/mobile-storage.ts` (`@react-native-async-storage/async-storage`,
-   **no lock node at all**) are excluded from shared's build (`packages/shared/tsconfig.json` `exclude`;
-   ADR-028; `apps/frontend/Dockerfile:25-27` deletes them). They are the gate's **only** allowlist entries.
+   contract"). The peer guarantees the **runtime** package at consumers only; `Pool`'s **types** come from
+   `@types/pg` (shared `devDependencies`, hoisted), so never cite the peer as what makes shared's types resolve.
+   Shared's build excludes **three** `api/` files (`packages/shared/tsconfig.json:25-27`; ADR-028;
+   `apps/frontend/Dockerfile:25-27` deletes them). Two import undeclared packages and are the gate's **only**
+   allowlist entries: `api/client.ts` (axios) and `api/mobile-storage.ts` (`@react-native-async-storage/async-storage`,
+   **no lock node at all**). `api/web-storage.ts` imports only a relative file, so it needs no entry; a future package
+   import there would turn the gate red, which is correct.
 3. **Test/tooling scope gated and fixed now** ("Gate it and fix all now"): notification, reputation and
    social-graph tests; frontend TDD tests; the `tests` workspace.
 
@@ -547,8 +551,10 @@ Run the Task 1 Step 3 command. Expected: exit 0, **7 passed**.
 
 Everything `sprint-131-messaging-declarations.test.ts` asserted is now covered repo-wide. Its import scan,
 production-scope check, range satisfaction and lock mirror all carry over. Its "shares root ranges exactly" check is deliberately
-**not** carried over: eleven existing declarations (measured 2026-09-17, e.g. `simulation dotenv ^16.3.0`,
-`geocoding express-rate-limit ^7.0.0` nested, `shared zod ^3.22.4` nested) differ from root, several on purpose, and the range-satisfaction check already fails whenever a root bump leaves a
+**not** carried over: eleven existing declarations differ from root (measured 2026-09-17, basis: every workspace's
+`dependencies` + `devDependencies` against root `dependencies` + `devDependencies`; counting shared's
+`peerDependencies.express ^5.0.0` too makes it twelve), e.g. `simulation dotenv ^16.3.0`,
+`geocoding express-rate-limit ^7.0.0` nested, `shared zod ^3.22.4` nested, several on purpose; and the range-satisfaction check already fails whenever a root bump leaves a
 workspace range behind, which is the protection that matters. Record that reasoning in the commit.
 
 ```bash
@@ -581,8 +587,9 @@ fix(deps): declare shared, frontend and tests imports; retire messaging gate (BU
 packages/shared: bull and jsonwebtoken (runtime value imports) as dependencies;
 pg as a peerDependency, because middleware/dbContext uses Pool only as a
 parameter type and the consumer constructs it (same contract as Express).
-api/client.ts and api/mobile-storage.ts stay allowlisted: excluded from the
-build by tsconfig (ADR-028).
+api/client.ts and api/mobile-storage.ts stay allowlisted: two of the three
+api/ files tsconfig excludes from the build (ADR-028); web-storage.ts imports
+no package.
 apps/frontend: @jest/globals (tdd tests). tests: @karmyq/shared, axios,
 jest-cli. Lock changes only in those three workspace nodes; strict
 npm@11.19.0 ci exit 0 without rewriting it; npm ls errors unchanged (BUG-047).
@@ -632,11 +639,12 @@ Add a section after "Express 5 peer contract":
 `bull` (`events/publisher.ts`) and `jsonwebtoken` (`middleware/auth.ts`) are now `dependencies` at root's ranges.
 **`pg` is a `peerDependency` (`^8.23.0`)**: `middleware/dbContext.ts` uses `Pool` only as a parameter type, and the
 consuming service constructs the pool. This is the same single-provider contract as Express above. As with Express,
-`apps/frontend` doesn't provide it, and `.npmrc` `legacy-peer-deps=true` silences that.
+`apps/frontend` doesn't provide it, and `.npmrc` `legacy-peer-deps=true` silences that. The peer covers the runtime
+package only: the `Pool` type resolves from `@types/pg` (this package's `devDependencies`).
 
-`api/client.ts` (axios) and `api/mobile-storage.ts` (`@react-native-async-storage/async-storage`) still import
-undeclared packages. They are excluded from this package's build (`tsconfig.json` `exclude`, ADR-028), so they are
-the only allowlist entries in `tests/regression/sprint-131-workspace-declarations.test.ts`. That gate fails if they
+This package's build excludes three `api/` files (`tsconfig.json` `exclude`, ADR-028). Two of them, `api/client.ts`
+(axios) and `api/mobile-storage.ts` (`@react-native-async-storage/async-storage`), still import undeclared packages, so
+they are the only allowlist entries in `tests/regression/sprint-131-workspace-declarations.test.ts`. That gate fails if they
 stop being violations, so delete an entry when its file is fixed or removed.
 ```
 
@@ -673,6 +681,9 @@ undeclared import work locally until a root bump de-hoists or changes it.
   by the version `package-lock.json` resolves, so bumping a root major means bumping every workspace that declares it.
 - After editing a manifest, splice the same field into that workspace's `package-lock.json` node and prove it with
   `npx -y npm@11.19.0 ci` (see CLAUDE.md "Workspace dependencies"). The gate checks that the two mirror each other.
+- The range check covers **every** existing declaration in every workspace, not just the ones your diff adds. If it goes
+  red on a change that doesn't touch that manifest, your change moved a resolved version in `package-lock.json` and
+  stranded someone else's range. Fix that range in the same PR; the gate is not reporting a regression in your own code.
 - Path aliases come from `tsconfig.json` `paths`. Only a file that is really never built belongs on the gate's allowlist.
 ```
 
