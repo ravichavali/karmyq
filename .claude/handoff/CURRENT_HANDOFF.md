@@ -1,11 +1,11 @@
 # Sprint 131 — Maintenance Backlog — Handoff
 
-**Date**: 2026-09-16
+**Date**: 2026-09-17
 
 **Outcome**: PR A **shipped v11.56.0** ([#249](https://github.com/ravichavali/karmyq/pull/249), `d35a3fad`). PR B **shipped v11.57.0** —
 [#250](https://github.com/ravichavali/karmyq/pull/250) merged as `d2edb286` (2026-09-17T13:00:59Z, admin merge on explicit
 maintainer authorization), deployed, health-verified and smoke-checked. Next is PR B2 (BUG-046) on
-`agent/claude/sprint-131-undeclared-imports`; it needs its focused plan first. PR C rollout approval deferred.
+`agent/claude/sprint-131-undeclared-imports`; its focused plan is written and awaits non-author review. PR C rollout approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
 session state, not reservations inferred from branch-local text.
@@ -32,7 +32,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 |---|---|---|
 | A | BUG-045 expected missing config + planning/archive | **Shipped** — #249 merged `d35a3fad`, v11.56.0, deployed + live-verified 2026-09-16 |
 | B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Shipped** — #250 merged `d2edb286`, v11.57.0, deployed + smoke-checked 2026-09-17 |
-| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Next.** Branch `agent/claude/sprint-131-undeclared-imports` cut from `d2edb286`. Needs its focused plan (writing-plans) before code; dependency lane (Claude). Precedes D1. **Execute in a fresh chat** (maintainer, 2026-09-17) |
+| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Planned 2026-09-17** — [focused plan](../../docs/superpowers/plans/2026-09-17-sprint-131-pr-b2-undeclared-imports.md) committed on `agent/claude/sprint-131-undeclared-imports` (from `d2edb286`); scope widened to shared + test/tooling imports (see decisions). **Next: plan review (non-author), then execute in a fresh chat.** Dependency lane (Claude). Precedes D1 |
 | B3 | Expo SDK drift catch-up (#248): expo, expo-image-picker, expo-location, expo-notifications to Expo's live patch pins | **Scheduled (maintainer, 2026-09-17): small PR right after B2**, before D1. Surgical lock edit; prove with `npx expo install --check` + divergence gate green; closes #248 on the next scheduled green run. Re-run the check first — pins may have moved again |
 | D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B, **B2 and B3** |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
@@ -44,6 +44,7 @@ inventory against the then-current base. BUG-033 remains open until actually del
 
 - **Spec**: [Sprint 131 design](../../docs/superpowers/specs/2026-09-15-sprint-131-maintenance-design.md)
 - **Plan**: [Sprint 131 implementation](../../docs/superpowers/plans/2026-09-15-sprint-131-maintenance.md)
+- **PR B2 focused plan**: [Every workspace declares what it imports (BUG-046)](../../docs/superpowers/plans/2026-09-17-sprint-131-pr-b2-undeclared-imports.md)
 - **PR B focused plan**: [Messaging coverage + Docker readiness (BUG-034, BUG-036)](../../docs/superpowers/plans/2026-09-16-sprint-131-pr-b-test-readiness.md)
 - **PR A focused plan**: [Expected missing community config (BUG-045)](../../docs/superpowers/plans/2026-09-15-sprint-131-pr-a-community-config.md)
 - **Sprint 131 PR A**: [#249](https://github.com/ravichavali/karmyq/pull/249) (merged `d35a3fad` 2026-09-16; [CI/CD run 35134858026](https://github.com/ravichavali/karmyq/actions/runs/35134858026)).
@@ -53,16 +54,16 @@ inventory against the then-current base. BUG-033 remains open until actually del
 
 1. Confirm current branch, clean handoff and live state with `git status --short`, `gh pr list`
    and `git log --oneline origin/master -3`.
-2. Work on `agent/codex/sprint-131-test-readiness`, cut from deployed `origin/master` `d35a3fad`.
-   `agent/codex/sprint-131-maintenance` is merged (#249); never commit on it.
-3. Read the linked spec, sprint plan and the **PR B focused plan**. PR A is complete — do not reopen it.
-4. The PR B plan is reviewed and corrected. Start a fresh execution chat and invoke
+2. Work on `agent/claude/sprint-131-undeclared-imports`, cut from deployed `origin/master` `d2edb286`.
+   The PR A (#249) and PR B (#250) branches are merged; never commit on them.
+3. Read the linked spec, sprint plan and the **PR B2 focused plan**. PR A and PR B are complete — do not reopen them.
+4. The PR B2 plan needs a non-author review first. After review, start a fresh execution chat and invoke
    `superpowers:subagent-driven-development` (or `superpowers:executing-plans`) on it directly.
    There is no `/execute-plan` slash command. Tests precede behavior changes.
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
-**Start a fresh chat for B2** ("Let's do b2 on a new chat", maintainer, 2026-09-17). **Next unchecked task**: write the PR B2 focused plan (BUG-046: declare every imported package in the 8 affected services; generalize `tests/regression/sprint-131-messaging-declarations.test.ts` to all workspaces), get it reviewed, then execute. Re-measure the importer/declarer sets from source first — BUGS.md's list is a hypothesis. After B2 ships: B3 (Expo drift), then D1.
+**Start a fresh chat for B2** ("Let's do b2 on a new chat", maintainer, 2026-09-17). **Next unchecked task**: non-author review of the [PR B2 focused plan](../../docs/superpowers/plans/2026-09-17-sprint-131-pr-b2-undeclared-imports.md) (written 2026-09-17; importer sets re-measured with `ts.preProcessFile`, 95 runtime + 94 dev-scope violations; the literal Task 1 gate was run red 2 failed / 5 passed with those exact counts), then execute it in a fresh chat from Task 1 via `superpowers:subagent-driven-development` or `superpowers:executing-plans`. After B2 ships: B3 (Expo drift), then D1.
 Claude holds the dependency lane and executes B, including its messaging declarations and lockfile splice.
 
 ## Blockers and decisions
@@ -87,6 +88,12 @@ Claude holds the dependency lane and executes B, including its messaging declara
   It covers both `test.yml` Test Docker Build and `ci.yml` Integration Tests (the same `sleep 30` race). Proof comes
   from the PR's own CI runs, not local tests (no Docker on this box). Healthcheck interval is 30s because the base
   compose also runs on the demo host (disk 88% full).
+- **B2 scope widened (maintainer, 2026-09-17, planning chat):** re-measured with `ts.preProcessFile` over every
+  tracked JS/TS file (64 gaps; BUGS.md's 8-service table confirmed exactly). Two questions answered:
+  (1) "Include in B2" — `packages/shared` compiled runtime also declares `jsonwebtoken`/`bull` (deps) and `pg`
+  (peer: type-only `Pool`, same contract as Express); its build-excluded `api/` files (ADR-028) are the only
+  allowlist entries. (2) "Gate it and fix all now" — test/tooling imports must be declared too (deps or
+  devDeps), and B2 fixes today's test-scope gaps (notification/reputation/social-graph, frontend, tests workspace).
 - **BUG-046 scheduled (maintainer, 2026-09-16):** 8 services also import undeclared packages. One dependency PR
   (B2) fixes all of them before D1; PR B stays messaging-only. **BUG-047** (pre-existing `npm ls` picomatch
   ELSPROBLEMS) logged for triage.
