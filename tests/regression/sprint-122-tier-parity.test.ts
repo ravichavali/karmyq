@@ -161,9 +161,8 @@ describe('tier coverage: npm test runs every blocking test on disk', () => {
     const invocations = jestInvocations(pkg);
 
     if (invocations.length === 0) {
-      // No jest invocation at all is acceptable ONLY with nothing to run.
-      // services/messaging-service is the sole such workspace (0 test files) —
-      // a real gap, logged in docs/BUGS.md, but not a cache-key or tier lie.
+      // No jest invocation at all is acceptable ONLY with nothing to run. services/messaging-service
+      // relied on this until Sprint 131 PR B (BUG-034); it is now pinned explicitly below.
       expect({ ws, uncovered: onDisk }).toEqual({ ws, uncovered: [] });
       return;
     }
@@ -172,6 +171,23 @@ describe('tier coverage: npm test runs every blocking test on disk', () => {
     const uncovered = onDisk.filter((f) => !seen.has(f));
 
     expect({ ws, uncovered }).toEqual({ ws, uncovered: [] });
+  }, 300_000);
+
+  it('services/messaging-service runs a non-empty, discovered blocking suite (BUG-034)', () => {
+    // The generic cases above accept a workspace with no test script as long as it has no test
+    // files. That allowance is right in general, and it is exactly how messaging-service sat at
+    // zero tests unnoticed. This pins the Critical service to having real blocking coverage.
+    const dir = join(ROOT, 'services', 'messaging-service');
+    const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+
+    const invocations = jestInvocations(pkg);
+    expect(invocations.length).toBeGreaterThan(0);
+
+    const regression = testFilesUnder(join(dir, 'tests', 'regression')).map(norm);
+    expect(regression.length).toBeGreaterThan(0);
+
+    const seen = new Set(invocations.flatMap((args) => listed(dir, args)).map(norm));
+    expect(regression.filter((f) => !seen.has(f))).toEqual([]);
   }, 300_000);
 
   it('no workspace that has test files silently runs none of them', () => {
@@ -194,8 +210,8 @@ describe('tier coverage: npm test runs every blocking test on disk', () => {
       })
       .map(({ ws }) => ws);
 
-    // messaging-service is absent from this list because it has zero test
-    // files — a real gap tracked in docs/BUGS.md, not a silent-run defect.
+    // A workspace with zero test files is not "silent" and is not listed here; see the explicit
+    // messaging-service case for how a Critical service is kept from sitting at zero.
     expect(silent).toEqual([]);
   }, 300_000);
 
