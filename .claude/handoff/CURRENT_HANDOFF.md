@@ -34,7 +34,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 |---|---|---|
 | A | BUG-045 expected missing config + planning/archive | **Shipped** — #249 merged `d35a3fad`, v11.56.0, deployed + live-verified 2026-09-16 |
 | B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Shipped** — #250 merged `d2edb286`, v11.57.0, deployed + smoke-checked 2026-09-17 |
-| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Open as [#251](https://github.com/ravichavali/karmyq/pull/251), green, awaiting merge authorization** — 11 commits on `agent/claude/sprint-131-undeclared-imports` (from `d2edb286`), v11.58.0. Gate 10/10; CI 20 pass / 1 skipping; four SDLC gates run; reviewed, no implementation blockers. **Next: maintainer merge authorization → deploy → smoke.** Dependency lane (Claude). Precedes D1 |
+| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Open as [#251](https://github.com/ravichavali/karmyq/pull/251), green, awaiting merge authorization** — 17 commits on `agent/claude/sprint-131-undeclared-imports` (from `d2edb286`), v11.58.0. Gate 10/10; CI 20 pass / 1 skipping; four SDLC gates run; reviewed, no implementation blockers. **Next: maintainer merge authorization → deploy → smoke.** Dependency lane (Claude). Precedes D1 |
 | B3 | Expo SDK drift catch-up (#248): expo, expo-image-picker, expo-location, expo-notifications to Expo's live patch pins | **Scheduled (maintainer, 2026-09-17): small PR right after B2**, before D1. Surgical lock edit; prove with `npx expo install --check` + divergence gate green; closes #248 on the next scheduled green run. Re-run the check first — pins may have moved again |
 | D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B, **B2 and B3** |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
@@ -158,7 +158,7 @@ flight, then `gh pr merge 251 --squash --admin`, watch the master run through De
 `POST https://karmyq.com/api/auth/login`, and update this handoff. After that: **B3** (Expo drift #248 — re-run
 `npx expo install --check` first), then **D1**.
 
-PR B2 execution, 2026-09-17 (Claude, `superpowers:executing-plans`; 9 commits, `0edd49ad`…`98c911b0`, base `d2edb286`):
+PR B2 execution, 2026-09-17 (Claude, `superpowers:executing-plans`; 8 commits, `0edd49ad`…`98c911b0`, base `d2edb286`):
 
 - **Gate red then green.** Red at the planned counts exactly: 2 failed / 6 passed, **95 runtime + 94 dev** violations, with
   `simulation-service: bcryptjs` correctly in the runtime list and no `@/` alias leaking. After the 8 services: **3 runtime / 14 dev**.
