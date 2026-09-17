@@ -587,8 +587,10 @@ Why each needs its own PR rather than a grouped bump:
 - **#244 `@eslint/js` 9 → 10** is dev-only but a flat-config major; expect lint-config breakage
   rather than runtime breakage, and verify the repo's eslint config shape against the new major.
 
-**#243 (bcryptjs + `@types/bcryptjs`) is still untriaged** — it is not a major and was not part of
-this decision. Triage it when Sprint 132 is scoped.
+**#243 (bcryptjs 2.4.3 → 3.0.3 + `@types/bcryptjs`) is also deferred to Sprint 132.** Maintainer
+decision, 2026-09-17, to preserve Sprint 131's approved scope. (An earlier line here called it "not a
+major"; it is one.) bcryptjs hashes passwords in auth, so give it its own PR with a test proving
+hashes created under 2.x still verify under 3.x.
 
 Refresh every proposal number against `gh pr list` before acting: Dependabot closes and reopens
 these as new versions publish, which is exactly how #227/#229 became #247/#246.

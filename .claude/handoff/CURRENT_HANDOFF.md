@@ -2,10 +2,10 @@
 
 **Date**: 2026-09-16
 
-**Outcome**: PR A **shipped v11.56.0** — [#249](https://github.com/ravichavali/karmyq/pull/249) merged
-as `d35a3fad` (2026-09-16T18:30:39Z), deployed and health-verified, live check passed. Codex reviewed
-it with no actionable issues. PR B (v11.57.0) is implemented, gated and verified on
-`agent/codex/sprint-131-test-readiness` and open as [#250](https://github.com/ravichavali/karmyq/pull/250), all checks green; awaiting maintainer merge authorization. PR C rollout approval deferred.
+**Outcome**: PR A **shipped v11.56.0** ([#249](https://github.com/ravichavali/karmyq/pull/249), `d35a3fad`). PR B **shipped v11.57.0** —
+[#250](https://github.com/ravichavali/karmyq/pull/250) merged as `d2edb286` (2026-09-17T13:00:59Z, admin merge on explicit
+maintainer authorization), deployed, health-verified and smoke-checked. Next is PR B2 (BUG-046) on
+`agent/claude/sprint-131-undeclared-imports`; it needs its focused plan first. PR C rollout approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
 session state, not reservations inferred from branch-local text.
@@ -14,8 +14,8 @@ session state, not reservations inferred from branch-local text.
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/codex/sprint-131-test-readiness` (PR B). PR A's `agent/codex/sprint-131-maintenance` is merged — do not commit on it |
-| **Base** | `origin/master` at `d35a3fadd0912ab0ef076eb16c6fd1f23df80acd` (PR A merge), fetched 2026-09-16; v11.56.0 |
+| **Branch** | `agent/claude/sprint-131-undeclared-imports` (PR B2). PR A (#249) and PR B (#250) branches are merged — do not commit on them |
+| **Base** | `origin/master` at `d2edb28635779daf9c22ebfc03636b7c5bcd2235` (PR B merge), fetched 2026-09-17; v11.57.0 |
 | **Active editor** | Claude executed PR A (2026-09-16); planning was authored by Codex under maintainer transfer |
 | **Reviewer role** | A non-author reviews the completed diff; reviewers do not co-edit |
 | **Owned paths now** | Sprint 131 spec/plan, CURRENT_HANDOFF, preserved Sprint 130 archive |
@@ -31,8 +31,8 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 | PR | Scope | State / next action |
 |---|---|---|
 | A | BUG-045 expected missing config + planning/archive | **Shipped** — #249 merged `d35a3fad`, v11.56.0, deployed + live-verified 2026-09-16 |
-| B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Open, green: [#250](https://github.com/ravichavali/karmyq/pull/250)** (v11.57.0). CI logs verified. Waiting on maintainer merge authorization, then deploy + smoke (Task 7 Step 7). B must precede D1 |
-| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **New (maintainer, 2026-09-16).** One dependency PR after B, **before D1**. Needs its own focused plan; dependency lane (Claude) |
+| B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Shipped** — #250 merged `d2edb286`, v11.57.0, deployed + smoke-checked 2026-09-17 |
+| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Next.** Branch `agent/claude/sprint-131-undeclared-imports` cut from `d2edb286`. Needs its focused plan (writing-plans) before code; dependency lane (Claude). Precedes D1 |
 | D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B **and B2** |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
@@ -61,7 +61,7 @@ inventory against the then-current base. BUG-033 remains open until actually del
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
-**Next unchecked task**: PR B Task 7 Step 7 — **after the maintainer authorizes and merges #250**: watch Deploy to Demo through health verification (no rollback), then smoke `GET /api/conversations` → 200 as maria.reyes; record it on the B2 branch (no docs-only master push). Then plan B2 (BUG-046).
+**Next unchecked task**: write the PR B2 focused plan (BUG-046: declare every imported package in the 8 affected services; generalize `tests/regression/sprint-131-messaging-declarations.test.ts` to all workspaces), get it reviewed, then execute. Re-measure the importer/declarer sets from source first — BUGS.md's list is a hypothesis.
 Claude holds the dependency lane and executes B, including its messaging declarations and lockfile splice.
 
 ## Blockers and decisions
@@ -93,10 +93,15 @@ Claude holds the dependency lane and executes B, including its messaging declara
   pushed branch `lane/lanes-provenance` (`.claude/handoff/lane-lanes-provenance.md`). The execute stage is available.
 - **Dependabot majors not rolled into B (maintainer, 2026-09-16):** asked whether the ~10 open Dependabot PRs
   should join PR B; answered no — all are majors, 0 open Dependabot security alerts; one major per PR after B and B2.
-  #243 (bcryptjs 2→3, auth password hashing) is **still untriaged** — maintainer to choose D8 vs Sprint 132.
+  #243 (bcryptjs 2→3, auth password hashing) **deferred to Sprint 132** ("Let's defer #243 to sprint 132", maintainer, 2026-09-17).
+- **Expo SDK drift (observed 2026-09-17, not scheduled):** the daily `expo-sdk-drift.yml` run is red and issue #248 is open.
+  Cause is patch lag only: expo 57.0.22→~57.0.23, expo-image-picker/expo-location 57.0.17→~57.0.18,
+  expo-notifications 57.0.18→~57.0.19 (jest/@types/jest 30 are registered divergences). 0 open Dependabot alerts;
+  changelogs not read, so "no security content" is UNVERIFIED. Claude suggested a small separate dependency PR after B2;
+  **awaiting maintainer decision**.
 - **New proposals triaged (2026-09-16):** #244 (`@eslint/js` 9→10) and #245 (ioredis 5→6) are
   **deferred to Sprint 132** by maintainer decision — they are majors that appeared after Sprint 131's
-  scope was approved. #243 (bcryptjs) remains untriaged. Recorded in `docs/IDEAS.md` [2026-09-16] so
+  scope was approved. #243 (bcryptjs, a major) joined them on 2026-09-17. Recorded in `docs/IDEAS.md` [2026-09-16] so
   the decision outlives this handoff's archival. Sprint 131's D-series is unchanged: #224, #225, #226,
   #228, #230, plus #247/#246 which superseded the closed #227/#229.
 - **No rollout or merge authorization is implied by planning ownership.**
@@ -117,6 +122,17 @@ Claude holds the dependency lane and executes B, including its messaging declara
 - The handoff now names ownership, base, shared-resource allocation, next task and verification.
 
 ## Verification references
+
+PR B merge, deploy and smoke, 2026-09-17 (Claude; focused plan Task 7 Step 7):
+
+- Before merge: no master run in flight, `origin/master` `d35a3fad`, #250 the only open non-Dependabot PR; checks 20 pass /
+  1 skipping on head `7cbad640`. Maintainer: "I authorize merge". `gh pr merge 250 --squash --admin` → MERGED `d2edb286`.
+- [CI/CD run 35224474048](https://github.com/ravichavali/karmyq/actions/runs/35224474048): conclusion **success**, every job
+  success including Code Scanning Gate and **Deploy to Demo** ("All critical services healthy", `DEPLOYMENT SUCCESSFUL`,
+  no rollback); post-deploy health step: all 9 services healthy.
+- Smoke (Node fetch, Windows): `POST https://karmyq.com/api/auth/login` as maria.reyes → 200; `GET /api/conversations`
+  with that token → **200, success true**, 0 conversations (route/auth path proven; no conversation data exercised).
+  No demo data read or modified beyond the member's own session.
 
 PR B Task 7 gates and close-out, 2026-09-16 (Claude, executing-plans):
 
