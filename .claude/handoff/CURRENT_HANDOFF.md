@@ -6,7 +6,8 @@
 [#250](https://github.com/ravichavali/karmyq/pull/250) merged as `d2edb286` (2026-09-17T13:00:59Z, admin merge on explicit
 maintainer authorization), deployed, health-verified and smoke-checked. **PR B2 (BUG-046) is implemented and green on
 `agent/claude/sprint-131-undeclared-imports`** — all five plan tasks done, all four SDLC gates run, version bumped to
-11.58.0. Next action: push the branch and open the PR, then CI evidence → merge authorization → B3. PR C rollout approval deferred.
+11.58.0, and open as [#251](https://github.com/ravichavali/karmyq/pull/251) — **20 checks pass / 1 skipping, reviewed with no
+implementation blockers, awaiting maintainer merge authorization.** Next action: merge #251, deploy, smoke, then B3. PR C rollout approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
 session state, not reservations inferred from branch-local text.
@@ -33,7 +34,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 |---|---|---|
 | A | BUG-045 expected missing config + planning/archive | **Shipped** — #249 merged `d35a3fad`, v11.56.0, deployed + live-verified 2026-09-16 |
 | B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Shipped** — #250 merged `d2edb286`, v11.57.0, deployed + smoke-checked 2026-09-17 |
-| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Implemented 2026-09-17, green, not yet pushed** — 9 commits on `agent/claude/sprint-131-undeclared-imports` (from `d2edb286`), v11.58.0. Gate 10/10; full suite 27/27; four gates run. **Next: push + open PR.** Dependency lane (Claude). Precedes D1 |
+| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Open as [#251](https://github.com/ravichavali/karmyq/pull/251), green, awaiting merge authorization** — 11 commits on `agent/claude/sprint-131-undeclared-imports` (from `d2edb286`), v11.58.0. Gate 10/10; CI 20 pass / 1 skipping; four SDLC gates run; reviewed, no implementation blockers. **Next: maintainer merge authorization → deploy → smoke.** Dependency lane (Claude). Precedes D1 |
 | B3 | Expo SDK drift catch-up (#248): expo, expo-image-picker, expo-location, expo-notifications to Expo's live patch pins | **Scheduled (maintainer, 2026-09-17): small PR right after B2**, before D1. Surgical lock edit; prove with `npx expo install --check` + divergence gate green; closes #248 on the next scheduled green run. Re-run the check first — pins may have moved again |
 | D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B, **B2 and B3** |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
@@ -58,16 +59,18 @@ inventory against the then-current base. BUG-033 remains open until actually del
 2. Work on `agent/claude/sprint-131-undeclared-imports`, cut from deployed `origin/master` `d2edb286`.
    The PR A (#249) and PR B (#250) branches are merged; never commit on them.
 3. Read the linked spec, sprint plan and the **PR B2 focused plan**. PR A and PR B are complete — do not reopen them.
-4. The PR B2 plan is reviewed and corrected. Start a fresh execution chat and invoke
-   `superpowers:subagent-driven-development` (or `superpowers:executing-plans`) on it directly.
-   There is no `/execute-plan` slash command. Tests precede behavior changes.
+4. **B2 is built and open as [#251](https://github.com/ravichavali/karmyq/pull/251) — do not re-execute its plan.**
+   The remaining work on it is merge authorization, deploy and smoke (see *Next action* below).
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
-**B2 execution is COMPLETE** (2026-09-17, `superpowers:executing-plans`). All five tasks of the
-[PR B2 focused plan](../../docs/superpowers/plans/2026-09-17-sprint-131-pr-b2-undeclared-imports.md) are done and the branch is green.
-**Next unchecked action: push `agent/claude/sprint-131-undeclared-imports` and open the PR**, then gather CI evidence from job
-logs, ask for merge authorization, and after it ships do B3 (Expo drift — re-run `npx expo install --check` first), then D1.
+**B2 execution is COMPLETE and [#251](https://github.com/ravichavali/karmyq/pull/251) is open and green** (2026-09-17,
+`superpowers:executing-plans`). All five tasks of the
+[PR B2 focused plan](../../docs/superpowers/plans/2026-09-17-sprint-131-pr-b2-undeclared-imports.md) are done, CI is 20 pass /
+1 skipping, and review returned two documentation findings (both applied) and no implementation blockers.
+**Next unchecked action: ask the maintainer for merge authorization on #251**, then `gh pr merge 251 --squash --admin`, watch the
+master run through Deploy to Demo, smoke `POST https://karmyq.com/api/auth/login`, update this handoff — and after it ships do
+B3 (Expo drift — re-run `npx expo install --check` first), then D1.
 Claude holds the dependency lane. (The gate uses a TypeScript **AST walk**, not `ts.preProcessFile` — an earlier line here
 misattributed it; `preProcessFile` was rejected in plan review round 2 because it misses `require()` in a template interpolation.)
 

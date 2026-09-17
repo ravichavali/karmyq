@@ -154,7 +154,13 @@ workspace and fails when a file imports a package its own `package.json` doesn't
 undeclared import work locally until a root bump de-hoists or changes it.
 
 - **Shipping code** (anything not in `tests/`, `e2e/`, `__tests__/`, `__mocks__/`, a `*.test.*`/`*.spec.*` file, or a
-  jest/eslint/playwright config) must use `dependencies` or `peerDependencies`. Images install with `--omit=dev`.
+  jest/eslint/playwright/next/postcss/tailwind/babel/metro/ecosystem config) must use **`dependencies`**. Images install
+  with `--omit=dev`.
+- **`peerDependencies` counts as shipping-scope only for a library under `packages/`.** `.npmrc` sets
+  `legacy-peer-deps=true`, so npm installs no peer — the consumer provides it. That is a real contract for a package
+  others depend on (`@karmyq/shared`'s `express` and `pg`), but a service or app is a leaf that ships its own image and
+  has nothing downstream to provide anything, so a peer there would satisfy the gate while the import still resolved
+  through root hoisting — which is BUG-046 itself. The gate rejects it.
 - **Tests and tooling** may use `devDependencies`.
 - Use root's exact range when root declares the package. The gate fails when a declared range isn't satisfied by the
   version `package-lock.json` resolves for that workspace, **and separately** when root's *hoisted* version no longer
