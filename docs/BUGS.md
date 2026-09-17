@@ -557,7 +557,7 @@ change. Found while fixing the `APPS_DIR` walk, which is what made the gap reach
 
 ---
 
-## BUG-034 · [2026-07-30] · open
+## BUG-034 · [2026-07-30] · fixed (Sprint 131 PR B, pending deploy)
 
 `services/messaging-service` has zero test coverage. A **Critical** service (port 3006, Socket.io
 presence/pubsub) with **zero** test files and **no `test` script** in its `package.json`. Its
@@ -565,6 +565,26 @@ presence/pubsub) with **zero** test files and **no `test` script** in its `packa
 `tests/regression/sprint-122-tier-parity.test.ts` can bite on it, and a "every Critical service
 has tests" gate cannot be added while it would land red. Found Sprint 122 PR 1, confirmed PR 2.
 Related: [ADR-088](adr/ADR-088-test-tier-truthfulness.md).
+
+**Fixed (Sprint 131 PR B).** `services/messaging-service` now has a local `jest.config.js`, tiered
+`test` scripts (blocking `test:regression` has no `--passWithNoTests`) and
+`tests/regression/messageService.test.ts`: 6 tests against the real `getMessages`/`sendMessage`
+with only the database module mocked, each authorization/ordering guard proven by a reverted
+mutation. The Jest toolchain (`jest`, `ts-jest`, `@types/jest`) is now declared by the workspace.
+Sprint 122's zero-test exemptions were replaced by positive assertions (`sprint-122-turbo-test-inputs`,
+`sprint-122-tier-parity`), and messaging joined the `sprint-122-jest-toolchain-gate` rosters. Messaging's
+`tsconfig.json` `types` gained `"jest"`, matching the other services (ts-jest failed with TS2304 without it).
+
+**Shipped alongside, not part of this report:** the same PR declares the five runtime packages
+messaging imported without declaring (`cors`, `dotenv`, `express`, `jsonwebtoken`, `pg`, at root's
+exact ranges, so nothing upgraded). That is the "declare what you import" class previously fixed
+here for `@karmyq/shared` and `redis` (messaging `CONTEXT.md`, Sprint 122 sections), scoped into PR B
+by the Sprint 131 spec. `tests/regression/sprint-131-messaging-declarations.test.ts` fails on any new
+undeclared import.
+
+**Not covered:** `getOrCreateConversation`, `getUserConversations`, `getConversation`,
+`markMessagesAsRead`, the REST routes, the Socket.IO handler and Redis pub/sub. A live message
+round-trip is still a manual post-deploy check.
 
 ---
 
@@ -612,7 +632,7 @@ remain separate policies.
 
 ---
 
-## BUG-036 · [2026-08-13] · open
+## BUG-036 · [2026-08-13] · fixed (Sprint 131 PR B, pending deploy)
 
 **CI "Test Docker Build" health check races service startup.**
 
@@ -632,6 +652,14 @@ failure cannot have been caused by the change under test. Passed on re-run with 
 The step is a fixed-duration guess rather than a readiness wait, so it fails whenever the runner is
 slow or the image cache is cold. Fix: replace the fixed sleep with a retry/until loop against
 `/health` (and ideally add compose healthchecks plus `docker compose up -d --wait`).
+
+**Fixed (Sprint 131 PR B).** `Test Docker Build` now runs `scripts/wait-for-http.js` after `up -d`:
+up to 30 attempts, 5 s per-request timeout, 5 s between attempts (worst case ≈ 5 min), and both
+`127.0.0.1:3001/health` and `127.0.0.1:3000` must succeed in the same attempt; compose logs still
+print on failure. `tests/regression/sprint-131-wait-for-http.test.ts` proves retry, same-attempt,
+per-request timeout, exhaustion and usage against real scripted servers;
+`sprint-131-ci-readiness-workflow.test.ts` pins the wiring. Compose healthchecks /
+`up --wait` were not added (optional in the original report).
 
 ---
 

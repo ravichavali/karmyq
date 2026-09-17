@@ -104,6 +104,19 @@ Prefer running the workspace directly when you're debugging a specific failure â
 Turbo's cross-workspace cache masking a stale pass for a test that reads across workspace
 boundaries (see the flake note below).
 
+## Backend mocks are reset before every test
+
+Root `jest.config.js` sets `clearMocks`, `resetMocks` and `restoreMocks`. The service configs that
+extend it (cleanup, messaging, notification, reputation, request, simulation) inherit all three; auth,
+community and social-graph use standalone configs that reset nothing. Where inherited, `resetMocks` strips the implementation from **every** mock before each test, including a
+`jest.fn(impl)` created in a `jest.mock` factory or at module scope. So a module-scope
+`mockResolvedValue` silently becomes `undefined` from the second test onward. Install behavior in
+`beforeEach` or inside the test (`services/messaging-service/tests/regression/messageService.test.ts`
+is a small example).
+
+`apps/frontend` does **not** inherit this: its `next/jest` config clears nothing, so call counts
+accumulate across tests unless a test resets them.
+
 ## How a `tdd/` test graduates
 
 `scripts/promote-tdd-tests.js` runs every test file under each workspace's `tests/tdd/` (and, as

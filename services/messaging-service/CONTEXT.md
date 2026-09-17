@@ -281,7 +281,7 @@ shape differs from the shared `JWTPayload` (`communities` is optional with a wid
 Consolidating them would change type semantics, which does not belong in a dependency PR.
 
 ⚠️ **This service contains zero test files** ("14 files checked, 0 matches") and declares no `test`
-scripts, so `tsc` (0 errors) is the only local signal for the Express 5 move here.
+scripts, so `tsc` (0 errors) is the only local signal for the Express 5 move here. *(Superseded by Sprint 131 PR B, below.)*
 
 Express **4.18.2 → 5.2.1**, supplied by the root `package.json` **production** dependency
 (the Dockerfiles copy the root manifest and `npm install --omit=dev`). **No endpoint, payload,
@@ -350,4 +350,25 @@ to `redis/dist/index.d.ts@6.2.0` and proven non-vacuous by injecting a deliberat
 ⚠️ **This service still contains zero test files** (BUG-034). It now at least has a `type-check`
 script wired into CI's blocking `Lint & Type Check` step — before this PR, **nothing in CI could
 have failed on a redis regression here.** A live message round-trip remains a manual post-deploy
-check; `/health` alone does not exercise Redis.
+check; `/health` alone does not exercise Redis. *(Superseded by Sprint 131 PR B, below.)*
+
+## Sprint 131 PR B — first tests, declared imports (2026-09-16)
+
+**Tests.** `npm test` = `test:unit && test:regression` via `jest.config.js` (extends root; four-tier
+`testMatch`; `setupFilesAfterEnv: []`). `tests/regression/messageService.test.ts` covers
+`getMessages` (participant denial before any message query; DESC page reversed to chronological;
+`[conversationId, limit, offset]`, default 50/0) and `sendMessage` (denial without insert; check →
+insert `'sent'` → `last_message_at` update → sender lookup; DB failure logged and rethrown). Only
+`src/database/db` is mocked. `tsconfig.json` `types` now includes `"jest"` (as in the other services) so
+ts-jest can compile the suite; `include` is still `src/**/*`, so nothing test-related reaches `dist/`. Root Jest `resetMocks`/`restoreMocks` wipe mocks before every test,
+so install behavior in `beforeEach` or the test.
+
+**Untested:** the other four service functions, routes, `socket/messageHandler.ts`, Redis.
+
+**Declarations.** Now declares `cors`, `dotenv`, `express`, `jsonwebtoken`, `pg` (root's exact ranges;
+resolved versions unchanged) and `jest`/`ts-jest`/`@types/jest`.
+`tests/regression/sprint-131-messaging-declarations.test.ts` fails on any undeclared import. Root
+still declares these too, so a root-level major bump (e.g. dotenv 17) must bump this manifest in the
+same PR.
+
+No endpoint, payload, event or schema change.
