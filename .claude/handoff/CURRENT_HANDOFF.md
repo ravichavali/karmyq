@@ -5,7 +5,7 @@
 **Outcome**: PR A **shipped v11.56.0** — [#249](https://github.com/ravichavali/karmyq/pull/249) merged
 as `d35a3fad` (2026-09-16T18:30:39Z), deployed and health-verified, live check passed. Codex reviewed
 it with no actionable issues. PR B (v11.57.0) is implemented, gated and verified on
-`agent/codex/sprint-131-test-readiness`; next is push + open PR, then maintainer merge authorization. PR C rollout approval deferred.
+`agent/codex/sprint-131-test-readiness` and open as [#250](https://github.com/ravichavali/karmyq/pull/250), all checks green; awaiting maintainer merge authorization. PR C rollout approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
 session state, not reservations inferred from branch-local text.
@@ -31,7 +31,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 | PR | Scope | State / next action |
 |---|---|---|
 | A | BUG-045 expected missing config + planning/archive | **Shipped** — #249 merged `d35a3fad`, v11.56.0, deployed + live-verified 2026-09-16 |
-| B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Ready to open.** Tasks 1–6, all three gates and the full suite done; version 11.57.0. Next: push, open PR, confirm CI logs (Task 7 Step 6), stop for merge authorization. B must precede D1 |
+| B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Open, green: [#250](https://github.com/ravichavali/karmyq/pull/250)** (v11.57.0). CI logs verified. Waiting on maintainer merge authorization, then deploy + smoke (Task 7 Step 7). B must precede D1 |
 | B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **New (maintainer, 2026-09-16).** One dependency PR after B, **before D1**. Needs its own focused plan; dependency lane (Claude) |
 | D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B **and B2** |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
@@ -61,7 +61,7 @@ inventory against the then-current base. BUG-033 remains open until actually del
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
-**Next unchecked task**: PR B Task 7 Step 5 — push `agent/codex/sprint-131-test-readiness`, then Step 6: open the PR and confirm from CI logs that `karmyq-messaging-service:test` ran 6 tests and Test Docker Build's `up --wait` + post-wait port checks passed on the first run (the plan's "ready after n attempt(s)" grep is stale — the polling script was deleted). Stop; do not merge.
+**Next unchecked task**: PR B Task 7 Step 7 — **after the maintainer authorizes and merges #250**: watch Deploy to Demo through health verification (no rollback), then smoke `GET /api/conversations` → 200 as maria.reyes; record it on the B2 branch (no docs-only master push). Then plan B2 (BUG-046).
 Claude holds the dependency lane and executes B, including its messaging declarations and lockfile splice.
 
 ## Blockers and decisions
@@ -131,6 +131,15 @@ PR B Task 7 gates and close-out, 2026-09-16 (Claude, executing-plans):
   (`architecture.json` generated time, `build.json` sha/dates) and was reverted.
 - `npm run type-check --workspace=services/messaging-service`: exit 0.
 - Version: `origin/master` `d35a3fad` = 11.56.0 → root `package.json` **11.57.0**.
+- Pushed `ead6d983` (pre-push hook ran, 128s, exit 0); opened [#250](https://github.com/ravichavali/karmyq/pull/250).
+  All checks pass on that head (Deploy to Demo skipped on PR). Confirmed from logs, not ticks:
+  - [CI run 35186279944](https://github.com/ravichavali/karmyq/actions/runs/35186279944) Test Backend Services:
+    `PASS messaging-service tests/regression/messageService.test.ts`, **6 passed / 6**.
+  - [Tests run 35186279956](https://github.com/ravichavali/karmyq/actions/runs/35186279956) Test Docker Build, **run attempt 1**:
+    `up -d --wait --wait-timeout 300 auth-service frontend` → frontend Healthy 05:38:13Z, auth-service Healthy 05:38:17Z;
+    "Check published ports from the runner" (curl :3001/health, :3000/) succeeded, no `##[error]`.
+  - Integration Tests: the wait on the 8 healthchecked test services reached request-service Healthy 05:42:21Z;
+    integration tests ran and the job passed. No `##[error]` in either Docker job.
 
 PR B plan review, 2026-09-16 (Kimi, reviewer role; no branch edits):
 
