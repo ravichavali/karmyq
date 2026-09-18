@@ -35,7 +35,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 | A | BUG-045 expected missing config + planning/archive | **Shipped** — #249 merged `d35a3fad`, v11.56.0, deployed + live-verified 2026-09-16 |
 | B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Shipped** — #250 merged `d2edb286`, v11.57.0, deployed + smoke-checked 2026-09-17 |
 | B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Shipped** — #251 merged `1e1916ee`, v11.58.0, deployed + smoke-checked 2026-09-18. Repo-wide declarations gate is live and blocking |
-| B3 | Expo SDK drift catch-up (#248): expo, expo-image-picker, expo-location, expo-notifications to Expo's live patch pins | **NEXT — branch `agent/claude/sprint-131-expo-drift` cut from `1e1916ee`.** Re-checked 2026-09-18 **in `apps/mobile`** (running it at the repo root falsely prints "Dependencies are up to date"): still exactly the four patch pins — expo 57.0.22→~57.0.23, expo-image-picker 57.0.17→~57.0.18, expo-location 57.0.17→~57.0.18, expo-notifications 57.0.18→~57.0.19. `jest`/`@types/jest` 30 also appear in that output but are **registered divergences — do NOT "fix" them.** Surgical lock edit; prove with `npx expo install --check` + divergence gate green; closes #248 on the next scheduled green run |
+| B3 | Expo SDK drift catch-up (#248): align `apps/mobile` to Expo's live SDK 57 patch pins | **Implemented on `agent/claude/sprint-131-expo-drift`** (from `1e1916ee`), v11.59.0. **7 declared packages** moved, not the 4 originally scoped — Expo published a coordinated patch wave mid-PR (see *Expo's map is a moving target* below). `npx expo install --check` in `apps/mobile` and `scripts/expo-divergences.js` are both clean, with only the 2 registered ADR-094 divergences (`jest`, `@types/jest`) left — **do NOT "fix" those.** Expo gates + declarations gate 57/57; full suite 27/27 |
 | D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B, **B2 and B3** |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
@@ -66,8 +66,16 @@ inventory against the then-current base. BUG-033 remains open until actually del
 **B2 SHIPPED** — [#251](https://github.com/ravichavali/karmyq/pull/251) merged `1e1916ee` (v11.58.0), deployed with all
 services healthy and no rollback, smoke-checked live. The repo-wide declarations gate is now blocking on every push.
 
-**Next unchecked action: PR B3 (Expo drift #248)** on `agent/claude/sprint-131-expo-drift`, already cut from `1e1916ee`; the
-drift is re-verified and unchanged (see the B3 row). Then D1.
+**Next unchecked action: push `agent/claude/sprint-131-expo-drift` and open the B3 PR**, then CI evidence → merge
+authorization → deploy → smoke. Then D1.
+
+⚠️ **Expo's map is a moving target — re-check at merge time, and land B3 promptly.** Mid-PR, Expo published a coordinated
+SDK 57 patch wave: all four originally-scoped pins went one patch further behind *and* three more packages
+(`expo-router`, `expo-constants`, `@expo/metro-runtime`) joined the drift, ~10h after the first check. Measured cadence is a
+**median ~70–100h between releases per package**, so there is roughly a 3-day window to land a catch-up PR — it is not a
+minutes-scale treadmill, but a PR left open for days WILL go stale. If `expo install --check` is red again at merge time,
+re-run the splice against the then-current versions rather than merging a stale one. This is the same "remote mutable
+authority" trap ADR-094 exists for.
 
 ⚠️ **D1 (dotenv 16→17, #226) now behaves differently because of B2.** A root-only bump will turn the declarations gate **red**
 in all eight services that declare `dotenv ^16.3.1`, plus `tests` and `simulation-service` (`^16.3.0`). That is intended: bump
