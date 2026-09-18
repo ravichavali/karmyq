@@ -4,10 +4,10 @@
 
 **Outcome**: PR A **shipped v11.56.0** ([#249](https://github.com/ravichavali/karmyq/pull/249), `d35a3fad`). PR B **shipped v11.57.0** —
 [#250](https://github.com/ravichavali/karmyq/pull/250) merged as `d2edb286` (2026-09-17T13:00:59Z, admin merge on explicit
-maintainer authorization), deployed, health-verified and smoke-checked. **PR B2 (BUG-046) is implemented and green on
-`agent/claude/sprint-131-undeclared-imports`** — all five plan tasks done, all four SDLC gates run, version bumped to
-11.58.0, and open as [#251](https://github.com/ravichavali/karmyq/pull/251) — **20 checks pass / 1 skipping, reviewed with no
-implementation blockers, awaiting maintainer merge authorization.** Next action: merge #251, deploy, smoke, then B3. PR C rollout approval deferred.
+maintainer authorization), deployed, health-verified and smoke-checked. PR B2 **shipped v11.58.0** —
+[#251](https://github.com/ravichavali/karmyq/pull/251) merged as `1e1916ee` (2026-09-18T01:55:41Z, maintainer merged),
+deployed, health-verified and smoke-checked. **Next is PR B3 (Expo drift #248) on `agent/claude/sprint-131-expo-drift`**,
+then D1. PR C rollout approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
 session state, not reservations inferred from branch-local text.
@@ -16,8 +16,8 @@ session state, not reservations inferred from branch-local text.
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-131-undeclared-imports` (PR B2). PR A (#249) and PR B (#250) branches are merged — do not commit on them |
-| **Base** | `origin/master` at `d2edb28635779daf9c22ebfc03636b7c5bcd2235` (PR B merge), fetched 2026-09-17; v11.57.0 |
+| **Branch** | `agent/claude/sprint-131-expo-drift` (PR B3). PR A (#249), PR B (#250) and PR B2 (#251) branches are merged — do not commit on them |
+| **Base** | `origin/master` at `1e1916ee` (PR B2 merge), fetched 2026-09-18; v11.58.0 |
 | **Active editor** | Claude executed PR A (2026-09-16); planning was authored by Codex under maintainer transfer |
 | **Reviewer role** | A non-author reviews the completed diff; reviewers do not co-edit |
 | **Owned paths now** | Sprint 131 spec/plan, CURRENT_HANDOFF, preserved Sprint 130 archive |
@@ -34,8 +34,8 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 |---|---|---|
 | A | BUG-045 expected missing config + planning/archive | **Shipped** — #249 merged `d35a3fad`, v11.56.0, deployed + live-verified 2026-09-16 |
 | B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Shipped** — #250 merged `d2edb286`, v11.57.0, deployed + smoke-checked 2026-09-17 |
-| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Open as [#251](https://github.com/ravichavali/karmyq/pull/251), green, awaiting merge authorization** — on `agent/claude/sprint-131-undeclared-imports` (from `d2edb286`), v11.58.0. Gate 10/10; four SDLC gates run; reviewed, no implementation blockers. (Commit count and per-head CI status are deliberately not recorded here — they go stale on every push; read them from `gh pr view 251` / `gh pr checks 251`.) **Next: maintainer merge authorization → deploy → smoke.** Dependency lane (Claude). Precedes D1 |
-| B3 | Expo SDK drift catch-up (#248): expo, expo-image-picker, expo-location, expo-notifications to Expo's live patch pins | **Scheduled (maintainer, 2026-09-17): small PR right after B2**, before D1. Surgical lock edit; prove with `npx expo install --check` + divergence gate green; closes #248 on the next scheduled green run. Re-run the check first — pins may have moved again |
+| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Shipped** — #251 merged `1e1916ee`, v11.58.0, deployed + smoke-checked 2026-09-18. Repo-wide declarations gate is live and blocking |
+| B3 | Expo SDK drift catch-up (#248): expo, expo-image-picker, expo-location, expo-notifications to Expo's live patch pins | **NEXT — branch `agent/claude/sprint-131-expo-drift` cut from `1e1916ee`.** Re-checked 2026-09-18 **in `apps/mobile`** (running it at the repo root falsely prints "Dependencies are up to date"): still exactly the four patch pins — expo 57.0.22→~57.0.23, expo-image-picker 57.0.17→~57.0.18, expo-location 57.0.17→~57.0.18, expo-notifications 57.0.18→~57.0.19. `jest`/`@types/jest` 30 also appear in that output but are **registered divergences — do NOT "fix" them.** Surgical lock edit; prove with `npx expo install --check` + divergence gate green; closes #248 on the next scheduled green run |
 | D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B, **B2 and B3** |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
@@ -56,22 +56,22 @@ inventory against the then-current base. BUG-033 remains open until actually del
 
 1. Confirm current branch, clean handoff and live state with `git status --short`, `gh pr list`
    and `git log --oneline origin/master -3`.
-2. Work on `agent/claude/sprint-131-undeclared-imports`, cut from deployed `origin/master` `d2edb286`.
-   The PR A (#249) and PR B (#250) branches are merged; never commit on them.
-3. Read the linked spec, sprint plan and the **PR B2 focused plan**. PR A and PR B are complete — do not reopen them.
-4. **B2 is built and open as [#251](https://github.com/ravichavali/karmyq/pull/251) — do not re-execute its plan.**
-   The remaining work on it is merge authorization, deploy and smoke (see *Next action* below).
+2. Work on `agent/claude/sprint-131-expo-drift`, cut from deployed `origin/master` `1e1916ee` (v11.58.0).
+   The PR A (#249), PR B (#250) and PR B2 (#251) branches are merged; never commit on them.
+3. Read the linked spec and sprint plan. **PR A, B and B2 are shipped — do not reopen or re-execute their plans.**
+4. B3 has no focused plan yet: it is a surgical four-pin lock edit, scoped by the B3 row above.
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
-**B2 execution is COMPLETE and [#251](https://github.com/ravichavali/karmyq/pull/251) is open and green** (2026-09-17,
-`superpowers:executing-plans`). All five tasks of the
-[PR B2 focused plan](../../docs/superpowers/plans/2026-09-17-sprint-131-pr-b2-undeclared-imports.md) are done, and review has
-returned no implementation blockers across three rounds (documentation findings only, all applied). **Check CI against the
-current head** with `gh pr checks 251` — a pass count recorded here is only ever true of the head it was written for.
-**Next unchecked action: ask the maintainer for merge authorization on #251**, then `gh pr merge 251 --squash --admin`, watch the
-master run through Deploy to Demo, smoke `POST https://karmyq.com/api/auth/login`, update this handoff — and after it ships do
-B3 (Expo drift — re-run `npx expo install --check` first), then D1.
+**B2 SHIPPED** — [#251](https://github.com/ravichavali/karmyq/pull/251) merged `1e1916ee` (v11.58.0), deployed with all
+services healthy and no rollback, smoke-checked live. The repo-wide declarations gate is now blocking on every push.
+
+**Next unchecked action: PR B3 (Expo drift #248)** on `agent/claude/sprint-131-expo-drift`, already cut from `1e1916ee`; the
+drift is re-verified and unchanged (see the B3 row). Then D1.
+
+⚠️ **D1 (dotenv 16→17, #226) now behaves differently because of B2.** A root-only bump will turn the declarations gate **red**
+in all eight services that declare `dotenv ^16.3.1`, plus `tests` and `simulation-service` (`^16.3.0`). That is intended: bump
+root **and** every declaring workspace in the same PR. The same applies to any later root major (ioredis, bcryptjs, zod, next).
 Claude holds the dependency lane. (The gate uses a TypeScript **AST walk**, not `ts.preProcessFile` — an earlier line here
 misattributed it; `preProcessFile` was rejected in plan review round 2 because it misses `require()` in a template interpolation.)
 
@@ -139,6 +139,18 @@ misattributed it; `preProcessFile` was rejected in plan review round 2 because i
 - The handoff now names ownership, base, shared-resource allocation, next task and verification.
 
 ## Verification references
+
+PR B2 merge, deploy and smoke, 2026-09-18 (maintainer merged; Claude verified):
+
+- [#251](https://github.com/ravichavali/karmyq/pull/251) **MERGED** as `1e1916ee` at 2026-09-18T01:55:41Z; `origin/master`
+  now `1e1916ee`, version **11.58.0**.
+- [CI/CD run 35297292440](https://github.com/ravichavali/karmyq/actions/runs/35297292440): conclusion **success**, every job
+  success including Code Scanning Gate, Security Audit, Integration Tests, all 7 image builds and **Deploy to Demo**.
+  Deploy log: each of the 9 services `✅ … is healthy`, `✅ All services healthy`, `🎉 Demo Deployment Successful`, **no rollback**.
+- Smoke (Node fetch, Windows): `POST https://karmyq.com/api/auth/login` as maria.reyes → **200, success true**, token issued;
+  `GET /api/conversations` → **200, success true** (0 conversations); `GET /api/requests?limit=5&offset=0` → **200, success true**.
+  Two authenticated reads, no demo data written. ⚠️ The sim password is **`password123`** — a wrong guess returns a 401 with a
+  correct ADR-074 envelope, which looks like a routing pass but proves nothing.
 
 PR B2 CI evidence, 2026-09-17 — [#251](https://github.com/ravichavali/karmyq/pull/251), head `371cd375`
 ([run 35268575872](https://github.com/ravichavali/karmyq/actions/runs/35268575872)). **20 checks pass, 1 skipping**
