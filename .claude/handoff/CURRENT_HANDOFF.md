@@ -34,7 +34,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 |---|---|---|
 | A | BUG-045 expected missing config + planning/archive | **Shipped** — #249 merged `d35a3fad`, v11.56.0, deployed + live-verified 2026-09-16 |
 | B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Shipped** — #250 merged `d2edb286`, v11.57.0, deployed + smoke-checked 2026-09-17 |
-| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Open as [#251](https://github.com/ravichavali/karmyq/pull/251), green, awaiting merge authorization** — 17 commits on `agent/claude/sprint-131-undeclared-imports` (from `d2edb286`), v11.58.0. Gate 10/10; CI 20 pass / 1 skipping; four SDLC gates run; reviewed, no implementation blockers. **Next: maintainer merge authorization → deploy → smoke.** Dependency lane (Claude). Precedes D1 |
+| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Open as [#251](https://github.com/ravichavali/karmyq/pull/251), green, awaiting merge authorization** — on `agent/claude/sprint-131-undeclared-imports` (from `d2edb286`), v11.58.0. Gate 10/10; four SDLC gates run; reviewed, no implementation blockers. (Commit count and per-head CI status are deliberately not recorded here — they go stale on every push; read them from `gh pr view 251` / `gh pr checks 251`.) **Next: maintainer merge authorization → deploy → smoke.** Dependency lane (Claude). Precedes D1 |
 | B3 | Expo SDK drift catch-up (#248): expo, expo-image-picker, expo-location, expo-notifications to Expo's live patch pins | **Scheduled (maintainer, 2026-09-17): small PR right after B2**, before D1. Surgical lock edit; prove with `npx expo install --check` + divergence gate green; closes #248 on the next scheduled green run. Re-run the check first — pins may have moved again |
 | D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B, **B2 and B3** |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
@@ -66,8 +66,9 @@ inventory against the then-current base. BUG-033 remains open until actually del
 
 **B2 execution is COMPLETE and [#251](https://github.com/ravichavali/karmyq/pull/251) is open and green** (2026-09-17,
 `superpowers:executing-plans`). All five tasks of the
-[PR B2 focused plan](../../docs/superpowers/plans/2026-09-17-sprint-131-pr-b2-undeclared-imports.md) are done, CI is 20 pass /
-1 skipping, and review returned two documentation findings (both applied) and no implementation blockers.
+[PR B2 focused plan](../../docs/superpowers/plans/2026-09-17-sprint-131-pr-b2-undeclared-imports.md) are done, and review has
+returned no implementation blockers across three rounds (documentation findings only, all applied). **Check CI against the
+current head** with `gh pr checks 251` — a pass count recorded here is only ever true of the head it was written for.
 **Next unchecked action: ask the maintainer for merge authorization on #251**, then `gh pr merge 251 --squash --admin`, watch the
 master run through Deploy to Demo, smoke `POST https://karmyq.com/api/auth/login`, update this handoff — and after it ships do
 B3 (Expo drift — re-run `npx expo install --check` first), then D1.

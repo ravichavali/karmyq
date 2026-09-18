@@ -1115,7 +1115,7 @@ Scope was widened twice by maintainer decision on 2026-09-17:
 Two files stay allowlisted: `packages/shared/api/client.ts` (axios) and `api/mobile-storage.ts`
 (`@react-native-async-storage/async-storage`) are two of the three `api/` files `packages/shared/tsconfig.json`
 excludes from the build (ADR-028), so they are never compiled or shipped. The gate fails if either stops being a
-violation, so the allowlist can only shrink.
+violation, so an allowlist entry cannot outlive the thing it excuses — though a new, still-valid entry may be added.
 
 The gate is `tests/regression/sprint-131-workspace-declarations.test.ts` (blocking, repo-wide), which replaced the
 messaging-only gate.

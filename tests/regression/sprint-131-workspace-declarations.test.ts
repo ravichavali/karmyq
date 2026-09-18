@@ -55,8 +55,11 @@ const DEV_ONLY =
   /^(tests|e2e)\/|(^|\/)__(tests|mocks)__\/|\.(test|spec)\.[cm]?[jt]sx?$|(^|\/)(jest|eslint|playwright|next|postcss|tailwind|babel|metro|ecosystem)\.(config|setup)\.[cm]?[jt]sx?$/;
 
 /**
- * Runtime-scope imports that are knowingly undeclared, keyed per file. Every entry must still be a
- * violation (see the stale-entry test), so this list can only shrink.
+ * Runtime-scope imports that are knowingly undeclared, keyed per file.
+ *
+ * The stale-entry test rejects entries that have STOPPED being violations, so an exception cannot
+ * outlive the thing it excuses. It does not stop a new, still-valid exception being added — this
+ * list is kept honest, not forced to shrink.
  */
 const ALLOWLIST: Record<string, string> = {
   'packages/shared: axios (api/client.ts)':
@@ -66,8 +69,10 @@ const ALLOWLIST: Record<string, string> = {
 };
 
 /**
- * Declarations knowingly stranded off root's hoisted copy, keyed `ws field: name@range`. Every entry
- * must still be a divergence (see the stale-entry test), so this list can only shrink.
+ * Declarations knowingly stranded off root's hoisted copy, keyed `ws field: name@range`.
+ *
+ * As with ALLOWLIST above, the stale-entry test rejects entries that have stopped being divergences;
+ * it does not prevent a new, still-valid holdback being added.
  *
  * These are deliberate holdbacks, not accidents: shared and geocoding stayed on express-rate-limit 7
  * and shared on zod 3 while root moved ahead.

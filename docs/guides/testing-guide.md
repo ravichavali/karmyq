@@ -170,7 +170,9 @@ undeclared import work locally until a root bump de-hoists or changes it.
   declares that package, in the same PR.
 - A workspace that genuinely intends to lag root goes on the gate's `DIVERGENCE_ALLOWLIST` with a reason (today:
   `packages/shared` on express-rate-limit 7 and zod 3, `services/geocoding-service` on express-rate-limit 7). A
-  stale-entry test keeps that list shrinking.
+  stale-entry test **rejects entries that have stopped being divergences**, so an exception cannot outlive the thing it
+  excuses — but adding a new, still-valid one is allowed. The same holds for the gate's `ALLOWLIST` of knowingly
+  undeclared imports.
 - After editing a manifest, splice the same field into that workspace's `package-lock.json` node and prove it with
   `npx -y npm@11.19.0 ci` (see CLAUDE.md "Workspace dependencies"). The gate checks that the two mirror each other.
 - The range check covers **every** existing declaration in every workspace, not just the ones your diff adds. If it goes
