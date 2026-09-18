@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@karmyq/shared": "*",
-    "bcryptjs": "^2.4.3",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^5.2.1",
@@ -28,7 +28,7 @@
     "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
+    "@types/bcryptjs": "^3.0.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
