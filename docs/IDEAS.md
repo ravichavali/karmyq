@@ -587,10 +587,51 @@ Why each needs its own PR rather than a grouped bump:
 - **#244 `@eslint/js` 9 → 10** is dev-only but a flat-config major; expect lint-config breakage
   rather than runtime breakage, and verify the repo's eslint config shape against the new major.
 
-**#243 (bcryptjs + `@types/bcryptjs`) is still untriaged** — it is not a major and was not part of
-this decision. Triage it when Sprint 132 is scoped.
+**#243 (bcryptjs 2.4.3 → 3.0.3 + `@types/bcryptjs`) is also deferred to Sprint 132.** Maintainer
+decision, 2026-09-17, to preserve Sprint 131's approved scope. (An earlier line here called it "not a
+major"; it is one.) bcryptjs hashes passwords in auth, so give it its own PR with a test proving
+hashes created under 2.x still verify under 3.x.
 
 Refresh every proposal number against `gh pr list` before acting: Dependabot closes and reopens
 these as new versions publish, which is exactly how #227/#229 became #247/#246.
+
+---
+
+## [2026-09-17] Three follow-ups from Sprint 131 PR B2's `/simplify` altitude pass
+
+BUG-046 (declare what you import) shipped in PR B2 with a repo-wide gate. The altitude review found
+three deeper changes that were **deliberately left out of B2** because each breaks one of that PR's
+invariants — "no new lock package nodes, no version change" or "no application code changes".
+Ordered cheapest first. All were verified against the repo on 2026-09-17, but re-verify before acting.
+
+**1. `scripts/` is the one corner the gate cannot see.** `scripts/package.json` exists and is tracked
+(`@karmyq/scripts`, declaring `pg`, `bcryptjs`, `@faker-js/faker`), but `scripts/` is **not** in root
+`workspaces` (`["apps/*","services/*","packages/*","tests"]`), so `npm ci` never installs it and
+`allWorkspaces()` never scans it. Its tracked `.js`/`.ts` files import `pg`, `bcryptjs`,
+`@faker-js/faker`, `semver` and `axios` purely through root hoisting — exactly BUG-046, untreated.
+There is also an orphan `scripts/package-lock.json` that nothing installs from.
+Fix: add `"scripts"` to root `workspaces`, delete `scripts/package-lock.json`, add `'scripts'` beside
+`'tests'` in `allWorkspaces()`, then fix whatever the existing gate reports. **Its own PR:** adding a
+workspace changes what `npm ci` installs, so it moves the installed tree and needs the dependency lane.
+
+**2. `packages/shared/api/{client,mobile-storage,web-storage}.ts` are dead and deleting them removes
+the gate's whole `ALLOWLIST`.** They are absent from shared's barrel, its `exports` map and its
+`typesVersions` (ADR-089 / Sprint 122 PR 4 removed those exports but left the files), and no tracked
+file imports them. Deleting the three drops the two allowlist entries, their staleness test, three
+`exclude` lines in `packages/shared/tsconfig.json` **and** the `rm -f` stanza at
+`apps/frontend/Dockerfile:25-27` that exists only to delete them at build time. Left out of B2 because
+it edits application source and a Dockerfile.
+
+**3. Root's `dependencies` block is now mostly deletable — and holds one package with no importer.**
+After B2, 12 of root's 14 runtime deps have **no** root-level importer at all (`express`, `jsonwebtoken`,
+`cors`, `dotenv`, `axios`, `bull`, `express-rate-limit`, `ioredis`, `redis`, `winston`, `zod`,
+`@alloc/quick-lru`); only `pg` and `bcryptjs` have any, and only from the non-workspace `scripts/`
+package in item 1. That includes **`@alloc/quick-lru ^5.3.0` in root production dependencies with no
+importer** — the shape CLAUDE.md's *Workspace dependencies* rule forbids ("never add a root-level
+production dependency to satisfy an advisory — it lands in every service image"). Doing item 1 first
+rehomes `pg`/`bcryptjs`; then root's runtime deps can go, which makes stranding *impossible* rather
+than merely detectable: `strandedFromRoot()` collapses to "root declares no runtime dependencies" and
+`DIVERGENCE_ALLOWLIST` is eliminated rather than maintained. **Separate PR, maintainer hand-over
+required** — it changes the installed tree for every service image.
 
 ---

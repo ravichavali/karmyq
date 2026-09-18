@@ -147,6 +147,39 @@ own review. See `docs/BUGS.md` and ADR-088's Consequences section.
   on millisecond timestamps roughly 2 times in 1000 runs. A lone red run on this specific test in
   CI is expected noise — rerun the job rather than investigating it as a regression.
 
+## Declare what you import — the workspace declarations gate
+
+`tests/regression/sprint-131-workspace-declarations.test.ts` (blocking) reads every tracked source file in every
+workspace and fails when a file imports a package its own `package.json` doesn't declare. Root hoisting makes an
+undeclared import work locally until a root bump de-hoists or changes it.
+
+- **Shipping code** (anything not in `tests/`, `e2e/`, `__tests__/`, `__mocks__/`, a `*.test.*`/`*.spec.*` file, or a
+  jest/eslint/playwright/next/postcss/tailwind/babel/metro/ecosystem config) must use **`dependencies`**. Images install
+  with `--omit=dev`.
+- **`peerDependencies` counts as shipping-scope only for a library under `packages/`.** `.npmrc` sets
+  `legacy-peer-deps=true`, so npm installs no peer — the consumer provides it. That is a real contract for a package
+  others depend on (`@karmyq/shared`'s `express` and `pg`), but a service or app is a leaf that ships its own image and
+  has nothing downstream to provide anything, so a peer there would satisfy the gate while the import still resolved
+  through root hoisting — which is BUG-046 itself. The gate rejects it.
+- **Tests and tooling** may use `devDependencies`.
+- Use root's exact range when root declares the package. The gate fails when a declared range isn't satisfied by the
+  version `package-lock.json` resolves for that workspace, **and separately** when root's *hoisted* version no longer
+  satisfies a range the workspace declares. The second check is what makes a root major bump fail: npm answers a
+  stranded range by nesting a satisfying older copy under the workspace, so satisfaction alone stays green while the
+  workspace silently drops off root's copy. Bumping a root major therefore means bumping every workspace that
+  declares that package, in the same PR.
+- A workspace that genuinely intends to lag root goes on the gate's `DIVERGENCE_ALLOWLIST` with a reason (today:
+  `packages/shared` on express-rate-limit 7 and zod 3, `services/geocoding-service` on express-rate-limit 7). A
+  stale-entry test **rejects entries that have stopped being divergences**, so an exception cannot outlive the thing it
+  excuses — but adding a new, still-valid one is allowed. The same holds for the gate's `ALLOWLIST` of knowingly
+  undeclared imports.
+- After editing a manifest, splice the same field into that workspace's `package-lock.json` node and prove it with
+  `npx -y npm@11.19.0 ci` (see CLAUDE.md "Workspace dependencies"). The gate checks that the two mirror each other.
+- The range check covers **every** existing declaration in every workspace, not just the ones your diff adds. If it goes
+  red on a change that doesn't touch that manifest, your change moved a resolved version in `package-lock.json` and
+  stranded someone else's range. Fix that range in the same PR; the gate is not reporting a regression in your own code.
+- Path aliases come from `tsconfig.json` `paths`. Only a file that is really never built belongs on the gate's allowlist.
+
 ## Don't trust a suspiciously-green run after deletes or renames
 
 Turbo's cache can miss cross-workspace test inputs — a test in `tests/regression/` that reads

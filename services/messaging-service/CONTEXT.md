@@ -367,7 +367,7 @@ so install behavior in `beforeEach` or the test.
 
 **Declarations.** Now declares `cors`, `dotenv`, `express`, `jsonwebtoken`, `pg` (root's exact ranges;
 resolved versions unchanged) and `jest`/`ts-jest`/`@types/jest`.
-`tests/regression/sprint-131-messaging-declarations.test.ts` fails on any undeclared import. Root
+`tests/regression/sprint-131-workspace-declarations.test.ts` (repo-wide since PR B2) fails on any undeclared import. Root
 still declares these too, so a root-level major bump (e.g. dotenv 17) must bump this manifest in the
 same PR.
 
