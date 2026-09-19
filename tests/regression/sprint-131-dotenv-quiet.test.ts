@@ -91,11 +91,12 @@ function configCalls(file: string, source: string): ConfigCall[] {
     ts.isStringLiteralLike(node.arguments[0]) &&
     (node.arguments[0] as ts.StringLiteralLike).text === 'dotenv';
 
-  // Import declarations are top-level statements; a `require` binding is a top-level variable
-  // statement. Neither needs a recursive walk.
-  for (const stmt of sf.statements) {
-    if (ts.isImportDeclaration(stmt) && ts.isStringLiteralLike(stmt.moduleSpecifier) && stmt.moduleSpecifier.text === 'dotenv') {
-      const clause = stmt.importClause;
+  // Deliberately a RECURSIVE walk, not a pass over sf.statements. Scanning only top-level
+  // statements looks tidier and silently drops a `require('dotenv')` bound inside a block or an
+  // IIFE — the file is still discovered, resolves to zero calls, and passes vacuously.
+  const collectBindings = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node) && ts.isStringLiteralLike(node.moduleSpecifier) && node.moduleSpecifier.text === 'dotenv') {
+      const clause = node.importClause;
       if (clause?.name) moduleNames.add(clause.name.text);
       const bindings = clause?.namedBindings;
       if (bindings && ts.isNamespaceImport(bindings)) moduleNames.add(bindings.name.text);
@@ -104,22 +105,27 @@ function configCalls(file: string, source: string): ConfigCall[] {
           if ((el.propertyName ?? el.name).text === 'config') configNames.add(el.name.text);
         }
       }
-      continue;
-    }
-    if (ts.isVariableStatement(stmt)) {
-      for (const decl of stmt.declarationList.declarations) {
-        if (!decl.initializer || !isDotenvRequire(decl.initializer)) continue;
-        if (ts.isIdentifier(decl.name)) moduleNames.add(decl.name.text);
-        if (ts.isObjectBindingPattern(decl.name)) {
-          for (const el of decl.name.elements) {
-            if ((el.propertyName ?? el.name).getText(sf) === 'config' && ts.isIdentifier(el.name)) {
-              configNames.add(el.name.text);
-            }
+    } else if (
+      // `import dotenv = require('dotenv')`
+      ts.isImportEqualsDeclaration(node) &&
+      ts.isExternalModuleReference(node.moduleReference) &&
+      ts.isStringLiteralLike(node.moduleReference.expression) &&
+      node.moduleReference.expression.text === 'dotenv'
+    ) {
+      moduleNames.add(node.name.text);
+    } else if (ts.isVariableDeclaration(node) && node.initializer && isDotenvRequire(node.initializer)) {
+      if (ts.isIdentifier(node.name)) moduleNames.add(node.name.text);
+      if (ts.isObjectBindingPattern(node.name)) {
+        for (const el of node.name.elements) {
+          if ((el.propertyName ?? el.name).getText(sf) === 'config' && ts.isIdentifier(el.name)) {
+            configNames.add(el.name.text);
           }
         }
       }
     }
-  }
+    ts.forEachChild(node, collectBindings);
+  };
+  collectBindings(sf);
 
   const out: ConfigCall[] = [];
   const visit = (node: ts.Node): void => {
@@ -128,8 +134,9 @@ function configCalls(file: string, source: string): ConfigCall[] {
       const isDotted =
         ts.isPropertyAccessExpression(callee) &&
         callee.name.text === 'config' &&
-        ts.isIdentifier(callee.expression) &&
-        moduleNames.has(callee.expression.text);
+        // a bound name (`dotenv.config()`) or the require call itself (`require('dotenv').config()`)
+        ((ts.isIdentifier(callee.expression) && moduleNames.has(callee.expression.text)) ||
+          isDotenvRequire(callee.expression));
       const isBare = ts.isIdentifier(callee) && configNames.has(callee.text);
 
       if (isDotted || isBare) {
@@ -141,12 +148,14 @@ function configCalls(file: string, source: string): ConfigCall[] {
                 return !!n && (ts.isIdentifier(n) || ts.isStringLiteralLike(n)) && n.text === 'quiet';
               })
             : undefined;
-        // The KEY is not enough: `{ quiet: false }` would satisfy a presence check while printing
-        // exactly the line this gate exists to stop.
+        // Only the literal `true` counts. The key alone proves nothing, and neither does "not
+        // false": dotenv runs the value through parseBoolean, so `0`, `undefined`, `null` and the
+        // STRING `'false'` are all falsy and all still print (verified against dotenv 17.4.2).
+        // Anything non-literal (a variable, a spread) cannot be proven and is treated as not quiet.
         const hasQuiet =
           !!quietProp &&
           ts.isPropertyAssignment(quietProp) &&
-          quietProp.initializer.kind !== ts.SyntaxKind.FalseKeyword;
+          quietProp.initializer.kind === ts.SyntaxKind.TrueKeyword;
 
         out.push({
           line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,
@@ -167,20 +176,23 @@ const calls = files.flatMap(({ file, source }) => configCalls(file, source).map(
 describe('dotenv config() is quiet (Sprint 131 D1)', () => {
   it('resolves a call in every service that imports dotenv, so the scan is not vacuous', () => {
     // Derived from `calls`, not from the file list: this proves the binding resolution actually
-    // resolved in each file, which a file-list check does not.
-    const services = calls
-      .map((c) => c.file)
-      .filter((f) => f.startsWith('services/'))
-      .sort();
-    expect(services).toEqual([
-      'services/auth-service/src/index.ts',
-      'services/cleanup-service/src/index.ts',
-      'services/community-service/src/index.ts',
-      'services/messaging-service/src/index.ts',
-      'services/notification-service/src/index.ts',
-      'services/reputation-service/src/index.ts',
-      'services/request-service/src/index.ts',
-      'services/simulation-service/src/index.ts',
+    // resolved, which a file-list check does not. Pins EVERY site, not just services/ — a call
+    // under tests/ that stopped resolving would otherwise vanish unnoticed.
+    expect(calls.map((c) => `${c.file}:${c.line}`).sort()).toEqual([
+      'services/auth-service/src/index.ts:18',
+      'services/cleanup-service/src/index.ts:24',
+      'services/community-service/src/index.ts:34',
+      'services/messaging-service/src/index.ts:15',
+      'services/notification-service/src/index.ts:21',
+      'services/reputation-service/src/index.ts:26',
+      'services/request-service/src/index.ts:35',
+      'services/simulation-service/src/index.ts:16',
+      'tests/e2e/playwright.config.ts:4',
+      'tests/e2e/tests/fixtures/auth.ts:4',
+      'tests/integration/setup.ts:32',
+      'tests/load/load-test.ts:18',
+      'tests/setup.ts:12',
+      'tests/setup.ts:13',
     ]);
 
     // The complement matters as much as the list: these two genuinely do not import dotenv, so a
@@ -199,16 +211,25 @@ describe('dotenv config() is quiet (Sprint 131 D1)', () => {
     // CommonJS, which the discovery regex admits and so must be resolvable
     expect(detect("const dotenv = require('dotenv');\ndotenv.config();")).toEqual([false]);
     expect(detect("const { config } = require('dotenv');\nconfig({ quiet: true });")).toEqual([true]);
+    expect(detect("import dotenv = require('dotenv');\ndotenv.config();")).toEqual([false]);
+    // the require call used directly, with no binding at all
+    expect(detect("require('dotenv').config();")).toEqual([false]);
+    // bound inside a block rather than at the top level
+    expect(detect("function boot(){ const d = require('dotenv'); d.config(); }")).toEqual([false]);
     // a `config` that is not dotenv's must not be picked up
     expect(detect("import { config } from 'elsewhere';\nconfig();")).toEqual([]);
   });
 
-  it('treats quiet: false as not quiet, because the key alone proves nothing', () => {
+  it('accepts only the literal true, because dotenv runs the value through parseBoolean', () => {
     const detect = (src: string) => configCalls('x.ts', src).map((c) => c.hasQuiet);
-    expect(detect("import dotenv from 'dotenv';\ndotenv.config({ quiet: false });")).toEqual([false]);
+    // Every one of these is falsy to dotenv and still prints (verified against dotenv 17.4.2).
+    for (const value of ['false', '0', 'undefined', 'null', "'false'"]) {
+      expect(detect(`import dotenv from 'dotenv';\ndotenv.config({ quiet: ${value} });`)).toEqual([false]);
+    }
     // a spread or a variable cannot be proven quiet, so it is conservatively not quiet
     expect(detect("import dotenv from 'dotenv';\ndotenv.config(opts);")).toEqual([false]);
     expect(detect("import dotenv from 'dotenv';\ndotenv.config({ ...opts });")).toEqual([false]);
+    expect(detect("import dotenv from 'dotenv';\ndotenv.config({ quiet: true });")).toEqual([true]);
   });
 
   it('parses .tsx as TSX, so a call after JSX is not silently lost', () => {
