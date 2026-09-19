@@ -50,7 +50,6 @@ applying the moment one of them is missed.
 
 ## What enforces it
 
-`tests/regression/sprint-131-workspace-declarations.test.ts` is unrelated; the check for this is
 `tests/regression/sprint-131-dotenv-quiet.test.ts` (blocking). It discovers the call sites from
 tracked source with a TypeScript AST walk rather than a hardcoded list, resolves both
 `dotenv.config(...)` and a destructured `config(...)` imported from `dotenv`, and fails on any call

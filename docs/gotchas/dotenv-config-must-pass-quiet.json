@@ -10,7 +10,7 @@
   "verify": {
     "file_matches": {
       "path": "services/auth-service/src/index.ts",
-      "pattern": "dotenv\\.config\\(\\{ quiet: true \\}\\)"
+      "pattern": "dotenv\\.config\\(\\{[^)]*quiet:\\s*true"
     }
   },
   "see_also": [
