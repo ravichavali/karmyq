@@ -1,0 +1,19 @@
+{
+  "title": "dotenv 17 logs on every config() call — pass quiet: true",
+  "owner": "ravichavali",
+  "created": "2026-09-19",
+  "scope": [
+    "services/",
+    "tests/",
+    "package.json"
+  ],
+  "verify": {
+    "file_matches": {
+      "path": "services/auth-service/src/index.ts",
+      "pattern": "dotenv\\.config\\(\\{ quiet: true \\}\\)"
+    }
+  },
+  "see_also": [
+    "dependabot-regenerates-expo-sdk-breaks"
+  ]
+}

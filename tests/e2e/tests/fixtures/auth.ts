@@ -1,7 +1,7 @@
 import { test as base } from '@playwright/test';
 import * as dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 /**
  * Authentication fixture for E2E tests

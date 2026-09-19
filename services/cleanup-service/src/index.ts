@@ -21,7 +21,7 @@ import { forgetExchangeContent } from './jobs/memoryRetentionJob';
 import pool from './database/db';
 import { normalizeRequestBody } from '@karmyq/shared/middleware';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const app = express();
 const PORT = process.env.PORT || 3008;

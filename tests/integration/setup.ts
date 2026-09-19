@@ -29,7 +29,7 @@ if (isDockerEnvironment) {
 
   // Load .env.test if it exists
   const envPath = path.join(__dirname, '..', '.env.test');
-  config({ path: envPath });
+  config({ path: envPath, quiet: true });
 
   // Set defaults for host-based testing
   process.env.DATABASE_URL = process.env.DATABASE_URL ||
