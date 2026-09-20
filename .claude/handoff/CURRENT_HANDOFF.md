@@ -88,7 +88,12 @@ Review history on #253, three rounds, all findings fixed and each proven closed 
 
 Codex reviewed `38b2848a`: 20 checks pass / 1 skipped (Deploy to Demo), Test Docker Build included — the earlier
 frontend-install `ECONNRESET` was a network abort, not a regression, and passed on re-run.
-**Merge remains withheld pending CI on the round-3 head and maintainer authorization.**
+Codex re-reviewed `b5670cef` on 2026-09-20: **no remaining code findings**. Fresh dotenv + declarations
+suites passed **20/20** (dotenv gate **10/10**); ten independent option-order probes passed, covering computed
+keys, spreads, getters, methods and shorthand. The round-3 computed-key finding is closed
+(`tests/regression/sprint-131-dotenv-quiet.test.ts:171-187`). GitHub CI was still running on that exact head
+at review time; #226 was confirmed CLOSED. Recommendation: merge after that head's CI passes and the
+maintainer authorizes it. **No merge performed; CI completion remains pending.**
 **#226 CLOSED as superseded on 2026-09-20**, by Codex on the maintainer's explicit request (GitHub closedAt
 `2026-09-20T22:50:40Z`). No merge or deployment was performed. After D1 review/merge/deploy/smoke, continue D2–D7.
 
