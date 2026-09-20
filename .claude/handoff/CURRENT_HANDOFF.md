@@ -1,6 +1,6 @@
 # Sprint 131 — Maintenance Backlog — Handoff
 
-**Date**: 2026-09-17
+**Date**: 2026-09-20
 
 **Outcome**: PR A **shipped v11.56.0** ([#249](https://github.com/ravichavali/karmyq/pull/249), `d35a3fad`). PR B **shipped v11.57.0** —
 [#250](https://github.com/ravichavali/karmyq/pull/250) merged as `d2edb286` (2026-09-17T13:00:59Z, admin merge on explicit
@@ -37,7 +37,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 | B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Shipped** — #250 merged `d2edb286`, v11.57.0, deployed + smoke-checked 2026-09-17 |
 | B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Shipped** — #251 merged `1e1916ee`, v11.58.0, deployed + smoke-checked 2026-09-18. Repo-wide declarations gate is live and blocking |
 | B3 | Expo SDK drift catch-up (#248): align `apps/mobile` to Expo's live SDK 57 patch pins | **Shipped** — #252 merged `238c9009`, v11.59.0, deployed + smoke-checked 2026-09-19; **#248 closed**. 7 declared packages moved, not the 4 originally scoped: Expo published a coordinated patch wave mid-PR (see *Expo's map is a moving target* below) |
-| **D1** | **dotenv 16.6.1 → 17.4.2 (#226)** | **Open as [#253](https://github.com/ravichavali/karmyq/pull/253), in review** on `agent/claude/sprint-131-d1-dotenv` (from `238c9009`), v11.60.0. Takes Dependabot #226's bump (it auto-rebased onto B2 and moved all 9 declaring workspaces itself) **plus** `{ quiet: true }` at all 14 call sites — dotenv 17 flipped the `quiet` default and otherwise logs a random promo line on every service boot. New blocking gate `sprint-131-dotenv-quiet`. **⚠️ #226 must be CLOSED as superseded, not merged** — #253 contains its commit, so merging both double-applies the bump |
+| **D1** | **dotenv 16.6.1 → 17.4.2 (#226)** | **Open as [#253](https://github.com/ravichavali/karmyq/pull/253), in review** on `agent/claude/sprint-131-d1-dotenv` (from `238c9009`), v11.60.0. Takes Dependabot #226's bump (it auto-rebased onto B2 and moved all 9 declaring workspaces itself) **plus** `{ quiet: true }` at all 14 call sites — dotenv 17 flipped the `quiet` default and otherwise logs a random promo line on every service boot. New blocking gate `sprint-131-dotenv-quiet`. **#226 CLOSED as superseded on 2026-09-20** — #253 contains its commit |
 | D2–D7 | node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after D1 |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
@@ -58,9 +58,9 @@ inventory against the then-current base. BUG-033 remains open until actually del
 
 1. Confirm current branch, clean handoff and live state with `git status --short`, `gh pr list`
    and `git log --oneline origin/master -3`.
-2. Work on `agent/claude/sprint-131-expo-drift`, cut from deployed `origin/master` `1e1916ee` (v11.58.0).
-   The PR A (#249), PR B (#250) and PR B2 (#251) branches are merged; never commit on them.
-3. Read the linked spec and sprint plan. **PR A, B and B2 are shipped — do not reopen or re-execute their plans.**
+2. Work on `agent/claude/sprint-131-d1-dotenv`, based on `origin/master` `238c9009` (v11.59.0).
+   The PR A (#249), PR B (#250), PR B2 (#251) and PR B3 (#252) branches are merged; never commit on them.
+3. Read the linked spec and sprint plan. **PR A, B, B2 and B3 are shipped — do not reopen or re-execute their plans.**
 4. D1 has no focused plan: it takes Dependabot #226 plus the `quiet` fix, scoped by the D1 row above.
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
@@ -69,11 +69,28 @@ inventory against the then-current base. BUG-033 remains open until actually del
 services healthy, no rollback, smoke-checked live. The repo-wide declarations gate is blocking on every push, and #248 is
 closed.
 
-**Next unchecked action: [#253](https://github.com/ravichavali/karmyq/pull/253) (D1, dotenv 17) is open and in review.**
-Round 1 returned two P2 gate findings, both fixed and proven by injection. Remaining: re-run the **Test Docker Build** job
-(it failed on a frontend `npm install` `ECONNRESET` — a network abort, not a dotenv regression), get CI green on the current
-head, then merge authorization → deploy → smoke. **Close #226 as superseded at the same time** — #253 contains its commit.
-Then D2–D7.
+**Next unchecked action: #253 (D1) — CI green on the new head, then merge authorization → deploy → smoke.**
+
+Review history on #253, three rounds, all findings fixed and each proven closed by injection rather than asserted:
+
+1. Round 1 (`ebb06407`, 4 findings): `{ quiet: false }` passed a gate named "is quiet" (dotenv runs the value through
+   `parseBoolean`, so `0`/`undefined`/`null`/`'false'` are all falsy and all still print); three binding forms were
+   discovered but unresolvable (`require('dotenv').config()`, `import dotenv = require(...)`, block-scoped require); the
+   identity pin covered only `services/`; a "four files" miscount.
+2. Round 2 (`38b2848a`, 2 findings): a **trailing spread** could override `quiet: true`, because the check took the FIRST
+   `quiet` and JS is last-one-wins; and the discovery **prefilter was a second, weaker parser** in front of the AST,
+   skipping `from\n'dotenv'` and `require( 'dotenv' )`. It now matches the bare word and lets the AST decide.
+3. Round 3 (2026-09-20, 1 finding): **computed property keys were skipped entirely**, so
+   `dotenv.config({ quiet: true, ['qui' + 'et']: false })` passed all nine assertions while dotenv 17.4.2 logs — verified
+   both halves. An unresolvable computed key now invalidates the proof exactly as a spread does; a statically-readable
+   `['quiet']` is treated as the plain name, and a later explicit `quiet: true` restores it. Injected into the real
+   auth-service call site: gate goes red on that exact line. Gate is now **10/10**.
+
+Codex reviewed `38b2848a`: 20 checks pass / 1 skipped (Deploy to Demo), Test Docker Build included — the earlier
+frontend-install `ECONNRESET` was a network abort, not a regression, and passed on re-run.
+**Merge remains withheld pending CI on the round-3 head and maintainer authorization.**
+**#226 CLOSED as superseded on 2026-09-20**, by Codex on the maintainer's explicit request (GitHub closedAt
+`2026-09-20T22:50:40Z`). No merge or deployment was performed. After D1 review/merge/deploy/smoke, continue D2–D7.
 
 ⚠️ **Expo's map is a moving target — re-check at merge time on any future Expo PR.** Mid-PR, Expo published a coordinated
 SDK 57 patch wave: all four originally-scoped pins went one patch further behind *and* three more packages

@@ -160,13 +160,31 @@ function configCalls(file: string, source: string): ConfigCall[] {
         let proven = false;
         if (arg && ts.isObjectLiteralExpression(arg)) {
           for (const prop of arg.properties) {
+            // A spread can contribute any `quiet`, so it resets the proof.
             if (ts.isSpreadAssignment(prop)) {
               proven = false;
               continue;
             }
             const n = prop.name;
-            const isQuietKey = !!n && (ts.isIdentifier(n) || ts.isStringLiteralLike(n)) && n.text === 'quiet';
-            if (!isQuietKey) continue;
+
+            // A computed key whose value we cannot read might BE `quiet`:
+            // `{ quiet: true, ['qui' + 'et']: false }` overrides at runtime and genuinely logs
+            // (verified against 17.4.2). Unresolvable keys invalidate the proof, like a spread.
+            // A statically-known computed key (`['quiet']`) is treated as the plain name.
+            let keyText: string | undefined;
+            if (n && ts.isComputedPropertyName(n)) {
+              if (ts.isStringLiteralLike(n.expression)) {
+                keyText = n.expression.text;
+              } else {
+                proven = false;
+                continue;
+              }
+            } else if (n && (ts.isIdentifier(n) || ts.isStringLiteralLike(n))) {
+              keyText = n.text;
+            }
+
+            if (keyText !== 'quiet') continue;
+            // Shorthand (`{ quiet }`), a method, or a getter is not a provable `true` either.
             proven = ts.isPropertyAssignment(prop) && prop.initializer.kind === ts.SyntaxKind.TrueKeyword;
           }
         }
@@ -261,6 +279,21 @@ describe('dotenv config() is quiet (Sprint 131 D1)', () => {
     expect(detect(imp + 'dotenv.config({ quiet: true, quiet: false });')).toEqual([false]);
     // a spread BEFORE an explicit quiet: true is fine — the literal wins
     expect(detect(imp + 'dotenv.config({ ...base, quiet: true });')).toEqual([true]);
+  });
+
+  it('treats an unresolvable computed key as invalidating, because it might be quiet', () => {
+    const detect = (src: string) => configCalls('x.ts', src).map((c) => c.hasQuiet);
+    const imp = "import dotenv from 'dotenv';\n";
+    // genuinely noisy (verified against 17.4.2): the computed key overwrites quiet at runtime
+    expect(detect(imp + "dotenv.config({ quiet: true, ['qui' + 'et']: false });")).toEqual([false]);
+    expect(detect(imp + 'dotenv.config({ quiet: true, [key]: false });')).toEqual([false]);
+    // a statically-known computed key is readable, so it is treated as the plain name
+    expect(detect(imp + "dotenv.config({ ['quiet']: true });")).toEqual([true]);
+    expect(detect(imp + "dotenv.config({ quiet: true, ['other']: false });")).toEqual([true]);
+    // an explicit quiet: true AFTER the unresolvable key restores the proof
+    expect(detect(imp + 'dotenv.config({ [key]: false, quiet: true });')).toEqual([true]);
+    // shorthand and non-assignment forms cannot be proven true
+    expect(detect(imp + 'dotenv.config({ quiet });')).toEqual([false]);
   });
 
   it('accepts only the literal true, because dotenv runs the value through parseBoolean', () => {
