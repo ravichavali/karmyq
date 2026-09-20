@@ -6,8 +6,9 @@
 [#250](https://github.com/ravichavali/karmyq/pull/250) merged as `d2edb286` (2026-09-17T13:00:59Z, admin merge on explicit
 maintainer authorization), deployed, health-verified and smoke-checked. PR B2 **shipped v11.58.0** —
 [#251](https://github.com/ravichavali/karmyq/pull/251) merged as `1e1916ee` (2026-09-18T01:55:41Z, maintainer merged),
-deployed, health-verified and smoke-checked. **Next is PR B3 (Expo drift #248) on `agent/claude/sprint-131-expo-drift`**,
-then D1. PR C rollout approval deferred.
+deployed, health-verified and smoke-checked. PR B3 **shipped v11.59.0** — [#252](https://github.com/ravichavali/karmyq/pull/252)
+merged as `238c9009` (2026-09-19), deployed, health-verified and smoke-checked; issue #248 closed. **Next is PR D1
+(dotenv 17) — open as [#253](https://github.com/ravichavali/karmyq/pull/253), in review.** PR C rollout approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
 session state, not reservations inferred from branch-local text.
@@ -16,8 +17,8 @@ session state, not reservations inferred from branch-local text.
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-131-expo-drift` (PR B3). PR A (#249), PR B (#250) and PR B2 (#251) branches are merged — do not commit on them |
-| **Base** | `origin/master` at `1e1916ee` (PR B2 merge), fetched 2026-09-18; v11.58.0 |
+| **Branch** | `agent/claude/sprint-131-d1-dotenv` (PR D1). PR A (#249), PR B (#250), PR B2 (#251) and PR B3 (#252) branches are merged — do not commit on them |
+| **Base** | `origin/master` at `238c9009` (PR B3 merge), fetched 2026-09-19; v11.59.0 |
 | **Active editor** | Claude executed PR A (2026-09-16); planning was authored by Codex under maintainer transfer |
 | **Reviewer role** | A non-author reviews the completed diff; reviewers do not co-edit |
 | **Owned paths now** | Sprint 131 spec/plan, CURRENT_HANDOFF, preserved Sprint 130 archive |
@@ -35,8 +36,9 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 | A | BUG-045 expected missing config + planning/archive | **Shipped** — #249 merged `d35a3fad`, v11.56.0, deployed + live-verified 2026-09-16 |
 | B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Shipped** — #250 merged `d2edb286`, v11.57.0, deployed + smoke-checked 2026-09-17 |
 | B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Shipped** — #251 merged `1e1916ee`, v11.58.0, deployed + smoke-checked 2026-09-18. Repo-wide declarations gate is live and blocking |
-| B3 | Expo SDK drift catch-up (#248): align `apps/mobile` to Expo's live SDK 57 patch pins | **Implemented on `agent/claude/sprint-131-expo-drift`** (from `1e1916ee`), v11.59.0. **7 declared packages** moved, not the 4 originally scoped — Expo published a coordinated patch wave mid-PR (see *Expo's map is a moving target* below). `npx expo install --check` in `apps/mobile` and `scripts/expo-divergences.js` are both clean, with only the 2 registered ADR-094 divergences (`jest`, `@types/jest`) left — **do NOT "fix" those.** Expo gates + declarations gate 57/57; full suite 27/27 |
-| D1–D7 | dotenv, node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after B, **B2 and B3** |
+| B3 | Expo SDK drift catch-up (#248): align `apps/mobile` to Expo's live SDK 57 patch pins | **Shipped** — #252 merged `238c9009`, v11.59.0, deployed + smoke-checked 2026-09-19; **#248 closed**. 7 declared packages moved, not the 4 originally scoped: Expo published a coordinated patch wave mid-PR (see *Expo's map is a moving target* below) |
+| **D1** | **dotenv 16.6.1 → 17.4.2 (#226)** | **Open as [#253](https://github.com/ravichavali/karmyq/pull/253), in review** on `agent/claude/sprint-131-d1-dotenv` (from `238c9009`), v11.60.0. Takes Dependabot #226's bump (it auto-rebased onto B2 and moved all 9 declaring workspaces itself) **plus** `{ quiet: true }` at all 14 call sites — dotenv 17 flipped the `quiet` default and otherwise logs a random promo line on every service boot. New blocking gate `sprint-131-dotenv-quiet`. **⚠️ #226 must be CLOSED as superseded, not merged** — #253 contains its commit, so merging both double-applies the bump |
+| D2–D7 | node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after D1 |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
 Do not hold the other nine PRs while waiting for C. If C resumes after the upgrades, repeat its
@@ -59,17 +61,21 @@ inventory against the then-current base. BUG-033 remains open until actually del
 2. Work on `agent/claude/sprint-131-expo-drift`, cut from deployed `origin/master` `1e1916ee` (v11.58.0).
    The PR A (#249), PR B (#250) and PR B2 (#251) branches are merged; never commit on them.
 3. Read the linked spec and sprint plan. **PR A, B and B2 are shipped — do not reopen or re-execute their plans.**
-4. B3 has no focused plan yet: it is a surgical four-pin lock edit, scoped by the B3 row above.
+4. D1 has no focused plan: it takes Dependabot #226 plus the `quiet` fix, scoped by the D1 row above.
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
-**B2 SHIPPED** — [#251](https://github.com/ravichavali/karmyq/pull/251) merged `1e1916ee` (v11.58.0), deployed with all
-services healthy and no rollback, smoke-checked live. The repo-wide declarations gate is now blocking on every push.
+**B2 and B3 SHIPPED** — #251 merged `1e1916ee` (v11.58.0) and #252 merged `238c9009` (v11.59.0), both deployed with all
+services healthy, no rollback, smoke-checked live. The repo-wide declarations gate is blocking on every push, and #248 is
+closed.
 
-**Next unchecked action: push `agent/claude/sprint-131-expo-drift` and open the B3 PR**, then CI evidence → merge
-authorization → deploy → smoke. Then D1.
+**Next unchecked action: [#253](https://github.com/ravichavali/karmyq/pull/253) (D1, dotenv 17) is open and in review.**
+Round 1 returned two P2 gate findings, both fixed and proven by injection. Remaining: re-run the **Test Docker Build** job
+(it failed on a frontend `npm install` `ECONNRESET` — a network abort, not a dotenv regression), get CI green on the current
+head, then merge authorization → deploy → smoke. **Close #226 as superseded at the same time** — #253 contains its commit.
+Then D2–D7.
 
-⚠️ **Expo's map is a moving target — re-check at merge time, and land B3 promptly.** Mid-PR, Expo published a coordinated
+⚠️ **Expo's map is a moving target — re-check at merge time on any future Expo PR.** Mid-PR, Expo published a coordinated
 SDK 57 patch wave: all four originally-scoped pins went one patch further behind *and* three more packages
 (`expo-router`, `expo-constants`, `@expo/metro-runtime`) joined the drift, ~10h after the first check. Measured cadence is a
 **median ~70–100h between releases per package**, so there is roughly a 3-day window to land a catch-up PR — it is not a

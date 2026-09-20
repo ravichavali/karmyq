@@ -47,14 +47,21 @@ const SCRIPT_KIND: Record<string, ts.ScriptKind> = {
 
 const SOURCE_GLOBS = ['*.ts', '*.tsx', '*.js', '*.jsx', '*.mjs', '*.cjs'];
 const GENERATED = /(^|\/)(dist|\.next|build)\//;
-const IMPORTS_DOTENV = /from ['"]dotenv['"]|require\(['"]dotenv['"]\)/;
+/**
+ * Deliberately just the word. A "precise" prefilter is a second, weaker parser sitting in front of
+ * the real one, and it silently skipped valid imports: `from\n'dotenv'` (newline after `from`) and
+ * `require( 'dotenv' )` (spaces inside the call) both failed a shape-matching regex, so such a file
+ * was never parsed and its noisy `config()` passed. Matching the bare word over-selects by a few
+ * files and lets the AST — the only thing that actually knows — decide.
+ */
+const MENTIONS_DOTENV = /dotenv/;
 
-/** Files that import dotenv, with their source. */
+/** Files that mention dotenv at all, with their source. The AST decides what really imports it. */
 function dotenvFiles(): Array<{ file: string; source: string }> {
   return tracked(...SOURCE_GLOBS)
     .filter((f) => !GENERATED.test(f))
     .map((file) => ({ file, source: read(file) }))
-    .filter(({ source }) => IMPORTS_DOTENV.test(source));
+    .filter(({ source }) => MENTIONS_DOTENV.test(source));
 }
 
 /** `parseDiagnostics` is real but internal — it is not on the public SourceFile type. */
@@ -141,21 +148,29 @@ function configCalls(file: string, source: string): ConfigCall[] {
 
       if (isDotted || isBare) {
         const arg = node.arguments[0];
-        const quietProp =
-          arg && ts.isObjectLiteralExpression(arg)
-            ? arg.properties.find((p) => {
-                const n = p.name;
-                return !!n && (ts.isIdentifier(n) || ts.isStringLiteralLike(n)) && n.text === 'quiet';
-              })
-            : undefined;
+        // Evaluate the object literal IN ORDER, because JS last-one-wins. Taking the first `quiet`
+        // lets a later override sneak through: `{ quiet: true, ...{ quiet: false } }` is genuinely
+        // noisy (verified against 17.4.2) and would otherwise pass.
+        //
         // Only the literal `true` counts. The key alone proves nothing, and neither does "not
         // false": dotenv runs the value through parseBoolean, so `0`, `undefined`, `null` and the
-        // STRING `'false'` are all falsy and all still print (verified against dotenv 17.4.2).
-        // Anything non-literal (a variable, a spread) cannot be proven and is treated as not quiet.
-        const hasQuiet =
-          !!quietProp &&
-          ts.isPropertyAssignment(quietProp) &&
-          quietProp.initializer.kind === ts.SyntaxKind.TrueKeyword;
+        // STRING `'false'` are all falsy and all still print. A spread could contribute any `quiet`,
+        // so it resets the state to unproven — which correctly keeps `{ ...base, quiet: true }`
+        // passing while rejecting `{ quiet: true, ...base }`.
+        let proven = false;
+        if (arg && ts.isObjectLiteralExpression(arg)) {
+          for (const prop of arg.properties) {
+            if (ts.isSpreadAssignment(prop)) {
+              proven = false;
+              continue;
+            }
+            const n = prop.name;
+            const isQuietKey = !!n && (ts.isIdentifier(n) || ts.isStringLiteralLike(n)) && n.text === 'quiet';
+            if (!isQuietKey) continue;
+            proven = ts.isPropertyAssignment(prop) && prop.initializer.kind === ts.SyntaxKind.TrueKeyword;
+          }
+        }
+        const hasQuiet = proven;
 
         out.push({
           line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,
@@ -218,6 +233,34 @@ describe('dotenv config() is quiet (Sprint 131 D1)', () => {
     expect(detect("function boot(){ const d = require('dotenv'); d.config(); }")).toEqual([false]);
     // a `config` that is not dotenv's must not be picked up
     expect(detect("import { config } from 'elsewhere';\nconfig();")).toEqual([]);
+  });
+
+  it('discovers awkwardly-spelled imports, because the prefilter must not act as a second parser', () => {
+    // Regression: a shape-matching prefilter skipped both of these, so the file was never parsed
+    // and its noisy config() passed. Discovery is tested here, not just configCalls().
+    const awkward = [
+      "import dotenv from\n'dotenv';\ndotenv.config();",
+      "const d = require( 'dotenv' );\nd.config();",
+      "import  *  as  dotenv  from  'dotenv'\ndotenv.config()",
+    ];
+    for (const source of awkward) {
+      expect([source, MENTIONS_DOTENV.test(source)]).toEqual([source, true]);
+      // and once discovered, the AST must actually resolve the call as not-quiet
+      expect([source, configCalls('x.ts', source).map((c) => c.hasQuiet)]).toEqual([source, [false]]);
+    }
+    // a file merely naming dotenv contributes nothing, so over-selecting is safe
+    expect(configCalls('x.ts', '// we use dotenv here\nconst x = 1;')).toEqual([]);
+  });
+
+  it('respects property order, so a later spread cannot be overridden away', () => {
+    const detect = (src: string) => configCalls('x.ts', src).map((c) => c.hasQuiet);
+    const imp = "import dotenv from 'dotenv';\n";
+    // genuinely noisy (verified against 17.4.2) — last one wins
+    expect(detect(imp + 'dotenv.config({ quiet: true, ...{ quiet: false } });')).toEqual([false]);
+    expect(detect(imp + 'dotenv.config({ quiet: true, ...base });')).toEqual([false]);
+    expect(detect(imp + 'dotenv.config({ quiet: true, quiet: false });')).toEqual([false]);
+    // a spread BEFORE an explicit quiet: true is fine — the literal wins
+    expect(detect(imp + 'dotenv.config({ ...base, quiet: true });')).toEqual([true]);
   });
 
   it('accepts only the literal true, because dotenv runs the value through parseBoolean', () => {
