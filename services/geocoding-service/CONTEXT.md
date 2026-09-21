@@ -304,7 +304,7 @@ answers through `sendError`, so the ADR-074 envelope here comes from the route's
 in this service may claim an async rejection reaches an express error handler, because there isn't one.
 
 `express-rate-limit` stays at `^7.0.0` here (peer `4 || 5 || ^5.0.0-beta.1`) against root's `^8.2.2`
-— a pre-existing, deliberate split; both majors accept Express 5.
+— a pre-existing, deliberate split; both majors accept Express 5. *(Resolved by Sprint 131 D3: now `^8.7.0`.)*
 
 Express **4.18.2 → 5.2.1**, supplied by the root `package.json` **production** dependency
 (the Dockerfiles copy the root manifest and `npm install --omit=dev`). **No endpoint, payload,
@@ -323,3 +323,24 @@ GEOCODING_CACHE_FAILED** instead of a clean 400. Because this service is plain J
 consume `@karmyq/shared`, it carries an **inline** equivalent of the shared
 `normalizeRequestBody`, mounted immediately after `express.json()`. Pinned by a new case in
 `tests/regression/geocodingRoutes.test.js` asserting the ADR-074 400 envelope, not a 500.
+
+## Sprint 131 D3 — express-rate-limit 8 (2026-09-21)
+
+`express-rate-limit` **→ 8.7.0** (#224). One PR moves root, `packages/shared`, cleanup-service and geocoding-service.
+shared and geocoding were deliberately held back on **7.5.1** and are now on 8.
+Their two `DIVERGENCE_ALLOWLIST` entries in `tests/regression/sprint-131-workspace-declarations.test.ts` are
+removed: the gate's stale-entry test went red on #224 as soon as they stopped being divergences.
+
+I checked behavior against the installed `dist/index.cjs` of both versions and with a real-Express probe:
+- CommonJS `require()` still returns the function.
+- `max` still maps to `limit`.
+- `standardHeaders: true` still selects `draft-6`.
+- The default key generator is still per-IP. v8 applies a /56 subnet to IPv6.
+- None of v8's new validations fires for any option shape used here, and no test output contains `ERR_ERL`.
+
+v8.7.0 adds a **runtime dependency, `debug@^4.4.3`**, installed under express-rate-limit's own folder because root
+has `debug@2.6.9`.
+
+Both limiters in `src/geocodingApp.js` use the default key generator, so they stay per-IP under v8.
+
+No endpoint, payload or event change.

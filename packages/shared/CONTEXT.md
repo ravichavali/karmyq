@@ -61,15 +61,14 @@ the raw Express 5 behaviour so the shim cannot be quietly removed.
 
 | Package | `packages/shared` | root | Note |
 |---|---|---|---|
-| `express-rate-limit` | `^7.1.5` (peer `4 \|\| 5 \|\| ^5.0.0-beta.1`) | `^8.2.2` (peer `>= 4.11`) | split across majors; **both accept Express 5** |
 | `zod` | `^3.22.4` | `^4.1.12` | same class of split, same answer |
 
 *(Also pre-existing: `apps/frontend` consumes this package without providing Express at all, so the
 peer is unsatisfied there and `.npmrc`'s `legacy-peer-deps=true` silences it.)*
 
-Since Sprint 131 PR B2 these two rows are also the `DIVERGENCE_ALLOWLIST` entries in
-`tests/regression/sprint-131-workspace-declarations.test.ts` (with `services/geocoding-service`'s
-`express-rate-limit ^7.0.0`). That gate otherwise fails when root's hoisted version stops satisfying a range a
+Since Sprint 131 PR B2 this row is also a `DIVERGENCE_ALLOWLIST` entry in
+`tests/regression/sprint-131-workspace-declarations.test.ts`. An `express-rate-limit` 7 row, for this package and
+`services/geocoding-service`, was resolved by Sprint 131 D3. That gate otherwise fails when root's hoisted version stops satisfying a range a
 workspace declares, so these holdbacks have to be declared deliberate rather than drifting silently; a stale-entry
 test removes a row as soon as it stops being a divergence.
 
@@ -244,3 +243,27 @@ Root exports from `@karmyq/shared` define the strict request/offer relationship-
   reputation value.
 - The ADR-082 forbidden-key scanner now also rejects `match_completed_count`,
   `total_interaction_count`, and `interaction_count` in disclosure-protected payloads.
+
+## Sprint 131 D3 — express-rate-limit 8 (2026-09-21)
+
+`express-rate-limit` **→ 8.7.0** (#224). One PR moves root, `packages/shared`, cleanup-service and geocoding-service.
+shared and geocoding were deliberately held back on **7.5.1** and are now on 8.
+Their two `DIVERGENCE_ALLOWLIST` entries in `tests/regression/sprint-131-workspace-declarations.test.ts` are
+removed: the gate's stale-entry test went red on #224 as soon as they stopped being divergences.
+
+I checked behavior against the installed `dist/index.cjs` of both versions and with a real-Express probe:
+- CommonJS `require()` still returns the function.
+- `max` still maps to `limit`.
+- `standardHeaders: true` still selects `draft-6`.
+- The default key generator is still per-IP. v8 applies a /56 subnet to IPv6.
+- None of v8's new validations fires for any option shape used here, and no test output contains `ERR_ERL`.
+
+v8.7.0 adds a **runtime dependency, `debug@^4.4.3`**, installed under express-rate-limit's own folder because root
+has `debug@2.6.9`.
+
+⚠️ **BUG-049 (open, not fixed here).** `createRateLimiter`'s `keyGenerator` returns `undefined` for
+anonymous requests. Neither 7 nor 8 falls back to an IP key when it does, so every anonymous caller shares one
+bucket. The code comment that claimed otherwise now points at BUG-049. Fixing it needs `ipKeyGenerator` plus
+`trust proxy` in auth-service plus a forwarded-for header in nginx; see `docs/BUGS.md`.
+
+No export, endpoint, payload or event change.

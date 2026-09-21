@@ -74,16 +74,12 @@ const ALLOWLIST: Record<string, string> = {
  * As with ALLOWLIST above, the stale-entry test rejects entries that have stopped being divergences;
  * it does not prevent a new, still-valid holdback being added.
  *
- * These are deliberate holdbacks, not accidents: shared and geocoding stayed on express-rate-limit 7
- * and shared on zod 3 while root moved ahead.
+ * These are deliberate holdbacks, not accidents: shared stayed on zod 3 while root moved ahead.
+ * (shared and geocoding also held express-rate-limit at 7 until Sprint 131 D3 moved them to 8.)
  */
 const DIVERGENCE_ALLOWLIST: Record<string, string> = {
-  'packages/shared dependencies: express-rate-limit@^7.1.5':
-    'deliberately held at 7 while root is on 8; npm nests 7.5.1 under this workspace',
   'packages/shared dependencies: zod@^3.22.4':
     'deliberately held at 3 while root is on 4; npm nests 3.25.76 under this workspace',
-  'services/geocoding-service dependencies: express-rate-limit@^7.0.0':
-    'deliberately held at 7 while root is on 8; npm nests 7.5.1 under this workspace',
 };
 
 const packageName = (spec: string): string =>
@@ -198,8 +194,8 @@ const workspaces = allWorkspaces().map(({ ws }) => ({
  * Deliberately ignores the workspace-nested node that the range-satisfaction test below consults.
  * That test cannot detect a de-hoist: when a root bump strands a workspace range, npm's answer is to
  * nest a satisfying older copy under that workspace, so satisfaction still holds and the check stays
- * green (live proof: root hoists express-rate-limit 8.5.2 while packages/shared and
- * services/geocoding-service each run a nested 7.5.1). Comparing against root's hoisted version is
+ * green (proof, until Sprint 131 D3: root hoisted express-rate-limit 8.5.2 while packages/shared and
+ * services/geocoding-service each ran a nested 7.5.1). Comparing against root's hoisted version is
  * what actually fails when a root-only major bump would strand a workspace.
  */
 function strandedFromRoot(): Array<{ key: string; detail: string }> {
