@@ -169,7 +169,7 @@ undeclared import work locally until a root bump de-hoists or changes it.
   workspace silently drops off root's copy. Bumping a root major therefore means bumping every workspace that
   declares that package, in the same PR.
 - A workspace that genuinely intends to lag root goes on the gate's `DIVERGENCE_ALLOWLIST` with a reason (today:
-  `packages/shared` on express-rate-limit 7 and zod 3, `services/geocoding-service` on express-rate-limit 7). A
+  `packages/shared` on zod 3). A
   stale-entry test **rejects entries that have stopped being divergences**, so an exception cannot outlive the thing it
   excuses — but adding a new, still-valid one is allowed. The same holds for the gate's `ALLOWLIST` of knowingly
   undeclared imports.

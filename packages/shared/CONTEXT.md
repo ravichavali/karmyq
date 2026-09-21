@@ -57,11 +57,11 @@ an explicitly-sent `null` survives untouched. Mounted in all 8 shared-consuming 
 package. Pinned by `tests/regression/sprint-122-express5-empty-body.test.ts`, which also asserts
 the raw Express 5 behaviour so the shim cannot be quietly removed.
 
-**Known, deliberate, out of scope** (both pre-date this sprint and neither blocks Express 5):
+**Known, deliberate, out of scope** (pre-dates this sprint and does not block Express 5):
 
 | Package | `packages/shared` | root | Note |
 |---|---|---|---|
-| `zod` | `^3.22.4` | `^4.1.12` | same class of split, same answer |
+| `zod` | `^3.22.4` | `^4.1.12` | split across majors; does not touch Express, so it does not block Express 5 |
 
 *(Also pre-existing: `apps/frontend` consumes this package without providing Express at all, so the
 peer is unsatisfied there and `.npmrc`'s `legacy-peer-deps=true` silences it.)*
