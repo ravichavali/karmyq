@@ -1,14 +1,15 @@
 # Sprint 131 — Maintenance Backlog — Handoff
 
-**Date**: 2026-09-20
+**Date**: 2026-09-21
 
 **Outcome**: PR A **shipped v11.56.0** ([#249](https://github.com/ravichavali/karmyq/pull/249), `d35a3fad`). PR B **shipped v11.57.0** —
 [#250](https://github.com/ravichavali/karmyq/pull/250) merged as `d2edb286` (2026-09-17T13:00:59Z, admin merge on explicit
 maintainer authorization), deployed, health-verified and smoke-checked. PR B2 **shipped v11.58.0** —
 [#251](https://github.com/ravichavali/karmyq/pull/251) merged as `1e1916ee` (2026-09-18T01:55:41Z, maintainer merged),
 deployed, health-verified and smoke-checked. PR B3 **shipped v11.59.0** — [#252](https://github.com/ravichavali/karmyq/pull/252)
-merged as `238c9009` (2026-09-19), deployed, health-verified and smoke-checked; issue #248 closed. **Next is PR D1
-(dotenv 17) — open as [#253](https://github.com/ravichavali/karmyq/pull/253), in review.** PR C rollout approval deferred.
+merged as `238c9009` (2026-09-19), deployed, health-verified and smoke-checked; issue #248 closed. PR D1 **shipped v11.60.0**
+— [#253](https://github.com/ravichavali/karmyq/pull/253) merged as `0ce160b5` (2026-09-21T15:59:10Z), deployed, health-verified
+and smoke-checked. **PR D2 (node-cron 4) is open as [#254](https://github.com/ravichavali/karmyq/pull/254), all gates run, awaiting CI + merge authorization.** PR C rollout approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
 session state, not reservations inferred from branch-local text.
@@ -17,8 +18,8 @@ session state, not reservations inferred from branch-local text.
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-131-d1-dotenv` (PR D1). PR A (#249), PR B (#250), PR B2 (#251) and PR B3 (#252) branches are merged — do not commit on them |
-| **Base** | `origin/master` at `238c9009` (PR B3 merge), fetched 2026-09-19; v11.59.0 |
+| **Branch** | `agent/claude/sprint-131-d2-node-cron` (PR D2). PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252) and PR D1 (#253) branches are merged — do not commit on them |
+| **Base** | `origin/master` at `0ce160b5` (PR D1 merge), fetched 2026-09-21; v11.60.0 |
 | **Active editor** | Claude executed PR A (2026-09-16); planning was authored by Codex under maintainer transfer |
 | **Reviewer role** | A non-author reviews the completed diff; reviewers do not co-edit |
 | **Owned paths now** | Sprint 131 spec/plan, CURRENT_HANDOFF, preserved Sprint 130 archive |
@@ -37,8 +38,9 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 | B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Shipped** — #250 merged `d2edb286`, v11.57.0, deployed + smoke-checked 2026-09-17 |
 | B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Shipped** — #251 merged `1e1916ee`, v11.58.0, deployed + smoke-checked 2026-09-18. Repo-wide declarations gate is live and blocking |
 | B3 | Expo SDK drift catch-up (#248): align `apps/mobile` to Expo's live SDK 57 patch pins | **Shipped** — #252 merged `238c9009`, v11.59.0, deployed + smoke-checked 2026-09-19; **#248 closed**. 7 declared packages moved, not the 4 originally scoped: Expo published a coordinated patch wave mid-PR (see *Expo's map is a moving target* below) |
-| **D1** | **dotenv 16.6.1 → 17.4.2 (#226)** | **Open as [#253](https://github.com/ravichavali/karmyq/pull/253), in review** on `agent/claude/sprint-131-d1-dotenv` (from `238c9009`), v11.60.0. Takes Dependabot #226's bump (it auto-rebased onto B2 and moved all 9 declaring workspaces itself) **plus** `{ quiet: true }` at all 14 call sites — dotenv 17 flipped the `quiet` default and otherwise logs a random promo line on every service boot. New blocking gate `sprint-131-dotenv-quiet`. **#226 CLOSED as superseded on 2026-09-20** — #253 contains its commit |
-| D2–D7 | node-cron, express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after D1 |
+| D1 | dotenv 16.6.1 → 17.4.2 (#226) | **Shipped** — #253 merged `0ce160b5`, v11.60.0, deployed + smoke-checked 2026-09-21. Took Dependabot #226 (closed as superseded) plus `{ quiet: true }` at all 14 call sites; new blocking gate `sprint-131-dotenv-quiet` (10 tests) after three review rounds |
+| **D2** | **node-cron 3.0.3 → 4.6.0 (#228)** | **Open as [#254](https://github.com/ravichavali/karmyq/pull/254)**, v11.61.0, on `agent/claude/sprint-131-d2-node-cron` (from `0ce160b5`). Contains Dependabot #228's commit (**close #228 as superseded once #254 merges**) plus: `@types/node-cron` removed (v4 bundles types; tsc resolves `dist/node-cron.d.ts@4.6.0`), `cron.setLogger(logger)` in cleanup-service so v4's new `missed execution` warning goes to winston, and a real-scheduler **regression** test (blocking tier) for reputation's two jobs (red under 3 injections). Behavior verified against installed `dist/` + by running v4: import, auto-start, local TZ, overlap, skip-missed all unchanged; all 11 expressions valid. `/simplify`, `/code-review` medium, `/security-review`: no open findings. `notification-service/CONTEXT.md`'s node-cron snippet is a how-to recipe, not stale |
+| D3–D7 | express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after D2 |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
 Do not hold the other nine PRs while waiting for C. If C resumes after the upgrades, repeat its
@@ -58,10 +60,11 @@ inventory against the then-current base. BUG-033 remains open until actually del
 
 1. Confirm current branch, clean handoff and live state with `git status --short`, `gh pr list`
    and `git log --oneline origin/master -3`.
-2. Work on `agent/claude/sprint-131-d1-dotenv`, based on `origin/master` `238c9009` (v11.59.0).
-   The PR A (#249), PR B (#250), PR B2 (#251) and PR B3 (#252) branches are merged; never commit on them.
-3. Read the linked spec and sprint plan. **PR A, B, B2 and B3 are shipped — do not reopen or re-execute their plans.**
-4. D1 has no focused plan: it takes Dependabot #226 plus the `quiet` fix, scoped by the D1 row above.
+2. Work on `agent/claude/sprint-131-d2-node-cron`, based on `origin/master` `0ce160b5` (v11.60.0).
+   The PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252) and PR D1 (#253) branches are merged; never commit on them.
+3. Read the linked spec and sprint plan. **PR A, B, B2, B3 and D1 are shipped — do not reopen or re-execute their plans.**
+4. D2 is implemented and open as [#254](https://github.com/ravichavali/karmyq/pull/254) — do not restart it. Remaining:
+   CI green on the head → maintainer merge authorization → deploy + health → smoke → close #228 as superseded.
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
@@ -69,7 +72,30 @@ inventory against the then-current base. BUG-033 remains open until actually del
 services healthy, no rollback, smoke-checked live. The repo-wide declarations gate is blocking on every push, and #248 is
 closed.
 
-**Next unchecked action: #253 (D1) — CI green on the new head, then merge authorization → deploy → smoke.**
+**D1 SHIPPED** — #253 merged `0ce160b5` (v11.60.0) on explicit maintainer authorization, 2026-09-21T15:59:10Z.
+[CI/CD run 35622621477](https://github.com/ravichavali/karmyq/actions/runs/35622621477): every job success including all 7
+image builds and **Deploy to Demo** (`✅ All services healthy`, `🎉 Demo Deployment Successful`, no rollback). Smoke:
+login 200, `/api/conversations` 200, `/api/requests` 200. Not yet verified: that the deployed service boot logs contain
+**no** `◇ injected env` line — CI proves `quiet: true` works, but checking the live logs needs SSH to the demo host,
+which is a demo operation requiring per-operation maintainer approval.
+
+**Next unchecked action: #254 (D2) — CI green on the head, then maintainer merge authorization → deploy → health → smoke → close #228 as superseded.** Then D3 (express-rate-limit, #224) from the newly deployed master.
+
+D2 follow-ups (not blocking): reputation-service leaves node-cron's logger on `console` (shared `Logger.error` takes only a string; needs an adapter); cleanup-service's 9 top-level schedules have no real-scheduler unit test (an exported `initSchedules()` would make them testable).
+
+**What B2 and D1 taught about the remaining Dependabot majors (D2–D7):**
+- **Check whether Dependabot already did the manifest work.** B2's declarations gate makes a root-only bump red, so
+  Dependabot now bumps root *and* every declaring workspace itself — #226 did, three minutes after B2 merged. Before
+  hand-building a D-PR, re-read the Dependabot PR's file list against the new master; the manifest mechanics may already
+  be correct and green. It will auto-rebase after each merge, so re-check it at the time you start.
+- **What Dependabot cannot do is the behavior change.** A major can flip a default the repo relies on without failing a
+  single test (dotenv 17 made `config()` noisy). Verify behavior against the installed `node_modules` source and by
+  running both versions, never from the changelog.
+- **Any gate written for a D-PR: enumerate what the assertion ADMITS, not what it was meant to reject.** #253's gate
+  needed three review rounds because each fix closed one spelling and left the next (`quiet: false`, a later spread, a
+  computed key). Unreadable input must invalidate, never be skipped; a "precise" prefilter in front of a parser is a
+  second, weaker parser.
+- **If a D-PR contains a Dependabot commit, close that Dependabot PR as superseded** — merging both double-applies it.
 
 Review history on #253, three rounds, all findings fixed and each proven closed by injection rather than asserted:
 

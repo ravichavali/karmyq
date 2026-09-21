@@ -1637,3 +1637,28 @@ on any `config()` that omits `quiet`.
 
 No endpoint, payload, event or schema change. `parse()` output is byte-identical between 16 and 17, and
 nothing here reads `config()`’s return value.
+
+## Sprint 131 D2 — node-cron 4 (2026-09-21)
+
+`node-cron` **3.0.3 → 4.6.0** (#228; the two declarers, cleanup-service and reputation-service, moved together).
+`@types/node-cron` is **removed** from `devDependencies`: v4 ships its own typings, and `tsc --traceResolution`
+resolves `node-cron` to the bundled `dist/node-cron.d.ts@4.6.0`, so the old `@types` copy described an API that no
+longer exists. v4 also drops node-cron's `uuid` dependency.
+
+Behavior was checked against the installed `dist/` source and by running v4, not from the changelog.
+No call site passes options, and every v3 default this code depends on is unchanged:
+- The default import still works; the CJS build sets `__esModule` and `exports.default`.
+- `schedule()` still auto-starts.
+- The timezone is still process-local.
+- Overlapping runs are still allowed.
+- A slot missed because the event loop was blocked is still skipped, not replayed. v3's `recoverMissedExecutions`
+  defaulted off.
+
+**One operator-visible change:** v4 no longer drops a missed slot silently. It logs
+`[NODE-CRON] [WARN] missed execution at <date>! …` through node-cron's default `console` logger, which means a
+job at that time did not run. It is left on `console` here: this service's cron jobs log through `console`
+themselves, and the shared `Logger.error(message: string, …)` cannot take the `Error` objects that node-cron passes.
+(cleanup-service routes it through winston with `cron.setLogger`.)
+Real-scheduler coverage (the sprint-126 test mocks node-cron): `tests/regression/sprint-131-node-cron-v4.test.ts`.
+
+No endpoint, payload, event or schema change.

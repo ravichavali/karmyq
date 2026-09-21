@@ -265,6 +265,9 @@ app.post('/jobs/forget-content', adminRateLimiter, adminAuthMiddleware, async (r
 
 // ============= SCHEDULED JOBS =============
 
+// node-cron 4 reports a missed run ("a job did not run") through its own console logger; route it here.
+cron.setLogger(logger);
+
 /**
  * Match Reminder Job
  * Runs every 15 minutes. Sends departure reminders to helpers based on scheduled_at - travel_time_minutes.
