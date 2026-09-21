@@ -13,17 +13,17 @@ jest.mock('../../src/database/db', () => ({
   query: (...args: unknown[]) => mockQuery(...args),
 }));
 
-const mockUpdateTrustScore = jest.fn<Promise<void>, [string, string]>(async () => undefined);
+const mockUpdateTrustScore = jest.fn<Promise<void>, [string, string]>();
 jest.mock('../../src/services/karmaService', () => ({
   updateTrustScore: (u: string, c: string) => mockUpdateTrustScore(u, c),
 }));
 
-const mockCalculateAll = jest.fn(async () => undefined);
+const mockCalculateAll = jest.fn();
 jest.mock('../../src/services/healthMetricsService', () => ({
   calculateAllCommunityMetrics: () => mockCalculateAll(),
 }));
 
-const mockDetectMilestones = jest.fn(async () => undefined);
+const mockDetectMilestones = jest.fn();
 jest.mock('../../src/services/milestoneDetector', () => ({
   detectAllCommunityMilestones: () => mockDetectMilestones(),
 }));
@@ -41,9 +41,19 @@ function tasksRegisteredBy(init: () => void): ScheduledTask[] {
   return [...cron.getTasks().entries()].filter(([id]) => !before.has(id)).map(([, task]) => task);
 }
 
+/** Started, and next due at hh:mm:00 local within the coming day (getNextRun is null once stopped). */
+function expectArmedDailyAt(task: ScheduledTask, hours: number, minutes: number): void {
+  const next = task.getNextRun();
+  expect(next).not.toBeNull();
+  expect([next!.getHours(), next!.getMinutes(), next!.getSeconds()]).toEqual([hours, minutes, 0]);
+  const msAway = next!.getTime() - Date.now();
+  expect(msAway).toBeGreaterThan(0);
+  expect(msAway).toBeLessThanOrEqual(DAY_MS);
+}
+
+// Root jest config sets resetMocks, so mock calls and implementations are cleared between tests.
 afterEach(async () => {
   for (const task of cron.getTasks().values()) await task.destroy();
-  jest.clearAllMocks();
 });
 
 describe('node-cron v4 wiring (real scheduler)', () => {
@@ -54,13 +64,8 @@ describe('node-cron v4 wiring (real scheduler)', () => {
     const [task] = tasks;
     expect(task.getPattern()).toBe('30 3 * * *');
 
-    // Non-null only while the task is started: v4's schedule() must still auto-start.
-    const next = task.getNextRun();
-    expect(next).not.toBeNull();
-    expect([next!.getHours(), next!.getMinutes(), next!.getSeconds()]).toEqual([3, 30, 0]);
-    const msAway = next!.getTime() - Date.now();
-    expect(msAway).toBeGreaterThan(0);
-    expect(msAway).toBeLessThanOrEqual(DAY_MS);
+    // v4's schedule() must still auto-start.
+    expectArmedDailyAt(task, 3, 30);
 
     // The scheduler, not the test, invokes the handler (v4 passes it a context argument).
     mockQuery.mockResolvedValueOnce({ rows: [{ user_id: 'u1', community_id: 'c1' }] });
@@ -76,12 +81,7 @@ describe('node-cron v4 wiring (real scheduler)', () => {
     const [task] = tasks;
     expect(task.getPattern()).toBe('0 2 * * *');
 
-    const next = task.getNextRun();
-    expect(next).not.toBeNull();
-    expect([next!.getHours(), next!.getMinutes(), next!.getSeconds()]).toEqual([2, 0, 0]);
-    const msAway = next!.getTime() - Date.now();
-    expect(msAway).toBeGreaterThan(0);
-    expect(msAway).toBeLessThanOrEqual(DAY_MS);
+    expectArmedDailyAt(task, 2, 0);
 
     await task.execute();
     expect(mockCalculateAll).toHaveBeenCalledTimes(1);

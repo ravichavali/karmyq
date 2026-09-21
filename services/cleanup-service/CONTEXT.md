@@ -569,9 +569,10 @@ No call site passes options, and every v3 default this code depends on is unchan
 - A slot missed because the event loop was blocked is still skipped, not replayed. v3's `recoverMissedExecutions`
   defaulted off.
 
-**One operator-visible change:** v4 no longer drops a missed slot silently. It logs
-`[NODE-CRON] [WARN] missed execution at <date>! …` through its own `console` logger, which bypasses this
-service's structured logger. If that line appears, a job at that time did not run.
+**One operator-visible change:** v4 no longer drops a missed slot silently. It warns
+`missed execution at <date>! …`, and a `missed execution` warning means a job at that time did not run.
+`src/index.ts` calls `cron.setLogger(logger)`, so the warning and node-cron's task errors go through this
+service's winston logger rather than node-cron's default `console` logger.
 All nine `cron.schedule` expressions in `src/index.ts` are valid under v4, and each arms at its intended local time.
 
 No endpoint, payload, event or schema change.

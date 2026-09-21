@@ -1655,11 +1655,10 @@ No call site passes options, and every v3 default this code depends on is unchan
   defaulted off.
 
 **One operator-visible change:** v4 no longer drops a missed slot silently. It logs
-`[NODE-CRON] [WARN] missed execution at <date>! …` through its own `console` logger, which bypasses this
-service's structured logger. If that line appears, a job at that time did not run.
-`tests/tdd/sprint-131-node-cron-v4.test.ts` runs `initTrustScoreRefresh` and `initHealthMetricsCalculator` against the
-**real** scheduler, where the sprint-126 test mocks it. It reads the armed tasks back from node-cron's own registry
-and pins each pattern, its next-run time (03:30 and 02:00 local), and the fact that the scheduler invokes the wired
-handler.
+`[NODE-CRON] [WARN] missed execution at <date>! …` through node-cron's default `console` logger, which means a
+job at that time did not run. It is left on `console` here: this service's cron jobs log through `console`
+themselves, and the shared `Logger.error(message: string, …)` cannot take the `Error` objects that node-cron passes.
+(cleanup-service routes it through winston with `cron.setLogger`.)
+Real-scheduler coverage (the sprint-126 test mocks node-cron): `tests/tdd/sprint-131-node-cron-v4.test.ts`.
 
 No endpoint, payload, event or schema change.
