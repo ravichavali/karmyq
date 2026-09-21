@@ -116,7 +116,8 @@ export function createRateLimiter(config: RateLimitConfig = {}): RateLimitReques
       if (userId) {
         return `user:${userId}`;
       }
-      // Return undefined to use default IP-based key generation (IPv6-aware)
+      // KNOWN BUG (BUG-049): express-rate-limit has no fallback for an undefined key, so every
+      // anonymous request shares ONE bucket. Not a per-IP default. Fixing it also needs trust proxy + nginx.
       return undefined as any;
     },
     handler: (_req: Request, res: Response) => {

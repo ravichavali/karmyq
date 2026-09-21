@@ -576,3 +576,25 @@ service's winston logger rather than node-cron's default `console` logger.
 All nine `cron.schedule` expressions in `src/index.ts` are valid under v4, and each arms at its intended local time.
 
 No endpoint, payload, event or schema change.
+
+## Sprint 131 D3 — express-rate-limit 8 (2026-09-21)
+
+`express-rate-limit` **→ 8.7.0** (#224). One PR moves root, `packages/shared`, cleanup-service and geocoding-service.
+shared and geocoding were deliberately held back on **7.5.1** and are now on 8.
+Their two `DIVERGENCE_ALLOWLIST` entries in `tests/regression/sprint-131-workspace-declarations.test.ts` are
+removed: the gate's stale-entry test went red on #224 as soon as they stopped being divergences.
+
+I checked behavior against the installed `dist/index.cjs` of both versions and with a real-Express probe:
+- CommonJS `require()` still returns the function.
+- `max` still maps to `limit`.
+- `standardHeaders: true` still selects `draft-6`.
+- The default key generator is still per-IP. v8 applies a /56 subnet to IPv6.
+- None of v8's new validations fires for any option shape used here, and no test output contains `ERR_ERL`.
+
+v8.7.0 adds a **runtime dependency, `debug@^4.4.3`**, installed under express-rate-limit's own folder because root
+has `debug@2.6.9`.
+
+This service was already on 8, so for it this is a minor bump, 8.5.2 → 8.7.0. `adminRateLimiter` uses the
+default key generator.
+
+No endpoint, payload or event change.

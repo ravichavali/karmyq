@@ -1201,3 +1201,35 @@ surfaces far from the cause — a pool pointed at nothing rather than a missing-
 Related: `docs/gotchas/dotenv-config-must-pass-quiet.md`.
 
 ---
+
+## BUG-049 · [2026-09-21] · open
+
+**Shared rate limiter puts every anonymous caller in ONE global bucket.**
+
+`packages/shared/middleware/rateLimit.ts`'s `keyGenerator` returns `undefined` for requests without `req.user`, with
+the comment "use default IP-based key generation". express-rate-limit has no such fallback in 7.5.1 or 8.7.0: in
+`dist/index.cjs` it does `const key = await config.keyGenerator(...)` and then `store.increment(key)`, so every
+anonymous request is counted under the same key, `undefined`.
+
+A probe with real Express showed this under both versions. Two anonymous requests from IP A used up `max: 2`, and
+IP B's first request then got 429.
+
+The only consumer is auth-service. It mounts `globalRateLimiter` at app level and `rateLimiters.auth` on `/auth`,
+both **before** `authMiddleware` sets `req.user`, so every request counts as anonymous. The effect:
+- All auth-service traffic shares one bucket of 300 requests per minute.
+- All `/auth/*` traffic, site-wide, shares one bucket of 10 requests per 15 minutes. Ten anonymous requests could
+  lock every user out of login for 15 minutes.
+
+Not reproduced live, because doing so would lock out demo users.
+
+Fixing the key alone is not enough:
+- No service sets `trust proxy`.
+- `infrastructure/nginx/nginx.conf` sets no `X-Forwarded-For`.
+
+So `req.ip` is nginx's container IP for every request. A full fix spans three layers: the `keyGenerator` (v8
+exports `ipKeyGenerator`), `trust proxy` in auth-service, and a forwarded-for header in nginx. A wrong `trust proxy`
+setting would let clients spoof their IP.
+
+Found during Sprint 131 D3 (express-rate-limit 8). Deliberately **not** fixed in D3, which is a dependency bump.
+
+---
