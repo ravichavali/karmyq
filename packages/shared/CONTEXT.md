@@ -67,8 +67,7 @@ the raw Express 5 behaviour so the shim cannot be quietly removed.
 peer is unsatisfied there and `.npmrc`'s `legacy-peer-deps=true` silences it.)*
 
 Since Sprint 131 PR B2 this row is also a `DIVERGENCE_ALLOWLIST` entry in
-`tests/regression/sprint-131-workspace-declarations.test.ts`. An `express-rate-limit` 7 row, for this package and
-`services/geocoding-service`, was resolved by Sprint 131 D3. That gate otherwise fails when root's hoisted version stops satisfying a range a
+`tests/regression/sprint-131-workspace-declarations.test.ts`. That gate otherwise fails when root's hoisted version stops satisfying a range a
 workspace declares, so these holdbacks have to be declared deliberate rather than drifting silently; a stale-entry
 test removes a row as soon as it stops being a divergence.
 

@@ -75,7 +75,6 @@ const ALLOWLIST: Record<string, string> = {
  * it does not prevent a new, still-valid holdback being added.
  *
  * These are deliberate holdbacks, not accidents: shared stayed on zod 3 while root moved ahead.
- * (shared and geocoding also held express-rate-limit at 7 until Sprint 131 D3 moved them to 8.)
  */
 const DIVERGENCE_ALLOWLIST: Record<string, string> = {
   'packages/shared dependencies: zod@^3.22.4':
@@ -194,8 +193,7 @@ const workspaces = allWorkspaces().map(({ ws }) => ({
  * Deliberately ignores the workspace-nested node that the range-satisfaction test below consults.
  * That test cannot detect a de-hoist: when a root bump strands a workspace range, npm's answer is to
  * nest a satisfying older copy under that workspace, so satisfaction still holds and the check stays
- * green (proof, until Sprint 131 D3: root hoisted express-rate-limit 8.5.2 while packages/shared and
- * services/geocoding-service each ran a nested 7.5.1). Comparing against root's hoisted version is
+ * green (live proof: root hoists zod 4.4.3 while packages/shared runs a nested 3.25.76). Comparing against root's hoisted version is
  * what actually fails when a root-only major bump would strand a workspace.
  */
 function strandedFromRoot(): Array<{ key: string; detail: string }> {

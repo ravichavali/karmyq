@@ -303,9 +303,6 @@ was therefore extended with two Express 5 cases:
 answers through `sendError`, so the ADR-074 envelope here comes from the route's own `catch`. No test
 in this service may claim an async rejection reaches an express error handler, because there isn't one.
 
-`express-rate-limit` stays at `^7.0.0` here (peer `4 || 5 || ^5.0.0-beta.1`) against root's `^8.2.2`
-— a pre-existing, deliberate split; both majors accept Express 5. *(Resolved by Sprint 131 D3: now `^8.7.0`.)*
-
 Express **4.18.2 → 5.2.1**, supplied by the root `package.json` **production** dependency
 (the Dockerfiles copy the root manifest and `npm install --omit=dev`). **No endpoint, payload,
 status code or event contract changed** — `feedback:check` flags this service's `src/routes/`
