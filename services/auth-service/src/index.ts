@@ -15,7 +15,7 @@ import { reportDemoSessionHealth } from './services/demoSessionSelfCheck';
 import { globalRateLimiter, rateLimiters, normalizeRequestBody } from '@karmyq/shared/middleware';
 import { requestIdMiddleware, sendSuccess, sendInternalError } from '@karmyq/shared/utils/response';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const app = express();
 const PORT = process.env.PORT || 3001;

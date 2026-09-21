@@ -12,7 +12,7 @@ import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/log
 import { authMiddleware, globalRateLimiter, rateLimiters, isDemoReadOnlySession, AuthenticatedRequest, normalizeRequestBody } from '@karmyq/shared/middleware';
 import { requestIdMiddleware, sendSuccess, sendInternalError, sendForbidden } from '@karmyq/shared/utils/response';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const app = express();
 const PORT = process.env.PORT || 3006;

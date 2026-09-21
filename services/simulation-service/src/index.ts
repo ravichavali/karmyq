@@ -13,7 +13,7 @@ import { SimulationConfig } from './types';
 import defaultConfig from './config/default.json';
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ quiet: true });
 
 /**
  * Load configuration from environment or defaults

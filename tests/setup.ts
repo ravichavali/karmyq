@@ -9,8 +9,8 @@ import * as path from 'path';
 
 const envPathDemo = path.join(__dirname, '..', '.env.demo');
 const envPathLegacy = path.join(__dirname, '..', '.env.production');
-config({ path: envPathDemo });
-config({ path: envPathLegacy }); // fallback — dotenv won't overwrite already-set vars
+config({ path: envPathDemo, quiet: true });
+config({ path: envPathLegacy, quiet: true }); // fallback — dotenv won't overwrite already-set vars
 
 // Set test environment variables
 process.env.NODE_ENV = 'test';

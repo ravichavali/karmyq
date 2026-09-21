@@ -372,3 +372,20 @@ still declares these too, so a root-level major bump (e.g. dotenv 17) must bump 
 same PR.
 
 No endpoint, payload, event or schema change.
+
+## Sprint 131 D1 — dotenv 17 (2026-09-19)
+
+`dotenv` **16.6.1 → 17.4.2** (root plus all 9 npm workspaces that declare it; the ranges moved together in
+one PR, which the declarations gate requires. The two non-workspace test manifests, `tests/e2e/package.json` and
+`tests/load/package.json`, deliberately stay on `^16.3.1` with their own nested installs — dotenv 16 accepts
+`quiet` too, so their call sites are fixed either way). `src/index.ts` now calls **`dotenv.config({ quiet: true })`**.
+
+`quiet` is not cosmetic here. dotenv 16 defaulted it to `true`; 17 defaults it to falsy, so a bare
+`config()` prints `◇ injected env (N) from .env // tip: …` on every call — and the tip is drawn at random
+from an 8-entry list that includes third-party promo URLs. Without the flag this service would log a
+non-deterministic marketing line on every container start.
+`tests/regression/sprint-131-dotenv-quiet.test.ts` discovers the call sites from tracked source and fails
+on any `config()` that omits `quiet`.
+
+No endpoint, payload, event or schema change. `parse()` output is byte-identical between 16 and 17, and
+nothing here reads `config()`’s return value.

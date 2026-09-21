@@ -1156,3 +1156,48 @@ Impact: `npm ls` cannot be used as a clean-tree proof until this is fixed, and e
 explain the same red. Strict `npm ci` still succeeds.
 
 ---
+
+## BUG-048 · [2026-09-19] · open
+
+**`dotenv.config()` runs after the imports that read `process.env`, so a service-local `.env` never
+reaches the module-scope consumers.**
+
+Found during the Sprint 131 D1 `/simplify` altitude pass, while confirming that dotenv is nearly
+decorative in the deployed images. Not introduced by D1 — `{ quiet: true }` does not affect it — and
+it does not bite today, which is exactly why it is worth writing down before someone relies on `.env`.
+
+ES module imports are hoisted and evaluated before any statement in the importing module. In
+`services/auth-service/src/index.ts`, `import { initDatabase } from './database/db'` is line 11 and
+`dotenv.config({ quiet: true })` is line 18. `database/db.ts:3-7` constructs its pool at module scope:
+
+```ts
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, ... });
+```
+
+That runs **before** dotenv populates `process.env`. The same shape was confirmed in
+`request-service`, `community-service` and `notification-service`.
+
+**Why it is invisible right now:** every deployed service gets its environment from compose
+`environment:` blocks (`infrastructure/docker/docker-compose*.yml`), not from a `.env` — the
+Dockerfiles copy no `.env` and `.env*` is gitignored. So `process.env.DATABASE_URL` is already set
+before Node starts and dotenv changes nothing. Locally, `npm run dev` inherits a shell env in the
+same way for most people.
+
+**When it would bite:** a developer (or the simulation service, which `scripts/deploy.sh:375-381`
+gives a generated `$SIM_DIR/.env` because it runs outside Docker) relies on a service-local `.env`
+for a variable consumed at module scope. The value silently reads as `undefined`, and the failure
+surfaces far from the cause — a pool pointed at nothing rather than a missing-variable error.
+
+**Fix options**, none of which belong in a dependency bump:
+- `node -r dotenv/config` (or an `import 'dotenv/config'` side-effect module imported first), so the
+  env is populated before any other module body runs. Note the new
+  `tests/regression/sprint-131-dotenv-quiet.test.ts` currently asserts no tracked file uses
+  `dotenv/config`, precisely so adopting it is a deliberate decision — that assertion would move.
+- Or defer the consumers: make `db.ts` build its pool lazily inside `initDatabase()` rather than at
+  module scope.
+- Or remove `dotenv` from the services entirely and let the container env be the only source, keeping
+  it only where a real `.env` exists (simulation-service).
+
+Related: `docs/gotchas/dotenv-config-must-pass-quiet.md`.
+
+---
