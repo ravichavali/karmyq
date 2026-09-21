@@ -1659,6 +1659,6 @@ No call site passes options, and every v3 default this code depends on is unchan
 job at that time did not run. It is left on `console` here: this service's cron jobs log through `console`
 themselves, and the shared `Logger.error(message: string, …)` cannot take the `Error` objects that node-cron passes.
 (cleanup-service routes it through winston with `cron.setLogger`.)
-Real-scheduler coverage (the sprint-126 test mocks node-cron): `tests/tdd/sprint-131-node-cron-v4.test.ts`.
+Real-scheduler coverage (the sprint-126 test mocks node-cron): `tests/regression/sprint-131-node-cron-v4.test.ts`.
 
 No endpoint, payload, event or schema change.

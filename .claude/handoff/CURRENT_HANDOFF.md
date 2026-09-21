@@ -39,7 +39,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 | B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Shipped** — #251 merged `1e1916ee`, v11.58.0, deployed + smoke-checked 2026-09-18. Repo-wide declarations gate is live and blocking |
 | B3 | Expo SDK drift catch-up (#248): align `apps/mobile` to Expo's live SDK 57 patch pins | **Shipped** — #252 merged `238c9009`, v11.59.0, deployed + smoke-checked 2026-09-19; **#248 closed**. 7 declared packages moved, not the 4 originally scoped: Expo published a coordinated patch wave mid-PR (see *Expo's map is a moving target* below) |
 | D1 | dotenv 16.6.1 → 17.4.2 (#226) | **Shipped** — #253 merged `0ce160b5`, v11.60.0, deployed + smoke-checked 2026-09-21. Took Dependabot #226 (closed as superseded) plus `{ quiet: true }` at all 14 call sites; new blocking gate `sprint-131-dotenv-quiet` (10 tests) after three review rounds |
-| **D2** | **node-cron 3.0.3 → 4.6.0 (#228)** | **Open as [#254](https://github.com/ravichavali/karmyq/pull/254)**, v11.61.0, on `agent/claude/sprint-131-d2-node-cron` (from `0ce160b5`). Contains Dependabot #228's commit (**close #228 as superseded once #254 merges**) plus: `@types/node-cron` removed (v4 bundles types; tsc resolves `dist/node-cron.d.ts@4.6.0`), `cron.setLogger(logger)` in cleanup-service so v4's new `missed execution` warning goes to winston, and a real-scheduler TDD test for reputation's two jobs (red under 3 injections). Behavior verified against installed `dist/` + by running v4: import, auto-start, local TZ, overlap, skip-missed all unchanged; all 11 expressions valid. `/simplify`, `/code-review` medium, `/security-review`: no open findings. `notification-service/CONTEXT.md`'s node-cron snippet is a how-to recipe, not stale |
+| **D2** | **node-cron 3.0.3 → 4.6.0 (#228)** | **Open as [#254](https://github.com/ravichavali/karmyq/pull/254)**, v11.61.0, on `agent/claude/sprint-131-d2-node-cron` (from `0ce160b5`). Contains Dependabot #228's commit (**close #228 as superseded once #254 merges**) plus: `@types/node-cron` removed (v4 bundles types; tsc resolves `dist/node-cron.d.ts@4.6.0`), `cron.setLogger(logger)` in cleanup-service so v4's new `missed execution` warning goes to winston, and a real-scheduler **regression** test (blocking tier) for reputation's two jobs (red under 3 injections). Behavior verified against installed `dist/` + by running v4: import, auto-start, local TZ, overlap, skip-missed all unchanged; all 11 expressions valid. `/simplify`, `/code-review` medium, `/security-review`: no open findings. `notification-service/CONTEXT.md`'s node-cron snippet is a how-to recipe, not stale |
 | D3–D7 | express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after D2 |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
@@ -63,8 +63,8 @@ inventory against the then-current base. BUG-033 remains open until actually del
 2. Work on `agent/claude/sprint-131-d2-node-cron`, based on `origin/master` `0ce160b5` (v11.60.0).
    The PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252) and PR D1 (#253) branches are merged; never commit on them.
 3. Read the linked spec and sprint plan. **PR A, B, B2, B3 and D1 are shipped — do not reopen or re-execute their plans.**
-4. D2 (node-cron, #228) has no focused plan yet. Start by re-checking #228 against the new master and inventorying
-   importers — see the D-series note below on what B2 and D1 taught about Dependabot majors.
+4. D2 is implemented and open as [#254](https://github.com/ravichavali/karmyq/pull/254) — do not restart it. Remaining:
+   CI green on the head → maintainer merge authorization → deploy + health → smoke → close #228 as superseded.
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
