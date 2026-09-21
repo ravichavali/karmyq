@@ -9,7 +9,7 @@ maintainer authorization), deployed, health-verified and smoke-checked. PR B2 **
 deployed, health-verified and smoke-checked. PR B3 **shipped v11.59.0** — [#252](https://github.com/ravichavali/karmyq/pull/252)
 merged as `238c9009` (2026-09-19), deployed, health-verified and smoke-checked; issue #248 closed. PR D1 **shipped v11.60.0**
 — [#253](https://github.com/ravichavali/karmyq/pull/253) merged as `0ce160b5` (2026-09-21T15:59:10Z), deployed, health-verified
-and smoke-checked. **Next is PR D2 (node-cron).** PR C rollout approval deferred.
+and smoke-checked. **PR D2 (node-cron 4) is open as [#254](https://github.com/ravichavali/karmyq/pull/254), all gates run, awaiting CI + merge authorization.** PR C rollout approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
 session state, not reservations inferred from branch-local text.
@@ -39,7 +39,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 | B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Shipped** — #251 merged `1e1916ee`, v11.58.0, deployed + smoke-checked 2026-09-18. Repo-wide declarations gate is live and blocking |
 | B3 | Expo SDK drift catch-up (#248): align `apps/mobile` to Expo's live SDK 57 patch pins | **Shipped** — #252 merged `238c9009`, v11.59.0, deployed + smoke-checked 2026-09-19; **#248 closed**. 7 declared packages moved, not the 4 originally scoped: Expo published a coordinated patch wave mid-PR (see *Expo's map is a moving target* below) |
 | D1 | dotenv 16.6.1 → 17.4.2 (#226) | **Shipped** — #253 merged `0ce160b5`, v11.60.0, deployed + smoke-checked 2026-09-21. Took Dependabot #226 (closed as superseded) plus `{ quiet: true }` at all 14 call sites; new blocking gate `sprint-131-dotenv-quiet` (10 tests) after three review rounds |
-| **D2** | **node-cron 3.0.3 → 4.x (#228)** | **NEXT** — branch `agent/claude/sprint-131-d2-node-cron` cut from `0ce160b5`. No focused plan yet. Scoped 2026-09-21: #228 auto-rebased 2m45s after D1 merged and bumps exactly the two declarers (`cleanup-service`, `reputation-service`; root does not declare it) — the manifest side is likely already right. The real work is **behavior at 3 call sites**: `cleanup-service/src/index.ts`, `reputation-service/src/cron/healthMetricsCalculator.ts`, `reputation-service/src/cron/trustScoreRefresh.ts`. `notification-service/CONTEXT.md` mentions node-cron but no notification source imports it — check whether that doc is stale |
+| **D2** | **node-cron 3.0.3 → 4.6.0 (#228)** | **Open as [#254](https://github.com/ravichavali/karmyq/pull/254)**, v11.61.0, on `agent/claude/sprint-131-d2-node-cron` (from `0ce160b5`). Contains Dependabot #228's commit (**close #228 as superseded once #254 merges**) plus: `@types/node-cron` removed (v4 bundles types; tsc resolves `dist/node-cron.d.ts@4.6.0`), `cron.setLogger(logger)` in cleanup-service so v4's new `missed execution` warning goes to winston, and a real-scheduler TDD test for reputation's two jobs (red under 3 injections). Behavior verified against installed `dist/` + by running v4: import, auto-start, local TZ, overlap, skip-missed all unchanged; all 11 expressions valid. `/simplify`, `/code-review` medium, `/security-review`: no open findings. `notification-service/CONTEXT.md`'s node-cron snippet is a how-to recipe, not stale |
 | D3–D7 | express-rate-limit, expo-server-sdk, node-fetch, zod, next | One major per PR, after D2 |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
@@ -79,7 +79,9 @@ login 200, `/api/conversations` 200, `/api/requests` 200. Not yet verified: that
 **no** `◇ injected env` line — CI proves `quiet: true` works, but checking the live logs needs SSH to the demo host,
 which is a demo operation requiring per-operation maintainer approval.
 
-**Next unchecked action: D2 — node-cron (#228)** on `agent/claude/sprint-131-d2-node-cron`, cut from `0ce160b5`.
+**Next unchecked action: #254 (D2) — CI green on the head, then maintainer merge authorization → deploy → health → smoke → close #228 as superseded.** Then D3 (express-rate-limit, #224) from the newly deployed master.
+
+D2 follow-ups (not blocking): reputation-service leaves node-cron's logger on `console` (shared `Logger.error` takes only a string; needs an adapter); cleanup-service's 9 top-level schedules have no real-scheduler unit test (an exported `initSchedules()` would make them testable).
 
 **What B2 and D1 taught about the remaining Dependabot majors (D2–D7):**
 - **Check whether Dependabot already did the manifest work.** B2's declarations gate makes a root-only bump red, so
