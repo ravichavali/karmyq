@@ -1241,8 +1241,12 @@ location blocks. nginx runs on the host — it is absent from `docker-compose.pr
 `127.0.0.1:300X` published container ports.
 
 **The fix (Sprint 131):** two layers, not three.
-- `keyGenerator` returns `ipKeyGenerator(req.ip ?? req.socket.remoteAddress ?? 'unknown')` for anonymous requests.
-- All nine limiter-mounting services set `app.set('trust proxy', 1)`.
+- `keyGenerator` returns `ipKeyGenerator(req.ip ?? 'unknown')` for anonymous requests.
+- The **eight services nginx proxies** set `app.set('trust proxy', 1)`. cleanup-service mounts a
+  limiter but has no nginx route — it is reached directly on host loopback `127.0.0.1:3008` and
+  over the Docker network — so it deliberately sets nothing —
+  trusting an absent hop would have made `req.ip` forgeable and let anyone on the Docker network
+  reset its admin limiter, which is mounted ahead of its auth middleware.
 
 `1` is the only safe value here. `true` would trust the whole chain and let a client spoof `req.ip`; `'loopback'`
 would not match the Docker gateway the container actually sees. Because nginx uses `$proxy_add_x_forwarded_for`, it

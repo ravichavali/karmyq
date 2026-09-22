@@ -24,8 +24,11 @@ import { normalizeRequestBody } from '@karmyq/shared/middleware';
 dotenv.config({ quiet: true });
 
 const app = express();
-// ADR-098 (BUG-049): exactly one proxy hop. Must stay 1 — `true` lets a client spoof req.ip.
-app.set('trust proxy', 1);
+// ADR-098 (BUG-049): this service is deliberately NOT behind nginx — it has no upstream in
+// infrastructure/nginx/nginx.conf. It is still reachable directly, on host loopback
+// 127.0.0.1:3008 and over the Docker network, so it must NOT set `trust proxy`: with no proxy in
+// front there is no hop to trust, and trusting one would let any caller forge X-Forwarded-For and
+// reset adminRateLimiter, which is mounted ahead of adminAuthMiddleware.
 const PORT = process.env.PORT || 3008;
 const JWT_SECRET = process.env.JWT_SECRET;
 const sharedLogger = createLogger('cleanup-service');

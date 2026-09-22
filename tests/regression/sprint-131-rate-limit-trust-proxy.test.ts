@@ -3,24 +3,33 @@ import * as ts from 'typescript';
 import { ROOT, read, tracked, allServicePaths } from './helpers/workspaces';
 
 /**
- * BUG-049 gate (ADR-098). Two invariants:
- *   1. Every service that mounts a rate limiter sets `app.set('trust proxy', 1)`.
- *   2. The shared key generator never returns undefined.
+ * BUG-049 / ADR-098 gate.
  *
- * The service list is derived from services/registry.json and the services' own tracked source at
- * run time — never hand-listed here — so a new limiter-mounting service cannot slip past.
+ * The invariant is about TOPOLOGY, not about rate limiting: a service must trust exactly one proxy
+ * hop **if and only if** nginx proxies it. Both directions matter, and the second one is not
+ * theoretical — an earlier draft of this gate asserted "every service that mounts a limiter sets
+ * trust proxy", and that rule put `trust proxy` on cleanup-service, which nginx does not proxy.
+ * There `req.ip` had been the unforgeable socket address; trusting a hop
+ * that does not exist made it a client-supplied header, and cleanup's adminRateLimiter is mounted
+ * ahead of adminAuthMiddleware. A symptom-shaped rule produced a security regression, so the rule
+ * now derives from the thing that actually decides the answer. (cleanup is not unreachable — it
+ * publishes 127.0.0.1:3008 and sits on the Docker network — it simply has no proxy in front, so
+ * there is no hop to trust.)
  *
- * **Both `.ts` and `.js` are scanned.** The first draft of this gate was `.ts`-only and silently
- * missed geocoding-service, which mounts two limiters in `src/geocodingApp.js` and is proxied by
- * nginx. A language-shaped hole in a discovery gate is indistinguishable from a pass.
+ * Two live arbiters, both read at run time:
+ *   - `infrastructure/nginx/nginx.conf` upstreams — who is proxied.
+ *   - `services/registry.json` — which services exist, and on which port.
+ *
+ * Both `.ts` and `.js` are scanned. The first draft was `.ts`-only and silently missed
+ * geocoding-service, which mounts two limiters in `src/geocodingApp.js`. A language-shaped hole in
+ * a discovery gate is indistinguishable from a pass.
  *
  * Deliberate limit: this reads source, so it proves the call is written, not that it executed. The
  * behavioural proof that keys are per-IP is in
  * packages/shared/src/middleware/__tests__/sprint-131-rate-limit-key.test.ts.
  */
 
-/** Matches a limiter mount. `createRateLimiter(` does not match — capital R. */
-const LIMITER_USE = /globalRateLimiter|rateLimiters\.|rateLimit\(/;
+const NGINX_CONF = read('infrastructure/nginx/nginx.conf');
 
 /**
  * Every tracked service source file, read once.
@@ -33,53 +42,116 @@ const SOURCES: ReadonlyMap<string, string> = new Map(
   tracked('services/*/src/*.ts', 'services/*/src/*.js').map((rel) => [rel, read(rel)]),
 );
 
-/** Services from the registry whose own source mounts a rate limiter. */
-const LIMITER_SERVICES: { name: string; dir: string; files: string[] }[] = allServicePaths()
-  .map((dir) => ({
-    name: path.basename(dir),
-    dir,
-    files: [...SOURCES.keys()].filter((rel) => rel.startsWith(`${dir}/src/`)),
-  }))
-  .filter(({ files }) => files.some((rel) => LIMITER_USE.test(SOURCES.get(rel) as string)));
+/** Ports nginx has an upstream for — the live arbiter of "is this service proxied". */
+const PROXIED_PORTS: ReadonlySet<number> = new Set(
+  [...NGINX_CONF.matchAll(/upstream\s+\w+\s*\{[^}]*?server\s+127\.0\.0\.1:(\d+)/g)].map((m) =>
+    Number(m[1]),
+  ),
+);
+
+type Service = { name: string; proxied: boolean; files: string[] };
+
+const SERVICES: Service[] = (() => {
+  const registry = JSON.parse(read('services/registry.json')) as {
+    services: Record<string, { path: string; port?: number | null }>;
+  };
+  return allServicePaths().map((dir) => {
+    const name = path.basename(dir);
+    const port = registry.services[name]?.port;
+    return {
+      name,
+      proxied: typeof port === 'number' && PROXIED_PORTS.has(port),
+      files: [...SOURCES.keys()].filter((rel) => rel.startsWith(`${dir}/src/`)),
+    };
+  });
+})();
 
 /**
- * True only for a real `<expr>.set('trust proxy', 1)` call with a NUMERIC 1.
+ * True only for a real `<expr>.set('trust proxy', <numeric literal>)` call, returning the literal.
  *
- * A substring search would pass on a commented-out line, on `app.set('trust proxy', true)`, and on
- * the words inside an unrelated string, so this walks the AST and checks the call shape.
+ * A substring search would match a commented-out line and the words inside an unrelated string, so
+ * this walks the AST. Returning the value (rather than a boolean) is what lets the test distinguish
+ * `1` from `true` and report which it found.
  */
-const setsTrustProxyToOne = (source: string, fileName: string): boolean => {
+const trustProxyValue = (source: string, fileName: string): string | undefined => {
   const sourceFile = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true);
-  let found = false;
+  let value: string | undefined;
   const visit = (node: ts.Node): void => {
-    if (found) return;
+    if (value !== undefined) return;
     if (
       ts.isCallExpression(node) &&
       ts.isPropertyAccessExpression(node.expression) &&
       node.expression.name.text === 'set' &&
       node.arguments.length === 2 &&
       ts.isStringLiteralLike(node.arguments[0]) &&
-      node.arguments[0].text === 'trust proxy' &&
-      ts.isNumericLiteral(node.arguments[1]) &&
-      node.arguments[1].text === '1'
+      node.arguments[0].text === 'trust proxy'
     ) {
-      found = true;
+      value = node.arguments[1].getText(sourceFile);
       return;
     }
     ts.forEachChild(node, visit);
   };
   visit(sourceFile);
-  return found;
+  return value;
 };
 
-describe('BUG-049: trusted proxy and rate limit keys', () => {
-  it('discovers the limiter-mounting services from the registry and tracked source', () => {
-    // Guards against the discovery itself returning nothing, which would make every per-service
-    // case below vacuously pass. The file scan must be non-empty too, for the same reason.
+/** The `trust proxy` value a service sets, across all of its source files. */
+const serviceTrustProxy = (service: Service): string | undefined => {
+  // Narrowing to files containing the literal cannot hide a match: an AST hit implies the string is
+  // present. It is a superset filter, not a second parser.
+  for (const rel of service.files) {
+    const source = SOURCES.get(rel) as string;
+    if (!source.includes('trust proxy')) continue;
+    const value = trustProxyValue(source, path.join(ROOT, rel));
+    if (value !== undefined) return value;
+  }
+  return undefined;
+};
+
+const proxied = SERVICES.filter((s) => s.proxied);
+const notProxied = SERVICES.filter((s) => !s.proxied);
+
+/** Active nginx directives in a block — line comments stripped, so `# include …` does not count. */
+const activeDirectives = (body: string): string[] =>
+  body
+    .split(/\r?\n/)
+    .map((line) => line.replace(/#.*$/, '').trim())
+    .filter(Boolean);
+
+/** The host file we cannot read from here; assumed to set `$proxy_add_x_forwarded_for` (§3). */
+const PROXY_PARAMS_INCLUDE = /^include\s+\S*proxy_params\s*;$/;
+const ANY_XFF = /^proxy_set_header\s+X-Forwarded-For\s+(.*?)\s*;$/;
+
+/**
+ * Values that leave `X-Forwarded-For` trustworthy under `trust proxy = 1`.
+ *
+ * `$proxy_add_x_forwarded_for` appends `$remote_addr` last, and `$remote_addr` alone replaces the
+ * header outright — both end with an address nginx observed. `$http_x_forwarded_for` forwards
+ * whatever the client sent, which is the spoofable case, and an empty value strips the header so
+ * `req.ip` collapses back to the gateway.
+ */
+const SAFE_XFF_VALUES = new Set(['$proxy_add_x_forwarded_for', '$remote_addr']);
+
+const forwardsTrustworthyClientIp = (body: string): boolean => {
+  const directives = activeDirectives(body);
+  const explicit = directives
+    .map((d) => d.match(ANY_XFF)?.[1])
+    .filter((v): v is string => v !== undefined);
+
+  // An explicit override that is not safe disqualifies the block even if proxy_params is included.
+  if (explicit.some((value) => !SAFE_XFF_VALUES.has(value))) return false;
+
+  return explicit.length > 0 || directives.some((d) => PROXY_PARAMS_INCLUDE.test(d));
+};
+
+describe('ADR-098: trusted proxy hop matches the nginx topology', () => {
+  it('derives the proxied set from nginx upstreams and the registry', () => {
+    // Guards against either arbiter silently yielding nothing, which would make every case below
+    // vacuously pass.
     expect(SOURCES.size).toBeGreaterThan(100);
-    expect(LIMITER_SERVICES.map((s) => s.name).sort()).toEqual([
+    expect(PROXIED_PORTS.size).toBeGreaterThanOrEqual(8);
+    expect(proxied.map((s) => s.name).sort()).toEqual([
       'auth-service',
-      'cleanup-service',
       'community-service',
       'geocoding-service',
       'messaging-service',
@@ -88,20 +160,39 @@ describe('BUG-049: trusted proxy and rate limit keys', () => {
       'request-service',
       'social-graph-service',
     ]);
+    expect(notProxied.map((s) => s.name).sort()).toEqual(['cleanup-service', 'simulation-service']);
   });
 
-  it.each(LIMITER_SERVICES.map((s) => [s.name, s.files] as const))(
-    '%s sets trust proxy to exactly 1',
-    (_name, files) => {
-      // Narrowing to files that contain the literal cannot hide a match: an AST hit implies the
-      // string is present. It is a superset filter, not a second parser.
-      const candidates = files.filter((rel) => (SOURCES.get(rel) as string).includes('trust proxy'));
-      const hit = candidates.find((rel) =>
-        setsTrustProxyToOne(SOURCES.get(rel) as string, path.join(ROOT, rel)),
-      );
-      expect(hit).toBeDefined();
+  it.each(proxied.map((s) => [s.name, s] as const))(
+    '%s is proxied, so it trusts exactly one hop',
+    (_name, service) => {
+      expect(serviceTrustProxy(service)).toBe('1');
     },
   );
+
+  it.each(notProxied.map((s) => [s.name, s] as const))(
+    '%s is NOT proxied, so it must not trust any hop',
+    (_name, service) => {
+      // Trusting a non-existent hop makes req.ip a client-supplied header. See the header comment.
+      expect(serviceTrustProxy(service)).toBeUndefined();
+    },
+  );
+
+  it('every proxied nginx location forwards a trustworthy client IP', () => {
+    // Per-IP keying rests entirely on X-Forwarded-For reaching the app with a value the client
+    // cannot dictate. An earlier version of this check only searched the raw block text for the
+    // words, which passed on a COMMENTED-OUT include, on `$http_x_forwarded_for` (the client's own
+    // header, forwarded verbatim — spoofable under `trust proxy = 1`) and on `""`. It detected
+    // absence but not brokenness. It now strips comments and validates the value.
+    const locations = [...NGINX_CONF.matchAll(/location[^{]*\{([^}]*)\}/g)]
+      .map((m) => m[1])
+      .filter((body) => /proxy_pass\s+http:\/\/\w+_service/.test(body));
+
+    expect(locations.length).toBeGreaterThanOrEqual(20);
+
+    const offenders = locations.filter((body) => !forwardsTrustworthyClientIp(body));
+    expect(offenders).toEqual([]);
+  });
 
   it('the shared key generator never returns undefined', () => {
     const source = read('packages/shared/middleware/rateLimit.ts');
