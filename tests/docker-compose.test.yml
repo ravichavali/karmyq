@@ -27,6 +27,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      # init.sql runs before TCP opens, so failed probes during init must not count against retries (BUG-050)
+      start_period: 60s
 
   # Test Redis - Isolated from production
   redis-test:
