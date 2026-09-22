@@ -9,7 +9,7 @@ maintainer authorization), deployed, health-verified and smoke-checked. PR B2 **
 deployed, health-verified and smoke-checked. PR B3 **shipped v11.59.0** — [#252](https://github.com/ravichavali/karmyq/pull/252)
 merged as `238c9009` (2026-09-19), deployed, health-verified and smoke-checked; issue #248 closed. PR D1 **shipped v11.60.0**
 — [#253](https://github.com/ravichavali/karmyq/pull/253) merged as `0ce160b5` (2026-09-21T15:59:10Z), deployed, health-verified
-and smoke-checked. PR D2 **shipped v11.61.0** — [#254](https://github.com/ravichavali/karmyq/pull/254) merged as `b7539896` (2026-09-21T20:51:13Z), deployed, health-verified and smoke-checked; #228 closed. **PR D3 (express-rate-limit 8) is open as [#255](https://github.com/ravichavali/karmyq/pull/255), all gates run, awaiting CI + merge authorization.** PR C rollout approval deferred.
+and smoke-checked. PR D2 **shipped v11.61.0** — [#254](https://github.com/ravichavali/karmyq/pull/254) merged as `b7539896` (2026-09-21T20:51:13Z), deployed, health-verified and smoke-checked; #228 closed. PR D3 **shipped v11.62.0** — [#255](https://github.com/ravichavali/karmyq/pull/255) merged as `b7588509` (2026-09-21T23:25:42Z), deployed on a CI re-run, health-verified and smoke-checked; #224 closed. **Next is PR D4 (expo-server-sdk).** PR C rollout approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
 session state, not reservations inferred from branch-local text.
@@ -18,8 +18,8 @@ session state, not reservations inferred from branch-local text.
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-131-d3-express-rate-limit` (PR D3). PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253) and PR D2 (#254) branches are merged — do not commit on them |
-| **Base** | `origin/master` at `b7539896` (PR D2 merge), fetched 2026-09-21; v11.61.0 |
+| **Branch** | `agent/claude/sprint-131-d4-expo-server-sdk` (PR D4). PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches are merged — do not commit on them |
+| **Base** | `origin/master` at `b7588509` (PR D3 merge), fetched 2026-09-22; v11.62.0 |
 | **Active editor** | Claude executed PR A (2026-09-16); planning was authored by Codex under maintainer transfer |
 | **Reviewer role** | A non-author reviews the completed diff; reviewers do not co-edit |
 | **Owned paths now** | Sprint 131 spec/plan, CURRENT_HANDOFF, preserved Sprint 130 archive |
@@ -40,8 +40,9 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 | B3 | Expo SDK drift catch-up (#248): align `apps/mobile` to Expo's live SDK 57 patch pins | **Shipped** — #252 merged `238c9009`, v11.59.0, deployed + smoke-checked 2026-09-19; **#248 closed**. 7 declared packages moved, not the 4 originally scoped: Expo published a coordinated patch wave mid-PR (see *Expo's map is a moving target* below) |
 | D1 | dotenv 16.6.1 → 17.4.2 (#226) | **Shipped** — #253 merged `0ce160b5`, v11.60.0, deployed + smoke-checked 2026-09-21. Took Dependabot #226 (closed as superseded) plus `{ quiet: true }` at all 14 call sites; new blocking gate `sprint-131-dotenv-quiet` (10 tests) after three review rounds |
 | D2 | node-cron 3.0.3 → 4.6.0 (#228) | **Shipped** — #254 merged `b7539896`, v11.61.0, deployed + smoke-checked 2026-09-21; #228 closed (GitHub auto-closed it 1s after the merge). Took Dependabot #228 plus: `@types/node-cron` removed (v4 bundles types), `cron.setLogger(logger)` in cleanup-service so v4's new `missed execution` warning reaches winston, and a real-scheduler **blocking regression** test for reputation's two jobs (`tests/regression/sprint-131-node-cron-v4.test.ts`; moved out of `tdd/` on review, since reputation's `npm test` never runs `tdd/`) |
-| **D3** | **express-rate-limit → 8.7.0 (#224)** | **Open as [#255](https://github.com/ravichavali/karmyq/pull/255)**, v11.62.0, on `agent/claude/sprint-131-d3-express-rate-limit` (from `b7539896`). Contains Dependabot #224's commit (**close #224 as superseded once #255 merges**) — root/cleanup 8.5.2→8.7.0, shared/geocoding **7.5.1→8.7.0** (major). Removes the two now-stale express-rate-limit `DIVERGENCE_ALLOWLIST` entries (the reason #224 was red). v8 verified against both versions' installed `dist/` + a real-Express probe: CJS export, `max`→`limit`, draft-6 headers, per-IP default key all unchanged; zero `ERR_ERL` in consumer tests. New runtime dep `debug@^4.4.3` (nested). `/simplify`, `/code-review` high, `/security-review`: no open findings. **Logged BUG-049, not fixed** (see below) |
-| D4–D7 | expo-server-sdk, node-fetch, zod, next | One major per PR, after D3 |
+| D3 | express-rate-limit → 8.7.0 (#224) | **Shipped** — #255 merged `b7588509`, v11.62.0, deployed + smoke-checked 2026-09-22; #224 closed (auto-closed on merge). shared/geocoding 7.5.1→8.7.0, root/cleanup 8.5.2→8.7.0; two stale `DIVERGENCE_ALLOWLIST` entries removed. First master run **failed Integration Tests on a postgres readiness race** (not D3 code — see below); deployed on `gh run rerun --failed`. Logged **BUG-049**, not fixed |
+| **D4** | **expo-server-sdk 6.1.0 → 7.2.0 (#230)** | **NEXT** — branch `agent/claude/sprint-131-d4-expo-server-sdk` cut from `b7588509`. No focused plan yet. Re-check #230 against the new master (it auto-rebases), inventory importers, verify v7 behavior against installed `node_modules` |
+| D5–D7 | node-fetch, zod, next | One major per PR, after D4 |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
 Do not hold the other nine PRs while waiting for C. If C resumes after the upgrades, repeat its
@@ -61,11 +62,11 @@ inventory against the then-current base. BUG-033 remains open until actually del
 
 1. Confirm current branch, clean handoff and live state with `git status --short`, `gh pr list`
    and `git log --oneline origin/master -3`.
-2. Work on `agent/claude/sprint-131-d3-express-rate-limit`, based on `origin/master` `b7539896` (v11.61.0).
-   The PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253) and PR D2 (#254) branches are merged; never commit on them.
-3. Read the linked spec and sprint plan. **PR A, B, B2, B3, D1 and D2 are shipped — do not reopen or re-execute their plans.**
-4. D3 is implemented and open as [#255](https://github.com/ravichavali/karmyq/pull/255) — do not restart it. Remaining:
-   CI green on the head → maintainer merge authorization → deploy + health → smoke → close #224 as superseded.
+2. Work on `agent/claude/sprint-131-d4-expo-server-sdk`, based on `origin/master` `b7588509` (v11.62.0).
+   The PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches are merged; never commit on them.
+3. Read the linked spec and sprint plan. **PR A, B, B2, B3, D1, D2 and D3 are shipped — do not reopen or re-execute their plans.**
+4. D4 (expo-server-sdk, #230) has no focused plan yet. Re-check #230 against the new master, inventory importers, and
+   verify v7 behavior against installed `node_modules` — see the D-series note below.
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
@@ -82,9 +83,15 @@ which is a demo operation requiring per-operation maintainer approval.
 
 **D2 SHIPPED** — #254 merged `b7539896` (v11.61.0), 2026-09-21T20:51:13Z. [CI/CD run 35653652621](https://github.com/ravichavali/karmyq/actions/runs/35653652621): every job success incl. all 7 image builds and **Deploy to Demo** (`✅ All services healthy`, `🎉 Demo Deployment Successful`, no rollback). Smoke: login 200, `/api/requests` 200, `/api/conversations` 200, `/api/reputation/karma/:userId` 200. Not verified live: a `missed execution` line reaching cleanup's winston log (proven locally by probe; needs SSH = per-operation approval).
 
-**Next unchecked action: #255 (D3) — CI green on the head, then maintainer merge authorization → deploy → health → smoke → close #224 as superseded.** Then D4 (expo-server-sdk, #230) from the newly deployed master.
+**D3 SHIPPED** — #255 merged `b7588509` (v11.62.0), 2026-09-21T23:25:42Z. [CI/CD run 35667512603](https://github.com/ravichavali/karmyq/actions/runs/35667512603): the first attempt **failed Integration Tests** (every service `ECONNREFUSED 172.18.0.3:5432`); re-run of the failed jobs on maintainer approval → every job success, **Deploy to Demo** `✅ All services healthy`, `🎉 Demo Deployment Successful`, no rollback. Smoke 2026-09-22: login 200, `/api/requests` 200, `/api/conversations` 200, `/api/reputation/karma/:userId` 200.
+
+⚠️ **Integration-test postgres readiness race (new, not yet logged as a BUG, not fixed).** `tests/docker-compose.test.yml:26` healthchecks with `pg_isready -U karmyq_test` and no `-h`, so it probes the Unix socket. The postgres entrypoint runs a *temporary* socket-only server while it executes `init.sql`; the check passes against it (`Healthy` 23:32:13), services connect over TCP at 23:32:14–15 and get `ECONNREFUSED`. Fix: `pg_isready -h 127.0.0.1 -U karmyq_test` so the check waits for the real TCP listener. Intermittent (#255's own PR run passed) — any master merge can hit it and silently skip the deploy. Small test-infra PR; do before or with D4.
+
+**Next unchecked action: D4 — expo-server-sdk (#230)** on `agent/claude/sprint-131-d4-expo-server-sdk`, cut from `b7588509`. Maintainer to decide ordering vs. BUG-049 and the readiness-race fix.
 
 ⚠️ **BUG-049 — recommend scheduling next sprint (high severity).** Found in D3: `packages/shared/middleware/rateLimit.ts`'s `keyGenerator` returns `undefined` for anonymous requests and express-rate-limit (7 and 8) has no fallback, so every anonymous caller shares ONE bucket (proven by probe, both versions). auth-service mounts `globalRateLimiter` + `rateLimiters.auth` before `authMiddleware`, so on the demo 10 anonymous requests could lock every user out of `/auth/*` for 15 min. Fix spans three layers — `ipKeyGenerator` in the key generator, `trust proxy` in auth-service, a forwarded-for header in nginx — and a wrong `trust proxy` enables IP spoofing, so it needs its own PR. Not reproduced live (would lock out demo users).
+
+**BUG-049 live observation (2026-09-22, UNVERIFIED on host):** live `POST /api/auth/login` responses carry helmet headers but **no `RateLimit-*` headers**, although both auth limiters set `standardHeaders: true` and `nginx.conf` strips nothing. The likeliest cause is `RATE_LIMIT_DISABLED=true` in the demo host `.env` — `docker-compose.prod.yml` reads `${RATE_LIMIT_DISABLED:-false}`, and the archived `scripts/archive/seeding/seed-production-*.sh` append that line and only remove it on a clean finish. If so, the BUG-049 lockout is latent on the demo **and login has no brute-force limit at all**. Confirming needs SSH (per-operation approval): `docker exec karmyq-auth-service env | grep RATE_LIMIT`.
 
 **Local test-run note (D3):** full `npm test` at default Turbo concurrency timed out twice on this Windows box (suites at 158–402 s; auth/social-graph/community); `npx turbo run test --concurrency=2` was 27/27 green. Machine load, not code — prefer `--concurrency=2` for the local proof run.
 
