@@ -18,10 +18,12 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ../../infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U karmyq_user -d karmyq_db"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U karmyq_user -d karmyq_db"]
       interval: 10s
       timeout: 5s
       retries: 5
+      # init.sql runs before TCP opens, so failed probes during init must not count against retries (BUG-050)
+      start_period: 60s
     networks:
       - karmyq-network
     restart: unless-stopped

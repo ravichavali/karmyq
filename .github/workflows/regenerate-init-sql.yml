@@ -30,7 +30,7 @@ jobs:
           POSTGRES_PASSWORD: regen_password
           POSTGRES_DB: scratch_seed
         options: >-
-          --health-cmd "pg_isready -U karmyq_regen -d scratch_seed"
+          --health-cmd "pg_isready -h 127.0.0.1 -U karmyq_regen -d scratch_seed"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -95,7 +95,7 @@ jobs:
           for attempt in $(seq 1 30); do
             if docker logs karmyq-init-verify 2>&1 \
                 | grep -Fq 'PostgreSQL init process complete; ready for start up.' \
-              && docker exec karmyq-init-verify pg_isready -U karmyq_verify -d karmyq_verify; then
+              && docker exec karmyq-init-verify pg_isready -h 127.0.0.1 -U karmyq_verify -d karmyq_verify; then
               exit 0
             fi
             if [ "$(docker inspect -f '{{.State.Running}}' karmyq-init-verify)" != "true" ]; then
