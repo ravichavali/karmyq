@@ -1,4 +1,4 @@
-import rateLimit, { RateLimitRequestHandler } from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator, RateLimitRequestHandler } from 'express-rate-limit';
 import { Request, Response, NextFunction } from 'express';
 import { ERROR_CODES } from '../utils/response';
 
@@ -110,15 +110,23 @@ export function createRateLimiter(config: RateLimitConfig = {}): RateLimitReques
     legacyHeaders: false, // Disable X-RateLimit-* headers
     skipSuccessfulRequests,
     skipFailedRequests,
-    // Use user ID if authenticated, otherwise use default IP-based key generation
+    // Use the user ID when the request is authenticated, otherwise the client IP.
+    //
+    // BUG-049: this used to return `undefined` for anonymous requests, on the
+    // assumption that express-rate-limit would fall back to its IP-based default.
+    // It does not — it calls `store.increment(undefined)`, so every anonymous
+    // caller shared ONE bucket. `ipKeyGenerator` is the library's own helper; it
+    // returns IPv4 unchanged and narrows IPv6 to a /56 so a single host cannot
+    // rotate addresses inside its own prefix.
+    //
+    // `req.ip` is only the real client when the service sets `trust proxy`;
+    // `req.socket.remoteAddress` is the fail-closed fallback.
     keyGenerator: (req: Request) => {
       const userId = (req as any).user?.userId;
       if (userId) {
         return `user:${userId}`;
       }
-      // KNOWN BUG (BUG-049): express-rate-limit has no fallback for an undefined key, so every
-      // anonymous request shares ONE bucket. Not a per-IP default. Fixing it also needs trust proxy + nginx.
-      return undefined as any;
+      return ipKeyGenerator(req.ip ?? req.socket.remoteAddress ?? 'unknown');
     },
     handler: (_req: Request, res: Response) => {
       res.status(429).json({
