@@ -9,7 +9,7 @@ maintainer authorization), deployed, health-verified and smoke-checked. PR B2 **
 deployed, health-verified and smoke-checked. PR B3 **shipped v11.59.0** — [#252](https://github.com/ravichavali/karmyq/pull/252)
 merged as `238c9009` (2026-09-19), deployed, health-verified and smoke-checked; issue #248 closed. PR D1 **shipped v11.60.0**
 — [#253](https://github.com/ravichavali/karmyq/pull/253) merged as `0ce160b5` (2026-09-21T15:59:10Z), deployed, health-verified
-and smoke-checked. PR D2 **shipped v11.61.0** — [#254](https://github.com/ravichavali/karmyq/pull/254) merged as `b7539896` (2026-09-21T20:51:13Z), deployed, health-verified and smoke-checked; #228 closed. PR D3 **shipped v11.62.0** — [#255](https://github.com/ravichavali/karmyq/pull/255) merged as `b7588509` (2026-09-21T23:25:42Z), deployed on a CI re-run, health-verified and smoke-checked; #224 closed. **Next: merge the BUG-050 fix PR, then (new chat) BUG-049 and D4 (expo-server-sdk).** PR C rollout approval deferred.
+and smoke-checked. PR D2 **shipped v11.61.0** — [#254](https://github.com/ravichavali/karmyq/pull/254) merged as `b7539896` (2026-09-21T20:51:13Z), deployed, health-verified and smoke-checked; #228 closed. PR D3 **shipped v11.62.0** — [#255](https://github.com/ravichavali/karmyq/pull/255) merged as `b7588509` (2026-09-21T23:25:42Z), deployed on a CI re-run, health-verified and smoke-checked; #224 closed. **Next: merge the BUG-050 fix PR [#256](https://github.com/ravichavali/karmyq/pull/256), then (new chat) BUG-049 and D4 (expo-server-sdk).** PR C rollout approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
 session state, not reservations inferred from branch-local text.
@@ -18,7 +18,7 @@ session state, not reservations inferred from branch-local text.
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-131-postgres-readiness` (BUG-050 fix PR). **D4 is re-cut fresh from `origin/master` after that PR merges** (the earlier D4 branch only carried a handoff commit, now included here). PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches are merged — do not commit on them |
+| **Branch** | `agent/claude/sprint-131-postgres-readiness` (BUG-050 fix, [#256](https://github.com/ravichavali/karmyq/pull/256)). The stale D4 branch was deleted 2026-09-22. **D4 is re-cut fresh from `origin/master` after that PR merges** (the earlier D4 branch only carried a handoff commit, now included here). PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches are merged — do not commit on them |
 | **Base** | `origin/master` at `b7588509` (PR D3 merge), fetched 2026-09-22; v11.62.0 |
 | **Active editor** | Claude executed PR A (2026-09-16); planning was authored by Codex under maintainer transfer |
 | **Reviewer role** | A non-author reviews the completed diff; reviewers do not co-edit |
@@ -84,9 +84,9 @@ which is a demo operation requiring per-operation maintainer approval.
 
 **D3 SHIPPED** — #255 merged `b7588509` (v11.62.0), 2026-09-21T23:25:42Z. [CI/CD run 35667512603](https://github.com/ravichavali/karmyq/actions/runs/35667512603): the first attempt **failed Integration Tests** (every service `ECONNREFUSED 172.18.0.3:5432`); re-run of the failed jobs on maintainer approval → every job success, **Deploy to Demo** `✅ All services healthy`, `🎉 Demo Deployment Successful`, no rollback. Smoke 2026-09-22: login 200, `/api/requests` 200, `/api/conversations` 200, `/api/reputation/karma/:userId` 200.
 
-✅ **The postgres readiness race that failed that first attempt is BUG-050**, fixed on `agent/claude/sprint-131-postgres-readiness` (PR pending merge). Mechanism and proof: `docs/BUGS.md` BUG-050.
+✅ **The postgres readiness race that failed that first attempt is BUG-050**, fixed on `agent/claude/sprint-131-postgres-readiness` — open as [#256](https://github.com/ravichavali/karmyq/pull/256). Mechanism and proof: `docs/BUGS.md` BUG-050.
 
-**Next unchecked action: merge the BUG-050 PR** (CI green → maintainer authorization → deploy + health → smoke). **Then, in a NEW chat (maintainer decision 2026-09-22):** BUG-049 (rate limiting — see the verified finding below) and D4 (expo-server-sdk, #230), each from a fresh branch off the newly deployed `origin/master`.
+**Next unchecked action: merge [#256](https://github.com/ravichavali/karmyq/pull/256) (BUG-050)** (CI green → maintainer authorization → deploy + health → smoke). **Then, in a NEW chat (maintainer decision 2026-09-22):** BUG-049 (rate limiting — see the verified finding below) and D4 (expo-server-sdk, #230), each from a fresh branch off the newly deployed `origin/master`.
 
 ⚠️ **BUG-049 — recommend scheduling next sprint (high severity).** Found in D3: `packages/shared/middleware/rateLimit.ts`'s `keyGenerator` returns `undefined` for anonymous requests and express-rate-limit (7 and 8) has no fallback, so every anonymous caller shares ONE bucket (proven by probe, both versions). auth-service mounts `globalRateLimiter` + `rateLimiters.auth` before `authMiddleware`, so on the demo 10 anonymous requests could lock every user out of `/auth/*` for 15 min. Fix spans three layers — `ipKeyGenerator` in the key generator, `trust proxy` in auth-service, a forwarded-for header in nginx — and a wrong `trust proxy` enables IP spoofing, so it needs its own PR. Not reproduced live (would lock out demo users).
 
