@@ -759,6 +759,14 @@
       "status": "implemented",
       "description": "**Status:** Implemented",
       "filename": "ADR-097-ecosystem-knowledge-registry.md"
+    },
+    {
+      "slug": "adr-098-trusted-proxy-and-rate-limit-keys",
+      "number": "098",
+      "title": "ADR-098: Trusted Proxy Hop and Rate Limit Key Derivation",
+      "status": "proposed",
+      "description": "**Status:** Proposed",
+      "filename": "ADR-098-trusted-proxy-and-rate-limit-keys.md"
     }
   ]
 }

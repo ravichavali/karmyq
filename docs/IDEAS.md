@@ -635,3 +635,23 @@ than merely detectable: `strandedFromRoot()` collapses to "root declares no runt
 required** — it changes the installed tree for every service image.
 
 ---
+
+## [2026-09-22] Rate limiters run before `authMiddleware` everywhere, so per-user keying is unreachable
+
+BUG-049 fixed the key itself — anonymous callers are now keyed by client IP instead of sharing one
+bucket. But the `user:<userId>` branch in `packages/shared/middleware/rateLimit.ts` is still **dead at
+every mount site in the repo**: all eight limiter-mounting services position the limiter ahead of
+`authMiddleware`, and `app.use(globalRateLimiter)` is app-level, so `req.user` is never set when the key
+is computed. There is no counterexample in the repo.
+
+The practical effect is that limits are per-IP everywhere, whatever the presets' comments say about
+"per user" (`RateLimitPresets.standard`, `readHeavy`, `readLight` all claim per-user limits). Users
+behind one NAT share a bucket; one authenticated user on two networks gets two.
+
+Making per-user keying live means moving the limiters after `authMiddleware` in seven services. That is
+**not** a mechanical follow-up: a limiter positioned after auth no longer protects those routes against
+an anonymous flood, which is the thing the limiter is most needed for. Either the presets' documented
+intent should change to per-IP, or routes need two limiters at different positions. Needs its own
+design pass.
+
+---

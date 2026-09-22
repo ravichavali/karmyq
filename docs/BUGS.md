@@ -1202,7 +1202,7 @@ Related: `docs/gotchas/dotenv-config-must-pass-quiet.md`.
 
 ---
 
-## BUG-049 · [2026-09-21] · open
+## BUG-049 · [2026-09-21] · fixed (Sprint 131)
 
 **Shared rate limiter puts every anonymous caller in ONE global bucket.**
 
@@ -1214,21 +1214,47 @@ anonymous request is counted under the same key, `undefined`.
 A probe with real Express showed this under both versions. Two anonymous requests from IP A used up `max: 2`, and
 IP B's first request then got 429.
 
-The only consumer is auth-service. It mounts `globalRateLimiter` at app level and `rateLimiters.auth` on `/auth`,
-both **before** `authMiddleware` sets `req.user`, so every request counts as anonymous. The effect:
-- All auth-service traffic shares one bucket of 300 requests per minute.
-- All `/auth/*` traffic, site-wide, shares one bucket of 10 requests per 15 minutes. Ten anonymous requests could
-  lock every user out of login for 15 minutes.
+~~The only consumer is auth-service.~~ **Correction (2026-09-22, during the fix).** A scan of all 1022 tracked
+JS/TS files found 62 references. `globalRateLimiter` is mounted app-level in **seven** services — auth, community,
+messaging, notification, reputation, request, social-graph — and `cleanup-service` builds its own limiter at
+`src/index.ts:83`. Eight services were affected, not one.
+
+**Correction: the `user:<userId>` branch was unreachable everywhere, and the blast radius was wider than a login
+lockout.** At *every* mount site the limiter sits ahead of `authMiddleware`, and `app.use(globalRateLimiter)` is
+app-level, so `req.user` was never set when the key was computed. There is no counterexample in the repo. Since
+`rateLimiters.standard` is a module-level singleton, request-service's ~12 route groups (`src/index.ts:76-181`)
+shared **one** 60-per-minute bucket across the entire user base. Re-enabling rate limiting without this fix would
+have throttled the whole site, not merely risked a 15-minute `/auth/*` lockout — which is the likeliest reason
+`RATE_LIMIT_DISABLED=true` was set on the demo in the first place.
 
 Not reproduced live, because doing so would lock out demo users.
 
-Fixing the key alone is not enough:
-- No service sets `trust proxy`.
-- `infrastructure/nginx/nginx.conf` sets no `X-Forwarded-For`.
+Fixing the key alone is not enough — no service set `trust proxy`, so `req.ip` was the Docker gateway for every
+request.
 
-So `req.ip` is nginx's container IP for every request. A full fix spans three layers: the `keyGenerator` (v8
-exports `ipKeyGenerator`), `trust proxy` in auth-service, and a forwarded-for header in nginx. A wrong `trust proxy`
-setting would let clients spoof their IP.
+~~`infrastructure/nginx/nginx.conf` sets no `X-Forwarded-For`.~~ **Correction: nginx was already correct and needed
+no change.** That is true of the repo file, but every `location` block ends with `include /etc/nginx/proxy_params;`,
+and that file is not in the repo. Read read-only on the demo host under maintainer authorization on 2026-09-22, it
+contains `proxy_set_header X-Real-IP $remote_addr;` and
+`proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`, and `nginx -T` shows it included in all 25 proxying
+location blocks. nginx runs on the host — it is absent from `docker-compose.prod.yml` — and proxies to
+`127.0.0.1:300X` published container ports.
+
+**The fix (Sprint 131):** two layers, not three.
+- `keyGenerator` returns `ipKeyGenerator(req.ip ?? req.socket.remoteAddress ?? 'unknown')` for anonymous requests.
+- All eight limiter-mounting services set `app.set('trust proxy', 1)`.
+
+`1` is the only safe value here. `true` would trust the whole chain and let a client spoof `req.ip`; `'loopback'`
+would not match the Docker gateway the container actually sees. Because nginx uses `$proxy_add_x_forwarded_for`, it
+**appends** the real client last, so with one trusted hop a forged chain cannot move `req.ip` — probed against the
+installed express 5.2.1 / proxy-addr 2.0.7 with chains of one, two and four forged entries.
+
+Gated by `tests/regression/sprint-131-rate-limit-trust-proxy.test.ts` (AST, registry-derived, 4 injection proofs)
+and `packages/shared/src/middleware/__tests__/sprint-131-rate-limit-key.test.ts` (behavioural, per-IP separation).
+
+⚠️ **Still true after this fix:** limits are per-IP everywhere, because moving the limiters after `authMiddleware`
+is a separate change — logged in `docs/IDEAS.md` [2026-09-22]. And the demo still runs `RATE_LIMIT_DISABLED=true`;
+re-enabling it is a demo operation needing its own authorization.
 
 Found during Sprint 131 D3 (express-rate-limit 8). Deliberately **not** fixed in D3, which is a dependency bump.
 

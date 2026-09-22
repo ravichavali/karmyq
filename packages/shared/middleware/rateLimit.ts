@@ -119,8 +119,8 @@ export function createRateLimiter(config: RateLimitConfig = {}): RateLimitReques
     // returns IPv4 unchanged and narrows IPv6 to a /56 so a single host cannot
     // rotate addresses inside its own prefix.
     //
-    // `req.ip` is only the real client when the service sets `trust proxy`;
-    // `req.socket.remoteAddress` is the fail-closed fallback.
+    // `req.ip` is only the real client when the service sets `trust proxy`
+    // (ADR-098); `req.socket.remoteAddress` is the fail-closed fallback.
     keyGenerator: (req: Request) => {
       const userId = (req as any).user?.userId;
       if (userId) {
