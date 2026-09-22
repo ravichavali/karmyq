@@ -94,6 +94,11 @@ containers that exit (the test compose's `test-runner`). The frontend probe targ
 **not** loopback: Next.js standalone binds to `$HOSTNAME`, which Docker sets to the container id. Nothing
 in the demo deploy waits on these healthchecks; they only report.
 
+**Postgres readiness probes must pass `-h 127.0.0.1` (BUG-050).** On a fresh data directory the image's
+entrypoint runs `init.sql` under a temporary server started with `listen_addresses=''`, so a bare
+`pg_isready` (Unix socket) passes during init while TCP clients still get `ECONNREFUSED`. Probing TCP
+makes the check wait for the real server.
+
 Compose files are environment-specific: `docker-compose.yml` (dev), `.test.yml` (isolated test DB),
 `.qa.yml`, `.staging.yml`, `.prod.yml`, `.observability.yml`. Images are `node:24-alpine`, gate-locked
 to one major by [ADR-090](../docs/adr/ADR-090-container-runtime-floor.md) — a new service copied from

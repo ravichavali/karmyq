@@ -1233,3 +1233,36 @@ setting would let clients spoof their IP.
 Found during Sprint 131 D3 (express-rate-limit 8). Deliberately **not** fixed in D3, which is a dependency bump.
 
 ---
+
+## BUG-050 · [2026-09-22] · fixed (Sprint 131, pending deploy)
+
+**Postgres healthchecks pass while the database is still initializing, so dependents hit `ECONNREFUSED`.**
+
+On a fresh data directory, the official image's `docker-entrypoint.sh` first runs a *temporary* server with
+`-c listen_addresses=''` (postgres 15 alpine entrypoint, `docker_temp_server_start`). That server answers only
+on the Unix socket, and it runs while `/docker-entrypoint-initdb.d` scripts such as `init.sql` execute.
+Every healthcheck here ran `pg_isready` without `-h`, so it probed the socket and passed against that
+temporary server. Services then connected over TCP and got `ECONNREFUSED`.
+
+Seen on master: [CI/CD run 35667512603](https://github.com/ravichavali/karmyq/actions/runs/35667512603), the #255 merge.
+- `karmyq-postgres-test` went `Healthy` at 23:32:13, while `init.sql` was running.
+- auth, reputation and notification services got `connect ECONNREFUSED 172.18.0.3:5432` at 23:32:14–15.
+- Integration Tests failed, so the image builds and **Deploy to Demo were skipped**: a green merge that silently
+  didn't ship.
+- #255's own PR run passed, so the failure is intermittent. A re-run of the failed jobs deployed.
+
+Proven in a disposable `postgres:15-alpine` container (on the demo host; no ports published, no demo data) with an
+8-second init script. The socket check first passed at **1.2 s**, during init. The `-h 127.0.0.1` check first passed
+at **9.6 s**, just after the real server's final "ready to accept connections".
+
+Fix: `pg_isready -h 127.0.0.1 …` in every healthcheck that gates a TCP client:
+- `tests/docker-compose.test.yml` (the CI integration stack)
+- `infrastructure/docker/docker-compose.yml`
+- `infrastructure/docker/docker-compose.qa.yml`
+- `.github/workflows/test.yml`
+- both checks in `.github/workflows/regenerate-init-sql.yml`
+- `scripts/deploy.sh`
+
+Not changed: `scripts/archive/`, and the pre-push hook, which already passes `-h`.
+
+---
