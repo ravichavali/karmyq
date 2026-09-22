@@ -1265,4 +1265,11 @@ Fix: `pg_isready -h 127.0.0.1 …` in every healthcheck that gates a TCP client:
 
 Not changed: `scripts/archive/`, and the pre-push hook, which already passes `-h`.
 
+The probe now correctly fails for as long as `init.sql` runs, so the two compose checks that gate on init also get
+`start_period: 60s`: `tests/docker-compose.test.yml` and `docker-compose.qa.yml`. Without it, those failures count
+against `retries`, which is about 25 s in the test stack.
+
+Measured on the real 6873-line `init.sql`: init takes 2.2 s, and the TCP check passes at 3.9 s. `start_period` ends at
+the first healthy probe, so it adds no delay.
+
 ---
