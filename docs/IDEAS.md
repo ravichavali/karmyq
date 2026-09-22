@@ -646,9 +646,11 @@ is computed. **social-graph-service is the exception** — `app.use(authMiddlewa
 precedes six route limiters, which do key by user — so the question is not "make the branch live" but
 "why does one service differ from the other eight".
 
-The practical effect is that limits are per-IP everywhere, whatever the presets' comments say about
-"per user" (`RateLimitPresets.standard`, `readHeavy`, `readLight` all claim per-user limits). Users
-behind one NAT share a bucket; one authenticated user on two networks gets two.
+The practical effect is that limits are per-IP in eight of the nine limiter-mounting services, whatever the
+presets' comments say about "per user" (`RateLimitPresets.standard`, `readHeavy`, `readLight` all claim
+per-user limits). In those eight, users behind one NAT share a bucket and one authenticated user on two
+networks gets two. In social-graph-service's six post-auth mounts the presets' wording is already accurate,
+which is what makes the inconsistency worth resolving deliberately rather than by accident.
 
 Making per-user keying live means moving the limiters after `authMiddleware` in seven services. That is
 **not** a mechanical follow-up: a limiter positioned after auth no longer protects those routes against

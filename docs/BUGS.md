@@ -1258,8 +1258,9 @@ installed express 5.2.1 / proxy-addr 2.0.7 with chains of one, two and four forg
 Gated by `tests/regression/sprint-131-rate-limit-trust-proxy.test.ts` (AST, registry-derived, 4 injection proofs)
 and `packages/shared/src/middleware/__tests__/sprint-131-rate-limit-key.test.ts` (behavioural, per-IP separation).
 
-⚠️ **Still true after this fix:** limits are per-IP everywhere, because moving the limiters after `authMiddleware`
-is a separate change — logged in `docs/IDEAS.md` [2026-09-22]. And the demo still runs `RATE_LIMIT_DISABLED=true`;
+⚠️ **Still true after this fix:** limits are per-IP in eight of the nine limiter-mounting services, because moving
+the limiters after `authMiddleware` is a separate change — logged in `docs/IDEAS.md` [2026-09-22]. social-graph-service
+is the exception: its six post-auth limiters key per user. And the demo still runs `RATE_LIMIT_DISABLED=true`;
 re-enabling it is a demo operation needing its own authorization.
 
 Found during Sprint 131 D3 (express-rate-limit 8). Deliberately **not** fixed in D3, which is a dependency bump.

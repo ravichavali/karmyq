@@ -224,9 +224,10 @@ branch keys by user independent of IP.
 a second assignment that overrides the first. Flipping it is a demo operation requiring its own
 authorization, and until it happens login has no brute-force limit.
 
-**Limits are per-IP, not per-user, everywhere.** Callers behind one NAT share a bucket; one user on
-two networks gets two. This is a real behavioural difference from what `RateLimitPresets` documents,
-and it is the honest description of what the system does today. Making per-user keying live requires
+**Limits are per-IP in eight services and per-user in one.** Everywhere except social-graph-service's
+six post-auth limiters, callers behind one NAT share a bucket and one user on two networks gets two.
+That is a real behavioural difference from what `RateLimitPresets` documents, and the presets' "per
+user" wording is accurate only for those six mounts. Making per-user keying live elsewhere requires
 moving limiters after `authMiddleware` in seven services, which would also stop them protecting
 those routes against anonymous floods. Deferred to its own design pass, recorded in `docs/IDEAS.md`
 [2026-09-22].
