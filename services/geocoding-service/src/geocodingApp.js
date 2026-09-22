@@ -13,6 +13,8 @@ function createApp({
   throttleIntervalMs = 1000,
 } = {}) {
   const app = express()
+  // ADR-098 (BUG-049): exactly one proxy hop. Must stay 1 — `true` lets a client spoof req.ip.
+  app.set('trust proxy', 1)
   const service = createGeocodingService({ pool, fetchImpl, logger, throttleIntervalMs })
   const searchLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false })
   const writeLimiter = rateLimit({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false })

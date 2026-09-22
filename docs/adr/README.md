@@ -133,6 +133,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-095: Authenticated Provider Directory and Reach-Gated Standing](ADR-095-authenticated-provider-directory-and-reach-gated-standing.md) — **Accepted**
 - [ADR-096: Canonical Completed-Match Standing Projection](ADR-096-canonical-completed-match-standing-projection.md) — **Accepted**
 - [ADR-097: Ecosystem Knowledge Registry](ADR-097-ecosystem-knowledge-registry.md) — **Implemented**
+- [ADR-098: Trusted Proxy Hop and Rate Limit Key Derivation](ADR-098-trusted-proxy-and-rate-limit-keys.md) — **Proposed**
 
 ## Creating a New ADR
 

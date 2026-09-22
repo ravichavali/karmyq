@@ -658,6 +658,10 @@
         {
           "label": "Authorize Mutations from Authenticated Identity, Not Client-Supplied IDs",
           "href": "/docs/concepts/adr-064-authorize-from-authenticated-identity"
+        },
+        {
+          "label": "Trusted Proxy Hop and Rate Limit Key Derivation",
+          "href": "/docs/concepts/adr-098-trusted-proxy-and-rate-limit-keys"
         }
       ]
     },

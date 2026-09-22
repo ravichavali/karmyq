@@ -18,6 +18,8 @@ import { requestIdMiddleware, sendSuccess, sendInternalError } from '@karmyq/sha
 dotenv.config({ quiet: true });
 
 const app = express();
+// ADR-098 (BUG-049): exactly one proxy hop. Must stay 1 — `true` lets a client spoof req.ip.
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 const logger = createLogger('auth-service');
 

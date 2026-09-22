@@ -15,6 +15,8 @@ import { requestIdMiddleware, sendSuccess, sendInternalError, sendForbidden } fr
 dotenv.config({ quiet: true });
 
 const app = express();
+// ADR-098 (BUG-049): exactly one proxy hop. Must stay 1 — `true` lets a client spoof req.ip.
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3006;
 const logger = createLogger('messaging-service');
 const JWT_SECRET = process.env.JWT_SECRET;

@@ -635,3 +635,27 @@ than merely detectable: `strandedFromRoot()` collapses to "root declares no runt
 required** — it changes the installed tree for every service image.
 
 ---
+
+## [2026-09-22] Rate limiters run before `authMiddleware` in eight of nine services, so per-user keying is almost never reached
+
+BUG-049 fixed the key itself — anonymous callers are now keyed by client IP instead of sharing one
+bucket. But the `user:<userId>` branch in `packages/shared/middleware/rateLimit.ts` is still **dead at
+almost every mount site**: eight of the nine limiter-mounting services position the limiter ahead of
+`authMiddleware`, and `app.use(globalRateLimiter)` is app-level, so `req.user` is never set when the key
+is computed. **social-graph-service is the exception** — `app.use(authMiddleware)` at `src/index.ts:135`
+precedes six route limiters, which do key by user — so the question is not "make the branch live" but
+"why does one service differ from the other eight".
+
+The practical effect is that limits are per-IP in eight of the nine limiter-mounting services, whatever the
+presets' comments say about "per user" (`RateLimitPresets.standard`, `readHeavy`, `readLight` all claim
+per-user limits). In those eight, users behind one NAT share a bucket and one authenticated user on two
+networks gets two. In social-graph-service's six post-auth mounts the presets' wording is already accurate,
+which is what makes the inconsistency worth resolving deliberately rather than by accident.
+
+Making per-user keying live means moving the limiters after `authMiddleware` in seven services. That is
+**not** a mechanical follow-up: a limiter positioned after auth no longer protects those routes against
+an anonymous flood, which is the thing the limiter is most needed for. Either the presets' documented
+intent should change to per-IP, or routes need two limiters at different positions. Needs its own
+design pass.
+
+---

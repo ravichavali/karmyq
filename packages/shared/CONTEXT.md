@@ -260,9 +260,26 @@ I checked behavior against the installed `dist/index.cjs` of both versions and w
 v8.7.0 adds a **runtime dependency, `debug@^4.4.3`**, installed under express-rate-limit's own folder because root
 has `debug@2.6.9`.
 
-⚠️ **BUG-049 (open, not fixed here).** `createRateLimiter`'s `keyGenerator` returns `undefined` for
-anonymous requests. Neither 7 nor 8 falls back to an IP key when it does, so every anonymous caller shares one
-bucket. The code comment that claimed otherwise now points at BUG-049. Fixing it needs `ipKeyGenerator` plus
-`trust proxy` in auth-service plus a forwarded-for header in nginx; see `docs/BUGS.md`.
+✅ **BUG-049 (fixed, Sprint 131).** `createRateLimiter`'s `keyGenerator` returns `user:<userId>` when the
+request is authenticated and `ipKeyGenerator(req.ip)` otherwise — IPv4 unchanged, IPv6 narrowed to a /56.
+It previously returned `undefined`, and neither express-rate-limit 7 nor 8 falls back to an IP key when it
+does, so every anonymous caller shared one bucket. When `req.ip` is undefined — only when the socket
+has no remote address — the key falls back to the literal `'unknown'`, a single fail-closed bucket.
+
+**A consuming service behind nginx MUST set `app.set('trust proxy', 1)`**, or `req.ip` is the Docker
+gateway and the key collapses to one bucket again. A service nginx does **not** proxy must set
+nothing: trusting an absent hop makes `req.ip` a client-supplied header. Both directions are gated. nginx already supplies `X-Forwarded-For` via `/etc/nginx/proxy_params`, so no
+nginx change was needed. The value must stay `1`: `true` would let a client spoof `req.ip`. Both halves are
+gated by `tests/regression/sprint-131-rate-limit-trust-proxy.test.ts`, and the per-IP behaviour by
+`src/middleware/__tests__/sprint-131-rate-limit-key.test.ts`.
+
+⚠️ The `user:<userId>` branch is reached in **exactly one service**. `social-graph-service` calls
+`app.use(authMiddleware)` at `src/index.ts:135`, ahead of six route limiters (`/invitations`, `/paths`,
+`/network`, `/trust-card`, `/trust` ×2), so those key **per user**; its `globalRateLimiter` and its two
+public/internal limiters run earlier and stay per-IP. Every other consuming service positions every limiter
+ahead of `authMiddleware`, so `req.user` is unset when the key is computed and the limit is per-IP.
+
+So the presets' "per user" wording is accurate in one service and misleading in the rest — check where a
+limiter sits relative to `authMiddleware` before reasoning about what a preset's `max` actually bounds.
 
 No export, endpoint, payload or event change.

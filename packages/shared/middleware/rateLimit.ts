@@ -1,4 +1,4 @@
-import rateLimit, { RateLimitRequestHandler } from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator, RateLimitRequestHandler } from 'express-rate-limit';
 import { Request, Response, NextFunction } from 'express';
 import { ERROR_CODES } from '../utils/response';
 
@@ -48,25 +48,25 @@ export const RateLimitPresets = {
   // Standard write operations (POST/PUT/DELETE)
   standard: {
     windowMs: 60 * 1000, // 1 minute
-    max: 60, // 60 write operations per minute per user
+    max: 60, // 60 write operations per minute per key (see ADR-098: per user where the limiter runs after authMiddleware, per IP otherwise)
     message: 'Too many requests, please slow down',
   },
   // Read-heavy endpoints (GET - lists, searches)
   readHeavy: {
     windowMs: 60 * 1000, // 1 minute
-    max: 300, // 300 read operations per minute per user
+    max: 300, // 300 read operations per minute per key (see ADR-098: per user where the limiter runs after authMiddleware, per IP otherwise)
     message: 'Too many requests, please slow down',
   },
   // Detail/single resource reads (GET - specific items)
   readLight: {
     windowMs: 60 * 1000, // 1 minute
-    max: 500, // 500 single-item reads per minute per user
+    max: 500, // 500 single-item reads per minute per key (see ADR-098: per user where the limiter runs after authMiddleware, per IP otherwise)
     message: 'Too many requests, please slow down',
   },
   // Very strict limit for sensitive operations
   strict: {
     windowMs: 60 * 60 * 1000, // 1 hour
-    max: 5, // 5 requests per hour per user
+    max: 5, // 5 requests per hour per key (see ADR-098: per user where the limiter runs after authMiddleware, per IP otherwise)
     message: 'Rate limit exceeded for this operation',
   },
   // Legacy: Relaxed (deprecated - use readHeavy instead)
@@ -110,15 +110,24 @@ export function createRateLimiter(config: RateLimitConfig = {}): RateLimitReques
     legacyHeaders: false, // Disable X-RateLimit-* headers
     skipSuccessfulRequests,
     skipFailedRequests,
-    // Use user ID if authenticated, otherwise use default IP-based key generation
+    // Use the user ID when the request is authenticated, otherwise the client IP.
+    //
+    // BUG-049: this used to return `undefined` for anonymous requests, on the
+    // assumption that express-rate-limit would fall back to its IP-based default.
+    // It does not — it calls `store.increment(undefined)`, so every anonymous
+    // caller shared ONE bucket. `ipKeyGenerator` is the library's own helper; it
+    // returns IPv4 unchanged and narrows IPv6 to a /56 so a single host cannot
+    // rotate addresses inside its own prefix.
+    //
+    // `req.ip` is only the real client when the service sets `trust proxy` (ADR-098). It is
+    // undefined only when the socket has no remote address, and `'unknown'` is then a single
+    // fail-closed bucket rather than an escape from limiting.
     keyGenerator: (req: Request) => {
       const userId = (req as any).user?.userId;
       if (userId) {
         return `user:${userId}`;
       }
-      // KNOWN BUG (BUG-049): express-rate-limit has no fallback for an undefined key, so every
-      // anonymous request shares ONE bucket. Not a per-IP default. Fixing it also needs trust proxy + nginx.
-      return undefined as any;
+      return ipKeyGenerator(req.ip ?? 'unknown');
     },
     handler: (_req: Request, res: Response) => {
       res.status(429).json({
@@ -155,6 +164,6 @@ export const rateLimiters = {
  */
 export const globalRateLimiter = createRateLimiter({
   windowMs: 60 * 1000, // 1 minute
-  max: 300, // 300 requests per minute per IP/user
+  max: 300, // 300 requests per minute per key (see ADR-098: per user where the limiter runs after authMiddleware, per IP otherwise)
   message: 'Too many requests from this source',
 });

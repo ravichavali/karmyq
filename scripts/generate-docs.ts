@@ -552,6 +552,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-060-code-scanning-gate',
       'adr-061-supply-chain-and-secrets-hardening',
       'adr-064-authorize-from-authenticated-identity',
+      'adr-098-trusted-proxy-and-rate-limit-keys',
     ],
   },
 ];
