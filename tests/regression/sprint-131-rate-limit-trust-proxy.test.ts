@@ -111,16 +111,10 @@ const serviceTrustProxy = (service: Service): string | undefined => {
 const proxied = SERVICES.filter((s) => s.proxied);
 const notProxied = SERVICES.filter((s) => !s.proxied);
 
-/** Active nginx directives in a block — line comments stripped, so `# include …` does not count. */
-const activeDirectives = (body: string): string[] =>
-  body
-    .split(/\r?\n/)
-    .map((line) => line.replace(/#.*$/, '').trim())
-    .filter(Boolean);
-
 /** The host file we cannot read from here; assumed to set `$proxy_add_x_forwarded_for` (§3). */
-const PROXY_PARAMS_INCLUDE = /^include\s+\S*proxy_params\s*;$/;
-const ANY_XFF = /^proxy_set_header\s+X-Forwarded-For\s+(.*?)\s*;$/;
+const INCLUDE_PROXY_PARAMS = /^include\s+\S*proxy_params$/i;
+/** nginx directive names are lowercase, but an HTTP header name is case-insensitive. */
+const SET_HEADER = /^proxy_set_header\s+(\S+)\s+(.*)$/i;
 
 /**
  * Values that leave `X-Forwarded-For` trustworthy under `trust proxy = 1`.
@@ -132,16 +126,40 @@ const ANY_XFF = /^proxy_set_header\s+X-Forwarded-For\s+(.*?)\s*;$/;
  */
 const SAFE_XFF_VALUES = new Set(['$proxy_add_x_forwarded_for', '$remote_addr']);
 
+const unquote = (value: string): string => value.replace(/^(["'])([\s\S]*)\1$/, '$2');
+
+/**
+ * Whether a location block forwards a client IP the client cannot dictate.
+ *
+ * Directives are split on `;`, nginx's actual terminator — **not** on newlines. An earlier version
+ * split by line and matched `X-Forwarded-For` case-sensitively, which was wrong in both directions:
+ * a lowercase override alongside an intact `proxy_params` include slipped through (false negative),
+ * and a perfectly valid directive wrapped across two lines was rejected (false positive).
+ */
 const forwardsTrustworthyClientIp = (body: string): boolean => {
-  const directives = activeDirectives(body);
-  const explicit = directives
-    .map((d) => d.match(ANY_XFF)?.[1])
-    .filter((v): v is string => v !== undefined);
+  const withoutComments = body
+    .split(/\r?\n/)
+    .map((line) => line.replace(/#.*$/, ''))
+    .join('\n');
 
-  // An explicit override that is not safe disqualifies the block even if proxy_params is included.
-  if (explicit.some((value) => !SAFE_XFF_VALUES.has(value))) return false;
+  const parts = withoutComments.split(';');
+  // Anything after the final `;` is an unterminated directive. Unreadable input must invalidate,
+  // never be skipped — skipping it is how a parser-fronted check quietly stops checking.
+  if ((parts.pop() ?? '').trim() !== '') return false;
 
-  return explicit.length > 0 || directives.some((d) => PROXY_PARAMS_INCLUDE.test(d));
+  const directives = parts.map((d) => d.replace(/\s+/g, ' ').trim()).filter(Boolean);
+
+  let safeExplicit = false;
+  for (const directive of directives) {
+    const match = directive.match(SET_HEADER);
+    if (!match || match[1].toLowerCase() !== 'x-forwarded-for') continue;
+    // An unsafe explicit override disqualifies the block even if proxy_params is also included:
+    // nginx applies the location-level directive.
+    if (!SAFE_XFF_VALUES.has(unquote(match[2].trim()))) return false;
+    safeExplicit = true;
+  }
+
+  return safeExplicit || directives.some((d) => INCLUDE_PROXY_PARAMS.test(d));
 };
 
 describe('ADR-098: trusted proxy hop matches the nginx topology', () => {

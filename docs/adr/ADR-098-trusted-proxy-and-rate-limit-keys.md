@@ -152,9 +152,16 @@ service, and BUG-049 returns in full. Nothing would fail: the limiters still wor
 share a bucket.
 
 The repo can only gate its own half, and now does: the regression gate asserts that **every**
-`location` block proxying to a service upstream still includes `proxy_params` or sets
-`X-Forwarded-For` itself, so deleting the include from a block fails the build. The host file
-remains unverifiable from here. If nginx is ever containerised, the headers should move into
+`location` block proxying to a service upstream either includes `proxy_params` or sets
+`X-Forwarded-For` to a value the client cannot dictate — `$proxy_add_x_forwarded_for` or
+`$remote_addr`. Checking only for *presence* is not enough, and two review rounds were needed to
+get this right: the first version matched raw text, so a commented-out include passed; the second
+split on newlines and compared the header name case-sensitively, so
+`proxy_set_header x-forwarded-for $http_x_forwarded_for;` alongside an intact include passed,
+while a valid directive wrapped across two lines was wrongly rejected. Directives are now split on
+`;`, nginx's actual terminator, the header name is matched case-insensitively, values are
+unquoted, and an unterminated directive invalidates the block rather than being skipped. The host
+file remains unverifiable from here. If nginx is ever containerised, the headers should move into
 `nginx.conf` and this section should be revisited.
 
 ### 4. Both halves are gated
@@ -184,6 +191,16 @@ Every assertion was proven able to fail by injection, reverted after each:
    the guard against repeating the §2 regression.
 7. The `proxy_params` include deleted from the `/api/auth` location → the forwarded-header case
    fails.
+
+The forwarded-header check carries its own matrix, because its first two versions each passed a
+broken configuration. Seventeen variants of the `/api/auth` location, each applied to the real
+file and reverted: **eleven must be rejected** — include deleted; include commented out;
+`$http_x_forwarded_for`; `""`; include plus an unsafe override; a lowercase header name with and
+without the include; the same wrapped across two lines; a quoted unsafe value; and an unterminated
+directive — and **six must still be accepted**, so the check is shown to discriminate rather than
+to reject anything unfamiliar: an explicit `$proxy_add_x_forwarded_for`, the same wrapped across
+two lines, a lowercase safe spelling, a quoted safe value, `$remote_addr`, and the untouched
+baseline. All seventeen behave correctly.
 
 Per-IP behaviour itself is proven behaviourally in
 `packages/shared/src/middleware/__tests__/sprint-131-rate-limit-key.test.ts`: two client IPs get two

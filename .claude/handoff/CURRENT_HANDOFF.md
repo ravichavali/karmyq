@@ -9,7 +9,26 @@ maintainer authorization), deployed, health-verified and smoke-checked. PR B2 **
 deployed, health-verified and smoke-checked. PR B3 **shipped v11.59.0** — [#252](https://github.com/ravichavali/karmyq/pull/252)
 merged as `238c9009` (2026-09-19), deployed, health-verified and smoke-checked; issue #248 closed. PR D1 **shipped v11.60.0**
 — [#253](https://github.com/ravichavali/karmyq/pull/253) merged as `0ce160b5` (2026-09-21T15:59:10Z), deployed, health-verified
-and smoke-checked. PR D2 **shipped v11.61.0** — [#254](https://github.com/ravichavali/karmyq/pull/254) merged as `b7539896` (2026-09-21T20:51:13Z), deployed, health-verified and smoke-checked; #228 closed. PR D3 **shipped v11.62.0** — [#255](https://github.com/ravichavali/karmyq/pull/255) merged as `b7588509` (2026-09-21T23:25:42Z), deployed on a CI re-run, health-verified and smoke-checked; #224 closed. BUG-050 fix **shipped v11.63.0** — [#256](https://github.com/ravichavali/karmyq/pull/256) merged as `e5f7d8e1` (2026-09-22T04:20:36Z), [CI/CD run 35686522868](https://github.com/ravichavali/karmyq/actions/runs/35686522868) every job success, deployed, health-verified, smoke-checked (login, `/api/requests`, `/api/conversations`, `/api/reputation/karma/:userId` all 200). **BUG-049 fix is built and green on `agent/claude/sprint-131-bug-049-rate-limit-key` (v11.64.0) — not pushed, no PR open.** Remaining there: `/simplify`, `/code-review high`, `/security-review`, then push + PR + merge authorization. **After it: D4 (expo-server-sdk #230).** PR C rollout approval deferred.
+and smoke-checked. PR D2 **shipped v11.61.0** — [#254](https://github.com/ravichavali/karmyq/pull/254) merged as `b7539896` (2026-09-21T20:51:13Z), deployed, health-verified and smoke-checked; #228 closed. PR D3 **shipped v11.62.0** — [#255](https://github.com/ravichavali/karmyq/pull/255) merged as `b7588509` (2026-09-21T23:25:42Z), deployed on a CI re-run, health-verified and smoke-checked; #224 closed. BUG-050 fix **shipped v11.63.0** — [#256](https://github.com/ravichavali/karmyq/pull/256) merged as `e5f7d8e1` (2026-09-22T04:20:36Z), [CI/CD run 35686522868](https://github.com/ravichavali/karmyq/actions/runs/35686522868) every job success, deployed, health-verified, smoke-checked (login, `/api/requests`, `/api/conversations`, `/api/reputation/karma/:userId` all 200). **BUG-049 fix is built and green on `agent/claude/sprint-131-bug-049-rate-limit-key` (v11.64.0) — not pushed, no PR open.** Remaining there: `/simplify`, `/code-review high`, `/security-review`, then push + PR + merge authorization. **After it, in order: (1) BUG-051, its own PR; (2) D4 (expo-server-sdk #230).**
+
+🔴 **BUG-051 — `POST /api/notifications/push/send` is unauthenticated (HIGH, own PR, maintainer decision 2026-09-22).**
+Found by this sprint's `/security-review`; full evidence in `docs/BUGS.md` BUG-051. Four verified facts:
+the guard at `services/notification-service/src/routes/push.ts:7-12` is `if (secret && ...)`, so it **fails open**;
+`INTERNAL_SECRET` is wired only to request-service and social-graph-service (`docker-compose.yml:162,318`,
+`docker-compose.prod.yml:68,180`) and **never to notification-service**; the router mounts at
+`services/notification-service/src/index.ts:68`, *ahead* of the `authMiddleware`-protected one at `:70`; and nginx
+forwards the path publicly (`nginx.conf:227`). Net effect: anyone can push an arbitrary notification to arbitrary
+`user_ids` — a phishing surface on users' devices.
+
+**Scope for that PR:** fail-closed middleware (copy the shape of `social-graph-service/src/middleware/internalAuth.ts`
+— `timingSafeEqual` over SHA-256, 503 when unconfigured) **plus** `INTERNAL_SECRET` wiring for notification-service in
+both compose files. The two halves must land together: failing closed without the secret turns the endpoint into a 503.
+⚠️ **Before deploying it, confirm `~/karmyq/.env.demo` defines `INTERNAL_SECRET`** — a read-only demo check needing its
+own authorization. No in-repo caller invokes `/push/send` (verified), so failing closed breaks no existing flow.
+
+Also noted, unverified and NOT a claim about the live site: `docker-compose.prod.yml:239` defaults
+`GRAFANA_ADMIN_PASSWORD` to `admin` and Grafana is proxied at `/grafana/`. The config alone does not establish that the
+deployed dashboard accepts default credentials; that needs a demo check nobody has run. PR C rollout approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
 session state, not reservations inferred from branch-local text.

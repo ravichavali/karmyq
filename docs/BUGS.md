@@ -1304,3 +1304,47 @@ Measured on the real 6873-line `init.sql`: init takes 2.2 s, and the TCP check p
 the first healthy probe, so it adds no delay.
 
 ---
+
+## BUG-051 · [2026-09-22] · open · **HIGH**
+
+**`POST /api/notifications/push/send` is unauthenticated: the internal guard fails open, and no
+Compose file supplies the secret it depends on.**
+
+Four facts, each read out of the file:
+
+1. `services/notification-service/src/routes/push.ts:7-12` guards the router with
+   `if (secret && req.headers['x-internal-secret'] !== secret)`. When `INTERNAL_SECRET` is unset the
+   condition is falsy and the request passes straight through — it **fails open**.
+2. `INTERNAL_SECRET` is wired to **request-service** (`docker-compose.yml:162`,
+   `docker-compose.prod.yml:68`) and **social-graph-service** (`:318`, `:180`) only.
+   **notification-service receives it in neither file**, so the guard is never armed.
+3. The router is mounted at `services/notification-service/src/index.ts:68`, **before** the
+   `authMiddleware`-protected `/notifications` router at `:70`. Express matches in order, so
+   `/notifications/push/send` never reaches JWT auth.
+4. nginx forwards the path publicly: `location ~ ^/api/notifications(/.*)?$` →
+   `proxy_pass http://notification_service/notifications$1` (`infrastructure/nginx/nginx.conf:227`).
+
+So `POST https://karmyq.com/api/notifications/push/send` with `{user_ids, title, body, data}` sends
+an arbitrary push notification to arbitrary users, with no credential of any kind. The impact is a
+phishing surface that lands on users' devices under the platform's own name.
+
+Contrast `services/social-graph-service/src/middleware/internalAuth.ts`, which does this correctly:
+`timingSafeEqual` over a SHA-256 of the secret, and **503 when unconfigured**. The two internal
+guards disagree about the default, and the unsafe one is the publicly routed one.
+
+**Not reproduced against the demo** — doing so would send real notifications to real devices. The
+reasoning above is from the checked-in configuration; the deployed environment may differ if
+`INTERNAL_SECRET` reaches the container by some path not in the repo, which is worth checking before
+assuming exposure.
+
+**The fix needs both halves, together.** Making the middleware fail closed without wiring the secret
+would turn the endpoint into a 503; wiring the secret without failing closed changes nothing. Also
+add `INTERNAL_SECRET` to notification-service in `docker-compose.yml` and `docker-compose.prod.yml`,
+and confirm the demo host's `.env.demo` defines it before deploying. No in-repo caller invokes
+`/push/send` today (only `push.ts` defines it), so failing closed breaks no existing flow.
+
+Found during Sprint 131 BUG-049 `/security-review`, which flagged the fail-open default; the routing
+and Compose halves were traced afterwards. Deliberately **not** fixed in the BUG-049 PR — different
+service, different mechanism, and it is coupled to a demo environment variable.
+
+---
