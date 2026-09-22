@@ -48,25 +48,25 @@ export const RateLimitPresets = {
   // Standard write operations (POST/PUT/DELETE)
   standard: {
     windowMs: 60 * 1000, // 1 minute
-    max: 60, // 60 write operations per minute per user
+    max: 60, // 60 write operations per minute per key (per IP today — see ADR-098)
     message: 'Too many requests, please slow down',
   },
   // Read-heavy endpoints (GET - lists, searches)
   readHeavy: {
     windowMs: 60 * 1000, // 1 minute
-    max: 300, // 300 read operations per minute per user
+    max: 300, // 300 read operations per minute per key (per IP today — see ADR-098)
     message: 'Too many requests, please slow down',
   },
   // Detail/single resource reads (GET - specific items)
   readLight: {
     windowMs: 60 * 1000, // 1 minute
-    max: 500, // 500 single-item reads per minute per user
+    max: 500, // 500 single-item reads per minute per key (per IP today — see ADR-098)
     message: 'Too many requests, please slow down',
   },
   // Very strict limit for sensitive operations
   strict: {
     windowMs: 60 * 60 * 1000, // 1 hour
-    max: 5, // 5 requests per hour per user
+    max: 5, // 5 requests per hour per key (per IP today — see ADR-098)
     message: 'Rate limit exceeded for this operation',
   },
   // Legacy: Relaxed (deprecated - use readHeavy instead)
@@ -119,14 +119,15 @@ export function createRateLimiter(config: RateLimitConfig = {}): RateLimitReques
     // returns IPv4 unchanged and narrows IPv6 to a /56 so a single host cannot
     // rotate addresses inside its own prefix.
     //
-    // `req.ip` is only the real client when the service sets `trust proxy`
-    // (ADR-098); `req.socket.remoteAddress` is the fail-closed fallback.
+    // `req.ip` is only the real client when the service sets `trust proxy` (ADR-098). It is
+    // undefined only when the socket has no remote address, and `'unknown'` is then a single
+    // fail-closed bucket rather than an escape from limiting.
     keyGenerator: (req: Request) => {
       const userId = (req as any).user?.userId;
       if (userId) {
         return `user:${userId}`;
       }
-      return ipKeyGenerator(req.ip ?? req.socket.remoteAddress ?? 'unknown');
+      return ipKeyGenerator(req.ip ?? 'unknown');
     },
     handler: (_req: Request, res: Response) => {
       res.status(429).json({
@@ -163,6 +164,6 @@ export const rateLimiters = {
  */
 export const globalRateLimiter = createRateLimiter({
   windowMs: 60 * 1000, // 1 minute
-  max: 300, // 300 requests per minute per IP/user
+  max: 300, // 300 requests per minute per key (per IP today — see ADR-098)
   message: 'Too many requests from this source',
 });

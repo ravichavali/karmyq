@@ -20,8 +20,8 @@ during Sprint 131 D3 and filed as BUG-049.
 
 Three facts discovered while fixing it turned out to matter more than the original report.
 
-**The `user:<userId>` branch was unreachable.** Across all 1022 tracked JS/TS files there are 62
-limiter references in eight services. At *every* mount site the limiter is positioned ahead of
+**The `user:<userId>` branch was unreachable.** Across all 1024 tracked JS/TS files there are 66
+limiter references in nine services. At *every* mount site the limiter is positioned ahead of
 `authMiddleware`, and `app.use(globalRateLimiter)` is app-level, so `req.user` was never set when
 the key was computed. There is no counterexample in the repository. Every request, authenticated
 or not, keyed to `undefined`.
@@ -55,14 +55,18 @@ keyGenerator: (req: Request) => {
   if (userId) {
     return `user:${userId}`;
   }
-  return ipKeyGenerator(req.ip ?? req.socket.remoteAddress ?? 'unknown');
+  return ipKeyGenerator(req.ip ?? 'unknown');
 },
 ```
 
 `ipKeyGenerator` is express-rate-limit's own exported helper. It returns IPv4 unchanged and narrows
 IPv6 to a `/56`, so a host cannot escape its bucket by rotating addresses inside its own prefix.
-`req.socket.remoteAddress` is a fail-closed fallback: if neither address is available the caller
-shares the `unknown` bucket rather than escaping limiting altogether.
+
+`req.ip` is undefined only when the socket has no remote address. `'unknown'` is then a single
+fail-closed bucket, not an escape from limiting. An earlier draft also tried
+`req.socket.remoteAddress` in between; that term is unreachable, because Express derives `req.ip`
+from exactly that value (`proxy-addr` seeds its address list with the socket address), so whenever
+`req.ip` is undefined the socket address is too.
 
 The `user:<userId>` branch is kept even though it is currently unreachable. It is correct wherever
 a limiter is mounted after `authMiddleware`, and deleting it would discard the behaviour the
@@ -75,8 +79,18 @@ presets document. Its unreachability is recorded in `packages/shared/CONTEXT.md`
 app.set('trust proxy', 1);
 ```
 
-Applied to the eight services whose source mounts a limiter: auth, cleanup, community, messaging,
-notification, reputation, request, social-graph. geocoding-service mounts none and is excluded.
+Applied to the nine services whose source mounts a limiter: auth, cleanup, community, geocoding,
+messaging, notification, reputation, request, social-graph.
+
+geocoding-service was nearly missed, and how is worth recording. It is plain JavaScript and
+deliberately does not consume `@karmyq/shared` (`packages/shared/CONTEXT.md:56`), so the key
+generator above never applied to it — its two limiters at `src/geocodingApp.js:17-18` use
+express-rate-limit's built-in default, which is already per-IP. But it *is* proxied
+(`infrastructure/nginx/nginx.conf:270`) and set no `trust proxy`, so both limiters keyed every
+caller to the Docker gateway: the BUG-049 shape, reached by a different route. The first draft of
+this ADR asserted "geocoding-service mounts none and is excluded", and the first draft of the gate
+scanned `.ts` only, so neither the prose nor the machine could see it. A language-shaped hole in a
+discovery gate is indistinguishable from a pass.
 
 **Why `1` and not `true`.** `true` trusts the entire chain, so Express takes the leftmost
 `X-Forwarded-For` entry — which the client controls. That would let any caller spoof `req.ip` and
@@ -115,15 +129,17 @@ copy that drifts from it.
 ### 4. Both halves are gated
 
 `tests/regression/sprint-131-rate-limit-trust-proxy.test.ts` derives the service list from
-`services/registry.json` and the services' own source at run time, then asserts the `trust proxy`
-call by TypeScript AST — the call shape and a numeric `1`, so a commented-out line, `true`, or the
+`services/registry.json` and the services' own **tracked `.ts` and `.js`** source at run time, then
+asserts the `trust proxy` call by TypeScript AST — the call shape and a numeric `1`, so a commented-out line, `true`, or the
 words inside a string all fail. Deriving the list rather than hard-coding it means a future service
 that mounts a limiter without trusting the proxy is caught automatically.
 
 Each assertion was proven able to fail by injection, reverted after each: `true` in auth-service,
-the line commented out in request-service, `return undefined` restored in the shared middleware, and
-an emptied registry — which fails the discovery assertion rather than vacuously passing zero
-per-service cases.
+the line commented out in request-service, `return undefined` restored in the shared middleware, the
+line removed from geocoding's `.js` app (proving the non-TypeScript path is really covered), and the
+file pathspec reverted to `services/*/src/**/*.ts` — which git expands without matching any
+`src/index.ts` at all, so the gate would have checked nothing. The last two fail discovery rather
+than passing vacuously.
 
 Per-IP behaviour itself is proven behaviourally in
 `packages/shared/src/middleware/__tests__/sprint-131-rate-limit-key.test.ts`: two client IPs get two

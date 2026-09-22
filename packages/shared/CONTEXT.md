@@ -271,7 +271,7 @@ nginx change was needed. The value must stay `1`: `true` would let a client spoo
 gated by `tests/regression/sprint-131-rate-limit-trust-proxy.test.ts`, and the per-IP behaviour by
 `src/middleware/__tests__/sprint-131-rate-limit-key.test.ts`.
 
-⚠️ The `user:<userId>` branch is currently **unreachable at every mount site in the repo** — all eight
+⚠️ The `user:<userId>` branch is currently **unreachable at every mount site in the repo** — all eight consuming
 services position the limiter ahead of `authMiddleware`, so `req.user` is never set when the key is computed.
 Limits are effectively per-IP everywhere today, whatever the preset comments say about "per user".
 

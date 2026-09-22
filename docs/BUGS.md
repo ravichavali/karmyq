@@ -1217,7 +1217,7 @@ IP B's first request then got 429.
 ~~The only consumer is auth-service.~~ **Correction (2026-09-22, during the fix).** A scan of all 1022 tracked
 JS/TS files found 62 references. `globalRateLimiter` is mounted app-level in **seven** services — auth, community,
 messaging, notification, reputation, request, social-graph — and `cleanup-service` builds its own limiter at
-`src/index.ts:83`. Eight services were affected, not one.
+`src/index.ts:83`, and geocoding-service mounts two in plain JavaScript at `src/geocodingApp.js:17-18`. **Nine** services were affected, not one.
 
 **Correction: the `user:<userId>` branch was unreachable everywhere, and the blast radius was wider than a login
 lockout.** At *every* mount site the limiter sits ahead of `authMiddleware`, and `app.use(globalRateLimiter)` is
@@ -1242,7 +1242,7 @@ location blocks. nginx runs on the host — it is absent from `docker-compose.pr
 
 **The fix (Sprint 131):** two layers, not three.
 - `keyGenerator` returns `ipKeyGenerator(req.ip ?? req.socket.remoteAddress ?? 'unknown')` for anonymous requests.
-- All eight limiter-mounting services set `app.set('trust proxy', 1)`.
+- All nine limiter-mounting services set `app.set('trust proxy', 1)`.
 
 `1` is the only safe value here. `true` would trust the whole chain and let a client spoof `req.ip`; `'loopback'`
 would not match the Docker gateway the container actually sees. Because nginx uses `$proxy_add_x_forwarded_for`, it

@@ -16,10 +16,7 @@ import { internalAuth } from './middleware/internalAuth';
 import { initEventSubscriber } from './events/subscriber';
 
 const app = express();
-// One proxy hop: nginx appends the real client IP last in X-Forwarded-For (via
-// /etc/nginx/proxy_params). Without this, req.ip is the Docker gateway and every
-// anonymous caller shares one rate limit bucket (BUG-049). Must stay 1 — `true`
-// would let a client spoof its own IP.
+// ADR-098 (BUG-049): exactly one proxy hop. Must stay 1 — `true` lets a client spoof req.ip.
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3010;
 const sharedLogger = createLogger('social-graph-service');
