@@ -20,11 +20,20 @@ during Sprint 131 D3 and filed as BUG-049.
 
 Three facts discovered while fixing it turned out to matter more than the original report.
 
-**The `user:<userId>` branch was unreachable.** Across all 1024 tracked JS/TS files there are 66
-limiter references in nine services. At *every* mount site the limiter is positioned ahead of
-`authMiddleware`, and `app.use(globalRateLimiter)` is app-level, so `req.user` was never set when
-the key was computed. There is no counterexample in the repository. Every request, authenticated
-or not, keyed to `undefined`.
+**The `user:<userId>` branch was almost never reached.** Across all 1024 tracked JS/TS files there
+are 66 limiter references in nine services. In eight of them every limiter is positioned ahead of
+`authMiddleware`, and `app.use(globalRateLimiter)` is app-level in seven, so `req.user` is not set
+when the key is computed.
+
+**social-graph-service is the one counterexample**, and an earlier draft of this ADR wrongly denied
+it existed. `app.use(authMiddleware)` at `src/index.ts:135` is app-level and precedes six route
+limiters — `/invitations`, `/paths`, `/network`, `/trust-card` and `/trust` (two routers) — so those
+*do* key by `user:<userId>`. Its `globalRateLimiter` (`:43`), the public
+`/invitations/validate/:code` limiter (`:56`) and `/internal/relationship-context` (`:127`) all run
+before that line and remain IP-keyed. So one service is mixed and the rest are purely IP-keyed.
+
+Before this fix, none of that mattered: the anonymous branch returned `undefined`, so every
+anonymous request in every service — the overwhelming majority — keyed to the same bucket.
 
 **So the exposure was site-wide throttling, not just a login lockout.** `rateLimiters.standard` is
 a module-level singleton; request-service mounts it on roughly twelve route groups
@@ -68,10 +77,11 @@ fail-closed bucket, not an escape from limiting. An earlier draft also tried
 from exactly that value (`proxy-addr` seeds its address list with the socket address), so whenever
 `req.ip` is undefined the socket address is too.
 
-The `user:<userId>` branch is kept even though it is currently unreachable. It is correct wherever
-a limiter is mounted after `authMiddleware`, and deleting it would discard the behaviour the
-presets document. Its unreachability is recorded in `packages/shared/CONTEXT.md` and
-`docs/IDEAS.md` rather than silently tolerated.
+The `user:<userId>` branch is kept, and it is not dead code: social-graph-service's six post-auth
+limiters use it today (see Context). It is simply unreachable in the other eight services, whose
+limiters all run before authentication. Where the presets promise "per user", that promise holds in
+exactly one service; `packages/shared/CONTEXT.md` and `docs/IDEAS.md` record which is which rather
+than leaving the reader to infer it from the preset comments.
 
 ### 2. Every service nginx proxies — and only those — trusts exactly one hop
 

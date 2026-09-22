@@ -636,13 +636,15 @@ required** — it changes the installed tree for every service image.
 
 ---
 
-## [2026-09-22] Rate limiters run before `authMiddleware` everywhere, so per-user keying is unreachable
+## [2026-09-22] Rate limiters run before `authMiddleware` in eight of nine services, so per-user keying is almost never reached
 
 BUG-049 fixed the key itself — anonymous callers are now keyed by client IP instead of sharing one
 bucket. But the `user:<userId>` branch in `packages/shared/middleware/rateLimit.ts` is still **dead at
-every mount site in the repo**: all eight limiter-mounting services position the limiter ahead of
+almost every mount site**: eight of the nine limiter-mounting services position the limiter ahead of
 `authMiddleware`, and `app.use(globalRateLimiter)` is app-level, so `req.user` is never set when the key
-is computed. There is no counterexample in the repo.
+is computed. **social-graph-service is the exception** — `app.use(authMiddleware)` at `src/index.ts:135`
+precedes six route limiters, which do key by user — so the question is not "make the branch live" but
+"why does one service differ from the other eight".
 
 The practical effect is that limits are per-IP everywhere, whatever the presets' comments say about
 "per user" (`RateLimitPresets.standard`, `readHeavy`, `readLight` all claim per-user limits). Users

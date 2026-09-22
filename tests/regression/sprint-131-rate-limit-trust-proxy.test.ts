@@ -152,7 +152,9 @@ const forwardsTrustworthyClientIp = (body: string): boolean => {
   let safeExplicit = false;
   for (const directive of directives) {
     const match = directive.match(SET_HEADER);
-    if (!match || match[1].toLowerCase() !== 'x-forwarded-for') continue;
+    // nginx accepts quoted arguments, so the NAME must be unquoted before comparison, not only
+    // lowercased: `proxy_set_header "X-Forwarded-For" $http_x_forwarded_for;` is a real directive.
+    if (!match || unquote(match[1]).toLowerCase() !== 'x-forwarded-for') continue;
     // An unsafe explicit override disqualifies the block even if proxy_params is also included:
     // nginx applies the location-level directive.
     if (!SAFE_XFF_VALUES.has(unquote(match[2].trim()))) return false;
@@ -210,6 +212,48 @@ describe('ADR-098: trusted proxy hop matches the nginx topology', () => {
 
     const offenders = locations.filter((body) => !forwardsTrustworthyClientIp(body));
     expect(offenders).toEqual([]);
+  });
+
+  /**
+   * The forwarded-header check earned its own table: three successive versions each admitted a
+   * broken configuration, and two of them also rejected a valid one. Every row below was first
+   * reproduced by rewriting the real `/api/auth` location and running this suite; keeping them here
+   * means the proofs survive as tests instead of living in a throwaway script.
+   */
+  describe('forwardsTrustworthyClientIp', () => {
+    const PP = 'include /etc/nginx/proxy_params;';
+    const PASS = 'proxy_pass http://auth_service/auth$1$is_args$args;';
+    const block = (...lines: string[]) => [PASS, ...lines].join('\n        ');
+
+    it.each([
+      ['no forwarding at all', block()],
+      ['include commented out', block('# ' + PP)],
+      ['value is the client-supplied header', block('proxy_set_header X-Forwarded-For $http_x_forwarded_for;')],
+      ['value is empty', block('proxy_set_header X-Forwarded-For "";')],
+      ['include present, unsafe override', block(PP, 'proxy_set_header X-Forwarded-For $http_x_forwarded_for;')],
+      ['lowercase name, unsafe value', block('proxy_set_header x-forwarded-for $http_x_forwarded_for;')],
+      ['include present, LOWERCASE unsafe override', block(PP, 'proxy_set_header X-FORWARDED-FOR $http_x_forwarded_for;')],
+      ['include present, QUOTED-NAME unsafe override', block(PP, 'proxy_set_header "X-Forwarded-For" $http_x_forwarded_for;')],
+      ['include present, multiline unsafe override', block(PP, 'proxy_set_header X-Forwarded-For\n            $http_x_forwarded_for;')],
+      ['quoted unsafe value', block('proxy_set_header X-Forwarded-For "$http_x_forwarded_for";')],
+      ['unterminated directive is unreadable, not skippable', block('proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for')],
+    ])('rejects: %s', (_label, body) => {
+      expect(forwardsTrustworthyClientIp(body)).toBe(false);
+    });
+
+    // Controls. A check that rejects everything unfamiliar would pass the rows above while
+    // blocking every legitimate config, so these carry as much weight as the rejections.
+    it.each([
+      ['the proxy_params include (what the repo actually ships)', block(PP)],
+      ['an explicit $proxy_add_x_forwarded_for', block('proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;')],
+      ['the same wrapped across two lines', block('proxy_set_header X-Forwarded-For\n            $proxy_add_x_forwarded_for;')],
+      ['a lowercase safe spelling', block('proxy_set_header x-forwarded-for $proxy_add_x_forwarded_for;')],
+      ['a QUOTED-NAME safe spelling', block('proxy_set_header "X-Forwarded-For" $proxy_add_x_forwarded_for;')],
+      ['a quoted safe value', block('proxy_set_header X-Forwarded-For "$proxy_add_x_forwarded_for";')],
+      ['$remote_addr', block('proxy_set_header X-Forwarded-For $remote_addr;')],
+    ])('accepts: %s', (_label, body) => {
+      expect(forwardsTrustworthyClientIp(body)).toBe(true);
+    });
   });
 
   it('the shared key generator never returns undefined', () => {

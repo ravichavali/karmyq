@@ -1219,9 +1219,11 @@ JS/TS files found 62 references. `globalRateLimiter` is mounted app-level in **s
 messaging, notification, reputation, request, social-graph — and `cleanup-service` builds its own limiter at
 `src/index.ts:83`, and geocoding-service mounts two in plain JavaScript at `src/geocodingApp.js:17-18`. **Nine** services were affected, not one.
 
-**Correction: the `user:<userId>` branch was unreachable everywhere, and the blast radius was wider than a login
+**Correction: the `user:<userId>` branch was unreachable almost everywhere, and the blast radius was wider than a login
 lockout.** At *every* mount site the limiter sits ahead of `authMiddleware`, and `app.use(globalRateLimiter)` is
-app-level, so `req.user` was never set when the key was computed. There is no counterexample in the repo. Since
+app-level, so `req.user` was not set when the key was computed. **One counterexample exists** and an earlier
+version of this entry denied it: social-graph-service calls `app.use(authMiddleware)` at `src/index.ts:135`, ahead of
+six route limiters, which therefore key by user. Its global and public limiters still key by IP. Since
 `rateLimiters.standard` is a module-level singleton, request-service's ~12 route groups (`src/index.ts:76-181`)
 shared **one** 60-per-minute bucket across the entire user base. Re-enabling rate limiting without this fix would
 have throttled the whole site, not merely risked a 15-minute `/auth/*` lockout — which is the likeliest reason

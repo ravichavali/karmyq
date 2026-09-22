@@ -273,8 +273,13 @@ nginx change was needed. The value must stay `1`: `true` would let a client spoo
 gated by `tests/regression/sprint-131-rate-limit-trust-proxy.test.ts`, and the per-IP behaviour by
 `src/middleware/__tests__/sprint-131-rate-limit-key.test.ts`.
 
-⚠️ The `user:<userId>` branch is currently **unreachable at every mount site in the repo** — all eight consuming
-services position the limiter ahead of `authMiddleware`, so `req.user` is never set when the key is computed.
-Limits are effectively per-IP everywhere today, whatever the preset comments say about "per user".
+⚠️ The `user:<userId>` branch is reached in **exactly one service**. `social-graph-service` calls
+`app.use(authMiddleware)` at `src/index.ts:135`, ahead of six route limiters (`/invitations`, `/paths`,
+`/network`, `/trust-card`, `/trust` ×2), so those key **per user**; its `globalRateLimiter` and its two
+public/internal limiters run earlier and stay per-IP. Every other consuming service positions every limiter
+ahead of `authMiddleware`, so `req.user` is unset when the key is computed and the limit is per-IP.
+
+So the presets' "per user" wording is accurate in one service and misleading in the rest — check where a
+limiter sits relative to `authMiddleware` before reasoning about what a preset's `max` actually bounds.
 
 No export, endpoint, payload or event change.

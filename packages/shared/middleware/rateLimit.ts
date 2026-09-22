@@ -48,25 +48,25 @@ export const RateLimitPresets = {
   // Standard write operations (POST/PUT/DELETE)
   standard: {
     windowMs: 60 * 1000, // 1 minute
-    max: 60, // 60 write operations per minute per key (per IP today — see ADR-098)
+    max: 60, // 60 write operations per minute per key (see ADR-098: per user where the limiter runs after authMiddleware, per IP otherwise)
     message: 'Too many requests, please slow down',
   },
   // Read-heavy endpoints (GET - lists, searches)
   readHeavy: {
     windowMs: 60 * 1000, // 1 minute
-    max: 300, // 300 read operations per minute per key (per IP today — see ADR-098)
+    max: 300, // 300 read operations per minute per key (see ADR-098: per user where the limiter runs after authMiddleware, per IP otherwise)
     message: 'Too many requests, please slow down',
   },
   // Detail/single resource reads (GET - specific items)
   readLight: {
     windowMs: 60 * 1000, // 1 minute
-    max: 500, // 500 single-item reads per minute per key (per IP today — see ADR-098)
+    max: 500, // 500 single-item reads per minute per key (see ADR-098: per user where the limiter runs after authMiddleware, per IP otherwise)
     message: 'Too many requests, please slow down',
   },
   // Very strict limit for sensitive operations
   strict: {
     windowMs: 60 * 60 * 1000, // 1 hour
-    max: 5, // 5 requests per hour per key (per IP today — see ADR-098)
+    max: 5, // 5 requests per hour per key (see ADR-098: per user where the limiter runs after authMiddleware, per IP otherwise)
     message: 'Rate limit exceeded for this operation',
   },
   // Legacy: Relaxed (deprecated - use readHeavy instead)
@@ -164,6 +164,6 @@ export const rateLimiters = {
  */
 export const globalRateLimiter = createRateLimiter({
   windowMs: 60 * 1000, // 1 minute
-  max: 300, // 300 requests per minute per key (per IP today — see ADR-098)
+  max: 300, // 300 requests per minute per key (see ADR-098: per user where the limiter runs after authMiddleware, per IP otherwise)
   message: 'Too many requests from this source',
 });
