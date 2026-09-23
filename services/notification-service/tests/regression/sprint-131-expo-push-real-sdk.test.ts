@@ -110,7 +110,7 @@ beforeEach(() => {
 });
 
 describe('sendPushToUsers through the real expo-server-sdk (Sprint 131 D4)', () => {
-  it('sends one message per valid token and logs each error ticket with its message and details', async () => {
+  it('sends one message per valid token and logs an error ticket with its message and details', async () => {
     const unregistered = '"ExponentPushToken[aaa]" is not a registered push notification recipient';
     const details = { error: 'DeviceNotRegistered', expoPushToken: 'ExponentPushToken[aaa]' };
     answer = (messages) => ({
@@ -139,10 +139,26 @@ describe('sendPushToUsers through the real expo-server-sdk (Sprint 131 D4)', () 
     expect(report.consoleErrors).toEqual([['[expoPush] Push ticket error:', unregistered, details]]);
   });
 
-  it('splits more than 100 recipients into chunks of at most 100, and sends data as {} when none is given', async () => {
+  it('sends every chunk of a 101-recipient push and logs every error ticket, with data {} when none is given', async () => {
     const tokens = Array.from({ length: 101 }, (_, i) => `ExponentPushToken[t${i}]`);
     const title = 'Offer accepted!';
     const body = 'Your offer was accepted. Check your commitments.';
+    // Two recipients of the FIRST chunk are unregistered, so stopping at an error ticket is visible twice over.
+    const unregistered = new Set(['ExponentPushToken[t0]', 'ExponentPushToken[t1]']);
+    answer = (messages) => ({
+      status: 200,
+      body: {
+        data: messages.map((message, i) =>
+          unregistered.has(message.to)
+            ? {
+                status: 'error',
+                message: `"${message.to}" is not a registered push notification recipient`,
+                details: { error: 'DeviceNotRegistered', expoPushToken: message.to },
+              }
+            : okTicket(i),
+        ),
+      },
+    });
 
     const report = await sendInChild({ tokens, title, body }, { expoBaseUrl: stubUrl });
 
@@ -151,7 +167,18 @@ describe('sendPushToUsers through the real expo-server-sdk (Sprint 131 D4)', () 
     expect(received.flatMap((request) => request.messages)).toEqual(
       tokens.map((to) => ({ to, title, body, data: {} })),
     );
-    expect(report.consoleErrors).toEqual([]);
+    expect(report.consoleErrors).toEqual([
+      [
+        '[expoPush] Push ticket error:',
+        '"ExponentPushToken[t0]" is not a registered push notification recipient',
+        { error: 'DeviceNotRegistered', expoPushToken: 'ExponentPushToken[t0]' },
+      ],
+      [
+        '[expoPush] Push ticket error:',
+        '"ExponentPushToken[t1]" is not a registered push notification recipient',
+        { error: 'DeviceNotRegistered', expoPushToken: 'ExponentPushToken[t1]' },
+      ],
+    ]);
   });
 
   it('sends nothing when no stored token is a valid Expo push token', async () => {

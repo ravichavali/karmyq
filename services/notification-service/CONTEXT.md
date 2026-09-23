@@ -994,7 +994,8 @@ this service's tsconfig (the same emit as `npm run build`), resolves modules fro
 substitutes only the database; the real
 SDK talks to a local stub of Expo's push API through `EXPO_BASE_URL`, and the child can dial nothing but
 loopback (one case proves it). Only data crosses to the child, never code. Cases: invalid tokens filtered;
-error tickets logged with message and details; chunks of at most 100; nothing sent when no token is valid; an
+every error ticket logged with message and details, with later chunks still sent; chunks of at most 100;
+nothing sent when no token is valid; an
 Expo API error rejects, so the calling event handler logs it; and the SDK is reached through `require()`. The
 same file passes on 6.1.0 and on 7.2.0.
 

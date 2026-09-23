@@ -798,7 +798,7 @@ Expected: `7.2.0 true function`.
 
 ## Execution notes (2026-09-23)
 
-Four deviations from the plan above, each re-verified. The per-step evidence is in the handoff and the PR.
+Five deviations from the plan above, each re-verified. The per-step evidence is in the handoff and the PR.
 
 - **The SDK is read through its named `Expo` export, not `.default`.** This came from the `/simplify` altitude
   review. `.default` is the class only while Node marks a required ES module `__esModule`; the named export does
@@ -813,3 +813,8 @@ Four deviations from the plan above, each re-verified. The per-step evidence is 
   deadline, and Jest exits on its own.
 - **Task 2 Step 2's `git log -1 FETCH_HEAD` reads the wrong commit.** After fetching two refs it shows the first
   (master), not #230's head. The head was verified by its SHA instead.
+- **The final whole-branch review strengthened case 2.** As planned, adding `return` or `break` after the
+  error-ticket log still passed all five cases, although case 1's name promised "logs each error ticket". Case 1
+  has a single error ticket. Case 2's stub now answers error tickets for two recipients of the *first* chunk,
+  and the test asserts both are logged and the second chunk is still sent. Both mutations now fail it. I2 now
+  fails 2 cases (1 and 2), not 1. Case 1's name says "an error ticket", which is what it proves.
