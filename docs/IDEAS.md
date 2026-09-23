@@ -659,3 +659,24 @@ intent should change to per-IP, or routes need two limiters at different positio
 design pass.
 
 ---
+
+## [2026-09-23] notification-service loads expo-server-sdk lazily and untyped, so neither the deploy nor the compiler checks it
+
+Two follow-ups from Sprint 131 D4's `/simplify` altitude pass. Both change behavior or typing, so they were
+kept out of that dependency-bump PR.
+
+**Load the SDK at boot.** `src/lib/expoPush.ts` loads the SDK inside `getExpoModule()` on the first push, a
+leftover from the belief that an ES module needs a dynamic `import()` (tsc emits `require()` there anyway). As a
+result a broken SDK passes every deploy health check and first shows up as a `❌ Failed to process …` log on the
+next offer or on-duty event. A static `import { Expo } from 'expo-server-sdk'` with a module-level client would
+load it at startup, where `deploy.sh`'s container health check and CI's rollback would catch a failure inside
+the real image. Cost: SDK load failures become boot failures rather than per-push rejections — a deliberate
+behavior change. `tests/regression/sprint-131-expo-push-real-sdk.test.ts` should pass unchanged (a static
+import also compiles to `require()`); the one test importing `src/index` already mocks `lib/expoPush`.
+
+**Type the SDK.** `_ExpoClass` / `_expoInstance` are `any`, so tsc checks nothing about the SDK's surface. Typing
+them from the package (`import type { Expo }`) has byte-identical emit and would turn the D4 test's I1/I2
+mutations into compile errors on every build, including Dependabot's own PR images. The static import above
+brings the types for free.
+
+---

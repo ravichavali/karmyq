@@ -50,17 +50,6 @@ CREATE TABLE notifications.global_preferences (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- notifications.push_tokens
-CREATE TABLE notifications.push_tokens (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  token TEXT NOT NULL,                     -- Expo push token or FCM token
-  device_type VARCHAR(20) NOT NULL,        -- 'ios', 'android', 'web'
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  last_used TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(user_id, token)
-);
-
 -- Indexes
 CREATE INDEX idx_notifications_user_id ON notifications.notifications(user_id);
 CREATE INDEX idx_notifications_read ON notifications.notifications(read);
@@ -69,6 +58,7 @@ CREATE INDEX idx_notifications_created_at ON notifications.notifications(created
 
 ### Tables Read by This Service
 - `auth.users` - User names for notification messages
+- `auth.device_push_tokens` - Expo push tokens, read by `src/lib/expoPush.ts` (auth-service writes them)
 - `requests.help_requests` - Request details for notifications
 - `communities.communities` - Community names for notifications
 
@@ -570,72 +560,17 @@ eventQueue.process('new_event_name', async (job) => {
 });
 ```
 
-### Implement Push Notifications (Mobile)
+### Push Notifications (Mobile) — already implemented
 
-1. **Add push token registration endpoint:**
-```typescript
-// src/routes/notifications.ts
-router.post('/:userId/push-token', async (req, res) => {
-  const { userId } = req.params;
-  const { token, device_type } = req.body;
+Push delivery exists; extend it rather than following an older recipe.
 
-  await query(
-    `INSERT INTO notifications.push_tokens (user_id, token, device_type)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (user_id, token) DO UPDATE SET last_used = CURRENT_TIMESTAMP`,
-    [userId, token, device_type]
-  );
-
-  res.json({ success: true, message: 'Push token registered' });
-});
-```
-
-2. **Send push notification via Expo:**
-```typescript
-// src/services/pushNotificationService.ts
-import { Expo } from 'expo-server-sdk';
-
-const expo = new Expo();
-
-export async function sendPushNotification(user_id: string, notification: any) {
-  // Get user's push tokens
-  const tokens = await query(
-    `SELECT token FROM notifications.push_tokens WHERE user_id = $1`,
-    [user_id]
-  );
-
-  const messages = tokens.rows.map(row => ({
-    to: row.token,
-    sound: 'default',
-    title: notification.title,
-    body: notification.body,
-    data: notification.data,
-  }));
-
-  const chunks = expo.chunkPushNotifications(messages);
-
-  for (const chunk of chunks) {
-    try {
-      await expo.sendPushNotificationsAsync(chunk);
-    } catch (error) {
-      console.error('Push notification error:', error);
-    }
-  }
-}
-```
-
-3. **Call from createNotification:**
-```typescript
-// src/services/notificationService.ts
-export async function createNotification(params: CreateNotificationParams) {
-  // ... existing code ...
-
-  // Send push notification if enabled
-  if (shouldSend.push_enabled) {
-    await sendPushNotification(user_id, createdNotification);
-  }
-}
-```
+- **Token registration** is in auth-service: `POST /auth/push-tokens` and `DELETE /auth/push-tokens`
+  (`services/auth-service/src/routes/pushTokens.ts`) write `auth.device_push_tokens`.
+- **Delivery** is `sendPushToUsers()` in `src/lib/expoPush.ts`: it reads those tokens, drops any that
+  `Expo.isExpoPushToken` rejects, sends in chunks of at most 100, and logs error tickets.
+- **Callers** are the `provider_went_on_duty`, `offer_submitted`, `offer_accepted` and `offer_declined`
+  handlers in `src/events/subscriber.ts`, plus the internal `POST /notifications/push/send` route.
+- The SDK is pure ESM and reaches this CommonJS build through `require()` — see *Sprint 131 D4* below.
 
 ### Add Email Notifications
 
@@ -1035,3 +970,38 @@ No payload, event or schema change. The response shape of the route is unchanged
 previously documented a `{ sent, failed }` body that the code has never returned, and an
 implementation path (`src/services/pushNotificationService.ts`) that does not exist; both are
 corrected above.
+
+## Sprint 131 D4 — expo-server-sdk 7 (2026-09-23)
+
+`expo-server-sdk` **6.1.0 → 7.2.0** (#230). This service is its only declarer and `src/lib/expoPush.ts` its
+only importer. The whole v7 code change, read from the two published packages rather than the changelog: the
+SDK reads its own version through a JSON import (`with { type: 'json' }`) instead of `createRequire`; its
+engines floor is Node `>=22.12.0` (was `>=20`; we run 24); and its types gain optional message fields.
+Everything this service calls — the named `Expo` export, a no-argument constructor, `Expo.isExpoPushToken`,
+`chunkPushNotifications`, `sendPushNotificationsAsync` — is unchanged.
+
+**How the SDK actually loads.** `expoPush.ts` says `await import('expo-server-sdk')`, but this service compiles
+with `"module": "commonjs"`, so tsc emits `require('expo-server-sdk')`. A pure-ESM package loads that way only
+because Node can `require()` an ES module. The code now reads the SDK's named `Expo` export rather than
+`default`: `.default` is the class only while Node marks a required ES module `__esModule`, and the named export
+does not depend on that. Both are the same class today, so behavior is unchanged. The comment that described a
+dynamic `import()` was wrong and is corrected.
+
+`tests/regression/sprint-131-expo-push-real-sdk.test.ts` is the first test to exercise the SDK at all — the
+BUG-051 suite mocks `sendPushToUsers` out. Jest's module loader is not the one production uses, so each case runs
+in a plain `node` child (`tests/helpers/expo-push-child.cjs`). The child loads `expoPush.ts` through ts-node with
+this service's tsconfig (the same emit as `npm run build`), resolves modules from the file's real location and
+substitutes only the database; the real
+SDK talks to a local stub of Expo's push API through `EXPO_BASE_URL`, and the child can dial nothing but
+loopback (one case proves it). Only data crosses to the child, never code. Cases: invalid tokens filtered;
+every error ticket logged with message and details, with later chunks still sent; chunks of at most 100;
+nothing sent when no token is valid; an
+Expo API error rejects, so the calling event handler logs it; and the SDK is reached through `require()`. The
+same file passes on 6.1.0 and on 7.2.0.
+
+The SDK loads lazily, on the first push, so a deploy's health checks never exercise it. This test covers the
+source and the lockfile's install on CI's Node 24; the image builds its own tree (`npm install --omit=dev` on
+`node:24-alpine`), so only loading the SDK inside the running container checks the deployed copy. Loading it at
+boot instead would put it under the deploy's health checks — see `docs/IDEAS.md` [2026-09-23].
+
+No endpoint, payload, event or schema change. Not covered: the SDK's own retry of a 429 with backoff.
