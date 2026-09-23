@@ -1308,7 +1308,7 @@ the first healthy probe, so it adds no delay.
 
 ---
 
-## BUG-051 · [2026-09-22] · open · **HIGH**
+## BUG-051 · [2026-09-22] · fixed (Sprint 131, pending deploy) · **HIGH**
 
 **`POST /api/notifications/push/send` is unauthenticated: the internal guard fails open, and no
 Compose file supplies the secret it depends on.**
@@ -1349,5 +1349,73 @@ and confirm the demo host's `.env.demo` defines it before deploying. No in-repo 
 Found during Sprint 131 BUG-049 `/security-review`, which flagged the fail-open default; the routing
 and Compose halves were traced afterwards. Deliberately **not** fixed in the BUG-049 PR — different
 service, different mechanism, and it is coupled to a demo environment variable.
+
+**Fixed (2026-09-22), both halves together.** All four facts above were re-read out of the files
+before any change; each still held.
+
+- **Fail closed.** New `services/notification-service/src/middleware/internalAuth.ts` mirrors
+  social-graph-service's guard — 503 `SERVICE_UNAVAILABLE` when `INTERNAL_SECRET` is unset or
+  empty, 403 `FORBIDDEN` on a mismatch, `timingSafeEqual` over SHA-256 digests, neither secret
+  logged. `src/routes/push.ts` now delegates to it instead of the inline `if (secret && …)`.
+- **Secret wired.** `INTERNAL_SECRET` added to notification-service in **both**
+  `infrastructure/docker/docker-compose.yml` and `docker-compose.prod.yml`, matching how
+  request-service and social-graph-service already receive it.
+
+⚠️ **A second defect surfaced while fixing the first, and it is the more dangerous of the two.**
+The original guard was installed with `router.use(...)` on a router mounted at **`/notifications`**,
+not at `/notifications/push` — so it gated **every** request under that prefix, including the
+authenticated list, unread-count and preferences routes that are meant to fall through to the next
+mount. That was inert only because `INTERNAL_SECRET` was never set for this service: the 403 branch
+was unreachable. **Wiring the secret in — the other half of this very fix — is exactly what arms
+it.** Measured on the real app before correction: with the secret configured,
+`GET /notifications/:userId` and `GET /notifications/preferences` both returned
+**403 FORBIDDEN**, and with it unset both returned **503**. Shipping the two halves as originally
+written would have taken the entire notifications API down for every user on deploy.
+
+The guard is therefore attached to the **single route** (`router.post('/push/send', internalAuth,
+…)`), never to the router. After the correction those same three routes return **401 UNAUTHORIZED**
+from `authMiddleware`, proving the guard no longer intercepts them. Six assertions in the gate hold
+this line, across both the configured and unconfigured states.
+
+The lesson generalises: **a fail-open guard hides its own blast radius.** Nothing about the
+`router.use` mount was visibly wrong for as long as the condition could never fire, and the
+service's whole test suite passed both before and after arming it. The defect was found by probing
+sibling routes on the real app, not by any assertion that existed.
+
+**The demo host was checked first, read-only (2026-09-22), before the fail-closed half was
+written:** `~/karmyq/.env.demo` defines `INTERNAL_SECRET` exactly once, non-empty. Unlike
+`RATE_LIMIT_DISABLED` (two assignments, later wins — see BUG-049) there is no duplicate to
+shadow it, so the deployed route will authenticate rather than answer 503. The value was never
+printed or logged; only its presence, count and length were read.
+
+**Not reproduced against the demo by sending a push**, deliberately — doing so would deliver a
+real notification to real devices. The exposure is established from configuration, and the fix is
+proven by test instead.
+
+Gated by `services/notification-service/tests/regression/sprint-131-push-internal-auth.test.ts`
+(9 assertions). It drives the **real** Express app with the **real** guard — only the push
+transport, database and Bull subscriber are mocked — and every rejection also asserts the
+transport was never invoked, since a status code alone cannot prove the guard ran *before* the
+handler, which is the half mount order controls. The regression tier is what
+`npm test` runs for this service; `tdd/` is not.
+
+**The gate was shown to discriminate, not assumed to.** Reconstructing the legacy predicate in a
+throwaway app: it answers **200 and reaches the handler** on an anonymous request with the secret
+unset, where the fixed guard answers **503 and does not**. (The injection was done by
+reconstruction rather than by editing the shipped guard, which is the safer way round.)
+
+**No caller was broken.** Nothing in the repo invokes this HTTP route; `src/events/subscriber.ts`
+imports `sendPushToUsers()` and calls it in process. That is what the stale "called by event
+handlers" note in `CONTEXT.md` and `services/registry.json` actually described — both corrected,
+along with a documented response shape (`{ sent, failed }`) the code has never returned and an
+implementation path (`src/services/pushNotificationService.ts`) that does not exist.
+
+**Left alone deliberately:** `docker-compose.qa.yml`, `.staging.yml` and `.test.yml` still omit
+`INTERNAL_SECRET` for this service. They are referenced only by archived scripts, not the live
+deploy path, and qa already omits social-graph-service's too. Worth a separate sweep if any of
+them is ever revived.
+
+`src/index.ts` also now starts the server only under `require.main === module` and exports `app`,
+matching social-graph-service, so the route can be tested end-to-end without binding port 3005.
 
 ---

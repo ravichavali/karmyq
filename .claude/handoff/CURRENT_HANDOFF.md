@@ -1,6 +1,18 @@
 # Sprint 131 — Maintenance Backlog — Handoff
 
-**Date**: 2026-09-21
+**Date**: 2026-09-23
+
+> ⚠️ **Bootstrap: `git switch agent/claude/sprint-131-bug-051-push-auth` BEFORE reading further.**
+> `master`'s copy of this file is stale — it still says #257 is open, because the copy that merged
+> with #257 was written before that PR merged. This branch, cut from the deployed `96ffa619`, is the
+> current one. Do not push the reconciliation to `master`: every master push is a full deploy, and a
+> docs-only push would restart services and 502 the demo. It rides on this branch's PR instead.
+
+> ✅ **BUG-051 is IMPLEMENTED as [#258](https://github.com/ravichavali/karmyq/pull/258) (v11.65.0), CI green (20 pass / 1 expected skip), awaiting merge authorization.** All
+> gates green: Turbo 27/27 exit 0, notification-service 67/67 (the new gate ran fresh, not cached),
+> `@karmyq/tests` 866/866 + 101/101, `tsc --noEmit` clean, declarations/drift/license gates green.
+> **Read the "BUG-051 — SHIPPED TO PR" block below before touching notification-service**: fixing
+> it surfaced a second, more dangerous defect that is easy to reintroduce.
 
 **Outcome**: PR A **shipped v11.56.0** ([#249](https://github.com/ravichavali/karmyq/pull/249), `d35a3fad`). PR B **shipped v11.57.0** —
 [#250](https://github.com/ravichavali/karmyq/pull/250) merged as `d2edb286` (2026-09-17T13:00:59Z, admin merge on explicit
@@ -9,7 +21,60 @@ maintainer authorization), deployed, health-verified and smoke-checked. PR B2 **
 deployed, health-verified and smoke-checked. PR B3 **shipped v11.59.0** — [#252](https://github.com/ravichavali/karmyq/pull/252)
 merged as `238c9009` (2026-09-19), deployed, health-verified and smoke-checked; issue #248 closed. PR D1 **shipped v11.60.0**
 — [#253](https://github.com/ravichavali/karmyq/pull/253) merged as `0ce160b5` (2026-09-21T15:59:10Z), deployed, health-verified
-and smoke-checked. PR D2 **shipped v11.61.0** — [#254](https://github.com/ravichavali/karmyq/pull/254) merged as `b7539896` (2026-09-21T20:51:13Z), deployed, health-verified and smoke-checked; #228 closed. PR D3 **shipped v11.62.0** — [#255](https://github.com/ravichavali/karmyq/pull/255) merged as `b7588509` (2026-09-21T23:25:42Z), deployed on a CI re-run, health-verified and smoke-checked; #224 closed. BUG-050 fix **shipped v11.63.0** — [#256](https://github.com/ravichavali/karmyq/pull/256) merged as `e5f7d8e1` (2026-09-22T04:20:36Z), [CI/CD run 35686522868](https://github.com/ravichavali/karmyq/actions/runs/35686522868) every job success, deployed, health-verified, smoke-checked (login, `/api/requests`, `/api/conversations`, `/api/reputation/karma/:userId` all 200). **BUG-049 fix is OPEN as [#257](https://github.com/ravichavali/karmyq/pull/257) (v11.64.0), all four gates run, 20 CI checks pass / 1 skipping (Deploy to Demo, skipped on PRs).** Remaining: **maintainer merge authorization**, then deploy + health verify + smoke. **After it, in order: (1) BUG-051, its own PR; (2) D4 (expo-server-sdk #230).**
+and smoke-checked. PR D2 **shipped v11.61.0** — [#254](https://github.com/ravichavali/karmyq/pull/254) merged as `b7539896` (2026-09-21T20:51:13Z), deployed, health-verified and smoke-checked; #228 closed. PR D3 **shipped v11.62.0** — [#255](https://github.com/ravichavali/karmyq/pull/255) merged as `b7588509` (2026-09-21T23:25:42Z), deployed on a CI re-run, health-verified and smoke-checked; #224 closed. BUG-050 fix **shipped v11.63.0** — [#256](https://github.com/ravichavali/karmyq/pull/256) merged as `e5f7d8e1` (2026-09-22T04:20:36Z), [CI/CD run 35686522868](https://github.com/ravichavali/karmyq/actions/runs/35686522868) every job success, deployed, health-verified, smoke-checked (login, `/api/requests`, `/api/conversations`, `/api/reputation/karma/:userId` all 200). BUG-049 fix **shipped v11.64.0** — [#257](https://github.com/ravichavali/karmyq/pull/257) merged as `96ffa619` (2026-09-22T23:54:04Z, maintainer merged), [CI/CD run 35799597789](https://github.com/ravichavali/karmyq/actions/runs/35799597789) every job success, deployed, all 9 services healthy, `DEPLOYMENT SUCCESSFUL`, no rollback; smoke 2026-09-23: login 200, `/api/requests` 200, `/api/conversations` 200, `/api/reputation/karma/:userId` 200. **BUG-051 fix is IMPLEMENTED as v11.65.0 on `agent/claude/sprint-131-bug-051-push-auth`, all gates green, awaiting merge authorization.** **Then: D4 (expo-server-sdk #230).**
+
+✅ **BUG-051 — SHIPPED TO PR (v11.65.0), branch `agent/claude/sprint-131-bug-051-push-auth`.** Both
+halves landed together: a fail-closed `services/notification-service/src/middleware/internalAuth.ts`
+(503 unconfigured, 403 mismatch, `timingSafeEqual` over SHA-256, neither secret logged) and
+`INTERNAL_SECRET` wired to notification-service in **both** compose files.
+
+**The demo host was checked read-only first, on maintainer authorization (2026-09-22):**
+`~/karmyq/.env.demo` defines `INTERNAL_SECRET` **once**, non-empty — no duplicate assignment to
+shadow it, unlike `RATE_LIMIT_DISABLED`. So the deployed route will authenticate, not 503. Only
+presence/count/length were read; the value was never printed.
+
+⚠️⚠️ **A SECOND defect surfaced during the fix, and it is the more dangerous one. Do not undo it.**
+The original guard used `router.use(internalAuth)` on a router mounted at **`/notifications`**, not
+`/notifications/push` — so it gated **every** sibling route under that prefix, including the
+authenticated list, unread-count and preferences routes meant to fall through to the next mount.
+That was inert only because `INTERNAL_SECRET` was never set for this service; **wiring the secret in
+— the other half of this fix — is precisely what arms it.** Measured on the real app before
+correction: with the secret configured, `GET /notifications/:userId` and
+`GET /notifications/preferences` both returned **403**; with it unset, **503**. Shipping the two
+halves as first written would have taken the **entire notifications API down for every user** on
+deploy. The guard is now attached to the **single route**
+(`router.post('/push/send', internalAuth, …)`); those routes now return 401 from `authMiddleware`,
+and six assertions in the gate hold the line in both the configured and unconfigured states.
+
+**Generalise it: a fail-open guard hides its own blast radius.** Nothing about the `router.use`
+mount looked wrong while the condition could never fire, and the full suite passed both before and
+after arming it. It was found by probing sibling routes on the real app — no existing assertion
+covered them. If you add a second internal route here, give each its own `internalAuth` argument,
+or mount a separate router at `/notifications/push`.
+
+Also in this PR: `src/index.ts` starts only under `require.main === module` and exports `app`
+(mirroring social-graph) so the route is testable end-to-end — verified against the emitted
+`dist/index.js` and the container's `CMD ["node", "dist/index.js"]`, so production boot is
+unaffected. `supertest`/`@types/supertest` declared in notification-service with the lockfile
+spliced in place at social-graph's exact ranges. `package-lock.json`'s root version was also
+**11.63.0 while `package.json` was 11.64.0** (#257 bumped one and not the other) — both are now
+11.65.0. Docs: `docs/BUGS.md` BUG-051 marked fixed with full mechanism, `CONTEXT.md` (which also
+documented a `{ sent, failed }` response the code has never returned and a nonexistent
+`src/services/pushNotificationService.ts`), and `services/registry.json`.
+
+New gotcha `docs/gotchas/git-pathspec-double-star-needs-glob-magic.md` (maintainer approved for this
+PR): `git ls-files 'services/*/src/**/*.ts'` returns **184 files and 0 `src/index.ts`**, while
+`:(glob)services/*/src/**/*.ts` returns **200 and all 9** — the trap behind one of #257's four
+discovery defects. `gotcha-check` clean at 11 entries.
+
+**Left for a future sprint, deliberately:** `docker-compose.qa.yml`, `.staging.yml` and `.test.yml`
+still omit `INTERNAL_SECRET` for this service (referenced only by archived scripts, not the live
+deploy path; qa already omits social-graph's too). And unrelated drift, NOT caused here:
+`services/impact-analysis.md` computes auth-service at **6** dependents while CLAUDE.md's table and
+all ten `.claude/README.md` files (dated 2026-03-03) say **7**; regenerating churns all ten, so it
+was reverted rather than buried in a security diff.
+
+<details><summary>Original BUG-051 report (kept for the record)</summary>
 
 🔴 **BUG-051 — `POST /api/notifications/push/send` is unauthenticated (HIGH, own PR, maintainer decision 2026-09-22).**
 Found by this sprint's `/security-review`; full evidence in `docs/BUGS.md` BUG-051. Four verified facts:
@@ -26,6 +91,8 @@ both compose files. The two halves must land together: failing closed without th
 ⚠️ **Before deploying it, confirm `~/karmyq/.env.demo` defines `INTERNAL_SECRET`** — a read-only demo check needing its
 own authorization. No in-repo caller invokes `/push/send` (verified), so failing closed breaks no existing flow.
 
+</details>
+
 Also noted, unverified and NOT a claim about the live site: `docker-compose.prod.yml:239` defaults
 `GRAFANA_ADMIN_PASSWORD` to `admin` and Grafana is proxied at `/grafana/`. The config alone does not establish that the
 deployed dashboard accepts default credentials; that needs a demo check nobody has run. PR C rollout approval deferred.
@@ -37,8 +104,8 @@ session state, not reservations inferred from branch-local text.
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-131-bug-049-rate-limit-key`, cut from `origin/master` at `e5f7d8e1` (v11.63.0). **BUG-051 comes next (its own branch off the newly deployed `origin/master`), and D4 is re-cut fresh only after BUG-051 ships.** ⚠️ A branch `agent/claude/sprint-131-d4-expo-server-sdk` exists from an earlier chat carrying only a handoff commit (`c4ce2733`), whose content is superseded here — delete it rather than build on it. The BUG-050 branch `agent/claude/sprint-131-postgres-readiness` is merged. PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches are merged — do not commit on them |
-| **Base** | `origin/master` at `b7588509` (PR D3 merge), fetched 2026-09-22; v11.62.0 |
+| **Branch** | `agent/claude/sprint-131-bug-051-push-auth`, cut from the deployed `96ffa619` (v11.64.0); ships v11.65.0. The BUG-049 branch `agent/claude/sprint-131-bug-049-rate-limit-key` is **merged** — do not commit on it. **D4 is re-cut fresh from `origin/master` only after BUG-051 merges and deploys.** ⚠️ A branch `agent/claude/sprint-131-d4-expo-server-sdk` exists from an earlier chat carrying only a handoff commit (`c4ce2733`), whose content is superseded here — delete it rather than build on it. The BUG-050 branch `agent/claude/sprint-131-postgres-readiness` is merged. PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches are merged — do not commit on them |
+| **Base** | `origin/master` at `96ffa619` (BUG-049 / #257 merge), fetched 2026-09-23; v11.64.0 |
 | **Active editor** | Claude executed PR A (2026-09-16); planning was authored by Codex under maintainer transfer |
 | **Reviewer role** | A non-author reviews the completed diff; reviewers do not co-edit |
 | **Owned paths now** | Sprint 131 spec/plan, CURRENT_HANDOFF, preserved Sprint 130 archive |
@@ -81,10 +148,10 @@ inventory against the then-current base. BUG-033 remains open until actually del
 
 1. Confirm current branch, clean handoff and live state with `git status --short`, `gh pr list`
    and `git log --oneline origin/master -3`.
-2. BUG-049 is PR [#257](https://github.com/ravichavali/karmyq/pull/257) on `agent/claude/sprint-131-bug-049-rate-limit-key`, pushed and green, awaiting merge authorization. **BUG-051 and D4 each cut a fresh branch from the newly deployed `origin/master`** — BUG-051 first, then `agent/claude/sprint-131-d4-expo-server-sdk` (delete the stale branch of that name before re-cutting).
+2. BUG-049 is **merged and deployed** (#257, `96ffa619`, v11.64.0); its branch is finished — do not commit on it. **BUG-051 is on `agent/claude/sprint-131-bug-051-push-auth`, cut from the deployed `96ffa619`.** D4 cuts `agent/claude/sprint-131-d4-expo-server-sdk` fresh from master after BUG-051 ships (delete the stale branch of that name before re-cutting).
    The PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches are merged; never commit on them.
 3. Read the linked spec and sprint plan. **PR A, B, B2, B3, D1, D2 and D3 are shipped — do not reopen or re-execute their plans.**
-4. Order decided 2026-09-22: **(1) BUG-049 — PR #257, awaiting merge auth; (2) BUG-051 — its own PR, maintainer decision, HIGH severity; (3) D4 (expo-server-sdk #230).** Do not skip BUG-051: it is an unauthenticated public endpoint. Scope for each: the BUG-051 block below, the BUG-049 notes below, and the D4 row above.
+4. Order decided 2026-09-22: **(1) BUG-049 — SHIPPED v11.64.0; (2) BUG-051 — IMPLEMENTED on this branch (v11.65.0), awaiting merge authorization; (3) D4 (expo-server-sdk #230).** Scope for each: the BUG-051 block below, the BUG-049 notes below, and the D4 row above.
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
@@ -105,9 +172,22 @@ which is a demo operation requiring per-operation maintainer approval.
 
 ✅ **The postgres readiness race that failed that first attempt is BUG-050 — SHIPPED v11.63.0** ([#256](https://github.com/ravichavali/karmyq/pull/256), `e5f7d8e1`; [CI/CD run 35686522868](https://github.com/ravichavali/karmyq/actions/runs/35686522868) every job success, `✅ All services healthy`, no rollback; smoke login/requests/conversations/reputation all 200). A review round on #256 added `start_period: 60s` to the base compose stack too. Mechanism and proof: `docs/BUGS.md` BUG-050.
 
-**Next unchecked action: merge authorization for [#257](https://github.com/ravichavali/karmyq/pull/257)** (BUG-049). All four gates are run and every finding resolved; 20 CI checks pass / 1 skipping. Confirmed from job logs, not ticks: `PASS regression/sprint-131-rate-limit-trust-proxy.test.ts` and `PASS src/middleware/__tests__/sprint-131-rate-limit-key.test.ts` (shared 176/176); Integration Tests pass in 4m57s — the job whose postgres readiness race was BUG-050. On authorization: `gh pr merge 257 --squash --admin`, watch Deploy to Demo, then smoke login + `/api/requests` + `/api/conversations` + `/api/reputation/karma/:userId`. **Then BUG-051, then D4.**
+**Next unchecked action: merge authorization for the BUG-051 PR (v11.65.0).** Implementation,
+docs, gates and handoff are all on `agent/claude/sprint-131-bug-051-push-auth`; the demo
+`INTERNAL_SECRET` check is done (present, once, non-empty). On authorization:
+`gh pr merge 258 --squash --admin`, watch **Deploy to Demo**, then smoke login + `/api/requests`
++ `/api/conversations` + `/api/reputation/karma/:userId`.
 
-✅ **BUG-049 — FIXED on this branch (v11.64.0), not yet merged.** Found in D3. Three claims in the original report were wrong and are corrected in `docs/BUGS.md` and [ADR-098](../../docs/adr/ADR-098-trusted-proxy-and-rate-limit-keys.md):
+**Post-deploy smoke for this fix specifically:** an unauthenticated
+`POST /api/notifications/push/send` must return **403**, not 200 — that is the whole bug, and it is
+safe to probe because a rejected call sends no notification. Do **not** verify the success path
+against the demo: a 200 delivers a real push to real devices. Also confirm an ordinary
+authenticated notifications read still works (**not** 403/503) — that is the blast-radius
+regression, and it is the one that would hurt every user rather than none.
+
+After BUG-051 deploys: D4 (expo-server-sdk, #230).
+
+✅ **BUG-049 — SHIPPED v11.64.0**, merged as `96ffa619` (#257) and deployed 2026-09-22; this branch is cut from it. Found in D3. Three claims in the original report were wrong and are corrected in `docs/BUGS.md` and [ADR-098](../../docs/adr/ADR-098-trusted-proxy-and-rate-limit-keys.md):
 
 - **Not auth-only.** `globalRateLimiter` is mounted app-level in **seven** services; `cleanup-service` builds its own, and geocoding-service mounts two in plain JS. **Nine** services were affected. geocoding was found only during `/simplify` — the first gate scanned `.ts` only and could not see it.
 - **The `user:<userId>` branch is reached in one service only** (review correction — an earlier claim of "unreachable repo-wide" was wrong): social-graph-service calls `app.use(authMiddleware)` at `src/index.ts:135` ahead of six route limiters, which key by user. In the other eight every limiter sits ahead of `authMiddleware`, so `rateLimiters.standard` gave request-service's ~12 route groups **one** 60/min bucket for the entire user base: enabling limiting would have throttled the whole site, not just risked an `/auth/*` lockout. That is the likeliest reason `RATE_LIMIT_DISABLED=true` was set.

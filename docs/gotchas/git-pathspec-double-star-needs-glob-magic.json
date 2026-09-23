@@ -1,0 +1,7 @@
+{
+  "title": "A `**` git pathspec without :(glob) magic silently omits every src/index.ts",
+  "owner": "ravichavali",
+  "created": "2026-09-22",
+  "scope": ["tests/regression/"],
+  "expires": "2027-09-22"
+}

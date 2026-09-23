@@ -636,7 +636,7 @@
           {
             "method": "POST",
             "path": "/notifications/push/send",
-            "description": "Internal: send Expo push notifications to a list of users"
+            "description": "Internal: send Expo push notifications to a list of users. Authenticates with the x-internal-secret header and fails closed with 503 when INTERNAL_SECRET is unset (BUG-051). Mounted ahead of authMiddleware, so it takes no JWT. No in-repo caller today: event handlers call sendPushToUsers() in process rather than over HTTP."
           }
         ],
         "consumes": [

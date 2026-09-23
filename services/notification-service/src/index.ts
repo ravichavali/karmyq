@@ -64,7 +64,8 @@ import { sseHandler } from './routes/notifications';
 app.get('/notifications/stream', rateLimiters.relaxed, sseAuthMiddleware, sseHandler);
 app.get('/notifications/stream/:userId', rateLimiters.relaxed, sseAuthMiddleware, sseHandler);
 
-// Internal push delivery route (no auth — internal only, behind nginx)
+// Internal push delivery route. No JWT — it authenticates with the internal secret instead, and
+// fails closed when that secret is unconfigured (BUG-051). Mounted ahead of authMiddleware.
 app.use('/notifications', pushRouter);
 
 // Other notification routes with authentication
@@ -119,4 +120,10 @@ async function initialize() {
   }
 }
 
-initialize();
+// Start the service only when run directly, so tests can import the app without binding a port
+// or opening a database/queue connection.
+if (require.main === module) {
+  initialize();
+}
+
+export default app;
