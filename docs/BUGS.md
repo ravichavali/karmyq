@@ -1202,7 +1202,7 @@ Related: `docs/gotchas/dotenv-config-must-pass-quiet.md`.
 
 ---
 
-## BUG-049 · [2026-09-21] · fixed (Sprint 131)
+## BUG-049 · [2026-09-21] · fixed (Sprint 131, #257 `96ffa619`, deployed v11.64.0)
 
 **Shared rate limiter puts every anonymous caller in ONE global bucket.**
 
@@ -1267,7 +1267,7 @@ Found during Sprint 131 D3 (express-rate-limit 8). Deliberately **not** fixed in
 
 ---
 
-## BUG-050 · [2026-09-22] · fixed (Sprint 131, pending deploy)
+## BUG-050 · [2026-09-22] · fixed (Sprint 131, #256 `e5f7d8e1`, deployed v11.63.0)
 
 **Postgres healthchecks pass while the database is still initializing, so dependents hit `ECONNREFUSED`.**
 
@@ -1308,7 +1308,7 @@ the first healthy probe, so it adds no delay.
 
 ---
 
-## BUG-051 · [2026-09-22] · fixed (Sprint 131, pending deploy) · **HIGH**
+## BUG-051 · [2026-09-22] · fixed (Sprint 131, #258 `8fbbeb5f`, deployed v11.65.0) · **HIGH**
 
 **`POST /api/notifications/push/send` is unauthenticated: the internal guard fails open, and no
 Compose file supplies the secret it depends on.**
@@ -1417,5 +1417,21 @@ them is ever revived.
 
 `src/index.ts` also now starts the server only under `require.main === module` and exports `app`,
 matching social-graph-service, so the route can be tested end-to-end without binding port 3005.
+
+**Live-verified 2026-09-23 after deploy** ([CI/CD run 35869203355](https://github.com/ravichavali/karmyq/actions/runs/35869203355),
+all 9 services healthy, no rollback), against `https://karmyq.com/api`:
+
+| Probe | Result |
+|---|---|
+| Anonymous `POST /notifications/push/send` | **403 `FORBIDDEN`** — was open before this fix |
+| Same, wrong `x-internal-secret` | **403 `FORBIDDEN`** |
+| Same, valid user JWT but no internal secret | **403 `FORBIDDEN`** — a login cannot substitute |
+| Authenticated `GET /notifications/:userId`, `/unread-count`, `/preferences` | **200** each — the blast-radius regression is absent |
+| Anonymous `GET /notifications/:userId` | **401 `UNAUTHORIZED`** from `authMiddleware`, not the guard |
+
+A 403 rather than 503 also proves `INTERNAL_SECRET` reaches the container. Every `/push/send` probe
+carried an **empty body**, so even an open guard would have answered 400 `MISSING_FIELDS` before
+the transport: no notification could be sent by the verification itself. The success path was
+deliberately never exercised against the demo.
 
 ---
