@@ -103,6 +103,9 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
       JWT_SECRET: ${JWT_SECRET}
+      # Credential for the internal push route (BUG-051). Without it /notifications/push/send
+      # fails closed with 503.
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://karmyq.com}
     deploy:
       resources:

@@ -213,6 +213,9 @@ services:
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev_jwt_secret_change_in_production
+      # Credential for the internal push route (BUG-051). Without it /notifications/push/send
+      # fails closed with 503.
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-dev_internal_secret_change_in_production}
       RATE_LIMIT_DISABLED: true
     ports:
       - "127.0.0.1:3005:3005"

@@ -315,7 +315,20 @@ Update user's global notification preferences.
 ```
 
 ### POST /notifications/push/send (internal)
-Send Expo push notifications to a list of users. Internal use only (called by event handlers within the notification service itself, not exposed publicly).
+Send Expo push notifications to a list of users. Internal use only, authenticated by the
+`x-internal-secret` header — **not** by JWT, because the router is mounted ahead of
+`authMiddleware` in `src/index.ts`.
+
+⚠️ **This path IS reachable from the internet.** nginx proxies `^/api/notifications(/.*)?$` to this
+service (`infrastructure/nginx/nginx.conf`), so the internal-secret header is the only credential
+standing in front of it. The guard therefore **fails closed**: when `INTERNAL_SECRET` is unset the
+route answers `503 SERVICE_UNAVAILABLE` rather than admitting the caller (BUG-051 — the previous
+guard skipped the comparison entirely when the secret was unconfigured, and no Compose file set it
+for this service). A wrong secret gets `403 FORBIDDEN`; secrets are compared as SHA-256 digests via
+`timingSafeEqual` and neither is ever logged.
+
+No in-repo caller uses this HTTP route today. Event handlers call `sendPushToUsers()` in process
+(`src/events/subscriber.ts` imports it directly), so failing closed breaks no existing flow.
 
 **Request:**
 ```json
@@ -330,7 +343,7 @@ Send Expo push notifications to a list of users. Internal use only (called by ev
 ```json
 {
   "success": true,
-  "data": { "sent": 2, "failed": 0 }
+  "data": {}
 }
 ```
 
@@ -338,8 +351,11 @@ Send Expo push notifications to a list of users. Internal use only (called by ev
 - Looks up Expo push tokens from `auth.device_push_tokens`
 - Uses `expo-server-sdk` to deliver push messages
 - Silently skips users with no registered push token
+- Delivery counts are not reported; the response `data` is an empty object
+- `400 MISSING_FIELDS` when `user_ids`, `title` or `body` is absent or empty
 
-**Implementation:** `src/services/pushNotificationService.ts`
+**Implementation:** `src/routes/push.ts` (route + guard), `src/lib/expoPush.ts` (delivery),
+`src/middleware/internalAuth.ts` (fail-closed guard)
 
 ### GET /health
 Service health check.
@@ -485,6 +501,10 @@ DATABASE_URL=postgresql://user:password@localhost:5432/karmyq_db
 
 # Redis
 REDIS_URL=redis://localhost:6379
+
+# Internal service auth (BUG-051). Required: POST /notifications/push/send answers 503 without it.
+# Wired in docker-compose.yml and docker-compose.prod.yml; the demo host sets it in .env.demo.
+INTERNAL_SECRET=dev_internal_secret_change_in_production
 
 # Logging
 LOG_LEVEL=info                   # debug, info, warn, error
@@ -962,3 +982,56 @@ on any `config()` that omits `quiet`.
 
 No endpoint, payload, event or schema change. `parse()` output is byte-identical between 16 and 17, and
 nothing here reads `config()`’s return value.
+
+## Sprint 131 BUG-051 — the internal push route now fails closed (2026-09-22)
+
+`POST /notifications/push/send` was **unauthenticated in every deployed environment**. Four
+independent facts combined into one hole:
+
+1. The guard in `src/routes/push.ts` read `if (secret && supplied !== secret)`. With
+   `INTERNAL_SECRET` unset the condition is falsy, so every request passed through — it **failed
+   open** rather than refusing.
+2. `INTERNAL_SECRET` was wired to request-service and social-graph-service only. **This service
+   received it in neither Compose file**, so the guard was never armed anywhere.
+3. The push router is mounted at `src/index.ts` *before* the `authMiddleware`-protected
+   `/notifications` router. Express matches in order, so the path never reaches JWT auth.
+4. nginx proxies `^/api/notifications(/.*)?$` publicly.
+
+Net effect: `POST https://karmyq.com/api/notifications/push/send` would send an arbitrary push
+notification to arbitrary users with no credential at all — a phishing surface arriving on users'
+devices under the platform's own name.
+
+**The fix is two halves that only work together.** `src/middleware/internalAuth.ts` (new) mirrors
+social-graph-service's guard: 503 when unconfigured, `timingSafeEqual` over SHA-256 digests, and
+neither secret logged. `INTERNAL_SECRET` is now wired to this service in **both**
+`docker-compose.yml` and `docker-compose.prod.yml`. Failing closed without the secret would have
+turned the route into a permanent 503; wiring the secret without failing closed would have changed
+nothing.
+
+⚠️ **The guard is attached to the ROUTE, never with `router.use`.** This router is mounted at
+`/notifications`, not `/notifications/push`, so a router-level guard gates every sibling route
+under the prefix — the authenticated list, unread-count and preferences routes that fall through
+to the next mount. That was inert only while `INTERNAL_SECRET` was unset; arming the secret turns
+it into **403 for every notifications read on the platform** (measured: 403 configured, 503 unset,
+before correction; 401 from `authMiddleware` after). If you ever add a second internal route here,
+give each one its own `internalAuth` argument, or mount a separate router at `/notifications/push`. The demo host's `~/karmyq/.env.demo` was confirmed (read-only, 2026-09-22) to define
+`INTERNAL_SECRET` exactly once and non-empty, so the deployed route authenticates rather than 503s.
+
+`tests/regression/sprint-131-push-internal-auth.test.ts` drives the **real** Express app with the
+**real** guard — only the push transport, database and Bull subscriber are mocked — and every
+rejection asserts the transport was never invoked, because a status code alone cannot prove the
+guard ran *before* the handler. The suite was shown to discriminate: the legacy predicate admits an
+anonymous caller with 200 and reaches the handler, where the fixed guard answers 503 and does not.
+
+No caller was broken: nothing in the repo invokes this HTTP route. `src/events/subscriber.ts`
+imports `sendPushToUsers()` and calls it in process, which is what the old "called by event
+handlers" note in this file actually described.
+
+Not changed: `docker-compose.qa.yml`, `.staging.yml` and `.test.yml` still omit `INTERNAL_SECRET`
+for this service. They are referenced only by archived scripts, not by the live deploy path, and
+qa already omits social-graph-service's too.
+
+No payload, event or schema change. The response shape of the route is unchanged — this file
+previously documented a `{ sent, failed }` body that the code has never returned, and an
+implementation path (`src/services/pushNotificationService.ts`) that does not exist; both are
+corrected above.
