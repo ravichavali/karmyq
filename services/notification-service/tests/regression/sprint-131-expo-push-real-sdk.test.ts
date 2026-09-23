@@ -1,20 +1,17 @@
 /**
  * Sprint 131 D4 — expo-server-sdk 6 → 7 (#230), exercised through the REAL SDK, loaded the way production loads it.
  *
- * `sprint-131-push-internal-auth.test.ts` mocks `sendPushToUsers`, so before this file no test touched the SDK:
- * a green suite said nothing about a major bump. Nor does production load the SDK the way src/lib/expoPush.ts
- * reads. This service compiles with "module": "commonjs", so tsc turns its `await import('expo-server-sdk')` into
- * `require('expo-server-sdk')`, and a pure-ESM package loads that way only because Node itself can require() an
- * ES module. Jest runs its own module loader rather than Node's, so each case runs the service's code in a plain
- * `node` child (tests/helpers/expo-push-child.cjs). The child compiles expoPush.ts with this service's own
- * tsconfig, resolves every module from the file's real location, and substitutes only the database. The real SDK
- * talks to a local stub of Expo's push API through EXPO_BASE_URL. The child can dial nothing but loopback, so no
- * run can reach exp.host, and the last case proves that guard is armed.
+ * `sprint-131-push-internal-auth.test.ts` mocks `sendPushToUsers`, so before this file no test touched the SDK.
+ * Production reaches the SDK through Node's own require() (see the comment in src/lib/expoPush.ts), and Jest's
+ * module loader is not Node's, so each case runs the real code in a plain `node` child
+ * (tests/helpers/expo-push-child.cjs, whose header describes it) against a local stub of Expo's push API.
+ * The child can dial nothing but loopback; the last case proves that guard is armed.
  */
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execFile, type ChildProcess } from 'node:child_process';
 import * as http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import * as path from 'node:path';
+import { buffer } from 'node:stream/consumers';
 import * as zlib from 'node:zlib';
 
 interface Message {
@@ -59,10 +56,8 @@ let stubUrl: string;
 let received: ExpoRequest[] = [];
 let answer: (messages: Message[]) => { status: number; body: unknown };
 
-const okTickets = (messages: Message[]) => ({
-  status: 200,
-  body: { data: messages.map((_, i) => ({ status: 'ok', id: `ticket-${i}` })) },
-});
+const okTicket = (i: number) => ({ status: 'ok', id: `ticket-${i}` });
+const okTickets = (messages: Message[]) => ({ status: 200, body: { data: messages.map((_, i) => okTicket(i)) } });
 
 // Below Jest's 30 s testTimeout, so a stalled SDK request fails here, with the child's own output.
 const CHILD_DEADLINE_MS = 20_000;
@@ -71,53 +66,32 @@ const liveChildren = new Set<ChildProcess>();
 /** Run sendPushToUsers in a plain `node` child and return what it reports. */
 function sendInChild(call: PushCall, { expoBaseUrl }: { expoBaseUrl?: string } = {}): Promise<ChildReport> {
   return new Promise((resolve, reject) => {
-    const env = { ...process.env };
-    delete env.EXPO_BASE_URL;
-    if (expoBaseUrl) env.EXPO_BASE_URL = expoBaseUrl;
-    const child = spawn(process.execPath, [CHILD], { env, stdio: ['pipe', 'pipe', 'pipe'] });
-    liveChildren.add(child);
-    let stdout = '';
-    let stderr = '';
-    const deadline = setTimeout(() => {
-      child.kill();
-      reject(new Error(`push child still running after ${CHILD_DEADLINE_MS} ms; killed\nstdout:\n${stdout}\nstderr:\n${stderr}`));
-    }, CHILD_DEADLINE_MS);
-    child.stdout.setEncoding('utf8').on('data', (chunk: string) => (stdout += chunk));
-    child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
-    child.on('error', (err) => {
-      clearTimeout(deadline);
+    // An undefined value is dropped from the child's environment, so no inherited EXPO_BASE_URL survives.
+    const env = { ...process.env, EXPO_BASE_URL: expoBaseUrl };
+    const child = execFile(process.execPath, [CHILD], { env, timeout: CHILD_DEADLINE_MS }, (err, stdout, stderr) => {
       liveChildren.delete(child);
-      reject(err);
-    });
-    child.on('close', (exitCode) => {
-      clearTimeout(deadline);
-      liveChildren.delete(child);
-      const lastLine = stdout.trim().split('\n').pop() ?? '';
       try {
-        if (exitCode !== 0) throw new Error(`exit code ${exitCode}`);
-        resolve(JSON.parse(lastLine) as ChildReport);
-      } catch (err) {
-        reject(new Error(`push child did not finish (${(err as Error).message})\nstdout:\n${stdout}\nstderr:\n${stderr}`));
+        if (err) throw new Error(err.killed ? `still running after ${CHILD_DEADLINE_MS} ms; killed` : `exit code ${err.code}`);
+        resolve(JSON.parse(stdout.trim().split('\n').pop() ?? '') as ChildReport);
+      } catch (e) {
+        reject(new Error(`push child did not finish (${(e as Error).message})\nstdout:\n${stdout}\nstderr:\n${stderr}`));
       }
     });
-    child.stdin.end(JSON.stringify({ userIds: ['user-1'], ...call }));
+    liveChildren.add(child);
+    child.stdin?.end(JSON.stringify({ userIds: ['user-1'], ...call }));
   });
 }
 
 beforeAll(async () => {
-  stub = http.createServer((req, res) => {
-    const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => chunks.push(chunk));
-    req.on('end', () => {
-      const raw = Buffer.concat(chunks);
-      // The SDK gzips any request body over 1 KiB, so 100 messages always arrive compressed.
-      const json = (req.headers['content-encoding'] === 'gzip' ? zlib.gunzipSync(raw) : raw).toString('utf8');
-      const messages = JSON.parse(json) as Message[];
-      received.push({ method: req.method ?? '', url: req.url ?? '', headers: req.headers, messages });
-      const { status, body } = answer(messages);
-      res.writeHead(status, { 'content-type': 'application/json', connection: 'close' });
-      res.end(JSON.stringify(body));
-    });
+  stub = http.createServer(async (req, res) => {
+    const raw = await buffer(req);
+    // The SDK gzips any request body over 1 KiB, so 100 messages always arrive compressed.
+    const json = (req.headers['content-encoding'] === 'gzip' ? zlib.gunzipSync(raw) : raw).toString('utf8');
+    const messages = JSON.parse(json) as Message[];
+    received.push({ method: req.method ?? '', url: req.url ?? '', headers: req.headers, messages });
+    const { status, body } = answer(messages);
+    res.writeHead(status, { 'content-type': 'application/json', connection: 'close' });
+    res.end(JSON.stringify(body));
   });
   await new Promise<void>((resolve) => stub.listen(0, '127.0.0.1', resolve));
   stubUrl = `http://127.0.0.1:${(stub.address() as AddressInfo).port}`;
@@ -141,11 +115,7 @@ describe('sendPushToUsers through the real expo-server-sdk (Sprint 131 D4)', () 
     const details = { error: 'DeviceNotRegistered', expoPushToken: 'ExponentPushToken[aaa]' };
     answer = (messages) => ({
       status: 200,
-      body: {
-        data: messages.map((_, i) =>
-          i === 0 ? { status: 'error', message: unregistered, details } : { status: 'ok', id: `ticket-${i}` },
-        ),
-      },
+      body: { data: messages.map((_, i) => (i === 0 ? { status: 'error', message: unregistered, details } : okTicket(i))) },
     });
 
     const report = await sendInChild(
@@ -154,7 +124,7 @@ describe('sendPushToUsers through the real expo-server-sdk (Sprint 131 D4)', () 
     );
 
     expect(report.outcome).toBe('resolved');
-    // How production loads it (see the header); changing this service's "module" setting fails here first.
+    // How production loads it (see src/lib/expoPush.ts); changing this service's "module" setting fails here first.
     expect(report.sdkLoadedByRequire).toBe(true);
     expect(received).toHaveLength(1);
     expect(received[0].method).toBe('POST');
