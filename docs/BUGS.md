@@ -1435,3 +1435,22 @@ the transport: no notification could be sent by the verification itself. The suc
 deliberately never exercised against the demo.
 
 ---
+
+## BUG-052 · [2026-09-23] · open
+
+**The landing docs generator truncates endpoint descriptions to their first line.**
+`extractEndpoints` in `scripts/generate-docs.ts` (around lines 70–73) keeps only the first line after each
+`### METHOD /path` heading in a service's `CONTEXT.md`, so a description wrapped across lines is cut off
+mid-sentence on the landing docs site.
+
+- **Example:** `POST /notifications/push/send` now reads "Send Expo push notifications to a list of users.
+  Internal use only, authenticated by the" in `apps/landing/src/data/docs/api.json`. `CONTEXT.md` wraps that
+  description over three lines, since BUG-051 (#258).
+- **Scope:** found by the Sprint 131 D4 final whole-branch review (PR #267), which counted 22 of 186 endpoint
+  descriptions across 6 services truncated the same way.
+- **Not caused by D4:** it is pre-existing and systemic. The landing build regenerates from source (the
+  `apps/landing` prebuild), so the deployed pages show the truncation too.
+- **Suggested fix:** join the first paragraph (every line up to the first blank line) instead of taking one line.
+- **Severity:** low (docs accuracy only).
+
+---
