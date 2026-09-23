@@ -793,3 +793,23 @@ Expected: `7.2.0 true function`.
 - [ ] **Step 6: Close-out**
 
 `gh pr view 230 --json state` should show #230 closed automatically. If it is still open, report it to the maintainer rather than closing it yourself. Record D4 as shipped in the handoff on the **next** lane's branch, cut fresh from the deployed master; never make a docs-only push to master. Next is D5, node-fetch (#225).
+
+---
+
+## Execution notes (2026-09-23)
+
+Four deviations from the plan above, each re-verified. The per-step evidence is in the handoff and the PR.
+
+- **The SDK is read through its named `Expo` export, not `.default`.** This came from the `/simplify` altitude
+  review. `.default` is the class only while Node marks a required ES module `__esModule`; the named export does
+  not depend on that. So `expoPush.ts` changed by one token as well as its comment, and injection I1 became
+  `mod.Expo` → `mod`, which still fails all 5 cases.
+- **The child loads `expoPush.ts` through ts-node** (the service's declared dev loader) instead of a hand-written
+  `Module._extensions` hook. This came from the `/simplify` reuse review. It was probed first: ts-node's emit
+  follows the tsconfig exactly as the tsc API's does (`require()` as committed, native `import()` under
+  `module: node16`), so I5 still fails only the mechanism assertion.
+- **`sendInChild` uses `execFile` with its `timeout` option** instead of `spawn` plus a hand-written deadline timer.
+  This came from the `/simplify` reuse and simplification reviews. I6 still holds: the child is killed at the
+  deadline, and Jest exits on its own.
+- **Task 2 Step 2's `git log -1 FETCH_HEAD` reads the wrong commit.** After fetching two refs it shows the first
+  (master), not #230's head. The head was verified by its SHA instead.

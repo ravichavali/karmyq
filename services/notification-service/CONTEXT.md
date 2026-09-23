@@ -977,7 +977,7 @@ corrected above.
 only importer. The whole v7 code change, read from the two published packages rather than the changelog: the
 SDK reads its own version through a JSON import (`with { type: 'json' }`) instead of `createRequire`; its
 engines floor is Node `>=22.12.0` (was `>=20`; we run 24); and its types gain optional message fields.
-Everything this service calls — the default export, a no-argument constructor, `Expo.isExpoPushToken`,
+Everything this service calls — the named `Expo` export, a no-argument constructor, `Expo.isExpoPushToken`,
 `chunkPushNotifications`, `sendPushNotificationsAsync` — is unchanged.
 
 **How the SDK actually loads.** `expoPush.ts` says `await import('expo-server-sdk')`, but this service compiles
