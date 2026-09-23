@@ -982,19 +982,25 @@ Everything this service calls — the default export, a no-argument constructor,
 
 **How the SDK actually loads.** `expoPush.ts` says `await import('expo-server-sdk')`, but this service compiles
 with `"module": "commonjs"`, so tsc emits `require('expo-server-sdk')`. A pure-ESM package loads that way only
-because Node can `require()` an ES module, and `.default` is the `Expo` class because Node marks the result
-`__esModule`. The comment that described a dynamic `import()` was wrong and is corrected.
+because Node can `require()` an ES module. The code now reads the SDK's named `Expo` export rather than
+`default`: `.default` is the class only while Node marks a required ES module `__esModule`, and the named export
+does not depend on that. Both are the same class today, so behavior is unchanged. The comment that described a
+dynamic `import()` was wrong and is corrected.
 
 `tests/regression/sprint-131-expo-push-real-sdk.test.ts` is the first test to exercise the SDK at all — the
 BUG-051 suite mocks `sendPushToUsers` out. Jest's module loader is not the one production uses, so each case runs
-in a plain `node` child (`tests/helpers/expo-push-child.cjs`). The child compiles `expoPush.ts` with this
-service's tsconfig, resolves modules from the file's real location and substitutes only the database; the real
+in a plain `node` child (`tests/helpers/expo-push-child.cjs`). The child loads `expoPush.ts` through ts-node with
+this service's tsconfig (the same emit as `npm run build`), resolves modules from the file's real location and
+substitutes only the database; the real
 SDK talks to a local stub of Expo's push API through `EXPO_BASE_URL`, and the child can dial nothing but
 loopback (one case proves it). Only data crosses to the child, never code. Cases: invalid tokens filtered;
 error tickets logged with message and details; chunks of at most 100; nothing sent when no token is valid; an
 Expo API error rejects, so the calling event handler logs it; and the SDK is reached through `require()`. The
 same file passes on 6.1.0 and on 7.2.0.
 
-The SDK loads lazily, on the first push, so a deploy's health checks never exercise it — this test is the gate.
+The SDK loads lazily, on the first push, so a deploy's health checks never exercise it. This test covers the
+source and the lockfile's install on CI's Node 24; the image builds its own tree (`npm install --omit=dev` on
+`node:24-alpine`), so only loading the SDK inside the running container checks the deployed copy. Loading it at
+boot instead would put it under the deploy's health checks — see `docs/IDEAS.md` [2026-09-23].
 
 No endpoint, payload, event or schema change. Not covered: the SDK's own retry of a 429 with backoff.

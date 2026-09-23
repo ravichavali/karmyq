@@ -1,16 +1,17 @@
 import pool from '../database/db';
 
 // expo-server-sdk is pure ESM. This service compiles with "module": "commonjs", so tsc emits the
-// import() below as require('expo-server-sdk'): it loads only because Node can require() an ES module
-// (v7's engines floor is Node 22.12; we run 24), and `.default` is the Expo class because Node marks
-// the result __esModule. tests/regression/sprint-131-expo-push-real-sdk.test.ts runs this exact path.
+// import() below as require('expo-server-sdk'), which loads only because Node can require() an ES
+// module. Read the named `Expo` export: `.default` is the class only while Node marks a required ES
+// module __esModule, and the named export does not depend on that.
+// tests/regression/sprint-131-expo-push-real-sdk.test.ts runs this exact path.
 let _ExpoClass: any = null;
 let _expoInstance: any = null;
 
 async function getExpoModule(): Promise<{ Expo: any; expo: any }> {
   if (!_ExpoClass) {
     const mod = await import('expo-server-sdk');
-    _ExpoClass = mod.default;
+    _ExpoClass = mod.Expo;
     _expoInstance = new _ExpoClass();
   }
   return { Expo: _ExpoClass, expo: _expoInstance };
