@@ -1,6 +1,12 @@
 # Sprint 131 — Maintenance Backlog — Handoff
 
-**Date**: 2026-09-21
+**Date**: 2026-09-23
+
+> ⚠️ **Bootstrap: `git switch agent/claude/sprint-131-bug-051-push-auth` BEFORE reading further.**
+> `master`'s copy of this file is stale — it still says #257 is open, because the copy that merged
+> with #257 was written before that PR merged. This branch, cut from the deployed `96ffa619`, is the
+> current one. Do not push the reconciliation to `master`: every master push is a full deploy, and a
+> docs-only push would restart services and 502 the demo. It rides on this branch's PR instead.
 
 **Outcome**: PR A **shipped v11.56.0** ([#249](https://github.com/ravichavali/karmyq/pull/249), `d35a3fad`). PR B **shipped v11.57.0** —
 [#250](https://github.com/ravichavali/karmyq/pull/250) merged as `d2edb286` (2026-09-17T13:00:59Z, admin merge on explicit
