@@ -219,7 +219,7 @@ Create `services/notification-service/tests/tdd/sprint-131-expo-push-real-sdk.te
  * talks to a local stub of Expo's push API through EXPO_BASE_URL. The child can dial nothing but loopback, so no
  * run can reach exp.host, and the last case proves that guard is armed.
  */
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import * as http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import * as path from 'node:path';
@@ -272,6 +272,10 @@ const okTickets = (messages: Message[]) => ({
   body: { data: messages.map((_, i) => ({ status: 'ok', id: `ticket-${i}` })) },
 });
 
+// Below Jest's 30 s testTimeout, so a stalled SDK request fails here, with the child's own output.
+const CHILD_DEADLINE_MS = 20_000;
+const liveChildren = new Set<ChildProcess>();
+
 /** Run sendPushToUsers in a plain `node` child and return what it reports. */
 function sendInChild(call: PushCall, { expoBaseUrl }: { expoBaseUrl?: string } = {}): Promise<ChildReport> {
   return new Promise((resolve, reject) => {
@@ -279,12 +283,23 @@ function sendInChild(call: PushCall, { expoBaseUrl }: { expoBaseUrl?: string } =
     delete env.EXPO_BASE_URL;
     if (expoBaseUrl) env.EXPO_BASE_URL = expoBaseUrl;
     const child = spawn(process.execPath, [CHILD], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+    liveChildren.add(child);
     let stdout = '';
     let stderr = '';
+    const deadline = setTimeout(() => {
+      child.kill();
+      reject(new Error(`push child still running after ${CHILD_DEADLINE_MS} ms; killed\nstdout:\n${stdout}\nstderr:\n${stderr}`));
+    }, CHILD_DEADLINE_MS);
     child.stdout.setEncoding('utf8').on('data', (chunk: string) => (stdout += chunk));
     child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
-    child.on('error', reject);
+    child.on('error', (err) => {
+      clearTimeout(deadline);
+      liveChildren.delete(child);
+      reject(err);
+    });
     child.on('close', (exitCode) => {
+      clearTimeout(deadline);
+      liveChildren.delete(child);
       const lastLine = stdout.trim().split('\n').pop() ?? '';
       try {
         if (exitCode !== 0) throw new Error(`exit code ${exitCode}`);
@@ -317,6 +332,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // Backstop for a child Jest gave up on: kill it and drop its socket, or close() waits on that socket.
+  for (const child of liveChildren) child.kill();
+  stub.closeAllConnections();
   await new Promise<void>((resolve) => stub.close(() => resolve()));
 });
 
@@ -429,6 +447,13 @@ Apply each injection alone, run the Step 3 command, record the count, then resto
 
 Case 5 is the guard's own proof: its error can come only from the `egress blocked:` throw in the child. **Never inject by disabling the guard**, because that would let the SDK reach the real `exp.host`.
 
+**I6 — the deadline (plan-review finding, 2026-09-23).** It proves that a stalled push API cannot leave a child process or socket behind. The test file is untracked at this point, so `git checkout` cannot restore it: undo both edits by hand afterwards.
+1. In the stub handler, delete the line `      res.end(JSON.stringify(body));`, so the stub accepts requests and never answers.
+2. Set `const CHILD_DEADLINE_MS = 3_000;`.
+3. Run the Step 3 command with `-t 'sends one message per valid token'`.
+
+Expected: **1 failed** in about 3–4 s, with `push child still running after 3000 ms; killed`. Jest then exits on its own, with no "did not exit one second after the test run" warning and no open-handle report. Undo both edits and re-run Step 3: **5 passed**.
+
 - [ ] **Step 5: Correct the load-mechanism comment**
 
 In `services/notification-service/src/lib/expoPush.ts`, replace line 3:
@@ -473,7 +498,8 @@ load it with import(): this service compiles "module": "commonjs", so tsc emits 
 which works only because Node can require() an ES module. The new regression test runs the real
 src/lib/expoPush.ts in a plain node child (Jest's loader is not production's), compiled with the service
 tsconfig, database substituted, real SDK against a local stub of Expo's push API. The child can dial only
-loopback. Five cases, green on 6.1.0; five injections each proven to fail it.
+loopback, and a 20 s deadline kills a stalled child. Five cases, green on 6.1.0; five injections each
+proven to fail it, and a sixth proving a stalled push API leaves no child or socket behind.
 
 Also corrects expoPush.ts's comment, which described a dynamic import() that the build never emits.
 
