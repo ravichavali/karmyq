@@ -1,6 +1,9 @@
 import pool from '../database/db';
 
-// expo-server-sdk v6+ is pure ESM; dynamic import() works in CommonJS modules for ESM packages
+// expo-server-sdk is pure ESM. This service compiles with "module": "commonjs", so tsc emits the
+// import() below as require('expo-server-sdk'): it loads only because Node can require() an ES module
+// (v7's engines floor is Node 22.12; we run 24), and `.default` is the Expo class because Node marks
+// the result __esModule. tests/regression/sprint-131-expo-push-real-sdk.test.ts runs this exact path.
 let _ExpoClass: any = null;
 let _expoInstance: any = null;
 
