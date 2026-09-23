@@ -229,7 +229,7 @@ empty body, so the verification itself could not send a push.
 
 The fix is two layers: `ipKeyGenerator(req.ip)` in the shared key generator, and `app.set('trust proxy', 1)` in the eight services nginx proxies (cleanup-service mounts a limiter but is not proxied, so it sets nothing — `/code-review high` caught that trusting an absent hop there would have made `req.ip` forgeable). `1` is the only safe value — `true` lets a client spoof `req.ip`, `'loopback'` does not match the Docker gateway. Because nginx uses `$proxy_add_x_forwarded_for` (real client appended **last**), one trusted hop is spoof-proof; probed against the installed express 5.2.1 / proxy-addr 2.0.7 with forged chains of one, two and four entries. Gated by `tests/regression/sprint-131-rate-limit-trust-proxy.test.ts` (topology-derived from nginx upstreams × registry, AST over tracked `.ts` **and** `.js`, asserts both directions, 7 injection proofs) and `packages/shared/src/middleware/__tests__/sprint-131-rate-limit-key.test.ts` (behavioural). ⚠️ Limits are **per-IP in eight of the nine** limiter-mounting services; social-graph-service's six post-auth limiters key per user. Making per-user keying live in the rest needs a mount-order redesign, logged in `docs/IDEAS.md` [2026-09-22].
 
-⚠️ **The demo still runs `RATE_LIMIT_DISABLED=true` — the fix does NOT re-enable it.** **BUG-049 live observation (2026-09-22, VERIFIED on host by read-only SSH):** live `POST /api/auth/login` responses carry helmet headers but **no `RateLimit-*` headers**, although both auth limiters set `standardHeaders: true` and `nginx.conf` strips nothing. The likeliest cause is `RATE_LIMIT_DISABLED=true` in the demo host `.env` — `docker-compose.prod.yml` reads `${RATE_LIMIT_DISABLED:-false}`, and the archived `scripts/archive/seeding/seed-production-*.sh` append that line and only remove it on a clean finish. If so, the BUG-049 lockout is latent on the demo **and login has no brute-force limit at all**. **Verified:** `docker exec karmyq-auth-service env` → `RATE_LIMIT_DISABLED=true`. Source: `~/karmyq/.env.demo` sets it twice — line 31 `RATE_LIMIT_DISABLED=false`, line 58 `RATE_LIMIT_DISABLED=true` (the seed-script append); `deploy.sh` does `set -a; source .env.demo`, so the later line wins. (`~/karmyq/.env` does not exist.) **So the demo has NO rate limiting on login today.** ⚠️ **Do NOT just delete line 58:** with limiting on, BUG-049 makes all `/auth/*` share one 10-per-15-min bucket, so 10 requests from anyone would lock every user out. Re-enable rate limiting **together with** the BUG-049 fix, as one demo operation with its own approval.
+✅ **Re-enabled on 2026-09-23 at 21:37 UTC** (see *Blockers and decisions*). The historical note follows: ⚠️ **The demo still runs `RATE_LIMIT_DISABLED=true` — the fix does NOT re-enable it.** **BUG-049 live observation (2026-09-22, VERIFIED on host by read-only SSH):** live `POST /api/auth/login` responses carry helmet headers but **no `RateLimit-*` headers**, although both auth limiters set `standardHeaders: true` and `nginx.conf` strips nothing. The likeliest cause is `RATE_LIMIT_DISABLED=true` in the demo host `.env` — `docker-compose.prod.yml` reads `${RATE_LIMIT_DISABLED:-false}`, and the archived `scripts/archive/seeding/seed-production-*.sh` append that line and only remove it on a clean finish. If so, the BUG-049 lockout is latent on the demo **and login has no brute-force limit at all**. **Verified:** `docker exec karmyq-auth-service env` → `RATE_LIMIT_DISABLED=true`. Source: `~/karmyq/.env.demo` sets it twice — line 31 `RATE_LIMIT_DISABLED=false`, line 58 `RATE_LIMIT_DISABLED=true` (the seed-script append); `deploy.sh` does `set -a; source .env.demo`, so the later line wins. (`~/karmyq/.env` does not exist.) **So the demo has NO rate limiting on login today.** ⚠️ **Do NOT just delete line 58:** with limiting on, BUG-049 makes all `/auth/*` share one 10-per-15-min bucket, so 10 requests from anyone would lock every user out. Re-enable rate limiting **together with** the BUG-049 fix, as one demo operation with its own approval.
 
 **Local test-run note (D3):** full `npm test` at default Turbo concurrency timed out twice on this Windows box (suites at 158–402 s; auth/social-graph/community); `npx turbo run test --concurrency=2` was 27/27 green. Machine load, not code — prefer `--concurrency=2` for the local proof run.
 
@@ -318,37 +318,34 @@ misattributed it; `preProcessFile` was rejected in plan review round 2 because i
       created. So this does not prove what the live admin password is. Proving it would take a login
       attempt or reading Grafana's user table, and neither was authorized.
     - `/grafana/login` is publicly reachable (it returns 200).
-  - **Rate limiting: NOT re-enabled yet.**
-    - Claude Code's auto-mode permission classifier blocked the change before it ran. The state was verified
-      unchanged afterwards: line 58 still reads `RATE_LIMIT_DISABLED=true`, no backup file exists, and the
-      containers still carry `true`.
-    - The pre-check found exactly what these notes predicted:
-      - line 31 is `=false` and line 58 is `=true`;
-      - `.env.demo` has 0 carriage-return bytes;
-      - all 7 wired services run with `true`;
-      - no deploy was in flight.
-    - Before it can be finished, the maintainer must grant the permission or run it by hand.
-    - Run the following on the demo host, outside a deploy:
-
-    ```bash
-    cd ~/karmyq && B=.env.demo.bak-$(date +%Y%m%d)-ratelimit && cp -p .env.demo "$B" && chmod 600 "$B"
-    sed -i '/^RATE_LIMIT_DISABLED=true$/d' .env.demo && grep -n '^RATE_LIMIT_DISABLED=' .env.demo   # expect only line 31, =false
-    set -a; . ./.env.demo >/dev/null 2>&1; set +a     # deploy.sh sources it the same way; compose reads the process env
-    for v in RATE_LIMIT_DISABLED DATABASE_URL REDIS_URL JWT_SECRET ALLOWED_ORIGINS INTERNAL_SECRET; do [ -n "${!v:-}" ] || echo "EMPTY: $v"; done
-    docker compose -f infrastructure/docker/docker-compose.yml -f infrastructure/docker/docker-compose.prod.yml \
-      up -d --no-build --no-deps --force-recreate auth-service community-service request-service \
-      reputation-service notification-service messaging-service cleanup-service
-    ```
-
-    - Then verify:
-      - `/health` returns 200 on 127.0.0.1 ports 3001–3006 and 3008;
-      - `docker exec <svc> printenv RATE_LIMIT_DISABLED` shows `false`;
-      - an empty-body `POST https://karmyq.com/api/auth/login` (400, and no session is created) carries
-        `RateLimit-*` headers, and `Remaining` drops by one per request;
-      - the same probe sent from the host shows a separate, full bucket, which proves the limit is per IP.
-    - The auth preset allows 10 requests per 15 minutes per IP, and successful logins count too. So E2E or
-      simulation runs that log in repeatedly from one IP will get 429s.
-    - To roll back, restore `$B` and run the same `up` command again.
+  - **Rate limiting: RE-ENABLED on 2026-09-23 at 21:37 UTC**, on the maintainer's explicit choice. The first
+    attempt was blocked by the auto-mode permission classifier; the maintainer then approved the identical
+    script.
+    - **What changed.** `~/karmyq/.env.demo` lost exactly one line, the seed script's appended
+      `RATE_LIMIT_DISABLED=true`; only line 31, `=false`, remains. The backup is
+      `~/karmyq/.env.demo.bak-20260923-ratelimit` (mode 600).
+    - **How it was applied.** The file was sourced the way `deploy.sh` sources it, and every critical
+      variable was confirmed non-empty. The 7 wired services were recreated with both compose files
+      (`up -d --no-build --no-deps --force-recreate`): auth, community, request, reputation, notification,
+      messaging and cleanup.
+    - **Health.** All 7 answered `/health` with 200 within 10 s, and every container carries
+      `RATE_LIMIT_DISABLED=false`.
+    - **Verified live, with empty-body `POST /api/auth/login` probes** (they get 400, and no session is created):
+      - The headers are `RateLimit-Limit: 10`, `RateLimit-Policy: 10;w=900` and `RateLimit-Reset: 900`.
+      - `RateLimit-Remaining` went 9, then 8, from this workstation.
+      - From the demo host it was 9: a separate bucket. That proves per-IP keying (the BUG-049 fix) in
+        production.
+    - **Smoke 11/11 with limits on.** A real login returned 200 and left 6 auth requests. `GET /api/requests`
+      returned 200 under a 60-per-minute limit, with 58 remaining.
+    - **Watch for:**
+      - The auth limit is 10 per 15 minutes per IP, and successful logins count.
+      - Request-service allows 60 per minute per IP across its route groups.
+      - E2E or simulation runs, or several people demoing behind one NAT, can now get 429s.
+      - Per-user keying still needs the mount-order redesign in `docs/IDEAS.md` [2026-09-22].
+      - A seed script that appends the line again (the archived `seed-production-*.sh` does, and removes it
+        only on a clean finish) would silently turn limiting back off. Re-check with `grep -n
+        '^RATE_LIMIT_DISABLED=' ~/karmyq/.env.demo` after any seeding.
+    - **To roll back:** copy the backup over `.env.demo`, source it, and re-run the same `up` command.
 
 - **Dependency lane → Claude (2026-09-16):** “yes and you own this lane now. The execute plan command
   implicitly gives ownership of the lane. review doesn't” (maintainer). Rule: executing a plan transfers the lane to the executor; reviewing does not. Covers B's
