@@ -123,7 +123,7 @@ own authorization. No in-repo caller invokes `/push/send` (verified), so failing
 </details>
 
 Also noted, unverified and NOT a claim about the live site: `infrastructure/docker/docker-compose.prod.yml:242`
-(re-read 2026-09-23; this line said `:239` before) defaults `GRAFANA_ADMIN_PASSWORD` to `admin` and Grafana is proxied at `/grafana/`. The config alone does not establish that the
+(re-read 2026-09-23; this line said `:239` before) defaults `GRAFANA_ADMIN_PASSWORD` to `admin` and Grafana is proxied at `/grafana/`. **Checked read-only 2026-09-23:** the demo's `.env.demo` and the running container set a non-default value. The live password is still unproven, because Grafana persists it in its data volume. See *Blockers and decisions*. The config alone does not establish that the
 deployed dashboard accepts default credentials; that needs a demo check nobody has run. PR C rollout approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
@@ -293,7 +293,9 @@ misattributed it; `preProcessFile` was rejected in plan review round 2 because i
 
 - **Dependency lane confirmed → Claude (maintainer, 2026-09-23):** "You hold the dependency lane... so,
   proceed". Covers D4.
-- **New Dependabot proposals, 2026-09-23 — awaiting maintainer triage; outside Sprint 131's scope.** There
+- **New Dependabot proposals, 2026-09-23 — TRIAGED by the maintainer the same day: #263 and #265 are
+  deferred to Sprint 132; #266 and #259–#261 are not scheduled yet.** Recorded in `docs/IDEAS.md`
+  [2026-09-23] so the decision outlives this handoff. There
   are 0 open Dependabot and 0 open code-scanning alerts, so none of these is a security fix.
   - #265 dotenv 17.4.2 → 18.0.1: **major**; bumps root + 9 workspaces; CI green.
   - #263 motion 12.43.0 → 13.4.0: **major**; apps/landing; **red** on the declarations gate's "each
@@ -308,12 +310,45 @@ misattributed it; `preProcessFile` was rejected in plan review round 2 because i
   - Not new, so don't re-investigate: `npm audit` reports 3 moderates (decode-uri-component via expo-router →
     query-string, GHSA-vcc3-ghjq-m6fr). That is Dependabot alert #150, dismissed 2026-09-14 as
     `tolerable_risk` (no safe bump; the patched 0.5.0 is ESM-only and breaks query-string@7).
-- **Demo operations still awaiting authorization (unchanged; the maintainer decides):** re-enabling rate
-  limiting (the `RATE_LIMIT_DISABLED=true` block below), and checking whether Grafana still accepts the
-  default `admin` password — `infrastructure/docker/docker-compose.prod.yml:242` defaults
-  `GF_SECURITY_ADMIN_PASSWORD` to `admin`, and `infrastructure/nginx/nginx.conf:317` proxies `/grafana/`
-  publicly. A read-only check of whether `.env.demo` sets `GRAFANA_ADMIN_PASSWORD` would settle it
-  without attempting a login.
+- **Demo operations. The maintainer said "go ahead" on 2026-09-23.**
+  - **Grafana: checked read-only on 2026-09-23. No value was printed.**
+    - `.env.demo` sets `GRAFANA_ADMIN_PASSWORD` exactly once, to a non-default value.
+    - The running `karmyq-grafana` container's `GF_SECURITY_ADMIN_PASSWORD` is set and non-default.
+    - **Caveat:** Grafana applies that variable only when its data volume (`karmyq_grafana-data`) is first
+      created. So this does not prove what the live admin password is. Proving it would take a login
+      attempt or reading Grafana's user table, and neither was authorized.
+    - `/grafana/login` is publicly reachable (it returns 200).
+  - **Rate limiting: NOT re-enabled yet.**
+    - Claude Code's auto-mode permission classifier blocked the change before it ran. The state was verified
+      unchanged afterwards: line 58 still reads `RATE_LIMIT_DISABLED=true`, no backup file exists, and the
+      containers still carry `true`.
+    - The pre-check found exactly what these notes predicted:
+      - line 31 is `=false` and line 58 is `=true`;
+      - `.env.demo` has 0 carriage-return bytes;
+      - all 7 wired services run with `true`;
+      - no deploy was in flight.
+    - Before it can be finished, the maintainer must grant the permission or run it by hand.
+    - Run the following on the demo host, outside a deploy:
+
+    ```bash
+    cd ~/karmyq && B=.env.demo.bak-$(date +%Y%m%d)-ratelimit && cp -p .env.demo "$B" && chmod 600 "$B"
+    sed -i '/^RATE_LIMIT_DISABLED=true$/d' .env.demo && grep -n '^RATE_LIMIT_DISABLED=' .env.demo   # expect only line 31, =false
+    set -a; . ./.env.demo >/dev/null 2>&1; set +a     # deploy.sh sources it the same way; compose reads the process env
+    for v in RATE_LIMIT_DISABLED DATABASE_URL REDIS_URL JWT_SECRET ALLOWED_ORIGINS INTERNAL_SECRET; do [ -n "${!v:-}" ] || echo "EMPTY: $v"; done
+    docker compose -f infrastructure/docker/docker-compose.yml -f infrastructure/docker/docker-compose.prod.yml \
+      up -d --no-build --no-deps --force-recreate auth-service community-service request-service \
+      reputation-service notification-service messaging-service cleanup-service
+    ```
+
+    - Then verify:
+      - `/health` returns 200 on 127.0.0.1 ports 3001–3006 and 3008;
+      - `docker exec <svc> printenv RATE_LIMIT_DISABLED` shows `false`;
+      - an empty-body `POST https://karmyq.com/api/auth/login` (400, and no session is created) carries
+        `RateLimit-*` headers, and `Remaining` drops by one per request;
+      - the same probe sent from the host shows a separate, full bucket, which proves the limit is per IP.
+    - The auth preset allows 10 requests per 15 minutes per IP, and successful logins count too. So E2E or
+      simulation runs that log in repeatedly from one IP will get 429s.
+    - To roll back, restore `$B` and run the same `up` command again.
 
 - **Dependency lane → Claude (2026-09-16):** “yes and you own this lane now. The execute plan command
   implicitly gives ownership of the lane. review doesn't” (maintainer). Rule: executing a plan transfers the lane to the executor; reviewing does not. Covers B's

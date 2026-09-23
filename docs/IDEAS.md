@@ -680,3 +680,29 @@ mutations into compile errors on every build, including Dependabot's own PR imag
 brings the types for free.
 
 ---
+
+## [2026-09-23] architecture
+
+**Dependabot #263 (motion 12 → 13) and #265 (dotenv 17.4.2 → 18.0.1) are deferred to Sprint 132.**
+Maintainer decision, 2026-09-23, following the #243–#245 precedent: both are majors that appeared after
+Sprint 131's scope was approved.
+
+What each needs when its turn comes:
+
+- **#265 (dotenv 17 → 18)** bumps root plus nine workspaces, and CI is green on the proposal. D1 (#253)
+  needed `{ quiet: true }` at every call site because 17 flipped a logging default. Re-verify how 18's
+  `config()` behaves against the installed package, not the changelog, and keep the
+  `sprint-131-dotenv-quiet` gate green.
+- **#263 (motion 12 → 13)** touches `apps/landing` only. The proposal is red on the declarations gate's
+  "each workspace's lockfile node mirrors its manifest" check. The cause is **not diagnosed**, so read
+  the lock diff before assuming anything.
+
+Not decided yet:
+
+- **#266**, the dev-deps group: 8 minor/patch bumps, including jest 30.5.2 and turbo 2.11. It is red on
+  `sprint-124-registry-independence`; cause not diagnosed.
+- **#259–#261**, GitHub Actions minor bumps.
+
+Refresh every proposal number against `gh pr list` before acting.
+
+---
