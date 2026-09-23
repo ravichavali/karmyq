@@ -25,6 +25,13 @@
 > **Read the "BUG-051 — SHIPPED" block below before touching notification-service**: fixing it
 > surfaced a second, more dangerous defect that is easy to reintroduce.
 
+> 🚧 **D4 IN PROGRESS (2026-09-23)** — focused plan:
+> [`docs/superpowers/plans/2026-09-23-sprint-131-pr-d4-expo-server-sdk.md`](../../docs/superpowers/plans/2026-09-23-sprint-131-pr-d4-expo-server-sdk.md),
+> awaiting maintainer review before its Task 1. The maintainer confirmed the dependency lane to Claude the
+> same day. The plan's verified findings **correct this file's D4 row**: production loads the SDK with
+> `require()`, not `import()` (V4), and CodeQL here runs the `extended` suite with the `remote_and_local`
+> threat model (V7), which is why the test's child process receives data only, never code.
+
 **Outcome**: PR A **shipped v11.56.0** ([#249](https://github.com/ravichavali/karmyq/pull/249), `d35a3fad`). PR B **shipped v11.57.0** —
 [#250](https://github.com/ravichavali/karmyq/pull/250) merged as `d2edb286` (2026-09-17T13:00:59Z, admin merge on explicit
 maintainer authorization), deployed, health-verified and smoke-checked. PR B2 **shipped v11.58.0** —
@@ -104,8 +111,8 @@ own authorization. No in-repo caller invokes `/push/send` (verified), so failing
 
 </details>
 
-Also noted, unverified and NOT a claim about the live site: `docker-compose.prod.yml:239` defaults
-`GRAFANA_ADMIN_PASSWORD` to `admin` and Grafana is proxied at `/grafana/`. The config alone does not establish that the
+Also noted, unverified and NOT a claim about the live site: `infrastructure/docker/docker-compose.prod.yml:242`
+(re-read 2026-09-23; this line said `:239` before) defaults `GRAFANA_ADMIN_PASSWORD` to `admin` and Grafana is proxied at `/grafana/`. The config alone does not establish that the
 deployed dashboard accepts default credentials; that needs a demo check nobody has run. PR C rollout approval deferred.
 
 The maintainer handed these planning files to Codex and authorized edits. This handoff carries
@@ -138,8 +145,8 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 | D1 | dotenv 16.6.1 → 17.4.2 (#226) | **Shipped** — #253 merged `0ce160b5`, v11.60.0, deployed + smoke-checked 2026-09-21. Took Dependabot #226 (closed as superseded) plus `{ quiet: true }` at all 14 call sites; new blocking gate `sprint-131-dotenv-quiet` (10 tests) after three review rounds |
 | D2 | node-cron 3.0.3 → 4.6.0 (#228) | **Shipped** — #254 merged `b7539896`, v11.61.0, deployed + smoke-checked 2026-09-21; #228 closed (GitHub auto-closed it 1s after the merge). Took Dependabot #228 plus: `@types/node-cron` removed (v4 bundles types), `cron.setLogger(logger)` in cleanup-service so v4's new `missed execution` warning reaches winston, and a real-scheduler **blocking regression** test for reputation's two jobs (`tests/regression/sprint-131-node-cron-v4.test.ts`; moved out of `tdd/` on review, since reputation's `npm test` never runs `tdd/`) |
 | D3 | express-rate-limit → 8.7.0 (#224) | **Shipped** — #255 merged `b7588509`, v11.62.0, deployed + smoke-checked 2026-09-22; #224 closed (auto-closed on merge). shared/geocoding 7.5.1→8.7.0, root/cleanup 8.5.2→8.7.0; two stale `DIVERGENCE_ALLOWLIST` entries removed. First master run **failed Integration Tests on a postgres readiness race** (not D3 code — see below); deployed on `gh run rerun --failed`. Logged **BUG-049**, not fixed |
-| **D4** | **expo-server-sdk 6.1.0 → 7.2.0 (#230)** | **NEXT — unblocked, on this branch** (cut fresh from the deployed `8fbbeb5f`). BUG-049 and BUG-051 have both shipped. No focused plan yet. Re-check #230 against the new master (it auto-rebases) and verify v7 behavior against the installed `node_modules`, never the changelog. **Importer inventory, verified 2026-09-23 by `git grep` over tracked source:** exactly one importer, `services/notification-service/src/lib/expoPush.ts:9` (a dynamic `import()`, because v6+ is pure ESM), and exactly one declarer, `services/notification-service/package.json`. ⚠️ **No existing test exercises the SDK:** the only test touching `expoPush` is BUG-051's `sprint-131-push-internal-auth.test.ts`, which **mocks it out entirely** — so a green suite says nothing about v7. D4 needs its own real-module test of the exact surface `expoPush.ts` uses, verified 2026-09-23: **the default export** (`mod.default`, line 10 — the likeliest thing a major breaks, since v6 went pure-ESM), a **no-arg constructor**, static `Expo.isExpoPushToken`, `chunkPushNotifications`, and `sendPushNotificationsAsync`, whose tickets are read for `status === 'error'`, `message` and `details` |
-| D5–D7 | node-fetch, zod, next | One major per PR, after D4 |
+| **D4** | **expo-server-sdk 6.1.0 → 7.2.0 (#230)** | **IN PROGRESS — focused plan written 2026-09-23, awaiting review; on this branch** (cut fresh from the deployed `8fbbeb5f`). Plan: `docs/superpowers/plans/2026-09-23-sprint-131-pr-d4-expo-server-sdk.md`. BUG-049 and BUG-051 have both shipped. Re-check #230 against the new master (it auto-rebases) and verify v7 behavior against the installed `node_modules`, never the changelog. **Importer inventory, verified 2026-09-23 by `git grep` over tracked source:** exactly one importer, `services/notification-service/src/lib/expoPush.ts:9` (**written** as a dynamic `import()`, but **corrected 2026-09-23:** the service compiles `"module": "commonjs"`, so the build emits `require('expo-server-sdk')` — `dist/lib/expoPush.js:46` — which loads a pure-ESM package only because Node can `require()` an ES module), and exactly one declarer, `services/notification-service/package.json`. ⚠️ **No existing test exercises the SDK:** the only test touching `expoPush` is BUG-051's `sprint-131-push-internal-auth.test.ts`, which **mocks it out entirely** — so a green suite says nothing about v7. D4 needs its own real-module test of the exact surface `expoPush.ts` uses, verified 2026-09-23: **the default export** (`mod.default`, line 10 — the likeliest thing a major breaks, since v6 went pure-ESM), a **no-arg constructor**, static `Expo.isExpoPushToken`, `chunkPushNotifications`, and `sendPushNotificationsAsync`, whose tickets are read for `status === 'error'`, `message` and `details` |
+| D5–D7 | node-fetch (#225), zod (**#264** — Dependabot closed #247 and reopened the same 4.6.5 bump as #264 on 2026-09-23), next (#246) | One major per PR, after D4 |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
 Do not hold the other nine PRs while waiting for C. If C resumes after the upgrades, repeat its
@@ -162,7 +169,7 @@ inventory against the then-current base. BUG-033 remains open until actually del
 2. BUG-049 (#257, `96ffa619`, v11.64.0) and BUG-051 (#258, `8fbbeb5f`, v11.65.0) are **merged and deployed**; their branches are finished — do not commit on them. **D4 is on `agent/claude/sprint-131-d4-expo-server-sdk`, re-cut fresh from the deployed `8fbbeb5f`** (the stale branch of that name is already deleted; nothing to clean up).
    The PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches are merged; never commit on them.
 3. Read the linked spec and sprint plan. **PR A, B, B2, B3, D1, D2 and D3 are shipped — do not reopen or re-execute their plans.**
-4. Order decided 2026-09-22: **(1) BUG-049 — SHIPPED v11.64.0; (2) BUG-051 — SHIPPED v11.65.0; (3) D4 (expo-server-sdk #230) — NEXT, on this branch.** Scope: the D4 row above. Then D5–D7 (node-fetch, zod, next), one major per PR.
+4. Order decided 2026-09-22: **(1) BUG-049 — SHIPPED v11.64.0; (2) BUG-051 — SHIPPED v11.65.0; (3) D4 (expo-server-sdk #230) — IN PROGRESS on this branch: focused plan written 2026-09-23; after review, execute it from Task 1.** Scope: the D4 row above and the plan. Then D5–D7 (node-fetch, zod, next), one major per PR.
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
@@ -183,11 +190,14 @@ which is a demo operation requiring per-operation maintainer approval.
 
 ✅ **The postgres readiness race that failed that first attempt is BUG-050 — SHIPPED v11.63.0** ([#256](https://github.com/ravichavali/karmyq/pull/256), `e5f7d8e1`; [CI/CD run 35686522868](https://github.com/ravichavali/karmyq/actions/runs/35686522868) every job success, `✅ All services healthy`, no rollback; smoke login/requests/conversations/reputation all 200). A review round on #256 added `start_period: 60s` to the base compose stack too. Mechanism and proof: `docs/BUGS.md` BUG-050.
 
-**Next unchecked action: D4 — expo-server-sdk 6.1.0 → 7.2.0 (#230), on this branch.** Write its focused
-plan first (the D4 row above has the verified importer inventory and the no-test-coverage warning).
-Re-check Dependabot #230 against the new master before hand-building anything — after B2, Dependabot
-bumps every declaring workspace itself, so the manifest mechanics may already be correct; what it cannot
-do is the behavior change. If the D-PR contains Dependabot's commit, close #230 as superseded.
+**Next unchecked action: maintainer review of the D4 focused plan
+(`docs/superpowers/plans/2026-09-23-sprint-131-pr-d4-expo-server-sdk.md`), then execute it from Task 1.**
+Already verified for it (2026-09-23): #230's head `f358f648` sits on `8fbbeb5f`, is exactly the manifest
+mechanics (2 files) and is green, so D4 cherry-picks it unchanged; the v7 code diff (published tarballs, not
+the changelog) touches nothing this service calls; and a production-shaped harness passed five cases on both
+6.1.0 and 7.2.0 in the scratchpad. The PR's real work is the first test that exercises the SDK at all.
+GitHub auto-closed the Dependabot PR on merge for D2 and D3; if #230 stays open after D4 merges, ask the
+maintainer before closing it.
 
 **BUG-051 SHIPPED v11.65.0** — merged, deployed and smoke-verified 11/11 live on 2026-09-23 (banner
 above; full table in `docs/BUGS.md` BUG-051). Its post-deploy checks are **done**, including the two
@@ -264,6 +274,27 @@ Claude holds the dependency lane. (The gate uses a TypeScript **AST walk**, not 
 misattributed it; `preProcessFile` was rejected in plan review round 2 because it misses `require()` in a template interpolation.)
 
 ## Blockers and decisions
+
+- **Dependency lane confirmed → Claude (maintainer, 2026-09-23):** "You hold the dependency lane... so,
+  proceed". Covers D4.
+- **New Dependabot proposals, 2026-09-23 — awaiting maintainer triage; outside Sprint 131's scope.** There
+  are 0 open Dependabot and 0 open code-scanning alerts, so none of these is a security fix.
+  - #265 dotenv 17.4.2 → 18.0.1: **major**; bumps root + 9 workspaces; CI green.
+  - #263 motion 12.43.0 → 13.4.0: **major**; apps/landing; **red** on the declarations gate's "each
+    workspace's lockfile node mirrors its manifest".
+  - #266 dev-deps group: 8 minor/patch bumps (jest family 30.5.2, turbo 2.11.2, prettier 3.9.8, tsx 4.23.15,
+    @testing-library/dom 10.4.2); **red** on `sprint-124-registry-independence` ("the shipped Expo registry
+    clears only Expo drift and cannot exempt audit findings").
+  - #259–#261: GitHub Actions minors (osv-scanner-action 2.6.0, setup-buildx-action 4.4.1,
+    build-push-action 7.4.0); their CI was not checked.
+  - The two reds were not diagnosed. Recommendation given: defer #263 and #265 to Sprint 132, per the
+    #243–#245 precedent.
+- **Demo operations still awaiting authorization (unchanged; the maintainer decides):** re-enabling rate
+  limiting (the `RATE_LIMIT_DISABLED=true` block below), and checking whether Grafana still accepts the
+  default `admin` password — `infrastructure/docker/docker-compose.prod.yml:242` defaults
+  `GF_SECURITY_ADMIN_PASSWORD` to `admin`, and `infrastructure/nginx/nginx.conf:317` proxies `/grafana/`
+  publicly. A read-only check of whether `.env.demo` sets `GRAFANA_ADMIN_PASSWORD` would settle it
+  without attempting a login.
 
 - **Dependency lane → Claude (2026-09-16):** “yes and you own this lane now. The execute plan command
   implicitly gives ownership of the lane. review doesn't” (maintainer). Rule: executing a plan transfers the lane to the executor; reviewing does not. Covers B's
