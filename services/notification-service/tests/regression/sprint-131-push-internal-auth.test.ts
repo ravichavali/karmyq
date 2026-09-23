@@ -30,15 +30,39 @@ jest.mock('../../src/lib/expoPush', () => ({
   sendPushToUsers: jest.fn(),
 }));
 
+jest.mock('../../src/services/notificationService', () => {
+  const actual = jest.requireActual('../../src/services/notificationService');
+  return {
+    ...actual,
+    getUserNotifications: jest.fn(),
+    getUnreadCount: jest.fn(),
+    getUserPreferences: jest.fn(),
+  };
+});
+
+import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import app from '../../src/index';
 import { sendPushToUsers } from '../../src/lib/expoPush';
+import {
+  getUserNotifications,
+  getUnreadCount,
+  getUserPreferences,
+} from '../../src/services/notificationService';
 
 const sendPush = sendPushToUsers as jest.MockedFunction<typeof sendPushToUsers>;
+const listNotifications = getUserNotifications as jest.MockedFunction<typeof getUserNotifications>;
+const unreadCount = getUnreadCount as jest.MockedFunction<typeof getUnreadCount>;
+const userPreferences = getUserPreferences as jest.MockedFunction<typeof getUserPreferences>;
 
 const SECRET = 'bug-051-internal-secret-value';
+const JWT_SECRET = 'bug-051-jwt-secret';
 const USER_ID = '11111111-1111-1111-1111-111111111111';
 const PAYLOAD = { user_ids: [USER_ID], title: 'Community update', body: 'A neighbour replied' };
+
+function bearer(): string {
+  return `Bearer ${jwt.sign({ userId: USER_ID, email: 'asha@example.com', communities: [] }, JWT_SECRET)}`;
+}
 
 // Root jest config sets resetMocks, which wipes module-scope implementations before each test.
 beforeEach(() => {
@@ -172,36 +196,49 @@ describe('POST /notifications/push/send — internal guard', () => {
  * to the single route, and these assertions hold the line.
  */
 describe('the internal guard does not leak onto sibling /notifications routes', () => {
-  const OTHER_ROUTES = [
-    '/notifications/11111111-1111-1111-1111-111111111111',
-    '/notifications/11111111-1111-1111-1111-111111111111/unread-count',
-    '/notifications/preferences',
+  // The REAL mounted paths. `/notifications/preferences` is not a route: it would be swallowed by
+  // `router.get('/:userId')` as userId="preferences", so asserting on it proves nothing about the
+  // preferences endpoint.
+  const SIBLINGS = [
+    `/notifications/${USER_ID}`,
+    `/notifications/${USER_ID}/unread-count`,
+    `/notifications/${USER_ID}/preferences`,
   ];
 
-  it.each(OTHER_ROUTES)(
-    'GET %s is not answered by the internal guard when the secret IS configured',
-    async (path) => {
-      process.env.INTERNAL_SECRET = SECRET;
+  beforeEach(() => {
+    process.env.JWT_SECRET = JWT_SECRET;
+    listNotifications.mockResolvedValue([]);
+    unreadCount.mockResolvedValue(0);
+    userPreferences.mockResolvedValue({ in_app_enabled: true, email_enabled: false } as never);
+  });
 
+  afterEach(() => {
+    delete process.env.JWT_SECRET;
+  });
+
+  describe.each([
+    ['configured', SECRET],
+    ['unset', undefined],
+  ])('with INTERNAL_SECRET %s', (_label, secretValue) => {
+    beforeEach(() => {
+      if (secretValue === undefined) delete process.env.INTERNAL_SECRET;
+      else process.env.INTERNAL_SECRET = secretValue;
+    });
+
+    it.each(SIBLINGS)('GET %s answers exactly 401 to an anonymous caller', async (path) => {
       const response = await request(app).get(path);
 
-      // Whatever these routes answer (401 from authMiddleware, etc.), it must not be the internal
-      // guard's verdict — reaching authMiddleware at all proves the guard did not intercept.
-      expect(response.body?.error).not.toBe('FORBIDDEN');
-      expect(response.body?.error).not.toBe('SERVICE_UNAVAILABLE');
-      expect(response.status).not.toBe(503);
-    },
-  );
+      // Exactly authMiddleware's verdict — not 403/503 from the internal guard, and not a 404
+      // or 500 that would mean the request never reached the authenticated router at all.
+      expect(response.status).toBe(401);
+      expect(response.body.error).toBe('UNAUTHORIZED');
+    });
 
-  it.each(OTHER_ROUTES)(
-    'GET %s is not turned into a 503 when INTERNAL_SECRET is unset',
-    async (path) => {
-      delete process.env.INTERNAL_SECRET;
+    it.each(SIBLINGS)('GET %s answers exactly 200 to an authenticated caller', async (path) => {
+      const response = await request(app).get(path).set('Authorization', bearer());
 
-      const response = await request(app).get(path);
-
-      expect(response.status).not.toBe(503);
-      expect(response.body?.error).not.toBe('SERVICE_UNAVAILABLE');
-    },
-  );
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
+  });
 });

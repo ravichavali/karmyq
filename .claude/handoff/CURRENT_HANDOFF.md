@@ -8,7 +8,7 @@
 > current one. Do not push the reconciliation to `master`: every master push is a full deploy, and a
 > docs-only push would restart services and 502 the demo. It rides on this branch's PR instead.
 
-> ✅ **BUG-051 is IMPLEMENTED on this branch (v11.65.0) and awaiting merge authorization.** All
+> ✅ **BUG-051 is IMPLEMENTED as [#258](https://github.com/ravichavali/karmyq/pull/258) (v11.65.0), CI green (20 pass / 1 expected skip), awaiting merge authorization.** All
 > gates green: Turbo 27/27 exit 0, notification-service 67/67 (the new gate ran fresh, not cached),
 > `@karmyq/tests` 866/866 + 101/101, `tsc --noEmit` clean, declarations/drift/license gates green.
 > **Read the "BUG-051 — SHIPPED TO PR" block below before touching notification-service**: fixing
@@ -175,7 +175,7 @@ which is a demo operation requiring per-operation maintainer approval.
 **Next unchecked action: merge authorization for the BUG-051 PR (v11.65.0).** Implementation,
 docs, gates and handoff are all on `agent/claude/sprint-131-bug-051-push-auth`; the demo
 `INTERNAL_SECRET` check is done (present, once, non-empty). On authorization:
-`gh pr merge <N> --squash --admin`, watch **Deploy to Demo**, then smoke login + `/api/requests`
+`gh pr merge 258 --squash --admin`, watch **Deploy to Demo**, then smoke login + `/api/requests`
 + `/api/conversations` + `/api/reputation/karma/:userId`.
 
 **Post-deploy smoke for this fix specifically:** an unauthenticated
@@ -187,7 +187,7 @@ regression, and it is the one that would hurt every user rather than none.
 
 After BUG-051 deploys: D4 (expo-server-sdk, #230).
 
-✅ **BUG-049 — FIXED on this branch (v11.64.0), not yet merged.** Found in D3. Three claims in the original report were wrong and are corrected in `docs/BUGS.md` and [ADR-098](../../docs/adr/ADR-098-trusted-proxy-and-rate-limit-keys.md):
+✅ **BUG-049 — SHIPPED v11.64.0**, merged as `96ffa619` (#257) and deployed 2026-09-22; this branch is cut from it. Found in D3. Three claims in the original report were wrong and are corrected in `docs/BUGS.md` and [ADR-098](../../docs/adr/ADR-098-trusted-proxy-and-rate-limit-keys.md):
 
 - **Not auth-only.** `globalRateLimiter` is mounted app-level in **seven** services; `cleanup-service` builds its own, and geocoding-service mounts two in plain JS. **Nine** services were affected. geocoding was found only during `/simplify` — the first gate scanned `.ts` only and could not see it.
 - **The `user:<userId>` branch is reached in one service only** (review correction — an earlier claim of "unreachable repo-wide" was wrong): social-graph-service calls `app.use(authMiddleware)` at `src/index.ts:135` ahead of six route limiters, which key by user. In the other eight every limiter sits ahead of `authMiddleware`, so `rateLimiters.standard` gave request-service's ~12 route groups **one** 60/min bucket for the entire user base: enabling limiting would have throttled the whole site, not just risked an `/auth/*` lockout. That is the likeliest reason `RATE_LIMIT_DISABLED=true` was set.
