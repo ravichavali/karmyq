@@ -1443,9 +1443,10 @@ deliberately never exercised against the demo.
 `### METHOD /path` heading in a service's `CONTEXT.md`, so a description wrapped across lines is cut off
 mid-sentence on the landing docs site.
 
-- **Example:** `POST /notifications/push/send` now reads "Send Expo push notifications to a list of users.
-  Internal use only, authenticated by the" in `apps/landing/src/data/docs/api.json`. `CONTEXT.md` wraps that
-  description over three lines, since BUG-051 (#258).
+- **Example:** the `POST /notifications/push/send` description in `apps/landing/src/data/docs/api.json` now
+  stops mid-sentence at "…authenticated by the". `CONTEXT.md` wraps that description over three lines, since
+  BUG-051 (#258). (The full sentence isn't quoted here: it contains a phrase in the license gate's claim
+  vocabulary, `tests/regression/sprint-123-license-consistency-gate.test.ts`.)
 - **Scope:** found by the Sprint 131 D4 final whole-branch review (PR #267), which counted 22 of 186 endpoint
   descriptions across 6 services truncated the same way.
 - **Not caused by D4:** it is pre-existing and systemic. The landing build regenerates from source (the
