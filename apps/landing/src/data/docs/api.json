@@ -821,7 +821,7 @@
         {
           "method": "POST",
           "path": "/notifications/push/send (internal)",
-          "description": "Send Expo push notifications to a list of users. Internal use only (called by event handlers within the notification service itself, not exposed publicly)."
+          "description": "Send Expo push notifications to a list of users. Internal use only, authenticated by the"
         },
         {
           "method": "GET",
