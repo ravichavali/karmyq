@@ -203,7 +203,11 @@ which is a demo operation requiring per-operation maintainer approval.
 
 **Next unchecked action: #268 — Expo SDK 57 patch wave, on `agent/claude/sprint-131-expo-drift-268`, in a FRESH chat.**
 Maintainer, 2026-09-24: "Let's move to #268"; dependency lane → **Claude** for #268 (D6 waits); fresh chat per PR.
-Write its focused plan first. Re-checked live 2026-09-24 (`npx expo install --check` in `apps/mobile`, after the D5
+**Plan written 2026-09-24, awaiting maintainer review + execution-method choice:**
+[`docs/superpowers/plans/2026-09-24-sprint-131-pr-268-expo-drift.md`](../../docs/superpowers/plans/2026-09-24-sprint-131-pr-268-expo-drift.md).
+Drift re-checked at plan time — unchanged. Registry closure: **13 lock nodes move** (6 direct + `@expo/cli`,
+`babel-preset-expo`, `expo-modules-core`, `expo-modules-jsi`, `@expo/ui`, `expo-glass-effect`, `@expo/router-server`),
+0 added/removed, lock 1844 nodes. **`SDK_PINNED` needs no edit** despite the issue's template (it shadows only non-expo pins). Re-checked live 2026-09-24 (`npx expo install --check` in `apps/mobile`, after the D5
 deploy) — **exactly #268's list**: expo 57.0.24→~57.0.25, expo-image-picker 57.0.19→~57.0.20, expo-linking
 57.0.10→~57.0.11, expo-location 57.0.19→~57.0.20, expo-notifications 57.0.20→~57.0.21, expo-router 57.0.22→~57.0.23;
 jest/@types/jest are the registered divergences. **Re-run the check when you start** — Expo's map moves (B3 saw a
