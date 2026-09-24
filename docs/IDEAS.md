@@ -706,3 +706,26 @@ Not decided yet:
 Refresh every proposal number against `gh pr list` before acting.
 
 ---
+
+## [2026-09-23] Follow-ups from Sprint 131 D5's `/simplify` pass (built-in fetch in geocoding)
+
+Not done in D5, which is a dependency PR; each needs its own scheduling decision.
+
+- **geocoding swallows Nominatim failures as "no matches".** `callNominatimAPI`
+  (`services/geocoding-service/src/geocodingService.js`) returns `[]` on a thrown error, a timeout or a
+  non-2xx, so `/search` answers **200** with `source: "nominatim"` and empty results. Only a log line
+  distinguishes an outage from a genuine miss. The deeper change is an `{ ok: false, code:
+  'GEOCODER_UNAVAILABLE' }` result mapped to a 502/503 ADR-074 envelope. That is an API contract change:
+  `apps/frontend/src/lib/geocoding.ts` consumes it, plus registry and CONTEXT. Failed lookups are already
+  not cached (the `apiResults.length > 0` guard).
+- **request-service's two outbound timeouts do not cover the body.** `src/routes/dibs.ts:81-89` and
+  `src/routes/requests.ts:381-387` build an `AbortController` and a 3 s `setTimeout`, then `clearTimeout`
+  once headers arrive, so the following `.json()` has no bound: a stalled body can hang a feed or dibs
+  request. D5 proved `AbortSignal.timeout(ms)` covers a stalled body on Node 24; using it deletes the manual
+  timer too.
+- **`scripts/check-image-size-upstream.js:161` calls `fetch` with no timeout.** A hung GitHub API call
+  stalls the job until its job-level timeout. Low priority.
+- **geocoding leaves a non-2xx body unread.** Measured on Node 24.11.1: harmless for small bodies (the
+  socket is reused). A 200 KB unread error body pins one socket per call until GC. Nominatim's error pages
+  are small. If ever needed, use `await response.text().catch(() => {})`; **not** `body.cancel()`, which
+  destroyed the socket and opened more connections than doing nothing.

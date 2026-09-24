@@ -208,7 +208,6 @@ function createGeocodingService({
 module.exports = {
   DEFAULT_USER_AGENT,
   NOMINATIM_SEARCH_URL,
-  NOMINATIM_TIMEOUT_MS,
   SAFE_ADDRESS_QUERY_PATTERN,
   normalizeQuery,
   validateSearchQuery,

@@ -6,15 +6,16 @@
  * callNominatimAPI swallows errors, so either defect shows up as "200 with empty results", never as a crash.
  * Every case here therefore runs the REAL global fetch over HTTP against a 127.0.0.1 stub, and asserts on results.
  */
+const fs = require('node:fs')
 const http = require('node:http')
 const path = require('node:path')
 const zlib = require('node:zlib')
 const { spawn } = require('node:child_process')
+const { once } = require('node:events')
 const request = require('supertest')
 const {
   DEFAULT_USER_AGENT,
   NOMINATIM_SEARCH_URL,
-  NOMINATIM_TIMEOUT_MS,
   callNominatimAPI,
   createGeocodingService,
 } = require('../../src/geocodingService')
@@ -83,11 +84,14 @@ function captureLogger() {
 
 const missPool = () => ({ query: jest.fn().mockResolvedValue({ rows: [] }) })
 
-// The real fetch, refusing anything but the stub: if the `url` seam were ignored, a test would otherwise dial Nominatim.
-function loopbackFetch(url, init) {
-  if (!String(url).startsWith(`${stubBase}/`)) throw new Error(`unexpected outbound URL: ${url}`)
-  return realFetch(url, init)
+// The real fetch, refusing any URL outside `allowedPrefix` (optionally rewriting it to the stub first). If the `url`
+// seam were ignored, a test would otherwise dial Nominatim; this makes it throw instead.
+const guardedFetch = (allowedPrefix, rewrite = target => target) => (url, init) => {
+  const target = String(url)
+  if (!target.startsWith(allowedPrefix)) throw new Error(`unexpected outbound URL: ${target}`)
+  return realFetch(rewrite(target), init)
 }
+const loopbackFetch = (url, init) => guardedFetch(`${stubBase}/`)(url, init)
 
 function expectNominatimRequest(req, q) {
   expect(req.method).toBe('GET')
@@ -150,7 +154,6 @@ describe('geocoding reaches Nominatim through the real built-in fetch (Sprint 13
   )
 
   it('uses a 5000 ms timeout in production, where no override is passed', async () => {
-    expect(NOMINATIM_TIMEOUT_MS).toBe(5000)
     const timeoutSpy = jest.spyOn(AbortSignal, 'timeout')
     const fetchImpl = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve([]) })
 
@@ -168,11 +171,9 @@ describe('geocoding reaches Nominatim through the real built-in fetch (Sprint 13
     // createApp and callNominatimAPI (e.g. `nominatimTimeoutMs = 50000`) must fail here, not only in the helper case.
     const timeoutSpy = jest.spyOn(AbortSignal, 'timeout')
     // Redirect only the Nominatim origin to the stub. Anything else throws, so this case can never reach the internet.
-    fetchSpy.mockImplementation((url, init) => {
-      const target = String(url)
-      if (!target.startsWith(`${NOMINATIM_SEARCH_URL}?`)) throw new Error(`unexpected outbound URL: ${target}`)
-      return realFetch(target.replace(NOMINATIM_SEARCH_URL, `${stubBase}/search`), init)
-    })
+    fetchSpy.mockImplementation(
+      guardedFetch(`${NOMINATIM_SEARCH_URL}?`, target => target.replace(NOMINATIM_SEARCH_URL, `${stubBase}/search`))
+    )
     const app = createApp({ pool: missPool(), logger: captureLogger().logger, throttleIntervalMs: 0 })
 
     const res = await request(app).get('/search').query({ q: 'Main St' })
@@ -191,7 +192,7 @@ describe('geocoding reaches Nominatim through the real built-in fetch (Sprint 13
 describe('index.js boots under plain node with no node-fetch import (Sprint 131 D5)', () => {
   it('starts listening, and its source neither requires node-fetch nor injects a fetchImpl', async () => {
     const serviceRoot = path.resolve(__dirname, '..', '..')
-    const source = require('node:fs').readFileSync(path.join(serviceRoot, 'index.js'), 'utf8')
+    const source = fs.readFileSync(path.join(serviceRoot, 'index.js'), 'utf8')
     expect(source).not.toMatch(/node-fetch/)
     expect(source).not.toMatch(/fetchImpl/)
 
@@ -214,7 +215,12 @@ describe('index.js boots under plain node with no node-fetch import (Sprint 131 
       })
     } finally {
       child.removeAllListeners('exit')
-      child.kill()
+      // Wait for the kill to land, so the child and its pipes never outlive the test.
+      if (child.exitCode === null && child.signalCode === null) {
+        const exited = once(child, 'exit')
+        child.kill()
+        await exited
+      }
     }
     expect(stderr).toBe('')
   }, 15_000)
