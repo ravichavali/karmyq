@@ -203,20 +203,20 @@ which is a demo operation requiring per-operation maintainer approval.
 
 **#268 — Expo SDK 57 patch wave: IMPLEMENTED on `agent/claude/sprint-131-expo-drift-268` (2026-09-24), NOT merged.**
 Maintainer, 2026-09-24: "Let's move to #268"; dependency lane → **Claude** for #268 (D6 waits); Native execution approved.
-**PR [#271](https://github.com/ravichavali/karmyq/pull/271)** opened 2026-09-24 — awaiting CI, the merge-time drift re-check, and maintainer merge authorization. Plan + execution notes:
+**PR [#271](https://github.com/ravichavali/karmyq/pull/271)** opened 2026-09-24. **CI green on head `8c0340c7`** (20 pass, 1 skipping); merge-time drift re-check **clean** 2026-09-24 (`expo-divergences.js` exit 0); an external review verified the lock independently. **Awaiting maintainer merge authorization** (admin squash; the review requirement blocks otherwise). Plan + execution notes:
 [`docs/superpowers/plans/2026-09-24-sprint-131-pr-268-expo-drift.md`](../../docs/superpowers/plans/2026-09-24-sprint-131-pr-268-expo-drift.md).
 - **Moved:** 6 direct (expo ~57.0.25, expo-image-picker/expo-location ~57.0.20, expo-linking ~57.0.11,
   expo-notifications ~57.0.21, expo-router ~57.0.23) + 7 hoisted transitives their manifests require (`@expo/cli` 57.0.27,
   `babel-preset-expo` 57.0.13, `expo-modules-core` 57.0.19, `expo-modules-jsi` 57.1.1, `@expo/ui` 57.0.20,
   `expo-glass-effect` 57.0.4, `@expo/router-server` 57.0.11). **`SDK_PINNED` needs no edit** despite the issue's template.
 - **Verified:** 15 lock nodes changed (13 packages + `apps/mobile` + root `""` version), 0 added/removed, 1844 nodes;
-  every field = registry; strict `npm@11.19.0 ci` exit 0, lock byte-identical; `scripts/expo-divergences.js` exit 0 (only
+  every field = registry; strict `npm@11.19.0 ci` exit 0 (lock and manifests consistent, tarball integrity verified; `ci` never writes the lock, so field order is proved by the diff and registry comparison: 0 key-order changes); `scripts/expo-divergences.js` exit 0 (only
   jest/@types/jest); Expo gates 57/57; mobile tsc + tests; `npm test` 27/27; audit 3 moderate / 0 high (same set, BUG-041).
   Gates: /simplify (plan fixes only), /security-review (no findings), fresh whole-branch review (0 Critical/Important).
 - ⚠️ `npm ls --all` exits 1 on HEAD too — **4 pre-existing errors**: missing `@react-native/metro-config` (via
   react-native-worklets) and invalid top-level `color-string`, `ms`, `picomatch`. Judge splices by "no new errors".
-- **Remaining:** push, PR, CI, **merge-time drift re-check** (plan Task 3 Step 4 — Expo's map moves; ~3-day window; re-splice
-  with the plan's scripts if red), maintainer merge authorization, deploy + smoke, then #268 closes on the next drift run.
+- **Remaining:** maintainer merge authorization. If the merge slips by a day or more, re-run the **merge-time drift re-check** (plan Task 3 Step 4 — Expo's map moves; ~3-day window; re-splice
+  with the plan's scripts if red). After merge: deploy + health + smoke, then #268 closes on the next drift run.
 
 **After #268: D6 — zod 3.25.76 → 4.6.5 (#264)**, re-cut from master. Then D7 (next #246).
 

@@ -15,7 +15,7 @@
 - The dependency lane is held by **Claude** for #268 (maintainer, 2026-09-24). D6 (zod #264) waits until #268 deploys.
 - **Never** widen `security/expo-divergences.json` to hide drift. jest `^30.5.1` / @types/jest `^30.0.0` stay exactly as registered.
 - **Surgical lockfile edits only.** No `npm install`, `npm install --workspace`, `npm dedupe`, `npx expo install <pkg>` (it runs npm install), or scratch regeneration (CLAUDE.md *Workspace dependencies*).
-- Prove the lockfile with strict `npx -y npm@11.19.0 ci`, which must leave `package-lock.json` byte-identical, and with `npm ls --all`, which must report no `npm error` line beyond the 4 that HEAD already has (Task 1 Step 6).
+- Prove the lockfile with strict `npx -y npm@11.19.0 ci`, which must exit 0: it fails when the lock and the manifests disagree and when a tarball misses its `integrity`. It **never writes the lockfile** (`save: false`, npm `lib/commands/ci.js`), so it cannot validate field order or completeness; that proof is the Step 5 diff and registry comparison. Also prove it with `npm ls --all`, which must report no `npm error` line beyond the 4 that HEAD already has (Task 1 Step 6).
 - `npx expo install --check` **must run in `apps/mobile`**. At the repo root it falsely reports "Dependencies are up to date" (B3 finding).
 - Version bump: take it from `origin/master`'s `package.json` **at merge time**; today that is 11.67.0 → **11.68.0**. It goes in 3 places: `package.json` `version`, and `package-lock.json` `version` and `packages[""].version`.
 - Files are LF in git (`git ls-files --eol` → `i/lf w/lf`). Write with `\n`.
@@ -60,7 +60,7 @@ The expected lockfile diff is therefore **14 changed nodes**: the 13 above plus 
 
 1. **Expo's map moves again before merge.** B3 got a second wave about 10 hours into the PR, and the measured cadence gives a window of roughly 3 days. Expected behavior: the drift re-check at merge time (Task 3 Step 4) is red, and the executor re-targets with the same scripts rather than merging a stale PR.
 2. **A moved package's new manifest adds a dependency the lockfile cannot resolve.** Expected behavior: the probe prints `resolves NOTHING` and the splice script aborts before writing anything. A partial splice must never be committed. (Task 1 Steps 2 and 4.)
-3. **Strict `npm ci` quietly rewrites the spliced lock**, for example through key order or dropped `libc` fields, the Windows trap in `feedback_windows_lock_resolve_needs_splice`. Expected behavior: the SHA-256 of `package-lock.json` before and after `npm ci` is identical, and the step fails otherwise. (Task 1 Step 6.)
+3. **The spliced lock differs from what npm would write**, for example in key order, missing fields, or dropped `libc` fields (the Windows trap in `feedback_windows_lock_resolve_needs_splice`). `npm ci` cannot catch this, because it never writes the lock. Expected behavior: the Step 5 comparison shows 0 key-order changes, every changed field equals `npm view <pkg>@<ver> --json`, and the key sets match neighbouring npm-written nodes. (Task 1 Steps 4 and 5.)
 4. **The peer ranges of a moved package are unsatisfied**, which the probe does not check. Expected behavior: `npm ls --all` adds no `invalid` or `missing` line beyond the HEAD baseline, and the step fails otherwise. (Task 1 Step 6.)
 5. **A moved package carries a new high or critical advisory.** Expected behavior: `npm audit --audit-level=high` exits 0. The pre-existing moderates (BUG-041 `decode-uri-component` via expo-router → query-string@7) are recorded, not "fixed" with an override. (Task 1 Step 8.)
 
@@ -237,7 +237,7 @@ git diff --stat package-lock.json
 
 Expected: `changed 14`, meaning the 13 closure nodes plus `apps/mobile`; `added 0 removed 0`; no `INTEGRITY MISMATCH`; `exit=0`.
 
-- [ ] **Step 6: Strict install proves the lock without rewriting it**
+- [ ] **Step 6: Strict install proves the lock is consistent and its tarballs verify**
 
 ```bash
 sha256sum package-lock.json > "$SCRATCH/lock.sha"
@@ -248,7 +248,7 @@ grep -E "^npm error" "$SCRATCH/ls.txt" | grep -v "complete log"
 node -e 'for (const n of ["expo","expo-image-picker","expo-linking","expo-location","expo-notifications","expo-router","@expo/cli","babel-preset-expo","expo-modules-core","expo-modules-jsi","@expo/ui","expo-glass-effect","@expo/router-server"]) console.log(n, require(n + "/package.json").version)'
 ```
 
-Expected: `ci-exit=0`; `package-lock.json: OK` and `unchanged-exit=0`. `ls-exit=1` is **pre-existing**: HEAD `32588ae9` prints exactly these 4 `npm error` lines — `missing: @react-native/metro-config@*, required by react-native-worklets@0.10.1` and `invalid:` `color-string@2.1.4`, `ms@2.0.0`, `picomatch@2.3.2`. Any **other** `npm error` line is new and fails this step. The installed versions equal the closure table's *To* column. Any rewrite, `invalid` line or mismatch → **stop**: restore from `$SCRATCH/package-lock.before.json` and diagnose. Do not commit.
+Expected: `ci-exit=0`; `package-lock.json: OK` and `unchanged-exit=0`. The SHA check is only a guard that nothing else wrote the file: `npm ci` never writes it, so an unchanged hash says nothing about ordering. `ls-exit=1` is **pre-existing**: HEAD `32588ae9` prints exactly these 4 `npm error` lines — `missing: @react-native/metro-config@*, required by react-native-worklets@0.10.1` and `invalid:` `color-string@2.1.4`, `ms@2.0.0`, `picomatch@2.3.2`. Any **other** `npm error` line is new and fails this step. The installed versions equal the closure table's *To* column. Any rewrite, `invalid` line or mismatch → **stop**: restore from `$SCRATCH/package-lock.before.json` and diagnose. Do not commit.
 
 - [ ] **Step 7: The live arbiter is now GREEN**
 
@@ -290,7 +290,7 @@ Seven hoisted transitives move with them, each required by a published manifest:
 
 Surgical splice: 1844 lock nodes before and after, 0 added, 0 removed, 14 changed
 (13 packages + the apps/mobile workspace node); integrity matches the registry.
-Strict npm@11.19.0 ci exit 0 with the lock byte-identical; npm ls --all clean.
+Strict npm@11.19.0 ci exit 0 (lock and manifests consistent, tarball integrity verified); npm ls --all clean.
 scripts/expo-divergences.js exit 0 - only the registered ADR-094 jest/@types/jest
 divergences remain. SDK_PINNED untouched: it shadows only non-expo pins.
 
@@ -327,7 +327,7 @@ const l=JSON.parse(fs.readFileSync("package-lock.json","utf8"));l.version=v;l.pa
 git diff --stat package.json package-lock.json
 ```
 
-Expected: `package.json` 1+/1−; the lockfile diff grows by exactly 2 lines. Re-run Task 1 Step 6's `npx -y npm@11.19.0 ci` plus the SHA check after taking a fresh `sha256sum`, and confirm the result is still byte-identical.
+Expected: `package.json` 1+/1−; the lockfile diff grows by exactly 2 lines. Re-run Task 1 Step 6's `npx -y npm@11.19.0 ci` plus the SHA check after taking a fresh `sha256sum`, and confirm it still exits 0.
 
 - [ ] **Step 2: Add the `apps/mobile/claude.md` Recent-changes bullet**
 
@@ -407,4 +407,5 @@ Before asking, confirm through `gh pr list` and the latest deploy run that no ot
 - **Native execution**, maintainer-approved. Task 1 `65ed0aec`, Task 2 `90bef58f`.
 - **Splice-script defect, fixed above:** the first splice wrote map-valued fields in registry order, which put 418 lines of churn into the lockfile. npm stores those fields key-sorted. Sorting them brought the diff to 114 lines, the same as B3, with 0 key-order changes.
 - **`npm ls --all` exits 1 on HEAD**, with 4 pre-existing errors (listed in Task 1 Step 6). The expectation above is now "no new errors". Commit `65ed0aec`'s message says "5"; it is 4, and the 5th line was the npm log path.
-- Everything else matched the plan: closure 13 nodes, strict ci byte-identical, arbiter clean, gates 57/57, mobile tsc and tests, audit 3 moderate / 0 high (same set as HEAD, BUG-041), `npm test` 27/27.
+- Everything else matched the plan: closure 13 nodes, strict ci exit 0, arbiter clean, gates 57/57, mobile tsc and tests, audit 3 moderate / 0 high (same set as HEAD, BUG-041), `npm test` 27/27.
+- **Correction (post-review, 2026-09-24):** the earlier text said a byte-identical hash after `npm ci` proves the splice. It does not, because `npm ci` never writes the lockfile (`save: false`). Strict `ci` proves that the lock and manifests agree and that every tarball matches its integrity; order and field completeness are proved by the Step 5 comparison (0 key-order changes, registry parity), which is what actually caught the 418-line reordering.
