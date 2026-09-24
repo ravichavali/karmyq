@@ -326,7 +326,9 @@ describe('Curated Feed - Match Score Calculation', () => {
           title: 'Plumbing repair',
           description: 'Fix leak',
           urgency: 'high' as const,
-          payload: { service_category: 'plumbing' as const },
+          // location_type has a schema default, so the parsed (output) type calculateMatchScore takes
+          // always carries it. zod 3 hid that under this service's strict: false; zod 4 does not.
+          payload: { service_category: 'plumbing' as const, location_type: 'on_site' as const },
           requirements: {},
         },
         {

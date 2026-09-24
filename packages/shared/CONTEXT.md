@@ -251,6 +251,12 @@ A two-version differential over the real request schemas (102 cases) found 20 ve
 | I3 | `z.number()` rejects ±`Infinity` | Intentional. zod 3 accepted it, and JSON then stored `null` |
 | I4 | Default messages and codes (`Required` → `Invalid input: expected string, received undefined`; `invalid_enum_value` → `invalid_value`; `invalid_string` → `invalid_format`) | Intentional. Nothing matches on this text |
 | I5 | `.int()` requires a safe integer | Intentional. Only `roles[].count` lacked a small `.max()` |
+| I6 | **Type-level.** In a `strict: false` workspace, zod 3's `z.infer` made **every** key optional: its `requiredKeys` test is `undefined extends T[k]`, which is always true without `strictNullChecks`. zod 4 keeps required and defaulted keys required | Intentional: the inferred types are now accurate. This affects the 7 non-strict services and `apps/frontend`. It surfaced in exactly one test fixture (`request-service` `curated-feed.test.ts`, missing the defaulted `location_type`) |
+
+⚠️ **A local green after a zod (or any type-only) bump can be false.** The ts-jest cache
+(`%TEMP%/jest`) keys on the test file, not on dependency types, so a test compiled before the bump
+is reused unchecked, even under `turbo --force`. Only PR CI caught I6. Before claiming a type-level
+bump green, run `npx jest --clearCache` or `--no-cache`.
 
 **New shared code must use `z.guid()` for ids, not `.uuid()`.** A textual scan in the P1 test fails
 on any `.uuid(` in this package's source.
