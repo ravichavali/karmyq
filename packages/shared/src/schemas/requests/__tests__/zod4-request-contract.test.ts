@@ -12,10 +12,10 @@ import { validateRequest } from '../index';
 import { SelfCommunityReputationSchema } from '../../reputationDisclosure';
 
 const D = 'Please help me with this thing today';
-const generic = { title: 'Need some help', description: D, request_type: 'generic' };
+const base = { title: 'Need some help', description: D };
+const generic = { ...base, request_type: 'generic' };
 const ride = {
-  title: 'Need some help',
-  description: D,
+  ...base,
   request_type: 'ride',
   payload: {
     origin: { address: '1 Main St', lat: 1, lng: 2 },
@@ -25,20 +25,17 @@ const ride = {
   },
 };
 const borrow = {
-  title: 'Need some help',
-  description: D,
+  ...base,
   request_type: 'borrow',
   payload: { item_category: 'tools', item_description: 'A drill please', duration_days: 3 },
 };
 const service = {
-  title: 'Need some help',
-  description: D,
+  ...base,
   request_type: 'service',
   payload: { service_category: 'tutoring' },
 };
 const event = {
-  title: 'Need some help',
-  description: D,
+  ...base,
   request_type: 'event',
   payload: {
     event_type: 'community_cleanup',
@@ -62,8 +59,8 @@ describe('preserved', () => {
   // P2 asserts PATH + CUSTOM MESSAGE only. The code changed (invalid_string → invalid_format);
   // that is I4, tested separately below. Asserting the code here would fail under zod 3.
   const pathAndMessage = (body: unknown) => {
-    const r = validateRequest(body);
-    return r.success ? 'ok' : r.error.issues.map((i) => [i.path.join('.'), i.message]);
+    const r = issues(body);
+    return r === 'ok' ? r : r.map(([p, , m]) => [p, m]);
   };
   it('P2: custom datetime message', () =>
     expect(pathAndMessage(withPayload(ride, { departure_time: '2026-10-01' })))
