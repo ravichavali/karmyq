@@ -162,7 +162,9 @@ describe('geocoding reaches Nominatim through the real built-in fetch (Sprint 13
     expect(timeoutSpy).toHaveBeenCalledTimes(1)
     expect(timeoutSpy).toHaveBeenCalledWith(5000)
     const [url, init] = fetchImpl.mock.calls[0]
-    expect(url).toBe(`${NOMINATIM_SEARCH_URL}?q=main%20st&format=json&limit=5&addressdetails=1`)
+    // The literal, not NOMINATIM_SEARCH_URL: every other case derives the URL from that constant, so a typo in it
+    // would pass them all while production got "200, no results" on every cache miss.
+    expect(url).toBe('https://nominatim.openstreetmap.org/search?q=main%20st&format=json&limit=5&addressdetails=1')
     expect(init.signal).toBe(timeoutSpy.mock.results[0].value)
   })
 
