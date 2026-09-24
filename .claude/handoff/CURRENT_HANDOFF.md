@@ -203,7 +203,7 @@ which is a demo operation requiring per-operation maintainer approval.
 
 **Next unchecked action: EXECUTE the D5 plan** —
 [`docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md`](../../docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md)
-(written 2026-09-23; awaiting maintainer review + choice of execution method). **Decided: built-in `fetch`, not the
+(written 2026-09-23; plan review round 1 applied — 4 findings CONFIRMED and fixed, M7/M8 proven red in a scratch copy; recommended execution: Native + a fresh whole-branch reviewer, awaiting maintainer go). **Decided: built-in `fetch`, not the
 bump; #225 is superseded** (see *Blockers and decisions* → "D5 decisions"). Three tasks: real-`fetch` loopback
 regression suite + service switch (`AbortSignal.timeout(5000)` replaces node-fetch 2's `timeout`), manifest + one-line
 lockfile splice, docs/version/gates/PR. Rate limiting is live on the demo: post-deploy smoke gets **one** login.

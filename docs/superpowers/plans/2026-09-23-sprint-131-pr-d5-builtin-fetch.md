@@ -31,7 +31,7 @@ Verified inside geocoding's own Jest on Node v24.11.1 (throwaway probe, deleted)
 - **The lock node `node_modules/node-fetch` (2.7.0) must stay.** `node_modules/cross-fetch@3.2.0`, which `node_modules/fbjs` pulls in, declares `node-fetch ^2.7.0`, and none of those nodes is `dev`. The only lock edit is deleting `"node-fetch": "^2.6.7"` from `packages["services/geocoding-service"].dependencies`.
 - **Locally, a leftover `require('node-fetch')` would still resolve** through that hoisted 2.7.0. The production image would not have it: its production stage runs a standalone `npm install --omit=dev` from geocoding's own `package.json` (`services/geocoding-service/Dockerfile:30-33`), so that `require` would crash at boot. The repo-wide declarations gate (`tests/regression/sprint-131-workspace-declarations.test.ts`) is what catches an undeclared import. Do not weaken it.
 - Tests must never reach `nominatim.openstreetmap.org`, **including during the red run**, when the new seams do not exist yet. Every real-`fetch` case targets `http://127.0.0.1:<port>`; direct calls use `loopbackFetch`, and the composition case's redirecting spy also **throws** on any URL it does not recognise instead of passing it through. The default-fetch and timeout cases are safe before the change because the default `fetchImpl` is `undefined` then.
-- Geocoding tests are `.js`, and the TDD promoter cannot see `.js` (`services/geocoding-service/CONTEXT.md:24-26`). geocoding's `npm test` runs only `tests/unit` and `tests/regression` (`package.json:9-11`). So the new test goes **directly into `tests/regression/`**, the same documented exception Sprint 130 used. The CLAUDE.md "start in `tests/tdd/`" rule cannot apply here: a tdd file would never run.
+- **The new test starts in `tests/tdd/` (CLAUDE.md) and is promoted to `tests/regression/` by hand** once green (Task 1 Step 6). The automatic promoter cannot see geocoding's `.js` tests, which is why Sprint 130 moved its file by hand (`services/geocoding-service/CONTEXT.md:24-26`); it is not an exemption from starting in `tdd/`. geocoding's `npm test` runs only `tests/unit` and `tests/regression` (`package.json:9-11`), so a tdd-only file never blocks and must be run explicitly by path until it is promoted. **It must be in `regression/` before the push.**
 - Version bump: take it from `origin/master`'s `package.json` **at merge time**. Today that is 11.66.0 → 11.67.0; re-read it before merging. `package-lock.json`'s root `version` must match (#257 left them split once).
 - Rate limiting is **live on the demo** (since 2026-09-23 21:37 UTC): **10 auth requests per 15 min per IP**, successful logins included. Budget the post-deploy smoke run to **one** login.
 
@@ -41,7 +41,7 @@ Verified inside geocoding's own Jest on Node v24.11.1 (throwaway probe, deleted)
 2. **The production composition, not just the service.** `index.js` builds the app with no `fetchImpl`. A default that is not a real callable fails only as "200 with no results". Pinned in Task 1 (the `createApp` case asserts two mapped results through `/search`, not just a 200).
 3. **A gzip-compressed Nominatim answer.** Node-fetch 2 decoded gzip itself, and the built-in `fetch` must too. Pinned in Task 1 (the stub gzips; two rows must map).
 4. **The identifying `User-Agent`.** Nominatim's usage policy requires it, and a runtime could drop or override it. Pinned in Task 1 (the stub asserts the exact `DEFAULT_USER_AGENT`).
-5. **The production timeout value.** Tests shorten it, so nothing but an explicit check pins the value production actually uses. Pinned in Task 1 (a spy on `AbortSignal.timeout` asserts `5000` when no override is given).
+5. **The production timeout value, as production composes it.** Tests shorten it, and a default injected between `createApp` and the helper (say `nominatimTimeoutMs = 50000`) would bypass a helper-only check: the plan's first draft passed 7/7 under exactly that mutation (plan review, 2026-09-23). Pinned in Task 1: the `createApp` case spies on `AbortSignal.timeout` and asserts `5000` and that its signal is the one handed to `fetch`; mutation M8 proves it.
 
 ---
 
@@ -49,7 +49,7 @@ Verified inside geocoding's own Jest on Node v24.11.1 (throwaway probe, deleted)
 
 | File | Change |
 |---|---|
-| `services/geocoding-service/tests/regression/sprint-131-geocoding-builtin-fetch.test.js` | **Create.** Real-`fetch` regression suite plus the boot check |
+| `services/geocoding-service/tests/tdd/sprint-131-geocoding-builtin-fetch.test.js` | **Create** in `tdd/`, then promote by hand to `tests/regression/` once green (Task 1 Step 6). Real-`fetch` suite plus the boot check |
 | `services/geocoding-service/src/geocodingService.js` | Export `NOMINATIM_SEARCH_URL` and `NOMINATIM_TIMEOUT_MS`; `callNominatimAPI` takes `{ url, timeoutMs }` and sends `signal: AbortSignal.timeout(timeoutMs)` instead of `timeout`; `createGeocodingService` defaults `fetchImpl` to global `fetch` and threads the two seams |
 | `services/geocoding-service/index.js` | Drop `require('node-fetch')` and `fetchImpl` |
 | `services/geocoding-service/package.json` | Remove `"node-fetch"` |
@@ -65,7 +65,7 @@ Verified inside geocoding's own Jest on Node v24.11.1 (throwaway probe, deleted)
 ### Task 1: Real-`fetch` regression suite, then switch the service to the built-in `fetch`
 
 **Files:**
-- Create: `services/geocoding-service/tests/regression/sprint-131-geocoding-builtin-fetch.test.js`
+- Create: `services/geocoding-service/tests/tdd/sprint-131-geocoding-builtin-fetch.test.js`
 - Modify: `services/geocoding-service/src/geocodingService.js:46-93,193-201`
 - Modify: `services/geocoding-service/index.js:14,38`
 
@@ -79,7 +79,7 @@ Verified inside geocoding's own Jest on Node v24.11.1 (throwaway probe, deleted)
 
 - [ ] **Step 1: Write the failing test**
 
-Create `services/geocoding-service/tests/regression/sprint-131-geocoding-builtin-fetch.test.js`:
+Create `services/geocoding-service/tests/tdd/sprint-131-geocoding-builtin-fetch.test.js`:
 
 ```js
 /**
@@ -115,10 +115,12 @@ const MAPPED = [
 const TEST_TIMEOUT_MS = 200
 const TIMEOUT_MESSAGE = 'The operation was aborted due to timeout'
 
+const realFetch = globalThis.fetch
 let stub
 let stubBase
 let received
 let behaviour
+let fetchSpy
 
 beforeAll(async () => {
   stub = http.createServer((req, res) => {
@@ -149,6 +151,9 @@ afterAll(async () => {
 beforeEach(() => {
   received = []
   behaviour = []
+  // Every case, including those that rely on the default fetchImpl: the global fetch may dial only the stub.
+  // If the nominatimUrl seam were dropped, the public URL would reach this guard and throw, never the network.
+  fetchSpy = jest.spyOn(globalThis, 'fetch').mockImplementation(loopbackFetch)
 })
 
 afterEach(() => jest.restoreAllMocks())
@@ -161,9 +166,9 @@ function captureLogger() {
 const missPool = () => ({ query: jest.fn().mockResolvedValue({ rows: [] }) })
 
 // The real fetch, refusing anything but the stub: if the `url` seam were ignored, a test would otherwise dial Nominatim.
-const loopbackFetch = (url, init) => {
+function loopbackFetch(url, init) {
   if (!String(url).startsWith(`${stubBase}/`)) throw new Error(`unexpected outbound URL: ${url}`)
-  return fetch(url, init)
+  return realFetch(url, init)
 }
 
 function expectNominatimRequest(req, q) {
@@ -183,6 +188,7 @@ describe('geocoding reaches Nominatim through the real built-in fetch (Sprint 13
 
     expect(errors).toEqual([])
     expect(result).toEqual({ ok: true, data: { results: MAPPED, source: 'nominatim', cached: false } })
+    expect(fetchSpy).toHaveBeenCalledTimes(1) // the default IS the global fetch
     expect(received).toHaveLength(1)
     expectNominatimRequest(received[0], 'main st')
   })
@@ -239,9 +245,11 @@ describe('geocoding reaches Nominatim through the real built-in fetch (Sprint 13
   })
 
   it('serves /search through createApp with no fetchImpl, exactly as index.js builds it', async () => {
-    const realFetch = globalThis.fetch
+    // Production timeout, observed through the production composition: a default injected anywhere between
+    // createApp and callNominatimAPI (e.g. `nominatimTimeoutMs = 50000`) must fail here, not only in the helper case.
+    const timeoutSpy = jest.spyOn(AbortSignal, 'timeout')
     // Redirect only the Nominatim origin to the stub. Anything else throws, so this case can never reach the internet.
-    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockImplementation((url, init) => {
+    fetchSpy.mockImplementation((url, init) => {
       const target = String(url)
       if (!target.startsWith(`${NOMINATIM_SEARCH_URL}?`)) throw new Error(`unexpected outbound URL: ${target}`)
       return realFetch(target.replace(NOMINATIM_SEARCH_URL, `${stubBase}/search`), init)
@@ -253,7 +261,9 @@ describe('geocoding reaches Nominatim through the real built-in fetch (Sprint 13
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ success: true, data: { results: MAPPED, source: 'nominatim', cached: false } })
     expect(fetchSpy).toHaveBeenCalledTimes(1)
-    expect(fetchSpy.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal)
+    expect(timeoutSpy).toHaveBeenCalledTimes(1)
+    expect(timeoutSpy).toHaveBeenCalledWith(5000)
+    expect(fetchSpy.mock.calls[0][1].signal).toBe(timeoutSpy.mock.results[0].value)
     expect(received).toHaveLength(1)
     expectNominatimRequest(received[0], 'main st')
   })
@@ -300,10 +310,11 @@ Notes for the implementer:
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cd services/geocoding-service && npx jest tests/regression/sprint-131-geocoding-builtin-fetch.test.js`
+Run: `cd services/geocoding-service && npx jest tests/tdd/sprint-131-geocoding-builtin-fetch.test.js`
 Expected: FAIL, for these reasons:
 - the default-fetch case and both timeout cases: `result.data.results` is `[]`, because the default `fetchImpl` is `undefined`, the call throws `fetchImpl is not a function`, and that is swallowed. `errors` holds that message.
 - the 5000 ms case: `NOMINATIM_TIMEOUT_MS` is `undefined`.
+- nothing reaches the network in any case: the `beforeEach` guard on the global `fetch` admits only the stub.
 - the `createApp` case: `results: []`, and the spy is never called.
 - the boot case: `index.js` still contains `node-fetch`.
 - the 503 case: the `url` option is ignored, so the call targets the public Nominatim URL. `loopbackFetch` refuses it (`unexpected outbound URL`) and nothing leaves the machine. That refusal is why every direct `callNominatimAPI` call in this file goes through `loopbackFetch`, never bare `fetch`.
@@ -404,26 +415,23 @@ const app = createApp({ pool, allowedOrigins })
 
 - [ ] **Step 5: Run the new file, then the whole geocoding suite**
 
-Run: `cd services/geocoding-service && npx jest tests/regression/sprint-131-geocoding-builtin-fetch.test.js`
+Run: `cd services/geocoding-service && npx jest tests/tdd/sprint-131-geocoding-builtin-fetch.test.js`
 Expected: PASS, 7 tests (the `it.each` counts two).
 
-Run: `npm --workspace=geocoding-service test`
-Expected: PASS for unit and regression. The existing mocked tests are unaffected.
+Run: `npm --workspace=geocoding-service test` (the tdd file is not in it yet).
+Expected: PASS for the existing unit and regression suites, which the mocked tests leave unaffected.
 
-- [ ] **Step 6: Prove each assertion can fail (mutation run, one at a time, each reverted)**
+- [ ] **Step 6: Promote the test by hand**
 
-⚠️ Commit Steps 1-5 **first**. `git checkout --` restores to HEAD and would wipe uncommitted work (Sprint 131 D4 lost edits this way). Then apply each mutation, run the new file, record which cases went red, and restore with `git checkout -- <file>`:
+The automatic promoter cannot see `.js` files, so move the green file yourself:
 
-| # | Mutation | Must go red |
-|---|---|---|
-| M1 | `fetchImpl = fetch` → `fetchImpl = { default: fetch }` (the node-fetch 3 shape) | default-fetch, both timeout cases, `createApp` |
-| M2 | delete the `signal:` line | both timeout cases (Jest timeout at 10 s, or `elapsed`) |
-| M3 | `NOMINATIM_TIMEOUT_MS = 5000` → `50000` | the 5000 ms case |
-| M4 | delete the `'User-Agent'` header | default-fetch, timeout (second request), `createApp` |
-| M5 | stub sends the body uncompressed but still labelled `content-encoding: gzip` (proves decode is real, not a no-op) | default-fetch |
-| M6 | put `const fetch = require('node-fetch')` back in `index.js` | boot case |
+```bash
+mv services/geocoding-service/tests/tdd/sprint-131-geocoding-builtin-fetch.test.js \
+   services/geocoding-service/tests/regression/sprint-131-geocoding-builtin-fetch.test.js
+npm --workspace=geocoding-service test
+```
 
-Record the results table in the plan's Execution notes. If any mutation stays green, the suite does not prove what it claims. Fix the test, not the mutation.
+Expected: PASS, now **including** the promoted file (its 7 tests appear in the regression run). Paths inside the test (`../../src/...`, `path.resolve(__dirname, '..', '..')`) are unchanged by the move.
 
 - [ ] **Step 7: Commit**
 
@@ -443,6 +451,25 @@ EOF
 
 (A quoted heredoc via `-F -`: backticks inside `-m` are silently eaten by Git Bash.)
 
+- [ ] **Step 8: Prove each assertion can fail (mutation run, one at a time, each reverted)**
+
+⚠️ This runs on the Step 7 commit, **never** before it. `git checkout --` restores to HEAD and would wipe uncommitted work (Sprint 131 D4 lost edits this way). Then apply each mutation, run `npx jest tests/regression/sprint-131-geocoding-builtin-fetch.test.js` (from `services/geocoding-service`), record which cases went red, and restore with `git checkout -- <file>`:
+
+| # | Mutation | Must go red |
+|---|---|---|
+| M1 | `fetchImpl = fetch` → `fetchImpl = { default: fetch }` (the node-fetch 3 shape) | default-fetch, both timeout cases, `createApp` |
+| M2 | delete the `signal:` line | both timeout cases (Jest timeout at 10 s, or `elapsed`) |
+| M3 | `NOMINATIM_TIMEOUT_MS = 5000` → `50000` | the 5000 ms case |
+| M4 | delete the `'User-Agent'` header | default-fetch, timeout (second request), `createApp` |
+| M5 | stub sends the body uncompressed but still labelled `content-encoding: gzip` (proves decode is real, not a no-op) | default-fetch |
+| M6 | put `const fetch = require('node-fetch')` back in `index.js` | boot case |
+| M7 | `createGeocodingService` stops forwarding the URL seam (`{ url: nominatimUrl, timeoutMs: … }` → `{ timeoutMs: … }`) | default-fetch and both timeout cases, with `errors` showing `unexpected outbound URL: https://nominatim.openstreetmap.org/search?…` **and `received` empty**: proof that the global-fetch guard, not luck, kept the public URL off the network |
+| M8 | `createGeocodingService`'s signature gets `nominatimTimeoutMs = 50000` (production default drifts; the helper constant stays 5000) | `createApp` case (`toHaveBeenCalledWith(5000)`). The helper-level 5000 ms case **stays green**, which is why the composition assertion exists |
+
+Record the results table in the plan's Execution notes. If any mutation stays green, the suite does not prove what it claims. Fix the test, not the mutation.
+
+Record the mutation results in Task 3 (the plan's Execution notes are committed there).
+
 ---
 
 ### Task 2: Remove the dependency: manifest plus a surgical lockfile splice
@@ -456,8 +483,11 @@ EOF
 
 - [ ] **Step 1: Confirm nothing imports node-fetch**
 
-Run: `git grep -n "node-fetch" -- services/geocoding-service ':!*.md'`
-Expected: exactly one hit, `services/geocoding-service/package.json:19`.
+Run: `git grep -nE "(require\(|from |import\()\s*['\"]node-fetch" -- services/geocoding-service`
+Expected: **no** output (exit 1). A plain `node-fetch` grep is not the check: the new regression test names the package in its header comment and in the boot case's `not.toMatch(/node-fetch/)`.
+
+Run: `git grep -n '"node-fetch"' -- services/geocoding-service/package.json`
+Expected: exactly one hit, line 19. That is the line Step 2 deletes.
 
 - [ ] **Step 2: Edit the manifest**
 
