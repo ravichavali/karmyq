@@ -187,7 +187,10 @@ for (const [path, version] of Object.entries(targets)) {
   const name = path.slice(path.lastIndexOf('node_modules/') + 13);
   const m = JSON.parse(npm(['view', `${name}@${version}`, '--json']));
   const next = { version, resolved: m.dist.tarball, integrity: m.dist.integrity };
-  for (const f of FIELDS) if (m[f] !== undefined && !(typeof m[f] === 'object' && !Object.keys(m[f]).length)) next[f] = m[f];
+  // npm stores map-valued fields key-sorted; registry manifests are not, so sort to avoid order churn.
+  const sortMap = (v) => (v && typeof v === 'object' && !Array.isArray(v))
+    ? Object.fromEntries(Object.keys(v).sort((a, b) => a.localeCompare(b, 'en')).map((k) => [k, v[k]])) : v;
+  for (const f of FIELDS) if (m[f] !== undefined && !(typeof m[f] === 'object' && !Object.keys(m[f]).length)) next[f] = sortMap(m[f]);
   if (m.scripts && (m.scripts.install || m.scripts.preinstall || m.scripts.postinstall)) next.hasInstallScript = true;
   const out = {};
   for (const k of Object.keys(node)) {
@@ -241,11 +244,11 @@ sha256sum package-lock.json > "$SCRATCH/lock.sha"
 npx -y npm@11.19.0 ci; echo "ci-exit=$?"
 sha256sum -c "$SCRATCH/lock.sha"; echo "unchanged-exit=$?"
 npm ls --all > "$SCRATCH/ls.txt" 2>&1; echo "ls-exit=$?"
-grep -nE "invalid|missing|ERR!" "$SCRATCH/ls.txt"; echo "grep-exit=$? (1 = none found = good)"
+grep -E "^npm error" "$SCRATCH/ls.txt" | grep -v "complete log"
 node -e 'for (const n of ["expo","expo-image-picker","expo-linking","expo-location","expo-notifications","expo-router","@expo/cli","babel-preset-expo","expo-modules-core","expo-modules-jsi","@expo/ui","expo-glass-effect","@expo/router-server"]) console.log(n, require(n + "/package.json").version)'
 ```
 
-Expected: `ci-exit=0`; `package-lock.json: OK` and `unchanged-exit=0`; `ls-exit=0`; `grep-exit=1`; the installed versions equal the closure table's *To* column. Any rewrite, `invalid` line or mismatch → **stop**: restore from `$SCRATCH/package-lock.before.json` and diagnose. Do not commit.
+Expected: `ci-exit=0`; `package-lock.json: OK` and `unchanged-exit=0`. `ls-exit=1` is **pre-existing**: HEAD `32588ae9` prints exactly these 4 `npm error` lines — `missing: @react-native/metro-config@*, required by react-native-worklets@0.10.1` and `invalid:` `color-string@2.1.4`, `ms@2.0.0`, `picomatch@2.3.2`. Any **other** `npm error` line is new and fails this step. The installed versions equal the closure table's *To* column. Any rewrite, `invalid` line or mismatch → **stop**: restore from `$SCRATCH/package-lock.before.json` and diagnose. Do not commit.
 
 - [ ] **Step 7: The live arbiter is now GREEN**
 
@@ -398,3 +401,10 @@ node scripts/expo-divergences.js; echo "gate-exit=$?"
 - [ ] **Step 5: Ask the maintainer for merge authorization**
 
 Before asking, confirm through `gh pr list` and the latest deploy run that no other deploy is in flight. Merge only on explicit, per-PR authorization (`gh pr merge <N> --squash --admin` only if they say so). After the deploy, verify: all services healthy, the demo smoke (login + `/api/requests`, `/api/conversations`, `/api/reputation/karma/:userId` → 200), and #268 closing on the next `expo-sdk-drift` run or a manual `workflow_dispatch` if the maintainer approves one. Then reconcile the handoff and hand D6 back to planning.
+
+## Execution notes (2026-09-24)
+
+- **Native execution**, maintainer-approved. Task 1 `65ed0aec`, Task 2 `90bef58f`.
+- **Splice-script defect, fixed above:** the first splice wrote map-valued fields in registry order, which put 418 lines of churn into the lockfile. npm stores those fields key-sorted. Sorting them brought the diff to 114 lines, the same as B3, with 0 key-order changes.
+- **`npm ls --all` exits 1 on HEAD**, with 4 pre-existing errors (listed in Task 1 Step 6). The expectation above is now "no new errors". Commit `65ed0aec`'s message says "5"; it is 4, and the 5th line was the npm log path.
+- Everything else matched the plan: closure 13 nodes, strict ci byte-identical, arbiter clean, gates 57/57, mobile tsc and tests, audit 3 moderate / 0 high (same set as HEAD, BUG-041), `npm test` 27/27.

@@ -33,7 +33,7 @@ hand-rolled with `@expo/vector-icons`; state is the one Zustand store in `store/
   `babel-preset-expo`, `expo-modules-core`/`-jsi`, `@expo/ui`, `expo-glass-effect`,
   `@expo/router-server`). `SDK_PINNED` is unchanged: it shadows only non-expo pins, even though
   the drift issue's template says to update it. Registered jest divergences untouched.
-  `npm ls --all` exits 1 with five errors that predate this change (verified against HEAD), so
+  `npm ls --all` exits 1 with four errors that predate this change (verified against HEAD), so
   judge a lock splice by "no new errors", not by that exit code.
 - **Sprint 129 PR B:** twelve `expo-*` packages move one patch to match the live SDK 57 map
   (issue #234: Expo 57.0.22, Router 57.0.21). `SDK_PINNED` is unchanged because it shadows only
