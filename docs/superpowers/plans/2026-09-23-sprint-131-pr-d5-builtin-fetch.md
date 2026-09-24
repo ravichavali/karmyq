@@ -627,4 +627,63 @@ Merging needs the maintainer's explicit authorization for this PR. Record the ha
 
 ## Execution notes
 
-_(filled in during execution)_
+Executed 2026-09-23/24 by Claude (Native, `superpowers:executing-plans`), after plan review round 2 (maintainer-relayed). Commits `f9478357` (Task 1), `1b56e923` (Task 2), `75f43cda` (docs + 11.67.0), `f5bc5458` (`/simplify`), `d239a586` (landing page), `c84e1281` (final-review fix).
+
+**Review round 2 rulings, applied at execution time:**
+- The default-fetch case asserts `received` length first, so M7 fails by showing `Received length: 0`.
+- The 2000 ms ceiling became `WATCHDOG_MS = 4000`: generous, but still below the 5000 ms production value.
+- Task 2 Step 1's grep is restricted to `index.js` and `src/`, and the declarations gate stays the guard. Proven: injecting `require('node-fetch')` into `index.js` makes the gate fail with `services/geocoding-service: node-fetch (index.js)`.
+
+**RED:** 7/7 failed, each for the expected reason:
+- no default fetch, so the stub received 0 requests;
+- the ignored `url` option sent the 503 case's call to the public URL, which the guard refused;
+- `NOMINATIM_TIMEOUT_MS` was undefined;
+- `index.js` still contained `node-fetch`.
+
+**GREEN:** 7/7. After the manual promotion to `regression/`, the workspace ran unit 5/5 and regression 25/25.
+
+**Mutations** (on the Step 7 commit, each reverted):
+
+| # | Red | Cases |
+|---|---|---|
+| M1 | 4 | default, hang, stall, createApp |
+| M2 | 4 | hang and stall hit Jest's 10 s timeout; createApp; 5000 ms |
+| M3 | 2 | 5000 ms, createApp |
+| M4 | 4 | default, hang, stall, createApp |
+| M5 | 4 | default, hang, stall, createApp |
+| M6 | 1 | boot |
+| M7 | 3 | default shows `Received length: 0`; hang; stall |
+| M8 | 1 | createApp only; the helper case stays green, as designed |
+
+**Task 2:**
+- The lock node's dependencies are now `cors, express, express-rate-limit, helmet, pg`. `node_modules/node-fetch@2.7.0` (prod) is kept.
+- `npx -y npm@11.19.0 ci` exited 0 and left the lock unchanged.
+- `npm ls node-fetch` shows only `@karmyq/mobile → react-native-web → fbjs → cross-fetch → node-fetch@2.7.0`.
+- The declarations gate passed 10/10.
+
+**Gates:**
+- **Full suite** (`npx turbo run test --concurrency=2 --force`): exit 0.
+- **Landing docs:** only `geocoding-service.json` was committed (real CONTEXT content). The timestamp/sha churn and a D4 notification-service catch-up were reverted.
+- **`/simplify` (4 agents).** Applied:
+  - `guardedFetch` replaces two near-copy URL guards;
+  - `NOMINATIM_TIMEOUT_MS` is module-private again;
+  - the boot test awaits the killed child's exit.
+  Skipped, with reasons in the ledger:
+  - dropping the helper 5000 ms case (it is the contrast to M8);
+  - a `tests/helpers` module;
+  - reading the non-2xx body.
+  Deferred to `docs/IDEAS.md` [2026-09-23] D5 `/simplify`:
+  - geocoder failures swallowed as 200-empty;
+  - request-service's header-only timeouts;
+  - the image-size script's fetch timeout;
+  - the unread non-2xx body.
+- **`/code-review` medium:** 0 findings.
+- **`/security-review`:** 0 findings. Maintainer wording corrections:
+  - availability protection is retained;
+  - only the initial destination is fixed, and redirect following is unchanged;
+  - no additional data exposure is introduced (logs also carry upstream status and error messages).
+- **Final whole-branch review** (fresh, opus): 0 Critical, 0 Important, 5 Minor.
+  - Minor 1 was re-graded to Important and fixed: a URL typo in `NOMINATIM_SEARCH_URL` passed 7/7, so the helper case now pins the literal, and the same typo turns 1 case red.
+  - Deferred: the sequential "next miss" (a queued-waiter variant was not added); the header comment over-claims "every case runs real fetch"; the boot child runs outside the fetch guard.
+
+**Post-merge verification:** pending merge authorization.

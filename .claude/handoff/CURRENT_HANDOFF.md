@@ -41,7 +41,7 @@
 >   [`docs/superpowers/plans/2026-09-23-sprint-131-pr-d4-expo-server-sdk.md`](../../docs/superpowers/plans/2026-09-23-sprint-131-pr-d4-expo-server-sdk.md)
 >   (see its Execution notes).
 >
-> **Next: D5 (node-fetch #225) on this branch.** Read the D5 row first: it is not a routine bump.
+> **D5 (node-fetch #225 → built-in fetch) IMPLEMENTED on this branch — PR @@PR@@, awaiting CI + merge authorization.** See the D5 row.
 
 **Outcome**: PR A **shipped v11.56.0** ([#249](https://github.com/ravichavali/karmyq/pull/249), `d35a3fad`). PR B **shipped v11.57.0** —
 [#250](https://github.com/ravichavali/karmyq/pull/250) merged as `d2edb286` (2026-09-17T13:00:59Z, admin merge on explicit
@@ -157,7 +157,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 | D2 | node-cron 3.0.3 → 4.6.0 (#228) | **Shipped** — #254 merged `b7539896`, v11.61.0, deployed + smoke-checked 2026-09-21; #228 closed (GitHub auto-closed it 1s after the merge). Took Dependabot #228 plus: `@types/node-cron` removed (v4 bundles types), `cron.setLogger(logger)` in cleanup-service so v4's new `missed execution` warning reaches winston, and a real-scheduler **blocking regression** test for reputation's two jobs (`tests/regression/sprint-131-node-cron-v4.test.ts`; moved out of `tdd/` on review, since reputation's `npm test` never runs `tdd/`) |
 | D3 | express-rate-limit → 8.7.0 (#224) | **Shipped** — #255 merged `b7588509`, v11.62.0, deployed + smoke-checked 2026-09-22; #224 closed (auto-closed on merge). shared/geocoding 7.5.1→8.7.0, root/cleanup 8.5.2→8.7.0; two stale `DIVERGENCE_ALLOWLIST` entries removed. First master run **failed Integration Tests on a postgres readiness race** (not D3 code — see below); deployed on `gh run rerun --failed`. Logged **BUG-049**, not fixed |
 | D4 | expo-server-sdk 6.1.0 → 7.2.0 (#230) | **Shipped** — #267 merged `fb9d26b6`, v11.66.0, 2026-09-23. It was deployed with all 9 services healthy, passed smoke 11/11 live, and passed a read-only container SDK-load check (Node v24.21.0, 7.2.0 loads through `require()`). #230 was closed by Dependabot 2 minutes after the merge.<br>What shipped: Dependabot's commit, unchanged; `expoPush.ts` reading the named `Expo` export; and the first real-SDK regression test (`tests/regression/sprint-131-expo-push-real-sdk.test.ts`, a plain-node child with only data crossing to it, loopback only), passing on 6.1.0 and 7.2.0. Eight mutations each make it fail.<br>Gates: full uncached suite, `/simplify`, `/code-review` medium, `/security-review`, and a final whole-branch review whose fixes were applied. BUG-052 was logged. Follow-ups are in `docs/IDEAS.md` [2026-09-23]. Plan and execution notes: `docs/superpowers/plans/2026-09-23-sprint-131-pr-d4-expo-server-sdk.md` |
-| D5–D7 | node-fetch (#225 — **superseded: built-in fetch instead**, plan `docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md`), zod (**#264** — Dependabot closed #247 and reopened the same 4.6.5 bump as #264 on 2026-09-23), next (#246) | **D5 NEXT, on `agent/claude/sprint-131-d5-node-fetch`**: write its focused plan first, in a fresh chat. One major per PR. ⚠️ **D5 is not a routine bump** (found by D4's `/simplify` altitude review; verified 2026-09-23 against `index.js` and `npm view`). node-fetch 3.3.2 is `"type": "module"` with no `exports`. `services/geocoding-service/index.js:14` does `const fetch = require('node-fetch')` and passes it on as `fetchImpl` (`:38`). Under Node 24's `require()` of an ES module, that value is the module namespace, not a function, so geocoding's first outbound request would throw. Every geocoding test injects `fetchImpl: jest.fn()`, so the suite would stay green — the same blind spot D4 found. Plan D5 either as a real-module check (reuse D4's harness pieces) or as a switch to Node 24's built-in `fetch` instead of the bump. |
+| D5–D7 | node-fetch (#225 — **superseded: built-in fetch instead**, plan `docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md`), zod (**#264** — Dependabot closed #247 and reopened the same 4.6.5 bump as #264 on 2026-09-23), next (#246) | **D5 IMPLEMENTED — PR @@PR@@ open, CI pending; merge needs maintainer authorization.** v11.67.0 on `agent/claude/sprint-131-d5-node-fetch`. geocoding uses Node 24's built-in `fetch` (`AbortSignal.timeout(5000)` replaces node-fetch 2's `timeout`); node-fetch removed from geocoding's manifest with a one-line lock splice (2.7.0 stays for cross-fetch via fbjs; strict `npm@11.19.0 ci` exit 0, lock unchanged). New `services/geocoding-service/tests/regression/sprint-131-geocoding-builtin-fetch.test.js` (7 cases, real fetch vs a 127.0.0.1 stub behind a global-fetch guard) — 8 plan mutations + a URL-typo probe each red. Gates: full uncached suite exit 0, `/simplify` (4 agents), `/code-review` medium 0, `/security-review` 0, fresh whole-branch review (opus) 0 Critical/0 Important (Minor 1 re-graded and fixed; 3 minors deferred). Deferrals in `docs/IDEAS.md` [2026-09-23] D5 `/simplify` entry. **#225 is superseded — do not merge it**; after D5 merges check `gh pr view 225` and ask the maintainer before closing it if still open. Next after D5: D6 (zod #264), D7 (next #246). |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
 Do not hold the other nine PRs while waiting for C. If C resumes after the upgrades, repeat its
@@ -201,24 +201,14 @@ which is a demo operation requiring per-operation maintainer approval.
 
 ✅ **The postgres readiness race that failed that first attempt is BUG-050 — SHIPPED v11.63.0** ([#256](https://github.com/ravichavali/karmyq/pull/256), `e5f7d8e1`; [CI/CD run 35686522868](https://github.com/ravichavali/karmyq/actions/runs/35686522868) every job success, `✅ All services healthy`, no rollback; smoke login/requests/conversations/reputation all 200). A review round on #256 added `start_period: 60s` to the base compose stack too. Mechanism and proof: `docs/BUGS.md` BUG-050.
 
-**Next unchecked action: EXECUTE the D5 plan** —
-[`docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md`](../../docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md)
-(written 2026-09-23; plan review round 1 applied — 4 findings CONFIRMED and fixed, M7/M8 proven red in a scratch copy; recommended execution: Native + a fresh whole-branch reviewer, awaiting maintainer go). **Decided: built-in `fetch`, not the
-bump; #225 is superseded** (see *Blockers and decisions* → "D5 decisions"). Three tasks: real-`fetch` loopback
-regression suite + service switch (`AbortSignal.timeout(5000)` replaces node-fetch 2's `timeout`), manifest + one-line
-lockfile splice, docs/version/gates/PR. Rate limiting is live on the demo: post-deploy smoke gets **one** login.
-Original planning brief, kept for the record:
-- node-fetch 3 is ESM-only, and `services/geocoding-service/index.js:14` calls `require('node-fetch')`.
-- Under Node 24 that call returns the module namespace, not a function.
-- Geocoding's tests inject a mock `fetchImpl`, so they cannot catch it.
-
-Two credible shapes, for the plan to decide with evidence:
-- a real-module check, reusing D4's harness pieces (the loopback guard and the plain-node child);
-- replacing node-fetch with Node 24's built-in `fetch` instead of bumping it.
-
-Re-check #225 against the new master before building anything (Dependabot auto-rebases), and verify behavior
-against the installed `node_modules`, never the changelog. D4's lesson, from its final review: a test that
-claims "each"/"every" needs at least two of the thing it counts.
+**Next unchecked action: D5 PR @@PR@@ — wait for CI green, then ask the maintainer for merge authorization.**
+After the merge: one deploy at a time (check `gh run list --branch master -L 3`), watch Deploy to Demo, then the plan's
+*Post-merge verification*: smoke with **one** login (rate limiting is live: 10 auth requests / 15 min / IP), and
+`GET https://karmyq.com/api/geocoding/search?q=<uncached query>` must return **non-empty** `data.results` with
+`source: "nominatim"` — 200 with empty results is the failure signature (`callNominatimAPI` swallows errors).
+Then `gh pr view 225`; if still open, ask before closing it as superseded. Record results on the D6 branch cut
+from the deployed master. Plan + execution notes:
+[`docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md`](../../docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md).
 
 **BUG-051 SHIPPED v11.65.0** — merged, deployed and smoke-verified 11/11 live on 2026-09-23 (banner
 above; full table in `docs/BUGS.md` BUG-051). Its post-deploy checks are **done**, including the two
