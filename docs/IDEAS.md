@@ -680,3 +680,52 @@ mutations into compile errors on every build, including Dependabot's own PR imag
 brings the types for free.
 
 ---
+
+## [2026-09-23] architecture
+
+**Dependabot #263 (motion 12 → 13) and #265 (dotenv 17.4.2 → 18.0.1) are deferred to Sprint 132.**
+Maintainer decision, 2026-09-23, following the #243–#245 precedent: both are majors that appeared after
+Sprint 131's scope was approved.
+
+What each needs when its turn comes:
+
+- **#265 (dotenv 17 → 18)** bumps root plus nine workspaces, and CI is green on the proposal. D1 (#253)
+  needed `{ quiet: true }` at every call site because 17 flipped a logging default. Re-verify how 18's
+  `config()` behaves against the installed package, not the changelog, and keep the
+  `sprint-131-dotenv-quiet` gate green.
+- **#263 (motion 12 → 13)** touches `apps/landing` only. The proposal is red on the declarations gate's
+  "each workspace's lockfile node mirrors its manifest" check. The cause is **not diagnosed**, so read
+  the lock diff before assuming anything.
+
+Not decided yet:
+
+- **#266**, the dev-deps group: 8 minor/patch bumps, including jest 30.5.2 and turbo 2.11. It is red on
+  `sprint-124-registry-independence`; cause not diagnosed.
+- **#259–#261**, GitHub Actions minor bumps.
+
+Refresh every proposal number against `gh pr list` before acting.
+
+---
+
+## [2026-09-23] Follow-ups from Sprint 131 D5's `/simplify` pass (built-in fetch in geocoding)
+
+Not done in D5, which is a dependency PR; each needs its own scheduling decision.
+
+- **geocoding swallows Nominatim failures as "no matches".** `callNominatimAPI`
+  (`services/geocoding-service/src/geocodingService.js`) returns `[]` on a thrown error, a timeout or a
+  non-2xx, so `/search` answers **200** with `source: "nominatim"` and empty results. Only a log line
+  distinguishes an outage from a genuine miss. The deeper change is an `{ ok: false, code:
+  'GEOCODER_UNAVAILABLE' }` result mapped to a 502/503 ADR-074 envelope. That is an API contract change:
+  `apps/frontend/src/lib/geocoding.ts` consumes it, plus registry and CONTEXT. Failed lookups are already
+  not cached (the `apiResults.length > 0` guard).
+- **request-service's two outbound timeouts do not cover the body.** `src/routes/dibs.ts:81-89` and
+  `src/routes/requests.ts:381-387` build an `AbortController` and a 3 s `setTimeout`, then `clearTimeout`
+  once headers arrive, so the following `.json()` has no bound: a stalled body can hang a feed or dibs
+  request. D5 proved `AbortSignal.timeout(ms)` covers a stalled body on Node 24; using it deletes the manual
+  timer too.
+- **`scripts/check-image-size-upstream.js:161` calls `fetch` with no timeout.** A hung GitHub API call
+  stalls the job until its job-level timeout. Low priority.
+- **geocoding leaves a non-2xx body unread.** Measured on Node 24.11.1: harmless for small bodies (the
+  socket is reused). A 200 KB unread error body pins one socket per call until GC. Nominatim's error pages
+  are small. If ever needed, use `await response.text().catch(() => {})`; **not** `body.cancel()`, which
+  destroyed the socket and opened more connections than doing nothing.

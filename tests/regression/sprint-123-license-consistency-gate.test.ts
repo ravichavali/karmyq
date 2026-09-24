@@ -131,6 +131,8 @@ const CLAIM_SCAN_ALLOWLIST: RegExp[] = [
   // signal, and both are covered by the service-README site list either way.
   /^services\/notification-service\/CONTEXT\.md$/,
   /^services\/notification-service\/src\/routes\/push\.ts$/,
+  // The gotcha that warns about this vocabulary has to quote it; exactly its two files, nothing else.
+  /^docs\/gotchas\/license-gate-flags-claim-phrases-in-any-tracked-file\.(md|json)$/,
 ];
 
 /**

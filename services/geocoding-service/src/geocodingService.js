@@ -1,4 +1,8 @@
 const DEFAULT_USER_AGENT = 'Karmyq/1.0 (mutual aid platform; https://karmyq.com)'
+const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search'
+// Enforced with AbortSignal.timeout: Node's built-in fetch has no `timeout` option (node-fetch 2 did, and 3 dropped it).
+// Every call runs inside createExternalThrottle's single chain, so a call that never settles would stall every later miss.
+const NOMINATIM_TIMEOUT_MS = 5000
 const SAFE_ADDRESS_QUERY_PATTERN = /^[\p{L}\p{N}\s,.'\u2019#\/&()/-]+$/u
 
 function normalizeQuery(query) {
@@ -43,7 +47,12 @@ function createExternalThrottle(intervalMs) {
   }
 }
 
-async function callNominatimAPI(fetchImpl, query, logger = console) {
+async function callNominatimAPI(
+  fetchImpl,
+  query,
+  logger = console,
+  { url = NOMINATIM_SEARCH_URL, timeoutMs = NOMINATIM_TIMEOUT_MS } = {}
+) {
   if (typeof query !== 'string') return []
 
   const validation = validateSearchQuery(query)
@@ -56,7 +65,7 @@ async function callNominatimAPI(fetchImpl, query, logger = console) {
 
   try {
     const response = await fetchImpl(
-      `https://nominatim.openstreetmap.org/search?` +
+      `${url}?` +
         `q=${encodeURIComponent(sanitized)}` +
         `&format=json` +
         `&limit=5` +
@@ -65,7 +74,7 @@ async function callNominatimAPI(fetchImpl, query, logger = console) {
         headers: {
           'User-Agent': DEFAULT_USER_AGENT,
         },
-        timeout: 5000,
+        signal: AbortSignal.timeout(timeoutMs),
       }
     )
 
@@ -90,7 +99,14 @@ async function callNominatimAPI(fetchImpl, query, logger = console) {
   }
 }
 
-function createGeocodingService({ pool, fetchImpl, logger = console, throttleIntervalMs = 1000 }) {
+function createGeocodingService({
+  pool,
+  fetchImpl = fetch,
+  logger = console,
+  throttleIntervalMs = 1000,
+  nominatimUrl,
+  nominatimTimeoutMs,
+}) {
   const throttleExternal = createExternalThrottle(throttleIntervalMs)
 
   async function search(query) {
@@ -118,7 +134,9 @@ function createGeocodingService({ pool, fetchImpl, logger = console, throttleInt
     // Log the normalised value, never the raw query: normalizeQuery collapses every whitespace run,
     // line breaks included, to one space, so a caller cannot forge a log line (CodeQL #540-#542).
     logger.log?.(`Cache MISS for: "${normalized}" - calling Nominatim API`)
-    const apiResults = await throttleExternal(() => callNominatimAPI(fetchImpl, normalized, logger))
+    const apiResults = await throttleExternal(() =>
+      callNominatimAPI(fetchImpl, normalized, logger, { url: nominatimUrl, timeoutMs: nominatimTimeoutMs })
+    )
 
     if (apiResults.length > 0) {
       await pool.query(
@@ -189,6 +207,7 @@ function createGeocodingService({ pool, fetchImpl, logger = console, throttleInt
 
 module.exports = {
   DEFAULT_USER_AGENT,
+  NOMINATIM_SEARCH_URL,
   SAFE_ADDRESS_QUERY_PATTERN,
   normalizeQuery,
   validateSearchQuery,
