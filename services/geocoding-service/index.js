@@ -11,7 +11,6 @@
  */
 
 const { Pool } = require('pg')
-const fetch = require('node-fetch')
 const { createApp } = require('./src/geocodingApp')
 
 const PORT = process.env.PORT || 3009
@@ -35,7 +34,7 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000')
   .split(',')
   .map(origin => origin.trim())
 
-const app = createApp({ pool, fetchImpl: fetch, allowedOrigins })
+const app = createApp({ pool, allowedOrigins })
 const server = app.listen(PORT, () => {
   console.log(`Geocoding Cache Service running on port ${PORT}`)
   console.log(`Database: ${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 5432}`)
