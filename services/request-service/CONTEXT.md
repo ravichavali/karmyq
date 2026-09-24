@@ -837,6 +837,23 @@ Create new polymorphic help request (supports 5 types) with visibility scope.
 - payload must conform to type-specific Zod schema (see Section 3.6)
 - Required fields: `community_id`, `requester_id`, `title`, `type`
 
+**Validation under zod 4 (Sprint 131 D6, 2026-09-24).** `@karmyq/shared` moved from zod 3 to zod 4.
+The 400 envelope is unchanged: `message` is still `Invalid request data: <path> — <first issue message>`,
+and `errors` is still `validation.error.format()`, with the same tree shape, issue paths and custom
+messages. What changed:
+- **Default message copy (I4).** A field with no custom message now carries zod 4's text and code.
+  Example, missing `title`: `Required` became `Invalid input: expected string, received undefined`.
+  Also `invalid_enum_value` → `invalid_value`, and `invalid_string` → `invalid_format`.
+- **Newly rejected:**
+  - text that is short in code points, e.g. a 3-emoji `title` against `min(5)` (I1);
+  - datetimes without seconds, e.g. `2026-10-01T10:00Z` (I2);
+  - non-finite numbers, e.g. JSON `1e400` (I3);
+  - integers above `Number.MAX_SAFE_INTEGER` in `.int()` fields, e.g. `roles[].count` (I5).
+- **Newly accepted:** astral-heavy text within a `.max()` bound counted in code points, e.g. 30 emoji in
+  `roles[].role_name` (`max(50)`) (I1′).
+
+Pinned by `packages/shared/src/schemas/requests/__tests__/zod4-request-contract.test.ts`.
+
 **Response:**
 ```json
 {

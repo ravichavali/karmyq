@@ -47,7 +47,7 @@ export type RelationshipState = z.infer<typeof RelationshipStateSchema>;
 
 export const PublicMemberIdentitySchema = z
   .object({
-    user_id: z.string().uuid(),
+    user_id: z.guid(),
     name: z.string(),
   })
   .strict();
@@ -66,7 +66,7 @@ export const SelfCommunityReputationSchema = z
     scope: z
       .object({
         type: z.literal('community'),
-        community_id: z.string().uuid(),
+        community_id: z.guid(),
         community_name: z.string(),
       })
       .strict(),
@@ -108,7 +108,7 @@ export type GovernanceEligibilityReason = z.infer<typeof GovernanceEligibilityRe
 
 export const GovernanceEligibleMemberSchema = z
   .object({
-    user_id: z.string().uuid(),
+    user_id: z.guid(),
     name: z.string(),
     eligible: z.literal(true),
     eligibility_reason: z.literal('established_community_relationships'),
@@ -118,7 +118,7 @@ export type GovernanceEligibleMember = z.infer<typeof GovernanceEligibleMemberSc
 
 export const GovernanceRoleHolderSchema = z
   .object({
-    user_id: z.string().uuid(),
+    user_id: z.guid(),
     name: z.string(),
     role: z.enum(['admin', 'moderator']),
   })
@@ -145,7 +145,7 @@ const DegreesOfSeparationSchema = z.union([
 
 export const SafeBelongingNodeSchema = z
   .object({
-    user_id: z.string().uuid(),
+    user_id: z.guid(),
     name: z.string(),
     is_current_user: z.boolean(),
     degrees_of_separation: DegreesOfSeparationSchema.optional(),
@@ -179,7 +179,7 @@ export type SafePersonGraph = z.infer<typeof SafePersonGraphSchema>;
 // strength stays internal to feed ranking and is never projected here.
 export const SafeTrustPathSchema = z
   .object({
-    target_user_id: z.string().uuid(),
+    target_user_id: z.guid(),
     degrees_of_separation: DegreesOfSeparationSchema.nullable(),
     path: z.array(PublicMemberIdentitySchema),
     connection_type: z.enum(['organic', 'fission']).optional(),

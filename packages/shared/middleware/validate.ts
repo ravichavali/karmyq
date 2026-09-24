@@ -59,7 +59,7 @@ export function validate<T extends ZodSchema>(
  * @example
  * router.put('/users/:id',
  *   validateMultiple({
- *     params: z.object({ id: z.string().uuid() }),
+ *     params: z.object({ id: z.guid() }),
  *     body: z.object({ name: z.string().optional() }),
  *   }),
  *   updateUser
@@ -112,7 +112,7 @@ export function validateMultiple(schemas: {
  * Common field validators
  */
 export const commonValidators = {
-  uuid: z.string().uuid('Invalid UUID format'),
+  uuid: z.guid('Invalid UUID format'),
   email: z.string().email('Invalid email format'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   name: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name too long'),
@@ -138,14 +138,14 @@ export const paginationSchema = z.object({
  * Community ID params schema
  */
 export const communityParamsSchema = z.object({
-  communityId: z.string().uuid('Invalid community ID'),
+  communityId: z.guid('Invalid community ID'),
 });
 
 /**
  * User ID params schema
  */
 export const userParamsSchema = z.object({
-  userId: z.string().uuid('Invalid user ID'),
+  userId: z.guid('Invalid user ID'),
 });
 
 // Re-export Zod for convenience
