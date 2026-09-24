@@ -203,7 +203,7 @@ which is a demo operation requiring per-operation maintainer approval.
 
 **#268 — Expo SDK 57 patch wave: IMPLEMENTED on `agent/claude/sprint-131-expo-drift-268` (2026-09-24), NOT merged.**
 Maintainer, 2026-09-24: "Let's move to #268"; dependency lane → **Claude** for #268 (D6 waits); Native execution approved.
-Check `gh pr list --head agent/claude/sprint-131-expo-drift-268` for the PR. Plan + execution notes:
+**PR [#271](https://github.com/ravichavali/karmyq/pull/271)** opened 2026-09-24 — awaiting CI, the merge-time drift re-check, and maintainer merge authorization. Plan + execution notes:
 [`docs/superpowers/plans/2026-09-24-sprint-131-pr-268-expo-drift.md`](../../docs/superpowers/plans/2026-09-24-sprint-131-pr-268-expo-drift.md).
 - **Moved:** 6 direct (expo ~57.0.25, expo-image-picker/expo-location ~57.0.20, expo-linking ~57.0.11,
   expo-notifications ~57.0.21, expo-router ~57.0.23) + 7 hoisted transitives their manifests require (`@expo/cli` 57.0.27,
