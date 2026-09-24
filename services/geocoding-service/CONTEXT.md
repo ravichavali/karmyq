@@ -9,6 +9,24 @@
 It keeps browser autocomplete local-cache-first, shares PostgreSQL cache hits across users, centralizes
 Nominatim application identification, and throttles outbound public Nominatim calls.
 
+## Sprint 131 D5 - Built-in fetch replaces node-fetch (2026-09-23)
+
+- Outbound Nominatim calls use Node 24's global `fetch`; `node-fetch` is no longer a dependency. Dependabot
+  #225 (node-fetch 3.3.2) was superseded, not merged: 3.x is ESM-only, so `require('node-fetch')` returns an
+  object, not a function, and 3.x has no `timeout` option.
+- The 5 s timeout is `signal: AbortSignal.timeout(NOMINATIM_TIMEOUT_MS)`. It covers a stalled body as well as a
+  hung response. It matters because every call runs in one throttle chain: a call that never settles would
+  block every later cache miss.
+- ⚠️ `callNominatimAPI` swallows errors. A broken `fetchImpl` or a timeout shows up as **200 with empty
+  results** and a `Nominatim API call failed:` log line, never as a 500. Check results, not status.
+- `createGeocodingService` defaults `fetchImpl` to the global `fetch`; `index.js` injects nothing. The optional
+  `nominatimUrl` and `nominatimTimeoutMs` exist for tests; production sets neither, and `createApp` does not
+  forward them, so no HTTP input can reach them.
+- Test: `tests/regression/sprint-131-geocoding-builtin-fetch.test.js` runs the real `fetch` against a 127.0.0.1
+  stub (gzip, non-2xx, hang, stall, throttle recovery, the `createApp` composition, `index.js` boot). Eight
+  mutations each turn it red, including the node-fetch 3 shape and a 50000 ms default injected between
+  `createApp` and the helper.
+
 ## Sprint 130 PR B - Log injection fixed (2026-09-15)
 
 CodeQL #540–#542 (`js/log-injection`) were **real**. `SAFE_ADDRESS_QUERY_PATTERN` allows `\s`, and
@@ -204,6 +222,7 @@ Deletes expired cache entries.
   - Public policy boundary is centralized in this service.
   - Outbound calls use Karmyq `User-Agent`.
   - Outbound calls are throttled to at most one call per second per process.
+  - Outbound calls use Node 24's built-in `fetch` and abort after 5 s (`AbortSignal.timeout`).
 
 ### Infrastructure
 
@@ -239,7 +258,8 @@ Current coverage:
 - Regression tests for `/search` error envelopes, cache hit behavior without external fetch, and recovery
   after transient external geocoder rejection.
 
-External Nominatim calls must be mocked in tests.
+External Nominatim calls must be mocked in tests, except in the Sprint 131 D5 suite, which uses a loopback
+stub and a guard on the global `fetch` that throws on any URL other than the stub's.
 
 ## Common Tasks
 
