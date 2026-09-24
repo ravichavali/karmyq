@@ -2,12 +2,12 @@
 
 **Date**: 2026-09-23
 
-> ⚠️ **Bootstrap: `git switch agent/claude/sprint-131-d5-node-fetch` BEFORE reading further.**
-> `master`'s copy of this file is stale — it still says D4 (#267) is awaiting merge authorization,
-> because the copy that merged with #267 was written before that PR merged. **This** branch, cut from
-> the deployed `fb9d26b6` (v11.66.0), is the current one. Do not push the reconciliation to `master`:
+> ⚠️ **Bootstrap: `git switch agent/claude/sprint-131-d6-zod` BEFORE reading further.**
+> `master`'s copy of this file is stale — it still says D5 (#269) is awaiting merge authorization,
+> because the copy that merged with #269 was written before that PR merged. **This** branch, cut from
+> the deployed `32588ae9` (v11.67.0), is the current one. Do not push the reconciliation to `master`:
 > every master push is a full deploy, and a docs-only push would restart services and 502 the demo. It
-> rides on the D5 PR instead.
+> rides on the D6 PR instead.
 
 > ✅ **BUG-051 SHIPPED v11.65.0** — [#258](https://github.com/ravichavali/karmyq/pull/258) merged as
 > `8fbbeb5f` (2026-09-23T13:44:35Z, admin merge on explicit maintainer authorization).
@@ -41,7 +41,7 @@
 >   [`docs/superpowers/plans/2026-09-23-sprint-131-pr-d4-expo-server-sdk.md`](../../docs/superpowers/plans/2026-09-23-sprint-131-pr-d4-expo-server-sdk.md)
 >   (see its Execution notes).
 >
-> **D5 (node-fetch #225 → built-in fetch) IMPLEMENTED on this branch — PR [#269](https://github.com/ravichavali/karmyq/pull/269), awaiting CI + merge authorization.** See the D5 row.
+> ✅ **D5 SHIPPED v11.67.0** — [#269](https://github.com/ravichavali/karmyq/pull/269) merged as `32588ae9` (2026-09-24T17:59:57Z, squash admin merge on explicit maintainer authorization "merge #269", at head `a083e366`). [CI/CD run 36038174514](https://github.com/ravichavali/karmyq/actions/runs/36038174514): every job success, all 9 services healthy incl. geocoding, `🎉 Demo Deployment Successful`. **Live smoke (2026-09-24, one login):** login 200 (RateLimit-Remaining 9), `/api/requests`, `/api/conversations`, `/api/reputation/karma/:userId` all 200; **`GET /api/geocoding/search?q=Klamath Falls Main Street` → 200, `source: "nominatim"`, 2 results** ("Main Street, Klamath Falls, Klamath County, Oregon…") — the built-in `fetch` path works against live Nominatim (one cache row written, as any user search would). **#225 closed by Dependabot** at 18:02:14Z. **Next: D6 (zod #264) on this branch.**
 
 **Outcome**: PR A **shipped v11.56.0** ([#249](https://github.com/ravichavali/karmyq/pull/249), `d35a3fad`). PR B **shipped v11.57.0** —
 [#250](https://github.com/ravichavali/karmyq/pull/250) merged as `d2edb286` (2026-09-17T13:00:59Z, admin merge on explicit
@@ -133,8 +133,8 @@ session state, not reservations inferred from branch-local text.
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-131-d5-node-fetch`, cut 2026-09-23 from the deployed `fb9d26b6` (v11.66.0), for D5. **Merged, never commit on them:** D4 `agent/claude/sprint-131-d4-expo-server-sdk` (#267), BUG-051 `agent/claude/sprint-131-bug-051-push-auth` (#258), BUG-049 `agent/claude/sprint-131-bug-049-rate-limit-key` (#257), BUG-050 `agent/claude/sprint-131-postgres-readiness` (#256), and the PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches |
-| **Base** | `origin/master` at `fb9d26b6` (D4 / #267 merge), fetched 2026-09-23; v11.66.0 |
+| **Branch** | `agent/claude/sprint-131-d6-zod`, cut 2026-09-24 from the deployed `32588ae9` (v11.67.0), for D6. **Merged, never commit on them:** D5 `agent/claude/sprint-131-d5-node-fetch` (#269), D4 `agent/claude/sprint-131-d4-expo-server-sdk` (#267), BUG-051 `agent/claude/sprint-131-bug-051-push-auth` (#258), BUG-049 `agent/claude/sprint-131-bug-049-rate-limit-key` (#257), BUG-050 `agent/claude/sprint-131-postgres-readiness` (#256), and the PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches |
+| **Base** | `origin/master` at `32588ae9` (D5 / #269 merge), fetched 2026-09-24; v11.67.0 |
 | **Active editor** | Claude executed PR A (2026-09-16); planning was authored by Codex under maintainer transfer |
 | **Reviewer role** | A non-author reviews the completed diff; reviewers do not co-edit |
 | **Owned paths now** | Sprint 131 spec/plan, CURRENT_HANDOFF, preserved Sprint 130 archive |
@@ -157,7 +157,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 | D2 | node-cron 3.0.3 → 4.6.0 (#228) | **Shipped** — #254 merged `b7539896`, v11.61.0, deployed + smoke-checked 2026-09-21; #228 closed (GitHub auto-closed it 1s after the merge). Took Dependabot #228 plus: `@types/node-cron` removed (v4 bundles types), `cron.setLogger(logger)` in cleanup-service so v4's new `missed execution` warning reaches winston, and a real-scheduler **blocking regression** test for reputation's two jobs (`tests/regression/sprint-131-node-cron-v4.test.ts`; moved out of `tdd/` on review, since reputation's `npm test` never runs `tdd/`) |
 | D3 | express-rate-limit → 8.7.0 (#224) | **Shipped** — #255 merged `b7588509`, v11.62.0, deployed + smoke-checked 2026-09-22; #224 closed (auto-closed on merge). shared/geocoding 7.5.1→8.7.0, root/cleanup 8.5.2→8.7.0; two stale `DIVERGENCE_ALLOWLIST` entries removed. First master run **failed Integration Tests on a postgres readiness race** (not D3 code — see below); deployed on `gh run rerun --failed`. Logged **BUG-049**, not fixed |
 | D4 | expo-server-sdk 6.1.0 → 7.2.0 (#230) | **Shipped** — #267 merged `fb9d26b6`, v11.66.0, 2026-09-23. It was deployed with all 9 services healthy, passed smoke 11/11 live, and passed a read-only container SDK-load check (Node v24.21.0, 7.2.0 loads through `require()`). #230 was closed by Dependabot 2 minutes after the merge.<br>What shipped: Dependabot's commit, unchanged; `expoPush.ts` reading the named `Expo` export; and the first real-SDK regression test (`tests/regression/sprint-131-expo-push-real-sdk.test.ts`, a plain-node child with only data crossing to it, loopback only), passing on 6.1.0 and 7.2.0. Eight mutations each make it fail.<br>Gates: full uncached suite, `/simplify`, `/code-review` medium, `/security-review`, and a final whole-branch review whose fixes were applied. BUG-052 was logged. Follow-ups are in `docs/IDEAS.md` [2026-09-23]. Plan and execution notes: `docs/superpowers/plans/2026-09-23-sprint-131-pr-d4-expo-server-sdk.md` |
-| D5–D7 | node-fetch (#225 — **superseded: built-in fetch instead**, plan `docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md`), zod (**#264** — Dependabot closed #247 and reopened the same 4.6.5 bump as #264 on 2026-09-23), next (#246) | **D5 IMPLEMENTED — PR [#269](https://github.com/ravichavali/karmyq/pull/269) open, **CI green** at `85cebd4e` (20 pass, Deploy to Demo skipped); merge needs maintainer authorization.** Geocoding's image **was** built in PR CI: Test Docker Build (run 36022985248, job 107712275687, on `85cebd4e`) ran its standalone `npm install --omit=dev`, logged `geocoding-service Built`, and the container started. Live Nominatim behaviour is still unverified until the post-merge check. ⚠️ **There is no automatic rollback on a failed deploy health check:** `ci.yml:493` only `exit 1`s, and `deploy.sh`'s rollback (`:157-161`) fires only on a migration failure and only checks out the previous commit, rebuilding nothing. **Manual recovery if geocoding is unhealthy or `/search` returns empty results after the D5 deploy:** (a) preferred — a revert PR of #269 through the normal merge/deploy path (needs merge authorization); (b) faster — on the host, check out the previous master commit and rebuild/restart only `geocoding-service` with both compose files; that is a demo operation needing its own per-operation authorization. geocoding is `criticality: optional`, but the frontend falls back to direct Nominatim **only when the backend is unreachable** (CONTEXT.md Tier 4) — a 200 with empty results does NOT trigger that fallback, so users would just see no address suggestions. v11.67.0 on `agent/claude/sprint-131-d5-node-fetch`. geocoding uses Node 24's built-in `fetch` (`AbortSignal.timeout(5000)` replaces node-fetch 2's `timeout`); node-fetch removed from geocoding's manifest with a one-line lock splice (2.7.0 stays for cross-fetch via fbjs; strict `npm@11.19.0 ci` exit 0, lock unchanged). New `services/geocoding-service/tests/regression/sprint-131-geocoding-builtin-fetch.test.js` (7 cases, real fetch vs a 127.0.0.1 stub behind a global-fetch guard) — 8 plan mutations + a URL-typo probe each red. Gates: full uncached suite exit 0, `/simplify` (4 agents), `/code-review` medium 0, `/security-review` 0, fresh whole-branch review (opus) 0 Critical/0 Important (Minor 1 re-graded and fixed; 3 minors deferred). Deferrals in `docs/IDEAS.md` [2026-09-23] D5 `/simplify` entry. **#225 is superseded — do not merge it**; after D5 merges check `gh pr view 225` and ask the maintainer before closing it if still open. Next after D5: D6 (zod #264), D7 (next #246). |
+| D5–D7 | node-fetch (#225 — **superseded: built-in fetch instead**, plan `docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md`), zod (**#264** — Dependabot closed #247 and reopened the same 4.6.5 bump as #264 on 2026-09-23), next (#246) | **D5 SHIPPED v11.67.0** — #269 merged `32588ae9` 2026-09-24, deployed (all 9 healthy), live smoke incl. a non-empty `source: "nominatim"` geocoding search; #225 closed by Dependabot. Built-in `fetch` + `AbortSignal.timeout(5000)` replaced node-fetch; plan + execution notes `docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md`; deferrals in `docs/IDEAS.md` [2026-09-23] D5 `/simplify`. **D6 NEXT (zod #264) on `agent/claude/sprint-131-d6-zod`**: write its focused plan first; re-check #264 against master; re-confirm the dependency lane per CLAUDE.md. |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
 Do not hold the other nine PRs while waiting for C. If C resumes after the upgrades, repeat its
@@ -177,10 +177,10 @@ inventory against the then-current base. BUG-033 remains open until actually del
 
 1. Confirm current branch, clean handoff and live state with `git status --short`, `gh pr list`
    and `git log --oneline origin/master -3`.
-2. BUG-049 (#257, `96ffa619`, v11.64.0), BUG-051 (#258, `8fbbeb5f`, v11.65.0) and D4 (#267, `fb9d26b6`, v11.66.0) are **merged and deployed**; their branches are finished — do not commit on them. **D5 is on `agent/claude/sprint-131-d5-node-fetch`, cut from the deployed `fb9d26b6`.**
+2. BUG-049 (#257, `96ffa619`, v11.64.0), BUG-051 (#258, `8fbbeb5f`, v11.65.0), D4 (#267, `fb9d26b6`, v11.66.0) and D5 (#269, `32588ae9`, v11.67.0) are **merged and deployed**; their branches are finished — do not commit on them. **D6 is on `agent/claude/sprint-131-d6-zod`, cut from the deployed `32588ae9`.**
    The PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches are merged; never commit on them.
 3. Read the linked spec and sprint plan. **PR A, B, B2, B3, D1, D2, D3 and D4 are shipped — do not reopen or re-execute their plans.**
-4. Order decided 2026-09-22: **(1) BUG-049 — SHIPPED v11.64.0; (2) BUG-051 — SHIPPED v11.65.0; (3) D4 (expo-server-sdk #230) — SHIPPED v11.66.0 (#267).** Next: D5 (node-fetch #225) on this branch, then D6 (zod #264) and D7 (next #246), one major per PR.
+4. Order decided 2026-09-22: **(1) BUG-049 — SHIPPED v11.64.0; (2) BUG-051 — SHIPPED v11.65.0; (3) D4 (expo-server-sdk #230) — SHIPPED v11.66.0 (#267).** (4) D5 (node-fetch #225 → built-in fetch) — SHIPPED v11.67.0 (#269). Next: D6 (zod #264) and D7 (next #246), one major per PR.
 5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
    One merge/deploy/health verification at a time.
 
@@ -201,14 +201,18 @@ which is a demo operation requiring per-operation maintainer approval.
 
 ✅ **The postgres readiness race that failed that first attempt is BUG-050 — SHIPPED v11.63.0** ([#256](https://github.com/ravichavali/karmyq/pull/256), `e5f7d8e1`; [CI/CD run 35686522868](https://github.com/ravichavali/karmyq/actions/runs/35686522868) every job success, `✅ All services healthy`, no rollback; smoke login/requests/conversations/reputation all 200). A review round on #256 added `start_period: 60s` to the base compose stack too. Mechanism and proof: `docs/BUGS.md` BUG-050.
 
-**Next unchecked action: D5 PR [#269](https://github.com/ravichavali/karmyq/pull/269) — CI green at `85cebd4e`; ask the maintainer for merge authorization.**
-After the merge: one deploy at a time (check `gh run list --branch master -L 3`), watch Deploy to Demo, then the plan's
-*Post-merge verification*: smoke with **one** login (rate limiting is live: 10 auth requests / 15 min / IP), and
-`GET https://karmyq.com/api/geocoding/search?q=<uncached query>` must return **non-empty** `data.results` with
-`source: "nominatim"` — 200 with empty results is the failure signature (`callNominatimAPI` swallows errors).
-Then `gh pr view 225`; if still open, ask before closing it as superseded. Record results on the D6 branch cut
-from the deployed master. Plan + execution notes:
-[`docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md`](../../docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md).
+**Next unchecked action: D6 — zod 3.25.76 → 4.6.5 (#264), on `agent/claude/sprint-131-d6-zod`.** Write its focused
+plan first (one chat per PR), re-confirm the dependency lane, and re-check #264's file list against master
+(Dependabot rebases). Verify zod 4 behaviour against the installed `node_modules`, not the changelog. Then D7 (next #246).
+
+**Open items surfaced 2026-09-24 (not scheduled — maintainer decision needed):**
+- **#268 — Expo SDK drift, new patch wave** (daily run 36000796551 failed 12:42Z): expo 57.0.24→~57.0.25,
+  expo-image-picker/expo-location 57.0.19→~57.0.20, expo-linking 57.0.10→~57.0.11, expo-notifications
+  57.0.20→~57.0.21, expo-router 57.0.22→~57.0.23; jest/@types/jest divergences cleared as registered. Same shape
+  as B3 (#248); it touches `package.json`/lockfile, so it needs the dependency lane.
+- **CLAUDE.md:309 over-claims deploy rollback** ("verifies health, rolls back on failure"). Verified 2026-09-24:
+  `.github/workflows/ci.yml:493` only `exit 1`s on an unhealthy service; `scripts/deploy.sh:157-161` rolls back
+  (a `git checkout`, no rebuild) only on a migration failure. Fix CLAUDE.md + AGENTS.md together when approved.
 
 **BUG-051 SHIPPED v11.65.0** — merged, deployed and smoke-verified 11/11 live on 2026-09-23 (banner
 above; full table in `docs/BUGS.md` BUG-051). Its post-deploy checks are **done**, including the two
