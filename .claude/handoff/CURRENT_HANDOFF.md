@@ -219,7 +219,7 @@ Maintainer, 2026-09-24: "Let's move to #268"; dependency lane → **Claude** for
   react-native-worklets) and invalid top-level `color-string`, `ms`, `picomatch`. Judge splices by "no new errors".
 - **Done:** merged, deployed (all 9 healthy), smoke 200s. Only #268's auto-close on the next drift run remains.
 
-**Next unchecked action: D6 — zod 3.25.76 → 4.6.5 (#264)** on `agent/claude/sprint-131-d6-zod` (cut from the deployed `8fafed02`). Write its focused plan first; re-check #264; **re-confirm the dependency lane with the maintainer** (it was granted for #268 only). Then D7 (next #246).
+**Next unchecked action: D6 — zod 3.25.76 → 4.6.5 (#264)** on `agent/claude/sprint-131-d6-zod` (cut from the deployed `8fafed02`). Write its focused plan first; re-check #264; **Dependency lane → Claude for D6** (maintainer confirmed "yes", 2026-09-24). Fresh chat per PR: the next chat plans D6 first. Then D7 (next #246).
 
 **Open items surfaced 2026-09-24 (not scheduled — maintainer decision needed):**
 - **#268 — IMPLEMENTED, see the status block above.**
