@@ -1,6 +1,6 @@
 # Sprint 131 — Maintenance Backlog — Handoff
 
-**Date**: 2026-09-23
+**Date**: 2026-09-24
 
 > ⚠️ **Bootstrap: `git switch agent/claude/sprint-131-expo-drift-268` BEFORE reading further.**
 > `master`'s copy of this file is stale — it still says D5 (#269) is awaiting merge authorization,
@@ -133,7 +133,7 @@ session state, not reservations inferred from branch-local text.
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-131-expo-drift-268`, cut 2026-09-24 from the deployed `32588ae9` (v11.67.0), for #268 (Expo drift). ⚠️ `agent/claude/sprint-131-d6-zod` (pushed, one handoff commit `3b150f7b`, carried here as `b35afc04`) is **stale** — re-cut D6 from master after #268 ships; do not build on it. **Merged, never commit on them:** D5 `agent/claude/sprint-131-d5-node-fetch` (#269), D4 `agent/claude/sprint-131-d4-expo-server-sdk` (#267), BUG-051 `agent/claude/sprint-131-bug-051-push-auth` (#258), BUG-049 `agent/claude/sprint-131-bug-049-rate-limit-key` (#257), BUG-050 `agent/claude/sprint-131-postgres-readiness` (#256), and the PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches |
+| **Branch** | `agent/claude/sprint-131-expo-drift-268`, cut 2026-09-24 from the deployed `32588ae9` (v11.67.0), for #268 (Expo drift). `agent/claude/sprint-131-d6-zod` was stale and is **deleted** (remote + local, 2026-09-24, maintainer-approved; its one commit was tree-identical to `b35afc04`) — cut D6 fresh from master after #268 ships. **Merged, never commit on them:** D5 `agent/claude/sprint-131-d5-node-fetch` (#269), D4 `agent/claude/sprint-131-d4-expo-server-sdk` (#267), BUG-051 `agent/claude/sprint-131-bug-051-push-auth` (#258), BUG-049 `agent/claude/sprint-131-bug-049-rate-limit-key` (#257), BUG-050 `agent/claude/sprint-131-postgres-readiness` (#256), and the PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches |
 | **Base** | `origin/master` at `32588ae9` (D5 / #269 merge), fetched 2026-09-24; v11.67.0 |
 | **Active editor** | Claude executed PR A (2026-09-16); planning was authored by Codex under maintainer transfer |
 | **Reviewer role** | A non-author reviews the completed diff; reviewers do not co-edit |
@@ -203,7 +203,7 @@ which is a demo operation requiring per-operation maintainer approval.
 
 **Next unchecked action: #268 — Expo SDK 57 patch wave, on `agent/claude/sprint-131-expo-drift-268`, in a FRESH chat.**
 Maintainer, 2026-09-24: "Let's move to #268"; dependency lane → **Claude** for #268 (D6 waits); fresh chat per PR.
-**Plan written 2026-09-24, awaiting maintainer review + execution-method choice:**
+**#268 IMPLEMENTED 2026-09-24 (Native execution, maintainer-approved), commit `65ed0aec` + v11.68.0 bump — NOT yet pushed/PR'd at time of writing; check `gh pr list --head agent/claude/sprint-131-expo-drift-268`.** Verified: 14 lock nodes changed (13 + apps/mobile), 0 added/removed, integrity = registry, strict `npm@11.19.0 ci` exit 0 with lock byte-identical, `scripts/expo-divergences.js` exit 0 (only jest/@types/jest), Expo gates 57/57, mobile tsc+tests green, audit 3 moderate / 0 high (same set as HEAD, BUG-041). ⚠️ `npm ls --all` exits 1 on HEAD too (5 pre-existing errors: color-string/ms nested under expo-router, picomatch vs fdir, missing `@react-native/metro-config` via worklets) — judge by "no new errors". **Remaining:** gates (/simplify, /code-review medium, /security-review), push, PR, **merge-time drift re-check** (plan Task 3 Step 4), maintainer merge authorization. Plan:
 [`docs/superpowers/plans/2026-09-24-sprint-131-pr-268-expo-drift.md`](../../docs/superpowers/plans/2026-09-24-sprint-131-pr-268-expo-drift.md).
 Drift re-checked at plan time — unchanged. Registry closure: **13 lock nodes move** (6 direct + `@expo/cli`,
 `babel-preset-expo`, `expo-modules-core`, `expo-modules-jsi`, `@expo/ui`, `expo-glass-effect`, `@expo/router-server`),
