@@ -24,7 +24,7 @@ export function classifyBondDepth(interactionCount: number): BondDepth {
 
 export const ContextIdentitySchema = z
   .object({
-    id: z.string().uuid(),
+    id: z.guid(),
     name: z.string().min(1),
   })
   .strict();
@@ -32,7 +32,7 @@ export type ContextIdentity = z.infer<typeof ContextIdentitySchema>;
 
 export const ContextCommunitySchema = z
   .object({
-    id: z.string().uuid(),
+    id: z.guid(),
     name: z.string().min(1),
   })
   .strict();
@@ -40,7 +40,7 @@ export type ContextCommunity = z.infer<typeof ContextCommunitySchema>;
 
 export const ContextNodeSchema = z
   .object({
-    id: z.string().uuid(),
+    id: z.guid(),
     name: z.string().min(1),
     communities: z.array(ContextCommunitySchema),
   })
@@ -69,8 +69,8 @@ export type ContextCounterpart = z.infer<typeof ContextCounterpartSchema>;
 
 export const ContextLinkSchema = z
   .object({
-    source: z.string().uuid(),
-    target: z.string().uuid(),
+    source: z.guid(),
+    target: z.guid(),
     relationship_state: RelationshipStateSchema,
     bond_depth: BondDepthSchema,
   })
@@ -83,7 +83,7 @@ export const RelationshipContextSchema = z
     counterpart: ContextCounterpartSchema,
     request: z
       .object({
-        id: z.string().uuid(),
+        id: z.guid(),
         visibilityScope: z.enum(['community', 'trust_network', 'platform']),
         reachability: z.enum([
           'same_community',
