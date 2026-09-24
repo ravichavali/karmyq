@@ -2,12 +2,14 @@
 
 **Date**: 2026-09-24
 
-> ⚠️ **Bootstrap: `git switch agent/claude/sprint-131-expo-drift-268` BEFORE reading further.**
-> `master`'s copy of this file is stale — it still says D5 (#269) is awaiting merge authorization,
-> because the copy that merged with #269 was written before that PR merged. **This** branch, cut from
-> the deployed `32588ae9` (v11.67.0), is the current one. Do not push the reconciliation to `master`:
+> ⚠️ **Bootstrap: `git switch agent/claude/sprint-131-d6-zod` BEFORE reading further.**
+> `master`'s copy of this file is stale — it still says #271 (#268) is awaiting merge authorization,
+> because the copy that merged with #271 was written before that PR merged. **This** branch, cut from
+> the deployed `8fafed02` (v11.68.0), is the current one. Do not push the reconciliation to `master`:
 > every master push is a full deploy, and a docs-only push would restart services and 502 the demo. It
-> rides on the #268 PR instead.
+> rides on the D6 PR instead.
+
+> ✅ **#268 SHIPPED v11.68.0** — [#271](https://github.com/ravichavali/karmyq/pull/271) merged as `8fafed02` (2026-09-24T20:26:53Z, squash admin merge on explicit maintainer authorization "yes", at head `6d05332d` with CI 20 pass / 1 skipping). [CI/CD run 36054927703](https://github.com/ravichavali/karmyq/actions/runs/36054927703): every job success, all 9 services healthy, `DEPLOYMENT SUCCESSFUL`, `🎉 Demo Deployment Successful`, no rollback. **Smoke (2026-09-24, one login):** login 200, `/api/requests`, `/api/conversations`, `/api/reputation/karma/:userId` all 200. The change is `apps/mobile`-only, so the demo deploy does not exercise it; the live proof is `scripts/expo-divergences.js` exit 0 at merge time. **#268 is still OPEN** — it closes on the next scheduled `expo-sdk-drift.yml` run (or a `workflow_dispatch`, if the maintainer approves one). **Next: D6 (zod #264) on this branch — plan first, re-confirm the dependency lane.**
 
 > ✅ **BUG-051 SHIPPED v11.65.0** — [#258](https://github.com/ravichavali/karmyq/pull/258) merged as
 > `8fbbeb5f` (2026-09-23T13:44:35Z, admin merge on explicit maintainer authorization).
@@ -133,7 +135,7 @@ session state, not reservations inferred from branch-local text.
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-131-expo-drift-268`, cut 2026-09-24 from the deployed `32588ae9` (v11.67.0), for #268 (Expo drift). `agent/claude/sprint-131-d6-zod` was stale and is **deleted** (remote + local, 2026-09-24, maintainer-approved; its one commit was tree-identical to `b35afc04`) — cut D6 fresh from master after #268 ships. **Merged, never commit on them:** D5 `agent/claude/sprint-131-d5-node-fetch` (#269), D4 `agent/claude/sprint-131-d4-expo-server-sdk` (#267), BUG-051 `agent/claude/sprint-131-bug-051-push-auth` (#258), BUG-049 `agent/claude/sprint-131-bug-049-rate-limit-key` (#257), BUG-050 `agent/claude/sprint-131-postgres-readiness` (#256), and the PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches |
+| **Branch** | `agent/claude/sprint-131-d6-zod`, cut 2026-09-24 **fresh** from the deployed `8fafed02` (v11.68.0), for D6 (zod #264). (The earlier stale branch of the same name was deleted, remote + local, maintainer-approved.) **Merged, never commit on it:** #268 `agent/claude/sprint-131-expo-drift-268` (#271). **Merged, never commit on them:** D5 `agent/claude/sprint-131-d5-node-fetch` (#269), D4 `agent/claude/sprint-131-d4-expo-server-sdk` (#267), BUG-051 `agent/claude/sprint-131-bug-051-push-auth` (#258), BUG-049 `agent/claude/sprint-131-bug-049-rate-limit-key` (#257), BUG-050 `agent/claude/sprint-131-postgres-readiness` (#256), and the PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches |
 | **Base** | `origin/master` at `32588ae9` (D5 / #269 merge), fetched 2026-09-24; v11.67.0 |
 | **Active editor** | Claude executed PR A (2026-09-16); planning was authored by Codex under maintainer transfer |
 | **Reviewer role** | A non-author reviews the completed diff; reviewers do not co-edit |
@@ -157,7 +159,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 | D2 | node-cron 3.0.3 → 4.6.0 (#228) | **Shipped** — #254 merged `b7539896`, v11.61.0, deployed + smoke-checked 2026-09-21; #228 closed (GitHub auto-closed it 1s after the merge). Took Dependabot #228 plus: `@types/node-cron` removed (v4 bundles types), `cron.setLogger(logger)` in cleanup-service so v4's new `missed execution` warning reaches winston, and a real-scheduler **blocking regression** test for reputation's two jobs (`tests/regression/sprint-131-node-cron-v4.test.ts`; moved out of `tdd/` on review, since reputation's `npm test` never runs `tdd/`) |
 | D3 | express-rate-limit → 8.7.0 (#224) | **Shipped** — #255 merged `b7588509`, v11.62.0, deployed + smoke-checked 2026-09-22; #224 closed (auto-closed on merge). shared/geocoding 7.5.1→8.7.0, root/cleanup 8.5.2→8.7.0; two stale `DIVERGENCE_ALLOWLIST` entries removed. First master run **failed Integration Tests on a postgres readiness race** (not D3 code — see below); deployed on `gh run rerun --failed`. Logged **BUG-049**, not fixed |
 | D4 | expo-server-sdk 6.1.0 → 7.2.0 (#230) | **Shipped** — #267 merged `fb9d26b6`, v11.66.0, 2026-09-23. It was deployed with all 9 services healthy, passed smoke 11/11 live, and passed a read-only container SDK-load check (Node v24.21.0, 7.2.0 loads through `require()`). #230 was closed by Dependabot 2 minutes after the merge.<br>What shipped: Dependabot's commit, unchanged; `expoPush.ts` reading the named `Expo` export; and the first real-SDK regression test (`tests/regression/sprint-131-expo-push-real-sdk.test.ts`, a plain-node child with only data crossing to it, loopback only), passing on 6.1.0 and 7.2.0. Eight mutations each make it fail.<br>Gates: full uncached suite, `/simplify`, `/code-review` medium, `/security-review`, and a final whole-branch review whose fixes were applied. BUG-052 was logged. Follow-ups are in `docs/IDEAS.md` [2026-09-23]. Plan and execution notes: `docs/superpowers/plans/2026-09-23-sprint-131-pr-d4-expo-server-sdk.md` |
-| D5–D7 | node-fetch (#225 — **superseded: built-in fetch instead**, plan `docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md`), zod (**#264** — Dependabot closed #247 and reopened the same 4.6.5 bump as #264 on 2026-09-23), next (#246) | **D5 SHIPPED v11.67.0** — #269 merged `32588ae9` 2026-09-24, deployed (all 9 healthy), live smoke incl. a non-empty `source: "nominatim"` geocoding search; #225 closed by Dependabot. Built-in `fetch` + `AbortSignal.timeout(5000)` replaced node-fetch; plan + execution notes `docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md`; deferrals in `docs/IDEAS.md` [2026-09-23] D5 `/simplify`. **D6 (zod #264) waits for #268** (maintainer order, 2026-09-24): re-cut its branch from master after #268 deploys, write its focused plan, re-check #264, re-confirm the lane. |
+| D5–D7 | node-fetch (#225 — **superseded: built-in fetch instead**, plan `docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md`), zod (**#264** — Dependabot closed #247 and reopened the same 4.6.5 bump as #264 on 2026-09-23), next (#246) | **D5 SHIPPED v11.67.0** — #269 merged `32588ae9` 2026-09-24, deployed (all 9 healthy), live smoke incl. a non-empty `source: "nominatim"` geocoding search; #225 closed by Dependabot. Built-in `fetch` + `AbortSignal.timeout(5000)` replaced node-fetch; plan + execution notes `docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md`; deferrals in `docs/IDEAS.md` [2026-09-23] D5 `/simplify`. **D6 (zod #264) is NEXT** — #268 shipped v11.68.0 (#271); branch `agent/claude/sprint-131-d6-zod` cut from the deployed `8fafed02`. Write its focused plan, re-check #264, re-confirm the lane. |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
 Do not hold the other nine PRs while waiting for C. If C resumes after the upgrades, repeat its
@@ -201,9 +203,9 @@ which is a demo operation requiring per-operation maintainer approval.
 
 ✅ **The postgres readiness race that failed that first attempt is BUG-050 — SHIPPED v11.63.0** ([#256](https://github.com/ravichavali/karmyq/pull/256), `e5f7d8e1`; [CI/CD run 35686522868](https://github.com/ravichavali/karmyq/actions/runs/35686522868) every job success, `✅ All services healthy`, no rollback; smoke login/requests/conversations/reputation all 200). A review round on #256 added `start_period: 60s` to the base compose stack too. Mechanism and proof: `docs/BUGS.md` BUG-050.
 
-**#268 — Expo SDK 57 patch wave: IMPLEMENTED on `agent/claude/sprint-131-expo-drift-268` (2026-09-24), NOT merged.**
+**#268 — Expo SDK 57 patch wave: SHIPPED v11.68.0 (#271, `8fafed02`, deployed 2026-09-24; see the banner). Record kept below.**
 Maintainer, 2026-09-24: "Let's move to #268"; dependency lane → **Claude** for #268 (D6 waits); Native execution approved.
-**PR [#271](https://github.com/ravichavali/karmyq/pull/271)** opened 2026-09-24. **CI green on head `8c0340c7`** (20 pass, 1 skipping); merge-time drift re-check **clean** 2026-09-24 (`expo-divergences.js` exit 0); an external review verified the lock independently. **Awaiting maintainer merge authorization** (admin squash; the review requirement blocks otherwise). Plan + execution notes:
+**PR [#271](https://github.com/ravichavali/karmyq/pull/271)** opened 2026-09-24. **CI green on head `8c0340c7`** (20 pass, 1 skipping); merge-time drift re-check **clean** 2026-09-24 (`expo-divergences.js` exit 0); an external review verified the lock independently. **Merged 2026-09-24T20:26:53Z** at head `6d05332d` (CI re-ran green after the review-fix push). Plan + execution notes:
 [`docs/superpowers/plans/2026-09-24-sprint-131-pr-268-expo-drift.md`](../../docs/superpowers/plans/2026-09-24-sprint-131-pr-268-expo-drift.md).
 - **Moved:** 6 direct (expo ~57.0.25, expo-image-picker/expo-location ~57.0.20, expo-linking ~57.0.11,
   expo-notifications ~57.0.21, expo-router ~57.0.23) + 7 hoisted transitives their manifests require (`@expo/cli` 57.0.27,
@@ -215,10 +217,9 @@ Maintainer, 2026-09-24: "Let's move to #268"; dependency lane → **Claude** for
   Gates: /simplify (plan fixes only), /security-review (no findings), fresh whole-branch review (0 Critical/Important).
 - ⚠️ `npm ls --all` exits 1 on HEAD too — **4 pre-existing errors**: missing `@react-native/metro-config` (via
   react-native-worklets) and invalid top-level `color-string`, `ms`, `picomatch`. Judge splices by "no new errors".
-- **Remaining:** maintainer merge authorization. If the merge slips by a day or more, re-run the **merge-time drift re-check** (plan Task 3 Step 4 — Expo's map moves; ~3-day window; re-splice
-  with the plan's scripts if red). After merge: deploy + health + smoke, then #268 closes on the next drift run.
+- **Done:** merged, deployed (all 9 healthy), smoke 200s. Only #268's auto-close on the next drift run remains.
 
-**After #268: D6 — zod 3.25.76 → 4.6.5 (#264)**, re-cut from master. Then D7 (next #246).
+**Next unchecked action: D6 — zod 3.25.76 → 4.6.5 (#264)** on `agent/claude/sprint-131-d6-zod` (cut from the deployed `8fafed02`). Write its focused plan first; re-check #264; **re-confirm the dependency lane with the maintainer** (it was granted for #268 only). Then D7 (next #246).
 
 **Open items surfaced 2026-09-24 (not scheduled — maintainer decision needed):**
 - **#268 — IMPLEMENTED, see the status block above.**
