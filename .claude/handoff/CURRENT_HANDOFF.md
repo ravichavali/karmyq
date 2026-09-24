@@ -201,29 +201,27 @@ which is a demo operation requiring per-operation maintainer approval.
 
 ✅ **The postgres readiness race that failed that first attempt is BUG-050 — SHIPPED v11.63.0** ([#256](https://github.com/ravichavali/karmyq/pull/256), `e5f7d8e1`; [CI/CD run 35686522868](https://github.com/ravichavali/karmyq/actions/runs/35686522868) every job success, `✅ All services healthy`, no rollback; smoke login/requests/conversations/reputation all 200). A review round on #256 added `start_period: 60s` to the base compose stack too. Mechanism and proof: `docs/BUGS.md` BUG-050.
 
-**Next unchecked action: #268 — Expo SDK 57 patch wave, on `agent/claude/sprint-131-expo-drift-268`, in a FRESH chat.**
-Maintainer, 2026-09-24: "Let's move to #268"; dependency lane → **Claude** for #268 (D6 waits); fresh chat per PR.
-**#268 IMPLEMENTED 2026-09-24 (Native execution, maintainer-approved), commit `65ed0aec` + v11.68.0 bump — NOT yet pushed/PR'd at time of writing; check `gh pr list --head agent/claude/sprint-131-expo-drift-268`.** Verified: 14 lock nodes changed (13 + apps/mobile), 0 added/removed, integrity = registry, strict `npm@11.19.0 ci` exit 0 with lock byte-identical, `scripts/expo-divergences.js` exit 0 (only jest/@types/jest), Expo gates 57/57, mobile tsc+tests green, audit 3 moderate / 0 high (same set as HEAD, BUG-041). ⚠️ `npm ls --all` exits 1 on HEAD too (4 pre-existing errors: color-string/ms nested under expo-router, picomatch vs fdir, missing `@react-native/metro-config` via worklets) — judge by "no new errors". **Remaining:** gates (/simplify, /code-review medium, /security-review), push, PR, **merge-time drift re-check** (plan Task 3 Step 4), maintainer merge authorization. Plan:
+**#268 — Expo SDK 57 patch wave: IMPLEMENTED on `agent/claude/sprint-131-expo-drift-268` (2026-09-24), NOT merged.**
+Maintainer, 2026-09-24: "Let's move to #268"; dependency lane → **Claude** for #268 (D6 waits); Native execution approved.
+Check `gh pr list --head agent/claude/sprint-131-expo-drift-268` for the PR. Plan + execution notes:
 [`docs/superpowers/plans/2026-09-24-sprint-131-pr-268-expo-drift.md`](../../docs/superpowers/plans/2026-09-24-sprint-131-pr-268-expo-drift.md).
-Drift re-checked at plan time — unchanged. Registry closure: **13 lock nodes move** (6 direct + `@expo/cli`,
-`babel-preset-expo`, `expo-modules-core`, `expo-modules-jsi`, `@expo/ui`, `expo-glass-effect`, `@expo/router-server`),
-0 added/removed, lock 1844 nodes. **`SDK_PINNED` needs no edit** despite the issue's template (it shadows only non-expo pins). Re-checked live 2026-09-24 (`npx expo install --check` in `apps/mobile`, after the D5
-deploy) — **exactly #268's list**: expo 57.0.24→~57.0.25, expo-image-picker 57.0.19→~57.0.20, expo-linking
-57.0.10→~57.0.11, expo-location 57.0.19→~57.0.20, expo-notifications 57.0.20→~57.0.21, expo-router 57.0.22→~57.0.23;
-jest/@types/jest are the registered divergences. **Re-run the check when you start** — Expo's map moves (B3 saw a
-second wave mid-PR; ~3-day window). The issue's own fix recipe: update `apps/mobile/package.json` + the matching
-`SDK_PINNED` entries with a reason; never widen `security/expo-divergences.json` to hide drift; splice the lockfile
-surgically and assert resolved versions; re-run `node scripts/expo-divergences.js`, mobile tests and `tsc --noEmit`.
-B3 (#252, `238c9009`) is the precedent — read its row and *Expo's map is a moving target* below. Nested lock nodes
-for these packages may need moving too; prove with strict `npx -y npm@11.19.0 ci` and `npm ls --all`.
+- **Moved:** 6 direct (expo ~57.0.25, expo-image-picker/expo-location ~57.0.20, expo-linking ~57.0.11,
+  expo-notifications ~57.0.21, expo-router ~57.0.23) + 7 hoisted transitives their manifests require (`@expo/cli` 57.0.27,
+  `babel-preset-expo` 57.0.13, `expo-modules-core` 57.0.19, `expo-modules-jsi` 57.1.1, `@expo/ui` 57.0.20,
+  `expo-glass-effect` 57.0.4, `@expo/router-server` 57.0.11). **`SDK_PINNED` needs no edit** despite the issue's template.
+- **Verified:** 15 lock nodes changed (13 packages + `apps/mobile` + root `""` version), 0 added/removed, 1844 nodes;
+  every field = registry; strict `npm@11.19.0 ci` exit 0, lock byte-identical; `scripts/expo-divergences.js` exit 0 (only
+  jest/@types/jest); Expo gates 57/57; mobile tsc + tests; `npm test` 27/27; audit 3 moderate / 0 high (same set, BUG-041).
+  Gates: /simplify (plan fixes only), /security-review (no findings), fresh whole-branch review (0 Critical/Important).
+- ⚠️ `npm ls --all` exits 1 on HEAD too — **4 pre-existing errors**: missing `@react-native/metro-config` (via
+  react-native-worklets) and invalid top-level `color-string`, `ms`, `picomatch`. Judge splices by "no new errors".
+- **Remaining:** push, PR, CI, **merge-time drift re-check** (plan Task 3 Step 4 — Expo's map moves; ~3-day window; re-splice
+  with the plan's scripts if red), maintainer merge authorization, deploy + smoke, then #268 closes on the next drift run.
 
 **After #268: D6 — zod 3.25.76 → 4.6.5 (#264)**, re-cut from master. Then D7 (next #246).
 
 **Open items surfaced 2026-09-24 (not scheduled — maintainer decision needed):**
-- **#268 — SCHEDULED NEXT (see above).** Expo SDK drift, new patch wave (daily run 36000796551 failed 12:42Z): expo 57.0.24→~57.0.25,
-  expo-image-picker/expo-location 57.0.19→~57.0.20, expo-linking 57.0.10→~57.0.11, expo-notifications
-  57.0.20→~57.0.21, expo-router 57.0.22→~57.0.23; jest/@types/jest divergences cleared as registered. Same shape
-  as B3 (#248); it touches `package.json`/lockfile, so it needs the dependency lane.
+- **#268 — IMPLEMENTED, see the status block above.**
 - **CLAUDE.md:309 over-claims deploy rollback** ("verifies health, rolls back on failure"). Verified 2026-09-24:
   `.github/workflows/ci.yml:493` only `exit 1`s on an unhealthy service; `scripts/deploy.sh:157-161` rolls back
   (a `git checkout`, no rebuild) only on a migration failure. Fix CLAUDE.md + AGENTS.md together when approved.
