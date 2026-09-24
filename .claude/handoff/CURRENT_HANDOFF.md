@@ -157,7 +157,7 @@ plus one conditional promoter PR**, not ten preallocated version slots.
 | D2 | node-cron 3.0.3 → 4.6.0 (#228) | **Shipped** — #254 merged `b7539896`, v11.61.0, deployed + smoke-checked 2026-09-21; #228 closed (GitHub auto-closed it 1s after the merge). Took Dependabot #228 plus: `@types/node-cron` removed (v4 bundles types), `cron.setLogger(logger)` in cleanup-service so v4's new `missed execution` warning reaches winston, and a real-scheduler **blocking regression** test for reputation's two jobs (`tests/regression/sprint-131-node-cron-v4.test.ts`; moved out of `tdd/` on review, since reputation's `npm test` never runs `tdd/`) |
 | D3 | express-rate-limit → 8.7.0 (#224) | **Shipped** — #255 merged `b7588509`, v11.62.0, deployed + smoke-checked 2026-09-22; #224 closed (auto-closed on merge). shared/geocoding 7.5.1→8.7.0, root/cleanup 8.5.2→8.7.0; two stale `DIVERGENCE_ALLOWLIST` entries removed. First master run **failed Integration Tests on a postgres readiness race** (not D3 code — see below); deployed on `gh run rerun --failed`. Logged **BUG-049**, not fixed |
 | D4 | expo-server-sdk 6.1.0 → 7.2.0 (#230) | **Shipped** — #267 merged `fb9d26b6`, v11.66.0, 2026-09-23. It was deployed with all 9 services healthy, passed smoke 11/11 live, and passed a read-only container SDK-load check (Node v24.21.0, 7.2.0 loads through `require()`). #230 was closed by Dependabot 2 minutes after the merge.<br>What shipped: Dependabot's commit, unchanged; `expoPush.ts` reading the named `Expo` export; and the first real-SDK regression test (`tests/regression/sprint-131-expo-push-real-sdk.test.ts`, a plain-node child with only data crossing to it, loopback only), passing on 6.1.0 and 7.2.0. Eight mutations each make it fail.<br>Gates: full uncached suite, `/simplify`, `/code-review` medium, `/security-review`, and a final whole-branch review whose fixes were applied. BUG-052 was logged. Follow-ups are in `docs/IDEAS.md` [2026-09-23]. Plan and execution notes: `docs/superpowers/plans/2026-09-23-sprint-131-pr-d4-expo-server-sdk.md` |
-| D5–D7 | node-fetch (#225), zod (**#264** — Dependabot closed #247 and reopened the same 4.6.5 bump as #264 on 2026-09-23), next (#246) | **D5 NEXT, on `agent/claude/sprint-131-d5-node-fetch`**: write its focused plan first, in a fresh chat. One major per PR. ⚠️ **D5 is not a routine bump** (found by D4's `/simplify` altitude review; verified 2026-09-23 against `index.js` and `npm view`). node-fetch 3.3.2 is `"type": "module"` with no `exports`. `services/geocoding-service/index.js:14` does `const fetch = require('node-fetch')` and passes it on as `fetchImpl` (`:38`). Under Node 24's `require()` of an ES module, that value is the module namespace, not a function, so geocoding's first outbound request would throw. Every geocoding test injects `fetchImpl: jest.fn()`, so the suite would stay green — the same blind spot D4 found. Plan D5 either as a real-module check (reuse D4's harness pieces) or as a switch to Node 24's built-in `fetch` instead of the bump. |
+| D5–D7 | node-fetch (#225 — **superseded: built-in fetch instead**, plan `docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md`), zod (**#264** — Dependabot closed #247 and reopened the same 4.6.5 bump as #264 on 2026-09-23), next (#246) | **D5 NEXT, on `agent/claude/sprint-131-d5-node-fetch`**: write its focused plan first, in a fresh chat. One major per PR. ⚠️ **D5 is not a routine bump** (found by D4's `/simplify` altitude review; verified 2026-09-23 against `index.js` and `npm view`). node-fetch 3.3.2 is `"type": "module"` with no `exports`. `services/geocoding-service/index.js:14` does `const fetch = require('node-fetch')` and passes it on as `fetchImpl` (`:38`). Under Node 24's `require()` of an ES module, that value is the module namespace, not a function, so geocoding's first outbound request would throw. Every geocoding test injects `fetchImpl: jest.fn()`, so the suite would stay green — the same blind spot D4 found. Plan D5 either as a real-module check (reuse D4's harness pieces) or as a switch to Node 24's built-in `fetch` instead of the bump. |
 | C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
 
 Do not hold the other nine PRs while waiting for C. If C resumes after the upgrades, repeat its
@@ -201,8 +201,13 @@ which is a demo operation requiring per-operation maintainer approval.
 
 ✅ **The postgres readiness race that failed that first attempt is BUG-050 — SHIPPED v11.63.0** ([#256](https://github.com/ravichavali/karmyq/pull/256), `e5f7d8e1`; [CI/CD run 35686522868](https://github.com/ravichavali/karmyq/actions/runs/35686522868) every job success, `✅ All services healthy`, no rollback; smoke login/requests/conversations/reputation all 200). A review round on #256 added `start_period: 60s` to the base compose stack too. Mechanism and proof: `docs/BUGS.md` BUG-050.
 
-**Next unchecked action: D5 — node-fetch 2.7.0 → 3.3.2 (#225), on `agent/claude/sprint-131-d5-node-fetch`.**
-Write its focused plan first, in a fresh chat (one chat per PR). Start from the D5 row's warning:
+**Next unchecked action: EXECUTE the D5 plan** —
+[`docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md`](../../docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md)
+(written 2026-09-23; awaiting maintainer review + choice of execution method). **Decided: built-in `fetch`, not the
+bump; #225 is superseded** (see *Blockers and decisions* → "D5 decisions"). Three tasks: real-`fetch` loopback
+regression suite + service switch (`AbortSignal.timeout(5000)` replaces node-fetch 2's `timeout`), manifest + one-line
+lockfile splice, docs/version/gates/PR. Rate limiting is live on the demo: post-deploy smoke gets **one** login.
+Original planning brief, kept for the record:
 - node-fetch 3 is ESM-only, and `services/geocoding-service/index.js:14` calls `require('node-fetch')`.
 - Under Node 24 that call returns the module namespace, not a function.
 - Geocoding's tests inject a mock `fetchImpl`, so they cannot catch it.
@@ -291,6 +296,13 @@ misattributed it; `preProcessFile` was rejected in plan review round 2 because i
 
 ## Blockers and decisions
 
+- **D5 decisions (maintainer, 2026-09-23, D5 planning chat):** dependency lane re-confirmed → **Claude**
+  for D5. Approach: **replace node-fetch with Node 24's built-in `fetch`; do NOT take #225** (close it as
+  superseded when D5 merges). Evidence gathered before asking, against the real 3.3.2 tarball on Node 24:
+  `require('node-fetch')` returns an object (`typeof` → `object`; the function is only `.default`), and
+  3.3.2's `src/` has **zero** `timeout` references, so `services/geocoding-service/src/geocodingService.js:68`'s
+  `timeout: 5000` would be silently dropped by the bump as well. geocoding is the only direct importer;
+  `cross-fetch` still pins `node-fetch@^2.7.0`, so the 2.7.0 lock node stays either way.
 - **Dependency lane confirmed → Claude (maintainer, 2026-09-23):** "You hold the dependency lane... so,
   proceed". Covers D4.
 - **New Dependabot proposals, 2026-09-23 — TRIAGED by the maintainer the same day: #263 and #265 are
