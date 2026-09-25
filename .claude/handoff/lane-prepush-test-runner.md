@@ -1,7 +1,7 @@
 # Pre-push test runner + npm test caps + evidence ledger — Handoff
 
 **Date**: 2026-09-24
-**Outcome**: in progress (implemented and gated; PR, CI timing and merge authorization pending)
+**Outcome**: PR #273 green, awaiting the maintainer's explicit merge authorization
 
 > The handoff carries **state between sessions**. It is branch-local, so it reserves nothing; see
 > `CLAUDE.md` → *Parallel Development* for how contended resources are actually allocated.
@@ -33,10 +33,12 @@
    branch (for example D6's zod 4) makes this branch's tests fail for reasons unrelated to it.
 3. `npm run hooks:install` so the pushed hook is the one that runs.
 
-**Next unchecked task**: compare the PR's CI `Test Backend Services` wall time with a recent master
-run (the caps now apply in CI too), record it in the PR's ledger, then ask the maintainer for merge
-authorization. If #272 merges first, re-bump this PR to the next version at merge time and resolve
-the `CURRENT_HANDOFF.md` router conflict.
+**Next unchecked task**: merge authorization for #273 (the maintainer's call; never self-authorized).
+Before merging, re-derive the merge slot (`gh pr list`, latest deploy run) and the version from
+`origin/master`'s `package.json`: if #272 merged first, bump this PR to the next version in
+`package.json` and `package-lock.json` and keep #272's Sprint 131 state plus this PR's router
+rows in `CURRENT_HANDOFF.md`. After the deploy: verify health, then archive this lane file and
+delete its router row.
 
 ## Blockers and decisions
 
@@ -81,6 +83,7 @@ the `CURRENT_HANDOFF.md` router conflict.
   in `tests/Dockerfile.test`, but the root `.dockerignore` excludes `scripts`. I had "checked"
   that with `grep … | head`, which truncated before the `scripts` line. Fixed by mounting the
   helper in `tests/docker-compose.test.yml` (as `tests/` already is) and reverting the Dockerfile
-  to master. The fix is proven only by the next CI run; there is no Docker on this box.
+  to master. Proven by CI at `2b30c751` (runs 36091214102 + 36091214119, all green, 2026-09-25):
+  Integration Tests 276 s; Test Backend Services 217 s (the two PR runs: 157 s and 217 s).
 
 ⚠️ **Never record this document's own final commit SHA** — it cannot know it.
