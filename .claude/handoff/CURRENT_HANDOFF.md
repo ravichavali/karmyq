@@ -2,12 +2,17 @@
 
 **Date**: 2026-09-24
 
-> ⚠️ **Bootstrap: `git switch agent/claude/sprint-131-expo-drift-268` BEFORE reading further.**
-> `master`'s copy of this file is stale — it still says D5 (#269) is awaiting merge authorization,
-> because the copy that merged with #269 was written before that PR merged. **This** branch, cut from
-> the deployed `32588ae9` (v11.67.0), is the current one. Do not push the reconciliation to `master`:
-> every master push is a full deploy, and a docs-only push would restart services and 502 the demo. It
-> rides on the #268 PR instead.
+> ## Active lanes (router: match your branch, then read ONLY that lane's state)
+>
+> | Branch | State lives in |
+> |---|---|
+> | `agent/claude/sprint-131-d6-zod` | that branch's copy of **this file** (Sprint 131 D6, PR #272) |
+> | `agent/claude/prepush-test-runner` | [`lane-prepush-test-runner.md`](lane-prepush-test-runner.md) (pre-push runner + `npm test` caps) |
+>
+> **Any other branch:** the Sprint 131 state below is `master`'s copy and is stale. #268 shipped as
+> #271 (v11.68.0), so the old "switch to `agent/claude/sprint-131-expo-drift-268`" bootstrap no longer
+> applies; the current Sprint 131 state is the D6 branch's copy of this file. Git and PR state
+> (`gh pr list`, `git log origin/master`) outrank anything written here.
 
 > ✅ **BUG-051 SHIPPED v11.65.0** — [#258](https://github.com/ravichavali/karmyq/pull/258) merged as
 > `8fbbeb5f` (2026-09-23T13:44:35Z, admin merge on explicit maintainer authorization).
