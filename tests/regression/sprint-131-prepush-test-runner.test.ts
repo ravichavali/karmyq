@@ -1,5 +1,5 @@
-import { execFileSync, spawnSync } from 'child_process';
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { execFileSync, spawn, spawnSync } from 'child_process';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 
@@ -54,6 +54,10 @@ const FIXTURES: Record<string, string | Record<string, string>> = {
     one: `test('slow one', () => new Promise((r) => setTimeout(r, 400)), 100);\n`,
     two: `test('slow two', () => new Promise((r) => setTimeout(r, 400)), 100);\n`,
   },
+  // Jest prints the afterEach error as a second block for the same test.
+  timeoutPlusAfterEachAssertion: `afterEach(() => { expect(1).toBe(2); });\ntest('slow', () => new Promise((r) => setTimeout(r, 400)), 100);\n`,
+  // An assertion failure whose printed value merely CONTAINS Jest's timeout wording.
+  assertionQuotingTimeout: `test('msg', () => { expect('Exceeded timeout of 100 ms for a test.').toBe('x'); });\n`,
   multiFileMixed: {
     one: `test('slow', () => new Promise((r) => setTimeout(r, 400)), 100);\n`,
     two: `test('bad', () => { expect(1).toBe(2); });\n`,
@@ -62,23 +66,28 @@ const FIXTURES: Record<string, string | Record<string, string>> = {
 
 const jestOutput: Record<string, string> = {};
 
-beforeAll(() => {
+beforeAll(async () => {
   const dir = scratch('karmyq-prepush-jest-');
   const jestBin = require.resolve('jest/bin/jest', { paths: [ROOT] });
-  for (const [name, src] of Object.entries(FIXTURES)) {
-    const sub = join(dir, name);
-    mkdirSync(sub);
-    const files = typeof src === 'string' ? { [name]: src } : src;
-    for (const [file, body] of Object.entries(files)) writeFileSync(join(sub, `${file}.spec.js`), body);
-    const config = JSON.stringify({ rootDir: sub, testEnvironment: 'node', testMatch: ['**/*.spec.js'], transform: {} });
-    // --colors: the classifier must see through the ANSI codes a real terminal run carries.
-    const r = spawnSync(process.execPath, [jestBin, '--config', config, '--colors', '--ci'], {
-      cwd: sub,
-      encoding: 'utf8',
-      env: { ...process.env, KARMYQ_JEST_MAX_WORKERS: '' },
-    });
-    jestOutput[name] = `${r.stdout}${r.stderr}`;
-  }
+  // The fixture Jest runs are independent, so they run concurrently: this suite blocks every push.
+  await Promise.all(
+    Object.entries(FIXTURES).map(([name, src]) => {
+      const sub = join(dir, name);
+      mkdirSync(sub);
+      const files = typeof src === 'string' ? { [name]: src } : src;
+      for (const [file, body] of Object.entries(files)) writeFileSync(join(sub, `${file}.spec.js`), body);
+      const config = JSON.stringify({ rootDir: sub, testEnvironment: 'node', testMatch: ['**/*.spec.js'], transform: {} });
+      // --colors: the classifier must see through the ANSI codes a real terminal run carries.
+      const child = spawn(process.execPath, [jestBin, '--config', config, '--colors', '--ci', '--runInBand'], {
+        cwd: sub,
+        env: { ...process.env, KARMYQ_JEST_MAX_WORKERS: '' },
+      });
+      let out = '';
+      child.stdout.on('data', (d) => (out += d));
+      child.stderr.on('data', (d) => (out += d));
+      return new Promise<void>((resolve) => child.on('close', () => { jestOutput[name] = out; resolve(); }));
+    })
+  );
 }, 120_000);
 
 describe('classifyLog reads genuine Jest output', () => {
@@ -92,6 +101,8 @@ describe('classifyLog reads genuine Jest output', () => {
     ['timeoutWithConsole', 'timeout'],
     ['multiFileTimeouts', 'timeout'],
     ['multiFileMixed', 'other'],
+    ['timeoutPlusAfterEachAssertion', 'other'],
+    ['assertionQuotingTimeout', 'other'],
   ])('%s -> %s', (fixture, expected) => {
     expect(jestOutput[fixture]).toMatch(/Tests:/); // the fixture really ran
     expect(runner.classifyLog(jestOutput[fixture])).toBe(expected);
@@ -168,7 +179,11 @@ function runScenario(scenario: Scenario, env: Record<string, string> = {}) {
   const dir = scratch('karmyq-prepush-run-');
   installFakeTurbo(dir, scenario);
   const lines: string[] = [];
-  const code = runner.main({ cwd: dir, env: { ...process.env, ...env }, log: (l: string) => lines.push(l) });
+  // Start from the runner's defaults even when this suite itself runs under the hook's caps.
+  const base: NodeJS.ProcessEnv = { ...process.env };
+  delete base.KARMYQ_PREPUSH_CONCURRENCY;
+  delete base.KARMYQ_JEST_MAX_WORKERS;
+  const code = runner.main({ cwd: dir, env: { ...base, ...env }, log: (l: string) => lines.push(l) });
   const calls = turboCalls(dir).filter((a) => !a.includes('--dry=json'));
   return { code, calls, output: lines.join('\n'), dir };
 }
@@ -193,6 +208,15 @@ describe('runner policy, end to end through a child process', () => {
     expect(r.code).toBe(0);
     expect(r.calls).toHaveLength(1);
     expect(r.calls[0]).toEqual(expect.arrayContaining(['--continue=dependencies-successful', '--concurrency=4']));
+  });
+
+  it("uses the same default caps as the hook, which exports them for every test step", () => {
+    const hook = read('scripts/git-hooks/pre-push');
+    const hookDefault = (name: string) => Number(hook.match(new RegExp(`export ${name}="\\$\\{${name}:-(\\d+)\\}"`))?.[1]);
+    const r = runScenario({ dry: GRAPH, runs: [{ code: 0, tasks: { [BUILD]: ok, [TEST_A]: ok, [TEST_B]: ok } }] });
+    const [, turbo, jestWorkers] = r.output.match(/turbo concurrency (\d+), jest workers (\d+)/) ?? [];
+    expect([hookDefault('KARMYQ_PREPUSH_CONCURRENCY'), hookDefault('KARMYQ_JEST_MAX_WORKERS')]).toEqual([Number(turbo), Number(jestWorkers)]);
+    expect([Number(turbo), Number(jestWorkers)]).toEqual([4, 2]);
   });
 
   it('retries a timeout-only failure once, serially, filtered to that package, and passes if it clears', () => {
@@ -251,26 +275,28 @@ describe('runner policy, end to end through a child process', () => {
     expect(r.calls).toHaveLength(1);
   });
 
-  it('treats a task that never ran as unfinished: retried, and required to succeed', () => {
-    const cancelled = { dry: GRAPH, runs: [{ code: 1, tasks: { [BUILD]: ok, [TEST_A]: {}, [TEST_B]: ok } }] } as Scenario;
+  it('retries a task that never ran alongside a timeout, and requires it to succeed', () => {
+    // pkg-b timed out and pkg-a was cancelled: both are unfinished, both are retried.
+    const first: Step = { code: 1, tasks: { [BUILD]: ok, [TEST_A]: {}, [TEST_B]: timedOut() } };
 
-    const cleared = runScenario({ ...cancelled, runs: [...cancelled.runs, { code: 0, tasks: { [BUILD]: ok, [TEST_A]: ok } }] });
+    const cleared = runScenario({ dry: GRAPH, runs: [first, { code: 0, tasks: { [BUILD]: ok, [TEST_A]: ok, [TEST_B]: ok } }] });
     expect(cleared.code).toBe(0);
-    expect(cleared.calls[1]).toEqual(expect.arrayContaining(['--filter=pkg-a']));
+    expect(cleared.calls[1].filter((a) => a.startsWith('--filter=')).sort()).toEqual(['--filter=pkg-a', '--filter=pkg-b']);
 
-    const stillMissing = runScenario({ ...cancelled, runs: [...cancelled.runs, { code: 0, tasks: { [BUILD]: ok } }] });
+    const stillMissing = runScenario({ dry: GRAPH, runs: [first, { code: 0, tasks: { [BUILD]: ok, [TEST_B]: ok } }] });
     expect(stillMissing.code).toBe(1);
   });
 
-  it('blocks when a task from the graph is missing from the summary altogether and does not appear on retry', () => {
-    const r = runScenario({
-      dry: GRAPH,
-      runs: [
-        { code: 0, tasks: { [BUILD]: ok, [TEST_A]: ok } },
-        { code: 0, tasks: { [BUILD]: ok } },
-      ],
-    });
+  it.each([
+    ['a task that never ran while nothing failed', { code: 1, tasks: { [BUILD]: ok, [TEST_A]: {}, [TEST_B]: ok } }],
+    ['a task missing from the summary altogether', { code: 0, tasks: { [BUILD]: ok, [TEST_A]: ok } }],
+    // turbo failed before any task ran: every task "never ran". Retrying would re-run the whole
+    // suite serially and hide that turbo itself failed.
+    ['a failed turbo run whose summary lists no tasks', { code: 1, tasks: {} }],
+  ])('blocks without retrying on %s', (_label, step) => {
+    const r = runScenario({ dry: GRAPH, runs: [step as Step] });
     expect(r.code).toBe(1);
+    expect(r.calls).toHaveLength(1);
   });
 
   it('blocks when turbo writes no run summary', () => {
@@ -359,14 +385,14 @@ describe('the pre-push hook enforces the runner on a real git push', () => {
  * directory (next/jest finds the app from the cwd, and its config loader needs a real dynamic
  * import, which Jest's sandbox refuses), awaiting an async config. Returns maxWorkers.
  */
-async function resolvedMaxWorkers(cwd: string, configPath: string): Promise<number | undefined> {
+async function resolvedMaxWorkers(cwd: string, configPath: string, cap = '3'): Promise<number | undefined> {
   const src = `Promise.resolve(require(${JSON.stringify(configPath)}))
     .then((c) => (typeof c === 'function' ? c() : c))
     .then((c) => process.stdout.write(JSON.stringify({ maxWorkers: c.maxWorkers ?? null })))
     .catch((e) => { process.stderr.write(String(e && e.stack || e)); process.exit(2); });`;
   const r = spawnSync(process.execPath, ['-e', src], {
     cwd,
-    env: { ...process.env, KARMYQ_JEST_MAX_WORKERS: '3' },
+    env: { ...process.env, KARMYQ_JEST_MAX_WORKERS: cap },
     encoding: 'utf8',
   });
   if (r.status !== 0) throw new Error(`${cwd}: config did not load: ${r.stderr}`);
@@ -388,23 +414,32 @@ describe('the Jest worker cap', () => {
     const testing = allWorkspaces()
       .map(({ ws, dir }) => ({ ws, dir, scripts: (JSON.parse(read(`${ws}/package.json`)).scripts || {}) as Record<string, string> }))
       .filter((w) => w.scripts.test);
+    // EVERY jest config a workspace carries (jest.config.js, jest.integration.config.js, ...), not
+    // just the default one: a script can select any of them with --config. A config is bounded if
+    // it applies the cap, or pins its own maxWorkers (tests/jest.integration.config.js pins 1).
     const capped: string[] = [];
+    const pinned: string[] = [];
     const serial: string[] = [];
     const neither: string[] = [];
-    for (const { ws: d, dir, scripts } of testing) {
-      const configPath = join(dir, 'jest.config.js');
-      if (existsSync(configPath)) {
-        ((await resolvedMaxWorkers(dir, configPath)) === 3 ? capped : neither).push(d);
-      } else {
+    for (const { ws, dir, scripts } of testing) {
+      const configs = readdirSync(dir).filter((f) => /^jest(\.[\w-]+)?\.config\.js$/.test(f));
+      for (const c of configs) {
+        const label = `${ws}/${c}`;
+        if ((await resolvedMaxWorkers(dir, join(dir, c), '3')) === 3) capped.push(label);
+        else if ((await resolvedMaxWorkers(dir, join(dir, c), '')) !== undefined) pinned.push(label);
+        else neither.push(label);
+      }
+      if (configs.length === 0) {
         const jestCalls = Object.values(scripts).filter((s) => /\bjest\b/.test(s) && !/--watch/.test(s));
-        (jestCalls.length > 0 && jestCalls.every((s) => /--runInBand/.test(s)) ? serial : neither).push(d);
+        (jestCalls.length > 0 && jestCalls.every((s) => /--runInBand/.test(s)) ? serial : neither).push(ws);
       }
     }
 
     expect(neither).toEqual([]);
     expect(serial).toEqual(['services/geocoding-service']);
+    expect(pinned).toEqual(['tests/jest.integration.config.js']);
     expect(testing.length).toBeGreaterThan(10); // discovery found the real workspaces
-    expect(capped).toHaveLength(testing.length - 1);
+    expect(capped).toHaveLength(testing.length - 1); // one default config per workspace but geocoding
   }, 120_000);
 
   it('the config check fails for a jest config that does not apply the cap', async () => {
@@ -413,7 +448,9 @@ describe('the Jest worker cap', () => {
     expect(await resolvedMaxWorkers(dir, join(dir, 'jest.config.js'))).toBeUndefined();
   });
 
-  it('turbo passes the cap through to every test task (strict env mode strips it otherwise)', () => {
+  it('turbo passes the cap through to every task (strict env mode strips it otherwise)', () => {
+    // Global, not per task: the hook's test:tdd step and any future task get it too. Read from
+    // turbo's own resolution of the config, not from turbo.json's text.
     const dry = JSON.parse(
       execFileSync(process.execPath, [require.resolve('turbo/bin/turbo', { paths: [ROOT] }), 'run', 'test', '--dry=json'], {
         cwd: ROOT,
@@ -421,12 +458,7 @@ describe('the Jest worker cap', () => {
         maxBuffer: 64 * 1024 * 1024,
       })
     );
-    const testTasks = dry.tasks.filter((t: { taskId: string }) => t.taskId.endsWith('#test'));
-    expect(testTasks.length).toBeGreaterThanOrEqual(15);
-    const missing = testTasks
-      .filter((t: { environmentVariables: { specified: { passThroughEnv: string[] | null } } }) =>
-        !(t.environmentVariables.specified.passThroughEnv || []).includes('KARMYQ_JEST_MAX_WORKERS'))
-      .map((t: { taskId: string }) => t.taskId);
-    expect(missing).toEqual([]);
+    expect(dry.envMode).toBe('strict');
+    expect(dry.globalCacheInputs.environmentVariables.specified.passThroughEnv).toContain('KARMYQ_JEST_MAX_WORKERS');
   }, 180_000);
 });

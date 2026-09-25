@@ -35,14 +35,20 @@ const DEFAULT_CONCURRENCY = 4;
 const DEFAULT_JEST_WORKERS = 2;
 
 // Jest's own wording, read from real Jest 30 output (see the regression test's fixtures). Each
-// failed test gets a `● <name>` block; a timed-out test or hook carries this message inside its
-// own block (printed twice there: once as the error, once in the code frame).
-const TIMEOUT_RE = /Exceeded timeout of \d+ ms for a (?:test|hook)/;
+// error of a failed test gets its own `● <name>` block. A timeout block's FIRST message line is
+// this error; matching it anywhere would accept an assertion whose printed value quotes it.
+const TIMEOUT_FIRST_LINE_RE = /^\s*thrown: "Exceeded timeout of \d+ ms for a (?:test|hook)\./;
 const SUITE_FAILED_RE = /Test suite failed to run/;
 const FAILED_TESTS_RE = /^Tests:\s+(\d+) failed/gm;
 const BLOCK_START_RE = /^\s*● /;
 const BLOCK_END_RE = /^(?:PASS|FAIL) |^Test Suites:|^Tests:|^Summary of all failing tests/;
 const ANSI_RE = /\x1b\[[0-9;]*m/g;
+
+/** A failure block whose first message line is Jest's timeout error. */
+function isTimeoutBlock(block) {
+  const firstMessage = block.split('\n').slice(1).find((l) => l.trim() !== '');
+  return firstMessage !== undefined && TIMEOUT_FIRST_LINE_RE.test(firstMessage);
+}
 
 /** The `● name` failure blocks of a Jest log, minus console-output blocks. */
 function failureBlocks(lines) {
@@ -76,7 +82,7 @@ function classifyLog(text) {
   const blocks = failureBlocks(clean.split(/\r?\n/));
   // >= because Jest may repeat every block under "Summary of all failing tests".
   if (blocks.length < failedTests) return 'other';
-  return blocks.every((b) => TIMEOUT_RE.test(b)) ? 'timeout' : 'other';
+  return blocks.every(isTimeoutBlock) ? 'timeout' : 'other';
 }
 
 const succeeded = (task) => task.execution?.exitCode === 0;
@@ -106,6 +112,10 @@ function evaluate(expected, summary, readLog) {
 function decide(first) {
   if (first.ok) return { action: 'pass' };
   if (first.failed.some((f) => f.kind !== 'timeout')) return { action: 'block' };
+  // Tasks that never ran are only retried ALONGSIDE a proven timeout. With nothing failed, a task
+  // that did not run is contradictory evidence (e.g. turbo failed before starting anything), and
+  // a serial rerun of the whole graph would hide that.
+  if (first.failed.length === 0) return { action: 'block' };
   const retry = [...first.failed.map((f) => f.taskId), ...first.notRun];
   return { action: 'retry', retry };
 }
@@ -180,6 +190,7 @@ function expectedTasks(turbo, { cwd, env }) {
 
 function preserveLogs(failed, cwd) {
   const dir = path.join(cwd, '.turbo', 'prepush');
+  fs.rmSync(dir, { recursive: true, force: true }); // only this push's evidence, never an older one
   fs.mkdirSync(dir, { recursive: true });
   const kept = [];
   for (const f of failed) {

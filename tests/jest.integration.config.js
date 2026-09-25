@@ -10,7 +10,9 @@
  * - Stop test environment: npm run test:integration:teardown
  */
 
-module.exports = {
+const { withWorkerCap } = require('../scripts/jest-worker-cap');
+
+module.exports = withWorkerCap({
   testEnvironment: 'node',
   roots: ['<rootDir>/integration'],
   // Sprint 126: resolve @karmyq/shared to SOURCE, exactly as jest.config.js does. Integration tests
@@ -72,4 +74,4 @@ module.exports = {
   clearMocks: true,
   resetMocks: true,
   restoreMocks: true,
-};
+});

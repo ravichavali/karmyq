@@ -29,6 +29,12 @@ if [ ! -f "package.json" ]; then
   exit 1
 fi
 
+# Parallelism caps for EVERY test step below, not just unit + regression: uncapped, Turbo runs
+# all workspaces at once with cores-1 Jest workers each, which overloads the Windows dev box.
+# Must match the defaults in scripts/prepush-test-runner.js (a regression test checks both).
+export KARMYQ_PREPUSH_CONCURRENCY="${KARMYQ_PREPUSH_CONCURRENCY:-4}"
+export KARMYQ_JEST_MAX_WORKERS="${KARMYQ_JEST_MAX_WORKERS:-2}"
+
 # Function to check if PostgreSQL is available
 check_postgres() {
   if [ -z "$DATABASE_URL" ] && [ -z "$POSTGRES_HOST" ]; then
@@ -75,8 +81,6 @@ echo -e "${BLUE}ℹ️  These tests MUST pass (core tenant of TDD framework)${NC
 # once, serially; every other failure still blocks. See scripts/prepush-test-runner.js.
 if node scripts/prepush-test-runner.js; then
   echo -e "${GREEN}✓ Unit + regression tests passed${NC}"
-  # `npm test` ran this as its posttest step; keep that behavior.
-  node scripts/promote-tdd-tests.js
 else
   echo -e "${RED}❌ Unit + regression tests failed${NC}"
   echo -e "${YELLOW}Fix failing tests or use --no-verify to skip${NC}"
@@ -87,7 +91,7 @@ fi
 echo ""
 echo "🧪 Running TDD tests (work in progress)..."
 echo -e "${BLUE}ℹ️  These tests can fail - they're in development${NC}"
-if npm run test:tdd 2>&1 | tail -20; then
+if npm run test:tdd -- --concurrency="$KARMYQ_PREPUSH_CONCURRENCY" 2>&1 | tail -20; then
   echo -e "${GREEN}✓ TDD tests passed - consider promoting to regression!${NC}"
 else
   echo -e "${YELLOW}⚠️  TDD tests failed (this is OK, they're in development)${NC}"
