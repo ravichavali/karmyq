@@ -24,7 +24,7 @@
  * before the retry overwrites them, and the report names both runs.
  */
 
-const { spawnSync } = require('child_process');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -94,9 +94,9 @@ function evaluate(expected, summary, readLog) {
     if (typeof task?.execution?.exitCode !== 'number') {
       notRun.push(taskId);
     } else if (task.execution.exitCode !== 0) {
-      const isTest = taskId.endsWith('#test');
-      const kind = isTest ? classifyLog(readLog(task)) : 'other';
-      failed.push({ taskId, kind, logFile: task.logFile });
+      const text = readLog(task);
+      const kind = taskId.endsWith('#test') ? classifyLog(text) : 'other';
+      failed.push({ taskId, kind, text });
     }
   }
   return { ok: failed.length === 0 && notRun.length === 0, failed, notRun };
@@ -118,18 +118,36 @@ function packageOf(taskId) {
   return taskId.slice(0, taskId.lastIndexOf('#'));
 }
 
-/** Real Turbo, launched through its JS entry point with an argv array (no shell string). */
-function realTurbo(args, { cwd, env, capture }) {
+/**
+ * Real Turbo, launched through its JS entry point with an argv array (no shell string). Its stdout
+ * is streamed to `out` live AND kept: a task with `cache: false` (the root `tests` suite) gets no
+ * log file from Turbo, so its prefixed lines in this output are the only record of its failure.
+ */
+function realTurbo(args, { cwd, env, out, quiet }) {
   const bin = require.resolve('turbo/bin/turbo', { paths: [cwd] });
-  const r = spawnSync(process.execPath, [bin, ...args], {
-    cwd,
-    env,
-    stdio: capture ? ['ignore', 'pipe', 'inherit'] : 'inherit',
-    encoding: 'utf8',
-    maxBuffer: 256 * 1024 * 1024,
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [bin, ...args], { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const chunks = [];
+    child.stdout.on('data', (d) => {
+      chunks.push(d);
+      if (!quiet) out.write(d);
+    });
+    child.stderr.on('data', (d) => out.write(d));
+    child.on('error', reject);
+    child.on('close', (code) => resolve({ code, stdout: Buffer.concat(chunks).toString('utf8') }));
   });
-  if (r.error) throw r.error;
-  return { code: r.status, stdout: r.stdout || '' };
+}
+
+/** A task's own lines from Turbo's prefixed output (`pkg:task: line`), prefix removed. */
+function taskOutput(stdout, taskId) {
+  const prefix = `${taskId.replace(/#(?=[^#]*$)/, ':')}: `;
+  const lines = [];
+  for (const raw of stdout.split(/\r?\n/)) {
+    const line = raw.replace(ANSI_RE, '');
+    if (line.startsWith(prefix)) lines.push(line.slice(prefix.length));
+    else if (line === prefix.trimEnd()) lines.push('');
+  }
+  return lines.length ? lines.join('\n') : undefined;
 }
 
 function summaryFiles(runsDir) {
@@ -150,10 +168,10 @@ function newSummary(runsDir, before) {
  * One summarized Turbo run. Throws on missing or contradictory evidence; callers treat a throw
  * as a block.
  */
-function summarizedRun(turbo, args, { cwd, env, log }) {
+async function summarizedRun(turbo, args, { cwd, env, out, log }) {
   const runsDir = path.join(cwd, '.turbo', 'runs');
   const before = new Set(summaryFiles(runsDir));
-  const { code } = turbo(['run', 'test', '--summarize', ...args], { cwd, env });
+  const { code, stdout } = await turbo(['run', 'test', '--summarize', ...args], { cwd, env, out });
   let summary;
   try {
     summary = newSummary(runsDir, before);
@@ -167,11 +185,20 @@ function summarizedRun(turbo, args, { cwd, env, log }) {
   if (!turboSaysOk && summarySaysOk && summary.tasks.length > 0) {
     log(`note: turbo exited ${code} although every summarized task succeeded; the task graph check decides`);
   }
-  return summary;
+  // A task's log: Turbo's log file when it wrote one, else its lines in this run's output.
+  const readLog = (task) => {
+    try {
+      if (task.logFile) return fs.readFileSync(path.join(cwd, task.logFile), 'utf8');
+    } catch {
+      // fall through to the captured output
+    }
+    return taskOutput(stdout, task.taskId); // undefined => classifyLog says 'other' => blocks
+  };
+  return { summary, readLog };
 }
 
-function expectedTasks(turbo, { cwd, env }) {
-  const { code, stdout } = turbo(['run', 'test', '--dry=json'], { cwd, env, capture: true });
+async function expectedTasks(turbo, { cwd, env, out }) {
+  const { code, stdout } = await turbo(['run', 'test', '--dry=json'], { cwd, env, out, quiet: true });
   if (code !== 0) throw new Error(`turbo --dry=json exited ${code}`);
   // A package with no script for a task still appears in the dry-run graph as a placeholder with
   // command "<NONEXISTENT>"; it never executes and a real run summary omits it entirely.
@@ -188,11 +215,9 @@ function preserveLogs(failed, cwd) {
   fs.mkdirSync(dir, { recursive: true });
   const kept = [];
   for (const f of failed) {
-    if (!f.logFile) continue;
-    const src = path.join(cwd, f.logFile);
-    if (!fs.existsSync(src)) continue;
+    if (f.text === undefined) continue;
     const dest = path.join(dir, `first-run-${f.taskId.replace(/[^A-Za-z0-9._-]/g, '_')}.log`);
-    fs.copyFileSync(src, dest);
+    fs.writeFileSync(dest, f.text);
     kept.push(path.relative(cwd, dest));
   }
   return kept;
@@ -200,26 +225,19 @@ function preserveLogs(failed, cwd) {
 
 function report(log, evaluation, heading) {
   log(heading);
-  for (const f of evaluation.failed) log(`   ${f.taskId}  (${f.kind}${f.logFile ? `, log: ${f.logFile}` : ''})`);
+  for (const f of evaluation.failed) log(`   ${f.taskId}  (${f.kind}${f.text === undefined ? ', no log' : ''})`);
   for (const t of evaluation.notRun) log(`   ${t}  (did not run)`);
 }
 
-function main({ turbo = realTurbo, cwd = process.cwd(), env = process.env, log = console.log } = {}) {
-  const readLog = (task) => {
-    try {
-      return task.logFile ? fs.readFileSync(path.join(cwd, task.logFile), 'utf8') : undefined;
-    } catch {
-      return undefined; // unreadable log => classifyLog says 'other' => blocks
-    }
-  };
+async function main({ turbo = realTurbo, cwd = process.cwd(), env = process.env, log = console.log, out = process.stdout } = {}) {
   try {
-    const ctx = { cwd, env, log };
-    const expected = expectedTasks(turbo, ctx);
+    const ctx = { cwd, env, out, log };
+    const expected = await expectedTasks(turbo, ctx);
     const common = ['--continue=dependencies-successful', '--output-logs=full'];
     // No --concurrency on the first run: turbo.json's default (or TURBO_CONCURRENCY) governs, the
     // same bound every `npm test` gets. The retry's --concurrency=1 overrides it.
-    const first = summarizedRun(turbo, common, ctx);
-    const firstEval = evaluate(expected, first, readLog);
+    const first = await summarizedRun(turbo, common, ctx);
+    const firstEval = evaluate(expected, first.summary, first.readLog);
     const decision = decide(firstEval);
 
     if (decision.action === 'pass') {
@@ -238,8 +256,8 @@ function main({ turbo = realTurbo, cwd = process.cwd(), env = process.env, log =
     if (kept.length) log(`   first-run logs kept: ${kept.join(', ')}`);
 
     const filters = [...new Set(decision.retry.map(packageOf))].map((p) => `--filter=${p}`);
-    const second = summarizedRun(turbo, [...common, '--concurrency=1', ...filters], ctx);
-    const retryEval = evaluate(decision.retry, second, readLog);
+    const second = await summarizedRun(turbo, [...common, '--concurrency=1', ...filters], ctx);
+    const retryEval = evaluate(decision.retry, second.summary, second.readLog);
     if (!retryEval.ok) {
       report(log, retryEval, '❌ retry did not clear the failure(s). Blocking:');
       return 1;
@@ -256,5 +274,7 @@ function main({ turbo = realTurbo, cwd = process.cwd(), env = process.env, log =
 module.exports = { classifyLog, main };
 
 if (require.main === module) {
-  process.exitCode = main();
+  main().then((code) => {
+    process.exitCode = code;
+  });
 }

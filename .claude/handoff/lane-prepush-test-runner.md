@@ -56,6 +56,10 @@ the `CURRENT_HANDOFF.md` router conflict.
 - **Decision: the retry never runs on its own evidence.** Tasks that never ran are retried only
   alongside a proven Jest timeout; a timeout is a failure block whose FIRST message line is Jest's
   timeout error. Everything else blocks.
+- **Fixed from the second `/code-review` (medium):** the root `tests` suite is `cache: false`,
+  and Turbo writes no log file for it (confirmed in four real run summaries), so its timeouts
+  always blocked. The runner now streams Turbo's output live and keeps it, and reads a
+  log-less task's lines from it (`pkg:task: ` prefix).
 - **Not fixed here, logged as BUG-053:** `npm test`'s `posttest` promoter never runs under
   `ignore-scripts=true` (npm 10.8.2, verified), and the hook's `test:tdd` step has never run a
   test (`turbo`: no `test:tdd` task). Check npm on the Mac before rewriting the docs that claim

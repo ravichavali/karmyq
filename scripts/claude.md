@@ -104,7 +104,9 @@ covered by `tests/regression/dependency-guard-hook.test.ts`.
   **`prepush-test-runner.js`** (the hook's gate, not `npm test`'s) runs the same bounded
   `turbo run test` and adds one thing: a test task whose ONLY failures are Jest timeouts (every
   failure block opens with Jest's timeout error) is re-run once, alone, serially, together with
-  any task that never ran; its first-run log is kept in `.turbo/prepush/`. Everything else
+  any task that never ran; its first-run log is kept in `.turbo/prepush/`. A `cache: false` task
+  (the root `tests` suite) gets no Turbo log file, so its log is read from Turbo's prefixed
+  output, which the runner streams live and keeps. Everything else
   blocks: assertions, suites that failed to run, build failures, missing logs, tasks that never
   ran while nothing failed, and missing or contradictory run summaries. A new jest config (any
   `jest*.config.js`) must wrap its export in `withWorkerCap` or pin `maxWorkers`, and

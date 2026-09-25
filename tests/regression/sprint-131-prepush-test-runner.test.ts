@@ -119,7 +119,9 @@ describe('classifyLog reads genuine Jest output', () => {
 // A controlled stand-in for turbo, launched through the runner's real spawn path
 // ---------------------------------------------------------------------------------------------
 
-type TaskState = { exitCode?: number; log?: string; absent?: boolean };
+// stdoutOnly: like this repo's `cache: false` root tests task, turbo writes NO log file for it;
+// its output exists only as `pkg:task: line` lines in turbo's own stdout.
+type TaskState = { exitCode?: number; log?: string; absent?: boolean; stdoutOnly?: boolean };
 type Step = { code: number; noSummary?: boolean; tasks: Record<string, TaskState> };
 // placeholders: tasks turbo's dry run lists with command "<NONEXISTENT>" (a package with no script
 // for that task). A real run summary omits them, as on this repo's mobile/tests/geocoding builds.
@@ -145,12 +147,17 @@ if (!step) process.exit(97);
 const tasks = [];
 for (const [taskId, t] of Object.entries(step.tasks)) {
   if (t.absent) continue;
-  const logFile = path.join('logs', taskId.replace(/[^A-Za-z0-9._-]/g, '_') + '.log');
-  if (t.log !== undefined) {
-    fs.mkdirSync(path.join(cwd, 'logs'), { recursive: true });
-    fs.writeFileSync(path.join(cwd, logFile), t.log);
+  const entry = { taskId };
+  if (t.stdoutOnly) {
+    const prefix = taskId.replace('#', ':') + ': ';
+    for (const line of (t.log || '').split('\\n')) process.stdout.write(prefix + line + '\\n');
+  } else {
+    entry.logFile = path.join('logs', taskId.replace(/[^A-Za-z0-9._-]/g, '_') + '.log');
+    if (t.log !== undefined) {
+      fs.mkdirSync(path.join(cwd, 'logs'), { recursive: true });
+      fs.writeFileSync(path.join(cwd, entry.logFile), t.log);
+    }
   }
-  const entry = { taskId, logFile };
   if (typeof t.exitCode === 'number') entry.execution = { exitCode: t.exitCode };
   tasks.push(entry);
 }
@@ -175,11 +182,12 @@ const turboCalls = (dir: string): string[][] => {
   return readFileSync(file, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
 };
 
-function runScenario(scenario: Scenario) {
+async function runScenario(scenario: Scenario) {
   const dir = scratch('karmyq-prepush-run-');
   installFakeTurbo(dir, scenario);
   const lines: string[] = [];
-  const code = runner.main({ cwd: dir, log: (l: string) => lines.push(l) });
+  const out = { write: () => true }; // turbo's streamed output: not needed on the test console
+  const code = await runner.main({ cwd: dir, log: (l: string) => lines.push(l), out });
   const calls = turboCalls(dir).filter((a) => !a.includes('--dry=json'));
   return { code, calls, output: lines.join('\n'), dir };
 }
@@ -193,10 +201,10 @@ const timedOut = () => ({ exitCode: 1, log: jestOutput.timeout });
 const ok = { exitCode: 0, log: 'Tests:       3 passed, 3 total\n' };
 
 describe('runner policy, end to end through a child process', () => {
-  it('passes when every task in the graph succeeds, without a retry', () => {
+  it('passes when every task in the graph succeeds, without a retry', async () => {
     // With a script-less placeholder in the graph, exactly as the real repo has: the first real
     // run of this runner blocked every push by waiting for placeholders that never execute.
-    const r = runScenario({
+    const r = await runScenario({
       dry: GRAPH,
       placeholders: ['pkg-c#build'],
       runs: [{ code: 0, tasks: { [BUILD]: ok, [TEST_A]: ok, [TEST_B]: ok } }],
@@ -208,8 +216,8 @@ describe('runner policy, end to end through a child process', () => {
     expect(r.calls[0].filter((a) => a.startsWith('--concurrency'))).toEqual([]);
   });
 
-  it('retries a timeout-only failure once, serially, filtered to that package, and passes if it clears', () => {
-    const r = runScenario({
+  it('retries a timeout-only failure once, serially, filtered to that package, and passes if it clears', async () => {
+    const r = await runScenario({
       dry: GRAPH,
       runs: [
         { code: 1, tasks: { [BUILD]: ok, [TEST_A]: timedOut(), [TEST_B]: ok } },
@@ -225,8 +233,35 @@ describe('runner policy, end to end through a child process', () => {
     expect(r.output).toMatch(/passed after one serial retry of: pkg-a#test/);
   });
 
-  it('blocks when the retry times out again', () => {
-    const r = runScenario({
+  // The root `tests` suite is `cache: false`, and turbo writes no log file for it (checked in real
+  // run summaries): without reading turbo's own output, its timeouts could never be retried.
+  it('retries a timeout in a task turbo wrote no log file for, reading it from turbo output', async () => {
+    const r = await runScenario({
+      dry: GRAPH,
+      runs: [
+        { code: 1, tasks: { [BUILD]: ok, [TEST_A]: { ...timedOut(), stdoutOnly: true }, [TEST_B]: ok } },
+        { code: 0, tasks: { [BUILD]: ok, [TEST_A]: { ...ok, stdoutOnly: true } } },
+      ],
+    });
+    expect(r.code).toBe(0);
+    expect(r.calls).toHaveLength(2);
+    // The first-run evidence is the task's own lines, prefix stripped.
+    const kept = readFileSync(join(r.dir, '.turbo/prepush/first-run-pkg-a_test.log'), 'utf8');
+    expect(kept).toContain('Exceeded timeout of 100 ms for a test');
+    expect(kept).not.toMatch(/^pkg-a:test: /m);
+  });
+
+  it('still blocks an assertion failure in a task turbo wrote no log file for', async () => {
+    const r = await runScenario({
+      dry: GRAPH,
+      runs: [{ code: 1, tasks: { [BUILD]: ok, [TEST_A]: { exitCode: 1, log: jestOutput.assertion, stdoutOnly: true }, [TEST_B]: ok } }],
+    });
+    expect(r.code).toBe(1);
+    expect(r.calls).toHaveLength(1);
+  });
+
+  it('blocks when the retry times out again', async () => {
+    const r = await runScenario({
       dry: GRAPH,
       runs: [
         { code: 1, tasks: { [BUILD]: ok, [TEST_A]: timedOut(), [TEST_B]: ok } },
@@ -247,16 +282,16 @@ describe('runner policy, end to end through a child process', () => {
     ['a suite that failed to run', 'suiteBroken'],
     ['an unknown failure with an empty log', ''],
     ['a failed test whose log file is missing', undefined],
-  ])('blocks on %s without retrying', (_label, fixture) => {
+  ])('blocks on %s without retrying', async (_label, fixture) => {
     const log = fixture ? jestOutput[fixture] : fixture;
     if (fixture) expect(log).toMatch(/Tests:.*failed|Test suite failed to run/); // real Jest output is really there
-    const r = runScenario({ dry: GRAPH, runs: [{ code: 1, tasks: { [BUILD]: ok, [TEST_A]: { exitCode: 1, log }, [TEST_B]: ok } }] });
+    const r = await runScenario({ dry: GRAPH, runs: [{ code: 1, tasks: { [BUILD]: ok, [TEST_A]: { exitCode: 1, log }, [TEST_B]: ok } }] });
     expect(r.code).toBe(1);
     expect(r.calls).toHaveLength(1);
   });
 
-  it('blocks on a build failure, even when its dependent test never started', () => {
-    const r = runScenario({
+  it('blocks on a build failure, even when its dependent test never started', async () => {
+    const r = await runScenario({
       dry: GRAPH,
       runs: [{ code: 1, tasks: { [BUILD]: { exitCode: 2, log: jestOutput.timeout }, [TEST_A]: { absent: true }, [TEST_B]: ok } }],
     });
@@ -264,15 +299,15 @@ describe('runner policy, end to end through a child process', () => {
     expect(r.calls).toHaveLength(1);
   });
 
-  it('retries a task that never ran alongside a timeout, and requires it to succeed', () => {
+  it('retries a task that never ran alongside a timeout, and requires it to succeed', async () => {
     // pkg-b timed out and pkg-a was cancelled: both are unfinished, both are retried.
     const first: Step = { code: 1, tasks: { [BUILD]: ok, [TEST_A]: {}, [TEST_B]: timedOut() } };
 
-    const cleared = runScenario({ dry: GRAPH, runs: [first, { code: 0, tasks: { [BUILD]: ok, [TEST_A]: ok, [TEST_B]: ok } }] });
+    const cleared = await runScenario({ dry: GRAPH, runs: [first, { code: 0, tasks: { [BUILD]: ok, [TEST_A]: ok, [TEST_B]: ok } }] });
     expect(cleared.code).toBe(0);
     expect(cleared.calls[1].filter((a) => a.startsWith('--filter=')).sort()).toEqual(['--filter=pkg-a', '--filter=pkg-b']);
 
-    const stillMissing = runScenario({ dry: GRAPH, runs: [first, { code: 0, tasks: { [BUILD]: ok, [TEST_B]: ok } }] });
+    const stillMissing = await runScenario({ dry: GRAPH, runs: [first, { code: 0, tasks: { [BUILD]: ok, [TEST_B]: ok } }] });
     expect(stillMissing.code).toBe(1);
   });
 
@@ -282,26 +317,26 @@ describe('runner policy, end to end through a child process', () => {
     // turbo failed before any task ran: every task "never ran". Retrying would re-run the whole
     // suite serially and hide that turbo itself failed.
     ['a failed turbo run whose summary lists no tasks', { code: 1, tasks: {} }],
-  ])('blocks without retrying on %s', (_label, step) => {
-    const r = runScenario({ dry: GRAPH, runs: [step as Step] });
+  ])('blocks without retrying on %s', async (_label, step) => {
+    const r = await runScenario({ dry: GRAPH, runs: [step as Step] });
     expect(r.code).toBe(1);
     expect(r.calls).toHaveLength(1);
   });
 
-  it('blocks when turbo writes no run summary', () => {
-    const r = runScenario({ dry: GRAPH, runs: [{ code: 0, noSummary: true, tasks: {} }] });
+  it('blocks when turbo writes no run summary', async () => {
+    const r = await runScenario({ dry: GRAPH, runs: [{ code: 0, noSummary: true, tasks: {} }] });
     expect(r.code).toBe(1);
     expect(r.output).toMatch(/no single run summary/);
   });
 
-  it('blocks when turbo exits 0 but its summary records a failure', () => {
-    const r = runScenario({ dry: GRAPH, runs: [{ code: 0, tasks: { [BUILD]: ok, [TEST_A]: { exitCode: 1, log: jestOutput.timeout }, [TEST_B]: ok } }] });
+  it('blocks when turbo exits 0 but its summary records a failure', async () => {
+    const r = await runScenario({ dry: GRAPH, runs: [{ code: 0, tasks: { [BUILD]: ok, [TEST_A]: { exitCode: 1, log: jestOutput.timeout }, [TEST_B]: ok } }] });
     expect(r.code).toBe(1);
     expect(r.calls).toHaveLength(1);
   });
 
-  it('blocks when the turbo process itself crashes', () => {
-    const r = runScenario({ dry: GRAPH, runs: [] }); // the stand-in exits 97 with no summary
+  it('blocks when the turbo process itself crashes', async () => {
+    const r = await runScenario({ dry: GRAPH, runs: [] }); // the stand-in exits 97 with no summary
     expect(r.code).toBe(1);
   });
 });
