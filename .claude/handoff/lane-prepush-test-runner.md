@@ -16,7 +16,7 @@
 | **Base** | `origin/master` at `8fafed02` (v11.68.0, fetched 2026-09-24) |
 | **Active editor** | Claude (Windows box) |
 | **Reviewer role** | the maintainer, plus an external review; reviewers read the diff, they do not co-edit |
-| **Owned paths** | `scripts/prepush-test-runner.js`, `scripts/jest-worker-cap.js`, `scripts/git-hooks/pre-push`, every `jest*.config.js` (one-line wrap), `turbo.json` (`concurrency`, `globalPassThroughEnv`), `tests/Dockerfile.test`, `tests/regression/sprint-131-prepush-test-runner.test.ts`, the sprint-123 hook assertion, `.github/pull_request_template.md`, the `ship` / `review-response` / `update-handoff` skills, `scripts/claude.md`, `scripts/git-hooks/README.md`, `CONTRIBUTING.md`, BUG-053 in `docs/BUGS.md` |
+| **Owned paths** | `scripts/prepush-test-runner.js`, `scripts/jest-worker-cap.js`, `scripts/git-hooks/pre-push`, every `jest*.config.js` (one-line wrap), `turbo.json` (`concurrency`, `globalPassThroughEnv`), `tests/docker-compose.test.yml` (test-runner mount), `tests/regression/sprint-131-prepush-test-runner.test.ts`, the sprint-123 hook assertion, `.github/pull_request_template.md`, the `ship` / `review-response` / `update-handoff` skills, `scripts/claude.md`, `scripts/git-hooks/README.md`, `CONTRIBUTING.md`, BUG-053 in `docs/BUGS.md` |
 | **Shared resources needed** | the version bump (at merge time) and the merge slot; no ADR (exception granted, below); no dependency or demo data work |
 
 ## Links
@@ -73,9 +73,14 @@ the `CURRENT_HANDOFF.md` router conflict.
 - Forced cold `npm test` at `856e8e63`'s tree: exit 0, 27/27 tasks, 0 cached, 0 timeouts, 327 s
   with builds (2026-09-24).
 - `node scripts/prepush-test-runner.js` for real: exit 0, 27/27 (2026-09-24, 24 cached).
-- `tests/regression/sprint-131-prepush-test-runner.test.ts` + the sprint-123 hook test: 48/48
+- `tests/regression/sprint-131-prepush-test-runner.test.ts` + the sprint-123 hook test: 50/50
   (2026-09-24). Every check was also shown to FAIL on an injected violation.
-- **Not verified:** `tests/Dockerfile.test` was not built (no Docker on this box); CI wall-time
-  impact of the caps is unmeasured until the PR's CI run.
+- **CI, PR #273 first run (2026-09-25, at `f6edd652`):** `Test Backend Services` 157 s against
+  master's 234–246 s (runs 36054927703, 36038174514, 35918478906), so the caps did not slow CI.
+  `Integration Tests` FAILED building the test-runner image: `COPY scripts/jest-worker-cap.js`
+  in `tests/Dockerfile.test`, but the root `.dockerignore` excludes `scripts`. I had "checked"
+  that with `grep … | head`, which truncated before the `scripts` line. Fixed by mounting the
+  helper in `tests/docker-compose.test.yml` (as `tests/` already is) and reverting the Dockerfile
+  to master. The fix is proven only by the next CI run; there is no Docker on this box.
 
 ⚠️ **Never record this document's own final commit SHA** — it cannot know it.

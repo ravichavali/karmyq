@@ -254,6 +254,9 @@ services:
         condition: service_healthy
     volumes:
       - ../tests:/app/tests
+      # Every tests/ jest config requires this helper as ../scripts/jest-worker-cap.js. Mounted like
+      # the tests themselves: the root .dockerignore excludes scripts/ from every build context.
+      - ../scripts/jest-worker-cap.js:/app/scripts/jest-worker-cap.js:ro
       - test-results:/app/tests/results
     command: npm run test:integration
 
