@@ -14,14 +14,16 @@
 
 const ENV = 'KARMYQ_JEST_MAX_WORKERS';
 
-function workerCap(env = process.env) {
-  const raw = env[ENV];
+/** A positive-integer setting: undefined when unset or empty, throws when invalid. */
+function positiveInt(name, raw) {
   if (raw === undefined || raw === '') return undefined;
   if (!/^[1-9][0-9]*$/.test(raw)) {
-    throw new Error(`${ENV} must be a positive integer, got ${JSON.stringify(raw)}`);
+    throw new Error(`${name} must be a positive integer, got ${JSON.stringify(raw)}`);
   }
   return Number(raw);
 }
+
+const workerCap = (env = process.env) => positiveInt(ENV, env[ENV]);
 
 function withWorkerCap(config, env = process.env) {
   const cap = workerCap(env);
@@ -29,4 +31,4 @@ function withWorkerCap(config, env = process.env) {
   return { ...config, maxWorkers: cap };
 }
 
-module.exports = { ENV, workerCap, withWorkerCap };
+module.exports = { ENV, positiveInt, workerCap, withWorkerCap };

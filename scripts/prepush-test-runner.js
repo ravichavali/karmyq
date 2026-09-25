@@ -28,7 +28,7 @@
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { ENV: JEST_ENV, workerCap } = require('./jest-worker-cap');
+const { ENV: JEST_ENV, positiveInt, workerCap } = require('./jest-worker-cap');
 
 const CONCURRENCY_ENV = 'KARMYQ_PREPUSH_CONCURRENCY';
 const DEFAULT_CONCURRENCY = 4;
@@ -61,12 +61,6 @@ function failureBlocks(lines) {
   return blocks.map((b) => b.join('\n'));
 }
 
-function positiveInt(name, raw, fallback) {
-  if (raw === undefined || raw === '') return fallback;
-  if (!/^[1-9][0-9]*$/.test(raw)) throw new Error(`${name} must be a positive integer, got ${JSON.stringify(raw)}`);
-  return Number(raw);
-}
-
 /**
  * Classify one task's log. 'timeout' only when Jest reports failed tests, every failure block
  * is a timeout, and there is a block for every failed test. Anything we cannot prove is 'other'
@@ -85,23 +79,21 @@ function classifyLog(text) {
   return blocks.every((b) => TIMEOUT_RE.test(b)) ? 'timeout' : 'other';
 }
 
-function succeeded(task) {
-  return Boolean(task && task.execution && task.execution.exitCode === 0);
-}
+const succeeded = (task) => task.execution?.exitCode === 0;
 
 /**
  * Compare the expected task graph with a run summary.
  * Returns { ok, failed: [{taskId, kind}], notRun: [taskId] }.
  */
 function evaluate(expected, summary, readLog) {
-  const byId = new Map((summary.tasks || []).map((t) => [t.taskId, t]));
+  const byId = new Map(summary.tasks.map((t) => [t.taskId, t]));
   const failed = [];
   const notRun = [];
   for (const taskId of expected) {
     const task = byId.get(taskId);
-    if (!task || !task.execution || typeof task.execution.exitCode !== 'number') {
+    if (typeof task?.execution?.exitCode !== 'number') {
       notRun.push(taskId);
-    } else if (!succeeded(task)) {
+    } else if (task.execution.exitCode !== 0) {
       const isTest = taskId.endsWith('#test');
       const kind = isTest ? classifyLog(readLog(task)) : 'other';
       failed.push({ taskId, kind, logFile: task.logFile });
@@ -110,11 +102,10 @@ function evaluate(expected, summary, readLog) {
   return { ok: failed.length === 0 && notRun.length === 0, failed, notRun };
 }
 
-/** Decide what to do after the first run. Pure, so the gate's policy is unit-testable. */
+/** Decide what to do after the first run: pass, block, or retry the timeout-only tasks. */
 function decide(first) {
   if (first.ok) return { action: 'pass' };
-  const blocking = first.failed.filter((f) => f.kind !== 'timeout');
-  if (blocking.length > 0) return { action: 'block', reason: 'non-timeout failure', blocking };
+  if (first.failed.some((f) => f.kind !== 'timeout')) return { action: 'block' };
   const retry = [...first.failed.map((f) => f.taskId), ...first.notRun];
   return { action: 'retry', retry };
 }
@@ -144,7 +135,11 @@ function summaryFiles(runsDir) {
 function newSummary(runsDir, before) {
   const fresh = summaryFiles(runsDir).filter((f) => !before.has(f));
   if (fresh.length !== 1) return null; // none, or ambiguous: refuse to guess
-  return JSON.parse(fs.readFileSync(path.join(runsDir, fresh[0]), 'utf8'));
+  const file = path.join(runsDir, fresh[0]);
+  const summary = JSON.parse(fs.readFileSync(file, 'utf8'));
+  fs.rmSync(file); // ~0.5 MB per push otherwise; the verdict and any failing logs are reported
+  summary.tasks = summary.tasks || [];
+  return summary;
 }
 
 /**
@@ -163,12 +158,12 @@ function summarizedRun(turbo, args, { cwd, env, log }) {
   }
   if (!summary) throw new Error('no single run summary was written for this run; refusing to guess');
   const turboSaysOk = code === 0;
-  const summarySaysOk = (summary.tasks || []).every(succeeded);
+  const summarySaysOk = summary.tasks.every(succeeded);
   if (turboSaysOk && !summarySaysOk) throw new Error('turbo exited 0 but its summary records a failed task');
-  if (!turboSaysOk && summarySaysOk && (summary.tasks || []).length > 0) {
+  if (!turboSaysOk && summarySaysOk && summary.tasks.length > 0) {
     log(`note: turbo exited ${code} although every summarized task succeeded; the task graph check decides`);
   }
-  return { code, summary };
+  return summary;
 }
 
 function expectedTasks(turbo, { cwd, env }) {
@@ -198,6 +193,12 @@ function preserveLogs(failed, cwd) {
   return kept;
 }
 
+function report(log, evaluation, heading) {
+  log(heading);
+  for (const f of evaluation.failed) log(`   ${f.taskId}  (${f.kind}${f.logFile ? `, log: ${f.logFile}` : ''})`);
+  for (const t of evaluation.notRun) log(`   ${t}  (did not run)`);
+}
+
 function main({ turbo = realTurbo, cwd = process.cwd(), env = process.env, log = console.log } = {}) {
   const readLog = (task) => {
     try {
@@ -208,7 +209,7 @@ function main({ turbo = realTurbo, cwd = process.cwd(), env = process.env, log =
   };
   try {
     // Inside the try: an invalid setting must block with a message, not crash the hook.
-    const concurrency = positiveInt(CONCURRENCY_ENV, env[CONCURRENCY_ENV], DEFAULT_CONCURRENCY);
+    const concurrency = positiveInt(CONCURRENCY_ENV, env[CONCURRENCY_ENV]) ?? DEFAULT_CONCURRENCY;
     const runEnv = { ...env };
     if (workerCap(env) === undefined) runEnv[JEST_ENV] = String(DEFAULT_JEST_WORKERS);
     const ctx = { cwd, env: runEnv, log };
@@ -216,7 +217,7 @@ function main({ turbo = realTurbo, cwd = process.cwd(), env = process.env, log =
     const expected = expectedTasks(turbo, ctx);
     const common = ['--continue=dependencies-successful', '--output-logs=full'];
     const first = summarizedRun(turbo, [...common, `--concurrency=${concurrency}`], ctx);
-    const firstEval = evaluate(expected, first.summary, readLog);
+    const firstEval = evaluate(expected, first, readLog);
     const decision = decide(firstEval);
 
     if (decision.action === 'pass') {
@@ -224,9 +225,7 @@ function main({ turbo = realTurbo, cwd = process.cwd(), env = process.env, log =
       return 0;
     }
     if (decision.action === 'block') {
-      log('❌ blocking failure(s), no retry:');
-      for (const f of decision.blocking) log(`   ${f.taskId}${f.logFile ? `  (log: ${f.logFile})` : ''}`);
-      for (const t of firstEval.notRun) log(`   ${t}  (did not run)`);
+      report(log, firstEval, '❌ blocking failure(s), no retry:');
       return 1;
     }
 
@@ -238,11 +237,9 @@ function main({ turbo = realTurbo, cwd = process.cwd(), env = process.env, log =
 
     const filters = [...new Set(decision.retry.map(packageOf))].map((p) => `--filter=${p}`);
     const second = summarizedRun(turbo, [...common, '--concurrency=1', ...filters], ctx);
-    const retryEval = evaluate(decision.retry, second.summary, readLog);
+    const retryEval = evaluate(decision.retry, second, readLog);
     if (!retryEval.ok) {
-      log('❌ retry did not clear the failure(s). Blocking. First-run and retry evidence:');
-      for (const f of retryEval.failed) log(`   ${f.taskId} failed again (${f.kind})`);
-      for (const t of retryEval.notRun) log(`   ${t} did not run on retry`);
+      report(log, retryEval, '❌ retry did not clear the failure(s). Blocking:');
       return 1;
     }
     log(`✓ passed after one serial retry of: ${decision.retry.join(', ')}`);
@@ -254,7 +251,7 @@ function main({ turbo = realTurbo, cwd = process.cwd(), env = process.env, log =
   }
 }
 
-module.exports = { classifyLog, evaluate, decide, main, positiveInt, CONCURRENCY_ENV };
+module.exports = { classifyLog, main };
 
 if (require.main === module) {
   process.exitCode = main();

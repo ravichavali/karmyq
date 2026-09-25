@@ -3,7 +3,7 @@ import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rm
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 
-import { ROOT, read } from './helpers/workspaces';
+import { ROOT, allWorkspaces, read } from './helpers/workspaces';
 
 /**
  * Sprint 131 process PR: the pre-push unit + regression gate runs through
@@ -42,20 +42,20 @@ afterAll(() => {
 
 // One entry per scenario; a Record is several spec files run together in one Jest invocation.
 const FIXTURES: Record<string, string | Record<string, string>> = {
-  timeout: `test('slow', () => new Promise((r) => setTimeout(r, 3000)), 100);\ntest('fine', () => {});\n`,
-  twoTimeouts: `test('a', () => new Promise((r) => setTimeout(r, 3000)), 100);\ntest('b', () => new Promise((r) => setTimeout(r, 3000)), 100);\n`,
-  hookTimeout: `beforeAll(() => new Promise((r) => setTimeout(r, 3000)), 100);\ntest('a', () => {});\ntest('b', () => {});\n`,
+  timeout: `test('slow', () => new Promise((r) => setTimeout(r, 400)), 100);\ntest('fine', () => {});\n`,
+  twoTimeouts: `test('a', () => new Promise((r) => setTimeout(r, 400)), 100);\ntest('b', () => new Promise((r) => setTimeout(r, 400)), 100);\n`,
+  hookTimeout: `beforeAll(() => new Promise((r) => setTimeout(r, 400)), 100);\ntest('a', () => {});\ntest('b', () => {});\n`,
   assertion: `test('bad', () => { expect(1).toBe(2); });\n`,
-  timeoutPlusAssertion: `test('slow', () => new Promise((r) => setTimeout(r, 3000)), 100);\ntest('bad', () => { expect(1).toBe(2); });\n`,
+  timeoutPlusAssertion: `test('slow', () => new Promise((r) => setTimeout(r, 400)), 100);\ntest('bad', () => { expect(1).toBe(2); });\n`,
   suiteBroken: `test('x', () => {\n`,
   passing: `test('ok', () => { expect(1).toBe(1); });\n`,
-  timeoutWithConsole: `test('slow', async () => { console.log('Exceeded budget, still waiting'); await new Promise((r) => setTimeout(r, 3000)); }, 100);\n`,
+  timeoutWithConsole: `test('slow', async () => { console.log('Exceeded budget, still waiting'); await new Promise((r) => setTimeout(r, 400)); }, 100);\n`,
   multiFileTimeouts: {
-    one: `test('slow one', () => new Promise((r) => setTimeout(r, 3000)), 100);\n`,
-    two: `test('slow two', () => new Promise((r) => setTimeout(r, 3000)), 100);\n`,
+    one: `test('slow one', () => new Promise((r) => setTimeout(r, 400)), 100);\n`,
+    two: `test('slow two', () => new Promise((r) => setTimeout(r, 400)), 100);\n`,
   },
   multiFileMixed: {
-    one: `test('slow', () => new Promise((r) => setTimeout(r, 3000)), 100);\n`,
+    one: `test('slow', () => new Promise((r) => setTimeout(r, 400)), 100);\n`,
     two: `test('bad', () => { expect(1).toBe(2); });\n`,
   },
 };
@@ -177,6 +177,8 @@ const BUILD = 'pkg-a#build';
 const TEST_A = 'pkg-a#test';
 const TEST_B = 'pkg-b#test';
 const GRAPH = [BUILD, TEST_A, TEST_B];
+// A function: jestOutput is only filled once beforeAll has run Jest.
+const timedOut = () => ({ exitCode: 1, log: jestOutput.timeout });
 const ok = { exitCode: 0, log: 'Tests:       3 passed, 3 total\n' };
 
 describe('runner policy, end to end through a child process', () => {
@@ -194,50 +196,48 @@ describe('runner policy, end to end through a child process', () => {
   });
 
   it('retries a timeout-only failure once, serially, filtered to that package, and passes if it clears', () => {
-    const timedOut = { exitCode: 1, log: jestOutput.timeout };
     const r = runScenario({
       dry: GRAPH,
       runs: [
-        { code: 1, tasks: { [BUILD]: ok, [TEST_A]: timedOut, [TEST_B]: ok } },
+        { code: 1, tasks: { [BUILD]: ok, [TEST_A]: timedOut(), [TEST_B]: ok } },
         { code: 0, tasks: { [BUILD]: ok, [TEST_A]: ok } },
       ],
     });
     expect(r.code).toBe(0);
     expect(r.calls).toHaveLength(2);
-    expect(r.calls[1]).toEqual(expect.arrayContaining(['--concurrency=1', '--filter=pkg-a']));
+    expect(r.calls[1]).toContain('--concurrency=1');
     expect(r.calls[1].filter((a) => a.startsWith('--filter='))).toEqual(['--filter=pkg-a']);
     // The first run's evidence survives the retry, and the report says a retry happened.
-    expect(existsSync(join(r.dir, '.turbo/prepush/first-run-pkg-a_test.log'))).toBe(true);
     expect(readFileSync(join(r.dir, '.turbo/prepush/first-run-pkg-a_test.log'), 'utf8')).toBe(jestOutput.timeout);
     expect(r.output).toMatch(/passed after one serial retry of: pkg-a#test/);
   });
 
   it('blocks when the retry times out again', () => {
-    const timedOut = { exitCode: 1, log: jestOutput.timeout };
     const r = runScenario({
       dry: GRAPH,
       runs: [
-        { code: 1, tasks: { [BUILD]: ok, [TEST_A]: timedOut, [TEST_B]: ok } },
-        { code: 1, tasks: { [BUILD]: ok, [TEST_A]: timedOut } },
+        { code: 1, tasks: { [BUILD]: ok, [TEST_A]: timedOut(), [TEST_B]: ok } },
+        { code: 1, tasks: { [BUILD]: ok, [TEST_A]: timedOut() } },
       ],
     });
     expect(r.code).toBe(1);
     expect(r.calls).toHaveLength(2); // exactly one retry, never a second
   });
 
+  // Rows name a fixture rather than holding its output: an it.each table is built at collection
+  // time, before beforeAll has run Jest, so `jestOutput.assertion` here would be undefined and
+  // every row would silently test "missing log" instead.
   it.each([
-    ['an assertion failure', jestOutput.assertion],
-    ['a timeout alongside an assertion failure', jestOutput.timeoutPlusAssertion],
-    ['a suite that failed to run', jestOutput.suiteBroken],
+    ['an assertion failure', 'assertion'],
+    ['a timeout alongside an assertion failure', 'timeoutPlusAssertion'],
+    ['a timeout in one file and an assertion in another', 'multiFileMixed'],
+    ['a suite that failed to run', 'suiteBroken'],
     ['an unknown failure with an empty log', ''],
-  ])('blocks on %s without retrying', (_label, log) => {
+    ['a failed test whose log file is missing', undefined],
+  ])('blocks on %s without retrying', (_label, fixture) => {
+    const log = fixture ? jestOutput[fixture] : fixture;
+    if (fixture) expect(log).toMatch(/Tests:.*failed|Test suite failed to run/); // real Jest output is really there
     const r = runScenario({ dry: GRAPH, runs: [{ code: 1, tasks: { [BUILD]: ok, [TEST_A]: { exitCode: 1, log }, [TEST_B]: ok } }] });
-    expect(r.code).toBe(1);
-    expect(r.calls).toHaveLength(1);
-  });
-
-  it('blocks on a failed test whose log file is missing', () => {
-    const r = runScenario({ dry: GRAPH, runs: [{ code: 1, tasks: { [BUILD]: ok, [TEST_A]: { exitCode: 1 }, [TEST_B]: ok } }] });
     expect(r.code).toBe(1);
     expect(r.calls).toHaveLength(1);
   });
@@ -385,23 +385,17 @@ describe('the Jest worker cap', () => {
   });
 
   it('every workspace that runs Jest either applies the cap or runs serially', async () => {
-    const workspaces: string[] = JSON.parse(read('package.json')).workspaces;
-    const dirs = workspaces.flatMap((glob) => {
-      if (!glob.endsWith('/*')) return [glob];
-      const base = glob.slice(0, -2);
-      return require('fs').readdirSync(join(ROOT, base)).map((d: string) => `${base}/${d}`);
-    }).filter((d: string) => existsSync(join(ROOT, d, 'package.json')));
-
-    const testing = dirs.filter((d) => JSON.parse(read(`${d}/package.json`)).scripts?.test);
+    const testing = allWorkspaces()
+      .map(({ ws, dir }) => ({ ws, dir, scripts: (JSON.parse(read(`${ws}/package.json`)).scripts || {}) as Record<string, string> }))
+      .filter((w) => w.scripts.test);
     const capped: string[] = [];
     const serial: string[] = [];
     const neither: string[] = [];
-    for (const d of testing) {
-      const configPath = join(ROOT, d, 'jest.config.js');
+    for (const { ws: d, dir, scripts } of testing) {
+      const configPath = join(dir, 'jest.config.js');
       if (existsSync(configPath)) {
-        ((await resolvedMaxWorkers(join(ROOT, d), configPath)) === 3 ? capped : neither).push(d);
+        ((await resolvedMaxWorkers(dir, configPath)) === 3 ? capped : neither).push(d);
       } else {
-        const scripts: Record<string, string> = JSON.parse(read(`${d}/package.json`)).scripts;
         const jestCalls = Object.values(scripts).filter((s) => /\bjest\b/.test(s) && !/--watch/.test(s));
         (jestCalls.length > 0 && jestCalls.every((s) => /--runInBand/.test(s)) ? serial : neither).push(d);
       }
