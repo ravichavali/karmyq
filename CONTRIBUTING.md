@@ -70,6 +70,10 @@ npm test            # unit + regression (must pass)
 npm run test:tdd    # WIP tests (informational)
 ```
 
+`npm test` runs at most 4 workspaces at once with 2 Jest workers each, sized so a small machine
+does not time tests out under load. On a bigger machine, raise both:
+`TURBO_CONCURRENCY=8 KARMYQ_JEST_MAX_WORKERS=4 npm test`.
+
 ## Recording what you learn
 
 Durable, repo-scoped operational facts live in [`docs/gotchas/`](docs/gotchas/) — the things that

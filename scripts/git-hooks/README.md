@@ -43,8 +43,8 @@ npm run hooks:install
 **Environment Variables**:
 - `SKIP_PREPUSH=1`: Skip all pre-push checks
 - `DATABASE_URL` or `POSTGRES_HOST`: Used to detect database availability
-- `KARMYQ_PREPUSH_CONCURRENCY`: Turbo tasks at once (default 4)
-- `KARMYQ_JEST_MAX_WORKERS`: Jest workers per workspace (default 2)
+- `TURBO_CONCURRENCY`: Turbo tasks at once (default 4, from `turbo.json`; applies to every `npm test`)
+- `KARMYQ_JEST_MAX_WORKERS`: Jest workers per workspace (default 2; applies to every `npm test`)
 
 **Skip Options**:
 - `git push --no-verify` - Skip hook entirely

@@ -175,15 +175,11 @@ const turboCalls = (dir: string): string[][] => {
   return readFileSync(file, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
 };
 
-function runScenario(scenario: Scenario, env: Record<string, string> = {}) {
+function runScenario(scenario: Scenario) {
   const dir = scratch('karmyq-prepush-run-');
   installFakeTurbo(dir, scenario);
   const lines: string[] = [];
-  // Start from the runner's defaults even when this suite itself runs under the hook's caps.
-  const base: NodeJS.ProcessEnv = { ...process.env };
-  delete base.KARMYQ_PREPUSH_CONCURRENCY;
-  delete base.KARMYQ_JEST_MAX_WORKERS;
-  const code = runner.main({ cwd: dir, env: { ...base, ...env }, log: (l: string) => lines.push(l) });
+  const code = runner.main({ cwd: dir, log: (l: string) => lines.push(l) });
   const calls = turboCalls(dir).filter((a) => !a.includes('--dry=json'));
   return { code, calls, output: lines.join('\n'), dir };
 }
@@ -207,16 +203,9 @@ describe('runner policy, end to end through a child process', () => {
     });
     expect(r.code).toBe(0);
     expect(r.calls).toHaveLength(1);
-    expect(r.calls[0]).toEqual(expect.arrayContaining(['--continue=dependencies-successful', '--concurrency=4']));
-  });
-
-  it("uses the same default caps as the hook, which exports them for every test step", () => {
-    const hook = read('scripts/git-hooks/pre-push');
-    const hookDefault = (name: string) => Number(hook.match(new RegExp(`export ${name}="\\$\\{${name}:-(\\d+)\\}"`))?.[1]);
-    const r = runScenario({ dry: GRAPH, runs: [{ code: 0, tasks: { [BUILD]: ok, [TEST_A]: ok, [TEST_B]: ok } }] });
-    const [, turbo, jestWorkers] = r.output.match(/turbo concurrency (\d+), jest workers (\d+)/) ?? [];
-    expect([hookDefault('KARMYQ_PREPUSH_CONCURRENCY'), hookDefault('KARMYQ_JEST_MAX_WORKERS')]).toEqual([Number(turbo), Number(jestWorkers)]);
-    expect([Number(turbo), Number(jestWorkers)]).toEqual([4, 2]);
+    expect(r.calls[0]).toContain('--continue=dependencies-successful');
+    // turbo.json's concurrency governs the first run, exactly as for `npm test`; no flag overrides it.
+    expect(r.calls[0].filter((a) => a.startsWith('--concurrency'))).toEqual([]);
   });
 
   it('retries a timeout-only failure once, serially, filtered to that package, and passes if it clears', () => {
@@ -315,15 +304,6 @@ describe('runner policy, end to end through a child process', () => {
     const r = runScenario({ dry: GRAPH, runs: [] }); // the stand-in exits 97 with no summary
     expect(r.code).toBe(1);
   });
-
-  it('blocks on an invalid concurrency setting instead of guessing', () => {
-    const r = runScenario({ dry: GRAPH, runs: [{ code: 0, tasks: { [BUILD]: ok, [TEST_A]: ok, [TEST_B]: ok } }] }, {
-      KARMYQ_PREPUSH_CONCURRENCY: 'lots',
-    });
-    expect(r.code).toBe(1);
-    expect(r.output).toMatch(/KARMYQ_PREPUSH_CONCURRENCY must be a positive integer/);
-    expect(turboCalls(r.dir)).toEqual([]); // refused before running anything
-  });
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -355,7 +335,7 @@ describe('the pre-push hook enforces the runner on a real git push', () => {
     git('remote', 'add', 'origin', remote);
 
     const env: NodeJS.ProcessEnv = { ...process.env };
-    for (const k of ['SKIP_PREPUSH', 'DATABASE_URL', 'POSTGRES_HOST', 'KARMYQ_PREPUSH_CONCURRENCY', 'KARMYQ_JEST_MAX_WORKERS']) delete env[k];
+    for (const k of ['SKIP_PREPUSH', 'DATABASE_URL', 'POSTGRES_HOST', 'TURBO_CONCURRENCY', 'KARMYQ_JEST_MAX_WORKERS']) delete env[k];
     const r = spawnSync('git', ['push', 'origin', 'main'], { cwd: work, env, encoding: 'utf8' });
     const remoteHasMain = spawnSync('git', ['rev-parse', '--verify', '--quiet', 'refs/heads/main'], { cwd: remote }).status === 0;
     return { status: r.status, output: `${r.stdout}${r.stderr}`, remoteHasMain };
@@ -400,9 +380,10 @@ async function resolvedMaxWorkers(cwd: string, configPath: string, cap = '3'): P
 }
 
 describe('the Jest worker cap', () => {
-  it('leaves a config untouched when unset, applies a valid value, and refuses a bad one', () => {
-    expect(cap.withWorkerCap({ a: 1 }, {})).toEqual({ a: 1 });
-    expect(cap.withWorkerCap({ a: 1 }, { KARMYQ_JEST_MAX_WORKERS: '' })).toEqual({ a: 1 });
+  it('defaults to 2 workers, applies a valid override, keeps a pinned value, and refuses a bad one', () => {
+    expect(cap.DEFAULT_WORKERS).toBe(2);
+    expect(cap.withWorkerCap({ a: 1 }, {})).toEqual({ a: 1, maxWorkers: 2 });
+    expect(cap.withWorkerCap({ a: 1 }, { KARMYQ_JEST_MAX_WORKERS: '' })).toEqual({ a: 1, maxWorkers: 2 });
     expect(cap.withWorkerCap({ a: 1 }, { KARMYQ_JEST_MAX_WORKERS: '3' })).toEqual({ a: 1, maxWorkers: 3 });
     expect(cap.withWorkerCap({ maxWorkers: 1 }, { KARMYQ_JEST_MAX_WORKERS: '3' })).toEqual({ maxWorkers: 1 });
     for (const bad of ['0', '-1', '2.5', '50%', 'two', ' 3']) {
@@ -461,4 +442,41 @@ describe('the Jest worker cap', () => {
     expect(dry.envMode).toBe('strict');
     expect(dry.globalCacheInputs.environmentVariables.specified.passThroughEnv).toContain('KARMYQ_JEST_MAX_WORKERS');
   }, 180_000);
+});
+
+describe('the Turbo concurrency cap', () => {
+  it("turbo.json bounds every `npm test` at 4 tasks, overridable with TURBO_CONCURRENCY", () => {
+    expect(JSON.parse(read('turbo.json')).concurrency).toBe('4');
+  });
+
+  /**
+   * turbo.json's text proves nothing on its own: this runs the repo's own turbo on a throwaway
+   * three-package monorepo whose tasks record start and end times, and checks that the config's
+   * concurrency serializes them and that the env override lifts it. Overlap, not wall time, so
+   * machine load cannot flip the result.
+   */
+  it("the repo's turbo honours turbo.json concurrency, and TURBO_CONCURRENCY overrides it", () => {
+    const dir = scratch('karmyq-prepush-turbo-');
+    const write = (rel: string, body: string) => {
+      mkdirSync(dirname(join(dir, rel)), { recursive: true });
+      writeFileSync(join(dir, rel), body);
+    };
+    write('package.json', JSON.stringify({ name: 'root', private: true, packageManager: 'npm@10.8.2', workspaces: ['pkgs/*'] }));
+    write('package-lock.json', JSON.stringify({ name: 'root', lockfileVersion: 3, requires: true, packages: { '': { name: 'root', workspaces: ['pkgs/*'] } } }));
+    const task = `node -e "const fs=require('fs');const s=Date.now();setTimeout(()=>fs.writeFileSync('span.json',JSON.stringify([s,Date.now()])),700)"`;
+    for (const name of ['a', 'b', 'c']) write(`pkgs/${name}/package.json`, JSON.stringify({ name, scripts: { span: task } }));
+    write('turbo.json', JSON.stringify({ concurrency: '1', tasks: { span: { cache: false } } }));
+    execFileSync('git', ['init', '-q'], { cwd: dir });
+    const bin = require.resolve('turbo/bin/turbo', { paths: [ROOT] });
+
+    const overlaps = (env: NodeJS.ProcessEnv): boolean => {
+      execFileSync(process.execPath, [bin, 'run', 'span'], { cwd: dir, env: { ...env, TURBO_TELEMETRY_DISABLED: '1' }, stdio: 'ignore' });
+      const spans = ['a', 'b', 'c'].map((n) => JSON.parse(readFileSync(join(dir, 'pkgs', n, 'span.json'), 'utf8')) as [number, number]);
+      return spans.some(([s1, e1], i) => spans.some(([s2, e2], j) => i !== j && s1 < e2 && s2 < e1));
+    };
+    const env: NodeJS.ProcessEnv = { ...process.env };
+    delete env.TURBO_CONCURRENCY;
+    expect(overlaps(env)).toBe(false); // config "1": strictly one task at a time
+    expect(overlaps({ ...env, TURBO_CONCURRENCY: '3' })).toBe(true); // the override lifts it
+  }, 120_000);
 });

@@ -1,14 +1,13 @@
 #!/usr/bin/env node
 /**
- * Pre-push unit + regression gate: `turbo run test` with bounded parallelism and ONE narrow retry.
+ * Pre-push unit + regression gate: `turbo run test` plus ONE narrow retry.
  *
- * Why this exists. On the Windows dev box an uncapped `npm test` runs every workspace at once and
- * each workspace's Jest starts cores-1 workers. Ordinary tests then slow down enough to hit their
- * Jest timeouts in a different workspace each run, while passing standalone. The hook used to fail
- * on that, and the workaround became skipping the hook. This runner fixes the load instead:
- *   - Turbo concurrency is capped (KARMYQ_PREPUSH_CONCURRENCY) and so is each Jest's worker pool
- *     (KARMYQ_JEST_MAX_WORKERS, applied by scripts/jest-worker-cap.js). Defaults below were
- *     measured, see the PR that introduced this file.
+ * Parallelism is bounded for every caller of `npm test`, not here: turbo.json's `concurrency` caps
+ * Turbo (override: TURBO_CONCURRENCY) and scripts/jest-worker-cap.js caps each Jest (override:
+ * KARMYQ_JEST_MAX_WORKERS). Uncapped, the 8-core / 7.6 GB Windows dev box hit Jest timeouts in a
+ * different workspace each run while every suite passed standalone, and the workaround became
+ * skipping the hook. The caps removed those timeouts in every measured run; this runner covers a
+ * timeout that happens anyway:
  *   - A task whose ONLY failures are Jest timeouts is re-run once, alone, serially. A timeout can
  *     also be a real hang, which is why the retry is a single serial attempt and a second timeout
  *     blocks.
@@ -28,11 +27,6 @@
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { ENV: JEST_ENV, positiveInt, workerCap } = require('./jest-worker-cap');
-
-const CONCURRENCY_ENV = 'KARMYQ_PREPUSH_CONCURRENCY';
-const DEFAULT_CONCURRENCY = 4;
-const DEFAULT_JEST_WORKERS = 2;
 
 // Jest's own wording, read from real Jest 30 output (see the regression test's fixtures). Each
 // error of a failed test gets its own `● <name>` block. A timeout block's FIRST message line is
@@ -219,15 +213,12 @@ function main({ turbo = realTurbo, cwd = process.cwd(), env = process.env, log =
     }
   };
   try {
-    // Inside the try: an invalid setting must block with a message, not crash the hook.
-    const concurrency = positiveInt(CONCURRENCY_ENV, env[CONCURRENCY_ENV]) ?? DEFAULT_CONCURRENCY;
-    const runEnv = { ...env };
-    if (workerCap(env) === undefined) runEnv[JEST_ENV] = String(DEFAULT_JEST_WORKERS);
-    const ctx = { cwd, env: runEnv, log };
-    log(`pre-push tests: turbo concurrency ${concurrency}, jest workers ${runEnv[JEST_ENV]}`);
+    const ctx = { cwd, env, log };
     const expected = expectedTasks(turbo, ctx);
     const common = ['--continue=dependencies-successful', '--output-logs=full'];
-    const first = summarizedRun(turbo, [...common, `--concurrency=${concurrency}`], ctx);
+    // No --concurrency on the first run: turbo.json's default (or TURBO_CONCURRENCY) governs, the
+    // same bound every `npm test` gets. The retry's --concurrency=1 overrides it.
+    const first = summarizedRun(turbo, common, ctx);
     const firstEval = evaluate(expected, first, readLog);
     const decision = decide(firstEval);
 

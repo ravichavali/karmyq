@@ -1,34 +1,32 @@
-// Caps Jest's worker pool from KARMYQ_JEST_MAX_WORKERS.
+// Caps Jest's worker pool: 2 workers by default, KARMYQ_JEST_MAX_WORKERS to override.
 //
-// `npm test` is `turbo run test`: Turbo runs many workspaces at once and each workspace's Jest
-// starts its own worker pool (default: cores - 1), so total parallelism is the PRODUCT of the two.
-// scripts/prepush-test-runner.js bounds the Turbo side with --concurrency and this bounds the Jest
-// side. Every jest config wraps its export in withWorkerCap, directly or by extending the root
-// jest.config.js. turbo.json must list the variable in the test task's passThroughEnv, because
-// Turbo's strict env mode strips undeclared variables before the task starts.
+// `npm test` is `turbo run test`: Turbo runs several workspaces at once and each workspace's Jest
+// starts its own worker pool (Jest's default is cores - 1), so total parallelism is the PRODUCT of
+// the two. turbo.json's `concurrency` bounds the Turbo side and this bounds the Jest side, for every
+// caller of `npm test`: the pre-push hook, CI and a developer's shell alike. Uncapped, the 8-core /
+// 7.6 GB Windows dev box ran out of memory and ordinary tests hit their Jest timeouts.
 //
-// Unset or empty leaves the config untouched (Jest's own default). An invalid value throws rather
-// than being silently ignored: a cap that does not apply is worse than no cap, because it looks
-// like one. A config that already sets maxWorkers keeps its own value, and a CLI --runInBand or
-// --maxWorkers still overrides the config.
+// Every jest config wraps its export in withWorkerCap, directly or by extending the root
+// jest.config.js. turbo.json lists the variable in globalPassThroughEnv, because Turbo's strict env
+// mode strips undeclared variables before a task starts. An invalid value throws rather than being
+// ignored: a cap that silently does not apply looks like one. A config that sets its own maxWorkers
+// keeps it, and a CLI --runInBand or --maxWorkers still overrides the config.
 
 const ENV = 'KARMYQ_JEST_MAX_WORKERS';
+const DEFAULT_WORKERS = 2;
 
-/** A positive-integer setting: undefined when unset or empty, throws when invalid. */
-function positiveInt(name, raw) {
-  if (raw === undefined || raw === '') return undefined;
+function workerCap(env = process.env) {
+  const raw = env[ENV];
+  if (raw === undefined || raw === '') return DEFAULT_WORKERS;
   if (!/^[1-9][0-9]*$/.test(raw)) {
-    throw new Error(`${name} must be a positive integer, got ${JSON.stringify(raw)}`);
+    throw new Error(`${ENV} must be a positive integer, got ${JSON.stringify(raw)}`);
   }
   return Number(raw);
 }
 
-const workerCap = (env = process.env) => positiveInt(ENV, env[ENV]);
-
 function withWorkerCap(config, env = process.env) {
-  const cap = workerCap(env);
-  if (cap === undefined || config.maxWorkers !== undefined) return config;
-  return { ...config, maxWorkers: cap };
+  if (config.maxWorkers !== undefined) return config;
+  return { ...config, maxWorkers: workerCap(env) };
 }
 
-module.exports = { ENV, positiveInt, workerCap, withWorkerCap };
+module.exports = { DEFAULT_WORKERS, withWorkerCap };
