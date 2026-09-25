@@ -1468,7 +1468,9 @@ The TDD tier's automation is inert on the Windows box, and the docs say otherwis
    ran, so check npm on the Mac before rewriting them.
 2. The pre-push hook's report-only TDD step runs `npm run test:tdd` = `turbo run test:tdd`, which
    fails with "Could not find task `test:tdd` in project" (`turbo.json` defines no such task). The
-   step prints the failure as "TDD tests failed (this is OK)", so no TDD test has run on push.
+   hook pipes it through `| tail -20`, which masks turbo's exit code, so the step then prints
+   "✓ TDD tests passed - consider promoting to regression!" (observed on a real push 2026-09-24).
+   No TDD test has run on push, and the hook says they passed.
 
 Found during the prepush-test-runner PR's `/code-review`; not fixed there (out of scope).
 

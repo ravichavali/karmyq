@@ -90,8 +90,8 @@ covered by `tests/regression/dependency-guard-hook.test.ts`.
   for emergencies only.
   ⚠️ Two things the hook does NOT do, whatever older docs say: it does not run the TDD promoter
   (`npm test`'s `posttest` never runs under `.npmrc`'s `ignore-scripts=true`; verified with npm
-  10.8.2), and its `test:tdd` step runs nothing (turbo: "Could not find task `test:tdd`", and the
-  step is report-only, so the error is swallowed).
+  10.8.2), and its `test:tdd` step runs nothing (turbo: "Could not find task `test:tdd`"), yet
+  prints "✓ TDD tests passed" because `| tail -20` masks the exit code. BUG-053.
   Neither is the answer to a slow or flaky push: tune the caps below instead, and never read "open
   the PR" as permission to skip the hook.
   **Test parallelism is capped for every `npm test`**, the hook, CI and your shell alike.

@@ -62,7 +62,7 @@ the `CURRENT_HANDOFF.md` router conflict.
   log-less task's lines from it (`pkg:task: ` prefix).
 - **Not fixed here, logged as BUG-053:** `npm test`'s `posttest` promoter never runs under
   `ignore-scripts=true` (npm 10.8.2, verified), and the hook's `test:tdd` step has never run a
-  test (`turbo`: no `test:tdd` task). Check npm on the Mac before rewriting the docs that claim
+  test (`turbo`: no `test:tdd` task, and `| tail -20` masks that, so the step reports "passed"). Check npm on the Mac before rewriting the docs that claim
   otherwise.
 
 ## Verification references (all on the Windows box)
