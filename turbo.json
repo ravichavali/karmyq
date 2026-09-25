@@ -13,12 +13,14 @@
     "test": {
       "dependsOn": ["build"],
       "outputs": ["coverage/**"],
-      "inputs": ["$TURBO_DEFAULT$"]
+      "inputs": ["$TURBO_DEFAULT$"],
+      "passThroughEnv": ["KARMYQ_JEST_MAX_WORKERS"]
     },
     "@karmyq/tests#test": {
       "dependsOn": ["build"],
       "outputs": ["coverage/**"],
-      "cache": false
+      "cache": false,
+      "passThroughEnv": ["KARMYQ_JEST_MAX_WORKERS"]
     },
     "lint": {
       "outputs": []

@@ -71,8 +71,12 @@ fi
 echo ""
 echo "🔬 Running unit + regression tests..."
 echo -e "${BLUE}ℹ️  These tests MUST pass (core tenant of TDD framework)${NC}"
-if npm test; then
+# Not `npm test`: the runner bounds Turbo and Jest parallelism and retries a timeout-only failure
+# once, serially; every other failure still blocks. See scripts/prepush-test-runner.js.
+if node scripts/prepush-test-runner.js; then
   echo -e "${GREEN}✓ Unit + regression tests passed${NC}"
+  # `npm test` ran this as its posttest step; keep that behavior.
+  node scripts/promote-tdd-tests.js
 else
   echo -e "${RED}❌ Unit + regression tests failed${NC}"
   echo -e "${YELLOW}Fix failing tests or use --no-verify to skip${NC}"

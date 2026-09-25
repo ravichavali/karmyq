@@ -85,8 +85,23 @@ covered by `tests/regression/dependency-guard-hook.test.ts`.
   installer resolves it (Sprint 123; it used to hardcode `.git/hooks`, which made every hook on
   such a machine dead code and every push silent). `scripts/setup/setup-git-hooks.sh` is a **third,
   vestigial** installer that reintroduces husky — don't run it.
-  `pre-push` runs `npm test` (unit + regression, blocking), integration if a DB is reachable, and
+  `pre-push` runs unit + regression through `prepush-test-runner.js` (blocking; then the TDD
+  promoter that `npm test`'s posttest used to run), integration if a DB is reachable, and
   `test:tdd` for reporting only. `SKIP_PREPUSH=1` skips it; `--no-verify` for emergencies only.
+  Neither is the answer to a slow or flaky push: tune the caps below instead, and never read "open
+  the PR" as permission to skip the hook.
+  **`prepush-test-runner.js`** runs `turbo run test` with capped parallelism. Uncapped, every
+  workspace runs at once with cores-1 Jest workers each, and on the 8-core, 7.6 GB Windows box
+  ordinary tests then hit their Jest timeouts and pass standalone. Caps:
+  `KARMYQ_PREPUSH_CONCURRENCY` (Turbo tasks, default 4) and `KARMYQ_JEST_MAX_WORKERS` (per Jest,
+  default 2, applied by **`jest-worker-cap.js`**, which every workspace jest config wraps, directly
+  or through the root config). A test task whose ONLY failures are Jest timeouts is re-run once,
+  alone, serially; its first-run log is kept in `.turbo/prepush/`. Everything else blocks:
+  assertions, suites that failed to run, build failures, tasks that never ran, and missing or
+  contradictory run summaries. A new jest config must wrap its export in `withWorkerCap`, and the
+  variable must stay in `turbo.json`'s `passThroughEnv` (strict env mode strips it otherwise);
+  `tests/regression/sprint-131-prepush-test-runner.test.ts` enforces both and proves the hook
+  rejects a real push.
 - **`demo/`** — demo-host wiring for `rotate:demo-stories` (Sprint 129, BUG-039).
   `enable-demo.sh` (`DEMO_ENABLE_CMD`) idempotently sets `DEMO_SESSION_ENABLED=true` and asserts the
   post-condition on **every** occurrence of the key — the env file is known to carry duplicates, and

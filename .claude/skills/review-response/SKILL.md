@@ -56,6 +56,10 @@ If you cannot demonstrate the symptom is gone, say so — do not report the fix 
 3. Re-run whichever gate produced the findings.
 4. **Reconcile `CURRENT_HANDOFF.md`** against `gh pr list` and `git log` — a handoff contradicting
    real PR state is a blocking defect.
+5. **Refresh the PR's evidence ledger** (`## Validation`, format in
+   `.github/pull_request_template.md`) before pushing the fixes. A fix changes the tested commit,
+   so every row it touches is re-run or marked as predating it, and any claim the finding
+   disproved is corrected in the PR body, the handoff and the commit message, not just the code.
 
 **Final output — one table, no prose padding:**
 
