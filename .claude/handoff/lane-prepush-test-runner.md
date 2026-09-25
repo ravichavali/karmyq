@@ -1,7 +1,7 @@
 # Pre-push test runner + npm test caps + evidence ledger — Handoff
 
 **Date**: 2026-09-24
-**Outcome**: PR #273 green, awaiting the maintainer's explicit merge authorization
+**Outcome**: PR #273 green; queued behind #272 (maintainer decision), then version bump and merge authorization
 
 > The handoff carries **state between sessions**. It is branch-local, so it reserves nothing; see
 > `CLAUDE.md` → *Parallel Development* for how contended resources are actually allocated.
@@ -33,12 +33,19 @@
    branch (for example D6's zod 4) makes this branch's tests fail for reasons unrelated to it.
 3. `npm run hooks:install` so the pushed hook is the one that runs.
 
-**Next unchecked task**: merge authorization for #273 (the maintainer's call; never self-authorized).
-Before merging, re-derive the merge slot (`gh pr list`, latest deploy run) and the version from
-`origin/master`'s `package.json`: if #272 merged first, bump this PR to the next version in
-`package.json` and `package-lock.json` and keep #272's Sprint 131 state plus this PR's router
-rows in `CURRENT_HANDOFF.md`. After the deploy: verify health, then archive this lane file and
-delete its router row.
+**Next unchecked task**: wait for #272 (D6) to merge, deploy and pass its health check, which
+happens on #272's own authorization, not this lane's. Then, on this branch:
+
+1. Update it from `origin/master` with a merge commit.
+2. Bump to the version after master's (v11.70.0 if #272 shipped v11.69.0) in `package.json` and
+   `package-lock.json`.
+3. Resolve the `CURRENT_HANDOFF.md` conflict: keep #272's Sprint 131 state, drop its D6 router
+   row if D6 is done, and keep this lane's row.
+4. Push through the hook, wait for green checks, and refresh the PR ledger's commit column.
+5. Ask the maintainer for #273's merge authorization. The PR shows `REVIEW_REQUIRED`, so it needs
+   an admin merge on explicit per-PR authorization.
+
+After #273 deploys, verify health, then archive this lane file and delete its router row.
 
 ## Blockers and decisions
 
@@ -53,8 +60,13 @@ delete its router row.
 - **Decision (maintainer, 2026-09-24): lane file + minimal router.** `CURRENT_HANDOFF.md` on this
   branch only swaps its stale bootstrap banner for an Active lanes pointer; the Sprint 131 state
   below it is untouched.
-- **Decision: version resolved at merge time.** #272 (D6) claims v11.69.0; whichever merges second
-  re-bumps `package.json` and `package-lock.json` then.
+- **Decision (maintainer, 2026-09-25): #272 merges first.** It keeps v11.69.0. #273 re-bumps to
+  the next version from `origin/master` after #272's deploy passes its health check. No version
+  commit is made on this branch before then.
+- **Evidence refreshed (2026-09-25):** a second `/security-review` over `91295af8..d126755a`
+  (the async runner, stdout-derived logs, the caps, the test-runner mount) found nothing. The
+  PR's timing claim now reads "no CI slowdown observed in these runs"; two runs do not explain
+  the 157 s vs 217 s spread.
 - **Decision: the retry never runs on its own evidence.** Tasks that never ran are retried only
   alongside a proven Jest timeout; a timeout is a failure block whose FIRST message line is Jest's
   timeout error. Everything else blocks.
