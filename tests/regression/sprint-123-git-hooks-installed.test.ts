@@ -133,7 +133,9 @@ describe('Sprint 123 git hooks are actually installed where git reads them', () 
   });
 
   it('pre-push actually runs the blocking suite', () => {
-    expect(read('scripts/git-hooks/pre-push')).toMatch(/npm (run )?test/);
+    // Sprint 131: through the bounded runner, not a bare `npm test`. The runner's own contract,
+    // including a real rejected push, is sprint-131-prepush-test-runner.test.ts.
+    expect(read('scripts/git-hooks/pre-push')).toMatch(/^if node scripts\/prepush-test-runner\.js; then$/m);
   });
 
   it('pre-commit runs the doc feedback loop, which the stale husky fork omitted', () => {

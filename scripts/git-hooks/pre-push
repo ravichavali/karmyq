@@ -71,7 +71,9 @@ fi
 echo ""
 echo "🔬 Running unit + regression tests..."
 echo -e "${BLUE}ℹ️  These tests MUST pass (core tenant of TDD framework)${NC}"
-if npm test; then
+# The same bounded `turbo run test` as `npm test` (turbo.json + jest-worker-cap.js), plus one
+# serial retry of a timeout-only failure; every other failure blocks. See prepush-test-runner.js.
+if node scripts/prepush-test-runner.js; then
   echo -e "${GREEN}✓ Unit + regression tests passed${NC}"
 else
   echo -e "${RED}❌ Unit + regression tests failed${NC}"

@@ -1455,3 +1455,23 @@ mid-sentence on the landing docs site.
 - **Severity:** low (docs accuracy only).
 
 ---
+
+## BUG-053 · [2026-09-24] · open
+
+The TDD tier's automation is inert on the Windows box, and the docs say otherwise.
+
+1. Root `package.json` wires `scripts/promote-tdd-tests.js` as `posttest`, but `.npmrc` sets
+   `ignore-scripts=true`; on npm 10.8.2 `npm test` skips `posttest` (verified 2026-09-24 in a
+   throwaway package using the repo's `.npmrc`: `test` ran, `posttest` did not). ADR-088:27,
+   `docs/guides/testing-guide.md:130`, `tests/claude.md:26`, `scripts/claude.md:10` and
+   `CURRENT_HANDOFF.md` (lines 376, 707) all describe it as running. Some sprint reports say it
+   ran, so check npm on the Mac before rewriting them.
+2. The pre-push hook's report-only TDD step runs `npm run test:tdd` = `turbo run test:tdd`, which
+   fails with "Could not find task `test:tdd` in project" (`turbo.json` defines no such task). The
+   hook pipes it through `| tail -20`, which masks turbo's exit code, so the step then prints
+   "✓ TDD tests passed - consider promoting to regression!" (observed on a real push 2026-09-24).
+   No TDD test has run on push, and the hook says they passed.
+
+Found during the prepush-test-runner PR's `/code-review`; not fixed there (out of scope).
+
+---
