@@ -1,6 +1,6 @@
 # @karmyq/shared — Context
 
-**Last Updated**: 2026-09-17 (Sprint 131 PR B2 declared imports)
+**Last Updated**: 2026-09-24 (Sprint 131 D6 zod 4)
 
 Shared TypeScript library consumed by all Karmyq services and frontend apps.
 
@@ -57,19 +57,8 @@ an explicitly-sent `null` survives untouched. Mounted in all 8 shared-consuming 
 package. Pinned by `tests/regression/sprint-122-express5-empty-body.test.ts`, which also asserts
 the raw Express 5 behaviour so the shim cannot be quietly removed.
 
-**Known, deliberate, out of scope** (pre-dates this sprint and does not block Express 5):
-
-| Package | `packages/shared` | root | Note |
-|---|---|---|---|
-| `zod` | `^3.22.4` | `^4.1.12` | split across majors; does not touch Express, so it does not block Express 5 |
-
-*(Also pre-existing: `apps/frontend` consumes this package without providing Express at all, so the
+*(Pre-existing: `apps/frontend` consumes this package without providing Express at all, so the
 peer is unsatisfied there and `.npmrc`'s `legacy-peer-deps=true` silences it.)*
-
-Since Sprint 131 PR B2 this row is also a `DIVERGENCE_ALLOWLIST` entry in
-`tests/regression/sprint-131-workspace-declarations.test.ts`. That gate otherwise fails when root's hoisted version stops satisfying a range a
-workspace declares, so these holdbacks have to be declared deliberate rather than drifting silently; a stale-entry
-test removes a row as soon as it stops being a divergence.
 
 ---
 
@@ -242,6 +231,40 @@ Root exports from `@karmyq/shared` define the strict request/offer relationship-
   reputation value.
 - The ADR-082 forbidden-key scanner now also rejects `match_completed_count`,
   `total_interaction_count`, and `interaction_count` in disclosure-protected payloads.
+
+## Sprint 131 D6 — zod 4 (2026-09-24)
+
+`zod` **→ 4.6.5** (#264) in this package and root. zod 3 is gone from the runtime graph. Only
+`@expo/cli` still nests its own 3.25.76, and nothing in our source imports it. The zod
+`DIVERGENCE_ALLOWLIST` entry in `tests/regression/sprint-131-workspace-declarations.test.ts` is retired, so the map is empty.
+
+A two-version differential over the real request schemas (102 cases) found 20 verdict changes,
+57 message/code-only changes and no issue-path changes. Each change is either preserved or accepted on purpose:
+
+| # | Change | Decision |
+|---|---|---|
+| P1 | zod 4 `z.string().uuid()` is RFC 9562-strict | **Preserved.** All 15 former `.uuid()` sites are `z.guid()`, zod 4's name for zod 3's 8-4-4-4-12 hex check. Seeded ids such as `11111111-…` stay valid |
+| P2 | Custom messages | **Preserved** |
+| P3 | `error.format()` tree and issue paths | **Preserved** |
+| I1 | String `.min/.max/.length` count code points, not UTF-16 units | Intentional. Stricter on `.min` for emoji. More permissive on `.max` (I1′) |
+| I2 | `.datetime()` requires seconds | Intentional. Every in-repo producer uses `toISOString()` |
+| I3 | `z.number()` rejects ±`Infinity` | Intentional. zod 3 accepted it, and JSON then stored `null` |
+| I4 | Default messages and codes (`Required` → `Invalid input: expected string, received undefined`; `invalid_enum_value` → `invalid_value`; `invalid_string` → `invalid_format`) | Intentional. Nothing matches on this text |
+| I5 | `.int()` requires a safe integer | Intentional. Only `roles[].count` lacked a small `.max()` |
+| I6 | **Type-level.** In a `strict: false` workspace, zod 3's `z.infer` made **every** key optional: its `requiredKeys` test is `undefined extends T[k]`, which is always true without `strictNullChecks`. zod 4 keeps required and defaulted keys required | Intentional: the inferred types are now accurate. This affects the 7 non-strict services and `apps/frontend`. It surfaced in exactly one test fixture (`request-service` `curated-feed.test.ts`, missing the defaulted `location_type`) |
+
+⚠️ **A local green after a zod (or any type-only) bump can be false.** The ts-jest cache
+(`%TEMP%/jest`) keys on the test file, not on dependency types, so a test compiled before the bump
+is reused unchecked, even under `turbo --force`. Only PR CI caught I6. Before claiming a type-level
+bump green, run `npx jest --clearCache` or `--no-cache`.
+
+**New shared code must use `z.guid()` for ids, not `.uuid()`.** A textual scan in the P1 test fails
+on any `.uuid(` in this package's source.
+
+Pinned by:
+- `src/schemas/__tests__/zod4-guid-semantics.test.ts`: P1 at every site, both halves, on the site's own path.
+- `src/schemas/requests/__tests__/zod4-request-contract.test.ts`: P2, P3 and I1–I5. It was proven two-sided: under
+  zod 3, exactly the 14 intentional rows fail and the 12 preserved rows pass.
 
 ## Sprint 131 D3 — express-rate-limit 8 (2026-09-21)
 
