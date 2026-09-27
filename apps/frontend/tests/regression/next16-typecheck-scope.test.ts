@@ -17,8 +17,8 @@ function loadProgram() {
   const program = parsed ? ts.createProgram(parsed.fileNames, parsed.options) : undefined;
   const files = (program?.getSourceFiles() ?? [])
     .map((s) => s.fileName)
-    .filter((f) => !/[\/]node_modules[\/]/.test(f))
-    .map((f) => rel(path.resolve(f)))
+    .filter((f) => !/\/node_modules\//.test(f))
+    .map(rel)
     .filter((f) => !f.startsWith('..'));
   return { configErrors, files };
 }
@@ -26,7 +26,12 @@ function loadProgram() {
 const TEST_FILE = /(^|\/)__(tests|mocks)__\/|(^|[/.])(spec|test)\.[^/]+$/;
 
 describe('next build type-check scope (Sprint 131 D7)', () => {
-  const { configErrors, files } = loadProgram();
+  let configErrors: string[] = [];
+  let files: string[] = [];
+  // Built once per file, only when a test runs; ~3 s alone, ~20 s under a parallel Turbo run.
+  beforeAll(() => {
+    ({ configErrors, files } = loadProgram());
+  }, 60_000);
   it('tsconfig has no configuration errors', () => {
     expect(configErrors).toEqual([]);
   });

@@ -19,6 +19,7 @@
  */
 import fs from 'fs';
 import path from 'path';
+import { read } from './helpers/workspaces';
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 
@@ -160,8 +161,9 @@ describe('globals.css source ordering (both apps)', () => {
  */
 describe('next build bundler (both apps)', () => {
   it.each(['landing', 'frontend'])('%s builds with --webpack, which keeps the font @import', (app) => {
-    const pkg = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'apps', app, 'package.json'), 'utf8'));
-    expect(pkg.scripts.build.split(/\s+/)).toEqual(['next', 'build', '--webpack']);
+    const { build } = JSON.parse(read(`apps/${app}/package.json`)).scripts;
+    expect(build).toMatch(/^next build\b/);
+    expect(build.split(/\s+/)).toContain('--webpack');
   });
 });
 

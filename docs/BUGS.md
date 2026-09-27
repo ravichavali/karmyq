@@ -1480,4 +1480,6 @@ Found during the prepush-test-runner PR's `/code-review`; not fixed there (out o
 
 Landing docs are never regenerated in CI or on deploy. `.npmrc` `ignore-scripts=true` (ADR-061) also suppresses npm pre/post lifecycle scripts, so `apps/landing`'s `prebuild` (`generate-docs`) never runs under `npm run build` (`ci.yml:249`, `scripts/deploy.sh:176`). karmyq.org/docs shows commitSha `8777c5dd` (2026-08-07), read from the tracked `build.json`, so docs content is only as fresh as the last committed regeneration. Found in Sprint 131 D7.
 
+The same root cause silences the root `posttest` (`scripts/promote-tdd-tests.js`), so `npm test` never promotes green `tdd/` tests. In D7, running the promoter by hand moved 5 unrelated green files (auth S129 ×2, reputation S125, request S125 ×2). They were left in `tdd/`.
+
 ---
