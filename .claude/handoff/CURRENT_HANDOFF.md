@@ -16,6 +16,13 @@
 >   - Move the root override `@swc/helpers` from `0.5.15` to **`0.5.23`**, next 16's exact pin (ADR-059 note 4).
 > - ⚠️ **`scripts/deploy.sh:169-190` builds landing on the demo host and only warns on failure.** The smoke must see the merge sha on `karmyq.org/docs/`.
 > - **Open at execution start:** ask the maintainer whether D7 gets a fresh whole-branch reviewer, as D6 did.
+> - **Plan revision 2 (2026-09-27), after plan review.** Five findings and one process correction were each verified; the plan header records the evidence.
+>   - The scope test builds the **whole TS program**, not root names (an imported excluded test was missed).
+>   - The full proof derives the Turbo inventory (27 runnable, 26 were cache hits) and runs `--force` with the Jest caches cleared.
+>   - Client-side navigation is proven by a window sentinel with a reload control.
+>   - The smoke covers the community pages and the real messaging path (`/dashboard?tab=helping`, expand a conversation), and records websocket frames. `mark_as_read` is unreachable and has no server handler.
+>   - `/500` is corrected: landing is App Router only, so no `500.html` exists.
+>   - Scope tests start in `tests/tdd/`.
 
 > ✅ **D6 (zod #264) SHIPPED v11.69.0.** [#272](https://github.com/ravichavali/karmyq/pull/272) merged as `01ed6cb9` (2026-09-26T22:59:26Z, squash admin merge run by the maintainer after the permission classifier refused Claude's attempt; merge authorized by the maintainer: "merge #272"). [CI/CD run 36278020707](https://github.com/ravichavali/karmyq/actions/runs/36278020707): every job success, "✅ All services healthy", `DEPLOYMENT SUCCESSFUL`, no rollback. **Smoke (2026-09-26, one login as maria.reyes, per the D6 plan Step 6):** login 200; `GET /api/reputation/me/community-summary?community_id=<her first JWT community>` 200, `success: true`, `data.scope.community_id` equal to the query; relationship context **200** for request `52743b08` / match `07fdeb8e` (completed; her only accepted/completed pair as requester), `success: true`, `counterpart.id` equal to the match responder, data carrying `viewer, counterpart, request, path, networks, links, summary`; `/api/requests`, `/api/conversations`, `/api/reputation/karma/:userId` all 200. **#264 closed** 2026-09-26T22:59:28Z. Follow-ups captured in `docs/IDEAS.md` [2026-09-26] architecture. The D6 banner that follows is kept as the execution record.
 
