@@ -1,7 +1,7 @@
 # Pre-push test runner + npm test caps + evidence ledger — Handoff
 
 **Date**: 2026-09-24
-**Outcome**: PR #273 green; queued behind #272 (maintainer decision), then version bump and merge authorization
+**Outcome**: #272 shipped; #273 updated from master at v11.70.0, merge authorized on green checks
 
 > The handoff carries **state between sessions**. It is branch-local, so it reserves nothing; see
 > `CLAUDE.md` → *Parallel Development* for how contended resources are actually allocated.
@@ -33,19 +33,20 @@
    branch (for example D6's zod 4) makes this branch's tests fail for reasons unrelated to it.
 3. `npm run hooks:install` so the pushed hook is the one that runs.
 
-**Next unchecked task**: wait for #272 (D6) to merge, deploy and pass its health check, which
-happens on #272's own authorization, not this lane's. Then, on this branch:
+**Next unchecked task**: #273's merge, which the maintainer authorized on 2026-09-26 ("if all
+checks out, merge #273 as well"), conditional on green checks at the merge commit. The PR shows
+`REVIEW_REQUIRED`, so it needs an admin merge, and the permission classifier refused Claude's
+attempt on #272; if it refuses again, the maintainer runs `gh pr merge 273 --squash --admin`.
+After it deploys: verify health, then archive this lane file and delete its router row.
 
-1. Update it from `origin/master` with a merge commit.
-2. Bump to the version after master's (v11.70.0 if #272 shipped v11.69.0) in `package.json` and
-   `package-lock.json`.
-3. Resolve the `CURRENT_HANDOFF.md` conflict: keep #272's Sprint 131 state, drop its D6 router
-   row if D6 is done, and keep this lane's row.
-4. Push through the hook, wait for green checks, and refresh the PR ledger's commit column.
-5. Ask the maintainer for #273's merge authorization. The PR shows `REVIEW_REQUIRED`, so it needs
-   an admin merge on explicit per-PR authorization.
-
-After #273 deploys, verify health, then archive this lane file and delete its router row.
+Done 2026-09-26:
+- #272 merged as `01ed6cb9` (v11.69.0), with deploy and smoke verified (see `CURRENT_HANDOFF.md`).
+- This branch is updated from `origin/master` with a merge commit and bumped to v11.70.0 in
+  `package.json` and the lock root, with no other lock change.
+- The router conflict is resolved: #272's Sprint 131 state kept, its D6 row dropped, this lane's
+  row kept.
+- D6's close-out folded in here, to avoid a docs-only master push: its SHIPPED line, the
+  next-action paragraph (now D7) and `docs/IDEAS.md` follow-ups.
 
 ## Blockers and decisions
 

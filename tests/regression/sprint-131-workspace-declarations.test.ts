@@ -74,12 +74,11 @@ const ALLOWLIST: Record<string, string> = {
  * As with ALLOWLIST above, the stale-entry test rejects entries that have stopped being divergences;
  * it does not prevent a new, still-valid holdback being added.
  *
- * These are deliberate holdbacks, not accidents: shared stayed on zod 3 while root moved ahead.
+ * Entries are deliberate holdbacks, not accidents. The map is EMPTY as of Sprint 131 D6: its only
+ * entry was packages/shared's zod 3 holdback, retired when shared moved to zod 4. The mechanism
+ * stays so the next deliberate holdback has a reviewed place to live instead of a weakened gate.
  */
-const DIVERGENCE_ALLOWLIST: Record<string, string> = {
-  'packages/shared dependencies: zod@^3.22.4':
-    'deliberately held at 3 while root is on 4; npm nests 3.25.76 under this workspace',
-};
+const DIVERGENCE_ALLOWLIST: Record<string, string> = {};
 
 const packageName = (spec: string): string =>
   spec.startsWith('@') ? spec.split('/').slice(0, 2).join('/') : spec.split('/')[0];
@@ -193,7 +192,8 @@ const workspaces = allWorkspaces().map(({ ws }) => ({
  * Deliberately ignores the workspace-nested node that the range-satisfaction test below consults.
  * That test cannot detect a de-hoist: when a root bump strands a workspace range, npm's answer is to
  * nest a satisfying older copy under that workspace, so satisfaction still holds and the check stays
- * green (live proof: root hoists zod 4.4.3 while packages/shared runs a nested 3.25.76). Comparing against root's hoisted version is
+ * green (historical proof, until Sprint 131 D6: root hoisted zod 4.4.3 while packages/shared ran a
+ * nested 3.25.76, and satisfaction never noticed). Comparing against root's hoisted version is
  * what actually fails when a root-only major bump would strand a workspace.
  */
 function strandedFromRoot(): Array<{ key: string; detail: string }> {
