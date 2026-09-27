@@ -702,7 +702,7 @@ import { logger } from '@shared/utils';
 - **Event Queue**: Bull (Redis-backed)
 
 ### Frontend
-- **Framework**: Next.js 15
+- **Framework**: Next.js 16
 - **UI**: React 19
 - **Styling**: Tailwind CSS v4 (CSS-first — the theme lives in `@theme` in `globals.css`; there is no `tailwind.config`)
 - **State**: React Context + Hooks

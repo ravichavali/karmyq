@@ -1,6 +1,6 @@
 # Frontend Web Application
 
-Next.js 15, **Pages Router**, Tailwind CSS v4. Port 3000.
+Next.js 16, **Pages Router**, Tailwind CSS v4. Port 3000.
 
 Sprint 128 PR B raises the Next.js minimum to 15.5.24 and resolves Sharp 0.35.4 with
 libvips 1.3.3 packages for the September 8 security advisories. Image optimization remains

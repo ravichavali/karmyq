@@ -4,7 +4,7 @@ Three workspaces. **Each has its own detail file — read that one for the app y
 
 | App | Port | Stack | Local context |
 |---|---|---|---|
-| `frontend/` | 3000 | Next.js 15, Pages Router, Tailwind v4 | [frontend/claude.md](frontend/claude.md) |
+| `frontend/` | 3000 | Next.js 16, Pages Router, Tailwind v4 | [frontend/claude.md](frontend/claude.md) |
 | `landing/` | 3100 | Next.js, App Router — public site + docs | this file, below |
 | `mobile/` | — | React Native + Expo SDK 57 | [mobile/claude.md](mobile/claude.md) |
 
