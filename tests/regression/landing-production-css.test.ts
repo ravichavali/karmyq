@@ -27,10 +27,11 @@ const REPO_ROOT = path.resolve(__dirname, '../..');
  * `out/` is the artifact actually deployed to the demo server, so it is checked too.
  */
 function builtStylesheets(app: string): string[] {
-  const dirs = [
-    path.join(REPO_ROOT, 'apps', app, '.next', 'static', 'css'),
-    path.join(REPO_ROOT, 'apps', app, 'out', '_next', 'static', 'css'),
-  ];
+  // webpack emits CSS under static/css; Turbopack (next 16's default) under static/chunks.
+  // Look in both, so a bundler switch cannot turn these checks into a vacuous skip.
+  const dirs = ['.next/static', 'out/_next/static'].flatMap((base) =>
+    ['css', 'chunks'].map((sub) => path.join(REPO_ROOT, 'apps', app, base, sub))
+  );
   return dirs
     .filter((d) => fs.existsSync(d))
     .flatMap((d) =>
@@ -148,6 +149,19 @@ describe('globals.css source ordering (both apps)', () => {
 
   it('frontend imports remote fonts before Tailwind (same constraint)', () => {
     expectFontImportBeforeTailwind(path.join(REPO_ROOT, 'apps/frontend/src/styles/globals.css'));
+  });
+});
+
+/**
+ * Sprint 131 D7 (next 16): Turbopack, 16's default production bundler, silently DROPS the remote
+ * Google Fonts `@import url(...)` from both apps' CSS. No reference survives anywhere in the build,
+ * and no web font loads. webpack keeps it. Both builds opt out with `--webpack` until font loading
+ * moves off a CSS `@import`. The frontend has no built-CSS check in CI, so this pin is its guard.
+ */
+describe('next build bundler (both apps)', () => {
+  it.each(['landing', 'frontend'])('%s builds with --webpack, which keeps the font @import', (app) => {
+    const pkg = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'apps', app, 'package.json'), 'utf8'));
+    expect(pkg.scripts.build.split(/\s+/)).toEqual(['next', 'build', '--webpack']);
   });
 });
 

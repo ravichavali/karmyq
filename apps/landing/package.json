@@ -7,7 +7,7 @@
     "dev": "next dev -p 3100",
     "generate-docs": "npx tsx ../../scripts/generate-docs.ts",
     "prebuild": "npm run generate-docs",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start -p 3100",
     "lint": "eslint src",
     "test": "jest --passWithNoTests"
