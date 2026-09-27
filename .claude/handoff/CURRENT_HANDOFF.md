@@ -23,6 +23,10 @@
 >   - The smoke covers the community pages and the real messaging path (`/dashboard?tab=helping`, expand a conversation), and records websocket frames. `mark_as_read` is unreachable and has no server handler.
 >   - `/500` is corrected: landing is App Router only, so no `500.html` exists.
 >   - Scope tests start in `tests/tdd/`.
+> - **Plan revision 3 (2026-09-27), review round 2.**
+>   - Expanding a chat hits `GET /api/match/<id>` → `getOrCreateConversation`, which can INSERT. The smoke now expands only matches listed by `GET /api/conversations`, behind a `page.route` guard that aborts anything else and every messaging write.
+>   - The socket recorder covers websocket **and** long-poll, and is preflighted locally (Task 5 Step 7); the smoke must observe a `join_conversation`.
+>   - Task 3's red lists 6 files. The reviewer cleared Task 1 to start.
 
 > ✅ **D6 (zod #264) SHIPPED v11.69.0.** [#272](https://github.com/ravichavali/karmyq/pull/272) merged as `01ed6cb9` (2026-09-26T22:59:26Z, squash admin merge run by the maintainer after the permission classifier refused Claude's attempt; merge authorized by the maintainer: "merge #272"). [CI/CD run 36278020707](https://github.com/ravichavali/karmyq/actions/runs/36278020707): every job success, "✅ All services healthy", `DEPLOYMENT SUCCESSFUL`, no rollback. **Smoke (2026-09-26, one login as maria.reyes, per the D6 plan Step 6):** login 200; `GET /api/reputation/me/community-summary?community_id=<her first JWT community>` 200, `success: true`, `data.scope.community_id` equal to the query; relationship context **200** for request `52743b08` / match `07fdeb8e` (completed; her only accepted/completed pair as requester), `success: true`, `counterpart.id` equal to the match responder, data carrying `viewer, counterpart, request, path, networks, links, summary`; `/api/requests`, `/api/conversations`, `/api/reputation/karma/:userId` all 200. **#264 closed** 2026-09-26T22:59:28Z. Follow-ups captured in `docs/IDEAS.md` [2026-09-26] architecture. The D6 banner that follows is kept as the execution record.
 
