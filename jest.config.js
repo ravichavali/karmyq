@@ -1,7 +1,9 @@
 // Root Jest configuration for all services
 // Individual services can extend this with their own jest.config.js
 
-module.exports = {
+const { withWorkerCap } = require('./scripts/jest-worker-cap');
+
+module.exports = withWorkerCap({
   preset: 'ts-jest',
   testEnvironment: 'node',
 
@@ -74,4 +76,4 @@ module.exports = {
     '/tests/',
     '/__tests__/',
   ]
-};
+});

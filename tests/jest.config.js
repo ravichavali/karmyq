@@ -1,4 +1,6 @@
-module.exports = {
+const { withWorkerCap } = require('../scripts/jest-worker-cap');
+
+module.exports = withWorkerCap({
   testEnvironment: 'node',
   roots: ['<rootDir>'],
   testMatch: ['**/*.test.ts'],
@@ -38,4 +40,4 @@ module.exports = {
   verbose: true,
   testTimeout: 30000, // 30 seconds for integration tests
   setupFilesAfterEnv: ['<rootDir>/setup.ts'],
-};
+});

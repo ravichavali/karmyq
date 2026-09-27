@@ -1,4 +1,6 @@
-module.exports = {
+const { withWorkerCap } = require('../../scripts/jest-worker-cap');
+
+module.exports = withWorkerCap({
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/tests'],
@@ -16,4 +18,4 @@ module.exports = {
       statements: 60,
     },
   },
-};
+});

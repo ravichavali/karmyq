@@ -60,6 +60,11 @@ deployed. Check the PR state and the deploy run before describing either.
 Cite GitHub status as a link or a dated observation — it goes stale. Never record a handoff's own
 final commit SHA inside itself; it cannot know it.
 
+Verification claims ("tests green", "CI passed", "N/N tasks") point at their evidence rather than
+restating it: name the commit that was actually tested, list any commits since then, and link the
+PR's `## Validation` ledger for detail. A pass count copied without its commit goes stale on the
+next push.
+
 ## Step 4: Verify it is actionable
 
 The next session must be able to read only this file and know exactly what to do — branch, plan,

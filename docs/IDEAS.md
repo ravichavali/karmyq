@@ -729,3 +729,19 @@ Not done in D5, which is a dependency PR; each needs its own scheduling decision
   socket is reused). A 200 KB unread error body pins one socket per call until GC. Nominatim's error pages
   are small. If ever needed, use `await response.text().catch(() => {})`; **not** `body.cancel()`, which
   destroyed the socket and opened more connections than doing nothing.
+
+## [2026-09-26] architecture
+
+D6 (zod 4, shipped v11.69.0 in #272) close-out follow-ups, from the D6 plan's Step 7 and the
+handoff's next-action list. None is scheduled.
+
+1. Decide whether ids should ever tighten from `z.guid()` to RFC-strict `z.uuid()`.
+2. Rename the deprecated `.strict()` / `.passthrough()` to `z.strictObject()` / `.loose()`.
+3. `.url()` accepts `javascript:` URLs in both zod majors: decide whether any schema needs a
+   protocol allowlist.
+4. Replace the deprecated `error.format()` with `z.treeifyError()`.
+5. Widen the `.uuid(` ban to also catch `.uuidv4(` / `.uuidv7(` style variants.
+6. Drop `validateMultiple`'s dead zod-3 `errors` fallback.
+7. Note the zod-3-compatibility shim in `packages/shared/CONTEXT.md`.
+
+---

@@ -36,11 +36,15 @@ npm run hooks:install
 1. Checks if PostgreSQL database is available
 2. If DB available: Runs integration tests
 3. If DB not available: Skips integration tests with warning
-4. Always runs unit tests
+4. Always runs unit + regression tests through `scripts/prepush-test-runner.js` (blocking): Turbo
+   and Jest parallelism are capped, and a task whose only failures are Jest timeouts is retried
+   once, serially. Any other failure blocks. See `scripts/claude.md`.
 
 **Environment Variables**:
 - `SKIP_PREPUSH=1`: Skip all pre-push checks
 - `DATABASE_URL` or `POSTGRES_HOST`: Used to detect database availability
+- `TURBO_CONCURRENCY`: Turbo tasks at once (default 4, from `turbo.json`; applies to every `npm test`)
+- `KARMYQ_JEST_MAX_WORKERS`: Jest workers per workspace (default 2; applies to every `npm test`)
 
 **Skip Options**:
 - `git push --no-verify` - Skip hook entirely

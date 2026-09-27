@@ -2,16 +2,20 @@
 
 **Date**: 2026-09-24
 
-> ⚠️ **Bootstrap: `git switch agent/claude/sprint-131-d6-zod` BEFORE reading further.**
-> `master`'s copy of this file is stale — it still says #271 (#268) is awaiting merge authorization,
-> because the copy that merged with #271 was written before that PR merged. **This** branch, cut from
-> the deployed `8fafed02` (v11.68.0), is the current one. Do not push the reconciliation to `master`:
-> every master push is a full deploy, and a docs-only push would restart services and 502 the demo. It
-> rides on the D6 PR instead.
+> ## Active lanes (router: match your branch, then read ONLY that lane's state)
+>
+> | Branch | State lives in |
+> |---|---|
+> | `agent/claude/prepush-test-runner` | [`lane-prepush-test-runner.md`](lane-prepush-test-runner.md) (pre-push runner + `npm test` caps, PR #273) |
+>
+> **Any other branch:** the Sprint 131 state below applies. Git and PR state (`gh pr list`,
+> `git log origin/master`) outrank anything written here.
+
+> ✅ **D6 (zod #264) SHIPPED v11.69.0.** [#272](https://github.com/ravichavali/karmyq/pull/272) merged as `01ed6cb9` (2026-09-26T22:59:26Z, squash admin merge run by the maintainer after the permission classifier refused Claude's attempt; merge authorized by the maintainer: "merge #272"). [CI/CD run 36278020707](https://github.com/ravichavali/karmyq/actions/runs/36278020707): every job success, "✅ All services healthy", `DEPLOYMENT SUCCESSFUL`, no rollback. **Smoke (2026-09-26, one login as maria.reyes, per the D6 plan Step 6):** login 200; `GET /api/reputation/me/community-summary?community_id=<her first JWT community>` 200, `success: true`, `data.scope.community_id` equal to the query; relationship context **200** for request `52743b08` / match `07fdeb8e` (completed; her only accepted/completed pair as requester), `success: true`, `counterpart.id` equal to the match responder, data carrying `viewer, counterpart, request, path, networks, links, summary`; `/api/requests`, `/api/conversations`, `/api/reputation/karma/:userId` all 200. **#264 closed** 2026-09-26T22:59:28Z. Follow-ups captured in `docs/IDEAS.md` [2026-09-26] architecture. The D6 banner that follows is kept as the execution record.
 
 > ✅ **#268 SHIPPED v11.68.0** — [#271](https://github.com/ravichavali/karmyq/pull/271) merged as `8fafed02` (2026-09-24T20:26:53Z, squash admin merge on explicit maintainer authorization "yes", at head `6d05332d` with CI 20 pass / 1 skipping). [CI/CD run 36054927703](https://github.com/ravichavali/karmyq/actions/runs/36054927703): every job success, all 9 services healthy, `DEPLOYMENT SUCCESSFUL`, `🎉 Demo Deployment Successful`, no rollback. **Smoke (2026-09-24, one login):** login 200, `/api/requests`, `/api/conversations`, `/api/reputation/karma/:userId` all 200. The change is `apps/mobile`-only, so the demo deploy does not exercise it; the live proof is `scripts/expo-divergences.js` exit 0 at merge time. **#268 is still OPEN** — it closes on the next scheduled `expo-sdk-drift.yml` run (or a `workflow_dispatch`, if the maintainer approves one). **Next: D6 (zod #264) on this branch — plan first, re-confirm the dependency lane.**
 
-> 🟡 **D6 (zod #264) EXECUTED 2026-09-24. PR [#272](https://github.com/ravichavali/karmyq/pull/272) is green and awaits explicit merge authorization.** The head is `57b0593e` plus this doc fix, at v11.69.0. CI at `57b0593e` was 20 pass / 1 skipping, and `Test Backend Services` reported 27/27 tasks.
+> 📜 **D6 (zod #264) execution record (2026-09-24; merged 2026-09-26, see the SHIPPED line above).** The head is `57b0593e` plus this doc fix, at v11.69.0. CI at `57b0593e` was 20 pass / 1 skipping, and `Test Backend Services` reported 27/27 tasks.
 > - `z.guid()` keeps zod 3's id semantics, with no id-fixture edits.
 > - The **I1–I6** deltas are pinned. I1–I5 are runtime changes, pinned two-sided. **I6** is type-level: under `strict: false`, zod 3 made every `z.infer` key optional. PR CI caught it, because the local run was false-green on a stale ts-jest cache. It was fixed with the **one** fixture edit it needed (`curated-feed.test.ts` `location_type`).
 > - The fresh Opus review and the maintainer review (2026-09-24, at `57b0593e`) found no blocking defects.
@@ -226,7 +230,7 @@ Maintainer, 2026-09-24: "Let's move to #268"; dependency lane → **Claude** for
   react-native-worklets) and invalid top-level `color-string`, `ms`, `picomatch`. Judge splices by "no new errors".
 - **Done:** merged, deployed (all 9 healthy), smoke 200s. Only #268's auto-close on the next drift run remains.
 
-**Next unchecked action: D6 merge authorization** — the D6 PR [#272](https://github.com/ravichavali/karmyq/pull/272) (zod 3.25.76 → 4.6.5, supersedes #264) is executed and gated on `agent/claude/sprint-131-d6-zod`; see the D5–D7 row. Remaining plan steps: CI green on `7c752aad` (Test Backend Services `Tasks: 27 successful, 27 total`); version bumped 11.68.0 → **11.69.0** (+ lock root) from `origin/master` `8fafed02` — re-check master has not moved at merge → **explicit per-PR merge authorization** → deploy verify → one-login smoke incl. `GET /api/reputation/me/community-summary` 200 and a relationship-context **200** (204 does not count; 503 = STOP) → close-out (handoff, `project_current_state` memory, `docs/IDEAS.md` follow-ups: RFC-strict ids?, `.strict()`/`.passthrough()` → `z.strictObject`/`.loose()`, `.url()` accepts `javascript:`, `format()` → `z.treeifyError`, widen the `.uuid(` ban to `/.uuid(vd)?(/`, drop `validateMultiple`'s dead zod-3 `errors` fallback, note the zod-3 shim in shared CONTEXT). **Dependency lane: Claude (D6).** Then D7 (next #246).
+**Next unchecked action: D7 (next #246)**, one major per PR, planned first; re-confirm who holds the dependency lane before starting (it passed to Claude for D6, which has shipped). D6 is closed: see the SHIPPED line at the top. Separately, the pre-push runner + `npm test` caps lane is PR #273 (`lane-prepush-test-runner.md`).
 
 **Open items surfaced 2026-09-24 (not scheduled — maintainer decision needed):**
 - **#268 — IMPLEMENTED, see the status block above.**

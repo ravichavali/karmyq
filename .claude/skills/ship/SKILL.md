@@ -31,6 +31,16 @@ Run on the branch diff, in this order. These are the standing quality gates — 
 
 If any gate surfaces a finding, fix it and re-run that gate before moving on.
 
+### Reconcile claims against evidence
+
+Before every push and before asking for final review, fill or refresh the evidence ledger in the
+PR body's `## Validation` section (format and rules: `.github/pull_request_template.md`). Walk
+every claim in the PR body, the handoff and the commit messages: each needs a row naming the
+commit it actually ran on, the command, the outcome, the cache state and what it does NOT prove.
+A claim with no row gets evidence or gets deleted. Rows from before the final commits either get
+re-run or say why they still hold. The overstated claim, not the missing checkbox, is what keeps
+costing review rounds here.
+
 ### Capture what the sprint taught
 
 Before opening the PR, ask: **what did this sprint teach that is not yet captured?**
