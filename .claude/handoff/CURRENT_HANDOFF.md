@@ -20,7 +20,11 @@
 >   - The socket recorder and creation guard were preflighted over both transports.
 > - **Gates:** `/simplify` applied 4 edits and skipped 3, with reasons. `/code-review` medium had 1 finding, fixed. `/security-review` found nothing.
 > - **Fresh whole-branch reviewer: done.** An independent review through `46ce4c91`, relayed by the maintainer 2026-09-27, found no code or security regressions; its one P2 finding (this handoff) is fixed. It independently ran 486 tests and both type-checks, and verified the Cache-Control headers and registry-only lock URLs.
-> - **Still outstanding:** CI's fresh `Test Docker Build` and `Build Landing Page` runs, and the post-deploy smoke (plan Task 9 Step 5, using the Execution-notes instrumentation verbatim).
+> - **CI done at `f10f09f8`** ([CI/CD Pipeline 36355372557](https://github.com/ravichavali/karmyq/actions/runs/36355372557), Tests 36355372563, PR Contract 36355372620; the same result at `a1e65320` and `50ff853a`): 20 pass, 1 skipping (Deploy).
+>   - `Test Docker Build`: the frontend image built with webpack, and every runner COPY succeeded.
+>   - `Build Landing Page`: `Next.js 16.3.6 (webpack)`; the CSS guard ran 10/10 (not skipped).
+>   - Backend: 27/27, 0 cached.
+> - **Still outstanding:** the post-deploy smoke (plan Task 9 Step 5, using the Execution-notes instrumentation verbatim). Its framework-version landing check proves the 15→16 host build only. It does **not** establish exact-commit or docs freshness (BUG-054).
 >
 > 📋 **D7 plan record (2026-09-27).** Plan: [`docs/superpowers/plans/2026-09-27-sprint-131-pr-d7-next-16.md`](../../docs/superpowers/plans/2026-09-27-sprint-131-pr-d7-next-16.md). Branch: `agent/claude/sprint-131-d7-next`, cut from `b976c47a` (v11.70.0). **Dependency lane: Claude**, designated explicitly by the maintainer on 2026-09-27 after D6 shipped ("Claude owns the dependency lane").
 > - **Maintainer decisions (2026-09-27):** landing's test type errors are fixed by excluding `tests/**` in `apps/landing/tsconfig.json`. Runtime proof is local build + Playwright, plus a post-deploy authenticated smoke. Scope is next 16 only.
