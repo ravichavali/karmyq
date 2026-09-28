@@ -598,3 +598,29 @@ This service was already on 8, so for it this is a minor bump, 8.5.2 → 8.7.0. 
 default key generator.
 
 No endpoint, payload or event change.
+
+## Sprint 131 D8 — eslint 10 (2026-09-28)
+
+`eslint` **9.39.5 → 10.11.0** and `@eslint/js` **9.39.5 → 10.0.1**, devDependencies only, moved as a pair.
+This supersedes #244, which bumped `@eslint/js` alone and left it on the hoisted eslint 9, outside its
+`eslint ^10.0.0` peer range. **Only this workspace is on eslint 10.** The root, `apps/frontend`, `apps/landing`
+and `apps/mobile` stay on 9.39.5, so eslint 10 and its tree are nested under this service's `node_modules/`.
+That includes the `cacheable`/`keyv` chain behind `file-entry-cache@11`, with `@keyv/bigmap` nested under
+`@cacheable/memory` so its `keyv ^5.6.0` peer resolves.
+
+`@eslint/js` 10's `recommended` adds three rules: `no-unassigned-vars`, `no-useless-assignment` and
+`preserve-caught-error`. They raised one finding. `batchHardDelete` in `src/jobs/expirationJob.ts` initialized
+`let batchDeleted = 0;`, a value the `do` body always overwrote before the `while` condition read it. It is now
+`let batchDeleted: number;`. TypeScript proves definite assignment through `do`/`while`, and the new
+`batchHardDelete` unit tests pin the loop's behavior unchanged.
+
+**New gate: `tests/regression/sprint-131-eslint-10.test.ts`.** CI's lint step cannot fail (`ci.yml` and
+`test.yml` end it in `|| echo`), so until now nothing stopped a lint break here. The gate runs the eslint binary
+this workspace resolves, and checks three things:
+- (A) the eslint and `@eslint/js` majors match;
+- (B) `eslint src` exits 0 and actually lints `src`;
+- (C) the three new rules fire on a `.ts` probe, so a config that stops applying `js.configs.recommended`
+  cannot pass B by checking almost nothing.
+
+No endpoint, event, schema or runtime change. The production image installs with `--omit=dev` and contains
+no eslint.
