@@ -12,6 +12,10 @@
 1. **"Pair in cleanup":** bump `@eslint/js` and `eslint` to 10 in `services/cleanup-service` only. Root, `apps/frontend`, `apps/landing` and `apps/mobile` stay on eslint 9.
 2. **"Regression test":** add a workspace gate for cleanup-service lint, proven by mutation. Making CI's lint step blocking repo-wide is **out of scope**. Log it in `docs/IDEAS.md`.
 
+**Plan revision 1 (2026-09-28), after plan review.** Both findings were verified before any fix.
+- **P1 (CONFIRMED):** the Task 3 splice kept only cleanup-prefixed candidate nodes. npm hoists 13 of eslint 10's 32 new nodes to the root, so the filtered lock passed `npm ci` and then failed `Cannot find module 'cacheable'`. That was reproduced. Verifying the fix surfaced a second defect, **in npm's own resolution**: `@keyv/bigmap`'s non-optional peer `keyv ^5.6.0` resolves the root `keyv@4.5.4`. Task 3 now splices the complete tree, relocated under cleanup-service, with bigmap nested under `@cacheable/memory`. The layout was proven by a full `npm ci`, eslint running from that install, lock-only and installed `npm ls` diffs, and an idempotent re-resolve (V6, V8, Task 3).
+- **P2 (CONFIRMED):** `@eslint/js@9.39.5` declares no `peerDependencies`, so case A's peer assertion is now conditional (Task 2).
+
 ---
 
 ## Global Constraints
@@ -68,11 +72,34 @@ The error, in both cases, is `src/jobs/expirationJob.ts:153:7 no-useless-assignm
 
 `ignore` needs `^5.2.0`, but cleanup-service already nests 7.0.9, so it lands one level deeper under `…/eslint/node_modules/`.
 
-**Expect every new lock node to sit under `services/cleanup-service/node_modules/`, and none elsewhere.** Nothing outside that prefix may change except the workspace node's two dev ranges and the root version.
+**⚠️ Rev 1 correction (review finding P1).** The original line here said to expect every new node under `services/cleanup-service/node_modules/`, and that was **wrong**. The measured facts, from a re-resolve with npm 11.19.0 on a scratch copy of every manifest and the `de01c53e` lock, 2026-09-28:
+- **32 nodes are added, 0 removed, and 1 changed** (the workspace node's `devDependencies`).
+- **19 of the added nodes nest under cleanup-service.**
+- **13 are hoisted to the root,** because nothing there conflicts. They are `cacheable` (+ `cacheable/node_modules/keyv`), `@cacheable/memory` (+ nested `keyv`), `@cacheable/utils` (+ nested `keyv`), `@keyv/bigmap`, `@keyv/serialize`, `hashery`, `hookified`, `qified` (+ nested `hookified`) and `@types/esrecurse`. They come through `file-entry-cache@11` → `flat-cache@6` → `cacheable`.
+- **A filter that keeps only cleanup-prefixed nodes ships a broken tree.** Reproduced by the reviewer and again here: a full `npm ci` on the prefix-filtered lock **exits 0**, then `eslint --version` fails `Cannot find module 'cacheable'`.
+- **npm's own placement has a real defect.** `@keyv/bigmap` declares a **non-optional peer** `keyv ^5.6.0` and calls `require("keyv")` at runtime (`dist/index.cjs:32`). Hoisted to the root, it resolves the root `keyv@4.5.4`, and lock-only `npm ls` gains `keyv@4.5.4 invalid: "^5.6.0" from node_modules/@keyv/bigmap`. Its only dependent is `@cacheable/memory`, which carries its own nested `keyv@5.6.0`.
+
+**The layout to ship (maintainer: "preserve the complete transitive tree, relocating those nodes under cleanup-service"):**
+- (a) Keep all 19 cleanup-prefixed nodes as npm resolved them.
+- (b) Relocate the 13 root-level nodes to the same relative path under `services/cleanup-service/`: 0 collisions, and all 32 are `dev: true`.
+- (c) Nest `@keyv/bigmap` under its sole dependent, at `services/cleanup-service/node_modules/@cacheable/memory/node_modules/@keyv/bigmap`, beside that package's `keyv@5.6.0`.
+
+A first attempt, which added `keyv@5.6.0` at cleanup's top level instead of (c), **was pruned by a full `npm ci`** and left the invalid peer in place. Do not use it. Evidence for the (a)+(b)+(c) layout, measured on a scratch copy:
+- Lock-only `npm ls --all` gives a problem set identical to base (51 lines each). The comparison can fail: npm's raw candidate shows the two extra `keyv` lines.
+- A full `npx -y npm@11.19.0 ci` exits 0.
+- The installed tree's problem set is only the pre-existing `@react-native/metro-config`, `color-string`, `ms` and `picomatch`.
+- `@cacheable/memory` → bigmap resolves `…/@cacheable/memory/node_modules/@keyv/bigmap`, and bigmap → `keyv` resolves `5.6.0`.
+- `eslint --version` prints `v10.11.0`, and `eslint --cache src` reproduces exactly the known single error.
+- **An npm 11.19.0 `install --package-lock-only` over the spliced lock changes 0 nodes,** so npm accepts the layout and a later lock operation will not churn it.
+
+**Nothing outside `services/cleanup-service` may change except the root `version`.** Every new node sits under `services/cleanup-service/node_modules/`, and the workspace node changes only its two dev ranges.
 
 **V7: no other workspace imports `@eslint/js`.** `git grep -n "@eslint/js" -- ':!package-lock.json'` finds only `services/cleanup-service/eslint.config.js:2` and its manifest. No de-hoist hazard exists: the hoisted `@eslint/js@9.39.5` stays, because the root eslint 9 depends on it.
 
-**V8: `npm ls --all` baseline.** On the Windows checkout at `de01c53e`, the invalid set is `color-string@2.1.4`, `ms@2.0.0` and `picomatch@2.3.2`, all pre-existing. The handoff also records a missing `@react-native/metro-config`. **Judge the splice by "no new errors".**
+**V8: `npm ls --all` baseline, in two forms, and compare like with like.**
+- **Lock-only:** `npx -y npm@11.19.0 ls --all --package-lock-only` in a scratch copy holding every manifest plus the base lock. It gives 51 unique problem lines at `de01c53e`, including `@emnapi/*` and `UNMET OPTIONAL` entries.
+- **Installed tree:** `npm ls --all` after a full `npm ci`. The invalid set is `color-string@2.1.4`, `ms@2.0.0` and `picomatch@2.3.2`, plus a missing `@react-native/metro-config`, all pre-existing. It also lists platform-optional binaries as `UNMET OPTIONAL`; those are noise.
+- **Never diff one form against the other.** Normalize with `lsnorm.js` (Task 3). It exits 2 on empty input, because a broken pipe once produced a false-green "no diff" here. **Judge the splice by "no new problem lines".**
 
 **V9: `batchHardDelete` has no test.** `tests/unit/expirationJob.test.ts` covers only `markExpiredData`. The lint fix edits this function's loop variable, so pin its loop behavior (Task 2) before touching it.
 
@@ -99,7 +126,7 @@ Failures this PR must catch, most likely first. Each is pinned by a case in Task
 | `services/cleanup-service/tests/tdd/sprint-131-eslint-10.test.ts` | **Create** (promoted to `tests/regression/` in Task 5). Cases A, B, C |
 | `services/cleanup-service/src/jobs/expirationJob.ts:153` | `let batchDeleted = 0;` → `let batchDeleted: number;` |
 | `services/cleanup-service/package.json:28,37` | `@eslint/js` `^10.0.1`, `eslint` `^10.11.0` (devDependencies) |
-| `package-lock.json` | Workspace node ranges, plus the nested eslint 10 subtree under `services/cleanup-service/node_modules/`. Also root `version` |
+| `package-lock.json` | Workspace node ranges, plus the **complete** eslint 10 transitive tree (32 nodes at 10.11.0) under `services/cleanup-service/node_modules/`: 13 relocated from root, and `@keyv/bigmap` nested under `@cacheable/memory` (V6). Also root `version` |
 | `services/cleanup-service/eslint.config.js:1` | Comment: "Flat config (ESLint 9)" → "(ESLint 10)" |
 | `services/cleanup-service/CONTEXT.md` | Append a *Sprint 131 D8 — eslint 10* section |
 | `apps/landing/src/data/docs/services/cleanup-service.json` | Regenerated from `CONTEXT.md`. Commit the content change only |
@@ -113,7 +140,11 @@ Failures this PR must catch, most likely first. Each is pinned by a case in Task
 
 1. **#244's CI is green because lint cannot fail in CI (V2).** Never cite a green PR check as lint evidence. Cite the Task 2 gate and a direct `npx eslint src` exit code.
 2. **Bump the pair.** `@eslint/js` alone leaves an unmet (optional) peer on the hoisted eslint 9 (V1). Case A pins that the two majors match.
-3. **Never let the splice touch anything outside `services/cleanup-service/node_modules/`,** apart from the workspace node's two ranges and the root version (V6). A Windows re-resolve strips `libc` fields and drops override nodes, so splice only the intended entries onto a byte copy of the base lock. Sort map-valued fields (npm stores them key-sorted, the registry returns them unsorted). Prove it with a node diff and registry parity, **not** with `npm ci`, which never writes the lock.
+3. **Splice the COMPLETE transitive tree, relocated under cleanup-service (V6, rev 1).**
+   - **Never filter the candidate by prefix.** 13 of its 32 new nodes are hoisted to the root, and dropping them yields a lock that passes `npm ci` but whose eslint cannot load (`Cannot find module 'cacheable'`).
+   - Relocate root-level additions to the same relative path under `services/cleanup-service/`. Nest `@keyv/bigmap` under `@cacheable/memory`, because its non-optional peer `keyv ^5.6.0` otherwise resolves the root `keyv@4.5.4`.
+   - A Windows re-resolve strips `libc` fields and drops override nodes, so build the result from a byte copy of the base lock, never from the candidate.
+   - **`npm ci` exit 0 is not evidence of a working tree.** Prove it by running eslint from a full install, by the lock-only and installed `npm ls` diffs, by a node diff with registry parity, and by an idempotent re-resolve.
 4. **The fix is a declaration change, not a logic change.** `let batchDeleted: number;` compiles because TypeScript knows a `do` body runs before its `while` condition. Do not restructure the loop. Task 2's unit pin must pass unchanged before and after.
 5. **Gate cases must be able to fail.** Each case gets an injection that turns it red (I1–I3), each on a committed tree, each restored from a byte copy.
 6. **Promote only this PR's tdd file.** The promoter does not auto-run (BUG-053), and running it by hand sweeps five unrelated files.
@@ -150,7 +181,7 @@ Expected: still OPEN and still touches the same 2 files. If Dependabot re-versio
 
 ```bash
 cp package-lock.json "$SCRATCH/lock.base.json"
-npm ls --all 2>&1 | grep -E " invalid| missing" | sed 's/^[ |`-]*//' | sort -u > "$SCRATCH/npmls.base.txt"; echo "exit=${PIPESTATUS[0]}"
+npm ls --all > "$SCRATCH/npmls.base.raw.txt" 2>&1   # raw installed-tree output; normalize later with lsnorm.js (Task 3 Step 4). No grep|sed pipeline: see V8
 (cd services/cleanup-service && npx eslint src; echo "lint exit=$?")   # expect 0 on eslint 9 / @eslint/js 9
 ```
 
@@ -214,7 +245,11 @@ Create `services/cleanup-service/tests/tdd/sprint-131-eslint-10.test.ts`. Design
 
 Cases:
 
-- **A: the pair matches.** Resolve both `eslint/package.json` and `@eslint/js/package.json` from `SERVICE_DIR`. Assert `major(eslint.version) === major(eslintJs.version)`, and read `@eslint/js`'s `peerDependencies.eslint`. Assert it is `^<major>.0.0` with the same major. Parse the major with `Number(v.split('.')[0])`. On the current tree this is 9 === 9, and after the bump 10 === 10. It survives future lockstep bumps and goes red on #244's mixed state.
+- **A: the pair matches.** Resolve both `eslint/package.json` and `@eslint/js/package.json` from `SERVICE_DIR`. Parse each major with `Number(v.split('.')[0])`.
+  - **Always** assert `major(eslint.version) === major(eslintJs.version)`.
+  - **Conditionally**, if `@eslint/js` declares `peerDependencies.eslint`, assert it matches `/^\^(\d+)\.0\.0$/` with that same major.
+  - ⚠️ **Rev 1 correction (review finding P2):** `@eslint/js@9.39.5` declares **no** `peerDependencies` (verified from the installed `package.json`), so an unconditional peer assertion fails on the baseline. The peer field first appears in 10.x.
+  - Pre-bump, A is green on the major check alone (9 === 9). Post-bump, both checks run (10 === 10, `^10.0.0`). It goes red on #244's mixed state (I3). Name the peer clause in the test title, so a reader can tell which half ran.
 - **B: the workspace lints clean.** Run `[eslintBin, '--format', 'json', 'src']`. Assert `status === 0`. Parse stdout, and assert that the sum of `errorCount` is 0 and the linted file paths include `src/jobs/expirationJob.ts` and `src/index.ts`. That proves `src` was actually linted and not an empty glob. Assert on errors only. Warnings are deliberate config (`no-explicit-any: 'warn'`), and the baseline has 0.
 - **C: `@eslint/js` 10's new recommended rules are live for `.ts`.** Run `[eslintBin, '--format', 'json', '--stdin', '--stdin-filename', 'src/__eslint_probe__.ts']` with this constant fixture on stdin:
 
@@ -234,7 +269,12 @@ Cases:
 npm exec --workspace=services/cleanup-service -- jest tests/tdd/sprint-131-eslint-10.test.ts; echo "exit=$?"
 ```
 
-Expected: **A green** (9/9), **B green** (lint is clean today), **C red** (rules absent). Record the output.
+Expected:
+- **A green.** 9 === 9 on the major check; the peer clause is skipped because 9.39.5 declares no peer.
+- **B green.** Lint is clean today.
+- **C red.** The rules are absent. Probed 2026-09-28: eslint 9 reports nothing on the fixture.
+
+Record the output. If A is red here, the peer clause is unconditional (P2), so fix the test, not the expectation.
 
 - [ ] **Step 4: Commit** (`test(cleanup): pin batchHardDelete + eslint gate (D8 red)`)
 
@@ -248,42 +288,134 @@ Expected: **A green** (9/9), **B green** (lint is clean today), **C red** (rules
 
 - [ ] **Step 2: Re-resolve in a scratch copy, never in the repo**
 
-Copy the repo's `package.json`, `package-lock.json` and every workspace `package.json` into `$SCRATCH/resolve/`, keeping their paths. Run `npx -y npm@11.19.0 install --package-lock-only --ignore-scripts --no-audit --no-fund` there. This produces a candidate lock only, and it is **never committed**.
-
-- [ ] **Step 3: Splice**
-
-Write `$SCRATCH/splice.js`, a Node script (use the Write tool, not a heredoc, because heredocs eat backslashes). Starting from `lock.base.json`, it:
-- takes **only** candidate nodes whose key starts with `services/cleanup-service/node_modules/` and that are new or differ from base;
-- takes the `services/cleanup-service` workspace node's two devDependency ranges;
-- removes base nodes under that prefix that the candidate dropped (expect none, and list any it finds);
-- keeps every other node and field byte-identical and in base key order, inserting new keys where npm sorts them (lexicographic among `packages` keys);
-- sorts map-valued fields (`dependencies`, `peerDependencies`, `peerDependenciesMeta`, `engines`, `funding` objects).
-
-Write the result to `package-lock.json`.
-
-- [ ] **Step 4: Prove the splice**
+Copy the repo's `package.json`, `package-lock.json`, `.npmrc` and every tracked workspace `package.json` into `$SCRATCH/resolve/`, keeping their paths:
 
 ```bash
-node "$SCRATCH/lockdiff.js" "$SCRATCH/lock.base.json" package-lock.json
+git ls-files '*package.json' | grep -v node_modules | while read f; do mkdir -p "$SCRATCH/resolve/$(dirname "$f")"; cp "$f" "$SCRATCH/resolve/$f"; done
+cp package-lock.json .npmrc "$SCRATCH/resolve/"
 ```
 
-Expected, and asserted by the script:
-- (a) every added or changed key is under `services/cleanup-service/node_modules/` or is `services/cleanup-service`;
-- (b) 0 key-order changes among pre-existing nodes;
-- (c) the added set includes `…/eslint` at `10.11.0` and `…/@eslint/js` at `10.0.1`, plus the nested set predicted by V6;
-- (d) for **every** added node, `version`, `resolved`, `integrity`, `license`, `engines`, `dependencies`, `peerDependencies` and `peerDependenciesMeta` equal `npm view <name>@<version> --json` (registry parity), with no `dev: false`. Every node must carry `"dev": true`.
+Then run `npx -y npm@11.19.0 install --package-lock-only --ignore-scripts --no-audit --no-fund` there. This produces a candidate lock only, and it is **never committed**. Expected at `eslint@10.11.0` / `@eslint/js@10.0.1` (planning run, 2026-09-28): **32 added, 0 removed, 1 changed** (the workspace node). 19 of the added nodes are cleanup-prefixed and **13 are root-level** (V6). If the counts differ because a newer 10.x was published, re-derive them and record the new numbers. `splice.js` throws on any shape it does not expect.
 
-Then run:
+- [ ] **Step 3: Splice — the complete tree, relocated (rev 1)**
+
+Write `$SCRATCH/splice.js` with the Write tool (heredocs eat backslashes). This is the reference implementation, run end to end during planning rev 1:
+
+```js
+// D8 lock splice: base lock + npm 11.19.0 candidate -> spliced lock where every NEW node lives under
+// services/cleanup-service/node_modules/ (new root-level nodes are relocated there), plus the
+// workspace node's changed ranges. @keyv/bigmap is nested under its only dependent, @cacheable/memory,
+// so its non-optional peer `keyv ^5.6.0` resolves (npm's own placement resolves it to root keyv@4.5.4).
+// Usage: node splice.js <base-lock> <candidate-lock> <out-lock>
+'use strict';
+const fs = require('fs');
+const [basePath, candPath, outPath] = process.argv.slice(2);
+const baseText = fs.readFileSync(basePath, 'utf8');
+const base = JSON.parse(baseText);
+const cand = JSON.parse(fs.readFileSync(candPath, 'utf8'));
+const A = base.packages;
+const B = cand.packages;
+const WS = 'services/cleanup-service';
+const PRE = WS + '/node_modules/';
+
+const out = { ...A };
+// 1. workspace node: take the candidate's (only devDependencies may differ).
+const wsDiff = Object.keys({ ...A[WS], ...B[WS] }).filter(
+  (f) => JSON.stringify(A[WS][f]) !== JSON.stringify(B[WS][f]),
+);
+if (wsDiff.join() !== 'devDependencies') throw new Error('workspace node differs in ' + wsDiff);
+out[WS] = B[WS];
+
+// 2. every changed pre-existing node other than the workspace must not exist.
+for (const k of Object.keys(B)) {
+  if (k in A && k !== WS && k !== '' && JSON.stringify(A[k]) !== JSON.stringify(B[k])) {
+    throw new Error('candidate changed pre-existing node ' + k);
+  }
+}
+// 3. no removals.
+const removed = Object.keys(A).filter((k) => !(k in B));
+if (removed.length) throw new Error('candidate removed ' + removed);
+
+// 4. added nodes: keep cleanup-prefixed ones, relocate root-level ones under cleanup.
+const added = Object.keys(B).filter((k) => !(k in A));
+for (const k of added) {
+  let nk;
+  if (k.startsWith(PRE)) nk = k;
+  else if (k.startsWith('node_modules/')) nk = WS + '/' + k;
+  else throw new Error('added node outside root/cleanup: ' + k);
+  if (nk in out) throw new Error('collision ' + nk);
+  out[nk] = B[k];
+}
+// 5. @keyv/bigmap peers keyv ^5.6.0 (non-optional). Its only dependent, @cacheable/memory, carries its
+//    own nested keyv@5.6.0, so nest bigmap beside it; npm's hoisted spot resolves the root keyv@4.5.4.
+const BM_FROM = PRE + '@keyv/bigmap';
+const BM_TO = PRE + '@cacheable/memory/node_modules/@keyv/bigmap';
+const dependents = Object.entries(out).filter(([, v]) => v.dependencies && v.dependencies['@keyv/bigmap']).map(([k]) => k);
+if (dependents.join() !== PRE + '@cacheable/memory') throw new Error('bigmap dependents: ' + dependents);
+if (!out[PRE + '@cacheable/memory/node_modules/keyv']) throw new Error('no nested keyv beside memory');
+out[BM_TO] = out[BM_FROM];
+delete out[BM_FROM];
+
+// 6. order keys the way npm does (localeCompare 'en'; base is already in this order).
+const cmp = (a, b) => a.localeCompare(b, 'en');
+const keys = Object.keys(out).sort((a, b) => (a === '' ? -1 : b === '' ? 1 : cmp(a, b)));
+const packages = {};
+for (const k of keys) packages[k] = out[k];
+const result = { ...base, packages };
+const indent = baseText.match(/^\{\r?\n( +)/)[1].length;
+const eol = baseText.includes('\r\n') ? '\r\n' : '\n';
+fs.writeFileSync(outPath, JSON.stringify(result, null, indent).replace(/\n/g, eol) + eol);
+console.log('added', Object.keys(packages).length - Object.keys(A).length, 'nodes; relocated',
+  added.filter((k) => !k.startsWith(PRE)).length, '; @keyv/bigmap nested under @cacheable/memory');
+```
+
+Run `node "$SCRATCH/splice.js" "$SCRATCH/lock.base.json" "$SCRATCH/resolve/package-lock.json" package-lock.json`. Expected output: `added 32 nodes; relocated 13 ; @keyv/bigmap nested under @cacheable/memory`. The candidate's node values are npm's own, with map fields already key-sorted, so no field is hand-built. If Step 2's counts changed, the bigmap step's guards (a sole dependent, a nested `keyv` beside it) either still hold or throw. **If it throws, stop and re-plan, and do not improvise a placement.** A first rev-1 attempt, which put `keyv@5.6.0` at cleanup's top level, was silently pruned by `npm ci`.
+
+- [ ] **Step 4: Prove the splice** (every check must be able to fail; ⚠️ Git Bash + `sed` + backslashes broke a normalizer during planning and produced a false-green empty diff, so use `lsnorm.js`)
+
+Write `$SCRATCH/lsnorm.js` with the Write tool:
+
+```js
+// Normalize `npm ls --all` problem lines: strip tree art and the scratch dir prefix; unique + sorted.
+// Exits 2 if it saw no problem lines at all (the base is known to have some — empty = broken pipe).
+'use strict';
+let s = '';
+process.stdin.on('data', (d) => (s += d)).on('end', () => {
+  const lines = s
+    .split(/\r?\n/)
+    .filter((l) => /invalid|missing|UNMET/.test(l))
+    .map((l) => l.replace(/^[\s|`+-]*/, '').replace(/[A-Za-z]:\\\S*?\\scratchpad\\[^\\]+\\/g, '<ROOT>\\'));
+  const uniq = [...new Set(lines)].sort();
+  if (uniq.length === 0) { console.error('lsnorm: no problem lines read'); process.exit(2); }
+  console.log(uniq.join('\n'));
+});
+```
+
+Then prove, in order:
+
+1. **Byte scope:** `git diff --numstat package-lock.json` gives about +464/−2 at 10.11.0. The only removed lines are the workspace node's two old ranges. `git diff package-lock.json | grep '^-' | grep -v '^---'` must show exactly those two lines. Every `+` hunk must sit inside a `services/cleanup-service` key.
+2. **Registry parity:** for every added node, `version`, `resolved`, `integrity`, `license`, `engines`, `dependencies`, `peerDependencies` and `peerDependenciesMeta` equal `npm view <name>@<version> --json` (key-sorted). Every added node is `"dev": true`.
+3. **Lock-only `npm ls`, like with like (V8):** put the new lock plus the Step 1 manifest into a copy of `$SCRATCH/resolve/`, then run `npx -y npm@11.19.0 ls --all --package-lock-only 2>&1 | node "$SCRATCH/lsnorm.js"`. Diff it against the same command over the base lock. Expect **0 diff lines**. **Negative control:** the raw candidate lock (Step 2's output) must show two extra `keyv@4.5.4 … invalid: "^5.6.0" from node_modules/@keyv/bigmap` lines. That proves the diff can fail.
+4. **Idempotency:** in that scratch copy, `npx -y npm@11.19.0 install --package-lock-only --ignore-scripts` over the spliced lock must change **0** nodes (node diff). Otherwise npm would churn the layout on the next lock operation.
+5. **A real install in the repo, then run what was broken.** Run `npx -y npm@11.19.0 ci; echo "ci exit=$?"`, which proves consistency and integrity only. Then:
 
 ```bash
-npx -y npm@11.19.0 ci; echo "ci exit=$?"          # consistency + integrity only
-npm ls --all 2>&1 | grep -E " invalid| missing" | sed 's/^[ |`-]*//' | sort -u > "$SCRATCH/npmls.after.txt"; diff "$SCRATCH/npmls.base.txt" "$SCRATCH/npmls.after.txt"; echo "diff exit=$?"   # expect 0
+cd services/cleanup-service
+node node_modules/eslint/bin/eslint.js --version                # v10.11.0 — the reviewer's failure was here ("Cannot find module 'cacheable'")
+node node_modules/eslint/bin/eslint.js --cache --cache-location "$SCRATCH/eslintcache" src; echo "exit=$?"   # 1, ONLY expirationJob.ts:153 no-useless-assignment (the cache path loads cacheable/keyv)
+node -e 'const p=require("path");const mem=p.dirname(require.resolve("@cacheable/memory"));const bm=require.resolve("@keyv/bigmap",{paths:[mem]});const k=require.resolve("keyv",{paths:[p.dirname(bm)]});console.log(p.relative(process.cwd(),bm));console.log(p.relative(process.cwd(),k))'
+# expect …/@cacheable/memory/node_modules/@keyv/bigmap/… and …/@cacheable/memory/node_modules/keyv/…  (keyv 5.6.0, not the root 4.5.4)
+cd ../..
+npm ls --all 2>&1 | node "$SCRATCH/lsnorm.js" | grep -E 'invalid|missing: |UNMET DEPENDENCY' | grep -v '^npm error'
+# expect ONLY the pre-existing: @react-native/metro-config (UNMET), color-string, ms, picomatch — no keyv line
 node -e 'const p=require("path");const s=p.resolve("services/cleanup-service");for(const n of ["eslint","@eslint/js"])console.log(n,"cleanup:",require(require.resolve(n+"/package.json",{paths:[s]})).version,"root:",require(require.resolve(n+"/package.json",{paths:[process.cwd()]})).version)'
 # expect cleanup: 10.11.0 / 10.0.1 ; root: 9.39.5 / 9.39.5
 for w in apps/frontend apps/landing apps/mobile; do node -e "console.log('$w', require(require.resolve('eslint/package.json',{paths:[require('path').resolve('$w')]})).version)"; done   # expect 9.39.5 each
 ```
 
-- [ ] **Step 5: Run the gate.** Case A is green (10 === 10). **Case B is red on exactly `src/jobs/expirationJob.ts:153 no-useless-assignment`**, reproducing V3 on the real install. Case C is green on all three rules. Record the output.
+6. **Negative control for P1, kept as evidence:** a prefix-only splice (drop the 13 root-level nodes), installed with a full `npm ci` in a scratch copy, exits 0, and its `eslint --version` fails `Cannot find module 'cacheable'`. This was reproduced during planning rev 1. Re-run it only if Step 2's counts changed.
+
+- [ ] **Step 5: Run the gate.** Case A is green (10 === 10, and the peer clause is now active: `^10.0.0`). **Case B is red on exactly `src/jobs/expirationJob.ts:153 no-useless-assignment`**, reproducing V3 on the real install. Case C is green on all three rules. Record the output.
 
 - [ ] **Step 6: Commit** (`chore(cleanup): eslint + @eslint/js 10 (supersedes #244)`)
 
