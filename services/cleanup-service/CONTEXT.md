@@ -607,7 +607,7 @@ This supersedes #244, which bumped `@eslint/js` alone and left it on the hoisted
 and `apps/mobile` stay on 9.39.5, so eslint 10 and its tree are nested under this service's `node_modules/`.
 That includes the `cacheable`/`keyv` chain behind `file-entry-cache@11`, with `@keyv/bigmap` nested under
 `@cacheable/memory` so its `keyv ^5.6.0` peer resolves. The root declarations gate (`tests/regression/sprint-131-workspace-declarations.test.ts`) carries
-a `DIVERGENCE_ALLOWLIST` entry for this workspace's `eslint@^10.11.0`. Its stale-entry check retires that entry once root moves to 10.
+a `DIVERGENCE_ALLOWLIST` entry for this workspace's `eslint@^10.11.0`. Once root moves to 10, its stale-entry check fails until the entry is removed.
 
 `@eslint/js` 10's `recommended` adds three rules: `no-unassigned-vars`, `no-useless-assignment` and
 `preserve-caught-error`. They raised one finding. `batchHardDelete` in `src/jobs/expirationJob.ts` initialized
