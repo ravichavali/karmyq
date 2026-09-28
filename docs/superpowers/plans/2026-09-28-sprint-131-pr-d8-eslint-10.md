@@ -540,3 +540,11 @@ Executed inline (superpowers:executing-plans) on 2026-09-28, Windows box.
 - **I2** (`js.configs.recommended,` deleted): **C red** with `Received: []`, all three rule ids missing. **B stayed green**, which confirms that B alone cannot see a hollowed-out config.
 - **I3** (`node_modules/eslint` → `eslint.off`, so cleanup resolves the hoisted 9.39.5): **A red**, `Expected: 10, Received: 9`. After renaming it back, `eslint --version` prints `v10.11.0`.
 - The gate was promoted by `git mv` to `tests/regression/`, and it is 3/3 green there. The promoter was not run.
+
+**Tasks 6–9.**
+- **Landing.** Regenerating it also refreshed the notification and request service pages, which were stale copies of the D4 and D6 CONTEXT sections already on master. That content is kept. The timestamp and HEAD-sha churn is reverted.
+- **Version.** Bumped 11.71.0 → 11.72.0 (3 lines), with strict ci exit 0.
+- **/simplify.** One fix applied: resolve eslint's `package.json` once. "A timeout is indistinct" was skipped as a false positive, because `spawnSync` sets `ETIMEDOUT` on `result.error`.
+- **/code-review and /security-review.** Both medium, both clean.
+- **The plan missed one gate interaction.** The first forced turbo run failed `tests/regression/sprint-131-workspace-declarations.test.ts` › "a root bump cannot silently strand a workspace" on `services/cleanup-service devDependencies: eslint@^10.11.0 vs root-hoisted 9.39.5`. That is correct: it is the deliberate "pair in cleanup" divergence. It got a reviewed `DIVERGENCE_ALLOWLIST` entry (`b3ec28f2`), whose stale-entry check retires it when root moves to 10, plus a CONTEXT note (`cccca1bb`).
+- **Final run.** Turbo 27/27 forced. The pre-push suite ran (2m26s). PR [#276](https://github.com/ravichavali/karmyq/pull/276) is open.
