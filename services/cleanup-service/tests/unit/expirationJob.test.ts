@@ -1,4 +1,4 @@
-import { markExpiredData } from '../../src/jobs/expirationJob';
+import { markExpiredData, batchHardDelete } from '../../src/jobs/expirationJob';
 
 jest.mock('../../src/database/db', () => ({
   query: jest.fn(),
@@ -49,5 +49,38 @@ describe('markExpiredData', () => {
   it('throws when the database query fails', async () => {
     mockQuery.mockRejectedValueOnce(new Error('DB down'));
     await expect(markExpiredData()).rejects.toThrow('DB down');
+  });
+});
+
+describe('batchHardDelete', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('keeps deleting while a batch comes back full, and sums every batch', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [], rowCount: 2 } as any)
+      .mockResolvedValueOnce({ rows: [], rowCount: 2 } as any)
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any);
+    await expect(batchHardDelete('messaging.messages', 2)).resolves.toBe(5);
+    expect(mockQuery).toHaveBeenCalledTimes(3);
+    expect(mockQuery.mock.calls[0][1]).toEqual([expect.any(String), 2]);
+  });
+
+  it('runs exactly once when the first batch is short, including an empty table', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);
+    await expect(batchHardDelete('requests.help_requests', 1000)).resolves.toBe(0);
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats a null rowCount as 0 and stops', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [], rowCount: null } as any);
+    await expect(batchHardDelete('requests.help_offers', 10)).resolves.toBe(0);
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a table outside the allow-list without querying', async () => {
+    await expect(batchHardDelete('auth.users', 10)).rejects.toThrow(/not in the allowed list/);
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 });
