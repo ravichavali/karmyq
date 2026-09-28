@@ -4,6 +4,23 @@
 
 > **No parallel lanes are active.** The pre-push runner lane shipped as #273 (`b976c47a`, v11.70.0, [CI/CD run 36300994495](https://github.com/ravichavali/karmyq/actions/runs/36300994495) green). Its lane file is archived at [`archive/2026-09-27-prepush-test-runner-SHIPPED-v11.70.0.md`](archive/2026-09-27-prepush-test-runner-SHIPPED-v11.70.0.md). Git and PR state (`gh pr list`, `git log origin/master`) outrank anything written here.
 
+> 📋 **D8 PLANNED (2026-09-28) — ready to execute in a fresh chat.** Plan: [`docs/superpowers/plans/2026-09-28-sprint-131-pr-d8-eslint-10.md`](../../docs/superpowers/plans/2026-09-28-sprint-131-pr-d8-eslint-10.md). Branch: `agent/claude/sprint-131-d8-eslint-10`, cut from `origin/agent/claude/sprint-131-d7-closeout` (= `de01c53e` + docs-only close-out/plan commits, which ride in the D8 PR — no docs-only master push). Target **v11.72.0**. Dependency lane: **Claude**.
+> - **Goal:** cleanup-service on `eslint` **and** `@eslint/js` 10 as a pair (**supersedes #244**), fix the one lint error the new `recommended` rules raise, and add the first gate that fails when cleanup-service lint breaks.
+> - **Maintainer decisions (2026-09-28, planning chat):** (1) "Pair in cleanup". Only `services/cleanup-service` moves; root, frontend, landing and mobile stay on eslint 9 (nested eslint 10 tree, spliced in place). (2) "Regression test". A workspace gate proven by mutation. Making CI lint blocking repo-wide is out of scope, so it goes to IDEAS.
+> - **Why #244 cannot be taken as-is (verified 2026-09-28):**
+>   - It leaves `@eslint/js@10`, which peers `eslint ^10` (optional), on the hoisted `eslint@9.39.5`.
+>   - It **breaks lint**: `@eslint/js` 10's `recommended` adds `no-unassigned-vars`, `no-useless-assignment` and `preserve-caught-error`. `no-useless-assignment` errors at `src/jobs/expirationJob.ts:153` (`let batchDeleted = 0;`, overwritten in the `do` body). Real eslint 10.11.0 gives the same single error (9 files, 0 warnings); today's eslint 9 lint exits 0.
+>   - #244's CI is green only because **CI's lint step cannot fail** (`ci.yml:78` `|| echo …continuing`; `test.yml:62,103` likewise).
+> - **Critical implementation notes (verbatim from the plan):**
+>   1. **#244's CI is green because lint cannot fail in CI (V2).** Never cite a green PR check as lint evidence. Cite the Task 2 gate and a direct `npx eslint src` exit code.
+>   2. **Bump the pair.** `@eslint/js` alone leaves an unmet (optional) peer on the hoisted eslint 9 (V1). Case A pins that the two majors match.
+>   3. **Never let the splice touch anything outside `services/cleanup-service/node_modules/`,** apart from the workspace node's two ranges and the root version (V6). A Windows re-resolve strips `libc` fields and drops override nodes, so splice only the intended entries onto a byte copy of the base lock. Sort map-valued fields. Prove it with a node diff and registry parity, **not** with `npm ci`, which never writes the lock.
+>   4. **The fix is a declaration change, not a logic change.** `let batchDeleted: number;` compiles because TypeScript knows a `do` body runs before its `while` condition (probed 2026-09-28: strict tsc exit 0; a read-before-assign negative control fails TS2454). Do not restructure the loop. Task 2's unit pin must pass unchanged before and after.
+>   5. **Gate cases must be able to fail.** Each case gets an injection that turns it red (I1–I3), each on a committed tree, each restored from a byte copy.
+>   6. **Promote only this PR's tdd file.** The promoter does not auto-run (BUG-053), and running it by hand sweeps five unrelated files.
+>   7. **The live smoke is the standard post-deploy one.** Nothing in the running system changes, and the four-endpoint smoke only confirms the deploy did no harm.
+> - Also fixed in this planning commit: the D8+ table's D10 row had been corrupted. A `String.replace` treated `` $` `` in `$2a$`/`$2b$` as "text before match" and pasted the handoff head in twice. It is now a clean row.
+>
 > ✅ **D7 (next 16) SHIPPED v11.71.0.** [#275](https://github.com/ravichavali/karmyq/pull/275) merged as `de01c53e` (2026-09-28, squash admin merge on explicit maintainer authorization after a second independent review; supersedes #246, which closed on merge).
 > - **Deploy:** [CI/CD run 36370510230](https://github.com/ravichavali/karmyq/actions/runs/36370510230) — every job success, all 9 services healthy, `🎉 Demo Deployment Successful`, no rollback. Deploy log: `Landing page built and deployed` + `docs verified` (the host build did not merely warn).
 > - **Smoke (2026-09-28, Playwright, one login as maria.reyes, read-only):**
@@ -20,39 +37,11 @@
 > |---|---|---|---|
 > | D8 | #244 @eslint/js 9 → 10 | dev-only, `services/cleanup-service` | green |
 > | D9 | #245 ioredis 5 → 6 | runtime, `services/reputation-service` (Redis client); needs a live smoke | green |
-> | D10 | #243 bcryptjs (major) + @types | **auth** (`services/auth-service`, simulation): prove existing stored `$2a# Sprint 131 — Maintenance Backlog — Handoff
-
-**Date**: 2026-09-28
-
-> **No parallel lanes are active.** The pre-push runner lane shipped as #273 (`b976c47a`, v11.70.0, [CI/CD run 36300994495](https://github.com/ravichavali/karmyq/actions/runs/36300994495) green). Its lane file is archived at [`archive/2026-09-27-prepush-test-runner-SHIPPED-v11.70.0.md`](archive/2026-09-27-prepush-test-runner-SHIPPED-v11.70.0.md). Git and PR state (`gh pr list`, `git log origin/master`) outrank anything written here.
-
-> ✅ **D7 (next 16) SHIPPED v11.71.0.** [#275](https://github.com/ravichavali/karmyq/pull/275) merged as `de01c53e` (2026-09-28, squash admin merge on explicit maintainer authorization after a second independent review; supersedes #246, which closed on merge).
-> - **Deploy:** [CI/CD run 36370510230](https://github.com/ravichavali/karmyq/actions/runs/36370510230) — every job success, all 9 services healthy, `🎉 Demo Deployment Successful`, no rollback. Deploy log: `Landing page built and deployed` + `docs verified` (the host build did not merely warn).
-> - **Smoke (2026-09-28, Playwright, one login as maria.reyes, read-only):**
->   - karmyq.com: `window.next.version` **16.3.6**; `/login` `cache-control: public, max-age=300, must-revalidate`; login → `/dashboard` feed renders.
->   - Communities index (18 links) → client-side `next/link` into "Southeast PDX Helpers" (window sentinel kept; reload control cleared it); community page, `/open-asks` and a `/requests/<id>` page render.
->   - **Messaging NOT covered:** `GET /api/conversations` → `{"success":true,"data":[]}`, so the existing-match set was empty. The Helping tab shows 28 expand buttons, and none was expanded. The guard aborted nothing, no write was attempted, and the recorder holds no `join_conversation`/`mark_as_read`/`send_message`.
->   - Only failed first-party calls: `GET /api/communities/<id>/config` 404 ×3, the documented expected absence (BUG-045, `apps/frontend/CONTEXT.md`). There were no hydration or React errors.
->   - karmyq.org: `next.version` **16.3.6** on `/`, `/docs/`, and a concept page; **Fraunces + Inter load**; 0 segment-prefetch 404s; no errors. The docs stamp still reads `8777c5dd` (BUG-054). The version check proves the 15→16 host build only, not exact-commit or docs freshness.
-/`$2b# Sprint 131 — Maintenance Backlog — Handoff
-
-**Date**: 2026-09-28
-
-> **No parallel lanes are active.** The pre-push runner lane shipped as #273 (`b976c47a`, v11.70.0, [CI/CD run 36300994495](https://github.com/ravichavali/karmyq/actions/runs/36300994495) green). Its lane file is archived at [`archive/2026-09-27-prepush-test-runner-SHIPPED-v11.70.0.md`](archive/2026-09-27-prepush-test-runner-SHIPPED-v11.70.0.md). Git and PR state (`gh pr list`, `git log origin/master`) outrank anything written here.
-
-> ✅ **D7 (next 16) SHIPPED v11.71.0.** [#275](https://github.com/ravichavali/karmyq/pull/275) merged as `de01c53e` (2026-09-28, squash admin merge on explicit maintainer authorization after a second independent review; supersedes #246, which closed on merge).
-> - **Deploy:** [CI/CD run 36370510230](https://github.com/ravichavali/karmyq/actions/runs/36370510230) — every job success, all 9 services healthy, `🎉 Demo Deployment Successful`, no rollback. Deploy log: `Landing page built and deployed` + `docs verified` (the host build did not merely warn).
-> - **Smoke (2026-09-28, Playwright, one login as maria.reyes, read-only):**
->   - karmyq.com: `window.next.version` **16.3.6**; `/login` `cache-control: public, max-age=300, must-revalidate`; login → `/dashboard` feed renders.
->   - Communities index (18 links) → client-side `next/link` into "Southeast PDX Helpers" (window sentinel kept; reload control cleared it); community page, `/open-asks` and a `/requests/<id>` page render.
->   - **Messaging NOT covered:** `GET /api/conversations` → `{"success":true,"data":[]}`, so the existing-match set was empty. The Helping tab shows 28 expand buttons, and none was expanded. The guard aborted nothing, no write was attempted, and the recorder holds no `join_conversation`/`mark_as_read`/`send_message`.
->   - Only failed first-party calls: `GET /api/communities/<id>/config` 404 ×3, the documented expected absence (BUG-045, `apps/frontend/CONTEXT.md`). There were no hydration or React errors.
->   - karmyq.org: `next.version` **16.3.6** on `/`, `/docs/`, and a concept page; **Fraunces + Inter load**; 0 segment-prefetch 404s; no errors. The docs stamp still reads `8777c5dd` (BUG-054). The version check proves the 15→16 host build only, not exact-commit or docs freshness.
- hashes still verify, and that new hashes interoperate | green |
+> | D10 | #243 bcryptjs (major) + @types | **auth** (`services/auth-service`, simulation): prove existing stored `$2a$`/`$2b$` hashes still verify, and that new hashes interoperate | green |
 > | D11 | #265 dotenv 17 → 18 | 8 services + `tests`; read the `dotenv-config-must-pass-quiet` gotcha first | green |
 > | D12 | #263 motion 12 → 13 | `apps/landing` | **red:** `sprint-131-workspace-declarations` ("each workspace's lockfile node mirrors its manifest"). Dependabot's lock splice for landing is incomplete (see the apps/* half-resolution memory) |
 >
-> **Not a major:** #274, the dev-deps group (12 patch/minor updates, incl. turbo 2.10 → 2.11), is **red** on `sprint-124-registry-independence` ("the shipped Expo registry clears only Expo drift…"). It needs its own triage, which can be slotted anywhere; the maintainer decides. The order above is a recommendation, and the maintainer may reorder it. **Next: plan D8 (#244).**
+> **Not a major:** #274, the dev-deps group (12 patch/minor updates, incl. turbo 2.10 → 2.11), is **red** on `sprint-124-registry-independence` ("the shipped Expo registry clears only Expo drift…"). It needs its own triage, which can be slotted anywhere; the maintainer decides. The order above is a recommendation, and the maintainer may reorder it. **D8 is planned (banner above); next: execute D8 in a fresh chat.**
 >
 > 📜 **D7 execution record (kept; state as of 2026-09-27, before the merge):** PR #275 CI green at `a1e65320` (v11.71.0). CI: 20 pass, 1 skipping (Deploy). `Test Backend Services` ran **27/27 successful, 0 cached**, which matches the dry-run inventory; #246 ran only 12 of 25. `Build Landing Page` built with `Next.js 16.3.6 (webpack)`, and its CSS guard ran 10/10 rather than skipping. In `Test Docker Build` the frontend image built with webpack, and every runner COPY succeeded. The version was bumped from `origin/master` `b976c47a` (11.70.0 → 11.71.0, 3 lines, strict `npm ci` 0). **Next: merge authorization, then `gh pr merge 275 --squash --admin`, deploy verify, and the smoke (plan Task 9 Steps 3–5).** All eight code/docs tasks are committed (cherry-picked `f43e036c` … `46ce4c91`). Tasks 1–8 are done. Task 9 (PR, merge, deploy, smoke) is outstanding, and **merge needs explicit per-PR authorization**.
 > - **Findings the plan did not predict (each ruled and evidenced in the plan's Execution notes and the PR body):**
@@ -280,7 +269,8 @@ inventory against the then-current base. BUG-033 remains open until actually del
 
 1. Confirm current branch, clean handoff and live state with `git status --short`, `gh pr list`
    and `git log --oneline origin/master -3`.
-1a. **D7 SHIPPED v11.71.0** (#275, `de01c53e`); `agent/claude/sprint-131-d7-next` is finished, so do not commit on it. Next: D8+ = the Dependabot majors (maintainer, 2026-09-28); start by planning D8 (#244).
+1a. **D7 SHIPPED v11.71.0** (#275, `de01c53e`); `agent/claude/sprint-131-d7-next` is finished, so do not commit on it. Next: D8+ = the Dependabot majors (maintainer, 2026-09-28).
+1b. **Execute D8 now.** Run `git fetch origin`, then `git switch -c agent/claude/sprint-131-d8-eslint-10 origin/agent/claude/sprint-131-d7-closeout` (never from a stale local master; plan Task 1 checks `merge-base` against `origin/master`). Open the plan at `docs/superpowers/plans/2026-09-28-sprint-131-pr-d8-eslint-10.md`. Invoke `superpowers:subagent-driven-development` directly, or `superpowers:executing-plans`. There is no `/execute-plan` slash command.
 2. BUG-049 (#257, `96ffa619`, v11.64.0), BUG-051 (#258, `8fbbeb5f`, v11.65.0), D4 (#267, `fb9d26b6`, v11.66.0) and D5 (#269, `32588ae9`, v11.67.0) are **merged and deployed**; their branches are finished — do not commit on them. **#268 is on `agent/claude/sprint-131-expo-drift-268`, cut from the deployed `32588ae9`.**
    The PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches are merged; never commit on them.
 3. Read the linked spec and sprint plan. **PR A, B, B2, B3, D1, D2, D3 and D4 are shipped — do not reopen or re-execute their plans.**
@@ -321,7 +311,7 @@ Maintainer, 2026-09-24: "Let's move to #268"; dependency lane → **Claude** for
   react-native-worklets) and invalid top-level `color-string`, `ms`, `picomatch`. Judge splices by "no new errors".
 - **Done:** merged, deployed (all 9 healthy), smoke 200s. Only #268's auto-close on the next drift run remains.
 
-**Next unchecked action: plan D8 (#244 @eslint/js 10), the first of the Dependabot majors the maintainer scheduled on 2026-09-28** (queue and recommended order in the banner at the top). D7 shipped v11.71.0 (#275, `de01c53e`). After the majors, what remains of Sprint 131 is PR C (BUG-033, blocked on rollout approval) and the unscheduled items below.
+**Next unchecked action: execute D8 (supersedes #244; plan `docs/superpowers/plans/2026-09-28-sprint-131-pr-d8-eslint-10.md`), the first of the Dependabot majors the maintainer scheduled on 2026-09-28** (queue and recommended order in the banner at the top). D7 shipped v11.71.0 (#275, `de01c53e`). After the majors, what remains of Sprint 131 is PR C (BUG-033, blocked on rollout approval) and the unscheduled items below.
 
 **Open items surfaced 2026-09-24 (not scheduled — maintainer decision needed):**
 - **#268 — IMPLEMENTED, see the status block above.**
