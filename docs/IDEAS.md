@@ -745,3 +745,26 @@ handoff's next-action list. None is scheduled.
 7. Note the zod-3-compatibility shim in `packages/shared/CONTEXT.md`.
 
 ---
+
+## [2026-09-28] architecture
+
+D7 (next 16, shipped v11.71.0 in #275) close-out follow-ups. None is scheduled.
+
+1. **Return to Turbopack.** Load fonts through `next/font/google` or a `<link>`, not a CSS `@import url(...)`, which Turbopack silently drops. Then drop `--webpack` from both build scripts, and replace the `landing-production-css` `@import` assertions with a check that the font loader is present.
+2. **Landing's `transpilePackages: ['styled-jsx']`** was a webpack dual-React workaround. Its comment's `/500` claim is stale: landing is App Router only, and the export has no `500.html`. Re-check both when (1) lands.
+3. **`scripts/deploy.sh` only warns when the landing build fails.** Fail the deploy instead, or surface a stale build in health. Pairs with BUG-054: the docs stamp never refreshes.
+4. **`apps/frontend/Dockerfile.prod` looks stale.** It runs `npm ci --only=production` before a build, and no compose file references it. Delete or fix it.
+5. **Landing's `target: es5` is archaic.**
+6. **Messaging dead code:** `ChatWindow` is mounted nowhere, and `MessagingContext.selectConversation` emits a `mark_as_read` that the service never handles. `markMessagesAsRead` is imported but unregistered (`messageHandler.ts:2`), so read receipts do not exist today.
+7. **The smoke account has no conversations.** maria.reyes's `GET /api/conversations` is empty, so a read-only smoke cannot cover messaging. Seed or name a demo account that has an existing conversation.
+
+---
+
+## [2026-09-28] tooling
+
+D8 (cleanup-service on eslint 10) follow-ups. None is scheduled.
+
+1. **CI lint is non-blocking repo-wide.** `ci.yml:78` and `test.yml:62,103` each end the lint step in `|| echo`, so no job can fail on a lint error. Only cleanup-service has a lint gate (`services/cleanup-service/tests/regression/sprint-131-eslint-10.test.ts`). Before making lint blocking, measure the current lint state of frontend, landing and mobile.
+2. **The remaining eslint 9 declarers:** root, `apps/frontend`, `apps/landing` (`eslint-config-next` 16.3.5 peers `eslint >=9.0.0`) and `apps/mobile` (`eslint-config-expo` 57.0.2 peers `>=8.10`). Their plugin trees are unproven on 10, and Dependabot will likely propose eslint 10 for them next.
+
+---

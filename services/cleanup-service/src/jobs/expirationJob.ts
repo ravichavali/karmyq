@@ -150,7 +150,7 @@ export async function batchHardDelete(
   const threshold = deleteThreshold.toISOString();
 
   let totalDeleted = 0;
-  let batchDeleted = 0;
+  let batchDeleted: number;
 
   do {
     const result = await query(

@@ -1,4 +1,4 @@
-// Flat config (ESLint 9). Replaces .eslintrc.js.
+// Flat config (ESLint 10). Replaces .eslintrc.js.
 const js = require('@eslint/js');
 const tsPlugin = require('@typescript-eslint/eslint-plugin');
 
