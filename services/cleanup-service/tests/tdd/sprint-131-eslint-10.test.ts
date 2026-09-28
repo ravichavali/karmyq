@@ -44,6 +44,10 @@ function major(version: string): number {
   return Number(version.split('.')[0]);
 }
 
+function posix(filePath: string): string {
+  return path.relative(SERVICE_DIR, filePath).split(path.sep).join('/');
+}
+
 function eslintBin(): string {
   const { pkg, dir } = readPackage('eslint');
   const bin = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin?.eslint;
@@ -90,12 +94,12 @@ describe('Sprint 131 D8 — cleanup-service lint gate', () => {
       const results = JSON.parse(res.stdout) as LintResult[];
       const errors = results.flatMap((r) =>
         r.errorCount > 0
-          ? r.messages.map((m) => `${path.relative(SERVICE_DIR, r.filePath)}:${m.line} ${m.ruleId}`)
+          ? r.messages.map((m) => `${posix(r.filePath)}:${m.line} ${m.ruleId}`)
           : [],
       );
       expect(errors).toEqual([]);
       expect(res.status).toBe(0);
-      const files = results.map((r) => path.relative(SERVICE_DIR, r.filePath).split(path.sep).join('/'));
+      const files = results.map((r) => posix(r.filePath));
       expect(files).toEqual(expect.arrayContaining(['src/jobs/expirationJob.ts', 'src/index.ts']));
     },
     TIMEOUT_MS,
