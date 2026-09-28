@@ -74,11 +74,16 @@ const ALLOWLIST: Record<string, string> = {
  * As with ALLOWLIST above, the stale-entry test rejects entries that have stopped being divergences;
  * it does not prevent a new, still-valid holdback being added.
  *
- * Entries are deliberate holdbacks, not accidents. The map is EMPTY as of Sprint 131 D6: its only
- * entry was packages/shared's zod 3 holdback, retired when shared moved to zod 4. The mechanism
- * stays so the next deliberate holdback has a reviewed place to live instead of a weakened gate.
+ * Entries are deliberate holdbacks, not accidents. Sprint 131 D6 retired the first entry (packages/shared's
+ * zod 3 holdback, when shared moved to zod 4). Here the divergence runs the other way: one workspace moved
+ * ahead of root.
  */
-const DIVERGENCE_ALLOWLIST: Record<string, string> = {};
+const DIVERGENCE_ALLOWLIST: Record<string, string> = {
+  'services/cleanup-service devDependencies: eslint@^10.11.0':
+    'Sprint 131 D8 (maintainer 2026-09-28, "pair in cleanup"): cleanup-service alone runs eslint 10, nested in its own ' +
+    'node_modules; root and the apps stay on eslint 9 until their plugin trees are proven on 10 (docs/IDEAS.md). ' +
+    'Pinned by services/cleanup-service/tests/regression/sprint-131-eslint-10.test.ts case A.',
+};
 
 const packageName = (spec: string): string =>
   spec.startsWith('@') ? spec.split('/').slice(0, 2).join('/') : spec.split('/')[0];
