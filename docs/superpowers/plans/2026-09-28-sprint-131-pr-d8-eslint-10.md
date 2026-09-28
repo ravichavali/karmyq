@@ -515,4 +515,28 @@ Confirm that `git push` runs the pre-push suite, and that it is not silent and i
 
 ## Execution notes
 
-*(Filled in during execution: Task 1 refresh results, the gate's red-then-green output, the splice diff summary, I1–I3 outputs, gate results.)*
+Executed inline (superpowers:executing-plans) on 2026-09-28, Windows box.
+
+**Task 1 refresh.** `merge-base HEAD origin/master` = `de01c53e` = `origin/master`. #244 is still OPEN at head `1c32364d` and touches the same 2 files. The latest 10.x releases are `@eslint/js` 10.0.1 and `eslint` 10.11.0, unchanged from planning. Master is 11.71.0. Baseline: `npx eslint src` exit 0 on eslint 9.
+
+**Task 2, the red.** The unit pin was green on the current code (9/9 in `expirationJob.test.ts`). On eslint 9 the gate ran A green (the peer clause was skipped: 9.39.5 declares no peer), B green, and **C red** (`Received: []`).
+
+**Task 3, the splice.** The candidate had 32 added nodes (19 cleanup-prefixed, 13 at the root), 0 removed, and 1 changed (the workspace node), matching V6 exactly. `splice.js` printed `added 32 nodes; relocated 13 ; @keyv/bigmap nested under @cacheable/memory`.
+- **Byte scope.** `git diff --numstat` gives +454/−2. The plan estimated "about +464"; the difference is in the estimate only, because every added top-level key is under `services/cleanup-service` and the only removed lines are the two old ranges.
+- **Registry parity.** All 32 nodes are `dev: true`, and all 8 fields match. One exception is normalization, not a real mismatch: `@types/esrecurse` publishes `dependencies: {}` and `peerDependencies: {}`, and npm leaves empty maps out of the lock.
+- **Lock-only `npm ls` (lsnorm).** Base 51 lines, splice 51, diff empty. The raw candidate gives 53: it adds `keyv@4.5.4 deduped invalid: "^5.6.0" from node_modules/@keyv/bigmap` and its `npm error` twin, which is the negative control.
+- **Idempotency.** An npm 11.19.0 `install --package-lock-only` over the spliced lock changed 0 nodes.
+- **Real install.** `npx -y npm@11.19.0 ci` exit 0. `eslint --version` prints `v10.11.0`, and `--cache src` gives exit 1 with only `153:7 no-useless-assignment`. bigmap resolves `…/@cacheable/memory/node_modules/@keyv/bigmap`, and its `keyv` resolves `…/@cacheable/memory/node_modules/keyv` at 5.6.0.
+- **Installed `npm ls`.** The problem set is identical to the pre-bump baseline (`@react-native/metro-config`, `color-string`, `ms`, `picomatch`) with no keyv line.
+- **Resolution.** cleanup resolves `eslint` 10.11.0 and `@eslint/js` 10.0.1. The root, frontend, landing and mobile resolve eslint 9.39.5.
+- **Audit.** 3 moderate findings (`decode-uri-component`, `expo-router`, `query-string`), all pre-existing in the expo tree. None are in the new nodes.
+- **Gate after the bump.** A green (10 === 10, peer `^10.0.0`), **B red on exactly `src/jobs/expirationJob.ts:153 no-useless-assignment`**, C green.
+- Step 4.6's negative control was not re-run, because the counts were unchanged.
+
+**Task 4.** After the fix: `tsc --noEmit` 0, `eslint src` 0 with no output, jest 12/12 (the unit pin unchanged since Task 2, plus the gate 3/3).
+
+**Task 5, the injections** (each on a committed tree, restored with `cp` from a byte copy, and `git status` clean after each):
+- **I1** (`let batchDeleted = 0;`): **B red** with `src/jobs/expirationJob.ts:153 no-useless-assignment`. A and C green.
+- **I2** (`js.configs.recommended,` deleted): **C red** with `Received: []`, all three rule ids missing. **B stayed green**, which confirms that B alone cannot see a hollowed-out config.
+- **I3** (`node_modules/eslint` → `eslint.off`, so cleanup resolves the hoisted 9.39.5): **A red**, `Expected: 10, Received: 9`. After renaming it back, `eslint --version` prints `v10.11.0`.
+- The gate was promoted by `git mv` to `tests/regression/`, and it is 3/3 green there. The promoter was not run.
