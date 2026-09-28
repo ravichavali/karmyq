@@ -48,8 +48,10 @@ function posix(filePath: string): string {
   return path.relative(SERVICE_DIR, filePath).split(path.sep).join('/');
 }
 
+const ESLINT = readPackage('eslint');
+
 function eslintBin(): string {
-  const { pkg, dir } = readPackage('eslint');
+  const { pkg, dir } = ESLINT;
   const bin = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin?.eslint;
   if (!bin) throw new Error('eslint package.json has no bin.eslint');
   return path.join(dir, bin);
@@ -74,7 +76,7 @@ const PROBE = [
 ].join('\n');
 
 describe('Sprint 131 D8 — cleanup-service lint gate', () => {
-  const eslint = readPackage('eslint').pkg;
+  const eslint = ESLINT.pkg;
   const eslintJs = readPackage('@eslint/js').pkg;
   const peer = eslintJs.peerDependencies?.eslint;
 
