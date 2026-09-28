@@ -174,7 +174,7 @@ feed-service.)
 
 **Tech stack:** Node.js 24 (`node:24-alpine`, [ADR-090](docs/adr/ADR-090-container-runtime-floor.md)
 — images, root `engines.node` and CI's `NODE_VERSION` are gate-locked to one major)/Express
-5/TypeScript · Next.js 15 · React Native + Expo · PostgreSQL 15
+5/TypeScript · Next.js 16 · React Native + Expo · PostgreSQL 15
 (RLS) · Redis + Bull · Turborepo.
 
 ---

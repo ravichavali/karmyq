@@ -1,6 +1,6 @@
 {
   "name": "karmyq",
-  "version": "11.70.0",
+  "version": "11.71.0",
   "license": "AGPL-3.0-or-later",
   "private": true,
   "description": "Community Mutual Aid Platform - Privacy-First Community Health Platform",
@@ -98,7 +98,7 @@
     "jsdom": {
       "ws": ">=8.20.1"
     },
-    "@swc/helpers": "0.5.15",
+    "@swc/helpers": "0.5.23",
     "socket.io-parser@<=4.2.6": "4.2.7",
     "undici@7.0.0 - 7.28.0": "^7.29.0",
     "nanoid": "^3.3.18"

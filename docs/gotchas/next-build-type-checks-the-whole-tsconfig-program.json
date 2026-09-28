@@ -1,0 +1,12 @@
+{
+  "title": "next build type-checks the whole tsconfig program with plain tsc since next 16.3 — test files are no longer filtered; exclude test directories",
+  "owner": "ravichavali",
+  "created": "2026-09-27",
+  "scope": ["apps/landing/tsconfig.json", "apps/frontend/tsconfig.json"],
+  "verify": {
+    "file_matches": {
+      "path": "apps/landing/tsconfig.json",
+      "pattern": "\"tests/\\*\\*\""
+    }
+  }
+}

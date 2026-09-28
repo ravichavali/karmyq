@@ -74,10 +74,9 @@ COPY --from=builder /app/apps/frontend/public ./public
 RUN mkdir .next
 RUN chown nextjs:nodejs .next
 
-# Standalone output nests under apps/frontend/ when built from workspace root
-# Copy root-level deps (node_modules, package.json)
+# Standalone output nests the server under apps/frontend/ when built from the workspace root.
+# Root node_modules holds the traced deps; the app's package.json arrives with the next COPY.
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/standalone/node_modules ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/standalone/package.json ./package.json
 # Copy the app-level server and deps
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/standalone/apps/frontend/ ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/static ./.next/static

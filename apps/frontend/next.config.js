@@ -3,11 +3,6 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone', // Enable standalone output for optimized Docker builds
 
-  // Don't fail build on ESLint errors (show warnings instead)
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-
   // Generate unique build ID to force cache invalidation on deployment
   generateBuildId: async () => {
     // Use timestamp for production builds to ensure cache busting
@@ -22,9 +17,6 @@ const nextConfig = {
   images: {
     unoptimized: false,
   },
-
-  // Enable SWC minification (faster than Terser)
-  swcMinify: true,
 
   // Add cache control headers to prevent aggressive browser caching of HTML
   async headers() {

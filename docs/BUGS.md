@@ -1475,3 +1475,11 @@ The TDD tier's automation is inert on the Windows box, and the docs say otherwis
 Found during the prepush-test-runner PR's `/code-review`; not fixed there (out of scope).
 
 ---
+
+## BUG-054 · [2026-09-27] · open
+
+Landing docs are never regenerated in CI or on deploy. `.npmrc` `ignore-scripts=true` (ADR-061) also suppresses npm pre/post lifecycle scripts, so `apps/landing`'s `prebuild` (`generate-docs`) never runs under `npm run build` (`ci.yml:249`, `scripts/deploy.sh:176`). karmyq.org/docs shows commitSha `8777c5dd` (2026-08-07), read from the tracked `build.json`, so docs content is only as fresh as the last committed regeneration. Found in Sprint 131 D7.
+
+This is the same `ignore-scripts` mechanism as BUG-053, which covers `posttest` and the TDD promoter. BUG-054 is the `prebuild` case. For BUG-053: in D7, running the promoter by hand found 5 unrelated green `tdd/` files (auth S129 ×2, reputation S125, request S125 ×2), and they were left unpromoted.
+
+---

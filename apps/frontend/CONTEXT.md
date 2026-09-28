@@ -1,10 +1,38 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-09-15 (Sprint 131 PR A — expected config absence, BUG-045)
+**Last updated**: 2026-09-27 (Sprint 131 D7 — next 16)
 
 ## Overview
 
-Next.js 15 web application (Pages Router) consuming all Karmyq backend services.
+Next.js 16 web application (Pages Router) consuming all Karmyq backend services.
+
+---
+
+## Sprint 131 D7 — next 16 (2026-09-27, #246)
+
+`apps/frontend` and `apps/landing` move from next 15.5.24 to 16.3.6. Each adaptation was traced to
+next 16's source, not the changelog:
+
+- **Bundler: both apps build with `next build --webpack`.** Turbopack, 16's default, silently drops
+  the remote Google Fonts `@import url(...)` from the CSS. Nothing in the build references
+  `fonts.googleapis.com`, and no web font loads. webpack keeps the import. The pin is guarded by
+  `tests/regression/landing-production-css.test.ts` ("next build bundler"), whose built-CSS checks
+  now read both `static/css` (webpack) and `static/chunks` (Turbopack).
+- **Type-check scope:** `next build` now runs plain `tsc --project` (`useTypeScriptCli`), so
+  `*.test.*` files are no longer filtered. Landing's tsconfig excludes `tests/**`, as this app's
+  already did. `tests/regression/next16-typecheck-scope.test.ts` in each app checks TypeScript's
+  **whole program**, not the root names: `exclude` does not stop an imported test file.
+- **Standalone output** no longer contains the tracing root's `package.json`. The Dockerfile COPY of
+  it was dead (the next COPY overwrote it) and is gone.
+- **Config:** `eslint` and `swcMinify` are no longer accepted keys, so they were removed.
+- **tsconfig:** 16 forces `jsx: react-jsx` and rewrites `next-env.d.ts` to `import` the generated
+  route types; both are committed as 16 writes them.
+- **`@swc/helpers`:** the root override follows next's exact pin (0.5.23); see ADR-059 note 4.
+- ⚠️ `scripts/deploy.sh` builds landing **on the demo host** and only warns on failure, so a green
+  deploy does not prove landing built.
+- ⚠️ `.npmrc` `ignore-scripts=true` (ADR-061) also suppresses **`prebuild`**, so landing's
+  `generate-docs` never runs in CI or on deploy. The docs site's commit stamp is the tracked
+  `build.json`. See `docs/BUGS.md`.
 
 ---
 

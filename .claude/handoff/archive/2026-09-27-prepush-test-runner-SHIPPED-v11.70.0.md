@@ -3,6 +3,8 @@
 **Date**: 2026-09-24
 **Outcome**: #272 shipped; #273 updated from master at v11.70.0, merge authorized on green checks
 
+> ✅ **SHIPPED v11.70.0. Archived 2026-09-27 on the D7 branch.** [#273](https://github.com/ravichavali/karmyq/pull/273) merged as `b976c47a` (2026-09-27T06:44:39Z). [CI/CD run 36300994495](https://github.com/ravichavali/karmyq/actions/runs/36300994495) succeeded, and the Demo health run on `b976c47a` succeeded. This lane is closed, and its row has been removed from the `CURRENT_HANDOFF.md` router. The rest of this file is the record as it stood before the merge.
+
 > The handoff carries **state between sessions**. It is branch-local, so it reserves nothing; see
 > `CLAUDE.md` → *Parallel Development* for how contended resources are actually allocated.
 
