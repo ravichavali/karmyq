@@ -83,6 +83,8 @@ const DIVERGENCE_ALLOWLIST: Record<string, string> = {
     'Sprint 131 D8 (maintainer 2026-09-28, "pair in cleanup"): cleanup-service alone runs eslint 10, nested in its own ' +
     'node_modules; root and the apps stay on eslint 9 until their plugin trees are proven on 10 (docs/IDEAS.md). ' +
     'Pinned by services/cleanup-service/tests/regression/sprint-131-eslint-10.test.ts case A.',
+  'services/reputation-service dependencies: ioredis@^6.0.0':
+    'Sprint 131 D9 (maintainer 2026-09-28, "reputation only"): reputation-service alone runs ioredis 6, nested in its own node_modules; root declares ^5 and bull@4 pins ^5.3.2. Remove when root moves or its unused declaration is dropped (docs/IDEAS.md). Pinned by services/reputation-service/tests/regression/sprint-131-ioredis-6.test.ts case A.',
 };
 
 const packageName = (spec: string): string =>

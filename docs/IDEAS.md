@@ -768,3 +768,10 @@ D8 (cleanup-service on eslint 10) follow-ups. None is scheduled.
 2. **The remaining eslint 9 declarers:** root, `apps/frontend`, `apps/landing` (`eslint-config-next` 16.3.5 peers `eslint >=9.0.0`) and `apps/mobile` (`eslint-config-expo` 57.0.2 peers `>=8.10`). Their plugin trees are unproven on 10, and Dependabot will likely propose eslint 10 for them next.
 
 ---
+
+## [2026-09-29] D9 (ioredis 6) follow-ups
+
+- **(a) Root declares `ioredis` in production `dependencies` and imports nothing** (`package.json:60`). That lands it in every service image, which CLAUDE.md forbids for new root deps. Dropping it, or moving root to 6, retires the D9 `DIVERGENCE_ALLOWLIST` entry in `tests/regression/sprint-131-workspace-declarations.test.ts`.
+- **(b) `bull@4` pins `ioredis ^5.3.2`,** so the queue can never leave ioredis 5 while it is on Bull. Moving it means bull → BullMQ, a separate decision.
+- **(c) Redis-outage cost is still ~10.5 s per cache command at outage start and up to ~42 s mid-outage.** ioredis flushes its queue only every 21st retry, and the attempt count grows through the outage, so once the v5 backoff caps at 2 s a window lasts ~42 s. The backoff is now pinned deliberately. This is the ~298 s-per-match CI hang noted at `ci.yml:330`. A fail-fast policy (`maxRetriesPerRequest: 1` / `enableOfflineQueue: false`) would be a behavior change that deserves its own plan.
+- **(d) The root `overrides` now carry both `"undici@7.0.0 - 7.28.0": "^7.29.0"` and a bare `"undici": "7.30.0"`** (D9's mid-flight security pin). The range selector is now redundant. Bare exact pins (this one and engine.io's `".": "6.6.11"`) also force any future cross-major dependent onto that version. Narrow them to range selectors (e.g. `"undici@<7.30.0"`) in the next dependency PR, with a strict `npm ci`.

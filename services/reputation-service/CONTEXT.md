@@ -1662,3 +1662,40 @@ themselves, and the shared `Logger.error(message: string, …)` cannot take the 
 Real-scheduler coverage (the sprint-126 test mocks node-cron): `tests/regression/sprint-131-node-cron-v4.test.ts`.
 
 No endpoint, payload, event or schema change.
+
+## Sprint 131 D9 — ioredis 6 (2026-09-29)
+
+`ioredis` **5.11.1 → 6.0.0**, for this service's effective-params cache (`src/services/effectiveParamsCache.ts`,
+the only importer). This supersedes #245, which also moved the root declaration. Here only this workspace moves:
+ioredis 6 is **nested** in `services/reputation-service/node_modules/`, with its own `@ioredis/commands` 2.0.0,
+`debug` 4.4.3 and `ms` 2.1.3. The root declaration stays `^5.11.1`, and `bull@4` (which pins `ioredis ^5.3.2`)
+keeps resolving the hoisted 5.11.1, so the event queue is untouched. The production image's
+`npm install --omit=dev` was simulated with the Dockerfile's exact COPY set: reputation resolves 6.0.0 and bull 5.11.1.
+
+What changed in v6, checked against the built source of both versions rather than the changelog:
+- **RESP3 by default (accepted).** The client opens with `HELLO 3`, then `CLIENT` metadata, then the `INFO`
+  readiness check. It falls back to RESP2 on `NOPROTO` or an unknown `HELLO`. `replyMapping: "legacy"` keeps
+  GET/SETEX/DEL reply shapes unchanged. Demo and CI run `redis:7-alpine`.
+- **`keepAlive` 0 → 30000 (accepted).** A TCP keepalive only detects a dead socket sooner.
+- **Default retry backoff: PINNED to v5.** v6 moved to `min(50·2^(n-1), 5000) + 0–199 ms`. ioredis
+  flushes queued commands only every 21st retry (`maxRetriesPerRequest` 20), and the attempt count keeps growing
+  through an outage. So a cache command waits up to one 21-retry window before the DB fallback runs: on v5, about
+  10.5 s at outage start and up to about 42 s once the delay is capped at 2 s; on v6's default, about 73 s and about
+  107 s. `createCacheClient()` passes `V5_RETRY_STRATEGY` (`min(n·50, 2000)`), so outage cost is
+  unchanged.
+
+`createCacheClient()` is new and exported: `getRedis()` builds its singleton through it, and the gate uses it to
+observe the real client.
+
+**Known issue (pre-existing, now covered):** every Redis call here sits in a silent `catch` that falls back to the
+DB, so an API 200 cannot tell a working client from a broken one. That is also why every suite that mocks this
+module proves nothing about the client. Real-client coverage:
+`tests/regression/sprint-131-ioredis-6.test.ts` drives the real ioredis against a loopback RESP server:
+- **A:** resolution split (6 here, 5 for bull).
+- **B:** the exact wire sequence for miss, hit, invalidate and quit, including the 14400 s `SETEX`.
+- **C:** exact v5 retry delays against a refused port, plus the 2000 ms cap.
+- **D:** RESP2 fallback.
+
+Injections that turn it red: dropping the retry pin → C; `protocol: 2` → B and D; hiding the nested ioredis → A.
+
+No endpoint, payload, event, schema, key or TTL change.
