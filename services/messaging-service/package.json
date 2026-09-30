@@ -23,7 +23,7 @@
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.23.0",
     "redis": "^6.2.1",
-    "socket.io": "^4.6.1"
+    "socket.io": "^4.8.4"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
