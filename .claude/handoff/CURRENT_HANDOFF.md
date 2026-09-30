@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-30
 **Status**: PLANNED, **rev 2** (PR S, security, pulled forward by the maintainer 2026-09-30; being executed in the planning chat). Rev 1: Spec, plan and ADR number approved; a plan review (relayed by the maintainer,
-2026-09-30) found 8 issues, all verified CONFIRMED and fixed in the spec and plan (critical notes 14–19). **PR S implemented, all gates run (/simplify, /code-review medium: 0 findings, /security-review: 0 findings; npm test 27/27, tsc 0 both services), version 11.75.0, PR open, awaiting maintainer merge authorization.** PR A/B/C not started.
+2026-09-30) found 8 issues, all verified CONFIRMED and fixed in the spec and plan (critical notes 14–19). **✅ PR S SHIPPED v11.75.0** ([#288](https://github.com/ravichavali/karmyq/pull/288), squash `b169472b`, merged by the maintainer 2026-09-30; CI/CD run 36787073927: DEPLOYMENT SUCCESSFUL, no rollback). Read-only smoke as maria.reyes 10/10 PASS: own notifications 200; another user's list/unread-count/preferences 403; `/matches?user_id=<other>` 200 with 0 of 50 rows not involving maria; a takeshi-only `/matches/:id` 404; `/requests`, `/conversations`, `/reputation/karma` 200. External review (P3) fixed pre-merge: CONTEXT/BUGS now state the `offer_id` invariant. **Next: PR A**, not started.
 
 > 🧭 **First product sprint after the maintenance freeze** (maintainer, 2026-09-30: dependency work
 > needs a security advisory or a feature need; product is the default). Seed idea: `docs/IDEAS.md`
@@ -18,10 +18,10 @@
 ## Quick Start
 
 1. Read this handoff.
-2. **PR S** (security): `agent/claude/sprint-132-security-authz`, cut from the planning branch so the
-   planning docs reach master with it. **PR A / B / C:** once the previous PR has deployed,
-   `git fetch origin` then `git switch -c agent/claude/sprint-132-pr-a-skills origin/master` (or
-   `…-pr-b-inventory`, `…-pr-c-directed-borrow`). The planning branch `agent/claude/sprint-132-inventories-skills`
+2. **PR S shipped** (#288). **PR A:** the branch `agent/claude/sprint-132-pr-a-skills` already exists (cut from
+   `origin/master` `b169472b`): `git fetch origin && git switch agent/claude/sprint-132-pr-a-skills`. **PR B / C:** once the
+   previous PR has deployed, `git fetch origin` then `git switch -c agent/claude/sprint-132-pr-b-inventory origin/master`
+   (or `…-pr-c-directed-borrow`). The planning branch `agent/claude/sprint-132-inventories-skills`
    is retired once PR S merges; never commit on it after that. Never branch off a stale local master; unpushed local-master commits
    leak in through the squash-merge.
 3. Open the plan: [`docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md`](../../docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md).
@@ -45,8 +45,8 @@ match → message → karma loop. Skills have one source of truth that matching 
 
 | PR | Scope | Branch | State |
 |---|---|---|---|
-| **S** | **Security (rev 2):** caller-scope notification routes (BUG-055) + participant-scope `GET /matches`, `/matches/:id` (BUG-057). No schema | `agent/claude/sprint-132-security-authz` | **PR OPEN**, gates done; merge needs maintainer authorization |
-| A | Skills single source: `auth.skill_vocabulary` + `user_tags.skill_slug`; matching reads tags; remove the fixed picker and `/users/:id/skills`; ADR-099 | `agent/claude/sprint-132-pr-a-skills` (cut after S deploys) | planned: fresh chat after PR S deploys |
+| **S** | **Security (rev 2):** caller-scope notification routes (BUG-055) + participant-scope `GET /matches`, `/matches/:id` (BUG-057). No schema | `agent/claude/sprint-132-security-authz` | **SHIPPED v11.75.0** (#288, `b169472b`) |
+| A | Skills single source: `auth.skill_vocabulary` + `user_tags.skill_slug`; matching reads tags; remove the fixed picker and `/users/:id/skills`; ADR-099 | `agent/claude/sprint-132-pr-a-skills` (cut from `origin/master` `b169472b` 2026-09-30; carries this handoff update) | **NEXT**: fresh chat |
 | B | Inventory catalog: `inventory` schema, `/requests/inventory/*`, item audience predicate, My things page, community Shared things tab | `agent/claude/sprint-132-pr-b-inventory` (cut after A deploys) | planned |
 | C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (cut after B deploys) | planned |
 
@@ -208,5 +208,4 @@ the Windows box, so use a disposable container on the demo host (ask first) or t
 
 ## Next unchecked action
 
-**PR S is open** (`gh pr list`). Wait for CI green + maintainer merge authorization, then `/deploy` and the Task S6 smoke (read-only, as maria.reyes), then mark PR S shipped here.
-After PR S deploys, open a fresh chat, cut `agent/claude/sprint-132-pr-a-skills` from `origin/master`, and execute **PR A**.
+PR S shipped (see Status). **Open a fresh chat on `agent/claude/sprint-132-pr-a-skills`** (already cut from `origin/master` `b169472b`; its first commit records PR S shipped and BUG-055/057 fixed, so do NOT re-cut it) and execute **PR A** (plan section *PR A*). PR A bumps from `origin/master` at merge time (11.76.0 if nothing else merges).
