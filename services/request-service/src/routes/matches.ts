@@ -11,10 +11,21 @@ import {
 
 const router = Router();
 
-// GET /matches - Get all matches
+// BUG-057: a match (and the request/emails it carries) is visible only to its participants: the
+// requester, the responder, or the offerer. Always bound to the JWT caller, never a client-supplied id.
+// Services connect as the table owner, so the RLS policy on requests.matches does not enforce this.
+const PARTICIPANT_PREDICATE = (p: string) => `(r.requester_id = ${p} OR m.responder_id = ${p} OR o.offerer_id = ${p})`;
+
+// GET /matches - The caller's matches (request_id / offer_id / status narrow further)
 router.get('/', async (req: Request, res: Response) => {
+  const callerId = (req as any).user?.userId as string | undefined;
+  if (!callerId) {
+    return res.status(401).json({ success: false, message: 'Authentication required', error: 'UNAUTHORIZED' });
+  }
+
   try {
-    const { request_id, offer_id, status, user_id, limit = 50, offset = 0 } = req.query;
+    // `user_id` is accepted for backward compatibility but ignored: the caller is always the subject.
+    const { request_id, offer_id, status, limit = 50, offset = 0 } = req.query;
 
     let queryText = `
       SELECT
@@ -33,11 +44,11 @@ router.get('/', async (req: Request, res: Response) => {
       LEFT JOIN auth.users req_user ON r.requester_id = req_user.id
       LEFT JOIN auth.users help_user ON o.offerer_id = help_user.id
       LEFT JOIN auth.users resp_user ON m.responder_id = resp_user.id
-      WHERE 1=1
+      WHERE ${PARTICIPANT_PREDICATE('$1')}
     `;
 
-    const params: any[] = [];
-    let paramCount = 1;
+    const params: any[] = [callerId];
+    let paramCount = 2;
 
     if (request_id) {
       queryText += ` AND m.request_id = $${paramCount}`;
@@ -57,12 +68,6 @@ router.get('/', async (req: Request, res: Response) => {
       paramCount++;
     }
 
-    if (user_id) {
-      queryText += ` AND (r.requester_id = $${paramCount} OR m.responder_id = $${paramCount})`;
-      params.push(user_id);
-      paramCount++;
-    }
-
     queryText += ` ORDER BY m.created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     params.push(limit, offset);
 
@@ -79,8 +84,13 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// GET /matches/:id - Get specific match
+// GET /matches/:id - A match the caller participates in (404 otherwise, so existence is not leaked)
 router.get('/:id', async (req: Request, res: Response) => {
+  const callerId = (req as any).user?.userId as string | undefined;
+  if (!callerId) {
+    return res.status(401).json({ success: false, message: 'Authentication required', error: 'UNAUTHORIZED' });
+  }
+
   try {
     const { id } = req.params;
 
@@ -100,8 +110,8 @@ router.get('/:id', async (req: Request, res: Response) => {
       LEFT JOIN requests.help_offers o ON m.offer_id = o.id
       LEFT JOIN auth.users req_user ON r.requester_id = req_user.id
       LEFT JOIN auth.users help_user ON o.offerer_id = help_user.id
-      WHERE m.id = $1`,
-      [id]
+      WHERE m.id = $1 AND ${PARTICIPANT_PREDICATE('$2')}`,
+      [id, callerId]
     );
 
     if (result.rowCount === 0) {

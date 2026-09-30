@@ -1484,7 +1484,7 @@ This is the same `ignore-scripts` mechanism as BUG-053, which covers `posttest` 
 
 ---
 
-## BUG-055 · [2026-09-30] · open · HIGH
+## BUG-055 · [2026-09-30] · fix in review (Sprint 132 PR S, `agent/claude/sprint-132-security-authz`; not yet merged or deployed) · **HIGH**
 
 **Notification routes trust a client-supplied user id, so any logged-in user can read and change another user's notifications.** The router is behind `authMiddleware` (`services/notification-service/src/index.ts:72-80`), but no route compares the target user with the JWT:
 
@@ -1494,6 +1494,8 @@ This is the same `ignore-scripts` mechanism as BUG-053, which covers `posttest` 
 The SSE stream in the same file already does the right check (`:19-35`: a URL id that differs from the token gets 403). The frontend always sends the caller's own id (`apps/frontend/src/lib/api.ts:643-655`), so scoping to the JWT breaks no legitimate caller. RLS on `notifications.notifications` does not help, because services connect as the table owner and there is no `FORCE ROW LEVEL SECURITY` in `init.sql`.
 
 Found in the Sprint 132 plan review (2026-09-30). Sprint 132 PR C's `directed_request_created` would put private borrow-ask titles in these rows, so it must be fixed first. **Scheduled (maintainer, 2026-09-30): Sprint 132 PR S**, a standalone security PR ahead of PR A.
+
+**Fix (PR S):** `callerMatchingParam` / `callerId` in `services/notification-service/src/routes/notifications.ts`. Every `/:userId` route returns 403 `FORBIDDEN` unless the URL id is the JWT caller, and mark-read/delete pass the JWT id to `markAsRead`/`deleteNotification` (whose SQL already requires `user_id = $2`) and ignore the body. No client change: the frontend already sends only the caller's own id. **Proof:** `services/notification-service/tests/regression/sprint-132-notification-caller-scope.test.ts` (real app + real `authMiddleware`; 11 of 16 red before the fix, 16/16 after) and the root `tests/integration/sprint-132-security-authz.integration.test.ts` (real services and Postgres, in CI's *Integration Tests* job).
 
 ---
 
@@ -1509,10 +1511,12 @@ Found in the Sprint 132 planning chat (2026-09-30). Sprint 132 PR C adds a 404 f
 
 ---
 
-## BUG-057 · [2026-09-30] · open · HIGH
+## BUG-057 · [2026-09-30] · fix in review (Sprint 132 PR S, `agent/claude/sprint-132-security-authz`; not yet merged or deployed) · **HIGH**
 
 **Match views are not participant-scoped.** `GET /matches` (`services/request-service/src/routes/matches.ts:15-40`) applies only optional, client-supplied filters (`request_id`, `offer_id`, `status`, `user_id`), so a caller with no filters gets everyone's matches, and one with `user_id=<anyone>` gets that person's. `GET /matches/:id` (`:83-104`) checks only the id. Both return request titles and descriptions, and `/:id` also returns `requester_email` and `helper_email`. The frontend only ever passes the caller's own id (`CommitmentsTab.tsx:165`, `MyRequestsTab.tsx:61`).
 
 Found in the Sprint 132 plan review (2026-09-30). **Scheduled (maintainer, 2026-09-30): Sprint 132 PR S**, a standalone security PR ahead of PR A (the caller must be requester, responder or offerer). PR C later adds the directed-request predicate on top.
+
+**Fix (PR S):** `PARTICIPANT_PREDICATE` in `services/request-service/src/routes/matches.ts` (`r.requester_id = $n OR m.responder_id = $n OR o.offerer_id = $n`) is bound to the JWT caller on both reads. `GET /` ignores `user_id` (other filters still narrow it), and `/:id` 404s for non-participants. Every in-repo caller already filtered to its own matches: the web `CommitmentsTab`/`MyRequestsTab`/`matches/[id]`, the mobile feed and request detail, and the simulation workflows (`accept-offer`, `complete-match`, `dibs`, `offer`, `submit-feedback`). **Proof:** `services/request-service/tests/regression/sprint-132-match-participant-scope.test.ts` (5 of 7 red before the fix, 7/7 after) and the root integration test above (outsider: `/:id` 404, no-filter/spoofed-filter lists empty; requester and helper: exact id).
 
 ---

@@ -138,8 +138,16 @@ The Sprint-81 SSE auth contract is locked in `tests/regression/sprint-81-sse-aut
 Compatibility route for older clients. Requires JWT auth and rejects streams where
 `:userId` does not match `token.userId`.
 
+> **Caller scoping (BUG-055, Sprint 132 PR S).** Every user route below acts on the JWT caller only.
+> A `:userId` that isn't `token.userId` gets **403** `{ success:false, message:'Forbidden: user does not match token user', error:'FORBIDDEN' }`,
+> and the helper is never called. `PUT /:notificationId/read` and `DELETE /:notificationId` take the owner
+> from the JWT; a body `user_id` is **ignored** (no longer required), and a notification that isn't the
+> caller's gets 404. RLS on `notifications.notifications` does not enforce this, because services connect as the
+> table owner. Locked by `tests/regression/sprint-132-notification-caller-scope.test.ts` and
+> `tests/integration/sprint-132-security-authz.integration.test.ts` (root).
+
 ### GET /notifications/:userId
-Get user's notifications (paginated).
+Get the caller's notifications (paginated). `:userId` must equal the JWT caller (403 otherwise).
 
 **Query Parameters:**
 - `limit` - Max results (default: 50)
@@ -192,14 +200,8 @@ Get count of unread notifications.
 **Implementation:** `src/routes/notifications.ts:85`
 
 ### PUT /notifications/:notificationId/read
-Mark specific notification as read.
-
-**Request:**
-```json
-{
-  "user_id": "uuid"
-}
-```
+Mark one of the caller's notifications as read. The owner comes from the JWT. A body `user_id` is
+accepted from older clients but ignored (BUG-055). Not the caller's → 404.
 
 **Response:**
 ```json
@@ -1005,3 +1007,7 @@ source and the lockfile's install on CI's Node 24; the image builds its own tree
 boot instead would put it under the deploy's health checks — see `docs/IDEAS.md` [2026-09-23].
 
 No endpoint, payload, event or schema change. Not covered: the SDK's own retry of a 429 with backoff.
+
+## Recent Fixes
+
+- **2026-09-30 (Sprint 132 PR S, BUG-055 — HIGH)**: every user route trusted a client-supplied user id: the URL `:userId` for list, unread-count, read-all and preferences, and a body `user_id` for mark-read and delete. Any logged-in user could read or change another user's notifications. All of them now act on the JWT caller only (see *Caller scoping* above). The frontend already sent only the caller's own id, so no client change was needed.

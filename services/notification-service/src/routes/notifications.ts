@@ -14,6 +14,32 @@ import { RouteParams } from '@karmyq/shared/middleware/auth';
 
 const router = Router();
 
+// BUG-055: every user-facing route acts on the JWT caller only. A `:userId` that names anyone else is
+// refused, the same shape as the SSE stream's check below. Services connect as the table owner, so RLS
+// on notifications.notifications does not enforce this. Returns the caller id, or null after responding.
+function callerMatchingParam(req: Request<RouteParams>, res: Response): string | null {
+  const callerId = (req as any).user?.userId as string | undefined;
+  if (!callerId) {
+    res.status(401).json({ success: false, message: 'Authentication required', error: 'UNAUTHORIZED' });
+    return null;
+  }
+  if (req.params.userId !== callerId) {
+    res.status(403).json({ success: false, message: 'Forbidden: user does not match token user', error: 'FORBIDDEN' });
+    return null;
+  }
+  return callerId;
+}
+
+// BUG-055: routes addressed by notification id take the owner from the JWT; a body `user_id` is ignored.
+function callerId(req: Request<RouteParams>, res: Response): string | null {
+  const id = (req as any).user?.userId as string | undefined;
+  if (!id) {
+    res.status(401).json({ success: false, message: 'Authentication required', error: 'UNAUTHORIZED' });
+    return null;
+  }
+  return id;
+}
+
 // Server-Sent Events (SSE) endpoint for real-time notifications
 export const sseHandler = (req: SSEAuthenticatedRequest, res: Response) => {
   const tokenUserId = req.user?.userId;
@@ -79,8 +105,10 @@ router.get('/:userId', async (req: Request<RouteParams>, res: Response) => {
     query: req.query,
   });
 
+  const userId = callerMatchingParam(req, res);
+  if (!userId) return;
+
   try {
-    const { userId } = req.params;
     const limit = parseInt(req.query.limit as string) || 50;
     const offset = parseInt(req.query.offset as string) || 0;
 
@@ -106,8 +134,10 @@ router.get('/:userId', async (req: Request<RouteParams>, res: Response) => {
 
 // Get unread count
 router.get('/:userId/unread-count', async (req: Request<RouteParams>, res: Response) => {
+  const userId = callerMatchingParam(req, res);
+  if (!userId) return;
+
   try {
-    const { userId } = req.params;
     const count = await getUnreadCount(userId);
 
     res.json({
@@ -125,18 +155,12 @@ router.get('/:userId/unread-count', async (req: Request<RouteParams>, res: Respo
 
 // Mark notification as read
 router.put('/:notificationId/read', async (req: Request<RouteParams>, res: Response) => {
+  const userId = callerId(req, res);
+  if (!userId) return;
+
   try {
     const { notificationId } = req.params;
-    const { user_id } = req.body;
-
-    if (!user_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'user_id is required',
-      });
-    }
-
-    const notification = await markAsRead(notificationId, user_id);
+    const notification = await markAsRead(notificationId, userId);
 
     if (!notification) {
       return res.status(404).json({
@@ -161,9 +185,10 @@ router.put('/:notificationId/read', async (req: Request<RouteParams>, res: Respo
 
 // Mark all notifications as read
 router.put('/:userId/read-all', async (req: Request<RouteParams>, res: Response) => {
-  try {
-    const { userId } = req.params;
+  const userId = callerMatchingParam(req, res);
+  if (!userId) return;
 
+  try {
     const count = await markAllAsRead(userId);
 
     res.json({
@@ -182,18 +207,12 @@ router.put('/:userId/read-all', async (req: Request<RouteParams>, res: Response)
 
 // Delete notification
 router.delete('/:notificationId', async (req: Request<RouteParams>, res: Response) => {
+  const userId = callerId(req, res);
+  if (!userId) return;
+
   try {
     const { notificationId } = req.params;
-    const { user_id } = req.body;
-
-    if (!user_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'user_id is required',
-      });
-    }
-
-    const notification = await deleteNotification(notificationId, user_id);
+    const notification = await deleteNotification(notificationId, userId);
 
     if (!notification) {
       return res.status(404).json({
@@ -217,8 +236,10 @@ router.delete('/:notificationId', async (req: Request<RouteParams>, res: Respons
 
 // Get user preferences
 router.get('/:userId/preferences', async (req: Request<RouteParams>, res: Response) => {
+  const userId = callerMatchingParam(req, res);
+  if (!userId) return;
+
   try {
-    const { userId } = req.params;
     const preferences = await getUserPreferences(userId);
 
     res.json({
@@ -236,8 +257,10 @@ router.get('/:userId/preferences', async (req: Request<RouteParams>, res: Respon
 
 // Update global preferences
 router.put('/:userId/preferences', async (req: Request<RouteParams>, res: Response) => {
+  const userId = callerMatchingParam(req, res);
+  if (!userId) return;
+
   try {
-    const { userId } = req.params;
     const { in_app_enabled, push_enabled, email_enabled } = req.body;
 
     const preferences = await updateGlobalPreferences(userId, {

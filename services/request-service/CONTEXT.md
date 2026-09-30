@@ -7,6 +7,8 @@
 
 ## Recent Changes
 
+- **2026-09-30 (Sprint 132 PR S, BUG-057 — HIGH)**: `GET /matches` applied only optional, client-supplied filters, so no filter meant every match on the platform and `user_id=<anyone>` meant that person's; `GET /matches/:id` checked only the id and returned requester/helper emails. Both now bind the JWT caller into a requester/responder/offerer predicate (`PARTICIPANT_PREDICATE` in `src/routes/matches.ts`), and `/:id` 404s for non-participants. Every in-repo caller (web `CommitmentsTab`/`MyRequestsTab`/`matches/[id]`, mobile feed/request detail, the simulation workflows) already passed or filtered to the caller's own id, so none loses data it used. RLS on `requests.matches` does not bind the owner connection, so this is enforced in SQL.
+
 - **2026-08-21 (Sprint 126 — idempotent match completion)**: `PUT /matches/:id/complete` selected `m.status` and never checked it, so a participant could call it repeatedly; each call re-stamped `completed_at = CURRENT_TIMESTAMP` and re-published `match_completed`. Now a match already in `completed` returns success without writing or publishing. The duplicate award was already absorbed by ADR-096's projection identity, but the **moving `completed_at` is the real hazard**: it shifts the strictly-before as-of boundary, so a replay can select a different top-3 community set or cross a 10/50/100 milestone, producing rows under NEW identities the unique index cannot absorb — and it makes stored rows disagree with replay, which the standing backfill reports as a BLOCKING `CONFLICTING_KARMA_PROJECTION`. One double-click could have refused the whole backfill. Found by the Sprint 126 `/security-review` gate.
 
 ## Quick Start
@@ -1422,7 +1424,10 @@ Update privacy settings for an offer (Social Karma v2.0).
 ### 3.3 Matches
 
 #### GET /matches
-Get all matches with optional filters.
+The **caller's** matches: always restricted to matches where the JWT caller is the requester, the
+responder or the offerer (BUG-057, Sprint 132 PR S). The filters below only narrow that set. A `user_id`
+query param is accepted from older clients but **ignored**: the caller is always the subject. No JWT
+identity → 401.
 
 **Query Parameters:**
 - `request_id` - Filter by request
@@ -1432,7 +1437,10 @@ Get all matches with optional filters.
 **Implementation:** `src/routes/matches.ts:8`
 
 #### GET /matches/:id
-Get specific match details.
+Match details (including requester/helper email) **for a participant only** (requester, responder or
+offerer). Anyone else gets **404**, so existence is not leaked (BUG-057, Sprint 132 PR S). Locked by
+`tests/regression/sprint-132-match-participant-scope.test.ts` and the root
+`tests/integration/sprint-132-security-authz.integration.test.ts`.
 
 **Implementation:** `src/routes/matches.ts:69`
 
