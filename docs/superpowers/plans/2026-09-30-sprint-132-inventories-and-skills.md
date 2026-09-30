@@ -3,8 +3,9 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task.
 >
-> **Three PRs, three execution chats.** Execute **one PR section per fresh chat**: PR A, then (after
-> A deploys) PR B, then (after B deploys) PR C. Each section is self-contained and ends in its own
+> **Four PRs.** PR S (security, rev 2) goes first and is executed in the planning chat on maintainer
+> instruction. After that, run **one PR section per fresh chat**: PR A (after S deploys), PR B (after A
+> deploys), then PR C (after B deploys). Each section is self-contained and ends in its own
 > gates and merge/deploy task. Don't start a section until the previous PR is merged **and** its
 > deploy and health verify are green.
 
@@ -29,6 +30,12 @@ a second shared predicate, and skills collapse onto `auth.user_tags` plus a cano
 > were placed where no CI job runs them; unavailable community items leaked to members; browse and
 > private access were conflated; request-service has no zod; and the regen output needs promotion.
 > See critical notes 14-19 and the revised Tasks A1, A2, B1, B3, B4, B10, C1, C3, C4, C4b and C11.
+>
+> **Rev 2 (2026-09-30, maintainer).** BUG-055/BUG-057 are pulled out of C4b into a standalone **PR S**
+> that ships before PR A. Traced: `GET /requests` doubles as "my requests" through a client-controlled
+> `requester_id`, and Helping has no inbox for unanswered asks, so PR C gets an incoming-asks query and
+> section. The fresh-install proof becomes a blocking CI step before the migration replay. BUG-056 now
+> has a severity, owner and deadline. See critical notes 20-22, the *PR S* section, and Tasks A2, C1, C4b, C5b and C7.
 
 ---
 
@@ -47,8 +54,10 @@ a second shared predicate, and skills collapse onto `auth.user_tags` plus a cano
 | `services/request-service/src/db/inventoryDb.ts` | B | item audience predicate + all inventory queries |
 | `services/request-service/src/routes/inventory.ts` | B | `/requests/inventory/*` handlers (hand-validated like the existing routes; **no zod**, note 19) |
 | `services/auth-service/tests/tdd/sprint-132-vocabulary-seed-parity.test.ts` | A | exact slug/label/synonym parity between the migration and `seed-data.sql` (note 15) |
-| `services/notification-service/tests/tdd/sprint-132-notification-caller-scope.test.ts` | C | BUG-055: every user route caller-scoped (URL, query and body spoofs) |
-| `services/request-service/tests/tdd/sprint-132-match-participant-scope.test.ts` | C | BUG-057: `GET /matches` + `/matches/:id` participant-scoped |
+| `services/notification-service/tests/tdd/sprint-132-notification-caller-scope.test.ts` | **S** | BUG-055: every user route caller-scoped (URL, query and body spoofs) |
+| `services/request-service/tests/tdd/sprint-132-match-participant-scope.test.ts` | **S** |
+| `services/request-service/tests/tdd/sprint-132-incoming-asks.test.ts` | C | incoming asks + `requester_id` rule (notes 20, 21) |
+| `scripts/ci-check-fresh-install-reference-data.sh` | A | blocking fresh-install check, run before the migration replay (note 15) | BUG-057: `GET /matches` + `/matches/:id` participant-scoped |
 | `services/request-service/tests/tdd/sprint-132-inventory-routes.test.ts` | B | route contract, auth, 404-not-403, mount order |
 | `tests/integration/sprint-132-inventory-audience.integration.test.ts` | B | audience truth against a real DB |
 | `apps/frontend/src/pages/inventory/index.tsx` | B | "My things" |
@@ -85,8 +94,11 @@ a second shared predicate, and skills collapse onto `auth.user_tags` plus a cano
 | `services/*/CONTEXT.md`, `services/registry.json` | A, B, C | endpoints, schema, events |
 | `infrastructure/postgres/init.sql` | A, B, C | **regenerated** via `scripts/regenerate-init-sql.sh` (`REGEN_PG_CONTAINER`; review, then promote `init.sql.generated`; note 18), never hand-edited |
 | `infrastructure/postgres/seed-data.sql` | A | the same vocabulary `INSERT` as the migration (note 15) |
-| `services/notification-service/src/routes/notifications.ts` | C | caller-scope every user route (BUG-055, note 14) |
-| `services/request-service/src/routes/matches.ts` | C | participant-scope `GET /` and `GET /:id` + `directedAudienceSql` (BUG-057, note 14) |
+| `services/notification-service/src/routes/notifications.ts` | **S** | caller-scope every user route (BUG-055, note 14) |
+| `.github/workflows/ci.yml` | A | fresh-install step before *Prove init.sql matches the full migrated schema* |
+| `apps/frontend/src/components/CommitmentsTab.tsx` | C | *Asked of you* section |
+| `services/request-service/src/utils/queryBuilder.ts` | C | `requester_id`-gated directed admission (note 20) |
+| `services/request-service/src/routes/matches.ts` | S, C | S: participant-scope `GET /` and `GET /:id` (BUG-057). C: add `directedAudienceSql` |
 | `docs/BUGS.md` | planning | BUG-055, BUG-056, BUG-057 logged 2026-09-30 |
 | `infrastructure/claude.md`, `CLAUDE.md` *Database* | B | 13 live schemas (+ `inventory`); keep AGENTS.md in sync if it repeats the count |
 | `docs/guides/profile-guide.md`, `fulfilling-requests-guide.md`, `making-requests-guide.md`, `community-admin-guide.md` | A–C | per spec *Doc Updates* |
@@ -173,6 +185,15 @@ a second shared predicate, and skills collapse onto `auth.user_tags` plus a cano
     `.generated` file. Never hand-edit `init.sql`.
 19. **No zod.** request-service validates by hand; follow that style (see *API → PR B*).
 
+20. **`GET /requests` with `requester_id`** (rev 2): directed rows only when `requester_id` equals the
+    JWT caller. Three tests: own id → own directed asks included; missing → excluded; another user's
+    id → excluded, and that user's directed asks never leak.
+21. **Unanswered directed asks need their own query** (rev 2): `GET /requests/inventory/asks/incoming`
+    plus the Helping *Asked of you* section. Test the transition: the ask is listed → the recipient offers →
+    it leaves *incoming* and appears through `GET /matches`.
+22. **BUG-056 stays separate** from the authorization fixes. It is a visibility-policy decision with its
+    own severity, owner and deadline in `docs/BUGS.md`.
+
 **Standing process notes (from memory; each has bitten before):**
 - New tests start in the **changed workspace's** `tests/tdd/`. The promoter does not auto-run
   (BUG-053), and running it by hand sweeps unrelated files. Promote **only this PR's** files, with `git mv`.
@@ -192,10 +213,62 @@ a second shared predicate, and skills collapse onto `auth.user_tags` plus a cano
 
 ---
 
+# PR S — Security: caller and participant scoping (BUG-055, BUG-057)
+
+Branch: `agent/claude/sprint-132-security-authz`, cut from the planning branch
+(`agent/claude/sprint-132-inventories-skills`, itself on `origin/master` `c187aa87`), so the Sprint 132
+spec, plan, handoff and BUG entries reach master with it. No schema, no dependency change. It is small
+but security-relevant, so run `/code-review` at **medium**, then `/security-review`.
+
+## Task S1: TDD tests first
+- Create: `services/notification-service/tests/tdd/sprint-132-notification-caller-scope.test.ts`: through
+  the real `notificationRoutes` behind `authMiddleware`, each `/:userId` route: another user's id → 403,
+  own id → 200 (the DB boundary mocked; assert the SQL is issued only with the **JWT** id).
+  `PUT /:notificationId/read` and `DELETE /:notificationId` with a body `user_id` naming someone else:
+  the DB helper receives the JWT id, never the body id.
+- Create: `services/request-service/tests/tdd/sprint-132-match-participant-scope.test.ts`: `GET /matches`
+  with no filters, and with `?user_id=<other>`, issues SQL constrained to the JWT caller as requester,
+  responder or offerer (assert the bound parameter is the JWT id and the predicate is present).
+  `GET /matches/:id`: the query binds the caller, and no row → 404.
+- [ ] **Verify red** for the right reason.
+
+## Task S2: Fix notifications
+- [ ] `services/notification-service/src/routes/notifications.ts`: every `/:userId` route returns 403 when
+  `req.params.userId !== req.user.userId` (the SSE route's shape, `:19-35`). `read` and `delete` use the
+  JWT id, and the body `user_id` is no longer required or read. Leave `apps/frontend/src/lib/api.ts`
+  alone: the extra body field is harmless, and editing that file re-raises the CodeQL FP that blocks deploys.
+- [ ] **Verify:** S1 notification test green; notification-service suite green; `tsc --noEmit` 0.
+
+## Task S3: Fix match views
+- [ ] `services/request-service/src/routes/matches.ts`: `GET /` always adds
+  `AND (r.requester_id = $caller OR m.responder_id = $caller OR o.offerer_id = $caller)` and ignores the
+  `user_id` param (the caller is the subject). `GET /:id` adds the same predicate, and no row → 404.
+- [ ] **Verify:** S1 match test green; request-service suite green; `tsc --noEmit` 0.
+
+## Task S4: Docs
+- [ ] `docs/BUGS.md`: BUG-055 and BUG-057 → fixed (mechanism, tests). BUG-056 keeps its severity/owner/deadline.
+- [ ] notification-service and request-service `CONTEXT.md`: the auth contract of each route; *Recent Fixes*.
+- [ ] Guides: no user-visible behaviour change for legitimate callers. Record that in the PR body instead of editing guides.
+
+## Task S5: Promote, gates, verify
+- [ ] `git mv` the two tdd files to their workspace `tests/regression/`.
+- [ ] `/simplify` → `/code-review` medium → `/security-review`, with each finding resolved or justified.
+- [ ] `npm test` (exit code captured), `npm run feedback:check` (staged), `tsc --noEmit` for both services;
+  revert any landing-docs churn.
+
+## Task S6: PR, merge, deploy, smoke
+- [ ] Version bump from `origin/master` at merge time; the PR with its contract headers; CI green.
+  **Maintainer merge authorization.** `/deploy`.
+- [ ] **Smoke (read-only, as maria.reyes):** her own `GET /api/notifications/<her id>` → 200; `GET /api/notifications/<another user id>` → 403;
+  `GET /api/matches?user_id=<another user id>` returns only matches maria is party to; the standard four-endpoint smoke → 200.
+- [ ] Update the handoff (PR S shipped; next = PR A in a fresh chat).
+
+---
+
 # PR A — Skills single source (auth + request + frontend)
 
-Branch: `agent/claude/sprint-132-inventories-skills` (already cut from `origin/master` `c187aa87`;
-carries the spec/plan/handoff commit). Scope is small and well-specified, so run `/code-review` at **medium**.
+Branch: `agent/claude/sprint-132-pr-a-skills`, cut from `origin/master` **after PR S deploys** (the planning
+commits reach master with PR S). Scope is small and well-specified, so run `/code-review` at **medium**.
 
 ## Task A1: TDD tests first
 
@@ -260,11 +333,25 @@ REGEN_PG_CONTAINER=<disposable-pg15-container> bash scripts/regenerate-init-sql.
 diff -u infrastructure/postgres/init.sql infrastructure/postgres/init.sql.generated | less   # review: new table/column/constraint, vocabulary rows via seed-data, ledger row for 20260930-skill-vocabulary.sql
 cp infrastructure/postgres/init.sql.generated infrastructure/postgres/init.sql && rm infrastructure/postgres/init.sql.generated
 ```
-- [ ] **Fresh-install proof (before any replay):** load the promoted `init.sql` into a *fresh* disposable
-  database and **do not** run `apply-migrations.sh` or `ci-apply-full-schema.sh`. Then
-  `SELECT count(*) FROM auth.skill_vocabulary` must equal the migration's row count, and
-  `SELECT 1 FROM public.schema_migrations WHERE migration_name = '20260930-skill-vocabulary.sql'`
-  must return a row (proving the ledger would make a deploy skip the migration). Record both outputs in the PR's Validation.
+- [ ] **Fresh-install proof as a blocking CI step (rev 2, note 15).** In `.github/workflows/ci.yml` job
+  `test-integration`, insert a step **after** *Check service health* and **before** *Prove init.sql matches the
+  full migrated schema* (`ci.yml:316`). `karmyq-postgres-test` is initialized from `init.sql`
+  (`tests/docker-compose.test.yml:24`) and nothing has replayed migrations yet:
+
+```yaml
+      # Sprint 132: reference data must survive a FRESH install (init.sql = schema-only + seed-data.sql +
+      # an all-applied ledger). Runs before the replay below, which would otherwise mask a missing seed.
+      - name: Prove fresh-install reference data (before migration replay)
+        run: bash scripts/ci-check-fresh-install-reference-data.sh
+```
+  Create `scripts/ci-check-fresh-install-reference-data.sh` (`set -euo pipefail`;
+  `docker exec -i karmyq-postgres-test psql -U karmyq_test -d karmyq_test -tA`). It compares the **exact**
+  `slug|label|synonyms` rows of `auth.skill_vocabulary` (ordered by slug) against the expected set
+  parsed from the migration file, and asserts that `public.schema_migrations` contains
+  `20260930-skill-vocabulary.sql`. Exit non-zero on any difference, and print the diff but no secrets.
+  Prove it can fail: on a PR commit (reverted before merge) drop one row from `seed-data.sql`'s
+  vocabulary and regenerate (or edit only the check's expectation), then see the step go red in CI.
+  Record the red and green run URLs in the PR's Validation.
 - [ ] Run the `migration-validator` agent on the new migration and resolve its findings.
 - [ ] **Verify:**
 
@@ -560,8 +647,7 @@ It changes reachability, so run `/code-review` at **high** and use a fresh non-a
 - Create: `tests/integration/sprint-132-directed-audience.integration.test.ts`
 - Create: `services/notification-service/tests/tdd/sprint-132-directed-request-notify.test.ts`
 - Create: `apps/frontend/tests/tdd/sprint-132-ask-to-borrow.test.tsx`
-- Create: `services/notification-service/tests/tdd/sprint-132-notification-caller-scope.test.ts`
-- Create: `services/request-service/tests/tdd/sprint-132-match-participant-scope.test.ts`
+- Create: `services/request-service/tests/tdd/sprint-132-incoming-asks.test.ts`
 
 - [ ] **Gate (live scan).** Walk `services/*/src/**/*.ts` with `fs` (not `git ls-files` with a bare `**`;
   see the `git-pathspec-double-star-needs-glob-magic` gotcha) and collect every SQL string or template
@@ -588,12 +674,18 @@ It changes reachability, so run `/code-review` at **high** and use a fresh non-a
   A community item: A sees the ask, and a non-admin member of the owning community doesn't.
 - [ ] **Notification (tdd).** The `directed_request_created` handler inserts notifications for exactly
   `recipient_user_ids` and runs **no** `communities.members` fan-out query.
-- [ ] **Notification caller scope (tdd, BUG-055; note 14).** Through the real router with `authMiddleware`,
+- [ ] **`GET /requests` with `requester_id` (tdd, note 20).** As R: `?requester_id=R` → R's directed ask **included**;
+  no `requester_id` → **excluded**; `?requester_id=O` (another user) → O's directed asks **excluded** and
+  R's never present. Exact id sets.
+- [ ] **Incoming asks (tdd + integration, note 21).** O's `GET /requests/inventory/asks/incoming` lists R's ask;
+  M's and R's don't. O offers (`POST /matches`) → the ask **leaves** O's incoming list and **appears** in
+  O's `GET /matches`. For a community item: A (admin) sees it in incoming; an ordinary member doesn't.
+- [ ] **(Moved to PR S in rev 2; kept for the record.) Notification caller scope (tdd, BUG-055; note 14).** Through the real router with `authMiddleware`,
   for each of `GET /:userId`, `GET /:userId/unread-count`, `PUT /:userId/read-all`, `GET/PUT /:userId/preferences`:
   another user's id in the URL → 403, and the caller's own id → 200. For `PUT /:notificationId/read`
   and `DELETE /:notificationId`: a body `user_id` naming the notification's owner, sent by a different
   caller, → 404 (the body is ignored; ownership comes from the JWT). No body `user_id` → works for the owner.
-- [ ] **Match participant scope (tdd, BUG-057; note 14).** `GET /matches` with **no filters** as an
+- [ ] **(Participant scoping moved to PR S in rev 2; PR C keeps only the directed half.) Match participant scope (tdd, BUG-057; note 14).** `GET /matches` with **no filters** as an
   unrelated user → only that user's own matches (an exact id set, not a count). `?user_id=<someone else>`
   → ignored/403, never their rows. `GET /matches/:id` as an unrelated user → 404, and as requester,
   responder or offerer → 200. For a directed ask's match, an unrelated community member → 404.
@@ -632,7 +724,16 @@ It changes reachability, so run `/code-review` at **high** and use a fresh non-a
 - [ ] Fill the gate's `ALLOWLIST` for true non-listings (karma, expiry, retention, paths, message joins), each with a reason.
 - [ ] **Verify:** the gate is green; **inject** an unguarded query into a committed tree, see red, and restore from the byte copy.
 
-## Task C4b: Close the existing read holes (BUG-055, BUG-057) — BEFORE C5 creates any directed ask
+## Task C4b: Directed predicate on match views (rev 2: the caller/participant scoping itself shipped in PR S)
+
+- [ ] Precondition: PR S is merged and deployed. **Verify** on master that `notifications.ts` and
+  `matches.ts` carry the PR S scoping; if not, stop.
+- [ ] Add `directedAudienceSql` to `GET /matches` and `GET /matches/:id` on top of PR S's participant
+  predicate. Test: an unrelated member → the directed ask's match is absent, and `/:id` → 404.
+
+<details><summary>Superseded rev 1 text (for the record)</summary>
+
+## (rev 1) Task C4b: Close the existing read holes (BUG-055, BUG-057)
 
 **Files:**
 - Modify: `services/notification-service/src/routes/notifications.ts`, `services/request-service/src/routes/matches.ts`
@@ -647,6 +748,8 @@ It changes reachability, so run `/code-review` at **high** and use a fresh non-a
 - [ ] Mark BUG-055 and BUG-057 fixed in `docs/BUGS.md`, with the mechanism and the test names.
 - [ ] **Verify:** the C1 caller-scope and participant-scope tests are green; the notification-service and request-service suites are green.
 
+</details>
+
 ## Task C5: Borrow endpoint + event
 
 **Files:**
@@ -655,6 +758,15 @@ It changes reachability, so run `/code-review` at **high** and use a fresh non-a
 - [ ] `POST /requests/inventory/items/:id/borrow` per the spec, in one transaction. Resolve recipients
   live (the owner, or the active admins of the owning community) and publish `directed_request_created` after commit.
 - [ ] **Verify:** the C1 borrow tdd test is green.
+
+## Task C5b: Incoming-asks query (rev 2, note 21)
+
+- [ ] `inventoryDb.ts`: `listIncomingAsks(viewerId)` (open, unexpired, `is_directed`, `directedAudienceSql`,
+  `requester_id <> viewer`, and `NOT EXISTS` a `proposed`/`matched` match by the viewer), plus the route
+  `GET /requests/inventory/asks/incoming` in `routes/inventory.ts`, carrying the gate's marker.
+- [ ] `GET /requests` (`queryBuilder.ts:87-91`): when `requester_id` equals the JWT caller, use
+  `directedAudienceSql` (keeping the requester filter); otherwise `notDirectedSql` (note 20).
+- [ ] **Verify:** the C1 incoming and `requester_id` tests are green.
 
 ## Task C6: Notification subscriber
 
@@ -667,8 +779,12 @@ It changes reachability, so run `/code-review` at **high** and use a fresh non-a
 - [ ] `api.ts`: `inventoryService.askToBorrow(itemId, body)`. Put the button + compact form on item cards
   (community tab and item view), then navigate to `/requests/<id>`.
 - [ ] Request detail: a "Private request to …" banner from `directed_to`.
-- [ ] Helping tab: **verify** which query backs it and that a directed ask targeted at the viewer appears.
-  If it doesn't, extend *that* query with the predicate (admit **and** select; spec *Frontend → PR C*).
+- [ ] Helping tab (rev 2, traced): `CommitmentsTab.tsx` builds from `GET /matches` (`:165`) plus the curated
+  decision band (`:147-149`), so an unanswered ask can't appear there. Add an **"Asked of you"** section
+  fed by `inventoryService.incomingAsks()`, rendered before any offer exists, with an **Offer** button
+  (`POST /matches`). After the offer, refetch both lists: the ask leaves the section and shows as a commitment.
+  Frontend tests: the section renders the asks, the empty state, and graceful error fallback; Offer posts the
+  exact payload; the transition after offer is covered.
 - [ ] **Verify:** the C1 frontend test is green; `tsc --noEmit` exits 0.
 
 ## Task C8: Docs + ADR

@@ -1493,7 +1493,7 @@ This is the same `ignore-scripts` mechanism as BUG-053, which covers `posttest` 
 
 The SSE stream in the same file already does the right check (`:19-35`: a URL id that differs from the token gets 403). The frontend always sends the caller's own id (`apps/frontend/src/lib/api.ts:643-655`), so scoping to the JWT breaks no legitimate caller. RLS on `notifications.notifications` does not help, because services connect as the table owner and there is no `FORCE ROW LEVEL SECURITY` in `init.sql`.
 
-Found in the Sprint 132 plan review (2026-09-30). Sprint 132 PR C's `directed_request_created` would put private borrow-ask titles in these rows, so **PR C Task C4b fixes it before any directed ask exists** unless the maintainer schedules it sooner.
+Found in the Sprint 132 plan review (2026-09-30). Sprint 132 PR C's `directed_request_created` would put private borrow-ask titles in these rows, so it must be fixed first. **Scheduled (maintainer, 2026-09-30): Sprint 132 PR S**, a standalone security PR ahead of PR A.
 
 ---
 
@@ -1503,12 +1503,16 @@ Found in the Sprint 132 plan review (2026-09-30). Sprint 132 PR C's `directed_re
 
 Found in the Sprint 132 planning chat (2026-09-30). Sprint 132 PR C adds a 404 for **directed** requests outside their audience; the general breadth for ordinary requests is **not** fixed there. It needs a maintainer decision on the intended visibility, for example whether to gate the response with `reachable || own || already_offered` and whether to drop `requester_email`.
 
+- **Severity: MEDIUM** (proposed by Claude 2026-09-30; the maintainer may override). It is cross-community disclosure of request content plus requester email (PII) to any authenticated user. It is not HIGH because it needs a valid request UUID obtained through a legitimate channel, and PR S closes the two HIGH id-leaking reads (notifications, match views).
+- **Owner:** the maintainer owns the visibility-policy decision; Claude implements once it is decided. It stays **separate** from the PR S authorization fixes.
+- **Deadline: 2026-10-14** (the ≤ 2-week SLA for anything below high): decision plus fix, or a written, dated risk acceptance.
+
 ---
 
 ## BUG-057 · [2026-09-30] · open · HIGH
 
 **Match views are not participant-scoped.** `GET /matches` (`services/request-service/src/routes/matches.ts:15-40`) applies only optional, client-supplied filters (`request_id`, `offer_id`, `status`, `user_id`), so a caller with no filters gets everyone's matches, and one with `user_id=<anyone>` gets that person's. `GET /matches/:id` (`:83-104`) checks only the id. Both return request titles and descriptions, and `/:id` also returns `requester_email` and `helper_email`. The frontend only ever passes the caller's own id (`CommitmentsTab.tsx:165`, `MyRequestsTab.tsx:61`).
 
-Found in the Sprint 132 plan review (2026-09-30). **Sprint 132 PR C Task C4b fixes it** (the caller must be requester, responder or offerer), because a directed borrow ask's match would otherwise be readable by anyone. The maintainer may schedule it sooner.
+Found in the Sprint 132 plan review (2026-09-30). **Scheduled (maintainer, 2026-09-30): Sprint 132 PR S**, a standalone security PR ahead of PR A (the caller must be requester, responder or offerer). PR C later adds the directed-request predicate on top.
 
 ---

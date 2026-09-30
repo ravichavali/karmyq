@@ -28,7 +28,7 @@ and feeds the curated feed's `calculateMatchScore` (`packages/shared/src/matchin
 member who types "Carpentry" into the tag editor, the more prominent control, gets no match credit
 for it. The demo seeds neither table (`infrastructure/postgres/seed-data.sql`: 0 rows for either).
 
-This sprint ships three PRs. **PR A** makes `user_tags` the single skill store, with a canonical
+This sprint ships **four PRs**. First comes **PR S** (rev 2, maintainer 2026-09-30), a standalone security PR that closes two HIGH authorization holes in live code, BUG-055 (notifications) and BUG-057 (match views); it needs no schema. Then **PR A** makes `user_tags` the single skill store, with a canonical
 vocabulary that matching reads. **PR B** adds inventories: personal items that are private until
 shared with chosen communities, and community-owned items that admins manage. Members browse what is
 reachable to them. **PR C** adds *Ask to borrow*: a request **directed** at the item's owner (or, for a
@@ -51,7 +51,7 @@ About 18 maintenance PRs. The maintainer stopped the upgrade treadmill on 2026-0
 work is the default from here on.
 
 ### Sprint 132 — Inventories + skills single source (this sprint)
-PR A skills, PR B inventory catalog, PR C directed borrow. ADR-099.
+PR S security (BUG-055, BUG-057), then PR A skills, PR B inventory catalog, PR C directed borrow. ADR-099.
 
 ### Sprint 133+ — candidates (not committed)
 - **Skills depth:** endorsements or verification ("vouched by 3 members"), skill-based discovery
@@ -266,7 +266,19 @@ All responses use the ADR-074 envelope. New request-service routes mount under `
 which nginx already forwards (`infrastructure/nginx/nginx.conf:178`, `location ~ ^/api/requests(/.*)?$`).
 No nginx change is needed.
 
-### PR A — auth-service + request-service
+### PR S — security: caller and participant scoping (BUG-055, BUG-057), no schema
+
+Extracted from PR C's Task C4b on 2026-09-30 (maintainer): both holes affect existing data today, and
+neither fix needs inventory. `directedAudienceSql` on match views stays in PR C.
+
+| Method | Path | Change |
+|---|---|---|
+| GET | `/notifications/:userId`, `/:userId/unread-count`, `/:userId/preferences` | 403 `FORBIDDEN` unless `:userId` equals the JWT `userId` |
+| PUT | `/notifications/:userId/read-all`, `/:userId/preferences` | same |
+| PUT/DELETE | `/notifications/:notificationId/read`, `/notifications/:notificationId` | owner = JWT `userId`; body `user_id` ignored; not the caller's → 404 |
+| GET | `/matches` | rows restricted to matches where the caller is requester, responder or offerer; the `user_id` query param is ignored (the caller is always the subject); other filters still narrow |
+| GET | `/matches/:id` | 404 unless the caller is requester, responder or offerer |
+
 
 | Method | Path | Change |
 |---|---|---|
@@ -302,11 +314,12 @@ The bounds: `name` is 1–120 characters after trimming, `description` at most 2
 | Method | Path | Change |
 |---|---|---|
 | POST | `/requests/inventory/items/:id/borrow` | **New.** Body `{ community_id, duration_days, return_date?, description? }`. The server checks, live, that the item is in the requester's audience **through `community_id`**, that the requester doesn't own it, and that it is `available`. It then creates a `borrow` request with `is_directed=TRUE`, the target (owner user, or `directed_to_community_id` for community items), `inventory_item_id`, a title derived from the item name, `payload.item_category` = item category, and one `request_communities` row for `community_id` (karma/standing attribution stays per community). It publishes **`directed_request_created`**, never `request_created`. |
+| GET | `/requests/inventory/asks/incoming` | **New (rev 2).** Open, unexpired directed requests where the caller is in the audience **and is not the requester** and has no live match (`proposed`/`matched`) on it, newest first. Mounted under the inventory router (before `requestsRouter`, note 3). After the recipient offers, the ask leaves this list and appears in Helping through `GET /matches`. |
 | GET | `/requests/:id` | Returns **404** for a directed request when the viewer isn't in its audience. Response gains `is_directed`, `inventory_item_id` and `directed_to` (`{kind:'user'|'community_admins', id, name}`) for audience members. |
 | POST | `/matches` | For a directed request, only an audience member other than the requester may offer. Everyone else gets 403 `NOT_IN_AUDIENCE`, through `getRequestReachability` (`services/request-service/src/db/eligibility.ts`), which gains the directed predicate. |
 | every browse list/feed/pulse/export | (see *Surfaces* below) | Directed requests are **always** excluded (`notDirectedSql`), for every viewer including the audience. |
-| GET | `/matches`, `/matches/:id` | **Participant-scoped (BUG-057).** Today `GET /matches` has only optional, client-supplied filters (`matches.ts:15-40`, `user_id` spoofable), and `GET /matches/:id` checks only the id (`matches.ts:83-104`). Both return request content and emails. Rows are restricted to matches where the caller (JWT `userId`) is the requester, responder or offerer, **plus** `directedAudienceSql`. A `user_id` query param must equal the caller or it is ignored; `/:id` returns 404 otherwise. The frontend passes only the caller's own id (`CommitmentsTab.tsx:165`, `MyRequestsTab.tsx:61`), so it is unaffected. |
-| ALL | `notification-service` `/notifications/*` user routes | **Caller-scoped (BUG-055).** `GET /:userId`, `/:userId/unread-count`, `PUT /:userId/read-all` and `GET/PUT /:userId/preferences` trust the URL id (`notifications.ts:75,108,163,219,238`). `PUT /:notificationId/read` and `DELETE /:notificationId` trust a **body** `user_id` (`:127,:184`). Every route uses the JWT `userId`: a URL id that differs gets 403 (the same shape as the SSE stream's existing check, `:19-35`), and a body `user_id` is ignored. The frontend passes only the caller's own id (`api.ts:643-655`). Without this, `directed_request_created` would put the ask's title where any logged-in user can read it. |
+| GET | `/matches`, `/matches/:id` | **Participant scoping ships in PR S** (rev 2); PR C adds only `directedAudienceSql`. Background (BUG-057): Today `GET /matches` has only optional, client-supplied filters (`matches.ts:15-40`, `user_id` spoofable), and `GET /matches/:id` checks only the id (`matches.ts:83-104`). Both return request content and emails. Rows are restricted to matches where the caller (JWT `userId`) is the requester, responder or offerer, **plus** `directedAudienceSql`. A `user_id` query param must equal the caller or it is ignored; `/:id` returns 404 otherwise. The frontend passes only the caller's own id (`CommitmentsTab.tsx:165`, `MyRequestsTab.tsx:61`), so it is unaffected. |
+| ALL | `notification-service` `/notifications/*` user routes | **Ships in PR S** (rev 2); PR C only depends on it. Background (BUG-055): `GET /:userId`, `/:userId/unread-count`, `PUT /:userId/read-all` and `GET/PUT /:userId/preferences` trust the URL id (`notifications.ts:75,108,163,219,238`). `PUT /:notificationId/read` and `DELETE /:notificationId` trust a **body** `user_id` (`:127,:184`). Every route uses the JWT `userId`: a URL id that differs gets 403 (the same shape as the SSE stream's existing check, `:19-35`), and a body `user_id` is ignored. The frontend passes only the caller's own id (`api.ts:643-655`). Without this, `directed_request_created` would put the ask's title where any logged-in user can read it. |
 | `POST /requests` | — | Rejects client-supplied `is_directed`, `directed_to_*` and `inventory_item_id` with 400, because directed requests come only from the borrow endpoint. |
 
 **Event:** `directed_request_created` `{ request_id, requester_id, recipient_user_ids[], title, inventory_item_id }`
@@ -326,13 +339,13 @@ Each surface is **browse** (`notDirectedSql`: excluded for everyone) or **privat
 
 | File | Surface | Kind → treatment |
 |---|---|---|
-| `request-service/src/routes/requests.ts` | `GET /` (:186), `/matched/for-user` (:216), `/curated` (:333), `/community/:id/pulse` (:1484), `/community/:id/open-asks` (:1529) | **browse** → `notDirectedSql`. The executor must check whether `GET /` doubles as the requester's "my requests" list (e.g. a `requester_id` filter). If it does, that filtered branch is private access. |
+| `request-service/src/routes/requests.ts` | `GET /` (:186), `/matched/for-user` (:216), `/curated` (:333), `/community/:id/pulse` (:1484), `/community/:id/open-asks` (:1529) | **browse** → `notDirectedSql`, **except `GET /` with `requester_id`** (rev 2, traced: `MyRequestsTab.tsx:60` passes `requester_id`, which `queryBuilder.ts:87-91` applies as a client-controlled filter). Directed rows are admitted **only when `requester_id` equals the JWT caller**, and the requester restriction stays. A missing `requester_id`, or one naming another user, excludes directed rows. |
 | `request-service/src/routes/requests.ts` | `GET /:id` (:1675), `/offered-awaiting` (:1590) | **private access** → 404 / `directedAudienceSql` |
 | `request-service/src/services/feed/feedComposer.ts`, `utils/queryBuilder.ts`, `services/feed/basicFeedRanker.ts` | `/requests/feed` | **browse** |
 | `request-service/src/routes/dibs.ts`, `db/dibsDb.ts` | dibs candidates | **browse** (provider dibs doesn't apply) |
 | `request-service/src/routes/adminActions.ts` | boost / propose-match / triage | **browse** → 404 on directed requests (admins act on the community feed, and a directed ask isn't on it) |
 | `request-service/src/routes/matches.ts`, `db/offersDb.ts` | offer creation, `GET /matches`, `GET /matches/:id` | **private access**. These views are **NOT participant-scoped today** (BUG-057): add participant scoping **and** `directedAudienceSql` (see the API table). Offer creation: audience only, via `getRequestReachability`. |
-| Helping inbox (the query behind `Dashboard → Helping`; the executor identifies it) | the recipient's pending asks | **private access**. It must *select* directed asks targeted at the viewer as well as admit them. |
+| **Incoming asks (NEW, PR C)** `GET /requests/inventory/asks/incoming` | the recipient's unanswered directed asks | **private access**. Rev 2, traced: Helping has **no** inbox for a request without a match. `CommitmentsTab.tsx:165` builds from `GET /matches`, and its decision band (`:147-149`) uses `/requests/curated`, which is browse. No predicate change can surface an unanswered ask, so PR C adds this query and a Helping section for it. |
 | `community-service/src/routes/stats.ts`, `routes/export.ts` | community stats / admin export | **browse**: exclude directed rows from lists. Counts may include them (**executor decides, recorded in ADR-099**). |
 | `notification-service/src/events/subscriber.ts` | `request_created` fan-out | never receives directed requests; new handler for `directed_request_created` |
 | `notification-service/src/routes/notifications.ts` | notification reads/writes | **Not a `help_requests` read, so the scan below can't see it.** It carries the ask's title after PR C, so it must be caller-scoped (BUG-055; see the API table). |
@@ -376,9 +389,10 @@ tests, not by the gate.
   which community when the item is visible to you through more than one), then
   `POST /requests/inventory/items/:id/borrow` and navigates to the new request.
 - Request detail shows a "Private request to *Maria*" / "…to *Southeast PDX Helpers* admins" banner.
-- The owner sees the ask in the notifications list and in `Dashboard → Helping`. The executor must
-  verify which query backs Helping and confirm it includes directed asks targeted at the viewer
-  (the directed predicate *admits* them; the surface must also *select* them).
+- **New Helping section "Asked of you"** (rev 2) in `CommitmentsTab.tsx`, fed by
+  `GET /requests/inventory/asks/incoming`, rendered **before** an offer exists: item, requester,
+  duration, and an **Offer** action that runs the normal `POST /matches`. After the offer, the ask
+  leaves this section and shows as a commitment from `GET /matches`. The owner is also notified.
 
 ---
 
@@ -462,7 +476,7 @@ Author sources only; never hand-edit `apps/landing/src/data/docs/`. A newly gene
 
 **Added in rev 1 (plan review relayed by the maintainer, 2026-09-30; each finding verified against the repo):**
 
-14. **Close the existing read holes BEFORE the first directed ask can exist (PR C, BUG-055, BUG-057).**
+14. **Close the existing read holes FIRST, in PR S (rev 2; was PR C Task C4b), BUG-055 and BUG-057.**
     Notification routes trust a URL or body user id (`notification-service/src/routes/notifications.ts:75,108,127,163,184,219,238`),
     and `GET /matches` / `GET /matches/:id` aren't participant-scoped (`request-service/src/routes/matches.ts:15-40,83-104`).
     PR C caller-scopes all of them, with cross-user tests for each route: an unrelated viewer, omitted
@@ -471,6 +485,11 @@ Author sources only; never hand-edit `apps/landing/src/data/docs/`. A newly gene
 15. **Reference data goes in `seed-data.sql` as well as the migration.** `init.sql` is schema-only
     plus `seed-data.sql` plus a ledger marking every migration applied, so a migration-only seed is
     lost on fresh installs. An exact-parity regression test guards it (see *Data Model → PR A*).
+    **Fresh-install proof is a blocking CI step** (rev 2): in `ci.yml` `test-integration`, after the
+    environment is healthy and **before** *Prove init.sql matches the full migrated schema* (`ci.yml:316`),
+    `docker exec karmyq-postgres-test psql` (initialized from `init.sql` via
+    `tests/docker-compose.test.yml:24`) asserts the exact vocabulary contents and the ledger row for
+    `20260930-skill-vocabulary.sql`. Regenerating the committed `init.sql` still needs Docker on the Mac or an authorized disposable host.
 16. **Integration tests live in ROOT `tests/integration/`.** That is the only place CI's
     *Integration Tests* job looks (`tests/jest.integration.config.js:17` `roots: ['<rootDir>/integration']`,
     `testMatch: ['**/*.integration.test.ts']`). Workspace `tests/integration/` files are run by no CI job.
@@ -484,3 +503,11 @@ Author sources only; never hand-edit `apps/landing/src/data/docs/`. A newly gene
     Review its diff against `init.sql`, then promote it (copy over `init.sql`) and delete the
     `.generated` file. Never hand-edit `init.sql`.
 19. **No zod.** request-service validates by hand; follow that style (see *API → PR B*).
+20. **`GET /requests` with `requester_id`** (rev 2): directed rows only when `requester_id` equals the
+    JWT caller. Three tests: own id → own directed asks included; missing → excluded; another user's
+    id → excluded, and that user's directed asks never leak.
+21. **Unanswered directed asks need their own query** (rev 2): `GET /requests/inventory/asks/incoming`
+    plus the Helping *Asked of you* section. Test the transition: the ask is listed → the recipient offers →
+    it leaves *incoming* and appears through `GET /matches`.
+22. **BUG-056 stays separate** from the authorization fixes. It is a visibility-policy decision with its
+    own severity, owner and deadline in `docs/BUGS.md`.

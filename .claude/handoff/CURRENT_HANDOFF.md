@@ -1,7 +1,7 @@
 # Sprint 132 — Inventories and Skills — Handoff
 
 **Date**: 2026-09-30
-**Status**: PLANNED, **rev 1**. Spec, plan and ADR number approved; a plan review (relayed by the maintainer,
+**Status**: PLANNED, **rev 2** (PR S, security, pulled forward by the maintainer 2026-09-30; being executed in the planning chat). Rev 1: Spec, plan and ADR number approved; a plan review (relayed by the maintainer,
 2026-09-30) found 8 issues, all verified CONFIRMED and fixed in the spec and plan (critical notes 14–19). Nothing is implemented yet.
 
 > 🧭 **First product sprint after the maintenance freeze** (maintainer, 2026-09-30: dependency work
@@ -18,13 +18,14 @@
 ## Quick Start
 
 1. Read this handoff.
-2. **PR A:** reuse `agent/claude/sprint-132-inventories-skills` (cut from `origin/master` `c187aa87`,
-   v11.74.0; it carries the planning commit). **PR B / PR C:** once the previous PR has deployed,
-   `git fetch origin` then `git switch -c agent/claude/sprint-132-pr-b-inventory origin/master` (or
-   `…-pr-c-directed-borrow`). Never branch off a stale local master; unpushed local-master commits
+2. **PR S** (security): `agent/claude/sprint-132-security-authz`, cut from the planning branch so the
+   planning docs reach master with it. **PR A / B / C:** once the previous PR has deployed,
+   `git fetch origin` then `git switch -c agent/claude/sprint-132-pr-a-skills origin/master` (or
+   `…-pr-b-inventory`, `…-pr-c-directed-borrow`). The planning branch `agent/claude/sprint-132-inventories-skills`
+   is retired once PR S merges; never commit on it after that. Never branch off a stale local master; unpushed local-master commits
    leak in through the squash-merge.
 3. Open the plan: [`docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md`](../../docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md).
-   Execute **one PR section per fresh chat** (A, then B, then C).
+   PR S first; then **one PR section per fresh chat** (A, then B, then C).
 4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`).
    There is no `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 
@@ -44,9 +45,10 @@ match → message → karma loop. Skills have one source of truth that matching 
 
 | PR | Scope | Branch | State |
 |---|---|---|---|
-| A | Skills single source: `auth.skill_vocabulary` + `user_tags.skill_slug`; matching reads tags; remove the fixed picker and `/users/:id/skills`; ADR-099 | `agent/claude/sprint-132-inventories-skills` | **NEXT**: execute plan section *PR A* in a fresh chat |
+| **S** | **Security (rev 2):** caller-scope notification routes (BUG-055) + participant-scope `GET /matches`, `/matches/:id` (BUG-057). No schema | `agent/claude/sprint-132-security-authz` | **IN PROGRESS** (planning chat, on maintainer instruction); merge needs authorization |
+| A | Skills single source: `auth.skill_vocabulary` + `user_tags.skill_slug`; matching reads tags; remove the fixed picker and `/users/:id/skills`; ADR-099 | `agent/claude/sprint-132-pr-a-skills` (cut after S deploys) | planned: fresh chat after PR S deploys |
 | B | Inventory catalog: `inventory` schema, `/requests/inventory/*`, item audience predicate, My things page, community Shared things tab | `agent/claude/sprint-132-pr-b-inventory` (cut after A deploys) | planned |
-| C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; **plus caller-scoping notifications (BUG-055) and match views (BUG-057) first (Task C4b)** | `agent/claude/sprint-132-pr-c-directed-borrow` (cut after B deploys) | planned |
+| C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (cut after B deploys) | planned |
 
 Versions: each PR bumps the minor from `origin/master` at merge time (11.75.0 / 11.76.0 / 11.77.0
 if nothing else merges in between). Nothing is reserved.
@@ -68,6 +70,9 @@ if nothing else merges in between). Nothing is reserved.
 8. **ADR number:** **ADR-099**, allocated by the maintainer.
 9. **Shipping:** **3 PRs** (A skills, B catalog, C directed borrow), so the reachability change
    gets isolated review.
+10. **Rev 2:** BUG-055/057 ship as a standalone **PR S** before PR A, and are executed now ("Include the required tests
+    and documentation updates. Merge and deployment still require maintainer authorization."). The fresh-install proof is
+    a blocking CI step before the replay. Incoming asks get their own query and Helping section.
 
 ## Critical implementation notes (verbatim from the spec)
 
@@ -146,6 +151,15 @@ if nothing else merges in between). Nothing is reserved.
     `.generated` file. Never hand-edit `init.sql`.
 19. **No zod.** request-service validates by hand; follow that style (see *API → PR B*).
 
+20. **`GET /requests` with `requester_id`** (rev 2): directed rows only when `requester_id` equals the
+    JWT caller. Three tests: own id → own directed asks included; missing → excluded; another user's
+    id → excluded, and that user's directed asks never leak.
+21. **Unanswered directed asks need their own query** (rev 2): `GET /requests/inventory/asks/incoming`
+    plus the Helping *Asked of you* section. Test the transition: the ask is listed → the recipient offers →
+    it leaves *incoming* and appears through `GET /matches`.
+22. **BUG-056 stays separate** from the authorization fixes. It is a visibility-policy decision with its
+    own severity, owner and deadline in `docs/BUGS.md`.
+
 Also in the plan's standing notes: **`scripts/regenerate-init-sql.sh` needs Docker.** There is none on
 the Windows box, so use a disposable container on the demo host (ask first) or the Mac checkout.
 
@@ -157,10 +171,8 @@ the Windows box, so use a disposable container on the demo host (ask first) or t
   is scheduled. Its spec, plan and lane file live only on that branch.
 - **Logged 2026-09-30:** **BUG-055** (HIGH: notification routes trust a URL or body user id), **BUG-056**
   (`GET /requests/:id` has no visibility check and returns `requester_email`; out of scope, maintainer
-  triage), and **BUG-057** (HIGH: `GET /matches` and `/matches/:id` aren't participant-scoped). PR C Task C4b
-  fixes 055 and 057. ⚠️ **Maintainer decision open:** both are HIGH and live today, and the vulnerability
-  SLA says ≤ 1 week, while PR C is two deploys away. Either pull C4b forward as a standalone security PR
-  before PR A, or accept the delay in writing.
+  triage), and **BUG-057** (HIGH: `GET /matches` and `/matches/:id` aren't participant-scoped). **Decided (maintainer, 2026-09-30): 055 and 057 ship first
+  as PR S.** BUG-056: MEDIUM, owner = maintainer (policy) / Claude (implementation), deadline **2026-10-14**, and kept separate.
 - **Sprint number:** the maintainer's naming stands at 132 (the reviewer also recommends keeping it).
   lanes-provenance renumbers when scheduled.
 - `/requests/matched/for-user` has no frontend caller (`api.ts:488` is unused). PR A repoints it, and
@@ -196,5 +208,5 @@ the Windows box, so use a disposable container on the demo host (ask first) or t
 
 ## Next unchecked action
 
-Open a fresh chat on `agent/claude/sprint-132-inventories-skills` and execute plan section **PR A**
-(Task A1: TDD tests first).
+Finish **PR S** (plan section *PR S*) through to its PR, then stop at the maintainer's merge authorization.
+After PR S deploys, open a fresh chat, cut `agent/claude/sprint-132-pr-a-skills` from `origin/master`, and execute **PR A**.
