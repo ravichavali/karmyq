@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-30
 **Status**: PLANNED, **rev 2** (PR S, security, pulled forward by the maintainer 2026-09-30; being executed in the planning chat). Rev 1: Spec, plan and ADR number approved; a plan review (relayed by the maintainer,
-2026-09-30) found 8 issues, all verified CONFIRMED and fixed in the spec and plan (critical notes 14–19). Nothing is implemented yet.
+2026-09-30) found 8 issues, all verified CONFIRMED and fixed in the spec and plan (critical notes 14–19). **PR S implemented, all gates run (/simplify, /code-review medium: 0 findings, /security-review: 0 findings; npm test 27/27, tsc 0 both services), version 11.75.0, PR open, awaiting maintainer merge authorization.** PR A/B/C not started.
 
 > 🧭 **First product sprint after the maintenance freeze** (maintainer, 2026-09-30: dependency work
 > needs a security advisory or a feature need; product is the default). Seed idea: `docs/IDEAS.md`
@@ -45,7 +45,7 @@ match → message → karma loop. Skills have one source of truth that matching 
 
 | PR | Scope | Branch | State |
 |---|---|---|---|
-| **S** | **Security (rev 2):** caller-scope notification routes (BUG-055) + participant-scope `GET /matches`, `/matches/:id` (BUG-057). No schema | `agent/claude/sprint-132-security-authz` | **IN PROGRESS** (planning chat, on maintainer instruction); merge needs authorization |
+| **S** | **Security (rev 2):** caller-scope notification routes (BUG-055) + participant-scope `GET /matches`, `/matches/:id` (BUG-057). No schema | `agent/claude/sprint-132-security-authz` | **PR OPEN**, gates done; merge needs maintainer authorization |
 | A | Skills single source: `auth.skill_vocabulary` + `user_tags.skill_slug`; matching reads tags; remove the fixed picker and `/users/:id/skills`; ADR-099 | `agent/claude/sprint-132-pr-a-skills` (cut after S deploys) | planned: fresh chat after PR S deploys |
 | B | Inventory catalog: `inventory` schema, `/requests/inventory/*`, item audience predicate, My things page, community Shared things tab | `agent/claude/sprint-132-pr-b-inventory` (cut after A deploys) | planned |
 | C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (cut after B deploys) | planned |
@@ -208,5 +208,5 @@ the Windows box, so use a disposable container on the demo host (ask first) or t
 
 ## Next unchecked action
 
-Finish **PR S** (plan section *PR S*) through to its PR, then stop at the maintainer's merge authorization.
+**PR S is open** (`gh pr list`). Wait for CI green + maintainer merge authorization, then `/deploy` and the Task S6 smoke (read-only, as maria.reyes), then mark PR S shipped here.
 After PR S deploys, open a fresh chat, cut `agent/claude/sprint-132-pr-a-skills` from `origin/master`, and execute **PR A**.
