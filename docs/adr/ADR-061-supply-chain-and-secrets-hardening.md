@@ -44,6 +44,16 @@ The `security:` job adds an **OSV-Scanner** step (Google's open-source vulnerabi
 
 Added Dependabot for `npm` (grouped into `production-deps` / `dev-deps`) and `github-actions`, weekly. **Deliberately NO auto-merge** — an auto-merged bump is itself an ingestion path; every Dependabot PR is human-reviewed before it lands.
 
+**Amended 2026-09-30 (Sprint 131, maintainer): security updates only.** Weekly version updates had
+turned into a steady queue of upgrade PRs, and each one cost a full review-and-deploy cycle with no
+security or product need behind it. Both entries now set `open-pull-requests-limit: 0`. GitHub
+documents this as disabling version updates, and security update PRs "are not subject to this limit".
+Security updates come from the repository setting (automated security fixes, enabled). The existing
+`ignore` entries (Expo SDK-managed packages, version-update types only) and the groups are unchanged.
+Upgrades without an advisory happen deliberately, when a feature needs them. The policy is gated by
+`tests/regression/sprint-131-dependabot-security-only.test.ts`. SHA-pinned Actions now get bumped only
+by security updates or by hand.
+
 ### 6. Pin third-party GitHub Actions to commit SHA
 
 CodeQL's `actions/unpinned-tag` rule flagged the third-party `docker/*` actions pinned to floating tags. They are now pinned to full commit SHAs (GitHub-owned `actions/*` are not flagged and are left on tags):

@@ -441,6 +441,14 @@ must land before **2026-09-15**.
 - **Before starting any dependency work, ask who holds the lane.** `gh pr list` shows you what is
   queued; it cannot tell you who is *working*, because an agent's work is invisible until they push.
 
+**What earns dependency work (maintainer, 2026-09-30).** Only two things do: a **security advisory**
+(the vulnerability SLA applies), or a **feature that needs** a newer version. Dependabot is
+security-only (`open-pull-requests-limit: 0`, gated by
+`tests/regression/sprint-131-dependabot-security-only.test.ts`). Do not start upgrades for their
+own sake, however cheap they look. Weight the process by risk: runtime auth or data paths get a
+planned PR; everything else gets a short PR proven by strict `npm ci`, the suite and one review.
+Keep maintenance to roughly a fifth of capacity; product work is the default.
+
 **The router is a pointer, not a coordination store.** `CURRENT_HANDOFF.md`'s lane table tells you
 which file is yours. Because it is branch-local it can be stale, and it must never be treated as
 the authority on who owns a resource — the arbiters above are.
