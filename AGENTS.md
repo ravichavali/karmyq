@@ -102,7 +102,8 @@ Querying live state tells you what is **visible**; allocating ownership still re
 serializer. Four shared surfaces collide even when sprint scope is disjoint:
 `master` merges (one at a time — every push is a full deploy; wait for health verify),
 the `package.json` version bump (first to merge takes it), dependency/lockfile edits (one lane
-only — an open Dependabot PR is a queued proposal, NOT the lane holder), and ADR numbers
+only — an open Dependabot PR is a queued proposal, NOT the lane holder; dependency work needs a
+security advisory or a feature that requires it, and Dependabot is security-only), and ADR numbers
 (**maintainer-allocated — never self-assigned from a derived list**).
 Full rules and rationale: `CLAUDE.md` → **Parallel Development**.
 

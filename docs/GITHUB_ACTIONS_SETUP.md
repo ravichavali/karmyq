@@ -167,7 +167,7 @@ Shipped alongside the gates:
 - **`ignore-scripts=true`** in `.npmrc` blocks dependency lifecycle scripts (worm vector). ⚠️ **Git hooks no longer auto-install** — run `npm run hooks:install` after clone.
 - **`npm ci` everywhere** (incl. `e2e-tests.yml`) — deterministic, lockfile-only installs.
 - **`npm audit signatures`** + **OSV-Scanner** steps in the `security:` job — registry-provenance + broader advisory coverage (informational first). **Socket GitHub App** recommended as the behavioral complement (console install).
-- **`.github/dependabot.yml`** — grouped, weekly, review-gated; **no auto-merge**.
+- **`.github/dependabot.yml`** — **security updates only** (`open-pull-requests-limit: 0` disables version updates; ADR-061 §5, amended 2026-09-30); review-gated; **no auto-merge**.
 - **Third-party Actions pinned to commit SHA** (`docker/*`, `osv-scanner-action`).
 - **Secret scanning + push protection** already enabled; validity-checks + non-provider-patterns sub-toggles are a UI/org-move follow-up (see ADR-061).
 
