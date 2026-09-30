@@ -1911,7 +1911,6 @@ Submit interaction feedback for a completed match.
 **Request:**
 ```json
 {
-  "from_user_id": "uuid",
   "helpfulness": 5,
   "responsiveness": 4,
   "clarity": 5,
@@ -1922,7 +1921,7 @@ Submit interaction feedback for a completed match.
 
 **Validation:**
 - Match must be completed
-- `from_user_id` must be requester or responder
+- The author is the **JWT caller**, who must be the requester or the responder. A body `from_user_id` from older clients is ignored (BUG-057, Sprint 132 PR S; it used to let anyone author feedback as either participant).
 - Can only submit feedback once per match
 - All ratings must be 1-5
 
@@ -1940,7 +1939,7 @@ When both parties submit feedback with `allow_featuring = true`:
 #### GET /matches/:id/feedback
 Get feedback for a match.
 
-**Authorization:** Only requester or responder can view
+**Authorization:** Only the requester or the responder can view, checked for the **JWT caller**. A `user_id` query param from older clients is ignored (BUG-057, Sprint 132 PR S; it used to let anyone read feedback by naming a participant). Non-participant → 403.
 
 **Implementation:** `src/routes/feedback.ts`
 
