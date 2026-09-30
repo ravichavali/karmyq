@@ -18,11 +18,11 @@ let _redis: Redis | null = null;
  * cache command about 73 s instead of about 10.5 s before the DB fallback runs. This pins only the
  * outage retry timing; RESP3 and keepAlive retain ioredis 6 defaults. Gate: case C in the D9 regression.
  */
-export const V5_RETRY_STRATEGY = (times: number): number => Math.min(times * 50, 2000);
+const V5_RETRY_STRATEGY = (times: number): number => Math.min(times * 50, 2000);
 
 /** Build the cache's Redis client. Exported so the D9 gate can observe the real client's wire and retry behavior. */
-export function createCacheClient(url: string = REDIS_URL): Redis {
-  return new Redis(url, { retryStrategy: V5_RETRY_STRATEGY });
+export function createCacheClient(): Redis {
+  return new Redis(REDIS_URL, { retryStrategy: V5_RETRY_STRATEGY });
 }
 
 function getRedis(): Redis {

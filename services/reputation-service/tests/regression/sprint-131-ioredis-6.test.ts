@@ -1,5 +1,5 @@
 /** Sprint 131 D9: exercise the cache's real ioredis client against a local RESP server. */
-import { createServer, Server, Socket } from 'node:net';
+import { AddressInfo, createServer, Server, Socket } from 'node:net';
 import { dirname, resolve } from 'node:path';
 
 const mockGetUserEffectiveParams = jest.fn();
@@ -18,6 +18,7 @@ type FakeRedis = {
 
 const params = { depth_weight: 0.6, breadth_weight: 0.4, cross_community_prior: 0.5 };
 const key = 'trust_params:u1:c1';
+const setex = ['SETEX', key, '14400', '{"depth_weight":0.6,"breadth_weight":0.4,"cross_community_prior":0.5}'];
 const workspace = resolve(__dirname, '../..');
 let cache: CacheModule | undefined;
 let fake: FakeRedis | undefined;
@@ -95,7 +96,6 @@ async function startFakeRedis(helloUnsupported = false): Promise<FakeRedis> {
             socket.end('+OK\r\n');
             break;
           case 'CLIENT':
-          case 'SELECT':
             socket.write('+OK\r\n');
             break;
           case 'INFO':
@@ -111,6 +111,14 @@ async function startFakeRedis(helloUnsupported = false): Promise<FakeRedis> {
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('No loopback port');
   return { server, sockets, commands, port: address.port };
+}
+
+async function freePort(): Promise<number> {
+  const server = createServer();
+  await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
+  const { port } = server.address() as AddressInfo;
+  await new Promise<void>(done => server.close(() => done()));
+  return port;
 }
 
 async function within<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -129,7 +137,7 @@ async function within<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 function loadCache(port: number): CacheModule {
   process.env.REDIS_URL = `redis://127.0.0.1:${port}`;
-  let loaded: CacheModule | undefined;
+  let loaded!: CacheModule;
   jest.isolateModules(() => {
     const Redis = require('ioredis') as typeof import('ioredis').default;
     const originalConnect = Redis.prototype.connect;
@@ -140,7 +148,6 @@ function loadCache(port: number): CacheModule {
     restoreConnect = () => spy.mockRestore();
     loaded = require('../../src/services/effectiveParamsCache') as CacheModule;
   });
-  if (!loaded) throw new Error('Cache module did not load');
   cache = loaded;
   return loaded;
 }
@@ -204,7 +211,7 @@ describe('ioredis 6 cache upgrade gate', () => {
       ['HELLO', '3'],
       ['INFO'],
       ['GET', key],
-      ['SETEX', key, '14400', '{"depth_weight":0.6,"breadth_weight":0.4,"cross_community_prior":0.5}'],
+      setex,
       ['GET', key],
       ['DEL', key],
       ['QUIT'],
@@ -212,10 +219,7 @@ describe('ioredis 6 cache upgrade gate', () => {
   }, 30000);
 
   it('keeps v5 retry delays for a refused loopback connection', async () => {
-    const free = await startFakeRedis();
-    const port = free.port;
-    await new Promise<void>(done => free.server.close(() => done()));
-    const client = loadCache(port).createCacheClient(`redis://127.0.0.1:${port}`);
+    const client = loadCache(await freePort()).createCacheClient();
     const delays: number[] = [];
     client.on('error', () => { /* refused connection is expected */ });
     try {
@@ -234,11 +238,8 @@ describe('ioredis 6 cache upgrade gate', () => {
       // disconnect() on its already-closed socket leaves
       // ioredis's 2-second connector grace timer alive after Jest reports the test complete.
       client.options.retryStrategy = () => null;
-      await within(new Promise<void>(done => client.once('end', () => done())), 2000)
-        .catch(error => {
-          client.disconnect();
-          throw error;
-        });
+      // On timeout, afterEach disconnects every tracked client.
+      await within(new Promise<void>(done => client.once('end', () => done())), 2000);
     }
     expect(delays).toEqual([50, 100, 150, 200, 250]);
   }, 30000);
@@ -254,7 +255,7 @@ describe('ioredis 6 cache upgrade gate', () => {
     expect(relevant).toEqual([
       ['HELLO', '3'],
       ['GET', key],
-      ['SETEX', key, '14400', '{"depth_weight":0.6,"breadth_weight":0.4,"cross_community_prior":0.5}'],
+      setex,
       ['GET', key],
     ]);
   }, 30000);

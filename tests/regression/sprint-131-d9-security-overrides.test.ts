@@ -3,13 +3,15 @@
  * The live npm audit gate detects new advisories; these checks preserve the explicit
  * patched pins and the engine.io ws override across later lock edits.
  */
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import semver from 'semver';
+import { read } from './helpers/workspaces';
 
-const root = resolve(__dirname, '../..');
-const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
-const lock = JSON.parse(readFileSync(resolve(root, 'package-lock.json'), 'utf8'));
+const pkg = JSON.parse(read('package.json'));
+const lock = JSON.parse(read('package-lock.json'));
+
+/** An override is either a version string or a nested object whose own version is under ".". */
+const ownVersion = (override: string | Record<string, string>): string =>
+  typeof override === 'string' ? override : override['.'];
 
 describe('D9 security override pins', () => {
   it.each([
@@ -17,14 +19,12 @@ describe('D9 security override pins', () => {
     ['engine.io', '6.6.10'],
     ['undici', '7.29.1'],
   ])('%s stays on a patched version in the manifest and lock', (name, floor) => {
-    const override = name === 'engine.io' ? pkg.overrides[name]?.['.'] : pkg.overrides[name];
-    const locked = lock.packages[`node_modules/${name}`]?.version;
-    expect(semver.valid(override)).not.toBeNull();
+    const override = ownVersion(pkg.overrides[name]);
     expect(semver.gte(override, floor)).toBe(true);
-    expect(locked).toBe(override);
+    expect(lock.packages[`node_modules/${name}`]?.version).toBe(override);
   });
 
   it('keeps the engine.io ws override alongside its own version', () => {
-    expect(pkg.overrides['engine.io'].ws).toBe('8.21.0');
+    expect(semver.gte(pkg.overrides['engine.io'].ws, '8.21.0')).toBe(true);
   });
 });

@@ -1682,7 +1682,7 @@ What changed in v6, checked against the built source of both versions rather tha
   the DB fallback runs. `createCacheClient()` passes `V5_RETRY_STRATEGY` (`min(n·50, 2000)`), so outage cost is
   unchanged.
 
-`createCacheClient(url)` is new and exported: `getRedis()` builds its singleton through it, and the gate uses it to
+`createCacheClient()` is new and exported: `getRedis()` builds its singleton through it, and the gate uses it to
 observe the real client.
 
 **Known issue (pre-existing, now covered):** every Redis call here sits in a silent `catch` that falls back to the
