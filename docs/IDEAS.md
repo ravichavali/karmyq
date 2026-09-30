@@ -780,3 +780,9 @@ D8 (cleanup-service on eslint 10) follow-ups. None is scheduled.
 
 - **(a) `apps/mobile` moderate audit chain:** `decode-uri-component` ≤0.4.2 (GHSA-vcc3-ghjq-m6fr) ← `query-string` ← `expo-router`. There is no Dependabot alert, and npm's only suggested fix *downgrades* expo-router to 5.x, which the Expo SDK pins forbid. Revisit on the next Expo SDK move. It is not an ADR-059 blocker (moderate).
 - **(b) Closed, not queued (maintainer 2026-09-30):** bcryptjs 3 (#243), dotenv 18 (#281), motion/framer-motion 13 (#282/#283), the dev-deps and production-deps groups (#274/#280), and the Actions bumps (#259–#261). Reopen only on a security advisory or a feature need.
+
+## [2026-09-30] architecture
+
+Individuals and communities should have **inventories**: things they can share. Essentially asset management. We also need to work on the **skills** part.
+
+---
