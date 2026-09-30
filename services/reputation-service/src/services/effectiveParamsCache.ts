@@ -11,8 +11,13 @@ const TTL_SECONDS = 14400; // 4 hours
 
 let _redis: Redis | null = null;
 
+/** Build the cache's Redis client. Exported so the D9 gate can observe the real client's wire and retry behavior. */
+export function createCacheClient(url: string = REDIS_URL): Redis {
+  return new Redis(url);
+}
+
 function getRedis(): Redis {
-  if (!_redis) _redis = new Redis(REDIS_URL);
+  if (!_redis) _redis = createCacheClient();
   return _redis;
 }
 

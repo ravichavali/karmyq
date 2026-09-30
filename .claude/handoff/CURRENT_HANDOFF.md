@@ -1,6 +1,8 @@
 # Sprint 131 — Maintenance Backlog — Handoff
 
-**Date**: 2026-09-28
+**Date**: 2026-09-29
+
+> **D9 execution in progress (Codex, 2026-09-29).** The maintainer's instruction to execute the pushed plan transfers this task's dependency lane to Codex, on the explicitly requested existing `agent/claude/sprint-131-d9-ioredis-6` branch. Initial clean HEAD `54737180`; last refreshed `origin/master` and merge-base both `3f504727` (2026-09-28). GitHub refresh then: #245 OPEN at `980f74a2`, same three files. No D9 implementation PR yet. Task 1 is complete; Task 2's factory and real-client TDD gate are uncommitted pending final review and a passing root suite. The existing CodeQL-gate regression test hung in a synchronous Bash child; the run was stopped and host diagnosis is active. Focused gate, workspace tests, cleanup proof, and plan corrections are recorded in the plan's **Execution notes**. Next: finish Task 2 checks and commit, then Task 3's surgical dependency splice. Root/bull still run ioredis 5; no dependency files changed yet. Merge and demo-host operations require their separate authorizations.
 
 > **No parallel lanes are active.** The pre-push runner lane shipped as #273 (`b976c47a`, v11.70.0, [CI/CD run 36300994495](https://github.com/ravichavali/karmyq/actions/runs/36300994495) green). Its lane file is archived at [`archive/2026-09-27-prepush-test-runner-SHIPPED-v11.70.0.md`](archive/2026-09-27-prepush-test-runner-SHIPPED-v11.70.0.md). Git and PR state (`gh pr list`, `git log origin/master`) outrank anything written here.
 
