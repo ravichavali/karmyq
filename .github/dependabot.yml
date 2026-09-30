@@ -1,4 +1,10 @@
-# Dependabot — review-gated, grouped security + version update PRs (ADR-061).
+# Dependabot — review-gated SECURITY update PRs only (ADR-061).
+#
+# Policy (maintainer, 2026-09-30): Dependabot proposes only fixes that matter. Routine version
+# updates are disabled with `open-pull-requests-limit: 0`, which GitHub documents as disabling
+# version updates; "security update pull requests are not subject to this limit". Security updates
+# come from the repo setting (automated security fixes: enabled) and still follow the ignore rules
+# and groups below. Upgrades without an advisory are done deliberately, when a feature needs them.
 # Deliberately NO automatic merging: an unreviewed dependency bump is itself a
 # supply-chain ingestion path, so every Dependabot PR is reviewed by a human
 # before it lands (consistent with ignore-scripts + npm ci hardening).
@@ -8,7 +14,7 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 0
     # Groups bundle only minor + patch bumps. MAJOR bumps are deliberately left
     # OUT of the groups so each surfaces as its own clearly-labeled PR — a major
     # framework upgrade (e.g. Express 4→5) must never ride in hidden among a 20+
@@ -81,3 +87,4 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
