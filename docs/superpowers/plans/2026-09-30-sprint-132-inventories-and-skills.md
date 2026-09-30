@@ -23,6 +23,13 @@ a second shared predicate, and skills collapse onto `auth.user_tags` plus a cano
 (read it first; its *Audience predicates* and *Surfaces* sections are normative).
 **ADR:** ADR-099 (maintainer-allocated 2026-09-30).
 
+> **Rev 1 (2026-09-30), after a plan review relayed by the maintainer.** Eight findings, all CONFIRMED
+> against the repo: notification routes trust client user ids (BUG-055); match views are not
+> participant-scoped (BUG-057); the vocabulary seed was lost on fresh installs; the integration tests
+> were placed where no CI job runs them; unavailable community items leaked to members; browse and
+> private access were conflated; request-service has no zod; and the regen output needs promotion.
+> See critical notes 14-19 and the revised Tasks A1, A2, B1, B3, B4, B10, C1, C3, C4, C4b and C11.
+
 ---
 
 ## File Map
@@ -38,9 +45,12 @@ a second shared predicate, and skills collapse onto `auth.user_tags` plus a cano
 | `docs/adr/ADR-099-inventories-and-directed-requests.md` | A | the sprint's ADR (amended in B, C) |
 | `infrastructure/postgres/migrations/2026MMDD-inventory-schema.sql` | B | `inventory.items`, `inventory.item_shares` |
 | `services/request-service/src/db/inventoryDb.ts` | B | item audience predicate + all inventory queries |
-| `services/request-service/src/routes/inventory.ts` | B | `/requests/inventory/*` handlers (zod-validated) |
+| `services/request-service/src/routes/inventory.ts` | B | `/requests/inventory/*` handlers (hand-validated like the existing routes; **no zod**, note 19) |
+| `services/auth-service/tests/tdd/sprint-132-vocabulary-seed-parity.test.ts` | A | exact slug/label/synonym parity between the migration and `seed-data.sql` (note 15) |
+| `services/notification-service/tests/tdd/sprint-132-notification-caller-scope.test.ts` | C | BUG-055: every user route caller-scoped (URL, query and body spoofs) |
+| `services/request-service/tests/tdd/sprint-132-match-participant-scope.test.ts` | C | BUG-057: `GET /matches` + `/matches/:id` participant-scoped |
 | `services/request-service/tests/tdd/sprint-132-inventory-routes.test.ts` | B | route contract, auth, 404-not-403, mount order |
-| `services/request-service/tests/integration/sprint-132-inventory-audience.integration.test.ts` | B | audience truth against a real DB |
+| `tests/integration/sprint-132-inventory-audience.integration.test.ts` | B | audience truth against a real DB |
 | `apps/frontend/src/pages/inventory/index.tsx` | B | "My things" |
 | `apps/frontend/src/components/community/tabs/InventoryTab.tsx` | B | "Shared things" community tab |
 | `apps/frontend/tests/tdd/sprint-132-inventory-ui.test.tsx` | B | page + tab coverage per CLAUDE.md table |
@@ -50,7 +60,7 @@ a second shared predicate, and skills collapse onto `auth.user_tags` plus a cano
 | `services/request-service/src/db/directedAudience.ts` | C | directed-request audience predicate |
 | `services/request-service/tests/tdd/sprint-132-directed-audience-gate.test.ts` | C | live-scan gate over every `help_requests` read |
 | `services/request-service/tests/tdd/sprint-132-directed-borrow.test.ts` | C | borrow endpoint, event, POST /requests rejection |
-| `services/request-service/tests/integration/sprint-132-directed-audience.integration.test.ts` | C | per-surface: audience sees, third member doesn't |
+| `tests/integration/sprint-132-directed-audience.integration.test.ts` | C | per-surface: audience sees, third member doesn't |
 | `services/notification-service/tests/tdd/sprint-132-directed-request-notify.test.ts` | C | exactly the recipients, never community fan-out |
 | `apps/frontend/tests/tdd/sprint-132-ask-to-borrow.test.tsx` | C | button gating, payload, banner |
 
@@ -73,7 +83,11 @@ a second shared predicate, and skills collapse onto `auth.user_tags` plus a cano
 | `services/community-service/src/routes/stats.ts`, `routes/export.ts` | C | exclude directed rows from lists |
 | `services/notification-service/src/events/subscriber.ts` | C | `directed_request_created` handler |
 | `services/*/CONTEXT.md`, `services/registry.json` | A, B, C | endpoints, schema, events |
-| `infrastructure/postgres/init.sql` | A, B, C | **regenerated** via `scripts/regenerate-init-sql.sh`, never hand-edited |
+| `infrastructure/postgres/init.sql` | A, B, C | **regenerated** via `scripts/regenerate-init-sql.sh` (`REGEN_PG_CONTAINER`; review, then promote `init.sql.generated`; note 18), never hand-edited |
+| `infrastructure/postgres/seed-data.sql` | A | the same vocabulary `INSERT` as the migration (note 15) |
+| `services/notification-service/src/routes/notifications.ts` | C | caller-scope every user route (BUG-055, note 14) |
+| `services/request-service/src/routes/matches.ts` | C | participant-scope `GET /` and `GET /:id` + `directedAudienceSql` (BUG-057, note 14) |
+| `docs/BUGS.md` | planning | BUG-055, BUG-056, BUG-057 logged 2026-09-30 |
 | `infrastructure/claude.md`, `CLAUDE.md` *Database* | B | 13 live schemas (+ `inventory`); keep AGENTS.md in sync if it repeats the count |
 | `docs/guides/profile-guide.md`, `fulfilling-requests-guide.md`, `making-requests-guide.md`, `community-admin-guide.md` | A–C | per spec *Doc Updates* |
 | `scripts/generate-docs.ts` | A, B | `ADR_GROUPS` (A); `GUIDE_ORDER`, `CONCEPT_ORDER` + `howItWorks` (B) |
@@ -111,7 +125,7 @@ a second shared predicate, and skills collapse onto `auth.user_tags` plus a cano
 7. **`GET /requests/:id` 404s a directed request for non-audience viewers *before* building the
    response.** That route currently returns any request, including `requester_email`, to any
    authenticated caller who has the id. That pre-existing breadth for *non-directed* requests is
-   **out of scope**. Log it in `docs/BUGS.md` (the maintainer decides), and don't widen this sprint to fix it.
+   **out of scope**: it is logged as **BUG-056** (the maintainer decides). Don't widen this sprint to fix it.
 8. **Don't drop `auth.user_skills` in PR A.** A failed deploy rolls back the images and not the
    schema, and the old images read that table. Deprecate it with a `COMMENT` and drop it in a later sprint.
 9. **Skill-slug resolution is exact after normalization, not fuzzy.** Normalize with
@@ -133,6 +147,31 @@ a second shared predicate, and skills collapse onto `auth.user_tags` plus a cano
     table in a managed schema is a hard failure. PR A classifies `auth.skill_vocabulary` as
     `'preserve'`. PR B adds `'inventory'` to `MANAGED_SCHEMAS` with both tables `'reset'`. Prove both
     with `sprint-117-reset-safety.test.ts`. Any demo data operation needs per-operation authorization.
+
+**Added in rev 1 (plan review relayed by the maintainer, 2026-09-30; each finding verified against the repo):**
+
+14. **Close the existing read holes BEFORE the first directed ask can exist (PR C, BUG-055, BUG-057).**
+    Notification routes trust a URL or body user id (`notification-service/src/routes/notifications.ts:75,108,127,163,184,219,238`),
+    and `GET /matches` / `GET /matches/:id` aren't participant-scoped (`request-service/src/routes/matches.ts:15-40,83-104`).
+    PR C caller-scopes all of them, with cross-user tests for each route: an unrelated viewer, omitted
+    filters, and a spoofed `user_id` in the URL, query or body. The `help_requests` gate can't see these,
+    because notifications live in another table.
+15. **Reference data goes in `seed-data.sql` as well as the migration.** `init.sql` is schema-only
+    plus `seed-data.sql` plus a ledger marking every migration applied, so a migration-only seed is
+    lost on fresh installs. An exact-parity regression test guards it (see *Data Model → PR A*).
+16. **Integration tests live in ROOT `tests/integration/`.** That is the only place CI's
+    *Integration Tests* job looks (`tests/jest.integration.config.js:17` `roots: ['<rootDir>/integration']`,
+    `testMatch: ['**/*.integration.test.ts']`). Workspace `tests/integration/` files are run by no CI job.
+    Under `CI=true` the tests must **fail**, not skip, when the database is unreachable. The executor
+    confirms from the *Integration Tests* job log that the sprint-132 files ran.
+17. **Browse vs private access.** Browse surfaces use `notDirectedSql` and exclude every directed ask
+    for every viewer; private-access surfaces use `directedAudienceSql`. A test proves that the
+    **recipient's own** browse feed does not contain the ask.
+18. **`init.sql` regeneration** needs `REGEN_PG_CONTAINER` (a dedicated, disposable Postgres 15
+    container; `regenerate-init-sql.sh:108-118`) and writes `init.sql.generated` by default (`:15`).
+    Review its diff against `init.sql`, then promote it (copy over `init.sql`) and delete the
+    `.generated` file. Never hand-edit `init.sql`.
+19. **No zod.** request-service validates by hand; follow that style (see *API → PR B*).
 
 **Standing process notes (from memory; each has bitten before):**
 - New tests start in the **changed workspace's** `tests/tdd/`. The promoter does not auto-run
@@ -179,10 +218,15 @@ carries the spec/plan/handoff commit). Scope is small and well-specified, so run
   Adding "carpentry" posts exactly `{ tag_type: 'skill', tag_value: 'carpentry' }` to `/auth/profile/tags`.
   A tag with `skill_slug` shows "matched to", and one without doesn't. A failed tag fetch still renders
   (graceful fallback).
+- [ ] **Seed parity test (no DB)** `services/auth-service/tests/tdd/sprint-132-vocabulary-seed-parity.test.ts`:
+  parse the `auth.skill_vocabulary` `INSERT` tuples out of `infrastructure/postgres/migrations/20260930-skill-vocabulary.sql`
+  **and** `infrastructure/postgres/seed-data.sql`, then assert **exact equality** of the `(slug, label, sorted synonyms)`
+  sets, and that both are non-empty. Inject once (drop a row from `seed-data.sql` on a committed tree),
+  see red, and restore from a byte copy (note 15).
 - [ ] **Verify red.**
 
 ```bash
-npm exec --workspace=services/auth-service -- jest --runTestsByPath tests/tdd/sprint-132-skill-vocabulary.test.ts; echo "exit=$?"
+npm exec --workspace=services/auth-service -- jest --runTestsByPath tests/tdd/sprint-132-skill-vocabulary.test.ts tests/tdd/sprint-132-vocabulary-seed-parity.test.ts; echo "exit=$?"
 npm exec --workspace=services/request-service -- jest --runTestsByPath tests/tdd/sprint-132-skills-from-tags.test.ts; echo "exit=$?"
 npm exec --workspace=apps/frontend -- jest --runTestsByPath tests/tdd/sprint-132-single-skills-editor.test.tsx; echo "exit=$?"
 ```
@@ -204,13 +248,23 @@ Expected: each fails for the *right* reason (a missing module or function, or th
   guarded `DO $$ … IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_tags_skill_slug_only_on_skills') …`.
 - [ ] Make the migration idempotent: running it twice changes nothing (`ON CONFLICT DO NOTHING` on both
   inserts, and a `skill_slug IS NULL` guard on the UPDATE).
+- [ ] **Put the identical vocabulary `INSERT … ON CONFLICT (slug) DO NOTHING` in `infrastructure/postgres/seed-data.sql`**
+  (note 15). `init.sql` is schema-only, plus this file, plus a ledger marking every migration applied, so
+  without this a fresh install has an empty vocabulary. The A1 parity test goes green.
 - [ ] `tablePolicy.ts`: `'auth.skill_vocabulary': 'preserve'`.
-- [ ] Regenerate and review:
+- [ ] Regenerate, review, promote (note 18). This needs a **dedicated disposable** Postgres 15 container;
+  there's no Docker on the Windows box (see *Standing process notes*):
 
 ```bash
-bash scripts/regenerate-init-sql.sh; echo "exit=$?"
-git diff --stat infrastructure/postgres/init.sql
+REGEN_PG_CONTAINER=<disposable-pg15-container> bash scripts/regenerate-init-sql.sh; echo "exit=$?"
+diff -u infrastructure/postgres/init.sql infrastructure/postgres/init.sql.generated | less   # review: new table/column/constraint, vocabulary rows via seed-data, ledger row for 20260930-skill-vocabulary.sql
+cp infrastructure/postgres/init.sql.generated infrastructure/postgres/init.sql && rm infrastructure/postgres/init.sql.generated
 ```
+- [ ] **Fresh-install proof (before any replay):** load the promoted `init.sql` into a *fresh* disposable
+  database and **do not** run `apply-migrations.sh` or `ci-apply-full-schema.sh`. Then
+  `SELECT count(*) FROM auth.skill_vocabulary` must equal the migration's row count, and
+  `SELECT 1 FROM public.schema_migrations WHERE migration_name = '20260930-skill-vocabulary.sql'`
+  must return a row (proving the ledger would make a deploy skip the migration). Record both outputs in the PR's Validation.
 - [ ] Run the `migration-validator` agent on the new migration and resolve its findings.
 - [ ] **Verify:**
 
@@ -355,15 +409,19 @@ PR is larger and security-relevant, so run `/code-review` at **high**.
 
 **Files:**
 - Create: `services/request-service/tests/tdd/sprint-132-inventory-routes.test.ts`
-- Create: `services/request-service/tests/integration/sprint-132-inventory-audience.integration.test.ts`
+- Create: `tests/integration/sprint-132-inventory-audience.integration.test.ts`
 - Create: `apps/frontend/tests/tdd/sprint-132-inventory-ui.test.tsx`
 
 - [ ] **Route contract (tdd).** Build the real app the way `src/index.ts` mounts it (or extract the
   mount so the test uses the same order). `GET /requests/inventory/mine` reaches the inventory handler,
-  **not** `GET /requests/:id` (note 3). Test zod rejections (empty name, bad category, 51 share ids),
+  **not** `GET /requests/:id` (note 3). Test the hand-written validation's rejections (empty name, bad category, 51 share ids; note 19),
   a 401 without JWT, and that POST with `owner_community_id` for a non-admin gets 403. Mock only the DB boundary.
-- [ ] **Audience truth (integration, real DB).** Seed users O (owner), M (member of C1), X (member
-  of C2 only), A (admin of C1), and communities C1 and C2. Each case varies exactly one condition:
+- [ ] **Audience truth (integration, real DB), in ROOT `tests/integration/`** (note 16: the only
+  directory CI's *Integration Tests* job runs). Mirror an existing root integration test for the pool
+  (`createPool()` from `tests/fixtures`) and for how it reaches the compose test services. **Guard:**
+  when `process.env.CI` is set and the DB or service is unreachable, `throw` in `beforeAll`; never
+  `describe.skip`. Seed users O (owner), M (member of C1), X (member of C2 only), A (admin of C1), and
+  communities C1 and C2. Each case varies exactly one condition:
   1. A new personal item is visible to O only: M 404, X 404.
   2. Shared to C1: M sees it, X gets 404.
   3. O leaves C1 (status ≠ active): M gets 404; O rejoins: M sees it again (share persisted).
@@ -372,10 +430,14 @@ PR is larger and security-relevant, so run `/code-review` at **high**.
   6. Share to C2 when O is not a member of C2: 400. Share on a community item: 400.
   7. `/community/C1` as X: 403. As M: the two sections hold the exact expected ids.
   8. A JWT whose `communities` claim says admin of C1 while the DB says member: 403 on a community-item write (live check, note 2).
+  9. **An unavailable community item in C1** (spec *Item predicates*, rev 1): A (admin) sees it on
+     `/community/C1` and by id; M (ordinary member) gets 404 by id and it is absent from M's
+     `/community/C1`; X (outsider) gets 404. Flip it back to `available` and M sees it. Only `status` changes between the two halves.
 - [ ] **Frontend (tdd).** The My-things page renders items and the empty state, and a fetch error
   falls back gracefully. Create posts the exact payload; the share checklist PUTs the exact
   `community_ids`. The community tab shows **Add community item** for an admin and hides it for a member.
-- [ ] **Verify red** (as in A1); the integration test is skipped locally without a DB and runs in CI.
+- [ ] **Verify red** (as in A1). The integration test can't run locally without a DB (Windows box).
+  It runs in CI's *Integration Tests* job, and under `CI` it fails rather than skips if its prerequisites are missing.
 
 ## Task B2: Migration + init.sql + reset policy + schema docs
 
@@ -388,7 +450,7 @@ PR is larger and security-relevant, so run `/code-review` at **high**.
 - [ ] `tablePolicy.ts`: add `'inventory'` to `MANAGED_SCHEMAS`; set `'inventory.items': 'reset'` and `'inventory.item_shares': 'reset'`.
 - [ ] Docs: CLAUDE.md's *Database* paragraph says "12 live schemas". Make it 13 and add `inventory`;
   add an `inventory` row to `infrastructure/claude.md`'s schema table.
-- [ ] Regenerate `init.sql`; run `migration-validator`.
+- [ ] Regenerate, review and promote `init.sql` exactly as in Task A2 (note 18); run `migration-validator`.
 - [ ] **Verify:** the init-sql drift gate, `sprint-117-reset-safety`, and the doc drift gate are green.
 
 ## Task B3: `inventoryDb.ts` — the audience predicate and queries
@@ -396,8 +458,10 @@ PR is larger and security-relevant, so run `/code-review` at **high**.
 **Files:**
 - Create: `services/request-service/src/db/inventoryDb.ts`
 
-- [ ] Export `itemAudienceSql(alias: string, viewerParam: string): string`, returning the spec's
-  *Item audience* fragment, and use it in **every** read below. No query writes its own version.
+- [ ] Export `itemManagerSql(alias, viewerParam)` and `itemAudienceSql(alias, viewerParam)`, returning
+  the spec's *Item predicates* (rev 1). The audience **composes** the manager predicate, and a non-manager
+  sees only `available` items, for community-owned **and** personal items. Every read below uses
+  `itemAudienceSql`, and every write authorization uses `itemManagerSql`. No query writes its own version.
 - [ ] Export `listMine(userId)`, `listForCommunity(communityId, viewerId)`, `getVisible(itemId, viewerId)`,
   `create(...)`, `update(...)`, `remove(...)`, `replaceShares(itemId, ownerId, communityIds)` (in one
   transaction: validate every id is an active membership of the owner, delete the old set, insert the new),
@@ -410,7 +474,8 @@ PR is larger and security-relevant, so run `/code-review` at **high**.
 - Create: `services/request-service/src/routes/inventory.ts`
 - Modify: `services/request-service/src/index.ts`
 
-- [ ] Handlers per the spec's PR B table, with zod schemas and the ADR-074 envelope. Return 404, not 403,
+- [ ] Handlers per the spec's PR B table, with **hand-written** validation in the style of the existing
+  request-service routes (no zod: it isn't declared, note 19) and the ADR-074 envelope. Return 404, not 403,
   for items outside the audience, and 403 only for "you can see it but can't change it" and for a non-member on `/community/:id`.
 - [ ] Mount it in `index.ts` **before** the `requestsRouter` block, with the same chain as `/requests/feed`:
   `app.use('/requests/inventory', rateLimiters.standard, authMiddleware, optionalTenantMiddleware, dbContextMiddleware(pool), inventoryRouter)`.
@@ -454,19 +519,21 @@ PR is larger and security-relevant, so run `/code-review` at **high**.
 - [ ] request-service `CONTEXT.md`: the endpoints table, the `inventory` schema, the audience rule, and the mount-order warning.
 - [ ] `services/registry.json`: the request-service `apis.provides` gains the seven inventory routes, and the `inventory` schema is listed where schemas are.
 - [ ] `npm run analyze:services` only if dependencies changed (they shouldn't).
-- [ ] `git mv` only this PR's tdd files to `regression/`. The integration test stays in `integration/`.
+- [ ] `git mv` only this PR's tdd files to `regression/`. The integration test lives in root `tests/integration/` and is not promoted.
 - [ ] **Verify:** `npm run feedback:check` (staged) is clean or justified.
 
 ## Task B9: SDLC quality gates
 
 - [ ] `/simplify` on the PR diff. **Verify:** applied or skipped with reasons.
 - [ ] `/code-review` **high** on the branch diff. **Verify:** correctness findings are resolved. Pay particular attention to any read path that skips `itemAudienceSql`.
-- [ ] `/security-review` on the branch diff. **Verify:** findings are resolved or justified. Explicitly confirm: no claim-based authorization, no existence leak (404s), share validation is live, and the zod bounds hold.
+- [ ] `/security-review` on the branch diff. **Verify:** findings are resolved or justified. Explicitly confirm: no claim-based authorization, no existence leak (404s), share validation is live, the hand-written validation bounds hold, and an unavailable community item is invisible to non-admins.
 
 ## Task B10: Final verification
 
-- [ ] Same commands as A9, plus the integration test in CI: read the `Test Backend Services` log and confirm
-  `sprint-132-inventory-audience` **ran** (not skipped) and passed.
+- [ ] Same commands as A9, plus the integration test in CI. Read the **`Integration Tests`** job log
+  (`ci.yml` `test-integration`, step *Run integration tests*; **not** `Test Backend Services`, which
+  runs only unit and regression) and confirm `sprint-132-inventory-audience.integration.test.ts` is
+  listed, **ran** (not skipped) and passed (note 16).
 
 ## Task B11: PR, merge, deploy, smoke
 
@@ -490,39 +557,53 @@ It changes reachability, so run `/code-review` at **high** and use a fresh non-a
 **Files:**
 - Create: `services/request-service/tests/tdd/sprint-132-directed-audience-gate.test.ts`
 - Create: `services/request-service/tests/tdd/sprint-132-directed-borrow.test.ts`
-- Create: `services/request-service/tests/integration/sprint-132-directed-audience.integration.test.ts`
+- Create: `tests/integration/sprint-132-directed-audience.integration.test.ts`
 - Create: `services/notification-service/tests/tdd/sprint-132-directed-request-notify.test.ts`
 - Create: `apps/frontend/tests/tdd/sprint-132-ask-to-borrow.test.tsx`
+- Create: `services/notification-service/tests/tdd/sprint-132-notification-caller-scope.test.ts`
+- Create: `services/request-service/tests/tdd/sprint-132-match-participant-scope.test.ts`
 
 - [ ] **Gate (live scan).** Walk `services/*/src/**/*.ts` with `fs` (not `git ls-files` with a bare `**`;
   see the `git-pathspec-double-star-needs-glob-magic` gotcha) and collect every SQL string or template
-  containing `help_requests`. Each hit must either contain the `directedAudienceSql(` call / its marker
-  comment, or match an `ALLOWLIST` entry `{file, needle, reason}` whose `needle` still occurs (**a stale
+  containing `help_requests`. Each hit must either contain one of the two marker comments
+  (`/* not-directed */` from `notDirectedSql`, `/* directed-audience */` from `directedAudienceSql`), or match an `ALLOWLIST` entry `{file, needle, reason}` whose `needle` still occurs (**a stale
   allowlist entry fails**). Negative fixture: an in-memory file with an unguarded
   `SELECT … FROM requests.help_requests r WHERE …` must be reported. A count floor is not enough: assert
-  the exact reported file on the fixture.
+  the exact reported file on the fixture. The gate can't see notifications or messages (other tables);
+  the caller-scope tests below cover those.
 - [ ] **Borrow endpoint (tdd, DB boundary mocked).** 201 creates the row with `is_directed=true`, the
   right target, `inventory_item_id`, `request_type='borrow'`, `payload.item_category` = item category,
   and one `request_communities` row; it publishes `directed_request_created` with the exact
   `recipient_user_ids`, and **`request_created` is never published** (assert on the publisher mock).
   400 on your own item, 400 on an `unavailable` item, 404 if the item isn't in your audience **via `community_id`**.
   `POST /requests` with `is_directed`/`directed_to_user_id`/`inventory_item_id` → 400.
-- [ ] **Audience per surface (integration, real DB).** Users R (requester), O (owner), M (third member
-  of the same community), A (admin); a personal item of O shared to C1; R asks to borrow. For **every**
-  surface in the spec's *Surfaces* table: R and O see it (where the surface would show it to them), and
-  M doesn't. `GET /requests/:id` as M → 404. `POST /matches` as M → 403 `NOT_IN_AUDIENCE`, and as O → 201.
+- [ ] **Audience per surface (integration, real DB, ROOT `tests/integration/`, fail-not-skip under `CI`; note 16).**
+  Users R (requester), O (owner), M (third member of the same community), A (admin); a personal item of O
+  shared to C1; R asks to borrow. **Browse surfaces** (spec *Surfaces*, kind = browse): the ask is absent
+  for **R, O and M alike**. In particular, **O's own** `/requests/feed`, `/requests/curated` and
+  `/community/C1/open-asks` don't contain it (note 17). **Private-access surfaces:** R and O reach it
+  (detail, R's own requests, O's Helping inbox *selects* it), and M doesn't. `GET /requests/:id` as M → 404. `POST /matches` as M → 403 `NOT_IN_AUDIENCE`, and as O → 201.
   Complete the match and check that the `match_completed` flow is unchanged (karma recorded as for any match).
   **Fail-closed:** set `directed_to_user_id = NULL`, and M still gets 404 while R still sees it.
   A community item: A sees the ask, and a non-admin member of the owning community doesn't.
 - [ ] **Notification (tdd).** The `directed_request_created` handler inserts notifications for exactly
   `recipient_user_ids` and runs **no** `communities.members` fan-out query.
+- [ ] **Notification caller scope (tdd, BUG-055; note 14).** Through the real router with `authMiddleware`,
+  for each of `GET /:userId`, `GET /:userId/unread-count`, `PUT /:userId/read-all`, `GET/PUT /:userId/preferences`:
+  another user's id in the URL → 403, and the caller's own id → 200. For `PUT /:notificationId/read`
+  and `DELETE /:notificationId`: a body `user_id` naming the notification's owner, sent by a different
+  caller, → 404 (the body is ignored; ownership comes from the JWT). No body `user_id` → works for the owner.
+- [ ] **Match participant scope (tdd, BUG-057; note 14).** `GET /matches` with **no filters** as an
+  unrelated user → only that user's own matches (an exact id set, not a count). `?user_id=<someone else>`
+  → ignored/403, never their rows. `GET /matches/:id` as an unrelated user → 404, and as requester,
+  responder or offerer → 200. For a directed ask's match, an unrelated community member → 404.
 - [ ] **Frontend (tdd).** The Ask-to-borrow button is hidden on your own item and on an unavailable one, and
   shown otherwise. Submit posts the exact body. The request detail shows the "Private request to …" banner when `is_directed`.
 - [ ] **Verify red.**
 
 ## Task C2: Migration
 
-- [ ] `infrastructure/postgres/migrations/2026MMDD-directed-requests.sql` per the spec. Regenerate `init.sql`, run `migration-validator`, and check that the drift gate is green.
+- [ ] `infrastructure/postgres/migrations/2026MMDD-directed-requests.sql` per the spec. Regenerate, review and promote `init.sql` as in Task A2 (note 18), run `migration-validator`, and check that the drift gate is green.
 
 ## Task C3: `directedAudience.ts` + reachability
 
@@ -530,8 +611,9 @@ It changes reachability, so run `/code-review` at **high** and use a fresh non-a
 - Create: `services/request-service/src/db/directedAudience.ts`
 - Modify: `services/request-service/src/db/eligibility.ts`
 
-- [ ] `directedAudienceSql(alias, viewerParam)` returns the spec fragment, beginning with the marker
-  comment `/* directed-audience */` that the gate looks for.
+- [ ] Export **two** fragments (spec rev 1): `notDirectedSql(alias)` → `/* not-directed */ NOT <alias>.is_directed`
+  for **browse** surfaces, and `directedAudienceSql(alias, viewerParam)` → `/* directed-audience */ …` for
+  **private-access** surfaces. The marker comments are what the gate looks for.
 - [ ] `getRequestReachability`: select `is_directed` and the audience boolean. When the request is directed,
   `reachable` equals **audience membership minus the requester** (the requester can't offer on their own
   ask), and none of the community/sister/wide-scope reasons apply. Add `'directed'` to the `reachability` union.
@@ -541,11 +623,29 @@ It changes reachability, so run `/code-review` at **high** and use a fresh non-a
 
 - [ ] Re-run the **untruncated** grep (`grep -rn "help_requests" services/*/src`), and write the full
   classification into the plan's Execution notes (file:line, surface, treatment, reason).
-- [ ] Apply `directedAudienceSql` (or a 404 guard) in request-service surfaces. `GET /requests/:id` checks
-  the audience **before** building the response. Admin actions 404 on directed requests. Dibs excludes them.
+- [ ] Classify each surface as **browse** or **private access** (spec *Surfaces*; if unsure, browse). Apply
+  `notDirectedSql` to browse surfaces (feed, curated, open-asks, pulse, matched, dibs, admin lists) and
+  `directedAudienceSql` to private-access ones. `GET /requests/:id` checks the audience **before** building
+  the response. Admin actions 404 on directed requests. Check whether `GET /requests` doubles as the
+  requester's own list; if it does, only that branch is private access.
 - [ ] `community-service` `stats.ts`/`export.ts`: exclude directed rows from lists. Decide the counts and record the decision in ADR-099.
 - [ ] Fill the gate's `ALLOWLIST` for true non-listings (karma, expiry, retention, paths, message joins), each with a reason.
 - [ ] **Verify:** the gate is green; **inject** an unguarded query into a committed tree, see red, and restore from the byte copy.
+
+## Task C4b: Close the existing read holes (BUG-055, BUG-057) — BEFORE C5 creates any directed ask
+
+**Files:**
+- Modify: `services/notification-service/src/routes/notifications.ts`, `services/request-service/src/routes/matches.ts`
+
+- [ ] Notifications: every `/:userId` route compares `req.params.userId` with the JWT `userId` and returns 403
+  on a mismatch (copy the SSE route's existing check, `notifications.ts:19-35`). `PUT /:notificationId/read`
+  and `DELETE /:notificationId` take the owner from the JWT and **ignore** any body `user_id`. Update
+  `apps/frontend/src/lib/api.ts:648-655` to stop sending `user_id` (harmless if left, but dead).
+- [ ] Matches: `GET /` always constrains rows to the caller as requester, responder or offerer (the JWT
+  `userId`; a query `user_id` that differs is ignored), plus `directedAudienceSql`. `GET /:id` returns 404
+  unless the caller is a participant.
+- [ ] Mark BUG-055 and BUG-057 fixed in `docs/BUGS.md`, with the mechanism and the test names.
+- [ ] **Verify:** the C1 caller-scope and participant-scope tests are green; the notification-service and request-service suites are green.
 
 ## Task C5: Borrow endpoint + event
 
@@ -575,7 +675,6 @@ It changes reachability, so run `/code-review` at **high** and use a fresh non-a
 
 - [ ] The sharing guide gets "Asking to borrow"; `making-requests-guide.md` covers general vs directed borrow; the concept page gets directed requests + fail-closed.
 - [ ] ADR-099: an amendment for PR C (the surfaces classification summary, the stats/export count decision, the event).
-- [ ] Log the pre-existing `GET /requests/:id` breadth (critical note 7) in `docs/BUGS.md` via the `bug` skill, if the maintainer hasn't already.
 - [ ] **Verify:** the doc drift gate is green.
 
 ## Task C9: CONTEXT.md + registry + promotion
@@ -591,12 +690,14 @@ It changes reachability, so run `/code-review` at **high** and use a fresh non-a
 - [ ] `/simplify` on the PR diff. **Verify:** applied or skipped with reasons.
 - [ ] `/code-review` **high** on the branch diff. **Verify:** correctness findings are resolved.
 - [ ] `/security-review` on the branch diff. **Verify:** findings are resolved or justified. Explicitly cover the
+  BUG-055/BUG-057 caller scoping (notifications, match views), browse-vs-private classification, the
   audience predicate on every surface, the fail-closed null target, the event recipients, no title leak, and the `POST /requests` field rejection.
 - [ ] A fresh non-author whole-branch review (maintainer-relayed), because reachability changed.
 
 ## Task C11: Final verification
 
-- [ ] Same as A9. In the CI log, confirm that **both** sprint-132 integration tests ran (not skipped) and passed.
+- [ ] Same as A9. In the **`Integration Tests`** job log (not `Test Backend Services`), confirm that **both**
+  `tests/integration/sprint-132-*.integration.test.ts` files ran (not skipped) and passed (note 16).
 
 ## Task C12: PR, merge, deploy, smoke
 

@@ -75,7 +75,7 @@ PR A skills, PR B inventory catalog, PR C directed borrow. ADR-099.
 | **Item** | A row in `inventory.items`: a thing that can be lent. It has exactly one owner, either a user **or** a community. |
 | **Share** | A row in `inventory.item_shares`: the owner makes a personal item visible to one community they actively belong to. No shares means private. |
 | **Item audience** | The owner; the active members of each community the item is shared with, *while the owner is still an active member of it*; and, for a community-owned item, that community's active members. |
-| **Directed request** | A `help_requests` row with `is_directed = TRUE`. Its audience is the requester plus `directed_to_user_id`, or the active admins of `directed_to_community_id`. It never appears in any feed, list, pulse, export or broadcast notification. |
+| **Directed request** | A `help_requests` row with `is_directed = TRUE`. Its audience is the requester plus `directed_to_user_id`, or the active admins of `directed_to_community_id`. It never appears on any **browse** surface (feed, curated, open-asks, pulse, matched, dibs, admin lists, export, broadcast notification), **not even for its audience**. The audience reaches it only through **private-access** surfaces: detail, own requests, the Helping inbox, match views, its own notifications. |
 
 ---
 
@@ -125,6 +125,17 @@ ON CONFLICT ON CONSTRAINT user_tags_unique DO NOTHING;
 COMMENT ON TABLE auth.user_skills IS 'DEPRECATED Sprint 132 (ADR-099): superseded by auth.user_tags '
   '(tag_type=skill, skill_slug). Kept only so an image rollback still boots; drop in a later sprint.';
 ```
+
+⚠️ **The vocabulary rows must ALSO go into `infrastructure/postgres/seed-data.sql`** (rev 1, after plan
+review). `scripts/regenerate-init-sql.sh` dumps **schema only** (`--schema-only`, `:53`), appends
+`seed-data.sql`, and then writes a ledger marking **every** migration applied (`append_migration_backfill`).
+A fresh database built from `init.sql` would therefore have an empty `auth.skill_vocabulary`, and
+`apply-migrations.sh` would skip the seeding migration because the ledger says it has run. CI's
+full-chain replay (`scripts/ci-apply-full-schema.sh`) re-runs the migration, and that hides the gap.
+The same `INSERT … ON CONFLICT (slug) DO NOTHING` goes in both files. A no-DB regression test asserts
+**exact parity** between the slug/label/synonym sets in the migration and in `seed-data.sql`, and it
+fails if either file drifts. PR A's validation runs the vocabulary check against a database
+initialized from the regenerated `init.sql` **before** any migration replay.
 
 `auth.user_skills` is **not dropped**. A failed deploy rolls back the images but not the database
 (`scripts/deploy.sh`), and the old images still read it.
@@ -194,27 +205,44 @@ narrows to the requester alone. It never widens to the community.
 
 ## Audience predicates (the heart of the sprint)
 
-Both predicates live in **one** module each, as SQL fragments with a bound viewer parameter. Every
+Each predicate lives in **one** module, as SQL fragments with a bound viewer parameter. Every
 read path composes them; no read path writes its own version.
 
-**Item audience** (`services/request-service/src/db/inventoryDb.ts`), for viewer `$v`:
+**Item predicates** (`services/request-service/src/db/inventoryDb.ts`), for viewer `$v`. The *manager*
+predicate is defined separately and composed into the *audience*, so management access never depends
+on availability. (Rev 1, after plan review: the first draft admitted every member to an `unavailable`
+community item.)
 
 ```
+-- itemManagerSql: may see every status and may write
 i.owner_user_id = $v
-OR (i.owner_community_id IS NOT NULL AND EXISTS (active member $v of i.owner_community_id))
-OR (i.owner_user_id IS NOT NULL AND i.status = 'available' AND EXISTS (
-      SELECT 1 FROM inventory.item_shares s
-      JOIN communities.members viewer ON viewer.community_id = s.community_id AND viewer.user_id = $v AND viewer.status = 'active'
-      JOIN communities.members owner  ON owner.community_id  = s.community_id AND owner.user_id  = i.owner_user_id AND owner.status = 'active'
-      WHERE s.item_id = i.id))
+OR (i.owner_community_id IS NOT NULL AND EXISTS (active ADMIN $v of i.owner_community_id))
+
+-- itemAudienceSql: may see (read paths use this)
+<itemManagerSql>
+OR (i.status = 'available' AND (
+      (i.owner_community_id IS NOT NULL AND EXISTS (active member $v of i.owner_community_id))
+   OR (i.owner_user_id IS NOT NULL AND EXISTS (
+        SELECT 1 FROM inventory.item_shares s
+        JOIN communities.members viewer ON viewer.community_id = s.community_id AND viewer.user_id = $v AND viewer.status = 'active'
+        JOIN communities.members owner  ON owner.community_id  = s.community_id AND owner.user_id  = i.owner_user_id AND owner.status = 'active'
+        WHERE s.item_id = i.id))))
 ```
 
-Non-owners only see `available` items (the owner sees every status). Leaving a community silently
+**Only managers see a non-`available` item.** A personal item's manager is its owner; a community
+item's managers are that community's active admins. Ordinary members and outsiders see only
+`available` items, and only through membership or a live share. Leaving a community silently
 withdraws the owner's shares there: they stay in the table and reappear if the owner rejoins.
 
-**Directed-request audience** (`services/request-service/src/db/directedAudience.ts`), for viewer `$v`:
+**Directed requests have two predicates, for two different kinds of surface** (rev 1, after plan
+review: the first draft used one predicate everywhere, which would have put a directed ask on its
+*recipient's* browse feed).
 
 ```
+-- notDirectedSql: BROWSE surfaces (feed, curated, open-asks, pulse, matched, dibs, admin lists, export)
+NOT r.is_directed
+
+-- directedAudienceSql: PRIVATE-ACCESS surfaces (detail, own requests, Helping inbox, match views, offering)
 NOT r.is_directed
 OR r.requester_id = $v
 OR r.directed_to_user_id = $v
@@ -222,6 +250,10 @@ OR (r.directed_to_community_id IS NOT NULL AND EXISTS (
       SELECT 1 FROM communities.members m WHERE m.community_id = r.directed_to_community_id
         AND m.user_id = $v AND m.status = 'active' AND m.role = 'admin'))
 ```
+
+A directed ask is **never on any browse surface, not even for its recipient or requester.** It is
+reachable only through private-access surfaces, and only by its audience. Both fragments live in
+`services/request-service/src/db/directedAudience.ts`.
 
 The JWT `communities` claim is never consulted (CLAUDE.md, *Authorization decisions MUST re-derive
 membership from a live lookup*).
@@ -257,8 +289,13 @@ No nginx change is needed.
 | DELETE | `/requests/inventory/items/:id` | same as PATCH | — | `{ deleted: true }` (hard delete; PR C references it by `SET NULL`) |
 | PUT | `/requests/inventory/items/:id/shares` | owner of a **personal** item | `{ community_ids: string[] }` (replaces the set; `[]` means private) | `{ shared_with }`. 400 if any id isn't a community where the owner is an active member, or if the item is community-owned |
 
-Input validation uses zod, like the existing routes. `name` is 1–120 characters after trimming;
-`description` is at most 2000; `community_ids` holds at most 50 unique UUIDs.
+Input validation is **hand-written, like the existing request-service routes**. (Rev 1: the first
+draft said "zod, like the existing routes", which was false. request-service declares no `zod`
+(`services/request-service/package.json`), and no service imports it directly; shared zod schemas
+reach request-service only as types, e.g. `routes/providers.ts:5`.) Importing zod would need a
+declared dependency plus a lockfile splice, which is dependency work the sprint doesn't need.
+The bounds: `name` is 1–120 characters after trimming, `description` at most 2000, `category` and
+`condition` must be in the enum, and `community_ids` holds at most 50 unique UUIDs.
 
 ### PR C — request-service (+ notification-service)
 
@@ -267,7 +304,9 @@ Input validation uses zod, like the existing routes. `name` is 1–120 character
 | POST | `/requests/inventory/items/:id/borrow` | **New.** Body `{ community_id, duration_days, return_date?, description? }`. The server checks, live, that the item is in the requester's audience **through `community_id`**, that the requester doesn't own it, and that it is `available`. It then creates a `borrow` request with `is_directed=TRUE`, the target (owner user, or `directed_to_community_id` for community items), `inventory_item_id`, a title derived from the item name, `payload.item_category` = item category, and one `request_communities` row for `community_id` (karma/standing attribution stays per community). It publishes **`directed_request_created`**, never `request_created`. |
 | GET | `/requests/:id` | Returns **404** for a directed request when the viewer isn't in its audience. Response gains `is_directed`, `inventory_item_id` and `directed_to` (`{kind:'user'|'community_admins', id, name}`) for audience members. |
 | POST | `/matches` | For a directed request, only an audience member other than the requester may offer. Everyone else gets 403 `NOT_IN_AUDIENCE`, through `getRequestReachability` (`services/request-service/src/db/eligibility.ts`), which gains the directed predicate. |
-| every list/feed/pulse/export | (see *Surfaces* below) | Directed requests are excluded unless the viewer is in the audience. |
+| every browse list/feed/pulse/export | (see *Surfaces* below) | Directed requests are **always** excluded (`notDirectedSql`), for every viewer including the audience. |
+| GET | `/matches`, `/matches/:id` | **Participant-scoped (BUG-057).** Today `GET /matches` has only optional, client-supplied filters (`matches.ts:15-40`, `user_id` spoofable), and `GET /matches/:id` checks only the id (`matches.ts:83-104`). Both return request content and emails. Rows are restricted to matches where the caller (JWT `userId`) is the requester, responder or offerer, **plus** `directedAudienceSql`. A `user_id` query param must equal the caller or it is ignored; `/:id` returns 404 otherwise. The frontend passes only the caller's own id (`CommitmentsTab.tsx:165`, `MyRequestsTab.tsx:61`), so it is unaffected. |
+| ALL | `notification-service` `/notifications/*` user routes | **Caller-scoped (BUG-055).** `GET /:userId`, `/:userId/unread-count`, `PUT /:userId/read-all` and `GET/PUT /:userId/preferences` trust the URL id (`notifications.ts:75,108,163,219,238`). `PUT /:notificationId/read` and `DELETE /:notificationId` trust a **body** `user_id` (`:127,:184`). Every route uses the JWT `userId`: a URL id that differs gets 403 (the same shape as the SSE stream's existing check, `:19-35`), and a body `user_id` is ignored. The frontend passes only the caller's own id (`api.ts:643-655`). Without this, `directed_request_created` would put the ask's title where any logged-in user can read it. |
 | `POST /requests` | — | Rejects client-supplied `is_directed`, `directed_to_*` and `inventory_item_id` with 400, because directed requests come only from the borrow endpoint. |
 
 **Event:** `directed_request_created` `{ request_id, requester_id, recipient_user_ids[], title, inventory_item_id }`
@@ -282,21 +321,30 @@ These are the read paths over `requests.help_requests`, from a grep on 2026-09-3
 re-derive the list with the **untruncated** grep (`grep -rn "help_requests" services/*/src`) and
 classify **every** hit, not trust this table:
 
-| File | Surface | Treatment |
+Each surface is **browse** (`notDirectedSql`: excluded for everyone) or **private access**
+(`directedAudienceSql`: audience only). Treat any surface you're unsure about as browse.
+
+| File | Surface | Kind → treatment |
 |---|---|---|
-| `request-service/src/routes/requests.ts` | `GET /` (:186), `/matched/for-user` (:216), `/curated` (:333), `/community/:id/pulse` (:1484), `/community/:id/open-asks` (:1529), `GET /:id` (:1675) | predicate (or 404 on `/:id`) |
-| `request-service/src/services/feed/feedComposer.ts`, `utils/queryBuilder.ts`, `services/feed/basicFeedRanker.ts` | `/requests/feed` | predicate |
-| `request-service/src/routes/dibs.ts`, `db/dibsDb.ts` | dibs candidates | exclude directed (provider dibs doesn't apply) |
-| `request-service/src/routes/adminActions.ts` | boost / propose-match / triage | 404 on directed requests (admins act on the community feed, and a directed ask isn't on it) |
-| `request-service/src/routes/matches.ts`, `db/offersDb.ts` | offer creation / match views | offer: audience only. Match views are already participant-scoped; verify |
-| `community-service/src/routes/stats.ts`, `routes/export.ts` | community stats / admin export | exclude directed rows from lists; counts may include them (**executor decides, recorded in ADR-099**) |
+| `request-service/src/routes/requests.ts` | `GET /` (:186), `/matched/for-user` (:216), `/curated` (:333), `/community/:id/pulse` (:1484), `/community/:id/open-asks` (:1529) | **browse** → `notDirectedSql`. The executor must check whether `GET /` doubles as the requester's "my requests" list (e.g. a `requester_id` filter). If it does, that filtered branch is private access. |
+| `request-service/src/routes/requests.ts` | `GET /:id` (:1675), `/offered-awaiting` (:1590) | **private access** → 404 / `directedAudienceSql` |
+| `request-service/src/services/feed/feedComposer.ts`, `utils/queryBuilder.ts`, `services/feed/basicFeedRanker.ts` | `/requests/feed` | **browse** |
+| `request-service/src/routes/dibs.ts`, `db/dibsDb.ts` | dibs candidates | **browse** (provider dibs doesn't apply) |
+| `request-service/src/routes/adminActions.ts` | boost / propose-match / triage | **browse** → 404 on directed requests (admins act on the community feed, and a directed ask isn't on it) |
+| `request-service/src/routes/matches.ts`, `db/offersDb.ts` | offer creation, `GET /matches`, `GET /matches/:id` | **private access**. These views are **NOT participant-scoped today** (BUG-057): add participant scoping **and** `directedAudienceSql` (see the API table). Offer creation: audience only, via `getRequestReachability`. |
+| Helping inbox (the query behind `Dashboard → Helping`; the executor identifies it) | the recipient's pending asks | **private access**. It must *select* directed asks targeted at the viewer as well as admit them. |
+| `community-service/src/routes/stats.ts`, `routes/export.ts` | community stats / admin export | **browse**: exclude directed rows from lists. Counts may include them (**executor decides, recorded in ADR-099**). |
 | `notification-service/src/events/subscriber.ts` | `request_created` fan-out | never receives directed requests; new handler for `directed_request_created` |
-| reputation / cleanup / social-graph / messaging / simulation hits | karma, expiry, paths, message joins | classify each hit as *not a listing* or *needs predicate*, with a reason in the gate allowlist |
+| `notification-service/src/routes/notifications.ts` | notification reads/writes | **Not a `help_requests` read, so the scan below can't see it.** It carries the ask's title after PR C, so it must be caller-scoped (BUG-055; see the API table). |
+| reputation / cleanup / social-graph / messaging / simulation hits | karma, expiry, paths, message joins | classify each hit as *not a listing* or *needs a predicate*, with a reason in the gate allowlist |
 
 A **regression gate** (`services/request-service/tests/regression/sprint-132-directed-audience-gate.test.ts`
 after promotion) scans the untruncated set of SQL strings over `requests.help_requests` in `services/*/src`.
-Every hit must either reference the shared predicate or sit in an allowlist entry that carries a
-reason. A negative fixture (a new listing query without the predicate) proves the gate fails.
+Every hit must reference `notDirectedSql` or `directedAudienceSql` (by marker comment) or sit in an
+allowlist entry that carries a reason. A negative fixture (a new listing query with neither predicate)
+proves the gate fails. **The scan only sees `help_requests` SQL.** Data derived from a directed ask
+that lives in another table (notifications, messages) is covered by the per-route authorization
+tests, not by the gate.
 
 ---
 
@@ -383,7 +431,7 @@ Author sources only; never hand-edit `apps/landing/src/data/docs/`. A newly gene
 7. **`GET /requests/:id` 404s a directed request for non-audience viewers *before* building the
    response.** That route currently returns any request, including `requester_email`, to any
    authenticated caller who has the id. That pre-existing breadth for *non-directed* requests is
-   **out of scope**. Log it in `docs/BUGS.md` (the maintainer decides), and don't widen this sprint to fix it.
+   **out of scope**: it is logged as **BUG-056** (the maintainer decides). Don't widen this sprint to fix it.
 8. **Don't drop `auth.user_skills` in PR A.** A failed deploy rolls back the images and not the
    schema, and the old images read that table. Deprecate it with a `COMMENT` and drop it in a later sprint.
 9. **Skill-slug resolution is exact after normalization, not fuzzy.** Normalize with
@@ -411,3 +459,28 @@ Author sources only; never hand-edit `apps/landing/src/data/docs/`. A newly gene
     templates), because a reset that wipes it breaks tag resolution. Verify both with
     `services/simulation-service/tests/regression/sprint-117-reset-safety.test.ts`. Seeding demo items
     is out of scope, and any demo data operation needs its own per-operation authorization.
+
+**Added in rev 1 (plan review relayed by the maintainer, 2026-09-30; each finding verified against the repo):**
+
+14. **Close the existing read holes BEFORE the first directed ask can exist (PR C, BUG-055, BUG-057).**
+    Notification routes trust a URL or body user id (`notification-service/src/routes/notifications.ts:75,108,127,163,184,219,238`),
+    and `GET /matches` / `GET /matches/:id` aren't participant-scoped (`request-service/src/routes/matches.ts:15-40,83-104`).
+    PR C caller-scopes all of them, with cross-user tests for each route: an unrelated viewer, omitted
+    filters, and a spoofed `user_id` in the URL, query or body. The `help_requests` gate can't see these,
+    because notifications live in another table.
+15. **Reference data goes in `seed-data.sql` as well as the migration.** `init.sql` is schema-only
+    plus `seed-data.sql` plus a ledger marking every migration applied, so a migration-only seed is
+    lost on fresh installs. An exact-parity regression test guards it (see *Data Model → PR A*).
+16. **Integration tests live in ROOT `tests/integration/`.** That is the only place CI's
+    *Integration Tests* job looks (`tests/jest.integration.config.js:17` `roots: ['<rootDir>/integration']`,
+    `testMatch: ['**/*.integration.test.ts']`). Workspace `tests/integration/` files are run by no CI job.
+    Under `CI=true` the tests must **fail**, not skip, when the database is unreachable. The executor
+    confirms from the *Integration Tests* job log that the sprint-132 files ran.
+17. **Browse vs private access.** Browse surfaces use `notDirectedSql` and exclude every directed ask
+    for every viewer; private-access surfaces use `directedAudienceSql`. A test proves that the
+    **recipient's own** browse feed does not contain the ask.
+18. **`init.sql` regeneration** needs `REGEN_PG_CONTAINER` (a dedicated, disposable Postgres 15
+    container; `regenerate-init-sql.sh:108-118`) and writes `init.sql.generated` by default (`:15`).
+    Review its diff against `init.sql`, then promote it (copy over `init.sql`) and delete the
+    `.generated` file. Never hand-edit `init.sql`.
+19. **No zod.** request-service validates by hand; follow that style (see *API → PR B*).

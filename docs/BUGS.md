@@ -1483,3 +1483,32 @@ Landing docs are never regenerated in CI or on deploy. `.npmrc` `ignore-scripts=
 This is the same `ignore-scripts` mechanism as BUG-053, which covers `posttest` and the TDD promoter. BUG-054 is the `prebuild` case. For BUG-053: in D7, running the promoter by hand found 5 unrelated green `tdd/` files (auth S129 ×2, reputation S125, request S125 ×2), and they were left unpromoted.
 
 ---
+
+## BUG-055 · [2026-09-30] · open · HIGH
+
+**Notification routes trust a client-supplied user id, so any logged-in user can read and change another user's notifications.** The router is behind `authMiddleware` (`services/notification-service/src/index.ts:72-80`), but no route compares the target user with the JWT:
+
+- `GET /notifications/:userId` (`src/routes/notifications.ts:75`), `GET /:userId/unread-count` (`:108`), `PUT /:userId/read-all` (`:163`) and `GET/PUT /:userId/preferences` (`:219`, `:238`) use the **URL** id.
+- `PUT /:notificationId/read` (`:127`) and `DELETE /:notificationId` (`:184`) use a **body** `user_id`.
+
+The SSE stream in the same file already does the right check (`:19-35`: a URL id that differs from the token gets 403). The frontend always sends the caller's own id (`apps/frontend/src/lib/api.ts:643-655`), so scoping to the JWT breaks no legitimate caller. RLS on `notifications.notifications` does not help, because services connect as the table owner and there is no `FORCE ROW LEVEL SECURITY` in `init.sql`.
+
+Found in the Sprint 132 plan review (2026-09-30). Sprint 132 PR C's `directed_request_created` would put private borrow-ask titles in these rows, so **PR C Task C4b fixes it before any directed ask exists** unless the maintainer schedules it sooner.
+
+---
+
+## BUG-056 · [2026-09-30] · open
+
+**`GET /requests/:id` has no visibility check and returns `requester_email`.** `services/request-service/src/routes/requests.ts:1675-1710` selects the request by id alone (plus `u.email AS requester_email`) for any authenticated caller. `getRequestReachability` runs only to compute `viewer_relation`, and never gates the response. Anyone holding a request id (ids surface in feeds, notifications and links) can read a request outside their communities, including its requester's email. The `community_isolation` RLS policy on `requests.help_requests` (`init.sql:6749`) does not bind the owner connection.
+
+Found in the Sprint 132 planning chat (2026-09-30). Sprint 132 PR C adds a 404 for **directed** requests outside their audience; the general breadth for ordinary requests is **not** fixed there. It needs a maintainer decision on the intended visibility, for example whether to gate the response with `reachable || own || already_offered` and whether to drop `requester_email`.
+
+---
+
+## BUG-057 · [2026-09-30] · open · HIGH
+
+**Match views are not participant-scoped.** `GET /matches` (`services/request-service/src/routes/matches.ts:15-40`) applies only optional, client-supplied filters (`request_id`, `offer_id`, `status`, `user_id`), so a caller with no filters gets everyone's matches, and one with `user_id=<anyone>` gets that person's. `GET /matches/:id` (`:83-104`) checks only the id. Both return request titles and descriptions, and `/:id` also returns `requester_email` and `helper_email`. The frontend only ever passes the caller's own id (`CommitmentsTab.tsx:165`, `MyRequestsTab.tsx:61`).
+
+Found in the Sprint 132 plan review (2026-09-30). **Sprint 132 PR C Task C4b fixes it** (the caller must be requester, responder or offerer), because a directed borrow ask's match would otherwise be readable by anyone. The maintainer may schedule it sooner.
+
+---

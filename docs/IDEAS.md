@@ -786,3 +786,9 @@ D8 (cleanup-service on eslint 10) follow-ups. None is scheduled.
 Individuals and communities should have **inventories**: things they can share. Essentially asset management. We also need to work on the **skills** part.
 
 ---
+
+## [2026-09-30] open-question
+
+Now that Claude accepts `AGENTS.md`, should the framework standardize on `AGENTS.md` as the single source of truth for multiple AI agents (Claude, Codex, Kimi, Antigravity, …) and deprecate `CLAUDE.md`? Today `CLAUDE.md` is the source of truth and `AGENTS.md` bridges into it.
+
+---
