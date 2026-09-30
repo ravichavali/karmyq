@@ -11,17 +11,15 @@ import {
 
 const router = Router();
 
-// BUG-057: a match (and the request/emails it carries) is visible only to its participants: the
-// requester, the responder, or the offerer. Always bound to the JWT caller, never a client-supplied id.
-// Services connect as the table owner, so the RLS policy on requests.matches does not enforce this.
-const PARTICIPANT_PREDICATE = (p: string) => `(r.requester_id = ${p} OR m.responder_id = ${p} OR o.offerer_id = ${p})`;
+// BUG-057: a match (and the request/emails it carries) is visible only to its participants, the
+// requester or the responder, which is the same definition the accept/reject/complete/delete handlers
+// use. Always bound to the JWT caller, never a client-supplied id. Services connect as the table owner,
+// so the RLS policy on requests.matches does not enforce this.
+const PARTICIPANT_PREDICATE = (p: string) => `(r.requester_id = ${p} OR m.responder_id = ${p})`;
 
 // GET /matches - The caller's matches (request_id / offer_id / status narrow further)
-router.get('/', async (req: Request, res: Response) => {
-  const callerId = (req as any).user?.userId as string | undefined;
-  if (!callerId) {
-    return res.status(401).json({ success: false, message: 'Authentication required', error: 'UNAUTHORIZED' });
-  }
+router.get('/', async (req: AuthenticatedRequest, res: Response) => {
+  const callerId = req.user!.userId;
 
   try {
     // `user_id` is accepted for backward compatibility but ignored: the caller is always the subject.
@@ -85,11 +83,8 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // GET /matches/:id - A match the caller participates in (404 otherwise, so existence is not leaked)
-router.get('/:id', async (req: Request, res: Response) => {
-  const callerId = (req as any).user?.userId as string | undefined;
-  if (!callerId) {
-    return res.status(401).json({ success: false, message: 'Authentication required', error: 'UNAUTHORIZED' });
-  }
+router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
+  const callerId = req.user!.userId;
 
   try {
     const { id } = req.params;

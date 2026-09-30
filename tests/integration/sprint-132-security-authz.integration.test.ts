@@ -58,7 +58,7 @@ describe('Sprint 132 PR S: caller and participant scoping (real services)', () =
     pool = new Pool({ connectionString: DATABASE_URL });
     await pool.query('SELECT 1'); // fail loudly, not skip, when the database is unreachable
 
-    [R, H, X] = [await register('s132-requester'), await register('s132-helper'), await register('s132-outsider')];
+    [R, H, X] = await Promise.all([register('s132-requester'), register('s132-helper'), register('s132-outsider')]);
 
     const community = await request(COMMUNITY)
       .post('/communities')
@@ -134,7 +134,7 @@ describe('Sprint 132 PR S: caller and participant scoping (real services)', () =
     expect(res.status).toBe(200);
     expect(res.body.data.matches.map((m: { id: string }) => m.id)).not.toContain(matchId);
     for (const m of res.body.data.matches) {
-      expect([m.requester_id, m.responder_id, m.offerer_id]).toContain(X.id);
+      expect([m.requester_id, m.responder_id]).toContain(X.id);
     }
   });
 
@@ -155,17 +155,27 @@ describe('Sprint 132 PR S: caller and participant scoping (real services)', () =
     }
   });
 
+  it('GET /matches/:id/feedback: the outsider naming a participant in ?user_id → 403; the requester → 200', async () => {
+    const cross = await request(REQUESTS)
+      .get(`/matches/${matchId}/feedback`)
+      .query({ user_id: R.id })
+      .set('Authorization', auth(X));
+    expect(cross.status).toBe(403);
+
+    const own = await request(REQUESTS).get(`/matches/${matchId}/feedback`).set('Authorization', auth(R));
+    expect(own.status).toBe(200);
+  });
+
   // ─── BUG-055: notification routes ───────────────────────────────────────
 
   it.each([
-    ['GET', (id: string) => `/notifications/${id}`],
-    ['GET', (id: string) => `/notifications/${id}/unread-count`],
-    ['GET', (id: string) => `/notifications/${id}/preferences`],
-    ['PUT', (id: string) => `/notifications/${id}/read-all`],
-  ])('%s %s: another user\'s id → 403; own id → 200', async (method, path) => {
+    ['get', (id: string) => `/notifications/${id}`],
+    ['get', (id: string) => `/notifications/${id}/unread-count`],
+    ['get', (id: string) => `/notifications/${id}/preferences`],
+    ['put', (id: string) => `/notifications/${id}/read-all`],
+  ] as const)('%s %s: another user\'s id → 403; own id → 200', async (method, path) => {
     const call = (who: Actor, target: string) =>
-      (method === 'GET' ? request(NOTIFICATIONS).get(path(target)) : request(NOTIFICATIONS).put(path(target)))
-        .set('Authorization', auth(who));
+      request(NOTIFICATIONS)[method](path(target)).set('Authorization', auth(who));
 
     const cross = await call(X, R.id);
     expect(cross.status).toBe(403);

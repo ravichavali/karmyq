@@ -82,7 +82,8 @@ describe('BUG-055: /:userId routes are scoped to the JWT caller', () => {
     const response = await request(app)[method](path(VICTIM)).set('Authorization', bearer()).send({ in_app_enabled: false });
 
     expect(response.status).toBe(403);
-    expect(response.body).toEqual({
+    // The shared sendForbidden envelope (ADR-074); toMatchObject tolerates its optional meta.
+    expect(response.body).toMatchObject({
       success: false,
       message: 'Forbidden: user does not match token user',
       error: 'FORBIDDEN',
@@ -102,31 +103,28 @@ describe('BUG-055: /:userId routes are scoped to the JWT caller', () => {
   });
 });
 
+// Routes addressed by notification id: the owner must come from the JWT.
+const ID_ROUTES = [
+  ['put', `/notifications/${NOTIFICATION}/read`, 'markAsRead'],
+  ['delete', `/notifications/${NOTIFICATION}`, 'deleteNotification'],
+] as const;
+
 describe('BUG-055: notification-id routes take the owner from the JWT, never the body', () => {
-  it.each([
-    ['put', `/notifications/${NOTIFICATION}/read`, 'markAsRead'],
-    ['delete', `/notifications/${NOTIFICATION}`, 'deleteNotification'],
-  ] as const)('%s %s ignores a body user_id naming someone else', async (method, path, helper) => {
+  it.each(ID_ROUTES)('%s %s ignores a body user_id naming someone else', async (method, path, helper) => {
     await request(app)[method](path).set('Authorization', bearer()).send({ user_id: VICTIM });
 
     expect(m[helper]).toHaveBeenCalledTimes(1);
     expect((m[helper] as jest.Mock).mock.calls[0]).toEqual([NOTIFICATION, CALLER]);
   });
 
-  it.each([
-    ['put', `/notifications/${NOTIFICATION}/read`, 'markAsRead'],
-    ['delete', `/notifications/${NOTIFICATION}`, 'deleteNotification'],
-  ] as const)('%s %s works for the owner with no body user_id', async (method, path, helper) => {
+  it.each(ID_ROUTES)('%s %s works for the owner with no body user_id', async (method, path, helper) => {
     const response = await request(app)[method](path).set('Authorization', bearer()).send({});
 
     expect(response.status).toBe(200);
     expect((m[helper] as jest.Mock).mock.calls[0]).toEqual([NOTIFICATION, CALLER]);
   });
 
-  it.each([
-    ['put', `/notifications/${NOTIFICATION}/read`, 'markAsRead'],
-    ['delete', `/notifications/${NOTIFICATION}`, 'deleteNotification'],
-  ] as const)('%s %s → 404 when the notification is not the caller\'s', async (method, path, helper) => {
+  it.each(ID_ROUTES)('%s %s → 404 when the notification is not the caller\'s', async (method, path, helper) => {
     (m[helper] as jest.Mock).mockResolvedValue(null);
 
     const response = await request(app)[method](path).set('Authorization', bearer()).send({ user_id: VICTIM });
