@@ -393,3 +393,16 @@ Confirm that `git push` runs the pre-push suite, and that it is not silent and i
 **Documentation ruling:** update reputation's registry notes with the dependency change as required by CLAUDE.md, despite Task 6's omission. Describe the retry pin as preserving outage behavior; RESP3 and 30 s keepalive are accepted runtime changes.
 
 **Mid-flight security ruling (2026-09-29):** the post-splice full suite failed only because the live npm audit began reporting newly published high advisories after the immediately preceding 27/27 pass: `brace-expansion` (GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p), `engine.io` (GHSA-2gc4-cqfq-p2gv), and `undici` (GHSA-rfgv-xxqx-mfg5, GHSA-w293-vg96-wgc3). Installed versions are 5.0.9, 6.6.8 and 7.29.0; patched compatible releases exist. The ADR-059 gate and high-severity SLA make this a blocking external-state change. D9 therefore carries the smallest surgical override/lock patch for those three packages, with separate registry parity, audit and regression evidence. This is an explicit exception to the original “ioredis plus version only” constraint; no major or direct-dependency scope is added.
+
+**Handover (2026-09-29):** Codex stopped mid-execution (quota) after committing Tasks 1–3 (`4dd923e7`) with Task 4 staged. Claude resumed, re-verified Task 3 independently (its proofs were not recorded), and continued from Task 4.
+
+**Task 3 re-verification (Claude, 2026-09-29, at `4dd923e7`):** strict `npx -y npm@11.19.0 ci` exit 0. Resolution: reputation → `services/reputation-service/node_modules/ioredis` **6.0.0**; bull → hoisted `node_modules/ioredis` **5.11.1**. Reputation `tsc --noEmit` exit 0 (V5). `npm audit --audit-level=high` exit 0. Registry parity versus master `3f504727`'s lock: 7 changed/added nodes, 0 removed, **7/7 ok**. The 4 new nodes (`ioredis` 6.0.0, `@ioredis/commands` 2.0.0, `debug` 4.4.3, `ms` 2.1.3) are all nested under reputation and none is `dev`; the 3 changed nodes are the security pins (`brace-expansion` 5.0.12, `engine.io` 6.6.11, `undici` 7.30.0). Removed lock lines are only the superseded versions plus reputation's old range. The five advisories were confirmed on GitHub: all **high**, all published 2026-09-29, and each pin is at or above every fix floor (brace-expansion 5.0.11, engine.io 6.6.10, undici 7.29.1). The mid-flight security ruling stands.
+
+**Task 4 (`54f7b2c2`):** the pin, plus a gate-teardown fix: case C waits for `end` rather than calling `disconnect()` on a closed socket, which left ioredis's 2 s connector grace timer alive. The gate went 4/4 green.
+
+**Task 5 injections (committed tree, restored from a byte copy, `git status` clean after each):**
+- **I1** (drop `retryStrategy`): only case C goes red, with received delays `[…237, 328, 450, 936…]` (exponential + jitter). This is also the Task 3 Step 6 "C red before the pin" evidence.
+- **I2** (`protocol: 2`): B and D go red (no `HELLO 3`).
+- **I3** (hide the nested `ioredis`): A goes red (`Expected "6"`, `Received "5"`), plus B and D (v5 sends no HELLO).
+
+Restored: 4/4 green. Promoted by `git mv` to `tests/regression/`. The workspace `npm test` is now 18 suites / 288 passed / 3 todo (was 17 / 284), so the gate runs in the blocking tier.
