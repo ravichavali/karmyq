@@ -221,6 +221,7 @@ describe('ioredis 6 cache upgrade gate', () => {
   it('keeps v5 retry delays for a refused loopback connection', async () => {
     const client = loadCache(await freePort()).createCacheClient();
     const delays: number[] = [];
+    const strategy = client.options.retryStrategy!;
     client.on('error', () => { /* refused connection is expected */ });
     try {
       await new Promise<void>((done, reject) => {
@@ -238,10 +239,12 @@ describe('ioredis 6 cache upgrade gate', () => {
       // disconnect() on its already-closed socket leaves
       // ioredis's 2-second connector grace timer alive after Jest reports the test complete.
       client.options.retryStrategy = () => null;
-      // On timeout, afterEach disconnects every tracked client.
-      await within(new Promise<void>(done => client.once('end', () => done())), 2000);
+      // Never mask the test's own failure with a cleanup timeout; afterEach disconnects every tracked client.
+      await within(new Promise<void>(done => client.once('end', () => done())), 2000).catch(() => undefined);
     }
     expect(delays).toEqual([50, 100, 150, 200, 250]);
+    // The cap bounds a long outage; five live samples only cover the linear part.
+    expect([39, 40, 41, 1000].map(times => strategy(times))).toEqual([1950, 2000, 2000, 2000]);
   }, 30000);
 
   it('falls back to RESP2 when HELLO is unsupported', async () => {

@@ -14,8 +14,10 @@ let _redis: Redis | null = null;
 
 /**
  * ioredis 5's default backoff. ioredis 6 changed the default to exponential with jitter
- * (`min(50 * 2^(n-1), 5000) + 0..199 ms`), so with maxRetriesPerRequest 20 a Redis outage would hold each
- * cache command about 73 s instead of about 10.5 s before the DB fallback runs. This pins only the
+ * (`min(50 * 2^(n-1), 5000) + 0..199 ms`). ioredis flushes queued commands only every 21st retry (maxRetriesPerRequest
+ * 20), and the attempt count keeps growing through an outage, so a cache command waits up to one 21-retry window
+ * before the DB fallback runs: about 10.5 s at outage start and up to about 42 s once capped, versus about 73 s
+ * and 107 s under the v6 default. This pins only the
  * outage retry timing; RESP3 and keepAlive retain ioredis 6 defaults. Gate: case C in the D9 regression.
  */
 const V5_RETRY_STRATEGY = (times: number): number => Math.min(times * 50, 2000);

@@ -21,7 +21,11 @@ describe('D9 security override pins', () => {
   ])('%s stays on a patched version in the manifest and lock', (name, floor) => {
     const override = ownVersion(pkg.overrides[name]);
     expect(semver.gte(override, floor)).toBe(true);
-    expect(lock.packages[`node_modules/${name}`]?.version).toBe(override);
+    // Every copy in the lock, not just the hoisted one: a nested vulnerable copy would otherwise pass.
+    const copies = Object.entries(lock.packages as Record<string, { version: string }>)
+      .filter(([path]) => path.endsWith(`node_modules/${name}`))
+      .map(([path, node]) => [path, node.version]);
+    expect(copies).toEqual([[`node_modules/${name}`, override]]);
   });
 
   it('keeps the engine.io ws override alongside its own version', () => {
