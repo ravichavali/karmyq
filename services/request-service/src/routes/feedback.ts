@@ -1,4 +1,5 @@
-import express, { Request, Response } from 'express';
+import express, { Response } from 'express';
+import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
 
@@ -10,19 +11,14 @@ const router = express.Router();
  *
  * Social Karma v2.0: Rate the interaction quality, not the person
  */
-router.post('/:matchId/feedback', async (req: Request, res: Response) => {
+router.post('/:matchId/feedback', async (req: AuthenticatedRequest, res: Response) => {
   const { matchId } = req.params;
-  const { from_user_id, helpfulness, responsiveness, clarity, comment, allow_featuring } = req.body;
+  const { helpfulness, responsiveness, clarity, comment, allow_featuring } = req.body;
+  // BUG-057 (Sprint 132 PR S): the author is the JWT caller. A body `from_user_id` from older clients is
+  // ignored; it used to let anyone submit feedback as either participant.
+  const from_user_id = req.user!.userId;
 
   try {
-    // Validate required fields
-    if (!from_user_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'from_user_id is required',
-      });
-    }
-
     // Validate ratings are 1-5
     if (helpfulness && (helpfulness < 1 || helpfulness > 5)) {
       return res.status(400).json({
@@ -188,18 +184,13 @@ router.post('/:matchId/feedback', async (req: Request, res: Response) => {
  *
  * Only participants can view feedback
  */
-router.get('/:matchId/feedback', async (req: Request, res: Response) => {
+router.get('/:matchId/feedback', async (req: AuthenticatedRequest, res: Response) => {
   const { matchId } = req.params;
-  const { user_id } = req.query;
+  // BUG-057 (Sprint 132 PR S): participation is checked for the JWT caller. A `user_id` query param from
+  // older clients is ignored; it used to let anyone read feedback by naming a participant.
+  const user_id = req.user!.userId;
 
   try {
-    if (!user_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'user_id query parameter is required',
-      });
-    }
-
     // Get match details to verify user is participant
     const matchResult = await query(
       `SELECT m.id, r.requester_id, m.responder_id, m.requester_visible, m.responder_visible

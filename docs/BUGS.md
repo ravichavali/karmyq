@@ -1483,3 +1483,42 @@ Landing docs are never regenerated in CI or on deploy. `.npmrc` `ignore-scripts=
 This is the same `ignore-scripts` mechanism as BUG-053, which covers `posttest` and the TDD promoter. BUG-054 is the `prebuild` case. For BUG-053: in D7, running the promoter by hand found 5 unrelated green `tdd/` files (auth S129 ×2, reputation S125, request S125 ×2), and they were left unpromoted.
 
 ---
+
+## BUG-055 · [2026-09-30] · fix in review (Sprint 132 PR S, `agent/claude/sprint-132-security-authz`; not yet merged or deployed) · **HIGH**
+
+**Notification routes trust a client-supplied user id, so any logged-in user can read and change another user's notifications.** The router is behind `authMiddleware` (`services/notification-service/src/index.ts:72-80`), but no route compares the target user with the JWT:
+
+- `GET /notifications/:userId` (`src/routes/notifications.ts:75`), `GET /:userId/unread-count` (`:108`), `PUT /:userId/read-all` (`:163`) and `GET/PUT /:userId/preferences` (`:219`, `:238`) use the **URL** id.
+- `PUT /:notificationId/read` (`:127`) and `DELETE /:notificationId` (`:184`) use a **body** `user_id`.
+
+The SSE stream in the same file already does the right check (`:19-35`: a URL id that differs from the token gets 403). The frontend always sends the caller's own id (`apps/frontend/src/lib/api.ts:643-655`), so scoping to the JWT breaks no legitimate caller. RLS on `notifications.notifications` does not help, because services connect as the table owner and there is no `FORCE ROW LEVEL SECURITY` in `init.sql`.
+
+Found in the Sprint 132 plan review (2026-09-30). Sprint 132 PR C's `directed_request_created` would put private borrow-ask titles in these rows, so it must be fixed first. **Scheduled (maintainer, 2026-09-30): Sprint 132 PR S**, a standalone security PR ahead of PR A.
+
+**Fix (PR S):** `router.param('userId')` in `services/notification-service/src/routes/notifications.ts` returns 403 `FORBIDDEN` (shared `sendForbidden`) for every `/:userId` route unless the URL id is the JWT caller, and mark-read/delete pass the JWT id to `markAsRead`/`deleteNotification` (whose SQL already requires `user_id = $2`) and ignore the body. No client change: the frontend already sends only the caller's own id. **Proof:** `services/notification-service/tests/regression/sprint-132-notification-caller-scope.test.ts` (real app + real `authMiddleware`; 11 of 16 red against the pre-fix routes, 16/16 after). The guard is a single `router.param('userId')`, so a future `:userId` route cannot skip it and the root `tests/integration/sprint-132-security-authz.integration.test.ts` (real services and Postgres, in CI's *Integration Tests* job).
+
+---
+
+## BUG-056 · [2026-09-30] · open
+
+**`GET /requests/:id` has no visibility check and returns `requester_email`.** `services/request-service/src/routes/requests.ts:1675-1710` selects the request by id alone (plus `u.email AS requester_email`) for any authenticated caller. `getRequestReachability` runs only to compute `viewer_relation`, and never gates the response. Anyone holding a request id (ids surface in feeds, notifications and links) can read a request outside their communities, including its requester's email. The `community_isolation` RLS policy on `requests.help_requests` (`init.sql:6749`) does not bind the owner connection.
+
+Found in the Sprint 132 planning chat (2026-09-30). Sprint 132 PR C adds a 404 for **directed** requests outside their audience; the general breadth for ordinary requests is **not** fixed there. It needs a maintainer decision on the intended visibility, for example whether to gate the response with `reachable || own || already_offered` and whether to drop `requester_email`.
+
+- **Severity: MEDIUM** (proposed by Claude 2026-09-30; the maintainer may override). It is cross-community disclosure of request content plus requester email (PII) to any authenticated user. It is not HIGH because it needs a valid request UUID obtained through a legitimate channel, and PR S closes the two HIGH id-leaking reads (notifications, match views).
+- **Owner:** the maintainer owns the visibility-policy decision; Claude implements once it is decided. It stays **separate** from the PR S authorization fixes.
+- **Deadline: 2026-10-14** (the ≤ 2-week SLA for anything below high): decision plus fix, or a written, dated risk acceptance.
+
+---
+
+## BUG-057 · [2026-09-30] · fix in review (Sprint 132 PR S, `agent/claude/sprint-132-security-authz`; not yet merged or deployed) · **HIGH**
+
+**Match views are not participant-scoped.** `GET /matches` (`services/request-service/src/routes/matches.ts:15-40`) applies only optional, client-supplied filters (`request_id`, `offer_id`, `status`, `user_id`), so a caller with no filters gets everyone's matches, and one with `user_id=<anyone>` gets that person's. `GET /matches/:id` (`:83-104`) checks only the id. Both return request titles and descriptions, and `/:id` also returns `requester_email` and `helper_email`. The frontend only ever passes the caller's own id (`CommitmentsTab.tsx:165`, `MyRequestsTab.tsx:61`).
+
+Found in the Sprint 132 plan review (2026-09-30). **Scheduled (maintainer, 2026-09-30): Sprint 132 PR S**, a standalone security PR ahead of PR A (the caller must be the requester or the responder). PR C later adds the directed-request predicate on top.
+
+**Fix (PR S):** `PARTICIPANT_PREDICATE` in `services/request-service/src/routes/matches.ts` (`r.requester_id = $n OR m.responder_id = $n`, the same definition the accept/reject/complete/delete handlers use; `POST /matches` sets `matches.offer_id` only to an active offer whose `offerer_id` equals the responder (the JWT caller, `src/routes/matches.ts` offer check), so the offerer is always the responder and the predicate needs no offerer term) is bound to the JWT caller on both reads. `GET /` ignores `user_id` (other filters still narrow it), and `/:id` 404s for non-participants. Every in-repo caller already filtered to its own matches: the web `CommitmentsTab`/`MyRequestsTab`/`matches/[id]`, the mobile feed and request detail, and the simulation workflows (`accept-offer`, `complete-match`, `dibs`, `offer`, `submit-feedback`). **Proof:** `services/request-service/tests/regression/sprint-132-match-participant-scope.test.ts` (8 of 10 red against the pre-fix routes, 10/10 after) and the root integration test above (outsider: `/:id` 404, no-filter/spoofed-filter lists empty, feedback 403; requester and helper: exact id).
+
+**Same class, found by the PR S `/simplify` altitude review:** the feedback routes mounted on `/matches` (`services/request-service/src/routes/feedback.ts`) trusted a **query** `user_id` (`GET /matches/:id/feedback`: anyone could read a match's feedback by naming a participant) and a **body** `from_user_id` (`POST`: anyone could author feedback as either participant, although only on completed matches). Both now take the caller from the JWT. The only caller (the simulation's `submitMatchFeedback`) already sent its own id; the web app uses reputation-service's feedback endpoint instead.
+
+---

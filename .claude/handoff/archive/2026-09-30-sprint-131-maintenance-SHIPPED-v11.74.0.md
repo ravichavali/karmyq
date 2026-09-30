@@ -1,0 +1,838 @@
+# Sprint 131 — Maintenance Backlog — Handoff
+
+**Date**: 2026-09-30
+
+> ✅ **D9 SHIPPED v11.73.0 (2026-09-30).** [#284](https://github.com/ravichavali/karmyq/pull/284) was merged as `8103317b` by the maintainer (`--admin`). [CI/CD run 36738469473](https://github.com/ravichavali/karmyq/actions/runs/36738469473): every job succeeded, `DEPLOYMENT SUCCESSFUL`, `✅ All services healthy`, `🎉 Demo Deployment Successful`, no rollback. **API smoke (read-only, as maria.reyes):** login 200, `/api/requests` 200, `/api/conversations` 200, `/api/reputation/karma/:userId` 200. **Demo-host cache proof DONE (2026-09-30, maintainer-authorized, read-only):** the reputation container resolves nested ioredis **6.0.0**, while bull resolves hoisted **5.11.1** (Node v24.21.0), which confirms V7 in the real image. Redis is 7.4.7 standalone. Key `trust_params:<maria>:4bfb42df…` had `TTL` **-2** before the call. Two `effective-params` calls returned 200 (57 ms, then 45 ms), `success: true`, numeric fields. Afterwards `TTL` was **14399**, with the value in the right shape. `CLIENT LIST` shows exactly one reputation connection with `lib-ver=6.0.0 resp=3`, last command `get` (the hit), and every bull connection on `lib-ver=5.11.1 resp=2`. **D9 is fully verified.** #245 is superseded and gets closed with a pointer to #284.
+>
+> 🧭 **Maintainer decision (2026-09-30): stop the upgrade treadmill.** Sprint 131 shipped about 18 maintenance PRs and 0 product changes. Dependency work now needs a **security advisory** or a **feature that requires it**. **Dependabot is security-only** (`open-pull-requests-limit: 0` on both entries; ADR-061 §5 amended; gate `tests/regression/sprint-131-dependabot-security-only.test.ts`; policy in CLAUDE.md, *The dependency lane*). The planned D10–D12 majors (#243 bcryptjs, #281 dotenv 18, #282/#283 motion 13) and the version-update PRs with no advisory (#259, #260, #261, #274, #280) are **closed, not queued**. Maintenance is about a fifth of capacity; **product work is the default next.**
+>
+> 📋 **Security-only PR (branch `agent/claude/sprint-131-dependabot-security-only`, from `8103317b`, v11.74.0):** the Dependabot policy, plus in-place lock fixes for every open Dependabot alert (all medium): fast-uri 4.1.4 → 4.2.1 (#285, alert 166; root override floor `>=4.2.1`), ip-address 10.4.0 → 10.7.2 (#277, alerts 160/161/164/165), moment 2.30.1 → 2.31.0 (#286, alert 163). The lock diff is exactly 9 lines (3 nodes × version/resolved/integrity), because Dependabot's own lock diffs (+3/−81 each) came from a stale base. Strict `npx -y npm@11.19.0 ci` exits 0, `npm audit` shows the three clean, and the policy gate goes red on both real injections (npm limit 10; actions limit removed). #277, #285 and #286 close as superseded on merge. The remaining `npm audit` moderates are one `apps/mobile` chain (`decode-uri-component` ← `query-string` ← `expo-router`, GHSA-vcc3-ghjq-m6fr) with no Dependabot alert and no non-downgrade fix (see IDEAS).
+
+> **No parallel lanes are active.** The pre-push runner lane shipped as #273 (`b976c47a`, v11.70.0, [CI/CD run 36300994495](https://github.com/ravichavali/karmyq/actions/runs/36300994495) green). Its lane file is archived at [`archive/2026-09-27-prepush-test-runner-SHIPPED-v11.70.0.md`](archive/2026-09-27-prepush-test-runner-SHIPPED-v11.70.0.md). Git and PR state (`gh pr list`, `git log origin/master`) outrank anything written here.
+
+> 📋 **D9 PLANNED 2026-09-28: #245 ioredis 5 → 6, reputation-service (runtime; live smoke).** Plan: [`docs/superpowers/plans/2026-09-28-sprint-131-pr-d9-ioredis-6.md`](../../docs/superpowers/plans/2026-09-28-sprint-131-pr-d9-ioredis-6.md). Branch `agent/claude/sprint-131-d9-ioredis-6`, cut from `origin/agent/claude/sprint-131-d8-closeout` (`974dd421` = master `3f504727` + D8 close-out), so the close-out rides in the D9 PR. Target **v11.73.0**. Dependency lane: Claude. **Execute in a fresh chat.**
+> - **Goal:** reputation-service's effective-params cache runs on ioredis 6 while bull stays on 5. v5's retry backoff is pinned, a real-client gate proves the wire behavior, and a live smoke proves Redis (not the DB fallback) serves the cache.
+> - **Maintainer decisions (2026-09-28, planning chat):**
+>   1. **"Reputation only":** nested ioredis 6, spliced in place. Root `^5.11.1` and bull's hoisted 5.11.1 stay. One `DIVERGENCE_ALLOWLIST` entry. #245 also moves root, so this PR supersedes it.
+>   2. **"Loopback RESP server":** the real client runs against an in-test server, with cases A (resolution split), B (exact wire sequence incl. `HELLO 3`), C (exact backoff delays) and D (RESP2 fallback), plus injections I1–I3.
+>   3. **"API + read-only Redis TTL":** the standard smoke plus timed `effective-params`. Then, **on separate per-operation authorization**, read-only `TTL` (-2 → ~14400), `CLIENT LIST` `resp=3`, `INFO`, and a container module-resolution check.
+>   4. **"Pin v5 behavior":** explicit `retryStrategy: min(n*50, 2000)`. ioredis 6's default (exponential + jitter, cap 5 s) would take a Redis outage from ~10.5 s to ~73 s per cache command (arithmetic; the gate measures delays). RESP3 and `keepAlive: 30000` are **accepted** deltas.
+> - **Critical implementation notes (verbatim from the plan):**
+>   1. **#245's green CI is not evidence for the cache client (V1, V3).** Every unit and regression test mocks the cache module, and the cache swallows errors. Cite the gate, the image simulation and the live `TTL`/`CLIENT LIST`, never a green check.
+>   2. **Only reputation moves.** Do not take #245's root edit or its `node_modules/bull/node_modules/*` nodes. Root stays `^5.11.1`, and bull resolves the hoisted 5.11.1. Case A pins both halves.
+>   3. **Pin v5's retry strategy explicitly, through the factory the gate uses.** `Math.min(times * 50, 2000)`, byte-identical to v5's default (V4). Asserting the function's values alone is not enough. Case C observes the `reconnecting` delays **of a client built by `createCacheClient`**, so it fails if the option is not passed.
+>   4. **Accepted v6 deltas are RESP3 and `keepAlive: 30000`.** They are documented in CONTEXT.md. Do not pin `protocol: 2`: injection I2 shows that case B detects exactly that.
+>   5. **Splice the COMPLETE subtree, relocated under reputation-service (the D8 lesson).** Never filter the candidate by prefix. Build from a byte copy of the base lock. **`npm ci` exit 0 is not evidence of a working tree.** Prove it by loading ioredis 6 from reputation's directory, `tsc --noEmit`, lock-only and installed `npm ls` diffs, a node diff with registry parity, an idempotent re-resolve, **and the Dockerfile install simulation (V7).**
+>   6. **The gate talks only to `127.0.0.1` on an ephemeral port.** It opens no external connection, and it sends and receives only constant data.
+>   7. **Gate cases must be able to fail.** Run I1–I3 on a committed tree, each restored from a byte copy.
+>   8. **The smoke writes nothing beyond the one SETEX any user request makes (V9).** Every demo-host command is read-only and needs its own maintainer authorization. Never print a secret: if Redis needs AUTH, use `REDISCLI_AUTH` from the container env without echoing it.
+> - **New risk versus D8:** the nested tree is **runtime**, and the image installs with `npm install --omit=dev` over a pruned workspace set (`Dockerfile:44-54`), not `npm ci`. Whether that honors the nested node is UNVERIFIED. The plan simulates the exact install (Task 3 Step 5) and checks inside the deployed container (Task 10).
+> - **Post-merge:** #245 will not auto-close, because it also targets root. Ask the maintainer before closing it.
+>
+> ✅ **D8 SHIPPED v11.72.0 on 2026-09-28.** [PR #276](https://github.com/ravichavali/karmyq/pull/276) was squash-merged as `3f504727` at 2026-09-28T21:09:52Z; the maintainer ran `--admin`. [CI/CD run 36484238149](https://github.com/ravichavali/karmyq/actions/runs/36484238149): every job success, `DEPLOYMENT SUCCESSFUL`, `✅ All services healthy`, `🎉 Demo Deployment Successful`, no rollback. Read-only smoke on karmyq.com as maria.reyes: `POST /api/auth/login` 200, `/api/requests` 200, `/api/conversations` 200, `/api/reputation/karma/:userId` 200. Dependabot closed #244 itself. cleanup-service alone runs eslint 10.11.0 and `@eslint/js` 10.0.1; root and the apps stay on 9.39.5. The new gate `services/cleanup-service/tests/regression/sprint-131-eslint-10.test.ts` is the only lint check that can fail. `tests/regression/sprint-131-workspace-declarations.test.ts` `DIVERGENCE_ALLOWLIST` carries the cleanup `eslint@^10.11.0` entry, which must be removed once root moves to 10. Follow-ups: `docs/IDEAS.md` [2026-09-28] tooling. **Next: D9, #245 ioredis 5 → 6 (reputation-service, runtime; needs a live smoke). It needs a planning chat first.** Dependency lane: Claude.
+> - **Goal:** cleanup-service on `eslint` **and** `@eslint/js` 10 as a pair (**supersedes #244**), fix the one lint error the new `recommended` rules raise, and add the first gate that fails when cleanup-service lint breaks.
+> - **Maintainer decisions (2026-09-28, planning chat):** (1) "Pair in cleanup". Only `services/cleanup-service` moves; root, frontend, landing and mobile stay on eslint 9 (nested eslint 10 tree, spliced in place). (2) "Regression test". A workspace gate proven by mutation. Making CI lint blocking repo-wide is out of scope, so it goes to IDEAS.
+> - **Why #244 cannot be taken as-is (verified 2026-09-28):**
+>   - It leaves `@eslint/js@10`, which peers `eslint ^10` (optional), on the hoisted `eslint@9.39.5`.
+>   - It **breaks lint**: `@eslint/js` 10's `recommended` adds `no-unassigned-vars`, `no-useless-assignment` and `preserve-caught-error`. `no-useless-assignment` errors at `src/jobs/expirationJob.ts:153` (`let batchDeleted = 0;`, overwritten in the `do` body). Real eslint 10.11.0 gives the same single error (9 files, 0 warnings); today's eslint 9 lint exits 0.
+>   - #244's CI is green only because **CI's lint step cannot fail** (`ci.yml:78` `|| echo …continuing`; `test.yml:62,103` likewise).
+> - **Critical implementation notes (verbatim from the plan):**
+>   1. **#244's CI is green because lint cannot fail in CI (V2).** Never cite a green PR check as lint evidence. Cite the Task 2 gate and a direct `npx eslint src` exit code.
+>   2. **Bump the pair.** `@eslint/js` alone leaves an unmet (optional) peer on the hoisted eslint 9 (V1). Case A pins that the two majors match.
+>   3. **Splice the COMPLETE transitive tree, relocated under cleanup-service (V6, rev 1).** Never filter the candidate by prefix: 13 of its 32 new nodes are hoisted to the root, and dropping them yields a lock that passes `npm ci` but whose eslint cannot load (`Cannot find module 'cacheable'`). Relocate root-level additions to the same relative path under `services/cleanup-service/`, and nest `@keyv/bigmap` under `@cacheable/memory` (its non-optional peer `keyv ^5.6.0` otherwise resolves the root `keyv@4.5.4`). Build from a byte copy of the base lock, never the candidate. **`npm ci` exit 0 is not evidence of a working tree.** Prove it by running eslint from a full install, with lock-only and installed `npm ls` diffs, node diff + registry parity, and an idempotent re-resolve.
+>   4. **The fix is a declaration change, not a logic change.** `let batchDeleted: number;` compiles because TypeScript knows a `do` body runs before its `while` condition (probed 2026-09-28: strict tsc exit 0; a read-before-assign negative control fails TS2454). Do not restructure the loop. Task 2's unit pin must pass unchanged before and after.
+>   5. **Gate cases must be able to fail.** Each case gets an injection that turns it red (I1–I3), each on a committed tree, each restored from a byte copy.
+>   6. **Promote only this PR's tdd file.** The promoter does not auto-run (BUG-053), and running it by hand sweeps five unrelated files.
+>   7. **The live smoke is the standard post-deploy one.** Nothing in the running system changes, and the four-endpoint smoke only confirms the deploy did no harm.
+> - **Plan revision 1 (2026-09-28, plan review relayed by the maintainer):** P1 (the splice dropped 13 root-hoisted transitive nodes, so eslint could not load) and P2 (case A asserted a peer field that `@eslint/js@9.39.5` lacks) were both CONFIRMED and fixed in the plan. Verifying P1 also found npm's own `@keyv/bigmap` → `keyv@4.5.4` invalid peer. The reference `splice.js`/`lsnorm.js` are embedded in Task 3 and were run end to end (full `npm ci`, eslint 10 `--version`/`--cache`, `npm ls` unchanged, idempotent).
+> - **Re-review of rev 1 (2026-09-28, relayed by the maintainer): CLEARED, no further blocking findings.** The reviewer verified independently in a temporary copy: the splice keeps all 32 new nodes under cleanup-service, full `npm ci` succeeds, eslint reports `v10.11.0`, cached lint shows only the expected `batchDeleted` error, `bigmap` resolves `keyv@5.6.0`, a re-resolve leaves the lock unchanged, and revised case A passes 9/9 and rejects a simulated 9/10 mismatch. The reviewer also confirmed `757aad16` is on the remote. **Execution gates that are still open:** Linux CI (`npm ci` on ubuntu) and the Docker build. A Windows run cannot prove either.
+> - Also fixed in this planning commit: the D8+ table's D10 row had been corrupted. A `String.replace` treated `` $` `` in `$2a$`/`$2b$` as "text before match" and pasted the handoff head in twice. It is now a clean row.
+>
+> ✅ **D7 (next 16) SHIPPED v11.71.0.** [#275](https://github.com/ravichavali/karmyq/pull/275) merged as `de01c53e` (2026-09-28, squash admin merge on explicit maintainer authorization after a second independent review; supersedes #246, which closed on merge).
+> - **Deploy:** [CI/CD run 36370510230](https://github.com/ravichavali/karmyq/actions/runs/36370510230) — every job success, all 9 services healthy, `🎉 Demo Deployment Successful`, no rollback. Deploy log: `Landing page built and deployed` + `docs verified` (the host build did not merely warn).
+> - **Smoke (2026-09-28, Playwright, one login as maria.reyes, read-only):**
+>   - karmyq.com: `window.next.version` **16.3.6**; `/login` `cache-control: public, max-age=300, must-revalidate`; login → `/dashboard` feed renders.
+>   - Communities index (18 links) → client-side `next/link` into "Southeast PDX Helpers" (window sentinel kept; reload control cleared it); community page, `/open-asks` and a `/requests/<id>` page render.
+>   - **Messaging NOT covered:** `GET /api/conversations` → `{"success":true,"data":[]}`, so the existing-match set was empty. The Helping tab shows 28 expand buttons, and none was expanded. The guard aborted nothing, no write was attempted, and the recorder holds no `join_conversation`/`mark_as_read`/`send_message`.
+>   - Only failed first-party calls: `GET /api/communities/<id>/config` 404 ×3, the documented expected absence (BUG-045, `apps/frontend/CONTEXT.md`). There were no hydration or React errors.
+>   - karmyq.org: `next.version` **16.3.6** on `/`, `/docs/`, and a concept page; **Fraunces + Inter load**; 0 segment-prefetch 404s; no errors. The docs stamp still reads `8777c5dd` (BUG-054). The version check proves the 15→16 host build only, not exact-commit or docs freshness.
+> - **Follow-ups** are in `docs/IDEAS.md` [2026-09-28].
+>
+> 📋 **Maintainer decision (2026-09-28): the queued Dependabot majors become D8+.** One major per PR, and each gets its own focused plan (a planning chat), then a fresh execution chat, as with D4–D7. The dependency lane stays Claude's. **Recommended order**, from triage on 2026-09-28 against `de01c53e`, smallest blast radius first:
+>
+> | D | PR | Scope | CI at triage |
+> |---|---|---|---|
+> | D8 | #244 @eslint/js 9 → 10 | dev-only, `services/cleanup-service` | **SHIPPED v11.72.0** (#276, `3f504727`) |
+> | D9 | #245 ioredis 5 → 6 | runtime, `services/reputation-service` (Redis client); needs a live smoke | green |
+> | D10 | #243 bcryptjs (major) + @types | **auth** (`services/auth-service`, simulation): prove existing stored `$2a$`/`$2b$` hashes still verify, and that new hashes interoperate | green |
+> | D11 | #265 dotenv 17 → 18 | 8 services + `tests`; read the `dotenv-config-must-pass-quiet` gotcha first | green |
+> | D12 | #263 motion 12 → 13 | `apps/landing` | **red:** `sprint-131-workspace-declarations` ("each workspace's lockfile node mirrors its manifest"). Dependabot's lock splice for landing is incomplete (see the apps/* half-resolution memory) |
+>
+> **Not a major:** #274, the dev-deps group (12 patch/minor updates, incl. turbo 2.10 → 2.11), is **red** on `sprint-124-registry-independence` ("the shipped Expo registry clears only Expo drift…"). It needs its own triage, which can be slotted anywhere; the maintainer decides. The order above is a recommendation, and the maintainer may reorder it. **D8 shipped v11.72.0 (#276). Next: plan D9 (#245) in a planning chat.**
+>
+> 📜 **D7 execution record (kept; state as of 2026-09-27, before the merge):** PR #275 CI green at `a1e65320` (v11.71.0). CI: 20 pass, 1 skipping (Deploy). `Test Backend Services` ran **27/27 successful, 0 cached**, which matches the dry-run inventory; #246 ran only 12 of 25. `Build Landing Page` built with `Next.js 16.3.6 (webpack)`, and its CSS guard ran 10/10 rather than skipping. In `Test Docker Build` the frontend image built with webpack, and every runner COPY succeeded. The version was bumped from `origin/master` `b976c47a` (11.70.0 → 11.71.0, 3 lines, strict `npm ci` 0). **Next: merge authorization, then `gh pr merge 275 --squash --admin`, deploy verify, and the smoke (plan Task 9 Steps 3–5).** All eight code/docs tasks are committed (cherry-picked `f43e036c` … `46ce4c91`). Tasks 1–8 are done. Task 9 (PR, merge, deploy, smoke) is outstanding, and **merge needs explicit per-PR authorization**.
+> - **Findings the plan did not predict (each ruled and evidenced in the plan's Execution notes and the PR body):**
+>   - **Turbopack (16's default) silently drops the remote Google Fonts `@import url(...)`** from both apps' CSS. The build does not reference `fonts.googleapis.com`, and no web font loads (Playwright: `document.fonts` empty; live loads Fraunces with Hanken Grotesk / Inter). **Both apps now build with `next build --webpack`**, which reverses the plan's M5. It is pinned by `tests/regression/landing-production-css.test.ts` ("next build bundler"), whose CSS finder now also reads `static/chunks`. Result on the webpack build: 0 computed-style or box diffs versus live on `/login` (20 elements) and landing `/` (131 elements). **Follow-up:** move fonts to `next/font` or a `<link>` so both apps can return to Turbopack.
+>   - **BUG-054:** `.npmrc` `ignore-scripts=true` also suppresses `prebuild`/`posttest`. As a result, landing's `generate-docs` never runs in CI or on deploy (karmyq.org/docs has shown `8777c5dd` since 2026-08-07). The promoter not running is BUG-053. **The smoke's landing-freshness check is therefore `window.next.version === '16.3.6'` on karmyq.org plus zero 404 `__next.*.txt` prefetches, not the sha.**
+>   - The Windows-only static export writes segment prefetch files nested (`path.relative` backslashes). Linux, meaning CI and the demo host, is unaffected.
+>   - **Code review:** the `@swc/helpers` override was unguarded against drift. Fixed by `tests/regression/sprint-131-swc-helpers-pin.test.ts`, which goes red when mutated to 0.5.15.
+> - **Validation at `46ce4c91` (local):**
+>   - `npx -y npm@11.19.0 ci` exits 0, and the `npm ls --all` error set is identical to master (4 pre-existing).
+>   - The forced run, `turbo run test --force` with the Jest cache cleared, gave **27/27 successful, 0 cached**; the dry-run inventory also listed 27 runnable.
+>   - `tsc --noEmit` is clean in both apps; landing passes for the first time.
+>   - Scope-test mutations M-a to M-d go red, and a root-names swap turns M-d green. M-e goes red at suite level (ruling).
+>   - The runner COPY check is 4/4, and its negative control fails.
+>   - Local Playwright on the standalone layout and the landing export: `next.version` 16.3.6, the headers contract, client navigation (sentinel plus reload control), `/404`, no hook/hydration errors, no `500.html`, and fonts load.
+>   - The socket recorder and creation guard were preflighted over both transports.
+> - **Gates:** `/simplify` applied 4 edits and skipped 3, with reasons. `/code-review` medium had 1 finding, fixed. `/security-review` found nothing.
+> - **Fresh whole-branch reviewer: done.** An independent review through `46ce4c91`, relayed by the maintainer 2026-09-27, found no code or security regressions; its one P2 finding (this handoff) is fixed. It independently ran 486 tests and both type-checks, and verified the Cache-Control headers and registry-only lock URLs.
+> - **CI done at `f10f09f8`** ([CI/CD Pipeline 36355372557](https://github.com/ravichavali/karmyq/actions/runs/36355372557), Tests 36355372563, PR Contract 36355372620; the same result at `a1e65320` and `50ff853a`): 20 pass, 1 skipping (Deploy).
+>   - `Test Docker Build`: the frontend image built with webpack, and every runner COPY succeeded.
+>   - `Build Landing Page`: `Next.js 16.3.6 (webpack)`; the CSS guard ran 10/10 (not skipped).
+>   - Backend: 27/27, 0 cached.
+> - **Still outstanding:** the post-deploy smoke (plan Task 9 Step 5, using the Execution-notes instrumentation verbatim). Its framework-version landing check proves the 15→16 host build only. It does **not** establish exact-commit or docs freshness (BUG-054).
+>
+> 📋 **D7 plan record (2026-09-27).** Plan: [`docs/superpowers/plans/2026-09-27-sprint-131-pr-d7-next-16.md`](../../docs/superpowers/plans/2026-09-27-sprint-131-pr-d7-next-16.md). Branch: `agent/claude/sprint-131-d7-next`, cut from `b976c47a` (v11.70.0). **Dependency lane: Claude**, designated explicitly by the maintainer on 2026-09-27 after D6 shipped ("Claude owns the dependency lane").
+> - **Maintainer decisions (2026-09-27):** landing's test type errors are fixed by excluding `tests/**` in `apps/landing/tsconfig.json`. Runtime proof is local build + Playwright, plus a post-deploy authenticated smoke. Scope is next 16 only.
+> - **#246 (head `fdc8692d`) is red in two jobs, and both reds are traced to next 16.3.6 source:**
+>   - **M1:** `next build` now type-checks with plain `tsc --project` (`useTypeScriptCli: true` by default). That drops 15's `*.test.*` filter, so landing's `tests/**` fail under `target: es5`.
+>   - **M2:** standalone output no longer contains the root `package.json`. The COPY at `apps/frontend/Dockerfile:80` fails, but it was already dead, because line 82 overwrites it.
+> - **Also in scope:**
+>   - Remove the `eslint`/`swcMinify` config keys.
+>   - Adopt 16's forced tsconfig `jsx: react-jsx` rewrite.
+>   - Verify landing's `/404` under Turbopack, now the default bundler.
+>   - Move the root override `@swc/helpers` from `0.5.15` to **`0.5.23`**, next 16's exact pin (ADR-059 note 4).
+> - ⚠️ **`scripts/deploy.sh:169-190` builds landing on the demo host and only warns on failure.** The smoke must see the merge sha on `karmyq.org/docs/`.
+> - **Open at execution start (RESOLVED 2026-09-27):** the fresh whole-branch review was supplied by an independent reviewer that the maintainer relayed; see the IMPLEMENTED banner above.
+> - **Plan revision 2 (2026-09-27), after plan review.** Five findings and one process correction were each verified; the plan header records the evidence.
+>   - The scope test builds the **whole TS program**, not root names (an imported excluded test was missed).
+>   - The full proof derives the Turbo inventory (27 runnable, 26 were cache hits) and runs `--force` with the Jest caches cleared.
+>   - Client-side navigation is proven by a window sentinel with a reload control.
+>   - The smoke covers the community pages and the real messaging path (`/dashboard?tab=helping`, expand a conversation), and records websocket frames. `mark_as_read` is unreachable and has no server handler.
+>   - `/500` is corrected: landing is App Router only, so no `500.html` exists.
+>   - Scope tests start in `tests/tdd/`.
+> - **Plan revision 3 (2026-09-27), review round 2.**
+>   - Expanding a chat hits `GET /api/match/<id>` → `getOrCreateConversation`, which can INSERT. The smoke now expands only matches listed by `GET /api/conversations`, behind a `page.route` guard that aborts anything else and every messaging write.
+>   - The socket recorder covers websocket **and** long-poll, and is preflighted locally (Task 5 Step 7); the smoke must observe a `join_conversation`.
+>   - Task 3's red lists 6 files. The reviewer cleared Task 1 to start.
+
+> ✅ **D6 (zod #264) SHIPPED v11.69.0.** [#272](https://github.com/ravichavali/karmyq/pull/272) merged as `01ed6cb9` (2026-09-26T22:59:26Z, squash admin merge run by the maintainer after the permission classifier refused Claude's attempt; merge authorized by the maintainer: "merge #272"). [CI/CD run 36278020707](https://github.com/ravichavali/karmyq/actions/runs/36278020707): every job success, "✅ All services healthy", `DEPLOYMENT SUCCESSFUL`, no rollback. **Smoke (2026-09-26, one login as maria.reyes, per the D6 plan Step 6):** login 200; `GET /api/reputation/me/community-summary?community_id=<her first JWT community>` 200, `success: true`, `data.scope.community_id` equal to the query; relationship context **200** for request `52743b08` / match `07fdeb8e` (completed; her only accepted/completed pair as requester), `success: true`, `counterpart.id` equal to the match responder, data carrying `viewer, counterpart, request, path, networks, links, summary`; `/api/requests`, `/api/conversations`, `/api/reputation/karma/:userId` all 200. **#264 closed** 2026-09-26T22:59:28Z. Follow-ups captured in `docs/IDEAS.md` [2026-09-26] architecture. The D6 banner that follows is kept as the execution record.
+
+> ✅ **#268 SHIPPED v11.68.0** — [#271](https://github.com/ravichavali/karmyq/pull/271) merged as `8fafed02` (2026-09-24T20:26:53Z, squash admin merge on explicit maintainer authorization "yes", at head `6d05332d` with CI 20 pass / 1 skipping). [CI/CD run 36054927703](https://github.com/ravichavali/karmyq/actions/runs/36054927703): every job success, all 9 services healthy, `DEPLOYMENT SUCCESSFUL`, `🎉 Demo Deployment Successful`, no rollback. **Smoke (2026-09-24, one login):** login 200, `/api/requests`, `/api/conversations`, `/api/reputation/karma/:userId` all 200. The change is `apps/mobile`-only, so the demo deploy does not exercise it; the live proof is `scripts/expo-divergences.js` exit 0 at merge time. **#268 is still OPEN** — it closes on the next scheduled `expo-sdk-drift.yml` run (or a `workflow_dispatch`, if the maintainer approves one). **Next: D6 (zod #264) on this branch — plan first, re-confirm the dependency lane.**
+
+> 📜 **D6 (zod #264) execution record (2026-09-24; merged 2026-09-26, see the SHIPPED line above).** The head is `57b0593e` plus this doc fix, at v11.69.0. CI at `57b0593e` was 20 pass / 1 skipping, and `Test Backend Services` reported 27/27 tasks.
+> - `z.guid()` keeps zod 3's id semantics, with no id-fixture edits.
+> - The **I1–I6** deltas are pinned. I1–I5 are runtime changes, pinned two-sided. **I6** is type-level: under `strict: false`, zod 3 made every `z.infer` key optional. PR CI caught it, because the local run was false-green on a stale ts-jest cache. It was fixed with the **one** fixture edit it needed (`curated-feed.test.ts` `location_type`).
+> - The fresh Opus review and the maintainer review (2026-09-24, at `57b0593e`) found no blocking defects.
+>
+> Details are in the D5–D7 row, and the next step is in the next-action paragraph.
+
+> ✅ **BUG-051 SHIPPED v11.65.0** — [#258](https://github.com/ravichavali/karmyq/pull/258) merged as
+> `8fbbeb5f` (2026-09-23T13:44:35Z, admin merge on explicit maintainer authorization).
+> [CI/CD run 35869203355](https://github.com/ravichavali/karmyq/actions/runs/35869203355): every job
+> success, all 9 services healthy, `DEPLOYMENT SUCCESSFUL`, no rollback. **Smoke 11/11 live:** login,
+> `/api/requests`, `/api/conversations`, `/api/reputation/karma/:userId` all 200; anonymous, wrong-secret
+> and JWT-only `POST /api/notifications/push/send` all **403 `FORBIDDEN`**; authenticated notification
+> list / unread-count / preferences all 200; anonymous notification read 401. Full table in
+> `docs/BUGS.md` BUG-051. **Next: D4 (expo-server-sdk #230) on this branch.**
+> **Read the "BUG-051 — SHIPPED" block below before touching notification-service**: fixing it
+> surfaced a second, more dangerous defect that is easy to reintroduce.
+
+> ✅ **D4 SHIPPED v11.66.0.** [#267](https://github.com/ravichavali/karmyq/pull/267) merged as `fb9d26b6`
+> (2026-09-23T20:49:07Z). It was a squash admin merge at head `9f755893`, on explicit maintainer authorization,
+> bypassing the review requirement.
+> - **Deploy:** [CI/CD run 35918478906](https://github.com/ravichavali/karmyq/actions/runs/35918478906) — every
+>   job success, all 9 services healthy, `DEPLOYMENT SUCCESSFUL`, no rollback.
+> - **Smoke 11/11 live.** Every `/push/send` probe carried an empty body, so nothing could be sent.
+>   - login, `/api/requests`, `/api/conversations` and `/api/reputation/karma/:userId` → 200;
+>   - authenticated notification list, unread-count and preferences → 200;
+>   - anonymous notification read → 401;
+>   - anonymous, wrong-secret and JWT-only `POST /api/notifications/push/send` → 403 `FORBIDDEN`.
+> - **Read-only container check** (authorized): `docker exec -i karmyq-notification-service node -`, on the
+>   container this deploy created at 21:08:22 UTC.
+>   - Node v24.21.0; `expo-server-sdk` **7.2.0** loads through `require()`, and `__esModule` is true.
+>   - The named `Expo` export is the class (the same object as the default); `isExpoPushToken` and the
+>     client's methods work.
+>   - Nothing was sent.
+> - **#230** was closed by Dependabot at 20:51:15Z.
+> - **Plan and execution record:**
+>   [`docs/superpowers/plans/2026-09-23-sprint-131-pr-d4-expo-server-sdk.md`](../../docs/superpowers/plans/2026-09-23-sprint-131-pr-d4-expo-server-sdk.md)
+>   (see its Execution notes).
+>
+> ✅ **D5 SHIPPED v11.67.0** — [#269](https://github.com/ravichavali/karmyq/pull/269) merged as `32588ae9` (2026-09-24T17:59:57Z, squash admin merge on explicit maintainer authorization "merge #269", at head `a083e366`). [CI/CD run 36038174514](https://github.com/ravichavali/karmyq/actions/runs/36038174514): every job success, all 9 services healthy incl. geocoding, `🎉 Demo Deployment Successful`. **Live smoke (2026-09-24, one login):** login 200 (RateLimit-Remaining 9), `/api/requests`, `/api/conversations`, `/api/reputation/karma/:userId` all 200; **`GET /api/geocoding/search?q=Klamath Falls Main Street` → 200, `source: "nominatim"`, 2 results** ("Main Street, Klamath Falls, Klamath County, Oregon…") — the built-in `fetch` path works against live Nominatim (one cache row written, as any user search would). **#225 closed by Dependabot** at 18:02:14Z. **Next: #268 (Expo SDK drift) on `agent/claude/sprint-131-expo-drift-268`, then D6 (zod #264).**
+
+**Outcome**: PR A **shipped v11.56.0** ([#249](https://github.com/ravichavali/karmyq/pull/249), `d35a3fad`). PR B **shipped v11.57.0** —
+[#250](https://github.com/ravichavali/karmyq/pull/250) merged as `d2edb286` (2026-09-17T13:00:59Z, admin merge on explicit
+maintainer authorization), deployed, health-verified and smoke-checked. PR B2 **shipped v11.58.0** —
+[#251](https://github.com/ravichavali/karmyq/pull/251) merged as `1e1916ee` (2026-09-18T01:55:41Z, maintainer merged),
+deployed, health-verified and smoke-checked. PR B3 **shipped v11.59.0** — [#252](https://github.com/ravichavali/karmyq/pull/252)
+merged as `238c9009` (2026-09-19), deployed, health-verified and smoke-checked; issue #248 closed. PR D1 **shipped v11.60.0**
+— [#253](https://github.com/ravichavali/karmyq/pull/253) merged as `0ce160b5` (2026-09-21T15:59:10Z), deployed, health-verified
+and smoke-checked. PR D2 **shipped v11.61.0** — [#254](https://github.com/ravichavali/karmyq/pull/254) merged as `b7539896` (2026-09-21T20:51:13Z), deployed, health-verified and smoke-checked; #228 closed. PR D3 **shipped v11.62.0** — [#255](https://github.com/ravichavali/karmyq/pull/255) merged as `b7588509` (2026-09-21T23:25:42Z), deployed on a CI re-run, health-verified and smoke-checked; #224 closed. BUG-050 fix **shipped v11.63.0** — [#256](https://github.com/ravichavali/karmyq/pull/256) merged as `e5f7d8e1` (2026-09-22T04:20:36Z), [CI/CD run 35686522868](https://github.com/ravichavali/karmyq/actions/runs/35686522868) every job success, deployed, health-verified, smoke-checked (login, `/api/requests`, `/api/conversations`, `/api/reputation/karma/:userId` all 200). BUG-049 fix **shipped v11.64.0** — [#257](https://github.com/ravichavali/karmyq/pull/257) merged as `96ffa619` (2026-09-22T23:54:04Z, maintainer merged), [CI/CD run 35799597789](https://github.com/ravichavali/karmyq/actions/runs/35799597789) every job success, deployed, all 9 services healthy, `DEPLOYMENT SUCCESSFUL`, no rollback; smoke 2026-09-23: login 200, `/api/requests` 200, `/api/conversations` 200, `/api/reputation/karma/:userId` 200. BUG-051 fix **shipped v11.65.0** — [#258](https://github.com/ravichavali/karmyq/pull/258) merged as `8fbbeb5f` (2026-09-23T13:44:35Z, admin merge on explicit maintainer authorization), [CI/CD run 35869203355](https://github.com/ravichavali/karmyq/actions/runs/35869203355) every job success, deployed, all 9 services healthy, `DEPLOYMENT SUCCESSFUL`, no rollback; smoke 11/11 live 2026-09-23 (table in `docs/BUGS.md` BUG-051). PR D4 **shipped v11.66.0** — [#267](https://github.com/ravichavali/karmyq/pull/267) merged as `fb9d26b6` (2026-09-23T20:49:07Z, admin merge on explicit maintainer authorization), [CI/CD run 35918478906](https://github.com/ravichavali/karmyq/actions/runs/35918478906) every job success, all 9 services healthy, `DEPLOYMENT SUCCESSFUL`, no rollback; smoke 11/11 live and a read-only container SDK-load check (2026-09-23); #230 closed. **Next: D5 (node-fetch #225), on `agent/claude/sprint-131-d5-node-fetch`.**
+
+✅ **BUG-051 — SHIPPED v11.65.0** ([#258](https://github.com/ravichavali/karmyq/pull/258), `8fbbeb5f`, deployed and live-verified 2026-09-23; its branch `agent/claude/sprint-131-bug-051-push-auth` is merged — never commit on it). Both
+halves landed together: a fail-closed `services/notification-service/src/middleware/internalAuth.ts`
+(503 unconfigured, 403 mismatch, `timingSafeEqual` over SHA-256, neither secret logged) and
+`INTERNAL_SECRET` wired to notification-service in **both** compose files.
+
+**The demo host was checked read-only first, on maintainer authorization (2026-09-22):**
+`~/karmyq/.env.demo` defines `INTERNAL_SECRET` **once**, non-empty — no duplicate assignment to
+shadow it, unlike `RATE_LIMIT_DISABLED`. So the deployed route will authenticate, not 503. Only
+presence/count/length were read; the value was never printed.
+
+⚠️⚠️ **A SECOND defect surfaced during the fix, and it is the more dangerous one. Do not undo it.**
+The original guard used `router.use(internalAuth)` on a router mounted at **`/notifications`**, not
+`/notifications/push` — so it gated **every** sibling route under that prefix, including the
+authenticated list, unread-count and preferences routes meant to fall through to the next mount.
+That was inert only because `INTERNAL_SECRET` was never set for this service; **wiring the secret in
+— the other half of this fix — is precisely what arms it.** Measured on the real app before
+correction: with the secret configured, `GET /notifications/:userId` and
+`GET /notifications/preferences` both returned **403**; with it unset, **503**. Shipping the two
+halves as first written would have taken the **entire notifications API down for every user** on
+deploy. The guard is now attached to the **single route**
+(`router.post('/push/send', internalAuth, …)`); those routes now return 401 from `authMiddleware`,
+and six assertions in the gate hold the line in both the configured and unconfigured states.
+
+**Generalise it: a fail-open guard hides its own blast radius.** Nothing about the `router.use`
+mount looked wrong while the condition could never fire, and the full suite passed both before and
+after arming it. It was found by probing sibling routes on the real app — no existing assertion
+covered them. If you add a second internal route here, give each its own `internalAuth` argument,
+or mount a separate router at `/notifications/push`.
+
+Also in this PR: `src/index.ts` starts only under `require.main === module` and exports `app`
+(mirroring social-graph) so the route is testable end-to-end — verified against the emitted
+`dist/index.js` and the container's `CMD ["node", "dist/index.js"]`, so production boot is
+unaffected. `supertest`/`@types/supertest` declared in notification-service with the lockfile
+spliced in place at social-graph's exact ranges. `package-lock.json`'s root version was also
+**11.63.0 while `package.json` was 11.64.0** (#257 bumped one and not the other) — both are now
+11.65.0. Docs: `docs/BUGS.md` BUG-051 marked fixed with full mechanism, `CONTEXT.md` (which also
+documented a `{ sent, failed }` response the code has never returned and a nonexistent
+`src/services/pushNotificationService.ts`), and `services/registry.json`.
+
+New gotcha `docs/gotchas/git-pathspec-double-star-needs-glob-magic.md` (maintainer approved for this
+PR): `git ls-files 'services/*/src/**/*.ts'` returns **184 files and 0 `src/index.ts`**, while
+`:(glob)services/*/src/**/*.ts` returns **200 and all 9** — the trap behind one of #257's four
+discovery defects. `gotcha-check` clean at 11 entries.
+
+**Left for a future sprint, deliberately:** `docker-compose.qa.yml`, `.staging.yml` and `.test.yml`
+still omit `INTERNAL_SECRET` for this service (referenced only by archived scripts, not the live
+deploy path; qa already omits social-graph's too). And unrelated drift, NOT caused here:
+`services/impact-analysis.md` computes auth-service at **6** dependents while CLAUDE.md's table and
+all ten `.claude/README.md` files (dated 2026-03-03) say **7**; regenerating churns all ten, so it
+was reverted rather than buried in a security diff.
+
+<details><summary>Original BUG-051 report (kept for the record)</summary>
+
+🔴 **BUG-051 — `POST /api/notifications/push/send` is unauthenticated (HIGH, own PR, maintainer decision 2026-09-22).**
+Found by this sprint's `/security-review`; full evidence in `docs/BUGS.md` BUG-051. Four verified facts:
+the guard at `services/notification-service/src/routes/push.ts:7-12` is `if (secret && ...)`, so it **fails open**;
+`INTERNAL_SECRET` is wired only to request-service and social-graph-service (`docker-compose.yml:162,318`,
+`docker-compose.prod.yml:68,180`) and **never to notification-service**; the router mounts at
+`services/notification-service/src/index.ts:68`, *ahead* of the `authMiddleware`-protected one at `:70`; and nginx
+forwards the path publicly (`nginx.conf:227`). Net effect: anyone can push an arbitrary notification to arbitrary
+`user_ids` — a phishing surface on users' devices.
+
+**Scope for that PR:** fail-closed middleware (copy the shape of `social-graph-service/src/middleware/internalAuth.ts`
+— `timingSafeEqual` over SHA-256, 503 when unconfigured) **plus** `INTERNAL_SECRET` wiring for notification-service in
+both compose files. The two halves must land together: failing closed without the secret turns the endpoint into a 503.
+⚠️ **Before deploying it, confirm `~/karmyq/.env.demo` defines `INTERNAL_SECRET`** — a read-only demo check needing its
+own authorization. No in-repo caller invokes `/push/send` (verified), so failing closed breaks no existing flow.
+
+</details>
+
+Also noted, unverified and NOT a claim about the live site: `infrastructure/docker/docker-compose.prod.yml:242`
+(re-read 2026-09-23; this line said `:239` before) defaults `GRAFANA_ADMIN_PASSWORD` to `admin` and Grafana is proxied at `/grafana/`. **Checked read-only 2026-09-23:** the demo's `.env.demo` and the running container set a non-default value. The live password is still unproven, because Grafana persists it in its data volume. See *Blockers and decisions*. The config alone does not establish that the
+deployed dashboard accepts default credentials; that needs a demo check nobody has run. PR C rollout approval deferred.
+
+The maintainer handed these planning files to Codex and authorized edits. This handoff carries
+session state, not reservations inferred from branch-local text.
+
+## Ownership and base
+
+| Field | Value |
+|---|---|
+| **Branch** | `agent/claude/sprint-131-d7-next`, cut 2026-09-27 from the deployed `b976c47a` (v11.70.0), for D7 (next #246). **Merged, never commit on them:** D6 `agent/claude/sprint-131-d6-zod` (#272) and the pre-push lane `agent/claude/prepush-test-runner` (#273). **Merged, never commit on it:** #268 `agent/claude/sprint-131-expo-drift-268` (#271). **Merged, never commit on them:** D5 `agent/claude/sprint-131-d5-node-fetch` (#269), D4 `agent/claude/sprint-131-d4-expo-server-sdk` (#267), BUG-051 `agent/claude/sprint-131-bug-051-push-auth` (#258), BUG-049 `agent/claude/sprint-131-bug-049-rate-limit-key` (#257), BUG-050 `agent/claude/sprint-131-postgres-readiness` (#256), and the PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches |
+| **Base** | `origin/master` at `b976c47a` (#273 merge), fetched 2026-09-27; v11.70.0 |
+| **Active editor** | Claude executed PR A (2026-09-16); planning was authored by Codex under maintainer transfer |
+| **Reviewer role** | A non-author reviews the completed diff; reviewers do not co-edit |
+| **Owned paths now** | Sprint 131 spec/plan, CURRENT_HANDOFF, preserved Sprint 130 archive |
+| **Owned implementation paths** | Per-PR file map in the plan; no implementation in this planning session |
+| **Shared resources needed** | Dependency/lockfile lane held by **Claude**, re-designated explicitly by the maintainer on **2026-09-27** for D7 onward. It was Claude's from 2026-09-16 and Codex's from 2026-09-15. No ADR allocation or demo data operation planned. Version comes from master at merge time; merges need per-PR maintainer authorization. |
+
+## Goal and arc
+
+Sprint 130 shipped v11.55.0. Sprint 131 addresses BUG-045/034/036 and the seven major proposals
+#224–#230, and prepares BUG-033 for a separately approved rollout. There are **nine planned PRs
+plus one conditional promoter PR**, not ten preallocated version slots.
+
+| PR | Scope | State / next action |
+|---|---|---|
+| A | BUG-045 expected missing config + planning/archive | **Shipped** — #249 merged `d35a3fad`, v11.56.0, deployed + live-verified 2026-09-16 |
+| B | BUG-034 messaging coverage + PR B runtime declarations (spec scope) + BUG-036 Docker readiness | **Shipped** — #250 merged `d2edb286`, v11.57.0, deployed + smoke-checked 2026-09-17 |
+| B2 | BUG-046 declare missing imports in 8 services + generalize the declarations gate | **Shipped** — #251 merged `1e1916ee`, v11.58.0, deployed + smoke-checked 2026-09-18. Repo-wide declarations gate is live and blocking |
+| B3 | Expo SDK drift catch-up (#248): align `apps/mobile` to Expo's live SDK 57 patch pins | **Shipped** — #252 merged `238c9009`, v11.59.0, deployed + smoke-checked 2026-09-19; **#248 closed**. 7 declared packages moved, not the 4 originally scoped: Expo published a coordinated patch wave mid-PR (see *Expo's map is a moving target* below) |
+| D1 | dotenv 16.6.1 → 17.4.2 (#226) | **Shipped** — #253 merged `0ce160b5`, v11.60.0, deployed + smoke-checked 2026-09-21. Took Dependabot #226 (closed as superseded) plus `{ quiet: true }` at all 14 call sites; new blocking gate `sprint-131-dotenv-quiet` (10 tests) after three review rounds |
+| D2 | node-cron 3.0.3 → 4.6.0 (#228) | **Shipped** — #254 merged `b7539896`, v11.61.0, deployed + smoke-checked 2026-09-21; #228 closed (GitHub auto-closed it 1s after the merge). Took Dependabot #228 plus: `@types/node-cron` removed (v4 bundles types), `cron.setLogger(logger)` in cleanup-service so v4's new `missed execution` warning reaches winston, and a real-scheduler **blocking regression** test for reputation's two jobs (`tests/regression/sprint-131-node-cron-v4.test.ts`; moved out of `tdd/` on review, since reputation's `npm test` never runs `tdd/`) |
+| D3 | express-rate-limit → 8.7.0 (#224) | **Shipped** — #255 merged `b7588509`, v11.62.0, deployed + smoke-checked 2026-09-22; #224 closed (auto-closed on merge). shared/geocoding 7.5.1→8.7.0, root/cleanup 8.5.2→8.7.0; two stale `DIVERGENCE_ALLOWLIST` entries removed. First master run **failed Integration Tests on a postgres readiness race** (not D3 code — see below); deployed on `gh run rerun --failed`. Logged **BUG-049**, not fixed |
+| D4 | expo-server-sdk 6.1.0 → 7.2.0 (#230) | **Shipped** — #267 merged `fb9d26b6`, v11.66.0, 2026-09-23. It was deployed with all 9 services healthy, passed smoke 11/11 live, and passed a read-only container SDK-load check (Node v24.21.0, 7.2.0 loads through `require()`). #230 was closed by Dependabot 2 minutes after the merge.<br>What shipped: Dependabot's commit, unchanged; `expoPush.ts` reading the named `Expo` export; and the first real-SDK regression test (`tests/regression/sprint-131-expo-push-real-sdk.test.ts`, a plain-node child with only data crossing to it, loopback only), passing on 6.1.0 and 7.2.0. Eight mutations each make it fail.<br>Gates: full uncached suite, `/simplify`, `/code-review` medium, `/security-review`, and a final whole-branch review whose fixes were applied. BUG-052 was logged. Follow-ups are in `docs/IDEAS.md` [2026-09-23]. Plan and execution notes: `docs/superpowers/plans/2026-09-23-sprint-131-pr-d4-expo-server-sdk.md` |
+| D5–D7 | node-fetch (#225 — **superseded: built-in fetch instead**, plan `docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md`), zod (**#264** — Dependabot closed #247 and reopened the same 4.6.5 bump as #264 on 2026-09-23), next (#246) | **D5 SHIPPED v11.67.0** — #269 merged `32588ae9` 2026-09-24, deployed (all 9 healthy), live smoke incl. a non-empty `source: "nominatim"` geocoding search; #225 closed by Dependabot. Built-in `fetch` + `AbortSignal.timeout(5000)` replaced node-fetch; plan + execution notes `docs/superpowers/plans/2026-09-23-sprint-131-pr-d5-builtin-fetch.md`; deferrals in `docs/IDEAS.md` [2026-09-23] D5 `/simplify`. **D6 (zod #264) PLANNED 2026-09-24** — plan `docs/superpowers/plans/2026-09-24-sprint-131-pr-d6-zod-4.md`, awaiting maintainer review. #264 re-checked at head `c243859e`: its CI is RED (`@karmyq/shared` 6 failed, zod 4 `.uuid()` is RFC-strict; Turbo stopped at 12/25 so service suites never ran). Plan **revision 2** (after maintainer plan review, 3 findings all CONFIRMED): cherry-pick #264 unchanged; PRESERVE zod-3 ids via `z.guid()` at 15 code sites, custom messages, `format()` shape; INTENTIONAL + pinned: code-point string lengths, datetimes need seconds, ±Infinity rejected, zod 4 default messages/codes (a 96-case 3.25.76-vs-4.6.5 differential found 17 verdict + 56 message changes, no path changes); smoke must get relationship-context **200** (204 skips the parse). **Execution: Native + one fresh whole-branch reviewer** (maintainer, 2026-09-24). Branch `agent/claude/sprint-131-d6-zod` from `8fafed02`. **D6 EXECUTED 2026-09-24 (PR pending merge authorization)** — commits `62c7361f` (Dependabot #264 cherry-pick, unchanged) → `f5fed04a`. `z.guid()` at all 15 former `.uuid()` sites; zod `DIVERGENCE_ALLOWLIST` entry retired (map empty); new tests `packages/shared/src/schemas/__tests__/zod4-guid-semantics.test.ts` (P1, 95 tests) and `packages/shared/src/schemas/requests/__tests__/zod4-request-contract.test.ts` (P2/P3/I1–I5, 26 tests; under zod 3 exactly the 14 intentional rows fail, the 12 preserved pass — re-running that now needs a `z.guid`→`.uuid()` setupFiles shim). Evidence: strict `npm@11.19.0 ci` 0; differential re-run on 4.6.5 = 102/20/57/25 exactly; turbo `--force` 27/27 (a first parallel run hit notification-service 30s timeouts — no zod import — green 78/78 on re-run), zero id-fixture edits (that run was later shown cache-contaminated for test type-checking; see I6 below); `tsc --noEmit` clean for 9 consumers + frontend; mutations M1–M6 all red as planned. Gates: `/simplify` (2 test-fixture cleanups applied, 2 skipped with reasons), `/code-review` medium 0 findings, `/security-review` no findings, fresh Opus whole-branch review **ready to merge**; maintainer review at `57b0593e`: no blocking defects, 376 uncached tests + zod-3 14/12 reproduced, 0 Critical/Important, 4 deferred minors (listed in the next-action paragraph). **PR [#272](https://github.com/ravichavali/karmyq/pull/272) opened 2026-09-24.** Its first CI run was RED: `request-service` `tests/unit/curated-feed.test.ts:366` failed with TS2345. That is **I6**, a type-level change. Under `strict: false`, zod 3 made every `z.infer` key optional; zod 4 keeps defaulted keys like `location_type` required. The local `turbo --force` had been **false-green** because the ts-jest cache (`%TEMP%/jest`) reused the pre-bump compile. The fix adds `location_type` to that one fixture. After a cleared cache: 25/27 (request-service fixed and then green 161+253; notification-service's D4 real-SDK flake, 78/78 alone). Frontend `tsc --incremental false` is clean. I6 and the cache caveat are in shared CONTEXT. RF4 producer trace done twice independently: ±Infinity unreachable at `disclosureAuth.ts:114` (score clamped `trustScoreStrategy.ts:111`; `feedback_threshold` CHECK 1.0–4.9; karma overflows only for a `created_at` >~505y in the future, which no writer produces). **D6 SHIPPED v11.69.0** (#272, `01ed6cb9`; see the banner). **D7 (next #246) PLANNED 2026-09-27**: plan `docs/superpowers/plans/2026-09-27-sprint-131-pr-d7-next-16.md`, branch `agent/claude/sprint-131-d7-next` from `b976c47a`. #246 (head `fdc8692d`) is red because of two next 16 mechanisms. **M1:** the build type-checks with plain `tsc`, so landing's `tests/**` now fail. **M2:** the standalone root `package.json` is gone, so the dead `Dockerfile:80` fails. Plus: M3 config keys, the M4 tsconfig rewrite, M5 Turbopack by default, and M6 `@swc/helpers` override 0.5.15 → 0.5.23. Proof: CI image build, local standalone-layout and static-export Playwright, and a post-deploy smoke that includes landing freshness by sha. **D7 IMPLEMENTED 2026-09-27** (head `46ce4c91`, see the banner). M5 is reversed: both apps build `--webpack`, because Turbopack drops the font `@import`. Landing freshness is checked by `window.next.version`, because BUG-054 means the sha never refreshes. |
+| C | BUG-033 discovery and approved promotions | Task 8 inventory allowed; Tasks 10–13 blocked on rollout approval |
+
+Do not hold the other nine PRs while waiting for C. If C resumes after the upgrades, repeat its
+inventory against the then-current base. BUG-033 remains open until actually delivered.
+
+## Links
+
+- **Spec**: [Sprint 131 design](../../docs/superpowers/specs/2026-09-15-sprint-131-maintenance-design.md)
+- **Plan**: [Sprint 131 implementation](../../docs/superpowers/plans/2026-09-15-sprint-131-maintenance.md)
+- **PR D7 focused plan**: [next 15 → 16 (#246)](../../docs/superpowers/plans/2026-09-27-sprint-131-pr-d7-next-16.md)
+- **PR B2 focused plan**: [Every workspace declares what it imports (BUG-046)](../../docs/superpowers/plans/2026-09-17-sprint-131-pr-b2-undeclared-imports.md)
+- **PR B focused plan**: [Messaging coverage + Docker readiness (BUG-034, BUG-036)](../../docs/superpowers/plans/2026-09-16-sprint-131-pr-b-test-readiness.md)
+- **PR A focused plan**: [Expected missing community config (BUG-045)](../../docs/superpowers/plans/2026-09-15-sprint-131-pr-a-community-config.md)
+- **Sprint 131 PR A**: [#249](https://github.com/ravichavali/karmyq/pull/249) (merged `d35a3fad` 2026-09-16; [CI/CD run 35134858026](https://github.com/ravichavali/karmyq/actions/runs/35134858026)).
+- **Sprint 130 archive**: [v11.55.0](archive/2026-09-15-sprint-130-maintenance-SHIPPED-v11.55.0.md)
+
+## Quick Start
+
+1. Confirm current branch, clean handoff and live state with `git status --short`, `gh pr list`
+   and `git log --oneline origin/master -3`.
+1a. **D7 SHIPPED v11.71.0** (#275, `de01c53e`); `agent/claude/sprint-131-d7-next` is finished, so do not commit on it. Next: D8+ = the Dependabot majors (maintainer, 2026-09-28).
+1b. **D8 SHIPPED v11.72.0** (#276, `3f504727`). `agent/claude/sprint-131-d8-eslint-10` is finished, so do not commit on it. D9 is implemented in PR #284.
+1c. **D9 SHIPPED v11.73.0** (#284, `8103317b`); `agent/claude/sprint-131-d9-ioredis-6` is finished, so do not commit on it. Demo-host cache proof done 2026-09-30 (banner above).
+1d. **#287 SHIPPED v11.74.0** (`c187aa87`, deploy run 36745990078 green; smoke 200s; 0 open Dependabot alerts or PRs). **Next: Sprint 132 planning (product).** Start from `docs/IDEAS.md` [2026-09-30] architecture: inventories and skills. No planned dependency PRs remain; new ones start only from a security alert or a feature need.
+2. BUG-049 (#257, `96ffa619`, v11.64.0), BUG-051 (#258, `8fbbeb5f`, v11.65.0), D4 (#267, `fb9d26b6`, v11.66.0) and D5 (#269, `32588ae9`, v11.67.0) are **merged and deployed**; their branches are finished — do not commit on them. **#268 is on `agent/claude/sprint-131-expo-drift-268`, cut from the deployed `32588ae9`.**
+   The PR A (#249), PR B (#250), PR B2 (#251), PR B3 (#252), PR D1 (#253), PR D2 (#254) and PR D3 (#255) branches are merged; never commit on them.
+3. Read the linked spec and sprint plan. **PR A, B, B2, B3, D1, D2, D3 and D4 are shipped — do not reopen or re-execute their plans.**
+4. Order decided 2026-09-22: **(1) BUG-049 — SHIPPED v11.64.0; (2) BUG-051 — SHIPPED v11.65.0; (3) D4 (expo-server-sdk #230) — SHIPPED v11.66.0 (#267).** (4) D5 (node-fetch #225 → built-in fetch) — SHIPPED v11.67.0 (#269). #268 Expo drift: SHIPPED v11.68.0 (#271). D6 (zod #264): SHIPPED v11.69.0 (#272). **D7 (next #246): SHIPPED v11.71.0 (#275). D8 (#244 eslint 10): SHIPPED v11.72.0 (#276).** Next: D9–D12, the Dependabot majors (maintainer, 2026-09-28): #244, #245, #243, #265, #263. One major per PR.
+5. For each later PR, create its focused plan and branch from newly deployed `origin/master`.
+   One merge/deploy/health verification at a time.
+
+**B2 and B3 SHIPPED** — #251 merged `1e1916ee` (v11.58.0) and #252 merged `238c9009` (v11.59.0), both deployed with all
+services healthy, no rollback, smoke-checked live. The repo-wide declarations gate is blocking on every push, and #248 is
+closed.
+
+**D1 SHIPPED** — #253 merged `0ce160b5` (v11.60.0) on explicit maintainer authorization, 2026-09-21T15:59:10Z.
+[CI/CD run 35622621477](https://github.com/ravichavali/karmyq/actions/runs/35622621477): every job success including all 7
+image builds and **Deploy to Demo** (`✅ All services healthy`, `🎉 Demo Deployment Successful`, no rollback). Smoke:
+login 200, `/api/conversations` 200, `/api/requests` 200. Not yet verified: that the deployed service boot logs contain
+**no** `◇ injected env` line — CI proves `quiet: true` works, but checking the live logs needs SSH to the demo host,
+which is a demo operation requiring per-operation maintainer approval.
+
+**D2 SHIPPED** — #254 merged `b7539896` (v11.61.0), 2026-09-21T20:51:13Z. [CI/CD run 35653652621](https://github.com/ravichavali/karmyq/actions/runs/35653652621): every job success incl. all 7 image builds and **Deploy to Demo** (`✅ All services healthy`, `🎉 Demo Deployment Successful`, no rollback). Smoke: login 200, `/api/requests` 200, `/api/conversations` 200, `/api/reputation/karma/:userId` 200. Not verified live: a `missed execution` line reaching cleanup's winston log (proven locally by probe; needs SSH = per-operation approval).
+
+**D3 SHIPPED** — #255 merged `b7588509` (v11.62.0), 2026-09-21T23:25:42Z. [CI/CD run 35667512603](https://github.com/ravichavali/karmyq/actions/runs/35667512603): the first attempt **failed Integration Tests** (every service `ECONNREFUSED 172.18.0.3:5432`); re-run of the failed jobs on maintainer approval → every job success, **Deploy to Demo** `✅ All services healthy`, `🎉 Demo Deployment Successful`, no rollback. Smoke 2026-09-22: login 200, `/api/requests` 200, `/api/conversations` 200, `/api/reputation/karma/:userId` 200.
+
+✅ **The postgres readiness race that failed that first attempt is BUG-050 — SHIPPED v11.63.0** ([#256](https://github.com/ravichavali/karmyq/pull/256), `e5f7d8e1`; [CI/CD run 35686522868](https://github.com/ravichavali/karmyq/actions/runs/35686522868) every job success, `✅ All services healthy`, no rollback; smoke login/requests/conversations/reputation all 200). A review round on #256 added `start_period: 60s` to the base compose stack too. Mechanism and proof: `docs/BUGS.md` BUG-050.
+
+**#268 — Expo SDK 57 patch wave: SHIPPED v11.68.0 (#271, `8fafed02`, deployed 2026-09-24; see the banner). Record kept below.**
+Maintainer, 2026-09-24: "Let's move to #268"; dependency lane → **Claude** for #268 (D6 waits); Native execution approved.
+**PR [#271](https://github.com/ravichavali/karmyq/pull/271)** opened 2026-09-24. **CI green on head `8c0340c7`** (20 pass, 1 skipping); merge-time drift re-check **clean** 2026-09-24 (`expo-divergences.js` exit 0); an external review verified the lock independently. **Merged 2026-09-24T20:26:53Z** at head `6d05332d` (CI re-ran green after the review-fix push). Plan + execution notes:
+[`docs/superpowers/plans/2026-09-24-sprint-131-pr-268-expo-drift.md`](../../docs/superpowers/plans/2026-09-24-sprint-131-pr-268-expo-drift.md).
+- **Moved:** 6 direct (expo ~57.0.25, expo-image-picker/expo-location ~57.0.20, expo-linking ~57.0.11,
+  expo-notifications ~57.0.21, expo-router ~57.0.23) + 7 hoisted transitives their manifests require (`@expo/cli` 57.0.27,
+  `babel-preset-expo` 57.0.13, `expo-modules-core` 57.0.19, `expo-modules-jsi` 57.1.1, `@expo/ui` 57.0.20,
+  `expo-glass-effect` 57.0.4, `@expo/router-server` 57.0.11). **`SDK_PINNED` needs no edit** despite the issue's template.
+- **Verified:** 15 lock nodes changed (13 packages + `apps/mobile` + root `""` version), 0 added/removed, 1844 nodes;
+  every field = registry; strict `npm@11.19.0 ci` exit 0 (lock and manifests consistent, tarball integrity verified; `ci` never writes the lock, so field order is proved by the diff and registry comparison: 0 key-order changes); `scripts/expo-divergences.js` exit 0 (only
+  jest/@types/jest); Expo gates 57/57; mobile tsc + tests; `npm test` 27/27; audit 3 moderate / 0 high (same set, BUG-041).
+  Gates: /simplify (plan fixes only), /security-review (no findings), fresh whole-branch review (0 Critical/Important).
+- ⚠️ `npm ls --all` exits 1 on HEAD too — **4 pre-existing errors**: missing `@react-native/metro-config` (via
+  react-native-worklets) and invalid top-level `color-string`, `ms`, `picomatch`. Judge splices by "no new errors".
+- **Done:** merged, deployed (all 9 healthy), smoke 200s. Only #268's auto-close on the next drift run remains.
+
+**Next unchecked action:** plan Sprint 132 (product) in a fresh chat: inventories for individuals and communities, plus skills (`docs/IDEAS.md` [2026-09-30] architecture).
+
+**Open items surfaced 2026-09-24 (not scheduled — maintainer decision needed):**
+- **#268 — IMPLEMENTED, see the status block above.**
+- **CLAUDE.md:309 over-claims deploy rollback** ("verifies health, rolls back on failure"). Verified 2026-09-24:
+  `.github/workflows/ci.yml:493` only `exit 1`s on an unhealthy service; `scripts/deploy.sh:157-161` rolls back
+  (a `git checkout`, no rebuild) only on a migration failure. Fix CLAUDE.md + AGENTS.md together when approved.
+
+**BUG-051 SHIPPED v11.65.0** — merged, deployed and smoke-verified 11/11 live on 2026-09-23 (banner
+above; full table in `docs/BUGS.md` BUG-051). Its post-deploy checks are **done**, including the two
+that mattered most: anonymous `POST /api/notifications/push/send` → **403** (the bug), and
+authenticated notification reads → **200** (the blast-radius regression, absent). Every probe used an
+empty body, so the verification itself could not send a push.
+
+✅ **BUG-049 — SHIPPED v11.64.0**, merged as `96ffa619` (#257) and deployed 2026-09-22; this branch is cut from it. Found in D3. Three claims in the original report were wrong and are corrected in `docs/BUGS.md` and [ADR-098](../../docs/adr/ADR-098-trusted-proxy-and-rate-limit-keys.md):
+
+- **Not auth-only.** `globalRateLimiter` is mounted app-level in **seven** services; `cleanup-service` builds its own, and geocoding-service mounts two in plain JS. **Nine** services were affected. geocoding was found only during `/simplify` — the first gate scanned `.ts` only and could not see it.
+- **The `user:<userId>` branch is reached in one service only** (review correction — an earlier claim of "unreachable repo-wide" was wrong): social-graph-service calls `app.use(authMiddleware)` at `src/index.ts:135` ahead of six route limiters, which key by user. In the other eight every limiter sits ahead of `authMiddleware`, so `rateLimiters.standard` gave request-service's ~12 route groups **one** 60/min bucket for the entire user base: enabling limiting would have throttled the whole site, not just risked an `/auth/*` lockout. That is the likeliest reason `RATE_LIMIT_DISABLED=true` was set.
+- **nginx needed no change.** Every `location` block includes `/etc/nginx/proxy_params`, which is not in the repo and does set `X-Forwarded-For` and `X-Real-IP` (read read-only on the host, 2026-09-22, and confirmed in all 25 blocks by `nginx -T`).
+
+The fix is two layers: `ipKeyGenerator(req.ip)` in the shared key generator, and `app.set('trust proxy', 1)` in the eight services nginx proxies (cleanup-service mounts a limiter but is not proxied, so it sets nothing — `/code-review high` caught that trusting an absent hop there would have made `req.ip` forgeable). `1` is the only safe value — `true` lets a client spoof `req.ip`, `'loopback'` does not match the Docker gateway. Because nginx uses `$proxy_add_x_forwarded_for` (real client appended **last**), one trusted hop is spoof-proof; probed against the installed express 5.2.1 / proxy-addr 2.0.7 with forged chains of one, two and four entries. Gated by `tests/regression/sprint-131-rate-limit-trust-proxy.test.ts` (topology-derived from nginx upstreams × registry, AST over tracked `.ts` **and** `.js`, asserts both directions, 7 injection proofs) and `packages/shared/src/middleware/__tests__/sprint-131-rate-limit-key.test.ts` (behavioural). ⚠️ Limits are **per-IP in eight of the nine** limiter-mounting services; social-graph-service's six post-auth limiters key per user. Making per-user keying live in the rest needs a mount-order redesign, logged in `docs/IDEAS.md` [2026-09-22].
+
+✅ **Re-enabled on 2026-09-23 at 21:37 UTC** (see *Blockers and decisions*). The historical note follows: ⚠️ **The demo still runs `RATE_LIMIT_DISABLED=true` — the fix does NOT re-enable it.** **BUG-049 live observation (2026-09-22, VERIFIED on host by read-only SSH):** live `POST /api/auth/login` responses carry helmet headers but **no `RateLimit-*` headers**, although both auth limiters set `standardHeaders: true` and `nginx.conf` strips nothing. The likeliest cause is `RATE_LIMIT_DISABLED=true` in the demo host `.env` — `docker-compose.prod.yml` reads `${RATE_LIMIT_DISABLED:-false}`, and the archived `scripts/archive/seeding/seed-production-*.sh` append that line and only remove it on a clean finish. If so, the BUG-049 lockout is latent on the demo **and login has no brute-force limit at all**. **Verified:** `docker exec karmyq-auth-service env` → `RATE_LIMIT_DISABLED=true`. Source: `~/karmyq/.env.demo` sets it twice — line 31 `RATE_LIMIT_DISABLED=false`, line 58 `RATE_LIMIT_DISABLED=true` (the seed-script append); `deploy.sh` does `set -a; source .env.demo`, so the later line wins. (`~/karmyq/.env` does not exist.) **So the demo has NO rate limiting on login today.** ⚠️ **Do NOT just delete line 58:** with limiting on, BUG-049 makes all `/auth/*` share one 10-per-15-min bucket, so 10 requests from anyone would lock every user out. Re-enable rate limiting **together with** the BUG-049 fix, as one demo operation with its own approval.
+
+**Local test-run note (D3):** full `npm test` at default Turbo concurrency timed out twice on this Windows box (suites at 158–402 s; auth/social-graph/community); `npx turbo run test --concurrency=2` was 27/27 green. Machine load, not code — prefer `--concurrency=2` for the local proof run.
+
+D2 follow-ups (not blocking): reputation-service leaves node-cron's logger on `console` (shared `Logger.error` takes only a string; needs an adapter); cleanup-service's 9 top-level schedules have no real-scheduler unit test (an exported `initSchedules()` would make them testable).
+
+**What B2 and D1 taught about the remaining Dependabot majors (D2–D7):**
+- **Check whether Dependabot already did the manifest work.** B2's declarations gate makes a root-only bump red, so
+  Dependabot now bumps root *and* every declaring workspace itself — #226 did, three minutes after B2 merged. Before
+  hand-building a D-PR, re-read the Dependabot PR's file list against the new master; the manifest mechanics may already
+  be correct and green. It will auto-rebase after each merge, so re-check it at the time you start.
+- **What Dependabot cannot do is the behavior change.** A major can flip a default the repo relies on without failing a
+  single test (dotenv 17 made `config()` noisy). Verify behavior against the installed `node_modules` source and by
+  running both versions, never from the changelog.
+- **Any gate written for a D-PR: enumerate what the assertion ADMITS, not what it was meant to reject.** #253's gate
+  needed three review rounds because each fix closed one spelling and left the next (`quiet: false`, a later spread, a
+  computed key). Unreadable input must invalidate, never be skipped; a "precise" prefilter in front of a parser is a
+  second, weaker parser.
+- **If a D-PR contains a Dependabot commit, close that Dependabot PR as superseded** — merging both double-applies it.
+
+Review history on #253, three rounds, all findings fixed and each proven closed by injection rather than asserted:
+
+1. Round 1 (`ebb06407`, 4 findings): `{ quiet: false }` passed a gate named "is quiet" (dotenv runs the value through
+   `parseBoolean`, so `0`/`undefined`/`null`/`'false'` are all falsy and all still print); three binding forms were
+   discovered but unresolvable (`require('dotenv').config()`, `import dotenv = require(...)`, block-scoped require); the
+   identity pin covered only `services/`; a "four files" miscount.
+2. Round 2 (`38b2848a`, 2 findings): a **trailing spread** could override `quiet: true`, because the check took the FIRST
+   `quiet` and JS is last-one-wins; and the discovery **prefilter was a second, weaker parser** in front of the AST,
+   skipping `from\n'dotenv'` and `require( 'dotenv' )`. It now matches the bare word and lets the AST decide.
+3. Round 3 (2026-09-20, 1 finding): **computed property keys were skipped entirely**, so
+   `dotenv.config({ quiet: true, ['qui' + 'et']: false })` passed all nine assertions while dotenv 17.4.2 logs — verified
+   both halves. An unresolvable computed key now invalidates the proof exactly as a spread does; a statically-readable
+   `['quiet']` is treated as the plain name, and a later explicit `quiet: true` restores it. Injected into the real
+   auth-service call site: gate goes red on that exact line. Gate is now **10/10**.
+
+Codex reviewed `38b2848a`: 20 checks pass / 1 skipped (Deploy to Demo), Test Docker Build included — the earlier
+frontend-install `ECONNRESET` was a network abort, not a regression, and passed on re-run.
+Codex re-reviewed `b5670cef` on 2026-09-20: **no remaining code findings**. Fresh dotenv + declarations
+suites passed **20/20** (dotenv gate **10/10**); ten independent option-order probes passed, covering computed
+keys, spreads, getters, methods and shorthand. The round-3 computed-key finding is closed
+(`tests/regression/sprint-131-dotenv-quiet.test.ts:171-187`). GitHub CI was still running on that exact head
+at review time; #226 was confirmed CLOSED. Recommendation: merge after that head's CI passes and the
+maintainer authorizes it. **No merge performed; CI completion remains pending.**
+**#226 CLOSED as superseded on 2026-09-20**, by Codex on the maintainer's explicit request (GitHub closedAt
+`2026-09-20T22:50:40Z`). No merge or deployment was performed. After D1 review/merge/deploy/smoke, continue D2–D7.
+
+⚠️ **Expo's map is a moving target — re-check at merge time on any future Expo PR.** Mid-PR, Expo published a coordinated
+SDK 57 patch wave: all four originally-scoped pins went one patch further behind *and* three more packages
+(`expo-router`, `expo-constants`, `@expo/metro-runtime`) joined the drift, ~10h after the first check. Measured cadence is a
+**median ~70–100h between releases per package**, so there is roughly a 3-day window to land a catch-up PR — it is not a
+minutes-scale treadmill, but a PR left open for days WILL go stale. If `expo install --check` is red again at merge time,
+re-run the splice against the then-current versions rather than merging a stale one. This is the same "remote mutable
+authority" trap ADR-094 exists for.
+
+⚠️ **D1 (dotenv 16→17, #226) now behaves differently because of B2.** A root-only bump will turn the declarations gate **red**
+in all eight services that declare `dotenv ^16.3.1`, plus `tests` and `simulation-service` (`^16.3.0`). That is intended: bump
+root **and** every declaring workspace in the same PR. The same applies to any later root major (ioredis, bcryptjs, zod, next).
+Claude holds the dependency lane. (The gate uses a TypeScript **AST walk**, not `ts.preProcessFile` — an earlier line here
+misattributed it; `preProcessFile` was rejected in plan review round 2 because it misses `require()` in a template interpolation.)
+
+## Blockers and decisions
+
+- **#268 before D6 (maintainer, 2026-09-24):** "Let's move to #268". Dependency lane confirmed → **Claude** for #268;
+  run it in a fresh chat.
+- **D5 decisions (maintainer, 2026-09-23, D5 planning chat):** dependency lane re-confirmed → **Claude**
+  for D5. Approach: **replace node-fetch with Node 24's built-in `fetch`; do NOT take #225** (close it as
+  superseded when D5 merges). Evidence gathered before asking, against the real 3.3.2 tarball on Node 24:
+  `require('node-fetch')` returns an object (`typeof` → `object`; the function is only `.default`), and
+  3.3.2's `src/` has **zero** `timeout` references, so `services/geocoding-service/src/geocodingService.js:68`'s
+  `timeout: 5000` would be silently dropped by the bump as well. geocoding is the only direct importer;
+  `cross-fetch` still pins `node-fetch@^2.7.0`, so the 2.7.0 lock node stays either way.
+- **Dependency lane confirmed → Claude (maintainer, 2026-09-23):** "You hold the dependency lane... so,
+  proceed". Covers D4.
+- **New Dependabot proposals, 2026-09-23 — TRIAGED by the maintainer the same day: #263 and #265 are
+  deferred to Sprint 132; #266 and #259–#261 are not scheduled yet.** Recorded in `docs/IDEAS.md`
+  [2026-09-23] so the decision outlives this handoff. There
+  are 0 open Dependabot and 0 open code-scanning alerts, so none of these is a security fix.
+  - #265 dotenv 17.4.2 → 18.0.1: **major**; bumps root + 9 workspaces; CI green.
+  - #263 motion 12.43.0 → 13.4.0: **major**; apps/landing; **red** on the declarations gate's "each
+    workspace's lockfile node mirrors its manifest".
+  - #266 dev-deps group: 8 minor/patch bumps (jest family 30.5.2, turbo 2.11.2, prettier 3.9.8, tsx 4.23.15,
+    @testing-library/dom 10.4.2); **red** on `sprint-124-registry-independence` ("the shipped Expo registry
+    clears only Expo drift and cannot exempt audit findings").
+  - #259–#261: GitHub Actions minors (osv-scanner-action 2.6.0, setup-buildx-action 4.4.1,
+    build-push-action 7.4.0); their CI was not checked.
+  - The two reds were not diagnosed. Recommendation given: defer #263 and #265 to Sprint 132, per the
+    #243–#245 precedent.
+  - Not new, so don't re-investigate: `npm audit` reports 3 moderates (decode-uri-component via expo-router →
+    query-string, GHSA-vcc3-ghjq-m6fr). That is Dependabot alert #150, dismissed 2026-09-14 as
+    `tolerable_risk` (no safe bump; the patched 0.5.0 is ESM-only and breaks query-string@7).
+- **Demo operations. The maintainer said "go ahead" on 2026-09-23.**
+  - **Grafana: checked read-only on 2026-09-23. No value was printed.**
+    - `.env.demo` sets `GRAFANA_ADMIN_PASSWORD` exactly once, to a non-default value.
+    - The running `karmyq-grafana` container's `GF_SECURITY_ADMIN_PASSWORD` is set and non-default.
+    - **Caveat:** Grafana applies that variable only when its data volume (`karmyq_grafana-data`) is first
+      created. So this does not prove what the live admin password is. Proving it would take a login
+      attempt or reading Grafana's user table, and neither was authorized.
+    - `/grafana/login` is publicly reachable (it returns 200).
+  - **Rate limiting: RE-ENABLED on 2026-09-23 at 21:37 UTC**, on the maintainer's explicit choice. The first
+    attempt was blocked by the auto-mode permission classifier; the maintainer then approved the identical
+    script.
+    - **What changed.** `~/karmyq/.env.demo` lost exactly one line, the seed script's appended
+      `RATE_LIMIT_DISABLED=true`; only line 31, `=false`, remains. The backup is
+      `~/karmyq/.env.demo.bak-20260923-ratelimit` (mode 600).
+    - **How it was applied.** The file was sourced the way `deploy.sh` sources it, and every critical
+      variable was confirmed non-empty. The 7 wired services were recreated with both compose files
+      (`up -d --no-build --no-deps --force-recreate`): auth, community, request, reputation, notification,
+      messaging and cleanup.
+    - **Health.** All 7 answered `/health` with 200 within 10 s, and every container carries
+      `RATE_LIMIT_DISABLED=false`.
+    - **Verified live, with empty-body `POST /api/auth/login` probes** (they get 400, and no session is created):
+      - The headers are `RateLimit-Limit: 10`, `RateLimit-Policy: 10;w=900` and `RateLimit-Reset: 900`.
+      - `RateLimit-Remaining` went 9, then 8, from this workstation.
+      - From the demo host it was 9: a separate bucket. That proves per-IP keying (the BUG-049 fix) in
+        production.
+    - **Smoke 11/11 with limits on.** A real login returned 200 and left 6 auth requests. `GET /api/requests`
+      returned 200 under a 60-per-minute limit, with 58 remaining.
+    - **Watch for:**
+      - The auth limit is 10 per 15 minutes per IP, and successful logins count.
+      - Request-service allows 60 per minute per IP across its route groups.
+      - E2E or simulation runs, or several people demoing behind one NAT, can now get 429s.
+      - Per-user keying still needs the mount-order redesign in `docs/IDEAS.md` [2026-09-22].
+      - A seed script that appends the line again (the archived `seed-production-*.sh` does, and removes it
+        only on a clean finish) would silently turn limiting back off. Re-check with `grep -n
+        '^RATE_LIMIT_DISABLED=' ~/karmyq/.env.demo` after any seeding.
+    - **To roll back:** copy the backup over `.env.demo`, source it, and re-run the same `up` command.
+
+- **Dependency lane → Claude (2026-09-16):** “yes and you own this lane now. The execute plan command
+  implicitly gives ownership of the lane. review doesn't” (maintainer). Rule: executing a plan transfers the lane to the executor; reviewing does not. Covers B's
+  runtime/test declarations and D1–D7 while Claude executes them. Superseded: “Codex holds the
+  implementation dependency lane” (maintainer, 2026-09-15). Codex's #249 review did not hold the lane.
+- **Promoter approval deferred:** “Plan the fix, but defer rollout approval” (maintainer,
+  2026-09-15). Do not broaden the matcher or trigger mass moves until the actual inventory and
+  proposed move list are approved. Root `posttest` makes a matcher-only commit a rollout risk.
+- **Expo reporting deferred:** no standalone Expo PR in Sprint 131. Existing emitted report/close
+  states are mutually exclusive; the follow-up concerns failures before outputs are available.
+  This is not the resolved BUG-035. The spec preserves the observation for later scheduling.
+- **BUG-045 boundary:** suppress the application log on expected 404 and clear config; the browser's
+  HTTP failure diagnostic can remain. No API contract change and no blanket console-silence claim.
+- **Risk split:** messaging/CI readiness ship before major upgrades; mass promotion has its own PR.
+  Major upgrades stay separate because their runtime and migration risks differ.
+- **BUG-036 approach changed (maintainer, 2026-09-16):** "I am okay with your recommendations". The `/simplify`
+  altitude finding replaced PR B's Node polling script (`scripts/wait-for-http.js`) with compose healthchecks
+  (`auth-service`, `frontend` probing `$(hostname)`) plus `docker compose up -d --wait --wait-timeout 300 <named>`.
+  It covers both `test.yml` Test Docker Build and `ci.yml` Integration Tests (the same `sleep 30` race). Proof comes
+  from the PR's own CI runs, not local tests (no Docker on this box). Healthcheck interval is 30s because the base
+  compose also runs on the demo host (disk 88% full).
+- **B2 scope widened (maintainer, 2026-09-17, planning chat):** re-measured with `ts.preProcessFile` over every
+  tracked JS/TS file (64 gaps; BUGS.md's 8-service table confirmed exactly). Two questions answered:
+  (1) "Include in B2" — `packages/shared` compiled runtime also declares `jsonwebtoken`/`bull` (deps) and `pg`
+  (peer: type-only `Pool`, same contract as Express); its build-excluded `api/` files (ADR-028) are the only
+  allowlist entries. (2) "Gate it and fix all now" — test/tooling imports must be declared too (deps or
+  devDeps), and B2 fixes today's test-scope gaps (notification/reputation/social-graph, frontend, tests workspace).
+- **BUG-046 scheduled (maintainer, 2026-09-16):** 8 services also import undeclared packages. One dependency PR
+  (B2) fixes all of them before D1; PR B stays messaging-only. **BUG-047** (pre-existing `npm ls` picomatch
+  ELSPROBLEMS) logged for triage.
+- **Lanes/stages/provenance work is Sprint 132 (maintainer, 2026-09-16):** its spec, plan and handoff live on the
+  pushed branch `lane/lanes-provenance` (`.claude/handoff/lane-lanes-provenance.md`). The execute stage is available.
+- **Dependabot majors not rolled into B (maintainer, 2026-09-16):** asked whether the ~10 open Dependabot PRs
+  should join PR B; answered no — all are majors, 0 open Dependabot security alerts; one major per PR after B and B2.
+  #243 (bcryptjs 2→3, auth password hashing) **deferred to Sprint 132** ("Let's defer #243 to sprint 132", maintainer, 2026-09-17).
+- **Expo SDK drift (observed 2026-09-17, not scheduled):** the daily `expo-sdk-drift.yml` run is red and issue #248 is open.
+  Cause is patch lag only: expo 57.0.22→~57.0.23, expo-image-picker/expo-location 57.0.17→~57.0.18,
+  expo-notifications 57.0.18→~57.0.19 (jest/@types/jest 30 are registered divergences). 0 open Dependabot alerts;
+  changelogs not read, so "no security content" is UNVERIFIED. **Decided (maintainer, 2026-09-17):** "I also want to get
+  the expo drift handled in a small PR after b2" → PR B3.
+- **New proposals triaged (2026-09-16):** #244 (`@eslint/js` 9→10) and #245 (ioredis 5→6) are
+  **deferred to Sprint 132** by maintainer decision — they are majors that appeared after Sprint 131's
+  scope was approved. #243 (bcryptjs, a major) joined them on 2026-09-17. Recorded in `docs/IDEAS.md` [2026-09-16] so
+  the decision outlives this handoff's archival. Sprint 131's D-series is unchanged: #224, #225, #226,
+  #228, #230, plus #247/#246 which superseded the closed #227/#229.
+- **No rollout or merge authorization is implied by planning ownership.**
+
+## Review corrections applied
+
+- All root-regression probes use the tests workspace and verify actual discovery.
+- Messaging's TDD run and nonzero case count precede promotion; blocking discovery is asserted.
+- Every B manifest change includes a surgical lock update and strict install.
+- All missing direct messaging runtime imports are declared before D1; future importer audits
+  distinguish actual source imports from current manifest declarers.
+- The branch was created before committing; the staged Sprint 130 archive was preserved.
+- Numeric version reservations were removed, and the release count reflects deferred C.
+- BUG-033 counts were remeasured as 74 .tsx + 2 .ts; current green counts remain unverified.
+- ADR-088 and BUG-033 are the suffix-documentation targets; scripts/claude.md does not contain the
+  claimed .ts-only wording.
+- The tier gate has a generic empty-workspace allowance, not a named messaging exemption.
+- The handoff now names ownership, base, shared-resource allocation, next task and verification.
+
+## Verification references
+
+PR B2 merge, deploy and smoke, 2026-09-18 (maintainer merged; Claude verified):
+
+- [#251](https://github.com/ravichavali/karmyq/pull/251) **MERGED** as `1e1916ee` at 2026-09-18T01:55:41Z; `origin/master`
+  now `1e1916ee`, version **11.58.0**.
+- [CI/CD run 35297292440](https://github.com/ravichavali/karmyq/actions/runs/35297292440): conclusion **success**, every job
+  success including Code Scanning Gate, Security Audit, Integration Tests, all 7 image builds and **Deploy to Demo**.
+  Deploy log: each of the 9 services `✅ … is healthy`, `✅ All services healthy`, `🎉 Demo Deployment Successful`, **no rollback**.
+- Smoke (Node fetch, Windows): `POST https://karmyq.com/api/auth/login` as maria.reyes → **200, success true**, token issued;
+  `GET /api/conversations` → **200, success true** (0 conversations); `GET /api/requests?limit=5&offset=0` → **200, success true**.
+  Two authenticated reads, no demo data written. ⚠️ The sim password is **`password123`** — a wrong guess returns a 401 with a
+  correct ADR-074 envelope, which looks like a routing pass but proves nothing.
+
+PR B2 CI evidence, 2026-09-17 — [#251](https://github.com/ravichavali/karmyq/pull/251), head `371cd375`
+([run 35268575872](https://github.com/ravichavali/karmyq/actions/runs/35268575872)). **20 checks pass, 1 skipping**
+(Deploy to Demo, skipped on PRs). Confirmed from job logs, not ticks:
+
+- **Strict lock acceptance on Linux:** `npm ci` → `added 1703 packages, and audited 1722 packages in 26s`, no npm error.
+  The hand-spliced lockfile is accepted on a clean Linux install, not just on this Windows box.
+- **The gate runs and passes in CI:** `PASS regression/sprint-131-workspace-declarations.test.ts (20.859 s)`; root regression
+  totals 37 suites / 343 tests. No reference to the deleted messaging gate anywhere in the run.
+- **Lint & Type Check**, **Integration Tests**, **Test Frontend**, **Test Auth Service**, **Test Docker Build** — all pass.
+- **Images build against the changed manifests:** all 7 `Build Docker Images` jobs pass (auth-service `DONE`, no npm error),
+  plus Build Landing Page. This is the real proof that `--omit=dev` images still resolve every runtime declaration.
+- **Security Audit (ADR-059)** and **Code Scanning Gate (ADR-060)** pass; **CodeQL** pass; **pr-contract** pass. No new
+  advisory, as expected — no resolved version changed.
+
+**Next: merge authorization.** Per CLAUDE.md the agent cannot self-merge; ask the maintainer, confirm no master deploy is in
+flight, then `gh pr merge 251 --squash --admin`, watch the master run through Deploy to Demo, smoke
+`POST https://karmyq.com/api/auth/login`, and update this handoff. After that: **B3** (Expo drift #248 — re-run
+`npx expo install --check` first), then **D1**.
+
+PR B2 execution, 2026-09-17 (Claude, `superpowers:executing-plans`; 8 commits, `0edd49ad`…`98c911b0`, base `d2edb286`):
+
+- **Gate red then green.** Red at the planned counts exactly: 2 failed / 6 passed, **95 runtime + 94 dev** violations, with
+  `simulation-service: bcryptjs` correctly in the runtime list and no `@/` alias leaking. After the 8 services: **3 runtime / 14 dev**.
+  After shared/frontend/tests: **8/8 green**. Final gate is **10/10** (two checks added mid-PR, below).
+- **Every assertion proven able to fail.** 12 injections, each reverted: runtime scope, type-query, dev scope, devDep≠runtime,
+  range, stale allowlist, discovery, root-bump stranding, realistic de-hoist, stale divergence allowlist, lock/manifest drift,
+  and a service satisfying a runtime import with a peer.
+- **Lockfile.** 1845 nodes before and after; **0 added, 0 removed, 0 version/resolved/integrity changes**; every host
+  `registry.npmjs.org`. Diff confined to the 11 workspace nodes. Strict `npx -y npm@11.19.0 ci` **exit 0 twice**, lock untouched
+  both times. `npm ls --all` dependency problems **unchanged** from the BUG-047 baseline (3 invalid + 1 missing).
+- **Turbo** now orders `@karmyq/tests#build <- ["@karmyq/shared#build"]` (was `[]`).
+- **Full suite** `npm test -- --concurrency=1 --force`: **exit 0, 27/27 tasks**. Landing churn was timestamp/HEAD-sha only
+  (verified by normalizing before discarding) and was reverted; only content JSONs committed. No promoter moves.
+
+**Mid-PR correction (process review, and the most important thing in this PR).** The first draft claimed range satisfaction
+would force a D-series root bump. It does not: when a root bump strands a workspace range, npm nests a satisfying older copy,
+so the check reads the nested node and stays green. The repo already held the counterexample — root hoists
+`express-rate-limit@8.5.2` while `packages/shared` and `services/geocoding-service` run a nested `7.5.1`, gate green. A second
+check was added (root's **hoisted** version must satisfy every range a workspace declares) with a 3-entry
+`DIVERGENCE_ALLOWLIST` and a stale-entry test. Proven by injection: with `dotenv@17.4.2` hoisted and `16.6.1` nested under all
+nine declarers, **the satisfaction check stays green and only the new check goes red**. All nine doc sites were corrected.
+
+**SDLC gates (all four, calibrated high):**
+
+- **`/simplify`** (4 agents): found the root cause — `scripts/update-service-deps.js` deleted a hardcoded `HOISTED_DEPS` list
+  from every service manifest, i.e. the machine that produced BUG-046. Deleted (nothing invoked it). Gate cleanups: 30
+  `git ls-files` spawns → 1 (~1.2s, independently verified to select the same 987 files), visitor simplified, diagnostic
+  mirror-drift message, two corrected comments. Three deeper findings **deferred with reasons** to `docs/IDEAS.md` [2026-09-17]:
+  `scripts/` is outside root `workspaces` so the gate cannot see it; the three dead `packages/shared/api/` files whose deletion
+  would remove the `ALLOWLIST`; and root's now-mostly-importer-free `dependencies` block. Each breaks a B2 invariant.
+- **`/code-review high`**: 6 findings. Fixed 2 in the gate — a `peerDependency` no longer satisfies runtime for a service or app
+  (with `legacy-peer-deps=true` npm installs no peer, so that was BUG-046 again; peers count only for `packages/*`), and
+  `DEV_ONLY` widened to the 7 build-tooling configs. 2 were the version bump and stale handoff, both fixed here. 2 are recorded
+  in the gate header as deliberate limits (type-only imports count as runtime; only static specifiers are seen).
+- **`/security-review`**: **0 findings**, independently re-verified (no new lock nodes or artifacts, `@karmyq/shared "*"`
+  resolves to the local `link: true` workspace and is `private`, the gate only parses and never evaluates scanned content,
+  `tracked()` uses `execFileSync` with no attacker-influenceable argument).
+- **Version**: `origin/master` `d2edb286` = 11.57.0 → root `package.json` **11.58.0**. The lockfile's root `version` is stale at
+  11.52.0 repo-wide and was deliberately not touched (PR B set the same precedent).
+
+
+PR B2 plan review round 3, 2026-09-17 (reviewer; one P2 finding, CONFIRMED and fixed):
+
+- **Type queries bypassed the walker.** `ts.isImportTypeNode` was unhandled, so `type T = import('pkg').X`,
+  `typeof import('pkg')` and a type query nested in a generic all returned nothing (reproduced). The gate now handles
+  it, with three added regression cases. Repo impact today is nil — no tracked file uses a type-position `import()` —
+  so the counts are unchanged: **95 runtime / 94 dev** red, **2 failed / 6 passed of 8**. Injecting
+  `type Leak = import("left-pad").Foo;` into messaging `src/index.ts` now yields exactly
+  `services/messaging-service: left-pad (src/index.ts)`; reverted.
+- Reviewer re-verified the plan end to end: 95/94 before declarations, 8/8 after (in memory), template-require injection
+  fails correctly, and the normalized `npm ls` comparison keeps new dependency problems while ignoring log timestamps.
+- Cleanup applied: stale `7/7` in a commit template, and two descriptions still crediting the pre-processor.
+- **Counts note:** the three type-query cases joined the existing import-forms test, so the suite is still **8 tests**.
+
+PR B2 plan review round 2, 2026-09-17 (reviewer; two P2 findings, both CONFIRMED and fixed):
+
+- **Scanner could miss imports.** `ts.preProcessFile` returns `[]` for `require()` inside a template interpolation
+  (reproduced). Repo-wide impact today is nil — only 4 missed literals, all aliases, relative paths or builtins — but the
+  gate is now a real AST walk (`ts.createSourceFile` + `forEachChild`), a strict superset over this repo (1021 files,
+  ~1.4s). Added a regression test with 10 import forms, including the template and JSX cases and two negatives.
+  Re-ran the gate: **2 failed / 6 passed**, still 95 runtime / 94 dev; the template-require injection is now caught.
+- **`npm ls` comparison was self-inconsistent.** Two consecutive runs on the unchanged tree differed only in the
+  timestamped `…-debug-0.log` path. The plan now compares normalized dependency problems
+  (`code|invalid|missing|extraneous|peer dep`). Also corrected: the BUG-047 baseline is **not** picomatch alone — it is
+  3 `invalid` (picomatch, color-string, ms) + 1 `missing` (@react-native/metro-config, required by react-native-worklets).
+- Reviewer confirmed the planned declarations clear the scanner's violations in memory; strict install is still unverified.
+
+PR B2 plan review, 2026-09-17 (non-author reviewer; no branch edits):
+
+- Verdict: **approve with minor corrections**. Independently verified root ranges and all 13 lock resolutions, shared's import
+  sites (publisher.ts:10, auth.ts:103, type-only `Pool` at dbContext.ts:2), `legacy-peer-deps`, discovery anchors, splice
+  arithmetic (42 + 7 declarations), subsumption of the messaging gate, base `d2edb286`. Did not re-run the red gate.
+- Applied (Claude, each re-measured first): (1) drift count: "eleven" is correct on the basis deps+devDeps vs root
+  deps+devDeps; twelve counting shared's `peerDependencies.express`. Basis now stated. (2) shared's tsconfig excludes
+  **three** `api/` files (`tsconfig.json:25-27`), two allowlisted; fixed in scope section, commit text and CONTEXT template.
+  (3) testing-guide section now says the range check covers every existing declaration. (4) `pg` peer covers the runtime
+  package only; `Pool` types come from `@types/pg`. Stated in scope section and shared CONTEXT template.
+- **Next:** execute the plan in a fresh chat from Task 1.
+
+PR B merge, deploy and smoke, 2026-09-17 (Claude; focused plan Task 7 Step 7):
+
+- Before merge: no master run in flight, `origin/master` `d35a3fad`, #250 the only open non-Dependabot PR; checks 20 pass /
+  1 skipping on head `7cbad640`. Maintainer: "I authorize merge". `gh pr merge 250 --squash --admin` → MERGED `d2edb286`.
+- [CI/CD run 35224474048](https://github.com/ravichavali/karmyq/actions/runs/35224474048): conclusion **success**, every job
+  success including Code Scanning Gate and **Deploy to Demo** ("All critical services healthy", `DEPLOYMENT SUCCESSFUL`,
+  no rollback); post-deploy health step: all 9 services healthy.
+- Smoke (Node fetch, Windows): `POST https://karmyq.com/api/auth/login` as maria.reyes → 200; `GET /api/conversations`
+  with that token → **200, success true**, 0 conversations (route/auth path proven; no conversation data exercised).
+  No demo data read or modified beyond the member's own session.
+
+PR B Task 7 gates and close-out, 2026-09-16 (Claude, executing-plans):
+
+- `/simplify`: committed `ace904bd`; its altitude finding (maintainer-approved) replaced the polling script with compose
+  healthchecks + `up --wait` (`ae2024a7`).
+- `/code-review high`: one finding (in-container healthchecks can't see a broken `ports:` mapping) fixed in `4f5591b8`
+  (runner-side curls after the wait; gate 8/8 with both breakage proofs). Re-run on the final diff: **0 findings**.
+- `/security-review`: **0 findings** (no new triggers/untrusted expressions in workflows; no `ports:` change; `$(hostname)`
+  not attacker-controlled; the eight messaging declarations already resolve from registry.npmjs.org in the lock, no new nodes).
+- Full `npm test -- --concurrency=1 --force`: **exit 0, Tasks 27/27**; `karmyq-messaging-service:test` ran
+  `tests/regression/messageService.test.ts` — **6 passed / 6**. No promoter moves. Landing churn was timestamp/sha only
+  (`architecture.json` generated time, `build.json` sha/dates) and was reverted.
+- `npm run type-check --workspace=services/messaging-service`: exit 0.
+- Version: `origin/master` `d35a3fad` = 11.56.0 → root `package.json` **11.57.0**.
+- Pushed `ead6d983` (pre-push hook ran, 128s, exit 0); opened [#250](https://github.com/ravichavali/karmyq/pull/250).
+  All checks pass on that head (Deploy to Demo skipped on PR). Confirmed from logs, not ticks:
+  - [CI run 35186279944](https://github.com/ravichavali/karmyq/actions/runs/35186279944) Test Backend Services:
+    `PASS messaging-service tests/regression/messageService.test.ts`, **6 passed / 6**.
+  - [Tests run 35186279956](https://github.com/ravichavali/karmyq/actions/runs/35186279956) Test Docker Build, **run attempt 1**:
+    `up -d --wait --wait-timeout 300 auth-service frontend` → frontend Healthy 05:38:13Z, auth-service Healthy 05:38:17Z;
+    "Check published ports from the runner" (curl :3001/health, :3000/) succeeded, no `##[error]`.
+  - Integration Tests: the wait on the 8 healthchecked test services reached request-service Healthy 05:42:21Z;
+    integration tests ran and the job passed. No `##[error]` in either Docker job.
+
+PR B plan review, 2026-09-16 (Kimi, reviewer role; no branch edits):
+
+- Verdict: approve with two minor corrections. It fact-checked the plan's load-bearing claims
+  (messageService SQL/params, the 8-line lock splice, root range overlap, Sprint 122 gate lines,
+  test.yml docker-build lines 108-139, compose 127.0.0.1 ports, BUGS.md:560/615).
+- Applied: (1) swapped `scripts/generate-docs.ts` citation (`GUIDE_ORDER` is :315, service CONTEXT read is :120);
+  (2) the runtime declarations are no longer attributed to BUG-034, whose report covers only zero tests.
+  They are labelled Sprint 131 PR B spec scope in the test, the commit and the close-out.
+- Also applied (Claude, not raised by either reviewer): Task 1 timing tests hardened for Turbo
+  parallel load in CI. Non-hang cases use a 5000ms timeout; the hang case keeps a 1000ms floor with no
+  ceiling and asserts at least one hit rather than an exact count.
+
+PR A merge, deploy and live check, 2026-09-16 (Claude; focused plan Task 3 Step 7):
+
+- `gh pr view 249`: state MERGED, merge commit `d35a3fadd0912ab0ef076eb16c6fd1f23df80acd`,
+  mergedAt 2026-09-16T18:30:39Z. `origin/master` `package.json` = 11.56.0.
+- [CI/CD run 35134858026](https://github.com/ravichavali/karmyq/actions/runs/35134858026) on
+  `d35a3fad`: completed / **success**; all 14 jobs success, including Code Scanning Gate (ADR-060)
+  and **Deploy to Demo**. Deploy log: `DEPLOYMENT SUCCESSFUL`, "All critical services healthy",
+  no rollback; post-deploy health step reported all 9 services healthy (3001–3006, 3008–3010).
+  Observed in the same log: demo root filesystem **88.2% of 44.07GB** used, and "System restart
+  required" — not acted on; worth watching before the D-series image builds.
+- Live, Playwright at 1440×900, logged in as `maria.reyes@test.karmyq.com` via `POST /api/auth/login`,
+  `/communities/7f48de77-e6cc-5eba-819b-cb6f50d3c662` (title "Portland Mutual Aid Network"):
+  `GET …/config` → **404** (the community still has no config row, so the fixture still proves the
+  absence case); norms/settings/curated/pulse → 200. Console (debug level): 4 messages, 1 error —
+  the browser's own `Failed to load resource … 404 … /config`. **No `Failed to load configuration`
+  entry.** Because the 404 still occurs, the missing log proves the deployed bundle is the new code.
+  The page rendered normally (headings: community name, "This week in the neighbourhood", "Ways
+  neighbours can help here", "No open requests right now"); snapshot contained no error text.
+  No demo data was read or modified outside the member's own UI session.
+
+Codex review, 2026-09-16, PR [#249](https://github.com/ravichavali/karmyq/pull/249), head `de7aacc35f2e0640181d80d43bf6ed695454c17c`:
+
+- No actionable correctness or security findings in PR A. Checked the hook, config route,
+  interceptor, config consumers, five-case regression, documentation and focused plan.
+- Fresh frontend Jest unit + regression run: **42 suites / 405 tests passed**, exit 0.
+  Separate uncached BUG-045 regression run: **5 tests passed**, exit 0. That run emitted a
+  nonblocking duplicate-package warning from the existing `.next/standalone` build output.
+- Frontend `tsc --noEmit --incremental false`: exit 0. Branch whitespace check passed;
+  scoped gotcha check found none. Application files remained unchanged during review.
+- Live PR checks passed on the reviewed head; deployment is skipped on the PR run.
+  GitHub reports `REVIEW_REQUIRED`, with no submitted reviews; master protection requires one
+  approving review. This local assessment does not satisfy that GitHub gate.
+- At review time, `gh pr list`, PR state and local git log showed #249 open and `origin/master`
+  at `9fae79f4`. **Superseded:** #249 merged afterwards as `d35a3fad` with no submitted GitHub
+  review (merge under maintainer authorization), then deployed — see *PR A merge, deploy and live check*.
+
+PR A execution, 2026-09-16 (Claude, superpowers:subagent-driven-development then executing-plans):
+
+- TDD red against the unchanged hook: `tests/tdd/sprint-131-community-config-empty-state.test.tsx`
+  discovered (1 path); **2 failed / 3 passed** — "treats an expected 404…" failed on
+  `consoleError` not-called, "clears a previously loaded config…" failed on `config` toBeNull.
+  Green after the `fetchConfig` 404 branch: **5 passed**. Moved by hand to `tests/regression/`;
+  listing names the regression path; frontend `test:regression` 37 suites / 343 tests.
+- Drift gate 41/41; staged `feedback:check` clean; scoped gotcha check: none; process-reviewer PASS;
+  task review spec ✅ / quality Approved. Doc coverage: no guide, onboarding, landing, registry or
+  ADR change needed (no endpoint/schema/event/dependency change).
+- Gates on the branch diff: `/simplify` (4 angles) — one minor (inert mock entries in the test,
+  plan-mandated) left as-is; `/code-review medium` 0 findings (noted: a proxy-level 404 would also
+  be silenced — misconfiguration only); `/security-review` 0 findings (404 is only the no-row path;
+  401/403 untouched; `config` consumers are display-only).
+- Frontend `npx tsc --noEmit` exit 0. Pre-push hook ran the suite on push (exit 0, ~79s).
+- Full `npm test -- --concurrency=1` exit 0 twice (26/26 Turbo tasks; frontend a cache miss on
+  the first run); git status identical before/after — no promoter moves, no landing churn.
+- Version: `origin/master` still `9fae79f4` at 11.55.0 → root `package.json` 11.56.0. The lockfile's
+  root `version` field (11.52.0) was already stale and is left untouched (dependency-lane rules).
+
+Plan review, 2026-09-16:
+
+- Reviewed focused plan commit `e2c03a56`; prior sprint planning is committed as `b47c0fe6`.
+  Extracted its literal five-case test into a temporary review file and ran it against the unchanged
+  hook: 2 failed / 3 passed. The initial 404 case fails on logging; the stale-config case first
+  fails on `config` still holding the old object. Corrected the plan's assertion-level red expectations.
+- Reproduced `git mv` rejecting that untracked test. The plan now uses a checked filesystem move;
+  the temporary review test was removed. No application implementation was made.
+- Corrected pre-commit sequencing, restoration of unintended promotions, attribution, and handoff
+  ordering. A remains the next task until review, merge, deployment and health verification finish;
+  no future PR number or verification date is invented. BUG-045 retains its caller-only boundary.
+- Live `gh pr list` / `git log origin/master` reconciliation: master remains `9fae79f4`, no Sprint 131
+  implementation PR exists. #227 and #229 are closed; current zod/next proposals are #247/#246.
+  #224/#225/#226/#228/#230 remain open. New #243–#245 proposals are outside the approved sprint
+  scope pending triage; their existence does not transfer the Codex dependency lane. D plans must
+  refresh proposal IDs before execution; the sprint tables retain their dated baseline IDs.
+- Corrected-plan verification passed: local links, temporary-probe cleanup and staged whitespace;
+  required process review and `feedback:check`; full `npm test -- --concurrency=1` exited 0
+  (26/26 Turbo tasks successful, 25 cached; fresh tests-workspace run: 41 suites / 908 tests).
+  Existing worker-teardown warning was nonblocking. No generated changes or promotions occurred.
+
+Observed 2026-09-15:
+
+- GitHub [#242](https://github.com/ravichavali/karmyq/pull/242): merged as `9fae79f4`.
+  [CI run 35029504300](https://github.com/ravichavali/karmyq/actions/runs/35029504300):
+  success, including **Deploy to Demo**. Open code-scanning alerts = 0; open Dependabot security
+  alerts = 0; #239 closed. Seven major dependency PRs #224–#230 remain open.
+- `git diff HEAD origin/master --stat` was empty before the branch switch; the staged rename and
+  planning files survived intact. New branch base is `9fae79f4`.
+- Root Jest probe for `tests/regression/sprint-122-tier-parity.test.ts`: discovery `[]`;
+  actual run exits 1 with “No tests found”. Running discovery from `tests/` finds exactly that file.
+- Read-only frontend TDD inventory: 76 files, 74 .tsx + 2 .ts. No bulk test promotion performed.
+- Scoped gotcha check for the planning/handoff files: no scoped gotchas.
+- Document checks passed: local links resolve, all 13 critical notes match across spec/plan/handoff,
+  task numbering is consistent, and `git diff --cached --check` passes.
+- Required process review and `npm run feedback:check` passed. Full `npm test -- --concurrency=1`
+  exited 0: Turbo 26/26 tasks successful (25 cached). Fresh tests-workspace execution passed
+  10 unit suites / 101 tests and 31 regression suites / 807 tests. Other task results were cached.
+  A nonblocking Jest worker-teardown warning remained; no test-generated file changes or promotions occurred.
+- The initial sandbox run failed on Git ownership, shell and network restrictions. The successful
+  run used elevation and a process-local PATH with Git `usr/bin` before Git `bin`, preserving shell
+  fixture stubs. No global Git configuration, test code or application behavior changed.
+
+## Persistent obligations
+
+- Demo stories expire **2026-11-12**; BUG-041 recheck is due **2026-11-14**.
+- GitHub posts a notice on every CI run: the `ubuntu-latest` label migrates to Ubuntu 26 from **2026-10-19**.
+  Watch the first CI runs after that date, especially the Docker, Node and Postgres jobs.
+- No docs-only master push; preserve the Sprint 130 archive in PR A.
+- CodeQL PR scans are incremental; master rescans establish closure of existing master alerts.
+- Windows: use Node for JSON/HTTP probes; no local Docker. Demo data operations require separate
+  explicit authorization, and none are planned here.
+- Root tests can promote unrelated TDD files and regenerate landing timestamps; inspect the tree
+  after verification and preserve only intended changes.
+- Contributor agents never self-merge; only Claude marks the sprint complete after actual delivery.
+
+## Critical Implementation Notes
+
+1. Planning and PR A lived on `agent/codex/sprint-131-maintenance` (merged as #249), created from `origin/master` before committing the carried WIP and Sprint 130 archive. Never commit Sprint 131 work on the merged Sprint 130 branch.
+2. Codex held the implementation dependency/lockfile lane by the maintainer's 2026-09-15 decision, including messaging declarations. **Amended 2026-09-16:** Claude holds it now; executing a plan transfers the lane to the executor; reviewing does not (maintainer). The spec and sprint plan keep the original wording as history.
+3. BUG-033 rollout approval is **deferred**. Inventory is read-only. Do not enable the wider matcher, run a mass promotion, or merge PR C before the maintainer approves the freshly measured promotion set.
+4. Root `package.json:17` runs the promoter as `posttest`. A matcher-only change can therefore trigger mass moves through `npm test`; a separate commit alone does not isolate rollout.
+5. Root regression commands must use the tests workspace: `npm exec --workspace=tests -- jest --runTestsByPath regression/<file>.test.ts --runInBand`. Prove discovery and an assertion failure; a configuration error or zero-test exit is not TDD red.
+6. Messaging tests run explicitly in `tests/tdd/` before promotion. Verify at least the four specified cases executed, then move them to `regression/` and prove the blocking command discovers the file.
+7. BUG-045 acceptance is no application `Failed to load configuration` log for HTTP 404, with `config === null`. The browser may still report the preserved HTTP 404; do not claim a silent Network/Console panel.
+8. Do not edit `apps/frontend/src/lib/api.ts` or change the config endpoint's 404 contract. Keep non-404 failures observable.
+9. Fix messaging's undeclared runtime imports before D1. All manifest edits include a surgical lockfile update and strict `npx -y npm@11.19.0 ci`; never workspace install, dedupe, or scratch lockfile regeneration.
+10. A and B precede D1-D7. PR C is independent and can ship after its approval; it does not block the major upgrades. There are nine planned deploys plus one conditional promoter deploy. No numeric release slots are reserved: derive each version from current `origin/master` at merge time.
+11. Every PR runs tests, `/simplify`, `/code-review`, and `/security-review`, then waits for explicit maintainer merge authorization and the preceding deploy's health verification.
+12. Expo workflow reporting is deferred outside Sprint 131. Its existing report/close outputs are mutually exclusive; the follow-up concerns failures before outputs are produced. Do not reopen the resolved BUG-035.
+13. Use the machine's shell correctly. On this Windows checkout use Node for JSON/HTTP probes, preserve exit codes, and keep every test command anchored to its workspace.

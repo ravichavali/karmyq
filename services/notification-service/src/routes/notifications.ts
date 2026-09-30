@@ -10,9 +10,20 @@ import {
   notificationEmitter,
 } from '../services/notificationService';
 import type { SSEAuthenticatedRequest } from '../middleware/sseAuth';
-import { RouteParams } from '@karmyq/shared/middleware/auth';
+import { RouteParams, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
+import { sendForbidden } from '@karmyq/shared/utils/response';
 
 const router = Router();
+
+// BUG-055: every `:userId` route acts on the JWT caller only. One guard for the whole router, so a
+// future `:userId` route cannot forget it. authMiddleware runs before this router (src/index.ts), and
+// services connect as the table owner, so RLS on notifications.notifications does not enforce this.
+router.param('userId', (req, res, next, userId) => {
+  if (userId !== (req as AuthenticatedRequest).user!.userId) {
+    return sendForbidden(res, 'Forbidden: user does not match token user');
+  }
+  next();
+});
 
 // Server-Sent Events (SSE) endpoint for real-time notifications
 export const sseHandler = (req: SSEAuthenticatedRequest, res: Response) => {
@@ -73,12 +84,6 @@ export const sseHandler = (req: SSEAuthenticatedRequest, res: Response) => {
 
 // Get user's notifications
 router.get('/:userId', async (req: Request<RouteParams>, res: Response) => {
-  const safeUserId = String(req.params.userId).replace(/[\r\n]/g, '').slice(0, 100);
-  console.log(`GET /notifications/${safeUserId}`, {
-    body: req.body,
-    query: req.query,
-  });
-
   try {
     const { userId } = req.params;
     const limit = parseInt(req.query.limit as string) || 50;
@@ -127,16 +132,10 @@ router.get('/:userId/unread-count', async (req: Request<RouteParams>, res: Respo
 router.put('/:notificationId/read', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { notificationId } = req.params;
-    const { user_id } = req.body;
+    // BUG-055: the owner is the JWT caller; a body `user_id` from older clients is ignored.
+    const userId = (req as AuthenticatedRequest).user!.userId;
 
-    if (!user_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'user_id is required',
-      });
-    }
-
-    const notification = await markAsRead(notificationId, user_id);
+    const notification = await markAsRead(notificationId, userId);
 
     if (!notification) {
       return res.status(404).json({
@@ -184,16 +183,10 @@ router.put('/:userId/read-all', async (req: Request<RouteParams>, res: Response)
 router.delete('/:notificationId', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { notificationId } = req.params;
-    const { user_id } = req.body;
+    // BUG-055: the owner is the JWT caller; a body `user_id` from older clients is ignored.
+    const userId = (req as AuthenticatedRequest).user!.userId;
 
-    if (!user_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'user_id is required',
-      });
-    }
-
-    const notification = await deleteNotification(notificationId, user_id);
+    const notification = await deleteNotification(notificationId, userId);
 
     if (!notification) {
       return res.status(404).json({
