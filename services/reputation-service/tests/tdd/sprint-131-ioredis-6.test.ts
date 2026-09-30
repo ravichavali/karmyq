@@ -157,7 +157,9 @@ afterEach(async () => {
     } finally {
       // A stalled handshake can leave QUIT queued after the bounded wait above.
       // Disconnect the actual clients even when the cache has cleared its singleton reference.
-      for (const client of trackedClients) client.disconnect();
+      for (const client of trackedClients) {
+        if (client.status !== 'end') client.disconnect();
+      }
       if (fake) {
         for (const socket of fake.sockets) socket.destroy();
         await within(new Promise<void>(done => fake!.server.close(() => done())), 2000);
@@ -228,8 +230,15 @@ describe('ioredis 6 cache upgrade gate', () => {
         });
       });
     } finally {
-      // The emitter installs its retry timer after the event callback returns.
-      client.disconnect();
+      // Let the already-scheduled fifth reconnect attempt finish, then stop retrying.
+      // disconnect() on its already-closed socket leaves
+      // ioredis's 2-second connector grace timer alive after Jest reports the test complete.
+      client.options.retryStrategy = () => null;
+      await within(new Promise<void>(done => client.once('end', () => done())), 2000)
+        .catch(error => {
+          client.disconnect();
+          throw error;
+        });
     }
     expect(delays).toEqual([50, 100, 150, 200, 250]);
   }, 30000);

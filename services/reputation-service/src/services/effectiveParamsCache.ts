@@ -1,5 +1,6 @@
 // services/reputation-service/src/services/effectiveParamsCache.ts
 // Sprint 32: Redis-backed cache for user effective trust params (TTL 4h)
+// Sprint 131 D9: ioredis 6 uses RESP3; pin v5 retry backoff to preserve outage fallback timing.
 // Key: trust_params:{userId}:{communityId}
 // Invalidated whenever upsertUserTrustConfig runs (caller-side pattern in trustEvolutionService.ts)
 
@@ -11,9 +12,17 @@ const TTL_SECONDS = 14400; // 4 hours
 
 let _redis: Redis | null = null;
 
+/**
+ * ioredis 5's default backoff. ioredis 6 changed the default to exponential with jitter
+ * (`min(50 * 2^(n-1), 5000) + 0..199 ms`), so with maxRetriesPerRequest 20 a Redis outage would hold each
+ * cache command about 73 s instead of about 10.5 s before the DB fallback runs. This pins only the
+ * outage retry timing; RESP3 and keepAlive retain ioredis 6 defaults. Gate: case C in the D9 regression.
+ */
+export const V5_RETRY_STRATEGY = (times: number): number => Math.min(times * 50, 2000);
+
 /** Build the cache's Redis client. Exported so the D9 gate can observe the real client's wire and retry behavior. */
 export function createCacheClient(url: string = REDIS_URL): Redis {
-  return new Redis(url);
+  return new Redis(url, { retryStrategy: V5_RETRY_STRATEGY });
 }
 
 function getRedis(): Redis {
