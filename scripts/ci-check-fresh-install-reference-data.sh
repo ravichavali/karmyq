@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# TEMPORARY negative-proof checkpoint: omit Driving from expectation; restore before readiness.
+# Compare fresh-install reference data BEFORE ci-apply-full-schema.sh can seed it.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -23,7 +23,7 @@ if (inserts.length !== 1 || !inserts[0][1].trim()) {
 }
 process.stdout.write(
   'WITH expected(slug, label, synonyms) AS (VALUES ' + inserts[0][1] + ')\n' +
-  "SELECT slug || '|' || label || '|' || to_json(ARRAY(SELECT s FROM unnest(synonyms) s ORDER BY s))::text FROM expected WHERE slug <> 'driving' ORDER BY slug;\n"
+  "SELECT slug || '|' || label || '|' || to_json(ARRAY(SELECT s FROM unnest(synonyms) s ORDER BY s))::text FROM expected ORDER BY slug;\n"
 );
 JS
 pg < "$CHECK_DIR/expected.sql" > "$CHECK_DIR/expected"
