@@ -485,8 +485,8 @@ export const requestService = {
   getRequests: (params?: { community_id?: string; status?: string; type?: string; requester_id?: string; limit?: number; offset?: number; include_admin_notes?: boolean }) =>
     requestApi.get('/requests', { params }),
 
-  getMatchedRequests: (user_id: string, limit?: number) =>
-    requestApi.get('/requests/matched/for-user', { params: { user_id, limit } }),
+  getMatchedRequests: (limit?: number) =>
+    requestApi.get('/requests/matched/for-user', { params: { limit } }),
 
   // Day 7: Curated feed with match scores. Sprint 85/86 / ADR-066: view='home' returns the
   // decisions+requests union; view='community' returns the requests+activity+story union (no

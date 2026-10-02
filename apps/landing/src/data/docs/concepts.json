@@ -767,6 +767,14 @@
       "status": "proposed",
       "description": "**Status:** Proposed",
       "filename": "ADR-098-trusted-proxy-and-rate-limit-keys.md"
+    },
+    {
+      "slug": "adr-099-inventories-and-directed-requests",
+      "number": "099",
+      "title": "ADR-099: Inventories and Directed Requests",
+      "status": "accepted",
+      "description": "**Status**: Accepted",
+      "filename": "ADR-099-inventories-and-directed-requests.md"
     }
   ]
 }

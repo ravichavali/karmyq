@@ -6,6 +6,7 @@ type TagType = 'skill' | 'interest' | 'need';
 interface Tag {
   id: string;
   tag_value: string;
+  skill_slug: string | null;
 }
 
 interface TagGroupState {
@@ -22,6 +23,7 @@ const SECTION_CONFIG: { type: TagType; label: string; placeholder: string; descr
 ];
 
 export function ProfileTagsSection() {
+  const [error, setError] = useState('');
   const [groups, setGroups] = useState<Record<TagType, TagGroupState>>({
     skill:    { tags: [], suggestions: [], adding: false, inputValue: '' },
     interest: { tags: [], suggestions: [], adding: false, inputValue: '' },
@@ -30,18 +32,18 @@ export function ProfileTagsSection() {
 
   useEffect(() => {
     api.get('/auth/profile/tags').then(res => {
-      const { skills, interests, needs } = res.data.data;
+      const { skills, interests, needs } = res.data;
       setGroups(prev => ({
         skill:    { ...prev.skill,    tags: skills },
         interest: { ...prev.interest, tags: interests },
         need:     { ...prev.need,     tags: needs },
       }));
-    });
+    }).catch(() => setError('Could not load your tags. Please try again later.'));
 
     (['skill', 'interest', 'need'] as TagType[]).forEach(type => {
       api.get(`/auth/profile/tags/suggestions?tag_type=${type}`).then(res => {
-        setGroups(prev => ({ ...prev, [type]: { ...prev[type], suggestions: res.data.data } }));
-      });
+        setGroups(prev => ({ ...prev, [type]: { ...prev[type], suggestions: res.data } }));
+      }).catch(() => { /* Suggestions are optional; free-text entry remains available. */ });
     });
   }, []);
 
@@ -49,31 +51,40 @@ export function ProfileTagsSection() {
     const trimmed = value.trim();
     if (!trimmed) return;
     if (groups[type].tags.length >= 10) return;
-    const res = await api.post('/auth/profile/tags', { tag_type: type, tag_value: trimmed });
-    if (res.data.data) {
-      setGroups(prev => ({
-        ...prev,
-        [type]: {
-          ...prev[type],
-          tags: [...prev[type].tags, res.data.data],
-          adding: false,
-          inputValue: '',
-        },
-      }));
+    try {
+      const res = await api.post('/auth/profile/tags', { tag_type: type, tag_value: trimmed });
+      if (res.data) {
+        setGroups(prev => ({
+          ...prev,
+          [type]: {
+            ...prev[type],
+            tags: [...prev[type].tags, res.data],
+            adding: false,
+            inputValue: '',
+          },
+        }));
+      }
+    } catch {
+      setError('Could not add this tag. Please try again.');
     }
   };
 
   const removeTag = async (type: TagType, tagId: string) => {
-    await api.delete(`/auth/profile/tags/${tagId}`);
-    setGroups(prev => ({
-      ...prev,
-      [type]: { ...prev[type], tags: prev[type].tags.filter(t => t.id !== tagId) },
-    }));
+    try {
+      await api.delete(`/auth/profile/tags/${tagId}`);
+      setGroups(prev => ({
+        ...prev,
+        [type]: { ...prev[type], tags: prev[type].tags.filter(t => t.id !== tagId) },
+      }));
+    } catch {
+      setError('Could not remove this tag. Please try again.');
+    }
   };
 
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-semibold text-gray-900">About You</h2>
+      {error && <p role="alert" className="text-sm text-error">{error}</p>}
       {SECTION_CONFIG.map(({ type, label, placeholder, description }) => {
         const group = groups[type];
         return (
@@ -86,6 +97,11 @@ export function ProfileTagsSection() {
               {group.tags.map(tag => (
                 <span key={tag.id} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-50 text-green-800 text-sm">
                   {tag.tag_value}
+                  {type === 'skill' && tag.skill_slug && (
+                    <span className="text-xs text-text-muted">
+                      matched to {tag.skill_slug.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())}
+                    </span>
+                  )}
                   <button onClick={() => removeTag(type, tag.id)} className="text-green-500 hover:text-green-700 ml-1">✕</button>
                 </span>
               ))}
@@ -114,7 +130,10 @@ export function ProfileTagsSection() {
                 />
                 {group.suggestions.length > 0 && (
                   <div className="flex flex-wrap gap-1">
-                    {group.suggestions.filter(s => !group.tags.some(t => t.tag_value === s)).slice(0, 6).map(s => (
+                    {group.suggestions
+                      .filter(s => s.toLowerCase().includes(group.inputValue.trim().toLowerCase()))
+                      .filter(s => !group.tags.some(t => t.tag_value === s))
+                      .slice(0, 6).map(s => (
                       <button key={s} onClick={() => addTag(type, s)} className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600 hover:bg-green-50 hover:text-green-700">
                         {s}
                       </button>

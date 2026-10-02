@@ -90,9 +90,13 @@ describe('Sprint 113 — BUG-024/026 profile reconciles onto the canonical self 
   it('renders the summary values (current karma, reputation score, activity)', async () => {
     render(<Profile />);
 
-    await waitFor(() => expect(screen.getByText('137')).toBeInTheDocument()); // current karma
-    expect(screen.getByText('88')).toBeInTheDocument(); // reputation score
-    expect(screen.getByText('12')).toBeInTheDocument(); // recent helps
-    expect(screen.getByText('5')).toBeInTheDocument(); // recent requests
+    // Profile no longer waits for the removed skills fetch. Initialization and its
+    // community-change effect may briefly show loading between summary renders.
+    await waitFor(() => {
+      expect(screen.getByText('137')).toBeInTheDocument(); // current karma
+      expect(screen.getByText('88')).toBeInTheDocument(); // reputation score
+      expect(screen.getByText('12')).toBeInTheDocument(); // recent helps
+      expect(screen.getByText('5')).toBeInTheDocument(); // recent requests
+    });
   });
 });

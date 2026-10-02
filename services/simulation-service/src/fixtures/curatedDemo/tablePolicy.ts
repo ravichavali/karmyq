@@ -47,6 +47,7 @@ export const TABLE_POLICY: Record<string, TablePolicy> = {
   'auth.user_request_preferences': 'reset',
   'auth.user_interests': 'reset',
   'auth.user_tags': 'reset',
+  'auth.skill_vocabulary': 'preserve',
   'auth.device_push_tokens': 'reset',
   'auth.founding_circle_submissions': 'reset',
 

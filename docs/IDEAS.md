@@ -792,3 +792,10 @@ Individuals and communities should have **inventories**: things they can share. 
 Now that Claude accepts `AGENTS.md`, should the framework standardize on `AGENTS.md` as the single source of truth for multiple AI agents (Claude, Codex, Kimi, Antigravity, …) and deprecate `CLAUDE.md`? Today `CLAUDE.md` is the source of truth and `AGENTS.md` bridges into it.
 
 ---
+
+## [2026-10-01] architecture
+
+Consider retiring `GET /requests/matched/for-user` after checking external consumers. Sprint 132
+PR A repoints it to skill tags and caller-scopes it, but the only frontend reference is the unused
+`requestService.getMatchedRequests` wrapper (`apps/frontend/src/lib/api.ts:488`; repository scan).
+The curated feed already consumes the same skill store through `getUserProfile`.

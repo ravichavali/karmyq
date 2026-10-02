@@ -1,10 +1,24 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-09-27 (Sprint 131 D7 — next 16)
+**Last updated**: 2026-10-01 (Sprint 132 PR A — skills editor)
 
 ## Overview
 
 Next.js 16 web application (Pages Router) consuming all Karmyq backend services.
+
+---
+
+## Sprint 132 PR A — one skills editor
+
+`/profile` uses `ProfileTagsSection` as the only skills editor. It reads and writes
+`/auth/profile/tags`; the old fixed picker and `/users/:userId/skills` calls are removed.
+Skill suggestions come from `auth.skill_vocabulary` through the tags suggestions endpoint.
+Saved skill tags include a nullable `skill_slug`; resolved tags display a “matched to” hint,
+while free-text tags remain accepted and can still reach matching by normalized text. The
+shared API client unwraps the response envelope, so the component reads `res.data` directly.
+Failed tag loads show an error and leave the editor available for a retry by reloading the page.
+The unused `requestService.getMatchedRequests(limit?)` wrapper no longer accepts a user ID;
+the server binds that legacy matched-for-user route to the authenticated caller.
 
 ---
 

@@ -19,39 +19,6 @@ import { useInvitationChain } from '@/hooks/useInvitationChain'
 // Build version to force cache invalidation
 const BUILD_VERSION = '2026-01-11-v2';
 
-const AVAILABLE_SKILLS = [
-  'driving',
-  'moving',
-  'childcare',
-  'pet_care',
-  'tech_support',
-  'coding',
-  'home_repair',
-  'handyman',
-  'electrical',
-  'plumbing',
-  'carpentry',
-  'gardening',
-  'cooking',
-  'baking',
-  'tutoring',
-  'languages',
-  'career_advice',
-  'design',
-  'writing',
-  'photography',
-  'music',
-  'art',
-  'cleaning',
-  'organizing'
-]
-
-interface UserSkill {
-  id: string
-  skill: string
-  created_at: string
-}
-
 interface Community {
   id: string
   name: string
@@ -145,14 +112,10 @@ function TrustEvolutionToggle({
 export default function ProfilePage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
-  const [skills, setSkills] = useState<UserSkill[]>([])
   const [communities, setCommunities] = useState<Community[]>([])
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [showSkillSelector, setShowSkillSelector] = useState(false)
-  const [selectedSkill, setSelectedSkill] = useState('')
 
   // Profile editing states
   const [editing, setEditing] = useState(false)
@@ -198,7 +161,6 @@ export default function ProfilePage() {
       setName(parsedUser.name || '')
       setEmail(parsedUser.email || '')
       setBio(parsedUser.bio || '')
-      fetchUserSkills(parsedUser.id)
       // Load communities first, then privacy settings (to avoid race condition)
       initializeKarmaData(parsedUser.id)
       // Fetch global evolution setting
@@ -371,58 +333,6 @@ export default function ProfilePage() {
     }
   }
 
-  const fetchUserSkills = async (userId: string) => {
-    try {
-      setLoading(true)
-      const response = await api.get(`/users/${userId}/skills`)
-      setSkills(response.data.data || [])
-    } catch (err: any) {
-      console.error('Failed to load skills', { error: err instanceof Error ? err.message : String(err) })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleAddSkill = async () => {
-    if (!user || !selectedSkill) return
-
-    // Check if skill already exists
-    if (skills.some(s => s.skill === selectedSkill)) {
-      setError('You already have this skill')
-      setTimeout(() => setError(''), 3000)
-      return
-    }
-
-    try {
-      setSaving(true)
-      await api.post(`/users/${user.id}/skills`, { skill: selectedSkill })
-      await fetchUserSkills(user.id)
-      setSelectedSkill('')
-      setShowSkillSelector(false)
-      setSuccess('Skill added successfully!')
-      setTimeout(() => setSuccess(''), 3000)
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to add skill')
-      setTimeout(() => setError(''), 3000)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleRemoveSkill = async (skillId: string) => {
-    if (!user) return
-
-    try {
-      await api.delete(`/users/${user.id}/skills/${skillId}`)
-      await fetchUserSkills(user.id)
-      setSuccess('Skill removed successfully!')
-      setTimeout(() => setSuccess(''), 3000)
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to remove skill')
-      setTimeout(() => setError(''), 3000)
-    }
-  }
-
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
@@ -449,11 +359,7 @@ export default function ProfilePage() {
     }
   }
 
-  const availableSkillsToAdd = AVAILABLE_SKILLS.filter(
-    skill => !skills.some(s => s.skill === skill)
-  )
-
-  if (loading || !user) {
+  if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-text-subtle">Loading profile...</div>
@@ -833,101 +739,6 @@ export default function ProfilePage() {
 
           {/* Your Network — People (ego) / Communities (depth) toggle */}
           {user && <BelongingSection userId={user.id} />}
-
-          {/* Skills Section */}
-          <div className="kq-card">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h2 className="section-heading mb-1">My Skills</h2>
-                <p className="text-sm text-text-muted">
-                  Add skills to help match you with requests you can help with
-                </p>
-              </div>
-              {!showSkillSelector && (
-                <button
-                  onClick={() => setShowSkillSelector(true)}
-                  className="btn-primary text-sm"
-                >
-                  + Add Skill
-                </button>
-              )}
-            </div>
-
-            {/* Add Skill Form */}
-            {showSkillSelector && (
-              <div className="bg-primary-light border border-primary-medium rounded-lg p-4 mb-4">
-                <h3 className="font-medium mb-2">Add a New Skill</h3>
-                <div className="flex gap-2">
-                  <select
-                    value={selectedSkill}
-                    onChange={(e) => setSelectedSkill(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-border rounded focus:outline-hidden focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="">Select a skill...</option>
-                    {availableSkillsToAdd.map((skill) => (
-                      <option key={skill} value={skill}>
-                        {skill.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={handleAddSkill}
-                    disabled={!selectedSkill || saving}
-                    className="btn-primary"
-                  >
-                    Add
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowSkillSelector(false)
-                      setSelectedSkill('')
-                    }}
-                    className="btn-secondary"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Skills List */}
-            {skills.length === 0 ? (
-              <div className="text-center py-8 text-text-subtle">
-                <p className="mb-2">No skills added yet</p>
-                <p className="text-sm">Add skills to get matched with relevant help requests</p>
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {skills.map((skill) => (
-                  <div
-                    key={skill.id}
-                    className="inline-flex items-center gap-2 px-3 py-2 bg-primary-light text-primary-dark rounded-full"
-                  >
-                    <span className="font-medium">
-                      {skill.skill.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </span>
-                    <button
-                      onClick={() => handleRemoveSkill(skill.id)}
-                      className="text-primary hover:text-primary-dark font-bold"
-                      title="Remove skill"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Skill Impact Info */}
-            {skills.length > 0 && (
-              <div className="mt-4 p-3 bg-success-light border border-success rounded">
-                <p className="text-sm text-success">
-                  💡 <strong>Your skills help us match you</strong> with relevant help requests on your dashboard.
-                  The more skills you add, the more opportunities you'll see to help others!
-                </p>
-              </div>
-            )}
-          </div>
 
           {/* Trust Evolution Settings */}
           {user && globalEvolutionEnabled !== null && (

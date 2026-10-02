@@ -4,6 +4,11 @@
 **Status**: development
 **Criticality**: optional — used for demo data generation only
 
+Sprint 132 PR A: `TABLE_POLICY` preserves `auth.skill_vocabulary` as global reference data.
+Member `auth.user_tags` and the deprecated `auth.user_skills` remain reset tables. No demo reset
+or seed operation is part of this PR; `sprint-132-skill-vocabulary-preserved.test.ts` proves the
+vocabulary classification independently of user data.
+
 ---
 
 ## Curated fixture standing now delegates to the canonical policy (Sprint 126 / ADR-096)

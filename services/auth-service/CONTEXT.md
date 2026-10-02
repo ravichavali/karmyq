@@ -9,6 +9,30 @@ Handles user authentication, registration, and JWT token management for the Karm
 
 ## Database Schema
 
+### Sprint 132 PR A — skills single source (ADR-099)
+
+`auth.user_tags` with `tag_type='skill'` is the member skill store used by matching.
+`auth.skill_vocabulary` holds `slug VARCHAR(50)` (primary key), `label VARCHAR(100)` and
+`synonyms TEXT[]`. `user_tags.skill_slug` is a nullable foreign key into that vocabulary;
+the `user_tags_skill_slug_only_on_skills` check rejects a non-null slug on other tag types.
+Migration `20260930-skill-vocabulary.sql` resolves existing tags and copies the legacy picker
+selections into tags. Vocabulary rows also live in `seed-data.sql` for fresh installations.
+
+`auth.user_skills` is deprecated and retained for image rollback. New code neither writes nor
+reads it for matching. Tags created after this migration are not mirrored to the legacy table,
+so a rolled-back image retains the old skill snapshot until the new images are restored.
+
+`GET /auth/profile/tags` returns current-caller tags grouped as `skills`, `interests`, `needs`,
+with `{ id, tag_value, skill_slug }` per tag. `POST /auth/profile/tags` accepts `tag_type` and
+`tag_value`, resolves a skill exactly after trim/lower/whitespace normalization against a slug,
+label or synonym, and returns `{ id, tag_type, tag_value, skill_slug }` (null on duplicate).
+Unresolved skills and non-skill tags have a null slug. Caller ownership comes from the JWT;
+GET, POST and DELETE remain caller-scoped. The existing tag uniqueness constraint is unchanged.
+`GET /auth/profile/tags/suggestions?tag_type=skill` reads vocabulary labels alphabetically;
+interest and need suggestions retain their constants. The three legacy
+`GET/POST /users/:userId/skills` and `DELETE /users/:userId/skills/:skillId` handlers are removed
+and return 404. The profile uses only `ProfileTagsSection` and displays a "matched to" hint.
+
 ### Tables Owned by This Service
 
 ```sql
@@ -876,7 +900,8 @@ src/
 - **NEW**: `GET /auth/profile/tags/suggestions?tag_type=skill|interest|need` — returns hardcoded suggestions
 - **Schema**: New `auth.user_tags` table (see migration `20260324-user-tags.sql`)
 - **File**: `src/routes/profileTags.ts`, `src/constants/tagSuggestions.ts`
-- **Note**: `auth.user_skills` table is unchanged; `auth.user_tags` is additive
+- **Historical note**: Sprint 38 added tags alongside `auth.user_skills`. Sprint 132 PR A supersedes
+  that split: matching now reads skill tags, and the legacy table is deprecated (see above).
 
 ---
 

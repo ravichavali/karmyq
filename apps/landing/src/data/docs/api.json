@@ -309,7 +309,7 @@
         {
           "method": "GET",
           "path": "/requests/matched/for-user",
-          "description": "Get requests matching user's skills from their communities (skill-based matching algorithm)."
+          "description": "Get requests matching the authenticated caller's skills from their communities (skill-based matching algorithm)."
         },
         {
           "method": "GET",
@@ -414,12 +414,12 @@
         {
           "method": "GET",
           "path": "/matches",
-          "description": "Get all matches with optional filters."
+          "description": "The **caller's** matches: always restricted to matches where the JWT caller is the requester, the"
         },
         {
           "method": "GET",
           "path": "/matches/:id",
-          "description": "Get specific match details."
+          "description": "Match details (including requester/helper email) **for a participant only** (requester or"
         },
         {
           "method": "POST",
@@ -786,7 +786,7 @@
         {
           "method": "GET",
           "path": "/notifications/:userId",
-          "description": "Get user's notifications (paginated)."
+          "description": "Get the caller's notifications (paginated). `:userId` must equal the JWT caller (403 otherwise)."
         },
         {
           "method": "GET",
@@ -796,7 +796,7 @@
         {
           "method": "PUT",
           "path": "/notifications/:notificationId/read",
-          "description": "Mark specific notification as read."
+          "description": "Mark one of the caller's notifications as read. The owner comes from the JWT. A body `user_id` is"
         },
         {
           "method": "PUT",

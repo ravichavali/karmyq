@@ -310,6 +310,10 @@ jobs:
           cd tests
           docker compose -f docker-compose.test.yml ps
 
+      # Reference data must survive a fresh init before replay can mask missing seed rows.
+      - name: Prove fresh-install reference data (before migration replay)
+        run: bash scripts/ci-check-fresh-install-reference-data.sh
+
       # ADR-087: init.sql is generated from the migration chain. Replay the chain before integration
       # tests and fail if a normalized schema-only dump changes at all; sentinels remain defense in
       # depth. This catches new cleanly-applied objects as well as unexpected migration errors.

@@ -7,6 +7,14 @@
 
 ## Recent Changes
 
+- **2026-10-01 (Sprint 132 PR A, ADR-099)**: `getUserProfile` reads `auth.user_tags` where
+  `tag_type='skill'`, using `skill_slug` or lowercase trimmed text with non-alphanumeric runs
+  replaced by underscores. `/requests/matched/for-user` keeps its category mapping and reads
+  canonical `skill_slug` values from skill tags. That route now binds membership and skills to
+  the authenticated caller; an omitted or spoofed `user_id` query cannot select another member.
+  No matching code reads the deprecated
+  `auth.user_skills`. Curated response and shared scoring contracts are unchanged.
+
 - **2026-09-30 (Sprint 132 PR S, BUG-057 — HIGH)**: `GET /matches` applied only optional, client-supplied filters, so no filter meant every match on the platform and `user_id=<anyone>` meant that person's; `GET /matches/:id` checked only the id and returned requester/helper emails. Both now bind the JWT caller into a requester/responder predicate (`PARTICIPANT_PREDICATE` in `src/routes/matches.ts`, the same definition the accept/reject/complete/delete handlers use; `POST /matches` sets `matches.offer_id` only to an active offer whose `offerer_id` equals the responder (the JWT caller, `src/routes/matches.ts` offer check), so the offerer is always the responder and the predicate needs no offerer term; `responder_id` is NOT NULL), and `/:id` 404s for non-participants. The feedback routes on the same mount had the same hole: `GET /matches/:id/feedback` checked participation for a **query** `user_id`, and `POST` authored feedback as a **body** `from_user_id`. Both now use the JWT caller (`src/routes/feedback.ts`). Every in-repo caller (web `CommitmentsTab`/`MyRequestsTab`/`matches/[id]`, mobile feed/request detail, the simulation workflows) already passed or filtered to the caller's own id, so none loses data it used. RLS on `requests.matches` does not bind the owner connection, so this is enforced in SQL.
 
 - **2026-08-21 (Sprint 126 — idempotent match completion)**: `PUT /matches/:id/complete` selected `m.status` and never checked it, so a participant could call it repeatedly; each call re-stamped `completed_at = CURRENT_TIMESTAMP` and re-published `match_completed`. Now a match already in `completed` returns success without writing or publishing. The duplicate award was already absorbed by ADR-096's projection identity, but the **moving `completed_at` is the real hazard**: it shifts the strictly-before as-of boundary, so a replay can select a different top-3 community set or cross a 10/50/100 milestone, producing rows under NEW identities the unique index cannot absorb — and it makes stored rows disagree with replay, which the standing backfill reports as a BLOCKING `CONFLICTING_KARMA_PROJECTION`. One double-click could have refused the whole backfill. Found by the Sprint 126 `/security-review` gate.
@@ -376,7 +384,7 @@ CREATE TABLE provider.offers (
 
 #### Tables Read by This Service
 - `auth.users` - User details for requester/helper names
-- `auth.user_skills` - User skills for skill-based matching
+- `auth.user_tags` - Skill tags and nullable canonical `skill_slug` for skill-based matching
 - `auth.user_feed_preferences` - Feed visibility preferences (ADR-022)
 - `auth.social_distances` - Trust distance between users (ADR-031)
 - `communities.communities` - Community names, details, and `default_request_scope`
@@ -426,10 +434,10 @@ Get all help requests with optional filters.
 **Implementation:** `src/routes/requests.ts:8`
 
 #### GET /requests/matched/for-user
-Get requests matching user's skills from their communities (skill-based matching algorithm).
+Get requests matching the authenticated caller's skills from their communities (skill-based matching algorithm).
 
 **Query Parameters:**
-- `user_id` (UUID, required) - User to match requests for
+- `user_id` (ignored for compatibility) - Cannot select another member; the JWT caller is used
 - `limit` (number) - Max results (default: 10)
 
 **Response:**
@@ -573,7 +581,7 @@ type UnifiedFeedItem =
 **Algorithm (ADR-031, amended by ADR-082):**
 1. Fetch user feed preferences from `auth.user_feed_preferences`
 2. Fetch user preferences (subscribed request types from auth.user_request_preferences)
-3. Fetch user skills from auth.user_skills
+3. Fetch skill tags from auth.user_tags, preferring skill_slug and normalizing unresolved tag text
 4. Get open requests across three tiers:
    - **Community**: Requests in user's communities
    - **Trust Network**: Requests with `visibility_scope != 'community'` within trust degree limits
@@ -2161,11 +2169,11 @@ WHERE r.status = 'open'
       AND m.status = 'active'                 -- Only user's communities
   )
   AND EXISTS (
-    SELECT 1 FROM auth.user_skills s
-    WHERE s.user_id = $1
+    SELECT 1 FROM auth.user_tags s
+    WHERE s.user_id = $1 AND s.tag_type = 'skill'
     AND (
-      (r.category = 'moving' AND s.skill IN ('moving', 'handyman'))
-      OR (r.category = 'tech_support' AND s.skill IN ('tech_support', 'coding'))
+      (r.category = 'moving' AND s.skill_slug IN ('moving', 'handyman'))
+      OR (r.category = 'tech_support' AND s.skill_slug IN ('tech_support', 'coding'))
       -- ... other category mappings
     )
   )
@@ -2353,7 +2361,7 @@ curl -X POST http://localhost:3003/requests \
 
 **Get Matched Requests:**
 ```bash
-curl "http://localhost:3003/requests/matched/for-user?user_id=uuid-here&limit=5"
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:3003/requests/matched/for-user?limit=5"
 ```
 
 **Complete Match:**
@@ -2514,7 +2522,7 @@ router.get('/health', async (req, res) => {
 **Diagnosis:**
 1. Check user has skills:
    ```sql
-   SELECT * FROM auth.user_skills WHERE user_id = 'uuid-here';
+   SELECT * FROM auth.user_tags WHERE user_id = 'uuid-here' AND tag_type = 'skill';
    ```
 
 2. Check user is member of communities:
@@ -2533,7 +2541,7 @@ router.get('/health', async (req, res) => {
 5. Ensure user is not the requester (excluded from results)
 
 **Solution:**
-- Add skills to user: `INSERT INTO auth.user_skills ...`
+- Add skills through `POST /auth/profile/tags` so the vocabulary resolver sets `skill_slug`.
 - Ensure user joined communities
 - Verify skill mapping in Section 5.2
 
@@ -2630,7 +2638,7 @@ router.get('/health', async (req, res) => {
 
 **Solution:**
 - Verify indexes exist: `idx_help_requests_community_id`, `idx_help_requests_category`
-- Add index on `auth.user_skills(user_id, skill)` if missing
+- `auth.user_tags` has an existing user-id index; measure tag-query performance before adding indexes.
 - Consider materialized view for frequently accessed matches
 
 #### Issue: High memory usage
