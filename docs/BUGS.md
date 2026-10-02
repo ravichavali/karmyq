@@ -1522,3 +1522,29 @@ Found in the Sprint 132 plan review (2026-09-30). **Scheduled (maintainer, 2026-
 **Same class, found by the PR S `/simplify` altitude review:** the feedback routes mounted on `/matches` (`services/request-service/src/routes/feedback.ts`) trusted a **query** `user_id` (`GET /matches/:id/feedback`: anyone could read a match's feedback by naming a participant) and a **body** `from_user_id` (`POST`: anyone could author feedback as either participant, although only on completed matches). Both now take the caller from the JWT. The only caller (the simulation's `submitMatchFeedback`) already sent its own id; the web app uses reputation-service's feedback endpoint instead.
 
 ---
+
+## BUG-058 · [2026-10-01] · open · **MEDIUM**
+
+**ADR-059's 30-day exemption cap has no live monitor.** The Sprint 125 amendment raised
+`MAX_EXEMPTION_DAYS` from 7 to 30 (`scripts/audit-exemptions.js:58`). It did so on condition that
+`.github/workflows/image-size-advisory-watch.yml` keeps re-measuring upstream every week, and it says
+the cap "must go back to 7 in the same change" if that workflow is "removed or left failing". The
+workflow watches `image-size` only (`scripts/check-image-size-upstream.js`), and `image-size` left the
+tree in Sprint 128. The watch has therefore failed every Monday since at least 2026-09-14, with the
+signal "metro@0.87.1 no longer declares a image-size dependency", and issue #236 is still open. The
+cap is still 30. A monitor that is always red has stopped being a monitor, and nothing re-measures
+upstream for any other exempted package.
+
+Found 2026-10-01 while exempting `node-forge` GHSA-86w9-cpqp-85rv (ADR-059 amendment, Sprint 132).
+That exemption was capped at 7 days by hand to respect the rule.
+
+- **Fix options (maintainer decides):**
+  - (a) Generalize the watch to every package in `security/audit-exemptions.json`, driven by the
+    registry with no shadow map, and retire the image-size specifics.
+  - (b) Revert `MAX_EXEMPTION_DAYS` to 7, together with its tests and ADR-059, and delete the
+    obsolete workflow.
+
+  Either way, close #236.
+- **Owner:** Claude (dependency lane). **Deadline: 2026-10-15** (≤ 2-week SLA).
+
+---
