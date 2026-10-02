@@ -111,6 +111,14 @@ shared BorrowMatcher; inventory-aware matching is deferred.
 
 ## Delivery Notes
 
+PR A review corrected the illustrative migration backfills: the old API accepted arbitrary
+skill text, so an inner vocabulary join would hide valid legacy skills from the sole editor.
+The importer retains unmatched text with a null slug. Existing tags and legacy selections
+both use trim/lowercase/whitespace normalization and exact slug/label/synonym lookup before
+insertion, preserving canonical hints on the first run and keeping reruns idempotent. Exact
+raw tag uniqueness remains unchanged. Real PostgreSQL integration coverage exercises these
+cases, including known labels, synonyms, custom skills and existing exact collisions.
+
 PR A implements skills only. PR B and PR C will amend this record with their implementation
 evidence, including account-deletion and aggregate-count decisions. This ADR remains Accepted
 until PR C is deployed; catalog and directed-request behavior above is the approved design,

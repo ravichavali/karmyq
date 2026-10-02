@@ -78,5 +78,9 @@ scripts
 
 # Infrastructure config
 infrastructure/nginx
-infrastructure/postgres
+# The integration runner executes migration files; keep other Postgres artifacts out.
+infrastructure/postgres/*
+!infrastructure/postgres/migrations
+infrastructure/postgres/migrations/*
+!infrastructure/postgres/migrations/*.sql
 infrastructure/observability

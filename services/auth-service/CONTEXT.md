@@ -16,7 +16,10 @@ Handles user authentication, registration, and JWT token management for the Karm
 `synonyms TEXT[]`. `user_tags.skill_slug` is a nullable foreign key into that vocabulary;
 the `user_tags_skill_slug_only_on_skills` check rejects a non-null slug on other tag types.
 Migration `20260930-skill-vocabulary.sql` resolves existing tags and copies the legacy picker
-selections into tags. Vocabulary rows also live in `seed-data.sql` for fresh installations.
+selections into tags. Both backfills trim/lowercase/collapse whitespace and resolve exact
+slugs, labels or synonyms. Legacy text outside the vocabulary is preserved with a null
+slug; exact tag-text collisions keep the existing tag. Replaying the migration leaves tag
+IDs and values unchanged. Vocabulary rows also live in `seed-data.sql` for fresh installations.
 
 `auth.user_skills` is deprecated and retained for image rollback. New code neither writes nor
 reads it for matching. Tags created after this migration are not mirrored to the legacy table,

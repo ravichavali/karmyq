@@ -45,7 +45,7 @@ describe('Sprint 132 PR A: skill preservation and real SQL resolution', () => {
     );
     await client!.query(migration);
     const tags = await client!.query(
-      "SELECT tag_value, skill_slug FROM auth.user_tags WHERE user_id = $1 AND tag_type = 'skill' ORDER BY tag_value",
+      "SELECT tag_value, skill_slug FROM auth.user_tags WHERE user_id = $1 AND tag_type = 'skill' ORDER BY tag_value COLLATE \"C\"",
       [userId],
     );
     expect(tags.rows).toEqual([
@@ -63,7 +63,7 @@ describe('Sprint 132 PR A: skill preservation and real SQL resolution', () => {
       [userId, '  Spanish   tutoring  ', '\tpet\tcare\t'],
     );
     await client!.query(migration);
-    const tags = await client!.query('SELECT tag_type, tag_value, skill_slug FROM auth.user_tags WHERE user_id = $1 ORDER BY tag_type, tag_value', [userId]);
+    const tags = await client!.query('SELECT tag_type, tag_value, skill_slug FROM auth.user_tags WHERE user_id = $1 ORDER BY tag_type, tag_value COLLATE "C"', [userId]);
     expect(tags.rows).toEqual([
       { tag_type: 'interest', tag_value: 'Carpentry', skill_slug: null },
       { tag_type: 'skill', tag_value: '\tpet\tcare\t', skill_slug: 'pet_care' },
@@ -73,15 +73,16 @@ describe('Sprint 132 PR A: skill preservation and real SQL resolution', () => {
 
   it('keeps exact tag collisions and migration reruns idempotent', async () => {
     await client!.query("INSERT INTO auth.user_tags (user_id, tag_type, tag_value) VALUES ($1, 'skill', 'Carpentry')", [userId]);
-    await client!.query("INSERT INTO auth.user_skills (user_id, skill) VALUES ($1, 'carpentry'), ($1, 'painting')", [userId]);
+    await client!.query("INSERT INTO auth.user_skills (user_id, skill) VALUES ($1, 'carpentry'), ($1, 'Carpentry'), ($1, 'Spanish   tutoring'), ($1, 'painting')", [userId]);
     await client!.query(migration);
-    const first = await client!.query('SELECT id, tag_value, skill_slug FROM auth.user_tags WHERE user_id = $1 ORDER BY tag_value', [userId]);
+    const first = await client!.query('SELECT id, tag_value, skill_slug FROM auth.user_tags WHERE user_id = $1 ORDER BY tag_value COLLATE "C"', [userId]);
     expect(first.rows.map(({ tag_value, skill_slug }) => ({ tag_value, skill_slug }))).toEqual([
       { tag_value: 'Carpentry', skill_slug: 'carpentry' },
+      { tag_value: 'Tutoring', skill_slug: 'tutoring' },
       { tag_value: 'painting', skill_slug: null },
     ]);
     await client!.query(migration);
-    const second = await client!.query('SELECT id, tag_value, skill_slug FROM auth.user_tags WHERE user_id = $1 ORDER BY tag_value', [userId]);
+    const second = await client!.query('SELECT id, tag_value, skill_slug FROM auth.user_tags WHERE user_id = $1 ORDER BY tag_value COLLATE "C"', [userId]);
     expect(second.rows).toEqual(first.rows);
   });
 

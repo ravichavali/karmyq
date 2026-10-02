@@ -51,15 +51,25 @@ BEGIN
 END $$;
 
 -- Resolve existing free-text skill tags without substring matching.
+WITH normalized_tags AS (
+  SELECT id, lower(trim(regexp_replace(tag_value, '[[:space:]]+', ' ', 'g'))) AS value
+  FROM auth.user_tags WHERE tag_type = 'skill' AND skill_slug IS NULL
+)
 UPDATE auth.user_tags t SET skill_slug = v.slug FROM auth.skill_vocabulary v
- WHERE t.tag_type = 'skill' AND t.skill_slug IS NULL
-   AND (lower(trim(t.tag_value)) = v.slug OR lower(trim(t.tag_value)) = lower(v.label)
-        OR lower(trim(t.tag_value)) = ANY (v.synonyms));
+ JOIN normalized_tags n ON replace(n.value, ' ', '_') = v.slug
+   OR n.value = lower(v.label) OR n.value = ANY (v.synonyms)
+ WHERE t.id = n.id;
 
--- Preserve legacy picker selections in the single editor.
+-- The legacy API accepted arbitrary text. Preserve unresolved selections too, and
+-- resolve known labels/synonyms now so a rerun cannot change a newly imported tag.
+WITH normalized_legacy AS (
+  SELECT user_id, skill, lower(trim(regexp_replace(skill, '[[:space:]]+', ' ', 'g'))) AS value
+  FROM auth.user_skills
+)
 INSERT INTO auth.user_tags (user_id, tag_type, tag_value, skill_slug)
-SELECT s.user_id, 'skill', v.label, v.slug
-  FROM auth.user_skills s JOIN auth.skill_vocabulary v ON v.slug = s.skill
+SELECT s.user_id, 'skill', COALESCE(v.label, s.skill), v.slug
+  FROM normalized_legacy s LEFT JOIN auth.skill_vocabulary v
+    ON v.slug = replace(s.value, ' ', '_') OR lower(v.label) = s.value OR s.value = ANY (v.synonyms)
 ON CONFLICT ON CONSTRAINT user_tags_unique DO NOTHING;
 
 COMMENT ON TABLE auth.user_skills IS 'DEPRECATED Sprint 132 (ADR-099): superseded by auth.user_tags '
