@@ -1,8 +1,7 @@
 # Sprint 132 — Inventories and Skills — Handoff
 
-**Date**: 2026-09-30
-**Status**: PLANNED, **rev 2** (PR S, security, pulled forward by the maintainer 2026-09-30; being executed in the planning chat). Rev 1: Spec, plan and ADR number approved; a plan review (relayed by the maintainer,
-2026-09-30) found 8 issues, all verified CONFIRMED and fixed in the spec and plan (critical notes 14–19). **PR S implemented, all gates run (/simplify, /code-review medium: 0 findings, /security-review: 0 findings; npm test 27/27, tsc 0 both services), version 11.75.0, PR open, awaiting maintainer merge authorization.** PR A/B/C not started.
+**Date**: 2026-10-02
+**Status**: **Claude owns the sprint** (maintainer, 2026-10-01: "take the sprint, don't wait for Codex"). PR A is **committed locally, not pushed** (`e2dc9043` on `agent/claude/sprint-132-pr-a-skills`). It is blocked only by the `node-forge` advisory, which the **exemption PR** (`agent/claude/sprint-132-node-forge-exemption`, v11.76.0) clears. That PR must merge and deploy first. Rev 2 pulled PR S security forward; the spec, plan and ADR number are approved. **✅ PR S SHIPPED v11.75.0** ([#288](https://github.com/ravichavali/karmyq/pull/288), squash `b169472b`, merged by the maintainer 2026-09-30; CI/CD run 36787073927: DEPLOYMENT SUCCESSFUL, no rollback). Read-only smoke as maria.reyes 10/10 PASS: own notifications 200; another user's list/unread-count/preferences 403; `/matches?user_id=<other>` 200 with 0 of 50 rows not involving maria; a takeshi-only `/matches/:id` 404; `/requests`, `/conversations`, `/reputation/karma` 200. External review (P3) fixed pre-merge: CONTEXT/BUGS now state the `offer_id` invariant.
 
 > 🧭 **First product sprint after the maintenance freeze** (maintainer, 2026-09-30: dependency work
 > needs a security advisory or a feature need; product is the default). Seed idea: `docs/IDEAS.md`
@@ -18,10 +17,10 @@
 ## Quick Start
 
 1. Read this handoff.
-2. **PR S** (security): `agent/claude/sprint-132-security-authz`, cut from the planning branch so the
-   planning docs reach master with it. **PR A / B / C:** once the previous PR has deployed,
-   `git fetch origin` then `git switch -c agent/claude/sprint-132-pr-a-skills origin/master` (or
-   `…-pr-b-inventory`, `…-pr-c-directed-borrow`). The planning branch `agent/claude/sprint-132-inventories-skills`
+2. **PR S shipped** (#288). **Exemption PR first:** `agent/claude/sprint-132-node-forge-exemption` (see the PR table). **PR A:** the branch `agent/claude/sprint-132-pr-a-skills` already exists (cut from
+   `origin/master` `b169472b`): `git fetch origin && git switch agent/claude/sprint-132-pr-a-skills`. **PR B / C:** once the
+   previous PR has deployed, `git fetch origin` then `git switch -c agent/claude/sprint-132-pr-b-inventory origin/master`
+   (or `…-pr-c-directed-borrow`). The planning branch `agent/claude/sprint-132-inventories-skills`
    is retired once PR S merges; never commit on it after that. Never branch off a stale local master; unpushed local-master commits
    leak in through the squash-merge.
 3. Open the plan: [`docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md`](../../docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md).
@@ -45,12 +44,13 @@ match → message → karma loop. Skills have one source of truth that matching 
 
 | PR | Scope | Branch | State |
 |---|---|---|---|
-| **S** | **Security (rev 2):** caller-scope notification routes (BUG-055) + participant-scope `GET /matches`, `/matches/:id` (BUG-057). No schema | `agent/claude/sprint-132-security-authz` | **PR OPEN**, gates done; merge needs maintainer authorization |
-| A | Skills single source: `auth.skill_vocabulary` + `user_tags.skill_slug`; matching reads tags; remove the fixed picker and `/users/:id/skills`; ADR-099 | `agent/claude/sprint-132-pr-a-skills` (cut after S deploys) | planned: fresh chat after PR S deploys |
+| **S** | **Security (rev 2):** caller-scope notification routes (BUG-055) + participant-scope `GET /matches`, `/matches/:id` (BUG-057). No schema | `agent/claude/sprint-132-security-authz` | **SHIPPED v11.75.0** (#288, `b169472b`) |
+| A | Skills single source: `auth.skill_vocabulary` + `user_tags.skill_slug`; matching reads tags; remove the fixed picker and `/users/:id/skills`; ADR-099 | `agent/claude/sprint-132-pr-a-skills` (cut from `origin/master` `b169472b` 2026-09-30) | A1–A7 done by Codex; **committed locally `e2dc9043`, not pushed**. Gates A8–A10 pending; merge `origin/master` in after N deploys, then 11.77.0 |
+| **N** | **node-forge exemption (2026-10-01):** a 7-day ADR-059 exemption for GHSA-86w9-cpqp-85rv (no patched release), an ADR-059 amendment, a sprint-125 coverage gate that admits an unwatched package only for ≤ 7 days, and BUG-058 | `agent/claude/sprint-132-node-forge-exemption` (cut from `origin/master` `b169472b`) | **PR open** (`gh pr list`), v11.76.0; gates done; merge needs maintainer authorization |
 | B | Inventory catalog: `inventory` schema, `/requests/inventory/*`, item audience predicate, My things page, community Shared things tab | `agent/claude/sprint-132-pr-b-inventory` (cut after A deploys) | planned |
 | C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (cut after B deploys) | planned |
 
-Versions: each PR bumps the minor from `origin/master` at merge time (11.75.0 / 11.76.0 / 11.77.0
+Versions: each PR bumps the minor from `origin/master` at merge time (S = 11.75.0, shipped; N = 11.76.0; A = 11.77.0
 if nothing else merges in between). Nothing is reserved.
 
 ## Maintainer decisions (planning chat, 2026-09-30)
@@ -188,9 +188,9 @@ the Windows box, so use a disposable container on the demo host (ask first) or t
 |---|---|
 | **Branch** | `agent/claude/sprint-132-inventories-skills`, cut 2026-09-30 from `origin/master` `c187aa87` (v11.74.0) |
 | **Merged, never commit on them** | every Sprint 131 branch, including `agent/claude/sprint-131-dependabot-security-only` (#287) |
-| **Active editor** | Claude (planning); the executor of each PR section |
+| **Active editor** | **Claude** (took over the sprint from Codex on 2026-10-01, by maintainer instruction). Codex reviews. |
 | **Reviewer role** | A non-author reviews each completed diff; PR C additionally gets a fresh whole-branch review |
-| **Shared resources** | ADR-099 is allocated. Dependency lane: Claude, but **no dependency work is planned** (the policy needs an advisory or a feature need). No demo data operation is planned; each needs its own authorization. |
+| **Shared resources** | ADR-099 is allocated. Dependency lane: Claude. The **node-forge advisory** earned the exemption PR. There is no lockfile or override change, because no fix exists. No demo data operation is planned; each needs its own authorization. |
 
 ## Persistent obligations (carried from Sprint 131, unchanged)
 
@@ -204,9 +204,53 @@ the Windows box, so use a disposable container on the demo host (ask first) or t
   explicit authorization, and none are planned here.
 - Root tests can promote unrelated TDD files and regenerate landing timestamps; inspect the tree
   after verification and preserve only intended changes.
+- **`node-forge` exemption expires 2026-10-08** (first invalid day). Before then: `npm view node-forge version`, the GHSA page and
+  `npm ls node-forge --all`, then remediate or renew with a fresh maintainer decision. Otherwise every PR blocks again.
+- **BUG-058** (deadline 2026-10-15): the image-size watch is obsolete and red (#236). Generalize it or revert the 30-day cap.
 - Contributor agents never self-merge; only Claude marks the sprint complete after actual delivery.
+
+## PR A execution (2026-10-01)
+
+Codex is the active executor on the existing `agent/claude/sprint-132-pr-a-skills` branch,
+starting from `83d6ab0a`; the working tree was clean and `gh pr list` returned no open PRs
+after fetching origin. Scope is PR A only, tasks A1–A10, with ADR-099 already allocated.
+PR S's shipped record remains on this branch and must be carried forward if the branch is replaced.
+Windows was confirmed with `uname -s` (`MINGW64_NT-10.0-26200`). BUG-056 remains separate,
+due 2026-10-14.
+
+The PR A code, migration, seed, generated `init.sql`, ADR, registry, service contexts, generated
+landing docs and tests are staged. An earlier complete local `npm test` run passed
+27/27 tasks (root regression 39 suites, 916 tests). A later unrestricted full run reached 26/27:
+two security-gate suites now fail on newly reported HIGH `node-forge` advisory
+`GHSA-86w9-cpqp-85rv` in the Expo CLI/signing chain. The upstream advisory lists no patched
+version as of 2026-10-01. **Superseded 2026-10-01:** the maintainer at first chose to wait for an upstream fix, then accepted
+a time-boxed exemption (the exemption PR, 7 days). The gate is not bypassed. Auth/request/frontend TypeScript checks passed;
+focused tests added afterward passed, including red/green suggestion-filter and caller-scope tests.
+The seed parity test went red after one vocabulary row was temporarily removed and green after
+exact byte restoration. Migration static review found no issues. The broader review agent hit a
+usage limit, so direct diff review continues. **Superseded 2026-10-01:** Claude committed the staged work locally as `e2dc9043`
+(no push). The PR waits until the exemption PR is on master.
+No merge or deploy is authorized.
+
+The maintainer explicitly approved uploading the inspected 549 KB SQL/scripts archive to an
+isolated `/tmp` scratch directory on the demo host after automatic review initially rejected
+the less specific authorization. A network-disabled, 512 MB/1 CPU PostgreSQL 15 container
+regenerated `init.sql`; the fresh-install vocabulary/ledger check and full-schema drift check
+both passed. The generated diff is 64 insertions and one ledger-line replacement, limited to
+the skill schema, seed, deprecation comment and ledger. The container and remote scratch
+directory were removed and their absence checked. The maintainer also authorized caller-scoping
+the pre-existing `/requests/matched/for-user?user_id=` disclosure in PR A. Its query now binds
+to the JWT caller; a spoofed `user_id` is ignored, and absent identity returns 401. Three
+route tests went red before and green after the fix; docs and the unused frontend wrapper were
+updated.
 
 ## Next unchecked action
 
-**PR S is open** (`gh pr list`). Wait for CI green + maintainer merge authorization, then `/deploy` and the Task S6 smoke (read-only, as maria.reyes), then mark PR S shipped here.
-After PR S deploys, open a fresh chat, cut `agent/claude/sprint-132-pr-a-skills` from `origin/master`, and execute **PR A**.
+1. **Exemption PR:** CI green, then **maintainer merge authorization**, then watch the deploy and health verify.
+2. **PR A:** `git switch agent/claude/sprint-132-pr-a-skills && git fetch origin && git merge origin/master`
+   (a merge commit, never a rebase or force-push; take this handoff from master, then update the PR A row).
+   Re-bump to 11.77.0 from live `origin/master`.
+3. PR A gates: `/simplify`, `/code-review` **high** (schema, auth route removal, matching), `/security-review`, full
+   `npm test` (exit code captured), `tsc --noEmit` for auth, request and frontend. Revert landing churn. Then push and open the PR.
+   Confirm from the CI *Integration Tests* log that the sprint-132 files ran, and that the fresh-install step is green.
+4. Merge authorization, `/deploy`, the Task A10 smoke, then this handoff. PR B in a fresh chat after A deploys.
