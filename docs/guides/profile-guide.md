@@ -14,6 +14,11 @@ These are global — they apply across all your communities.
 
 Open your profile and scroll to the "About You" section. Click **+ Add** next to any category. You can pick from suggested tags or type your own. Tags save immediately.
 
+The **Skills** tag editor is the one place to manage what you can offer. Your previous skill
+selections appear here too. A hint such as **matched to Tutoring** means Karmyq recognized the
+skill, including a phrase such as "Spanish tutoring". These skills help rank requests in your feed.
+You can still add a skill that has no hint; its text is also used for matching.
+
 ## Page Layout
 
 The Profile page uses the same warm shell as Dashboard and Community pages: a single reading measure,

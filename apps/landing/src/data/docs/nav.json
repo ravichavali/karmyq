@@ -300,6 +300,10 @@
           "href": "/docs/concepts/adr-007-polymorphic-request-system"
         },
         {
+          "label": "Inventories and Directed Requests",
+          "href": "/docs/concepts/adr-099-inventories-and-directed-requests"
+        },
+        {
           "label": "Minimalist Dashboard Design",
           "href": "/docs/concepts/adr-005-minimalist-dashboard"
         },

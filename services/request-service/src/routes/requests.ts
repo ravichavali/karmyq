@@ -212,15 +212,16 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// GET /requests/matched/for-user - Get requests matching user's skills
+// GET /requests/matched/for-user - Get requests matching the caller's skills
 router.get('/matched/for-user', async (req: Request, res: Response) => {
   try {
-    const { user_id, limit = 10 } = req.query;
+    const userId = (req as any).user?.userId;
+    const { limit = 10 } = req.query;
 
-    if (!user_id) {
-      return res.status(400).json({
+    if (!userId) {
+      return res.status(401).json({
         success: false,
-        message: 'user_id is required',
+        message: 'Authentication required',
       });
     }
 
@@ -261,28 +262,28 @@ router.get('/matched/for-user', async (req: Request, res: Response) => {
         )
         AND EXISTS (
           -- Match request category to user skills
-          SELECT 1 FROM auth.user_skills s
-          WHERE s.user_id = $1
+          SELECT 1 FROM auth.user_tags s
+          WHERE s.user_id = $1 AND s.tag_type = 'skill'
           AND (
             -- Direct category matches
-            (r.category = 'transportation' AND s.skill = 'driving')
-            OR (r.category = 'moving' AND s.skill IN ('moving', 'handyman'))
-            OR (r.category = 'childcare' AND s.skill = 'childcare')
-            OR (r.category = 'pet_care' AND s.skill = 'pet_care')
-            OR (r.category = 'tech_support' AND s.skill IN ('tech_support', 'coding'))
-            OR (r.category = 'home_repair' AND s.skill IN ('home_repair', 'handyman', 'electrical', 'plumbing', 'carpentry'))
-            OR (r.category = 'gardening' AND s.skill = 'gardening')
-            OR (r.category = 'cooking' AND s.skill IN ('cooking', 'baking'))
-            OR (r.category = 'tutoring' AND s.skill = 'tutoring')
-            OR (r.category = 'language' AND s.skill = 'languages')
-            OR (r.category = 'professional_advice' AND s.skill = 'career_advice')
-            OR (r.category = 'cleaning' AND s.skill IN ('cleaning', 'organizing'))
+            (r.category = 'transportation' AND s.skill_slug = 'driving')
+            OR (r.category = 'moving' AND s.skill_slug IN ('moving', 'handyman'))
+            OR (r.category = 'childcare' AND s.skill_slug = 'childcare')
+            OR (r.category = 'pet_care' AND s.skill_slug = 'pet_care')
+            OR (r.category = 'tech_support' AND s.skill_slug IN ('tech_support', 'coding'))
+            OR (r.category = 'home_repair' AND s.skill_slug IN ('home_repair', 'handyman', 'electrical', 'plumbing', 'carpentry'))
+            OR (r.category = 'gardening' AND s.skill_slug = 'gardening')
+            OR (r.category = 'cooking' AND s.skill_slug IN ('cooking', 'baking'))
+            OR (r.category = 'tutoring' AND s.skill_slug = 'tutoring')
+            OR (r.category = 'language' AND s.skill_slug = 'languages')
+            OR (r.category = 'professional_advice' AND s.skill_slug = 'career_advice')
+            OR (r.category = 'cleaning' AND s.skill_slug IN ('cleaning', 'organizing'))
           )
         )
       GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.scheduled_for, u.name
       ORDER BY urgency_priority DESC, r.created_at DESC
       LIMIT $2`,
-      [user_id, limit]
+      [userId, limit]
     );
 
     res.json({
@@ -299,7 +300,7 @@ router.get('/matched/for-user', async (req: Request, res: Response) => {
 /**
  * Helper function to get user profile for matching algorithm
  */
-async function getUserProfile(userId: string): Promise<UserProfile> {
+export async function getUserProfile(userId: string): Promise<UserProfile> {
   // Get user basic info
   const userResult = await query(
     `SELECT id, name FROM auth.users WHERE id = $1`,
@@ -314,7 +315,8 @@ async function getUserProfile(userId: string): Promise<UserProfile> {
 
   // Get user skills
   const skillsResult = await query(
-    `SELECT skill FROM auth.user_skills WHERE user_id = $1`,
+    `SELECT COALESCE(skill_slug, lower(regexp_replace(trim(tag_value), '[^a-zA-Z0-9]+', '_', 'g'))) AS skill
+     FROM auth.user_tags WHERE user_id = $1 AND tag_type = 'skill'`,
     [userId]
   );
 

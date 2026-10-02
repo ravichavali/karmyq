@@ -15,8 +15,26 @@
         "/preferences/request-types",
         "/preferences/interests",
         "/preferences/feed",
-        "/auth/profile/tags",
-        "/auth/profile/tags/suggestions",
+        {
+          "method": "GET",
+          "path": "/auth/profile/tags",
+          "description": "Caller-owned skills, interests and needs; each tag includes nullable skill_slug (Sprint 132, ADR-099)."
+        },
+        {
+          "method": "POST",
+          "path": "/auth/profile/tags",
+          "description": "Add a caller-owned tag. Skill text resolves exactly to auth.skill_vocabulary; unresolved text stays accepted with null skill_slug."
+        },
+        {
+          "method": "DELETE",
+          "path": "/auth/profile/tags/:tagId",
+          "description": "Delete a tag owned by the JWT caller."
+        },
+        {
+          "method": "GET",
+          "path": "/auth/profile/tags/suggestions",
+          "description": "Skill suggestions are alphabetically ordered labels from auth.skill_vocabulary; interest/need suggestions remain constants."
+        },
         {
           "method": "POST",
           "path": "/auth/push-tokens",
@@ -68,7 +86,7 @@
         "subscribes": []
       },
       "healthCheck": "http://localhost:3001/health",
-      "notes": "Foundation service - no dependencies on other services",
+      "notes": "Foundation service - no dependencies on other services. Sprint 132 PR A (ADR-099): auth.user_tags is the matching skill source, with nullable skill_slug referencing auth.skill_vocabulary. Legacy /users/:userId/skills routes removed; auth.user_skills retained only for rollback.",
       "databaseSchemas": [
         "auth"
       ]
@@ -291,6 +309,11 @@
       "path": "services/request-service",
       "apis": [
         "/requests",
+        {
+          "method": "GET",
+          "path": "/requests/matched/for-user",
+          "description": "Authenticated caller's community requests matching their saved skill tags. Membership and skills are bound to the JWT caller; a user_id query is ignored for compatibility."
+        },
         {
           "method": "GET",
           "path": "/requests/:requestId/relationship-context",

@@ -54,8 +54,8 @@ describe('Polymorphic Requests - Complete Lifecycle (Integration)', () => {
 
     // Add user skills for matching tests
     await query(
-      `INSERT INTO auth.user_skills (user_id, skill)
-       VALUES ($1, 'plumbing'), ($1, 'driving'), ($1, 'event_planning')`,
+      `INSERT INTO auth.user_tags (user_id, tag_type, tag_value, skill_slug)
+       VALUES ($1, 'skill', 'Plumbing', 'plumbing'), ($1, 'skill', 'Driving', 'driving'), ($1, 'skill', 'event_planning', NULL)`,
       [testUserId]
     );
   });
@@ -63,7 +63,7 @@ describe('Polymorphic Requests - Complete Lifecycle (Integration)', () => {
   afterAll(async () => {
     // Cleanup: Delete test data
     await query('DELETE FROM communities.members WHERE user_id = $1', [testUserId]);
-    await query('DELETE FROM auth.user_skills WHERE user_id = $1', [testUserId]);
+    await query('DELETE FROM auth.user_tags WHERE user_id = $1', [testUserId]);
     await query('DELETE FROM communities.communities WHERE id = $1 OR id = $2', [testCommunityId, testCommunityId2]);
     await query('DELETE FROM auth.users WHERE id = $1', [testUserId]);
   });

@@ -45,8 +45,8 @@ describe('Curated Feed with Preferences (Integration)', () => {
 
     // Add user skills (plumbing and carpentry)
     await query(
-      `INSERT INTO auth.user_skills (user_id, skill)
-       VALUES ($1, 'plumbing'), ($1, 'carpentry')`,
+      `INSERT INTO auth.user_tags (user_id, tag_type, tag_value, skill_slug)
+       VALUES ($1, 'skill', 'Plumbing', 'plumbing'), ($1, 'skill', 'Carpentry', 'carpentry')`,
       [testUserId]
     );
 
@@ -131,7 +131,7 @@ describe('Curated Feed with Preferences (Integration)', () => {
     }
     await query('DELETE FROM auth.user_interests WHERE user_id = $1', [testUserId]);
     await query('DELETE FROM auth.user_request_preferences WHERE user_id = $1', [testUserId]);
-    await query('DELETE FROM auth.user_skills WHERE user_id = $1', [testUserId]);
+    await query('DELETE FROM auth.user_tags WHERE user_id = $1', [testUserId]);
     await query('DELETE FROM communities.members WHERE user_id = $1', [testUserId]);
     await query('DELETE FROM communities.communities WHERE id = $1', [testCommunityId]);
     await query('DELETE FROM auth.users WHERE id = $1', [testUserId]);
@@ -325,7 +325,7 @@ describe('Curated Feed with Preferences (Integration)', () => {
 
     it('should get user skills for matching', async () => {
       const result = await query(
-        `SELECT skill FROM auth.user_skills WHERE user_id = $1`,
+        `SELECT skill_slug AS skill FROM auth.user_tags WHERE user_id = $1 AND tag_type = 'skill'`,
         [testUserId]
       );
 
@@ -381,7 +381,7 @@ describe('Curated Feed with Preferences (Integration)', () => {
 
       // Step 2: Get user skills
       const skillsResult = await query(
-        `SELECT skill FROM auth.user_skills WHERE user_id = $1`,
+        `SELECT skill_slug AS skill FROM auth.user_tags WHERE user_id = $1 AND tag_type = 'skill'`,
         [testUserId]
       );
 
@@ -533,7 +533,7 @@ describe('Curated Feed with Preferences (Integration)', () => {
 
     it('should handle user with no skills', async () => {
       const skillsResult = await query(
-        `SELECT skill FROM auth.user_skills WHERE user_id = $1`,
+        `SELECT skill_slug AS skill FROM auth.user_tags WHERE user_id = $1 AND tag_type = 'skill'`,
         ['non-existent-user']
       );
 

@@ -56,7 +56,7 @@ describe('Sprint 85: GET /requests/curated?view=home (integration)', () => {
        VALUES ($1,$2,'member','active'), ($1,$3,'member','active')`,
       [communityId, helperId, requesterId],
     );
-    await query(`INSERT INTO auth.user_skills (user_id, skill) VALUES ($1,'plumbing')`, [helperId]);
+    await query(`INSERT INTO auth.user_tags (user_id, tag_type, tag_value, skill_slug) VALUES ($1,'skill','Plumbing','plumbing')`, [helperId]);
 
     // A fillable request the helper can offer on (matches their plumbing skill).
     const fillable = await query(
@@ -87,7 +87,7 @@ describe('Sprint 85: GET /requests/curated?view=home (integration)', () => {
   afterAll(async () => {
     await query(`DELETE FROM requests.matches WHERE id = $1`, [matchId]).catch(() => {});
     await query(`DELETE FROM requests.help_requests WHERE id = ANY($1)`, [[fillableRequestId, decisionRequestId]]).catch(() => {});
-    await query(`DELETE FROM auth.user_skills WHERE user_id = $1`, [helperId]).catch(() => {});
+    await query(`DELETE FROM auth.user_tags WHERE user_id = $1`, [helperId]).catch(() => {});
     await query(`DELETE FROM communities.members WHERE community_id = $1`, [communityId]).catch(() => {});
     await query(`DELETE FROM communities.communities WHERE id = $1`, [communityId]).catch(() => {});
     await query(`DELETE FROM auth.users WHERE id = ANY($1)`, [[helperId, requesterId]]).catch(() => {});

@@ -1484,7 +1484,7 @@ This is the same `ignore-scripts` mechanism as BUG-053, which covers `posttest` 
 
 ---
 
-## BUG-055 · [2026-09-30] · fix in review (Sprint 132 PR S, `agent/claude/sprint-132-security-authz`; not yet merged or deployed) · **HIGH**
+## BUG-055 · [2026-09-30] · **FIXED** (Sprint 132 PR S, #288, `b169472b`, v11.75.0; deployed 2026-09-30, CI/CD run 36787073927; live smoke: another user's notifications 403, spoofed `/matches?user_id` returns only the caller's matches, a non-participant `/matches/:id` 404) · **HIGH**
 
 **Notification routes trust a client-supplied user id, so any logged-in user can read and change another user's notifications.** The router is behind `authMiddleware` (`services/notification-service/src/index.ts:72-80`), but no route compares the target user with the JWT:
 
@@ -1511,7 +1511,7 @@ Found in the Sprint 132 planning chat (2026-09-30). Sprint 132 PR C adds a 404 f
 
 ---
 
-## BUG-057 · [2026-09-30] · fix in review (Sprint 132 PR S, `agent/claude/sprint-132-security-authz`; not yet merged or deployed) · **HIGH**
+## BUG-057 · [2026-09-30] · **FIXED** (Sprint 132 PR S, #288, `b169472b`, v11.75.0; deployed 2026-09-30, CI/CD run 36787073927; live smoke: another user's notifications 403, spoofed `/matches?user_id` returns only the caller's matches, a non-participant `/matches/:id` 404) · **HIGH**
 
 **Match views are not participant-scoped.** `GET /matches` (`services/request-service/src/routes/matches.ts:15-40`) applies only optional, client-supplied filters (`request_id`, `offer_id`, `status`, `user_id`), so a caller with no filters gets everyone's matches, and one with `user_id=<anyone>` gets that person's. `GET /matches/:id` (`:83-104`) checks only the id. Both return request titles and descriptions, and `/:id` also returns `requester_email` and `helper_email`. The frontend only ever passes the caller's own id (`CommitmentsTab.tsx:165`, `MyRequestsTab.tsx:61`).
 

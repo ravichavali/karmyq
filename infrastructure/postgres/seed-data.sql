@@ -1,6 +1,36 @@
 -- Curated development seed rows preserved across init.sql regeneration.
 -- Keep schema definitions in migrations; this file contains data only.
 
+-- Sprint 132: global reference data, also seeded by the upgrading migration.
+INSERT INTO auth.skill_vocabulary (slug, label, synonyms) VALUES
+  ('driving', 'Driving', ARRAY['driving']::text[]),
+  ('moving', 'Moving', ARRAY['moving help']::text[]),
+  ('childcare', 'Childcare', ARRAY['childcare']::text[]),
+  ('pet_care', 'Pet care', ARRAY['pet care']::text[]),
+  ('tech_support', 'Tech support', ARRAY[]::text[]),
+  ('coding', 'Coding', ARRAY[]::text[]),
+  ('home_repair', 'Home repair', ARRAY[]::text[]),
+  ('handyman', 'Handyman', ARRAY[]::text[]),
+  ('electrical', 'Electrical', ARRAY['electrical']::text[]),
+  ('plumbing', 'Plumbing', ARRAY['plumbing']::text[]),
+  ('carpentry', 'Carpentry', ARRAY['carpentry']::text[]),
+  ('gardening', 'Gardening', ARRAY['gardening']::text[]),
+  ('cooking', 'Cooking', ARRAY['cooking']::text[]),
+  ('baking', 'Baking', ARRAY[]::text[]),
+  ('tutoring', 'Tutoring', ARRAY['spanish tutoring']::text[]),
+  ('languages', 'Languages', ARRAY[]::text[]),
+  ('career_advice', 'Career advice', ARRAY[]::text[]),
+  ('design', 'Design', ARRAY['web design']::text[]),
+  ('writing', 'Writing', ARRAY[]::text[]),
+  ('photography', 'Photography', ARRAY['photography']::text[]),
+  ('music', 'Music', ARRAY['music lessons']::text[]),
+  ('art', 'Art', ARRAY[]::text[]),
+  ('cleaning', 'Cleaning', ARRAY[]::text[]),
+  ('organizing', 'Organizing', ARRAY[]::text[]),
+  ('elder_care', 'Elder care', ARRAY[]::text[]),
+  ('bookkeeping', 'Bookkeeping', ARRAY[]::text[])
+ON CONFLICT (slug) DO NOTHING;
+
 INSERT INTO communities.config_templates (name, description, config_json) VALUES
 ('Cohousing Default', 'High-trust, balanced participation, relationship-focused', '{"member_cap": 150, "visibility_mode": "public", "outsider_response_allowed": true, "enabled_request_types": [{"name": "meal_share", "description": "Share meals or cooking", "karma_multiplier": 1.0}, {"name": "tool_borrow", "description": "Borrow tools or equipment", "karma_multiplier": 0.8}, {"name": "ride_share", "description": "Share rides or transportation", "karma_multiplier": 1.2}, {"name": "childcare", "description": "Help with childcare or babysitting", "karma_multiplier": 1.5}], "karma_split_helper": 60, "karma_split_requestor": 40, "base_karma_pool_per_request": 100, "karma_decay_half_life_days": 0, "trust_depth_weight": 0.6, "trust_breadth_weight": 0.4, "trust_decay_half_life_days": 180, "trust_path_max_hops": 3, "min_interactions_for_trust": 1, "request_approval_required": false, "new_member_karma_lockout_days": 0, "join_approval_required": true, "joining_counts_as_interaction": true, "feed_weight_skill_match": 0.40, "feed_weight_trust_distance": 0.25, "feed_weight_community_relevance": 0.20, "feed_weight_urgency": 0.15}'::jsonb),
 ('Neighborhood Cautious', 'Boundary-conscious, helper-focused, gradual trust-building', '{"member_cap": 100, "visibility_mode": "members_only", "outsider_response_allowed": false, "enabled_request_types": [{"name": "skill_share", "description": "Share skills or expertise", "karma_multiplier": 1.0}, {"name": "errand_help", "description": "Help with errands or tasks", "karma_multiplier": 0.9}, {"name": "pet_sitting", "description": "Pet sitting or care", "karma_multiplier": 1.1}], "karma_split_helper": 80, "karma_split_requestor": 20, "base_karma_pool_per_request": 100, "karma_decay_half_life_days": 0, "trust_depth_weight": 0.7, "trust_breadth_weight": 0.3, "trust_decay_half_life_days": 90, "trust_path_max_hops": 2, "min_interactions_for_trust": 3, "request_approval_required": true, "new_member_karma_lockout_days": 7, "join_approval_required": true, "joining_counts_as_interaction": false, "feed_weight_skill_match": 0.30, "feed_weight_trust_distance": 0.35, "feed_weight_community_relevance": 0.20, "feed_weight_urgency": 0.15}'::jsonb),

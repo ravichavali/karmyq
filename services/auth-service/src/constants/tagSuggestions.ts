@@ -1,9 +1,4 @@
-export const TAG_SUGGESTIONS: Record<'skill' | 'interest' | 'need', string[]> = {
-  skill: [
-    'Carpentry', 'Cooking', 'Driving', 'Spanish tutoring', 'Childcare',
-    'Bookkeeping', 'Gardening', 'Plumbing', 'Electrical', 'Web design',
-    'Photography', 'Music lessons', 'Pet care', 'Elder care', 'Moving help',
-  ],
+export const TAG_SUGGESTIONS: Record<'interest' | 'need', string[]> = {
   interest: [
     'Urban gardening', 'Food access', 'Youth mentorship', 'Housing justice',
     'Language exchange', 'Community art', 'Neighborhood safety', 'Climate action',

@@ -10,7 +10,9 @@ Fulfilling requests is the heart of Karmyq. When you help a neighbor, you earn k
 
 **Your Preferences** — Set which request types you're interested in and the feed prioritizes those.
 
-**The Curated Feed** — Surfaces requests that match your skills, location, and past activity.
+**The Curated Feed** — Uses the Skills tags in your profile to help rank requests, alongside trust
+connections, community relevance, urgency, and activity. Add or update them in **Profile → About You →
+Skills**; the "matched to" hint shows which skill Karmyq recognized.
 
 **Two places, one feed** — You'll see the *same* canonical request cards on your **Dashboard Home**
 and on each **community's Home tab**. The "Needs your response" band — decisions you owe (offers to
