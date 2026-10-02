@@ -258,3 +258,33 @@ widening, and it is only defensible while the weekly monitor is alive and its is
 that workflow is ever removed or left failing, this cap must go back to 7 in the same change** —
 otherwise the registry becomes what ADR-059 was written to prevent: a place where findings are
 parked and forgotten.
+
+---
+
+## Amendment (Sprint 132, 2026-10-01): node-forge exemption
+
+**Status**: Accepted · **Decision**: maintainer, 2026-10-01
+
+[GHSA-86w9-cpqp-85rv](https://github.com/advisories/GHSA-86w9-cpqp-85rv) (high: RSA PKCS#1 v1.5
+signature verification in `node-forge <=1.4.0`) has **no patched release**. npm's only proposed fix
+is a backwards semver-major move to `expo@44.0.6`. The package reaches the tree only through
+`apps/mobile` → `expo` → `@expo/cli` / `@expo/code-signing-certificates`, which is developer tooling.
+Unexempted, it blocked every PR and every master deploy, including a caller-scope security fix
+(Sprint 132 PR A). It is exempted in `security/audit-exemptions.json` under the Sprint 123 rules. One
+entry clears all four findings, because the three Expo parents are high only through it. A second
+`node-forge` advisory still blocks.
+
+**Seven days, not thirty.** The Sprint 125 amendment ties the 30-day cap to a live weekly monitor,
+and says the cap returns to 7 if that monitor is "removed or left failing". The only monitor,
+`image-size-advisory-watch.yml`, watches `image-size` alone. It has been red since 2026-09-14,
+because `image-size` left the tree in Sprint 128 (issue #236). So this exemption expires
+**2026-10-08**. Renewing it means re-checking by hand: `npm view node-forge version`, the GHSA page
+and `npm ls node-forge --all`. Dependabot security updates (`node-forge` is not ignored) open a PR
+when a patched release appears.
+
+**The gate now encodes this rule.** `tests/regression/sprint-125-image-size-monitor.test.ts`
+previously required every exempted package to be in the monitor's `WATCHED_PACKAGES`. It now
+requires a package to be watched **or** exempted for at most 7 days. Fixtures prove that an
+unwatched 8-day, 30-day or malformed entry is refused, and that an unwatched 7-day entry is
+admitted. The live entry stretched to 30 days turns the test red. **BUG-058** covers retiring or generalizing the monitor, and what
+happens to the 30-day cap meanwhile.
