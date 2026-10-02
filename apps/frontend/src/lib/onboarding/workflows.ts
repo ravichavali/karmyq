@@ -16,7 +16,7 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
     steps: [
       {
         title: 'A feed ordered by what fits you',
-        body: 'Dashboard Home shows the requests you can fill, ranked by your skills, trust path, and urgency. The decisions you owe live one tap away in the Helping tab — Home stays focused on asks you can pick up.',
+        body: 'Dashboard Home shows the requests you can fill, ranked by your skills, trust path, and urgency. Add or remove your skills in Profile → About You → Skills; matching uses those same tags. The decisions you owe live one tap away in the Helping tab — Home stays focused on asks you can pick up.',
       },
       {
         title: 'Needs your response — in the Helping tab',

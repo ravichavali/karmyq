@@ -346,31 +346,57 @@ describe('the cap is only defensible while the monitor covers the registry', () 
    * it replaced. This turns that from a latent regression into a build failure on the day it
    * matters, which is the difference between a documented intention and an enforced one.
    */
+  /*
+   * Sprint 132 (2026-10-01, ADR-059 amendment "node-forge exemption"): an UNWATCHED package may
+   * still be exempted, but only within the pre-Sprint-125 seven-day world. That is the cap ADR-059
+   * says applies without a live monitor. A 30-day unwatched suppression still fails here.
+   */
+  type Exemption = { package: string; created: string; expires: string };
+  const UNWATCHED_MAX_DAYS = 7;
+  const spanDays = (e: Exemption) =>
+    (Date.parse(`${e.expires}T00:00:00Z`) - Date.parse(`${e.created}T00:00:00Z`)) / 86400000;
+  /** Entries neither watched by the monitor nor short enough to stand without it. */
+  const uncovered = (entries: Exemption[]) =>
+    entries.filter(
+      (e) => !monitor.WATCHED_PACKAGES.includes(e.package) && !(spanDays(e) <= UNWATCHED_MAX_DAYS)
+    );
+
   const registry = JSON.parse(readFileSync(join(ROOT, 'security', 'audit-exemptions.json'), 'utf8'));
-  const exemptedPackages = [
-    ...new Set((registry.exemptions ?? []).map((e: { package: string }) => e.package)),
-  ];
+  const exemptions: Exemption[] = registry.exemptions ?? [];
 
-  it('every exempted package is in the monitor watch set', () => {
-    const unwatched = exemptedPackages.filter((p) => !monitor.WATCHED_PACKAGES.includes(p));
-
-    expect(unwatched).toEqual([]);
+  it('every exempted package is watched by the monitor, or exempted for at most 7 days', () => {
+    expect(uncovered(exemptions).map((e) => e.package)).toEqual([]);
   });
 
   it('the watch set is not empty while exemptions exist', () => {
     // Guards the degenerate pass: an empty registry AND an empty watch set would satisfy the check
     // above vacuously.
-    if (exemptedPackages.length > 0) {
+    if (exemptions.length > 0) {
       expect(monitor.WATCHED_PACKAGES.length).toBeGreaterThan(0);
     }
   });
 
-  it('detects an unwatched package rather than passing on the happy path', () => {
-    // Proves the check above can fail — the assertion, applied to a registry that HAS an unwatched
-    // package, must report it.
-    const hypothetical = ['image-size', 'some-newly-exempted-package'];
-    const unwatched = hypothetical.filter((p) => !monitor.WATCHED_PACKAGES.includes(p));
+  it('refuses an unwatched package exempted for longer than 7 days', () => {
+    // Proves the check above can fail. 8 days is the first refused span, and 30 (the cap) is refused too.
+    const hypothetical: Exemption[] = [
+      { package: 'image-size', created: '2026-10-01', expires: '2026-10-31' },
+      { package: 'unwatched-eight', created: '2026-10-01', expires: '2026-10-09' },
+      { package: 'unwatched-thirty', created: '2026-10-01', expires: '2026-10-31' },
+      { package: 'unwatched-malformed', created: '2026-10-01', expires: 'not-a-date' },
+    ];
 
-    expect(unwatched).toEqual(['some-newly-exempted-package']);
+    expect(uncovered(hypothetical).map((e) => e.package)).toEqual([
+      'unwatched-eight',
+      'unwatched-thirty',
+      'unwatched-malformed',
+    ]);
+  });
+
+  it('admits an unwatched package exempted for exactly 7 days', () => {
+    const hypothetical: Exemption[] = [
+      { package: 'unwatched-seven', created: '2026-10-01', expires: '2026-10-08' },
+    ];
+
+    expect(uncovered(hypothetical)).toEqual([]);
   });
 });

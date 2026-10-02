@@ -1,7 +1,7 @@
 # Sprint 132 — Inventories and Skills — Handoff
 
-**Date**: 2026-10-01
-**Status**: PR A in progress. Rev 2 pulled PR S security forward; the spec, plan and ADR number are approved. **✅ PR S SHIPPED v11.75.0** ([#288](https://github.com/ravichavali/karmyq/pull/288), squash `b169472b`, merged by the maintainer 2026-09-30; CI/CD run 36787073927: DEPLOYMENT SUCCESSFUL, no rollback). Read-only smoke as maria.reyes 10/10 PASS: own notifications 200; another user's list/unread-count/preferences 403; `/matches?user_id=<other>` 200 with 0 of 50 rows not involving maria; a takeshi-only `/matches/:id` 404; `/requests`, `/conversations`, `/reputation/karma` 200. External review (P3) fixed pre-merge: CONTEXT/BUGS now state the `offer_id` invariant.
+**Date**: 2026-10-02
+**Status**: PR N is merged and deployed as v11.76.0 ([#289](https://github.com/ravichavali/karmyq/pull/289), squash `02d720b3`; [CI/CD 37053659544](https://github.com/ravichavali/karmyq/actions/runs/37053659544), deployment and health checks successful, verified 2026-10-02). PR S shipped v11.75.0 (#288). Maintainer instruction 2026-10-02: Codex finishes PR A before starting PR B. PR A implementation is committed as `e2dc9043`; origin/master is being merged, final reviews and checks are in progress, release version 11.77.0. No merge or deploy is authorized.
 
 > 🧭 **First product sprint after the maintenance freeze** (maintainer, 2026-09-30: dependency work
 > needs a security advisory or a feature need; product is the default). Seed idea: `docs/IDEAS.md`
@@ -17,7 +17,7 @@
 ## Quick Start
 
 1. Read this handoff.
-2. **PR S shipped** (#288). **PR A:** the branch `agent/claude/sprint-132-pr-a-skills` already exists (cut from
+2. **PR S shipped** (#288). **Exemption PR shipped:** #289 (v11.76.0). Finish PR A next. **PR A:** the branch `agent/claude/sprint-132-pr-a-skills` already exists (cut from
    `origin/master` `b169472b`): `git fetch origin && git switch agent/claude/sprint-132-pr-a-skills`. **PR B / C:** once the
    previous PR has deployed, `git fetch origin` then `git switch -c agent/claude/sprint-132-pr-b-inventory origin/master`
    (or `…-pr-c-directed-borrow`). The planning branch `agent/claude/sprint-132-inventories-skills`
@@ -45,11 +45,12 @@ match → message → karma loop. Skills have one source of truth that matching 
 | PR | Scope | Branch | State |
 |---|---|---|---|
 | **S** | **Security (rev 2):** caller-scope notification routes (BUG-055) + participant-scope `GET /matches`, `/matches/:id` (BUG-057). No schema | `agent/claude/sprint-132-security-authz` | **SHIPPED v11.75.0** (#288, `b169472b`) |
-| A | Skills single source: `auth.skill_vocabulary` + `user_tags.skill_slug`; matching reads tags; remove the fixed picker and `/users/:id/skills`; ADR-099 | `agent/claude/sprint-132-pr-a-skills` (cut from `origin/master` `b169472b` 2026-09-30; carries this handoff update) | In progress; database regeneration and CI proof pending |
+| A | Skills single source: `auth.skill_vocabulary` + `user_tags.skill_slug`; matching reads tags; remove the fixed picker and `/users/:id/skills`; ADR-099 | `agent/claude/sprint-132-pr-a-skills` (cut from `origin/master` `b169472b` 2026-09-30) | A1–A7 committed as `e2dc9043`; Codex finalizing A8–A10 after the deployed N merge. Version 11.77.0; not pushed yet |
+| **N** | **node-forge exemption (2026-10-01):** a 7-day ADR-059 exemption for GHSA-86w9-cpqp-85rv (no patched release), an ADR-059 amendment, a sprint-125 coverage gate that admits an unwatched package only for ≤ 7 days, and BUG-058 | `agent/claude/sprint-132-node-forge-exemption` (cut from `origin/master` `b169472b`) | **MERGED + DEPLOYED v11.76.0** (#289, `02d720b3`; CI/CD 37053659544 and health check green, verified 2026-10-02) |
 | B | Inventory catalog: `inventory` schema, `/requests/inventory/*`, item audience predicate, My things page, community Shared things tab | `agent/claude/sprint-132-pr-b-inventory` (cut after A deploys) | planned |
 | C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (cut after B deploys) | planned |
 
-Versions: each PR bumps the minor from `origin/master` at merge time (11.75.0 / 11.76.0 / 11.77.0
+Versions: each PR bumps the minor from `origin/master` at merge time (S = 11.75.0, shipped; N = 11.76.0; A = 11.77.0
 if nothing else merges in between). Nothing is reserved.
 
 ## Maintainer decisions (planning chat, 2026-09-30)
@@ -187,9 +188,9 @@ the Windows box, so use a disposable container on the demo host (ask first) or t
 |---|---|
 | **Branch** | `agent/claude/sprint-132-inventories-skills`, cut 2026-09-30 from `origin/master` `c187aa87` (v11.74.0) |
 | **Merged, never commit on them** | every Sprint 131 branch, including `agent/claude/sprint-131-dependabot-security-only` (#287) |
-| **Active editor** | Claude (planning); the executor of each PR section |
+| **Active editor** | **Codex for PR A finalization** (maintainer, 2026-10-02: finish A, then start B). Claude remains sprint orchestrator and merge authority. |
 | **Reviewer role** | A non-author reviews each completed diff; PR C additionally gets a fresh whole-branch review |
-| **Shared resources** | ADR-099 is allocated. Dependency lane: Claude, but **no dependency work is planned** (the policy needs an advisory or a feature need). No demo data operation is planned; each needs its own authorization. |
+| **Shared resources** | ADR-099 is allocated. Dependency lane: Claude. The **node-forge advisory** earned the exemption PR. There is no lockfile or override change, because no fix exists. No demo data operation is planned; each needs its own authorization. |
 
 ## Persistent obligations (carried from Sprint 131, unchanged)
 
@@ -203,6 +204,9 @@ the Windows box, so use a disposable container on the demo host (ask first) or t
   explicit authorization, and none are planned here.
 - Root tests can promote unrelated TDD files and regenerate landing timestamps; inspect the tree
   after verification and preserve only intended changes.
+- **`node-forge` exemption expires 2026-10-08** (first invalid day). Before then: `npm view node-forge version`, the GHSA page and
+  `npm ls node-forge --all`, then remediate or renew with a fresh maintainer decision. Otherwise every PR blocks again.
+- **BUG-058** (deadline 2026-10-15): the image-size watch is obsolete and red (#236). Generalize it or revert the 30-day cap.
 - Contributor agents never self-merge; only Claude marks the sprint complete after actual delivery.
 
 ## PR A execution (2026-10-01)
@@ -219,13 +223,13 @@ landing docs and tests are staged. An earlier complete local `npm test` run pass
 27/27 tasks (root regression 39 suites, 916 tests). A later unrestricted full run reached 26/27:
 two security-gate suites now fail on newly reported HIGH `node-forge` advisory
 `GHSA-86w9-cpqp-85rv` in the Expo CLI/signing chain. The upstream advisory lists no patched
-version as of 2026-10-01. The maintainer chose to wait for an upstream fix rather than approve
-a time-boxed exemption; do not bypass the gate. Auth/request/frontend TypeScript checks passed;
+version as of 2026-10-01. **Superseded 2026-10-01:** the maintainer at first chose to wait for an upstream fix, then accepted
+a time-boxed exemption (the exemption PR, 7 days). The gate is not bypassed. Auth/request/frontend TypeScript checks passed;
 focused tests added afterward passed, including red/green suggestion-filter and caller-scope tests.
 The seed parity test went red after one vocabulary row was temporarily removed and green after
 exact byte restoration. Migration static review found no issues. The broader review agent hit a
-usage limit, so direct diff review continues. The process-reviewer found the security gate
-blocking; do not commit or open the PR until upstream fixes it and the full suite passes.
+usage limit, so direct diff review continues. **Superseded 2026-10-01:** Claude committed the staged work locally as `e2dc9043`
+(no push). The PR waits until the exemption PR is on master.
 No merge or deploy is authorized.
 
 The maintainer explicitly approved uploading the inspected 549 KB SQL/scripts archive to an
@@ -242,7 +246,17 @@ updated.
 
 ## Next unchecked action
 
-Wait for a patched `node-forge` release and a maintainer-serialized dependency lane; make a
-surgical lockfile/override update only when a fix exists, then rerun the full security gate and
-PR A checks. After all gates pass, version bump from live `origin/master` (11.76.0 if nothing
-else merges), commit, push and open the PR. Merge/deploy authorization remains pending.
+1. **PR N is deployed.** Finish PR A reviews and verification, then push/open its PR. The merged exemption branch must receive no further commits.
+2. **PR A:** existing branch `agent/claude/sprint-132-pr-a-skills`; the fetched `origin/master` merge is in progress
+   (a merge commit, never a rebase or force-push; take this handoff from master, then update the PR A row).
+   Re-bump to 11.77.0 from live `origin/master`.
+3. PR A gates: `/simplify`, `/code-review` **high** (schema, auth route removal, matching), `/security-review`, full
+   `npm test` (exit code captured), `tsc --noEmit` for auth, request and frontend. Revert landing churn. Then push and open the PR.
+   Confirm from the CI *Integration Tests* log that the sprint-132 files ran, and that the fresh-install step is green.
+4. Merge authorization, `/deploy`, the Task A10 smoke, then this handoff. PR B in a fresh chat after A deploys.
+
+## PR A finalization (2026-10-02)
+
+Maintainer assigned Codex to finish A before B. Tree was clean at handoff. PR N live GitHub status is MERGED, with no open PRs; the CI/CD Deploy to Demo job and Health check all services step passed for 02d720b3. The merge conflicts only in this handoff; resolved using the master copy as prescribed above, then reconciled. Version-only manifest edits target 11.77.0. Independent code/security and migration reviews completed; preservation/normalization fixes remain pending. All affected TypeScript checks passed. Full forced local unit/regression verification passed (exit 0, 27/27 tasks) on the pre-commit merge tree of e2dc9043 and 02d720b3 with staged version/test changes; local log .superpowers/sdd/2026-09-30-sprint-132-inventories-and-skills/pr-a-npm-test-path.log. CI database evidence is pending. No new demo-host operation is authorized.
+
+Review checkpoint: independent code/security and migration reviews confirmed unmapped legacy selections are omitted by the current inner join, and existing tags normalize whitespace differently from new tags. Root test tests/integration/sprint-132-skills.integration.test.ts is added BEFORE the fix for real CI RED evidence; no local PostgreSQL execution is claimed. The draft PR checkpoint must not merge. Both failing Windows shell suites pass with Git/usr/bin prepended; corrected full unit/regression run passed; this does not prove CI database behavior. The PR Validation ledger will carry the final tested head and CI links. Onboarding now identifies Profile → About You → Skills as the matching source.

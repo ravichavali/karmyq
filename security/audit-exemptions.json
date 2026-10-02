@@ -1,4 +1,15 @@
 {
-  "$comment": "ADR-059 time-boxed audit exemptions. Read by scripts/audit-exemptions.js, which CI and tests/regression/sprint-75-security-gate.test.ts both call. Rules: exact package + GHSA id (no wildcards), high severity only (critical is never exemptible), every field required, expiry at most 30 days after creation (raised from 7 in Sprint 125 — see ADR-059 'Renewal cadence'; the weekly .github/workflows/image-size-advisory-watch.yml now carries the re-measurement obligation the shorter cap used to force). The gate FAILS on a malformed, expired, or unmatched entry — an exemption that no longer matches a live advisory means upstream shipped a fix and it must be deleted.",
-  "exemptions": []
+  "$comment": "ADR-059 time-boxed audit exemptions. Read by scripts/audit-exemptions.js, which CI and tests/regression/sprint-75-security-gate.test.ts both call. Rules: exact package + GHSA id (no wildcards), high severity only (critical is never exemptible), every field required, expiry at most 30 days after creation (raised from 7 in Sprint 125 — see ADR-059 'Renewal cadence'; the weekly .github/workflows/image-size-advisory-watch.yml carried the re-measurement obligation the shorter cap used to force, for image-size only). A package that monitor does not watch may be exempted for at most 7 days (Sprint 132 ADR-059 amendment; enforced by tests/regression/sprint-125-image-size-monitor.test.ts; that monitor is obsolete and red, see BUG-058). The gate FAILS on a malformed, expired, or unmatched entry — an exemption that no longer matches a live advisory means upstream shipped a fix and it must be deleted.",
+  "exemptions": [
+    {
+      "package": "node-forge",
+      "advisory": "GHSA-86w9-cpqp-85rv",
+      "severity": "high",
+      "rationale": "No fixed version exists: the advisory range is <=1.4.0 and 1.4.0 is the latest release; npm's only proposed fix is a backwards semver-major move to expo 44.0.6. Reach is apps/mobile -> expo -> @expo/cli and @expo/code-signing-certificates, developer tooling: no repo source imports node-forge, Expo code signing is not configured, and the service Dockerfiles copy only the root, shared and service manifests (the root declares no Expo package), so by construction it ships in no deployed image (not inspected in a built image). Unexempted, it blocked every PR and master deploy, including Sprint 132 PR A's caller-scope fix. Seven days, not thirty: the weekly monitor that ADR-059's 30-day cap depends on is image-size-only and has been red since 2026-09-14 (BUG-058), so this re-check is by hand.",
+      "decision": "Maintainer, 2026-10-01 (Sprint 132): approved a time-boxed exemption; ADR-059 amendment 'node-forge exemption (Sprint 132, 2026-10-01)'",
+      "owner": "claude",
+      "created": "2026-10-01",
+      "expires": "2026-10-08"
+    }
+  ]
 }
