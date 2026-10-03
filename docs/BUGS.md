@@ -1548,3 +1548,20 @@ That exemption was capped at 7 days by hand to respect the rule.
 - **Owner:** Claude (dependency lane). **Deadline: 2026-10-15** (≤ 2-week SLA).
 
 ---
+
+## BUG-059 · [2026-10-02] · open · **HIGH**
+
+**`braces` GHSA-vfj7-8cjw-p6xm has no fix and is exempted for 7 days.** The advisory (stack
+exhaustion on deeply nested patterns) covers every `braces` version, and 3.0.3 is the latest. It was
+GitHub-reviewed 2026-10-02 22:36Z and blocked the master deploy of Sprint 132 PR A (#290, run
+37077914525, attempt 2) with 18 high findings. Production reach is only `apps/mobile` → `expo` →
+`@expo/cli` → `@expo/metro-file-map` → `micromatch` → `braces` (developer tooling); no service image
+and no repo source reaches it. Exempted until **2026-10-09** (ADR-059 amendment "braces exemption").
+
+- **Resolve by:** a patched `braces` (Dependabot security updates open a PR when one appears) or
+  an upstream move of `micromatch`/`@expo/metro-file-map` off it; then delete the exemption.
+  Otherwise renew by hand before 2026-10-09: `npm view braces version`, the GHSA page,
+  `npm ls braces --all`.
+- **Owner:** Claude (dependency lane). **Deadline: 2026-10-09** (exemption expiry; ≤ 1-week SLA).
+
+---

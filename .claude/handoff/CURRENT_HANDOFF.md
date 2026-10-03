@@ -246,10 +246,9 @@ updated.
 
 ## Next unchecked action
 
-1. **PR N is deployed.** PR A #290 is open. Inspect its latest-head checks and Validation ledger. The merged exemption branch must receive no further commits; no temporary negative injection remains in the checker.
-2. **PR A:** existing branch `agent/claude/sprint-132-pr-a-skills`; master integration is committed as `224aa21b` (merge, no rebase/force-push). The version is already 11.77.0. Require final CI GREEN, including real PostgreSQL preservation/normalization/collision/rerun coverage and regenerated schema convergence. PR Validation is the final-head evidence authority.
-3. Alerts #585–#591 are dismissed with approved reasons and explicit API authorization; CodeQL and the rerun security gate passed at bf17b6cf. Confirm all required checks on the latest head. The maintainer supplied a conditional readiness recommendation (ready once alerts cleared); independent production code/security/migration reviews have no remaining findings.
-4. Merge authorization, `/deploy`, the Task A10 smoke, then this handoff. PR B in a fresh chat after A deploys.
+1. **PR A #290 is MERGED but NOT DEPLOYED** (squash `244291eb`, v11.77.0, 2026-10-02 23:30Z, `--admin` with maintainer authorization). Master run [37077914525](https://github.com/ravichavali/karmyq/actions/runs/37077914525): attempt 1 blocked by CodeQL #592/#593 on master (same `js/request-forgery` FP class; PR-ref dismissals do not carry to master; maintainer dismissed both in the UI). Attempt 2 passed CodeQL but failed Security Audit + 2 audit regression tests on the newly GitHub-reviewed `braces` GHSA-vfj7-8cjw-p6xm (no fix exists). Build and Deploy were skipped; demo stays on v11.76.0.
+2. **Exemption PR (Claude, dependency lane; maintainer 2026-10-02):** branch `agent/claude/braces-exemption` — 7-day `braces` exemption (expires 2026-10-09), ADR-059 amendment, BUG-059, v11.78.0. Merging it deploys PR A's code too. Then run the Task A10 smoke against v11.78.0.
+3. PR B in a fresh chat after the deploy is health-verified. `node-forge` (2026-10-08) and `braces` (2026-10-09) exemptions both need renewal or removal next week; BUG-058 (monitor) deadline 2026-10-15.
 
 ## PR A finalization (2026-10-02)
 
