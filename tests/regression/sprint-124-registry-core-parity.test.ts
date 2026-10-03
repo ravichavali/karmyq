@@ -100,10 +100,13 @@ describe('Sprint 124 shared exemption registry core', () => {
       readFileSync(join(ROOT, 'security', 'expo-divergences.json'), 'utf8')
     );
     expect(core.validateRegistry(expoRegistry, EXPO_SPEC, NOW)).toEqual([]);
-    // Populated registries use their creation date; a remediated empty registry has no date.
+    // Populated registries validate as of their NEWEST creation date (the first entry's date
+    // makes every later entry "future"-dated); a remediated empty registry has no date.
+    const newestCreated = auditRegistry.exemptions
+      .map((e: { created: string }) => e.created).sort().pop();
     expect(
-      core.validateRegistry(auditRegistry, AUDIT_SPEC, auditRegistry.exemptions.length
-        ? new Date(`${auditRegistry.exemptions[0].created}T12:00:00Z`) : NOW)
+      core.validateRegistry(auditRegistry, AUDIT_SPEC,
+        newestCreated ? new Date(`${newestCreated}T12:00:00Z`) : NOW)
     ).toEqual([]);
   });
 
