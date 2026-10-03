@@ -288,3 +288,26 @@ requires a package to be watched **or** exempted for at most 7 days. Fixtures pr
 unwatched 8-day, 30-day or malformed entry is refused, and that an unwatched 7-day entry is
 admitted. The live entry stretched to 30 days turns the test red. **BUG-058** covers retiring or generalizing the monitor, and what
 happens to the 30-day cap meanwhile.
+
+## Amendment (Sprint 132, 2026-10-02): braces exemption
+
+**Status**: Accepted · **Decision**: maintainer, 2026-10-02
+
+[GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) (high: stack exhaustion
+on deeply nested patterns in `braces`) was GitHub-reviewed at 2026-10-02 22:36Z and covers every
+version. `braces@3.0.3` is the latest release, so there is **no patched release**; npm's only proposed
+fix is a backwards semver-major move to `nodemon@1.14.10`. It surfaced between two attempts of the
+master run for Sprint 132 PR A (#290, run 37077914525) and blocked that deploy, along with every
+other PR and master push.
+
+**Reach.** A lockfile walk of production dependencies (2026-10-02) finds `braces` only under
+`apps/mobile` → `expo` → `@expo/cli` → `@expo/metro-file-map` → `micromatch` → `braces`, the Expo
+developer CLI. No service and no `packages/shared` production tree reaches `braces` or `micromatch`;
+every other path (`next`'s eslint plugin, `chokidar`, `nodemon`, `fast-glob`) is a devDependency;
+and no repo source imports either package, so no request input reaches a brace pattern. One entry in
+`security/audit-exemptions.json` clears all 18 findings, because every parent is high only through
+`braces`. A second `braces` advisory still blocks.
+
+**Seven days, not thirty**, for the same reason as `node-forge`: no live monitor watches `braces`
+(BUG-058). The exemption expires **2026-10-09**. Renewing it means re-checking by hand:
+`npm view braces version`, the GHSA page and `npm ls braces --all`. Tracked as **BUG-059**.
