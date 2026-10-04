@@ -111,6 +111,22 @@ shared BorrowMatcher; inventory-aware matching is deferred.
 
 ## Delivery Notes
 
+PR B implements the catalog through seven authenticated routes under `/requests/inventory`.
+The router mounts before the broad `/requests` routes, so `/:id` and admin middleware cannot
+capture inventory paths. A real-app route test protects that ordering. Reads apply one
+`itemAudienceSql`, composed from `itemManagerSql`, and writes apply the manager predicate.
+Non-audience item reads and writes return 404; visible-but-unmanageable writes return 403.
+Unavailable personal/community items remain visible only to owners/active admins respectively.
+
+Creator attribution uses nullable `created_by REFERENCES auth.users(id) ON DELETE SET NULL`.
+The supported simulation deletion script hard-deletes users
+(`services/simulation-service/delete-simulated-users.sql:11`); community property must survive
+its creator's deletion. Ownership still cascades when the owning user/community is deleted.
+Share replacement locks the item and validates live owner memberships before replacing the set
+within one transaction. Community listing validates the share in the selected community even
+when the viewer can see the item elsewhere. The curated reset includes both inventory tables
+as runtime data; vocabulary remains preserved. Borrowing remains PR C scope.
+
 PR A review corrected the illustrative migration backfills: the old API accepted arbitrary
 skill text, so an inner vocabulary join would hide valid legacy skills from the sole editor.
 The importer retains unmatched text with a null slug. Existing tags and legacy selections

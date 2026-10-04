@@ -218,7 +218,7 @@ describe('dotenv config() is quiet (Sprint 131 D1)', () => {
       'services/messaging-service/src/index.ts:15',
       'services/notification-service/src/index.ts:21',
       'services/reputation-service/src/index.ts:26',
-      'services/request-service/src/index.ts:35',
+      'services/request-service/src/index.ts:36',
       'services/simulation-service/src/index.ts:16',
       'tests/e2e/playwright.config.ts:4',
       'tests/e2e/tests/fixtures/auth.ts:4',

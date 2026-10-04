@@ -1,5 +1,12 @@
 # Running a Community
 
+## Community-owned items
+
+The **Shared things** tab separates community property from members' personal items.
+Active admins use **Add community item** and can edit, remove or change availability of
+community property. Unavailable community items are hidden from ordinary members.
+Members manage their own shared things through **My things**.
+
 As a community founder, you shape the environment your members live in.
 
 ---

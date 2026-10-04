@@ -7,6 +7,37 @@
 
 ## Recent Changes
 
+- **2026-10-03 (Sprint 132 PR B, ADR-099)**: inventory catalog under `/requests/inventory`.
+  Personal items start private; shares require the owner's live active membership. Community
+  property is managed by live active admins. Unavailable items are visible only to managers.
+  Every inventory read uses `itemAudienceSql`, which composes `itemManagerSql`; every write
+  uses the manager predicate. Sharing replaces the set atomically and rejects invalid memberships
+  before deleting any existing shares. Item mutation locks serialize concurrent share/edit/delete
+  operations. Creator attribution is nullable `ON DELETE SET NULL`; deleting a creator preserves
+  community ownership. The application predicates enforce access even for DB-owner connections.
+
+### Inventory catalog API (Sprint 132 PR B)
+
+| Method | Path | Contract |
+|---|---|---|
+| GET | `/requests/inventory/mine` | Caller-owned personal items, all statuses, with `shared_with: {id,name}[]` |
+| GET | `/requests/inventory/community/:communityId` | Live member only (403 otherwise); `{community_owned,shared_by_members}`, audience-filtered with member-owner attribution |
+| GET | `/requests/inventory/items/:id` | Visible item; missing or outside audience returns 404 |
+| POST | `/requests/inventory/items` | `{name,description?,category,condition?,owner_community_id?}`; 201; live admin required for community ownership |
+| PATCH | `/requests/inventory/items/:id` | Manager only; bounded editable fields `name,description,category,condition,status` |
+| DELETE | `/requests/inventory/items/:id` | Manager only; hard delete; `{deleted:true}` |
+| PUT | `/requests/inventory/items/:id/shares` | Personal owner only; replace with up to 50 unique community UUIDs; empty list means private |
+
+`inventory.items` owns one user or one community (XOR); `inventory.item_shares` owns the per-community
+share set. Categories/conditions match the borrow vocabulary. The route validates name (trimmed,
+1–120), description (≤2000), enums and UUIDs by hand. A visible item that the caller cannot manage
+returns 403 on writes; a non-audience caller gets 404. Share writes on community property return 400.
+Read responses expose share metadata to managers, and only viewer-accessible communities to others.
+The community list checks both the viewer's and personal owner's membership in the selected community.
+**Mount `/requests/inventory` before `/requests`**, including requestsRouter and its `/:id` route,
+and before broad admin middleware. The real-app regression test guards this order.
+Importing `src/index.ts` does not start a server; direct execution still initializes DB and Redis.
+
 - **2026-10-01 (Sprint 132 PR A, ADR-099)**: `getUserProfile` reads `auth.user_tags` where
   `tag_type='skill'`, using `skill_slug` or lowercase trimmed text with non-alphanumeric runs
   replaced by underscores. `/requests/matched/for-user` keeps its category mapping and reads

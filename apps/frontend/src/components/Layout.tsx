@@ -52,6 +52,9 @@ function AppMenu({ onLogout }: AppMenuProps) {
             <Link href="/communities" className={itemClass('/communities')} onClick={close}>
               Communities
             </Link>
+            <Link href="/inventory" className={itemClass('/inventory')} onClick={close}>
+              My things
+            </Link>
             {hasProviderProfile ? (
               <>
                 <Link href="/providers" className={itemClass('/providers')} onClick={close}>

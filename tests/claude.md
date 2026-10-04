@@ -61,6 +61,10 @@ Re-run the file directly (above) or `--force`.
 
 ### Integration environment
 
+The isolated compose request-service disables rate limiting, like the other test services,
+so the inventory audience cases can exercise real JWT and live membership checks without
+exhausting an IP quota. Production rate limiting remains enabled.
+
 ```bash
 npm run test:integration:setup     # docker compose -f docker-compose.test.yml up -d
 npm run test:integration

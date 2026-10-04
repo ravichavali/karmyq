@@ -1,5 +1,13 @@
 # Running a Community
 
+## Community-owned items
+
+Open **Shared things** and choose **Add community item** to catalog community property.
+Active admins can add, edit, delete and mark these items unavailable. Available items are
+visible to active members; unavailable items are visible only to active admins. Items remain
+community property if the member who created them leaves or their account is deleted.
+The **Shared by members** section contains members' personal items, which only their owners manage.
+
 As a community founder, you shape the environment your members live in.
 
 ---

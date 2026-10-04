@@ -6,6 +6,7 @@ import { initDatabase } from './database/db';
 import { initEventPublisher } from './events/publisher';
 import pool from './database/db';
 import feedRouter from './routes/feed';
+import inventoryRouter from './routes/inventory';
 import requestsRouter from './routes/requests';
 import offersRouter from './routes/offers';
 import providerOffersRouter from './routes/providerOffers';
@@ -105,6 +106,10 @@ app.use(
   dbContextMiddleware(pool),
   feedRouter
 );
+
+// Inventory must precede /requests/:id and the broader /requests middleware chains.
+app.use('/requests/inventory', rateLimiters.standard, authMiddleware,
+  optionalTenantMiddleware, dbContextMiddleware(pool), inventoryRouter);
 
 // Apply the context-specific rate/auth/tenant/DB chain only to the three relationship reads. The
 // router remains mounted at /requests for its relative paths, but unrelated request traffic no
@@ -228,6 +233,7 @@ async function start() {
   }
 }
 
-start();
+// Importing the app for contract tests must not connect Redis or open a listening port.
+if (require.main === module) start();
 
 export default app;

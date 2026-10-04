@@ -33,6 +33,10 @@
       "title": "How It Works",
       "items": [
         {
+          "label": "Inventories",
+          "href": "/docs/concepts/inventories"
+        },
+        {
           "label": "UX Design Principles",
           "href": "/docs/concepts/ux-design-principles"
         },
@@ -137,6 +141,10 @@
     {
       "title": "User Guides",
       "items": [
+        {
+          "label": "Sharing Your Things",
+          "href": "/docs/guides/sharing-your-things-guide"
+        },
         {
           "label": "Getting Started",
           "href": "/docs/guides/getting-started"

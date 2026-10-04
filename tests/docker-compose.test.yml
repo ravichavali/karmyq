@@ -117,6 +117,8 @@ services:
       COMMUNITY_SERVICE_URL: http://community-service-test:3002
       SOCIAL_GRAPH_API_URL: http://social-graph-service-test:3010
       JWT_SECRET: test_jwt_secret_change_me
+      # Audience integration cases exercise real auth/SQL without an unrelated IP quota.
+      RATE_LIMIT_DISABLED: "true"
     ports:
       - "3003:3003"
     networks:

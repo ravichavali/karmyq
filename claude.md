@@ -200,9 +200,9 @@ strip `/api`: `proxy_pass http://your_service/{prefix}$1$is_args$args`. Takes ef
 deploy (or manual `sudo cp` + `nginx -t` + reload on the server).
 
 ### Database
-**12 live schemas + 1 reserved**, not 6. Live: `auth`, `communities`, `requests`, `reputation`,
+**13 live schemas + 1 reserved**, not 6. Live: `auth`, `communities`, `requests`, `reputation`,
 `notifications`, `messaging`, `social_graph`, `feed`, `governance`, `feedback`, `provider`,
-`events`. Reserved: **`federation`** — twelve tables created by a migration and referenced by no
+`events`, `inventory`. Reserved: **`federation`** — twelve tables created by a migration and referenced by no
 service; don't build on it ([ADR-093](docs/adr/ADR-093-federation-schema-reserved.md)).
 The community schema is **`communities`** (plural). Two names where the obvious guess is wrong:
 `communities.members` (not `memberships`) and `requests.help_offers` (not `offers`). RLS is on —

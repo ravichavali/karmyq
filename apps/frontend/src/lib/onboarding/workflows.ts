@@ -10,6 +10,12 @@ export interface WorkflowDef {
 }
 
 export const WORKFLOWS: Record<string, WorkflowDef> = {
+  inventory: {
+    id: 'inventory', workflowTitle: 'My things', steps: [
+      { title: 'Private until shared', body: 'Open My things from the menu to add things you can lend. Only you see a new item. Choose Share with… and select the communities that may see it.' },
+      { title: 'Things your community can use', body: 'The Shared things tab lists community-owned things and things shared by members. Active admins manage community property. Mark an item unavailable to hide it from other members; your sharing choices stay saved.' },
+    ],
+  },
   feed: {
     id: 'feed',
     workflowTitle: 'Your Feed',
