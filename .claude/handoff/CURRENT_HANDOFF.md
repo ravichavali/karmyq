@@ -285,9 +285,16 @@ request unit 161/regression 289. Both affected TypeScript checks passed. The req
 reviewer approved this checkpoint. Logs are in the ignored sprint SDD directory, including
 `b10-process-npm-test-final.log`. This proves local unit/regression and builds, not real SQL.
 
-`init.sql` is deliberately not changed yet. Next: after local gates pass, commit/push a checkpoint,
-dispatch the existing Regenerate init.sql workflow on this branch, retrieve its generated artifact,
-review/promote it and open the PR. Manual dispatch proves regeneration/fresh install/replay, but
-only the PR workflow supplies the independent base comparison. No demo-host operation is needed.
-Version-only bump targets11.79.0 from master11.78.0; recheck at readiness if master advances.
+Checkpoint `8537a319` pushed with normal hooks: `npm test` exit 0, 27/27 tasks (26 cached),
+log `b11-checkpoint-push.log`. [Schema generation 37178304829](https://github.com/ravichavali/karmyq/actions/runs/37178304829)
+PASSED at that commit: deterministic output, fresh installation, recorded migrations and no drift
+after replay. Its artifact was downloaded and promoted without hand editing. The inspected diff
+is limited to the inventory schema, two tables, keys/indexes and one migration-ledger entry
+(107 insertions/1 deletion). No seeds or unrelated objects changed.
+
+Next: commit/push the generated snapshot with normal hooks and open the draft PR. Confirm the
+13 inventory cases actually run/pass in the Integration Tests job, and confirm independent-base
+byte parity in the PR regeneration workflow; manual dispatch skipped that parity step. Record
+final-head evidence in the PR Validation ledger before readiness. No demo-host operation is needed.
+Version-only bump targets 11.79.0 from master 11.78.0; recheck at readiness if master advances.
 No merge, deployment, alert dismissal or demo write is authorized.

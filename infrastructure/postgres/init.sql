@@ -61,6 +61,12 @@ CREATE SCHEMA feedback;
 CREATE SCHEMA governance;
 
 --
+-- Name: inventory; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA inventory;
+
+--
 -- Name: messaging; Type: SCHEMA; Schema: -; Owner: -
 --
 
@@ -1865,6 +1871,38 @@ CREATE TABLE governance.votes (
 );
 
 --
+-- Name: item_shares; Type: TABLE; Schema: inventory; Owner: -
+--
+
+CREATE TABLE inventory.item_shares (
+    item_id uuid NOT NULL,
+    community_id uuid NOT NULL,
+    shared_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: items; Type: TABLE; Schema: inventory; Owner: -
+--
+
+CREATE TABLE inventory.items (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    owner_user_id uuid,
+    owner_community_id uuid,
+    name character varying(120) NOT NULL,
+    description text,
+    category character varying(30) NOT NULL,
+    condition character varying(20),
+    status character varying(20) DEFAULT 'available'::character varying NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT items_category_check CHECK (((category)::text = ANY ((ARRAY['tools'::character varying, 'electronics'::character varying, 'kitchen'::character varying, 'books'::character varying, 'sports'::character varying, 'camping'::character varying, 'party'::character varying, 'other'::character varying])::text[]))),
+    CONSTRAINT items_condition_check CHECK (((condition)::text = ANY ((ARRAY['fair'::character varying, 'good'::character varying, 'like_new'::character varying, 'new'::character varying])::text[]))),
+    CONSTRAINT items_exactly_one_owner CHECK (((owner_user_id IS NULL) <> (owner_community_id IS NULL))),
+    CONSTRAINT items_status_check CHECK (((status)::text = ANY ((ARRAY['available'::character varying, 'unavailable'::character varying])::text[])))
+);
+
+--
 -- Name: conversation_participants; Type: TABLE; Schema: messaging; Owner: -
 --
 
@@ -3530,6 +3568,20 @@ ALTER TABLE ONLY governance.votes
     ADD CONSTRAINT votes_proposal_id_voter_id_key UNIQUE (proposal_id, voter_id);
 
 --
+-- Name: item_shares item_shares_pkey; Type: CONSTRAINT; Schema: inventory; Owner: -
+--
+
+ALTER TABLE ONLY inventory.item_shares
+    ADD CONSTRAINT item_shares_pkey PRIMARY KEY (item_id, community_id);
+
+--
+-- Name: items items_pkey; Type: CONSTRAINT; Schema: inventory; Owner: -
+--
+
+ALTER TABLE ONLY inventory.items
+    ADD CONSTRAINT items_pkey PRIMARY KEY (id);
+
+--
 -- Name: conversation_participants conversation_participants_conversation_id_participant_id_key; Type: CONSTRAINT; Schema: messaging; Owner: -
 --
 
@@ -4561,6 +4613,24 @@ CREATE INDEX idx_proposals_proposed_by ON governance.proposals USING btree (prop
 --
 
 CREATE INDEX idx_votes_proposal_id ON governance.votes USING btree (proposal_id);
+
+--
+-- Name: idx_item_shares_community; Type: INDEX; Schema: inventory; Owner: -
+--
+
+CREATE INDEX idx_item_shares_community ON inventory.item_shares USING btree (community_id);
+
+--
+-- Name: idx_items_owner_community; Type: INDEX; Schema: inventory; Owner: -
+--
+
+CREATE INDEX idx_items_owner_community ON inventory.items USING btree (owner_community_id) WHERE (owner_community_id IS NOT NULL);
+
+--
+-- Name: idx_items_owner_user; Type: INDEX; Schema: inventory; Owner: -
+--
+
+CREATE INDEX idx_items_owner_user ON inventory.items USING btree (owner_user_id) WHERE (owner_user_id IS NOT NULL);
 
 --
 -- Name: idx_conversations_request_match_id; Type: INDEX; Schema: messaging; Owner: -
@@ -5927,6 +5997,41 @@ ALTER TABLE ONLY governance.votes
     ADD CONSTRAINT votes_voter_id_fkey FOREIGN KEY (voter_id) REFERENCES auth.users(id);
 
 --
+-- Name: item_shares item_shares_community_id_fkey; Type: FK CONSTRAINT; Schema: inventory; Owner: -
+--
+
+ALTER TABLE ONLY inventory.item_shares
+    ADD CONSTRAINT item_shares_community_id_fkey FOREIGN KEY (community_id) REFERENCES communities.communities(id) ON DELETE CASCADE;
+
+--
+-- Name: item_shares item_shares_item_id_fkey; Type: FK CONSTRAINT; Schema: inventory; Owner: -
+--
+
+ALTER TABLE ONLY inventory.item_shares
+    ADD CONSTRAINT item_shares_item_id_fkey FOREIGN KEY (item_id) REFERENCES inventory.items(id) ON DELETE CASCADE;
+
+--
+-- Name: items items_created_by_fkey; Type: FK CONSTRAINT; Schema: inventory; Owner: -
+--
+
+ALTER TABLE ONLY inventory.items
+    ADD CONSTRAINT items_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: items items_owner_community_id_fkey; Type: FK CONSTRAINT; Schema: inventory; Owner: -
+--
+
+ALTER TABLE ONLY inventory.items
+    ADD CONSTRAINT items_owner_community_id_fkey FOREIGN KEY (owner_community_id) REFERENCES communities.communities(id) ON DELETE CASCADE;
+
+--
+-- Name: items items_owner_user_id_fkey; Type: FK CONSTRAINT; Schema: inventory; Owner: -
+--
+
+ALTER TABLE ONLY inventory.items
+    ADD CONSTRAINT items_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+--
 -- Name: conversation_participants conversation_participants_conversation_id_fkey; Type: FK CONSTRAINT; Schema: messaging; Owner: -
 --
 
@@ -6932,5 +7037,6 @@ INSERT INTO public.schema_migrations (migration_name) VALUES
   ('20260615-split-proposal-active-unique.sql'),
   ('20260716-path-trust-score-double-precision.sql'),
   ('20260819-standing-projection-foundation.sql'),
-  ('20260930-skill-vocabulary.sql')
+  ('20260930-skill-vocabulary.sql'),
+  ('20261003-inventory-schema.sql')
 ON CONFLICT (migration_name) DO NOTHING;
