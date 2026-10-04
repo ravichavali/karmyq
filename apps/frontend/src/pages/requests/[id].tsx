@@ -38,6 +38,8 @@ interface RequestDetail {
   payload?: RequestPayload | null
   requirements?: Record<string, string | number | boolean>
   viewer_relation: ViewerRelation
+  is_directed?: boolean
+  directed_to?: { kind: 'user' | 'community_admins'; id: string; name: string } | null
   viewer_match?: { id: string; status: string } | null
 }
 
@@ -187,6 +189,9 @@ export default function RequestDetailPage() {
         <div className="mb-4">{backLink}</div>
 
         <article className="kq-card">
+          {detail.is_directed && <p className="mb-4 rounded-lg bg-surface-raised p-3 text-sm">
+            {detail.directed_to ? `Private request to ${detail.directed_to.name}${detail.directed_to.kind === 'community_admins' ? ' admins' : ''}` : 'Private request — recipient no longer available'}
+          </p>}
           <div className="mb-2 flex items-center gap-2 flex-wrap">
             {detail.request_type && (
               <span className="kq-pill">{TYPE_LABELS[detail.request_type] ?? detail.request_type}</span>

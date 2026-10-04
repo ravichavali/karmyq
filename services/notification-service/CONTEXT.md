@@ -5,6 +5,13 @@
 
 ## Purpose
 
+Sprint 132 PR C (2026-10-04): `directed_request_created` consumes explicit
+`{request_id,requester_id,recipient_user_ids,title,inventory_item_id}` from request-service.
+It inserts an in-app notification for exactly each recipient, titled “{requester} asked to
+borrow your {item}”, linked to `/requests/:id`. No `communities.members` fan-out; push/email
+are disabled for this template. Borrow creation never emits `request_created`. Provider-on-duty
+request discovery excludes directed asks. Existing notification caller ownership from PR S remains.
+
 Manages user notifications across the platform with template-based messaging, user preferences, and real-time delivery via Server-Sent Events (SSE). Listens to events from other services and creates appropriate notifications for users.
 
 ## Database Schema

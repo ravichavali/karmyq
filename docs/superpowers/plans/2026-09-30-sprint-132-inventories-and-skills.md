@@ -823,3 +823,125 @@ It changes reachability, so run `/code-review` at **high** and use a fresh non-a
   shared to C1, R asks, M's `GET /api/requests/<id>` → 404, O sees the notification, and cleanup
   follows what the maintainer approves.
 - [ ] ADR-099 → **Implemented**. Archive the sprint handoff, and capture Sprint 133 candidates in `docs/IDEAS.md`.
+
+### PR C execution notes — SQL surface inventory (2026-10-04)
+
+AST scan walks every services/*/src/**/*.ts SQL literal/template containing help_requests, including nested reads. Each row names the SQL literal start. Multi-read statements must guard every read. Cross-service browse fragments use inline predicates to avoid importing another workspace’s source. Maintenance/projection allowlist entries are scoped by file and a live SQL needle.
+
+| File:line | Surface / treatment | Reason |
+|---|---|---|
+| `services/auth-service/src/services/demoSessionService.ts:151` | Non-listing / allowlist | Fixed curated fixture identity lookup; no content returned. |
+| `services/cleanup-service/src/jobs/expirationJob.ts:19` | Non-listing / allowlist | Internal expiry mutation, no audience-facing output. |
+| `services/cleanup-service/src/jobs/expirationJob.ts:85` | Non-listing / allowlist | Internal hard retention deletion. |
+| `services/cleanup-service/src/jobs/expireDibs.ts:56` | Non-listing / allowlist | Internal expiry; directed asks cannot enter dibs. |
+| `services/cleanup-service/src/jobs/matchReminderJob.ts:24` | Non-listing / allowlist | Trusted reminders delivered only to matched participants. |
+| `services/cleanup-service/src/jobs/memoryRetentionJob.ts:81` | Non-listing / allowlist | Internal retention-window CTE. |
+| `services/cleanup-service/src/jobs/memoryRetentionJob.ts:94` | Non-listing / allowlist | Internal content erasure. |
+| `services/cleanup-service/src/jobs/memoryRetentionJob.ts:134` | Non-listing / allowlist | Internal retention deletion. |
+| `services/community-service/src/routes/export.ts:137` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/community-service/src/routes/export.ts:158` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/community-service/src/routes/export.ts:356` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/community-service/src/routes/stats.ts:43` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/messaging-service/src/routes/messages.ts:211` | Non-listing / allowlist | Participant identity lookup; route checks JWT participation before conversation access. |
+| `services/messaging-service/src/routes/messages.ts:283` | Non-listing / allowlist | Participant identity lookup; route checks JWT participation before conversation access. |
+| `services/notification-service/src/events/subscriber.ts:23` | Non-listing / allowlist | Trusted match-created event delivers to its explicit requester. |
+| `services/notification-service/src/events/subscriber.ts:69` | Non-listing / allowlist | Trusted completion event delivers to its two participants. |
+| `services/notification-service/src/events/subscriber.ts:371` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/reputation-service/src/database/feedbackDb.ts:79` | Non-listing / allowlist | Feedback participant validation; no request content. |
+| `services/reputation-service/src/events/subscriber.ts:20` | Non-listing / allowlist | Internal pair karma computation; directed exchanges earn normal karma. |
+| `services/reputation-service/src/routes/health.ts:165` | Non-listing / allowlist | Cohort-gated non-identifying health aggregate; no request listing or title. |
+| `services/reputation-service/src/routes/health.ts:174` | Non-listing / allowlist | Cohort-gated aggregate participant breadth; no identities returned. |
+| `services/reputation-service/src/routes/health.ts:185` | Non-listing / allowlist | Cohort-gated aggregate feedback quality; no request content. |
+| `services/reputation-service/src/services/badgeService.ts:47` | Non-listing / allowlist | Internal badge projection. |
+| `services/reputation-service/src/services/healthMetricsService.ts:15` | Non-listing / allowlist | Cohort-gated non-identifying health aggregate; no request listing or title. |
+| `services/reputation-service/src/services/healthMetricsService.ts:26` | Non-listing / allowlist | Cohort-gated aggregate participant breadth; no identities returned. |
+| `services/reputation-service/src/services/healthMetricsService.ts:41` | Non-listing / allowlist | Cohort-gated aggregate feedback quality; no request content. |
+| `services/reputation-service/src/services/networkCohesionService.ts:44` | Non-listing / allowlist | Internal graph reduced to cohort score; no request content. |
+| `services/reputation-service/src/services/standingBackfillService.ts:178` | Non-listing / allowlist | Operator standing projection. |
+| `services/reputation-service/src/services/standingProjector.ts:90` | Non-listing / allowlist | Trusted standing projection. |
+| `services/request-service/src/db/dibsDb.ts:106` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/db/dibsDb.ts:216` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/db/dibsDb.ts:337` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/db/dibsDb.ts:437` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/db/eligibility.ts:40` | Private access / directedAudienceSql | JWT-bound requester/target/live active-admin audience; participant or owner checks remain. |
+| `services/request-service/src/db/inventoryDb.ts:282` | Non-listing / allowlist | Creation authorizes item audience and selected live community in a transaction. |
+| `services/request-service/src/db/inventoryDb.ts:295` | Private access / directedAudienceSql | JWT-bound requester/target/live active-admin audience; participant or owner checks remain. |
+| `services/request-service/src/db/offersDb.ts:11` | Non-listing / allowlist | Requester-only lifecycle lookup; requester is always in audience. |
+| `services/request-service/src/db/offersDb.ts:37` | Non-listing / allowlist | Single-offer lifecycle lookup; requester authorization precedes returned content. |
+| `services/request-service/src/db/offersDb.ts:61` | Non-listing / allowlist | Mutation after requester authorization. |
+| `services/request-service/src/db/offersDb.ts:81` | Non-listing / allowlist | Single-offer lifecycle lookup; requester authorization precedes returned content. |
+| `services/request-service/src/db/providerOffersDb.ts:78` | Private access / directedAudienceSql | JWT-bound requester/target/live active-admin audience; participant or owner checks remain. |
+| `services/request-service/src/db/relationshipContextDb.ts:81` | Private access / directedAudienceSql | JWT-bound requester/target/live active-admin audience; participant or owner checks remain. |
+| `services/request-service/src/db/relationshipContextDb.ts:115` | Private access / directedAudienceSql | JWT-bound requester/target/live active-admin audience; participant or owner checks remain. |
+| `services/request-service/src/routes/adminActions.ts:35` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/adminActions.ts:49` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/adminActions.ts:74` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/adminActions.ts:88` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/adminActions.ts:118` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/adminActions.ts:196` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/adminActions.ts:212` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/adminActions.ts:220` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/dibs.ts:36` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/dibs.ts:139` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/dibs.ts:236` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/dibs.ts:337` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/dibs.ts:420` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/dibs.ts:481` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/feedback.ts:46` | Non-listing / allowlist | JWT participant validation for feedback; no request title. |
+| `services/request-service/src/routes/feedback.ts:122` | Non-listing / allowlist | Consent lookup after participant authorization; public stories exclude directed asks. |
+| `services/request-service/src/routes/feedback.ts:196` | Non-listing / allowlist | Participant feedback lookup; no ask content. |
+| `services/request-service/src/routes/matches.ts:29` | Private access / directedAudienceSql | JWT-bound requester/target/live active-admin audience; participant or owner checks remain. |
+| `services/request-service/src/routes/matches.ts:94` | Private access / directedAudienceSql | JWT-bound requester/target/live active-admin audience; participant or owner checks remain. |
+| `services/request-service/src/routes/matches.ts:293` | Private access / directedAudienceSql | JWT-bound requester/target/live active-admin audience; participant or owner checks remain. |
+| `services/request-service/src/routes/matches.ts:338` | Non-listing / allowlist | Scheduling lookup after audience-guarded participant acceptance. |
+| `services/request-service/src/routes/matches.ts:354` | Non-listing / allowlist | Lifecycle lock after audience-guarded participation. |
+| `services/request-service/src/routes/matches.ts:372` | Non-listing / allowlist | Mutation after audience and participant validation. |
+| `services/request-service/src/routes/matches.ts:401` | Private access / directedAudienceSql | JWT-bound requester/target/live active-admin audience; participant or owner checks remain. |
+| `services/request-service/src/routes/matches.ts:453` | Private access / directedAudienceSql | JWT-bound requester/target/live active-admin audience; participant or owner checks remain. |
+| `services/request-service/src/routes/matches.ts:486` | Non-listing / allowlist | Lifecycle lock after audience-guarded participation. |
+| `services/request-service/src/routes/matches.ts:524` | Non-listing / allowlist | Mutation after audience and participant validation. |
+| `services/request-service/src/routes/matches.ts:572` | Private access / directedAudienceSql | JWT-bound requester/target/live active-admin audience; participant or owner checks remain. |
+| `services/request-service/src/routes/matches.ts:653` | Non-listing / allowlist | Mutation after audience and participant validation. |
+| `services/request-service/src/routes/matches.ts:711` | Private access / directedAudienceSql | JWT-bound requester/target/live active-admin audience; participant or owner checks remain. |
+| `services/request-service/src/routes/matches.ts:750` | Non-listing / allowlist | Mutation after audience and participant validation. |
+| `services/request-service/src/routes/providerOffers.ts:56` | Non-listing / allowlist | Recipient identity after directed reachability validation. |
+| `services/request-service/src/routes/requests.ts:232` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:450` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:550` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:952` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:1017` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:1055` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:1095` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:1210` | Conditional own/private branch | Caller-equal requester filter or dedicated private inbox only; browse branch excludes directed rows. |
+| `services/request-service/src/routes/requests.ts:1222` | Conditional own/private branch | Caller-equal requester filter or dedicated private inbox only; browse branch excludes directed rows. |
+| `services/request-service/src/routes/requests.ts:1314` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:1358` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:1447` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:1547` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:1641` | Private access / directedAudienceSql | JWT-bound requester/target/live active-admin audience; participant or owner checks remain. |
+| `services/request-service/src/routes/requests.ts:1687` | Private access / directedAudienceSql | JWT-bound requester/target/live active-admin audience; participant or owner checks remain. |
+| `services/request-service/src/routes/requests.ts:1952` | Non-listing / allowlist | Ordinary creation rejects all directed fields. |
+| `services/request-service/src/routes/requests.ts:2045` | Non-listing / allowlist | Owner identity lookup; ownership checked before mutation. |
+| `services/request-service/src/routes/requests.ts:2089` | Non-listing / allowlist | Fixed field owner-only update; directed routing fields cannot be edited. |
+| `services/request-service/src/routes/requests.ts:2122` | Non-listing / allowlist | Owner identity lookup; ownership checked before mutation. |
+| `services/request-service/src/routes/requests.ts:2142` | Non-listing / allowlist | Requester-only cancellation. |
+| `services/request-service/src/routes/requests.ts:2183` | Non-listing / allowlist | Owner identity lookup; ownership checked before mutation. |
+| `services/request-service/src/routes/requests.ts:2227` | Non-listing / allowlist | Fixed field owner-only update; directed routing fields cannot be edited. |
+| `services/request-service/src/routes/requests.ts:2284` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:2317` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/services/feed/basicFeedRanker.ts:155` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/services/feed/feedComposer.ts:52` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/services/feed/feedComposer.ts:70` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/services/feed/feedComposer.ts:174` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/services/feed/feedComposer.ts:187` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/services/feed/feedComposer.ts:202` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/services/feed/feedComposer.ts:267` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/services/feed/feedComposer.ts:338` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/services/feed/feedComposer.ts:503` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/utils/queryBuilder.ts:42` | Conditional own/private branch | Caller-equal requester filter or dedicated private inbox only; browse branch excludes directed rows. |
+| `services/simulation-service/src/fixtures/curatedDemo/baselineWriter.ts:166` | Non-listing / allowlist | Curated fixture write. |
+| `services/simulation-service/src/profiles/index.ts:206` | Non-listing / allowlist | Own simulation request budget; no other-user request content. |
+| `services/social-graph-service/src/database/relationshipContextDb.ts:22` | Non-listing / allowlist | Internal topology projection; no request content. |
+| `services/social-graph-service/src/services/pathComputation.ts:211` | Non-listing / allowlist | Pair relationship metadata; no request content. |
+
+QueryBuilder own-request branch is private only for caller-equal requester_id; otherwise browse. Feed proposed/offered preview query selects the private predicate only for the dedicated offered-awaiting endpoint, not Home. The eligibility query computes an audience boolean before any action or content read; relationship context conceals directed non-audience existence. Full gate fixture and committed-tree injection evidence belong in PR Validation.

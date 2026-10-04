@@ -8,6 +8,7 @@ export type NotificationType =
   | 'karma_awarded'
   | 'karma_milestone'
   | 'new_request'
+  | 'directed_request_created'
   | 'request_responded'
   | 'message_received'
   | 'community_invite'
@@ -44,6 +45,14 @@ export interface NotificationTemplate {
 
 // Template definitions
 export const notificationTemplates: Record<NotificationType, NotificationTemplate> = {
+  directed_request_created: {
+    type: 'directed_request_created', priority: 'medium',
+    title: (data) => `${data.requester_name} asked to borrow your ${data.request_title.replace(/^Ask to borrow /, '')}`,
+    body: () => 'A private ask is waiting for your response.',
+    icon: 'handshake', ctaLabel: 'View private ask',
+    actionUrl: (data) => `/requests/${data.request_id}`,
+    channels: { in_app: true, push: false, email: false },
+  },
   match_created: {
     type: 'match_created',
     priority: 'high',

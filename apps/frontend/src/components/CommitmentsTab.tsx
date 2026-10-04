@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
-import { requestService } from '@/lib/api'
+import { inventoryService, requestService, type IncomingAsk } from '@/lib/api'
 import { getOffersForRequest, acceptOffer, declineOffer } from '@/lib/api/providerApi'
 import EmptyState from './EmptyState'
 import RelationshipContextPanel from './relationships/RelationshipContextPanel'
@@ -25,6 +25,7 @@ interface Match {
   requester_name?: string
   responder_name?: string
   admin_proposed?: boolean
+  is_directed?: boolean
   requester_done_at?: string | null
   responder_done_at?: string | null
 }
@@ -116,6 +117,27 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
   const [currentUserId, setCurrentUserId] = useState<string>('')
   const [selectedProfileUserId, setSelectedProfileUserId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [incoming, setIncoming] = useState<IncomingAsk[]>([])
+  const [incomingError, setIncomingError] = useState('')
+  const [incomingLoading, setIncomingLoading] = useState(true)
+  const [offeringAsk, setOfferingAsk] = useState<string | null>(null)
+
+  const loadIncoming = async () => {
+    setIncomingError(''); setIncomingLoading(true)
+    try { const res = await inventoryService.incomingAsks(); setIncoming(res.data.asks) }
+    catch { setIncomingError('Could not load private asks. Please try again.') }
+    finally { setIncomingLoading(false) }
+  }
+  const offerIncoming = async (requestId: string) => {
+    setOfferingAsk(requestId); setIncomingError('')
+    try {
+      await requestService.createMatch({ request_id: requestId })
+      await loadIncoming()
+      loadCommitments(currentUserId)
+      loadOfferedAwaiting()
+    } catch { setIncomingError('Could not offer help. Please try again.') }
+    finally { setOfferingAsk(null) }
+  }
 
   const fetchOffersForRequest = async (requestId: string) => {
     setOffersLoading((prev) => ({ ...prev, [requestId]: true }))
@@ -195,6 +217,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
     try { currentUser = userData ? JSON.parse(userData) : null } catch { currentUser = null }
     if (!currentUser) return
     setCurrentUserId(currentUser.id ?? '')
+    void loadIncoming()
     loadDecisions()
     loadOfferedAwaiting()
     loadCommitments(currentUser.id)
@@ -365,6 +388,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
             Suggested by your community admin
           </p>
         )}
+        {m.is_directed && m.status === 'proposed' && <p className="text-sm text-text-muted mt-3">Waiting for the requester to respond.</p>}
         {/* Conversation widget: below status indicator, above footer actions */}
         {showConversation && currentUserId && (
           <ExpandableConversation
@@ -497,7 +521,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
   // card — admin-proposed ones in the DecisionBand above (accept/decline), self-offers in the
   // "Offers awaiting requester" band below. So drop ALL proposed matches from the helping cards.
   const helpingGroups = groupAndSort(
-    helping.filter((m) => m.status !== 'proposed')
+    helping.filter((m) => m.status !== 'proposed' || m.is_directed)
   )
   const requestedGroups = groupAndSort(requested)
 
@@ -505,6 +529,14 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
     <div className="max-w-2xl mx-auto px-4 py-4 space-y-8">
       {/* BUG-015: decisions you owe, server-ranked, at the top of Helping. */}
       <DecisionBand decisions={decisions} onResolved={handleDecisionResolved} />
+      <section aria-label="Asked of you">
+        <h2 className="section-heading mb-3">Asked of you</h2>
+        {incomingLoading ? <p role="status">Loading private asks…</p> : incomingError ? <div role="alert"><p>{incomingError}</p><button className="btn-secondary" onClick={() => void loadIncoming()}>Try again</button></div> : incoming.length === 0 ? <p className="text-text-muted">No private asks waiting for you.</p> : incoming.map(ask => <div key={ask.id} className="card p-4 mb-3 space-y-2">
+          <Link className="font-medium" href={`/requests/${ask.id}`}>{ask.title}</Link>
+          <p className="text-sm text-text-muted">Asked by {ask.requester_name}{ask.payload?.duration_days ? ` · ${ask.payload.duration_days} days` : ''}</p>
+          <button className="btn-primary" disabled={offeringAsk !== null} onClick={() => void offerIncoming(ask.id)}>{offeringAsk === ask.id ? 'Offering…' : 'Offer'}</button>
+        </div>)}
+      </section>
       {actionError && (
         <div className="flex items-start justify-between gap-3 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
           <span>{actionError}</span>
@@ -525,7 +557,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
             <h3 className="text-sm font-semibold text-text">Offers awaiting requester</h3>
             <p className="text-sm text-text-muted mt-1">Waiting for the requester to respond.</p>
             <ul className="mt-3 divide-y divide-border">
-              {offeredAwaiting.items.map((item) => (
+              {offeredAwaiting.items.filter(item => !helping.some(m => m.is_directed && m.id === item.match_id)).map((item) => (
                 <li key={item.match_id}>
                   <Link
                     href={`/requests/${item.request_id}`}

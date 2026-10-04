@@ -25,3 +25,19 @@ A community's **Shared things** tab has two sections: **Community-owned things**
 items and can also see unavailable community property.
 
 This catalog does not track loans, due dates or returns. Adding an item does not create a help request.
+
+## Asking to borrow
+
+On an available item in **Shared things**, choose **Ask to borrow**. You can also open the item
+to see its details and borrow form. Choose a duration of 1–30 days and optionally add a return
+date and note. When the item is shared through several communities, choose which community
+the ask belongs to. You cannot ask to borrow your own item.
+
+**Send private ask** opens the request detail. Only you and the personal owner can see it;
+for community property, only you and that community's current active admins can see it.
+The ask stays out of community feeds, browse lists and exports, including yours.
+
+Recipients receive an in-app notification and see **Asked of you** in the **Helping** tab.
+Choose **Offer** to start the usual acceptance, messaging and completion flow. The ask then
+leaves the inbox and appears among commitments. Both participants earn normal exchange karma.
+The catalog remains available until its manager changes its status; an ask does not reserve an item.

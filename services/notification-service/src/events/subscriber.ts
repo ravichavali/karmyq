@@ -144,6 +144,19 @@ export async function initEventSubscriber() {
       }
     });
 
+    // Directed inventory asks notify only the recipients resolved by request-service.
+    // No community fan-out, provider routing or public push summary belongs here.
+    eventQueue.process('directed_request_created', async (job) => {
+      const { request_id, requester_id, recipient_user_ids, title, inventory_item_id } = job.data.payload;
+      const requester = await query('SELECT name FROM auth.users WHERE id=$1', [requester_id]);
+      for (const user_id of recipient_user_ids) {
+        await createNotification({ user_id, type: 'directed_request_created', data: {
+          request_id, requester_name: requester.rows[0]?.name ?? 'A neighbour',
+          request_title: title, inventory_item_id,
+        } });
+      }
+    });
+
     // Process request_created events
     eventQueue.process('request_created', async (job) => {
       console.log('Processing request_created event:', job.data);
@@ -359,7 +372,7 @@ export async function initEventSubscriber() {
            FROM requests.help_requests hr
            JOIN requests.request_communities rc ON rc.request_id = hr.id
            -- dibs_pending requests are excluded by the status = 'open' equality check
-           WHERE rc.community_id = ANY($1) AND hr.status = 'open'
+           WHERE /* not-directed */ NOT hr.is_directed AND rc.community_id = ANY($1) AND hr.status = 'open'
            LIMIT 10`,
           [communityIds]
         );

@@ -354,7 +354,7 @@
           {
             "method": "GET",
             "path": "/requests/:id",
-            "description": "Canonical viewer-aware request detail read. Sprint 101: derives viewer_relation server-side (own_request | already_offered | can_offer | not_actionable) so the UI never guesses eligibility \u2014 can_offer requires the ask open+unexpired, not the viewer's own, no live proposed/matched responder match, AND within the viewer's feed-VISIBILITY audience (shared getRequestReachability: member OR trust_network/platform scope OR sister-reachable). A reachable cross-community ask is can_offer; a community-scoped ask the viewer can't see is not_actionable (not eligible by direct id). Also returns viewer_match ({id,status}) when already_offered, and payload_type (ADR-067, from category). Expired-open asks return (finite-state display) rather than 404."
+            "description": "Canonical viewer-aware request detail read. Sprint 101: derives viewer_relation server-side (own_request | already_offered | can_offer | not_actionable) so the UI never guesses eligibility \u2014 can_offer requires the ask open+unexpired, not the viewer's own, no live proposed/matched responder match, AND within the viewer's feed-VISIBILITY audience (shared getRequestReachability: member OR trust_network/platform scope OR sister-reachable). A reachable cross-community ask is can_offer; a community-scoped ask the viewer can't see is not_actionable (not eligible by direct id). Also returns viewer_match ({id,status}) when already_offered, and payload_type (ADR-067, from category). Expired-open asks return (finite-state display) rather than 404. Sprint 132: directed rows require requester, personal target or current active target-community admin before response; otherwise 404. Adds is_directed and directed_to:{kind,id,name}|null. Null targets never make a private request public."
           },
           {
             "method": "GET",
@@ -553,6 +553,16 @@
             "method": "GET",
             "path": "/requests/feed/community-health",
             "description": "Sprint 91 / ADR-071: community health hero metrics (absorbed from feed-service). Requires community_id (400) and returns 404 for unknown community."
+          },
+          {
+            "method": "POST",
+            "path": "/requests/inventory/items/:id/borrow",
+            "description": "Creates one directed borrow and attribution junction after live selected-community item audience validation. Duration 1-30; optional note/UTC return date. Emits only directed_request_created with explicit recipients after commit."
+          },
+          {
+            "method": "GET",
+            "path": "/requests/inventory/asks/incoming",
+            "description": "JWT caller-targeted open unexpired directed asks, excluding own requests and live proposed/matched responder offers. Returns {asks}; current active admins for community targets."
           }
         ],
         "consumes": [
@@ -581,7 +591,8 @@
           "offer_declined",
           "dibs_submitted",
           "dibs_accepted",
-          "dibs_declined"
+          "dibs_declined",
+          "directed_request_created"
         ],
         "subscribes": []
       },
@@ -720,7 +731,8 @@
           "provider_went_on_duty",
           "offer_submitted",
           "offer_accepted",
-          "offer_declined"
+          "offer_declined",
+          "directed_request_created"
         ]
       },
       "notes": "Subscribes to all events, creates notifications"

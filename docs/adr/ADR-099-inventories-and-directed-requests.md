@@ -139,3 +139,30 @@ PR A implements skills only. PR B and PR C will amend this record with their imp
 evidence, including account-deletion and aggregate-count decisions. This ADR remains Accepted
 until PR C is deployed; catalog and directed-request behavior above is the approved design,
 not a claim that those later PRs have shipped.
+
+### PR C implementation amendment
+
+Borrow creation locks the item and relevant live membership rows, validates the selected
+community's audience, and writes one directed borrow row and one attribution junction in a
+transaction. It publishes only `directed_request_created` after commit, carrying explicit
+recipient ids. Notification-service uses exactly those recipients, with an in-app template;
+it does not perform a membership fan-out. Community recipient access remains live admin-only.
+
+Browse reads use `notDirectedSql`; detail, own-request lists, incoming asks, provider-owned
+offers and participant match reads use `directedAudienceSql`. Own-request access requires
+the requester filter to equal the JWT caller. Community triage, boost, dibs and match proposals
+cannot act on directed rows. Relationship-context endpoints return no context for directed
+asks because the shared topology contract has no directed tier; shared packages stay unchanged.
+
+Community stats/export request and match lists **and their counts**, feed pulse counts and
+named recent helpers exclude directed exchanges. Internal karma, standing, badges, retention
+and graph projections still include them. Existing cohort-gated reputation health aggregates
+remain non-identifying and unchanged. The SQL surface gate records every literal's guard or
+a specific non-listing allowlist reason; execution notes carry the full file:line inventory.
+
+**Rollout and rollback:** the additive migration is compatible with earlier binaries, but
+earlier binaries have no directed privacy guards (`services/request-service/src/services/feed/basicFeedRanker.ts:171`).
+After the first directed row exists, image rollback must retain these guards or make affected
+reads unavailable. Never clear `is_directed` to accommodate rollback. The maintainer must choose
+a privacy-preserving rollback path before authorizing deployment. This ADR remains Accepted
+until PR C deploys.

@@ -7,6 +7,27 @@
 
 ## Recent Changes
 
+- **2026-10-04 (Sprint 132 PR C, ADR-099)**: directed item borrowing. `POST
+  /requests/inventory/items/:id/borrow` accepts `{community_id,duration_days,return_date?,description?}`
+  (duration integer 1–30, note ≤2000, UTC ISO return date). It locks the item, checks selected-community
+  live audience/memberships, creates a `borrow` request with `is_directed=true`, nullable user/community
+  target and `inventory_item_id`, and exactly one `request_communities` row. Own/unavailable items
+  return 400, non-audience/invalid selected audience 404. Only `directed_request_created` publishes,
+  after commit, with `{request_id,requester_id,recipient_user_ids,title,inventory_item_id}`.
+  `GET /requests/inventory/asks/incoming` returns `{asks}`: caller-targeted open, unexpired requests,
+  excluding own asks and caller's live proposed/matched offers. The Helping UI offers through normal
+  `POST /matches`, then refetches inbox and commitments. Item availability is not changed by borrowing.
+  `notDirectedSql` guards all browse reads, pulse and admin actions; `directedAudienceSql` guards
+  detail, own-request listing (only caller-equal `requester_id`), private offer/match reads and mutations.
+  Personal audience = requester/target; community audience = requester/current active admins.
+  Null targets fail closed via the NOT NULL boolean, never via target-nullness. Ordinary POST rejects
+  all four routing fields, even null/false. Detail adds `is_directed` and `directed_to:{kind,id,name}|null`.
+  Matches list adds `is_directed`; directed proposed commitments render while awaiting acceptance.
+  Home feed decision/preview bands exclude private asks. Dedicated offered-awaiting admits authorized
+  private asks. Relationship context returns 204 for directed asks instead of inventing a public tier.
+  Full SQL gate and real-DB tests cover disclosure. Pre-C image rollback after directed rows exist
+  requires preserved guards or unavailable reads (ADR-099); additive DDL alone does not preserve privacy.
+
 - **2026-10-03 (Sprint 132 PR B, ADR-099)**: inventory catalog under `/requests/inventory`.
   Personal items start private; shares require the owner's live active membership. Community
   property is managed by live active admins. Unavailable items are visible only to managers.

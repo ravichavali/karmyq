@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { sendSuccess, sendError } from '@karmyq/shared/utils/response';
 import * as inventory from '../db/inventoryDb';
+import { publishEvent } from '../events/publisher';
 
 const router = Router();
 const categories = [
@@ -93,6 +94,23 @@ router.get(
     sendSuccess(res, { items: await inventory.listMine(userId) });
   })
 );
+router.get('/asks/incoming', handler(async (_req, res, userId) => {
+  sendSuccess(res, { asks: await inventory.listIncomingAsks(userId) });
+}));
+router.post('/items/:id/borrow', handler(async (req, res, userId) => {
+  const itemId = validId(req.params.id);
+  const b = req.body;
+  if (!b || typeof b !== 'object' || Array.isArray(b) || Object.keys(b).some((k) => !['community_id','duration_days','return_date','description'].includes(k))) invalid('Unsupported borrow fields');
+  const community_id = validId(b.community_id);
+  if (!Number.isInteger(b.duration_days) || b.duration_days < 1 || b.duration_days > 30) invalid('Duration must be 1–30 days');
+  if (b.description !== undefined && (typeof b.description !== 'string' || b.description.length > 2000)) invalid('Note must be at most 2000 characters');
+  if (b.return_date !== undefined && (typeof b.return_date !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(b.return_date) || !Number.isFinite(Date.parse(b.return_date)))) invalid('Return date must be an ISO UTC datetime');
+  // Date.parse normalizes calendar overflow (e.g. February 30); the borrow schema rejects it.
+  if (b.return_date !== undefined && new Date(b.return_date).toISOString().slice(0, 19) !== b.return_date.slice(0, 19)) invalid('Return date must be a real calendar datetime');
+  const { ask, event } = await inventory.createBorrow(itemId, userId, { ...b, community_id });
+  await publishEvent('directed_request_created', event);
+  sendSuccess(res, ask, 201);
+}));
 router.get(
   '/community/:communityId',
   handler(async (req, res, userId) => {

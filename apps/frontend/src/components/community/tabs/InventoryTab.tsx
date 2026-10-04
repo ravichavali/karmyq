@@ -106,7 +106,7 @@ function CommunityInventory({ communityId, isAdmin }: { communityId: string; isA
       )}
       <div className="grid sm:grid-cols-2 gap-4">
         {data.community_owned.map((item) => (
-          <InventoryItemCard key={item.id} item={item}>
+          <InventoryItemCard key={item.id} item={item} communityId={communityId}>
             {isAdmin && (
               <div className="flex flex-wrap gap-3 text-sm">
                 <button onClick={() => setEditing(item)}>Edit {item.name}</button>
@@ -136,7 +136,7 @@ function CommunityInventory({ communityId, isAdmin }: { communityId: string; isA
       )}
       <div className="grid sm:grid-cols-2 gap-4">
         {data.shared_by_members.map((item) => (
-          <InventoryItemCard key={item.id} item={item} />
+          <InventoryItemCard key={item.id} item={item} communityId={communityId} />
         ))}
       </div>
     </div>

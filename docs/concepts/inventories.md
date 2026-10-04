@@ -18,10 +18,18 @@ An unavailable item stays in its manager's inventory but is hidden from other me
 For a personal item, the manager is its owner. For community property, managers are active admins.
 Authorization follows current membership, so an old login token cannot preserve removed access.
 
-## A catalog first
+## Directed requests
 
-The first release supports listing, editing, sharing and browsing things. It does not track
-loans or returns, add photos, or change skill-based matching. Directed borrowing is a later
-part of the inventories rollout described in ADR-099.
+An **Ask to borrow** on an item creates a private request addressed to the owner, or to the
+owning community's current active admins. Only the requester and those recipients can read it.
+It never appears in feeds, community open asks, pulse or exports, even for its own participants.
+The recipient's **Asked of you** inbox makes the request actionable before an offer exists.
+
+Deleting a recipient or community never turns the request public. It stays private, and only
+the requester retains access when the target disappears. An admin who leaves or loses their
+role loses access to community-targeted requests immediately.
+
+Borrowing uses normal acceptance, messaging, completion and karma. The catalog does not reserve
+items, track physical loans or returns, add photos, or change skill-based matching.
 
 See [Sharing Your Things](/docs/guides/sharing-your-things-guide) for the workflow.

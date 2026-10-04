@@ -43,7 +43,7 @@ match → message → karma loop. Skills have one source of truth that matching 
 | A | Skills single source, vocabulary-backed matching and ADR-099 | `agent/claude/sprint-132-pr-a-skills` (retired) | **SHIPPED**, #290 `244291eb`; live as v11.78.0 through #291 `f90b9916`, deploy 37169859212; A10 read-only smoke passed |
 | **N** | **node-forge exemption (2026-10-01):** a 7-day ADR-059 exemption for GHSA-86w9-cpqp-85rv (no patched release), an ADR-059 amendment, a sprint-125 coverage gate that admits an unwatched package only for ≤ 7 days, and BUG-058 | `agent/claude/sprint-132-node-forge-exemption` (cut from `origin/master` `b169472b`) | **MERGED + DEPLOYED v11.76.0** (#289, `02d720b3`; CI/CD 37053659544 and health check green, verified 2026-10-02) |
 | B | Inventory catalog, audience predicates, My things and community Shared things | `agent/claude/sprint-132-pr-b-inventory` (retired) | **SHIPPED v11.79.0**, [#292](https://github.com/ravichavali/karmyq/pull/292), `235b5446`; CI/CD + demo health green; read-only inventory smoke passed 2026-10-04 |
-| C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (base `235b5446`) | **IN PROGRESS**; first action is this handoff commit, then C1 tests |
+| C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (base `235b5446`) | **IN PROGRESS**; implementation prepared, generated schema and real CI SQL pending |
 
 Versions: each PR bumps the minor from `origin/master` at merge time (S = 11.75.0, shipped; N = 11.76.0; A = 11.77.0
 if nothing else merges in between). Nothing is reserved.
@@ -241,21 +241,33 @@ updated.
 
 ## Next unchecked action
 
-**PR C execution started (2026-10-04):** Next unchecked task is C1 at
-`docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md:642`.
-First commit updates this handoff before implementation. Windows confirmed via uname; clean tree
-at assignment; no open PRs. Local unit/regression evidence and real CI SQL evidence will be
-recorded separately. Regenerate schema via the existing CI workflow (no local Docker); a fresh
-non-author whole-branch review is required before readiness. No merge, demo write or alert
-dismissal is authorized. The master Expo SDK drift run 37204717864 failed; cause is UNVERIFIED
-and outside C scope unless it blocks validation.
+**PR C implementation checkpoint (2026-10-04):** C1/C3–C9 code, source docs and the full SQL
+surface inventory are prepared. First handoff-only commit is `595ae7bb`. Next: complete local
+verification/process review, commit/push the implementation, generate/promote `init.sql` through
+the existing workflow, then inspect real integration and independent-base parity CI evidence.
+Focused backend/UI/notification tests pass. Final source full-suite process verification exited 0:
+27/27 tasks, 22 cached; root 39 suites/917 tests; request regression 325 plus one existing skip.
+Independent high code/security review found no critical/important production issue; two minor
+findings (community-admin banner and calendar overflow) were fixed with coverage. Static migration
+review passed; real PostgreSQL execution remains unproven. A fresh maintainer-relayed whole-branch
+review is required before readiness. No merge, deployment, demo write or alert dismissal is authorized.
+Privacy rollout constraint: a pre-C image lacks directed guards; after the first directed row,
+rollback must preserve the guards or disable affected reads (ADR-099). Choose this before deployment.
+The master Expo SDK drift run 37204717864 failed; cause is UNVERIFIED and outside C scope.
+
+Validation logs live in the ignored sprint SDD directory: `pr-c-implementation-process-test.log`,
+`c-feedback-final.log`, and focused RED/GREEN logs. All four affected TypeScript checks passed;
+the final request-only recheck passed after the relationship-context fix. Only this PR's TDD files
+were promoted. Generated ADR-059 catches up to its already-shipped braces amendment; its source
+and security policy are unchanged. Root SQL remains pending CI. Do not infer generated-schema
+or runtime SQL correctness from local mocks or the static migration review.
 
 1. **PR A SHIPPED and LIVE as v11.78.0.** #290 merged as `244291eb` (v11.77.0), but its master run [37077914525](https://github.com/ravichavali/karmyq/actions/runs/37077914525) never deployed. Attempt 1 was blocked by CodeQL #592/#593, master re-raises of the `js/request-forgery` false positive (PR-ref dismissals do not carry to master; the maintainer dismissed them in the UI). Attempt 2 was blocked by the newly reviewed `braces` GHSA-vfj7-8cjw-p6xm, which has no fix. The exemption PR [#291](https://github.com/ravichavali/karmyq/pull/291) (7-day `braces` exemption, ADR-059 amendment, BUG-059, plus a sprint-124 parity-test fix for multi-entry registries) merged as `f90b9916` (v11.78.0). [CI/CD 37169859212](https://github.com/ravichavali/karmyq/actions/runs/37169859212) ended in DEPLOYMENT SUCCESSFUL with no rollback, deploying PR A's code with it.
 2. **Task A10 read-only smoke PASSED (2026-10-03, maria.reyes):** login 200; `GET /api/auth/profile/tags/suggestions?tag_type=skill` 200 with 26 vocabulary labels, matching the 26 rows the migration seeds; `GET /api/requests/curated` 200; `GET /api/users/<id>/skills` 404 (route removed). The tag-add write was skipped (it needs per-operation authorization).
 3. **CURRENT: PR C implementation**, tasks C1–C12 on the branch above. B11 finished: #292 merged
    as `235b5446`; CI/CD 37180421165 and Demo health 37202424111 succeeded (verified GitHub,
    2026-10-04); inventory read-only smoke passed (maintainer report). Historical PR B checkpoints
-   below are superseded by this shipped record. Start with C1 tests and the untruncated read-path scan.
+   below are superseded by this shipped record. Continue from the PR C checkpoint above.
 4. **Owed next week (dependency lane, Claude):** renew or remove the `node-forge` exemption (expires 2026-10-08) and the `braces` exemption (expires 2026-10-09; BUG-059); BUG-058 (monitor) is due 2026-10-15. Both renewals need the maintainer's explicit go-ahead, because the auto-mode classifier blocks exemption work as "Security Weaken".
 
 ## PR A finalization (2026-10-02)

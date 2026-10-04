@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { query, withTransaction } from '../database/db';
 import { getRequestReachability } from '../db/eligibility';
+import { directedAudienceSql } from '../db/directedAudience';
 import { publishEvent } from '../events/publisher';
 import {
   sendSuccess,
@@ -31,7 +32,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
         m.requester_done_at, m.responder_done_at,
         m.scheduled_at, m.travel_time_minutes, m.admin_proposed,
         r.title as request_title, r.description as request_description, r.category as request_category,
-        r.request_type, r.payload,
+        r.request_type, r.payload, r.is_directed,
         r.requester_id, req_user.name as requester_name,
         o.title as offer_title,
         o.offerer_id, help_user.name as helper_name,
@@ -42,7 +43,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       LEFT JOIN auth.users req_user ON r.requester_id = req_user.id
       LEFT JOIN auth.users help_user ON o.offerer_id = help_user.id
       LEFT JOIN auth.users resp_user ON m.responder_id = resp_user.id
-      WHERE ${PARTICIPANT_PREDICATE('$1')}
+      WHERE ${PARTICIPANT_PREDICATE('$1')} AND ${directedAudienceSql('r', '$1')}
     `;
 
     const params: any[] = [callerId];
@@ -105,7 +106,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       LEFT JOIN requests.help_offers o ON m.offer_id = o.id
       LEFT JOIN auth.users req_user ON r.requester_id = req_user.id
       LEFT JOIN auth.users help_user ON o.offerer_id = help_user.id
-      WHERE m.id = $1 AND ${PARTICIPANT_PREDICATE('$2')}`,
+      WHERE m.id = $1 AND ${PARTICIPANT_PREDICATE('$2')} AND ${directedAudienceSql('r', '$2')}`,
       [id, callerId]
     );
 
@@ -179,7 +180,7 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(403).json({
         success: false,
         message: 'This request is not available to you',
-        error: 'REQUEST_NOT_REACHABLE',
+        error: reachability.isDirected ? 'NOT_IN_AUDIENCE' : 'REQUEST_NOT_REACHABLE',
       });
     }
 
@@ -294,8 +295,8 @@ router.put('/:id/accept', async (req: AuthenticatedRequest, res: Response) => {
         r.requester_id
       FROM requests.matches m
       LEFT JOIN requests.help_requests r ON m.request_id = r.id
-      WHERE m.id = $1`,
-      [id]
+      WHERE m.id = $1 AND ${directedAudienceSql('r', '$2')}`,
+      [id, user_id]
     );
 
     if (matchCheck.rowCount === 0) {
@@ -400,8 +401,8 @@ router.put('/:id/accept', async (req: AuthenticatedRequest, res: Response) => {
         `SELECT m.*, r.request_type, r.payload, r.title as request_title
          FROM requests.matches m
          JOIN requests.help_requests r ON m.request_id = r.id
-         WHERE m.id = $1`,
-        [id]
+         WHERE m.id = $1 AND ${directedAudienceSql('r', '$2')}`,
+      [id, user_id]
       );
       return { enriched };
     });
@@ -454,8 +455,8 @@ router.put('/:id/reject', async (req: AuthenticatedRequest, res: Response) => {
         r.requester_id
       FROM requests.matches m
       LEFT JOIN requests.help_requests r ON m.request_id = r.id
-      WHERE m.id = $1`,
-      [id]
+      WHERE m.id = $1 AND ${directedAudienceSql('r', '$2')}`,
+      [id, user_id]
     );
 
     if (matchCheck.rowCount === 0) {
@@ -575,8 +576,8 @@ router.put('/:id/complete', async (req: AuthenticatedRequest, res: Response) => 
       FROM requests.matches m
       LEFT JOIN requests.help_requests r ON m.request_id = r.id
       LEFT JOIN requests.help_offers o ON m.offer_id = o.id
-      WHERE m.id = $1`,
-      [id]
+      WHERE m.id = $1 AND ${directedAudienceSql('r', '$2')}`,
+      [id, user_id]
     );
 
     if (matchCheck.rowCount === 0) {
@@ -714,8 +715,8 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
       FROM requests.matches m
       LEFT JOIN requests.help_requests r ON m.request_id = r.id
       LEFT JOIN requests.help_offers o ON m.offer_id = o.id
-      WHERE m.id = $1`,
-      [id]
+      WHERE m.id = $1 AND ${directedAudienceSql('r', '$2')}`,
+      [id, user_id]
     );
 
     if (matchCheck.rowCount === 0) {

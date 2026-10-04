@@ -31,6 +31,18 @@ page has been retired; request discovery happens on Dashboard Home and Community
 
 Your community may also have custom request types added by the founder.
 
+## Borrowing a particular shared item
+
+Choose **Borrow** in the request form when you want the community to help find an item.
+That request appears in the feed as usual. When you have found a particular item in
+**Shared things**, choose **Ask to borrow** on its card or detail page instead. Set the
+duration, optional return date and note, then send the private ask.
+
+This directed request is visible only to you and the owner, or the owning community's
+current active admins. The detail page names its private recipient. It stays in your
+**Asks** list and the recipient's **Helping → Asked of you** inbox, outside public browse
+surfaces. Acceptance, messaging and completion work like an ordinary exchange.
+
 ---
 
 ## Writing a Good Request

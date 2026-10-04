@@ -489,7 +489,16 @@ export interface InventoryItemInput {
   name: string; description?: string | null; category: string; condition?: string | null;
   owner_community_id?: string;
 }
+export interface BorrowInput {
+  community_id: string; duration_days: number; return_date?: string; description?: string;
+}
+export interface IncomingAsk {
+  id: string; title: string; requester_name: string; description?: string;
+  payload?: { duration_days?: number };
+}
 export const inventoryService = {
+  askToBorrow: (id: string, data: BorrowInput) => requestApi.post<{ id: string }>(`/requests/inventory/items/${id}/borrow`, data),
+  incomingAsks: () => requestApi.get<{ asks: IncomingAsk[] }>('/requests/inventory/asks/incoming'),
   listMine: () => requestApi.get<{ items: InventoryItem[] }>('/requests/inventory/mine'),
   listForCommunity: (id: string) => requestApi.get<{ community_owned: InventoryItem[]; shared_by_members: InventoryItem[] }>(`/requests/inventory/community/${id}`),
   getVisible: (id: string) => requestApi.get<InventoryItem>(`/requests/inventory/items/${id}`),

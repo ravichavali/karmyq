@@ -1,3 +1,4 @@
+import { notDirectedSql } from '../../db/directedAudience';
 import { query } from '../../database/db';
 import {
   FeedItem,
@@ -52,7 +53,7 @@ export class FeedComposer {
       SELECT COUNT(*) as count
       FROM requests.matches m
       JOIN requests.help_requests r ON m.request_id = r.id
-      WHERE (m.responder_id = $1 OR r.requester_id = $1)
+      WHERE ${notDirectedSql('r')} AND (m.responder_id = $1 OR r.requester_id = $1)
         AND m.status = 'completed'
         AND m.completed_at > NOW() - INTERVAL '30 days'
     `, [userId]);
@@ -70,7 +71,7 @@ export class FeedComposer {
       SELECT DISTINCT r.category as skill
       FROM requests.matches m
       JOIN requests.help_requests r ON m.request_id = r.id
-      WHERE m.responder_id = $1 AND m.status = 'completed'
+      WHERE ${notDirectedSql('r')} AND m.responder_id = $1 AND m.status = 'completed'
       LIMIT 10
     `, [userId]);
 
@@ -178,7 +179,7 @@ export class FeedComposer {
         LEFT JOIN requests.help_requests r ON r.community_id = c.id
         LEFT JOIN requests.matches m ON m.request_id = r.id AND m.status = 'completed'
         LEFT JOIN communities.members cm ON cm.community_id = c.id
-        WHERE c.id = $1
+        WHERE ${notDirectedSql('r')} AND c.id = $1
       `, [community.id]);
 
       // Get recent helpers
@@ -188,7 +189,7 @@ export class FeedComposer {
         FROM requests.matches m
         JOIN requests.help_requests r ON m.request_id = r.id
         JOIN auth.users u ON m.responder_id = u.id
-        WHERE r.community_id = $1
+        WHERE ${notDirectedSql('r')} AND r.community_id = $1
           AND m.status = 'completed'
           AND m.completed_at > NOW() - INTERVAL '7 days'
         GROUP BY u.id, u.name
@@ -201,7 +202,7 @@ export class FeedComposer {
       const openRequestsResult = await query(`
         SELECT COUNT(*) as count
         FROM requests.help_requests r
-        WHERE r.community_id = $1
+        WHERE ${notDirectedSql('r')} AND r.community_id = $1
           -- dibs_pending requests are excluded by the status = 'open' equality check
           AND r.status = 'open'
           AND NOT EXISTS (
@@ -280,7 +281,7 @@ export class FeedComposer {
       JOIN auth.users u ON r.requester_id = u.id
       JOIN communities.communities c ON r.community_id = c.id
       LEFT JOIN requests.matches m ON r.id = m.request_id AND m.status = 'proposed'
-      WHERE r.community_id = $1
+      WHERE ${notDirectedSql('r')} AND r.community_id = $1
         -- dibs_pending requests are excluded by the status = 'open' equality check
         AND r.status = 'open'
         AND NOT EXISTS (
@@ -348,7 +349,7 @@ export class FeedComposer {
         FROM requests.help_requests r
         JOIN communities.communities c ON r.community_id = c.id
         LEFT JOIN requests.matches m ON r.id = m.request_id AND m.status = 'proposed'
-        WHERE r.community_id = $1
+        WHERE ${notDirectedSql('r')} AND r.community_id = $1
           -- dibs_pending requests are excluded by the status = 'open' equality check
           AND r.status = 'open'
           AND r.requester_id != $2
@@ -509,7 +510,7 @@ export class FeedComposer {
       JOIN auth.users u ON m.responder_id = u.id
       JOIN requests.help_requests r ON m.request_id = r.id
       JOIN communities.communities c ON r.community_id = c.id
-      WHERE m.status = 'completed'
+      WHERE ${notDirectedSql('r')} AND m.status = 'completed'
         AND m.completed_at > NOW() - INTERVAL '7 days'
         AND m.responder_id != $1
         AND (
