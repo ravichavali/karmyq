@@ -2437,6 +2437,10 @@ CREATE TABLE requests.help_requests (
     visibility character varying(50) DEFAULT 'community'::character varying,
     federated_id character varying(255),
     content_forgotten_at timestamp with time zone,
+    is_directed boolean DEFAULT false NOT NULL,
+    directed_to_user_id uuid,
+    directed_to_community_id uuid,
+    inventory_item_id uuid,
     CONSTRAINT chk_help_requests_status CHECK (((status)::text = ANY ((ARRAY['open'::character varying, 'dibs_pending'::character varying, 'matched'::character varying, 'completed'::character varying, 'cancelled'::character varying])::text[]))),
     CONSTRAINT chk_help_requests_urgency CHECK (((urgency)::text = ANY ((ARRAY['urgent'::character varying, 'high'::character varying, 'medium'::character varying, 'low'::character varying])::text[]))),
     CONSTRAINT help_requests_visibility_max_degrees_check CHECK (((visibility_max_degrees >= 1) AND (visibility_max_degrees <= 6)))
@@ -4969,6 +4973,18 @@ CREATE INDEX idx_help_offers_expired ON requests.help_offers USING btree (expire
 CREATE INDEX idx_help_offers_expires_at ON requests.help_offers USING btree (expires_at) WHERE (expired = false);
 
 --
+-- Name: idx_help_requests_directed_community; Type: INDEX; Schema: requests; Owner: -
+--
+
+CREATE INDEX idx_help_requests_directed_community ON requests.help_requests USING btree (directed_to_community_id) WHERE is_directed;
+
+--
+-- Name: idx_help_requests_directed_user; Type: INDEX; Schema: requests; Owner: -
+--
+
+CREATE INDEX idx_help_requests_directed_user ON requests.help_requests USING btree (directed_to_user_id) WHERE is_directed;
+
+--
 -- Name: idx_help_requests_expired; Type: INDEX; Schema: requests; Owner: -
 --
 
@@ -6333,6 +6349,27 @@ ALTER TABLE ONLY requests.help_requests
     ADD CONSTRAINT help_requests_boosted_by_fkey FOREIGN KEY (boosted_by) REFERENCES auth.users(id) ON DELETE SET NULL;
 
 --
+-- Name: help_requests help_requests_directed_to_community_id_fkey; Type: FK CONSTRAINT; Schema: requests; Owner: -
+--
+
+ALTER TABLE ONLY requests.help_requests
+    ADD CONSTRAINT help_requests_directed_to_community_id_fkey FOREIGN KEY (directed_to_community_id) REFERENCES communities.communities(id) ON DELETE SET NULL;
+
+--
+-- Name: help_requests help_requests_directed_to_user_id_fkey; Type: FK CONSTRAINT; Schema: requests; Owner: -
+--
+
+ALTER TABLE ONLY requests.help_requests
+    ADD CONSTRAINT help_requests_directed_to_user_id_fkey FOREIGN KEY (directed_to_user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: help_requests help_requests_inventory_item_id_fkey; Type: FK CONSTRAINT; Schema: requests; Owner: -
+--
+
+ALTER TABLE ONLY requests.help_requests
+    ADD CONSTRAINT help_requests_inventory_item_id_fkey FOREIGN KEY (inventory_item_id) REFERENCES inventory.items(id) ON DELETE SET NULL;
+
+--
 -- Name: help_requests help_requests_requester_id_fkey; Type: FK CONSTRAINT; Schema: requests; Owner: -
 --
 
@@ -7038,5 +7075,6 @@ INSERT INTO public.schema_migrations (migration_name) VALUES
   ('20260716-path-trust-score-double-precision.sql'),
   ('20260819-standing-projection-foundation.sql'),
   ('20260930-skill-vocabulary.sql'),
-  ('20261003-inventory-schema.sql')
+  ('20261003-inventory-schema.sql'),
+  ('20261004-directed-requests.sql')
 ON CONFLICT (migration_name) DO NOTHING;

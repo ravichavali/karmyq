@@ -17,7 +17,7 @@
 ## Quick Start
 
 1. Read this handoff.
-2. **PR C is in progress** on `agent/claude/sprint-132-pr-c-directed-borrow`, based on `origin/master` `235b5446`. Codex owns C implementation; Claude owns merge-readiness validation. Check `git status` before editing. B/#292 is shipped, deployed and smoke-tested; no open PRs at bootstrap (live GitHub observation, 2026-10-04).
+2. **PR C is draft [#293](https://github.com/ravichavali/karmyq/pull/293)** on `agent/claude/sprint-132-pr-c-directed-borrow`, based on `origin/master` `235b5446`. Codex owns C implementation; Claude owns merge-readiness validation. Check `git status` before editing. B/#292 is shipped, deployed and smoke-tested. PR #293 is the current review packet; its Validation ledger carries final-head evidence.
 3. Open the plan: [`docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md`](../../docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md).
    Execute PR C tasks C1–C12; this is the fresh PR C chat. Merge/deploy still require separate maintainer authorization.
 4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`).
@@ -43,7 +43,7 @@ match → message → karma loop. Skills have one source of truth that matching 
 | A | Skills single source, vocabulary-backed matching and ADR-099 | `agent/claude/sprint-132-pr-a-skills` (retired) | **SHIPPED**, #290 `244291eb`; live as v11.78.0 through #291 `f90b9916`, deploy 37169859212; A10 read-only smoke passed |
 | **N** | **node-forge exemption (2026-10-01):** a 7-day ADR-059 exemption for GHSA-86w9-cpqp-85rv (no patched release), an ADR-059 amendment, a sprint-125 coverage gate that admits an unwatched package only for ≤ 7 days, and BUG-058 | `agent/claude/sprint-132-node-forge-exemption` (cut from `origin/master` `b169472b`) | **MERGED + DEPLOYED v11.76.0** (#289, `02d720b3`; CI/CD 37053659544 and health check green, verified 2026-10-02) |
 | B | Inventory catalog, audience predicates, My things and community Shared things | `agent/claude/sprint-132-pr-b-inventory` (retired) | **SHIPPED v11.79.0**, [#292](https://github.com/ravichavali/karmyq/pull/292), `235b5446`; CI/CD + demo health green; read-only inventory smoke passed 2026-10-04 |
-| C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (base `235b5446`) | **IN PROGRESS**; implementation prepared, generated schema and real CI SQL pending |
+| C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (base `235b5446`) | **DRAFT #293**; implementation pushed, generated schema checkpoint and real CI SQL pending |
 
 Versions: each PR bumps the minor from `origin/master` at merge time (S = 11.75.0, shipped; N = 11.76.0; A = 11.77.0
 if nothing else merges in between). Nothing is reserved.
@@ -241,10 +241,17 @@ updated.
 
 ## Next unchecked action
 
-**PR C implementation checkpoint (2026-10-04):** C1/C3–C9 code, source docs and the full SQL
+**PR C draft checkpoint (2026-10-04):** [#293](https://github.com/ravichavali/karmyq/pull/293),
+implementation `2df7a7b7` pushed with normal hooks (27/27 tasks, 24 cached). C1/C3–C9 code, source docs and the full SQL
 surface inventory are prepared. First handoff-only commit is `595ae7bb`. Next: complete local
-verification/process review, commit/push the implementation, generate/promote `init.sql` through
-the existing workflow, then inspect real integration and independent-base parity CI evidence.
+generated-schema process review and push, then inspect real integration and independent-base parity
+CI evidence. [Schema generation 37232333945](https://github.com/ravichavali/karmyq/actions/runs/37232333945)
+passed determinism, fresh boot, recorded migrations and replay drift at `2df7a7b7`; its artifact
+is promoted without edits (39 insertions/1 deletion: four columns, two indexes, three SET NULL
+foreign keys and one ledger entry). Manual dispatch skips independent-base byte parity; PR CI
+must prove it. Local unit/regression does not prove SQL. The injected unguarded query on committed
+`2df7a7b7` failed exactly at requests.ts:2340; restoring the byte copy made the gate pass, and
+the tree was clean before push. Runtime privacy and CI evidence remain in the PR packet.
 Focused backend/UI/notification tests pass. Final source full-suite process verification exited 0:
 27/27 tasks, 22 cached; root 39 suites/917 tests; request regression 325 plus one existing skip.
 Independent high code/security review found no critical/important production issue; two minor
