@@ -10,6 +10,7 @@ import ActiveTab from '@/components/community/tabs/ActiveTab'
 import TrustGraphTab from '@/components/community/tabs/TrustGraphTab'
 import StewardshipTab from '@/components/community/tabs/StewardshipTab'
 import ProvidersTab from '@/components/community/tabs/ProvidersTab'
+import InventoryTab from '@/components/community/tabs/InventoryTab'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import { decodeJwtPayload } from '@/lib/jwt'
 import { useCommunityPulse } from '@/hooks/useCommunityPulse'
@@ -166,6 +167,7 @@ export default function CommunityDetailPage() {
       indicatorLabel: isAdminOrMod && pendingCount > 0 ? pendingMemberLabel : undefined,
     },
     { key: 'connected', label: "How we're connected", show: !!isMember },
+    { key: 'inventory', label: 'Shared things', show: !!isMember },
     {
       key: 'stewardship',
       label: 'Stewardship',
@@ -286,6 +288,9 @@ export default function CommunityDetailPage() {
           )}
           {activeTab === 'activities' && (
             <ActivitiesTab communityId={communityId!} isAdmin={isAdmin ?? false} />
+          )}
+          {activeTab === 'inventory' && isMember && (
+            <InventoryTab communityId={communityId!} isAdmin={isAdmin ?? false} />
           )}
         </div>
       </Layout>

@@ -11,6 +11,7 @@
 export const MANAGED_SCHEMAS = [
   'auth', 'communities', 'requests', 'provider', 'reputation', 'messaging',
   'notifications', 'feedback', 'governance', 'events', 'feed', 'social_graph', 'federation',
+  'inventory',
 ] as const;
 
 export type TablePolicy = 'reset' | 'reseed' | 'preserve';
@@ -34,6 +35,8 @@ export interface ClassifiedTableSet {
  * and repopulated by the baseline; `preserve` = infra identity or immutable global seed/catalog.
  */
 export const TABLE_POLICY: Record<string, TablePolicy> = {
+  'inventory.items': 'reset',
+  'inventory.item_shares': 'reset',
   // --- auth: all user identity/runtime data ---
   'auth.users': 'reset',
   'auth.sessions': 'reset',

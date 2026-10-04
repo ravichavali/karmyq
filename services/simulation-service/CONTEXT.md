@@ -309,6 +309,11 @@ environment; all other `@test.karmyq.com` actors continue driving the living dem
 
 ## Sprint 117: Curated Demo Reset & Protected Core
 
+Sprint 132 PR B adds `inventory` to the managed catalog scan and classifies both
+`inventory.items` and `inventory.item_shares` as `reset`. Inventory is user data;
+`auth.skill_vocabulary` remains `preserve`. `sprint-117-reset-safety.test.ts` checks
+discovery and these classifications together. No demo reset is part of this PR.
+
 The simulation service now owns two distinct populations:
 
 - **Protected core** — a deterministic, curated historical baseline (`src/fixtures/curatedDemo/`):

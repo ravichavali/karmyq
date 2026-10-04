@@ -34,7 +34,7 @@ before it touches real rows. The `migration-validator` agent reviews these befor
 
 ---
 
-## Database schemas — there are 13, not 6
+## Database schemas — 13 live + 1 reserved
 
 | Schema | Tables | Owner service |
 |---|---|---|
@@ -51,6 +51,7 @@ before it touches real rows. The `migration-validator` agent reviews these befor
 | `feedback` | 2 | interaction feedback |
 | `provider` | 1 | provider profiles |
 | `events` | 1 | event log |
+| `inventory` | 2 | Request (3003): items and community shares |
 
 **The schema is `communities`, plural — not `community`.** There is not one `community.` reference
 in `init.sql`. Same trap family as the JWT `communities` field: the singular guess parses fine and

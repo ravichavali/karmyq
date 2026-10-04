@@ -80,6 +80,13 @@ NEXT_PUBLIC_SOCIAL_GRAPH_API_URL=http://localhost:3010
 
 ## Authentication
 
+Sprint 132 PR B adds `/inventory` (**My things**) in the menu and a members-only
+**Shared things** community tab. Personal items are private until shared; active community
+admins manage community property. The inventory client uses requestApi; responses are
+already unwrapped. `communityService.getMyCommunities(userId)` supplies the share checklist
+as `{communities,count,total}`. A keyed community tab prevents responses from an old community
+from updating the new view. See the sharing guide and ADR-099 for the audience policy.
+
 Token in `localStorage`, attached by a request interceptor. The JWT payload field is
 **`communities`**, not `communityMemberships` — the wrong one is always `undefined`, so every check
 silently 403s. After joining a community, **decode the fresh JWT** to rebuild frontend state; never

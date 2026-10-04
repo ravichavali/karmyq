@@ -7,10 +7,10 @@
  * ends. Both the page AND the redirect test import this — never copy the map.
  */
 
-export type CommunityTab = 'home' | 'people' | 'connected' | 'stewardship' | 'activities'
+export type CommunityTab = 'home' | 'people' | 'connected' | 'stewardship' | 'activities' | 'inventory'
 
 /** The canonical tab set, in display order (Activities is rendered group-only by the page). */
-export const VALID_TABS: CommunityTab[] = ['home', 'people', 'connected', 'stewardship', 'activities']
+export const VALID_TABS: CommunityTab[] = ['home', 'people', 'connected', 'stewardship', 'activities', 'inventory']
 
 /**
  * Every legacy alias → its warm-model home. Canonical tabs map to themselves. Anything unknown
@@ -44,6 +44,7 @@ const TAB_ALIASES: Record<string, CommunityTab> = {
   export: 'stewardship',
   // Activities (group-only 5th tab)
   activities: 'activities',
+  inventory: 'inventory',
 }
 
 /** Resolve any raw `?tab=` value (legacy alias, canonical, or unknown) to a warm-model tab. */

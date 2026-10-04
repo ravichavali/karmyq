@@ -473,6 +473,32 @@ export const communityLinksService = {
 }
 
 // Request Service API Methods
+export interface InventoryItem {
+  id: string;
+  owner_user_id: string | null;
+  owner_community_id: string | null;
+  name: string;
+  description: string | null;
+  category: string;
+  condition: string | null;
+  status: 'available' | 'unavailable';
+  shared_with: { id: string; name: string }[];
+  owner?: { id: string; name: string };
+}
+export interface InventoryItemInput {
+  name: string; description?: string | null; category: string; condition?: string | null;
+  owner_community_id?: string;
+}
+export const inventoryService = {
+  listMine: () => requestApi.get<{ items: InventoryItem[] }>('/requests/inventory/mine'),
+  listForCommunity: (id: string) => requestApi.get<{ community_owned: InventoryItem[]; shared_by_members: InventoryItem[] }>(`/requests/inventory/community/${id}`),
+  getVisible: (id: string) => requestApi.get<InventoryItem>(`/requests/inventory/items/${id}`),
+  create: (data: InventoryItemInput) => requestApi.post<InventoryItem>('/requests/inventory/items', data),
+  update: (id: string, data: Partial<Omit<InventoryItemInput, 'owner_community_id'>> & { status?: 'available' | 'unavailable' }) => requestApi.patch<InventoryItem>(`/requests/inventory/items/${id}`, data),
+  remove: (id: string) => requestApi.delete(`/requests/inventory/items/${id}`),
+  replaceShares: (id: string, communityIds: string[]) => requestApi.put<{ shared_with: {id: string; name: string}[] }>(`/requests/inventory/items/${id}/shares`, { community_ids: communityIds }),
+};
+
 export const requestService = {
   // UI Schemas (Server-Driven UI)
   getSchemas: () =>
