@@ -1,7 +1,7 @@
 # Sprint 132 — Inventories and Skills — Handoff
 
-**Date**: 2026-10-03
-**Status**: **PR B OPEN** as [#292](https://github.com/ravichavali/karmyq/pull/292), targeting v11.79.0; PR A shipped and live as v11.78.0 (2026-10-03). #290 merged as `244291eb`; the exemption PR #291 merged as `f90b9916` and deployed it in [CI/CD 37169859212](https://github.com/ravichavali/karmyq/actions/runs/37169859212); the A10 read-only smoke passed. **Next: Claude validates PR B readiness against its latest-head checks and Validation ledger**, on `agent/claude/sprint-132-pr-b-inventory`. Earlier: PR N v11.76.0 (#289), PR S v11.75.0 (#288).
+**Date**: 2026-10-04
+**Status**: **PR B SHIPPED and LIVE v11.79.0**, [#292](https://github.com/ravichavali/karmyq/pull/292), merge `235b5446`. [CI/CD 37180421165](https://github.com/ravichavali/karmyq/actions/runs/37180421165) and [Demo health 37202424111](https://github.com/ravichavali/karmyq/actions/runs/37202424111) succeeded; read-only inventory smoke passed (maintainer, 2026-10-04). **PR C IN PROGRESS**, Codex executing on `agent/claude/sprint-132-pr-c-directed-borrow`, cut from `origin/master` `235b5446`. Earlier: A live v11.78.0 via #291; N v11.76.0 (#289); S v11.75.0 (#288).
 
 > 🧭 **First product sprint after the maintenance freeze** (maintainer, 2026-09-30: dependency work
 > needs a security advisory or a feature need; product is the default). Seed idea: `docs/IDEAS.md`
@@ -17,9 +17,9 @@
 ## Quick Start
 
 1. Read this handoff.
-2. **PR B is open as #292**, on `agent/claude/sprint-132-pr-b-inventory`, based on `origin/master` `f90b9916`. Codex owns B implementation; Claude owns merge-readiness validation. Check `git status`, [PR #292 Validation](https://github.com/ravichavali/karmyq/pull/292) and latest-head CI before editing or recommending merge. PR A/#291 are shipped; PR C waits for B to merge, deploy and pass smoke.
+2. **PR C is in progress** on `agent/claude/sprint-132-pr-c-directed-borrow`, based on `origin/master` `235b5446`. Codex owns C implementation; Claude owns merge-readiness validation. Check `git status` before editing. B/#292 is shipped, deployed and smoke-tested; no open PRs at bootstrap (live GitHub observation, 2026-10-04).
 3. Open the plan: [`docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md`](../../docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md).
-   PR B follow-ups stay in this chat. One PR per fresh chat; C follows B deployment.
+   Execute PR C tasks C1–C12; this is the fresh PR C chat. Merge/deploy still require separate maintainer authorization.
 4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`).
    There is no `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 
@@ -42,8 +42,8 @@ match → message → karma loop. Skills have one source of truth that matching 
 | **S** | **Security (rev 2):** caller-scope notification routes (BUG-055) + participant-scope `GET /matches`, `/matches/:id` (BUG-057). No schema | `agent/claude/sprint-132-security-authz` | **SHIPPED v11.75.0** (#288, `b169472b`) |
 | A | Skills single source, vocabulary-backed matching and ADR-099 | `agent/claude/sprint-132-pr-a-skills` (retired) | **SHIPPED**, #290 `244291eb`; live as v11.78.0 through #291 `f90b9916`, deploy 37169859212; A10 read-only smoke passed |
 | **N** | **node-forge exemption (2026-10-01):** a 7-day ADR-059 exemption for GHSA-86w9-cpqp-85rv (no patched release), an ADR-059 amendment, a sprint-125 coverage gate that admits an unwatched package only for ≤ 7 days, and BUG-058 | `agent/claude/sprint-132-node-forge-exemption` (cut from `origin/master` `b169472b`) | **MERGED + DEPLOYED v11.76.0** (#289, `02d720b3`; CI/CD 37053659544 and health check green, verified 2026-10-02) |
-| B | Inventory catalog, audience predicates, My things and community Shared things | `agent/claude/sprint-132-pr-b-inventory` (base `f90b9916`) | **OPEN [#292](https://github.com/ravichavali/karmyq/pull/292)**: implementation/schema/reviews complete; latest-head CI evidence lives in PR Validation; Claude readiness and maintainer authorization precede merge |
-| C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (cut after B deploys) | planned |
+| B | Inventory catalog, audience predicates, My things and community Shared things | `agent/claude/sprint-132-pr-b-inventory` (retired) | **SHIPPED v11.79.0**, [#292](https://github.com/ravichavali/karmyq/pull/292), `235b5446`; CI/CD + demo health green; read-only inventory smoke passed 2026-10-04 |
+| C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (base `235b5446`) | **IN PROGRESS**; first action is this handoff commit, then C1 tests |
 
 Versions: each PR bumps the minor from `origin/master` at merge time (S = 11.75.0, shipped; N = 11.76.0; A = 11.77.0
 if nothing else merges in between). Nothing is reserved.
@@ -181,9 +181,9 @@ the Windows box, so use a disposable container on the demo host (ask first) or t
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-132-pr-b-inventory`, base `origin/master` `f90b9916`; first handoff commit `9564913d` |
+| **Branch** | `agent/claude/sprint-132-pr-c-directed-borrow`, base `origin/master` `235b5446` |
 | **Merged, never commit on them** | every Sprint 131 branch, including `agent/claude/sprint-131-dependabot-security-only` (#287) |
-| **Active editor** | **Codex for PR B** (maintainer assignment, 2026-10-03). Claude remains sprint orchestrator and merge authority. |
+| **Active editor** | **Codex for PR C** (maintainer assignment, 2026-10-04). Owns the PR C file map in the plan; Claude remains sprint orchestrator and merge authority. |
 | **Reviewer role** | A non-author reviews each completed diff; PR C additionally gets a fresh whole-branch review |
 | **Shared resources** | ADR-099 is allocated. Dependency lane: Claude. The **node-forge advisory** earned the exemption PR. There is no lockfile or override change, because no fix exists. No demo data operation is planned; each needs its own authorization. |
 
@@ -241,17 +241,21 @@ updated.
 
 ## Next unchecked action
 
-**PR B execution started (2026-10-03):** Codex owns catalog implementation on
-`agent/claude/sprint-132-pr-b-inventory`; clean tree at assignment, HEAD `9564913d`,
-base `origin/master` `f90b9916`. Live GitHub reconciliation confirms #290/#291 merged
-and no open PRs. Scope is B1–B11 through reviewable PR; merge/deploy need separate
-maintainer authorization. Implementation, local full-suite tests and generated schema are complete.
-PR #292 is open; its Validation ledger owns final-head CI evidence. Claude's readiness validation
-is next. Quick Start and PR table are reconciled; actions 1–2 retain the shipped evidence.
+**PR C execution started (2026-10-04):** Next unchecked task is C1 at
+`docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md:642`.
+First commit updates this handoff before implementation. Windows confirmed via uname; clean tree
+at assignment; no open PRs. Local unit/regression evidence and real CI SQL evidence will be
+recorded separately. Regenerate schema via the existing CI workflow (no local Docker); a fresh
+non-author whole-branch review is required before readiness. No merge, demo write or alert
+dismissal is authorized. The master Expo SDK drift run 37204717864 failed; cause is UNVERIFIED
+and outside C scope unless it blocks validation.
 
 1. **PR A SHIPPED and LIVE as v11.78.0.** #290 merged as `244291eb` (v11.77.0), but its master run [37077914525](https://github.com/ravichavali/karmyq/actions/runs/37077914525) never deployed. Attempt 1 was blocked by CodeQL #592/#593, master re-raises of the `js/request-forgery` false positive (PR-ref dismissals do not carry to master; the maintainer dismissed them in the UI). Attempt 2 was blocked by the newly reviewed `braces` GHSA-vfj7-8cjw-p6xm, which has no fix. The exemption PR [#291](https://github.com/ravichavali/karmyq/pull/291) (7-day `braces` exemption, ADR-059 amendment, BUG-059, plus a sprint-124 parity-test fix for multi-entry registries) merged as `f90b9916` (v11.78.0). [CI/CD 37169859212](https://github.com/ravichavali/karmyq/actions/runs/37169859212) ended in DEPLOYMENT SUCCESSFUL with no rollback, deploying PR A's code with it.
 2. **Task A10 read-only smoke PASSED (2026-10-03, maria.reyes):** login 200; `GET /api/auth/profile/tags/suggestions?tag_type=skill` 200 with 26 vocabulary labels, matching the 26 rows the migration seeds; `GET /api/requests/curated` 200; `GET /api/users/<id>/skills` 404 (route removed). The tag-add write was skipped (it needs per-operation authorization).
-3. **CURRENT: PR B readiness validation** on `agent/claude/sprint-132-pr-b-inventory`, [PR #292](https://github.com/ravichavali/karmyq/pull/292). Implementation `8537a319`, generated snapshot `a4f9e12a`; subsequent handoff-only commits are identified in the PR Validation ledger. Start with `gh pr view 292 --json headRefOid,statusCheckRollup,mergeStateStatus` and read that ledger. Verify the 13 inventory tests actually passed in the Integration Tests job and independent-base byte parity passed, then Claude recommends readiness. Surface any CodeQL false positive for maintainer clearance. Obtain explicit per-PR merge authorization through Claude before B11 merge/deploy/read-only smoke; PR C follows in a fresh chat. No demo write or alert dismissal is authorized.
+3. **CURRENT: PR C implementation**, tasks C1–C12 on the branch above. B11 finished: #292 merged
+   as `235b5446`; CI/CD 37180421165 and Demo health 37202424111 succeeded (verified GitHub,
+   2026-10-04); inventory read-only smoke passed (maintainer report). Historical PR B checkpoints
+   below are superseded by this shipped record. Start with C1 tests and the untruncated read-path scan.
 4. **Owed next week (dependency lane, Claude):** renew or remove the `node-forge` exemption (expires 2026-10-08) and the `braces` exemption (expires 2026-10-09; BUG-059); BUG-058 (monitor) is due 2026-10-15. Both renewals need the maintainer's explicit go-ahead, because the auto-mode classifier blocks exemption work as "Security Weaken".
 
 ## PR A finalization (2026-10-02)
