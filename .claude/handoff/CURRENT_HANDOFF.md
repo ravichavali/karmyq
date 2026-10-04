@@ -43,7 +43,7 @@ match → message → karma loop. Skills have one source of truth that matching 
 | A | Skills single source, vocabulary-backed matching and ADR-099 | `agent/claude/sprint-132-pr-a-skills` (retired) | **SHIPPED**, #290 `244291eb`; live as v11.78.0 through #291 `f90b9916`, deploy 37169859212; A10 read-only smoke passed |
 | **N** | **node-forge exemption (2026-10-01):** a 7-day ADR-059 exemption for GHSA-86w9-cpqp-85rv (no patched release), an ADR-059 amendment, a sprint-125 coverage gate that admits an unwatched package only for ≤ 7 days, and BUG-058 | `agent/claude/sprint-132-node-forge-exemption` (cut from `origin/master` `b169472b`) | **MERGED + DEPLOYED v11.76.0** (#289, `02d720b3`; CI/CD 37053659544 and health check green, verified 2026-10-02) |
 | B | Inventory catalog, audience predicates, My things and community Shared things | `agent/claude/sprint-132-pr-b-inventory` (retired) | **SHIPPED v11.79.0**, [#292](https://github.com/ravichavali/karmyq/pull/292), `235b5446`; CI/CD + demo health green; read-only inventory smoke passed 2026-10-04 |
-| C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (base `235b5446`) | **DRAFT #293**; implementation pushed, generated schema checkpoint and real CI SQL pending |
+| C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (base `235b5446`) | **DRAFT #293**; implementation/schema and real SQL verified at `4d16f845`; CodeQL clearance and maintainer-relayed review pending |
 
 Versions: each PR bumps the minor from `origin/master` at merge time (S = 11.75.0, shipped; N = 11.76.0; A = 11.77.0
 if nothing else merges in between). Nothing is reserved.
@@ -241,33 +241,50 @@ updated.
 
 ## Next unchecked action
 
-**PR C draft checkpoint (2026-10-04):** [#293](https://github.com/ravichavali/karmyq/pull/293),
-implementation `2df7a7b7` pushed with normal hooks (27/27 tasks, 24 cached). C1/C3–C9 code, source docs and the full SQL
-surface inventory are prepared. First handoff-only commit is `595ae7bb`. Next: complete local
-generated-schema process review and push, then inspect real integration and independent-base parity
-CI evidence. [Schema generation 37232333945](https://github.com/ravichavali/karmyq/actions/runs/37232333945)
-passed determinism, fresh boot, recorded migrations and replay drift at `2df7a7b7`; its artifact
-is promoted without edits (39 insertions/1 deletion: four columns, two indexes, three SET NULL
-foreign keys and one ledger entry). Manual dispatch skips independent-base byte parity; PR CI
-must prove it. Local unit/regression does not prove SQL. The injected unguarded query on committed
-`2df7a7b7` failed exactly at requests.ts:2340; restoring the byte copy made the gate pass, and
-the tree was clean before push. Runtime privacy and CI evidence remain in the PR packet.
-Focused backend/UI/notification tests pass. Final source full-suite process verification exited 0:
-27/27 tasks, 22 cached; root 39 suites/917 tests; request regression 325 plus one existing skip.
-Independent high code/security review found no critical/important production issue; two minor
-findings (community-admin banner and calendar overflow) were fixed with coverage. Static migration
-review passed; real PostgreSQL execution remains unproven. A fresh maintainer-relayed whole-branch
-review is required before readiness. No merge, deployment, demo write or alert dismissal is authorized.
-Privacy rollout constraint: a pre-C image lacks directed guards; after the first directed row,
-rollback must preserve the guards or disable affected reads (ADR-099). Choose this before deployment.
-The master Expo SDK drift run 37204717864 failed; cause is UNVERIFIED and outside C scope.
+**PR C review checkpoint (2026-10-04):** draft [#293](https://github.com/ravichavali/karmyq/pull/293)
+is the only open PR; `origin/master` remains `235b5446` (live GitHub/git reconciliation). First
+handoff-only commit `595ae7bb`; implementation `2df7a7b7`; canonical schema checkpoint `4d16f845`.
+C1–C9 implementation, docs, SQL surface classification and committed-tree negative proof are
+complete; C10–C12 still require final CI, security clearance and maintainer-relayed review/authorization.
+Use the PR's **Validation** ledger for commands, tested commits, caches, limitations and latest checks.
 
-Validation logs live in the ignored sprint SDD directory: `pr-c-implementation-process-test.log`,
-`c-feedback-final.log`, and focused RED/GREEN logs. All four affected TypeScript checks passed;
-the final request-only recheck passed after the relationship-context fix. Only this PR's TDD files
-were promoted. Generated ADR-059 catches up to its already-shipped braces amendment; its source
-and security policy are unchanged. Root SQL remains pending CI. Do not infer generated-schema
-or runtime SQL correctness from local mocks or the static migration review.
+Next: clear the two reviewed CodeQL alerts below, then obtain a fresh maintainer-relayed whole-branch
+review and Claude readiness validation. Verify final-head checks in PR Validation after the
+handoff-only push. [CI/CD 37233053346](https://github.com/ravichavali/karmyq/actions/runs/37233053346)
+at `4d16f845` passed every executed check except the CodeQL gate. Its [Integration Tests job
+111527233369](https://github.com/ravichavali/karmyq/actions/runs/37233053346/job/111527233369)
+ran and passed all named inventory and directed-audience cases, including live-admin demotion,
+cleared targets, rollback and normal completion/karma; none skipped. The PR Validation ledger
+records suite totals, fresh-install/replay checks and the curated reset proof. Initial `2df7a7b7`
+CI failed missing-schema drift before artifact promotion and is superseded. [PR schema verification
+37233053330](https://github.com/ravichavali/karmyq/actions/runs/37233053330) passed independent-base
+byte parity, determinism, fresh boot, recorded migrations and replay drift at `4d16f845`.
+The [manual artifact 37232333945](https://github.com/ravichavali/karmyq/actions/runs/37232333945)
+was promoted unchanged: 39 additions/1 deletion, limited to four columns, two indexes, three
+SET NULL foreign keys and the ledger. Artifact SHA256:
+`79D152C51830C656C7B460A7BE1A609036810A85320B2CC85861DB5C186C09C2`.
+
+CodeQL clearance is blocked solely by [#601](https://github.com/ravichavali/karmyq/security/code-scanning/601)
+and [#602](https://github.com/ravichavali/karmyq/security/code-scanning/602), `js/request-forgery`
+at `apps/frontend/src/lib/api.ts:500–501`. Both were independently confirmed false positives:
+the browser API host comes from build-time configuration, and these fixed paths cannot replace it.
+No alerts were dismissed. Surface these exact alerts for maintainer UI clearance; prior PR API
+dismissal authorization does not apply. A fresh maintainer-relayed whole-branch review is required
+before readiness. Claude owns readiness validation; Admin owns merge/deploy authorization.
+
+Source high code/security review has no unresolved critical/important finding; minor banner/calendar
+and integration assertion/cleanup findings were fixed. Migration artifact review passed. Local
+unit/regression and four affected TypeScript checks passed on the source worktree committed as
+`2df7a7b7`; the `4d16f845` process and normal-push tests also passed. Runtime source is unchanged
+since `2df7a7b7`; this subsequent handoff update changes no source/schema. Logs are in the ignored
+sprint SDD directory; detail belongs in PR Validation. No local PostgreSQL execution is claimed.
+Only C's TDD files were promoted. Generated ADR-059 catches up to an already-shipped amendment;
+its source/policy is unchanged. No merge, deployment, demo write or smoke is claimed.
+
+Before deployment, choose a privacy-preserving rollback policy (ADR-099): a pre-C image lacks
+directed guards; after the first directed row, preserve guards or disable affected reads. Never
+clear `is_directed`. Version is still 11.79.0; choose the next minor from live master at merge time.
+The master Expo SDK drift run 37204717864 failed; cause is UNVERIFIED and outside C scope.
 
 1. **PR A SHIPPED and LIVE as v11.78.0.** #290 merged as `244291eb` (v11.77.0), but its master run [37077914525](https://github.com/ravichavali/karmyq/actions/runs/37077914525) never deployed. Attempt 1 was blocked by CodeQL #592/#593, master re-raises of the `js/request-forgery` false positive (PR-ref dismissals do not carry to master; the maintainer dismissed them in the UI). Attempt 2 was blocked by the newly reviewed `braces` GHSA-vfj7-8cjw-p6xm, which has no fix. The exemption PR [#291](https://github.com/ravichavali/karmyq/pull/291) (7-day `braces` exemption, ADR-059 amendment, BUG-059, plus a sprint-124 parity-test fix for multi-entry registries) merged as `f90b9916` (v11.78.0). [CI/CD 37169859212](https://github.com/ravichavali/karmyq/actions/runs/37169859212) ended in DEPLOYMENT SUCCESSFUL with no rollback, deploying PR A's code with it.
 2. **Task A10 read-only smoke PASSED (2026-10-03, maria.reyes):** login 200; `GET /api/auth/profile/tags/suggestions?tag_type=skill` 200 with 26 vocabulary labels, matching the 26 rows the migration seeds; `GET /api/requests/curated` 200; `GET /api/users/<id>/skills` 404 (route removed). The tag-add write was skipped (it needs per-operation authorization).
