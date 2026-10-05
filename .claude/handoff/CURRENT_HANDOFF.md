@@ -306,6 +306,15 @@ Four-service types and the strict integration import graph pass locally. Indepen
 reviews and the full mandatory process suite passed on the staged expansion at HEAD 4d852805,
 after correcting the old root Bull mock to include its on method. Real integration rerun remains
 pending; consult PR Validation for tested source, true exit status and cache limits before readiness.
+Runtime attempt at `cd929fad` ([37319894009](https://github.com/ravichavali/karmyq/actions/runs/37319894009))
+passed service health but stopped before host Jest: the auto-started container runner had inserted
+borrow fixtures during migration replay, causing 009's generic-only data assertion and 013's old
+weight constraint to fail. Independent-base schema verification passed at the same head
+([37319893941](https://github.com/ravichavali/karmyq/actions/runs/37319893941)); schema bytes are unchanged.
+The Compose test-runner is now opt-in via profile runner, so default CI setup starts only services
+and the authoritative host suite runs after schema checks. This config/test-doc correction passed
+the full mandatory process suite at HEAD cd929fad; clean CI execution remains pending. Consult
+PR Validation for true exit/cache evidence; no failing runtime assertion is bypassed.
 Queue dedupe is bounded to 24 hours, graph effects remain
 at least once, old shared jobs are not repaired, and DB-completion-to-first-Redis-enqueue remains
 a documented preexisting recovery gap. No new schema, dependency or standing-policy change.

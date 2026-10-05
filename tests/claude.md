@@ -64,6 +64,8 @@ Re-run the file directly (above) or `--force`.
 Completion cases exercise the request-service dispatcher and all three real subscriber queues,
 asserting canonical karma, both persisted notifications and the community trust edge. Social
 graph's compose service uses redis-test explicitly rather than localhost inside its container.
+The Compose test-runner is opt-in (`--profile runner`); default setup starts infrastructure and
+services for host Jest only. This keeps fixture writes out of CI's preceding migration replay.
 
 The isolated compose request-service disables rate limiting, like the other test services,
 so the inventory audience cases can exercise real JWT and live membership checks without
@@ -75,6 +77,10 @@ npm run test:integration
 npm run test:integration:teardown  # ...down -v
 npm run test:integration:full      # all three in sequence
 ```
+
+For container execution instead of host Jest, run `npm run test:integration:run` after schema
+verification; it explicitly targets test-runner and returns its exit status. Do not run both
+runners against the same database concurrently.
 
 Or use the shared dev DB: `cd infrastructure/docker && docker-compose up -d postgres redis`.
 

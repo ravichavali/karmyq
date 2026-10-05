@@ -227,6 +227,9 @@ services:
 
   # Test Runner - Runs inside Docker network with access to all services
   test-runner:
+    # CI verifies schema before running Jest on the host. Automatic fixture writes race
+    # migration replay; opt in with --profile runner for container-based execution.
+    profiles: ["runner"]
     build:
       context: ..
       dockerfile: ./tests/Dockerfile.test
