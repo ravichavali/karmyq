@@ -19,7 +19,7 @@
 1. Read this handoff.
 2. **PR C is draft [#293](https://github.com/ravichavali/karmyq/pull/293)** on `agent/claude/sprint-132-pr-c-directed-borrow`, based on `origin/master` `235b5446`. Codex owns C implementation; Claude owns merge-readiness validation. Check `git status` before editing. B/#292 is shipped, deployed and smoke-tested. PR #293 is the current review packet; its Validation ledger carries final-head evidence.
 3. Open the plan: [`docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md`](../../docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md).
-   Execute PR C tasks C1–C12; this is the fresh PR C chat. Merge/deploy still require separate maintainer authorization.
+   PR C implementation and review fixes have runtime proof at `81f9a343`. Next: fresh maintainer-relayed whole-branch review, CodeQL UI clearance and Claude readiness validation. Merge/deploy still require separate maintainer authorization.
 4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`).
    There is no `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 
@@ -43,7 +43,7 @@ match → message → karma loop. Skills have one source of truth that matching 
 | A | Skills single source, vocabulary-backed matching and ADR-099 | `agent/claude/sprint-132-pr-a-skills` (retired) | **SHIPPED**, #290 `244291eb`; live as v11.78.0 through #291 `f90b9916`, deploy 37169859212; A10 read-only smoke passed |
 | **N** | **node-forge exemption (2026-10-01):** a 7-day ADR-059 exemption for GHSA-86w9-cpqp-85rv (no patched release), an ADR-059 amendment, a sprint-125 coverage gate that admits an unwatched package only for ≤ 7 days, and BUG-058 | `agent/claude/sprint-132-node-forge-exemption` (cut from `origin/master` `b169472b`) | **MERGED + DEPLOYED v11.76.0** (#289, `02d720b3`; CI/CD 37053659544 and health check green, verified 2026-10-02) |
 | B | Inventory catalog, audience predicates, My things and community Shared things | `agent/claude/sprint-132-pr-b-inventory` (retired) | **SHIPPED v11.79.0**, [#292](https://github.com/ravichavali/karmyq/pull/292), `235b5446`; CI/CD + demo health green; read-only inventory smoke passed 2026-10-04 |
-| C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (base `235b5446`) | **DRAFT #293**; ten findings addressed in `1f2c2f89`, local full suite passed; canonical delivery artifact promoted; latest-head CI evidence in PR Validation; CodeQL/readiness clearance required |
+| C | Directed *Ask to borrow*: private browse/access guards, incoming asks, participant history/actions, durable directed notification delivery and independent completion subscribers | `agent/claude/sprint-132-pr-c-directed-borrow` (base `235b5446`) | **DRAFT #293**; ten findings fixed in `1f2c2f89`, completion expansion `cd929fad`, runner isolation `81f9a343`; all 25 directed cases and 122 main integration cases PASS at `81f9a343`; CodeQL/fresh review/Claude readiness pending; detailed evidence in PR Validation |
 
 Versions: each PR bumps the minor from `origin/master` at merge time (S = 11.75.0, shipped; N = 11.76.0; A = 11.77.0
 if nothing else merges in between). Nothing is reserved.
@@ -319,10 +319,26 @@ Queue dedupe is bounded to 24 hours, graph effects remain
 at least once, old shared jobs are not repaired, and DB-completion-to-first-Redis-enqueue remains
 a documented preexisting recovery gap. No new schema, dependency or standing-policy change.
 
-Next: consult PR #293 Validation and latest-head checks; verify independent-base byte parity and
-all expanded directed integration cases, then obtain Claude readiness validation. CodeQL clearance
-is still required. Claude owns merge-readiness validation; Admin owns merge/deploy.
-C10–C12 remain incomplete. No merge, deployment, demo write or live smoke is claimed.
+Final runtime checkpoint at `81f9a343` supersedes the historical pending/failed checkpoints above.
+[CI/CD 37321949052](https://github.com/ravichavali/karmyq/actions/runs/37321949052),
+[integration job 111804442869](https://github.com/ravichavali/karmyq/actions/runs/37321949052/job/111804442869):
+clean service health, fresh reference installation and migration replay PASS; 9 main suites / 122
+cases PASS, including all 25 directed cases actually executed, plus the separate curated reset 2/2.
+The previously failing action-items, rollback and demoted-completion cases now PASS. Both personal
+and demoted-admin completions produce karma 3, participant notifications 2 and trust edge 1 for the
+same match; independent notification redelivery preserves the count at 2. Backend, types, audit
+and landing PASS; [Tests 37321949007](https://github.com/ravichavali/karmyq/actions/runs/37321949007)
+PASS. [Schema 37321948990](https://github.com/ravichavali/karmyq/actions/runs/37321948990) PASS
+all steps, including independent baseline, determinism, fresh boot, recorded migrations, replay
+without drift and committed byte parity. Overall CI remains FAIL solely on open CodeQL 601/602;
+image build and deployment were skipped. This final handoff update changes no application, test
+or schema source after that verified snapshot; PR Validation records subsequent commit/check status.
+
+Next: fresh maintainer-relayed whole-branch review, CodeQL UI clearance and Claude readiness
+validation. The exact-head alert query still reports only 601/602; no GitHub UI automation is
+available in this session, and no alert state was changed through the API. Claude owns readiness;
+Admin owns merge/deploy. C10–C12 external gates remain incomplete. No merge, deployment, demo
+write or live smoke is claimed; version remains 11.79.0.
 
 CodeQL [#601](https://github.com/ravichavali/karmyq/security/code-scanning/601) and
 [#602](https://github.com/ravichavali/karmyq/security/code-scanning/602) were independently verified
