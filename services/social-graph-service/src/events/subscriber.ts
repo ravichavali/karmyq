@@ -7,6 +7,8 @@ import { pool } from '../config/database';
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 const eventQueue = new Queue('karmyq-events', REDIS_URL);
+const completionQueue = new Queue('karmyq-completion-social-graph', REDIS_URL);
+completionQueue.on('error', error => logger.error('Completion queue error', error instanceof Error ? error : undefined));
 
 /** The `match_completed` event payload (as published by request-service `matches.ts`). */
 export interface MatchCompletedPayload {
@@ -75,10 +77,12 @@ export async function handleMatchCompleted(payload: MatchCompletedPayload): Prom
 export async function initEventSubscriber() {
   try {
     // When a match completes, the direct edge now exists — clear cached paths for these two users
-    eventQueue.process('match_completed', async (job) => {
+    const handleCompletion = async (job: Queue.Job) => {
       logger.info('Processing match_completed event', job.data);
       await handleMatchCompleted(job.data.payload as MatchCompletedPayload);
-    });
+    };
+    eventQueue.process('match_completed', handleCompletion);
+    completionQueue.process('match_completed', handleCompletion);
 
     logger.info('✅ Social graph event subscriber initialized');
   } catch (error) {

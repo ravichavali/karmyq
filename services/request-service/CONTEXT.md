@@ -7,6 +7,18 @@
 
 ## Recent Changes
 
+- **2026-10-05 (Sprint 132 PR C completion delivery correction, ADR-099)**: `match_completed`
+  now saves one Bull job in `karmyq-completion-dispatch`. The request-service dispatcher fans
+  out to `karmyq-completion-reputation`, `karmyq-completion-notification` and
+  `karmyq-completion-social-graph`; workers no longer compete for the same completion job.
+  Partial enqueue retries reuse match-based job IDs. Ten total attempts use exponential retries starting at 2 seconds;
+  successful identities are retained for 24 hours without count eviction, failed jobs are retained.
+  This is at-least-once delivery with bounded queue deduplication, not exactly-once effects.
+  Legacy shared handlers remain for queued pre-upgrade events, whose competition is not repaired.
+  Other event transports are unchanged. The existing gap between database completion and the
+  first Redis enqueue is not covered by a transactional completion outbox; a publish failure
+  there still needs operator recovery. Real integration cases assert all three subscriber effects.
+
 - **2026-10-04 (Sprint 132 PR C, ADR-099)**: directed item borrowing. `POST
   /requests/inventory/items/:id/borrow` accepts `{community_id,duration_days,return_date?,description?}`
   (duration integer 1–30, note ≤2000, UTC ISO return date). It locks the item, checks selected-community

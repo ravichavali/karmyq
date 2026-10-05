@@ -5,6 +5,12 @@
 
 ## Recent Changes
 
+- **2026-10-05 (Sprint 132 PR C, ADR-099)**: new completion jobs arrive on
+  `karmyq-completion-reputation` from request-service's durable fanout dispatcher. The same
+  canonical standing/badge/evolution handler also remains on `karmyq-events` for legacy jobs.
+  Independent completion queues prevent notification/social workers consuming reputation's job.
+  Standing projection remains transactional and idempotent; no standing policy changed.
+
 - **2026-09-15 (Sprint 130 PR A — the frontend stops asking for denied reputation)**: **No server
   change.** Two frontend call patterns changed:
   - `/communities` requests `GET /reputation/community-trust/:communityId` only for the caller's

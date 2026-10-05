@@ -16,6 +16,7 @@ describe('Sprint 132 PR C directed borrow audience', () => {
     .set('Authorization', `Bearer ${jwt.sign({ userId: id, email: `${id}@karmyq.test`, communities: claims.map(c => ({ ...c, role: id === A ? 'admin' : c.role })) }, process.env.JWT_SECRET || 'dev-secret-key')}`);
   let item: string, ask: string;
   const directedQueue = new Queue('karmyq-directed-notifications', process.env.REDIS_URL || 'redis://localhost:6380');
+  const completionNotifications = new Queue('karmyq-completion-notification', process.env.REDIS_URL || 'redis://localhost:6380');
   const borrow = (id: string, selected = C) => api(R, 'post', `/requests/inventory/items/${id}/borrow`).send({ community_id: selected, duration_days: 3, description: 'Private painting job' });
   beforeAll(async () => {
     await pool.query('SELECT 1'); expect((await request(ServiceUrls.REQUEST).get('/health')).status).toBe(200);
@@ -43,12 +44,26 @@ describe('Sprint 132 PR C directed borrow audience', () => {
       await pool.query('DELETE FROM reputation.trust_scores WHERE user_id=ANY($1::uuid[]) AND community_id=ANY($2::uuid[])', [users, [C, OTHER]]);
       await pool.query('DELETE FROM communities.communities WHERE id=ANY($1::uuid[])', [[C, OTHER]]);
       await pool.query('DELETE FROM auth.users WHERE id=ANY($1::uuid[])', [users]);
-    } finally { await directedQueue.close(); await requestPool.end(); await pool.end(); }
+    } finally { await directedQueue.close(); await completionNotifications.close(); await requestPool.end(); await pool.end(); }
   });
   const ownIds = async (userId: string, suffix = '') => (await api(userId, 'get', `/requests${suffix}`)).body.data.requests.map((r: any) => r.id);
   const incomingIds = async (userId: string) => {
     const res = await api(userId, 'get', '/requests/inventory/asks/incoming'); expect(res.status).toBe(200);
     return res.body.data.asks.map((r: any) => r.id);
+  };
+  const completedEffects = async (matchId: string, responder: string) => {
+    let karma: any[] = [], notified: string[] = [], edges: any[] = [];
+    for (let retry = 0; retry < 40; retry++) {
+      karma = (await pool.query('SELECT user_id,community_id,reason,points FROM reputation.karma_records WHERE related_entity_id=$1', [matchId])).rows;
+      notified = (await pool.query("SELECT user_id FROM notifications.notifications WHERE type='match_completed' AND data->>'match_id'=$1 ORDER BY user_id", [matchId])).rows.map(row => row.user_id);
+      edges = (await pool.query('SELECT match_completed_count FROM social_graph.trust_edges WHERE user_id_a=LEAST($1::text,$2::text)::uuid AND user_id_b=GREATEST($1::text,$2::text)::uuid AND community_id=$3', [R, responder, C])).rows;
+      if (karma.length >= 3 && notified.length === 2 && edges.length === 1) break;
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    expect(karma).toHaveLength(3);
+    expect(notified).toEqual([R, responder].sort());
+    expect(edges).toEqual([{ match_completed_count: 1 }]);
+    return karma;
   };
   // Compose and host runners share Redis. Delay/promote only this fixture's job; never pause
   // the whole queue. published_at prevents the relay racing this intentionally delayed intent.
@@ -92,7 +107,7 @@ describe('Sprint 132 PR C directed borrow audience', () => {
     const offer = await api(O, 'post', '/matches').send({ request_id: ask }); expect(offer.status).toBe(201); const matchId = offer.body.data.id;
     expect((await api(R, 'put', `/matches/${matchId}/accept`).send({})).status).toBe(200);
     const actions = async (id: string) => {
-      const res = await api(id, 'get', '/requests/curated'); expect(res.status).toBe(200);
+      const res = await api(id, 'get', '/requests/curated?view=home'); expect(res.status).toBe(200);
       return res.body.data.items.filter((i: any) => i.kind === 'decision' && i.data.subject_id === matchId).flatMap((i: any) => i.data.actions);
     };
     for (const id of [R, O]) expect(await actions(id)).toContain('mark_done');
@@ -211,16 +226,14 @@ describe('Sprint 132 PR C directed borrow audience', () => {
     expect((await api(A, 'post', '/matches').send({ request_id: nextAsk.body.data.id })).status).toBe(404);
     expect((await api(A, 'put', `/matches/${matchId}/complete`).send({})).status).toBe(200);
     expect((await api(R, 'put', `/matches/${matchId}/complete`).send({})).body.data.fully_completed).toBe(true);
-    // Drain this fixture's asynchronous projection before subsequent test cleanup deletes its match.
-    let projected = 0;
-    for (let retry = 0; retry < 40; retry++) {
-      projected = (await pool.query('SELECT id FROM reputation.karma_records WHERE related_entity_id=$1', [matchId])).rows.length;
-      if (projected >= 3) break; await new Promise(resolve => setTimeout(resolve, 250));
-    }
-    expect(projected).toBeGreaterThanOrEqual(3);
+    // Every subscriber must receive the completion before fixture cleanup, even after demotion.
+    await completedEffects(matchId, A);
   });
   it('rolls back the directed row when its attribution junction fails', async () => {
+    // Resends reuse an open ask; cancel it so this exercise reaches a fresh INSERT.
+    await pool.query("UPDATE requests.help_requests SET status='cancelled' WHERE id=$1", [ask]);
     const before = (await pool.query('SELECT id FROM requests.help_requests WHERE requester_id=$1 ORDER BY id', [R])).rows;
+    const intentsBefore = (await pool.query('SELECT request_id FROM inventory.borrow_notification_outbox WHERE request_id=$1', [ask])).rows;
     const suffix = R.replace(/-/g, '');
     const fn = `requests.reject_directed_${suffix}`, trigger = `reject_directed_${suffix}`;
     try {
@@ -230,6 +243,7 @@ describe('Sprint 132 PR C directed borrow audience', () => {
       await pool.query(`CREATE TRIGGER ${trigger} BEFORE INSERT ON requests.request_communities FOR EACH ROW EXECUTE FUNCTION ${fn}()`);
       expect((await borrow(item)).status).toBe(500);
       expect((await pool.query('SELECT id FROM requests.help_requests WHERE requester_id=$1 ORDER BY id', [R])).rows).toEqual(before);
+      expect((await pool.query('SELECT o.request_id FROM inventory.borrow_notification_outbox o JOIN requests.help_requests hr ON hr.id=o.request_id WHERE hr.requester_id=$1 ORDER BY o.request_id', [R])).rows).toEqual(intentsBefore);
     } finally {
       await pool.query(`DROP TRIGGER IF EXISTS ${trigger} ON requests.request_communities`);
       await pool.query(`DROP FUNCTION IF EXISTS ${fn}()`);
@@ -249,11 +263,7 @@ describe('Sprint 132 PR C directed borrow audience', () => {
     expect((await api(R, 'put', `/matches/${matchId}/accept`).send({})).status).toBe(200);
     expect((await api(O, 'put', `/matches/${matchId}/complete`).send({})).status).toBe(200);
     expect((await api(R, 'put', `/matches/${matchId}/complete`).send({})).status).toBe(200);
-    let records: any[] = [];
-    for (let retry = 0; retry < 40; retry++) {
-      records = (await pool.query('SELECT user_id,community_id,reason,points FROM reputation.karma_records WHERE related_entity_id=$1', [matchId])).rows;
-      if (records.length >= 3) break; await new Promise((resolve) => setTimeout(resolve, 250));
-    }
+    const records = await completedEffects(matchId, O);
     // Fresh helper, one community, canonical 100-point pool with default 60/40 split.
     expect(records).toHaveLength(3);
     expect(records).toEqual(expect.arrayContaining([
@@ -262,5 +272,9 @@ describe('Sprint 132 PR C directed borrow audience', () => {
       { user_id: O, community_id: C, reason: 'First help in community', points: 15 },
     ]));
     expect((await pool.query('SELECT status FROM requests.matches WHERE id=$1', [matchId])).rows[0].status).toBe('completed');
+    // Independent redelivery bypasses Bull job-ID dedupe and exercises the database identity lock.
+    const repeated = await completionNotifications.add('match_completed', { payload: { match_id: matchId, request_id: ask, requester_id: R, responder_id: O } }, { jobId: `review-repeat-completion-${matchId}` });
+    await repeated.finished();
+    expect((await pool.query("SELECT user_id FROM notifications.notifications WHERE type='match_completed' AND data->>'match_id'=$1 ORDER BY user_id", [matchId])).rows.map(row => row.user_id)).toEqual([R, O].sort());
   });
 });

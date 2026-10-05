@@ -30,6 +30,8 @@ async function getRepeatMatchCount(userA: string, userB: string): Promise<number
 
 // Event queue - must match the queue name used by publishers
 const eventQueue = new Queue('karmyq-events', REDIS_URL);
+const completionQueue = new Queue('karmyq-completion-reputation', REDIS_URL);
+completionQueue.on('error', error => console.error('Completion queue error:', error));
 
 // Community evolution queue — processes jobs queued by trustEvolutionService after user evolution
 const communityEvolutionQueue = new Queue('karmyq-community-evolution', REDIS_URL);
@@ -43,7 +45,7 @@ export { updateProviderCompletionRate };
 export async function initEventSubscriber() {
   try {
     // Process match_completed events
-    eventQueue.process('match_completed', async (job) => {
+    const handleCompletion = async (job: Queue.Job) => {
       console.log('Processing match_completed event:', job.data);
 
       // Extract payload from the event wrapper
@@ -131,7 +133,9 @@ export async function initEventSubscriber() {
         console.error('❌ Failed to award karma for match:', match_id, error);
         throw error; // Will retry based on Bull's retry settings
       }
-    });
+    };
+    eventQueue.process('match_completed', handleCompletion);
+    completionQueue.process('match_completed', handleCompletion);
 
     // Process interaction_feedback_submitted events
     eventQueue.process('interaction_feedback_submitted', async (job) => {

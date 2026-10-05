@@ -61,6 +61,10 @@ Re-run the file directly (above) or `--force`.
 
 ### Integration environment
 
+Completion cases exercise the request-service dispatcher and all three real subscriber queues,
+asserting canonical karma, both persisted notifications and the community trust edge. Social
+graph's compose service uses redis-test explicitly rather than localhost inside its container.
+
 The isolated compose request-service disables rate limiting, like the other test services,
 so the inventory audience cases can exercise real JWT and live membership checks without
 exhausting an IP quota. Production rate limiting remains enabled.

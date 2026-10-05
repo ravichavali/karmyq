@@ -7,6 +7,8 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 // Event queue - must match the queue name used by publishers
 const eventQueue = new Queue('karmyq-events', REDIS_URL);
+const completionQueue = new Queue('karmyq-completion-notification', REDIS_URL);
+completionQueue.on('error', error => console.error('Completion queue error:', error));
 // Only notification-service consumes this queue; unrelated workers cannot steal directed jobs.
 const directedQueue = new Queue('karmyq-directed-notifications', REDIS_URL);
 directedQueue.on('error', error => console.error('Directed notification queue error:', error));
@@ -60,7 +62,7 @@ export async function initEventSubscriber() {
     });
 
     // Process match_completed events
-    eventQueue.process('match_completed', async (job) => {
+    const handleCompletion = async (job: Queue.Job) => {
       console.log('Processing match_completed event:', job.data);
 
       const { payload } = job.data;
@@ -103,7 +105,9 @@ export async function initEventSubscriber() {
         console.error('❌ Failed to process match_completed event:', error);
         throw error;
       }
-    });
+    };
+    eventQueue.process('match_completed', handleCompletion);
+    completionQueue.process('match_completed', handleCompletion);
 
     // Process karma_awarded events
     eventQueue.process('karma_awarded', async (job) => {

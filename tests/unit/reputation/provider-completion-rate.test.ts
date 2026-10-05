@@ -19,7 +19,7 @@ jest.mock('../../../services/reputation-service/src/services/standingProjector',
 }));
 
 jest.mock('bull', () =>
-  jest.fn().mockImplementation(() => ({ process: jest.fn() }))
+  jest.fn().mockImplementation(() => ({ process: jest.fn(), on: jest.fn() }))
 );
 
 import { query } from '../../../services/reputation-service/src/database/db';

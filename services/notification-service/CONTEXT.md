@@ -15,13 +15,22 @@ are disabled for this template. Borrow creation never emits `request_created`. P
 request discovery excludes directed asks. Existing notification caller ownership from PR S remains.
 
 PR C review correction: directed jobs use **`karmyq-directed-notifications`**, consumed only here.
-The `karmyq-events` handlers remain unchanged. Recipient inserts use the partial unique index
+Legacy `karmyq-events` handlers remain registered. Recipient inserts use the partial unique index
 `uq_directed_notification_recipient` on user_id and data.request_id for this event type, with
 `ON CONFLICT DO NOTHING`; redelivery emits no duplicate SSE notification. After all
 current recipients are handled (including preferences that disable delivery), the subscriber stamps
 `inventory.borrow_notification_outbox.delivered_at`. Request-service retries pending/unconfirmed
 delivery and exhausted failed jobs. Deleted requests/targets/recipients produce no delivery,
 including jobs left queued by reset. No community fan-out or public push/email was introduced.
+
+Completion delivery correction (2026-10-05, ADR-099): new `match_completed` jobs arrive on
+`karmyq-completion-notification`; the same handler remains on the legacy shared queue.
+Per-recipient completion inserts take a transaction advisory lock keyed by user/match, then
+check the stored notification before inserting. A failure sending to the second participant
+can retry without duplicating the first participant's stored notification or SSE emission.
+The identity check and insert use one database connection; SSE emits only after commit.
+Delivery is at least once; a crash after commit but before SSE can omit the live emission,
+while the notification remains available in the persisted inbox.
 
 Manages user notifications across the platform with template-based messaging, user preferences, and real-time delivery via Server-Sent Events (SSE). Listens to events from other services and creates appropriate notifications for users.
 

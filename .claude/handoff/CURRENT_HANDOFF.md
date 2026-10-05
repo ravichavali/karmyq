@@ -288,6 +288,28 @@ under tests' strict settings before the fix; rerun evidence and latest real test
 The queued-privacy tests now delay/promote only their own job; a global queue pause would interfere
 with compose's simultaneous container and host runners (tests/docker-compose.test.yml:262).
 
+Latest runtime checkpoint `4d852805` executed all 25 directed cases: 22 passed and three failed
+([CI/CD 37314750331](https://github.com/ravichavali/karmyq/actions/runs/37314750331), integration
+job 111779768571). The action fixture called legacy curated instead of view=home; the rollback
+fixture hit resend reuse instead of a fresh insert. Both fixtures are corrected. The third failure
+proved preexisting shared-queue competition: notification consumed the demoted match completion
+while reputation wrote zero karma (matches.ts:662; notification/reputation subscriber handlers).
+The maintainer explicitly approved expanding C on 2026-10-05 to repair completion delivery.
+Request-service now persists a completion dispatch job and fans out stable identities to three
+subscriber-specific queues. Legacy handlers remain; unrelated events retain their transports.
+Completion recipient notifications serialize the identity check/insert in one transaction;
+mocked partial-recipient retry reproduced five emissions RED and now produces two GREEN.
+Test/development social-graph containers explicitly use the shared Redis. Integration assertions
+remain strict: exact karma, both notifications and one trust edge for the same completed match,
+including demotion and independent notification redelivery. No failing assertion was removed.
+Four-service types and the strict integration import graph pass locally. Independent source/SQL
+reviews and the full mandatory process suite passed on the staged expansion at HEAD 4d852805,
+after correcting the old root Bull mock to include its on method. Real integration rerun remains
+pending; consult PR Validation for tested source, true exit status and cache limits before readiness.
+Queue dedupe is bounded to 24 hours, graph effects remain
+at least once, old shared jobs are not repaired, and DB-completion-to-first-Redis-enqueue remains
+a documented preexisting recovery gap. No new schema, dependency or standing-policy change.
+
 Next: consult PR #293 Validation and latest-head checks; verify independent-base byte parity and
 all expanded directed integration cases, then obtain Claude readiness validation. CodeQL clearance
 is still required. Claude owns merge-readiness validation; Admin owns merge/deploy.

@@ -278,6 +278,17 @@ See [TR-002: Multi-Tenancy](../requirements/technical/TR-002-multi-tenancy.md) f
 - **Backend**: Redis
 - **Queue Name**: `karmyq-events`
 
+Sprint 132 PR C (ADR-099) isolates two deliveries from that legacy queue. Directed borrow
+notifications use `karmyq-directed-notifications` with transactional borrow intent and live
+recipient resolution. New `match_completed` events use `karmyq-completion-dispatch`, whose
+request-service processor publishes independent jobs to `karmyq-completion-reputation`,
+`karmyq-completion-notification` and `karmyq-completion-social-graph`. Bull distributes one
+queue's jobs among workers; named handlers do not broadcast to every service. Stable match
+job IDs allow partial fanout retries; completed identities remain for 24 hours without count
+eviction. Delivery remains at least once. Legacy shared handlers stay for older jobs, whose
+competition is not repaired. The existing gap before the first completion enqueue and graph
+counter retry effects remain documented in ADR-099.
+
 ### Event Flow
 
 ```
@@ -291,17 +302,16 @@ See [TR-002: Multi-Tenancy](../requirements/technical/TR-002-multi-tenancy.md) f
 
 #### 1. match_completed
 **Published by**: request-service
-**Consumed by**: reputation-service, notification-service
+**Consumed by**: reputation-service, notification-service, social-graph-service
 
 ```typescript
 {
-  type: 'match_completed',
+  eventType: 'match_completed',
   payload: {
     match_id: 'uuid',
     request_id: 'uuid',
     requester_id: 'uuid',
-    responder_id: 'uuid',
-    community_id: 'uuid'
+    responder_id: 'uuid'
   }
 }
 ```
@@ -357,15 +367,14 @@ See [TR-002: Multi-Tenancy](../requirements/technical/TR-002-multi-tenancy.md) f
 ### Publishing Events
 
 ```typescript
-// services/request-service/src/events/publisher.ts
-import { publishEvent } from '@shared/events';
+// services/request-service/src/routes/matches.ts
+import { publishEvent } from '../events/publisher';
 
 await publishEvent('match_completed', {
   match_id,
   request_id,
   requester_id,
-  responder_id,
-  community_id
+  responder_id
 });
 ```
 
@@ -373,11 +382,13 @@ await publishEvent('match_completed', {
 
 ```typescript
 // services/reputation-service/src/events/subscriber.ts
-import { eventQueue } from '@shared/events';
+import Queue from 'bull';
+import { awardKarmaForCompletedMatch } from '../services/standingProjector';
+const completionQueue = new Queue('karmyq-completion-reputation', process.env.REDIS_URL);
 
-eventQueue.process('match_completed', async (job) => {
+completionQueue.process('match_completed', async (job) => {
   const { payload } = job.data;
-  await awardKarma(payload);
+  await awardKarmaForCompletedMatch(payload);
 });
 ```
 

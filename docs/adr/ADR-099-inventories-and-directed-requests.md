@@ -183,6 +183,32 @@ not a general SQL authorization proof; ON semantics need exact reviewed exceptio
 tests remain authoritative. Execution notes carry
 the full file:line inventory.
 
+### Completion delivery amendment (maintainer-approved, 2026-10-05)
+
+Real PR C integration reproduced a preexisting event-delivery defect: notification, reputation
+and social-graph workers consumed the same Bull queue. Bull distributes jobs among workers;
+named handlers do not broadcast them. A completed private loan notified both people but wrote
+no karma because notification-service consumed the only completion job. The maintainer approved
+expanding this PR to repair completion delivery.
+
+Request-service now persists one `match_completed` dispatch job, whose processor publishes
+three independent service-specific completion jobs. Fixed destination queues prevent competing
+subscribers stealing another service's delivery. A partial fanout failure retries the persisted
+dispatch job with the same target job IDs. Ten total attempts use exponential retries starting at 2 seconds; completed
+identities remain for 24 hours without count eviction and failed jobs remain inspectable.
+Legacy handlers remain registered for pre-upgrade queued jobs; those older jobs are not repaired.
+Other event types retain their current transports, including the dedicated directed-ask queue.
+
+Completion notifications serialize a per-user/match existence check and insert in one database
+transaction under an advisory lock, preventing duplicate stored notifications/SSE emissions
+when a later recipient fails. Canonical karma remains idempotent. Existing graph counters remain
+at-least-once effects and can increment on a partially interrupted handler retry. This change
+does not promise exactly-once side effects or unbounded queue deduplication. The preexisting
+database-completion-to-first-Redis-enqueue gap still requires operator recovery after a publish
+failure; adding a transactional completion outbox is separate scope. No new schema is required.
+Integration evidence must show karma, both notifications and the community trust edge for the
+same match, including a demoted participant and independent notification redelivery.
+
 **Rollout and rollback:** the additive migration is compatible with earlier binaries, but
 earlier binaries have no directed privacy guards (`services/request-service/src/services/feed/basicFeedRanker.ts:171`).
 After the first directed row exists, image rollback must retain these guards or make affected

@@ -1,4 +1,4 @@
-import { query } from '../database/db';
+import { getClient, query } from '../database/db';
 import { generateNotification, NotificationType, notificationTemplates } from '../templates/notificationTemplates';
 import { EventEmitter } from 'events';
 
@@ -42,21 +42,40 @@ export async function createNotification(params: CreateNotificationParams) {
     : '';
 
   // Insert into database
-  const result = await query(
-    `INSERT INTO notifications.notifications
+  const sql = `INSERT INTO notifications.notifications
      (user_id, type, title, body, data, action_url)
      VALUES ($1, $2, $3, $4, $5, $6)
      ${conflict}
-     RETURNING *`,
-    [
+     RETURNING *`;
+  const values = [
       user_id,
       notification.type,
       notification.title,
       notification.body,
       JSON.stringify(notification.data),
       notification.action_url,
-    ]
-  );
+    ];
+  let result;
+  if (type === 'match_completed' && typeof data.match_id === 'string') {
+    // Legacy and dedicated jobs can overlap. Serialize the identity check and insert on
+    // one connection so a partial two-recipient retry cannot notify the first party again.
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`completion-notification:${user_id}:${data.match_id}`]);
+      const existing = await client.query(
+        "SELECT id FROM notifications.notifications WHERE user_id=$1 AND type='match_completed' AND data->>'match_id'=$2 LIMIT 1",
+        [user_id, data.match_id]
+      );
+      result = existing.rows.length ? { rows: [] } : await client.query(sql, values);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally { client.release(); }
+  } else {
+    result = await query(sql, values);
+  }
 
   const createdNotification = result.rows[0];
   if (!createdNotification) return null;
