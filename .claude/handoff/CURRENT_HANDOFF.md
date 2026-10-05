@@ -1,6 +1,6 @@
 # Sprint 132 — Inventories and Skills — Handoff
 
-**Date**: 2026-10-04
+**Date**: 2026-10-05
 **Status**: **PR B SHIPPED and LIVE v11.79.0**, [#292](https://github.com/ravichavali/karmyq/pull/292), merge `235b5446`. [CI/CD 37180421165](https://github.com/ravichavali/karmyq/actions/runs/37180421165) and [Demo health 37202424111](https://github.com/ravichavali/karmyq/actions/runs/37202424111) succeeded; read-only inventory smoke passed (maintainer, 2026-10-04). **PR C IN PROGRESS**, Codex executing on `agent/claude/sprint-132-pr-c-directed-borrow`, cut from `origin/master` `235b5446`. Earlier: A live v11.78.0 via #291; N v11.76.0 (#289); S v11.75.0 (#288).
 
 > 🧭 **First product sprint after the maintenance freeze** (maintainer, 2026-09-30: dependency work
@@ -278,7 +278,15 @@ passed determinism, fresh boot, migration recording and replay at that source ch
 unchanged artifact adds only the outbox, primary/foreign keys, two indexes and migration-ledger
 entry (38 additions). SHA256 `2A2DFFC5230A28031C309337228895C772198F0EDEA3257EF4889B840E401E4F`.
 The first source schema check 37263803194 failed only because that snapshot had not been promoted;
-its missing entries are superseded by this artifact. Runtime source is unchanged after `1f2c2f89`.
+its missing entries are superseded by this artifact. `f7a468d8` passed every independent-base PR
+schema check ([37264597138](https://github.com/ravichavali/karmyq/actions/runs/37264597138)).
+Its integration run reached test execution but the directed suite failed TypeScript compilation:
+importing FeedComposer exposed existing expected_duration null output against a string-only type
+(feedComposer.ts:317; types/feed.ts:42). A one-line type correction allows the existing null output;
+it changes no runtime behavior. The exact integration import graph reproduced TS2322 locally
+under tests' strict settings before the fix; rerun evidence and latest real tests are in PR Validation.
+The queued-privacy tests now delay/promote only their own job; a global queue pause would interfere
+with compose's simultaneous container and host runners (tests/docker-compose.test.yml:262).
 
 Next: consult PR #293 Validation and latest-head checks; verify independent-base byte parity and
 all expanded directed integration cases, then obtain Claude readiness validation. CodeQL clearance

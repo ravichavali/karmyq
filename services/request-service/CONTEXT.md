@@ -41,6 +41,8 @@
   SQL gate checks WHERE guards per query block/alias and exact reviewed exceptions. Outer-join ON
   semantics and unparenthesized dynamic fragments require exact review; it is conservative static
   coverage, not a general SQL authorization proof. Real-DB tests remain the runtime authority.
+  The legacy feed mapper's absent expected_duration is null; its OpenRequest type explicitly
+  admits null so the real FeedComposer import graph compiles under integration tests' strict settings.
   Pre-C image rollback after directed rows exist
   requires preserved guards or unavailable reads (ADR-099); additive DDL alone does not preserve privacy.
 

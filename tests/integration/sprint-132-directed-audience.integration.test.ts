@@ -50,6 +50,19 @@ describe('Sprint 132 PR C directed borrow audience', () => {
     const res = await api(userId, 'get', '/requests/inventory/asks/incoming'); expect(res.status).toBe(200);
     return res.body.data.asks.map((r: any) => r.id);
   };
+  // Compose and host runners share Redis. Delay/promote only this fixture's job; never pause
+  // the whole queue. published_at prevents the relay racing this intentionally delayed intent.
+  const delayedFixture = async (itemId: string, targetUser: string | null, targetCommunity: string | null) => {
+    const row = (await pool.query(`INSERT INTO requests.help_requests
+      (requester_id,title,description,category,request_type,payload,is_directed,directed_to_user_id,directed_to_community_id,inventory_item_id)
+      VALUES ($1,'Delayed private ask','Private fixture','borrow','borrow',$2,true,$3,$4,$5) RETURNING id`,
+    [R, JSON.stringify({ item_category: targetCommunity ? 'camping' : 'tools', duration_days: 3 }), targetUser, targetCommunity, itemId])).rows[0];
+    await pool.query('INSERT INTO requests.request_communities(request_id,community_id) VALUES ($1,$2)', [row.id, C]);
+    const payload = { request_id: row.id, requester_id: R, recipient_user_ids: targetCommunity ? [A] : [targetUser], title: 'Saved private title', inventory_item_id: itemId };
+    await pool.query('INSERT INTO inventory.borrow_notification_outbox(request_id,payload,published_at) VALUES ($1,$2,NOW())', [row.id, JSON.stringify(payload)]);
+    const job = await directedQueue.add('directed_request_created', { eventType: 'directed_request_created', payload }, { jobId: `review-delayed-${row.id}`, delay: 60000 });
+    return { id: row.id, job };
+  };
   it('persists exact directed flags/targets/payload and single attribution community', async () => {
     const row = (await pool.query('SELECT * FROM requests.help_requests WHERE id=$1', [ask])).rows[0];
     expect(row).toMatchObject({ is_directed: true, directed_to_user_id: O, directed_to_community_id: null, inventory_item_id: item, request_type: 'borrow', category: 'borrow', payload: { item_category: 'tools', duration_days: 3, condition_min: 'good' } });
@@ -109,28 +122,18 @@ describe('Sprint 132 PR C directed borrow audience', () => {
     expect((await api(O, 'get', `/requests/inventory/items/${item}`)).body.data.shared_with.map((c: any) => c.id).sort()).toEqual([C, OTHER].sort());
   });
   it('resolves admins at delivery after a queued ask outlives demotion', async () => {
-    await directedQueue.pause();
-    let delayed: string;
-    try {
-      const created = await api(A, 'post', '/requests/inventory/items').send({ name: 'Tent', category: 'camping', owner_community_id: C });
-      expect(created.status).toBe(201);
-      const res = await borrow(created.body.data.id); expect(res.status).toBe(201); delayed = res.body.data.id;
-      await pool.query("UPDATE communities.members SET role=CASE WHEN user_id=$1 THEN 'member' WHEN user_id=$2 THEN 'admin' ELSE role END WHERE community_id=$3", [A, M, C]);
-    } finally { await directedQueue.resume(); }
-    const queued = await directedQueue.getJob(`directed-${delayed!}`); expect(queued).not.toBeNull(); await queued!.finished();
-    expect((await pool.query("SELECT user_id FROM notifications.notifications WHERE type='directed_request_created' AND data->>'request_id'=$1", [delayed!])).rows.map(r => r.user_id)).toEqual([M]);
+    const created = await api(A, 'post', '/requests/inventory/items').send({ name: 'Tent', category: 'camping', owner_community_id: C }); expect(created.status).toBe(201);
+    const delayed = await delayedFixture(created.body.data.id, null, C);
+    await pool.query("UPDATE communities.members SET role=CASE WHEN user_id=$1 THEN 'member' WHEN user_id=$2 THEN 'admin' ELSE role END WHERE community_id=$3", [A, M, C]);
+    await delayed.job.promote(); await delayed.job.finished();
+    expect((await pool.query("SELECT user_id FROM notifications.notifications WHERE type='directed_request_created' AND data->>'request_id'=$1", [delayed.id])).rows.map(r => r.user_id)).toEqual([M]);
   });
   it('finishes a queued deleted-request job without delivering its stale content', async () => {
-    await directedQueue.pause();
-    let deleted: string;
-    try {
-      const created = await api(O, 'post', '/requests/inventory/items').send({ name: 'Drill', category: 'tools' }); expect(created.status).toBe(201);
-      expect((await api(O, 'put', `/requests/inventory/items/${created.body.data.id}/shares`).send({ community_ids: [C] })).status).toBe(200);
-      const res = await borrow(created.body.data.id); expect(res.status).toBe(201); deleted = res.body.data.id;
-      await pool.query('DELETE FROM requests.help_requests WHERE id=$1', [deleted]);
-    } finally { await directedQueue.resume(); }
-    const queued = await directedQueue.getJob(`directed-${deleted!}`); expect(queued).not.toBeNull(); await queued!.finished();
-    expect((await pool.query("SELECT id FROM notifications.notifications WHERE type='directed_request_created' AND data->>'request_id'=$1", [deleted!])).rows).toEqual([]);
+    const created = await api(O, 'post', '/requests/inventory/items').send({ name: 'Drill', category: 'tools' }); expect(created.status).toBe(201);
+    const deleted = await delayedFixture(created.body.data.id, O, null);
+    await pool.query('DELETE FROM requests.help_requests WHERE id=$1', [deleted.id]);
+    await deleted.job.promote(); await deleted.job.finished();
+    expect((await pool.query("SELECT id FROM notifications.notifications WHERE type='directed_request_created' AND data->>'request_id'=$1", [deleted.id])).rows).toEqual([]);
   });
   it.each(['feed', 'curated', `community/${C}/open-asks`, 'matched/for-user'])('excludes ask from %s for requester, recipient and third member', async (surface) => {
     for (const userId of [R, O, M]) {
