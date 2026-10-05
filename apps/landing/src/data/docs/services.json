@@ -697,7 +697,7 @@
         ]
       },
       "healthCheck": "http://localhost:3005/health",
-      "notes": "Subscribes to platform events. directed_request_created uses only karmyq-directed-notifications; idempotent per user/request inserts and outbox delivery acknowledgement prevent duplicates/lost intent. match_completed uses karmyq-completion-notification; per-user/match transaction locks prevent duplicate completion notifications on partial recipient retries.",
+      "notes": "Subscribes to platform events. directed_request_created uses only karmyq-directed-notifications; live lookup requires open/unexpired asks; terminal jobs are acknowledged without a new invitation. Idempotent per user/request inserts and outbox delivery acknowledgement prevent duplicates/lost intent. ADR-099 accepts notification-service updating only delivered_at in request-service-owned inventory.borrow_notification_outbox. match_completed uses karmyq-completion-notification; per-user/match transaction locks prevent duplicate completion notifications on partial recipient retries.",
       "databaseSchemas": [
         "notifications"
       ]

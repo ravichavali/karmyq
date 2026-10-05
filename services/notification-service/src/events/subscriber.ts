@@ -161,7 +161,8 @@ export async function initEventSubscriber() {
         JOIN auth.users recipient ON recipient.id=r.directed_to_user_id OR EXISTS (
           SELECT 1 FROM communities.members cm WHERE cm.community_id=r.directed_to_community_id
           AND cm.user_id=recipient.id AND cm.status='active' AND cm.role='admin')
-        WHERE r.id=$1 AND r.is_directed AND recipient.id<>r.requester_id`, [request_id]);
+        WHERE r.id=$1 AND r.is_directed AND r.status='open' AND NOT r.expired
+          AND recipient.id<>r.requester_id`, [request_id]);
       for (const recipient of audience.rows) {
         await createNotification({ user_id: recipient.user_id, type: 'directed_request_created', data: {
           request_id, requester_name: recipient.requester_name,

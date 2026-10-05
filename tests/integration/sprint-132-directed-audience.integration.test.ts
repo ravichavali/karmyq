@@ -150,6 +150,17 @@ describe('Sprint 132 PR C directed borrow audience', () => {
     await deleted.job.promote(); await deleted.job.finished();
     expect((await pool.query("SELECT id FROM notifications.notifications WHERE type='directed_request_created' AND data->>'request_id'=$1", [deleted.id])).rows).toEqual([]);
   });
+  it.each([
+    { status: 'cancelled', expired: false },
+    { status: 'completed', expired: false },
+    { status: 'open', expired: true },
+  ])('acknowledges a delayed $status/expired=$expired ask without notifying its owner', async ({ status, expired }) => {
+    const delayed = await delayedFixture(item, O, null);
+    await pool.query('UPDATE requests.help_requests SET status=$1,expired=$2 WHERE id=$3', [status, expired, delayed.id]);
+    await delayed.job.promote(); await delayed.job.finished();
+    expect((await pool.query("SELECT id FROM notifications.notifications WHERE type='directed_request_created' AND data->>'request_id'=$1", [delayed.id])).rows).toEqual([]);
+    expect((await pool.query('SELECT delivered_at IS NOT NULL AS handled FROM inventory.borrow_notification_outbox WHERE request_id=$1', [delayed.id])).rows).toEqual([{ handled: true }]);
+  });
   it.each(['feed', 'curated', `community/${C}/open-asks`, 'matched/for-user'])('excludes ask from %s for requester, recipient and third member', async (surface) => {
     for (const userId of [R, O, M]) {
       const res = await api(userId, 'get', `/requests/${surface}`); expect(res.status).toBe(200);

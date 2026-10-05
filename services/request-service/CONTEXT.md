@@ -31,7 +31,9 @@
   Queue failure returns the committed ask (201); a 5-second relay retries pending intent, checks
   acknowledged but unconfirmed deliveries after 5 minutes, and retries exhausted failed jobs.
   Delivery re-resolves current request content/target admins, so outage retries cannot use stale
-  recipient snapshots; deleted requests are terminal.
+  recipient snapshots; deleted, closed and expired requests are terminal. As the ADR-099
+  cross-service acknowledgement exception, notification-service updates only delivered_at in
+  this request-service-owned outbox after handling all eligible recipients or a terminal job.
   `GET /requests/inventory/asks/incoming` returns `{asks}`: caller-targeted open, unexpired requests,
   excluding own asks and caller's live proposed/matched offers. The Helping UI offers through normal
   `POST /matches`, then refetches inbox and commitments. Item availability is not changed by borrowing.

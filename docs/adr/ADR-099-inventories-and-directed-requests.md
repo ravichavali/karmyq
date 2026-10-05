@@ -152,9 +152,17 @@ the explicit event recipients. After commit, it publishes only `directed_request
 the committed ask's ID (201); the durable relay retries it. Acknowledged but unconfirmed deliveries
 are checked again after five minutes; exhausted failed jobs are retried with the same stable job ID.
 Delivery re-resolves canonical request content and the current personal target or active admins,
-ignoring the saved recipient/content snapshot. Deleted requests and recipients cannot receive a
-queued private title. The subscriber stamps delivered_at after processing every current recipient. Its partial
+ignoring the saved recipient/content snapshot. Only open, unexpired asks qualify at the delivery
+lookup. Deleted, cancelled, completed or expired asks are terminal: acknowledge their queued job
+without sending a new borrow invitation. Deleted recipients cannot receive a queued private title.
+The subscriber stamps delivered_at after processing every current recipient. Its partial
 unique index on (user_id, data.request_id) prevents duplicate notifications/SSE across retries.
+This acknowledgement is an explicit cross-service write exception: request-service owns
+`inventory.borrow_notification_outbox`, creates its rows and manages relay publication state;
+notification-service writes only `delivered_at` for the processed request ID
+(`services/notification-service/src/events/subscriber.ts:172`). Notification-service does not create
+or change borrow requests or saved intent payloads. A terminal job with no eligible recipients is
+also acknowledged so the relay does not keep resending it.
 No membership fan-out occurs, and unrelated consumers cannot steal these jobs. Existing shared
 event routing is unchanged. Curated reset classifies the outbox as reset; hard request deletion
 cascades its intent. Preferences that disable in-app delivery count as handled.
@@ -211,6 +219,11 @@ same match, including a demoted participant and independent notification redeliv
 
 **Rollout and rollback:** the additive migration is compatible with earlier binaries, but
 earlier binaries have no directed privacy guards (`services/request-service/src/services/feed/basicFeedRanker.ts:171`).
+Earlier consumers also do not subscribe to the new `karmyq-completion-*` queues
+(`services/request-service/src/events/completionEvents.ts:20`). If they replace the new consumers
+after dispatch, jobs retained in those queues wait until a forward deployment restores the new
+subscribers. Karma and other completion effects can therefore be delayed by rollback; the old
+shared-queue handlers do not drain these dedicated queues. Preserve Redis queues during recovery.
 After the first directed row exists, image rollback must retain these guards or make affected
 reads unavailable. Never clear `is_directed` to accommodate rollback. The maintainer must choose
 a privacy-preserving rollback path before authorizing deployment. This ADR remains Accepted

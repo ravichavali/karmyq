@@ -1565,3 +1565,15 @@ and no repo source reaches it. Exempted until **2026-10-09** (ADR-059 amendment 
 - **Owner:** Claude (dependency lane). **Deadline: 2026-10-09** (exemption expiry; ≤ 1-week SLA).
 
 ---
+
+## BUG-060 · [2026-10-05] · open
+
+**UNVERIFIED: competing workers may lose shared-queue events other than completion.** The
+maintainer-relayed PR #293 review suspects `request_created`, `karma_awarded`,
+`user_joined_community` and `interaction_feedback_submitted` on `karmyq-events` are taken by
+workers without matching named handlers, failing the job instead of delivering it to the intended
+subscribers. This has not been reproduced. PR C repairs the reproduced `match_completed`
+competition with per-service queues; the other event types remain separate later-sprint scope.
+Reproduce and inspect retry/failure behavior before planning a broader delivery change.
+
+---

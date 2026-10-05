@@ -19,7 +19,7 @@
 1. Read this handoff.
 2. **PR C is draft [#293](https://github.com/ravichavali/karmyq/pull/293)** on `agent/claude/sprint-132-pr-c-directed-borrow`, based on `origin/master` `235b5446`. Codex owns C implementation; Claude owns merge-readiness validation. Check `git status` before editing. B/#292 is shipped, deployed and smoke-tested. PR #293 is the current review packet; its Validation ledger carries final-head evidence.
 3. Open the plan: [`docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md`](../../docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md).
-   PR C implementation and review fixes have runtime proof at `81f9a343`. Next: fresh maintainer-relayed whole-branch review, CodeQL UI clearance and Claude readiness validation. Merge/deploy still require separate maintainer authorization.
+   The maintainer-relayed whole-branch review through `46b03d21` found no blockers. Final follow-up rechecks open/unexpired asks at notification delivery, documents the acknowledgement write/rollback delay and logs BUG-060. Next: verify this follow-up's PR Validation evidence, clear CodeQL in the UI and obtain Claude readiness validation. Merge/deploy still require separate maintainer authorization.
 4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`).
    There is no `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 
@@ -334,8 +334,24 @@ without drift and committed byte parity. Overall CI remains FAIL solely on open 
 image build and deployment were skipped. This final handoff update changes no application, test
 or schema source after that verified snapshot; PR Validation records subsequent commit/check status.
 
-Next: fresh maintainer-relayed whole-branch review, CodeQL UI clearance and Claude readiness
-validation. The exact-head alert query still reports only 601/602; no GitHub UI automation is
+Maintainer-relayed whole-branch review through `46b03d21` (2026-10-05) accepted all ten fixes,
+the completion expansion and surgical Bull declarations, with no blocking finding. Live checks
+at that head now show CI tests/types/audit/landing/integration, Tests and schema PASS; only
+CodeQL fails ([CI/CD 37324809350](https://github.com/ravichavali/karmyq/actions/runs/37324809350)).
+The final nonblocking follow-up adds the missing open/unexpired check to the notification
+recipient lookup (`services/notification-service/src/events/subscriber.ts:164`). Its focused
+database-boundary regression was RED before the predicate and GREEN after it; three real
+delayed-job cases cover cancelled, completed and expired asks and terminal acknowledgement.
+PR Validation records this follow-up's test results and actual tested commit; the CI links above
+predate its new lifecycle predicate. The exact SQL exception was re-reviewed and repinned after
+the privacy gate rejected its stale hash; scanner logic and exception count are unchanged.
+ADR-099 explicitly accepts notification-service writing only delivered_at in request-service's
+outbox, and documents dedicated completion jobs waiting during an old-consumer rollback.
+BUG-060 captures other shared-event competition as UNVERIFIED later-sprint scope; no transport
+expansion is included. At-least-once effects and the first-enqueue recovery gap remain documented.
+
+Next: verify the final follow-up's runtime evidence, CodeQL UI clearance and Claude readiness
+validation. The latest exact-head alert query still reports only 601/602; no GitHub UI automation is
 available in this session, and no alert state was changed through the API. Claude owns readiness;
 Admin owns merge/deploy. C10–C12 external gates remain incomplete. No merge, deployment, demo
 write or live smoke is claimed; version remains 11.79.0.
