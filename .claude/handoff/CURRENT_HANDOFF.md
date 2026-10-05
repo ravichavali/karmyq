@@ -1,7 +1,7 @@
 # Sprint 132 — Inventories and Skills — Handoff
 
 **Date**: 2026-10-05
-**Status**: **PR B SHIPPED and LIVE v11.79.0**, [#292](https://github.com/ravichavali/karmyq/pull/292), merge `235b5446`. [CI/CD 37180421165](https://github.com/ravichavali/karmyq/actions/runs/37180421165) and [Demo health 37202424111](https://github.com/ravichavali/karmyq/actions/runs/37202424111) succeeded; read-only inventory smoke passed (maintainer, 2026-10-04). **PR C IN PROGRESS**, Codex executing on `agent/claude/sprint-132-pr-c-directed-borrow`, cut from `origin/master` `235b5446`. Earlier: A live v11.78.0 via #291; N v11.76.0 (#289); S v11.75.0 (#288).
+**Status**: **PR B SHIPPED and LIVE v11.79.0**, [#292](https://github.com/ravichavali/karmyq/pull/292), merge `235b5446`. [CI/CD 37180421165](https://github.com/ravichavali/karmyq/actions/runs/37180421165) and [Demo health 37202424111](https://github.com/ravichavali/karmyq/actions/runs/37202424111) succeeded; read-only inventory smoke passed (maintainer, 2026-10-04). **PR C READY → MERGING as v11.80.0** ([#293](https://github.com/ravichavali/karmyq/pull/293)): Claude review complete (10 + 5 findings resolved through `e8a3fa3c`), CodeQL #601/#602 dismissed as false positives via API on maintainer instruction (2026-10-05), merge + deploy authorized by the maintainer 2026-10-05. Earlier: A live v11.78.0 via #291; N v11.76.0 (#289); S v11.75.0 (#288).
 
 > 🧭 **First product sprint after the maintenance freeze** (maintainer, 2026-09-30: dependency work
 > needs a security advisory or a feature need; product is the default). Seed idea: `docs/IDEAS.md`
@@ -43,7 +43,7 @@ match → message → karma loop. Skills have one source of truth that matching 
 | A | Skills single source, vocabulary-backed matching and ADR-099 | `agent/claude/sprint-132-pr-a-skills` (retired) | **SHIPPED**, #290 `244291eb`; live as v11.78.0 through #291 `f90b9916`, deploy 37169859212; A10 read-only smoke passed |
 | **N** | **node-forge exemption (2026-10-01):** a 7-day ADR-059 exemption for GHSA-86w9-cpqp-85rv (no patched release), an ADR-059 amendment, a sprint-125 coverage gate that admits an unwatched package only for ≤ 7 days, and BUG-058 | `agent/claude/sprint-132-node-forge-exemption` (cut from `origin/master` `b169472b`) | **MERGED + DEPLOYED v11.76.0** (#289, `02d720b3`; CI/CD 37053659544 and health check green, verified 2026-10-02) |
 | B | Inventory catalog, audience predicates, My things and community Shared things | `agent/claude/sprint-132-pr-b-inventory` (retired) | **SHIPPED v11.79.0**, [#292](https://github.com/ravichavali/karmyq/pull/292), `235b5446`; CI/CD + demo health green; read-only inventory smoke passed 2026-10-04 |
-| C | Directed *Ask to borrow*: private browse/access guards, incoming asks, participant history/actions, durable directed notification delivery and independent completion subscribers | `agent/claude/sprint-132-pr-c-directed-borrow` (base `235b5446`) | **DRAFT #293**; ten findings fixed in `1f2c2f89`, completion expansion `cd929fad`, runner isolation `81f9a343`; all 25 directed cases and 122 main integration cases PASS at `81f9a343`; CodeQL/fresh review/Claude readiness pending; detailed evidence in PR Validation |
+| C | Directed *Ask to borrow*: private browse/access guards, incoming asks, participant history/actions, durable directed notification delivery and independent completion subscribers | `agent/claude/sprint-132-pr-c-directed-borrow` (base `235b5446`) | **READY, merge + deploy authorized 2026-10-05 as v11.80.0**; Claude readiness review passed at `e8a3fa3c`; #601/#602 dismissed (API, maintainer-approved); ten findings fixed in `1f2c2f89`, completion expansion `cd929fad`, runner isolation `81f9a343`; all 25 directed cases and 122 main integration cases PASS at `81f9a343`; CodeQL/fresh review/Claude readiness pending; detailed evidence in PR Validation |
 
 Versions: each PR bumps the minor from `origin/master` at merge time (S = 11.75.0, shipped; N = 11.76.0; A = 11.77.0
 if nothing else merges in between). Nothing is reserved.
@@ -362,7 +362,7 @@ fixed-browser-destination false positives at api.ts:500–501. No alert state ch
 defer UI dismissal until fixes land and inspect any replacement alert IDs. Prior PR API clearance
 authorization does not apply here. PR stays draft pending final checks and readiness review.
 
-Before deployment, choose a privacy-preserving rollback policy (ADR-099): pre-C images lack
+Rollback for the C deploy itself (Claude, 2026-10-05): the pipeline auto-rollback is privacy-safe until the first directed row exists, since no row exists for a pre-C image to leak. A standing policy for LATER rollbacks is still OPEN for the maintainer; the recommendation is fix-forward only once directed rows exist. Original note (ADR-099): pre-C images lack
 directed guards; after the first directed row preserve guards or disable affected reads. Never clear
 is_directed. Version remains 11.79.0; choose the next minor from live master at merge time.
 The master Expo SDK drift run 37204717864 failed; cause is UNVERIFIED and outside C scope.
