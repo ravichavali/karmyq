@@ -7,6 +7,9 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 // Event queue - must match the queue name used by publishers
 const eventQueue = new Queue('karmyq-events', REDIS_URL);
+// Only notification-service consumes this queue; unrelated workers cannot steal directed jobs.
+const directedQueue = new Queue('karmyq-directed-notifications', REDIS_URL);
+directedQueue.on('error', error => console.error('Directed notification queue error:', error));
 
 export async function initEventSubscriber() {
   try {
@@ -144,17 +147,24 @@ export async function initEventSubscriber() {
       }
     });
 
-    // Directed inventory asks notify only the recipients resolved by request-service.
+    // Delayed/retried jobs resolve the live request and its current target audience again.
     // No community fan-out, provider routing or public push summary belongs here.
-    eventQueue.process('directed_request_created', async (job) => {
-      const { request_id, requester_id, recipient_user_ids, title, inventory_item_id } = job.data.payload;
-      const requester = await query('SELECT name FROM auth.users WHERE id=$1', [requester_id]);
-      for (const user_id of recipient_user_ids) {
-        await createNotification({ user_id, type: 'directed_request_created', data: {
-          request_id, requester_name: requester.rows[0]?.name ?? 'A neighbour',
-          request_title: title, inventory_item_id,
+    directedQueue.process('directed_request_created', async (job) => {
+      const { request_id } = job.data.payload;
+      const audience = await query(`SELECT recipient.id AS user_id,r.title,r.inventory_item_id,u.name AS requester_name
+        FROM requests.help_requests r
+        JOIN auth.users u ON u.id=r.requester_id
+        JOIN auth.users recipient ON recipient.id=r.directed_to_user_id OR EXISTS (
+          SELECT 1 FROM communities.members cm WHERE cm.community_id=r.directed_to_community_id
+          AND cm.user_id=recipient.id AND cm.status='active' AND cm.role='admin')
+        WHERE r.id=$1 AND r.is_directed AND recipient.id<>r.requester_id`, [request_id]);
+      for (const recipient of audience.rows) {
+        await createNotification({ user_id: recipient.user_id, type: 'directed_request_created', data: {
+          request_id, requester_name: recipient.requester_name,
+          request_title: recipient.title, inventory_item_id: recipient.inventory_item_id,
         } });
       }
+      await query('UPDATE inventory.borrow_notification_outbox SET delivered_at=NOW() WHERE request_id=$1', [request_id]);
     });
 
     // Process request_created events

@@ -43,7 +43,7 @@ match → message → karma loop. Skills have one source of truth that matching 
 | A | Skills single source, vocabulary-backed matching and ADR-099 | `agent/claude/sprint-132-pr-a-skills` (retired) | **SHIPPED**, #290 `244291eb`; live as v11.78.0 through #291 `f90b9916`, deploy 37169859212; A10 read-only smoke passed |
 | **N** | **node-forge exemption (2026-10-01):** a 7-day ADR-059 exemption for GHSA-86w9-cpqp-85rv (no patched release), an ADR-059 amendment, a sprint-125 coverage gate that admits an unwatched package only for ≤ 7 days, and BUG-058 | `agent/claude/sprint-132-node-forge-exemption` (cut from `origin/master` `b169472b`) | **MERGED + DEPLOYED v11.76.0** (#289, `02d720b3`; CI/CD 37053659544 and health check green, verified 2026-10-02) |
 | B | Inventory catalog, audience predicates, My things and community Shared things | `agent/claude/sprint-132-pr-b-inventory` (retired) | **SHIPPED v11.79.0**, [#292](https://github.com/ravichavali/karmyq/pull/292), `235b5446`; CI/CD + demo health green; read-only inventory smoke passed 2026-10-04 |
-| C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (base `235b5446`) | **DRAFT #293**; implementation/schema and real SQL verified at `4d16f845`; CodeQL clearance and maintainer-relayed review pending |
+| C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (base `235b5446`) | **DRAFT #293**; ten review findings addressed; full local suite passed on follow-up worktree at `716b9874`; delivery schema and real SQL/queue proof pending; earlier verification superseded |
 
 Versions: each PR bumps the minor from `origin/master` at merge time (S = 11.75.0, shipped; N = 11.76.0; A = 11.77.0
 if nothing else merges in between). Nothing is reserved.
@@ -241,49 +241,49 @@ updated.
 
 ## Next unchecked action
 
-**PR C review checkpoint (2026-10-04):** draft [#293](https://github.com/ravichavali/karmyq/pull/293)
-is the only open PR; `origin/master` remains `235b5446` (live GitHub/git reconciliation). First
-handoff-only commit `595ae7bb`; implementation `2df7a7b7`; canonical schema checkpoint `4d16f845`.
-C1–C9 implementation, docs, SQL surface classification and committed-tree negative proof are
-complete; C10–C12 still require final CI, security clearance and maintainer-relayed review/authorization.
-Use the PR's **Validation** ledger for commands, tested commits, caches, limitations and latest checks.
+**PR C review follow-up (2026-10-04):** draft [#293](https://github.com/ravichavali/karmyq/pull/293)
+is the only open PR; master remains `235b5446` (live GitHub/git reconciliation). First handoff-only
+commit `595ae7bb`; original source `2df7a7b7`; original schema `4d16f845`; earlier handoff `716b9874`.
+The maintainer-relayed review supersedes the earlier no-unresolved-findings/readiness claim.
+All ten findings were verified and addressed in the current follow-up; real PostgreSQL/Redis and
+canonical schema verification for these changes remain required. Prior 112-test CI passes proved
+the earlier coverage only and did not cover the four confirmed defects; do not reuse them as fix proof.
 
-Next: clear the two reviewed CodeQL alerts below, then obtain a fresh maintainer-relayed whole-branch
-review and Claude readiness validation. Verify final-head checks in PR Validation after the
-handoff-only push. [CI/CD 37233053346](https://github.com/ravichavali/karmyq/actions/runs/37233053346)
-at `4d16f845` passed every executed check except the CodeQL gate. Its [Integration Tests job
-111527233369](https://github.com/ravichavali/karmyq/actions/runs/37233053346/job/111527233369)
-ran and passed all named inventory and directed-audience cases, including live-admin demotion,
-cleared targets, rollback and normal completion/karma; none skipped. The PR Validation ledger
-records suite totals, fresh-install/replay checks and the curated reset proof. Initial `2df7a7b7`
-CI failed missing-schema drift before artifact promotion and is superseded. [PR schema verification
-37233053330](https://github.com/ravichavali/karmyq/actions/runs/37233053330) passed independent-base
-byte parity, determinism, fresh boot, recorded migrations and replay drift at `4d16f845`.
-The [manual artifact 37232333945](https://github.com/ravichavali/karmyq/actions/runs/37232333945)
-was promoted unchanged: 39 additions/1 deletion, limited to four columns, two indexes, three
-SET NULL foreign keys and the ledger. Artifact SHA256:
-`79D152C51830C656C7B460A7BE1A609036810A85320B2CC85861DB5C186C09C2`.
+Participant actions and existing-match history now survive private borrowing/admin demotion;
+new offers still require current recipients and return indistinguishable 404s for outsiders before
+lifecycle disclosure. Offered-awaiting count/rows both exclude private asks. Nullable activity joins
+use request_communities and preserve new-member stats. Resends reuse one open ask under the item
+lock, and ask creation atomically saves delivery intent. Dedicated directed notifications use
+idempotent inserts, stable Bull job IDs and a retry relay. Delivery re-resolves the current request
+and audience; delayed jobs cannot use demoted/deleted recipients or deleted-request titles.
+The scan checks WHERE guards per query block/alias, rejects OR/dynamic and outer-join bypasses,
+and pins reviewed exceptions to exact SQL hashes. Redundant owner-only guards were removed.
+Borrow metadata omits dead owner shares and the form recovers from refreshed/stale choices.
 
-CodeQL clearance is blocked solely by [#601](https://github.com/ravichavali/karmyq/security/code-scanning/601)
-and [#602](https://github.com/ravichavali/karmyq/security/code-scanning/602), `js/request-forgery`
-at `apps/frontend/src/lib/api.ts:500–501`. Both were independently confirmed false positives:
-the browser API host comes from build-time configuration, and these fixed paths cannot replace it.
-No alerts were dismissed. Surface these exact alerts for maintainer UI clearance; prior PR API
-dismissal authorization does not apply. A fresh maintainer-relayed whole-branch review is required
-before readiness. Claude owns readiness validation; Admin owns merge/deploy authorization.
+The final independent code/security review found no remaining production blocker after its two
+additional scanner gaps were reproduced RED and fixed GREEN. Migration static review passed
+structural/index/reset checks; its stale-delivery finding was similarly reproduced and corrected.
+Mandatory pre-commit process/full-suite evidence and all new real SQL/queue results belong in
+PR #293 **Validation**; consult that ledger for actual tested snapshots, cache limits and final checks.
+Only this lane's green TDD tests were promoted. Bull is declared at its existing root range in
+request-service and tests; strict npm ci passed and no resolved versions changed.
 
-Source high code/security review has no unresolved critical/important finding; minor banner/calendar
-and integration assertion/cleanup findings were fixed. Migration artifact review passed. Local
-unit/regression and four affected TypeScript checks passed on the source worktree committed as
-`2df7a7b7`; the `4d16f845` process and normal-push tests also passed. Runtime source is unchanged
-since `2df7a7b7`; this subsequent handoff update changes no source/schema. Logs are in the ignored
-sprint SDD directory; detail belongs in PR Validation. No local PostgreSQL execution is claimed.
-Only C's TDD files were promoted. Generated ADR-059 catches up to an already-shipped amendment;
-its source/policy is unchanged. No merge, deployment, demo write or smoke is claimed.
+Full local process tests passed on the follow-up worktree at HEAD `716b9874`; the PR Validation
+ledger records commands, cache limits and outcomes. Final cleanup changes only generated metadata
+and notification prose. Next: commit/push the reviewed source checkpoint, regenerate init.sql via CI,
+promote the unchanged reviewed artifact, then verify independent-base schema parity and every
+expanded directed integration case. Claude owns merge-readiness validation; Admin owns merge/deploy.
+C10–C12 remain incomplete. No merge, deployment, demo write or live smoke is claimed.
 
-Before deployment, choose a privacy-preserving rollback policy (ADR-099): a pre-C image lacks
-directed guards; after the first directed row, preserve guards or disable affected reads. Never
-clear `is_directed`. Version is still 11.79.0; choose the next minor from live master at merge time.
+CodeQL [#601](https://github.com/ravichavali/karmyq/security/code-scanning/601) and
+[#602](https://github.com/ravichavali/karmyq/security/code-scanning/602) were independently verified
+fixed-browser-destination false positives at api.ts:500–501. No alert state changed; per maintainer,
+defer UI dismissal until fixes land and inspect any replacement alert IDs. Prior PR API clearance
+authorization does not apply here. PR stays draft pending final checks and readiness review.
+
+Before deployment, choose a privacy-preserving rollback policy (ADR-099): pre-C images lack
+directed guards; after the first directed row preserve guards or disable affected reads. Never clear
+is_directed. Version remains 11.79.0; choose the next minor from live master at merge time.
 The master Expo SDK drift run 37204717864 failed; cause is UNVERIFIED and outside C scope.
 
 1. **PR A SHIPPED and LIVE as v11.78.0.** #290 merged as `244291eb` (v11.77.0), but its master run [37077914525](https://github.com/ravichavali/karmyq/actions/runs/37077914525) never deployed. Attempt 1 was blocked by CodeQL #592/#593, master re-raises of the `js/request-forgery` false positive (PR-ref dismissals do not carry to master; the maintainer dismissed them in the UI). Attempt 2 was blocked by the newly reviewed `braces` GHSA-vfj7-8cjw-p6xm, which has no fix. The exemption PR [#291](https://github.com/ravichavali/karmyq/pull/291) (7-day `braces` exemption, ADR-059 amendment, BUG-059, plus a sprint-124 parity-test fix for multi-entry registries) merged as `f90b9916` (v11.78.0). [CI/CD 37169859212](https://github.com/ravichavali/karmyq/actions/runs/37169859212) ended in DEPLOYMENT SUCCESSFUL with no rollback, deploying PR A's code with it.

@@ -6,12 +6,13 @@ jest.mock('../../src/lib/expoPush', () => ({ sendPushToUsers: jest.fn() }));
 import { initEventSubscriber } from '../../src/events/subscriber';
 beforeEach(() => {
   mockQuery.mockReset().mockImplementation(async (sql: string) => {
+    if (sql.includes('FROM requests.help_requests r')) return { rows: ['O', 'A'].map(user_id => ({ user_id, requester_name: 'Riley', title: 'Ask to borrow Ladder', inventory_item_id: 'item' })) };
     if (sql.includes('FROM auth.users')) return { rows: [{ name: 'Riley' }] };
     if (sql.includes('INSERT INTO notifications.notifications')) return { rows: [{ id: 'notification' }] };
     return { rows: [] };
   });
 });
-it('creates notifications for exactly the two explicit recipients using the real template/service, without membership fan-out', async () => {
+it('creates notifications for exactly the current target recipients using the real template/service, without community fan-out', async () => {
   await initEventSubscriber(); expect(typeof handlers.directed_request_created).toBe('function');
   await handlers.directed_request_created({ data: { payload: { request_id: 'ask', requester_id: 'R', recipient_user_ids: ['O', 'A'], title: 'Ask to borrow Ladder', inventory_item_id: 'item' } } });
   const inserts = mockQuery.mock.calls.filter(([sql]) => sql.includes('INSERT INTO notifications.notifications'));
@@ -20,5 +21,5 @@ it('creates notifications for exactly the two explicit recipients using the real
     expect(params[1]).toBe('directed_request_created'); expect(params[2]).toContain('Riley asked to borrow');
     expect(params[5]).toBe('/requests/ask');
   }
-  expect(mockQuery.mock.calls.filter(([sql]) => sql.includes('communities.members'))).toEqual([]);
+  expect(mockQuery.mock.calls[0][0]).toContain("cm.role='admin'");
 });

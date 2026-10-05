@@ -7,10 +7,21 @@
 
 Sprint 132 PR C (2026-10-04): `directed_request_created` consumes explicit
 `{request_id,requester_id,recipient_user_ids,title,inventory_item_id}` from request-service.
-It inserts an in-app notification for exactly each recipient, titled “{requester} asked to
+At delivery it resolves the current request/content and personal target or active owning-community
+admins, ignoring saved recipient IDs and titles. It inserts an in-app notification for each current
+recipient, titled “{requester} asked to
 borrow your {item}”, linked to `/requests/:id`. No `communities.members` fan-out; push/email
 are disabled for this template. Borrow creation never emits `request_created`. Provider-on-duty
 request discovery excludes directed asks. Existing notification caller ownership from PR S remains.
+
+PR C review correction: directed jobs use **`karmyq-directed-notifications`**, consumed only here.
+The `karmyq-events` handlers remain unchanged. Recipient inserts use the partial unique index
+`uq_directed_notification_recipient` on user_id and data.request_id for this event type, with
+`ON CONFLICT DO NOTHING`; redelivery emits no duplicate SSE notification. After all
+current recipients are handled (including preferences that disable delivery), the subscriber stamps
+`inventory.borrow_notification_outbox.delivered_at`. Request-service retries pending/unconfirmed
+delivery and exhausted failed jobs. Deleted requests/targets/recipients produce no delivery,
+including jobs left queued by reset. No community fan-out or public push/email was introduced.
 
 Manages user notifications across the platform with template-based messaging, user preferences, and real-time delivery via Server-Sent Events (SSE). Listens to events from other services and creates appropriate notifications for users.
 

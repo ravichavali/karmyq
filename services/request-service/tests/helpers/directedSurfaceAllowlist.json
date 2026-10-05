@@ -1,0 +1,374 @@
+[
+  {
+    "file": "services/auth-service/src/services/demoSessionService.ts",
+    "hash": "fa4f63294ff676c07ff062bb774350f47803a1fb803fbc06eca97b03bab65e59",
+    "reason": "Fixed curated fixture identity lookup; no content returned.",
+    "label": "SELECT id, requester_id FROM requests.help_requests WHERE id = $1"
+  },
+  {
+    "file": "services/cleanup-service/src/jobs/expirationJob.ts",
+    "hash": "62714ca17d4763f72cbaf539eb571d31a7091598f8577fc40e4f1ebd3bcacd77",
+    "reason": "Internal expiry mutation, no audience-facing output.",
+    "label": "SET expired = TRUE"
+  },
+  {
+    "file": "services/cleanup-service/src/jobs/expirationJob.ts",
+    "hash": "2ebf30b506ec28269fbb1ec85228c6bed8da5ef46cc13754d5205f2c0b975fec",
+    "reason": "Internal hard retention deletion.",
+    "label": "DELETE FROM requests.help_requests"
+  },
+  {
+    "file": "services/cleanup-service/src/jobs/expireDibs.ts",
+    "hash": "f165b289a4a98d52da85cdf2a4969600d01c04c2a8e30199c5a663091c358da5",
+    "reason": "Internal expiry; directed asks cannot enter dibs.",
+    "label": "AND status = 'dibs_pending'"
+  },
+  {
+    "file": "services/cleanup-service/src/jobs/matchReminderJob.ts",
+    "hash": "7522c7d0e1b5f912586a228ab761a7beae86a1bda6e4a021650d65e020272cee",
+    "reason": "Trusted reminders delivered only to matched participants.",
+    "label": "m.travel_time_minutes,"
+  },
+  {
+    "file": "services/cleanup-service/src/jobs/memoryRetentionJob.ts",
+    "hash": "2cd5e61fb671c97a92526b114add18c7d1eda68693f7cbf222f78fb8bddbd3f6",
+    "reason": "Internal retention-window CTE.",
+    "label": "SELECT h.id AS request_id,"
+  },
+  {
+    "file": "services/cleanup-service/src/jobs/memoryRetentionJob.ts",
+    "hash": "3968255d8bca72dc048c57aae2437efb488186d037fdb37d801efbb316046be0",
+    "reason": "Internal content erasure.",
+    "label": "forgotten_requests AS"
+  },
+  {
+    "file": "services/cleanup-service/src/jobs/memoryRetentionJob.ts",
+    "hash": "16150ea070936140f53fef851d710395cd7a6e3764d7397c4d7e4f8ded1bb0be",
+    "reason": "Internal retention deletion.",
+    "label": "DELETE FROM requests.help_requests h"
+  },
+  {
+    "file": "services/messaging-service/src/routes/messages.ts",
+    "hash": "01a4dbac1cb71f26cbb56a9afc1ea5edd967d0797c2cec2d8ec2cf27ede36a7f",
+    "reason": "Participant identity lookup; route checks JWT participation before conversation access.",
+    "label": "JOIN requests.help_requests r ON m.request_id = r.id"
+  },
+  {
+    "file": "services/messaging-service/src/routes/messages.ts",
+    "hash": "01a4dbac1cb71f26cbb56a9afc1ea5edd967d0797c2cec2d8ec2cf27ede36a7f",
+    "reason": "Participant identity lookup; route checks JWT participation before conversation access.",
+    "label": "JOIN requests.help_requests r ON m.request_id = r.id"
+  },
+  {
+    "file": "services/notification-service/src/events/subscriber.ts",
+    "hash": "35d70a9bed921249cba3cd6e86032b8e3dd689776e1d8c0dee0c45f52d83d77d",
+    "reason": "Trusted match-created event delivers to its explicit requester.",
+    "label": "SELECT r.title, u.name as requester_name"
+  },
+  {
+    "file": "services/notification-service/src/events/subscriber.ts",
+    "hash": "4336054f16bda55f4af010035dec326095cd444af0150c85660db86b04ef92ab",
+    "reason": "Trusted completion event delivers to its two participants.",
+    "label": "SELECT title FROM requests.help_requests WHERE id = $1"
+  },
+  {
+    "file": "services/reputation-service/src/database/feedbackDb.ts",
+    "hash": "09c113003ee66e6f6584683719dd441a0bfcce2273ca12e025cf444daf9a74d3",
+    "reason": "Feedback participant validation; no request content.",
+    "label": "SELECT hr.requester_id, m.responder_id, m.status,"
+  },
+  {
+    "file": "services/reputation-service/src/events/subscriber.ts",
+    "hash": "93eb18cdba37d7ac36b893c068d952e2fcf1a2f96c5e6de18999733984d6c857",
+    "reason": "Internal pair karma computation; directed exchanges earn normal karma.",
+    "label": "SELECT COUNT(*) AS cnt"
+  },
+  {
+    "file": "services/reputation-service/src/routes/health.ts",
+    "hash": "d5f84c4ed32aafd475c6cdff3d0ad202588d1194f312305ad899b366f0d4d6a4",
+    "reason": "Cohort-gated non-identifying health aggregate; no request listing or title.",
+    "label": "SELECT COUNT(*) as total"
+  },
+  {
+    "file": "services/reputation-service/src/routes/health.ts",
+    "hash": "1daccc5130427f30c345d955a5670b89aff7ab5e98d4d4d6bb57925ece10f4c8",
+    "reason": "Cohort-gated aggregate participant breadth; no identities returned.",
+    "label": "COUNT(DISTINCT r.requester_id)"
+  },
+  {
+    "file": "services/reputation-service/src/routes/health.ts",
+    "hash": "497674fc6b41c1dff4be83144c109d85d6a7e8a4a7118d4725e4c960c6c80f7b",
+    "reason": "Cohort-gated aggregate feedback quality; no request content.",
+    "label": "AVG(f.helpfulness)"
+  },
+  {
+    "file": "services/reputation-service/src/services/badgeService.ts",
+    "hash": "2416e29d622073d3a8bc50c4c0ff22f4930d51ec88df064a0f01a447514c53a3",
+    "reason": "Internal badge projection.",
+    "label": "COUNT(*) FILTER"
+  },
+  {
+    "file": "services/reputation-service/src/services/healthMetricsService.ts",
+    "hash": "53f15c359fcc2a93ea5a9714cd34e11b3892f74bc6f86c3db295877cf8ed0568",
+    "reason": "Cohort-gated non-identifying health aggregate; no request listing or title.",
+    "label": "SELECT COUNT(*) as total"
+  },
+  {
+    "file": "services/reputation-service/src/services/healthMetricsService.ts",
+    "hash": "65ce0ad77e83146aebee6933ad39ddb2d09d18db39af2b1214632adf1a937b5d",
+    "reason": "Cohort-gated aggregate participant breadth; no identities returned.",
+    "label": "COUNT(DISTINCT r.requester_id)"
+  },
+  {
+    "file": "services/reputation-service/src/services/healthMetricsService.ts",
+    "hash": "457c22f11be279e7967755e6e34f7599638826eac347262c99036389d87b3841",
+    "reason": "Cohort-gated aggregate feedback quality; no request content.",
+    "label": "AVG(f.helpfulness)"
+  },
+  {
+    "file": "services/reputation-service/src/services/networkCohesionService.ts",
+    "hash": "e359f7693fac8521b6e5cf0f7b41a397db5856c19e30ea5f4f587832cd00492e",
+    "reason": "Internal graph reduced to cohort score; no request content.",
+    "label": "SELECT DISTINCT r.requester_id, m.responder_id"
+  },
+  {
+    "file": "services/reputation-service/src/services/standingBackfillService.ts",
+    "hash": "41b08fed0269cfde78f0e90e0814e2db10ecb0b5ba07930d3b78a7c0914d40c9",
+    "reason": "Operator standing projection.",
+    "label": "/* standing-backfill:matches */"
+  },
+  {
+    "file": "services/reputation-service/src/services/standingProjector.ts",
+    "hash": "cfcaba111d86172a5943ba3582a8a71f3cd220a907c2b52335443281c7666c2c",
+    "reason": "Trusted standing projection.",
+    "label": "SELECT m.request_id, m.responder_id, m.status, m.completed_at,"
+  },
+  {
+    "file": "services/request-service/src/db/inventoryDb.ts",
+    "hash": "061b23f14f1c86e622292fad03895a9dcfc062617e54c04d81dc92b54e301c59",
+    "reason": "Caller-owned open-ask deduplication inside the audience-authorized item transaction.",
+    "label": "WHERE r.inventory_item_id=$1 AND r.requester_id=$2"
+  },
+  {
+    "file": "services/request-service/src/db/inventoryDb.ts",
+    "hash": "f1869d754cb2f74a922a05bede1d01ba617872fde4b35bba80d7546feba95d86",
+    "reason": "Creation authorizes item audience and selected live community in a transaction.",
+    "label": "INSERT INTO requests.help_requests"
+  },
+  {
+    "file": "services/request-service/src/db/offersDb.ts",
+    "hash": "db473e006c187ed4616ad038824f6040b29b2a68d51746608dfb1004b5d359b8",
+    "reason": "Requester-only lifecycle lookup; requester is always in audience.",
+    "label": "SELECT id FROM requests.help_requests WHERE id = $1 AND requester_id = $2"
+  },
+  {
+    "file": "services/request-service/src/db/offersDb.ts",
+    "hash": "af9c9a33ac98406db17d0c6340379b40a16ff33a78465b4d39923f8a0bf720d7",
+    "reason": "Single-offer lifecycle lookup; requester authorization precedes returned content.",
+    "label": "SELECT o.*, hr.requester_id as requester_user_id"
+  },
+  {
+    "file": "services/request-service/src/db/offersDb.ts",
+    "hash": "d5225b8128e900c57c127a85b57ac4df493b9ecccdb5defcbbdd3d2d0c57a3c3",
+    "reason": "Mutation after requester authorization.",
+    "label": "UPDATE requests.help_requests SET status = 'matched'"
+  },
+  {
+    "file": "services/request-service/src/db/offersDb.ts",
+    "hash": "af9c9a33ac98406db17d0c6340379b40a16ff33a78465b4d39923f8a0bf720d7",
+    "reason": "Single-offer lifecycle lookup; requester authorization precedes returned content.",
+    "label": "SELECT o.*, hr.requester_id as requester_user_id"
+  },
+  {
+    "file": "services/request-service/src/db/providerOffersDb.ts",
+    "hash": "a02c3a9466225b94b18b10331ef3e2913eab9c2a651c72673771ef9f48a5a7c7",
+    "reason": "Caller-owned provider offer history; established offers survive membership changes.",
+    "label": "WHERE o.provider_user_id = $1"
+  },
+  {
+    "file": "services/request-service/src/routes/feedback.ts",
+    "hash": "548265999d68fbb2caa3c1020ff2228c9a2a309560dc13148125dc82ef5815da",
+    "reason": "JWT participant validation for feedback; no request title.",
+    "label": "SELECT m.id, m.status, r.requester_id, m.responder_id,"
+  },
+  {
+    "file": "services/request-service/src/routes/feedback.ts",
+    "hash": "d550f45b03d34b4899da99388baaaec870717743d6035133cd55599784e34584",
+    "reason": "Consent lookup after participant authorization; public stories exclude directed asks.",
+    "label": "r.requester_visibility_consent,"
+  },
+  {
+    "file": "services/request-service/src/routes/feedback.ts",
+    "hash": "ab6d912c734a567631b534ce8584088e3ce3df2b47e6c757fb0c7bb878916dc5",
+    "reason": "Participant feedback lookup; no ask content.",
+    "label": "SELECT m.id, r.requester_id, m.responder_id, m.requester_visible"
+  },
+  {
+    "file": "services/request-service/src/routes/matches.ts",
+    "hash": "22836db62d4355602ad6e3056cd42c356ca037b754bdc86e75815125b6e3331b",
+    "reason": "Scheduling lookup after audience-guarded participant acceptance.",
+    "label": "SELECT request_type, payload FROM requests.help_requests WHERE id = $1"
+  },
+  {
+    "file": "services/request-service/src/routes/matches.ts",
+    "hash": "37124d9f2e06b7288bff3cb329dfa34f6ac4d8f0034b49aba06a1f02a4de487e",
+    "reason": "Lifecycle lock after audience-guarded participation.",
+    "label": "SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE"
+  },
+  {
+    "file": "services/request-service/src/routes/matches.ts",
+    "hash": "1aaaaca20484aa7929b0d2fd795ff3361f931638951a6f346ffe8da9df43c05c",
+    "reason": "Mutation after audience and participant validation.",
+    "label": "SET status = 'matched'"
+  },
+  {
+    "file": "services/request-service/src/routes/matches.ts",
+    "hash": "37124d9f2e06b7288bff3cb329dfa34f6ac4d8f0034b49aba06a1f02a4de487e",
+    "reason": "Lifecycle lock after audience-guarded participation.",
+    "label": "SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE"
+  },
+  {
+    "file": "services/request-service/src/routes/matches.ts",
+    "hash": "e8fc886f1c6245614449e5fc3e8d1ff86500013d5f28fd50c1a3cdd98cf7a1ac",
+    "reason": "Mutation after audience and participant validation.",
+    "label": "SET status = 'open'"
+  },
+  {
+    "file": "services/request-service/src/routes/matches.ts",
+    "hash": "b8396be5f62390cde5ff758618b95e1d3210b09abfbc1ad915e063982ac93709",
+    "reason": "Mutation after audience and participant validation.",
+    "label": "SET status = 'completed'"
+  },
+  {
+    "file": "services/request-service/src/routes/matches.ts",
+    "hash": "2fe695cddf7b01971550505684f8ec77cf8dec8f7048e45e5bc4d054275fa12a",
+    "reason": "Mutation after audience and participant validation.",
+    "label": "SET status = 'open'"
+  },
+  {
+    "file": "services/request-service/src/routes/providerOffers.ts",
+    "hash": "70732bec931d229ae6127497a72d02feb145a4646b3fdb2c1160d4c1e37cf77e",
+    "reason": "Recipient identity after directed reachability validation.",
+    "label": "SELECT requester_id FROM requests.help_requests WHERE id = $1"
+  },
+  {
+    "file": "services/request-service/src/routes/requests.ts",
+    "hash": "4b18daefe95fc345a1da9cb7c851afacfc9f84e9ca32ccf5222c0189880efcf5",
+    "reason": "Only the requester sees and decides provider offers on their own ask.",
+    "label": "WHERE hr.requester_id = $1 AND o.status = 'pending'"
+  },
+  {
+    "file": "services/request-service/src/routes/requests.ts",
+    "hash": "e7ad3c663accd15f190d88a00811866b75212340433ef754001614434f929b66",
+    "reason": "Caller-owned retention counts, constrained by requester_id = JWT caller; no audience guard can narrow it.",
+    "label": "AS forgotten"
+  },
+  {
+    "file": "services/request-service/src/routes/requests.ts",
+    "hash": "0ac58d436d2a1c9eaccc5b67e8409091d202abec2b4a62e6931eff7261859d9e",
+    "reason": "Ordinary creation rejects all directed fields.",
+    "label": "INSERT INTO requests.help_requests"
+  },
+  {
+    "file": "services/request-service/src/routes/requests.ts",
+    "hash": "70732bec931d229ae6127497a72d02feb145a4646b3fdb2c1160d4c1e37cf77e",
+    "reason": "Owner identity lookup; ownership checked before mutation.",
+    "label": "SELECT requester_id FROM requests.help_requests WHERE id = $1"
+  },
+  {
+    "file": "services/request-service/src/routes/requests.ts",
+    "hash": "9bc7cd6f35927df781264f456db9462d019fc6bed77923551ecd1c8aea655bfe",
+    "reason": "Fixed field owner-only update; directed routing fields cannot be edited.",
+    "label": "${updates.join(', ')}"
+  },
+  {
+    "file": "services/request-service/src/routes/requests.ts",
+    "hash": "70732bec931d229ae6127497a72d02feb145a4646b3fdb2c1160d4c1e37cf77e",
+    "reason": "Owner identity lookup; ownership checked before mutation.",
+    "label": "SELECT requester_id FROM requests.help_requests WHERE id = $1"
+  },
+  {
+    "file": "services/request-service/src/routes/requests.ts",
+    "hash": "af41fd1e8416ba7f9fb350759d77a9f2bd3fc67fbc98c58bffb22755d31ec557",
+    "reason": "Requester-only cancellation.",
+    "label": "SET status = 'cancelled'"
+  },
+  {
+    "file": "services/request-service/src/routes/requests.ts",
+    "hash": "70732bec931d229ae6127497a72d02feb145a4646b3fdb2c1160d4c1e37cf77e",
+    "reason": "Owner identity lookup; ownership checked before mutation.",
+    "label": "SELECT requester_id FROM requests.help_requests WHERE id = $1"
+  },
+  {
+    "file": "services/request-service/src/routes/requests.ts",
+    "hash": "70c74b9d27311ff400e69b8f8d9fe67e80204760e658914c3258522a6ebb169c",
+    "reason": "Fixed field owner-only update; directed routing fields cannot be edited.",
+    "label": "${updates.join(', ')}"
+  },
+  {
+    "file": "services/simulation-service/src/fixtures/curatedDemo/baselineWriter.ts",
+    "hash": "b193d77ee79adecb838a2082c7231a06f521b7e03c81b3c0590bc641c8b3bccc",
+    "reason": "Curated fixture write.",
+    "label": "INSERT INTO requests.help_requests"
+  },
+  {
+    "file": "services/simulation-service/src/profiles/index.ts",
+    "hash": "e7e0761515cd80bbe51062cb14124fa5d009325d9714d3e9ea35f73b9b685383",
+    "reason": "Own simulation request budget; no other-user request content.",
+    "label": "SELECT COUNT(*) FROM requests.help_requests hr"
+  },
+  {
+    "file": "services/social-graph-service/src/database/relationshipContextDb.ts",
+    "hash": "03728924c1c6319b609daaec7d8c403d72e94f1a2e14c08bddf3a1242471e608",
+    "reason": "Internal topology projection; no request content.",
+    "label": "completed_pairs AS"
+  },
+  {
+    "file": "services/social-graph-service/src/services/pathComputation.ts",
+    "hash": "2e10eccc5e13d7542ea449cc5ed440f96ec166d6751f5404f2fbbb325bfa041c",
+    "reason": "Pair relationship metadata; no request content.",
+    "label": "SELECT m.completed_at"
+  },
+  {
+    "file": "services/request-service/src/db/eligibility.ts",
+    "hash": "d2fe2bd53b9ecb665a299a509c715a2131d6f4387a29144e3a0ff53dfca77a09",
+    "reason": "Eligibility reads an audience boolean before exposing lifecycle metadata; non-audience directed requests return the same not-found object as absent IDs. New offers use current recipients, not historical match participants.",
+    "label": "AS in_directed_audience"
+  },
+  {
+    "file": "services/community-service/src/routes/export.ts",
+    "hash": "77afa60fd510e1ed74383c4417b0be25e0b864e1abc1809230045e25a015d189",
+    "reason": "Export requests: literal NOT r.is_directed WHERE filter; dateClause is built only from fixed AND date comparisons at export.ts:100-113. Legacy schema references remain outside scope; static coverage only.",
+    "label": "SELECT\n          r.id,"
+  },
+  {
+    "file": "services/community-service/src/routes/export.ts",
+    "hash": "5b606604d27d02cb0b8659e16e20df236d17071144f1e621fbf28c4cae4ca411",
+    "reason": "Export matches: literal NOT r.is_directed WHERE filter; dateClause and replacement contain fixed AND bound date comparisons only. Legacy schema references remain outside scope.",
+    "label": "SELECT\n          m.id,"
+  },
+  {
+    "file": "services/request-service/src/db/dibsDb.ts",
+    "hash": "3cee831d0ce1466d525ab8d48a1d93cfaca16c476b5dae1cae252aba6ac079b9",
+    "reason": "Both prior and prior_similar read blocks have NOT-directed WHERE filters. SIMILARITY_KEY_SQL is the fixed COALESCE expression at dibsDb.ts:68-69; it cannot introduce OR.",
+    "label": "pp.display_name"
+  },
+  {
+    "file": "services/request-service/src/db/dibsDb.ts",
+    "hash": "ffd4990af1be27795416cf69229b8f95f8d0badcd2d9b51e212a9694afd5c8e3",
+    "reason": "Both prior and prior_similar read blocks have NOT-directed WHERE filters. SIMILARITY_KEY_SQL is the fixed COALESCE expression at dibsDb.ts:68-69; it cannot introduce OR.",
+    "label": "COALESCE(prior.interaction_count, 0)"
+  },
+  {
+    "file": "services/request-service/src/services/feed/feedComposer.ts",
+    "hash": "8f7e92ad917b5589bd07c56574eb6fc6ba8e60847c3b0ea278209bd909baf0c8",
+    "reason": "The only help_requests read is the nullable RIGHT relation of a LEFT JOIN. NOT-directed is in that join ON, preventing private request matches while preserving member counts. Real integration proves only-private community activity stats.",
+    "label": "as exchanges_week"
+  },
+  {
+    "file": "services/notification-service/src/events/subscriber.ts",
+    "hash": "57284698d1633a60b4800251a73129d506db1e605c92604e5103488f27ce97fd",
+    "reason": "Dedicated directed delivery resolves current request and live personal target/active admins via recipient JOIN; no saved recipient/content is trusted. Missing request or deleted recipient produces no delivery. Notification regressions and real queued-demotion/deletion tests cover this private output contract.",
+    "label": "SELECT recipient.id AS user_id"
+  }
+]

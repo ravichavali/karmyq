@@ -1,4 +1,3 @@
-import { directedAudienceSql } from './directedAudience';
 import { query } from '../database/db';
 import { getRequestReachability } from './eligibility';
 
@@ -78,7 +77,7 @@ export async function getMyProviderOffers(providerUserId: string) {
     `SELECT o.*, hr.title as request_title, hr.request_type
      FROM provider.offers o
      JOIN requests.help_requests hr ON hr.id = o.request_id
-     WHERE o.provider_user_id = $1 AND ${directedAudienceSql('hr', '$1')}
+     WHERE o.provider_user_id = $1
      ORDER BY o.created_at DESC`,
     [providerUserId]
   );

@@ -1,4 +1,4 @@
-import { notDirectedSql, directedAudienceSql } from '../db/directedAudience';
+import { notDirectedSql, directedAudienceSql, matchParticipantSql } from '../db/directedAudience';
 import { Router, Request, Response } from 'express';
 import { query } from '../database/db';
 import { getRequestReachability } from '../db/eligibility';
@@ -961,7 +961,7 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
        JOIN auth.users responder ON m.responder_id = responder.id
        LEFT JOIN requests.request_communities rc ON hr.id = rc.request_id
        LEFT JOIN communities.communities c ON rc.community_id = c.id
-       WHERE ${notDirectedSql('hr')} AND (hr.requester_id = $1 OR m.responder_id = $1)
+       WHERE ${matchParticipantSql('hr', 'm', '$1')}
          AND m.status IN ('proposed', 'matched')
        GROUP BY m.id, m.request_id, m.status, m.created_at, m.admin_proposed, m.requester_done_at,
                 m.responder_done_at, hr.requester_id, m.responder_id, hr.title,
@@ -1060,7 +1060,7 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
        JOIN auth.users provider ON o.provider_user_id = provider.id
        LEFT JOIN requests.request_communities rc ON hr.id = rc.request_id
        LEFT JOIN communities.communities c ON rc.community_id = c.id
-       WHERE ${notDirectedSql('hr')} AND hr.requester_id = $1 AND o.status = 'pending'
+       WHERE hr.requester_id = $1 AND o.status = 'pending'
        GROUP BY o.id, o.request_id, o.created_at, hr.title, hr.description, hr.payload, hr.category, provider.name`,
       [userId]
     );
@@ -1103,7 +1103,7 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
        JOIN auth.users responder ON m.responder_id = responder.id
        LEFT JOIN requests.request_communities rc ON hr.id = rc.request_id
        LEFT JOIN communities.communities c ON rc.community_id = c.id
-       WHERE ${notDirectedSql('hr')} AND (hr.requester_id = $1 OR m.responder_id = $1)
+       WHERE ${matchParticipantSql('hr', 'm', '$1')}
          AND m.status = 'completed'
          AND NOT EXISTS (
            SELECT 1 FROM feedback.feedback f
@@ -1201,8 +1201,7 @@ function mapOfferedAwaitingRow(row: any): OfferedAwaitingItem {
 async function fetchProposedResponderAsks(
   userId: string,
   adminProposed: boolean,
-  previewLimit: number,
-  privateAccess = false
+  previewLimit: number
 ): Promise<{ count: number; items: OfferedAwaitingItem[] }> {
   try {
     const [countResult, itemResult] = await Promise.all([
@@ -1210,7 +1209,7 @@ async function fetchProposedResponderAsks(
         `SELECT COUNT(DISTINCT m.request_id)::int AS n
            FROM requests.matches m
            JOIN requests.help_requests hr ON hr.id = m.request_id
-          WHERE ${privateAccess ? directedAudienceSql('hr', '$1') : notDirectedSql('hr')} AND m.responder_id = $1 AND m.status = 'proposed'
+          WHERE ${notDirectedSql('hr')} AND m.responder_id = $1 AND m.status = 'proposed'
             AND m.admin_proposed = $2
             AND hr.status = 'open' AND hr.expired = FALSE`,
         [userId, adminProposed]
@@ -1232,7 +1231,7 @@ async function fetchProposedResponderAsks(
            FROM requests.matches m
            JOIN requests.help_requests hr ON hr.id = m.request_id
            LEFT JOIN auth.users u ON u.id = hr.requester_id
-          WHERE ${privateAccess ? directedAudienceSql('hr', '$1') : notDirectedSql('hr')} AND m.responder_id = $1 AND m.status = 'proposed'
+          WHERE ${notDirectedSql('hr')} AND m.responder_id = $1 AND m.status = 'proposed'
             AND m.admin_proposed = $2
             AND hr.status = 'open' AND hr.expired = FALSE
           ORDER BY m.request_id, m.created_at DESC
@@ -1250,8 +1249,8 @@ async function fetchProposedResponderAsks(
 }
 
 /** Self-offers awaiting the requester's response (admin_proposed = FALSE). */
-function fetchOfferedAwaiting(userId: string, previewLimit = 3, privateAccess = false) {
-  return fetchProposedResponderAsks(userId, false, previewLimit, privateAccess);
+function fetchOfferedAwaiting(userId: string, previewLimit = 3) {
+  return fetchProposedResponderAsks(userId, false, previewLimit);
 }
 
 /**
@@ -1602,7 +1601,7 @@ router.get('/offered-awaiting', async (req: Request, res: Response) => {
     return;
   }
 
-  const offeredAwaiting = await fetchOfferedAwaiting(userId, 50, true);
+  const offeredAwaiting = await fetchOfferedAwaiting(userId, 50);
   sendSuccess(res, offeredAwaiting, HTTP_STATUS.OK, meta);
 });
 
@@ -1643,7 +1642,7 @@ router.get('/retention-policy', async (req: Request, res: Response) => {
          COUNT(*) FILTER (WHERE r.content_forgotten_at IS NOT NULL) AS forgotten
        FROM requests.help_requests r
        ${communityId ? 'JOIN requests.request_communities rc ON rc.request_id = r.id AND rc.community_id = $2' : ''}
-       WHERE ${directedAudienceSql('r', '$1')} AND r.requester_id = $1`,
+       WHERE r.requester_id = $1`,
       communityId ? [userId, communityId] : [userId]
     );
     const row = countsResult.rows[0] ?? { held: 0, forgotten: 0 };

@@ -44,12 +44,15 @@ export type ItemPatch = Partial<
 
 // A read viewer learns only the shares they themselves belong to. Managers can see the full
 // configured set, including withdrawn shares, to remove it or restore it after rejoining.
+// Other viewers get only shares with a currently active owner as well as their own membership.
 function sharedWithSql(alias: string, viewerParam: string): string {
   return `COALESCE((SELECT jsonb_agg(jsonb_build_object('id', c.id, 'name', c.name) ORDER BY c.name, c.id)
     FROM inventory.item_shares s JOIN communities.communities c ON c.id = s.community_id
     WHERE s.item_id = ${alias}.id AND (${itemManagerSql(alias, viewerParam)} OR EXISTS (
       SELECT 1 FROM communities.members sm WHERE sm.community_id = s.community_id
-        AND sm.user_id = ${viewerParam} AND sm.status = 'active'))), '[]'::jsonb)`;
+        AND sm.user_id = ${viewerParam} AND sm.status = 'active' AND EXISTS (
+          SELECT 1 FROM communities.members share_owner WHERE share_owner.community_id = s.community_id
+            AND share_owner.user_id = ${alias}.owner_user_id AND share_owner.status = 'active')))), '[]'::jsonb)`;
 }
 
 export async function isActiveAdmin(communityId: string, userId: string): Promise<boolean> {
@@ -271,6 +274,12 @@ export async function createBorrow(itemId: string, requesterId: string, input: B
       WHERE community_id=$1 AND status='active' AND role='admin' ORDER BY user_id FOR SHARE`, [item.owner_community_id]) : null;
     const recipients = item.owner_user_id ? [item.owner_user_id] : admins!.rows.map((m: any) => m.user_id).filter((id: string) => id !== requesterId);
     if (!recipients.length) throw new InventoryError(400, 'NO_RECIPIENT', 'No other active admin can receive this ask');
+    // Item lock serializes duplicate submissions. Retain the original ask's terms/attribution.
+    const existing = await q(`SELECT r.* FROM requests.help_requests r
+      WHERE r.inventory_item_id=$1 AND r.requester_id=$2 AND r.is_directed
+        AND r.status='open' AND r.expired=FALSE AND r.expires_at>NOW()
+      ORDER BY r.created_at DESC LIMIT 1`, [itemId, requesterId]);
+    if (existing.rows.length) return { ask: existing.rows[0], event: null };
     const settings = await q('SELECT request_ttl_days FROM communities.settings WHERE community_id=$1', [input.community_id]);
     const ttl = settings.rows[0]?.request_ttl_days ?? 60;
     const title = `Ask to borrow ${item.name}`;
@@ -287,15 +296,21 @@ export async function createBorrow(itemId: string, requesterId: string, input: B
         JSON.stringify(payload), item.owner_user_id, item.owner_community_id, itemId, ttl]);
     const ask = result.rows[0];
     await q('INSERT INTO requests.request_communities (request_id,community_id) VALUES ($1,$2)', [ask.id, input.community_id]);
-    return { ask, event: { request_id: ask.id, requester_id: requesterId, recipient_user_ids: recipients, title, inventory_item_id: itemId } };
+    const event = { request_id: ask.id, requester_id: requesterId, recipient_user_ids: recipients, title, inventory_item_id: itemId };
+    await q('INSERT INTO inventory.borrow_notification_outbox (request_id,payload) VALUES ($1,$2)', [ask.id, JSON.stringify(event)]);
+    return { ask, event };
   });
+}
+
+export async function markDirectedNotificationPublished(requestId: string) {
+  await query('UPDATE inventory.borrow_notification_outbox SET published_at=NOW() WHERE request_id=$1 AND published_at IS NULL', [requestId]);
 }
 
 export async function listIncomingAsks(viewerId: string) {
   const result = await query(`SELECT r.id,r.title,r.description,r.requester_id,r.payload,r.inventory_item_id,r.created_at,
     u.name AS requester_name FROM requests.help_requests r
     JOIN auth.users u ON u.id=r.requester_id
-    WHERE r.is_directed AND ${directedAudienceSql('r', '$1')} AND r.requester_id <> $1
+    WHERE r.is_directed AND ${directedAudienceSql('r', '$1', false)} AND r.requester_id <> $1
       AND r.status = 'open' AND r.expired = FALSE AND r.expires_at > NOW()
       AND NOT EXISTS (SELECT 1 FROM requests.matches incoming_match
         WHERE incoming_match.request_id=r.id AND incoming_match.responder_id = $1

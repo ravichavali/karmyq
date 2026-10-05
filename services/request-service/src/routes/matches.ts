@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { query, withTransaction } from '../database/db';
 import { getRequestReachability } from '../db/eligibility';
-import { directedAudienceSql } from '../db/directedAudience';
+import { matchParticipantSql } from '../db/directedAudience';
 import { publishEvent } from '../events/publisher';
 import {
   sendSuccess,
@@ -16,7 +16,6 @@ const router = Router();
 // requester or the responder, which is the same definition the accept/reject/complete/delete handlers
 // use. Always bound to the JWT caller, never a client-supplied id. Services connect as the table owner,
 // so the RLS policy on requests.matches does not enforce this.
-const PARTICIPANT_PREDICATE = (p: string) => `(r.requester_id = ${p} OR m.responder_id = ${p})`;
 
 // GET /matches - The caller's matches (request_id / offer_id / status narrow further)
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
@@ -43,7 +42,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       LEFT JOIN auth.users req_user ON r.requester_id = req_user.id
       LEFT JOIN auth.users help_user ON o.offerer_id = help_user.id
       LEFT JOIN auth.users resp_user ON m.responder_id = resp_user.id
-      WHERE ${PARTICIPANT_PREDICATE('$1')} AND ${directedAudienceSql('r', '$1')}
+      WHERE ${matchParticipantSql('r', 'm', '$1')}
     `;
 
     const params: any[] = [callerId];
@@ -106,7 +105,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       LEFT JOIN requests.help_offers o ON m.offer_id = o.id
       LEFT JOIN auth.users req_user ON r.requester_id = req_user.id
       LEFT JOIN auth.users help_user ON o.offerer_id = help_user.id
-      WHERE m.id = $1 AND ${PARTICIPANT_PREDICATE('$2')} AND ${directedAudienceSql('r', '$2')}`,
+      WHERE m.id = $1 AND ${matchParticipantSql('r', 'm', '$2')}`,
       [id, callerId]
     );
 
@@ -295,7 +294,7 @@ router.put('/:id/accept', async (req: AuthenticatedRequest, res: Response) => {
         r.requester_id
       FROM requests.matches m
       LEFT JOIN requests.help_requests r ON m.request_id = r.id
-      WHERE m.id = $1 AND ${directedAudienceSql('r', '$2')}`,
+      WHERE m.id = $1 AND ${matchParticipantSql('r', 'm', '$2')}`,
       [id, user_id]
     );
 
@@ -401,7 +400,7 @@ router.put('/:id/accept', async (req: AuthenticatedRequest, res: Response) => {
         `SELECT m.*, r.request_type, r.payload, r.title as request_title
          FROM requests.matches m
          JOIN requests.help_requests r ON m.request_id = r.id
-         WHERE m.id = $1 AND ${directedAudienceSql('r', '$2')}`,
+         WHERE m.id = $1 AND ${matchParticipantSql('r', 'm', '$2')}`,
       [id, user_id]
       );
       return { enriched };
@@ -455,7 +454,7 @@ router.put('/:id/reject', async (req: AuthenticatedRequest, res: Response) => {
         r.requester_id
       FROM requests.matches m
       LEFT JOIN requests.help_requests r ON m.request_id = r.id
-      WHERE m.id = $1 AND ${directedAudienceSql('r', '$2')}`,
+      WHERE m.id = $1 AND ${matchParticipantSql('r', 'm', '$2')}`,
       [id, user_id]
     );
 
@@ -576,7 +575,7 @@ router.put('/:id/complete', async (req: AuthenticatedRequest, res: Response) => 
       FROM requests.matches m
       LEFT JOIN requests.help_requests r ON m.request_id = r.id
       LEFT JOIN requests.help_offers o ON m.offer_id = o.id
-      WHERE m.id = $1 AND ${directedAudienceSql('r', '$2')}`,
+      WHERE m.id = $1 AND ${matchParticipantSql('r', 'm', '$2')}`,
       [id, user_id]
     );
 
@@ -715,7 +714,7 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
       FROM requests.matches m
       LEFT JOIN requests.help_requests r ON m.request_id = r.id
       LEFT JOIN requests.help_offers o ON m.offer_id = o.id
-      WHERE m.id = $1 AND ${directedAudienceSql('r', '$2')}`,
+      WHERE m.id = $1 AND ${matchParticipantSql('r', 'm', '$2')}`,
       [id, user_id]
     );
 

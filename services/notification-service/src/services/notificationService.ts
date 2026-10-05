@@ -37,12 +37,16 @@ export async function createNotification(params: CreateNotificationParams) {
 
   // Generate notification from template
   const notification = generateNotification(type, data);
+  const conflict = type === 'directed_request_created'
+    ? "ON CONFLICT (user_id, (data->>'request_id')) WHERE type = 'directed_request_created' DO NOTHING"
+    : '';
 
   // Insert into database
   const result = await query(
     `INSERT INTO notifications.notifications
      (user_id, type, title, body, data, action_url)
      VALUES ($1, $2, $3, $4, $5, $6)
+     ${conflict}
      RETURNING *`,
     [
       user_id,
@@ -55,6 +59,7 @@ export async function createNotification(params: CreateNotificationParams) {
   );
 
   const createdNotification = result.rows[0];
+  if (!createdNotification) return null;
 
   // Emit real-time event for SSE
   notificationEmitter.emit('notification', {

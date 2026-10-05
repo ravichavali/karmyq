@@ -1,5 +1,5 @@
 import path from 'path';
-import { ALLOWLIST, scanFile, scanServices, unguarded } from '../helpers/directedSurfaceScan';
+import { ALLOWLIST, scanFile, scanServices, surfaceHash, unguarded } from '../helpers/directedSurfaceScan';
 it('reports exact new unguarded file, including a second query in a file that already has a guard', () => {
   const source = 'const safe = `SELECT r.id FROM requests.help_requests r WHERE ${notDirectedSql("r")}`; const unsafe = `SELECT r.title FROM requests.help_requests r WHERE r.status=\'open\'`;';
   expect(unguarded(scanFile('services/example/src/list.ts', source)).map((h) => h.file)).toEqual(['services/example/src/list.ts']);
@@ -14,6 +14,6 @@ it('classifies every SQL literal from the live, untruncated service tree', () =>
   expect(unguarded(hits).map(({ file, line }) => `${file}:${line}`)).toEqual([]);
   for (const a of ALLOWLIST) {
     expect(a.reason.trim()).not.toBe('');
-    expect(hits.some((h) => h.file === a.file && h.sql.includes(a.needle))).toBe(true);
+    expect(hits.some((h) => h.file === a.file && surfaceHash(h.sql) === a.hash)).toBe(true);
   }
 });

@@ -21,13 +21,18 @@ Authorization follows current membership, so an old login token cannot preserve 
 ## Directed requests
 
 An **Ask to borrow** on an item creates a private request addressed to the owner, or to the
-owning community's current active admins. Only the requester and those recipients can read it.
-It never appears in feeds, community open asks, pulse or exports, even for its own participants.
+owning community's current active admins. Only the requester, current recipients and existing
+match participants can read it. It never appears in browse lists, community open asks, pulse or exports.
+Participants keep their private mark-done and feedback action items.
 The recipient's **Asked of you** inbox makes the request actionable before an offer exists.
 
 Deleting a recipient or community never turns the request public. It stays private, and only
-the requester retains access when the target disappears. An admin who leaves or loses their
-role loses access to community-targeted requests immediately.
+the requester and existing match participants retain their own exchange history when the target
+disappears. An admin who loses their role loses access to new community asks immediately; being
+demoted does not prevent them finishing an exchange they already joined.
+
+Sending again reuses your existing open ask for that item, with its original terms. A temporary
+notification outage does not discard a saved ask; delivery retries without repeating notifications.
 
 Borrowing uses normal acceptance, messaging, completion and karma. The catalog does not reserve
 items, track physical loans or returns, add photos, or change skill-based matching.

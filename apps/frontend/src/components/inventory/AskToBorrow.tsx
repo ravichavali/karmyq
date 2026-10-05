@@ -17,6 +17,11 @@ export default function AskToBorrow({ item, communityId }: { item: InventoryItem
   useEffect(() => {
     try { setViewer(JSON.parse(localStorage.getItem('user') ?? '{}').id ?? ''); } catch { setViewer(''); }
   }, []);
+  useEffect(() => {
+    const next = communityId ? (choices.some(c => c.id === communityId) ? communityId : '')
+      : choices.some(c => c.id === chosen) ? chosen : choices[0]?.id ?? '';
+    if (next !== chosen) setChosen(next);
+  }, [communityId, choices, chosen]);
   if (!viewer || item.owner_user_id === viewer || item.status !== 'available' || !chosen) return null;
   async function send(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setError('');
@@ -27,7 +32,11 @@ export default function AskToBorrow({ item, communityId }: { item: InventoryItem
         ...(returnDate ? { return_date: new Date(`${returnDate}T00:00:00Z`).toISOString() } : {}),
       });
       await router.push(`/requests/${res.data.id}`);
-    } catch { setError('Could not send your private ask. Please try again.'); }
+    } catch (error: any) {
+      setError(error.response?.status === 404
+        ? `Sharing access changed. Refresh this item${choices.length > 1 ? ' or choose another community' : ''}.`
+        : 'Could not send your private ask. Please try again.');
+    }
     finally { setBusy(false); }
   }
   if (!open) return <button className="btn-primary" onClick={() => setOpen(true)}>Ask to borrow</button>;

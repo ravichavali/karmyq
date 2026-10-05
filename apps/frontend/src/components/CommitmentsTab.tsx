@@ -557,7 +557,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
             <h3 className="text-sm font-semibold text-text">Offers awaiting requester</h3>
             <p className="text-sm text-text-muted mt-1">Waiting for the requester to respond.</p>
             <ul className="mt-3 divide-y divide-border">
-              {offeredAwaiting.items.filter(item => !helping.some(m => m.is_directed && m.id === item.match_id)).map((item) => (
+              {offeredAwaiting.items.map((item) => (
                 <li key={item.match_id}>
                   <Link
                     href={`/requests/${item.request_id}`}

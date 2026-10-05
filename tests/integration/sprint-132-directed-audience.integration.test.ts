@@ -3,6 +3,9 @@ import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { createPool, ServiceUrls } from '../fixtures';
+import Queue from 'bull';
+import { FeedComposer } from '../../services/request-service/src/services/feed/feedComposer';
+import requestPool from '../../services/request-service/src/database/db';
 describe('Sprint 132 PR C directed borrow audience', () => {
   const pool = createPool();
   const R = randomUUID(), O = randomUUID(), M = randomUUID(), A = randomUUID();
@@ -12,6 +15,7 @@ describe('Sprint 132 PR C directed borrow audience', () => {
   const api = (id: string, method: 'get' | 'post' | 'put' | 'patch' | 'delete', url: string) => request(ServiceUrls.REQUEST)[method](url)
     .set('Authorization', `Bearer ${jwt.sign({ userId: id, email: `${id}@karmyq.test`, communities: claims.map(c => ({ ...c, role: id === A ? 'admin' : c.role })) }, process.env.JWT_SECRET || 'dev-secret-key')}`);
   let item: string, ask: string;
+  const directedQueue = new Queue('karmyq-directed-notifications', process.env.REDIS_URL || 'redis://localhost:6380');
   const borrow = (id: string, selected = C) => api(R, 'post', `/requests/inventory/items/${id}/borrow`).send({ community_id: selected, duration_days: 3, description: 'Private painting job' });
   beforeAll(async () => {
     await pool.query('SELECT 1'); expect((await request(ServiceUrls.REQUEST).get('/health')).status).toBe(200);
@@ -39,7 +43,7 @@ describe('Sprint 132 PR C directed borrow audience', () => {
       await pool.query('DELETE FROM reputation.trust_scores WHERE user_id=ANY($1::uuid[]) AND community_id=ANY($2::uuid[])', [users, [C, OTHER]]);
       await pool.query('DELETE FROM communities.communities WHERE id=ANY($1::uuid[])', [[C, OTHER]]);
       await pool.query('DELETE FROM auth.users WHERE id=ANY($1::uuid[])', [users]);
-    } finally { await pool.end(); }
+    } finally { await directedQueue.close(); await requestPool.end(); await pool.end(); }
   });
   const ownIds = async (userId: string, suffix = '') => (await api(userId, 'get', `/requests${suffix}`)).body.data.requests.map((r: any) => r.id);
   const incomingIds = async (userId: string) => {
@@ -50,6 +54,83 @@ describe('Sprint 132 PR C directed borrow audience', () => {
     const row = (await pool.query('SELECT * FROM requests.help_requests WHERE id=$1', [ask])).rows[0];
     expect(row).toMatchObject({ is_directed: true, directed_to_user_id: O, directed_to_community_id: null, inventory_item_id: item, request_type: 'borrow', category: 'borrow', payload: { item_category: 'tools', duration_days: 3, condition_min: 'good' } });
     expect((await pool.query('SELECT community_id FROM requests.request_communities WHERE request_id=$1', [ask])).rows.map((r) => r.community_id)).toEqual([C]);
+    const outbox = (await pool.query('SELECT payload FROM inventory.borrow_notification_outbox WHERE request_id=$1', [ask])).rows[0];
+    expect(outbox.payload).toMatchObject({ request_id: ask, requester_id: R, recipient_user_ids: [O], inventory_item_id: item });
+  });
+  it('reuses one open ask on a resend, retaining its original terms and attribution', async () => {
+    const again = await borrow(item); expect(again.status).toBe(201); expect(again.body.data.id).toBe(ask);
+    expect((await pool.query('SELECT id FROM requests.help_requests WHERE requester_id=$1 AND inventory_item_id=$2', [R, item])).rows.map(r => r.id)).toEqual([ask]);
+    expect((await pool.query('SELECT request_id FROM inventory.borrow_notification_outbox WHERE request_id=$1', [ask])).rows).toHaveLength(1);
+  });
+  it('retains new-member stats in communities with only private asks', async () => {
+    const items = await (new FeedComposer() as any).getCommunityActivityItems(R, 10, {}, new Set());
+    const activity = items.find((i: any) => i.data.community_id === C).data;
+    expect(activity.new_members_count).toBe(4);
+    expect(activity.exchanges_completed_week).toBe(0); expect(activity.open_requests_count).toBe(0);
+    expect(activity.recent_helpers).toEqual([]);
+  });
+  it.each(['completed', 'cancelled'])('conceals a %s private ask identically to an absent ID when offering', async status => {
+    await pool.query('UPDATE requests.help_requests SET status=$1 WHERE id=$2', [status, ask]);
+    const absent = await api(M, 'post', '/matches').send({ request_id: randomUUID() });
+    const concealed = await api(M, 'post', '/matches').send({ request_id: ask });
+    expect(concealed.status).toBe(404); expect(concealed.body).toEqual(absent.body);
+  });
+  it('shows mark-done and pending-feedback decisions to both private match participants', async () => {
+    const offer = await api(O, 'post', '/matches').send({ request_id: ask }); expect(offer.status).toBe(201); const matchId = offer.body.data.id;
+    expect((await api(R, 'put', `/matches/${matchId}/accept`).send({})).status).toBe(200);
+    const actions = async (id: string) => {
+      const res = await api(id, 'get', '/requests/curated'); expect(res.status).toBe(200);
+      return res.body.data.items.filter((i: any) => i.kind === 'decision' && i.data.subject_id === matchId).flatMap((i: any) => i.data.actions);
+    };
+    for (const id of [R, O]) expect(await actions(id)).toContain('mark_done');
+    expect(await actions(M)).toEqual([]);
+    // A completed fixture isolates feedback prompts from the later canonical karma test.
+    await pool.query("UPDATE requests.matches SET status='completed',completed_at=NOW(),requester_done_at=NOW(),responder_done_at=NOW() WHERE id=$1", [matchId]);
+    for (const id of [R, O]) expect(await actions(id)).toContain('rate');
+    expect(await actions(M)).toEqual([]);
+  });
+  it('delivers only to the explicit recipient and absorbs a duplicate queue job', async () => {
+    const payload = (await pool.query('SELECT payload FROM inventory.borrow_notification_outbox WHERE request_id=$1', [ask])).rows[0].payload;
+    const duplicate = await directedQueue.add('directed_request_created', { payload }, { jobId: `review-repeat-${ask}` });
+    await duplicate.finished();
+    let delivered = false;
+    for (let retry = 0; retry < 40; retry++) {
+      delivered = Boolean((await pool.query('SELECT delivered_at FROM inventory.borrow_notification_outbox WHERE request_id=$1', [ask])).rows[0]?.delivered_at);
+      if (delivered) break; await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    expect(delivered).toBe(true);
+    expect((await pool.query("SELECT user_id FROM notifications.notifications WHERE type='directed_request_created' AND data->>'request_id'=$1", [ask])).rows.map(r => r.user_id)).toEqual([O]);
+  });
+  it('exposes only live-owner shares as borrow choices while managers retain the configured set', async () => {
+    await pool.query("INSERT INTO communities.members(user_id,community_id,role,status) VALUES ($1,$2,'member','active')", [O, OTHER]);
+    expect((await api(O, 'put', `/requests/inventory/items/${item}/shares`).send({ community_ids: [C, OTHER] })).status).toBe(200);
+    await pool.query("UPDATE communities.members SET status='left' WHERE user_id=$1 AND community_id=$2", [O, C]);
+    expect((await api(R, 'get', `/requests/inventory/items/${item}`)).body.data.shared_with.map((c: any) => c.id)).toEqual([OTHER]);
+    expect((await api(O, 'get', `/requests/inventory/items/${item}`)).body.data.shared_with.map((c: any) => c.id).sort()).toEqual([C, OTHER].sort());
+  });
+  it('resolves admins at delivery after a queued ask outlives demotion', async () => {
+    await directedQueue.pause();
+    let delayed: string;
+    try {
+      const created = await api(A, 'post', '/requests/inventory/items').send({ name: 'Tent', category: 'camping', owner_community_id: C });
+      expect(created.status).toBe(201);
+      const res = await borrow(created.body.data.id); expect(res.status).toBe(201); delayed = res.body.data.id;
+      await pool.query("UPDATE communities.members SET role=CASE WHEN user_id=$1 THEN 'member' WHEN user_id=$2 THEN 'admin' ELSE role END WHERE community_id=$3", [A, M, C]);
+    } finally { await directedQueue.resume(); }
+    const queued = await directedQueue.getJob(`directed-${delayed!}`); expect(queued).not.toBeNull(); await queued!.finished();
+    expect((await pool.query("SELECT user_id FROM notifications.notifications WHERE type='directed_request_created' AND data->>'request_id'=$1", [delayed!])).rows.map(r => r.user_id)).toEqual([M]);
+  });
+  it('finishes a queued deleted-request job without delivering its stale content', async () => {
+    await directedQueue.pause();
+    let deleted: string;
+    try {
+      const created = await api(O, 'post', '/requests/inventory/items').send({ name: 'Drill', category: 'tools' }); expect(created.status).toBe(201);
+      expect((await api(O, 'put', `/requests/inventory/items/${created.body.data.id}/shares`).send({ community_ids: [C] })).status).toBe(200);
+      const res = await borrow(created.body.data.id); expect(res.status).toBe(201); deleted = res.body.data.id;
+      await pool.query('DELETE FROM requests.help_requests WHERE id=$1', [deleted]);
+    } finally { await directedQueue.resume(); }
+    const queued = await directedQueue.getJob(`directed-${deleted!}`); expect(queued).not.toBeNull(); await queued!.finished();
+    expect((await pool.query("SELECT id FROM notifications.notifications WHERE type='directed_request_created' AND data->>'request_id'=$1", [deleted!])).rows).toEqual([]);
   });
   it.each(['feed', 'curated', `community/${C}/open-asks`, 'matched/for-user'])('excludes ask from %s for requester, recipient and third member', async (surface) => {
     for (const userId of [R, O, M]) {
@@ -81,10 +162,11 @@ describe('Sprint 132 PR C directed borrow audience', () => {
   it('returns incoming only to O, then moves it to O\'s participant matches after offering', async () => {
     expect(await incomingIds(O)).toEqual([ask]); expect(await incomingIds(R)).toEqual([]); expect(await incomingIds(M)).toEqual([]);
     const rejected = await api(M, 'post', '/matches').send({ request_id: ask });
-    expect(rejected.status).toBe(403); expect(rejected.body.error).toBe('NOT_IN_AUDIENCE');
+    expect(rejected.status).toBe(404); expect(rejected.body.message).toBe('Request not found');
     const offer = await api(O, 'post', '/matches').send({ request_id: ask }); expect(offer.status).toBe(201);
     const matchId = offer.body.data.id;
     expect(await incomingIds(O)).toEqual([]);
+    expect((await api(O, 'get', '/requests/offered-awaiting')).body.data).toEqual({ count: 0, items: [] });
     expect((await api(O, 'get', '/matches')).body.data.matches.map((m: any) => m.id)).toEqual([matchId]);
     expect((await api(M, 'get', `/matches?user_id=${O}`)).body.data.matches.map((m: any) => m.id)).toEqual([]);
     expect((await api(M, 'get', `/matches/${matchId}`)).status).toBe(404);
@@ -111,6 +193,28 @@ describe('Sprint 132 PR C directed borrow audience', () => {
     expect((await borrow(item, OTHER)).status).toBe(404);
     await pool.query("UPDATE communities.members SET status='left' WHERE user_id=$1 AND community_id=$2", [O, C]);
     expect((await borrow(item)).status).toBe(404);
+  });
+  it('keeps a demoted admin in their existing match while concealing new community asks', async () => {
+    const create = () => api(A, 'post', '/requests/inventory/items').send({ name: 'Tent', category: 'camping', owner_community_id: C });
+    const owned = await create(); expect(owned.status).toBe(201);
+    const communal = await borrow(owned.body.data.id); expect(communal.status).toBe(201);
+    const offered = await api(A, 'post', '/matches').send({ request_id: communal.body.data.id }); expect(offered.status).toBe(201); const matchId = offered.body.data.id;
+    expect((await api(R, 'put', `/matches/${matchId}/accept`).send({})).status).toBe(200);
+    const nextItem = await create(); const nextAsk = await borrow(nextItem.body.data.id); expect(nextAsk.status).toBe(201);
+    await pool.query("UPDATE communities.members SET role='member' WHERE user_id=$1 AND community_id=$2", [A, C]);
+    expect((await api(A, 'get', '/matches')).body.data.matches.map((m: any) => m.id)).toContain(matchId);
+    expect((await api(A, 'get', `/matches/${matchId}`)).status).toBe(200);
+    expect((await api(A, 'get', `/requests/${communal.body.data.id}`)).status).toBe(200);
+    expect((await api(A, 'post', '/matches').send({ request_id: nextAsk.body.data.id })).status).toBe(404);
+    expect((await api(A, 'put', `/matches/${matchId}/complete`).send({})).status).toBe(200);
+    expect((await api(R, 'put', `/matches/${matchId}/complete`).send({})).body.data.fully_completed).toBe(true);
+    // Drain this fixture's asynchronous projection before subsequent test cleanup deletes its match.
+    let projected = 0;
+    for (let retry = 0; retry < 40; retry++) {
+      projected = (await pool.query('SELECT id FROM reputation.karma_records WHERE related_entity_id=$1', [matchId])).rows.length;
+      if (projected >= 3) break; await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    expect(projected).toBeGreaterThanOrEqual(3);
   });
   it('rolls back the directed row when its attribution junction fails', async () => {
     const before = (await pool.query('SELECT id FROM requests.help_requests WHERE requester_id=$1 ORDER BY id', [R])).rows;

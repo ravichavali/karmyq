@@ -60,7 +60,8 @@ Leaving withdraws access without deleting the share; rejoining restores it.
 An item-specific borrow ask creates an ordinary help request with `is_directed=true`, a user
 or community target, and the item reference. The private audience is the requester plus the
 target owner or the target community's active admins. Existing offer, message, completion and
-karma flows are reused.
+karma flows are reused. A responder who already joined a match retains their private exchange
+history and actions after admin demotion or target deletion; current recipients still gate new offers.
 
 Two shared predicates have distinct jobs:
 
@@ -144,21 +145,43 @@ not a claim that those later PRs have shipped.
 
 Borrow creation locks the item and relevant live membership rows, validates the selected
 community's audience, and writes one directed borrow row and one attribution junction in a
-transaction. It publishes only `directed_request_created` after commit, carrying explicit
-recipient ids. Notification-service uses exactly those recipients, with an in-app template;
-it does not perform a membership fan-out. Community recipient access remains live admin-only.
+transaction. It reuses a caller's existing open ask for the item on a resend, preserving the original
+terms and attribution. The same transaction writes `inventory.borrow_notification_outbox` with
+the explicit event recipients. After commit, it publishes only `directed_request_created` to
+**`karmyq-directed-notifications`**, consumed solely by notification-service. A failed publish returns
+the committed ask's ID (201); the durable relay retries it. Acknowledged but unconfirmed deliveries
+are checked again after five minutes; exhausted failed jobs are retried with the same stable job ID.
+Delivery re-resolves canonical request content and the current personal target or active admins,
+ignoring the saved recipient/content snapshot. Deleted requests and recipients cannot receive a
+queued private title. The subscriber stamps delivered_at after processing every current recipient. Its partial
+unique index on (user_id, data.request_id) prevents duplicate notifications/SSE across retries.
+No membership fan-out occurs, and unrelated consumers cannot steal these jobs. Existing shared
+event routing is unchanged. Curated reset classifies the outbox as reset; hard request deletion
+cascades its intent. Preferences that disable in-app delivery count as handled.
 
-Browse reads use `notDirectedSql`; detail, own-request lists, incoming asks, provider-owned
-offers and participant match reads use `directedAudienceSql`. Own-request access requires
+Browse reads use `notDirectedSql`; detail/own-request lists use `directedAudienceSql`, with existing
+responders retaining history. Incoming asks and new-offer eligibility use current recipients only.
+Match reads/mutations and action items use `matchParticipantSql`. Existing owner-only provider-offer
+history and retention counts need no redundant audience filter. Own-request access requires
 the requester filter to equal the JWT caller. Community triage, boost, dibs and match proposals
 cannot act on directed rows. Relationship-context endpoints return no context for directed
 asks because the shared topology contract has no directed tier; shared packages stay unchanged.
 
 Community stats/export request and match lists **and their counts**, feed pulse counts and
 named recent helpers exclude directed exchanges. Internal karma, standing, badges, retention
-and graph projections still include them. Existing cohort-gated reputation health aggregates
-remain non-identifying and unchanged. The SQL surface gate records every literal's guard or
-a specific non-listing allowlist reason; execution notes carry the full file:line inventory.
+and graph projections still include them. Private match participants receive mark-done and rating
+decisions. The offered-awaiting preview and its count exclude directed asks; private proposed
+matches render once in Helping commitments. Nullable activity joins put the exclusion in ON and
+use the canonical request_communities junction, retaining member stats with no public requests.
+Non-manager item share metadata omits communities the owner has left; refreshed metadata updates
+the borrow form's choice, and a stale-access 404 explains recovery.
+Existing cohort-gated reputation health aggregates remain unchanged. The SQL surface gate checks
+WHERE guard placement per query block and alias, rejects unconstrained OR/marker-only guards and
+unparenthesized dynamic predicate fragments, and matches
+reviewed exceptions by exact SQL SHA256, never by substring. It remains conservative static coverage,
+not a general SQL authorization proof; ON semantics need exact reviewed exceptions and runtime
+tests remain authoritative. Execution notes carry
+the full file:line inventory.
 
 **Rollout and rollback:** the additive migration is compatible with earlier binaries, but
 earlier binaries have no directed privacy guards (`services/request-service/src/services/feed/basicFeedRanker.ts:171`).

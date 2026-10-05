@@ -52,6 +52,7 @@ it('targets live admins for community property and excludes the requester from r
     if (sql.includes('FROM inventory.items')) return { rows: [{ ...item, owner_user_id: null, owner_community_id: C }], rowCount: 1 };
     if (sql.includes('INSERT INTO requests.help_requests')) return { rows: [{ id: ASK }], rowCount: 1 };
     if (sql.includes("role='admin'") || sql.includes("role = 'admin'")) return { rows: [{ user_id: O }, { user_id: R }], rowCount: 2 };
+    if (sql.includes('FROM requests.help_requests')) return { rows: [], rowCount: 0 };
     return { rows: [{ user_id: R }, { user_id: O }], rowCount: 2 };
   });
   expect((await request(app()).post(`/requests/inventory/items/${I}/borrow`).send(body)).status).toBe(201);
@@ -86,6 +87,7 @@ it('does not publish on transaction failure', async () => {
     if (sql.includes('FROM inventory.items')) return { rows: [item], rowCount: 1 };
     if (sql.includes('INSERT INTO requests.request_communities')) throw new Error('injected attribution failure');
     if (sql.includes('INSERT INTO requests.help_requests')) return { rows: [{ id: ASK }], rowCount: 1 };
+    if (sql.includes('FROM requests.help_requests')) return { rows: [], rowCount: 0 };
     return { rows: [{ user_id: R }, { user_id: O }], rowCount: 2 };
   });
   expect((await request(app()).post(`/requests/inventory/items/${I}/borrow`).send(body)).status).toBe(500);
@@ -102,10 +104,10 @@ it.each([
   const result = await getRequestReachability(ASK, R);
   expect(result.reachable).toBe(reachable); expect(result.reachability).toBe(tier);
 });
-it('uses NOT_IN_AUDIENCE for an unrelated directed offer', async () => {
+it('conceals an unrelated directed offer as not found', async () => {
   mockQuery.mockResolvedValue({ rows: [{ is_directed: true, in_directed_audience: false, requester_id: O, status: 'open', expired: false, visibility_scope: 'platform' }], rowCount: 1 });
   const res = await request(app()).post('/matches').send({ request_id: ASK });
-  expect(res.status).toBe(403); expect(res.body.error).toBe('NOT_IN_AUDIENCE');
+  expect(res.status).toBe(404); expect(res.body.message).toBe('Request not found');
 });
 it.each([undefined, O])('browse excludes directed when requester filter is %s', (requester_id) => {
   expect(buildRequestsQuery({ requester_id, viewer_id: R }).queryText).toContain('/* not-directed */ NOT r.is_directed');

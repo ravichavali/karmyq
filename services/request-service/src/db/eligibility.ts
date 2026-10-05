@@ -39,7 +39,7 @@ export async function getRequestReachability(requestId: string, userId: string |
   const result = await query(
     `SELECT
        r.requester_id, r.status, r.expired, r.visibility_scope, r.is_directed,
-       ${directedAudienceSql('r', '$2')} AS in_directed_audience,
+       ${directedAudienceSql('r', '$2', false)} AS in_directed_audience,
        -- Tier 1: viewer is an active member of one of the request's communities (community scope).
        EXISTS (
          SELECT 1 FROM requests.request_communities rc
@@ -66,7 +66,8 @@ export async function getRequestReachability(requestId: string, userId: string |
     [requestId, userId]
   );
 
-  if (result.rowCount === 0) {
+  if (result.rowCount === 0 || (result.rows[0]?.is_directed === true
+    && result.rows[0].in_directed_audience !== true && result.rows[0].requester_id !== userId)) {
     return {
       exists: false,
       requesterId: null,

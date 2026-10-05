@@ -4,6 +4,10 @@
 **Status**: development
 **Criticality**: optional — used for demo data generation only
 
+Sprint 132 PR C review: `inventory.borrow_notification_outbox` is a reset table alongside inventory
+items/shares. Request hard deletion cascades its pending delivery intents. This classification
+adds no demo operation authorization; the disposable CI curated reset gate verifies it.
+
 Sprint 132 PR A: `TABLE_POLICY` preserves `auth.skill_vocabulary` as global reference data.
 Member `auth.user_tags` and the deprecated `auth.user_skills` remain reset tables. No demo reset
 or seed operation is part of this PR; `sprint-132-skill-vocabulary-preserved.test.ts` proves the

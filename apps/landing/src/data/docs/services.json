@@ -535,12 +535,12 @@
         {
           "method": "POST",
           "path": "/requests/inventory/items/:id/borrow",
-          "description": "Creates one directed borrow and attribution junction after live selected-community item audience validation. Duration 1-30; optional note/UTC return date. Emits only directed_request_created with explicit recipients after commit."
+          "description": "Creates or reuses the caller's open directed borrow under the item lock after live selected-community validation. Duration 1-30, optional note/UTC return date. Atomic notification outbox; queue failure still returns committed ID (201). directed_request_created uses the dedicated karmyq-directed-notifications queue with retry and recipient idempotency."
         },
         {
           "method": "GET",
           "path": "/requests/inventory/asks/incoming",
-          "description": "JWT caller-targeted open unexpired directed asks, excluding own requests and live proposed/matched responder offers. Returns {asks}; current active admins for community targets."
+          "description": "Current recipient's open/unexpired private asks with no own live proposed/matched offer. Uses current live audience, not historical match participation. Existing participants retain match history/actions after demotion."
         }
       ],
       "dependencies": [
@@ -697,7 +697,7 @@
         ]
       },
       "healthCheck": "http://localhost:3005/health",
-      "notes": "Subscribes to all events, creates notifications",
+      "notes": "Subscribes to platform events. directed_request_created uses only karmyq-directed-notifications; idempotent per user/request inserts and outbox delivery acknowledgement prevent duplicates/lost intent.",
       "databaseSchemas": [
         "notifications"
       ]

@@ -39,7 +39,8 @@ That request appears in the feed as usual. When you have found a particular item
 duration, optional return date and note, then send the private ask.
 
 This directed request is visible only to you and the owner, or the owning community's
-current active admins. The detail page names its private recipient. It stays in your
+current active admins, plus existing match participants for their own exchange history.
+The detail page names its private recipient. It stays in your
 **Asks** list and the recipient's **Helping → Asked of you** inbox, outside public browse
 surfaces. Acceptance, messaging and completion work like an ordinary exchange.
 

@@ -2,50 +2,25 @@ import fs from 'fs';
 import path from 'path';
 import ts from 'typescript';
 export type Surface = { file: string; line: number; sql: string };
-const allow = (file: string, needle: string, reason: string) => ({ file: `services/${file}`, needle, reason });
-export const ALLOWLIST = [
-  allow('auth-service/src/services/demoSessionService.ts', 'SELECT id, requester_id FROM requests.help_requests WHERE id = $1', 'Fixed curated fixture identity lookup; no content returned.'),
-  allow('cleanup-service/src/jobs/expirationJob.ts', 'SET expired = TRUE', 'Internal expiry mutation, no audience-facing output.'),
-  allow('cleanup-service/src/jobs/expirationJob.ts', 'DELETE FROM requests.help_requests', 'Internal hard retention deletion.'),
-  allow('cleanup-service/src/jobs/expireDibs.ts', "AND status = 'dibs_pending'", 'Internal expiry; directed asks cannot enter dibs.'),
-  allow('cleanup-service/src/jobs/matchReminderJob.ts', 'm.travel_time_minutes,', 'Trusted reminders delivered only to matched participants.'),
-  allow('cleanup-service/src/jobs/memoryRetentionJob.ts', 'SELECT h.id AS request_id,', 'Internal retention-window CTE.'),
-  allow('cleanup-service/src/jobs/memoryRetentionJob.ts', 'forgotten_requests AS', 'Internal content erasure.'),
-  allow('cleanup-service/src/jobs/memoryRetentionJob.ts', 'DELETE FROM requests.help_requests h', 'Internal retention deletion.'),
-  allow('messaging-service/src/routes/messages.ts', 'JOIN requests.help_requests r ON m.request_id = r.id', 'Participant identity lookup; route checks JWT participation before conversation access.'),
-  allow('notification-service/src/events/subscriber.ts', 'SELECT r.title, u.name as requester_name', 'Trusted match-created event delivers to its explicit requester.'),
-  allow('notification-service/src/events/subscriber.ts', 'SELECT title FROM requests.help_requests WHERE id = $1', 'Trusted completion event delivers to its two participants.'),
-  allow('reputation-service/src/database/feedbackDb.ts', 'SELECT hr.requester_id, m.responder_id, m.status,', 'Feedback participant validation; no request content.'),
-  allow('reputation-service/src/events/subscriber.ts', 'SELECT COUNT(*) AS cnt', 'Internal pair karma computation; directed exchanges earn normal karma.'),
-  ...['routes/health.ts', 'services/healthMetricsService.ts'].flatMap(file => [
-    allow(`reputation-service/src/${file}`, 'SELECT COUNT(*) as total', 'Cohort-gated non-identifying health aggregate; no request listing or title.'),
-    allow(`reputation-service/src/${file}`, 'COUNT(DISTINCT r.requester_id)', 'Cohort-gated aggregate participant breadth; no identities returned.'),
-    allow(`reputation-service/src/${file}`, 'AVG(f.helpfulness)', 'Cohort-gated aggregate feedback quality; no request content.'),
-  ]),
-  allow('reputation-service/src/services/badgeService.ts', 'COUNT(*) FILTER', 'Internal badge projection.'),
-  allow('reputation-service/src/services/networkCohesionService.ts', 'SELECT DISTINCT r.requester_id, m.responder_id', 'Internal graph reduced to cohort score; no request content.'),
-  allow('reputation-service/src/services/standingBackfillService.ts', '/* standing-backfill:matches */', 'Operator standing projection.'),
-  allow('reputation-service/src/services/standingProjector.ts', 'SELECT m.request_id, m.responder_id, m.status, m.completed_at,', 'Trusted standing projection.'),
-  allow('request-service/src/db/inventoryDb.ts', 'INSERT INTO requests.help_requests', 'Creation authorizes item audience and selected live community in a transaction.'),
-  allow('request-service/src/db/offersDb.ts', 'SELECT id FROM requests.help_requests WHERE id = $1 AND requester_id = $2', 'Requester-only lifecycle lookup; requester is always in audience.'),
-  allow('request-service/src/db/offersDb.ts', 'SELECT o.*, hr.requester_id as requester_user_id', 'Single-offer lifecycle lookup; requester authorization precedes returned content.'),
-  allow('request-service/src/db/offersDb.ts', "UPDATE requests.help_requests SET status = 'matched'", 'Mutation after requester authorization.'),
-  allow('request-service/src/routes/feedback.ts', 'SELECT m.id, m.status, r.requester_id, m.responder_id,', 'JWT participant validation for feedback; no request title.'),
-  allow('request-service/src/routes/feedback.ts', 'r.requester_visibility_consent,', 'Consent lookup after participant authorization; public stories exclude directed asks.'),
-  allow('request-service/src/routes/feedback.ts', 'SELECT m.id, r.requester_id, m.responder_id, m.requester_visible', 'Participant feedback lookup; no ask content.'),
-  allow('request-service/src/routes/matches.ts', 'SELECT request_type, payload FROM requests.help_requests WHERE id = $1', 'Scheduling lookup after audience-guarded participant acceptance.'),
-  allow('request-service/src/routes/matches.ts', 'SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE', 'Lifecycle lock after audience-guarded participation.'),
-  ...['matched', 'open', 'completed'].map(status => allow('request-service/src/routes/matches.ts', `SET status = '${status}'`, 'Mutation after audience and participant validation.')),
-  allow('request-service/src/routes/providerOffers.ts', 'SELECT requester_id FROM requests.help_requests WHERE id = $1', 'Recipient identity after directed reachability validation.'),
-  allow('request-service/src/routes/requests.ts', 'INSERT INTO requests.help_requests', 'Ordinary creation rejects all directed fields.'),
-  allow('request-service/src/routes/requests.ts', 'SELECT requester_id FROM requests.help_requests WHERE id = $1', 'Owner identity lookup; ownership checked before mutation.'),
-  allow('request-service/src/routes/requests.ts', "${updates.join(', ')}", 'Fixed field owner-only update; directed routing fields cannot be edited.'),
-  allow('request-service/src/routes/requests.ts', "SET status = 'cancelled'", 'Requester-only cancellation.'),
-  allow('simulation-service/src/fixtures/curatedDemo/baselineWriter.ts', 'INSERT INTO requests.help_requests', 'Curated fixture write.'),
-  allow('simulation-service/src/profiles/index.ts', 'SELECT COUNT(*) FROM requests.help_requests hr', 'Own simulation request budget; no other-user request content.'),
-  allow('social-graph-service/src/database/relationshipContextDb.ts', 'completed_pairs AS', 'Internal topology projection; no request content.'),
-  allow('social-graph-service/src/services/pathComputation.ts', 'SELECT m.completed_at', 'Pair relationship metadata; no request content.'),
-];
+import { createHash } from 'crypto';
+// Jest compiles this helper; the standalone inventory command uses Node's TS loader.
+// Keep the reviewed exception data portable across both module loaders.
+function exceptionFile() {
+  let directory = process.cwd();
+  for (;;) {
+    const file = path.join(directory, 'services/request-service/tests/helpers/directedSurfaceAllowlist.json');
+    if (fs.existsSync(file)) return file;
+    const parent = path.dirname(directory);
+    if (parent === directory) throw new Error('Cannot locate reviewed directed SQL exceptions');
+    directory = parent;
+  }
+}
+const exceptions = JSON.parse(fs.readFileSync(exceptionFile(), 'utf8')) as {
+  file: string; hash: string; label: string; reason: string;
+}[];
+export const ALLOWLIST = exceptions;
+export const surfaceHash = (sql: string) => createHash('sha256').update(sql.trim()).digest('hex');
+export const isAllowlisted = (hit: Surface) => ALLOWLIST.some(a => a.file === hit.file && a.hash === surfaceHash(hit.sql) && a.reason.trim());
 export function scanFile(file: string, source: string): Surface[] {
   const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
   const hits: Surface[] = [];
@@ -74,11 +49,98 @@ export function scanServices(repo: string): Surface[] {
     if (fs.existsSync(path.join(repo, 'services', service, 'src'))) walk(path.join(repo, 'services', service, 'src'));
   return files.flatMap((file) => scanFile(path.relative(repo, file).replace(/\\/g, '/'), fs.readFileSync(file, 'utf8')));
 }
+
+function guardAlias(expression: ts.Expression): string | undefined {
+  if (ts.isCallExpression(expression) && ts.isIdentifier(expression.expression)
+    && ['notDirectedSql', 'directedAudienceSql', 'matchParticipantSql'].includes(expression.expression.text)) {
+    const alias = expression.arguments[0];
+    return alias && ts.isStringLiteral(alias) ? alias.text : undefined;
+  }
+  if (ts.isConditionalExpression(expression)) {
+    const a = guardAlias(expression.whenTrue), b = guardAlias(expression.whenFalse);
+    return a && a === b ? a : undefined;
+  }
+  return undefined;
+}
+function analyzableSql(sql: string): string {
+  if (!sql.startsWith('`')) return sql;
+  const ast = ts.createSourceFile('query.ts', `const value = ${sql};`, ts.ScriptTarget.Latest, true);
+  const statement = ast.statements[0];
+  if (!statement || !ts.isVariableStatement(statement)) return '';
+  const template = statement.declarationList.declarations[0].initializer;
+  if (!template || !ts.isTemplateExpression(template)) return sql.slice(1, -1);
+  let text = template.head.text;
+  for (const span of template.templateSpans) {
+    const alias = guardAlias(span.expression);
+    text += (alias ? ` __privacy_${alias}__ ` : ' __interpolation__ ') + span.literal.text;
+  }
+  return text;
+}
+type Token = { text: string; depth: number; block: number };
+// Deliberately conservative query-block/alias checks, not a general SQL authorization proof.
+// Unknown dynamic statements require an exact reviewed exception and runtime tests.
+function readsAreGuarded(sql: string): boolean {
+  const clean = analyzableSql(sql)
+    .replace(/\/\*[\s\S]*?\*\/|--[^\n]*/g, ' ')
+    .replace(/'(?:''|[^'])*'/g, ' __value__ ')
+    .replace(/\bNOT\s+([\w]+)\.is_directed\b/gi, ' __privacy_$1__ ');
+  const words = clean.match(/[A-Za-z_][\w.]*(?:__)?|\$\d+|[^\s]/g) ?? [];
+  const tokens: Token[] = []; let depth = 0, nextBlock = 0;
+  const blocks: { id: number; depth: number }[] = [];
+  for (const text of words) {
+    if (text === ')') { depth--; while (blocks.length && blocks[blocks.length - 1].depth > depth) blocks.pop(); }
+    if (/^(SELECT|UPDATE|INSERT|DELETE)$/i.test(text)) blocks.push({ id: ++nextBlock, depth });
+    tokens.push({ text, depth, block: blocks[blocks.length - 1]?.id ?? 0 });
+    if (text === '(') depth++;
+  }
+  const reads: { alias: string; block: number }[] = [];
+  for (let i = 0; i < tokens.length - 1; i++) {
+    if (/^(FROM|JOIN|UPDATE|INTO)$/i.test(tokens[i].text) && /^(requests\.)?help_requests$/i.test(tokens[i + 1].text)) {
+      let alias = tokens[i + 2]?.text;
+      if (alias?.toUpperCase() === 'AS') alias = tokens[i + 3]?.text;
+      if (!alias || /^(WHERE|ON|SET|LEFT|RIGHT|INNER|JOIN|GROUP|ORDER|LIMIT|RETURNING|VALUES)$/i.test(alias) || !/^\w+$/.test(alias)) alias = 'help_requests';
+      reads.push({ alias, block: tokens[i].block });
+    }
+  }
+  const guards = new Set<string>();
+  const factorGuard = (factor: Token[]): string | undefined => {
+    // Remove only parentheses enclosing the WHOLE factor, not an OR sibling.
+    while (factor[0]?.text === '(' && factor[factor.length - 1]?.text === ')') {
+      const base = factor[0].depth;
+      if (factor.slice(1, -1).some(t => t.depth <= base)) break;
+      factor = factor.slice(1, -1);
+    }
+    return factor.length === 1 ? /^__privacy_(\w+)__$/.exec(factor[0].text)?.[1] : undefined;
+  };
+  for (let i = 0; i < tokens.length; i++) {
+    const begin = tokens[i];
+    // ON can leave private rows on the preserved side of an outer join. Nullable-side
+    // joins need an exact reviewed exception rather than a guessed join-semantics proof.
+    if (!/^WHERE$/i.test(begin.text)) continue;
+    const clause: Token[] = [];
+    for (let j = i + 1; j < tokens.length; j++) {
+      const token = tokens[j];
+      if (token.depth < begin.depth || (token.depth === begin.depth
+        && /^(LEFT|RIGHT|INNER|FULL|CROSS|JOIN|WHERE|GROUP|HAVING|ORDER|LIMIT|UNION|RETURNING)$/i.test(token.text))) break;
+      clause.push(token);
+    }
+    if (clause.some(t => t.depth === begin.depth && /^OR$/i.test(t.text))) continue;
+    // An unparenthesized dynamic fragment can introduce an OR that bypasses a guard.
+    if (clause.some(t => t.depth === begin.depth && t.text === '__interpolation__')) continue;
+    let factor: Token[] = [];
+    const accept = () => {
+      const alias = factorGuard(factor);
+      if (alias && factor[0].block === begin.block) guards.add(`${begin.block}:${alias}`);
+      factor = [];
+    };
+    for (const token of clause) {
+      if (token.depth === begin.depth && /^AND$/i.test(token.text)) accept();
+      else factor.push(token);
+    }
+    accept();
+  }
+  return reads.length > 0 && reads.every(read => guards.has(`${read.block}:${read.alias}`));
+}
 export function unguarded(hits: Surface[]): Surface[] {
-  return hits.filter(({ file, sql }) => {
-    if (ALLOWLIST.some((a) => a.file === file && sql.includes(a.needle) && a.reason.trim())) return false;
-    const reads = [...sql.matchAll(/(?:FROM|JOIN|UPDATE|INTO)\s+(?:requests\.)?help_requests\b/gi)].length;
-    const guards = [...sql.matchAll(/\/\*\s*(?:not-directed|directed-audience)\s*\*\/|\b(?:notDirectedSql|directedAudienceSql)\s*\(/g)].length;
-    return guards < reads;
-  });
+  return hits.filter(hit => !isAllowlisted(hit) && !readsAreGuarded(hit.sql));
 }

@@ -108,7 +108,16 @@ router.post('/items/:id/borrow', handler(async (req, res, userId) => {
   // Date.parse normalizes calendar overflow (e.g. February 30); the borrow schema rejects it.
   if (b.return_date !== undefined && new Date(b.return_date).toISOString().slice(0, 19) !== b.return_date.slice(0, 19)) invalid('Return date must be a real calendar datetime');
   const { ask, event } = await inventory.createBorrow(itemId, userId, { ...b, community_id });
-  await publishEvent('directed_request_created', event);
+  if (event) {
+    try {
+      await publishEvent('directed_request_created', event);
+      await inventory.markDirectedNotificationPublished(ask.id);
+    } catch (error) {
+      // The ask and its delivery intent are committed. The outbox relay retries; return its ID
+      // so a queue outage never tells the requester that their successful save failed.
+      (req as any).logger?.error('Directed notification pending retry', error instanceof Error ? error : new Error(String(error)), { service: 'request-service', request_id: ask.id });
+    }
+  }
   sendSuccess(res, ask, 201);
 }));
 router.get(

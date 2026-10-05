@@ -176,10 +176,12 @@ export class FeedComposer {
           COUNT(DISTINCT CASE WHEN m.completed_at > NOW() - INTERVAL '7 days' THEN m.id END) as exchanges_week,
           COUNT(DISTINCT CASE WHEN cm.joined_at > NOW() - INTERVAL '7 days' THEN cm.user_id END) as new_members
         FROM communities.communities c
-        LEFT JOIN requests.help_requests r ON r.community_id = c.id
+        LEFT JOIN requests.help_requests r ON ${notDirectedSql('r')} AND EXISTS (
+          SELECT 1 FROM requests.request_communities activity_rc
+          WHERE activity_rc.request_id=r.id AND activity_rc.community_id=c.id)
         LEFT JOIN requests.matches m ON m.request_id = r.id AND m.status = 'completed'
         LEFT JOIN communities.members cm ON cm.community_id = c.id
-        WHERE ${notDirectedSql('r')} AND c.id = $1
+        WHERE c.id = $1
       `, [community.id]);
 
       // Get recent helpers
@@ -189,7 +191,8 @@ export class FeedComposer {
         FROM requests.matches m
         JOIN requests.help_requests r ON m.request_id = r.id
         JOIN auth.users u ON m.responder_id = u.id
-        WHERE ${notDirectedSql('r')} AND r.community_id = $1
+        WHERE ${notDirectedSql('r')} AND EXISTS (SELECT 1 FROM requests.request_communities activity_rc
+          WHERE activity_rc.request_id=r.id AND activity_rc.community_id=$1)
           AND m.status = 'completed'
           AND m.completed_at > NOW() - INTERVAL '7 days'
         GROUP BY u.id, u.name
@@ -202,7 +205,8 @@ export class FeedComposer {
       const openRequestsResult = await query(`
         SELECT COUNT(*) as count
         FROM requests.help_requests r
-        WHERE ${notDirectedSql('r')} AND r.community_id = $1
+        WHERE ${notDirectedSql('r')} AND EXISTS (SELECT 1 FROM requests.request_communities activity_rc
+          WHERE activity_rc.request_id=r.id AND activity_rc.community_id=$1)
           -- dibs_pending requests are excluded by the status = 'open' equality check
           AND r.status = 'open'
           AND NOT EXISTS (

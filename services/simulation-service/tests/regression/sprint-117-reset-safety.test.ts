@@ -66,8 +66,9 @@ describe('Sprint 117 reset safety', () => {
     expect(classifyTables([
       {schema:'inventory',table:'items',tableType:'BASE TABLE'},
       {schema:'inventory',table:'item_shares',tableType:'BASE TABLE'},
+      {schema:'inventory',table:'borrow_notification_outbox',tableType:'BASE TABLE'},
       {schema:'auth',table:'skill_vocabulary',tableType:'BASE TABLE'},
-    ])).toEqual({reset:['inventory.items','inventory.item_shares'],reseed:[],preserve:['auth.skill_vocabulary']});
+    ])).toEqual({reset:['inventory.items','inventory.item_shares','inventory.borrow_notification_outbox'],reseed:[],preserve:['auth.skill_vocabulary']});
   });
   it('classifies federation base tables and preserves only local instance identity', () => {
     const result = classifyTables(federationCatalogFixture());
