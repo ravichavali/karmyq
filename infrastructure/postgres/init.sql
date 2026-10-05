@@ -1871,6 +1871,17 @@ CREATE TABLE governance.votes (
 );
 
 --
+-- Name: borrow_notification_outbox; Type: TABLE; Schema: inventory; Owner: -
+--
+
+CREATE TABLE inventory.borrow_notification_outbox (
+    request_id uuid NOT NULL,
+    payload jsonb NOT NULL,
+    published_at timestamp with time zone,
+    delivered_at timestamp with time zone
+);
+
+--
 -- Name: item_shares; Type: TABLE; Schema: inventory; Owner: -
 --
 
@@ -3572,6 +3583,13 @@ ALTER TABLE ONLY governance.votes
     ADD CONSTRAINT votes_proposal_id_voter_id_key UNIQUE (proposal_id, voter_id);
 
 --
+-- Name: borrow_notification_outbox borrow_notification_outbox_pkey; Type: CONSTRAINT; Schema: inventory; Owner: -
+--
+
+ALTER TABLE ONLY inventory.borrow_notification_outbox
+    ADD CONSTRAINT borrow_notification_outbox_pkey PRIMARY KEY (request_id);
+
+--
 -- Name: item_shares item_shares_pkey; Type: CONSTRAINT; Schema: inventory; Owner: -
 --
 
@@ -4619,6 +4637,12 @@ CREATE INDEX idx_proposals_proposed_by ON governance.proposals USING btree (prop
 CREATE INDEX idx_votes_proposal_id ON governance.votes USING btree (proposal_id);
 
 --
+-- Name: idx_borrow_notifications_pending; Type: INDEX; Schema: inventory; Owner: -
+--
+
+CREATE INDEX idx_borrow_notifications_pending ON inventory.borrow_notification_outbox USING btree (request_id) WHERE (delivered_at IS NULL);
+
+--
 -- Name: idx_item_shares_community; Type: INDEX; Schema: inventory; Owner: -
 --
 
@@ -4719,6 +4743,12 @@ CREATE INDEX idx_preferences_event_type ON notifications.preferences USING btree
 --
 
 CREATE INDEX idx_preferences_user_id ON notifications.preferences USING btree (user_id);
+
+--
+-- Name: uq_directed_notification_recipient; Type: INDEX; Schema: notifications; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_directed_notification_recipient ON notifications.notifications USING btree (user_id, ((data ->> 'request_id'::text))) WHERE ((type)::text = 'directed_request_created'::text);
 
 --
 -- Name: idx_provider_offers_provider_user; Type: INDEX; Schema: provider; Owner: -
@@ -6013,6 +6043,13 @@ ALTER TABLE ONLY governance.votes
     ADD CONSTRAINT votes_voter_id_fkey FOREIGN KEY (voter_id) REFERENCES auth.users(id);
 
 --
+-- Name: borrow_notification_outbox borrow_notification_outbox_request_id_fkey; Type: FK CONSTRAINT; Schema: inventory; Owner: -
+--
+
+ALTER TABLE ONLY inventory.borrow_notification_outbox
+    ADD CONSTRAINT borrow_notification_outbox_request_id_fkey FOREIGN KEY (request_id) REFERENCES requests.help_requests(id) ON DELETE CASCADE;
+
+--
 -- Name: item_shares item_shares_community_id_fkey; Type: FK CONSTRAINT; Schema: inventory; Owner: -
 --
 
@@ -7076,5 +7113,6 @@ INSERT INTO public.schema_migrations (migration_name) VALUES
   ('20260819-standing-projection-foundation.sql'),
   ('20260930-skill-vocabulary.sql'),
   ('20261003-inventory-schema.sql'),
+  ('20261004-directed-borrow-delivery.sql'),
   ('20261004-directed-requests.sql')
 ON CONFLICT (migration_name) DO NOTHING;

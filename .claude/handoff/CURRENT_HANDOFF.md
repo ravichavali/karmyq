@@ -43,7 +43,7 @@ match → message → karma loop. Skills have one source of truth that matching 
 | A | Skills single source, vocabulary-backed matching and ADR-099 | `agent/claude/sprint-132-pr-a-skills` (retired) | **SHIPPED**, #290 `244291eb`; live as v11.78.0 through #291 `f90b9916`, deploy 37169859212; A10 read-only smoke passed |
 | **N** | **node-forge exemption (2026-10-01):** a 7-day ADR-059 exemption for GHSA-86w9-cpqp-85rv (no patched release), an ADR-059 amendment, a sprint-125 coverage gate that admits an unwatched package only for ≤ 7 days, and BUG-058 | `agent/claude/sprint-132-node-forge-exemption` (cut from `origin/master` `b169472b`) | **MERGED + DEPLOYED v11.76.0** (#289, `02d720b3`; CI/CD 37053659544 and health check green, verified 2026-10-02) |
 | B | Inventory catalog, audience predicates, My things and community Shared things | `agent/claude/sprint-132-pr-b-inventory` (retired) | **SHIPPED v11.79.0**, [#292](https://github.com/ravichavali/karmyq/pull/292), `235b5446`; CI/CD + demo health green; read-only inventory smoke passed 2026-10-04 |
-| C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (base `235b5446`) | **DRAFT #293**; ten review findings addressed; full local suite passed on follow-up worktree at `716b9874`; delivery schema and real SQL/queue proof pending; earlier verification superseded |
+| C | Directed *Ask to borrow*: `is_directed` + targets on `help_requests`; `notDirectedSql` on browse surfaces and `directedAudienceSql` on private-access surfaces, with a live-scan gate; `directed_request_created` event; directed predicate on match views (C4b); the incoming-asks query plus the Helping *Asked of you* section (C5b, C7); `requester_id`-gated `GET /requests` | `agent/claude/sprint-132-pr-c-directed-borrow` (base `235b5446`) | **DRAFT #293**; ten findings addressed in `1f2c2f89`, local full suite passed; canonical delivery artifact promoted; latest-head CI evidence in PR Validation; CodeQL/readiness clearance required |
 
 Versions: each PR bumps the minor from `origin/master` at merge time (S = 11.75.0, shipped; N = 11.76.0; A = 11.77.0
 if nothing else merges in between). Nothing is reserved.
@@ -245,8 +245,9 @@ updated.
 is the only open PR; master remains `235b5446` (live GitHub/git reconciliation). First handoff-only
 commit `595ae7bb`; original source `2df7a7b7`; original schema `4d16f845`; earlier handoff `716b9874`.
 The maintainer-relayed review supersedes the earlier no-unresolved-findings/readiness claim.
-All ten findings were verified and addressed in the current follow-up; real PostgreSQL/Redis and
-canonical schema verification for these changes remain required. Prior 112-test CI passes proved
+All ten findings were verified and addressed in follow-up source `1f2c2f89`. The latest CI results
+live in PR Validation; require expanded PostgreSQL/Redis and independent-base schema passes before
+readiness. Prior 112-test CI passes proved
 the earlier coverage only and did not cover the four confirmed defects; do not reuse them as fix proof.
 
 Participant actions and existing-match history now survive private borrowing/admin demotion;
@@ -270,9 +271,18 @@ request-service and tests; strict npm ci passed and no resolved versions changed
 
 Full local process tests passed on the follow-up worktree at HEAD `716b9874`; the PR Validation
 ledger records commands, cache limits and outcomes. Final cleanup changes only generated metadata
-and notification prose. Next: commit/push the reviewed source checkpoint, regenerate init.sql via CI,
-promote the unchanged reviewed artifact, then verify independent-base schema parity and every
-expanded directed integration case. Claude owns merge-readiness validation; Admin owns merge/deploy.
+and notification prose. Source checkpoint `1f2c2f89` was pushed with normal hooks; the strengthened
+scan rejected a leaking preserved-side outer join, then passed after byte-identical restoration.
+[Manual regeneration 37263879821](https://github.com/ravichavali/karmyq/actions/runs/37263879821)
+passed determinism, fresh boot, migration recording and replay at that source checkpoint. Its
+unchanged artifact adds only the outbox, primary/foreign keys, two indexes and migration-ledger
+entry (38 additions). SHA256 `2A2DFFC5230A28031C309337228895C772198F0EDEA3257EF4889B840E401E4F`.
+The first source schema check 37263803194 failed only because that snapshot had not been promoted;
+its missing entries are superseded by this artifact. Runtime source is unchanged after `1f2c2f89`.
+
+Next: consult PR #293 Validation and latest-head checks; verify independent-base byte parity and
+all expanded directed integration cases, then obtain Claude readiness validation. CodeQL clearance
+is still required. Claude owns merge-readiness validation; Admin owns merge/deploy.
 C10–C12 remain incomplete. No merge, deployment, demo write or live smoke is claimed.
 
 CodeQL [#601](https://github.com/ravichavali/karmyq/security/code-scanning/601) and
