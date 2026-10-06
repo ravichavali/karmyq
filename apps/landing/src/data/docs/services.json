@@ -332,7 +332,7 @@
         {
           "method": "GET",
           "path": "/requests/:id",
-          "description": "Canonical viewer-aware request detail read. Sprint 101: derives viewer_relation server-side (own_request | already_offered | can_offer | not_actionable) so the UI never guesses eligibility — can_offer requires the ask open+unexpired, not the viewer's own, no live proposed/matched responder match, AND within the viewer's feed-VISIBILITY audience (shared getRequestReachability: member OR trust_network/platform scope OR sister-reachable). A reachable cross-community ask is can_offer; a community-scoped ask the viewer can't see is not_actionable (not eligible by direct id). Also returns viewer_match ({id,status}) when already_offered, and payload_type (ADR-067, from category). Expired-open asks return (finite-state display) rather than 404."
+          "description": "Canonical viewer-aware request detail read. Sprint 101: derives viewer_relation server-side (own_request | already_offered | can_offer | not_actionable) so the UI never guesses eligibility — can_offer requires the ask open+unexpired, not the viewer's own, no live proposed/matched responder match, AND within the viewer's feed-VISIBILITY audience (shared getRequestReachability: member OR trust_network/platform scope OR sister-reachable). A reachable cross-community ask is can_offer; a community-scoped ask the viewer can't see is not_actionable (not eligible by direct id). Also returns viewer_match ({id,status}) when already_offered, and payload_type (ADR-067, from category). Expired-open asks return (finite-state display) rather than 404. Sprint 132: directed rows require requester, personal target or current active target-community admin before response; otherwise 404. Adds is_directed and directed_to:{kind,id,name}|null. Null targets never make a private request public."
         },
         {
           "method": "GET",
@@ -531,6 +531,16 @@
           "method": "GET",
           "path": "/requests/feed/community-health",
           "description": "Sprint 91 / ADR-071: community health hero metrics (absorbed from feed-service). Requires community_id (400) and returns 404 for unknown community."
+        },
+        {
+          "method": "POST",
+          "path": "/requests/inventory/items/:id/borrow",
+          "description": "Creates or reuses the caller's open directed borrow under the item lock after live selected-community validation. Duration 1-30, optional note/UTC return date. Atomic notification outbox; queue failure still returns committed ID (201). directed_request_created uses the dedicated karmyq-directed-notifications queue with retry and recipient idempotency."
+        },
+        {
+          "method": "GET",
+          "path": "/requests/inventory/asks/incoming",
+          "description": "Current recipient's open/unexpired private asks with no own live proposed/matched offer. Uses current live audience, not historical match participation. Existing participants retain match history/actions after demotion."
         }
       ],
       "dependencies": [
@@ -555,12 +565,13 @@
           "offer_declined",
           "dibs_submitted",
           "dibs_accepted",
-          "dibs_declined"
+          "dibs_declined",
+          "directed_request_created"
         ],
         "subscribes": []
       },
       "healthCheck": "http://localhost:3003/health",
-      "notes": "Server-driven UI: Schema API provides dynamic form definitions. Admin API enables zero-code request type creation. Sprint 43: feed_events table logs impressions/outcomes for weight tuning (ADR-048).",
+      "notes": "Server-driven UI: Schema API provides dynamic form definitions. Admin API enables zero-code request type creation. Sprint 43: feed_events table logs impressions/outcomes for weight tuning (ADR-048). match_completed uses karmyq-completion-dispatch with stable jobs fanned out to three service-specific completion queues; legacy handlers remain.",
       "databaseSchemas": [
         "requests",
         "feed",
@@ -629,7 +640,7 @@
         ]
       },
       "healthCheck": "http://localhost:3004/health",
-      "notes": "Sprint 126 (ADR-096): the match_completed payload is UNCHANGED, but reputation's projection of it is now atomic, idempotent, and timestamp-preserving. One transaction per match under pg_advisory_xact_lock; all writes ON CONFLICT DO NOTHING against uq_karma_match_projection / uq_activity_match_projection, so redelivering a job re-writes nothing. Karma is awarded in at most 3 shared request communities, selected from history STRICTLY BEFORE (completed_at, match_id). Rows carry the stored matches.completed_at, never NOW(). The payload is treated as a message, not a record: participants and status are re-read from the database under the lock and a disagreeing payload is rejected. Badges, provider metrics and trust evolution remain subscriber-owned and live-only — the historical backfill (npm run backfill:standing, dry-run by default) never replays them. Sprint 128 (PR C): the backfill PREVIEW derives its trust inputs from the projected post-apply karma rows rather than the replayed match list, so analyzeStandingBackfill scoreBuckets and providerEligibility match what updateTrustScore then stores. Breadth is global, so a membership with no local history but activity elsewhere scores 1, not 0; a member with no history anywhere still scores 0, and 1 is not a floor. providerEligibility counts provider-profile/community pairs keyed provider_id|community_id, and its 1/20/40/60 floors remain fixed what-if scenarios rather than the community configured provider_min_personal_trust_score. No formula, floor, filter, endpoint, schema or event change. Sprint 131 D9: the effective-params cache client is ioredis 6 (nested in this workspace; bull stays on ioredis 5), RESP3 with RESP2 fallback, v5 retry backoff pinned so Redis-outage fallback timing is unchanged.",
+      "notes": "Sprint 126 (ADR-096): the match_completed payload is UNCHANGED, but reputation's projection of it is now atomic, idempotent, and timestamp-preserving. One transaction per match under pg_advisory_xact_lock; all writes ON CONFLICT DO NOTHING against uq_karma_match_projection / uq_activity_match_projection, so redelivering a job re-writes nothing. Karma is awarded in at most 3 shared request communities, selected from history STRICTLY BEFORE (completed_at, match_id). Rows carry the stored matches.completed_at, never NOW(). The payload is treated as a message, not a record: participants and status are re-read from the database under the lock and a disagreeing payload is rejected. Badges, provider metrics and trust evolution remain subscriber-owned and live-only — the historical backfill (npm run backfill:standing, dry-run by default) never replays them. Sprint 128 (PR C): the backfill PREVIEW derives its trust inputs from the projected post-apply karma rows rather than the replayed match list, so analyzeStandingBackfill scoreBuckets and providerEligibility match what updateTrustScore then stores. Breadth is global, so a membership with no local history but activity elsewhere scores 1, not 0; a member with no history anywhere still scores 0, and 1 is not a floor. providerEligibility counts provider-profile/community pairs keyed provider_id|community_id, and its 1/20/40/60 floors remain fixed what-if scenarios rather than the community configured provider_min_personal_trust_score. No formula, floor, filter, endpoint, schema or event change. Sprint 131 D9: the effective-params cache client is ioredis 6 (nested in this workspace; bull stays on ioredis 5), RESP3 with RESP2 fallback, v5 retry backoff pinned so Redis-outage fallback timing is unchanged. match_completed uses karmyq-completion-reputation alongside the retained legacy handler; standing policy is unchanged.",
       "databaseSchemas": [
         "reputation"
       ]
@@ -681,11 +692,12 @@
           "provider_went_on_duty",
           "offer_submitted",
           "offer_accepted",
-          "offer_declined"
+          "offer_declined",
+          "directed_request_created"
         ]
       },
       "healthCheck": "http://localhost:3005/health",
-      "notes": "Subscribes to all events, creates notifications",
+      "notes": "Subscribes to platform events. directed_request_created uses only karmyq-directed-notifications; live lookup requires open/unexpired asks; terminal jobs are acknowledged without a new invitation. Idempotent per user/request inserts and outbox delivery acknowledgement prevent duplicates/lost intent. ADR-099 accepts notification-service updating only delivered_at in request-service-owned inventory.borrow_notification_outbox. match_completed uses karmyq-completion-notification; per-user/match transaction locks prevent duplicate completion notifications on partial recipient retries.",
       "databaseSchemas": [
         "notifications"
       ]
@@ -950,7 +962,7 @@
         ]
       },
       "healthCheck": "http://localhost:3010/health",
-      "notes": "Trust-first design foundation. Sprint 27: match_completed → social_graph.connections. Sprint 65: match_completed → social_graph.trust_edges. Sprint 67: ego-network rewrite — GET /trust/graph (aggregate) + GET /trust/graph/:communityId (community ego-network). Sprint 68: intrinsic Ebbinghaus decay via trust_edges_live view + decay config endpoints. Sprint 90: visible decay (ADR-070) — graph edges carry decayTier; new /trust/me/memory + /trust/relationships/fading endpoints; classifyDecayTier lives in @karmyq/shared. Governance endpoints are in community-service.",
+      "notes": "Trust-first design foundation. Sprint 27: match_completed → social_graph.connections. Sprint 65: match_completed → social_graph.trust_edges. Sprint 67: ego-network rewrite — GET /trust/graph (aggregate) + GET /trust/graph/:communityId (community ego-network). Sprint 68: intrinsic Ebbinghaus decay via trust_edges_live view + decay config endpoints. Sprint 90: visible decay (ADR-070) — graph edges carry decayTier; new /trust/me/memory + /trust/relationships/fading endpoints; classifyDecayTier lives in @karmyq/shared. Governance endpoints are in community-service. match_completed uses karmyq-completion-social-graph alongside the retained legacy handler; graph counters remain at-least-once effects.",
       "databaseSchemas": [
         "social_graph"
       ]

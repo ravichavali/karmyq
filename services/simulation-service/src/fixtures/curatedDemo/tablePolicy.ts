@@ -37,6 +37,7 @@ export interface ClassifiedTableSet {
 export const TABLE_POLICY: Record<string, TablePolicy> = {
   'inventory.items': 'reset',
   'inventory.item_shares': 'reset',
+  'inventory.borrow_notification_outbox': 'reset',
   // --- auth: all user identity/runtime data ---
   'auth.users': 'reset',
   'auth.sessions': 'reset',

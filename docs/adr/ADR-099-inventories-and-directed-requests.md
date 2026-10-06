@@ -60,7 +60,8 @@ Leaving withdraws access without deleting the share; rejoining restores it.
 An item-specific borrow ask creates an ordinary help request with `is_directed=true`, a user
 or community target, and the item reference. The private audience is the requester plus the
 target owner or the target community's active admins. Existing offer, message, completion and
-karma flows are reused.
+karma flows are reused. A responder who already joined a match retains their private exchange
+history and actions after admin demotion or target deletion; current recipients still gate new offers.
 
 Two shared predicates have distinct jobs:
 
@@ -139,3 +140,91 @@ PR A implements skills only. PR B and PR C will amend this record with their imp
 evidence, including account-deletion and aggregate-count decisions. This ADR remains Accepted
 until PR C is deployed; catalog and directed-request behavior above is the approved design,
 not a claim that those later PRs have shipped.
+
+### PR C implementation amendment
+
+Borrow creation locks the item and relevant live membership rows, validates the selected
+community's audience, and writes one directed borrow row and one attribution junction in a
+transaction. It reuses a caller's existing open ask for the item on a resend, preserving the original
+terms and attribution. The same transaction writes `inventory.borrow_notification_outbox` with
+the explicit event recipients. After commit, it publishes only `directed_request_created` to
+**`karmyq-directed-notifications`**, consumed solely by notification-service. A failed publish returns
+the committed ask's ID (201); the durable relay retries it. Acknowledged but unconfirmed deliveries
+are checked again after five minutes; exhausted failed jobs are retried with the same stable job ID.
+Delivery re-resolves canonical request content and the current personal target or active admins,
+ignoring the saved recipient/content snapshot. Only open, unexpired asks qualify at the delivery
+lookup. Deleted, cancelled, completed or expired asks are terminal: acknowledge their queued job
+without sending a new borrow invitation. Deleted recipients cannot receive a queued private title.
+The subscriber stamps delivered_at after processing every current recipient. Its partial
+unique index on (user_id, data.request_id) prevents duplicate notifications/SSE across retries.
+This acknowledgement is an explicit cross-service write exception: request-service owns
+`inventory.borrow_notification_outbox`, creates its rows and manages relay publication state;
+notification-service writes only `delivered_at` for the processed request ID
+(`services/notification-service/src/events/subscriber.ts:172`). Notification-service does not create
+or change borrow requests or saved intent payloads. A terminal job with no eligible recipients is
+also acknowledged so the relay does not keep resending it.
+No membership fan-out occurs, and unrelated consumers cannot steal these jobs. Existing shared
+event routing is unchanged. Curated reset classifies the outbox as reset; hard request deletion
+cascades its intent. Preferences that disable in-app delivery count as handled.
+
+Browse reads use `notDirectedSql`; detail/own-request lists use `directedAudienceSql`, with existing
+responders retaining history. Incoming asks and new-offer eligibility use current recipients only.
+Match reads/mutations and action items use `matchParticipantSql`. Existing owner-only provider-offer
+history and retention counts need no redundant audience filter. Own-request access requires
+the requester filter to equal the JWT caller. Community triage, boost, dibs and match proposals
+cannot act on directed rows. Relationship-context endpoints return no context for directed
+asks because the shared topology contract has no directed tier; shared packages stay unchanged.
+
+Community stats/export request and match lists **and their counts**, feed pulse counts and
+named recent helpers exclude directed exchanges. Internal karma, standing, badges, retention
+and graph projections still include them. Private match participants receive mark-done and rating
+decisions. The offered-awaiting preview and its count exclude directed asks; private proposed
+matches render once in Helping commitments. Nullable activity joins put the exclusion in ON and
+use the canonical request_communities junction, retaining member stats with no public requests.
+Non-manager item share metadata omits communities the owner has left; refreshed metadata updates
+the borrow form's choice, and a stale-access 404 explains recovery.
+Existing cohort-gated reputation health aggregates remain unchanged. The SQL surface gate checks
+WHERE guard placement per query block and alias, rejects unconstrained OR/marker-only guards and
+unparenthesized dynamic predicate fragments, and matches
+reviewed exceptions by exact SQL SHA256, never by substring. It remains conservative static coverage,
+not a general SQL authorization proof; ON semantics need exact reviewed exceptions and runtime
+tests remain authoritative. Execution notes carry
+the full file:line inventory.
+
+### Completion delivery amendment (maintainer-approved, 2026-10-05)
+
+Real PR C integration reproduced a preexisting event-delivery defect: notification, reputation
+and social-graph workers consumed the same Bull queue. Bull distributes jobs among workers;
+named handlers do not broadcast them. A completed private loan notified both people but wrote
+no karma because notification-service consumed the only completion job. The maintainer approved
+expanding this PR to repair completion delivery.
+
+Request-service now persists one `match_completed` dispatch job, whose processor publishes
+three independent service-specific completion jobs. Fixed destination queues prevent competing
+subscribers stealing another service's delivery. A partial fanout failure retries the persisted
+dispatch job with the same target job IDs. Ten total attempts use exponential retries starting at 2 seconds; completed
+identities remain for 24 hours without count eviction and failed jobs remain inspectable.
+Legacy handlers remain registered for pre-upgrade queued jobs; those older jobs are not repaired.
+Other event types retain their current transports, including the dedicated directed-ask queue.
+
+Completion notifications serialize a per-user/match existence check and insert in one database
+transaction under an advisory lock, preventing duplicate stored notifications/SSE emissions
+when a later recipient fails. Canonical karma remains idempotent. Existing graph counters remain
+at-least-once effects and can increment on a partially interrupted handler retry. This change
+does not promise exactly-once side effects or unbounded queue deduplication. The preexisting
+database-completion-to-first-Redis-enqueue gap still requires operator recovery after a publish
+failure; adding a transactional completion outbox is separate scope. No new schema is required.
+Integration evidence must show karma, both notifications and the community trust edge for the
+same match, including a demoted participant and independent notification redelivery.
+
+**Rollout and rollback:** the additive migration is compatible with earlier binaries, but
+earlier binaries have no directed privacy guards (`services/request-service/src/services/feed/basicFeedRanker.ts:171`).
+Earlier consumers also do not subscribe to the new `karmyq-completion-*` queues
+(`services/request-service/src/events/completionEvents.ts:20`). If they replace the new consumers
+after dispatch, jobs retained in those queues wait until a forward deployment restores the new
+subscribers. Karma and other completion effects can therefore be delayed by rollback; the old
+shared-queue handlers do not drain these dedicated queues. Preserve Redis queues during recovery.
+After the first directed row exists, image rollback must retain these guards or make affected
+reads unavailable. Never clear `is_directed` to accommodate rollback. The maintainer must choose
+a privacy-preserving rollback path before authorizing deployment. This ADR remains Accepted
+until PR C deploys.

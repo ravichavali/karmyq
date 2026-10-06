@@ -95,7 +95,8 @@ describe('participant-bound offer resolvers', () => {
     const [sql, params] = mockQuery.mock.calls[0];
     expect(sql).toContain('m.id = $2');
     expect(sql).toContain('m.request_id = $1');
-    expect(params).toEqual([REQUEST, MATCH]);
+    expect(params).toEqual([REQUEST, MATCH, REQUESTER]);
+    expect(sql).toContain('/* directed-audience */');
   });
 
   it('returns 404 semantics for a mismatched match/request pair and 403 semantics for a nonparticipant', async () => {
@@ -150,7 +151,8 @@ describe('participant-bound offer resolvers', () => {
     const [sql, params] = mockQuery.mock.calls[0];
     expect(sql).toContain('o.id = $2');
     expect(sql).toContain('o.request_id = $1');
-    expect(params).toEqual([REQUEST, OFFER]);
+    expect(params).toEqual([REQUEST, OFFER, REQUESTER]);
+    expect(sql).toContain('/* directed-audience */');
   });
 
   it('returns 404 for a mismatched provider offer/request and 403 for a nonparticipant', async () => {

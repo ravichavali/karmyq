@@ -207,6 +207,7 @@ services:
       DB_NAME: karmyq_test
       DB_USER: karmyq_test
       DB_PASSWORD: test_password
+      REDIS_URL: redis://redis-test:6379
       JWT_SECRET: test_jwt_secret_change_me
       RATE_LIMIT_DISABLED: "true"
     ports:
@@ -216,6 +217,8 @@ services:
     depends_on:
       postgres-test:
         condition: service_healthy
+      redis-test:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3010/health"]
       interval: 10s
@@ -224,6 +227,9 @@ services:
 
   # Test Runner - Runs inside Docker network with access to all services
   test-runner:
+    # CI verifies schema before running Jest on the host. Automatic fixture writes race
+    # migration replay; opt in with --profile runner for container-based execution.
+    profiles: ["runner"]
     build:
       context: ..
       dockerfile: ./tests/Dockerfile.test

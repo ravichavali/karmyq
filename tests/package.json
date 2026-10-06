@@ -52,6 +52,7 @@
     "@types/supertest": "^7.2.0",
     "axios": "^1.20.0",
     "bs-logger": "^0.2.6",
+    "bull": "^4.11.5",
     "jest": "^30.5.1",
     "jest-cli": "^30.5.1",
     "lodash.memoize": "^4.1.2",

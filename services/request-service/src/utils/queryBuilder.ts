@@ -1,3 +1,4 @@
+import { notDirectedSql, directedAudienceSql } from '../db/directedAudience';
 export interface RequestsQueryFilters {
   community_id?: string;
   status?: string;
@@ -34,6 +35,9 @@ export function buildRequestsQuery(filters: RequestsQueryFilters): RequestsQuery
   } = filters;
 
   const includeAdminNotes = include_admin_notes === 'true' && !!community_id;
+  // The requester filter occupies this bound parameter; only a JWT-equal requester
+  // selects a private list. All other uses remain browse, including spoofed filters.
+  const requesterParam = (includeAdminNotes ? 1 : 0) + (status ? 1 : 0) + (community_id && !includeAdminNotes ? 1 : 0) + 1;
 
   let queryText = `
       SELECT DISTINCT
@@ -50,6 +54,7 @@ export function buildRequestsQuery(filters: RequestsQueryFilters): RequestsQuery
       LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
       LEFT JOIN communities.communities c ON rc.community_id = c.id${includeAdminNotes ? '\n      LEFT JOIN requests.request_admin_notes ran ON ran.request_id = r.id AND ran.community_id = $1::uuid' : ''}
       WHERE r.expired = FALSE
+        AND ${requester_id && requester_id === viewer_id ? directedAudienceSql('r', `$${requesterParam}`) : notDirectedSql('r')}
     `;
 
   // When include_admin_notes is active, community_id is bound as $1 in the JOIN clause above.

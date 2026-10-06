@@ -1,3 +1,4 @@
+import { notDirectedSql } from '../db/directedAudience';
 import { Router, Request, Response } from 'express';
 import { RouteParams } from '@karmyq/shared/middleware/auth';
 import { query } from '../database/db';
@@ -31,7 +32,7 @@ router.post('/:id/boost', async (req: Request<RouteParams>, res: Response) => {
 
     // Verify request exists
     const requestCheck = await query(
-      `SELECT id FROM requests.help_requests WHERE id = $1`,
+      `SELECT id FROM requests.help_requests r WHERE ${notDirectedSql('r')} AND id = $1`,
       [id]
     );
     if (requestCheck.rowCount === 0) {
@@ -45,12 +46,12 @@ router.post('/:id/boost', async (req: Request<RouteParams>, res: Response) => {
     }
 
     const result = await query(
-      `UPDATE requests.help_requests
+      `UPDATE requests.help_requests r
        SET is_boosted = TRUE,
            boosted_at = NOW(),
            boosted_expires_at = NOW() + INTERVAL '48 hours',
            boosted_by = $2
-       WHERE id = $1
+       WHERE ${notDirectedSql('r')} AND id = $1
        RETURNING *`,
       [id, user.userId]
     );
@@ -70,7 +71,7 @@ router.delete('/:id/boost', async (req: Request<RouteParams>, res: Response) => 
 
     // Verify request exists
     const requestCheck = await query(
-      `SELECT id FROM requests.help_requests WHERE id = $1`,
+      `SELECT id FROM requests.help_requests r WHERE ${notDirectedSql('r')} AND id = $1`,
       [id]
     );
     if (requestCheck.rowCount === 0) {
@@ -84,12 +85,12 @@ router.delete('/:id/boost', async (req: Request<RouteParams>, res: Response) => 
     }
 
     const result = await query(
-      `UPDATE requests.help_requests
+      `UPDATE requests.help_requests r
        SET is_boosted = FALSE,
            boosted_at = NULL,
            boosted_expires_at = NULL,
            boosted_by = NULL
-       WHERE id = $1
+       WHERE ${notDirectedSql('r')} AND id = $1
        RETURNING *`,
       [id]
     );
@@ -114,7 +115,7 @@ router.post('/:id/propose-match', async (req: Request<RouteParams>, res: Respons
 
     // Verify request exists
     const requestCheck = await query(
-      `SELECT id FROM requests.help_requests WHERE id = $1`,
+      `SELECT id FROM requests.help_requests r WHERE ${notDirectedSql('r')} AND id = $1`,
       [id]
     );
     if (requestCheck.rowCount === 0) {
@@ -192,7 +193,7 @@ router.patch('/:id/urgent', async (req: Request<RouteParams>, res: Response) => 
 
     // Verify request exists
     const requestCheck = await query(
-      `SELECT id FROM requests.help_requests WHERE id = $1`,
+      `SELECT id FROM requests.help_requests r WHERE ${notDirectedSql('r')} AND id = $1`,
       [id]
     );
     if (requestCheck.rowCount === 0) {
@@ -208,7 +209,7 @@ router.patch('/:id/urgent', async (req: Request<RouteParams>, res: Response) => 
     if (urgent) {
       // Always set to 'urgent' when toggling on
       const result = await query(
-        `UPDATE requests.help_requests SET urgency = 'urgent', updated_at = NOW() WHERE id = $1 RETURNING *`,
+        `UPDATE requests.help_requests r SET urgency = 'urgent', updated_at = NOW() WHERE ${notDirectedSql('r')} AND id = $1 RETURNING *`,
         [id]
       );
       return res.json({ success: true, data: { request: result.rows[0] } });
@@ -216,7 +217,7 @@ router.patch('/:id/urgent', async (req: Request<RouteParams>, res: Response) => 
       // Downgrade 'urgent' → 'medium'. ('critical' was retired in Sprint 85 / ADR-066;
       // 'urgent' is now the single top tier, so there is no special-case to preserve.)
       const result = await query(
-        `UPDATE requests.help_requests SET urgency = 'medium', updated_at = NOW() WHERE id = $1 RETURNING *`,
+        `UPDATE requests.help_requests r SET urgency = 'medium', updated_at = NOW() WHERE ${notDirectedSql('r')} AND id = $1 RETURNING *`,
         [id]
       );
       return res.json({ success: true, data: { request: result.rows[0] } });

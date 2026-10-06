@@ -39,7 +39,7 @@ export interface OpenRequest {
   community_id: number;
   community_name: string;
   urgency: 'low' | 'medium' | 'high' | 'urgent';
-  expected_duration: string;
+  expected_duration: string | null;
   created_at: Date;
   offers_count: number;
   required_skills: string[];

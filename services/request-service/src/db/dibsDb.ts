@@ -1,3 +1,4 @@
+import { notDirectedSql } from './directedAudience';
 import { query } from '../database/db';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -130,7 +131,7 @@ export async function getEligibleCandidates(
          COUNT(*) AS interaction_count
        FROM requests.matches m
        JOIN requests.help_requests hr ON hr.id = m.request_id
-       WHERE m.status = 'completed'
+       WHERE ${notDirectedSql('hr')} AND m.status = 'completed'
          AND (
            (hr.requester_id = $1 AND m.responder_id != $1)
            OR
@@ -153,7 +154,7 @@ export async function getEligibleCandidates(
          COUNT(*) AS interaction_count
        FROM requests.matches m
        JOIN requests.help_requests hr ON hr.id = m.request_id
-       WHERE m.status = 'completed'
+       WHERE ${notDirectedSql('hr')} AND m.status = 'completed'
          AND ${SIMILARITY_KEY_SQL} = $3
          AND (
            (hr.requester_id = $1 AND m.responder_id != $1)
@@ -243,7 +244,7 @@ export async function getMutualAidCandidates(
          COUNT(*) AS interaction_count
        FROM requests.matches m
        JOIN requests.help_requests hr ON hr.id = m.request_id
-       WHERE m.status = 'completed'
+       WHERE ${notDirectedSql('hr')} AND m.status = 'completed'
          AND (
            (hr.requester_id = $1 AND m.responder_id != $1)
            OR (m.responder_id = $1 AND hr.requester_id != $1)
@@ -265,7 +266,7 @@ export async function getMutualAidCandidates(
          COUNT(*) AS interaction_count
        FROM requests.matches m
        JOIN requests.help_requests hr ON hr.id = m.request_id
-       WHERE m.status = 'completed'
+       WHERE ${notDirectedSql('hr')} AND m.status = 'completed'
          AND ${SIMILARITY_KEY_SQL} = $3
          AND (
            (hr.requester_id = $1 AND m.responder_id != $1)
@@ -339,7 +340,7 @@ export async function getRelationshipContext(
        COALESCE(BOOL_OR(${SIMILARITY_KEY_SQL} = $3), false) AS similar_category
      FROM requests.matches m
      JOIN requests.help_requests hr ON hr.id = m.request_id
-     WHERE m.status = 'completed'
+     WHERE ${notDirectedSql('hr')} AND m.status = 'completed'
        AND (
          (hr.requester_id = $1 AND m.responder_id = $2)
          OR (m.responder_id = $1 AND hr.requester_id = $2)
@@ -437,7 +438,7 @@ export async function getPendingDibsForProvider(providerUserId: string): Promise
      FROM requests.dibs d
      JOIN requests.help_requests hr ON hr.id = d.request_id
      JOIN auth.users u ON u.id = d.requester_id
-     WHERE d.provider_user_id = $1 AND d.status = 'pending'
+     WHERE ${notDirectedSql('hr')} AND d.provider_user_id = $1 AND d.status = 'pending'
      ORDER BY d.created_at DESC`,
     [providerUserId]
   );

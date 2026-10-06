@@ -1871,6 +1871,17 @@ CREATE TABLE governance.votes (
 );
 
 --
+-- Name: borrow_notification_outbox; Type: TABLE; Schema: inventory; Owner: -
+--
+
+CREATE TABLE inventory.borrow_notification_outbox (
+    request_id uuid NOT NULL,
+    payload jsonb NOT NULL,
+    published_at timestamp with time zone,
+    delivered_at timestamp with time zone
+);
+
+--
 -- Name: item_shares; Type: TABLE; Schema: inventory; Owner: -
 --
 
@@ -2437,6 +2448,10 @@ CREATE TABLE requests.help_requests (
     visibility character varying(50) DEFAULT 'community'::character varying,
     federated_id character varying(255),
     content_forgotten_at timestamp with time zone,
+    is_directed boolean DEFAULT false NOT NULL,
+    directed_to_user_id uuid,
+    directed_to_community_id uuid,
+    inventory_item_id uuid,
     CONSTRAINT chk_help_requests_status CHECK (((status)::text = ANY ((ARRAY['open'::character varying, 'dibs_pending'::character varying, 'matched'::character varying, 'completed'::character varying, 'cancelled'::character varying])::text[]))),
     CONSTRAINT chk_help_requests_urgency CHECK (((urgency)::text = ANY ((ARRAY['urgent'::character varying, 'high'::character varying, 'medium'::character varying, 'low'::character varying])::text[]))),
     CONSTRAINT help_requests_visibility_max_degrees_check CHECK (((visibility_max_degrees >= 1) AND (visibility_max_degrees <= 6)))
@@ -3568,6 +3583,13 @@ ALTER TABLE ONLY governance.votes
     ADD CONSTRAINT votes_proposal_id_voter_id_key UNIQUE (proposal_id, voter_id);
 
 --
+-- Name: borrow_notification_outbox borrow_notification_outbox_pkey; Type: CONSTRAINT; Schema: inventory; Owner: -
+--
+
+ALTER TABLE ONLY inventory.borrow_notification_outbox
+    ADD CONSTRAINT borrow_notification_outbox_pkey PRIMARY KEY (request_id);
+
+--
 -- Name: item_shares item_shares_pkey; Type: CONSTRAINT; Schema: inventory; Owner: -
 --
 
@@ -4615,6 +4637,12 @@ CREATE INDEX idx_proposals_proposed_by ON governance.proposals USING btree (prop
 CREATE INDEX idx_votes_proposal_id ON governance.votes USING btree (proposal_id);
 
 --
+-- Name: idx_borrow_notifications_pending; Type: INDEX; Schema: inventory; Owner: -
+--
+
+CREATE INDEX idx_borrow_notifications_pending ON inventory.borrow_notification_outbox USING btree (request_id) WHERE (delivered_at IS NULL);
+
+--
 -- Name: idx_item_shares_community; Type: INDEX; Schema: inventory; Owner: -
 --
 
@@ -4715,6 +4743,12 @@ CREATE INDEX idx_preferences_event_type ON notifications.preferences USING btree
 --
 
 CREATE INDEX idx_preferences_user_id ON notifications.preferences USING btree (user_id);
+
+--
+-- Name: uq_directed_notification_recipient; Type: INDEX; Schema: notifications; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_directed_notification_recipient ON notifications.notifications USING btree (user_id, ((data ->> 'request_id'::text))) WHERE ((type)::text = 'directed_request_created'::text);
 
 --
 -- Name: idx_provider_offers_provider_user; Type: INDEX; Schema: provider; Owner: -
@@ -4967,6 +5001,18 @@ CREATE INDEX idx_help_offers_expired ON requests.help_offers USING btree (expire
 --
 
 CREATE INDEX idx_help_offers_expires_at ON requests.help_offers USING btree (expires_at) WHERE (expired = false);
+
+--
+-- Name: idx_help_requests_directed_community; Type: INDEX; Schema: requests; Owner: -
+--
+
+CREATE INDEX idx_help_requests_directed_community ON requests.help_requests USING btree (directed_to_community_id) WHERE is_directed;
+
+--
+-- Name: idx_help_requests_directed_user; Type: INDEX; Schema: requests; Owner: -
+--
+
+CREATE INDEX idx_help_requests_directed_user ON requests.help_requests USING btree (directed_to_user_id) WHERE is_directed;
 
 --
 -- Name: idx_help_requests_expired; Type: INDEX; Schema: requests; Owner: -
@@ -5997,6 +6043,13 @@ ALTER TABLE ONLY governance.votes
     ADD CONSTRAINT votes_voter_id_fkey FOREIGN KEY (voter_id) REFERENCES auth.users(id);
 
 --
+-- Name: borrow_notification_outbox borrow_notification_outbox_request_id_fkey; Type: FK CONSTRAINT; Schema: inventory; Owner: -
+--
+
+ALTER TABLE ONLY inventory.borrow_notification_outbox
+    ADD CONSTRAINT borrow_notification_outbox_request_id_fkey FOREIGN KEY (request_id) REFERENCES requests.help_requests(id) ON DELETE CASCADE;
+
+--
 -- Name: item_shares item_shares_community_id_fkey; Type: FK CONSTRAINT; Schema: inventory; Owner: -
 --
 
@@ -6331,6 +6384,27 @@ ALTER TABLE ONLY requests.help_offers
 
 ALTER TABLE ONLY requests.help_requests
     ADD CONSTRAINT help_requests_boosted_by_fkey FOREIGN KEY (boosted_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: help_requests help_requests_directed_to_community_id_fkey; Type: FK CONSTRAINT; Schema: requests; Owner: -
+--
+
+ALTER TABLE ONLY requests.help_requests
+    ADD CONSTRAINT help_requests_directed_to_community_id_fkey FOREIGN KEY (directed_to_community_id) REFERENCES communities.communities(id) ON DELETE SET NULL;
+
+--
+-- Name: help_requests help_requests_directed_to_user_id_fkey; Type: FK CONSTRAINT; Schema: requests; Owner: -
+--
+
+ALTER TABLE ONLY requests.help_requests
+    ADD CONSTRAINT help_requests_directed_to_user_id_fkey FOREIGN KEY (directed_to_user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: help_requests help_requests_inventory_item_id_fkey; Type: FK CONSTRAINT; Schema: requests; Owner: -
+--
+
+ALTER TABLE ONLY requests.help_requests
+    ADD CONSTRAINT help_requests_inventory_item_id_fkey FOREIGN KEY (inventory_item_id) REFERENCES inventory.items(id) ON DELETE SET NULL;
 
 --
 -- Name: help_requests help_requests_requester_id_fkey; Type: FK CONSTRAINT; Schema: requests; Owner: -
@@ -7038,5 +7112,7 @@ INSERT INTO public.schema_migrations (migration_name) VALUES
   ('20260716-path-trust-score-double-precision.sql'),
   ('20260819-standing-projection-foundation.sql'),
   ('20260930-skill-vocabulary.sql'),
-  ('20261003-inventory-schema.sql')
+  ('20261003-inventory-schema.sql'),
+  ('20261004-directed-borrow-delivery.sql'),
+  ('20261004-directed-requests.sql')
 ON CONFLICT (migration_name) DO NOTHING;

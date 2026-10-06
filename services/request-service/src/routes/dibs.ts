@@ -1,3 +1,4 @@
+import { notDirectedSql } from '../db/directedAudience';
 import { Router, Response } from 'express';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { query, withTransaction } from '../database/db';
@@ -32,7 +33,7 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
   try {
     // Fetch the request
     const requestResult = await query(
-      `SELECT id, requester_id, scheduled_for, request_type, category, payload FROM requests.help_requests WHERE id = $1`,
+      `SELECT id, requester_id, scheduled_for, request_type, category, payload FROM requests.help_requests r WHERE ${notDirectedSql('r')} AND id = $1`,
       [requestId]
     );
 
@@ -135,7 +136,7 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
   try {
     // Fetch the request
     const requestResult = await query(
-      `SELECT id, requester_id, scheduled_for, status, request_type, category, payload FROM requests.help_requests WHERE id = $1`,
+      `SELECT id, requester_id, scheduled_for, status, request_type, category, payload FROM requests.help_requests r WHERE ${notDirectedSql('r')} AND id = $1`,
       [requestId]
     );
 
@@ -232,7 +233,7 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
       const created = await createDibs(requestId, userId, providerUserId, expiresAt, q);
 
       await q(
-        `UPDATE requests.help_requests SET status = 'dibs_pending' WHERE id = $1`,
+        `UPDATE requests.help_requests r SET status = 'dibs_pending' WHERE ${notDirectedSql('r')} AND id = $1`,
         [requestId]
       );
 
@@ -333,7 +334,7 @@ router.put('/dibs/:id/accept', authMiddleware, async (req: AuthenticatedRequest,
 
       // Update request status
       await client.query(
-        `UPDATE requests.help_requests SET status = 'matched' WHERE id = $1`,
+        `UPDATE requests.help_requests r SET status = 'matched' WHERE ${notDirectedSql('r')} AND id = $1`,
         [dibs.request_id]
       );
 
@@ -416,7 +417,7 @@ router.put('/dibs/:id/decline', authMiddleware, async (req: AuthenticatedRequest
 
       // Reopen the request
       await client.query(
-        `UPDATE requests.help_requests SET status = 'open' WHERE id = $1`,
+        `UPDATE requests.help_requests r SET status = 'open' WHERE ${notDirectedSql('r')} AND id = $1`,
         [dibs.request_id]
       );
 
@@ -477,7 +478,7 @@ router.post('/dibs/:id/expire', authMiddleware, async (req: AuthenticatedRequest
     await updateDibsStatus(dibsId, 'expired');
 
     await query(
-      `UPDATE requests.help_requests SET status = 'open' WHERE id = $1`,
+      `UPDATE requests.help_requests r SET status = 'open' WHERE ${notDirectedSql('r')} AND id = $1`,
       [dibs.request_id]
     );
 

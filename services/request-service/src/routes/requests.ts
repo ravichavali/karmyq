@@ -1,3 +1,4 @@
+import { notDirectedSql, directedAudienceSql, matchParticipantSql } from '../db/directedAudience';
 import { Router, Request, Response } from 'express';
 import { query } from '../database/db';
 import { getRequestReachability } from '../db/eligibility';
@@ -247,7 +248,7 @@ router.get('/matched/for-user', async (req: Request, res: Response) => {
       -- Only from communities the user is a member of
       INNER JOIN communities.members m ON rc.community_id = m.community_id
       -- dibs_pending requests are excluded by the status = 'open' equality check
-      WHERE r.status = 'open'
+      WHERE ${notDirectedSql('r')} AND r.status = 'open'
         AND r.expired = FALSE
         AND m.user_id = $1
         AND m.status = 'active'
@@ -464,7 +465,7 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
       LEFT JOIN communities.communities c ON rc.community_id = c.id
       LEFT JOIN communities.members m ON rc.community_id = m.community_id AND m.user_id = $1 AND m.status = 'active'
       -- dibs_pending requests are excluded by the status = 'open' equality check
-      WHERE r.status = 'open'
+      WHERE ${notDirectedSql('r')} AND r.status = 'open'
         AND r.expired = FALSE
         AND r.requester_id != $1
         -- BUG-002: hide requests the viewer already has a live offer/match on.
@@ -562,7 +563,7 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
            LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
            LEFT JOIN communities.communities c ON rc.community_id = c.id
            -- dibs_pending requests are excluded by the status = 'open' equality check
-           WHERE r.status = 'open'
+           WHERE ${notDirectedSql('r')} AND r.status = 'open'
              AND r.expired = FALSE
              AND r.requester_id != $1
              -- BUG-002: hide requests the viewer already has a live offer/match on.
@@ -960,7 +961,7 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
        JOIN auth.users responder ON m.responder_id = responder.id
        LEFT JOIN requests.request_communities rc ON hr.id = rc.request_id
        LEFT JOIN communities.communities c ON rc.community_id = c.id
-       WHERE (hr.requester_id = $1 OR m.responder_id = $1)
+       WHERE ${matchParticipantSql('hr', 'm', '$1')}
          AND m.status IN ('proposed', 'matched')
        GROUP BY m.id, m.request_id, m.status, m.created_at, m.admin_proposed, m.requester_done_at,
                 m.responder_done_at, hr.requester_id, m.responder_id, hr.title,
@@ -1021,7 +1022,7 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
        JOIN auth.users requester ON hr.requester_id = requester.id
        LEFT JOIN requests.request_communities rc ON hr.id = rc.request_id
        LEFT JOIN communities.communities c ON rc.community_id = c.id
-       WHERE d.provider_user_id = $1 AND d.status = 'pending' AND d.expires_at > NOW()
+       WHERE ${notDirectedSql('hr')} AND d.provider_user_id = $1 AND d.status = 'pending' AND d.expires_at > NOW()
        GROUP BY d.id, d.request_id, d.created_at, hr.title, hr.description, hr.payload, hr.category, requester.name`,
       [userId]
     );
@@ -1102,7 +1103,7 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
        JOIN auth.users responder ON m.responder_id = responder.id
        LEFT JOIN requests.request_communities rc ON hr.id = rc.request_id
        LEFT JOIN communities.communities c ON rc.community_id = c.id
-       WHERE (hr.requester_id = $1 OR m.responder_id = $1)
+       WHERE ${matchParticipantSql('hr', 'm', '$1')}
          AND m.status = 'completed'
          AND NOT EXISTS (
            SELECT 1 FROM feedback.feedback f
@@ -1208,7 +1209,7 @@ async function fetchProposedResponderAsks(
         `SELECT COUNT(DISTINCT m.request_id)::int AS n
            FROM requests.matches m
            JOIN requests.help_requests hr ON hr.id = m.request_id
-          WHERE m.responder_id = $1 AND m.status = 'proposed'
+          WHERE ${notDirectedSql('hr')} AND m.responder_id = $1 AND m.status = 'proposed'
             AND m.admin_proposed = $2
             AND hr.status = 'open' AND hr.expired = FALSE`,
         [userId, adminProposed]
@@ -1230,7 +1231,7 @@ async function fetchProposedResponderAsks(
            FROM requests.matches m
            JOIN requests.help_requests hr ON hr.id = m.request_id
            LEFT JOIN auth.users u ON u.id = hr.requester_id
-          WHERE m.responder_id = $1 AND m.status = 'proposed'
+          WHERE ${notDirectedSql('hr')} AND m.responder_id = $1 AND m.status = 'proposed'
             AND m.admin_proposed = $2
             AND hr.status = 'open' AND hr.expired = FALSE
           ORDER BY m.request_id, m.created_at DESC
@@ -1320,22 +1321,23 @@ async function fetchCommunityPulse(communityId: string): Promise<CommunityPulse 
        -- ONE helper, not three. Raw match rows let the number outrun recentHelpers (which is already
        -- grouped per responder), making the headline unreachable against the named list.
        (SELECT COUNT(DISTINCT m.responder_id) FROM requests.matches m
+          JOIN requests.help_requests hr ON hr.id = m.request_id
           JOIN requests.request_communities rc ON m.request_id = rc.request_id
           JOIN communities.members mem
             ON mem.community_id = rc.community_id
            AND mem.user_id = m.responder_id
            AND mem.status = 'active'
-          WHERE rc.community_id = $1 AND m.status = 'completed'
+          WHERE ${notDirectedSql('hr')} AND rc.community_id = $1 AND m.status = 'completed'
             AND m.completed_at >= NOW() - INTERVAL '7 days') AS exchanges_completed_week,
        (SELECT COUNT(*) FROM communities.members mem
           WHERE mem.community_id = $1 AND mem.status = 'active'
             AND mem.joined_at >= NOW() - INTERVAL '7 days') AS new_members_count,
        (SELECT COUNT(*) FROM requests.help_requests hr
           JOIN requests.request_communities rc ON hr.id = rc.request_id
-          WHERE rc.community_id = $1 AND hr.status = 'open' AND hr.expired = FALSE) AS open_requests_count,
+          WHERE ${notDirectedSql('hr')} AND rc.community_id = $1 AND hr.status = 'open' AND hr.expired = FALSE) AS open_requests_count,
        (SELECT COUNT(*) FROM requests.help_requests hr
           JOIN requests.request_communities rc ON hr.id = rc.request_id
-          WHERE rc.community_id = $1 AND hr.status = 'open' AND hr.expired = FALSE
+          WHERE ${notDirectedSql('hr')} AND rc.community_id = $1 AND hr.status = 'open' AND hr.expired = FALSE
             AND hr.urgency IN ('urgent','high')) AS time_sensitive
      FROM communities.communities c
      WHERE c.id = $1`,
@@ -1354,13 +1356,14 @@ async function fetchCommunityPulse(communityId: string): Promise<CommunityPulse 
   const helpersResult = await query(
     `SELECT u.name, COUNT(*)::int AS help_count
        FROM requests.matches m
+       JOIN requests.help_requests hr ON hr.id = m.request_id
        JOIN requests.request_communities rc ON m.request_id = rc.request_id
        JOIN communities.members mem
          ON mem.community_id = rc.community_id
         AND mem.user_id = m.responder_id
         AND mem.status = 'active'
        JOIN auth.users u ON m.responder_id = u.id
-       WHERE rc.community_id = $1 AND m.status = 'completed'
+       WHERE ${notDirectedSql('hr')} AND rc.community_id = $1 AND m.status = 'completed'
          AND m.completed_at >= NOW() - INTERVAL '7 days'
        GROUP BY m.responder_id, u.name
        ORDER BY help_count DESC
@@ -1446,7 +1449,7 @@ async function respondCommunityFeed(
          JOIN requests.help_requests hr ON m.request_id = hr.id
          JOIN auth.users u ON m.responder_id = u.id
          LEFT JOIN communities.communities c ON rc.community_id = c.id
-         WHERE rc.community_id = $1 AND m.status = 'completed'
+         WHERE ${notDirectedSql('hr')} AND rc.community_id = $1 AND m.status = 'completed'
            AND m.completed_at >= NOW() - INTERVAL '14 days'
            AND NOT EXISTS (
              SELECT 1 FROM requests.matches m2
@@ -1549,7 +1552,7 @@ router.get('/community/:communityId/open-asks', async (req: Request, res: Respon
          JOIN requests.request_communities rc ON r.id = rc.request_id AND rc.community_id = $1
          LEFT JOIN auth.users u ON r.requester_id = u.id
          LEFT JOIN communities.communities c ON c.id = $1
-        WHERE r.status = 'open' AND r.expired = FALSE
+        WHERE ${notDirectedSql('r')} AND r.status = 'open' AND r.expired = FALSE
         ORDER BY (r.urgency IN ('urgent','high')) DESC, r.created_at DESC`,
       [communityId]
     );
@@ -1683,7 +1686,14 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
       `SELECT
         r.id, r.requester_id, r.title, r.description,
         r.category, r.urgency, r.status, r.expired, r.created_at, r.updated_at,
-        r.request_type, r.payload, r.requirements,
+        r.request_type, r.payload, r.requirements, r.is_directed, r.inventory_item_id,
+        CASE WHEN r.directed_to_user_id IS NOT NULL THEN
+          jsonb_build_object('kind','user','id',r.directed_to_user_id,'name',
+            (SELECT name FROM auth.users directed_owner WHERE directed_owner.id=r.directed_to_user_id))
+          WHEN r.directed_to_community_id IS NOT NULL THEN
+          jsonb_build_object('kind','community_admins','id',r.directed_to_community_id,'name',
+            (SELECT name FROM communities.communities directed_community WHERE directed_community.id=r.directed_to_community_id))
+          ELSE NULL END AS directed_to,
         r.visibility_scope, r.visibility_max_degrees,
         r.scheduled_for,
         u.name as requester_name, u.email as requester_email,
@@ -1704,7 +1714,7 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
         ORDER BY created_at DESC
         LIMIT 1
       ) viewer_match ON TRUE
-      WHERE r.id = $1
+      WHERE r.id = $1 AND ${directedAudienceSql('r', '$2')}
       GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.expired, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.scheduled_for, u.name, u.email, viewer_match.id, viewer_match.status`,
       [id, userId ?? null]
     );
@@ -1758,6 +1768,10 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
 // v9.0: Supports polymorphic requests (generic, ride, borrow, service, event)
 router.post('/', async (req: Request, res: Response) => {
   try {
+    if (['is_directed','directed_to_user_id','directed_to_community_id','inventory_item_id'].some((field) => Object.prototype.hasOwnProperty.call(req.body, field))) {
+      sendError(res, 'VALIDATION_ERROR', 'Directed asks must be created from an inventory item', 400);
+      return;
+    }
     const { community_id, post_to_all_communities, request_type, title, description, urgency, payload, requirements, visibility_scope, visibility_max_degrees, preferred_provider_id, scheduled_for } = req.body;
     // SECURITY: Always use verified userId from JWT, never trust client-provided requester_id
     const requester_id = (req as any).user?.userId;
@@ -2265,6 +2279,11 @@ router.patch('/:id/admin-triage', async (req: Request, res: Response) => {
       return sendValidationError(res, 'At least one of urgency or note is required');
     }
 
+    // Private asks never enter community triage, even for a community-targeted admin.
+    const triageTarget = await query(`SELECT r.id FROM requests.help_requests r
+      WHERE r.id = $1 AND ${notDirectedSql('r')}`, [id]);
+    if (!triageTarget.rows.length) return sendNotFound(res, 'Request not found');
+
     // Verify caller is an active admin or moderator of this community AND the request belongs to it
     const authCheck = await query(
       `SELECT m.role
@@ -2294,7 +2313,7 @@ router.patch('/:id/admin-triage', async (req: Request, res: Response) => {
         return sendValidationError(res, `urgency must be one of: ${VALID_URGENCY.join(', ')}`);
       }
       await query(
-        `UPDATE requests.help_requests SET urgency = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+        `UPDATE requests.help_requests r SET urgency = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND ${notDirectedSql('r')}`,
         [urgency, id]
       );
     }

@@ -74,7 +74,7 @@ export async function createProviderOffer(
  */
 export async function getMyProviderOffers(providerUserId: string) {
   const result = await query(
-    `SELECT o.*, hr.title as request_title, hr.type as request_type
+    `SELECT o.*, hr.title as request_title, hr.request_type
      FROM provider.offers o
      JOIN requests.help_requests hr ON hr.id = o.request_id
      WHERE o.provider_user_id = $1

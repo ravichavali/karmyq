@@ -147,7 +147,7 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
           r.expires_at
         FROM requests.help_requests r
         JOIN auth.users u ON r.requester_id = u.id
-        WHERE r.community_id = $1 ${dateClause}
+        WHERE /* not-directed */ NOT r.is_directed AND r.community_id = $1 ${dateClause}
         ORDER BY r.created_at DESC
       `, dateParams);
       exportData.requests = requestsResult.rows;
@@ -168,7 +168,7 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
         FROM requests.matches m
         JOIN requests.help_requests r ON m.request_id = r.id
         JOIN auth.users u ON m.responder_id = u.id
-        WHERE r.community_id = $1 ${dateClause.replace(/created_at/g, 'm.created_at')}
+        WHERE /* not-directed */ NOT r.is_directed AND r.community_id = $1 ${dateClause.replace(/created_at/g, 'm.created_at')}
         ORDER BY m.created_at DESC
       `, dateParams);
       exportData.matches = matchesResult.rows;
@@ -359,10 +359,10 @@ router.get('/:communityId/export/activity', async (req: Request, res: Response) 
         COALESCE(t.helps_given, 0) as "Helps Given",
         COALESCE(t.helps_received, 0) as "Helps Received",
         (SELECT COUNT(*) FROM requests.help_requests r
-         WHERE r.requester_id = m.user_id AND r.community_id = $1) as "Requests Created",
+         WHERE /* not-directed */ NOT r.is_directed AND r.requester_id = m.user_id AND r.community_id = $1) as "Requests Created",
         (SELECT COUNT(*) FROM requests.matches mt
          JOIN requests.help_requests r ON mt.request_id = r.id
-         WHERE mt.responder_id = m.user_id AND r.community_id = $1
+         WHERE /* not-directed */ NOT r.is_directed AND mt.responder_id = m.user_id AND r.community_id = $1
          AND mt.status = 'completed') as "Requests Completed"
       FROM community.memberships m
       JOIN auth.users u ON m.user_id = u.id

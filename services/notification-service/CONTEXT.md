@@ -5,6 +5,37 @@
 
 ## Purpose
 
+Sprint 132 PR C (2026-10-04): `directed_request_created` consumes explicit
+`{request_id,requester_id,recipient_user_ids,title,inventory_item_id}` from request-service.
+At delivery it resolves the current request/content and personal target or active owning-community
+admins, ignoring saved recipient IDs and titles. It inserts an in-app notification for each current
+recipient, titled “{requester} asked to
+borrow your {item}”, linked to `/requests/:id`. No `communities.members` fan-out; push/email
+are disabled for this template. Borrow creation never emits `request_created`. Provider-on-duty
+request discovery excludes directed asks. Existing notification caller ownership from PR S remains.
+
+PR C review correction: directed jobs use **`karmyq-directed-notifications`**, consumed only here.
+Legacy `karmyq-events` handlers remain registered. Recipient inserts use the partial unique index
+`uq_directed_notification_recipient` on user_id and data.request_id for this event type, with
+`ON CONFLICT DO NOTHING`; redelivery emits no duplicate SSE notification. After all
+current recipients are handled (including preferences that disable delivery), the subscriber stamps
+`inventory.borrow_notification_outbox.delivered_at`. Request-service retries pending/unconfirmed
+delivery and exhausted failed jobs. The live recipient lookup requires status=open and expired=false;
+closed or expired asks are acknowledged without a new invitation. Deleted requests/targets/recipients produce no delivery,
+including jobs left queued by reset. No community fan-out or public push/email was introduced.
+ADR-099 explicitly accepts the narrow cross-service write: request-service owns the outbox rows
+and publication state; notification-service updates only delivered_at after processing the job,
+including a terminal job with no eligible recipients. It never changes request or intent payloads.
+
+Completion delivery correction (2026-10-05, ADR-099): new `match_completed` jobs arrive on
+`karmyq-completion-notification`; the same handler remains on the legacy shared queue.
+Per-recipient completion inserts take a transaction advisory lock keyed by user/match, then
+check the stored notification before inserting. A failure sending to the second participant
+can retry without duplicating the first participant's stored notification or SSE emission.
+The identity check and insert use one database connection; SSE emits only after commit.
+Delivery is at least once; a crash after commit but before SSE can omit the live emission,
+while the notification remains available in the persisted inbox.
+
 Manages user notifications across the platform with template-based messaging, user preferences, and real-time delivery via Server-Sent Events (SSE). Listens to events from other services and creates appropriate notifications for users.
 
 ## Database Schema
@@ -1009,5 +1040,9 @@ boot instead would put it under the deploy's health checks — see `docs/IDEAS.m
 No endpoint, payload, event or schema change. Not covered: the SDK's own retry of a 429 with backoff.
 
 ## Recent Fixes
+
+- **2026-10-05 (Sprint 132 PR C review)**: delayed private-ask jobs recheck that the ask is open
+  and unexpired before selecting recipients. Cancelled/completed/expired asks are acknowledged
+  without sending a stale borrow invitation; real delayed-job integration covers all three cases.
 
 - **2026-09-30 (Sprint 132 PR S, BUG-055 — HIGH)**: every user route trusted a client-supplied user id: the URL `:userId` for list, unread-count, read-all and preferences, and a body `user_id` for mark-read and delete. Any logged-in user could read or change another user's notifications. All of them now act on the JWT caller only (see *Caller scoping* above). The frontend already sent only the caller's own id, so no client change was needed.

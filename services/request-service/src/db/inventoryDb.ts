@@ -1,4 +1,5 @@
 import { query, withTransaction } from '../database/db';
+import { directedAudienceSql } from './directedAudience';
 
 // Only internal callers supply SQL identifiers/parameter positions. Viewer values stay bound.
 export function itemManagerSql(alias: string, viewerParam: string): string {
@@ -43,12 +44,15 @@ export type ItemPatch = Partial<
 
 // A read viewer learns only the shares they themselves belong to. Managers can see the full
 // configured set, including withdrawn shares, to remove it or restore it after rejoining.
+// Other viewers get only shares with a currently active owner as well as their own membership.
 function sharedWithSql(alias: string, viewerParam: string): string {
   return `COALESCE((SELECT jsonb_agg(jsonb_build_object('id', c.id, 'name', c.name) ORDER BY c.name, c.id)
     FROM inventory.item_shares s JOIN communities.communities c ON c.id = s.community_id
     WHERE s.item_id = ${alias}.id AND (${itemManagerSql(alias, viewerParam)} OR EXISTS (
       SELECT 1 FROM communities.members sm WHERE sm.community_id = s.community_id
-        AND sm.user_id = ${viewerParam} AND sm.status = 'active'))), '[]'::jsonb)`;
+        AND sm.user_id = ${viewerParam} AND sm.status = 'active' AND EXISTS (
+          SELECT 1 FROM communities.members share_owner WHERE share_owner.community_id = s.community_id
+            AND share_owner.user_id = ${alias}.owner_user_id AND share_owner.status = 'active')))), '[]'::jsonb)`;
 }
 
 export async function isActiveAdmin(communityId: string, userId: string): Promise<boolean> {
@@ -233,4 +237,84 @@ export async function replaceShares(itemId: string, ownerId: string, communityId
     );
     return shares.rows[0]?.shared_with ?? [];
   });
+}
+
+export interface BorrowInput {
+  community_id: string;
+  duration_days: number;
+  return_date?: string;
+  description?: string;
+}
+
+export async function createBorrow(itemId: string, requesterId: string, input: BorrowInput) {
+  return withTransaction(async (q) => {
+    const visible = await q(`SELECT i.* FROM inventory.items i
+      WHERE i.id=$1 AND ${itemAudienceSql('i', '$2')} FOR UPDATE OF i`, [itemId, requesterId]);
+    const item = visible.rows[0];
+    if (!item) throw new InventoryError(404, 'NOT_FOUND', 'Item not found');
+    if (item.owner_user_id === requesterId) throw new InventoryError(400, 'OWN_ITEM', 'You cannot borrow your own item');
+    if (item.status !== 'available') throw new InventoryError(400, 'ITEM_UNAVAILABLE', 'This item is unavailable');
+    // Re-check the chosen community, not just visibility through some other live share.
+    // Item lock serializes share/edit/delete operations; member locks keep this transaction's
+    // authorization and recipient resolution consistent with concurrent leave/demotion writes.
+    const members = await q(`SELECT member.user_id FROM communities.members member
+      WHERE member.community_id=$1 AND member.status='active'
+        AND member.user_id=ANY($2::uuid[]) FOR SHARE`,
+      [input.community_id, item.owner_user_id ? [requesterId, item.owner_user_id] : [requesterId]]);
+    const required = item.owner_user_id ? [requesterId, item.owner_user_id] : [requesterId];
+    if (required.some((id) => !members.rows.some((m: any) => m.user_id === id)))
+      throw new InventoryError(404, 'NOT_FOUND', 'Item not found');
+    if (item.owner_community_id) {
+      if (item.owner_community_id !== input.community_id) throw new InventoryError(404, 'NOT_FOUND', 'Item not found');
+    } else {
+      const share = await q('SELECT 1 FROM inventory.item_shares WHERE item_id=$1 AND community_id=$2', [itemId, input.community_id]);
+      if (!share.rows.length) throw new InventoryError(404, 'NOT_FOUND', 'Item not found');
+    }
+    const admins = item.owner_community_id ? await q(`SELECT user_id FROM communities.members
+      WHERE community_id=$1 AND status='active' AND role='admin' ORDER BY user_id FOR SHARE`, [item.owner_community_id]) : null;
+    const recipients = item.owner_user_id ? [item.owner_user_id] : admins!.rows.map((m: any) => m.user_id).filter((id: string) => id !== requesterId);
+    if (!recipients.length) throw new InventoryError(400, 'NO_RECIPIENT', 'No other active admin can receive this ask');
+    // Item lock serializes duplicate submissions. Retain the original ask's terms/attribution.
+    const existing = await q(`SELECT r.* FROM requests.help_requests r
+      WHERE r.inventory_item_id=$1 AND r.requester_id=$2 AND r.is_directed
+        AND r.status='open' AND r.expired=FALSE AND r.expires_at>NOW()
+      ORDER BY r.created_at DESC LIMIT 1`, [itemId, requesterId]);
+    if (existing.rows.length) return { ask: existing.rows[0], event: null };
+    const settings = await q('SELECT request_ttl_days FROM communities.settings WHERE community_id=$1', [input.community_id]);
+    const ttl = settings.rows[0]?.request_ttl_days ?? 60;
+    const title = `Ask to borrow ${item.name}`;
+    const defaultDescription = `I'd like to borrow ${item.name} for ${input.duration_days} days.`;
+    const note = input.description?.trim();
+    const description = note ? (note.length >= 10 ? note : `${defaultDescription}\n\n${note}`) : defaultDescription;
+    const payload = { item_category: item.category, duration_days: input.duration_days,
+      ...(item.condition ? { condition_min: item.condition } : {}), ...(input.return_date ? { return_date: input.return_date } : {}) };
+    const result = await q(`INSERT INTO requests.help_requests
+      (requester_id,title,description,category,request_type,payload,status,urgency,visibility_scope,
+       is_directed,directed_to_user_id,directed_to_community_id,inventory_item_id,expires_at)
+      VALUES ($1,$2,$3,'borrow','borrow',$4,'open','medium','community',TRUE,$5,$6,$7,NOW()+($8 * INTERVAL '1 day')) RETURNING *`,
+      [requesterId, title, description,
+        JSON.stringify(payload), item.owner_user_id, item.owner_community_id, itemId, ttl]);
+    const ask = result.rows[0];
+    await q('INSERT INTO requests.request_communities (request_id,community_id) VALUES ($1,$2)', [ask.id, input.community_id]);
+    const event = { request_id: ask.id, requester_id: requesterId, recipient_user_ids: recipients, title, inventory_item_id: itemId };
+    await q('INSERT INTO inventory.borrow_notification_outbox (request_id,payload) VALUES ($1,$2)', [ask.id, JSON.stringify(event)]);
+    return { ask, event };
+  });
+}
+
+export async function markDirectedNotificationPublished(requestId: string) {
+  await query('UPDATE inventory.borrow_notification_outbox SET published_at=NOW() WHERE request_id=$1 AND published_at IS NULL', [requestId]);
+}
+
+export async function listIncomingAsks(viewerId: string) {
+  const result = await query(`SELECT r.id,r.title,r.description,r.requester_id,r.payload,r.inventory_item_id,r.created_at,
+    u.name AS requester_name FROM requests.help_requests r
+    JOIN auth.users u ON u.id=r.requester_id
+    WHERE r.is_directed AND ${directedAudienceSql('r', '$1', false)} AND r.requester_id <> $1
+      AND r.status = 'open' AND r.expired = FALSE AND r.expires_at > NOW()
+      AND NOT EXISTS (SELECT 1 FROM requests.matches incoming_match
+        WHERE incoming_match.request_id=r.id AND incoming_match.responder_id = $1
+          AND incoming_match.status IN ('proposed', 'matched'))
+    ORDER BY r.created_at DESC,r.id LIMIT 100`, [viewerId]);
+  return result.rows;
 }

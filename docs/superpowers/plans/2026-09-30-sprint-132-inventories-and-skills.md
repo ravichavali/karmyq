@@ -823,3 +823,127 @@ It changes reachability, so run `/code-review` at **high** and use a fresh non-a
   shared to C1, R asks, M's `GET /api/requests/<id>` → 404, O sees the notification, and cleanup
   follows what the maintainer approves.
 - [ ] ADR-099 → **Implemented**. Archive the sprint handoff, and capture Sprint 133 candidates in `docs/IDEAS.md`.
+
+### PR C execution notes — SQL surface inventory (2026-10-04)
+
+AST scan walks every services/*/src/**/*.ts SQL literal/template containing help_requests, including nested reads. Each row names the SQL literal start. Guards must constrain the same query block and table alias; duplicate guards cannot cover an unrelated nested read. Reviewed exceptions match file plus exact SQL SHA256, not a substring. Static coverage is conservative, not a general SQL authorization proof. Cross-service browse fragments stay inline.
+
+| File:line | Surface / treatment | Reason |
+|---|---|---|
+| `services/auth-service/src/services/demoSessionService.ts:151` | Reviewed exact exception | Fixed curated fixture identity lookup; no content returned. |
+| `services/cleanup-service/src/jobs/expirationJob.ts:19` | Reviewed exact exception | Internal expiry mutation, no audience-facing output. |
+| `services/cleanup-service/src/jobs/expirationJob.ts:85` | Reviewed exact exception | Internal hard retention deletion. |
+| `services/cleanup-service/src/jobs/expireDibs.ts:56` | Reviewed exact exception | Internal expiry; directed asks cannot enter dibs. |
+| `services/cleanup-service/src/jobs/matchReminderJob.ts:24` | Reviewed exact exception | Trusted reminders delivered only to matched participants. |
+| `services/cleanup-service/src/jobs/memoryRetentionJob.ts:81` | Reviewed exact exception | Internal retention-window CTE. |
+| `services/cleanup-service/src/jobs/memoryRetentionJob.ts:94` | Reviewed exact exception | Internal content erasure. |
+| `services/cleanup-service/src/jobs/memoryRetentionJob.ts:134` | Reviewed exact exception | Internal retention deletion. |
+| `services/community-service/src/routes/export.ts:137` | Reviewed exact exception | Export requests: literal NOT r.is_directed WHERE filter; dateClause is built only from fixed AND date comparisons at export.ts:100-113. Legacy schema references remain outside scope; static coverage only. |
+| `services/community-service/src/routes/export.ts:158` | Reviewed exact exception | Export matches: literal NOT r.is_directed WHERE filter; dateClause and replacement contain fixed AND bound date comparisons only. Legacy schema references remain outside scope. |
+| `services/community-service/src/routes/export.ts:356` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/community-service/src/routes/stats.ts:43` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/messaging-service/src/routes/messages.ts:211` | Reviewed exact exception | Participant identity lookup; route checks JWT participation before conversation access. |
+| `services/messaging-service/src/routes/messages.ts:283` | Reviewed exact exception | Participant identity lookup; route checks JWT participation before conversation access. |
+| `services/notification-service/src/events/subscriber.ts:28` | Reviewed exact exception | Trusted match-created event delivers to its explicit requester. |
+| `services/notification-service/src/events/subscriber.ts:74` | Reviewed exact exception | Trusted completion event delivers to its two participants. |
+| `services/notification-service/src/events/subscriber.ts:158` | Reviewed exact exception | Dedicated directed delivery selects only open, unexpired canonical requests and live personal targets/active admins; no saved recipient/content is trusted. Missing/deleted/closed/expired requests produce no invitation and are acknowledged as terminal. Notification regressions and real delayed demotion/deletion/lifecycle tests cover this private output contract. |
+| `services/notification-service/src/events/subscriber.ts:386` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/reputation-service/src/database/feedbackDb.ts:79` | Reviewed exact exception | Feedback participant validation; no request content. |
+| `services/reputation-service/src/events/subscriber.ts:20` | Reviewed exact exception | Internal pair karma computation; directed exchanges earn normal karma. |
+| `services/reputation-service/src/routes/health.ts:165` | Reviewed exact exception | Cohort-gated non-identifying health aggregate; no request listing or title. |
+| `services/reputation-service/src/routes/health.ts:174` | Reviewed exact exception | Cohort-gated aggregate participant breadth; no identities returned. |
+| `services/reputation-service/src/routes/health.ts:185` | Reviewed exact exception | Cohort-gated aggregate feedback quality; no request content. |
+| `services/reputation-service/src/services/badgeService.ts:47` | Reviewed exact exception | Internal badge projection. |
+| `services/reputation-service/src/services/healthMetricsService.ts:15` | Reviewed exact exception | Cohort-gated non-identifying health aggregate; no request listing or title. |
+| `services/reputation-service/src/services/healthMetricsService.ts:26` | Reviewed exact exception | Cohort-gated aggregate participant breadth; no identities returned. |
+| `services/reputation-service/src/services/healthMetricsService.ts:41` | Reviewed exact exception | Cohort-gated aggregate feedback quality; no request content. |
+| `services/reputation-service/src/services/networkCohesionService.ts:44` | Reviewed exact exception | Internal graph reduced to cohort score; no request content. |
+| `services/reputation-service/src/services/standingBackfillService.ts:178` | Reviewed exact exception | Operator standing projection. |
+| `services/reputation-service/src/services/standingProjector.ts:90` | Reviewed exact exception | Trusted standing projection. |
+| `services/request-service/src/db/dibsDb.ts:106` | Reviewed exact exception | Both prior and prior_similar read blocks have NOT-directed WHERE filters. SIMILARITY_KEY_SQL is the fixed COALESCE expression at dibsDb.ts:68-69; it cannot introduce OR. |
+| `services/request-service/src/db/dibsDb.ts:216` | Reviewed exact exception | Both prior and prior_similar read blocks have NOT-directed WHERE filters. SIMILARITY_KEY_SQL is the fixed COALESCE expression at dibsDb.ts:68-69; it cannot introduce OR. |
+| `services/request-service/src/db/dibsDb.ts:337` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/db/dibsDb.ts:437` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/db/eligibility.ts:40` | Reviewed exact exception | Eligibility reads an audience boolean before exposing lifecycle metadata; non-audience directed requests return the same not-found object as absent IDs. New offers use current recipients, not historical match participants. |
+| `services/request-service/src/db/inventoryDb.ts:278` | Reviewed exact exception | Caller-owned open-ask deduplication inside the audience-authorized item transaction. |
+| `services/request-service/src/db/inventoryDb.ts:291` | Reviewed exact exception | Creation authorizes item audience and selected live community in a transaction. |
+| `services/request-service/src/db/inventoryDb.ts:310` | Private request audience | JWT-bound audience. New offers/incoming require current recipients; established responders retain private history. |
+| `services/request-service/src/db/offersDb.ts:11` | Reviewed exact exception | Requester-only lifecycle lookup; requester is always in audience. |
+| `services/request-service/src/db/offersDb.ts:37` | Reviewed exact exception | Single-offer lifecycle lookup; requester authorization precedes returned content. |
+| `services/request-service/src/db/offersDb.ts:61` | Reviewed exact exception | Mutation after requester authorization. |
+| `services/request-service/src/db/offersDb.ts:81` | Reviewed exact exception | Single-offer lifecycle lookup; requester authorization precedes returned content. |
+| `services/request-service/src/db/providerOffersDb.ts:77` | Reviewed exact exception | Caller-owned provider offer history; established offers survive membership changes. |
+| `services/request-service/src/db/relationshipContextDb.ts:81` | Private request audience | JWT-bound audience. New offers/incoming require current recipients; established responders retain private history. |
+| `services/request-service/src/db/relationshipContextDb.ts:115` | Private request audience | JWT-bound audience. New offers/incoming require current recipients; established responders retain private history. |
+| `services/request-service/src/routes/adminActions.ts:35` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/adminActions.ts:49` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/adminActions.ts:74` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/adminActions.ts:88` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/adminActions.ts:118` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/adminActions.ts:196` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/adminActions.ts:212` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/adminActions.ts:220` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/dibs.ts:36` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/dibs.ts:139` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/dibs.ts:236` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/dibs.ts:337` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/dibs.ts:420` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/dibs.ts:481` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/feedback.ts:46` | Reviewed exact exception | JWT participant validation for feedback; no request title. |
+| `services/request-service/src/routes/feedback.ts:122` | Reviewed exact exception | Consent lookup after participant authorization; public stories exclude directed asks. |
+| `services/request-service/src/routes/feedback.ts:196` | Reviewed exact exception | Participant feedback lookup; no ask content. |
+| `services/request-service/src/routes/matches.ts:28` | Private match participation | JWT requester/responder participation survives admin demotion; never opens access to nonparticipants. |
+| `services/request-service/src/routes/matches.ts:93` | Private match participation | JWT requester/responder participation survives admin demotion; never opens access to nonparticipants. |
+| `services/request-service/src/routes/matches.ts:292` | Private match participation | JWT requester/responder participation survives admin demotion; never opens access to nonparticipants. |
+| `services/request-service/src/routes/matches.ts:337` | Reviewed exact exception | Scheduling lookup after audience-guarded participant acceptance. |
+| `services/request-service/src/routes/matches.ts:353` | Reviewed exact exception | Lifecycle lock after audience-guarded participation. |
+| `services/request-service/src/routes/matches.ts:371` | Reviewed exact exception | Mutation after audience and participant validation. |
+| `services/request-service/src/routes/matches.ts:400` | Private match participation | JWT requester/responder participation survives admin demotion; never opens access to nonparticipants. |
+| `services/request-service/src/routes/matches.ts:452` | Private match participation | JWT requester/responder participation survives admin demotion; never opens access to nonparticipants. |
+| `services/request-service/src/routes/matches.ts:485` | Reviewed exact exception | Lifecycle lock after audience-guarded participation. |
+| `services/request-service/src/routes/matches.ts:523` | Reviewed exact exception | Mutation after audience and participant validation. |
+| `services/request-service/src/routes/matches.ts:571` | Private match participation | JWT requester/responder participation survives admin demotion; never opens access to nonparticipants. |
+| `services/request-service/src/routes/matches.ts:652` | Reviewed exact exception | Mutation after audience and participant validation. |
+| `services/request-service/src/routes/matches.ts:710` | Private match participation | JWT requester/responder participation survives admin demotion; never opens access to nonparticipants. |
+| `services/request-service/src/routes/matches.ts:749` | Reviewed exact exception | Mutation after audience and participant validation. |
+| `services/request-service/src/routes/providerOffers.ts:56` | Reviewed exact exception | Recipient identity after directed reachability validation. |
+| `services/request-service/src/routes/requests.ts:232` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:450` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:550` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:952` | Private match participation | JWT requester/responder participation survives admin demotion; never opens access to nonparticipants. |
+| `services/request-service/src/routes/requests.ts:1017` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:1055` | Reviewed exact exception | Only the requester sees and decides provider offers on their own ask. |
+| `services/request-service/src/routes/requests.ts:1095` | Private match participation | JWT requester/responder participation survives admin demotion; never opens access to nonparticipants. |
+| `services/request-service/src/routes/requests.ts:1209` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:1221` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:1313` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:1357` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:1446` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:1546` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:1640` | Reviewed exact exception | Caller-owned retention counts, constrained by requester_id = JWT caller; no audience guard can narrow it. |
+| `services/request-service/src/routes/requests.ts:1686` | Private request audience | JWT-bound audience. New offers/incoming require current recipients; established responders retain private history. |
+| `services/request-service/src/routes/requests.ts:1951` | Reviewed exact exception | Ordinary creation rejects all directed fields. |
+| `services/request-service/src/routes/requests.ts:2044` | Reviewed exact exception | Owner identity lookup; ownership checked before mutation. |
+| `services/request-service/src/routes/requests.ts:2088` | Reviewed exact exception | Fixed field owner-only update; directed routing fields cannot be edited. |
+| `services/request-service/src/routes/requests.ts:2121` | Reviewed exact exception | Owner identity lookup; ownership checked before mutation. |
+| `services/request-service/src/routes/requests.ts:2141` | Reviewed exact exception | Requester-only cancellation. |
+| `services/request-service/src/routes/requests.ts:2182` | Reviewed exact exception | Owner identity lookup; ownership checked before mutation. |
+| `services/request-service/src/routes/requests.ts:2226` | Reviewed exact exception | Fixed field owner-only update; directed routing fields cannot be edited. |
+| `services/request-service/src/routes/requests.ts:2283` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/routes/requests.ts:2316` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/services/feed/basicFeedRanker.ts:155` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/services/feed/feedComposer.ts:52` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/services/feed/feedComposer.ts:70` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/services/feed/feedComposer.ts:174` | Reviewed exact exception | The only help_requests read is the nullable RIGHT relation of a LEFT JOIN. NOT-directed is in that join ON, preventing private request matches while preserving member counts. Real integration proves only-private community activity stats. |
+| `services/request-service/src/services/feed/feedComposer.ts:189` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/services/feed/feedComposer.ts:205` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/services/feed/feedComposer.ts:271` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/services/feed/feedComposer.ts:342` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/services/feed/feedComposer.ts:507` | Browse / not-directed predicate | Excludes directed rows for every caller, including participants. |
+| `services/request-service/src/utils/queryBuilder.ts:42` | Conditional own/private branch | Caller-equal requester filter only; browse branch excludes directed rows. |
+| `services/simulation-service/src/fixtures/curatedDemo/baselineWriter.ts:166` | Reviewed exact exception | Curated fixture write. |
+| `services/simulation-service/src/profiles/index.ts:206` | Reviewed exact exception | Own simulation request budget; no other-user request content. |
+| `services/social-graph-service/src/database/relationshipContextDb.ts:22` | Reviewed exact exception | Internal topology projection; no request content. |
+| `services/social-graph-service/src/services/pathComputation.ts:211` | Reviewed exact exception | Pair relationship metadata; no request content. |
+
+PR C maintainer-relayed review: participant action items retain private mark-done/rating prompts; offered-awaiting count and rows both exclude private asks. New offer validation returns identical 404 for absent/out-of-audience directed IDs before lifecycle checks. Existing match participation survives demotion; live membership still gates new offers and incoming asks. Borrowing reuses a caller’s open ask under the item lock and writes a durable notification outbox atomically. A dedicated notification queue, stable job IDs and a recipient unique index make retries safe. The relay checks unconfirmed acknowledgements and retries failed jobs. Borrow choices omit dead owner shares; managers keep configured shares. Activity stats put the exclusion in JOIN ON and use request_communities. Exact exception hashes and query-block/alias checks replace guard counting. Runtime SQL/queue and committed-tree negative proof belong in PR Validation.

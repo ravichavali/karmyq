@@ -7,6 +7,11 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 // Event queue - must match the queue name used by publishers
 const eventQueue = new Queue('karmyq-events', REDIS_URL);
+const completionQueue = new Queue('karmyq-completion-notification', REDIS_URL);
+completionQueue.on('error', error => console.error('Completion queue error:', error));
+// Only notification-service consumes this queue; unrelated workers cannot steal directed jobs.
+const directedQueue = new Queue('karmyq-directed-notifications', REDIS_URL);
+directedQueue.on('error', error => console.error('Directed notification queue error:', error));
 
 export async function initEventSubscriber() {
   try {
@@ -57,7 +62,7 @@ export async function initEventSubscriber() {
     });
 
     // Process match_completed events
-    eventQueue.process('match_completed', async (job) => {
+    const handleCompletion = async (job: Queue.Job) => {
       console.log('Processing match_completed event:', job.data);
 
       const { payload } = job.data;
@@ -100,7 +105,9 @@ export async function initEventSubscriber() {
         console.error('❌ Failed to process match_completed event:', error);
         throw error;
       }
-    });
+    };
+    eventQueue.process('match_completed', handleCompletion);
+    completionQueue.process('match_completed', handleCompletion);
 
     // Process karma_awarded events
     eventQueue.process('karma_awarded', async (job) => {
@@ -142,6 +149,27 @@ export async function initEventSubscriber() {
         console.error('❌ Failed to process karma_awarded event:', error);
         throw error;
       }
+    });
+
+    // Delayed/retried jobs resolve the live request and its current target audience again.
+    // No community fan-out, provider routing or public push summary belongs here.
+    directedQueue.process('directed_request_created', async (job) => {
+      const { request_id } = job.data.payload;
+      const audience = await query(`SELECT recipient.id AS user_id,r.title,r.inventory_item_id,u.name AS requester_name
+        FROM requests.help_requests r
+        JOIN auth.users u ON u.id=r.requester_id
+        JOIN auth.users recipient ON recipient.id=r.directed_to_user_id OR EXISTS (
+          SELECT 1 FROM communities.members cm WHERE cm.community_id=r.directed_to_community_id
+          AND cm.user_id=recipient.id AND cm.status='active' AND cm.role='admin')
+        WHERE r.id=$1 AND r.is_directed AND r.status='open' AND NOT r.expired
+          AND recipient.id<>r.requester_id`, [request_id]);
+      for (const recipient of audience.rows) {
+        await createNotification({ user_id: recipient.user_id, type: 'directed_request_created', data: {
+          request_id, requester_name: recipient.requester_name,
+          request_title: recipient.title, inventory_item_id: recipient.inventory_item_id,
+        } });
+      }
+      await query('UPDATE inventory.borrow_notification_outbox SET delivered_at=NOW() WHERE request_id=$1', [request_id]);
     });
 
     // Process request_created events
@@ -359,7 +387,7 @@ export async function initEventSubscriber() {
            FROM requests.help_requests hr
            JOIN requests.request_communities rc ON rc.request_id = hr.id
            -- dibs_pending requests are excluded by the status = 'open' equality check
-           WHERE rc.community_id = ANY($1) AND hr.status = 'open'
+           WHERE /* not-directed */ NOT hr.is_directed AND rc.community_id = ANY($1) AND hr.status = 'open'
            LIMIT 10`,
           [communityIds]
         );

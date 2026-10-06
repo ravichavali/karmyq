@@ -7,6 +7,59 @@
 
 ## Recent Changes
 
+- **2026-10-05 (Sprint 132 PR C completion delivery correction, ADR-099)**: `match_completed`
+  now saves one Bull job in `karmyq-completion-dispatch`. The request-service dispatcher fans
+  out to `karmyq-completion-reputation`, `karmyq-completion-notification` and
+  `karmyq-completion-social-graph`; workers no longer compete for the same completion job.
+  Partial enqueue retries reuse match-based job IDs. Ten total attempts use exponential retries starting at 2 seconds;
+  successful identities are retained for 24 hours without count eviction, failed jobs are retained.
+  This is at-least-once delivery with bounded queue deduplication, not exactly-once effects.
+  Legacy shared handlers remain for queued pre-upgrade events, whose competition is not repaired.
+  Other event transports are unchanged. The existing gap between database completion and the
+  first Redis enqueue is not covered by a transactional completion outbox; a publish failure
+  there still needs operator recovery. Real integration cases assert all three subscriber effects.
+
+- **2026-10-04 (Sprint 132 PR C, ADR-099)**: directed item borrowing. `POST
+  /requests/inventory/items/:id/borrow` accepts `{community_id,duration_days,return_date?,description?}`
+  (duration integer 1–30, note ≤2000, UTC ISO return date). It locks the item, checks selected-community
+  live audience/memberships, creates a `borrow` request with `is_directed=true`, nullable user/community
+  target and `inventory_item_id`, and exactly one `request_communities` row. Own/unavailable items
+  return 400, non-audience/invalid selected audience 404. A resend reuses the caller's open ask under
+  the item lock, retaining its original terms/attribution. The same transaction saves
+  `inventory.borrow_notification_outbox` with `{request_id,requester_id,recipient_user_ids,title,inventory_item_id}`.
+  Only `directed_request_created` publishes after commit, on `karmyq-directed-notifications`.
+  Queue failure returns the committed ask (201); a 5-second relay retries pending intent, checks
+  acknowledged but unconfirmed deliveries after 5 minutes, and retries exhausted failed jobs.
+  Delivery re-resolves current request content/target admins, so outage retries cannot use stale
+  recipient snapshots; deleted, closed and expired requests are terminal. As the ADR-099
+  cross-service acknowledgement exception, notification-service updates only delivered_at in
+  this request-service-owned outbox after handling all eligible recipients or a terminal job.
+  `GET /requests/inventory/asks/incoming` returns `{asks}`: caller-targeted open, unexpired requests,
+  excluding own asks and caller's live proposed/matched offers. The Helping UI offers through normal
+  `POST /matches`, then refetches inbox and commitments. Item availability is not changed by borrowing.
+  `notDirectedSql` guards all browse reads, pulse and admin actions; `directedAudienceSql` guards
+  detail and own-request listing (only caller-equal `requester_id`). Personal audience = requester/target;
+  community audience = requester/current active admins; existing responders retain their exchange
+  history even after demotion or target deletion. Match reads/mutations and action items use
+  `matchParticipantSql`; current live audience still gates new offers. Directed non-audience offers
+  return the same 404 as missing IDs before lifecycle checks (also provider offer validation).
+  Null targets never open public access. Ordinary POST rejects
+  all four routing fields, even null/false. Detail adds `is_directed` and `directed_to:{kind,id,name}|null`.
+  Matches list adds `is_directed`; directed proposed commitments render while awaiting acceptance.
+  Participant decision bands retain private mark-done/rating actions. Browse and offered-awaiting
+  count/preview exclude private asks; private proposed matches render once in Helping commitments.
+  Non-manager item share metadata contains only communities where both viewer and owner are active;
+  managers retain configured shares. Activity stats constrain the nullable request JOIN rather than
+  WHERE and use request_communities, preserving joins/new members with no public requests.
+  Relationship context returns 204 for directed asks instead of inventing a public tier.
+  SQL gate checks WHERE guards per query block/alias and exact reviewed exceptions. Outer-join ON
+  semantics and unparenthesized dynamic fragments require exact review; it is conservative static
+  coverage, not a general SQL authorization proof. Real-DB tests remain the runtime authority.
+  The legacy feed mapper's absent expected_duration is null; its OpenRequest type explicitly
+  admits null so the real FeedComposer import graph compiles under integration tests' strict settings.
+  Pre-C image rollback after directed rows exist
+  requires preserved guards or unavailable reads (ADR-099); additive DDL alone does not preserve privacy.
+
 - **2026-10-03 (Sprint 132 PR B, ADR-099)**: inventory catalog under `/requests/inventory`.
   Personal items start private; shares require the owner's live active membership. Community
   property is managed by live active admins. Unavailable items are visible only to managers.

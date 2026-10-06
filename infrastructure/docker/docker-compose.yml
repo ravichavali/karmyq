@@ -321,10 +321,13 @@ services:
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev_internal_secret_change_in_production}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       LOG_LEVEL: info
+      REDIS_URL: redis://redis:6379
     ports:
       - "127.0.0.1:3010:3010"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - ../../services/social-graph-service/src:/app/src

@@ -1,4 +1,5 @@
 import { query } from '../database/db';
+import { directedAudienceSql } from './directedAudience';
 
 /**
  * Offer eligibility = the request's **visibility boundary** (can the feed ever show this ask to this
@@ -30,13 +31,15 @@ export interface RequestReachability {
   /** Viewer is within the request's visibility audience (member OR wide-scope OR sister-reachable). */
   reachable: boolean;
   /** Why the viewer is currently inside that audience; never inferred from feed ranking. */
-  reachability: 'same_community' | 'sister_community' | 'trust_network' | 'platform' | null;
+  reachability: 'same_community' | 'sister_community' | 'trust_network' | 'platform' | 'directed' | null;
+  isDirected?: boolean;
 }
 
 export async function getRequestReachability(requestId: string, userId: string | null): Promise<RequestReachability> {
   const result = await query(
     `SELECT
-       r.requester_id, r.status, r.expired, r.visibility_scope,
+       r.requester_id, r.status, r.expired, r.visibility_scope, r.is_directed,
+       ${directedAudienceSql('r', '$2', false)} AS in_directed_audience,
        -- Tier 1: viewer is an active member of one of the request's communities (community scope).
        EXISTS (
          SELECT 1 FROM requests.request_communities rc
@@ -63,7 +66,8 @@ export async function getRequestReachability(requestId: string, userId: string |
     [requestId, userId]
   );
 
-  if (result.rowCount === 0) {
+  if (result.rowCount === 0 || (result.rows[0]?.is_directed === true
+    && result.rows[0].in_directed_audience !== true && result.rows[0].requester_id !== userId)) {
     return {
       exists: false,
       requesterId: null,
@@ -76,6 +80,12 @@ export async function getRequestReachability(requestId: string, userId: string |
   }
 
   const row = result.rows[0];
+  if (row.is_directed === true) {
+    const reachable = row.in_directed_audience === true && !!userId && row.requester_id !== userId;
+    return { exists: true, requesterId: row.requester_id, status: row.status,
+      expired: row.expired, visibilityScope: row.visibility_scope, isDirected: true,
+      reachable, reachability: reachable ? 'directed' : null };
+  }
   const wideScope = row.visibility_scope === 'trust_network' || row.visibility_scope === 'platform';
   const reachability = row.is_member === true
     ? 'same_community'

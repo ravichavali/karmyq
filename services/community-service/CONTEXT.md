@@ -5,6 +5,12 @@
 
 ## Recent Changes
 
+- **2026-10-04 (Sprint 132 PR C, ADR-099)**: stats and export SQL exclude `is_directed`
+  requests from request/match lists, counts and per-member engagement joins. Inline
+  `/* not-directed */ NOT <alias>.is_directed` uses the same browse rule without importing
+  another service's source. Directed exchanges retain normal internal karma/standing;
+  their content and attributable activity do not appear in community lists/exports.
+
 - **2026-08-20 (Sprint 126 / ADR-096 — conflict-safe karma carry)**: `fusionService.ts` and
   `fissionService.ts` copy `reputation.karma_records` between communities, and Sprint 126 added
   `uq_karma_match_projection` on `(user_id, community_id, reason, related_entity_id)`. Both carry

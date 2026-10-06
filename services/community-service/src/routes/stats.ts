@@ -65,7 +65,7 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
           COUNT(CASE WHEN r.created_at > NOW() - INTERVAL '30 days' THEN 1 END)::int AS requests_this_month
         FROM requests.help_requests r
         JOIN requests.request_communities rc ON r.id = rc.request_id
-        WHERE rc.community_id = $1
+        WHERE /* not-directed */ NOT r.is_directed AND rc.community_id = $1
           AND r.expired = false
       ),
 
@@ -81,7 +81,7 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
         FROM requests.matches m
         JOIN requests.help_requests r ON m.request_id = r.id
         JOIN requests.request_communities rc ON r.id = rc.request_id
-        WHERE rc.community_id = $1
+        WHERE /* not-directed */ NOT r.is_directed AND rc.community_id = $1
       ),
 
       -- Top helpers this month — Sprint 112 (ADR-082): activity recognition by help COUNT only.
@@ -95,7 +95,7 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
         JOIN requests.help_requests r ON m.request_id = r.id
         JOIN requests.request_communities rc ON r.id = rc.request_id
         JOIN auth.users u ON m.responder_id = u.id
-        WHERE rc.community_id = $1
+        WHERE /* not-directed */ NOT r.is_directed AND rc.community_id = $1
           AND m.status = 'completed'
           AND m.completed_at > NOW() - INTERVAL '30 days'
         GROUP BY u.id, u.name
@@ -112,7 +112,7 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
         FROM requests.help_requests r
         JOIN requests.request_communities rc ON r.id = rc.request_id
         JOIN auth.users u ON r.requester_id = u.id
-        WHERE rc.community_id = $1
+        WHERE /* not-directed */ NOT r.is_directed AND rc.community_id = $1
           AND r.created_at > NOW() - INTERVAL '30 days'
         GROUP BY u.id, u.name
         ORDER BY request_count DESC
@@ -130,7 +130,7 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
           SELECT DATE(r.created_at) as day, COUNT(*)::int as request_count
           FROM requests.help_requests r
           JOIN requests.request_communities rc ON r.id = rc.request_id
-          WHERE rc.community_id = $1
+          WHERE /* not-directed */ NOT r.is_directed AND rc.community_id = $1
             AND r.created_at > NOW() - INTERVAL '30 days'
           GROUP BY day
         ) r ON DATE(date) = r.day
@@ -139,7 +139,7 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
           FROM requests.matches m
           JOIN requests.help_requests req ON m.request_id = req.id
           JOIN requests.request_communities rc ON req.id = rc.request_id
-          WHERE rc.community_id = $1
+          WHERE /* not-directed */ NOT req.is_directed AND rc.community_id = $1
             AND m.created_at > NOW() - INTERVAL '30 days'
           GROUP BY day
         ) m ON DATE(date) = m.day

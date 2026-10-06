@@ -1,3 +1,4 @@
+import { directedAudienceSql } from './directedAudience';
 import type { ContextCounterpart } from '@karmyq/shared';
 import { query } from '../database/db';
 import {
@@ -38,6 +39,7 @@ function reachabilityFor(
   result: RequestReachability,
   scope: ContextVisibilityScope,
 ): ContextReachability | null {
+  if (result.reachability === 'directed' || result.isDirected) return null;
   if (result.reachability) return result.reachability;
   // Historical match/offer rows do not persist the original source tier. The request's own wide
   // scope is still authoritative; a community-scoped row could have been same- or sister-community,
@@ -53,8 +55,10 @@ export async function resolveRequestPair(
   const result = await getRequestReachability(requestId, viewerId);
   if (!result.exists || !result.requesterId) return { kind: 'not_found' };
   if (result.requesterId === viewerId) return { kind: 'no_context' };
+  if (result.isDirected && !result.reachable) return { kind: 'not_found' };
   if (result.status !== 'open' || result.expired === true) return { kind: 'forbidden' };
   if (!result.reachable || !result.reachability) return { kind: 'forbidden' };
+  if (result.isDirected || result.reachability === 'directed') return { kind: 'no_context' };
   const scope = visibilityScope(result.visibilityScope);
   return {
     kind: 'ok',
@@ -77,8 +81,8 @@ export async function resolveMatchPair(
     `SELECT hr.requester_id, m.responder_id, hr.visibility_scope
      FROM requests.matches m
      JOIN requests.help_requests hr ON hr.id = m.request_id
-     WHERE m.request_id = $1 AND m.id = $2`,
-    [requestId, matchId],
+     WHERE m.request_id = $1 AND m.id = $2 AND ${directedAudienceSql('hr', '$3')}`,
+    [requestId, matchId, viewerId],
   );
   const row = match.rows[0];
   if (!row) return { kind: 'not_found' };
@@ -119,8 +123,8 @@ export async function resolveProviderOfferPair(
      JOIN requests.help_requests hr ON hr.id = o.request_id
      JOIN requests.provider_profiles pp
        ON pp.id = o.provider_id AND pp.user_id = o.provider_user_id
-     WHERE o.request_id = $1 AND o.id = $2`,
-    [requestId, offerId],
+     WHERE o.request_id = $1 AND o.id = $2 AND ${directedAudienceSql('hr', '$3')}`,
+    [requestId, offerId, viewerId],
   );
   const row = offer.rows[0];
   if (!row) return { kind: 'not_found' };
