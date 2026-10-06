@@ -1577,3 +1577,15 @@ competition with per-service queues; the other event types remain separate later
 Reproduce and inspect retry/failure behavior before planning a broader delivery change.
 
 ---
+
+## BUG-061 · [2026-10-06] · open
+
+**SECURITY:** `DELETE /api/requests/:id` (`services/request-service/src/routes/requests.ts:2117`)
+authorizes the caller from `req.body.user_id` instead of the JWT (`req.user.userId`); no middleware
+overrides it. Any authenticated user can cancel any request, including a private directed ask, by
+sending the requester's id in the body. `PUT /:id` on the same router correctly uses the JWT. Same
+body-`user_id` pattern to audit: `offers.ts:164`, `offers.ts:234`, `adminActions.ts:109`. Found
+during the Sprint 132 PR C live smoke (Claude). Fix: derive `user_id` from `req.user`; regression
+test that a non-requester with a forged body `user_id` gets 403 and the request stays open.
+
+---
