@@ -1578,7 +1578,7 @@ Reproduce and inspect retry/failure behavior before planning a broader delivery 
 
 ---
 
-## BUG-061 · [2026-10-06] · open
+## BUG-061 · [2026-10-06] · fixed
 
 **SECURITY:** `DELETE /api/requests/:id` (`services/request-service/src/routes/requests.ts:2117`)
 authorizes the caller from `req.body.user_id` instead of the JWT (`req.user.userId`); no middleware
@@ -1587,5 +1587,13 @@ sending the requester's id in the body. `PUT /:id` on the same router correctly 
 body-`user_id` pattern to audit: `offers.ts:164`, `offers.ts:234`, `adminActions.ts:109`. Found
 during the Sprint 132 PR C live smoke (Claude). Fix: derive `user_id` from `req.user`; regression
 test that a non-requester with a forged body `user_id` gets 403 and the request stays open.
+
+**Fixed (2026-10-06, v11.82.0).** The audit found 10 handlers in two services trusting a body
+id; all now use the JWT caller. `adminActions.ts:109` was a false lead (its `user_id` is the
+proposed member; the admin check already uses the JWT). Worst case: `POST
+/communities/:communityId/members` took `user_id` **and `role`** from the body with no caller
+check, so any logged-in user could make themselves admin of any community; it is now admin-only.
+Also fixed: `PUT`/`DELETE /communities/:id`, norm create/approve/delete, `POST`/`PUT`/`DELETE
+/offers`. Whether any of these were exploited on the demo was not investigated.
 
 ---

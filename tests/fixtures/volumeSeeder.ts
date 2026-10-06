@@ -42,6 +42,8 @@ export interface SeedProgress {
 export class VolumeSeeder {
   private pool: Pool;
   private timeTravelFactory: TimeTravelFactory;
+  // POST /communities/:id/members is admin-only (BUG-061); the creator is the community admin.
+  private creatorTokens = new Map<string, string>();
   private progress: SeedProgress = {
     usersCreated: 0,
     communitiesCreated: 0,
@@ -236,6 +238,10 @@ export class VolumeSeeder {
     onProgress?: (progress: SeedProgress) => void
   ): Promise<void> {
     let membershipsCreated = 0;
+    for (const community of communities) {
+      const creator = users.find((u) => u.id === community.creator_id);
+      if (creator) this.creatorTokens.set(community.id, creator.token);
+    }
 
     // Each community gets a target number of members
     for (const community of communities) {
@@ -249,7 +255,7 @@ export class VolumeSeeder {
         const success = await CommunityFactory.addMember(
           community.id,
           user.id,
-          community.creator_id === user.id ? user.token : users[0].token,
+          this.creatorTokens.get(community.id) ?? users[0].token,
           role
         );
 
@@ -335,7 +341,11 @@ export class VolumeSeeder {
     if (!helper) return;
 
     // Add helper to community
-    await CommunityFactory.addMember(community.id, helper.id, requester.token);
+    await CommunityFactory.addMember(
+      community.id,
+      helper.id,
+      this.creatorTokens.get(community.id) ?? requester.token
+    );
 
     // Create aged workflow
     const daysAgo = Math.floor(Math.random() * (ageMonths * 30)); // Random within age range
