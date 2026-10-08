@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
+import { sendUnauthorized } from '@karmyq/shared/utils/response';
 
 const router = Router();
 
@@ -115,7 +116,7 @@ router.post('/:communityId/norms', async (req: Request, res: Response) => {
     // SECURITY (BUG-061, ADR-064): the proposer comes from the verified JWT, never the body.
     const created_by = (req as any).user?.userId;
     if (!created_by) {
-      return res.status(401).json({ success: false, message: 'Authentication required' });
+      return sendUnauthorized(res, 'Authentication required');
     }
 
     // Validation
@@ -189,7 +190,7 @@ router.post('/:communityId/norms/:normId/approve', async (req: Request, res: Res
     // SECURITY (BUG-061, ADR-064): the approver comes from the verified JWT, never the body.
     const user_id = (req as any).user?.userId;
     if (!user_id) {
-      return res.status(401).json({ success: false, message: 'Authentication required' });
+      return sendUnauthorized(res, 'Authentication required');
     }
 
     // Verify user is a member
@@ -317,7 +318,7 @@ router.delete('/:communityId/norms/:normId', async (req: Request, res: Response)
     // SECURITY (BUG-061, ADR-064): the caller comes from the verified JWT, never the body.
     const user_id = (req as any).user?.userId;
     if (!user_id) {
-      return res.status(401).json({ success: false, message: 'Authentication required' });
+      return sendUnauthorized(res, 'Authentication required');
     }
 
     // Verify user is admin or creator

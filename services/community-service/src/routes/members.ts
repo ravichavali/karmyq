@@ -8,6 +8,7 @@ import {
   sendValidationError,
   sendNotFound,
   sendUnauthorized,
+  sendForbidden,
   sendConflict,
   sendInternalError,
   HTTP_STATUS
@@ -208,7 +209,7 @@ router.post('/:communityId/members', async (req: Request, res: Response) => {
     }
 
     if (!['member', 'moderator', 'admin'].includes(role)) {
-      return res.status(400).json({ success: false, message: 'Invalid role' });
+      return sendValidationError(res, 'Invalid role');
     }
 
     const callerCheck = await query(
@@ -217,10 +218,7 @@ router.post('/:communityId/members', async (req: Request, res: Response) => {
       [communityId, invited_by]
     );
     if (callerCheck.rows[0]?.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only community admins can add members',
-      });
+      return sendForbidden(res, 'Only community admins can add members');
     }
 
     // Check if community exists and is not full

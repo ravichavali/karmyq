@@ -5,6 +5,7 @@ import {
   sendSuccess,
   sendNotFound,
   sendValidationError,
+  sendUnauthorized,
   sendInternalError,
   HTTP_STATUS
 } from '@karmyq/shared/utils/response';
@@ -95,7 +96,7 @@ router.post('/', async (req: Request, res: Response) => {
     // SECURITY (BUG-061, ADR-064): the offerer comes from the verified JWT, never the body.
     const offerer_id = (req as any).user?.userId;
     if (!offerer_id) {
-      return res.status(401).json({ success: false, message: 'Authentication required' });
+      return sendUnauthorized(res, 'Authentication required');
     }
 
     // Validation
@@ -170,7 +171,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     // SECURITY (BUG-061, ADR-064): the caller comes from the verified JWT, never the body.
     const user_id = (req as any).user?.userId;
     if (!user_id) {
-      return res.status(401).json({ success: false, message: 'Authentication required' });
+      return sendUnauthorized(res, 'Authentication required');
     }
 
     // Check if user is the offerer
@@ -244,7 +245,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     // SECURITY (BUG-061, ADR-064): the caller comes from the verified JWT, never the body.
     const user_id = (req as any).user?.userId;
     if (!user_id) {
-      return res.status(401).json({ success: false, message: 'Authentication required' });
+      return sendUnauthorized(res, 'Authentication required');
     }
 
     // Check if user is the offerer

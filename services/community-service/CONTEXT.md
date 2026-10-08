@@ -1252,7 +1252,8 @@ router.get('/:communityId/pending-requests', async (req, res) => {
 // src/routes/members.ts
 router.post('/:communityId/approve-request/:userId', async (req, res) => {
   const { communityId, userId } = req.params;
-  const { admin_user_id } = req.body;
+  // The admin is always the JWT caller, never a body field (BUG-061).
+  const admin_user_id = (req as any).user?.userId;
 
   // Verify admin permission
   const adminCheck = await query(
@@ -1429,7 +1430,7 @@ WHERE c.id = '...';
 ### Permission denied errors
 1. Verify user is member: `SELECT role, status FROM communities.members WHERE community_id = '...' AND user_id = '...'`
 2. Check if user is admin: `... WHERE role = 'admin'`
-3. Verify user_id matches admin_user_id in request body
+3. The acting user is always the JWT caller (`req.user.userId`); no route reads caller identity from the body (BUG-061)
 
 ### Database connection errors
 1. Check DATABASE_URL is correct
