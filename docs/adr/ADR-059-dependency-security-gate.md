@@ -311,3 +311,33 @@ and no repo source imports either package, so no request input reaches a brace p
 **Seven days, not thirty**, for the same reason as `node-forge`: no live monitor watches `braces`
 (BUG-058). The exemption expires **2026-10-09**. Renewing it means re-checking by hand:
 `npm view braces version`, the GHSA page and `npm ls braces --all`. Tracked as **BUG-059**.
+
+## Amendment (Sprint 132 closeout, 2026-10-08): renewals and the 2026-10-08 advisory batch
+
+**Status**: Accepted · **Decision**: maintainer, 2026-10-08
+
+**Renewals.** Both exemptions were re-checked by hand on 2026-10-08, and neither has an upstream fix:
+
+| Package | Advisory | Latest release | Patched version | New window |
+|---|---|---|---|---|
+| `node-forge` | GHSA-86w9-cpqp-85rv | 1.4.0 (range `<= 1.4.0`) | none | 2026-10-08 → 2026-10-15 |
+| `braces` | GHSA-vfj7-8cjw-p6xm | 3.0.3 (range `<= 3.0.3`) | none | 2026-10-08 → 2026-10-15 |
+
+Expo has not moved either: the latest `@expo/cli` (57.0.28) still depends on `node-forge ^1.3.3`, and
+`@expo/code-signing-certificates` 0.0.7 needs `^1.4.0`. The reach of both packages is unchanged
+(the Expo developer CLI under `apps/mobile` only). The maintainer's rule was to remove each exemption
+if upstream shipped a fix, and otherwise renew it for seven days. `node-forge` had already lapsed:
+`expires` is the first invalid day, so the 2026-10-08 entry stopped every push that morning. The
+renewal ships in the same PR as the advisory fixes below, because nothing can merge without it.
+Seven days is still the cap for an unwatched package (BUG-058).
+
+**The batch fixed in the same PR**, using in-place lock splices with no exemption:
+
+- `shell-quote` GHSA-pqg4-j6r4-53mv (critical, `>=1.8.4 <1.11.0`): 1.10.0 → 1.12.0 through
+  `react-devtools-core`. The override `shell-quote@<=1.8.4 → 1.10.0` pinned a now-vulnerable target, so
+  it becomes `shell-quote@<1.11.0 → 1.12.0`.
+- `handlebars` three advisories (critical, `4.0.0–4.7.9`): 4.7.9 → 4.7.10 (dev only, through `ts-jest`).
+- `next` six advisories (high, `16.0.0–16.3.7`): 16.3.6 → 16.3.8, together with `@next/env` and
+  the eight `@next/swc-*` binaries. The `apps/frontend` and `apps/landing` ranges become `^16.3.8`.
+- `sharp` GHSA-wq5f-xc86-pv6w (high, `<0.35.5`): 0.35.4 → 0.35.5, together with its `@img/*` platform
+  packages (libvips 1.3.3 → 1.3.4). The override becomes `sharp@<0.35.5 → 0.35.5`.
