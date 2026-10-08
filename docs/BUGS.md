@@ -1577,3 +1577,29 @@ competition with per-service queues; the other event types remain separate later
 Reproduce and inspect retry/failure behavior before planning a broader delivery change.
 
 ---
+
+## BUG-062 · [2026-10-08] · open · **HIGH**
+
+**Member email disclosure.** Found in the Sprint 133 planning chat (Claude). It was established by
+reading the code, not by a live probe.
+
+- `GET /api/users/:userId` is **anonymous**. There is no `authMiddleware` at the mount
+  (`services/auth-service/src/index.ts:59`) or on the route (`routes/users.ts:16`), and it selects
+  `email` (`:21`). Anyone holding a user id gets that user's email.
+- `GET /communities/:id` (`services/community-service/src/routes/communities.ts:344`) and
+  `GET /communities/:communityId/members` (`routes/members.ts:28`) return every member's
+  `user_email` to any authenticated viewer. The People tab is open to non-members. The members list
+  also accepts any `status`, so pending members are listed too.
+- Side bug: `GET /users/me/settings` is shadowed by `GET /users/:userId` (`users.ts:16` registers
+  before `:71`). `'me'` reaches the uuid query, so the karma privacy setting cannot be read.
+
+This also undercuts BUG-056: dropping `requester_email` from `GET /requests/:id` is pointless while
+`requester_id` plus `/users/:id` gives the same email anonymously.
+
+- **Scheduled (maintainer, 2026-10-08): Sprint 133 PR S.** `/users/:userId` requires auth and returns
+  email to the user themself only. Community detail and members return `user_email` only to live
+  admins (and the caller's own row). Non-admins may list only active members. The route-order side
+  bug is fixed in PR A, because the skills setting needs `/users/me/settings`.
+- **Owner:** Claude. **Deadline: 2026-10-15** (≤ 1-week SLA for HIGH).
+
+---
