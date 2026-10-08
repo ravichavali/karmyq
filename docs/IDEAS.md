@@ -818,3 +818,13 @@ The curated feed already consumes the same skill store through `getUserProfile`.
 - **`requireCallerId(req, res)`.** The `(req as any).user?.userId` guard plus the 401 is now
   copied about 10 times across community-service and request-service. It is defence in depth only,
   because every router sits behind `authMiddleware`.
+
+## [2026-10-08] Directed-notify lookup should also check `expires_at` (Sprint 132 closeout carry-forward)
+
+`services/notification-service/src/events/subscriber.ts:158-165` delivers a `directed_request_created`
+notification only when `r.status='open' AND NOT r.expired`. The `expired` flag is set later by the
+cleanup job, so a delayed or retried job that runs after `expires_at` but before the next cleanup
+pass still notifies the owner about an ask that has already expired. Add `AND (r.expires_at IS NULL
+OR r.expires_at > NOW())`. Use the same predicate as the rest of the directed-ask surfaces; check
+the column name against `requests.help_requests` first. Then repin the privacy gate's SQL-hash
+exception for that query. Small; fits any request/notification PR.
