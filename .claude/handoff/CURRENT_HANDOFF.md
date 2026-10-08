@@ -12,6 +12,19 @@
 > so **its decision must ship in the same PR as the `shell-quote`/`sharp` fix**. That means renewal with explicit
 > maintainer authorization, or removal if upstream fixed it. Do not expect any push to pass before then.
 > `braces` becomes invalid 2026-10-09; decide it in that PR too if it lands on or after that day.
+>
+> ✅ **`node-forge` DECIDED (maintainer, 2026-10-08): RENEW 7 days** (`created: 2026-10-08`,
+> `expires: 2026-10-15`), shipped in the same PR as the `shell-quote`/`sharp` fix. The maintainer's rule was
+> "remove it if upstream shipped a fix"; upstream has not. Evidence (Claude, 2026-10-08): `npm view node-forge version`
+> = 1.4.0 (registry modified 2026-03-24); GHSA-86w9-cpqp-85rv covers `<= 1.4.0`, `first_patched_version: null`
+> (GitHub API, updated 2026-10-01); `npm ls node-forge --all` reaches only `apps/mobile → expo@57.0.25 →
+> @expo/cli@57.0.27` (direct + `@expo/code-signing-certificates@0.0.6`); latest `@expo/cli` 57.0.28 still
+> needs `node-forge ^1.3.3` and `@expo/code-signing-certificates` 0.0.7 needs `^1.4.0`. Update the registry
+> entry's `created`/`expires`/`decision` and add an ADR-059 amendment line. Re-check before 2026-10-15.
+>
+> ⏳ **`braces` NOT yet decided**: still unfixed (3.0.3 latest; GHSA-vfj7-8cjw-p6xm `<= 3.0.3`,
+> `first_patched_version: null`, checked 2026-10-08). It becomes invalid 2026-10-09. If the PR ships on or
+> after then, it needs its own explicit maintainer decision; the node-forge authorization does not cover it.
 
 > 🧭 **First product sprint after the maintenance freeze** (maintainer, 2026-09-30: dependency work
 > needs a security advisory or a feature need; product is the default). Seed idea: `docs/IDEAS.md`
