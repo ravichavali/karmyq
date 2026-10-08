@@ -20,8 +20,14 @@ chosen after BUG-060 is reproduced.
 
 **Spec:** [`docs/superpowers/specs/2026-10-08-sprint-133-skills-depth-design.md`](../specs/2026-10-08-sprint-133-skills-depth-design.md)
 (read it first; its *New Concepts*, *API Endpoints* and *Critical Implementation Notes* are normative).
-**ADR:** number **pending maintainer allocation** (ADR-100 is the candidate, **not** allocated). Do not
-create the ADR file until the maintainer names the number; Task A6 blocks on it.
+**ADR:** **ADR-100**, allocated by the maintainer 2026-10-08.
+
+> **Rev 1 (2026-10-08, maintainer review; each finding verified against the repo).** (1) Job ids use a
+> monotonic `revision`, not a millisecond timestamp, which can collide (note 8). (2) Reconcile and the
+> `match_completed` edge path are serialized by a pair advisory lock, and `raw_weight` is computed in-statement.
+> Concurrency tests cover an older reconcile overlapping a withdrawal and a concurrent completion (note 6, Task B2/B5).
+> (3) The BUG-060 reproduction uses `request_created`, which is actually handled, because `user_joined_community`
+> has no handler. One clean run cannot refute competition (note 7, Task B1).
 
 ---
 
@@ -43,7 +49,7 @@ create the ADR file until the maintainer names the number; Task A6 blocks on it.
 | `apps/frontend/src/components/skills/FindASkillPanel.tsx` | A | Directory chips + search in People tab |
 | `apps/frontend/tests/tdd/sprint-133-skills-discovery.test.tsx` | A | UI tests |
 | `tests/integration/sprint-133-skill-visibility.integration.test.ts` | A | Real SQL: co-member, opt-out, pending, other community |
-| `docs/adr/ADR-<allocated>-skill-visibility-and-endorsements.md` | A (B amends) | Decision record |
+| `docs/adr/ADR-100-skill-visibility-and-endorsements.md` | A (B amends) | Decision record |
 | `tests/integration/sprint-133-bug-060-shared-queue.integration.test.ts` | B | BUG-060 reproduction (real Redis) |
 | `infrastructure/postgres/migrations/<date>-skill-endorsements.sql` | B | `auth.skill_endorsements` |
 | `services/auth-service/src/events/endorsementEvents.ts` | B | Publish `skill_endorsement_changed` (transport per B1) |
@@ -68,7 +74,7 @@ create the ADR file until the maintainer names the number; Task A6 blocks on it.
 | `tests/regression/sprint-123-audit-exemption-gate.test.ts` | S | `MAX_EXEMPTION_DAYS` expectation 30 → 7 |
 | `docs/adr/ADR-059-dependency-security-gate.md` | S | Amendment |
 | `services/auth-service/src/routes/profileTags.ts` | B | Tag delete publishes endorsement changes |
-| `services/social-graph-service/src/events/subscriber.ts`, `src/database/trustEdgeDb.ts` | B | Consume event; extract raw-weight recompute helper |
+| `services/social-graph-service/src/events/subscriber.ts`, `src/database/trustEdgeDb.ts` | B | Consume event; `withPairLock` + in-place `raw_weight` recompute on both edge-write paths |
 | `services/simulation-service/src/fixtures/curatedDemo/tablePolicy.ts` | A, B | Remove `auth.user_skills`; add `auth.skill_endorsements` |
 | `services/simulation-service/src/fixtures/curatedDemo/{types,manifest,compiler,baselineWriter,verifier}.ts` | D | Skills, items, endorsements in the curated baseline |
 | `apps/frontend/src/pages/profile.tsx`, `src/pages/communities/[id].tsx` (People tab), `src/pages/matches/[id].tsx`, `src/lib/api.ts`, `src/lib/onboarding/workflows.ts` | A, B | UI |
@@ -112,30 +118,58 @@ Copied verbatim from the spec.
    relevant). Never read `req.user.communities` for a decision (CLAUDE.md *Authentication*).
 6. **Endorsements reconcile; they never increment.** The social-graph handler recomputes, for the
    pair, `endorsement_count` per community = number of distinct endorsers (0–2) with an active
-   endorsement whose `match_id`'s request is in that community (`requests.request_communities`), then
-   recomputes `raw_weight` with the existing `computeRawWeight` + `getInteractionWeightsForCommunity`
-   (`trustEdgeDb.ts:85,106`). It must **not** call `upsertTrustEdge` (which does `+ 1` and grows
-   `stability`). Extract the raw-weight recompute into a shared helper and write the count with
-   `UPDATE … SET endorsement_count = $n`. Reconcile does not change `stability`; it sets
-   `last_interaction_at = now()` only when the count increased. It upserts an edge only when the count
-   is > 0 and the edge is missing. Proofs: (a) the same event delivered 3× leaves the count at 1;
-   (b) endorse → withdraw → re-endorse gives 1, 0, 1; (c) five skills vouched by one endorser give 1;
-   (d) both directions give 2; (e) deleting the endorsed tag (cascade) followed by its event gives 0
-   and `raw_weight` drops by exactly the endorsement weight.
-7. **Reproduce BUG-060 before choosing the transport (Task B1).** Write a real-Redis integration
-   test in ROOT `tests/integration/` that publishes a job named for an event that only one service
-   handles onto `karmyq-events` while every service's subscriber is running, and record whether the
-   job is delivered or fails with a missing-handler error. **If competition is confirmed:**
-   `skill_endorsement_changed` uses a dedicated queue (`karmyq-skill-endorsement-social-graph`),
-   following `services/request-service/src/events/completionEvents.ts`, and BUG-060 is updated with
-   the evidence (broader repair stays later scope). **If refuted:** publish on `karmyq-events` and
-   close BUG-060 as not reproducible with the evidence. Either way, record the result in the ADR.
-8. **Bull jobIds must not dedupe distinct changes.** Completion uses a stable `jobId` per match
+   endorsement whose `match_id`'s request is in that community (`requests.request_communities`). It
+   must **not** call `upsertTrustEdge` (which does `+ 1` and grows `stability`). Reconcile does not
+   change `stability`; it sets `last_interaction_at = now()` only when the count increased; it inserts
+   an edge only when the count is > 0 and the edge is missing. The pair count (0–2) measures mutual
+   vouching; per-skill counts on the profile keep the detail. Proofs: (a) the same event delivered 3×
+   leaves the count at 1; (b) endorse → withdraw → re-endorse gives 1, 0, 1; (c) five skills vouched
+   by one endorser give 1; (d) both directions give 2; (e) deleting the endorsed tag (cascade)
+   followed by its event gives 0 and `raw_weight` drops by exactly the endorsement weight.
+
+   **Serialization (maintainer review, 2026-10-08).** Each reconcile runs in **one transaction** that
+   (1) takes `pg_advisory_xact_lock` on a key derived from the normalized pair
+   (`hashtextextended('trust-pair:' || user_id_a || ':' || user_id_b, 0)`), (2) reads the source rows,
+   (3) `SELECT … FOR UPDATE`s the pair's edge rows, and (4) writes them. The `match_completed` edge
+   path (`upsertTrustEdge`, `trustEdgeDb.ts:117-181`) takes the **same** pair lock in its own
+   transaction. **`raw_weight` is computed inside the `UPDATE` statement from the row's current
+   columns** (`SET raw_weight = match_completed_count * $w1 + endorsement_count * $w2 + …`), on both
+   paths. Today `upsertTrustEdge` reads the counts and writes `raw_weight` in separate statements, so
+   a reconcile that commits between them would be overwritten with the stale endorsement count.
+   Weights still come from `getInteractionWeightsForCommunity` (`trustEdgeDb.ts:106`).
+   `upsertTrustEdge` keeps its observable result: its existing tests stay green. **Concurrency tests
+   (real Postgres, two clients, a barrier hook between read and write):**
+   (f) an **older** reconcile reads "active", a withdrawal commits and its reconcile starts, then the
+   older one is released; the final count is 0, never 1; (g) a `match_completed` edge update runs
+   while a reconcile holds the lock; the final row has the incremented `match_completed_count`, the
+   reconciled `endorsement_count`, and `raw_weight` equal to the formula over the final columns.
+7. **Reproduce BUG-060 before choosing the transport (Task B1).** Use an event that **is** handled,
+   by exactly one service: **`request_created`**, which only notification-service processes
+   (`services/notification-service/src/events/subscriber.ts:176`). Reputation-service
+   (`subscriber.ts:137-141`) and social-graph-service (`subscriber.ts:84`) attach workers to the same
+   `karmyq-events` queue without that name. (`user_joined_community` has no handler anywhere in the
+   checked source, so it cannot show competition.) The root integration test runs the real
+   subscribers of all three services, asserts that each queue worker is attached before publishing
+   (`queue.getWorkers()` / client list), publishes **N ≥ 50** jobs, and records each job's final state
+   and the error text. **Decision rule:** any job that fails with a missing-handler error, or never
+   reaches the notification handler, **confirms** competition. Successful delivery in one run
+   **cannot refute** it. "Not reproduced" is possible only together with a mechanism trace from the
+   installed Bull source (`node_modules/bull/lib`, not docs or changelogs) showing that a worker with
+   named processors cannot take a job of another name. Without both, treat competition as possible.
+   **Transport:** a dedicated queue (`karmyq-skill-endorsement-social-graph`, following
+   `services/request-service/src/events/completionEvents.ts`) unless B1 produces that mechanism proof.
+   Update BUG-060 with the evidence either way and record it in ADR-100. No other event's transport
+   changes in this sprint.
+8. **Job IDs are per change and collision-free.** Completion uses a stable `jobId` per match
    (`completionEvents.ts:28-31`) with `removeOnComplete: { age: 86400 }`, so a second add with the
-   same id inside 24 h is silently dropped. An endorse → withdraw within a day with a pair-stable id
-   would drop the withdrawal's reconcile and leave a stale count. Use
-   `endorsement-<endorsement row id>-<updated_at epoch ms>` (unique per change); reconcile's
-   idempotence makes duplicate delivery harmless.
+   same id inside 24 h is silently dropped. A pair-stable id would drop a withdrawal's reconcile, and a
+   timestamp-based id can collide when two changes share a millisecond. **Use a monotonic revision.**
+   `auth.skill_endorsements.revision bigint NOT NULL DEFAULT 1` is incremented
+   (`revision = revision + 1`) by the same `UPDATE`/upsert that changes state, under that row's lock.
+   The id comes from `RETURNING`: `endorsement-<row id>-r<revision>`. A tag-deletion cascade uses
+   `endorsement-<row id>-deleted` (a row is deleted once). **A retry of the same change reuses that
+   change's id**, so Bull dedupes retries and never distinct changes. Test: two changes in one
+   millisecond (frozen clock) produce two distinct ids; re-publishing one change reuses its id.
 9. **Publish after commit; the lost-enqueue gap is accepted and documented.** If the enqueue fails
    after the DB commit, the API still returns success (the endorsement is real), logs an error
    carrying both user ids (operator-legible; feedback memory "opaque to the client, legible to the
@@ -388,8 +422,8 @@ Branch: `agent/claude/sprint-133-pr-a-skill-visibility`, cut from `origin/master
 
 ## Task A7: ADR + guides + landing docs
 
-- [ ] **Blocked until the maintainer allocates the ADR number.** Then write
-  `docs/adr/ADR-<n>-skill-visibility-and-endorsements.md` (Status: Accepted): opt-out co-member visibility,
+- [ ] Write
+  `docs/adr/ADR-100-skill-visibility-and-endorsements.md` (Status: Accepted): opt-out co-member visibility,
   one predicate, search semantics, `user_skills` drop; a placeholder section for endorsements (PR B).
   Index in `docs/adr/README.md`; add to an `ADR_GROUPS` group in `scripts/generate-docs.ts`.
 - [ ] `docs/guides/profile-guide.md` "Who can see your skills"; community guide "Finding someone with a skill".
@@ -436,35 +470,53 @@ Branch: `agent/claude/sprint-133-pr-b-endorsements`, cut from `origin/master` **
 
 ## Task B1: Reproduce BUG-060 (decides the transport)
 
-- [ ] `tests/integration/sprint-133-bug-060-shared-queue.integration.test.ts`: with the compose test stack's
-  services running (their real subscribers attached to `karmyq-events`), add N jobs named for an event
-  only one service handles (`user_joined_community`, notification-only) and observe each job's final
-  state (completed by the intended handler vs failed with a missing-handler error). Assert whichever
-  outcome is observed **and record it**; the test is evidence, not a fix.
-- [ ] Run it in CI (push the branch); read the job log.
-- [ ] **Decision (write it in the PR body and BUGS.md):** confirmed → dedicated queue
-  `karmyq-skill-endorsement-social-graph` (note 7); refuted → `karmyq-events`, BUG-060 closed as not
-  reproducible. No other event's transport changes in this sprint.
+- [ ] `tests/integration/sprint-133-bug-060-shared-queue.integration.test.ts` (note 7). Start the
+  real subscribers of notification-, reputation- and social-graph-service against the test Redis.
+  **Assert that each worker is attached before publishing.** Then add **N ≥ 50** `request_created`
+  jobs. This event is handled only by notification-service
+  (`services/notification-service/src/events/subscriber.ts:176`); `user_joined_community` has no
+  handler and is **not** usable. Record every job's final state, its failure reason, and whether the
+  notification handler ran (count the notification rows it writes). The test is evidence, not a fix.
+- [ ] Trace the mechanism in the **installed** Bull source (`node_modules/bull/lib/queue.js`,
+  `lib/job.js`; the version from `npm ls bull --all`). Can a worker that registered only other names
+  take a `request_created` job, and what happens to that job? Cite `file:line` in the PR body.
+- [ ] Run the test in CI (push the branch) and read the job log.
+- [ ] **Decision (PR body, BUGS.md, ADR-100):** a missing-handler failure, or a job that never reaches
+  notification → **confirmed**. A run where all jobs are delivered does **not** refute competition.
+  "Not reproduced" needs that run **plus** a source trace proving that named workers cannot take
+  foreign names. **The transport is the dedicated queue `karmyq-skill-endorsement-social-graph`
+  unless that proof exists.** No other event's transport changes in this sprint.
 
 ## Task B2: TDD tests first
 
 - [ ] **Auth routes** (`sprint-133-endorsements.test.ts`): POST with no completed match → 404; hidden tag → 404
-  (same body); self → 400; first POST → 201; repeat → 200 and no second row; DELETE → 200; DELETE again → 200;
-  re-POST after withdraw → 200 with the **same** row id; each state change publishes exactly one event
-  whose jobId is unique per change (note 8); a failed enqueue still returns success and logs both ids.
-  Tag delete with two endorsers publishes two events after commit.
+  (same body); self → 400; first POST → 201; repeat → 200, no second row and **no revision bump**; DELETE → 200;
+  DELETE again → 200 with no revision bump; re-POST after withdraw → 200, the **same** row id, revision +1.
+  Each state change publishes exactly one event with job id `endorsement-<id>-r<revision>` (note 8). **Two
+  changes in one frozen-clock millisecond give two distinct ids; re-publishing one change reuses its id.**
+  A failed enqueue still returns success and logs both user ids. A tag delete with two endorsers publishes
+  two events (`…-deleted`) after commit.
 - [ ] **Reconcile** (`sprint-133-endorsement-reconcile.test.ts`): proofs (a)–(e) of note 6 against an
-  in-memory fixture of rows; `stability` unchanged; `raw_weight` = `computeRawWeight` of the new counts.
+  in-memory fixture of rows; `stability` unchanged; the `raw_weight` expression equals `computeRawWeight`
+  of the final counts.
 - [ ] **Root integration (real SQL + queue)**: endorse → edge `endorsement_count` 1 in the match's community
   and unchanged elsewhere; same event redelivered 3× → 1; withdraw → 0; re-endorse → 1; both directions → 2;
   delete the tag → 0 and `raw_weight` drops by exactly the endorsement weight.
+- [ ] **Root integration: concurrency (real Postgres, two pool clients, a test-only barrier hook between
+  the source read and the edge write; note 6 (f)/(g)):**
+  (f) reconcile R1 reads "active" and pauses; the withdrawal commits; R2 starts (it must block on the pair
+  lock); R1 is released; **final `endorsement_count` = 0**. Also run it without the lock (inject a no-op
+  lock on a committed tree): the test must go **red** with a final 1, then restore from a byte copy.
+  (g) R1 holds the lock while a `match_completed` edge update for the same pair runs; after both finish,
+  `match_completed_count` is incremented, `endorsement_count` is reconciled, and `raw_weight` equals the
+  formula over the final columns, never the value computed from a stale read.
 - [ ] **Frontend**: vouch button visible only when `can_endorse`; click posts `{ tag_id }`; withdraw calls
   DELETE; count updates.
 - [ ] **Verify red.**
 
 ## Task B3: Migration + init.sql + reset policy
 
-- [ ] `<date>-skill-endorsements.sql` (spec *Data Model → PR B*); `migration-validator`.
+- [ ] `<date>-skill-endorsements.sql` (spec *Data Model → PR B*, including `revision`); `migration-validator`.
 - [ ] `tablePolicy.ts`: `'auth.skill_endorsements': 'reset'`; reset-safety green.
 - [ ] Regenerate and promote `init.sql` (note 12).
 
@@ -474,23 +526,32 @@ Branch: `agent/claude/sprint-133-pr-b-endorsements`, cut from `origin/master` **
   `endorsed_by_me`, `can_endorse`). Eligibility in one SQL statement: `skillVisibleToSql` **and** EXISTS a
   `requests.matches` row with `status='completed'` between the pair (either direction via
   `requests.help_requests.requester_id`/`matches.responder_id`); record the most recent such `match_id`.
-  Upsert on `skill_endorsements_one_per_tag` clears `withdrawn_at`.
-- [ ] `src/events/endorsementEvents.ts` per the B1 decision; publish after commit (note 9).
-- [ ] `profileTags.ts` DELETE: collect active endorsers in the transaction; publish after commit (note 10).
+  The upsert on `skill_endorsements_one_per_tag` clears `withdrawn_at` and bumps `revision` **only when the
+  state actually changes** (`WHERE skill_endorsements.withdrawn_at IS NOT NULL`); DELETE sets `withdrawn_at`
+  and bumps `revision` only when the row was active. Take the job id from `RETURNING id, revision`.
+- [ ] `src/events/endorsementEvents.ts` per the B1 decision; publish after commit (note 9); a retry of the
+  same change reuses its job id.
+- [ ] `profileTags.ts` DELETE: collect the active endorsement rows (id, endorser) in the transaction; after
+  commit, publish one event per row with job id `endorsement-<id>-deleted` (note 10).
 - [ ] **Verify:** B2 auth tests green; `tsc`.
 
-## Task B5: social-graph reconcile
+## Task B5: social-graph reconcile (serialized)
 
-- [ ] Extract `recomputeRawWeight(userIdA, userIdB, communityId)` from `upsertTrustEdge` (`trustEdgeDb.ts:140-180`)
-  without changing `upsertTrustEdge`'s behaviour (its existing tests stay green).
-- [ ] `src/services/endorsementReconcile.ts`: the per-community count query (note 6) over the union of the
-  pair's existing edges' communities and the active endorsements' match communities; `UPDATE … SET
-  endorsement_count = $n` (insert the edge only if count > 0 and missing); recompute raw weight;
-  `last_interaction_at` only on increase.
+- [ ] `trustEdgeDb.ts`: add `withPairLock(client, userIdA, userIdB, fn)`, which runs `fn` inside a transaction
+  after `pg_advisory_xact_lock(hashtextextended('trust-pair:' || $1 || ':' || $2, 0))` on the normalized pair.
+  Add `updateRawWeightInPlace(client, edgeIds, weights)`, which computes `raw_weight` inside the `UPDATE`
+  from the row's current count columns. Rework `upsertTrustEdge` (`trustEdgeDb.ts:117-181`) to run under
+  `withPairLock` and to use the in-place recompute. Its observable result (counts, stability growth,
+  raw_weight) is unchanged, and its existing tests stay green.
+- [ ] `src/services/endorsementReconcile.ts`: inside `withPairLock`, run the per-community count query
+  (note 6) over the union of the pair's existing edges' communities and the active endorsements' match
+  communities. `SELECT … FOR UPDATE` the edges, `UPDATE … SET endorsement_count = $n` (insert the edge only
+  if count > 0 and missing), recompute in place, and set `last_interaction_at` only on increase. Expose a
+  test-only barrier hook between the read and the write (no-op in production).
 - [ ] Subscriber: consume `skill_endorsement_changed` on the chosen transport.
-- [ ] `scripts/reconcile-endorsement-edges.js` (dry-run default, `--apply` explicit; never run against the
-  demo without per-operation authorization).
-- [ ] **Verify:** B2 reconcile tests green; social-graph suite + `tsc` green.
+- [ ] `scripts/reconcile-endorsement-edges.js` (dry-run by default, `--apply` explicit, uses `withPairLock`;
+  never run against the demo without per-operation authorization).
+- [ ] **Verify:** B2 reconcile + concurrency tests green; social-graph suite + `tsc` green.
 
 ## Task B6: Frontend
 
@@ -500,7 +561,7 @@ Branch: `agent/claude/sprint-133-pr-b-endorsements`, cut from `origin/master` **
 
 ## Task B7: Docs + ADR
 
-- [ ] ADR (allocated number): endorsement eligibility, pair-capped reconcile-not-increment, opt-out does not
+- [ ] ADR-100: endorsement eligibility, pair-capped reconcile-not-increment, pair-lock serialization, revision job ids, opt-out does not
   remove vouches, transport decision with the B1 evidence, the lost-enqueue gap + backfill script.
 - [ ] New `docs/concepts/skill-endorsements.md` → `CONCEPT_ORDER` + `howItWorks` in `scripts/generate-docs.ts`;
   regenerate; `git add -f`.
@@ -517,7 +578,7 @@ Branch: `agent/claude/sprint-133-pr-b-endorsements`, cut from `origin/master` **
 ## Task B9: SDLC quality gates
 
 - [ ] `/simplify` on the PR diff. **Verify:** applied or skipped with reasons.
-- [ ] `/code-review` **high**. **Verify:** correctness findings resolved or justified (focus: double counting, jobId dedupe, cascade path).
+- [ ] `/code-review` **high**. **Verify:** correctness findings resolved or justified (focus: double counting, job-id collisions, lock coverage on both edge-write paths, cascade path).
 - [ ] `/security-review`. **Verify:** no endorsement without a completed match; no existence oracle; findings resolved or justified.
 
 ## Task B10: Final verification
