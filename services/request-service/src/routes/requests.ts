@@ -1697,11 +1697,17 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
           ELSE NULL END AS directed_to,
         r.visibility_scope, r.visibility_max_degrees,
         r.scheduled_for,
-        u.name as requester_name, u.email as requester_email,
+        u.name as requester_name,
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
         STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids,
         viewer_match.id AS viewer_match_id,
-        viewer_match.status AS viewer_match_status
+        viewer_match.status AS viewer_match_status,
+        -- BUG-056: a responder on ANY match (incl. completed/cancelled) keeps read access, even after
+        -- leaving the community. Lifecycle-gated actions still key off viewer_match (active only).
+        EXISTS (
+          SELECT 1 FROM requests.matches any_match
+          WHERE any_match.request_id = r.id AND any_match.responder_id = $2
+        ) AS viewer_any_match
       FROM requests.help_requests r
       LEFT JOIN auth.users u ON r.requester_id = u.id
       LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
@@ -1716,7 +1722,7 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
         LIMIT 1
       ) viewer_match ON TRUE
       WHERE r.id = $1 AND ${directedAudienceSql('r', '$2')}
-      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.expired, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.scheduled_for, u.name, u.email, viewer_match.id, viewer_match.status`,
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.expired, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.scheduled_for, u.name, viewer_match.id, viewer_match.status`,
       [id, userId ?? null]
     );
 
@@ -1731,13 +1737,22 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
     const isOpenAndUnexpired = row.status === 'open' && row.expired === false;
     const isOwn = !!userId && row.requester_id === userId;
     const alreadyOffered = !!row.viewer_match_id;
-    // can_offer needs the request within the viewer's feed-visibility audience (shared boundary with
-    // POST /matches). Only check when it could matter — own/already-offered/closed asks short-circuit
-    // before the extra query.
-    const needsReachability = !isOwn && !alreadyOffered && isOpenAndUnexpired;
+    // BUG-056 read gate: own ∨ any-status match responder ∨ directed (the SQL already applied the
+    // stricter directed-audience predicate) ∨ within the request's visibility audience.
+    // can_offer needs that same audience (shared boundary with POST /matches), so one reachability
+    // call serves both; own/directed-or-matched closed asks short-circuit before the extra query.
+    const readableWithoutReach = isOwn || row.viewer_any_match === true || row.is_directed === true;
+    const needsReachability = !isOwn && !alreadyOffered && (isOpenAndUnexpired || !readableWithoutReach);
     const reachable = needsReachability
       ? (await getRequestReachability(id, userId ?? null)).reachable
       : false;
+    if (!readableWithoutReach && !reachable) {
+      // Same body as a missing id: an out-of-audience request must not be distinguishable.
+      return res.status(404).json({
+        success: false,
+        message: 'Request not found',
+      });
+    }
     const viewerRelation: 'own_request' | 'already_offered' | 'can_offer' | 'not_actionable' =
       isOwn ? 'own_request'
       : alreadyOffered ? 'already_offered'
@@ -1745,7 +1760,7 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
       : 'not_actionable';
 
     // Strip the raw lateral-join columns from the wire shape; expose them as a clean contract.
-    const { viewer_match_id, viewer_match_status, ...request } = row;
+    const { viewer_match_id, viewer_match_status, viewer_any_match, ...request } = row;
     res.json({
       success: true,
       data: {
