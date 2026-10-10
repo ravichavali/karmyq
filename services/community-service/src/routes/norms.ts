@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
+import { sendUnauthorized } from '@karmyq/shared/utils/response';
 
 const router = Router();
 
@@ -111,13 +112,18 @@ router.get('/:communityId/norms/:normId', async (req: Request, res: Response) =>
 router.post('/:communityId/norms', async (req: Request, res: Response) => {
   try {
     const { communityId } = req.params;
-    const { description, rationale, created_by } = req.body;
+    const { description, rationale } = req.body;
+    // SECURITY (BUG-061, ADR-064): the proposer comes from the verified JWT, never the body.
+    const created_by = (req as any).user?.userId;
+    if (!created_by) {
+      return sendUnauthorized(res, 'Authentication required');
+    }
 
     // Validation
-    if (!description || !created_by) {
+    if (!description) {
       return res.status(400).json({
         success: false,
-        message: 'Description and created_by are required',
+        message: 'Description is required',
       });
     }
 
@@ -181,13 +187,10 @@ router.post('/:communityId/norms', async (req: Request, res: Response) => {
 router.post('/:communityId/norms/:normId/approve', async (req: Request, res: Response) => {
   try {
     const { communityId, normId } = req.params;
-    const { user_id } = req.body;
-
+    // SECURITY (BUG-061, ADR-064): the approver comes from the verified JWT, never the body.
+    const user_id = (req as any).user?.userId;
     if (!user_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'user_id is required',
-      });
+      return sendUnauthorized(res, 'Authentication required');
     }
 
     // Verify user is a member
@@ -312,7 +315,11 @@ router.post('/:communityId/norms/:normId/approve', async (req: Request, res: Res
 router.delete('/:communityId/norms/:normId', async (req: Request, res: Response) => {
   try {
     const { communityId, normId } = req.params;
-    const { user_id } = req.body;
+    // SECURITY (BUG-061, ADR-064): the caller comes from the verified JWT, never the body.
+    const user_id = (req as any).user?.userId;
+    if (!user_id) {
+      return sendUnauthorized(res, 'Authentication required');
+    }
 
     // Verify user is admin or creator
     const memberCheck = await query(

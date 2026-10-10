@@ -1,11 +1,13 @@
 # Sprint 133 — Skills Depth — Handoff
 
-**Date**: 2026-10-09 (reconciled for #299 after the maintainer-relayed review)
+**Date**: 2026-10-10 (#299 shipped live; BUG-061 PR open)
 **Status**: **PLANNED, not started.** Spec, plan and this handoff are committed on
 `feature/sprint-133-skills-depth` (cut from `origin/master` `6041c92c`, v11.81.0). **Blocked on the
 Sprint 132 closeout**. [#299](https://github.com/ravichavali/karmyq/pull/299) (advisories and renewals, v11.82.0) is the
-PR that made this file `CURRENT_HANDOFF.md`. **One closeout step remains: the BUG-061 PR (v11.83.0)**, pushed from
-`agent/claude/sprint-132-closeout` after #299 deploys. #299 also archived the Sprint 132 handoff to
+PR that made this file `CURRENT_HANDOFF.md`. It is **SHIPPED and LIVE**: merged `dfe52c03` on 2026-10-10, and
+[CI/CD 38076041625](https://github.com/ravichavali/karmyq/actions/runs/38076041625) reported DEPLOYMENT SUCCESSFUL with no rollback.
+Probes: frontend `/` 200, auth bad-login 401. **One closeout step remains: the BUG-061 PR (v11.83.0)**, open from
+`agent/claude/sprint-132-closeout`. #299 also archived the Sprint 132 handoff to
 `.claude/handoff/archive/2026-10-08-sprint-132-inventories-and-skills-SHIPPED-v11.83.0.md`.
 
 > **Merge-conflict rule for this file.** The Sprint 132 closeout branch carries a newer Sprint 132
@@ -268,7 +270,7 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 
 ## Next unchecked action
 
-1. Merge and deploy #299 (maintainer authorization) and check health.
+1. ~~Merge and deploy #299~~: DONE 2026-10-10 (`dfe52c03`, deploy 38076041625 green).
 2. Ship the BUG-061 PR from `agent/claude/sprint-132-closeout` (above), then merge and deploy it with separate authorization.
 3. Then, in a fresh chat, start Sprint 133 at plan Task S0 → S1.
 4. Re-check `node-forge` and `braces` before **2026-10-15**.

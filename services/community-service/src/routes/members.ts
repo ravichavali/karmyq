@@ -8,6 +8,7 @@ import {
   sendValidationError,
   sendNotFound,
   sendUnauthorized,
+  sendForbidden,
   sendConflict,
   sendInternalError,
   HTTP_STATUS
@@ -191,13 +192,33 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
 router.post('/:communityId/members', async (req: Request, res: Response) => {
   try {
     const { communityId } = req.params;
-    const { user_id, invited_by, role = 'member' } = req.body;
+    const { user_id, role = 'member' } = req.body;
+    // SECURITY (BUG-061, ADR-064): only an active admin may add members directly; the inviter
+    // is the verified JWT caller. Self-service joining goes through POST /:communityId/join,
+    // which applies the community's access policy.
+    const invited_by = (req as any).user?.userId;
+    if (!invited_by) {
+      return sendUnauthorized(res, 'Authentication required');
+    }
 
     if (!user_id) {
       return res.status(400).json({
         success: false,
         message: 'user_id is required',
       });
+    }
+
+    if (!['member', 'moderator', 'admin'].includes(role)) {
+      return sendValidationError(res, 'Invalid role');
+    }
+
+    const callerCheck = await query(
+      `SELECT role FROM communities.members
+       WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
+      [communityId, invited_by]
+    );
+    if (callerCheck.rows[0]?.role !== 'admin') {
+      return sendForbidden(res, 'Only community admins can add members');
     }
 
     // Check if community exists and is not full
@@ -251,7 +272,7 @@ router.post('/:communityId/members', async (req: Request, res: Response) => {
         (community_id, user_id, role, invited_by, status)
       VALUES ($1, $2, $3, $4, 'active')
       RETURNING *`,
-      [communityId, user_id, role, invited_by || null]
+      [communityId, user_id, role, invited_by]
     );
 
     // Increment current_members count

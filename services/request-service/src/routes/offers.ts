@@ -5,6 +5,7 @@ import {
   sendSuccess,
   sendNotFound,
   sendValidationError,
+  sendUnauthorized,
   sendInternalError,
   HTTP_STATUS
 } from '@karmyq/shared/utils/response';
@@ -91,13 +92,18 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /offers - Create new offer
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { community_id, offerer_id, title, description, type } = req.body;
+    const { community_id, title, description, type } = req.body;
+    // SECURITY (BUG-061, ADR-064): the offerer comes from the verified JWT, never the body.
+    const offerer_id = (req as any).user?.userId;
+    if (!offerer_id) {
+      return sendUnauthorized(res, 'Authentication required');
+    }
 
     // Validation
-    if (!community_id || !offerer_id || !title || !type) {
+    if (!community_id || !title || !type) {
       return res.status(400).json({
         success: false,
-        message: 'community_id, offerer_id, title, and type are required',
+        message: 'community_id, title, and type are required',
       });
     }
 
@@ -161,7 +167,12 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, description, status, user_id } = req.body;
+    const { title, description, status } = req.body;
+    // SECURITY (BUG-061, ADR-064): the caller comes from the verified JWT, never the body.
+    const user_id = (req as any).user?.userId;
+    if (!user_id) {
+      return sendUnauthorized(res, 'Authentication required');
+    }
 
     // Check if user is the offerer
     const offerCheck = await query(
@@ -231,7 +242,11 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { user_id } = req.body;
+    // SECURITY (BUG-061, ADR-064): the caller comes from the verified JWT, never the body.
+    const user_id = (req as any).user?.userId;
+    if (!user_id) {
+      return sendUnauthorized(res, 'Authentication required');
+    }
 
     // Check if user is the offerer
     const offerCheck = await query(

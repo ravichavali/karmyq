@@ -558,12 +558,11 @@ Clients should read the `existing` flag rather than assuming a new row was creat
 **Events Published:** `community_created` (only on actual creation)
 
 ### PUT /communities/:id
-Update community details (admin only).
+Update community details (admin only). The caller is the JWT user; a body `user_id` is ignored (BUG-061).
 
 **Request:**
 ```json
 {
-  "user_id": "uuid",
   "name": "Updated Name",
   "description": "Updated description",
   "max_members": 120
@@ -573,14 +572,7 @@ Update community details (admin only).
 **Implementation:** `src/routes/communities.ts:258`
 
 ### DELETE /communities/:id
-Archive community (admin only, soft delete).
-
-**Request:**
-```json
-{
-  "user_id": "uuid"
-}
-```
+Archive community (admin only, soft delete). The caller is the JWT user; no body (BUG-061).
 
 **Implementation:** `src/routes/communities.ts:341`
 
@@ -641,13 +633,14 @@ Join a community (public: immediate, private: pending approval).
 **Events Published:** `user_joined_community` (public) or `join_request_created` (private)
 
 ### POST /communities/:communityId/members
-Add member to community (invite).
+Add a member directly (**active community admin only**, BUG-061). `invited_by` is always the JWT
+caller; `role` must be `member` (default), `moderator` or `admin`. Non-admin callers get `403`;
+self-service joining is `POST /communities/:communityId/join`, which applies the access policy.
 
 **Request:**
 ```json
 {
   "user_id": "uuid",
-  "invited_by": "uuid",
   "role": "member"
 }
 ```
@@ -1259,7 +1252,8 @@ router.get('/:communityId/pending-requests', async (req, res) => {
 // src/routes/members.ts
 router.post('/:communityId/approve-request/:userId', async (req, res) => {
   const { communityId, userId } = req.params;
-  const { admin_user_id } = req.body;
+  // The admin is always the JWT caller, never a body field (BUG-061).
+  const admin_user_id = (req as any).user?.userId;
 
   // Verify admin permission
   const adminCheck = await query(
@@ -1436,7 +1430,7 @@ WHERE c.id = '...';
 ### Permission denied errors
 1. Verify user is member: `SELECT role, status FROM communities.members WHERE community_id = '...' AND user_id = '...'`
 2. Check if user is admin: `... WHERE role = 'admin'`
-3. Verify user_id matches admin_user_id in request body
+3. The acting user is always the JWT caller (`req.user.userId`); no route reads caller identity from the body (BUG-061)
 
 ### Database connection errors
 1. Check DATABASE_URL is correct
@@ -1483,18 +1477,14 @@ curl -X POST http://localhost:3002/communities/COMMUNITY_UUID/norms \
   -H "Content-Type: application/json" \
   -d '{
     "description": "Be respectful to all members",
-    "rationale": "Creates a positive community environment",
-    "created_by": "uuid-here"
-  }'
+    "rationale": "Creates a positive community environment"
+  }'  # proposer = JWT caller (BUG-061)
 ```
 
 **Approve Norm:**
 ```bash
 curl -X POST http://localhost:3002/communities/COMMUNITY_UUID/norms/NORM_UUID/approve \
-  -H "Content-Type: application/json" \
-  -d '{
-    "user_id": "uuid-here"
-  }'
+  -H "Authorization: Bearer $TOKEN"  # approver = JWT caller (BUG-061)
 ```
 
 ### Unit Tests
@@ -1530,6 +1520,19 @@ src/
   otherwise the strongest assigned member by within-child trust degree with deterministic
   `joined_at`/user-id tie-breaks. `split_origin` links and Sprint 86 trust/karma carry-forward remain
   unchanged. (`src/services/fissionService.ts`)
+
+### Sprint 132 (2026-10-06) — BUG-061: six more handlers derive the caller from the JWT (ADR-064)
+- **FIXED (SECURITY)**: these handlers authorized a client-supplied body id. Each now uses
+  `req.user.userId` and ignores the body field (401 without a JWT identity):
+  - `POST /communities/:communityId/members` took `user_id`, `role` **and** `invited_by` from the
+    body with no caller check, so any logged-in user could add themselves as **admin** of any
+    community. It is now **admin-only**, `invited_by` = JWT caller, role ∈ member/moderator/admin.
+  - `PUT /communities/:id`, `DELETE /communities/:id` (body `user_id` named the admin).
+  - `POST /:communityId/norms` (body `created_by`), `POST /:communityId/norms/:normId/approve`
+    and `DELETE /:communityId/norms/:normId` (body `user_id`): forged proposals, votes, archives.
+- Tests: `tests/regression/sprint-132-body-identity.test.ts` (14 cases, red before the fix) and
+  root `tests/integration/sprint-132-body-identity.integration.test.ts` (real Postgres).
+  `tests/fixtures/volumeSeeder.ts` now adds members with the creator's admin token.
 
 ### Sprint 93 (2026-06-10) — Members DELETE derives caller from JWT (ADR-064 close-out)
 - **FIXED (`DELETE /communities/:communityId/members/:userId`)**: the handler read `admin_user_id`

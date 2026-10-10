@@ -799,3 +799,32 @@ Consider retiring `GET /requests/matched/for-user` after checking external consu
 PR A repoints it to skill tags and caller-scopes it, but the only frontend reference is the unused
 `requestService.getMatchedRequests` wrapper (`apps/frontend/src/lib/api.ts:488`; repository scan).
 The curated feed already consumes the same skill store through `getUserProfile`.
+
+## [2026-10-08] Follow-ups from the BUG-061 `/simplify` pass
+
+- **Route gate for caller identity read from the body.** No regression test stops BUG-061 from
+  coming back. Copy the directory walk in `tests/regression/sprint-122-express5-route-params.test.ts`
+  into a gate that fails when `services/**/src/routes` reads a caller-only name from `req.body`
+  (`created_by`, `invited_by`, `offerer_id`, `requester_id`, `approver_id`, `admin_user_id`).
+  Four endpoints legitimately name a *target* user and need an annotated allowlist entry each:
+  `members.ts` POST members, `adminActions.ts` propose-match, `governance.ts` `nominated_user_id`
+  and `dibs.ts`. Include a negative fixture that plants `const { created_by } = req.body`.
+  Avoid a body-stripping middleware: it would silently break the four target-user endpoints.
+- **One live-membership helper per service.** community-service has at least five hand-written
+  copies of `SELECT role FROM communities.members WHERE … status='active'`. They include
+  `activities.ts:16 getMembership`, `links.ts:16 isAdmin`, and `members.ts` POST/PUT/DELETE, and
+  the copies already differ (`rowCount===0 || role!=='admin'` vs `rows[0]?.role !== 'admin'`).
+  request-service has `inventoryDb.ts isActiveAdmin`.
+- **`requireCallerId(req, res)`.** The `(req as any).user?.userId` guard plus the 401 is now
+  copied about 10 times across community-service and request-service. It is defence in depth only,
+  because every router sits behind `authMiddleware`.
+
+## [2026-10-08] Directed-notify lookup should also check `expires_at` (Sprint 132 closeout carry-forward)
+
+`services/notification-service/src/events/subscriber.ts:158-165` delivers a `directed_request_created`
+notification only when `r.status='open' AND NOT r.expired`. The `expired` flag is set later by the
+cleanup job, so a delayed or retried job that runs after `expires_at` but before the next cleanup
+pass still notifies the owner about an ask that has already expired. Add `AND (r.expires_at IS NULL
+OR r.expires_at > NOW())`. Use the same predicate as the rest of the directed-ask surfaces; check
+the column name against `requests.help_requests` first. Then repin the privacy gate's SQL-hash
+exception for that query. Small; fits any request/notification PR.
