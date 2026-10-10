@@ -1,15 +1,17 @@
-# Sprint 132 — Inventories and Skills — Handoff
+# Sprint 133 — Skills Depth — Handoff
 
-**Date**: 2026-10-05
-**Status**: **PR B SHIPPED and LIVE v11.79.0**, [#292](https://github.com/ravichavali/karmyq/pull/292), merge `235b5446`. [CI/CD 37180421165](https://github.com/ravichavali/karmyq/actions/runs/37180421165) and [Demo health 37202424111](https://github.com/ravichavali/karmyq/actions/runs/37202424111) succeeded; read-only inventory smoke passed (maintainer, 2026-10-04). **PR C MERGED as v11.80.0 (`0967a24d`) but NOT DEPLOYED**: master CI/CD [37403420081](https://github.com/ravichavali/karmyq/actions/runs/37403420081) was blocked by three advisories published after the PR checks ran: `proxy-addr` GHSA-jqcg-44mw-7w3h (critical), `compression` GHSA-vc2v-76pw-4v95 (high) and `source-map-js` GHSA-68fv-2mgg-jv7q (high). **Fix PR (v11.81.0)** on `agent/claude/sprint-132-advisory-proxy-addr` makes in-place lockfile patch bumps (2.0.8 / 1.8.2 / 1.2.2; every dependent range already admits them, and `destroy@1.2.0` is already hoisted). Strict `npm ci` (npm 11.19.0), `npm ls` and `audit-exemptions.js` were green locally. Merging it deploys PR C. Earlier status: ([#293](https://github.com/ravichavali/karmyq/pull/293)): Claude review complete (10 + 5 findings resolved through `e8a3fa3c`), CodeQL #601/#602 dismissed as false positives via API on maintainer instruction (2026-10-05), merge + deploy authorized by the maintainer 2026-10-05. Earlier: A live v11.78.0 via #291; N v11.76.0 (#289); S v11.75.0 (#288).
+**Date**: 2026-10-09 (reconciled for #299 after the maintainer-relayed review)
+**Status**: **PLANNED, not started.** Spec, plan and this handoff are committed on
+`feature/sprint-133-skills-depth` (cut from `origin/master` `6041c92c`, v11.81.0). **Blocked on the
+Sprint 132 closeout**. [#299](https://github.com/ravichavali/karmyq/pull/299) (advisories and renewals, v11.82.0) is the
+PR that made this file `CURRENT_HANDOFF.md`. **One closeout step remains: the BUG-061 PR (v11.83.0)**, pushed from
+`agent/claude/sprint-132-closeout` after #299 deploys. #299 also archived the Sprint 132 handoff to
+`.claude/handoff/archive/2026-10-08-sprint-132-inventories-and-skills-SHIPPED-v11.83.0.md`.
 
-> 🧭 **First product sprint after the maintenance freeze** (maintainer, 2026-09-30: dependency work
-> needs a security advisory or a feature need; product is the default). Seed idea: `docs/IDEAS.md`
-> [2026-09-30] architecture, *inventories for individuals and communities, and the skills work*.
->
-> Sprint 131 shipped everything through **v11.74.0** (#287, `c187aa87`, deploy run 36745990078 green,
-> smoke 200s, 0 open Dependabot alerts or PRs). Its full handoff is archived at
-> [`archive/2026-09-30-sprint-131-maintenance-SHIPPED-v11.74.0.md`](archive/2026-09-30-sprint-131-maintenance-SHIPPED-v11.74.0.md).
+> **Merge-conflict rule for this file.** The Sprint 132 closeout branch carries a newer Sprint 132
+> handoff. The closeout **archives** it to `.claude/handoff/archive/` before or with its last PR. When
+> this branch later merges `origin/master` (merge commit, no rebase), resolve `CURRENT_HANDOFF.md` by
+> keeping **this** Sprint 133 file and confirming the Sprint 132 archive exists on master.
 
 > **No parallel lanes are active.** Git and PR state (`gh pr list`, `git log origin/master`) outrank
 > anything written here.
@@ -17,408 +19,256 @@
 ## Quick Start
 
 1. Read this handoff.
-2. **PR C is draft [#293](https://github.com/ravichavali/karmyq/pull/293)** on `agent/claude/sprint-132-pr-c-directed-borrow`, based on `origin/master` `235b5446`. Codex owns C implementation; Claude owns merge-readiness validation. Check `git status` before editing. B/#292 is shipped, deployed and smoke-tested. PR #293 is the current review packet; its Validation ledger carries final-head evidence.
-3. Open the plan: [`docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md`](../../docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md).
-   The maintainer-relayed whole-branch review through `46b03d21` found no blockers. Final follow-up rechecks open/unexpired asks at notification delivery, documents the acknowledgement write/rollback delay and logs BUG-060. Next: verify this follow-up's PR Validation evidence, clear CodeQL in the UI and obtain Claude readiness validation. Merge/deploy still require separate maintainer authorization.
-4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`).
+2. **Check the precondition first (plan Task S0):** the Sprint 132 closeout PRs (the `shell-quote`/`sharp` + `node-forge`-decision
+   advisory fix and BUG-061, commit `4c709023`) are MERGED and deployed, and the Sprint 132 handoff is
+   archived. If not, switch to `agent/claude/sprint-132-closeout` and follow its handoff instead.
+3. Reuse the existing PR branch if one exists; otherwise `git fetch origin` then
+   `git switch -c agent/claude/sprint-133-pr-s-security origin/master` and
+   `git merge --no-ff feature/sprint-133-skills-depth` (planning docs ride with PR S). Never branch off
+   a stale local master; unpushed local-master commits leak in via the squash-merge.
+4. Open the plan: [`docs/superpowers/plans/2026-10-08-sprint-133-skills-depth.md`](../../docs/superpowers/plans/2026-10-08-sprint-133-skills-depth.md).
+   **One PR section per fresh chat**, in order S → A → B → D.
+5. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`).
    There is no `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 
 ## Sprint goal
 
-Members and communities can list shareable items (private until shared). "Ask to borrow" opens a
-request only the owner (or the owning community's admins) can see, which runs the existing
-match → message → karma loop. Skills have one source of truth that matching actually reads.
+Members can see the skills of people they share a community with, search their community for a skill,
+and vouch for a skill of someone they completed a match with; vouches feed the trust graph. A
+security PR first closes BUG-056, BUG-062 and BUG-058.
 
 ## Links
 
-- Spec: [`docs/superpowers/specs/2026-09-30-sprint-132-inventories-and-skills-design.md`](../../docs/superpowers/specs/2026-09-30-sprint-132-inventories-and-skills-design.md)
-- Plan: [`docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md`](../../docs/superpowers/plans/2026-09-30-sprint-132-inventories-and-skills.md)
-- ADR: **ADR-099** `docs/adr/ADR-099-inventories-and-directed-requests.md` (to be written in PR A)
+- Spec: [`docs/superpowers/specs/2026-10-08-sprint-133-skills-depth-design.md`](../../docs/superpowers/specs/2026-10-08-sprint-133-skills-depth-design.md)
+- Plan: [`docs/superpowers/plans/2026-10-08-sprint-133-skills-depth.md`](../../docs/superpowers/plans/2026-10-08-sprint-133-skills-depth.md)
+- ADR: **ADR-100**, allocated by the maintainer 2026-10-08 (`docs/adr/ADR-100-skill-visibility-and-endorsements.md`, written in PR A Task A7).
 
 ## PR table
 
 | PR | Scope | Branch | State |
 |---|---|---|---|
-| **S** | **Security (rev 2):** caller-scope notification routes (BUG-055) + participant-scope `GET /matches`, `/matches/:id` (BUG-057). No schema | `agent/claude/sprint-132-security-authz` | **SHIPPED v11.75.0** (#288, `b169472b`) |
-| A | Skills single source, vocabulary-backed matching and ADR-099 | `agent/claude/sprint-132-pr-a-skills` (retired) | **SHIPPED**, #290 `244291eb`; live as v11.78.0 through #291 `f90b9916`, deploy 37169859212; A10 read-only smoke passed |
-| **N** | **node-forge exemption (2026-10-01):** a 7-day ADR-059 exemption for GHSA-86w9-cpqp-85rv (no patched release), an ADR-059 amendment, a sprint-125 coverage gate that admits an unwatched package only for ≤ 7 days, and BUG-058 | `agent/claude/sprint-132-node-forge-exemption` (cut from `origin/master` `b169472b`) | **MERGED + DEPLOYED v11.76.0** (#289, `02d720b3`; CI/CD 37053659544 and health check green, verified 2026-10-02) |
-| B | Inventory catalog, audience predicates, My things and community Shared things | `agent/claude/sprint-132-pr-b-inventory` (retired) | **SHIPPED v11.79.0**, [#292](https://github.com/ravichavali/karmyq/pull/292), `235b5446`; CI/CD + demo health green; read-only inventory smoke passed 2026-10-04 |
-| C | Directed *Ask to borrow*: private browse/access guards, incoming asks, participant history/actions, durable directed notification delivery and independent completion subscribers | `agent/claude/sprint-132-pr-c-directed-borrow` (base `235b5446`) | **MERGED `0967a24d` v11.80.0; deploy blocked by new advisories, so it ships with the advisory fix PR v11.81.0**; Claude readiness review passed at `e8a3fa3c`; #601/#602 dismissed (API, maintainer-approved); ten findings fixed in `1f2c2f89`, completion expansion `cd929fad`, runner isolation `81f9a343`; all 25 directed cases and 122 main integration cases PASS at `81f9a343`; CodeQL/fresh review/Claude readiness pending; detailed evidence in PR Validation |
+| **S** | BUG-056 (`GET /requests/:id` gate + drop `requester_email`, directed rules unchanged), BUG-062 (member email: `/users/:userId` auth + self-only; community detail/members admin-only), BUG-058 (cap → 7, monitor retired, #236) | `agent/claude/sprint-133-pr-s-security` | Not started (blocked on S132 closeout) |
+| A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, `/users/me/settings` route-order fix, drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | Not started |
+| B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | Not started |
+| D | Curated demo seed: skills, items, endorsements (demo apply needs per-operation authorization) | `agent/claude/sprint-133-pr-d-demo-seed` | Not started |
 
-Versions: each PR bumps the minor from `origin/master` at merge time (S = 11.75.0, shipped; N = 11.76.0; A = 11.77.0
-if nothing else merges in between). Nothing is reserved.
+Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is reserved.
 
-## Maintainer decisions (planning chat, 2026-09-30)
+## Maintainer decisions (planning chat, 2026-10-08)
 
-1. **Scope:** inventory v1 plus a bounded skills cleanup (consolidate the two stores). Deeper skills
-   work (endorsements, verification, discovery) moves to Sprint 133+.
-2. **Inventory depth:** a catalog, with lending through a borrow request. **No** new lending state machine
-   (no `on_loan` state, due dates or return flow in v1).
-3. **Community inventory:** both kinds, community-owned items (admins manage them) **and** members'
-   items shared with the community.
-4. **Skills store:** `auth.user_tags` wins, with a normalized vocabulary (`skill_slug`). `auth.user_skills`
-   is deprecated and **not dropped** this sprint (image-rollback safety).
-5. **Borrow ask visibility:** **directed to the owner only** (or the owning community's admins). It is
-   never on a feed.
-6. **Default item visibility:** **private until shared**, per community, with membership checked live.
-7. **Placement:** request-service, with a new `inventory` schema (13th live schema). No new service.
-8. **ADR number:** **ADR-099**, allocated by the maintainer.
-9. **Shipping:** **3 PRs** (A skills, B catalog, C directed borrow), so the reachability change
-   gets isolated review.
-10. **Rev 2:** BUG-055/057 ship as a standalone **PR S** before PR A, and are executed now ("Include the required tests
-    and documentation updates. Merge and deployment still require maintainer authorization."). The fresh-install proof is
-    a blocking CI step before the replay. Incoming asks get their own query and Helping section.
+1. **Theme:** skills depth (endorsements + discovery + drop `auth.user_skills`).
+2. **Dated obligations** (BUG-056 by 2026-10-14, BUG-058 by 2026-10-15) fold in as **PR S**, first.
+3. **BUG-056 policy:** gate (own ∨ match participant ∨ reachable) **and drop `requester_email`**.
+   **Preserve the stricter directed-request audience rules** when adding general visibility.
+4. **BUG-062** (found in planning: anonymous `GET /users/:userId` returns email; community detail and
+   members list return every member's email to any viewer) **folds into PR S**.
+5. **BUG-058:** option **(b)**, revert the cap to 7 and retire the image-size monitor.
+6. **Who may endorse:** completed-match partners only.
+7. **Trust graph:** endorsements feed `endorsement_count` via an event. **Withdrawal reverses the
+   contribution; retries and re-endorsement cannot inflate the count** (reconcile, not increment).
+   **Reproduce BUG-060 before choosing the transport.**
+8. **Visibility:** co-members, opt-out. **Opting out hides skills from both co-member views and
+   community search.**
+9. **Extras:** curated demo seed (PR D), BUG-060 reproduction (PR B Task B1), retire `/matched/for-user` (PR A).
+10. **Demo writes** stay subject to per-operation authorization (PR D and any live smoke write).
+11. **Order:** S → A → B → D; the **Sprint 132 closeout finishes first**.
+12. **Plan review rev 1 (same day):** the 0–2 pair count and per-change job ids are confirmed. Fixes:
+    monotonic `revision` job ids (no millisecond collision; retries reuse the change id); a pair advisory
+    lock that serializes reconcile with the `match_completed` edge path, with an in-statement `raw_weight`
+    and concurrency tests; and a BUG-060 reproduction that uses `request_created` (a handled event), where one clean
+    run cannot refute competition.
+13. **ADR-100 allocated.**
 
 ## Critical implementation notes (verbatim from the spec)
 
-1. **RLS doesn't protect these tables. Application SQL does.** The owner connection bypasses the
-   existing policies (there's no `FORCE ROW LEVEL SECURITY` in `init.sql`, and the demo connection role
-   is UNVERIFIED). Every visibility rule is a SQL predicate in one module, with tests proving both
-   halves: the audience sees it and a non-audience member gets 404 or absence.
-2. **Live membership only.** Item audience, admin writes, share validation and directed audience
-   all query `communities.members` (`status='active'`, `role='admin'` where relevant). Never read
-   `req.user.communities` for a decision. `adminActions.ts:9-23` is the anti-pattern (claim-derived
-   admin check); don't copy it.
-3. **Route order: mount `/requests/inventory` BEFORE `requestsRouter`** in
-   `services/request-service/src/index.ts`, the same way `/requests/feed` is mounted first (`index.ts:99-106`).
-   Otherwise `GET /requests/:id` (`requests.ts:1675`) captures `/requests/inventory` as `id='inventory'`.
-   A test must hit `GET /requests/inventory/mine` through the real app and see the inventory handler.
-4. **Directed requests fail closed on `is_directed`.** The target columns are `ON DELETE SET NULL`.
-   Visibility keys off `is_directed`, so a deleted target narrows the audience to the requester and
-   never opens it to the community. Test it: set the target to NULL, and a community member still
-   gets 404.
-5. **Never publish `request_created` for a directed request.** Its subscriber broadcasts the title to
-   every active member (`notification-service/src/events/subscriber.ts:164-173`). Publish
-   `directed_request_created` with live-resolved recipients. Update `services/registry.json` events and
-   both services' CONTEXT.md.
-6. **Classify every `help_requests` read path, untruncated.** The Surfaces table is a starting
-   point from a 2026-09-30 grep. Re-run the grep without `| head`, classify every hit, and make the gate
-   derive its inventory from the same live scan, not from a hand-written list. The gate must go red on
-   an injected unguarded listing query (proven on a committed tree, restored from a byte copy).
-7. **`GET /requests/:id` 404s a directed request for non-audience viewers *before* building the
-   response.** That route currently returns any request, including `requester_email`, to any
-   authenticated caller who has the id. That pre-existing breadth for *non-directed* requests is
-   **out of scope**: it is logged as **BUG-056** (the maintainer decides). Don't widen this sprint to fix it.
-8. **Don't drop `auth.user_skills` in PR A.** A failed deploy rolls back the images and not the
-   schema, and the old images read that table. Deprecate it with a `COMMENT` and drop it in a later sprint.
-9. **Skill-slug resolution is exact after normalization, not fuzzy.** Normalize with
-   lower + trim, then match on the slug, the label or a synonym. Don't use substring matching at write
-   time: the shared matchers already substring-match at score time (`packages/shared/src/matching/utils.ts:62-66`),
-   and doing it twice over-credits. An unresolved tag still reaches matching as
-   `lower(regexp_replace(trim(tag_value), '[^a-z0-9]+', '_', 'gi'))`.
-10. **Item categories and conditions reuse the existing borrow vocabularies**
-    (`borrow.ts:25-34` keys; `BorrowRequestForm.tsx:12`), so PR C's prefilled request is a valid borrow
-    request that the matcher understands. Don't invent a third vocabulary.
-11. **No `packages/shared` change this sprint.** Inventory-aware `BorrowMatcher` is a Sprint 133
-    candidate. Keeping shared untouched keeps the blast radius to auth, request, notification,
-    community (read-only filters) and frontend.
-12. **Version and merges.** Each PR bumps the minor from `origin/master`'s `package.json` at merge time
-    (both `package.json` and `package-lock.json` root version). Merge one PR at a time, and wait for
-    the deploy and health verify to finish. Each merge needs explicit maintainer authorization.
-13. **Demo data / reset policy.** The curated reset walks only `MANAGED_SCHEMAS`
-    (`services/simulation-service/src/fixtures/curatedDemo/tablePolicy.ts:11`), and an unclassified
-    table in a managed schema is a hard failure. PR A classifies `auth.skill_vocabulary` as
-    `'preserve'`. PR B adds `'inventory'` to `MANAGED_SCHEMAS` with both tables `'reset'`. Prove both
-    with `sprint-117-reset-safety.test.ts`. Any demo data operation needs per-operation authorization.
+1. **Sprint 132 closeout is a hard precondition.** Do not cut any Sprint 133 PR branch until the
+   closeout PRs (advisories, BUG-061) are merged and deployed. Then cut each PR branch from fresh
+   `origin/master`. This planning branch merges `origin/master` (merge commit, no rebase) before its
+   docs ride along with PR S.
+2. **BUG-056 must not loosen directed requests.** `GET /requests/:id` already filters with
+   `directedAudienceSql('r', '$2')` (`requests.ts:1717`). Keep that predicate in the SQL. Add the
+   non-directed gate on top: own ∨ any-status match responder ∨ `getRequestReachability(...).reachable`.
+   `getRequestReachability` already returns `exists:false` for a directed request outside its
+   audience (`services/request-service/src/db/eligibility.ts:69-79`). Tests: a directed ask stays
+   404 for a same-community non-audience member even though that member is "reachable" for ordinary
+   requests; a completed-match helper still gets 200 after leaving the community; an outsider gets
+   404 for a `community`-scope request; anyone authenticated gets 200 for a `platform`-scope request.
+3. **Strip email everywhere it now leaks (BUG-062), and grep for others.** Known sites:
+   `requests.ts:1699` (removed outright), `auth-service routes/users.ts:21` (self only),
+   `community-service routes/communities.ts:344` and `routes/members.ts:28` (live admin or self only).
+   `matches.ts:99` (`GET /matches/:id`) is participant-scoped since PR S of Sprint 132 and stays.
+   Before PR S, re-run `grep -rn "\.email" services/*/src` untruncated and classify every hit in the
+   PR description. Messaging participants' emails (`ChatWindow.tsx:153`) are out of scope; log any
+   new class found.
+4. **One visibility predicate.** Create `services/auth-service/src/db/skillVisibility.ts` exporting
+   a SQL fragment `skillVisibleToSql(ownerAlias, viewerParam)` = owner is viewer **or** (sharing on
+   **and** an active co-membership exists). Every PR A/B read and the endorsement eligibility check
+   use it. Tests prove both halves for every endpoint: a co-member sees it; a non-co-member, a
+   member of a *different* community, a pending member and an opted-out member's co-member get 404
+   or absence. **Opting out hides the member from co-member views AND from community search and the
+   directory counts.** A test opts a member out and asserts all three surfaces.
+5. **Live membership only.** Co-membership, community-search membership, admin email visibility and
+   endorsement eligibility all query `communities.members` (`status='active'`, `role='admin'` where
+   relevant). Never read `req.user.communities` for a decision (CLAUDE.md *Authentication*).
+6. **Endorsements reconcile; they never increment.** The social-graph handler recomputes, for the
+   pair, `endorsement_count` per community = number of distinct endorsers (0–2) with an active
+   endorsement whose `match_id`'s request is in that community (`requests.request_communities`). It
+   must **not** call `upsertTrustEdge` (which does `+ 1` and grows `stability`). Reconcile does not
+   change `stability`; it sets `last_interaction_at = now()` only when the count increased; it inserts
+   an edge only when the count is > 0 and the edge is missing. The pair count (0–2) measures mutual
+   vouching; per-skill counts on the profile keep the detail. Proofs: (a) the same event delivered 3×
+   leaves the count at 1; (b) endorse → withdraw → re-endorse gives 1, 0, 1; (c) five skills vouched
+   by one endorser give 1; (d) both directions give 2; (e) deleting the endorsed tag (cascade)
+   followed by its event gives 0 and `raw_weight` drops by exactly the endorsement weight.
 
-**Added in rev 1 (plan review relayed by the maintainer, 2026-09-30; each finding verified against the repo):**
-
-14. **Close the existing read holes BEFORE the first directed ask can exist (PR C, BUG-055, BUG-057).**
-    Notification routes trust a URL or body user id (`notification-service/src/routes/notifications.ts:75,108,127,163,184,219,238`),
-    and `GET /matches` / `GET /matches/:id` aren't participant-scoped (`request-service/src/routes/matches.ts:15-40,83-104`).
-    PR C caller-scopes all of them, with cross-user tests for each route: an unrelated viewer, omitted
-    filters, and a spoofed `user_id` in the URL, query or body. The `help_requests` gate can't see these,
-    because notifications live in another table.
-15. **Reference data goes in `seed-data.sql` as well as the migration.** `init.sql` is schema-only
-    plus `seed-data.sql` plus a ledger marking every migration applied, so a migration-only seed is
-    lost on fresh installs. An exact-parity regression test guards it (see *Data Model → PR A*).
-16. **Integration tests live in ROOT `tests/integration/`.** That is the only place CI's
-    *Integration Tests* job looks (`tests/jest.integration.config.js:17` `roots: ['<rootDir>/integration']`,
-    `testMatch: ['**/*.integration.test.ts']`). Workspace `tests/integration/` files are run by no CI job.
-    Under `CI=true` the tests must **fail**, not skip, when the database is unreachable. The executor
-    confirms from the *Integration Tests* job log that the sprint-132 files ran.
-17. **Browse vs private access.** Browse surfaces use `notDirectedSql` and exclude every directed ask
-    for every viewer; private-access surfaces use `directedAudienceSql`. A test proves that the
-    **recipient's own** browse feed does not contain the ask.
-18. **`init.sql` regeneration** needs `REGEN_PG_CONTAINER` (a dedicated, disposable Postgres 15
-    container; `regenerate-init-sql.sh:108-118`) and writes `init.sql.generated` by default (`:15`).
-    Review its diff against `init.sql`, then promote it (copy over `init.sql`) and delete the
-    `.generated` file. Never hand-edit `init.sql`.
-19. **No zod.** request-service validates by hand; follow that style (see *API → PR B*).
-
-20. **`GET /requests` with `requester_id`** (rev 2): directed rows only when `requester_id` equals the
-    JWT caller. Three tests: own id → own directed asks included; missing → excluded; another user's
-    id → excluded, and that user's directed asks never leak.
-21. **Unanswered directed asks need their own query** (rev 2): `GET /requests/inventory/asks/incoming`
-    plus the Helping *Asked of you* section. Test the transition: the ask is listed → the recipient offers →
-    it leaves *incoming* and appears through `GET /matches`.
-22. **BUG-056 stays separate** from the authorization fixes. It is a visibility-policy decision with its
-    own severity, owner and deadline in `docs/BUGS.md`.
-
-Also in the plan's standing notes: **`scripts/regenerate-init-sql.sh` needs Docker.** There is none on
-the Windows box, so use a disposable container on the demo host (ask first) or the Mac checkout.
+   **Serialization (maintainer review, 2026-10-08).** Each reconcile runs in **one transaction** that
+   (1) takes `pg_advisory_xact_lock` on a key derived from the normalized pair
+   (`hashtextextended('trust-pair:' || user_id_a || ':' || user_id_b, 0)`), (2) reads the source rows,
+   (3) `SELECT … FOR UPDATE`s the pair's edge rows, and (4) writes them. The `match_completed` edge
+   path (`upsertTrustEdge`, `trustEdgeDb.ts:117-181`) takes the **same** pair lock in its own
+   transaction. **`raw_weight` is computed inside the `UPDATE` statement from the row's current
+   columns** (`SET raw_weight = match_completed_count * $w1 + endorsement_count * $w2 + …`), on both
+   paths. Today `upsertTrustEdge` reads the counts and writes `raw_weight` in separate statements, so
+   a reconcile that commits between them would be overwritten with the stale endorsement count.
+   Weights still come from `getInteractionWeightsForCommunity` (`trustEdgeDb.ts:106`).
+   `upsertTrustEdge` keeps its observable result: its existing tests stay green. **Concurrency tests
+   (real Postgres, two clients, a barrier hook between read and write):**
+   (f) an **older** reconcile reads "active", a withdrawal commits and its reconcile starts, then the
+   older one is released; the final count is 0, never 1; (g) a `match_completed` edge update runs
+   while a reconcile holds the lock; the final row has the incremented `match_completed_count`, the
+   reconciled `endorsement_count`, and `raw_weight` equal to the formula over the final columns.
+7. **Reproduce BUG-060 before choosing the transport (Task B1).** Use an event that **is** handled,
+   by exactly one service: **`request_created`**, which only notification-service processes
+   (`services/notification-service/src/events/subscriber.ts:176`). Reputation-service
+   (`subscriber.ts:137-141`) and social-graph-service (`subscriber.ts:84`) attach workers to the same
+   `karmyq-events` queue without that name. (`user_joined_community` has no handler anywhere in the
+   checked source, so it cannot show competition.) The root integration test runs the real
+   subscribers of all three services, asserts that each queue worker is attached before publishing
+   (`queue.getWorkers()` / client list), publishes **N ≥ 50** jobs, and records each job's final state
+   and the error text. **Decision rule:** any job that fails with a missing-handler error, or never
+   reaches the notification handler, **confirms** competition. Successful delivery in one run
+   **cannot refute** it. "Not reproduced" is possible only together with a mechanism trace from the
+   installed Bull source (`node_modules/bull/lib`, not docs or changelogs) showing that a worker with
+   named processors cannot take a job of another name. Without both, treat competition as possible.
+   **Transport:** a dedicated queue (`karmyq-skill-endorsement-social-graph`, following
+   `services/request-service/src/events/completionEvents.ts`) unless B1 produces that mechanism proof.
+   Update BUG-060 with the evidence either way and record it in ADR-100. No other event's transport
+   changes in this sprint.
+8. **Job IDs are per change and collision-free.** Completion uses a stable `jobId` per match
+   (`completionEvents.ts:28-31`) with `removeOnComplete: { age: 86400 }`, so a second add with the
+   same id inside 24 h is silently dropped. A pair-stable id would drop a withdrawal's reconcile, and a
+   timestamp-based id can collide when two changes share a millisecond. **Use a monotonic revision.**
+   `auth.skill_endorsements.revision bigint NOT NULL DEFAULT 1` is incremented
+   (`revision = revision + 1`) by the same `UPDATE`/upsert that changes state, under that row's lock.
+   The id comes from `RETURNING`: `endorsement-<row id>-r<revision>`. A tag-deletion cascade uses
+   `endorsement-<row id>-deleted` (a row is deleted once). **A retry of the same change reuses that
+   change's id**, so Bull dedupes retries and never distinct changes. Test: two changes in one
+   millisecond (frozen clock) produce two distinct ids; re-publishing one change reuses its id.
+9. **Publish after commit; the lost-enqueue gap is accepted and documented.** If the enqueue fails
+   after the DB commit, the API still returns success (the endorsement is real), logs an error
+   carrying both user ids (operator-legible; feedback memory "opaque to the client, legible to the
+   operator"), and the pair heals on its next endorsement change. Ship
+   `scripts/reconcile-endorsement-edges.js` (dry-run by default) for an operator backfill. The ADR
+   states this gap; no outbox this sprint.
+10. **Tag deletion is an endorsement change.** `DELETE /auth/profile/tags/:tagId`
+    (`profileTags.ts:67-78`) cascades endorsements. Select the distinct active endorsers in the same
+    transaction before deleting, then publish one event per pair after commit. Hiding skills
+    (opt-out) does **not** delete endorsements and does **not** change the trust graph: visibility is
+    a display rule, the vouch remains a fact. Say so in the ADR and the guide.
+11. **Endorsement eligibility is checked at write time only.** A completed match is permanent, so an
+    endorser keeps their vouch even after leaving the community; the PR A predicate decides only who
+    can *see* it. Ineligible POSTs return the same 404 whether the tag is hidden, missing or the
+    caller has no completed match (no existence oracle).
+12. **`init.sql` regeneration needs Docker.** There is none on the Windows box. Use the manual
+    `Regenerate init.sql` workflow dispatch (as Sprint 132 PR B/C did) or the Mac checkout, review
+    the artifact diff (only the PR's migration objects + one ledger line), promote it, and never
+    hand-edit. A disposable demo-host container needs separate maintainer authorization.
+13. **Dropping `auth.user_skills` is rollback-safe only because nothing reads it.** Before merging PR
+    A, re-run `grep -rn "user_skills" services apps packages infrastructure/postgres/seed-data.sql scripts`
+    untruncated. Only the migration, the generated `init.sql` and history docs may remain. A failed
+    deploy rolls back images, not schema; the previous image (≥ v11.78.0) does not read the table.
+14. **Route order.** In auth-service `routes/users.ts`, register `/me/settings` (GET, PATCH) **before**
+    `/:userId`. A test hits `GET /users/me/settings` through the real router and asserts the settings
+    handler answered (not a 500 from a uuid cast). New skills routes are mounted at `/auth/skills` in
+    `services/auth-service/src/index.ts`, beside `/auth/profile/tags` (`:61`), with `authMiddleware`.
+15. **No `packages/shared` change this sprint.** Matching already reads `user_tags`; endorsements do
+    not change scoring yet (Sprint 134 candidate).
+16. **Integration tests live in ROOT `tests/integration/*.integration.test.ts`** (the only place
+    CI's Integration Tests job looks) and must fail, not skip, under `CI=true` without a database.
+    Confirm from the job log that the sprint-133 files ran. Workspace TDD tests start in the changed
+    workspace's `tests/tdd/`.
+17. **BUG-058 removal is a security-gate change: prove it can still fail.** After the cap returns to
+    7, the regression must show an 8-day exemption is rejected and a 7-day one accepted, deriving the
+    span from `MAX_EXEMPTION_DAYS` (as `tests/regression/sprint-124-registry-core-parity.test.ts:177-189`
+    already does). Remove the "unwatched package ≤ 7 days" special case from
+    `sprint-125-image-size-monitor.test.ts` together with the monitor; the general cap now enforces
+    it. Delete only after `grep -rn "image-size-advisory-watch\|check-image-size-upstream"` is
+    classified; the landing docs copy is regenerated, never edited. Read
+    `docs/gotchas/adr-059-cannot-tell-no-answer-from-no-advisories.md` first.
+18. **Demo data (PR D).** Skills, items and endorsements are added to the curated manifest
+    (`curatedDemo/manifest.ts`, types in `types.ts`, writer `baselineWriter.ts`, verifier
+    `verifier.ts`). The writer sets `endorsement_count` on seeded `trust_edges` using exactly the
+    reconcile rule (distinct endorsers per community), and a regression proves seeded counts equal a
+    reconcile over the seeded rows. **Every demo write (curated reset/apply on karmyq.com) requires its
+    own explicit maintainer authorization at the time of the operation**; the plan never pre-authorizes
+    one, and a deploy does not imply one.
+19. **Version and merges.** Each PR bumps the minor from `origin/master`'s `package.json` at merge
+    time (root `package.json` + `package-lock.json` root version). One merge at a time; wait for
+    deploy and health verify. Each merge needs explicit maintainer authorization.
 
 ## Carry-forward and open items
 
-- **Sprint-number collision.** The unmerged branch `origin/lane/lanes-provenance` (`557bb547`, never
-  opened as a PR) labels its lanes/stages/provenance work "Sprint 132" (maintainer, 2026-09-16). The
-  maintainer named *this* product sprint 132 on 2026-09-30, so lanes-provenance renumbers whenever it
-  is scheduled. Its spec, plan and lane file live only on that branch.
-- **Logged 2026-09-30:** **BUG-055** (HIGH: notification routes trust a URL or body user id), **BUG-056**
-  (`GET /requests/:id` has no visibility check and returns `requester_email`; out of scope, maintainer
-  triage), and **BUG-057** (HIGH: `GET /matches` and `/matches/:id` aren't participant-scoped). **Decided (maintainer, 2026-09-30): 055 and 057 ship first
-  as PR S.** BUG-056: MEDIUM, owner = maintainer (policy) / Claude (implementation), deadline **2026-10-14**, and kept separate.
-- **Sprint number:** the maintainer's naming stands at 132 (the reviewer also recommends keeping it).
-  lanes-provenance renumbers when scheduled.
-- `/requests/matched/for-user` has no frontend caller (`api.ts:488` is unused). PR A repoints it, and
-  it goes to IDEAS as a removal candidate.
-- `apps/mobile` moderate audit chain (decode-uri-component ← query-string ← expo-router): no alert,
-  and no non-downgrade fix. See `docs/IDEAS.md` [2026-09-30] tooling. Not an ADR-059 blocker.
-- Sprint 131 follow-ups (fonts back to Turbopack, BUG-053 promoter, BUG-054 landing docs freshness,
-  and the others) are in `docs/IDEAS.md` / `docs/BUGS.md`. They are not scheduled here.
+- **Sprint 132 closeout, remaining (precondition, branch `agent/claude/sprint-132-closeout`):** the BUG-061
+  PR. Its gates are done: /security-review (no findings), /simplify (`0128d181`) and /code-review medium (no
+  findings). ADR-099 → Implemented (`fef1ab54`) rides with it. Steps: after #299 deploys, merge `origin/master`
+  into that branch, resolve both handoff files to **master's** versions, re-bump to v11.83.0, push, open the PR
+  and get merge authorization. #299 covers the `shell-quote`/`handlebars`/`next`/`sharp` fixes and the renewals.
+- **Exemptions RENEWED (maintainer, 2026-10-08, shipped in #299):** `node-forge` and `braces` now run 2026-10-08 → **2026-10-15**.
+  Re-check both before then (`npm view`, the GHSA page, `npm ls --all`); remove each if upstream ships a fix.
+  History of the ordering decision follows.
+- **Exemptions (closeout ordering, maintainer review 2026-10-08):** `node-forge` is **already invalid**
+  (`expires: 2026-10-08` is the first invalid day; `expires <= today`, `scripts/audit-exemptions.js:126`),
+  so every push and deploy fails the gate until it is decided. **Its decision (renew with explicit
+  maintainer authorization, or remove if upstream fixed) must ship in the same PR as the
+  `shell-quote`/`sharp` advisory fix**, before any closeout push is expected to pass. `braces` becomes
+  invalid **2026-10-09**; decide it in the same PR if it lands on or after that day.
+- **BUG-062** (HIGH, member email disclosure) logged in `docs/BUGS.md` on this branch; deadline
+  **2026-10-15**, with BUG-056 (2026-10-14) and BUG-058 (2026-10-15). If PR S cannot merge by then,
+  write dated risk acceptances for the maintainer (plan Task S0). `docs/BUGS.md` conflicts with the
+  closeout branch's BUG-061 entry on merge: keep both, 061 before 062.
+- **BUG-060** (UNVERIFIED shared-queue competition): reproduced or refuted in PR B Task B1.
+- **New finding for IDEAS (PR B Task B7):** `match_completed` trust-edge increments are not idempotent
+  (`upsertTrustEdge` `+ 1`); a redelivered completion over-counts.
+- **Directed-notify lookup `expires_at > NOW()`** and the standing rollback policy (fix-forward once
+  directed rows exist) remain open from Sprint 132.
+- **Sprint-number collision:** `origin/lane/lanes-provenance` (`557bb547`) still says "Sprint 132";
+  it renumbers when scheduled.
 
 ## Ownership and base
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-132-pr-c-directed-borrow`, base `origin/master` `235b5446` |
-| **Merged, never commit on them** | every Sprint 131 branch, including `agent/claude/sprint-131-dependabot-security-only` (#287) |
-| **Active editor** | **Codex for PR C** (maintainer assignment, 2026-10-04). Owns the PR C file map in the plan; Claude remains sprint orchestrator and merge authority. |
-| **Reviewer role** | A non-author reviews each completed diff; PR C additionally gets a fresh whole-branch review |
-| **Shared resources** | ADR-099 is allocated. Dependency lane: Claude. The **node-forge advisory** earned the exemption PR. There is no lockfile or override change, because no fix exists. No demo data operation is planned; each needs its own authorization. |
+| **Planning branch** | `feature/sprint-133-skills-depth`, base `origin/master` `6041c92c` (docs only) |
+| **Active editor** | Claude (no assignment to Codex yet) |
+| **Reviewer role** | A non-author reviews each completed diff |
+| **Shared resources** | ADR-100 allocated to this sprint. Dependency lane: Claude. No demo data operation is authorized. |
 
-## Persistent obligations (carried from Sprint 131, unchanged)
+## Persistent obligations (carried from Sprint 132, unchanged)
 
 - Demo stories expire **2026-11-12**; BUG-041 recheck is due **2026-11-14**.
 - GitHub posts a notice on every CI run: the `ubuntu-latest` label migrates to Ubuntu 26 from **2026-10-19**.
   Watch the first CI runs after that date, especially the Docker, Node and Postgres jobs.
-- No docs-only master push; preserve the Sprint 130 archive in PR A. *(This was Sprint 131's PR A,
-  now done: the archive is on master. It is not an instruction for Sprint 132's PR A.)*
+- No docs-only master push.
 - CodeQL PR scans are incremental; master rescans establish closure of existing master alerts.
 - Windows: use Node for JSON/HTTP probes; no local Docker. Demo data operations require separate
-  explicit authorization, and none are planned here.
+  explicit authorization.
 - Root tests can promote unrelated TDD files and regenerate landing timestamps; inspect the tree
   after verification and preserve only intended changes.
-- **`node-forge` exemption expires 2026-10-08** (first invalid day). Before then: `npm view node-forge version`, the GHSA page and
-  `npm ls node-forge --all`, then remediate or renew with a fresh maintainer decision. Otherwise every PR blocks again.
-- **BUG-058** (deadline 2026-10-15): the image-size watch is obsolete and red (#236). Generalize it or revert the 30-day cap.
 - Contributor agents never self-merge; only Claude marks the sprint complete after actual delivery.
-
-## PR A execution (2026-10-01)
-
-Codex is the active executor on the existing `agent/claude/sprint-132-pr-a-skills` branch,
-starting from `83d6ab0a`; the working tree was clean and `gh pr list` returned no open PRs
-after fetching origin. Scope is PR A only, tasks A1–A10, with ADR-099 already allocated.
-PR S's shipped record remains on this branch and must be carried forward if the branch is replaced.
-Windows was confirmed with `uname -s` (`MINGW64_NT-10.0-26200`). BUG-056 remains separate,
-due 2026-10-14.
-
-The PR A code, migration, seed, generated `init.sql`, ADR, registry, service contexts, generated
-landing docs and tests are staged. An earlier complete local `npm test` run passed
-27/27 tasks (root regression 39 suites, 916 tests). A later unrestricted full run reached 26/27:
-two security-gate suites now fail on newly reported HIGH `node-forge` advisory
-`GHSA-86w9-cpqp-85rv` in the Expo CLI/signing chain. The upstream advisory lists no patched
-version as of 2026-10-01. **Superseded 2026-10-01:** the maintainer at first chose to wait for an upstream fix, then accepted
-a time-boxed exemption (the exemption PR, 7 days). The gate is not bypassed. Auth/request/frontend TypeScript checks passed;
-focused tests added afterward passed, including red/green suggestion-filter and caller-scope tests.
-The seed parity test went red after one vocabulary row was temporarily removed and green after
-exact byte restoration. Migration static review found no issues. The broader review agent hit a
-usage limit, so direct diff review continues. **Superseded 2026-10-01:** Claude committed the staged work locally as `e2dc9043`
-(no push). The PR waits until the exemption PR is on master.
-No merge or deploy is authorized.
-
-The maintainer explicitly approved uploading the inspected 549 KB SQL/scripts archive to an
-isolated `/tmp` scratch directory on the demo host after automatic review initially rejected
-the less specific authorization. A network-disabled, 512 MB/1 CPU PostgreSQL 15 container
-regenerated `init.sql`; the fresh-install vocabulary/ledger check and full-schema drift check
-both passed. The generated diff is 64 insertions and one ledger-line replacement, limited to
-the skill schema, seed, deprecation comment and ledger. The container and remote scratch
-directory were removed and their absence checked. The maintainer also authorized caller-scoping
-the pre-existing `/requests/matched/for-user?user_id=` disclosure in PR A. Its query now binds
-to the JWT caller; a spoofed `user_id` is ignored, and absent identity returns 401. Three
-route tests went red before and green after the fix; docs and the unused frontend wrapper were
-updated.
 
 ## Next unchecked action
 
-**PR C review follow-up (2026-10-04):** draft [#293](https://github.com/ravichavali/karmyq/pull/293)
-is the only open PR; master remains `235b5446` (live GitHub/git reconciliation). First handoff-only
-commit `595ae7bb`; original source `2df7a7b7`; original schema `4d16f845`; earlier handoff `716b9874`.
-The maintainer-relayed review supersedes the earlier no-unresolved-findings/readiness claim.
-All ten findings were verified and addressed in follow-up source `1f2c2f89`. The latest CI results
-live in PR Validation; require expanded PostgreSQL/Redis and independent-base schema passes before
-readiness. Prior 112-test CI passes proved
-the earlier coverage only and did not cover the four confirmed defects; do not reuse them as fix proof.
-
-Participant actions and existing-match history now survive private borrowing/admin demotion;
-new offers still require current recipients and return indistinguishable 404s for outsiders before
-lifecycle disclosure. Offered-awaiting count/rows both exclude private asks. Nullable activity joins
-use request_communities and preserve new-member stats. Resends reuse one open ask under the item
-lock, and ask creation atomically saves delivery intent. Dedicated directed notifications use
-idempotent inserts, stable Bull job IDs and a retry relay. Delivery re-resolves the current request
-and audience; delayed jobs cannot use demoted/deleted recipients or deleted-request titles.
-The scan checks WHERE guards per query block/alias, rejects OR/dynamic and outer-join bypasses,
-and pins reviewed exceptions to exact SQL hashes. Redundant owner-only guards were removed.
-Borrow metadata omits dead owner shares and the form recovers from refreshed/stale choices.
-
-The final independent code/security review found no remaining production blocker after its two
-additional scanner gaps were reproduced RED and fixed GREEN. Migration static review passed
-structural/index/reset checks; its stale-delivery finding was similarly reproduced and corrected.
-Mandatory pre-commit process/full-suite evidence and all new real SQL/queue results belong in
-PR #293 **Validation**; consult that ledger for actual tested snapshots, cache limits and final checks.
-Only this lane's green TDD tests were promoted. Bull is declared at its existing root range in
-request-service and tests; strict npm ci passed and no resolved versions changed.
-
-Full local process tests passed on the follow-up worktree at HEAD `716b9874`; the PR Validation
-ledger records commands, cache limits and outcomes. Final cleanup changes only generated metadata
-and notification prose. Source checkpoint `1f2c2f89` was pushed with normal hooks; the strengthened
-scan rejected a leaking preserved-side outer join, then passed after byte-identical restoration.
-[Manual regeneration 37263879821](https://github.com/ravichavali/karmyq/actions/runs/37263879821)
-passed determinism, fresh boot, migration recording and replay at that source checkpoint. Its
-unchanged artifact adds only the outbox, primary/foreign keys, two indexes and migration-ledger
-entry (38 additions). SHA256 `2A2DFFC5230A28031C309337228895C772198F0EDEA3257EF4889B840E401E4F`.
-The first source schema check 37263803194 failed only because that snapshot had not been promoted;
-its missing entries are superseded by this artifact. `f7a468d8` passed every independent-base PR
-schema check ([37264597138](https://github.com/ravichavali/karmyq/actions/runs/37264597138)).
-Its integration run reached test execution but the directed suite failed TypeScript compilation:
-importing FeedComposer exposed existing expected_duration null output against a string-only type
-(feedComposer.ts:317; types/feed.ts:42). A one-line type correction allows the existing null output;
-it changes no runtime behavior. The exact integration import graph reproduced TS2322 locally
-under tests' strict settings before the fix; rerun evidence and latest real tests are in PR Validation.
-The queued-privacy tests now delay/promote only their own job; a global queue pause would interfere
-with compose's simultaneous container and host runners (tests/docker-compose.test.yml:262).
-
-Latest runtime checkpoint `4d852805` executed all 25 directed cases: 22 passed and three failed
-([CI/CD 37314750331](https://github.com/ravichavali/karmyq/actions/runs/37314750331), integration
-job 111779768571). The action fixture called legacy curated instead of view=home; the rollback
-fixture hit resend reuse instead of a fresh insert. Both fixtures are corrected. The third failure
-proved preexisting shared-queue competition: notification consumed the demoted match completion
-while reputation wrote zero karma (matches.ts:662; notification/reputation subscriber handlers).
-The maintainer explicitly approved expanding C on 2026-10-05 to repair completion delivery.
-Request-service now persists a completion dispatch job and fans out stable identities to three
-subscriber-specific queues. Legacy handlers remain; unrelated events retain their transports.
-Completion recipient notifications serialize the identity check/insert in one transaction;
-mocked partial-recipient retry reproduced five emissions RED and now produces two GREEN.
-Test/development social-graph containers explicitly use the shared Redis. Integration assertions
-remain strict: exact karma, both notifications and one trust edge for the same completed match,
-including demotion and independent notification redelivery. No failing assertion was removed.
-Four-service types and the strict integration import graph pass locally. Independent source/SQL
-reviews and the full mandatory process suite passed on the staged expansion at HEAD 4d852805,
-after correcting the old root Bull mock to include its on method. Real integration rerun remains
-pending; consult PR Validation for tested source, true exit status and cache limits before readiness.
-Runtime attempt at `cd929fad` ([37319894009](https://github.com/ravichavali/karmyq/actions/runs/37319894009))
-passed service health but stopped before host Jest: the auto-started container runner had inserted
-borrow fixtures during migration replay, causing 009's generic-only data assertion and 013's old
-weight constraint to fail. Independent-base schema verification passed at the same head
-([37319893941](https://github.com/ravichavali/karmyq/actions/runs/37319893941)); schema bytes are unchanged.
-The Compose test-runner is now opt-in via profile runner, so default CI setup starts only services
-and the authoritative host suite runs after schema checks. This config/test-doc correction passed
-the full mandatory process suite at HEAD cd929fad; clean CI execution remains pending. Consult
-PR Validation for true exit/cache evidence; no failing runtime assertion is bypassed.
-Queue dedupe is bounded to 24 hours, graph effects remain
-at least once, old shared jobs are not repaired, and DB-completion-to-first-Redis-enqueue remains
-a documented preexisting recovery gap. No new schema, dependency or standing-policy change.
-
-Final runtime checkpoint at `81f9a343` supersedes the historical pending/failed checkpoints above.
-[CI/CD 37321949052](https://github.com/ravichavali/karmyq/actions/runs/37321949052),
-[integration job 111804442869](https://github.com/ravichavali/karmyq/actions/runs/37321949052/job/111804442869):
-clean service health, fresh reference installation and migration replay PASS; 9 main suites / 122
-cases PASS, including all 25 directed cases actually executed, plus the separate curated reset 2/2.
-The previously failing action-items, rollback and demoted-completion cases now PASS. Both personal
-and demoted-admin completions produce karma 3, participant notifications 2 and trust edge 1 for the
-same match; independent notification redelivery preserves the count at 2. Backend, types, audit
-and landing PASS; [Tests 37321949007](https://github.com/ravichavali/karmyq/actions/runs/37321949007)
-PASS. [Schema 37321948990](https://github.com/ravichavali/karmyq/actions/runs/37321948990) PASS
-all steps, including independent baseline, determinism, fresh boot, recorded migrations, replay
-without drift and committed byte parity. Overall CI remains FAIL solely on open CodeQL 601/602;
-image build and deployment were skipped. This final handoff update changes no application, test
-or schema source after that verified snapshot; PR Validation records subsequent commit/check status.
-
-Maintainer-relayed whole-branch review through `46b03d21` (2026-10-05) accepted all ten fixes,
-the completion expansion and surgical Bull declarations, with no blocking finding. Live checks
-at that head now show CI tests/types/audit/landing/integration, Tests and schema PASS; only
-CodeQL fails ([CI/CD 37324809350](https://github.com/ravichavali/karmyq/actions/runs/37324809350)).
-The final nonblocking follow-up adds the missing open/unexpired check to the notification
-recipient lookup (`services/notification-service/src/events/subscriber.ts:164`). Its focused
-database-boundary regression was RED before the predicate and GREEN after it; three real
-delayed-job cases cover cancelled, completed and expired asks and terminal acknowledgement.
-PR Validation records this follow-up's test results and actual tested commit; the CI links above
-predate its new lifecycle predicate. The exact SQL exception was re-reviewed and repinned after
-the privacy gate rejected its stale hash; scanner logic and exception count are unchanged.
-ADR-099 explicitly accepts notification-service writing only delivered_at in request-service's
-outbox, and documents dedicated completion jobs waiting during an old-consumer rollback.
-BUG-060 captures other shared-event competition as UNVERIFIED later-sprint scope; no transport
-expansion is included. At-least-once effects and the first-enqueue recovery gap remain documented.
-
-Next: verify the final follow-up's runtime evidence, CodeQL UI clearance and Claude readiness
-validation. The latest exact-head alert query still reports only 601/602; no GitHub UI automation is
-available in this session, and no alert state was changed through the API. Claude owns readiness;
-Admin owns merge/deploy. C10–C12 external gates remain incomplete. No merge, deployment, demo
-write or live smoke is claimed; version remains 11.79.0.
-
-CodeQL [#601](https://github.com/ravichavali/karmyq/security/code-scanning/601) and
-[#602](https://github.com/ravichavali/karmyq/security/code-scanning/602) were independently verified
-fixed-browser-destination false positives at api.ts:500–501. No alert state changed; per maintainer,
-defer UI dismissal until fixes land and inspect any replacement alert IDs. Prior PR API clearance
-authorization does not apply here. PR stays draft pending final checks and readiness review.
-
-Rollback for the C deploy itself (Claude, 2026-10-05): the pipeline auto-rollback is privacy-safe until the first directed row exists, since no row exists for a pre-C image to leak. A standing policy for LATER rollbacks is still OPEN for the maintainer; the recommendation is fix-forward only once directed rows exist. Original note (ADR-099): pre-C images lack
-directed guards; after the first directed row preserve guards or disable affected reads. Never clear
-is_directed. Version remains 11.79.0; choose the next minor from live master at merge time.
-The master Expo SDK drift run 37204717864 failed; cause is UNVERIFIED and outside C scope.
-
-1. **PR A SHIPPED and LIVE as v11.78.0.** #290 merged as `244291eb` (v11.77.0), but its master run [37077914525](https://github.com/ravichavali/karmyq/actions/runs/37077914525) never deployed. Attempt 1 was blocked by CodeQL #592/#593, master re-raises of the `js/request-forgery` false positive (PR-ref dismissals do not carry to master; the maintainer dismissed them in the UI). Attempt 2 was blocked by the newly reviewed `braces` GHSA-vfj7-8cjw-p6xm, which has no fix. The exemption PR [#291](https://github.com/ravichavali/karmyq/pull/291) (7-day `braces` exemption, ADR-059 amendment, BUG-059, plus a sprint-124 parity-test fix for multi-entry registries) merged as `f90b9916` (v11.78.0). [CI/CD 37169859212](https://github.com/ravichavali/karmyq/actions/runs/37169859212) ended in DEPLOYMENT SUCCESSFUL with no rollback, deploying PR A's code with it.
-2. **Task A10 read-only smoke PASSED (2026-10-03, maria.reyes):** login 200; `GET /api/auth/profile/tags/suggestions?tag_type=skill` 200 with 26 vocabulary labels, matching the 26 rows the migration seeds; `GET /api/requests/curated` 200; `GET /api/users/<id>/skills` 404 (route removed). The tag-add write was skipped (it needs per-operation authorization).
-3. **CURRENT: PR C implementation**, tasks C1–C12 on the branch above. B11 finished: #292 merged
-   as `235b5446`; CI/CD 37180421165 and Demo health 37202424111 succeeded (verified GitHub,
-   2026-10-04); inventory read-only smoke passed (maintainer report). Historical PR B checkpoints
-   below are superseded by this shipped record. Continue from the PR C checkpoint above.
-4. **Owed next week (dependency lane, Claude):** renew or remove the `node-forge` exemption (expires 2026-10-08) and the `braces` exemption (expires 2026-10-09; BUG-059); BUG-058 (monitor) is due 2026-10-15. Both renewals need the maintainer's explicit go-ahead, because the auto-mode classifier blocks exemption work as "Security Weaken".
-
-## PR A finalization (2026-10-02)
-
-Maintainer assigned Codex to finish A before B. Tree was clean at handoff. PR N live GitHub status is MERGED, with no open PRs; the CI/CD Deploy to Demo job and Health check all services step passed for 02d720b3. The merge conflicts only in this handoff; resolved using the master copy as prescribed above, then reconciled. Version-only manifest edits target 11.77.0. Independent code/security and migration reviews completed; preservation/normalization fixes remain pending. All affected TypeScript checks passed. Full forced local unit/regression verification passed (exit 0, 27/27 tasks) on the pre-commit merge tree of e2dc9043 and 02d720b3 with staged version/test changes; local log .superpowers/sdd/2026-09-30-sprint-132-inventories-and-skills/pr-a-npm-test-path.log. CI database evidence is pending. No new demo-host operation is authorized.
-
-Review checkpoint: independent code/security and migration reviews confirmed unmapped legacy selections are omitted by the current inner join, and existing tags normalize whitespace differently from new tags. Root test tests/integration/sprint-132-skills.integration.test.ts is added BEFORE the fix for real CI RED evidence; no local PostgreSQL execution is claimed. The draft PR checkpoint must not merge. Both failing Windows shell suites pass with Git/usr/bin prepended; corrected full unit/regression run passed; this does not prove CI database behavior. The PR Validation ledger will carry the final tested head and CI links. Onboarding now identifies Profile → About You → Skills as the matching source.
-
-Draft checkpoint pushed as 224aa21b and PR #290 opened. Normal pre-push blocking gate passed 27/27 tasks (22 cached); reporter-only TDD hook could not find task test:tdd, so it is not counted as verification. CI/CD run 37061292832: unit/regression, lint/type checks and security audit green. The authoritative host Integration Tests run proved the intended RED: three migration tests failed, 81 tests passed; the six real resolver SQL cases passed. The fresh-install step and regeneration run 37061293172 passed. CodeQL #585–591 independently verified false positives (fixed API destinations; SQL read from fixed repository migration path); maintainer UI dismissal requested under ship skill Phase 2. No alerts have been dismissed by Codex.
-
-Reviewed draft checkpoint (5fcec96f, historical): repaired preservation and normalization, expanded collision/rerun coverage, and included SQL migration files in the integration runner Docker context. Independent code/security and migration re-review found no remaining production findings. Local `npm test` passed exit 0, 27/27 tasks (22 cached; root regression 39 suites/917 tests), log `pr-a-fix-test.log` in the same SDD scratch directory. Per plan A2, that checkpoint deliberately omitted Driving from the fresh-install expected rows to prove that CI rejects a missing expectation before migration replay. It remained draft; the restoration is recorded below, and final CI evidence belongs in PR Validation. The backup is `.superpowers/sdd/2026-09-30-sprint-132-inventories-and-skills/fresh-check-original.sh`. PR Validation carries checkpoint URLs and latest-head database results.
-
-**Restoration checkpoint:** `5fcec96f` was pushed with normal hooks (unit/regression 27/27, 24 cached; `pr-a-negative-push.log`). Its [fresh-install CI step](https://github.com/ravichavali/karmyq/actions/runs/37063659921/job/111026957713) failed exactly on the omitted `driving|Driving|["driving"]` row, before schema replay; [schema regeneration](https://github.com/ravichavali/karmyq/actions/runs/37063659862) passed. The checker is restored byte-identically to the backup (SHA-256 `D423E475AF36C5DA39AA0A5E22F23FA861CF5F16E2953F940D564CC8CC15498C`) and has no diff against `224aa21b`. Only the checker restoration and handoff changed after the reviewed fixes; final local/CI runs are recorded against their actual heads in [PR #290 Validation](https://github.com/ravichavali/karmyq/pull/290). No demo write, deployment or smoke is claimed. `origin/master` is still `02d720b3` and #290 is the only open PR (live reconciliation 2026-10-02).
-
-## PR A security clearance (2026-10-02)
-
-The maintainer independently verified all seven false positives and expressly authorized Codex to dismiss them through the GitHub API, overriding the ship skill UI requirement. All seven dismissal states/comments were verified. Each alert and approved reason is recorded in PR #290 Security dismissals; no other alerts were changed. GitHub CodeQL became SUCCESS and the diagnosed Code Scanning Gate rerun passed at bf17b6cf ([job 111055876651](https://github.com/ravichavali/karmyq/actions/runs/37064984163/job/111055876651)). Code and database evidence at bf17b6cf remains valid; the only subsequent repository change is this handoff. The PR Validation ledger carries latest-head checks. No merge, deploy, admin override or demo write is authorized. PR #290 was marked ready for review after all checks passed at bf17b6cf. Verify the subsequent handoff-only commit's latest-head checks, then obtain explicit per-PR merge authorization; B waits for A deployment and read-only smoke.
-
-## PR B execution checkpoint (2026-10-03)
-
-Catalog implementation and source docs are prepared on the assigned branch. Specific TDD files
-were promoted to regression after route22/22 and UI18/18 focused passes; real SQL is unproven until
-CI runs the13-case root integration file. Non-author static migration review passed; high code and
-security review found no server bypass, and the stale community/shared-panel response findings
-were reproduced RED and fixed GREEN. Multi-community and forced-insert-failure rollback cases
-are included for CI. Do not infer SQL correctness from the mocked route boundary.
-
-Local full-suite verification PASSED on the final source worktree at HEAD `9564913d`: `npm test`
-exited 0, 27/27 tasks (22 cached), root regression 39 suites/917 tests, frontend regression 370,
-request unit 161/regression 289. Both affected TypeScript checks passed. The required process
-reviewer approved this checkpoint. Logs are in the ignored sprint SDD directory, including
-`b10-process-npm-test-final.log`. This proves local unit/regression and builds, not real SQL.
-
-Checkpoint `8537a319` pushed with normal hooks: `npm test` exit 0, 27/27 tasks (26 cached),
-log `b11-checkpoint-push.log`. [Schema generation 37178304829](https://github.com/ravichavali/karmyq/actions/runs/37178304829)
-PASSED at that commit: deterministic output, fresh installation, recorded migrations and no drift
-after replay. Its artifact was downloaded and promoted without hand editing. The inspected diff
-is limited to the inventory schema, two tables, keys/indexes and one migration-ledger entry
-(107 insertions/1 deletion). No seeds or unrelated objects changed.
-
-Snapshot `a4f9e12a` was pushed with normal hooks (27/27 tasks, 26 cached). PR #292 was opened as
-a draft. Final-head CI, current draft/check state, and any security findings are recorded in
-[PR #292 Validation](https://github.com/ravichavali/karmyq/pull/292) rather than duplicated here.
-At readiness, confirm all 13 inventory cases ran/passed in the Integration Tests job and
-independent-base byte parity passed in PR regeneration; manual dispatch skipped that parity step.
-This final handoff changes no runtime or schema; the source reviews still apply. No demo-host
-operation is needed. Live reconciliation: #292 is the only open PR, master remains `f90b9916`.
-Version-only bump targets 11.79.0 from master 11.78.0; recheck at readiness if master advances.
-No merge, deployment, alert dismissal or demo write is authorized.
+1. Merge and deploy #299 (maintainer authorization) and check health.
+2. Ship the BUG-061 PR from `agent/claude/sprint-132-closeout` (above), then merge and deploy it with separate authorization.
+3. Then, in a fresh chat, start Sprint 133 at plan Task S0 → S1.
+4. Re-check `node-forge` and `braces` before **2026-10-15**.
