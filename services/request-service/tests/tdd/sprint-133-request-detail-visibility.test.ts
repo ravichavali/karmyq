@@ -176,3 +176,25 @@ describe('GET /requests/:id visibility gate (BUG-056)', () => {
     expect(reachCalls).toHaveLength(1);
   });
 });
+
+// BUG-062 class, found by the PR S `.email` inventory: GET /offers/:id returned the offerer's email to
+// any authenticated caller. No client reads it (the list endpoint never selected it), so it is removed.
+describe('GET /offers/:id email exposure (BUG-062)', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const offersRouter = require('../../src/routes/offers').default;
+
+  it('never selects or returns the offerer email', async () => {
+    mockQuery.mockImplementation(async (sql: string) => ({
+      rowCount: 1,
+      rows: [{ id: 'offer-1', offerer_id: OWNER, helper_name: 'Helper',
+        ...(/email/i.test(sql) ? { helper_email: 'helper@private.test' } : {}) }],
+    }));
+    const server = express();
+    server.use((req: any, _res, next) => { req.user = { userId: VIEWER, communities: [] }; next(); });
+    server.use('/offers', offersRouter);
+    const res = await request(server).get('/offers/offer-1');
+    expect(res.status).toBe(200);
+    expect(res.body.data).not.toHaveProperty('helper_email');
+    expect(String(mockQuery.mock.calls[0][0])).not.toMatch(/email/i);
+  });
+});

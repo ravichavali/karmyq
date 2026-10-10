@@ -69,7 +69,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       `SELECT
         o.id, o.community_id, o.offerer_id, o.title, o.description,
         o.category, o.status, o.created_at, o.updated_at,
-        u.name as helper_name, u.email as helper_email,
+        u.name as helper_name,
         c.name as community_name
       FROM requests.help_offers o
       LEFT JOIN auth.users u ON o.offerer_id = u.id

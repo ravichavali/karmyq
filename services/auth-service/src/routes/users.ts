@@ -13,12 +13,16 @@ import {
 const router = express.Router();
 
 // GET /users/:userId - Get user profile
-router.get('/:userId', async (req: any, res) => {
+// BUG-062: authenticated only, and `email` is selected only when the caller reads their own profile.
+router.get('/:userId', authMiddleware, async (req: any, res) => {
   try {
     const { userId } = req.params;
+    const columns = userId === req.user.userId
+      ? 'id, email, name, bio, avatar_url, created_at, updated_at'
+      : 'id, name, bio, avatar_url, created_at, updated_at';
 
     const result = await query(
-      'SELECT id, email, name, bio, avatar_url, created_at, updated_at FROM auth.users WHERE id = $1',
+      `SELECT ${columns} FROM auth.users WHERE id = $1`,
       [userId]
     );
 
