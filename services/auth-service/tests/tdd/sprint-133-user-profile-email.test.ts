@@ -62,3 +62,12 @@ describe('GET /users/:userId email exposure (BUG-062)', () => {
     expect(res.body.data.email).toBe(`${SELF}@private.test`);
   });
 });
+
+describe('GET /users/:userId own-id comparison (code-review follow-up)', () => {
+  it('treats a non-canonical (uppercase) own id as self', async () => {
+    const lower = 'aaaaaaaa-1111-1111-1111-111111111111';
+    const res = await request(app()).get(`/users/${lower.toUpperCase()}`).set('x-test-user', lower);
+    expect(res.status).toBe(200);
+    expect(res.body.data.email).toBe(`${lower.toUpperCase()}@private.test`);
+  });
+});

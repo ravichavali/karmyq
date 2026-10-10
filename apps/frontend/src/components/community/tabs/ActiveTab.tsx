@@ -131,7 +131,7 @@ export default function ActiveTab({
                 <div key={member.user_id} className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <div>
                     <div className="font-medium text-sm">{member.user_name}</div>
-                    <div className="text-xs text-text-muted">{member.user_email}</div>
+                    {isAdmin && <div className="text-xs text-text-muted">{member.user_email}</div>}
                     {member.join_request_message && (
                       <div className="mt-1 text-xs text-text-muted bg-surface-raised p-1.5 rounded border border-amber-200">
                         {member.join_request_message}
@@ -214,7 +214,7 @@ export default function ActiveTab({
             <thead className="bg-surface">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Name</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Email</th>
+                {isAdmin && <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Email</th>}
                 <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Joined</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Role</th>
                 <th className="px-4 py-3" />
@@ -230,7 +230,7 @@ export default function ActiveTab({
                   return (
                     <tr key={member.user_id}>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-text">{member.user_name}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-text-muted">{member.user_email}</td>
+                      {isAdmin && <td className="px-4 py-3 whitespace-nowrap text-sm text-text-muted">{member.user_email}</td>}
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-text-muted">{new Date(member.joined_at).toLocaleDateString()}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         {isAdmin ? (

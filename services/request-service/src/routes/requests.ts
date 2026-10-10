@@ -188,6 +188,19 @@ export function logRequestImpressions(req: Request, userId: string, requests: Im
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { community_id, status, type, requester_id, limit = 50, offset = 0, include_admin_notes } = req.query;
+    const viewerId = (req as any).user?.userId as string | undefined;
+
+    // Admin notes are private steward triage: only a LIVE admin/moderator of that community (the same
+    // roles that may write them) gets them joined, whatever the client asks for.
+    let adminNotes = 'false';
+    if (include_admin_notes === 'true' && community_id && viewerId) {
+      const live = await query(
+        `SELECT role FROM communities.members
+         WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
+        [community_id, viewerId]
+      );
+      if (['admin', 'moderator'].includes(live.rows[0]?.role)) adminNotes = 'true';
+    }
 
     const { queryText, params } = buildRequestsQuery({
       community_id: community_id as string,
@@ -196,9 +209,9 @@ router.get('/', async (req: Request, res: Response) => {
       requester_id: requester_id as string,
       limit: limit as string,
       offset: offset as string,
-      include_admin_notes: include_admin_notes as string,
+      include_admin_notes: adminNotes,
       // BUG-002: exclude the viewer's already-engaged requests from the generic browse.
-      viewer_id: (req as any).user?.userId,
+      viewer_id: viewerId,
     });
 
     const result = await query(queryText, params);
@@ -1707,7 +1720,13 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
         EXISTS (
           SELECT 1 FROM requests.matches any_match
           WHERE any_match.request_id = r.id AND any_match.responder_id = $2
-        ) AS viewer_any_match
+        ) AS viewer_any_match,
+        -- The pre-selected provider is notified with a link to this request (preferred_provider_selected),
+        -- so they can read it even when outside its communities.
+        EXISTS (
+          SELECT 1 FROM requests.provider_profiles preferred
+          WHERE preferred.id = r.preferred_provider_id AND preferred.user_id = $2
+        ) AS viewer_is_preferred_provider
       FROM requests.help_requests r
       LEFT JOIN auth.users u ON r.requester_id = u.id
       LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
@@ -1734,9 +1753,10 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
     const isOpenAndUnexpired = row.status === 'open' && row.expired === false;
     const isOwn = !!userId && row.requester_id === userId;
     const alreadyOffered = !!row.viewer_match_id;
-    // BUG-056 read gate: own ∨ any-status match responder ∨ directed (the SQL already applied the
-    // stricter directed-audience predicate) ∨ within the request's visibility audience.
-    const readableWithoutReach = isOwn || !!row.viewer_any_match || !!row.is_directed;
+    // BUG-056 read gate: own ∨ any-status match responder ∨ pre-selected provider ∨ directed (the SQL
+    // already applied the stricter directed-audience predicate) ∨ within the request's visibility audience.
+    const readableWithoutReach = isOwn || !!row.viewer_any_match || !!row.viewer_is_preferred_provider
+      || !!row.is_directed;
     // can_offer needs that same audience (shared boundary with POST /matches), so one reachability
     // call serves both the gate and the offer decision.
     const offerCandidate = !isOwn && !alreadyOffered && isOpenAndUnexpired;
@@ -1750,7 +1770,7 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
       : 'not_actionable';
 
     // Strip the raw lateral-join columns from the wire shape; expose them as a clean contract.
-    const { viewer_match_id, viewer_match_status, viewer_any_match, ...request } = row;
+    const { viewer_match_id, viewer_match_status, viewer_any_match, viewer_is_preferred_provider, ...request } = row;
     res.json({
       success: true,
       data: {

@@ -192,7 +192,7 @@ required-field, duplicate, and UTC-date validation into the spec-driven
 | Exact `package` + GHSA id | No package-wide wildcard. A *second* advisory on an exempted package must still block |
 | `high` only | **`critical` is never exemptible**, whatever the registry says |
 | `rationale`, `decision`, `owner`, `created`, `expires` all required | An exemption is a decision with a name on it, not a config tweak |
-| `expires` ≤ **30** days after `created`, **and `created` not in the future** | ⚠️ This was 7 through Sprint 124; **Sprint 125 raised it to 30** — see *Amendment (Sprint 125): renewal cadence* below for why, and for what now carries the obligation the shorter cap used to force. An exemption buys review time, never permanence. This cap is audit-specific and unchanged by the shared core. The `created` clause is load-bearing, not paperwork: capping only the *span* let a forward-dated entry stay inside the cap while suppressing the finding far longer. Sprint 124's `/security-review` demonstrated a registry that spanned exactly 7 days, validated clean, and suppressed a high for **149**. With `created ≤ today` and span ≤ 7, `expires` cannot exceed today + 7 — which is the invariant this row always claimed. **`expires` is the first INVALID day, not the last valid one**: cross-agent review of Sprint 124 found that treating it as inclusive made a 7-day span live on 8 calendar days, so a "7-day" exemption quietly bought 8. An entry created `08-11` expiring `08-18` is live on the 11th through the **17th** |
+| `expires` ≤ **7** days after `created`, **and `created` not in the future** | ⚠️ This was 7 through Sprint 124; Sprint 125 raised it to 30 behind a weekly monitor (*Amendment (Sprint 125): renewal cadence*); **Sprint 133 restored 7** and retired the monitor (*Amendment (Sprint 133): cap restored to 7 days*). An exemption buys review time, never permanence. This cap is audit-specific and unchanged by the shared core. The `created` clause is load-bearing, not paperwork: capping only the *span* let a forward-dated entry stay inside the cap while suppressing the finding far longer. Sprint 124's `/security-review` demonstrated a registry that spanned exactly 7 days, validated clean, and suppressed a high for **149**. With `created ≤ today` and span ≤ 7, `expires` cannot exceed today + 7 — which is the invariant this row always claimed. **`expires` is the first INVALID day, not the last valid one**: cross-agent review of Sprint 124 found that treating it as inclusive made a 7-day span live on 8 calendar days, so a "7-day" exemption quietly bought 8. An entry created `08-11` expiring `08-18` is live on the 11th through the **17th** |
 | Fails closed on malformed, expired, duplicate, or **unmatched** entries | An exemption matching nothing means upstream shipped a fix; it must be deleted, not left to rot |
 | Parent findings clear only when **every** advisory reachable through npm's `via` graph is exempted | `metro` is high solely because of `image-size`; the day it gains its own finding it blocks again |
 
@@ -200,8 +200,8 @@ required-field, duplicate, and UTC-date validation into the spec-driven
 
 - The gate is now **stricter in one respect**: an expired or stale exemption *fails the build*,
   where previously a permanently-unfixable advisory could only be handled by weakening the gate.
-- It is **weaker in one respect**: a named human can knowingly ship for up to thirty days (seven,
-  before Sprint 125) with a documented high. That is the trade, and it is recorded in the diff
+- It is **weaker in one respect**: a named human can knowingly ship for up to seven days (thirty
+  during Sprints 125–132) with a documented high. That is the trade, and it is recorded in the diff
   rather than in someone's head.
 - **Proof obligation.** `tests/regression/sprint-123-audit-exemption-gate.test.ts` asserts the
   refusals, not the passes — expired, over-long, malformed, wrong-severity, wrong-id, stale,
@@ -210,7 +210,7 @@ required-field, duplicate, and UTC-date validation into the spec-driven
   PR path, and the `FROM` parser in Sprint 122).
 - The shared validator is deliberately independent of npm audit and now lives in
   `scripts/lib/exemption-registry.js` (Sprint 124 / ADR-094). Audit and Expo reuse its mechanics,
-  **not its policy**: the audit spec alone retains the span maximum (now thirty days), exact GHSA
+  **not its policy**: the audit spec alone retains the span maximum (seven days again since Sprint 133), exact GHSA
   matching, and `high`-only rule. **Critical remains never exemptible.**
 
 ---

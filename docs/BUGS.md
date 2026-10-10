@@ -1682,3 +1682,23 @@ question (should a standing offer follow its community's membership, like reques
   (≤ 2-week SLA), or a dated risk acceptance.
 
 ---
+
+## BUG-065 · [2026-10-10] · open · **HIGH** (proposed)
+
+**`GET /requests?community_id=X` lists any community's requests to any authenticated user.** The browse
+list (`services/request-service/src/routes/requests.ts` `GET /`, built by `utils/queryBuilder.ts`
+`buildRequestsQuery`) filters only by client-supplied `community_id`/`status`/`type`/`requester_id`, with
+no membership or reachability check. A non-member therefore reads full rows (title, description,
+payload, requirements, requester name) of a community-scoped ask that `GET /requests/:id` now 404s
+(BUG-056), so the detail gate can be bypassed in one call. Found 2026-10-10 by the Sprint 133 PR S
+`/code-review`. **The admin-notes half is fixed in PR S:** `include_admin_notes=true` used to join
+`requests.request_admin_notes` for any caller (the community page sends it for every viewer,
+`useCommunityData.ts:182`); it is now honored only for a live admin/moderator of `community_id`.
+
+- **Open policy question (maintainer):** apply the BUG-056 rule to the list (rows the caller can read:
+  own, any-status match responder, directed audience, or reachable), or restrict `community_id` browsing
+  to live members. Either way, a real-SQL test that an outsider's list omits a community-scope ask.
+- **Owner:** maintainer decides; Claude implements. **Deadline: 2026-10-17** (≤ 1-week SLA for HIGH), or
+  a dated risk acceptance.
+
+---

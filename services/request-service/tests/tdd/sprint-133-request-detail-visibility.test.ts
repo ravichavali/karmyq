@@ -198,3 +198,48 @@ describe('GET /offers/:id email exposure (BUG-062)', () => {
     expect(String(mockQuery.mock.calls[0][0])).not.toMatch(/email/i);
   });
 });
+
+describe('GET /requests/:id preferred provider (code-review follow-up)', () => {
+  it('returns 200 to the pre-selected provider even when unreachable', async () => {
+    mockScenario({ isMember: false });
+    const base = mockQuery.getMockImplementation()!;
+    mockQuery.mockImplementation(async (sql: string, params: unknown[]) => {
+      const out: any = await base(sql, params);
+      if (!sql.includes('AS in_directed_audience')) {
+        out.rows[0].viewer_is_preferred_provider = /viewer_is_preferred_provider/.test(sql);
+      }
+      return out;
+    });
+    const res = await request(app()).get(`/requests/${REQUEST_ID}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).not.toHaveProperty('viewer_is_preferred_provider');
+  });
+});
+
+describe('GET /requests admin notes (code-review follow-up)', () => {
+  const COMMUNITY = '44444444-4444-4444-4444-444444444444';
+  function listMock(liveRole: string | null) {
+    mockQuery.mockImplementation(async (sql: string) => {
+      if (/FROM communities\.members/.test(sql) && !/help_requests/.test(sql)) {
+        return liveRole ? { rowCount: 1, rows: [{ role: liveRole }] } : { rowCount: 0, rows: [] };
+      }
+      return { rowCount: 0, rows: [] };
+    });
+  }
+  const listSql = () => String(mockQuery.mock.calls.find(([sql]) => /help_requests/.test(String(sql)))?.[0] ?? '');
+
+  it.each([['a plain member', 'member'], ['a non-member', null]])(
+    'never joins admin notes for %s, even when asked', async (_who, role) => {
+      listMock(role);
+      const res = await request(app()).get(`/requests?community_id=${COMMUNITY}&include_admin_notes=true`);
+      expect(res.status).toBe(200);
+      expect(listSql()).not.toMatch(/request_admin_notes/);
+    });
+
+  it.each(['admin', 'moderator'])('joins admin notes for a live %s', async (role) => {
+    listMock(role);
+    const res = await request(app()).get(`/requests?community_id=${COMMUNITY}&include_admin_notes=true`);
+    expect(res.status).toBe(200);
+    expect(listSql()).toMatch(/request_admin_notes/);
+  });
+});

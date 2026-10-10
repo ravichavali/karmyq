@@ -90,9 +90,9 @@ From the **Requests** tab (admins only), you can browse all requests in your com
 ## Member Privacy: Who Sees Emails and Pending Requests
 
 Member email addresses are visible to **community admins only**. On the People tab, admins see every
-member's email; moderators and members see names and roles, plus their own email. Pending join
+member's email in an Email column; moderators and members see names and roles, and no Email column. Pending join
 requests, and the message someone wrote when asking to join, are visible to admins and moderators (who
-can approve them) and to the person who asked. Karmyq checks your role when you open the page, so a
+can approve them) and to the person who asked, including after the request is approved. Karmyq checks your role when you open the page, so a
 member who was just promoted or demoted sees the right view straight away.
 
 ---

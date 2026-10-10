@@ -8,8 +8,8 @@
 - **2026-10-10 (Sprint 133 PR S, BUG-062)**: member email is admin-only. `GET /communities/:id` and
   `GET /communities/:communityId/members` shape rows through `src/utils/memberVisibility.ts`:
   `user_email` only for a **live** active admin (`communities.members`, never the JWT claim) or on the
-  caller's own row; non-active rows (pending join requests, `join_request_message`) only for live admins
-  and moderators (who approve joins) and the member themself. A non-steward asking the members list for
+  caller's own row; non-active rows and every `join_request_message` (approval never clears it, so active
+  rows carry it too) only for live admins and moderators (who approve joins) and the member themself. A non-steward asking the members list for
   `status` ≠ `active` gets 403.
 
 - **2026-10-04 (Sprint 132 PR C, ADR-099)**: stats and export SQL exclude `is_directed`

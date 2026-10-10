@@ -11,7 +11,11 @@
   the requester, a responder on a match of any status, a directed ask's audience (the
   `directedAudienceSql` predicate is unchanged), or a viewer inside the request's visibility audience
   (`getRequestReachability`). Everyone else gets the same 404 as a missing id. `requester_email` is gone
-  from the response. `GET /offers/:id` no longer returns `helper_email` (no client read it).
+  from the response. The request's pre-selected provider (`preferred_provider_id` → their
+  `provider_profiles.user_id`) can also read it, because `preferred_provider_selected` links them there.
+  `GET /requests?include_admin_notes=true` now joins admin notes only for a live admin/moderator of
+  `community_id` (it was honored for any caller); the list's breadth is BUG-065.
+  `GET /offers/:id` no longer returns `helper_email` (no client read it).
 - **2026-10-05 (Sprint 132 PR C completion delivery correction, ADR-099)**: `match_completed`
   now saves one Bull job in `karmyq-completion-dispatch`. The request-service dispatcher fans
   out to `karmyq-completion-reputation`, `karmyq-completion-notification` and
@@ -826,8 +830,9 @@ Offer button that 403s on click).
   - Expired-open / completed / cancelled / matched / out-of-audience asks resolve to `not_actionable`.
 - **Read gate (Sprint 133, BUG-056):** the response is returned only when the caller is the requester,
   a responder on any-status match (`viewer_any_match`; a completed helper keeps access after leaving
-  the community), in a directed ask's audience (SQL predicate), or reachable. Otherwise **404 with the
-  same body as a missing id**. No `requester_email`; the internal `viewer_any_match` column is stripped.
+  the community), the pre-selected provider (`viewer_is_preferred_provider`), in a directed ask's
+  audience (SQL predicate), or reachable. Otherwise **404 with the
+  same body as a missing id**. No `requester_email`; the internal `viewer_any_match`/`viewer_is_preferred_provider` columns are stripped.
 - `viewer_match`: `{ id, status }` when `already_offered`, else `null`.
 - `payload_type`: ADR-067 fine subtype from `category` (drives the detail page's payload renderer).
 - The detail query now selects `r.expired` and **no longer filters `expired = FALSE`** in the `WHERE`,

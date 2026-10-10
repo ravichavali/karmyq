@@ -17,7 +17,8 @@ const router = express.Router();
 router.get('/:userId', authMiddleware, async (req: any, res) => {
   try {
     const { userId } = req.params;
-    const email = userId === req.user.userId ? 'email, ' : '';
+    // UUIDs compare case-insensitively in Postgres, so the self check must too.
+    const email = String(userId).toLowerCase() === String(req.user.userId).toLowerCase() ? 'email, ' : '';
 
     const result = await query(
       `SELECT id, ${email}name, bio, avatar_url, created_at, updated_at FROM auth.users WHERE id = $1`,

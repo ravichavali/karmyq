@@ -166,3 +166,24 @@ describe('GET /communities/:id/members status filter (BUG-062)', () => {
     expect(res.body.data.every((m: any) => m.status === 'active')).toBe(true);
   });
 });
+
+describe('join_request_message on active rows (code-review follow-up)', () => {
+  it('strips another active member join message from a plain member', async () => {
+    mockLive('member');
+    mockQuery.mockImplementation(async (sql: string, params: unknown[] = []) => {
+      if (/SELECT role FROM communities\.members/i.test(sql)) return { rows: [{ role: 'member' }], rowCount: 1 };
+      if (/FROM communities\.communities c/i.test(sql)) return { rows: [{ id: COMMUNITY, name: 'C' }], rowCount: 1 };
+      if (/FROM communities\.members m/i.test(sql)) {
+        return { rowCount: 2, rows: [
+          { user_id: CALLER, status: 'active', role: 'member', join_request_message: 'mine' },
+          { user_id: ACTIVE_OTHER, status: 'active', role: 'member', join_request_message: 'private reason' },
+        ] };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+    const res = await request(app()).get(`/communities/${COMMUNITY}`);
+    const rows = byUser(res.body.data.members);
+    expect(rows[ACTIVE_OTHER]).not.toHaveProperty('join_request_message');
+    expect(rows[CALLER].join_request_message).toBe('mine');
+  });
+});
