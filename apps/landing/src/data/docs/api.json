@@ -153,12 +153,12 @@
         {
           "method": "PUT",
           "path": "/communities/:id",
-          "description": "Update community details (admin only)."
+          "description": "Update community details (admin only). The caller is the JWT user; a body `user_id` is ignored (BUG-061)."
         },
         {
           "method": "DELETE",
           "path": "/communities/:id",
-          "description": "Archive community (admin only, soft delete)."
+          "description": "Archive community (admin only, soft delete). The caller is the JWT user; no body (BUG-061)."
         },
         {
           "method": "GET",
@@ -173,7 +173,7 @@
         {
           "method": "POST",
           "path": "/communities/:communityId/members",
-          "description": "Add member to community (invite)."
+          "description": "Add a member directly (**active community admin only**, BUG-061). `invited_by` is always the JWT"
         },
         {
           "method": "PUT",
@@ -359,7 +359,7 @@
         {
           "method": "DELETE",
           "path": "/requests/:id",
-          "description": "Cancel help request (requester only)."
+          "description": "Cancel help request (requester only). The caller is the JWT user; no body. A body `user_id` is"
         },
         {
           "method": "PUT",
@@ -404,7 +404,7 @@
         {
           "method": "POST",
           "path": "/offers",
-          "description": "Create new help offer."
+          "description": "Create new help offer. The offerer is the JWT caller; a body `offerer_id` is ignored (BUG-061)."
         },
         {
           "method": "PUT",

@@ -772,8 +772,8 @@
       "slug": "adr-099-inventories-and-directed-requests",
       "number": "099",
       "title": "ADR-099: Inventories and Directed Requests",
-      "status": "accepted",
-      "description": "**Status**: Accepted",
+      "status": "implemented",
+      "description": "**Status**: Implemented (Sprint 132: PR A v11.78.0, PR B v11.79.0, PR C v11.81.0; all deployed and smoke-tested by 2026-10-06)",
       "filename": "ADR-099-inventories-and-directed-requests.md"
     }
   ]

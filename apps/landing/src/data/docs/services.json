@@ -295,7 +295,7 @@
         "subscribes": []
       },
       "healthCheck": "http://localhost:3002/health",
-      "notes": "Sprint 47: Group Communities — community_type field, activities + activity_participants tables, activities API endpoints, activity_joined event",
+      "notes": "Sprint 47: Group Communities — community_type field, activities + activity_participants tables, activities API endpoints, activity_joined event Sprint 132 BUG-061: POST /communities/:communityId/members is admin-only (invited_by = JWT caller); PUT/DELETE /communities/:id and norm create/approve/delete authorize the JWT caller, ignoring body ids.",
       "databaseSchemas": [
         "community"
       ]
@@ -571,7 +571,7 @@
         "subscribes": []
       },
       "healthCheck": "http://localhost:3003/health",
-      "notes": "Server-driven UI: Schema API provides dynamic form definitions. Admin API enables zero-code request type creation. Sprint 43: feed_events table logs impressions/outcomes for weight tuning (ADR-048). match_completed uses karmyq-completion-dispatch with stable jobs fanned out to three service-specific completion queues; legacy handlers remain.",
+      "notes": "Server-driven UI: Schema API provides dynamic form definitions. Admin API enables zero-code request type creation. Sprint 43: feed_events table logs impressions/outcomes for weight tuning (ADR-048). match_completed uses karmyq-completion-dispatch with stable jobs fanned out to three service-specific completion queues; legacy handlers remain. Sprint 132 BUG-061: DELETE /requests/:id and POST/PUT/DELETE /offers authorize the JWT caller, ignoring body user_id/offerer_id.",
       "databaseSchemas": [
         "requests",
         "feed",
