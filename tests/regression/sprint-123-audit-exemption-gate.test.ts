@@ -146,7 +146,9 @@ describe('ADR-059 gate — proves it can actually FAIL', () => {
   // leave the inputs describing a boundary that no longer exists.
   const CREATED = '2026-08-10';
   const plusDays = (days: number) =>
-    new Date(Date.UTC(2026, 7, 10) + days * 86400000).toISOString().slice(0, 10);
+    new Date(Date.parse(CREATED) + days * 86400000).toISOString().slice(0, 10);
+  // Proves the negative assertions below can fail: the pattern must match a real span complaint.
+  const SPAN_COMPLAINT = /spans \d+ days/;
 
   it('ACCEPTS an exemption of exactly the maximum span', () => {
     const r = gate.evaluateAudit(
@@ -157,7 +159,7 @@ describe('ADR-059 gate — proves it can actually FAIL', () => {
     // NOT `r.ok === true`: this fixture carries a second advisory that a single exemption never
     // covers, so the run is legitimately red for an unrelated reason. The claim under test is
     // narrower and must be asserted as such — a maximum-length span raises no SPAN complaint.
-    expect(r.errors.join(' ')).not.toMatch(/spans d+ days/);
+    expect(r.errors.join(' ')).not.toMatch(SPAN_COMPLAINT);
   });
 
   it('BLOCKS an exemption one day longer than the maximum span', () => {
@@ -178,7 +180,8 @@ describe('ADR-059 gate — proves it can actually FAIL', () => {
       { exemptions: [validExemption({ created: CREATED, expires: plusDays(days) })] },
       NOW
     ).errors.join(' ');
-    expect(errorsFor(7)).not.toMatch(/spans d+ days/);
+    expect(errorsFor(7)).not.toMatch(SPAN_COMPLAINT);
+    expect(errorsFor(8)).toMatch(SPAN_COMPLAINT);
     expect(errorsFor(8)).toMatch(/spans 8 days — the maximum is 7/);
   });
 

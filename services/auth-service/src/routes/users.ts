@@ -17,12 +17,10 @@ const router = express.Router();
 router.get('/:userId', authMiddleware, async (req: any, res) => {
   try {
     const { userId } = req.params;
-    const columns = userId === req.user.userId
-      ? 'id, email, name, bio, avatar_url, created_at, updated_at'
-      : 'id, name, bio, avatar_url, created_at, updated_at';
+    const email = userId === req.user.userId ? 'email, ' : '';
 
     const result = await query(
-      `SELECT ${columns} FROM auth.users WHERE id = $1`,
+      `SELECT id, ${email}name, bio, avatar_url, created_at, updated_at FROM auth.users WHERE id = $1`,
       [userId]
     );
 

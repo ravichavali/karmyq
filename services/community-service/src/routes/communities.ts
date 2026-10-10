@@ -341,8 +341,7 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
     // Get members (active + pending); shapeMemberRows applies the BUG-062 email/pending rules
     // against the caller's LIVE role.
     const callerId = (req as any).user?.userId as string | undefined;
-    const callerRole = await getLiveRole(id, callerId);
-    const membersResult = await query(
+    const [callerRole, membersResult] = await Promise.all([getLiveRole(id, callerId), query(
       `SELECT
         m.id, m.user_id, m.role, m.status, m.joined_at, m.join_request_message,
         u.name as user_name, u.email as user_email
@@ -351,7 +350,7 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
       WHERE m.community_id = $1 AND m.status IN ('active', 'pending')
       ORDER BY m.status DESC, m.joined_at ASC`,
       [id]
-    );
+    )]);
 
     const community = communityResult.rows[0];
     community.members = shapeMemberRows(membersResult.rows, callerId, callerRole);

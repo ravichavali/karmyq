@@ -1726,12 +1726,9 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
       [id, userId ?? null]
     );
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Request not found',
-      });
-    }
+    // An out-of-audience request answers exactly like a missing id, so it cannot be distinguished.
+    const notFound = () => res.status(404).json({ success: false, message: 'Request not found' });
+    if (result.rowCount === 0) return notFound();
 
     const row = result.rows[0];
     const isOpenAndUnexpired = row.status === 'open' && row.expired === false;
@@ -1739,20 +1736,13 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
     const alreadyOffered = !!row.viewer_match_id;
     // BUG-056 read gate: own ∨ any-status match responder ∨ directed (the SQL already applied the
     // stricter directed-audience predicate) ∨ within the request's visibility audience.
+    const readableWithoutReach = isOwn || !!row.viewer_any_match || !!row.is_directed;
     // can_offer needs that same audience (shared boundary with POST /matches), so one reachability
-    // call serves both; own/directed-or-matched closed asks short-circuit before the extra query.
-    const readableWithoutReach = isOwn || row.viewer_any_match === true || row.is_directed === true;
-    const needsReachability = !isOwn && !alreadyOffered && (isOpenAndUnexpired || !readableWithoutReach);
-    const reachable = needsReachability
-      ? (await getRequestReachability(id, userId ?? null)).reachable
-      : false;
-    if (!readableWithoutReach && !reachable) {
-      // Same body as a missing id: an out-of-audience request must not be distinguishable.
-      return res.status(404).json({
-        success: false,
-        message: 'Request not found',
-      });
-    }
+    // call serves both the gate and the offer decision.
+    const offerCandidate = !isOwn && !alreadyOffered && isOpenAndUnexpired;
+    const reachable = (offerCandidate || !readableWithoutReach)
+      && (await getRequestReachability(id, userId ?? null)).reachable;
+    if (!readableWithoutReach && !reachable) return notFound();
     const viewerRelation: 'own_request' | 'already_offered' | 'can_offer' | 'not_actionable' =
       isOwn ? 'own_request'
       : alreadyOffered ? 'already_offered'
