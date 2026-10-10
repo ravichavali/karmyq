@@ -1562,7 +1562,7 @@ and no repo source reaches it. Exempted until **2026-10-09** (ADR-059 amendment 
   an upstream move of `micromatch`/`@expo/metro-file-map` off it; then delete the exemption.
   Otherwise renew by hand before 2026-10-09: `npm view braces version`, the GHSA page,
   `npm ls braces --all`.
-- **Owner:** Claude (dependency lane). **Deadline: 2026-10-09** (exemption expiry; ≤ 1-week SLA).
+- **Owner:** Claude (dependency lane). **Deadline: 2026-10-15** (exemption expiry; ≤ 1-week SLA). **Renewed 2026-10-08** by maintainer decision after a hand re-check found no fix (3.0.3 latest, `first_patched_version: null`); ADR-059 amendment "renewals and the 2026-10-08 advisory batch". `node-forge` was renewed alongside it, also to 2026-10-15.
 
 ---
 

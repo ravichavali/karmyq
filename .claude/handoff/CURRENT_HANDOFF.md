@@ -1,10 +1,13 @@
 # Sprint 133 — Skills Depth — Handoff
 
-**Date**: 2026-10-08
+**Date**: 2026-10-10 (#299 shipped live; BUG-061 PR open)
 **Status**: **PLANNED, not started.** Spec, plan and this handoff are committed on
 `feature/sprint-133-skills-depth` (cut from `origin/master` `6041c92c`, v11.81.0). **Blocked on the
-Sprint 132 closeout**: #299 (advisories + renewals, v11.82.0) and the BUG-061 PR (v11.83.0). This file became
-`CURRENT_HANDOFF.md` in the BUG-061 PR, which archived the Sprint 132 handoff to
+Sprint 132 closeout**. [#299](https://github.com/ravichavali/karmyq/pull/299) (advisories and renewals, v11.82.0) is the
+PR that made this file `CURRENT_HANDOFF.md`. It is **SHIPPED and LIVE**: merged `dfe52c03` on 2026-10-10, and
+[CI/CD 38076041625](https://github.com/ravichavali/karmyq/actions/runs/38076041625) reported DEPLOYMENT SUCCESSFUL with no rollback.
+Probes: frontend `/` 200, auth bad-login 401. **One closeout step remains: the BUG-061 PR (v11.83.0)**, open from
+`agent/claude/sprint-132-closeout`. #299 also archived the Sprint 132 handoff to
 `.claude/handoff/archive/2026-10-08-sprint-132-inventories-and-skills-SHIPPED-v11.83.0.md`.
 
 > **Merge-conflict rule for this file.** The Sprint 132 closeout branch carries a newer Sprint 132
@@ -217,10 +220,11 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 
 ## Carry-forward and open items
 
-- **Sprint 132 closeout (precondition, on `agent/claude/sprint-132-closeout`):** `shell-quote` (critical)
-  + `sharp` GHSA-wq5f-xc86-pv6w (high) advisory fix in a separate PR; push and PR the BUG-061 fix
-  (`4c709023`, v11.82.0; /simplify and /code-review medium still owed); ADR-099 → Implemented; archive the
-  Sprint 132 handoff.
+- **Sprint 132 closeout, remaining (precondition, branch `agent/claude/sprint-132-closeout`):** the BUG-061
+  PR. Its gates are done: /security-review (no findings), /simplify (`0128d181`) and /code-review medium (no
+  findings). ADR-099 → Implemented (`fef1ab54`) rides with it. Steps: after #299 deploys, merge `origin/master`
+  into that branch, resolve both handoff files to **master's** versions, re-bump to v11.83.0, push, open the PR
+  and get merge authorization. #299 covers the `shell-quote`/`handlebars`/`next`/`sharp` fixes and the renewals.
 - **Exemptions RENEWED (maintainer, 2026-10-08, shipped in #299):** `node-forge` and `braces` now run 2026-10-08 → **2026-10-15**.
   Re-check both before then (`npm view`, the GHSA page, `npm ls --all`); remove each if upstream ships a fix.
   History of the ordering decision follows.
@@ -266,4 +270,7 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 
 ## Next unchecked action
 
-Finish the Sprint 132 closeout (its own branch and handoff). Then, in a fresh chat, plan Task S0 → S1.
+1. ~~Merge and deploy #299~~: DONE 2026-10-10 (`dfe52c03`, deploy 38076041625 green).
+2. Ship the BUG-061 PR from `agent/claude/sprint-132-closeout` (above), then merge and deploy it with separate authorization.
+3. Then, in a fresh chat, start Sprint 133 at plan Task S0 → S1.
+4. Re-check `node-forge` and `braces` before **2026-10-15**.

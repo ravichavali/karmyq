@@ -3,7 +3,8 @@
 > **CLOSED OUT 2026-10-08.** Final closeout, in merge order:
 > (1) [#299](https://github.com/ravichavali/karmyq/pull/299) v11.82.0 fixed the `shell-quote`, `handlebars`, `next` and `sharp`
 > advisories with an in-place lock splice, and renewed the `node-forge` and `braces` exemptions to 2026-10-15
-> (maintainer-authorized; no upstream fix for either). (2) The BUG-061 PR (v11.83.0) has the JWT-caller fix for 10 handlers;
+> (maintainer-authorized; no upstream fix for either); this archive landed with #299. (2) The BUG-061 PR (v11.83.0, the
+> last closeout step, pushed after #299 deploys) carries the JWT-caller fix for 10 handlers;
 > gates: /security-review (no findings), /simplify (`0128d181`), /code-review medium (no findings). ADR-099 → Implemented.
 > Sprint 133 (skills depth) is planned; its handoff is now `CURRENT_HANDOFF.md`. Everything below is history.
 
