@@ -1,9 +1,19 @@
 # Sprint 133 — Skills Depth — Handoff
 
-**Date**: 2026-10-08
-**Status**: **PLANNED, not started.** Spec, plan and this handoff are committed on
+**Date**: 2026-10-10 (**Sprint 132 closeout COMPLETE**: #299 and #300 both live)
+**Status**: **PLANNED, not started; UNBLOCKED.** Spec, plan and this handoff are committed on
 `feature/sprint-133-skills-depth` (cut from `origin/master` `6041c92c`, v11.81.0). **Blocked on the
-Sprint 132 closeout**, which lives on `agent/claude/sprint-132-closeout` and has its own handoff there.
+Sprint 132 closeout**. [#299](https://github.com/ravichavali/karmyq/pull/299) (advisories and renewals, v11.82.0) is the
+PR that made this file `CURRENT_HANDOFF.md`. It is **SHIPPED and LIVE**: merged `dfe52c03` on 2026-10-10, and
+[CI/CD 38076041625](https://github.com/ravichavali/karmyq/actions/runs/38076041625) reported DEPLOYMENT SUCCESSFUL with no rollback.
+Probes: frontend `/` 200, auth bad-login 401. **[#300](https://github.com/ravichavali/karmyq/pull/300) (BUG-061, ADR-099
+Implemented, v11.83.0) is SHIPPED and LIVE**: merged `aa6352e8` on 2026-10-10;
+[CI/CD 38078595371](https://github.com/ravichavali/karmyq/actions/runs/38078595371) reported DEPLOYMENT SUCCESSFUL with no rollback;
+the CI Integration Tests passed `sprint-132-body-identity` against real Postgres (130/130). Read-only smoke as
+maria.reyes: login 200; `/requests`, community detail/members/norms, `/requests/inventory/mine` 200; random
+request id 404; anonymous `/requests` 401; frontend 200. No live forged-body write probe was run (that would be a
+demo write). **The Sprint 132 closeout is done; Sprint 133 can start.** #299 also archived the Sprint 132 handoff to
+`.claude/handoff/archive/2026-10-08-sprint-132-inventories-and-skills-SHIPPED-v11.83.0.md`.
 
 > **Merge-conflict rule for this file.** The Sprint 132 closeout branch carries a newer Sprint 132
 > handoff. The closeout **archives** it to `.claude/handoff/archive/` before or with its last PR. When
@@ -215,10 +225,12 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 
 ## Carry-forward and open items
 
-- **Sprint 132 closeout (precondition, on `agent/claude/sprint-132-closeout`):** `shell-quote` (critical)
-  + `sharp` GHSA-wq5f-xc86-pv6w (high) advisory fix in a separate PR; push and PR the BUG-061 fix
-  (`4c709023`, v11.82.0; /simplify and /code-review medium still owed); ADR-099 → Implemented; archive the
-  Sprint 132 handoff.
+- **Sprint 132 closeout: COMPLETE (2026-10-10).** #299 (advisories + renewals, v11.82.0, `dfe52c03`) and #300 (BUG-061 + ADR-099
+  Implemented, v11.83.0, `aa6352e8`) are both deployed and smoke-tested. Branches `agent/claude/sprint-132-advisories` and
+  `agent/claude/sprint-132-closeout` are merged; never commit on them.
+- **Exemptions RENEWED (maintainer, 2026-10-08, shipped in #299):** `node-forge` and `braces` now run 2026-10-08 → **2026-10-15**.
+  Re-check both before then (`npm view`, the GHSA page, `npm ls --all`); remove each if upstream ships a fix.
+  History of the ordering decision follows.
 - **Exemptions (closeout ordering, maintainer review 2026-10-08):** `node-forge` is **already invalid**
   (`expires: 2026-10-08` is the first invalid day; `expires <= today`, `scripts/audit-exemptions.js:126`),
   so every push and deploy fails the gate until it is decided. **Its decision (renew with explicit
@@ -261,4 +273,9 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 
 ## Next unchecked action
 
-Finish the Sprint 132 closeout (its own branch and handoff). Then, in a fresh chat, plan Task S0 → S1.
+1. ~~Merge and deploy #299~~: DONE 2026-10-10 (`dfe52c03`, deploy 38076041625 green).
+2. ~~Ship the BUG-061 PR~~: DONE 2026-10-10 (#300, `aa6352e8`, deploy 38078595371 green, smoke passed).
+3. **NEXT: in a fresh chat, start Sprint 133 at plan Task S0 → S1** (PR S: BUG-056 due 2026-10-14, BUG-062 and
+   BUG-058 due 2026-10-15). Task S0's precondition is now met; cut PR S from `origin/master` and merge this
+   planning branch into it.
+4. Re-check `node-forge` and `braces` before **2026-10-15**.

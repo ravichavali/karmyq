@@ -9,6 +9,7 @@ import {
   sendError,
   sendValidationError,
   sendNotFound,
+  sendUnauthorized,
   sendInternalError,
   HTTP_STATUS,
   validateRequest,
@@ -2114,7 +2115,11 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { user_id } = req.body;
+    // SECURITY (BUG-061, ADR-064): the caller comes from the verified JWT, never the body.
+    const user_id = (req as any).user?.userId;
+    if (!user_id) {
+      return sendUnauthorized(res, 'Authentication required');
+    }
 
     // Check if user is the requester
     const requestCheck = await query(

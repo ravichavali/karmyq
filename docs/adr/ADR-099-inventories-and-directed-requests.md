@@ -1,6 +1,6 @@
 # ADR-099: Inventories and Directed Requests
 
-**Status**: Accepted
+**Status**: Implemented (Sprint 132: PR A v11.78.0, PR B v11.79.0, PR C v11.81.0; all deployed and smoke-tested by 2026-10-06)
 **Date**: 2026-10-01
 **Sprint**: 132 (number allocated by the maintainer)
 

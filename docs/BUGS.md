@@ -1562,7 +1562,7 @@ and no repo source reaches it. Exempted until **2026-10-09** (ADR-059 amendment 
   an upstream move of `micromatch`/`@expo/metro-file-map` off it; then delete the exemption.
   Otherwise renew by hand before 2026-10-09: `npm view braces version`, the GHSA page,
   `npm ls braces --all`.
-- **Owner:** Claude (dependency lane). **Deadline: 2026-10-09** (exemption expiry; ≤ 1-week SLA).
+- **Owner:** Claude (dependency lane). **Deadline: 2026-10-15** (exemption expiry; ≤ 1-week SLA). **Renewed 2026-10-08** by maintainer decision after a hand re-check found no fix (3.0.3 latest, `first_patched_version: null`); ADR-059 amendment "renewals and the 2026-10-08 advisory batch". `node-forge` was renewed alongside it, also to 2026-10-15.
 
 ---
 
@@ -1575,6 +1575,26 @@ workers without matching named handlers, failing the job instead of delivering i
 subscribers. This has not been reproduced. PR C repairs the reproduced `match_completed`
 competition with per-service queues; the other event types remain separate later-sprint scope.
 Reproduce and inspect retry/failure behavior before planning a broader delivery change.
+
+---
+
+## BUG-061 · [2026-10-06] · fixed
+
+**SECURITY:** `DELETE /api/requests/:id` (`services/request-service/src/routes/requests.ts:2117`)
+authorizes the caller from `req.body.user_id` instead of the JWT (`req.user.userId`); no middleware
+overrides it. Any authenticated user can cancel any request, including a private directed ask, by
+sending the requester's id in the body. `PUT /:id` on the same router correctly uses the JWT. Same
+body-`user_id` pattern to audit: `offers.ts:164`, `offers.ts:234`, `adminActions.ts:109`. Found
+during the Sprint 132 PR C live smoke (Claude). Fix: derive `user_id` from `req.user`; regression
+test that a non-requester with a forged body `user_id` gets 403 and the request stays open.
+
+**Fixed (2026-10-06, v11.82.0).** The audit found 10 handlers in two services trusting a body
+id; all now use the JWT caller. `adminActions.ts:109` was a false lead (its `user_id` is the
+proposed member; the admin check already uses the JWT). Worst case: `POST
+/communities/:communityId/members` took `user_id` **and `role`** from the body with no caller
+check, so any logged-in user could make themselves admin of any community; it is now admin-only.
+Also fixed: `PUT`/`DELETE /communities/:id`, norm create/approve/delete, `POST`/`PUT`/`DELETE
+/offers`. Whether any of these were exploited on the demo was not investigated.
 
 ---
 

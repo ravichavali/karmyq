@@ -726,7 +726,12 @@ router.put('/:id/location', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, description, location, category, max_members, status, user_id } = req.body;
+    const { name, description, location, category, max_members, status } = req.body;
+    // SECURITY (BUG-061, ADR-064): the caller comes from the verified JWT, never the body.
+    const user_id = (req as any).user?.userId;
+    if (!user_id) {
+      return sendUnauthorized(res, 'Authentication required', { requestId: (req as any).id });
+    }
 
     // Check if user is admin of this community
     const memberCheck = await query(
@@ -795,7 +800,11 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { user_id } = req.body;
+    // SECURITY (BUG-061, ADR-064): the caller comes from the verified JWT, never the body.
+    const user_id = (req as any).user?.userId;
+    if (!user_id) {
+      return sendUnauthorized(res, 'Authentication required', { requestId: (req as any).id });
+    }
 
     // Check if user is admin
     const memberCheck = await query(
