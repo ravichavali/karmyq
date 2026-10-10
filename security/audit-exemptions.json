@@ -6,20 +6,20 @@
       "advisory": "GHSA-86w9-cpqp-85rv",
       "severity": "high",
       "rationale": "No fixed version exists: the advisory range is <=1.4.0 and 1.4.0 is the latest release; npm's only proposed fix is a backwards semver-major move to expo 44.0.6. Reach is apps/mobile -> expo -> @expo/cli and @expo/code-signing-certificates, developer tooling: no repo source imports node-forge, Expo code signing is not configured, and the service Dockerfiles copy only the root, shared and service manifests (the root declares no Expo package), so by construction it ships in no deployed image (not inspected in a built image). Unexempted, it blocked every PR and master deploy, including Sprint 132 PR A's caller-scope fix. Seven days, not thirty: the weekly monitor that ADR-059's 30-day cap depends on is image-size-only and has been red since 2026-09-14 (BUG-058), so this re-check is by hand.",
-      "decision": "Maintainer, 2026-10-01 (Sprint 132): approved a time-boxed exemption; ADR-059 amendment 'node-forge exemption (Sprint 132, 2026-10-01)'",
+      "decision": "Maintainer, 2026-10-08 (Sprint 132 closeout): renewed 7 days after a hand re-check found no upstream fix (node-forge 1.4.0 latest; GHSA-86w9-cpqp-85rv <=1.4.0, first_patched_version null; latest @expo/cli 57.0.28 still depends on node-forge ^1.3.3). Originally approved 2026-10-01. ADR-059 amendment 'Renewals (Sprint 132 closeout, 2026-10-08)'",
       "owner": "claude",
-      "created": "2026-10-01",
-      "expires": "2026-10-08"
+      "created": "2026-10-08",
+      "expires": "2026-10-15"
     },
     {
       "package": "braces",
       "advisory": "GHSA-vfj7-8cjw-p6xm",
       "severity": "high",
       "rationale": "No fixed version exists: the advisory range covers every version, 3.0.3 is the latest release, and npm's only proposed fix is a backwards semver-major move to nodemon 1.14.10. The advisory (stack exhaustion on deeply nested patterns) was GitHub-reviewed 2026-10-02 22:36Z and blocked the master deploy of Sprint 132 PR A (#290). Production reach is apps/mobile -> expo -> @expo/cli -> @expo/metro-file-map -> micromatch -> braces only; no service or packages/shared production tree reaches braces or micromatch (lockfile walk, 2026-10-02), every other path (next's eslint plugin, chokidar, nodemon, fast-glob) is a devDependency, and no repo source imports braces or micromatch, so no request input reaches a brace pattern. Seven days, not thirty: no live monitor watches braces (BUG-058), so this re-check is by hand.",
-      "decision": "Maintainer, 2026-10-02 (Sprint 132): approved a time-boxed exemption; ADR-059 amendment 'braces exemption (Sprint 132, 2026-10-02)'",
+      "decision": "Maintainer, 2026-10-08 (Sprint 132 closeout): renewed 7 days after a hand re-check found no upstream fix (braces 3.0.3 latest; GHSA-vfj7-8cjw-p6xm <=3.0.3, first_patched_version null). Originally approved 2026-10-02. ADR-059 amendment 'Renewals (Sprint 132 closeout, 2026-10-08)'",
       "owner": "claude",
-      "created": "2026-10-02",
-      "expires": "2026-10-09"
+      "created": "2026-10-08",
+      "expires": "2026-10-15"
     }
   ]
 }
