@@ -723,8 +723,8 @@ Not done in D5, which is a dependency PR; each needs its own scheduling decision
   once headers arrive, so the following `.json()` has no bound: a stalled body can hang a feed or dibs
   request. D5 proved `AbortSignal.timeout(ms)` covers a stalled body on Node 24; using it deletes the manual
   timer too.
-- **`scripts/check-image-size-upstream.js:161` calls `fetch` with no timeout.** A hung GitHub API call
-  stalls the job until its job-level timeout. Low priority.
+- ~~**`scripts/check-image-size-upstream.js:161` calls `fetch` with no timeout.**~~ **Moot (Sprint 133
+  PR S):** the script and its workflow were deleted with the image-size monitor (BUG-058).
 - **geocoding leaves a non-2xx body unread.** Measured on Node 24.11.1: harmless for small bodies (the
   socket is reused). A 200 KB unread error body pins one socket per call until GC. Nominatim's error pages
   are small. If ever needed, use `await response.text().catch(() => {})`; **not** `body.cancel()`, which

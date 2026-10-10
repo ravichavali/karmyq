@@ -378,7 +378,7 @@ function runVerify(rootDir, entry) {
 
 // Date primitives come from the shared registry core (ADR-094), which exports them
 // precisely so callers do not re-implement them — a hand-rolled copy in
-// check-image-size-upstream.js once dropped the shape check and the rollover guard.
+// the since-retired check-image-size-upstream.js once dropped the shape check and the rollover guard.
 // The core has zero requires and reaches neither the network nor a subprocess, so this
 // stays runnable under bare `node` in the clean-room clone and keeps hermeticity intact.
 const { parseUtcDate, todayUtc } = require('./lib/exemption-registry');

@@ -1523,7 +1523,7 @@ Found in the Sprint 132 plan review (2026-09-30). **Scheduled (maintainer, 2026-
 
 ---
 
-## BUG-058 · [2026-10-01] · open · **MEDIUM**
+## BUG-058 · [2026-10-01] · **fixed** (Sprint 133 PR S) · **MEDIUM**
 
 **ADR-059's 30-day exemption cap has no live monitor.** The Sprint 125 amendment raised
 `MAX_EXEMPTION_DAYS` from 7 to 30 (`scripts/audit-exemptions.js:58`). It did so on condition that
@@ -1546,6 +1546,11 @@ That exemption was capped at 7 days by hand to respect the rule.
 
   Either way, close #236.
 - **Owner:** Claude (dependency lane). **Deadline: 2026-10-15** (≤ 2-week SLA).
+- **Fixed (Sprint 133 PR S, option (b), maintainer 2026-10-08):** `MAX_EXEMPTION_DAYS` is 7 again; the
+  workflow, `check-image-size-upstream.js` and `sprint-125-image-size-monitor.test.ts` are deleted;
+  ADR-059 amendment "cap restored to 7 days". `sprint-123-audit-exemption-gate.test.ts` derives its
+  boundary from the constant, pins 7, and proves 7 days accepted / 8 rejected; a live entry stretched to
+  8 days was shown to turn the regression red. #236 is closed after merge.
 
 ---
 

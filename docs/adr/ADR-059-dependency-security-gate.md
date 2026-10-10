@@ -341,3 +341,27 @@ Seven days is still the cap for an unwatched package (BUG-058).
   the eight `@next/swc-*` binaries. The `apps/frontend` and `apps/landing` ranges become `^16.3.8`.
 - `sharp` GHSA-wq5f-xc86-pv6w (high, `<0.35.5`): 0.35.4 → 0.35.5, together with its `@img/*` platform
   packages (libvips 1.3.3 → 1.3.4). The override becomes `sharp@<0.35.5 → 0.35.5`.
+
+## Amendment (Sprint 133, 2026-10-10): cap restored to 7 days
+
+**Status**: Accepted · **Decision**: maintainer, 2026-10-08 (BUG-058 option (b))
+
+`MAX_EXEMPTION_DAYS` returns from **30 to 7** (`scripts/audit-exemptions.js`), and the image-size
+monitor is retired: `.github/workflows/image-size-advisory-watch.yml`,
+`scripts/check-image-size-upstream.js` and `tests/regression/sprint-125-image-size-monitor.test.ts`
+are deleted. The Sprint 125 amendment made the 30-day cap conditional on a live weekly monitor and
+said the cap returns to 7 if that monitor is removed or left failing. The monitor watched `image-size`
+alone, `image-size` left the tree in Sprint 128, and the watch has been red since 2026-09-14
+(issue #236). Generalizing it (option (a)) was declined: two short-lived exemptions do not justify a
+second live arbiter, and a renewal every seven days is the re-measurement.
+
+**The general cap now enforces what the monitor test special-cased.** The Sprint 132 rule "an unwatched
+package may be exempted for at most 7 days" lived in the deleted monitor test. With no watched packages
+left, every package is unwatched, so the rule is simply the cap. `tests/regression/sprint-123-audit-exemption-gate.test.ts`
+derives its boundary pair from `MAX_EXEMPTION_DAYS` and pins `7`, with an explicit 7-day-accepted /
+8-day-rejected case. A live entry stretched to eight days turns the regression tier red.
+
+**What did not change:** the high-severity SLA (≤ 1 week), the exact package + GHSA matching, fail-closed
+on unavailable evidence (Sprint 128), and the hand re-check on every renewal (`npm view`, the GHSA
+page, `npm ls --all`). The two live exemptions (`node-forge`, `braces`, 2026-10-08 → 2026-10-15) already
+span exactly seven days.
