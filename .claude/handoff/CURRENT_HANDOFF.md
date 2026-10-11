@@ -1,19 +1,13 @@
 # Sprint 133 — Skills Depth — Handoff
 
-**Date**: 2026-10-10 (**Sprint 132 closeout COMPLETE**: #299 and #300 both live)
-**Status**: **PLANNED, not started; UNBLOCKED.** Spec, plan and this handoff are committed on
-`feature/sprint-133-skills-depth` (cut from `origin/master` `6041c92c`, v11.81.0). **Blocked on the
-Sprint 132 closeout**. [#299](https://github.com/ravichavali/karmyq/pull/299) (advisories and renewals, v11.82.0) is the
-PR that made this file `CURRENT_HANDOFF.md`. It is **SHIPPED and LIVE**: merged `dfe52c03` on 2026-10-10, and
-[CI/CD 38076041625](https://github.com/ravichavali/karmyq/actions/runs/38076041625) reported DEPLOYMENT SUCCESSFUL with no rollback.
-Probes: frontend `/` 200, auth bad-login 401. **[#300](https://github.com/ravichavali/karmyq/pull/300) (BUG-061, ADR-099
-Implemented, v11.83.0) is SHIPPED and LIVE**: merged `aa6352e8` on 2026-10-10;
-[CI/CD 38078595371](https://github.com/ravichavali/karmyq/actions/runs/38078595371) reported DEPLOYMENT SUCCESSFUL with no rollback;
-the CI Integration Tests passed `sprint-132-body-identity` against real Postgres (130/130). Read-only smoke as
-maria.reyes: login 200; `/requests`, community detail/members/norms, `/requests/inventory/mine` 200; random
-request id 404; anonymous `/requests` 401; frontend 200. No live forged-body write probe was run (that would be a
-demo write). **The Sprint 132 closeout is done; Sprint 133 can start.** #299 also archived the Sprint 132 handoff to
-`.claude/handoff/archive/2026-10-08-sprint-132-inventories-and-skills-SHIPPED-v11.83.0.md`.
+**Date**: 2026-10-11 (PR S implemented; gates run; not yet pushed)
+**Status**: **IN PROGRESS — PR S implemented on `agent/claude/sprint-133-pr-s-security`, PR not opened yet.**
+The branch was cut from `origin/master` `aa6352e8` (v11.83.0) on 2026-10-10, with the planning branch merged in.
+Tasks S0–S6 are done: TDD tests red then green, BUG-056/062/058 fixed, docs updated, and `/simplify`,
+`/code-review` high and `/security-review` all run (the security review found no high-confidence
+vulnerabilities). Remaining: S7 final verification and S8 (version bump at merge time, PR, CI, merge on
+maintainer authorization, deploy, read-only smoke). The Sprint 132 closeout (#299, #300) is live; its handoff is
+archived at `.claude/handoff/archive/2026-10-08-sprint-132-inventories-and-skills-SHIPPED-v11.83.0.md`.
 
 > **Merge-conflict rule for this file.** The Sprint 132 closeout branch carries a newer Sprint 132
 > handoff. The closeout **archives** it to `.claude/handoff/archive/` before or with its last PR. When
@@ -54,7 +48,7 @@ security PR first closes BUG-056, BUG-062 and BUG-058.
 
 | PR | Scope | Branch | State |
 |---|---|---|---|
-| **S** | BUG-056 (`GET /requests/:id` gate + drop `requester_email`, directed rules unchanged), BUG-062 (member email: `/users/:userId` auth + self-only; community detail/members admin-only), BUG-058 (cap → 7, monitor retired, #236) | `agent/claude/sprint-133-pr-s-security` | Not started (blocked on S132 closeout) |
+| **S** | BUG-056 (`GET /requests/:id` gate + drop `requester_email`, directed rules unchanged), BUG-062 (member email: `/users/:userId` auth + self-only; community detail/members admin-only), BUG-058 (cap → 7, monitor retired, #236) | `agent/claude/sprint-133-pr-s-security` | **Implemented, gates run; S7 verification + PR next** (also fixed during review: preferred-provider read, admin-notes gate, `join_request_message` on active rows, `GET /offers/:id` `helper_email`; logged BUG-063/064/065) |
 | A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, `/users/me/settings` route-order fix, drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | Not started |
 | B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | Not started |
 | D | Curated demo seed: skills, items, endorsements (demo apply needs per-operation authorization) | `agent/claude/sprint-133-pr-d-demo-seed` | Not started |
@@ -275,7 +269,12 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 
 1. ~~Merge and deploy #299~~: DONE 2026-10-10 (`dfe52c03`, deploy 38076041625 green).
 2. ~~Ship the BUG-061 PR~~: DONE 2026-10-10 (#300, `aa6352e8`, deploy 38078595371 green, smoke passed).
-3. **NEXT: in a fresh chat, start Sprint 133 at plan Task S0 → S1** (PR S: BUG-056 due 2026-10-14, BUG-062 and
-   BUG-058 due 2026-10-15). Task S0's precondition is now met; cut PR S from `origin/master` and merge this
-   planning branch into it.
-4. Re-check `node-forge` and `braces` before **2026-10-15**.
+3. ~~Start Sprint 133 PR S (S0–S6)~~: DONE 2026-10-10/11 on `agent/claude/sprint-133-pr-s-security`.
+4. **NEXT: PR S Task S7** (`npm test`, `feedback:check`, tsc ×4, promote the sprint-133 TDD files), then **S8**:
+   bump the minor from `origin/master` at merge time, open the PR with the gate results as validation evidence,
+   confirm the CI Integration Tests log ran `sprint-133-request-detail-visibility`, **ask the maintainer for merge
+   authorization**, deploy, read-only smoke, close #236. Deadlines: BUG-056 2026-10-14, BUG-062/058 2026-10-15.
+5. **Maintainer decisions owed:** BUG-065 (HIGH proposed, `GET /requests` list breadth, due 2026-10-17) and
+   BUG-064 (offers visibility). BUG-063 (export reads a nonexistent schema) is unassigned.
+6. After PR S ships: PR A in a fresh chat.
+7. Re-check `node-forge` and `braces` before **2026-10-15**.
