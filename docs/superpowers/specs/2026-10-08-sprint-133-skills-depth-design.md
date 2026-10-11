@@ -151,7 +151,7 @@ missing field (`member.user_email ?? ''`).
 
 | Method | Path | Description | Auth | Response `data` |
 |---|---|---|---|---|
-| GET | `/users/me/settings` | **Fix:** today it is shadowed by `GET /users/:userId` (`users.ts:16` is registered before `:71`), so `'me'` reaches the uuid query. Move both `/me/*` routes above `/:userId`. Adds `share_skills_with_communities`. | JWT | `{ user_id, show_my_karma_to_me, share_skills_with_communities, … }` |
+| GET | `/users/me/settings` | Adds `share_skills_with_communities`. **Correction (2026-10-11):** this route is **not** shadowed by `GET /users/:userId`; a real-router probe returned 200 from the settings handler on both the base and PR S heads (2026-10-11): `/:userId` matches one path segment, so it cannot capture `/me/settings`. No route reordering is needed. | JWT | `{ user_id, show_my_karma_to_me, share_skills_with_communities, … }` |
 | PATCH | `/users/me/settings` | Accepts either or both booleans; at least one is required; a non-boolean value → 400. The upsert writes only the fields provided. | JWT | same |
 | GET | `/auth/skills/users/:userId` | A member's visible skills. Self: always. Others: 404 unless co-member **and** sharing is on. The 404 does not distinguish "not a co-member", "hidden" and "no such user". | JWT | `[{ tag_id, label, skill_slug }]` (PR B adds `endorsement_count`, `endorsed_by_me`, `can_endorse`) |
 | GET | `/auth/skills/communities/:communityId` | Skill directory: each visible skill in the community with the count of members sharing it. The caller must be a live active member; otherwise 404. | JWT | `[{ skill_key, label, member_count }]` |
@@ -314,9 +314,9 @@ from the installed Bull source, that shared-queue competition cannot happen; see
     A, re-run `grep -rn "user_skills" services apps packages infrastructure/postgres/seed-data.sql scripts`
     untruncated. Only the migration, the generated `init.sql` and history docs may remain. A failed
     deploy rolls back images, not schema; the previous image (≥ v11.78.0) does not read the table.
-14. **Route order.** In auth-service `routes/users.ts`, register `/me/settings` (GET, PATCH) **before**
-    `/:userId`. A test hits `GET /users/me/settings` through the real router and asserts the settings
-    handler answered (not a 500 from a uuid cast). New skills routes are mounted at `/auth/skills` in
+14. **Route order — corrected 2026-10-11.** `/me/settings` is **not** shadowed: a real-router probe returned 200 from the settings handler on both the base and PR S heads (2026-10-11): `/:userId` matches one path segment, so it cannot capture `/me/settings`. Do
+    not present a reorder as a fix. Keep a real-router test that `GET /users/me/settings` reaches the
+    settings handler, as a guard only. New skills routes are mounted at `/auth/skills` in
     `services/auth-service/src/index.ts`, beside `/auth/profile/tags` (`:61`), with `authMiddleware`.
 15. **No `packages/shared` change this sprint.** Matching already reads `user_tags`; endorsements do
     not change scoring yet (Sprint 134 candidate).

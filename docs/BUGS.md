@@ -1514,7 +1514,7 @@ Found in the Sprint 132 planning chat (2026-09-30). Sprint 132 PR C adds a 404 f
   stays in the SQL, so directed asks are no looser), or inside the request's visibility audience
   (`getRequestReachability`). Anything else gets the same 404 body as a missing id. `requester_email` is no
   longer selected. One reachability call serves both the gate and `viewer_relation`. **Proof:**
-  `services/request-service/tests/tdd/sprint-133-request-detail-visibility.test.ts` (red against the pre-fix
+  `services/request-service/tests/regression/sprint-133-request-detail-visibility.test.ts` (red against the pre-fix
   route) and `tests/integration/sprint-133-request-detail-visibility.integration.test.ts` (real SQL:
   same-community 200 / other-community 404 equal to an absent id, platform 200, directed non-audience
   member 404, completed helper who left 200).
@@ -1625,16 +1625,15 @@ reading the code, not by a live probe.
   `GET /communities/:communityId/members` (`routes/members.ts:28`) return every member's
   `user_email` to any authenticated viewer. The People tab is open to non-members. The members list
   also accepts any `status`, so pending members are listed too.
-- Side bug: `GET /users/me/settings` is shadowed by `GET /users/:userId` (`users.ts:16` registers
-  before `:71`). `'me'` reaches the uuid query, so the karma privacy setting cannot be read.
+- ~~Side bug: `GET /users/me/settings` is shadowed by `GET /users/:userId`.~~ **Withdrawn 2026-10-11:** a real-router probe returned 200 from the settings handler on both the base and PR S heads (2026-10-11): `/:userId` matches one path segment, so it cannot capture `/me/settings`. The
+  original diagnosis came from reading registration order, not from a probe.
 
 This also undercuts BUG-056: dropping `requester_email` from `GET /requests/:id` is pointless while
 `requester_id` plus `/users/:id` gives the same email anonymously.
 
 - **Scheduled (maintainer, 2026-10-08): Sprint 133 PR S.** `/users/:userId` requires auth and returns
   email to the user themself only. Community detail and members return `user_email` only to live
-  admins (and the caller's own row). Non-admins may list only active members. The route-order side
-  bug is fixed in PR A, because the skills setting needs `/users/me/settings`.
+  admins (and the caller's own row). Non-admins may list only active members. (The route-order "side bug" above was withdrawn.)
 - **Owner:** Claude. **Deadline: 2026-10-15** (≤ 1-week SLA for HIGH).
 - **Fixed (Sprint 133 PR S).** `GET /users/:userId` takes `authMiddleware` and selects `email` only for
   the caller's own id. Community detail and `GET /communities/:id/members` shape rows with
@@ -1647,10 +1646,9 @@ This also undercuts BUG-056: dropping `requester_email` from `GET /requests/:id`
   `helper_email` to any caller with no client reading it; it is dropped. Remaining email reads are the
   caller's own (auth, JWT), participant-scoped (`GET /matches/:id`), requester-owner-scoped provider
   offers (`offersDb.ts`), admin-only export (see BUG-063), internal delivery (notification subscriber)
-  or messaging participants (out of scope). **Proof:** `services/auth-service/tests/tdd/sprint-133-user-profile-email.test.ts`,
-  `services/community-service/tests/tdd/sprint-133-member-email-admin-only.test.ts` (incl. a JWT claiming
-  admin without a live admin row), and the offers case in the request-service file. The route-order side
-  bug remains for PR A.
+  or messaging participants (out of scope). **Proof:** `services/auth-service/tests/regression/sprint-133-user-profile-email.test.ts`,
+  `services/community-service/tests/regression/sprint-133-member-email-admin-only.test.ts` (incl. a JWT claiming
+  admin without a live admin row), and the offers case in the request-service file.
 
 ---
 
@@ -1678,6 +1676,8 @@ offerer name, community name) from communities they do not belong to. Found 2026
 `.email` inventory; `helper_email` was dropped from `/offers/:id` in that PR, but the breadth is a policy
 question (should a standing offer follow its community's membership, like requests?) and was not changed.
 
+- **Reviewer recommendation (PR #301 review, 2026-10-11; not yet a maintainer decision):** community
+  membership plus owner access. BUG-063 should be assigned separately.
 - **Owner:** the maintainer decides the intended visibility; Claude implements. **Deadline: 2026-10-24**
   (≤ 2-week SLA), or a dated risk acceptance.
 
@@ -1698,6 +1698,10 @@ payload, requirements, requester name) of a community-scoped ask that `GET /requ
 - **Open policy question (maintainer):** apply the BUG-056 rule to the list (rows the caller can read:
   own, any-status match responder, directed audience, or reachable), or restrict `community_id` browsing
   to live members. Either way, a real-SQL test that an outsider's list omits a community-scope ask.
+- **Reviewer recommendation (PR #301 review, 2026-10-11; not yet a maintainer decision):** use the detail
+  route's visibility boundary for the list, keeping directed requests excluded from public browsing.
+  Membership-only filtering would discard intended cross-community reach (trust-network, platform, sister
+  communities). The reviewer stresses this is still a bypass of the request-privacy boundary until fixed.
 - **Owner:** maintainer decides; Claude implements. **Deadline: 2026-10-17** (≤ 1-week SLA for HIGH), or
   a dated risk acceptance.
 

@@ -44,7 +44,7 @@ chosen after BUG-060 is reproduced.
 | `services/auth-service/src/db/skillVisibility.ts` | A | `skillVisibleToSql`, `activeMemberSql` (the one predicate) |
 | `services/auth-service/src/routes/skills.ts` | A, B | `/auth/skills/*` routes |
 | `services/auth-service/tests/tdd/sprint-133-skill-visibility.test.ts` | A | Route + predicate tests |
-| `services/auth-service/tests/tdd/sprint-133-settings-route-order.test.ts` | A | `/users/me/settings` reaches its handler |
+| `services/auth-service/tests/tdd/sprint-133-settings-route-order.test.ts` | A | `/users/me/settings` reaches its handler (guard; the route was never shadowed — note 14) |
 | `apps/frontend/src/components/skills/MemberSkills.tsx` | A, B | Member skill list (+ vouch in B) |
 | `apps/frontend/src/components/skills/FindASkillPanel.tsx` | A | Directory chips + search in People tab |
 | `apps/frontend/tests/tdd/sprint-133-skills-discovery.test.tsx` | A | UI tests |
@@ -65,7 +65,7 @@ chosen after BUG-060 is reproduced.
 | File | PR | Change |
 |------|----|--------|
 | `services/request-service/src/routes/requests.ts` | S, A | `GET /:id` gate + drop `requester_email` (S); delete `/matched/for-user` (A) |
-| `services/auth-service/src/routes/users.ts` | S, A | auth + self-only email (S); `/me/*` route order + skills setting (A) |
+| `services/auth-service/src/routes/users.ts` | S, A | auth + self-only email (S); skills setting (A) |
 | `services/auth-service/src/index.ts` | S, A | `authMiddleware` for `/users` GET (S); mount `/auth/skills` (A) |
 | `services/community-service/src/routes/communities.ts`, `routes/members.ts` | S | Email only for live admin/self; non-admin `status` restricted |
 | `apps/frontend/src/components/community/tabs/ActiveTab.tsx`, `community/StewardRequestsAdmin.tsx` | S | Tolerate missing `user_email` |
@@ -193,9 +193,9 @@ Copied verbatim from the spec.
     A, re-run `grep -rn "user_skills" services apps packages infrastructure/postgres/seed-data.sql scripts`
     untruncated. Only the migration, the generated `init.sql` and history docs may remain. A failed
     deploy rolls back images, not schema; the previous image (≥ v11.78.0) does not read the table.
-14. **Route order.** In auth-service `routes/users.ts`, register `/me/settings` (GET, PATCH) **before**
-    `/:userId`. A test hits `GET /users/me/settings` through the real router and asserts the settings
-    handler answered (not a 500 from a uuid cast). New skills routes are mounted at `/auth/skills` in
+14. **Route order — corrected 2026-10-11.** `/me/settings` is **not** shadowed: a real-router probe returned 200 from the settings handler on both the base and PR S heads (2026-10-11): `/:userId` matches one path segment, so it cannot capture `/me/settings`. Do
+    not present a reorder as a fix. Keep a real-router test that `GET /users/me/settings` reaches the
+    settings handler, as a guard only. New skills routes are mounted at `/auth/skills` in
     `services/auth-service/src/index.ts`, beside `/auth/profile/tags` (`:61`), with `authMiddleware`.
 15. **No `packages/shared` change this sprint.** Matching already reads `user_tags`; endorsements do
     not change scoring yet (Sprint 134 candidate).
@@ -365,7 +365,7 @@ Branch: `agent/claude/sprint-133-pr-a-skill-visibility`, cut from `origin/master
   `/* skill-visible */` fragment bound to the **JWT** caller; `GET /users/:id` for a non-visible owner → 404
   with the same body as an unknown id; directory/search for a non-member → 404; search
   `?skill=Carpentry` resolves to the slug (no substring: `?skill=carp` does not match `carpentry`).
-- [ ] **Settings route order** (`sprint-133-settings-route-order.test.ts`): `GET /users/me/settings` returns
+- [ ] **Settings route** (`sprint-133-settings-route-order.test.ts`, a guard — note 14): `GET /users/me/settings` returns
   `share_skills_with_communities: true` by default (no row); PATCH `{share_skills_with_communities:false}`
   persists only that field; PATCH `{}` → 400; PATCH a string → 400.
 - [ ] **Root integration (real SQL)** `tests/integration/sprint-133-skill-visibility.integration.test.ts`:
@@ -392,7 +392,7 @@ Branch: `agent/claude/sprint-133-pr-a-skill-visibility`, cut from `origin/master
 - [ ] `services/auth-service/src/db/skillVisibility.ts`:
   `skillVisibleToSql(ownerAlias, viewerParam)` → `/* skill-visible */ (owner = viewer OR (COALESCE(ps.share_skills_with_communities, true) AND EXISTS (co-active membership)))`
   and `activeMemberSql(communityParam, viewerParam)`. Comment that identifiers are internal only; values stay bound.
-- [ ] `routes/users.ts`: move `GET/PATCH /me/settings` above `/:userId` (note 14); add the new field;
+- [ ] `routes/users.ts`: add the new field to `GET/PATCH /me/settings` (no reorder; note 14);
   the PATCH upsert writes only the provided booleans.
 - [ ] **Verify:** settings test green.
 

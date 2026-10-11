@@ -369,8 +369,8 @@ Authorization: Bearer <jwt-token>
 ### GET /users/:id
 Get user profile by ID. **Requires authentication** (Sprint 133, BUG-062). `email` is selected and
 returned **only when `:id` is the caller's own id**; anyone else's profile omits it. No in-repo client
-reads another user's profile here. ⚠️ `GET /users/me/settings` is still shadowed by this route (fixed in
-Sprint 133 PR A).
+reads another user's profile here. `GET /users/me/settings` is **not** shadowed by this route: `/:userId`
+matches a single path segment (verified with a real-router probe, 2026-10-11).
 
 **Response:**
 ```json

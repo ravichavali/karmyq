@@ -51,7 +51,7 @@ security PR first closes BUG-056, BUG-062 and BUG-058.
 | PR | Scope | Branch | State |
 |---|---|---|---|
 | **S** | BUG-056 (`GET /requests/:id` gate + drop `requester_email`, directed rules unchanged), BUG-062 (member email: `/users/:userId` auth + self-only; community detail/members admin-only), BUG-058 (cap → 7, monitor retired, #236) | `agent/claude/sprint-133-pr-s-security` | **PR [#301](https://github.com/ravichavali/karmyq/pull/301) open; CI + merge authorization next** (also fixed during review: preferred-provider read, admin-notes gate, `join_request_message` on active rows, `GET /offers/:id` `helper_email`; logged BUG-063/064/065) |
-| A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, `/users/me/settings` route-order fix, drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | Not started |
+| A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, skills setting on `/users/me/settings` (no route-order bug: withdrawn 2026-10-11), drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | Not started |
 | B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | Not started |
 | D | Curated demo seed: skills, items, endorsements (demo apply needs per-operation authorization) | `agent/claude/sprint-133-pr-d-demo-seed` | Not started |
 
@@ -190,9 +190,9 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
     A, re-run `grep -rn "user_skills" services apps packages infrastructure/postgres/seed-data.sql scripts`
     untruncated. Only the migration, the generated `init.sql` and history docs may remain. A failed
     deploy rolls back images, not schema; the previous image (≥ v11.78.0) does not read the table.
-14. **Route order.** In auth-service `routes/users.ts`, register `/me/settings` (GET, PATCH) **before**
-    `/:userId`. A test hits `GET /users/me/settings` through the real router and asserts the settings
-    handler answered (not a 500 from a uuid cast). New skills routes are mounted at `/auth/skills` in
+14. **Route order — corrected 2026-10-11.** `/me/settings` is **not** shadowed: a real-router probe returned 200 from the settings handler on both the base and PR S heads (2026-10-11): `/:userId` matches one path segment, so it cannot capture `/me/settings`. Do
+    not present a reorder as a fix. Keep a real-router test that `GET /users/me/settings` reaches the
+    settings handler, as a guard only. New skills routes are mounted at `/auth/skills` in
     `services/auth-service/src/index.ts`, beside `/auth/profile/tags` (`:61`), with `authMiddleware`.
 15. **No `packages/shared` change this sprint.** Matching already reads `user_tags`; endorsements do
     not change scoring yet (Sprint 134 candidate).
