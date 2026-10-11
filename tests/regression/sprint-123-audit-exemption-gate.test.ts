@@ -399,7 +399,11 @@ describe('ADR-059 gate — CI and the test tier share ONE registry', () => {
         execFileSync(process.execPath, [join(ROOT, 'scripts/audit-exemptions.js')], {
           cwd: ROOT,
           encoding: 'utf8',
-          env: { ...process.env, KARMYQ_AUDIT_REGISTRY: value },
+          // PATH emptied: `npm` cannot be found, exactly as when the audit endpoint is down. The
+          // registry refusal must not depend on audit health — a bad override is rejected BEFORE any
+          // network work (Sprint 133: a degraded endpoint made these cases report "evidence
+          // unavailable" and take 120 s each).
+          env: { ...process.env, KARMYQ_AUDIT_REGISTRY: value, PATH: '', Path: '' },
           stdio: ['ignore', 'pipe', 'pipe'],
         });
       } catch (err) {

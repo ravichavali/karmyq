@@ -365,3 +365,10 @@ derives its boundary pair from `MAX_EXEMPTION_DAYS` and pins `7`, with an explic
 on unavailable evidence (Sprint 128), and the hand re-check on every renewal (`npm view`, the GHSA
 page, `npm ls --all`). The two live exemptions (`node-forge`, `braces`, 2026-10-08 → 2026-10-15) already
 span exactly seven days.
+
+**Local configuration is refused before the audit runs (Sprint 133 PR S, found on push).** `main()` used to
+run the networked `npm audit` before reading the registry, so while the audit endpoint was degraded
+(2026-10-10, each call hit the 120 s timeout) a bad `KARMYQ_AUDIT_REGISTRY` was reported as "evidence
+unavailable" instead of being refused, and the pre-push hook went red on an unrelated diff. The registry is
+now read first. Both orders fail closed; only the reason was wrong. The refusal cases run with `PATH`
+emptied so they never touch the network, which reproduced the push failure in six seconds before the fix.

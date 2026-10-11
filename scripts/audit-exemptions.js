@@ -337,7 +337,11 @@ function runAudit(cwd = ROOT) {
 }
 
 function main() {
-  const result = evaluateAudit(runAudit(), readRegistry());
+  // Local configuration is validated BEFORE the networked audit: a bad KARMYQ_AUDIT_REGISTRY or an
+  // unparseable registry must be refused on its own terms, not masked as "evidence unavailable"
+  // whenever the audit endpoint is degraded. Both paths still fail closed.
+  const registry = readRegistry();
+  const result = evaluateAudit(runAudit(), registry);
 
   for (const c of result.cleared) {
     console.log(`⚠️  EXEMPT (${c.severity}): ${c.package} — via ${c.via.join(', ')}`);
