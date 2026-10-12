@@ -139,37 +139,57 @@ describe('ADR-059 gate — proves it can actually FAIL', () => {
     expect(r.errors.join(' ')).toMatch(/EXPIRED on 2026-08-08/);
   });
 
-  // Sprint 125 raised MAX_EXEMPTION_DAYS from 7 to 30 (ADR-059, "Renewal cadence"). The pair below
-  // pins the BOUNDARY rather than merely "something longer is blocked" — a cap test that only ever
-  // checks a far-over value passes just as happily against a cap of 300.
+  // Sprint 125 raised MAX_EXEMPTION_DAYS from 7 to 30; Sprint 133 (BUG-058) restored 7 and retired
+  // the image-size monitor (ADR-059 amendment). The pair below pins the BOUNDARY rather than merely
+  // "something longer is blocked" — a cap test that only ever checks a far-over value passes just as
+  // happily against a cap of 300. Both spans are DERIVED from the constant, so a moved cap cannot
+  // leave the inputs describing a boundary that no longer exists.
+  const CREATED = '2026-08-10';
+  const plusDays = (days: number) =>
+    new Date(Date.parse(CREATED) + days * 86400000).toISOString().slice(0, 10);
+  // Proves the negative assertions below can fail: the pattern must match a real span complaint.
+  const SPAN_COMPLAINT = /spans \d+ days/;
+
   it('ACCEPTS an exemption of exactly the maximum span', () => {
     const r = gate.evaluateAudit(
       reportWithImageSize(),
-      { exemptions: [validExemption({ created: '2026-08-10', expires: '2026-09-09' })] },
+      { exemptions: [validExemption({ created: CREATED, expires: plusDays(gate.MAX_EXEMPTION_DAYS) })] },
       NOW
     );
     // NOT `r.ok === true`: this fixture carries a second advisory that a single exemption never
     // covers, so the run is legitimately red for an unrelated reason. The claim under test is
-    // narrower and must be asserted as such — a 30-day span raises no SPAN complaint.
-    expect(r.errors.join(' ')).not.toMatch(/spans \d+ days/);
+    // narrower and must be asserted as such — a maximum-length span raises no SPAN complaint.
+    expect(r.errors.join(' ')).not.toMatch(SPAN_COMPLAINT);
   });
 
   it('BLOCKS an exemption one day longer than the maximum span', () => {
     const r = gate.evaluateAudit(
       reportWithImageSize(),
-      { exemptions: [validExemption({ created: '2026-08-10', expires: '2026-09-10' })] },
+      { exemptions: [validExemption({ created: CREATED, expires: plusDays(gate.MAX_EXEMPTION_DAYS + 1) })] },
       NOW
     );
     expect(r.ok).toBe(false);
-    expect(r.errors.join(' ')).toMatch(/spans 31 days — the maximum is 30/);
+    expect(r.errors.join(' ')).toMatch(
+      new RegExp(`spans ${gate.MAX_EXEMPTION_DAYS + 1} days — the maximum is ${gate.MAX_EXEMPTION_DAYS}`)
+    );
+  });
+
+  it('BLOCKS an 8-day exemption and ACCEPTS a 7-day one (BUG-058 cap)', () => {
+    const errorsFor = (days: number) => gate.evaluateAudit(
+      reportWithImageSize(),
+      { exemptions: [validExemption({ created: CREATED, expires: plusDays(days) })] },
+      NOW
+    ).errors.join(' ');
+    expect(errorsFor(7)).not.toMatch(SPAN_COMPLAINT);
+    expect(errorsFor(8)).toMatch(SPAN_COMPLAINT);
+    expect(errorsFor(8)).toMatch(/spans 8 days — the maximum is 7/);
   });
 
   it('keeps the cap and the gate reading the same constant', () => {
-    // Guards the amendment itself: if MAX_EXEMPTION_DAYS moves again, the two cases above must be
-    // re-derived rather than silently describing a boundary that no longer exists.
-    // No `?? 30` default here — a fallback would let this pass if the export were ever removed,
-    // which is precisely the regression it exists to catch.
-    expect(gate.MAX_EXEMPTION_DAYS).toBe(30);
+    // Guards the amendment itself: if MAX_EXEMPTION_DAYS moves again, this must be changed on
+    // purpose, alongside ADR-059. No `?? 7` default here — a fallback would let this pass if the
+    // export were ever removed, which is precisely the regression it exists to catch.
+    expect(gate.MAX_EXEMPTION_DAYS).toBe(7);
   });
 
   it.each(['package', 'advisory', 'rationale', 'decision', 'owner', 'created', 'expires'])(
@@ -379,7 +399,11 @@ describe('ADR-059 gate — CI and the test tier share ONE registry', () => {
         execFileSync(process.execPath, [join(ROOT, 'scripts/audit-exemptions.js')], {
           cwd: ROOT,
           encoding: 'utf8',
-          env: { ...process.env, KARMYQ_AUDIT_REGISTRY: value },
+          // PATH emptied: `npm` cannot be found, exactly as when the audit endpoint is down. The
+          // registry refusal must not depend on audit health — a bad override is rejected BEFORE any
+          // network work (Sprint 133: a degraded endpoint made these cases report "evidence
+          // unavailable" and take 120 s each).
+          env: { ...process.env, KARMYQ_AUDIT_REGISTRY: value, PATH: '', Path: '' },
           stdio: ['ignore', 'pipe', 'pipe'],
         });
       } catch (err) {

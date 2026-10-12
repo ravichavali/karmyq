@@ -15,6 +15,7 @@ import {
   HTTP_STATUS
 } from '@karmyq/shared/utils/response';
 import { normalizeTags } from '../utils/tags';
+import { getLiveRole, shapeMemberRows } from '../utils/memberVisibility';
 import { RouteParams } from '@karmyq/shared/middleware/auth';
 
 const router = Router();
@@ -337,8 +338,10 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
       return sendNotFound(res, 'Community not found', { requestId: (req as any).id });
     }
 
-    // Get members (include both active and pending for admin view)
-    const membersResult = await query(
+    // Get members (active + pending); shapeMemberRows applies the BUG-062 email/pending rules
+    // against the caller's LIVE role.
+    const callerId = (req as any).user?.userId as string | undefined;
+    const [callerRole, membersResult] = await Promise.all([getLiveRole(id, callerId), query(
       `SELECT
         m.id, m.user_id, m.role, m.status, m.joined_at, m.join_request_message,
         u.name as user_name, u.email as user_email
@@ -347,10 +350,10 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
       WHERE m.community_id = $1 AND m.status IN ('active', 'pending')
       ORDER BY m.status DESC, m.joined_at ASC`,
       [id]
-    );
+    )]);
 
     const community = communityResult.rows[0];
-    community.members = membersResult.rows;
+    community.members = shapeMemberRows(membersResult.rows, callerId, callerRole);
 
     // Size alert — computed from current_members, no background job needed
     const memberCount = community.current_members ?? 0;

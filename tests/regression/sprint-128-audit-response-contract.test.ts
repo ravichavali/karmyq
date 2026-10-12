@@ -7,7 +7,7 @@ const NOW = new Date('2026-09-08T12:00:00Z');
 const exemption = {
   package: 'image-size', advisory: 'GHSA-w3rx-r6r6-pgpr', severity: 'high',
   rationale: 'Synthetic unavailable-evidence fixture; never a real exemption.',
-  decision: 'Test fixture only', owner: 'test', created: '2026-09-01', expires: '2026-09-15',
+  decision: 'Test fixture only', owner: 'test', created: '2026-09-05', expires: '2026-09-12',
 };
 const finding = {
   name: 'image-size', severity: 'high',

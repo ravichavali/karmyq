@@ -188,6 +188,19 @@ export function logRequestImpressions(req: Request, userId: string, requests: Im
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { community_id, status, type, requester_id, limit = 50, offset = 0, include_admin_notes } = req.query;
+    const viewerId = (req as any).user?.userId as string | undefined;
+
+    // Admin notes are private steward triage: only a LIVE admin/moderator of that community (the same
+    // roles that may write them) gets them joined, whatever the client asks for.
+    let adminNotes = 'false';
+    if (include_admin_notes === 'true' && community_id && viewerId) {
+      const live = await query(
+        `SELECT role FROM communities.members
+         WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
+        [community_id, viewerId]
+      );
+      if (['admin', 'moderator'].includes(live.rows[0]?.role)) adminNotes = 'true';
+    }
 
     const { queryText, params } = buildRequestsQuery({
       community_id: community_id as string,
@@ -196,9 +209,9 @@ router.get('/', async (req: Request, res: Response) => {
       requester_id: requester_id as string,
       limit: limit as string,
       offset: offset as string,
-      include_admin_notes: include_admin_notes as string,
+      include_admin_notes: adminNotes,
       // BUG-002: exclude the viewer's already-engaged requests from the generic browse.
-      viewer_id: (req as any).user?.userId,
+      viewer_id: viewerId,
     });
 
     const result = await query(queryText, params);
@@ -1697,11 +1710,23 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
           ELSE NULL END AS directed_to,
         r.visibility_scope, r.visibility_max_degrees,
         r.scheduled_for,
-        u.name as requester_name, u.email as requester_email,
+        u.name as requester_name,
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
         STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids,
         viewer_match.id AS viewer_match_id,
-        viewer_match.status AS viewer_match_status
+        viewer_match.status AS viewer_match_status,
+        -- BUG-056: a responder on ANY match (incl. completed/cancelled) keeps read access, even after
+        -- leaving the community. Lifecycle-gated actions still key off viewer_match (active only).
+        EXISTS (
+          SELECT 1 FROM requests.matches any_match
+          WHERE any_match.request_id = r.id AND any_match.responder_id = $2
+        ) AS viewer_any_match,
+        -- The pre-selected provider is notified with a link to this request (preferred_provider_selected),
+        -- so they can read it even when outside its communities.
+        EXISTS (
+          SELECT 1 FROM requests.provider_profiles preferred
+          WHERE preferred.id = r.preferred_provider_id AND preferred.user_id = $2
+        ) AS viewer_is_preferred_provider
       FROM requests.help_requests r
       LEFT JOIN auth.users u ON r.requester_id = u.id
       LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
@@ -1716,28 +1741,28 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
         LIMIT 1
       ) viewer_match ON TRUE
       WHERE r.id = $1 AND ${directedAudienceSql('r', '$2')}
-      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.expired, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.scheduled_for, u.name, u.email, viewer_match.id, viewer_match.status`,
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.expired, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.scheduled_for, u.name, viewer_match.id, viewer_match.status`,
       [id, userId ?? null]
     );
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Request not found',
-      });
-    }
+    // An out-of-audience request answers exactly like a missing id, so it cannot be distinguished.
+    const notFound = () => res.status(404).json({ success: false, message: 'Request not found' });
+    if (result.rowCount === 0) return notFound();
 
     const row = result.rows[0];
     const isOpenAndUnexpired = row.status === 'open' && row.expired === false;
     const isOwn = !!userId && row.requester_id === userId;
     const alreadyOffered = !!row.viewer_match_id;
-    // can_offer needs the request within the viewer's feed-visibility audience (shared boundary with
-    // POST /matches). Only check when it could matter — own/already-offered/closed asks short-circuit
-    // before the extra query.
-    const needsReachability = !isOwn && !alreadyOffered && isOpenAndUnexpired;
-    const reachable = needsReachability
-      ? (await getRequestReachability(id, userId ?? null)).reachable
-      : false;
+    // BUG-056 read gate: own ∨ any-status match responder ∨ pre-selected provider ∨ directed (the SQL
+    // already applied the stricter directed-audience predicate) ∨ within the request's visibility audience.
+    const readableWithoutReach = isOwn || !!row.viewer_any_match || !!row.viewer_is_preferred_provider
+      || !!row.is_directed;
+    // can_offer needs that same audience (shared boundary with POST /matches), so one reachability
+    // call serves both the gate and the offer decision.
+    const offerCandidate = !isOwn && !alreadyOffered && isOpenAndUnexpired;
+    const reachable = (offerCandidate || !readableWithoutReach)
+      && (await getRequestReachability(id, userId ?? null)).reachable;
+    if (!readableWithoutReach && !reachable) return notFound();
     const viewerRelation: 'own_request' | 'already_offered' | 'can_offer' | 'not_actionable' =
       isOwn ? 'own_request'
       : alreadyOffered ? 'already_offered'
@@ -1745,7 +1770,7 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
       : 'not_actionable';
 
     // Strip the raw lateral-join columns from the wire shape; expose them as a clean contract.
-    const { viewer_match_id, viewer_match_status, ...request } = row;
+    const { viewer_match_id, viewer_match_status, viewer_any_match, viewer_is_preferred_provider, ...request } = row;
     res.json({
       success: true,
       data: {

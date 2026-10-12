@@ -87,6 +87,16 @@ From the **Requests** tab (admins only), you can browse all requests in your com
 
 ---
 
+## Member Privacy: Who Sees Emails and Pending Requests
+
+Member email addresses are visible to **community admins only**. On the People tab, admins see every
+member's email in an Email column; moderators and members see names and roles, and no Email column. Pending join
+requests, and the message someone wrote when asking to join, are visible to admins and moderators (who
+can approve them) and to the person who asked, including after the request is approved. Karmyq checks your role when you open the page, so a
+member who was just promoted or demoted sees the right view straight away.
+
+---
+
 ## Community Trust Score
 
 Your community has a trust score (0–100). Members see it as a "★ N% trust" badge on that community's chip in the **Your Communities** strip at the top of the discovery page, once the community has at least five active members. It is a community aggregate, so it is shown only to members: communities you have not joined, and communities too small for the number to stay anonymous, show no badge (ADR-082). It reflects the quality and depth of exchanges in your community — not just how many members you have. Communities with consistent, well-reviewed exchanges build higher trust scores over time.

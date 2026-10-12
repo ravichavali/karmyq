@@ -47,7 +47,7 @@
         {
           "method": "GET",
           "path": "/users/:id",
-          "description": "Get user profile by ID."
+          "description": "Get user profile by ID. **Requires authentication** (Sprint 133, BUG-062). `email` is selected and"
         },
         {
           "method": "PUT",

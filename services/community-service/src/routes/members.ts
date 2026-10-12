@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { query, withTransaction } from '../database/db';
 import { publishEvent } from '../events/publisher';
+import { canSeeNonActiveMembers, getLiveRole, LiveRole, shapeMemberRows } from '../utils/memberVisibility';
 import {
   sendSuccess,
   sendError,
@@ -21,8 +22,11 @@ router.get('/:communityId/members', async (req: Request, res: Response) => {
   try {
     const { communityId } = req.params;
     const { status = 'active' } = req.query;
+    const callerId = (req as any).user?.userId as string | undefined;
 
-    const result = await query(
+    // BUG-062: only live admins/moderators may list non-active members; emails are admin-only.
+    // The default (active) list can never be forbidden, so its role lookup runs alongside the query.
+    const listMembers = () => query(
       `SELECT
         m.id, m.user_id, m.role, m.status, m.joined_at,
         m.invited_by,
@@ -36,11 +40,23 @@ router.get('/:communityId/members', async (req: Request, res: Response) => {
       ORDER BY m.joined_at ASC`,
       [communityId, status]
     );
+    let callerRole: LiveRole;
+    let result: Awaited<ReturnType<typeof listMembers>>;
+    if (status === 'active') {
+      [callerRole, result] = await Promise.all([getLiveRole(String(communityId), callerId), listMembers()]);
+    } else {
+      callerRole = await getLiveRole(String(communityId), callerId);
+      if (!canSeeNonActiveMembers(callerRole)) {
+        return sendForbidden(res, 'Only community admins or moderators can list non-active members', { requestId: (req as any).id });
+      }
+      result = await listMembers();
+    }
 
+    const rows = shapeMemberRows(result.rows, callerId, callerRole);
     res.json({
       success: true,
-      data: result.rows,
-      count: result.rowCount,
+      data: rows,
+      count: rows.length,
     });
   } catch (error: any) {
     (req as any).logger?.error('Error fetching members', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'GET /:communityId/members' });

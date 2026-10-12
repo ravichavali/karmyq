@@ -29,15 +29,15 @@ not a graveyard of old exceptions.
 ## Two clocks for two kinds of risk
 
 The dependency security gate uses a **calendar clock**. A high-severity advisory with no available
-fix can be exempted for no more than thirty days. Critical findings can never be exempted.
+fix can be exempted for no more than seven days. Critical findings can never be exempted.
 
-That window was seven days until Sprint 125. The point of the shorter window was never the number —
-it was that renewing forced someone to go and re-check the upstream facts. After three consecutive
-cycles where a human re-took the same measurements by hand and got the same answer every time, that
-check moved to a weekly job that queries the live sources and opens an issue the moment anything
-changes. The obligation did not go away; it stopped depending on someone remembering it. The cap is
-now the backstop rather than the trigger, which is why widening it was safe — and why it would stop
-being safe if that job were ever switched off.
+The point of the short window is not the number: renewing forces someone to go and re-check the
+upstream facts. Sprint 125 briefly widened it to thirty days, because a weekly job re-took those
+measurements automatically for the one package it was built for. When that package left the
+dependency tree, the job had nothing left to watch and kept failing. A check that is always red is
+no check at all, so Sprint 133 deleted it and put the window back to seven days. The rule that came
+out of it: the window can only be wider than seven days while a live check watches every exempted
+package.
 
 The Expo compatibility gate uses a **generation clock**. A deliberate departure from Expo's
 recommended package versions is valid only for the Expo SDK major recorded with it. Moving the

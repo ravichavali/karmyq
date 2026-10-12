@@ -1499,7 +1499,7 @@ Found in the Sprint 132 plan review (2026-09-30). Sprint 132 PR C's `directed_re
 
 ---
 
-## BUG-056 · [2026-09-30] · open
+## BUG-056 · [2026-09-30] · **fixed** (Sprint 133 PR S)
 
 **`GET /requests/:id` has no visibility check and returns `requester_email`.** `services/request-service/src/routes/requests.ts:1675-1710` selects the request by id alone (plus `u.email AS requester_email`) for any authenticated caller. `getRequestReachability` runs only to compute `viewer_relation`, and never gates the response. Anyone holding a request id (ids surface in feeds, notifications and links) can read a request outside their communities, including its requester's email. The `community_isolation` RLS policy on `requests.help_requests` (`init.sql:6749`) does not bind the owner connection.
 
@@ -1508,6 +1508,16 @@ Found in the Sprint 132 planning chat (2026-09-30). Sprint 132 PR C adds a 404 f
 - **Severity: MEDIUM** (proposed by Claude 2026-09-30; the maintainer may override). It is cross-community disclosure of request content plus requester email (PII) to any authenticated user. It is not HIGH because it needs a valid request UUID obtained through a legitimate channel, and PR S closes the two HIGH id-leaking reads (notifications, match views).
 - **Owner:** the maintainer owns the visibility-policy decision; Claude implements once it is decided. It stays **separate** from the PR S authorization fixes.
 - **Deadline: 2026-10-14** (the ≤ 2-week SLA for anything below high): decision plus fix, or a written, dated risk acceptance.
+- **Fixed (Sprint 133 PR S; policy: maintainer 2026-10-08).** `GET /requests/:id` is readable when the caller
+  is the requester, a responder on a match of **any** status (a completed helper keeps access after leaving
+  the community), a member of a directed request's audience (the existing `directedAudienceSql` predicate
+  stays in the SQL, so directed asks are no looser), or inside the request's visibility audience
+  (`getRequestReachability`). Anything else gets the same 404 body as a missing id. `requester_email` is no
+  longer selected. One reachability call serves both the gate and `viewer_relation`. **Proof:**
+  `services/request-service/tests/regression/sprint-133-request-detail-visibility.test.ts` (red against the pre-fix
+  route) and `tests/integration/sprint-133-request-detail-visibility.integration.test.ts` (real SQL:
+  same-community 200 / other-community 404 equal to an absent id, platform 200, directed non-audience
+  member 404, completed helper who left 200).
 
 ---
 
@@ -1523,7 +1533,7 @@ Found in the Sprint 132 plan review (2026-09-30). **Scheduled (maintainer, 2026-
 
 ---
 
-## BUG-058 · [2026-10-01] · open · **MEDIUM**
+## BUG-058 · [2026-10-01] · **fixed** (Sprint 133 PR S) · **MEDIUM**
 
 **ADR-059's 30-day exemption cap has no live monitor.** The Sprint 125 amendment raised
 `MAX_EXEMPTION_DAYS` from 7 to 30 (`scripts/audit-exemptions.js:58`). It did so on condition that
@@ -1546,6 +1556,11 @@ That exemption was capped at 7 days by hand to respect the rule.
 
   Either way, close #236.
 - **Owner:** Claude (dependency lane). **Deadline: 2026-10-15** (≤ 2-week SLA).
+- **Fixed (Sprint 133 PR S, option (b), maintainer 2026-10-08):** `MAX_EXEMPTION_DAYS` is 7 again; the
+  workflow, `check-image-size-upstream.js` and `sprint-125-image-size-monitor.test.ts` are deleted;
+  ADR-059 amendment "cap restored to 7 days". `sprint-123-audit-exemption-gate.test.ts` derives its
+  boundary from the constant, pins 7, and proves 7 days accepted / 8 rejected; a live entry stretched to
+  8 days was shown to turn the regression red. #236 is closed after merge.
 
 ---
 
@@ -1595,5 +1610,99 @@ proposed member; the admin check already uses the JWT). Worst case: `POST
 check, so any logged-in user could make themselves admin of any community; it is now admin-only.
 Also fixed: `PUT`/`DELETE /communities/:id`, norm create/approve/delete, `POST`/`PUT`/`DELETE
 /offers`. Whether any of these were exploited on the demo was not investigated.
+
+---
+
+## BUG-062 · [2026-10-08] · **fixed** (Sprint 133 PR S) · **HIGH**
+
+**Member email disclosure.** Found in the Sprint 133 planning chat (Claude). It was established by
+reading the code, not by a live probe.
+
+- `GET /api/users/:userId` is **anonymous**. There is no `authMiddleware` at the mount
+  (`services/auth-service/src/index.ts:59`) or on the route (`routes/users.ts:16`), and it selects
+  `email` (`:21`). Anyone holding a user id gets that user's email.
+- `GET /communities/:id` (`services/community-service/src/routes/communities.ts:344`) and
+  `GET /communities/:communityId/members` (`routes/members.ts:28`) return every member's
+  `user_email` to any authenticated viewer. The People tab is open to non-members. The members list
+  also accepts any `status`, so pending members are listed too.
+- ~~Side bug: `GET /users/me/settings` is shadowed by `GET /users/:userId`.~~ **Withdrawn 2026-10-11:** a real-router probe returned 200 from the settings handler on both the base and PR S heads (2026-10-11): `/:userId` matches one path segment, so it cannot capture `/me/settings`. The
+  original diagnosis came from reading registration order, not from a probe.
+
+This also undercuts BUG-056: dropping `requester_email` from `GET /requests/:id` is pointless while
+`requester_id` plus `/users/:id` gives the same email anonymously.
+
+- **Scheduled (maintainer, 2026-10-08): Sprint 133 PR S.** `/users/:userId` requires auth and returns
+  email to the user themself only. Community detail and members return `user_email` only to live
+  admins (and the caller's own row). Non-admins may list only active members. (The route-order "side bug" above was withdrawn.)
+- **Owner:** Claude. **Deadline: 2026-10-15** (≤ 1-week SLA for HIGH).
+- **Fixed (Sprint 133 PR S).** `GET /users/:userId` takes `authMiddleware` and selects `email` only for
+  the caller's own id. Community detail and `GET /communities/:id/members` shape rows with
+  `services/community-service/src/utils/memberVisibility.ts`: `user_email` only for a **live** active
+  admin (`communities.members`, never the JWT claim) or on the caller's own row; non-active rows
+  (pending join requests and their messages) only for live admins and **moderators**, who approve joins
+  (`members.ts` PUT), and for the member themself (the page derives "pending" from the caller's own row).
+  A non-steward asking the members list for any `status` other than `active` gets 403. The PR's
+  untruncated `.email` inventory found one more site of the same class: `GET /offers/:id` returned
+  `helper_email` to any caller with no client reading it; it is dropped. Remaining email reads are the
+  caller's own (auth, JWT), participant-scoped (`GET /matches/:id`), requester-owner-scoped provider
+  offers (`offersDb.ts`), admin-only export (see BUG-063), internal delivery (notification subscriber)
+  or messaging participants (out of scope). **Proof:** `services/auth-service/tests/regression/sprint-133-user-profile-email.test.ts`,
+  `services/community-service/tests/regression/sprint-133-member-email-admin-only.test.ts` (incl. a JWT claiming
+  admin without a live admin row), and the offers case in the request-service file.
+
+---
+
+## BUG-063 · [2026-10-10] · open · **LOW**
+
+**Community data export always fails: it reads a schema that does not exist.** Every handler in
+`services/community-service/src/routes/export.ts` (`:68`, `:127`, `:287`, `:305`, `:342`, `:367`) queries
+`community.memberships`. The schema is `communities` and the table is `members` (CLAUDE.md *Database*);
+`init.sql` has no `community.memberships`. The admin check therefore throws and the export returns 500 to
+everyone, admins included. It leaks nothing (it fails closed), which is why it is LOW. Found 2026-10-10 by the
+Sprint 133 PR S `.email` inventory (`export.ts:122` and `:301` select member emails for the admin export).
+The frontend calls it (`communityService.exportCommunityData`, `apps/frontend/src/lib/api.ts:295`).
+
+- **Fix:** `communities.members`, plus a real-SQL test that an admin export succeeds and a member gets 403.
+- **Owner:** unassigned. **Deadline: 2026-10-24** (≤ 2-week SLA).
+
+---
+
+## BUG-064 · [2026-10-10] · open · **MEDIUM** (proposed)
+
+**Standing offers have no visibility gate.** `GET /offers` (`services/request-service/src/routes/offers.ts:16-60`)
+lists every `requests.help_offers` row filtered only by optional client-supplied `community_id`/`status`/`type`,
+and `GET /offers/:id` (`:64`) checks only the id. Any authenticated user reads offers (title, description,
+offerer name, community name) from communities they do not belong to. Found 2026-10-10 by the Sprint 133 PR S
+`.email` inventory; `helper_email` was dropped from `/offers/:id` in that PR, but the breadth is a policy
+question (should a standing offer follow its community's membership, like requests?) and was not changed.
+
+- **Reviewer recommendation (PR #301 review, 2026-10-11; not yet a maintainer decision):** community
+  membership plus owner access. BUG-063 should be assigned separately.
+- **Owner:** the maintainer decides the intended visibility; Claude implements. **Deadline: 2026-10-24**
+  (≤ 2-week SLA), or a dated risk acceptance.
+
+---
+
+## BUG-065 · [2026-10-10] · open · **HIGH** (proposed)
+
+**`GET /requests?community_id=X` lists any community's requests to any authenticated user.** The browse
+list (`services/request-service/src/routes/requests.ts` `GET /`, built by `utils/queryBuilder.ts`
+`buildRequestsQuery`) filters only by client-supplied `community_id`/`status`/`type`/`requester_id`, with
+no membership or reachability check. A non-member therefore reads full rows (title, description,
+payload, requirements, requester name) of a community-scoped ask that `GET /requests/:id` now 404s
+(BUG-056), so the detail gate can be bypassed in one call. Found 2026-10-10 by the Sprint 133 PR S
+`/code-review`. **The admin-notes half is fixed in PR S:** `include_admin_notes=true` used to join
+`requests.request_admin_notes` for any caller (the community page sends it for every viewer,
+`useCommunityData.ts:182`); it is now honored only for a live admin/moderator of `community_id`.
+
+- **Open policy question (maintainer):** apply the BUG-056 rule to the list (rows the caller can read:
+  own, any-status match responder, directed audience, or reachable), or restrict `community_id` browsing
+  to live members. Either way, a real-SQL test that an outsider's list omits a community-scope ask.
+- **Reviewer recommendation (PR #301 review, 2026-10-11; not yet a maintainer decision):** use the detail
+  route's visibility boundary for the list, keeping directed requests excluded from public browsing.
+  Membership-only filtering would discard intended cross-community reach (trust-network, platform, sister
+  communities). The reviewer stresses this is still a bypass of the request-privacy boundary until fixed.
+- **Owner:** maintainer decides; Claude implements. **Deadline: 2026-10-17** (≤ 1-week SLA for HIGH), or
+  a dated risk acceptance.
 
 ---

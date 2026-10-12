@@ -11,8 +11,8 @@
  *
  * The wrong answers are dropping the gate to `critical`, or `--no-verify`. Both silently give up
  * the whole gate. This gives up exactly one advisory, for a bounded window, in writing.
- * (That window was seven days through Sprint 124; Sprint 125 raised it to thirty and moved the
- * re-measurement obligation onto a weekly live monitor. See `MAX_EXEMPTION_DAYS` below.)
+ * (Seven days through Sprint 124; Sprint 125 raised it to thirty behind a weekly live monitor;
+ * Sprint 133 (BUG-058) restored seven and retired that monitor. See `MAX_EXEMPTION_DAYS` below.)
  *
  * DESIGN RULES (all enforced below, each with a RED test in
  * tests/regression/sprint-123-audit-exemption-gate.test.ts)
@@ -21,7 +21,7 @@
  *      advisory on the same package must still block.
  *   3. `high` only. `critical` is never exemptible.
  *   4. Rationale, decision reference, owner, created, expires — all required.
- *   5. Expiry at most 30 days after creation, and not in the past.
+ *   5. Expiry at most 7 days after creation, and not in the past.
  *   6. FAIL CLOSED on: malformed entry, expired entry, an exemption that matches nothing
  *      (upstream shipped a fix, or the id was mistyped), and any unexempted high/critical.
  *   7. A parent finding clears only when EVERY advisory reachable through its `via` graph is
@@ -43,19 +43,16 @@ const REGISTRY_PATH = path.join(ROOT, 'security', 'audit-exemptions.json');
 /**
  * Maximum lifetime of any exemption.
  *
- * Sprint 125 (2026-08-17) raised this from 7 to 30 by maintainer decision; ADR-059's amendment
- * "Renewal cadence (Sprint 125)" records the reasoning. It is no longer equal to the high-severity
- * SLA — that decoupling is the point of the change, and the SLA itself is unchanged.
+ * Equal to the high-severity SLA. Sprint 125 raised it to 30 behind a weekly monitor that re-measured
+ * the one exemption it was built for (image-size). That exemption was resolved in Sprint 128, the
+ * monitor watched nothing else, and Sprint 133 (BUG-058, ADR-059 amendment "Cap restored to 7 days")
+ * put the cap back to 7 and deleted the monitor. What keeps the number honest is that every renewal
+ * forces someone to re-measure upstream by hand, at least weekly.
  *
- * What kept the number honest at 7 was that a renewal forced someone to re-measure upstream. That
- * obligation has NOT been dropped; it moved to `.github/workflows/image-size-advisory-watch.yml`,
- * which re-takes the measurements weekly from live arbiters and files an issue the moment a fix,
- * a withdrawal, or a new advisory appears. The cap is the backstop now, not the trigger.
- *
- * ⚠️ Raising this further without an equivalent live monitor would return the registry to being a
- * place where findings are parked and forgotten — the exact failure ADR-059 was written against.
+ * ⚠️ Raising this without a live monitor for EVERY exemption it covers returns the registry to being
+ * a place where findings are parked and forgotten — the exact failure ADR-059 was written against.
  */
-const MAX_EXEMPTION_DAYS = 30;
+const MAX_EXEMPTION_DAYS = 7;
 
 const REQUIRED_FIELDS = [
   'package',
@@ -340,7 +337,11 @@ function runAudit(cwd = ROOT) {
 }
 
 function main() {
-  const result = evaluateAudit(runAudit(), readRegistry());
+  // Local configuration is validated BEFORE the networked audit: a bad KARMYQ_AUDIT_REGISTRY or an
+  // unparseable registry must be refused on its own terms, not masked as "evidence unavailable"
+  // whenever the audit endpoint is degraded. Both paths still fail closed.
+  const registry = readRegistry();
+  const result = evaluateAudit(runAudit(), registry);
 
   for (const c of result.cleared) {
     console.log(`⚠️  EXEMPT (${c.severity}): ${c.package} — via ${c.via.join(', ')}`);

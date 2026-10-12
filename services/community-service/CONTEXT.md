@@ -5,6 +5,13 @@
 
 ## Recent Changes
 
+- **2026-10-10 (Sprint 133 PR S, BUG-062)**: member email is admin-only. `GET /communities/:id` and
+  `GET /communities/:communityId/members` shape rows through `src/utils/memberVisibility.ts`:
+  `user_email` only for a **live** active admin (`communities.members`, never the JWT claim) or on the
+  caller's own row; non-active rows and every `join_request_message` (approval never clears it, so active
+  rows carry it too) only for live admins and moderators (who approve joins) and the member themself. A non-steward asking the members list for
+  `status` ≠ `active` gets 403.
+
 - **2026-10-04 (Sprint 132 PR C, ADR-099)**: stats and export SQL exclude `is_directed`
   requests from request/match lists, counts and per-member engagement joins. Inline
   `/* not-directed */ NOT <alias>.is_directed` uses the same browse rule without importing
@@ -483,6 +490,10 @@ Get communities the user is a member of.
 ### GET /communities/:id
 Get specific community with all members.
 
+**Member visibility (Sprint 133, BUG-062):** `user_email` appears only for a live active admin or on the
+caller's own row. Pending rows appear only for live admins/moderators and for the pending caller's own
+row. The caller's role is read live from `communities.members`.
+
 **Response:**
 ```json
 {
@@ -582,7 +593,10 @@ Archive community (admin only, soft delete). The caller is the JWT user; no body
 Get all members of a community.
 
 **Query Parameters:**
-- `status` - Filter by member status (default: 'active')
+- `status` - Filter by member status (default: 'active'). Any value other than `active` requires a
+  **live** admin or moderator role, else **403** (Sprint 133, BUG-062).
+
+`user_email` is included only for a live active admin or on the caller's own row.
 
 **Response:**
 ```json

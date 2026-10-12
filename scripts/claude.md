@@ -16,7 +16,6 @@ script — prefer those**, since they carry the right arguments and working dire
 | `npm run hooks:install` | `install-hooks.sh` | Installs `git-hooks/` into the **active** hooks dir (once after clone) |
 | Demo health workflow | `check-demo-health.js` | Asserts a demo session can be issued **and** that the story rows are >14 days from cleanup's hard delete. Models the real two-stage deletion predicate (mark sets `updated_at`; delete keys off it) rather than `expires_at + 7 days`, and reports a `basis` so an operator can tell a running clock from an estimate. Read-only; `tests/regression/sprint-129-demo-health-gate.test.ts` proves it can fail |
 | Expo SDK drift workflow | `expo-divergences.js` | Applies the SDK-major-scoped divergence registry to the complete output of Expo's live compatibility check; malformed, stale, or unregistered drift fails closed (ADR-094) |
-| `image-size` advisory watch workflow | `check-image-size-upstream.js` | Re-takes the ADR-059 exemption measurements from live arbiters (npm registry, GitHub advisory API, resolved tree). Exits non-zero only when something is actionable. **Never writes `security/audit-exemptions.json`** — renewal is a reviewed human decision |
 
 `.npmrc` sets `ignore-scripts=true` ([ADR-061](../docs/adr/ADR-061-supply-chain-and-secrets-hardening.md)),
 so `hooks:install` does **not** run automatically on `npm install` — run it by hand after cloning.

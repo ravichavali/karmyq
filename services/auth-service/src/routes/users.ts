@@ -13,12 +13,15 @@ import {
 const router = express.Router();
 
 // GET /users/:userId - Get user profile
-router.get('/:userId', async (req: any, res) => {
+// BUG-062: authenticated only, and `email` is selected only when the caller reads their own profile.
+router.get('/:userId', authMiddleware, async (req: any, res) => {
   try {
     const { userId } = req.params;
+    // UUIDs compare case-insensitively in Postgres, so the self check must too.
+    const email = String(userId).toLowerCase() === String(req.user.userId).toLowerCase() ? 'email, ' : '';
 
     const result = await query(
-      'SELECT id, email, name, bio, avatar_url, created_at, updated_at FROM auth.users WHERE id = $1',
+      `SELECT id, ${email}name, bio, avatar_url, created_at, updated_at FROM auth.users WHERE id = $1`,
       [userId]
     );
 

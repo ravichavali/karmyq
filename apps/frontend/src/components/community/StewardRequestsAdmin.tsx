@@ -555,7 +555,7 @@ export default function StewardRequestsAdmin({
                 <div className="max-h-60 overflow-y-auto space-y-1">
                   {(community?.members ?? [])
                     .filter((m: Member) => m.status === 'active' && m.user_id !== memberPickerRequest?.requester_id)
-                    .filter((m: Member) => !memberPickerSearch || m.user_name.toLowerCase().includes(memberPickerSearch.toLowerCase()) || m.user_email.toLowerCase().includes(memberPickerSearch.toLowerCase()))
+                    .filter((m: Member) => !memberPickerSearch || m.user_name.toLowerCase().includes(memberPickerSearch.toLowerCase()) || (m.user_email ?? '').toLowerCase().includes(memberPickerSearch.toLowerCase()))
                     .map((m: Member) => (
                       <button
                         key={m.user_id}
