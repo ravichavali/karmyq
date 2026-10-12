@@ -815,7 +815,8 @@ CREATE TABLE auth.user_privacy_settings (
     user_id uuid NOT NULL,
     show_my_karma_to_me boolean DEFAULT false,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    share_skills_with_communities boolean DEFAULT true NOT NULL
 );
 
 --
@@ -853,23 +854,6 @@ COMMENT ON TABLE auth.user_request_preferences IS 'User preferences for which re
 --
 
 COMMENT ON COLUMN auth.user_request_preferences.subscribed IS 'Whether user wants to see this request type in their feed';
-
---
--- Name: user_skills; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.user_skills (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    user_id uuid NOT NULL,
-    skill character varying(100) NOT NULL,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
-);
-
---
--- Name: TABLE user_skills; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON TABLE auth.user_skills IS 'DEPRECATED Sprint 132 (ADR-099): superseded by auth.user_tags (tag_type=skill, skill_slug). Kept only so an image rollback still boots; drop in a later sprint.';
 
 --
 -- Name: user_tags; Type: TABLE; Schema: auth; Owner: -
@@ -3079,20 +3063,6 @@ ALTER TABLE ONLY auth.user_request_preferences
     ADD CONSTRAINT user_request_preferences_pkey PRIMARY KEY (user_id, request_type);
 
 --
--- Name: user_skills user_skills_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.user_skills
-    ADD CONSTRAINT user_skills_pkey PRIMARY KEY (id);
-
---
--- Name: user_skills user_skills_user_id_skill_key; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.user_skills
-    ADD CONSTRAINT user_skills_user_id_skill_key UNIQUE (user_id, skill);
-
---
 -- Name: user_tags user_tags_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
 --
 
@@ -4079,12 +4049,6 @@ ALTER TABLE ONLY social_graph.trust_edges
 CREATE INDEX idx_auth_sessions_user_id ON auth.sessions USING btree (user_id);
 
 --
--- Name: idx_auth_user_skills_user_id; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX idx_auth_user_skills_user_id ON auth.user_skills USING btree (user_id);
-
---
 -- Name: idx_auth_users_email; Type: INDEX; Schema: auth; Owner: -
 --
 
@@ -4247,16 +4211,10 @@ CREATE INDEX idx_user_preferences_user ON auth.user_request_preferences USING bt
 CREATE INDEX idx_user_privacy_settings_user_id ON auth.user_privacy_settings USING btree (user_id);
 
 --
--- Name: idx_user_skills_skill; Type: INDEX; Schema: auth; Owner: -
+-- Name: idx_user_tags_skill_slug; Type: INDEX; Schema: auth; Owner: -
 --
 
-CREATE INDEX idx_user_skills_skill ON auth.user_skills USING btree (skill);
-
---
--- Name: idx_user_skills_user_id; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX idx_user_skills_user_id ON auth.user_skills USING btree (user_id);
+CREATE INDEX idx_user_tags_skill_slug ON auth.user_tags USING btree (skill_slug) WHERE ((tag_type)::text = 'skill'::text);
 
 --
 -- Name: idx_user_tags_user_id; Type: INDEX; Schema: auth; Owner: -
@@ -5481,13 +5439,6 @@ ALTER TABLE ONLY auth.user_privacy_settings
 
 ALTER TABLE ONLY auth.user_request_preferences
     ADD CONSTRAINT user_request_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
---
--- Name: user_skills user_skills_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.user_skills
-    ADD CONSTRAINT user_skills_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 --
 -- Name: user_tags user_tags_skill_slug_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
@@ -7114,5 +7065,6 @@ INSERT INTO public.schema_migrations (migration_name) VALUES
   ('20260930-skill-vocabulary.sql'),
   ('20261003-inventory-schema.sql'),
   ('20261004-directed-borrow-delivery.sql'),
-  ('20261004-directed-requests.sql')
+  ('20261004-directed-requests.sql'),
+  ('20261008-skill-visibility.sql')
 ON CONFLICT (migration_name) DO NOTHING;

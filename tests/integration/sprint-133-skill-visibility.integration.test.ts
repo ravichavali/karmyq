@@ -46,6 +46,12 @@ describe('Sprint 133 PR A live skill visibility and opt-out', () => {
     expect(visible.body.data).toEqual(expect.arrayContaining([{ tag_id: tag, label: 'Carpentry', skill_slug: 'carpentry' }]));
     expect(visible.body.data).toHaveLength(2);
     const unknown = await api(other).get(`/auth/skills/users/${randomUUID()}`);
+    const pendingOwner = await api(viewer).get(`/auth/skills/users/${pending}`);
+    expect(pendingOwner.status).toBe(404);
+    expect(error(pendingOwner)).toEqual(error(unknown));
+    const pendingSelf = await api(pending).get(`/auth/skills/users/${pending}`);
+    expect(pendingSelf.status).toBe(200);
+    expect(pendingSelf.body.data.map((skill: any) => skill.label)).toEqual(['Carpentry']);
     for (const id of [other, pending]) {
       const hidden = await read(id);
       expect(hidden.status).toBe(404);

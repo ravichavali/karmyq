@@ -1,7 +1,7 @@
 # Sprint 133 — Skills Depth — Handoff
 
 **Date**: 2026-10-12 (**PR S SHIPPED**, v11.84.0)
-**Status**: **PR S SHIPPED and LIVE; PR A implementation in progress by Codex on the existing branch.** [#301](https://github.com/ravichavali/karmyq/pull/301)
+**Status**: **PR S SHIPPED and LIVE; PR A [#302](https://github.com/ravichavali/karmyq/pull/302) is DRAFT, completing schema/CI validation.** [#301](https://github.com/ravichavali/karmyq/pull/301)
 merged as `278d3306` on 2026-10-12 by `gh pr merge --squash --admin`. The maintainer explicitly authorized the bypass:
 the required review cannot be satisfied when the PR author is the only account. [CI/CD 38302920724](https://github.com/ravichavali/karmyq/actions/runs/38302920724)
 reported DEPLOYMENT SUCCESSFUL, all critical services healthy, no rollback. CI integration job 114576625737 ran
@@ -51,7 +51,7 @@ security PR first closes BUG-056, BUG-062 and BUG-058.
 | PR | Scope | Branch | State |
 |---|---|---|---|
 | **S** | BUG-056 (`GET /requests/:id` gate + drop `requester_email`, directed rules unchanged), BUG-062 (member email: `/users/:userId` auth + self-only; community detail/members admin-only), BUG-058 (cap → 7, monitor retired, #236) | `agent/claude/sprint-133-pr-s-security` | **SHIPPED v11.84.0** ([#301](https://github.com/ravichavali/karmyq/pull/301), `278d3306`, deploy 38302920724, smoke 11/11). Also fixed in review: preferred-provider read, admin-notes gate, `join_request_message` on active rows, `GET /offers/:id` `helper_email`, gate ordering in `audit-exemptions.js`. Logged BUG-063/064/065 |
-| A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, skills setting on `/users/me/settings` (no route-order bug: withdrawn 2026-10-11), drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | Implementation reviewed; pre-commit `npm test` exit 0 (27/27 tasks) on staged implementation based at `3a79b032`, log `precommit-suite-final.log` in the ledger directory. Version target 11.85.0. Generated schema artifact and CI pending; no open PR as of 2026-10-12 live check. |
+| A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, skills setting on `/users/me/settings` (no route-order bug: withdrawn 2026-10-11), drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | **DRAFT [#302](https://github.com/ravichavali/karmyq/pull/302)**, implementation `9297326f` pushed through required pre-push checks (27/27 tasks); tsc x4 exit 0 on that commit. See PR Validation ledger. Version target 11.85.0. [Schema workflow 38312246705](https://github.com/ravichavali/karmyq/actions/runs/38312246705) passed determinism, fresh boot, ledger and replay; artifact reviewed/promoted locally, commit/push and final CI pending. |
 | B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | Not started |
 | D | Curated demo seed: skills, items, endorsements (demo apply needs per-operation authorization) | `agent/claude/sprint-133-pr-d-demo-seed` | Not started |
 
@@ -283,9 +283,16 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
    normalization; no high-confidence security findings. Deferred minor: directory initially shows
    an empty message while loading. Pre-commit process review and full suite passed; the only changes
    since that run are this handoff status and restoration of generated metadata churn.
-   **Next:** commit/push, dispatch `Regenerate init.sql`, review/promote its artifact and verify CI
-   integration tests. Local PostgreSQL is unavailable; do not claim real-SQL
+   **Next:** commit/push the reviewed schema artifact from workflow 38312246705 (exact bytes;
+   diff = privacy column, partial slug index, legacy table objects removed, one migration-ledger
+   row) and extra integration assertions for pending-owner 404/self access. Verify #302 CI on the
+   updated head, including independent-base schema parity and the five-case real-SQL file in the
+   integration log; surface CodeQL api.ts false positives for maintainer triage if raised.
+   Local PostgreSQL is unavailable; do not claim real-SQL
    validation until CI runs. Windows test process needs Git Bash first in PATH: default `bash`
    resolves to WSL with no installed distribution. No route reordering is needed. The ledger is
    `.superpowers/sdd/2026-10-08-sprint-133-skills-depth/progress.md`; PR B/D remain unstarted.
+   Reporting-only root `test:tdd` is missing from Turbo and the hook prints passed after the
+   task error; PR A tests were run directly and promoted to blocking regression, so no TDD-report
+   success is claimed. No merge/deploy is authorized; Codex hands readiness to Claude.
 7. Re-check `node-forge` and `braces` before **2026-10-15**.
