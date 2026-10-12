@@ -1,6 +1,6 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-10-01 (Sprint 132 PR A — skills editor)
+**Last updated**: 2026-10-12 (Sprint 133 PR A — skill visibility)
 
 ## Overview
 
@@ -17,8 +17,27 @@ Saved skill tags include a nullable `skill_slug`; resolved tags display a “mat
 while free-text tags remain accepted and can still reach matching by normalized text. The
 shared API client unwraps the response envelope, so the component reads `res.data` directly.
 Failed tag loads show an error and leave the editor available for a retry by reloading the page.
-The unused `requestService.getMatchedRequests(limit?)` wrapper no longer accepts a user ID;
-the server binds that legacy matched-for-user route to the authenticated caller.
+Sprint 133 PR A removes the unused legacy matched-feed wrapper and server route.
+
+## Sprint 133 PR A — skill sharing and community discovery
+
+Profile adds **Show my skills to people in my communities** beside karma visibility.
+Privacy settings load independently of communities, including before a member joins one.
+The checkbox patches only `share_skills_with_communities`. Loading and failed reads show
+explicit status/retry UI; the checkbox appears after successful loading and is disabled
+while saving. Failed writes keep the saved value and show an error.
+
+The community People tab mounts `FindASkillPanel` only for active membership from live
+community detail (pending and visitor views render no panel and make no skill requests).
+It renders directory chips with counts, searches by full skill text/key, lists matching
+members and opens `MemberSkills` with **View skills**. Both components discard responses
+from earlier community/member requests. Failed fetches have a graceful empty/error state.
+
+`skillsService` uses the auth API client for `/auth/skills/users/:userId`,
+`/auth/skills/communities/:communityId` and its `/search?skill=...` endpoint. Responses are
+already unwrapped. Server-side live membership and sharing checks decide access; frontend
+state is only a display hint. Interests and needs are not exposed on these surfaces.
+Endorsement controls follow in PR B.
 
 ---
 

@@ -33,26 +33,23 @@ beforeEach(() => {
   }));
 });
 
-describe('GET /requests/matched/for-user caller scope', () => {
-  it('uses the authenticated caller when user_id is omitted', async () => {
+describe('Sprint 133 retired legacy matched feed', () => {
+  it('returns 404 for an authenticated caller', async () => {
     const response = await request(app(CALLER)).get('/requests/matched/for-user');
-    expect(response.status).toBe(200);
-    expect(response.body.data).toEqual([{ id: 'caller-request' }]);
-    expect(mockQuery.mock.calls[0][1][0]).toBe(CALLER);
+    expect(response.status).toBe(404);
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 
-  it('ignores a spoofed user_id and still queries only the caller', async () => {
+  it('returns 404 even when a legacy client sends user_id', async () => {
     const response = await request(app(CALLER))
       .get(`/requests/matched/for-user?user_id=${OTHER}&limit=4`);
-    expect(response.status).toBe(200);
-    expect(response.body.data).toEqual([{ id: 'caller-request' }]);
-    expect(mockQuery.mock.calls[0][1]).toEqual([CALLER, '4']);
-    expect(String(mockQuery.mock.calls[0][0])).toMatch(/auth\.user_tags/);
+    expect(response.status).toBe(404);
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 
-  it('rejects a request without an authenticated caller before querying', async () => {
+  it('has no anonymous handler or database access', async () => {
     const response = await request(app()).get(`/requests/matched/for-user?user_id=${OTHER}`);
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(404);
     expect(mockQuery).not.toHaveBeenCalled();
   });
 });

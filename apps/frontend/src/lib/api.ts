@@ -520,9 +520,6 @@ export const requestService = {
   getRequests: (params?: { community_id?: string; status?: string; type?: string; requester_id?: string; limit?: number; offset?: number; include_admin_notes?: boolean }) =>
     requestApi.get('/requests', { params }),
 
-  getMatchedRequests: (limit?: number) =>
-    requestApi.get('/requests/matched/for-user', { params: { limit } }),
-
   // Day 7: Curated feed with match scores. Sprint 85/86 / ADR-066: view='home' returns the
   // decisions+requests union; view='community' returns the requests+activity+story union (no
   // decision band). Both yield { items: UnifiedFeedItem[] }; absent view keeps the legacy shape.
@@ -832,7 +829,7 @@ export const userSettingsService = {
   getPrivacySettings: () =>
     api.get('/users/me/settings'),
 
-  updatePrivacySettings: (settings: { show_my_karma_to_me: boolean }) =>
+  updatePrivacySettings: (settings: { show_my_karma_to_me?: boolean; share_skills_with_communities?: boolean }) =>
     api.patch('/users/me/settings', settings),
 
   getRequestTypePreferences: () =>
@@ -1064,6 +1061,17 @@ export const collectiveService = {
 
   discoverCollectives: (params?: { unlinked_from?: string; limit?: number }) =>
     requestApi.get('/collectives', { params }),
+}
+
+export interface MemberSkill { tag_id: string; label: string; skill_slug: string | null }
+export interface SkillDirectoryEntry { skill_key: string; label: string; member_count: number }
+export interface SkillSearchMember { user_id: string; name: string; skills: Array<{ tag_id: string; label: string }> }
+
+export const skillsService = {
+  getUserSkills: (userId: string) => api.get<MemberSkill[]>(`/auth/skills/users/${userId}`),
+  getCommunitySkillDirectory: (communityId: string) => api.get<SkillDirectoryEntry[]>(`/auth/skills/communities/${communityId}`),
+  searchCommunitySkills: (communityId: string, skill: string) =>
+    api.get<SkillSearchMember[]>(`/auth/skills/communities/${communityId}/search`, { params: { skill } }),
 }
 
 export const trustQuestionsService = {

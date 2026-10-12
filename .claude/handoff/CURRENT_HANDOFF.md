@@ -1,7 +1,7 @@
 # Sprint 133 — Skills Depth — Handoff
 
 **Date**: 2026-10-12 (**PR S SHIPPED**, v11.84.0)
-**Status**: **PR S SHIPPED and LIVE; PR A is next, in a fresh chat.** [#301](https://github.com/ravichavali/karmyq/pull/301)
+**Status**: **PR S SHIPPED and LIVE; PR A implementation in progress by Codex on the existing branch.** [#301](https://github.com/ravichavali/karmyq/pull/301)
 merged as `278d3306` on 2026-10-12 by `gh pr merge --squash --admin`. The maintainer explicitly authorized the bypass:
 the required review cannot be satisfied when the PR author is the only account. [CI/CD 38302920724](https://github.com/ravichavali/karmyq/actions/runs/38302920724)
 reported DEPLOYMENT SUCCESSFUL, all critical services healthy, no rollback. CI integration job 114576625737 ran
@@ -26,13 +26,12 @@ member with 0 leaked emails out of 105 rows; non-steward `?status=pending` 403; 
 2. **Check the precondition first (plan Task S0):** the Sprint 132 closeout PRs (the `shell-quote`/`sharp` + `node-forge`-decision
    advisory fix and BUG-061, commit `4c709023`) are MERGED and deployed, and the Sprint 132 handoff is
    archived. If not, switch to `agent/claude/sprint-132-closeout` and follow its handoff instead.
-3. Reuse the existing PR branch if one exists; otherwise `git fetch origin` then
-   `git switch -c agent/claude/sprint-133-pr-s-security origin/master` and
-   `git merge --no-ff feature/sprint-133-skills-depth` (planning docs ride with PR S). Never branch off
-   a stale local master; unpushed local-master commits leak in via the squash-merge.
+3. Continue PR A on `agent/claude/sprint-133-pr-a-skill-visibility`, assigned to Codex by the
+   maintainer. PR S is shipped; do not recreate its branch. Verify the live tree/PR state and
+   resume the next unchecked PR A action below. Never branch off a stale local master.
 4. Open the plan: [`docs/superpowers/plans/2026-10-08-sprint-133-skills-depth.md`](../../docs/superpowers/plans/2026-10-08-sprint-133-skills-depth.md).
    **One PR section per fresh chat**, in order S → A → B → D.
-5. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`).
+5. PR A uses `superpowers:executing-plans` inline, with migration, whole-branch and process reviewers.
    There is no `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 
 ## Sprint goal
@@ -52,7 +51,7 @@ security PR first closes BUG-056, BUG-062 and BUG-058.
 | PR | Scope | Branch | State |
 |---|---|---|---|
 | **S** | BUG-056 (`GET /requests/:id` gate + drop `requester_email`, directed rules unchanged), BUG-062 (member email: `/users/:userId` auth + self-only; community detail/members admin-only), BUG-058 (cap → 7, monitor retired, #236) | `agent/claude/sprint-133-pr-s-security` | **SHIPPED v11.84.0** ([#301](https://github.com/ravichavali/karmyq/pull/301), `278d3306`, deploy 38302920724, smoke 11/11). Also fixed in review: preferred-provider read, admin-notes gate, `join_request_message` on active rows, `GET /offers/:id` `helper_email`, gate ordering in `audit-exemptions.js`. Logged BUG-063/064/065 |
-| A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, skills setting on `/users/me/settings` (no route-order bug: withdrawn 2026-10-11), drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | Not started |
+| A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, skills setting on `/users/me/settings` (no route-order bug: withdrawn 2026-10-11), drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | Implementation reviewed; pre-commit `npm test` exit 0 (27/27 tasks) on staged implementation based at `3a79b032`, log `precommit-suite-final.log` in the ledger directory. Version target 11.85.0. Generated schema artifact and CI pending; no open PR as of 2026-10-12 live check. |
 | B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | Not started |
 | D | Curated demo seed: skills, items, endorsements (demo apply needs per-operation authorization) | `agent/claude/sprint-133-pr-d-demo-seed` | Not started |
 
@@ -251,9 +250,9 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 | Field | Value |
 |---|---|
 | **Planning branch** | `feature/sprint-133-skills-depth`, base `origin/master` `6041c92c` (docs only) |
-| **Active editor** | Claude (no assignment to Codex yet) |
+| **Active editor** | Codex, assigned by the maintainer 2026-10-12 to execute PR A on the existing branch; shared tree verified clean at `3a79b032` |
 | **Reviewer role** | A non-author reviews each completed diff |
-| **Shared resources** | ADR-100 allocated to this sprint. Dependency lane: Claude. No demo data operation is authorized. |
+| **Shared resources** | ADR-100 allocated to this sprint. Maintainer assigned PR A execution to Codex 2026-10-12; root version stamp only (11.85.0 from current origin/master 11.84.0), re-check before merge. No dependency upgrades or demo data operation are authorized by this task. |
 
 ## Persistent obligations (carried from Sprint 132, unchanged)
 
@@ -276,8 +275,17 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 4. ~~PR S Task S8~~: DONE 2026-10-12 (#301 merged `278d3306`, deploy 38302920724, smoke 11/11, #236 linked).
 5. **Maintainer decisions owed:** BUG-065 (HIGH proposed, `GET /requests` list breadth, due 2026-10-17) and
    BUG-064 (offers visibility). BUG-063 (export reads a nonexistent schema) is unassigned.
-6. **NEXT: PR A in a fresh chat** on `agent/claude/sprint-133-pr-a-skill-visibility` (already cut from
-   `origin/master` `278d3306`; it holds this handoff). Start at plan Task A1. Note 14 is corrected: `/me/settings` is
-   **not** shadowed, so its test is a guard only. `code-review` at high. The SDD ledger for this plan is at
-   `.superpowers/sdd/2026-10-08-sprint-133-skills-depth/progress.md` (S0–S8 complete).
+6. **CURRENT: PR A execution** on `agent/claude/sprint-133-pr-a-skill-visibility`. Codex is the active
+   editor per maintainer assignment 2026-10-12. A1 tests, A3/A4 auth, A5 retirement, A6 frontend and
+   A7/A8 docs are present and new tests promoted to regression. A2 migration passed review;
+   historical Sprint 132 integration tests recreate their old-table precondition transactionally.
+   Whole-branch high review fixed independent privacy loading/retry and exact Unicode search
+   normalization; no high-confidence security findings. Deferred minor: directory initially shows
+   an empty message while loading. Pre-commit process review and full suite passed; the only changes
+   since that run are this handoff status and restoration of generated metadata churn.
+   **Next:** commit/push, dispatch `Regenerate init.sql`, review/promote its artifact and verify CI
+   integration tests. Local PostgreSQL is unavailable; do not claim real-SQL
+   validation until CI runs. Windows test process needs Git Bash first in PATH: default `bash`
+   resolves to WSL with no installed distribution. No route reordering is needed. The ledger is
+   `.superpowers/sdd/2026-10-08-sprint-133-skills-depth/progress.md`; PR B/D remain unstarted.
 7. Re-check `node-forge` and `braces` before **2026-10-15**.

@@ -212,7 +212,7 @@ describe('dotenv config() is quiet (Sprint 131 D1)', () => {
     // resolved, which a file-list check does not. Pins EVERY site, not just services/ — a call
     // under tests/ that stopped resolving would otherwise vanish unnoticed.
     expect(calls.map((c) => `${c.file}:${c.line}`).sort()).toEqual([
-      'services/auth-service/src/index.ts:18',
+      'services/auth-service/src/index.ts:19',
       'services/cleanup-service/src/index.ts:24',
       'services/community-service/src/index.ts:34',
       'services/messaging-service/src/index.ts:15',

@@ -74,6 +74,31 @@
           "method": "POST",
           "path": "/auth/demo-session",
           "description": "Issue a short-lived (30 min) read-only Maria demo session (Sprint 116, ADR-084). No refresh token; token carries sessionMode='demo_read_only'. Every config/state failure returns one opaque 503 DEMO_UNAVAILABLE."
+        },
+        {
+          "method": "GET",
+          "path": "/users/me/settings",
+          "description": "Privacy settings include share_skills_with_communities (default true) and show_my_karma_to_me."
+        },
+        {
+          "method": "PATCH",
+          "path": "/users/me/settings",
+          "description": "Update either or both boolean privacy fields; writes only provided fields."
+        },
+        {
+          "method": "GET",
+          "path": "/auth/skills/users/:userId",
+          "description": "Skill tags visible to self or active co-members when sharing is on; hidden/missing owner gives the same 404. No interests, needs, or email."
+        },
+        {
+          "method": "GET",
+          "path": "/auth/skills/communities/:communityId",
+          "description": "Live active member-only directory of visible skills with distinct member counts; opt-out removes owners from other members’ counts."
+        },
+        {
+          "method": "GET",
+          "path": "/auth/skills/communities/:communityId/search",
+          "description": "Live active member-only exact slug/label/synonym or normalized free-text skill search; visible active members only, limit 50 ordered by name and ID."
         }
       ],
       "dependencies": [],
@@ -86,7 +111,7 @@
         "subscribes": []
       },
       "healthCheck": "http://localhost:3001/health",
-      "notes": "Foundation service - no dependencies on other services. Sprint 132 PR A (ADR-099): auth.user_tags is the matching skill source, with nullable skill_slug referencing auth.skill_vocabulary. Legacy /users/:userId/skills routes removed; auth.user_skills retained only for rollback.",
+      "notes": "Foundation service - no dependencies on other services. Sprint 132 PR A (ADR-099): auth.user_tags is the matching skill source, with nullable skill_slug referencing auth.skill_vocabulary. Legacy /users/:userId/skills routes removed; Sprint 133 PR A (ADR-100): opt-out active co-member skill visibility and exact community discovery; auth.user_skills dropped.",
       "databaseSchemas": [
         "auth"
       ]
@@ -309,11 +334,6 @@
       "path": "services/request-service",
       "apis": [
         "/requests",
-        {
-          "method": "GET",
-          "path": "/requests/matched/for-user",
-          "description": "Authenticated caller's community requests matching their saved skill tags. Membership and skills are bound to the JWT caller; a user_id query is ignored for compatibility."
-        },
         {
           "method": "GET",
           "path": "/requests/:requestId/relationship-context",
@@ -1032,5 +1052,5 @@
       ]
     }
   },
-  "updated": "2026-08-20"
+  "updated": "2026-10-12"
 }

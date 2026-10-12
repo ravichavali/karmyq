@@ -8,8 +8,8 @@
  * `r.requester_id != $1`, never on the viewer's own engagement.
  *
  * Fix: every browsable open-request query excludes requests where the viewer ($1) already has
- * a `proposed`/`matched` match as responder. In requests.ts these are the skill-matched feed
- * (`/matched/for-user`), the curated feed, and the sister-community feed; the generic
+ * a `proposed`/`matched` match as responder. In requests.ts these are the curated feed
+ * and the sister-community feed; the generic
  * `GET /requests` route builds its SQL via `buildRequestsQuery` (utils/queryBuilder.ts), covered
  * behaviorally in tests/unit/queryBuilder.test.ts. Non-open statuses remain excluded by the
  * existing `r.status='open'`.
@@ -36,9 +36,9 @@ describe('Sprint 92 BUG-002: browsable feed excludes the viewer’s already-enga
 
   it('applies the self-engagement exclusion to every browsable requests.ts feed query', () => {
     const matches = flat.match(exclusionRe) ?? [];
-    // /matched/for-user, curated feed, sister-community feed = 3 surfaces in requests.ts.
+    // Curated feed and sister-community feed = 2 surfaces (legacy skill feed retired in Sprint 133).
     // (The generic GET /requests route is covered in tests/unit/queryBuilder.test.ts.)
-    expect(matches.length).toBe(3);
+    expect(matches.length).toBe(2);
   });
 
   it('still scopes the exclusion to live (proposed/matched) engagement, not terminal states', () => {

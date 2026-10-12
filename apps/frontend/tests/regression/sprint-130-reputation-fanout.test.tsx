@@ -36,6 +36,7 @@ jest.mock('@/lib/api', () => ({
   requestService: {},
   collectiveService: {},
   reputationService: { getCommunityTrust: jest.fn(), getTrustScore: jest.fn() },
+  skillsService: { getCommunitySkillDirectory: jest.fn() },
 }))
 jest.mock('@/components/Layout', () => ({
   __esModule: true,
@@ -59,7 +60,7 @@ jest.mock('@/components/community/tabs/TrustGraphTab', () => ({ __esModule: true
 jest.mock('@/components/community/tabs/StewardshipTab', () => ({ __esModule: true, default: () => null }))
 jest.mock('@/components/community/tabs/ProvidersTab', () => ({ __esModule: true, default: () => null }))
 
-const { communityService, reputationService } = require('@/lib/api')
+const { communityService, reputationService, skillsService } = require('@/lib/api')
 
 import React from 'react'
 import CommunitiesPage from '../../src/pages/communities/index'
@@ -117,6 +118,7 @@ async function settle() {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  skillsService.getCommunitySkillDirectory.mockResolvedValue({ data: [] })
   localStorage.clear()
   mockRouter.query = {}
   localStorage.setItem('token', 'not-a-decodable-jwt')

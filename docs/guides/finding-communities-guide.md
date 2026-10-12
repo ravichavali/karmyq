@@ -23,6 +23,18 @@ first one.
 
 ---
 
+## Finding someone with a skill in your community
+
+Open a community you actively belong to and select **People**. **Find a skill** shows
+shared skill names with the number of members sharing each one. Select a skill or enter
+its full name and choose **Search** to see matching members. **View skills** opens that
+member's shared skills.
+
+Search recognizes skill names and synonyms, including custom skills. Use the full skill
+name: “carp” does not match “Carpentry”. Results include up to 50 members, ordered by name.
+Members who have turned skill sharing off are absent from your results and counts.
+Pending members and visitors cannot use this panel.
+
 ## Geography Mode (Default)
 
 When you open the communities page, you're in **Near Me** mode. The page requests your location from the browser and sorts communities by distance from you.

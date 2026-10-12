@@ -102,9 +102,8 @@ Importing `src/index.ts` does not start a server; direct execution still initial
 
 - **2026-10-01 (Sprint 132 PR A, ADR-099)**: `getUserProfile` reads `auth.user_tags` where
   `tag_type='skill'`, using `skill_slug` or lowercase trimmed text with non-alphanumeric runs
-  replaced by underscores. `/requests/matched/for-user` keeps its category mapping and reads
-  canonical `skill_slug` values from skill tags. That route now binds membership and skills to
-  the authenticated caller; an omitted or spoofed `user_id` query cannot select another member.
+  replaced by underscores. Sprint 133 PR A retires the legacy matched-feed route; the
+  curated feed continues using the canonical skill store.
   No matching code reads the deprecated
   `auth.user_skills`. Curated response and shared scoring contracts are unchanged.
 
@@ -535,36 +534,11 @@ Get all help requests with optional filters.
 
 **Implementation:** `src/routes/requests.ts:8`
 
-#### GET /requests/matched/for-user
-Get requests matching the authenticated caller's skills from their communities (skill-based matching algorithm).
+#### Retired legacy matched feed (Sprint 133 PR A)
 
-**Query Parameters:**
-- `user_id` (ignored for compatibility) - Cannot select another member; the JWT caller is used
-- `limit` (number) - Max results (default: 10)
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": [{
-    "id": "uuid",
-    "title": "Need help moving furniture",
-    "category": "moving",
-    "urgency": "high",
-    "urgency_priority": 3,
-    "community_name": "Seattle Mutual Aid",
-    "requester_name": "Alice Smith",
-    "created_at": "2025-01-10T12:00:00Z"
-  }],
-  "count": 1
-}
-```
-
-**Algorithm:**
-- Orders by urgency (high=3, medium=2, low=1) then creation date
-- Matches based on category-to-skill mapping (see Section 5.2)
-- Excludes user's own requests
-- Only includes communities user is a member of
+The legacy matched-feed route and unused frontend wrapper are removed. Use the curated
+feed, which still reads caller skill tags through `getUserProfile`. Retirement tests assert
+404 without DB access for authenticated, anonymous and legacy query callers.
 
 #### GET /requests/curated (v9.18 + ADR-048 Feed Ranking v2, amended by ADR-082)
 Get curated feed scored on **six** signals: skill match, trust DISTANCE (caller-relative degrees),
@@ -2460,11 +2434,6 @@ curl -X POST http://localhost:3003/requests \
   }'
 ```
 
-**Get Matched Requests:**
-```bash
-curl -H "Authorization: Bearer $TOKEN" "http://localhost:3003/requests/matched/for-user?limit=5"
-```
-
 **Complete Match:**
 ```bash
 curl -X PUT http://localhost:3003/matches/uuid-here \
@@ -2618,7 +2587,7 @@ router.get('/health', async (req, res) => {
 
 #### Issue: Skill-based matching returns no results
 
-**Symptoms:** `GET /requests/matched/for-user` returns empty array
+**Symptoms:** The curated feed has no matching results
 
 **Diagnosis:**
 1. Check user has skills:

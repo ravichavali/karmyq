@@ -21,9 +21,8 @@ slugs, labels or synonyms. Legacy text outside the vocabulary is preserved with 
 slug; exact tag-text collisions keep the existing tag. Replaying the migration leaves tag
 IDs and values unchanged. Vocabulary rows also live in `seed-data.sql` for fresh installations.
 
-`auth.user_skills` is deprecated and retained for image rollback. New code neither writes nor
-reads it for matching. Tags created after this migration are not mirrored to the legacy table,
-so a rolled-back image retains the old skill snapshot until the new images are restored.
+`auth.user_skills` was retained for image rollback through Sprint 132 and is dropped by
+Sprint 133 PR A. Current and rollback images read `auth.user_tags` for matching.
 
 `GET /auth/profile/tags` returns current-caller tags grouped as `skills`, `interests`, `needs`,
 with `{ id, tag_value, skill_slug }` per tag. `POST /auth/profile/tags` accepts `tag_type` and
@@ -35,6 +34,31 @@ GET, POST and DELETE remain caller-scoped. The existing tag uniqueness constrain
 interest and need suggestions retain their constants. The three legacy
 `GET/POST /users/:userId/skills` and `DELETE /users/:userId/skills/:skillId` handlers are removed
 and return 404. The profile uses only `ProfileTagsSection` and displays a "matched to" hint.
+
+### Sprint 133 PR A — skill visibility and discovery (ADR-100)
+
+`20261008-skill-visibility.sql` adds `user_privacy_settings.share_skills_with_communities`
+(boolean, NOT NULL, default true), a partial skill-slug index on `auth.user_tags`, and drops
+`auth.user_skills`. Missing privacy rows default to sharing on. The owner always sees their
+own skills; other readers need sharing enabled and live active co-membership.
+`src/db/skillVisibility.ts` supplies the single `skillVisibleToSql` predicate and the live
+`activeMemberSql` community gate. Each skill query uses the predicate with the JWT caller
+bound as a parameter, never a JWT membership claim.
+
+| Method | Path | Data / audience |
+|---|---|---|
+| GET | `/users/me/settings` | Includes `share_skills_with_communities`; no row defaults to true. |
+| PATCH | `/users/me/settings` | Either or both `show_my_karma_to_me` and `share_skills_with_communities`; at least one boolean required, only provided fields written. |
+| GET | `/auth/skills/users/:userId` | Visible skill tags `{tag_id,label,skill_slug}`. Hidden/missing owner returns the same 404; visible owner without tags returns `[]`. |
+| GET | `/auth/skills/communities/:communityId` | Live active member only; visible skill keys and distinct member counts `{skill_key,label,member_count}`. |
+| GET | `/auth/skills/communities/:communityId/search?skill=...` | Live active member only; exact vocabulary slug/label/synonym or normalized free-text key. Up to 50 members ordered by name/ID, each `{user_id,name,skills:[{tag_id,label}]}`. |
+
+All `/auth/skills` routes require JWT auth and the standard rate limiter. UUID params and
+trimmed search text (1–100 characters) are validated. Opting out removes skills from all
+three co-member surfaces (profile, search, directory counts), while the self exception
+remains. Interests, needs, email and profile details are not returned. Endorsements follow
+in PR B; opt-out will not delete vouches or change the trust graph. `/me/settings` needed
+no route reorder; its test remains a real-router guard.
 
 ### Tables Owned by This Service
 
