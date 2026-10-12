@@ -102,4 +102,14 @@ describe('Sprint 133 PR A live skill visibility and opt-out', () => {
       }
     } finally { await pool.query('DELETE FROM auth.user_tags WHERE id=$1', [unicodeTag]); }
   });
+
+  it('counts an owner once when multiple tag labels resolve to the same skill', async () => {
+    const duplicateTag = randomUUID();
+    await pool.query("INSERT INTO auth.user_tags(id,user_id,tag_type,tag_value,skill_slug) VALUES ($1,$2,'skill','carpentry','carpentry')", [duplicateTag, owner]);
+    try {
+      expect((await directory()).body.data.find((row: any) => row.skill_key === 'carpentry').member_count).toBe(2);
+      expect((await api(owner).patch('/users/me/settings').send({ share_skills_with_communities: false })).status).toBe(200);
+      expect((await directory()).body.data.find((row: any) => row.skill_key === 'carpentry').member_count).toBe(1);
+    } finally { await pool.query('DELETE FROM auth.user_tags WHERE id=$1', [duplicateTag]); }
+  });
 });

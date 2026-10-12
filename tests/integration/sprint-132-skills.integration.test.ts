@@ -8,10 +8,6 @@ import authPool from '../../services/auth-service/src/database/db';
 import { resolveSkillSlug } from '../../services/auth-service/src/services/skillVocabulary';
 
 const migration = readFileSync(join(__dirname, '../../infrastructure/postgres/migrations/20260930-skill-vocabulary.sql'), 'utf8');
-// Sprint 133 drops the old table. These historical preservation tests reconstruct their
-// pre-migration schema inside the rollback transaction from the original migration source.
-const legacyTable = readFileSync(join(__dirname, '../../infrastructure/postgres/migrations/002_add_skills_and_community_access.sql'), 'utf8')
-  .match(/CREATE TABLE IF NOT EXISTS auth\.user_skills\s*\([\s\S]*?\);/)![0];
 
 describe('Sprint 132 PR A: skill preservation and real SQL resolution', () => {
   const pool = createPool();
@@ -26,7 +22,15 @@ describe('Sprint 132 PR A: skill preservation and real SQL resolution', () => {
   beforeEach(async () => {
     client = await pool.connect();
     await client.query('BEGIN');
-    await client.query(legacyTable);
+    // Fixed historical fixture from 002_add_skills_and_community_access.sql:5–11.
+    // Reconstruct inside this rollback transaction: Sprint 133 drops the live table.
+    await client.query(`CREATE TABLE IF NOT EXISTS auth.user_skills (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+      skill VARCHAR(100) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, skill)
+    )`);
     userId = randomUUID();
     await client.query(
       'INSERT INTO auth.users (id, name, email, password_hash) VALUES ($1, $2, $3, $4)',

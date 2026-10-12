@@ -51,7 +51,7 @@ security PR first closes BUG-056, BUG-062 and BUG-058.
 | PR | Scope | Branch | State |
 |---|---|---|---|
 | **S** | BUG-056 (`GET /requests/:id` gate + drop `requester_email`, directed rules unchanged), BUG-062 (member email: `/users/:userId` auth + self-only; community detail/members admin-only), BUG-058 (cap → 7, monitor retired, #236) | `agent/claude/sprint-133-pr-s-security` | **SHIPPED v11.84.0** ([#301](https://github.com/ravichavali/karmyq/pull/301), `278d3306`, deploy 38302920724, smoke 11/11). Also fixed in review: preferred-provider read, admin-notes gate, `join_request_message` on active rows, `GET /offers/:id` `helper_email`, gate ordering in `audit-exemptions.js`. Logged BUG-063/064/065 |
-| A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, skills setting on `/users/me/settings` (no route-order bug: withdrawn 2026-10-11), drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | **DRAFT [#302](https://github.com/ravichavali/karmyq/pull/302)**, implementation `9297326f` pushed through required pre-push checks (27/27 tasks); tsc x4 exit 0 on that commit. See PR Validation ledger. Version target 11.85.0. [Schema workflow 38312246705](https://github.com/ravichavali/karmyq/actions/runs/38312246705) passed determinism, fresh boot, ledger and replay; artifact reviewed/promoted locally, commit/push and final CI pending. |
+| A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, skills setting on `/users/me/settings` (no route-order bug: withdrawn 2026-10-11), drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | **DRAFT [#302](https://github.com/ravichavali/karmyq/pull/302)**, implementation `9297326f` + generated schema `f3ec5e8b` pushed through required pre-push checks (27/27 tasks); tsc x4 exit 0 on implementation commit. See PR Validation ledger. Version target 11.85.0. [Independent schema parity 38313201135](https://github.com/ravichavali/karmyq/actions/runs/38313201135) **passed byte-for-byte** on `f3ec5e8b`. [Integration job 115024394405](https://github.com/ravichavali/karmyq/actions/runs/38313201111/job/115024394405): skill visibility **5/5**, historical skills **9/9**, whole integration **138/138** + curated reset **2/2**. CodeQL blocked on #603–606; triage below. |
 | B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | Not started |
 | D | Curated demo seed: skills, items, endorsements (demo apply needs per-operation authorization) | `agent/claude/sprint-133-pr-d-demo-seed` | Not started |
 
@@ -283,11 +283,15 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
    normalization; no high-confidence security findings. Deferred minor: directory initially shows
    an empty message while loading. Pre-commit process review and full suite passed; the only changes
    since that run are this handoff status and restoration of generated metadata churn.
-   **Next:** commit/push the reviewed schema artifact from workflow 38312246705 (exact bytes;
-   diff = privacy column, partial slug index, legacy table objects removed, one migration-ledger
-   row) and extra integration assertions for pending-owner 404/self access. Verify #302 CI on the
-   updated head, including independent-base schema parity and the five-case real-SQL file in the
-   integration log; surface CodeQL api.ts false positives for maintainer triage if raised.
+   **Next:** commit/push the fixed historical table fixture (literal original DDL instead of
+   filesystem/regex-derived SQL, resolving CodeQL #606 without a dismissal). The generated schema
+   is already pushed as `f3ec5e8b` and independent-base byte parity passed. CodeQL #603–605 are the
+   documented `js/request-forgery` class on new fixed-prefix Axios calls in `api.ts:1071–1074`.
+   **Explicit maintainer dismissal authorization requested, not yet received** (2026-10-12);
+   do not dismiss until authorized. Real-SQL evidence at `f3ec5e8b` is verified; an extra sixth case
+   adds two tag labels for one owner to prove directory counts are distinct members, then opt-out
+   drops the count exactly once. Re-verify CI on the updated head (including literal fixture and
+   expanded six-case visibility file); keep draft until the code-scanning gate is green.
    Local PostgreSQL is unavailable; do not claim real-SQL
    validation until CI runs. Windows test process needs Git Bash first in PATH: default `bash`
    resolves to WSL with no installed distribution. No route reordering is needed. The ledger is
