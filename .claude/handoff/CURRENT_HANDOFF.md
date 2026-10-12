@@ -1,7 +1,7 @@
 # Sprint 133 — Skills Depth — Handoff
 
 **Date**: 2026-10-12 (**PR S SHIPPED**, v11.84.0)
-**Status**: **PR S SHIPPED and LIVE; PR A [#302](https://github.com/ravichavali/karmyq/pull/302) is DRAFT, completing schema/CI validation.** [#301](https://github.com/ravichavali/karmyq/pull/301)
+**Status**: **PR S SHIPPED and LIVE; PR A [#302](https://github.com/ravichavali/karmyq/pull/302) is DRAFT, implemented and validated, awaiting only CodeQL false-positive dismissal authorization.** [#301](https://github.com/ravichavali/karmyq/pull/301)
 merged as `278d3306` on 2026-10-12 by `gh pr merge --squash --admin`. The maintainer explicitly authorized the bypass:
 the required review cannot be satisfied when the PR author is the only account. [CI/CD 38302920724](https://github.com/ravichavali/karmyq/actions/runs/38302920724)
 reported DEPLOYMENT SUCCESSFUL, all critical services healthy, no rollback. CI integration job 114576625737 ran
@@ -51,7 +51,7 @@ security PR first closes BUG-056, BUG-062 and BUG-058.
 | PR | Scope | Branch | State |
 |---|---|---|---|
 | **S** | BUG-056 (`GET /requests/:id` gate + drop `requester_email`, directed rules unchanged), BUG-062 (member email: `/users/:userId` auth + self-only; community detail/members admin-only), BUG-058 (cap → 7, monitor retired, #236) | `agent/claude/sprint-133-pr-s-security` | **SHIPPED v11.84.0** ([#301](https://github.com/ravichavali/karmyq/pull/301), `278d3306`, deploy 38302920724, smoke 11/11). Also fixed in review: preferred-provider read, admin-notes gate, `join_request_message` on active rows, `GET /offers/:id` `helper_email`, gate ordering in `audit-exemptions.js`. Logged BUG-063/064/065 |
-| A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, skills setting on `/users/me/settings` (no route-order bug: withdrawn 2026-10-11), drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | **DRAFT [#302](https://github.com/ravichavali/karmyq/pull/302)**, implementation `9297326f` + generated schema `f3ec5e8b` pushed through required pre-push checks (27/27 tasks); tsc x4 exit 0 on implementation commit. See PR Validation ledger. Version target 11.85.0. [Independent schema parity 38313201135](https://github.com/ravichavali/karmyq/actions/runs/38313201135) **passed byte-for-byte** on `f3ec5e8b`. [Integration job 115024394405](https://github.com/ravichavali/karmyq/actions/runs/38313201111/job/115024394405): skill visibility **5/5**, historical skills **9/9**, whole integration **138/138** + curated reset **2/2**. CodeQL blocked on #603–606; triage below. |
+| A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, skills setting on `/users/me/settings` (no route-order bug: withdrawn 2026-10-11), drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | **DRAFT [#302](https://github.com/ravichavali/karmyq/pull/302)**, implementation `9297326f`, generated schema `f3ec5e8b`, constant historical DDL + distinct-count test `dc0fa849`; all pushed through required pre-push checks (27/27 tasks). tsc x4 exit 0 on implementation commit. Version target 11.85.0, live master still 11.84.0 (`278d3306`). [Independent schema parity 38314874105](https://github.com/ravichavali/karmyq/actions/runs/38314874105) **passed byte-for-byte** on `dc0fa849`. [Integration job 115030114933](https://github.com/ravichavali/karmyq/actions/runs/38314874262/job/115030114933) on `dc0fa849`: visibility **6/6**, historical skills **9/9**, whole integration **139/139** + curated reset **2/2**, actual job log verified. Backend, frontend, auth, Docker build, landing build, lint, audit and PR contract passed. CodeQL #606 **fixed without dismissal**; only #603–605 block. See PR Validation ledger and triage below. |
 | B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | Not started |
 | D | Curated demo seed: skills, items, endorsements (demo apply needs per-operation authorization) | `agent/claude/sprint-133-pr-d-demo-seed` | Not started |
 
@@ -281,19 +281,25 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
    historical Sprint 132 integration tests recreate their old-table precondition transactionally.
    Whole-branch high review fixed independent privacy loading/retry and exact Unicode search
    normalization; no high-confidence security findings. Deferred minor: directory initially shows
-   an empty message while loading. Pre-commit process review and full suite passed; the only changes
-   since that run are this handoff status and restoration of generated metadata churn.
-   **Next:** commit/push the fixed historical table fixture (literal original DDL instead of
-   filesystem/regex-derived SQL, resolving CodeQL #606 without a dismissal). The generated schema
-   is already pushed as `f3ec5e8b` and independent-base byte parity passed. CodeQL #603–605 are the
+   an empty message while loading. Pre-commit process review and full suite passed before each
+   code/test/schema commit; all three pushes passed required hooks. Changes after `dc0fa849` are
+   handoff-only. Independent-base byte parity passed on that commit. The literal original historical
+   table fixture resolved CodeQL #606 without a dismissal: its PR instance reports fixed after
+   [analysis 38314870074](https://github.com/ravichavali/karmyq/actions/runs/38314870074).
+   **Next:** resolve only the three CodeQL false positives. CodeQL #603–605 are the
    documented `js/request-forgery` class on new fixed-prefix Axios calls in `api.ts:1071–1074`.
    **Explicit maintainer dismissal authorization requested, not yet received** (2026-10-12);
-   do not dismiss until authorized. Real-SQL evidence at `f3ec5e8b` is verified; an extra sixth case
-   adds two tag labels for one owner to prove directory counts are distinct members, then opt-out
-   drops the count exactly once. Re-verify CI on the updated head (including literal fixture and
-   expanded six-case visibility file); keep draft until the code-scanning gate is green.
-   Local PostgreSQL is unavailable; do not claim real-SQL
-   validation until CI runs. Windows test process needs Git Bash first in PATH: default `bash`
+   do not dismiss until authorized (CLAUDE.md:347–349 says to surface this class to the user).
+   Real-SQL evidence at `dc0fa849` is verified: the sixth case adds two tag labels for one owner
+   to prove directory counts are distinct members, then opt-out
+   drops the count exactly once. [Integration job 115030114933](https://github.com/ravichavali/karmyq/actions/runs/38314874262/job/115030114933)
+   passed **6/6** new visibility cases, **9/9** historical skills, **139/139** total + curated reset
+   **2/2**. Keep draft until the code-scanning gate is green. [Gate 115028996449](https://github.com/ravichavali/karmyq/actions/runs/38314874262/job/115028996449)
+   confirmed exactly #603–605 after both required analyses on `dc0fa849`. No dismissals performed.
+   After authorized dismissal, re-run the failed checks and hand readiness to Claude; Admin merge
+   authorization and deployment/smoke remain outstanding. No PR B branch before PR A deploys.
+   Local PostgreSQL is unavailable; real-SQL evidence comes from actual CI job logs, not mocks.
+   Windows test process needs Git Bash first in PATH: default `bash`
    resolves to WSL with no installed distribution. No route reordering is needed. The ledger is
    `.superpowers/sdd/2026-10-08-sprint-133-skills-depth/progress.md`; PR B/D remain unstarted.
    Reporting-only root `test:tdd` is missing from Turbo and the hook prints passed after the
