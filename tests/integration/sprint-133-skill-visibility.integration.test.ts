@@ -43,7 +43,10 @@ describe('Sprint 133 PR A live skill visibility and opt-out', () => {
   it('shows only skills to an active co-member with no privacy row; outsiders and pending members get indistinguishable 404s', async () => {
     const visible = await read(viewer);
     expect(visible.status).toBe(200);
-    expect(visible.body.data).toEqual(expect.arrayContaining([{ tag_id: tag, label: 'Carpentry', skill_slug: 'carpentry' }]));
+    // PR B (ADR-100) adds vouch fields; this viewer has no completed match with the owner.
+    expect(visible.body.data).toEqual(expect.arrayContaining([{
+      tag_id: tag, label: 'Carpentry', skill_slug: 'carpentry', endorsement_count: 0, endorsed_by_me: false, can_endorse: false,
+    }]));
     expect(visible.body.data).toHaveLength(2);
     const unknown = await api(other).get(`/auth/skills/users/${randomUUID()}`);
     const pendingOwner = await api(viewer).get(`/auth/skills/users/${pending}`);
