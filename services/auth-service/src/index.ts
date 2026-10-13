@@ -6,13 +6,14 @@ import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import preferencesRoutes from './routes/preferences'; // Day 8
 import profileTagsRoutes from './routes/profileTags';
+import skillsRoutes from './routes/skills';
 import pushTokensRoutes from './routes/pushTokens';
 import foundingCircleRoutes from './routes/foundingCircle';
 import { initDatabase } from './database/db';
 import { initEventPublisher } from './events/publisher';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import { reportDemoSessionHealth } from './services/demoSessionSelfCheck';
-import { globalRateLimiter, rateLimiters, normalizeRequestBody } from '@karmyq/shared/middleware';
+import { globalRateLimiter, rateLimiters, normalizeRequestBody, authMiddleware } from '@karmyq/shared/middleware';
 import { requestIdMiddleware, sendSuccess, sendInternalError } from '@karmyq/shared/utils/response';
 
 dotenv.config({ quiet: true });
@@ -55,6 +56,7 @@ app.get('/health', (req: any, res) => {
 });
 
 // Routes with specific rate limits
+app.use('/auth/skills', rateLimiters.standard, authMiddleware, skillsRoutes);
 app.use('/auth', rateLimiters.auth, authRoutes); // Stricter limit for auth
 app.use('/users', rateLimiters.standard, userRoutes);
 app.use('/preferences', rateLimiters.standard, preferencesRoutes); // Day 8

@@ -9,7 +9,8 @@ items/shares. Request hard deletion cascades its pending delivery intents. This 
 adds no demo operation authorization; the disposable CI curated reset gate verifies it.
 
 Sprint 132 PR A: `TABLE_POLICY` preserves `auth.skill_vocabulary` as global reference data.
-Member `auth.user_tags` and the deprecated `auth.user_skills` remain reset tables. No demo reset
+Member `auth.user_tags` remains a reset table. Sprint 133 PR A drops `auth.user_skills` and
+removes its reset classification. No demo reset
 or seed operation is part of this PR; `sprint-132-skill-vocabulary-preserved.test.ts` proves the
 vocabulary classification independently of user data.
 

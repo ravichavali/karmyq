@@ -775,6 +775,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented (Sprint 132: PR A v11.78.0, PR B v11.79.0, PR C v11.81.0; all deployed and smoke-tested by 2026-10-06)",
       "filename": "ADR-099-inventories-and-directed-requests.md"
+    },
+    {
+      "slug": "adr-100-skill-visibility-and-endorsements",
+      "number": "100",
+      "title": "ADR-100: Skill Visibility and Endorsements",
+      "status": "accepted",
+      "description": "**Status**: Accepted",
+      "filename": "ADR-100-skill-visibility-and-endorsements.md"
     }
   ]
 }

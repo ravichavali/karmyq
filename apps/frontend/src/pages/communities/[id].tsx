@@ -11,6 +11,7 @@ import TrustGraphTab from '@/components/community/tabs/TrustGraphTab'
 import StewardshipTab from '@/components/community/tabs/StewardshipTab'
 import ProvidersTab from '@/components/community/tabs/ProvidersTab'
 import InventoryTab from '@/components/community/tabs/InventoryTab'
+import FindASkillPanel from '@/components/skills/FindASkillPanel'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import { decodeJwtPayload } from '@/lib/jwt'
 import { useCommunityPulse } from '@/hooks/useCommunityPulse'
@@ -261,12 +262,15 @@ export default function CommunityDetailPage() {
             )
           )}
           {activeTab === 'people' && (
+            <>
+            <FindASkillPanel key={communityId} communityId={communityId!} isMember={!!isMember} />
             <ActiveTab
               community={community} norms={norms}
               currentUser={currentUser} isAdmin={isAdmin ?? false} isAdminOrMod={isAdminOrMod ?? false}
               isMember={isMember ?? false} communityId={communityId!}
               refetchCommunity={refetchCommunity} refetchNorms={refetchNorms}
             />
+            </>
           )}
           {activeTab === 'connected' && isMember && (
             <TrustGraphTab communityId={communityId!} currentUserId={currentUser?.id ?? ''} />

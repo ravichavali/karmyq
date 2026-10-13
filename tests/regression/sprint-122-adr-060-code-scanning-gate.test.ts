@@ -85,7 +85,9 @@ const BOTH_CATEGORIES = ['/language:actions', '/language:javascript-typescript']
 function runGate(scenario: Scenario): { code: number; out: string } {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'adr060-'))
   try {
-    fs.writeFileSync(path.join(work, 'gate.sh'), extractGateScript())
+    // Mock only the polling delay. A shell function resolves before external executables on
+    // both Linux and Git Bash; the PATH sleep stub can resolve to /usr/bin/sleep on Windows.
+    fs.writeFileSync(path.join(work, 'gate.sh'), 'sleep() { :; }\n' + extractGateScript())
     fs.writeFileSync(
       path.join(work, 'config.json'),
       JSON.stringify({
@@ -185,12 +187,6 @@ node "${work.replace(/\\/g, '/')}/stub.js" "$url" "$jqexpr"
 `
     )
     fs.chmodSync(ghPath, 0o755)
-
-    // Stub `sleep` to a no-op: the real script retries 10x with `sleep 30`, so a script that stops
-    // finding analyses would otherwise hang this suite for 5 minutes per case.
-    const sleepPath = path.join(work, 'sleep')
-    fs.writeFileSync(sleepPath, '#!/usr/bin/env bash\nexit 0\n')
-    fs.chmodSync(sleepPath, 0o755)
 
     const env = {
       ...process.env,

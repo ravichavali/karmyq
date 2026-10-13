@@ -42,7 +42,6 @@ export const TABLE_POLICY: Record<string, TablePolicy> = {
   'auth.users': 'reset',
   'auth.sessions': 'reset',
   'auth.refresh_tokens': 'reset',
-  'auth.user_skills': 'reset',
   'auth.user_invitations': 'reset',
   'auth.social_distances': 'reset',
   'auth.inviter_stats': 'reset',

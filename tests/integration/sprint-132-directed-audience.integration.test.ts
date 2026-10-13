@@ -161,7 +161,7 @@ describe('Sprint 132 PR C directed borrow audience', () => {
     expect((await pool.query("SELECT id FROM notifications.notifications WHERE type='directed_request_created' AND data->>'request_id'=$1", [delayed.id])).rows).toEqual([]);
     expect((await pool.query('SELECT delivered_at IS NOT NULL AS handled FROM inventory.borrow_notification_outbox WHERE request_id=$1', [delayed.id])).rows).toEqual([{ handled: true }]);
   });
-  it.each(['feed', 'curated', `community/${C}/open-asks`, 'matched/for-user'])('excludes ask from %s for requester, recipient and third member', async (surface) => {
+  it.each(['feed', 'curated', `community/${C}/open-asks`])('excludes ask from %s for requester, recipient and third member', async (surface) => {
     for (const userId of [R, O, M]) {
       const res = await api(userId, 'get', `/requests/${surface}`); expect(res.status).toBe(200);
       const data = res.body.data; const rows = Array.isArray(data) ? data : data.items ?? data.requests ?? [];

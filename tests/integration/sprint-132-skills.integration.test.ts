@@ -22,6 +22,15 @@ describe('Sprint 132 PR A: skill preservation and real SQL resolution', () => {
   beforeEach(async () => {
     client = await pool.connect();
     await client.query('BEGIN');
+    // Fixed historical fixture from 002_add_skills_and_community_access.sql:5–11.
+    // Reconstruct inside this rollback transaction: Sprint 133 drops the live table.
+    await client.query(`CREATE TABLE IF NOT EXISTS auth.user_skills (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+      skill VARCHAR(100) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, skill)
+    )`);
     userId = randomUUID();
     await client.query(
       'INSERT INTO auth.users (id, name, email, password_hash) VALUES ($1, $2, $3, $4)',

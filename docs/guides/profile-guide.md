@@ -19,6 +19,19 @@ selections appear here too. A hint such as **matched to Tutoring** means Karmyq 
 skill, including a phrase such as "Spanish tutoring". These skills help rank requests in your feed.
 You can still add a skill that has no hint; its text is also used for matching.
 
+## Who can see your skills
+
+By default, people who currently share an active community membership with you can see
+your skills. Interests and needs stay in your own profile editor.
+
+In Profile, use **Show my skills to people in my communities** to turn sharing off. Your
+skills disappear from other members' skill views, community search and directory counts.
+You still see and edit them, and your feed still uses them for matching. You can turn
+sharing back on at any time. The setting also works before you join your first community.
+
+Leaving a shared community removes that access; pending membership does not grant it.
+Skill sharing does not remove vouches or change trust relationships.
+
 ## Page Layout
 
 The Profile page uses the same warm shell as Dashboard and Community pages: a single reading measure,

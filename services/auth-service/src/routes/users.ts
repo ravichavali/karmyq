@@ -76,7 +76,7 @@ router.get('/me/settings', authMiddleware, async (req: AuthenticatedRequest, res
     const userId = req.user.userId;
 
     const result = await query(
-      `SELECT user_id, show_my_karma_to_me, created_at, updated_at
+      `SELECT user_id, show_my_karma_to_me, share_skills_with_communities, created_at, updated_at
        FROM auth.user_privacy_settings
        WHERE user_id = $1`,
       [userId]
@@ -87,6 +87,7 @@ router.get('/me/settings', authMiddleware, async (req: AuthenticatedRequest, res
       return sendSuccess(res, {
         user_id: userId,
         show_my_karma_to_me: false,
+        share_skills_with_communities: true,
         created_at: null,
         updated_at: null
       }, HTTP_STATUS.OK, { requestId: (req as any).id });
@@ -104,21 +105,23 @@ router.get('/me/settings', authMiddleware, async (req: AuthenticatedRequest, res
 router.patch('/me/settings', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user.userId;
-    const { show_my_karma_to_me } = req.body;
-
-    if (typeof show_my_karma_to_me !== 'boolean') {
-      return sendValidationError(res, 'show_my_karma_to_me must be a boolean', undefined, { requestId: (req as any).id });
+    // Column names come from this internal allowlist; request values remain bound.
+    const fields = ['show_my_karma_to_me', 'share_skills_with_communities']
+      .filter(field => Object.prototype.hasOwnProperty.call(req.body, field));
+    if (!fields.length || fields.some(field => typeof req.body[field] !== 'boolean')) {
+      return sendValidationError(res, 'Provide at least one boolean privacy setting', undefined, { requestId: (req as any).id });
     }
+    const values = fields.map((_, index) => `$${index + 2}`);
 
     const result = await query(
-      `INSERT INTO auth.user_privacy_settings (user_id, show_my_karma_to_me, updated_at)
-       VALUES ($1, $2, CURRENT_TIMESTAMP)
+      `INSERT INTO auth.user_privacy_settings (user_id, ${fields.join(', ')}, updated_at)
+       VALUES ($1, ${values.join(', ')}, CURRENT_TIMESTAMP)
        ON CONFLICT (user_id)
        DO UPDATE SET
-         show_my_karma_to_me = $2,
+         ${fields.map((field, index) => `${field} = ${values[index]}`).join(', ')},
          updated_at = CURRENT_TIMESTAMP
-       RETURNING user_id, show_my_karma_to_me, created_at, updated_at`,
-      [userId, show_my_karma_to_me]
+       RETURNING user_id, show_my_karma_to_me, share_skills_with_communities, created_at, updated_at`,
+      [userId, ...fields.map(field => req.body[field])]
     );
 
     sendSuccess(res, result.rows[0], HTTP_STATUS.OK, { requestId: (req as any).id });

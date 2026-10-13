@@ -128,6 +128,9 @@ export default function ProfilePage() {
   const [trustScore, setTrustScore] = useState<number | null>(null)
   const [loadingKarma, setLoadingKarma] = useState(false)
   const [showKarmaToMe, setShowKarmaToMe] = useState(false)
+  const [shareSkills, setShareSkills] = useState(true)
+  const [loadingPrivacy, setLoadingPrivacy] = useState(true)
+  const [privacyError, setPrivacyError] = useState(false)
   const [selectedCommunityId, setSelectedCommunityId] = useState<string>('')
 
   const [activeTab, setActiveTab] = useState<'community' | 'provider'>('community')
@@ -163,6 +166,7 @@ export default function ProfilePage() {
       setBio(parsedUser.bio || '')
       // Load communities first, then privacy settings (to avoid race condition)
       initializeKarmaData(parsedUser.id)
+      void fetchPrivacySettings()
       // Fetch global evolution setting
       reputationService.getGlobalEvolutionSetting(parsedUser.id)
         .then((r: any) => setGlobalEvolutionEnabled(r.data?.global_evolution_enabled ?? true))
@@ -244,31 +248,6 @@ export default function ProfilePage() {
         setSelectedCommunityId(firstCommunityId)
       }
 
-      // Only fetch privacy settings if user is in at least one community
-      // This prevents 401 errors for users with no communities
-      if (communitiesData.length === 0) {
-        console.log('User has no communities, skipping karma initialization')
-        setShowKarmaToMe(false)
-        return
-      }
-
-      // Then, fetch privacy settings (wrapped in try-catch to prevent logout on error)
-      try {
-        const settingsResponse = await userSettingsService.getPrivacySettings()
-        const settings = settingsResponse.data || settingsResponse
-        const showKarma = settings.show_my_karma_to_me || false
-        setShowKarmaToMe(showKarma)
-
-        // If karma display is enabled and we have a community, fetch karma data immediately
-        // NOTE: We pass firstCommunityId directly and check showKarma (not state) because state updates are async
-        if (showKarma && firstCommunityId) {
-          await applyCommunitySummary(firstCommunityId)
-        }
-      } catch (err: any) {
-        console.error('Failed to load privacy settings', { error: err instanceof Error ? err.message : String(err) })
-        // Don't throw - just set default values
-        setShowKarmaToMe(false)
-      }
     } catch (err: any) {
       console.error('Failed to initialize karma data', { error: err instanceof Error ? err.message : String(err) })
       // Don't throw - let the profile page load without karma
@@ -292,13 +271,18 @@ export default function ProfilePage() {
   }
 
   const fetchPrivacySettings = async () => {
+    setLoadingPrivacy(true)
+    setPrivacyError(false)
     try {
       const response = await userSettingsService.getPrivacySettings()
-      // Access the nested data property since the interceptor isn't unwrapping correctly
-      const settings = response.data || response
+      const settings = response.data
       setShowKarmaToMe(settings.show_my_karma_to_me || false)
+      setShareSkills(settings.share_skills_with_communities ?? true)
     } catch (err: any) {
+      setPrivacyError(true)
       console.error('Failed to load privacy settings', { error: err instanceof Error ? err.message : String(err) })
+    } finally {
+      setLoadingPrivacy(false)
     }
   }
 
@@ -547,6 +531,28 @@ export default function ProfilePage() {
               >
                 {saving ? 'Saving...' : showKarmaToMe ? 'Hide Karma' : 'Show My Karma'}
               </button>
+            </div>
+
+            <div className="border border-border rounded-lg p-4 mb-4">
+              {loadingPrivacy ? <p role="status">Loading privacy settings…</p> : privacyError ? <>
+                <p role="status">Privacy settings are unavailable. Please try again.</p>
+                <button type="button" onClick={() => void fetchPrivacySettings()} className="text-primary underline">Retry privacy settings</button>
+              </> : <>
+              <label className="flex items-center gap-3">
+                <input type="checkbox" checked={shareSkills} disabled={saving || loadingPrivacy}
+                  onChange={async () => {
+                    setSaving(true)
+                    try {
+                      await userSettingsService.updatePrivacySettings({ share_skills_with_communities: !shareSkills })
+                      setShareSkills(!shareSkills)
+                    } catch {
+                      setError('Failed to update skill sharing')
+                    } finally { setSaving(false) }
+                  }} />
+                <span>Show my skills to people in my communities</span>
+              </label>
+              <p className="text-sm text-text-muted mt-2">Turning this off hides your skills from other members and community skill search.</p>
+              </>}
             </div>
 
             {/* Community Selector — drives both karma stats and the Memory section below, so it stays

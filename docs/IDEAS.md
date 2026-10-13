@@ -795,10 +795,9 @@ Now that Claude accepts `AGENTS.md`, should the framework standardize on `AGENTS
 
 ## [2026-10-01] architecture
 
-Consider retiring `GET /requests/matched/for-user` after checking external consumers. Sprint 132
-PR A repoints it to skill tags and caller-scopes it, but the only frontend reference is the unused
-`requestService.getMatchedRequests` wrapper (`apps/frontend/src/lib/api.ts:488`; repository scan).
-The curated feed already consumes the same skill store through `getUserProfile`.
+**Done in Sprint 133 PR A (2026-10-12):** retired the legacy matched-feed route and unused
+frontend wrapper after scanning frontend, mobile and simulation consumers. The curated
+feed continues to consume the same skill store through `getUserProfile`.
 
 ## [2026-10-08] Follow-ups from the BUG-061 `/simplify` pass
 
