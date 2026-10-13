@@ -1,7 +1,7 @@
 /**
  * Operator backfill for the ADR-100 lost-enqueue gap: recompute every pair's `endorsement_count` from
- * `auth.skill_endorsements`. Dry-run by default (read-only, prints the drift); `--apply` reconciles each
- * drifted pair under its pair lock, exactly as the event handler does.
+ * `auth.skill_endorsements`. Both modes run the event handler's own reconcile under the pair lock; the
+ * default dry run rolls back instead of writing, so the preview is exactly what `--apply` would write.
  *
  *   docker exec <social-graph container> node dist/scripts/reconcileEndorsementEdges.js           # dry run
  *   docker exec <social-graph container> node dist/scripts/reconcileEndorsementEdges.js --apply   # write
@@ -9,7 +9,7 @@
  * Running --apply against the demo is a demo data operation: it needs its own maintainer authorization.
  */
 import { pool } from '../config/database';
-import { ENDORSEMENT_TARGETS_SQL, planEndorsementWrites, reconcileEndorsementPair } from '../services/endorsementReconcile';
+import { reconcileEndorsementPair } from '../services/endorsementReconcile';
 
 export interface EndorsementDrift { user_id_a: string; user_id_b: string; community_id: string; stored: number | null; target: number }
 export interface ReconcileRunResult { pairs: number; drifted: EndorsementDrift[]; applied: number }
@@ -26,22 +26,15 @@ export async function runReconcileEndorsementEdges(opts: { apply: boolean; log?:
   const drifted: EndorsementDrift[] = [];
   let applied = 0;
   for (const { a, b } of pairs) {
-    const targets = (await pool.query(ENDORSEMENT_TARGETS_SQL, [a, b])).rows;
-    const edges = (await pool.query(
-      'SELECT id, community_id, endorsement_count FROM social_graph.trust_edges WHERE user_id_a = $1 AND user_id_b = $2', [a, b])).rows;
-    const plan = planEndorsementWrites(targets, edges);
-    const stored = new Map(edges.map((e: any) => [e.community_id, e.endorsement_count as number]));
+    const plan = await reconcileEndorsementPair(a, b, { dryRun: !opts.apply });
     const pairDrift = [
-      ...plan.updates.map(u => ({ user_id_a: a, user_id_b: b, community_id: u.community_id, stored: stored.get(u.community_id) ?? null, target: u.n })),
+      ...plan.updates.map(u => ({ user_id_a: a, user_id_b: b, community_id: u.community_id, stored: u.from as number | null, target: u.n })),
       ...plan.inserts.map(i => ({ user_id_a: a, user_id_b: b, community_id: i.community_id, stored: null, target: i.n })),
     ];
     if (!pairDrift.length) continue;
     drifted.push(...pairDrift);
     for (const d of pairDrift) log(`drift ${d.user_id_a}/${d.user_id_b} in ${d.community_id}: stored ${d.stored ?? 'none'} -> target ${d.target}`);
-    if (opts.apply) {
-      await reconcileEndorsementPair(a, b);
-      applied++;
-    }
+    if (opts.apply) applied++;
   }
   log(`${pairs.length} pair(s) checked, ${drifted.length} drifted edge(s), ${opts.apply ? `${applied} pair(s) reconciled` : 'dry run: nothing written'}`);
   return { pairs: pairs.length, drifted, applied };

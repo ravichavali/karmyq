@@ -2,16 +2,17 @@ import express from 'express';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 
-// Sprint 133 PR B: endorsement routes through the real auth mount and JWT middleware. The DB and the
-// Bull queue are the external boundary; the routes, SQL builders and event module are real.
+// Sprint 133 PR B: endorsement routes through the real auth mount and JWT middleware. The pg Pool and the
+// Bull queue are the external boundary; db.ts (query, withTransaction), the routes, SQL builders and the
+// event module are real.
 const mockQuery = jest.fn();
 const mockClientQuery = jest.fn();
 const mockRelease = jest.fn();
-jest.mock('../../src/database/db', () => ({
-  __esModule: true,
-  query: (...args: unknown[]) => mockQuery(...args),
-  initDatabase: async () => {},
-  default: { connect: async () => ({ query: (...args: unknown[]) => mockClientQuery(...args), release: mockRelease }) },
+jest.mock('pg', () => ({
+  Pool: jest.fn().mockImplementation(() => ({
+    query: (...args: unknown[]) => mockQuery(...args),
+    connect: async () => ({ query: (...args: unknown[]) => mockClientQuery(...args), release: mockRelease }),
+  })),
 }));
 jest.mock('../../src/events/publisher', () => ({ initEventPublisher: async () => {}, publishEvent: jest.fn() }));
 const mockAdd = jest.fn();
@@ -82,11 +83,12 @@ describe('POST /auth/skills/endorsements', () => {
     expect(mockQuery).not.toHaveBeenCalled();
   });
 
-  it('rejects endorsing your own skill with 400 and writes nothing', async () => {
+  it('rejects endorsing your own skill with 400; the writing statement itself excludes self', async () => {
     db({ own: true });
     const res = await post({ tag_id: TAG });
     expect(res.status).toBe(400);
-    expect(sqlOf(/INSERT INTO auth\.skill_endorsements/)).toHaveLength(0);
+    const [[insertSql]] = sqlOf(/INSERT INTO auth\.skill_endorsements/);
+    expect(insertSql).toContain('u.id <> $2::uuid');
     expect(mockAdd).not.toHaveBeenCalled();
   });
 

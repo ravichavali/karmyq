@@ -104,14 +104,22 @@ export async function getInteractionWeight(communityId: string, interactionType:
   return result.rows.length > 0 ? result.rows[0].weight : 1.0;
 }
 
-export async function getInteractionWeightsForCommunity(communityId: string): Promise<InteractionWeights> {
-  const types: InteractionType[] = ['match_completed', 'endorsement', 'karma_given', 'event'];
+type Queryable = Pick<PoolClient, 'query'>;
+
+/** All four weights in one query: per type, the community row wins over the global (NULL) row; default 1.0.
+ * Pass the transaction client when called under a pair lock, so no second pool connection is taken. */
+export async function getInteractionWeightsForCommunity(communityId: string, db: Queryable = pool): Promise<InteractionWeights> {
   const weights: InteractionWeights = { match_completed: 1.0, endorsement: 1.0, karma_given: 1.0, event: 1.0 };
-
-  for (const type of types) {
-    weights[type] = await getInteractionWeight(communityId, type);
+  const result = await db.query(
+    `SELECT DISTINCT ON (interaction_type) interaction_type, weight
+     FROM social_graph.interaction_weights
+     WHERE community_id = $1 OR community_id IS NULL
+     ORDER BY interaction_type, community_id NULLS LAST`,
+    [communityId]
+  );
+  for (const row of result.rows) {
+    if (row.interaction_type in weights) weights[row.interaction_type as InteractionType] = row.weight;
   }
-
   return weights;
 }
 
@@ -129,27 +137,31 @@ export function rawWeightParams(weights: InteractionWeights): number[] {
   return [weights.match_completed, weights.endorsement, weights.karma_given, weights.event];
 }
 
-export async function updateRawWeightInPlace(client: PoolClient, edgeIds: string[], weights: InteractionWeights): Promise<void> {
-  if (!edgeIds.length) return;
+export async function updateRawWeightInPlace(client: Queryable, edgeId: string, weights: InteractionWeights): Promise<void> {
   await client.query(
-    `UPDATE social_graph.trust_edges SET raw_weight = ${rawWeightSql(1)}, updated_at = NOW() WHERE id = ANY($5::uuid[])`,
-    [...rawWeightParams(weights), edgeIds]
+    `UPDATE social_graph.trust_edges SET raw_weight = ${rawWeightSql(1)}, updated_at = NOW() WHERE id = $5`,
+    [...rawWeightParams(weights), edgeId]
   );
 }
 
 /**
  * Run `fn` in one transaction holding the pair's advisory lock. Every writer of a pair's trust edges
  * (the match_completed path and the endorsement reconcile) takes this lock, so their read-then-write
- * sequences serialize instead of interleaving. The key is the NORMALIZED pair, matching trust_edges.
+ * sequences serialize instead of interleaving. The key is the NORMALIZED pair, matching trust_edges; `fn`
+ * receives the normalized ids. `rollback` ends the transaction with ROLLBACK (read-only dry runs).
  */
-export async function withPairLock<T>(userA: string, userB: string, fn: (client: PoolClient) => Promise<T>): Promise<T> {
-  const { userIdA, userIdB } = normalizePair(userA, userB);
+export async function withPairLock<T>(
+  userA: string, userB: string,
+  fn: (client: PoolClient, pair: { userIdA: string; userIdB: string }) => Promise<T>,
+  opts: { rollback?: boolean } = {}
+): Promise<T> {
+  const pair = normalizePair(userA, userB);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query("SELECT pg_advisory_xact_lock(hashtextextended('trust-pair:' || $1 || ':' || $2, 0))", [userIdA, userIdB]);
-    const result = await fn(client);
-    await client.query('COMMIT');
+    await client.query("SELECT pg_advisory_xact_lock(hashtextextended('trust-pair:' || $1 || ':' || $2, 0))", [pair.userIdA, pair.userIdB]);
+    const result = await fn(client, pair);
+    await client.query(opts.rollback ? 'ROLLBACK' : 'COMMIT');
     return result;
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
@@ -177,14 +189,14 @@ export async function upsertTrustEdge(params: {
   interactionType: InteractionType;
 }): Promise<void> {
   const { userA, userB, communityId, interactionType } = params;
-  const { userIdA, userIdB } = normalizePair(userA, userB);
 
   const countColumn = `${interactionType}_count`;
   // Config reads stay outside the pair lock; only the edge writes need it.
-  const interactionWeights = await getInteractionWeightsForCommunity(communityId);
-  const growthRate = await getStabilityGrowthRate(communityId);
+  const [interactionWeights, growthRate] = await Promise.all([
+    getInteractionWeightsForCommunity(communityId), getStabilityGrowthRate(communityId),
+  ]);
 
-  await withPairLock(userIdA, userIdB, async client => {
+  await withPairLock(userA, userB, async (client, { userIdA, userIdB }) => {
     // Upsert the edge, incrementing the appropriate count column
     const upserted = await client.query(
       `INSERT INTO social_graph.trust_edges
@@ -197,11 +209,11 @@ export async function upsertTrustEdge(params: {
        RETURNING id`,
       [userIdA, userIdB, communityId]
     );
-    const edgeId = upserted.rows[0].id;
-    await updateRawWeightInPlace(client, [edgeId], interactionWeights);
     await client.query(
-      `UPDATE social_graph.trust_edges SET stability = stability * $1, updated_at = NOW() WHERE id = $2`,
-      [1 + growthRate, edgeId]
+      `UPDATE social_graph.trust_edges
+       SET raw_weight = ${rawWeightSql(1)}, stability = stability * $5, updated_at = NOW()
+       WHERE id = $6`,
+      [...rawWeightParams(interactionWeights), 1 + growthRate, upserted.rows[0].id]
     );
   });
 }

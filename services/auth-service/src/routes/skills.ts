@@ -113,9 +113,6 @@ router.post('/endorsements', async (req: any, res) => {
   if (typeof tagId !== 'string' || !UUID.test(tagId)) return sendValidationError(res, 'A valid tag_id is required', undefined, { requestId: req.id });
   const caller = req.user.userId;
   try {
-    const own = await query('SELECT 1 AS own FROM auth.user_tags WHERE id = $1 AND user_id = $2', [tagId, caller]);
-    if (own.rows.length) return sendValidationError(res, 'You cannot vouch for your own skill', undefined, { requestId: req.id });
-
     // Insert, or revive a withdrawn row. An active row is left untouched (no revision bump, no event).
     const changed = await query(`WITH ${eligibleEndorsementCte}
       INSERT INTO auth.skill_endorsements (endorser_id, endorsee_id, user_tag_id, match_id)
@@ -130,8 +127,11 @@ router.post('/endorsements', async (req: any, res) => {
       await publishEndorsementChanged({ rowId: row.id, revision: row.revision, endorser_id: caller, endorsee_id: row.endorsee_id });
       return sendSuccess(res, endorsementShape(row), row.inserted ? 201 : 200, { requestId: req.id });
     }
-    // Nothing changed: either already active (200 no-op) or not eligible (404). The read is gated by
-    // the same eligibility, so an active vouch on a now-hidden skill answers like a missing one.
+    // Nothing changed: your own skill (400), already active (200 no-op) or not eligible (404). Eligibility
+    // excludes your own tags, so the self check only runs on this path. The read is gated by the same
+    // eligibility, so an active vouch on a now-hidden skill answers like a missing one.
+    const own = await query('SELECT 1 AS own FROM auth.user_tags WHERE id = $1 AND user_id = $2', [tagId, caller]);
+    if (own.rows.length) return sendValidationError(res, 'You cannot vouch for your own skill', undefined, { requestId: req.id });
     const existing = await query(`WITH ${eligibleEndorsementCte}
       SELECT se.id, se.user_tag_id AS tag_id, se.endorsee_id, se.created_at
       FROM auth.skill_endorsements se JOIN eligible ON eligible.tag_id = se.user_tag_id

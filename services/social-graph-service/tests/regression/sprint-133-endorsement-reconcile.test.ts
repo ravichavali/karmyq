@@ -20,12 +20,12 @@ const B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 describe('planEndorsementWrites (reconcile, never increment)', () => {
   const edge = (community_id: string, endorsement_count: number) => ({ id: `edge-${community_id}`, community_id, endorsement_count });
 
-  it('sets an existing edge to the target count and touches last_interaction_at only on increase', () => {
+  it('sets an existing edge to the target count and records the stored count it replaces', () => {
     expect(planEndorsementWrites([{ community_id: C1, n: 1 }], [edge(C1, 0)])).toEqual({
-      updates: [{ id: `edge-${C1}`, community_id: C1, n: 1, increased: true }], inserts: [],
+      updates: [{ id: `edge-${C1}`, community_id: C1, n: 1, from: 0 }], inserts: [],
     });
     expect(planEndorsementWrites([{ community_id: C1, n: 1 }], [edge(C1, 2)])).toEqual({
-      updates: [{ id: `edge-${C1}`, community_id: C1, n: 1, increased: false }], inserts: [],
+      updates: [{ id: `edge-${C1}`, community_id: C1, n: 1, from: 2 }], inserts: [],
     });
   });
 
@@ -41,7 +41,7 @@ describe('planEndorsementWrites (reconcile, never increment)', () => {
 
   it('zeroes an edge whose community no longer has any active endorsement (withdrawal, tag deletion)', () => {
     expect(planEndorsementWrites([], [edge(C1, 1), edge(C2, 0)])).toEqual({
-      updates: [{ id: `edge-${C1}`, community_id: C1, n: 0, increased: false }], inserts: [],
+      updates: [{ id: `edge-${C1}`, community_id: C1, n: 0, from: 1 }], inserts: [],
     });
   });
 
@@ -94,6 +94,13 @@ describe('withPairLock', () => {
     const { userIdA, userIdB } = normalizePair(B, A);
     expect(calls[1][1]).toEqual([userIdA, userIdB]);
     expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it('hands the body the normalized pair, and a rollback run ends with ROLLBACK instead of COMMIT', async () => {
+    const seen: unknown[] = [];
+    await withPairLock(B, A, async (_client, pair) => { seen.push(pair); }, { rollback: true });
+    expect(seen).toEqual([normalizePair(A, B)]);
+    expect(calls.map(([sql]) => sql)).toEqual(['BEGIN', expect.stringContaining('pg_advisory_xact_lock'), 'ROLLBACK']);
   });
 
   it('rolls back, releases and rethrows when the body fails', async () => {

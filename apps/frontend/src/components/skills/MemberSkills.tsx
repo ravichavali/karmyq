@@ -48,6 +48,7 @@ export default function MemberSkills({ userId }: { userId: string }) {
       {skills.map(skill => {
         const count = skill.endorsement_count ?? 0
         const showButton = skill.endorsed_by_me || skill.can_endorse
+        const action = skill.endorsed_by_me ? 'Withdraw vouch' : 'Vouch'
         return <li key={skill.tag_id} className="flex items-center gap-2 rounded-full bg-primary-light px-3 py-1 text-sm text-primary-dark">
           <span>{skill.label}</span>
           {count > 0 && <span className="text-xs text-text-muted">{vouchLabel(count)}</span>}
@@ -55,10 +56,10 @@ export default function MemberSkills({ userId }: { userId: string }) {
             type="button"
             className="text-xs font-medium underline disabled:opacity-50"
             disabled={busyTag === skill.tag_id}
-            aria-label={`${skill.endorsed_by_me ? 'Withdraw vouch' : 'Vouch'} for ${skill.label}`}
+            aria-label={`${action} for ${skill.label}`}
             onClick={() => toggleVouch(skill)}
           >
-            {skill.endorsed_by_me ? 'Withdraw vouch' : 'Vouch'}
+            {action}
           </button>}
         </li>
       })}

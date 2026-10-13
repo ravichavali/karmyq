@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware } from '@karmyq/shared/middleware';
-import pool, { query } from '../database/db';
+import { query, withTransaction } from '../database/db';
 import { publishEndorsementChanged } from '../events/endorsementEvents';
 import { TAG_SUGGESTIONS } from '../constants/tagSuggestions';
 import { listSkillSuggestions, resolveSkillSlug } from '../services/skillVocabulary';
@@ -74,27 +74,22 @@ router.delete('/:tagId', authMiddleware, async (req: Request, res: Response) => 
   // ADR-100: deleting a skill cascades its endorsements, which is an endorsement change for every
   // active endorser. Lock the tag first (a concurrent endorse's FK check then waits for us), collect
   // the active rows inside the transaction, and publish one event per row only after COMMIT.
-  const client = await pool.connect();
-  let cascaded: Array<{ id: string; endorser_id: string }> = [];
+  let cascaded: Array<{ id: string; endorser_id: string }>;
   try {
-    await client.query('BEGIN');
-    const tag = await client.query('SELECT id FROM auth.user_tags WHERE id = $1 AND user_id = $2 FOR UPDATE', [tagId, userId]);
-    if (tag.rows.length) {
-      cascaded = (await client.query(
+    cascaded = await withTransaction(async q => {
+      const tag = await q('SELECT id FROM auth.user_tags WHERE id = $1 AND user_id = $2 FOR UPDATE', [tagId, userId]);
+      if (!tag.rows.length) return [];
+      const active = (await q(
         'SELECT id, endorser_id FROM auth.skill_endorsements WHERE user_tag_id = $1 AND withdrawn_at IS NULL', [tagId])).rows;
-      await client.query('DELETE FROM auth.user_tags WHERE id = $1 AND user_id = $2', [tagId, userId]);
-    }
-    await client.query('COMMIT');
+      await q('DELETE FROM auth.user_tags WHERE id = $1 AND user_id = $2', [tagId, userId]);
+      return active;
+    });
   } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
     (req as any).logger?.error('Failed to delete tag', error instanceof Error ? error : new Error(String(error)), { userId });
     return res.status(500).json({ success: false, message: 'Failed to delete tag', error: 'INTERNAL_ERROR' });
-  } finally {
-    client.release();
   }
-  for (const row of cascaded) {
-    await publishEndorsementChanged({ rowId: row.id, revision: 'deleted', endorser_id: row.endorser_id, endorsee_id: userId });
-  }
+  await Promise.all(cascaded.map(row =>
+    publishEndorsementChanged({ rowId: row.id, revision: 'deleted', endorser_id: row.endorser_id, endorsee_id: userId })));
   res.json({ success: true });
 });
 
