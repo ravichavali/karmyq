@@ -1,7 +1,16 @@
 # Sprint 133 — Skills Depth — Handoff
 
-**Date**: 2026-10-13 (**PR A SHIPPED**, v11.85.0)
-**Status**: **PR S and PR A SHIPPED and LIVE; PR B is next, in a fresh chat.** [#302](https://github.com/ravichavali/karmyq/pull/302)
+**Date**: 2026-10-13 (**PR B implemented, in review**: draft [#303](https://github.com/ravichavali/karmyq/pull/303))
+**PR B status (2026-10-13, Claude executing, Codex reviewing):** B1–B9 done on `agent/claude/sprint-133-pr-b-endorsements`.
+**BUG-060 CONFIRMED** (CI run 38465333100: 15 of 60 `request_created` jobs permanently lost on the shared queue; mechanism
+traced to `bull/lib/queue.js:1203-1208,1246`), so endorsements use the dedicated queue `karmyq-skill-endorsement-social-graph`.
+Gates: /simplify (4 agents, applied), /code-review high (6 fixed RED→GREEN, rest ruled), /security-review (no findings).
+Ledger with every ruling: `.superpowers/sdd/2026-10-08-sprint-133-skills-depth/progress.md`.
+**Maintainer decisions owed for PR B:** (1) dismiss the new CodeQL `js/request-forgery` FPs on `api.ts:1079-1080` (the two
+new `skillsService` wrappers; same documented class); (2) BUG-060 severity (HIGH proposed) and when the other shared-queue
+events move off `karmyq-events`; (3) merge authorization after Codex review. Version bump at merge time (11.86.0 if master is
+still 11.85.0). **Note for PR D:** reconcile rewrites `raw_weight` by formula, so seeded edges must carry formula-consistent weights.
+**Previous status: PR S and PR A SHIPPED and LIVE.** [#302](https://github.com/ravichavali/karmyq/pull/302)
 merged as `e7ff481d` on 2026-10-13 (the maintainer ran the merge). The master Code Scanning Gate first failed on
 CodeQL #607–609: line-shift re-raises of already-dismissed `js/request-forgery` FPs on unchanged fixed-path calls in
 `api.ts` (521, 830, 1063). The maintainer dismissed them; a `--failed` rerun of [CI/CD 38410709880](https://github.com/ravichavali/karmyq/actions/runs/38410709880)
@@ -54,7 +63,7 @@ security PR first closes BUG-056, BUG-062 and BUG-058.
 |---|---|---|---|
 | **S** | BUG-056 (`GET /requests/:id` gate + drop `requester_email`, directed rules unchanged), BUG-062 (member email: `/users/:userId` auth + self-only; community detail/members admin-only), BUG-058 (cap → 7, monitor retired, #236) | `agent/claude/sprint-133-pr-s-security` | **SHIPPED v11.84.0** ([#301](https://github.com/ravichavali/karmyq/pull/301), `278d3306`, deploy 38302920724, smoke 11/11). Also fixed in review: preferred-provider read, admin-notes gate, `join_request_message` on active rows, `GET /offers/:id` `helper_email`, gate ordering in `audit-exemptions.js`. Logged BUG-063/064/065 |
 | A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, skills setting on `/users/me/settings` (no route-order bug: withdrawn 2026-10-11), drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | **SHIPPED v11.85.0** ([#302](https://github.com/ravichavali/karmyq/pull/302), `e7ff481d`, deploy 38410709880 attempt 2, smoke 10/10). CodeQL #603–605 (PR) and #607–609 (master line-shift) dismissed by the maintainer as false positives |
-| B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | **IN PROGRESS** (Claude executing since 2026-10-13; Codex reviews) |
+| B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | **IN REVIEW** draft [#303](https://github.com/ravichavali/karmyq/pull/303): B1–B9 done (Claude); Codex review, CodeQL FP dismissal and merge authorization pending |
 | D | Curated demo seed: skills, items, endorsements (demo apply needs per-operation authorization) | `agent/claude/sprint-133-pr-d-demo-seed` | Not started |
 
 Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is reserved.
@@ -284,5 +293,5 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
    Git Bash first in PATH (the default `bash` resolves to WSL with no distribution installed).
    **Expect a master CodeQL line-shift re-raise whenever a PR edits `api.ts`**: the dismissal is per line, so a merge
    needs a maintainer dismissal plus a `--failed` rerun before it deploys.
-7. **CURRENT: PR B** (Task B1 first) on `agent/claude/sprint-133-pr-b-endorsements`, in a fresh chat. PR D follows PR B's deploy.
+7. **CURRENT: PR B review/merge** ([#303](https://github.com/ravichavali/karmyq/pull/303)): Codex reviews the branch diff; Claude answers findings (`review-response`), then B10 final verification, B11 version bump + merge (maintainer authorization) + deploy + read-only smoke + ADR-100 → Implemented. A live endorse/withdraw smoke is a demo write: ask first. PR D follows PR B's deploy.
 8. Re-check `node-forge` and `braces` before **2026-10-15**.
