@@ -54,7 +54,7 @@ security PR first closes BUG-056, BUG-062 and BUG-058.
 |---|---|---|---|
 | **S** | BUG-056 (`GET /requests/:id` gate + drop `requester_email`, directed rules unchanged), BUG-062 (member email: `/users/:userId` auth + self-only; community detail/members admin-only), BUG-058 (cap → 7, monitor retired, #236) | `agent/claude/sprint-133-pr-s-security` | **SHIPPED v11.84.0** ([#301](https://github.com/ravichavali/karmyq/pull/301), `278d3306`, deploy 38302920724, smoke 11/11). Also fixed in review: preferred-provider read, admin-notes gate, `join_request_message` on active rows, `GET /offers/:id` `helper_email`, gate ordering in `audit-exemptions.js`. Logged BUG-063/064/065 |
 | A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, skills setting on `/users/me/settings` (no route-order bug: withdrawn 2026-10-11), drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | **SHIPPED v11.85.0** ([#302](https://github.com/ravichavali/karmyq/pull/302), `e7ff481d`, deploy 38410709880 attempt 2, smoke 10/10). CodeQL #603–605 (PR) and #607–609 (master line-shift) dismissed by the maintainer as false positives |
-| B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | **NEXT**: branch cut 2026-10-13 from `e7ff481d` (handoff only) |
+| B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | **IN PROGRESS** (Claude executing since 2026-10-13; Codex reviews) |
 | D | Curated demo seed: skills, items, endorsements (demo apply needs per-operation authorization) | `agent/claude/sprint-133-pr-d-demo-seed` | Not started |
 
 Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is reserved.
@@ -252,7 +252,7 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 | Field | Value |
 |---|---|
 | **Planning branch** | `feature/sprint-133-skills-depth`, base `origin/master` `6041c92c` (docs only) |
-| **Active editor** | Claude closed out PR A on 2026-10-13. The maintainer assigns PR B's executor in the next chat (Codex executed PR A) |
+| **Active editor** | **Claude executes PR B** (maintainer, 2026-10-13: "You hold this lane and I will use codex for review"). Codex is the non-author reviewer of PR B |
 | **Reviewer role** | A non-author reviews each completed diff |
 | **Shared resources** | ADR-100 allocated to this sprint. Maintainer assigned PR A execution to Codex 2026-10-12; root version stamp only (11.85.0 from current origin/master 11.84.0), re-check before merge. No dependency upgrades or demo data operation are authorized by this task. |
 
