@@ -698,6 +698,23 @@ CREATE TABLE auth.sessions (
 );
 
 --
+-- Name: skill_endorsements; Type: TABLE; Schema: auth; Owner: -
+--
+
+CREATE TABLE auth.skill_endorsements (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    endorser_id uuid NOT NULL,
+    endorsee_id uuid NOT NULL,
+    user_tag_id uuid NOT NULL,
+    match_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    withdrawn_at timestamp with time zone,
+    revision bigint DEFAULT 1 NOT NULL,
+    CONSTRAINT skill_endorsements_not_self CHECK ((endorser_id <> endorsee_id))
+);
+
+--
 -- Name: skill_vocabulary; Type: TABLE; Schema: auth; Owner: -
 --
 
@@ -2986,6 +3003,20 @@ ALTER TABLE ONLY auth.sessions
     ADD CONSTRAINT sessions_token_key UNIQUE (token);
 
 --
+-- Name: skill_endorsements skill_endorsements_one_per_tag; Type: CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.skill_endorsements
+    ADD CONSTRAINT skill_endorsements_one_per_tag UNIQUE (endorser_id, user_tag_id);
+
+--
+-- Name: skill_endorsements skill_endorsements_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.skill_endorsements
+    ADD CONSTRAINT skill_endorsements_pkey PRIMARY KEY (id);
+
+--
 -- Name: skill_vocabulary skill_vocabulary_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
 --
 
@@ -4137,6 +4168,18 @@ CREATE INDEX idx_refresh_tokens_token_hash ON auth.refresh_tokens USING btree (t
 --
 
 CREATE INDEX idx_refresh_tokens_user_id ON auth.refresh_tokens USING btree (user_id);
+
+--
+-- Name: idx_skill_endorsements_pair; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX idx_skill_endorsements_pair ON auth.skill_endorsements USING btree (endorser_id, endorsee_id) WHERE (withdrawn_at IS NULL);
+
+--
+-- Name: idx_skill_endorsements_tag; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX idx_skill_endorsements_tag ON auth.skill_endorsements USING btree (user_tag_id) WHERE (withdrawn_at IS NULL);
 
 --
 -- Name: idx_social_distances_community; Type: INDEX; Schema: auth; Owner: -
@@ -5383,6 +5426,27 @@ ALTER TABLE ONLY auth.refresh_tokens
 
 ALTER TABLE ONLY auth.sessions
     ADD CONSTRAINT sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+--
+-- Name: skill_endorsements skill_endorsements_endorsee_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.skill_endorsements
+    ADD CONSTRAINT skill_endorsements_endorsee_id_fkey FOREIGN KEY (endorsee_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+--
+-- Name: skill_endorsements skill_endorsements_endorser_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.skill_endorsements
+    ADD CONSTRAINT skill_endorsements_endorser_id_fkey FOREIGN KEY (endorser_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+--
+-- Name: skill_endorsements skill_endorsements_user_tag_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.skill_endorsements
+    ADD CONSTRAINT skill_endorsements_user_tag_id_fkey FOREIGN KEY (user_tag_id) REFERENCES auth.user_tags(id) ON DELETE CASCADE;
 
 --
 -- Name: social_distances social_distances_user_a_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
@@ -7066,5 +7130,6 @@ INSERT INTO public.schema_migrations (migration_name) VALUES
   ('20261003-inventory-schema.sql'),
   ('20261004-directed-borrow-delivery.sql'),
   ('20261004-directed-requests.sql'),
-  ('20261008-skill-visibility.sql')
+  ('20261008-skill-visibility.sql'),
+  ('20261013-skill-endorsements.sql')
 ON CONFLICT (migration_name) DO NOTHING;

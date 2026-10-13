@@ -32,6 +32,18 @@ sharing back on at any time. The setting also works before you join your first c
 Leaving a shared community removes that access; pending membership does not grant it.
 Skill sharing does not remove vouches or change trust relationships.
 
+## Vouching for skills
+
+After you complete an exchange with someone, you can **vouch** for their skills. Open the
+**Helping** tab, tap their name on the completed exchange, and choose **Vouch** next to a skill.
+You can also vouch from their skills in a community's **People** tab. You must share an active
+community with them, they must share their skills, and you can't vouch for yourself.
+
+Each skill shows how many people vouch for it. **Withdraw vouch** takes yours back at any time.
+Vouches add to the trust connection between the two of you, but only once per person: vouching for
+five of someone's skills adds the same trust as vouching for one. See
+[Skill Endorsements](/docs/concepts/skill-endorsements).
+
 ## Page Layout
 
 The Profile page uses the same warm shell as Dashboard and Community pages: a single reading measure,

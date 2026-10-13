@@ -36,6 +36,8 @@ The score is community-specific — you may have different trust scores in diffe
 
 **Personal trust answers**: *How reliably do you show up for your neighbours right now?*
 
+Underneath the score, each pair of people who completed an exchange shares a **trust connection**. Completed exchanges strengthen it, and so do **skill vouches**: each person who vouches for the other adds one vouch to the connection in the community where they exchanged, however many skills they vouched for. Withdrawing a vouch removes what it added. See [Skill Endorsements](/docs/concepts/skill-endorsements).
+
 ---
 
 ## Provider Trust Score — Commercial Reliability

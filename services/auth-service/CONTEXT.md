@@ -60,6 +60,29 @@ remains. Interests, needs, email and profile details are not returned. Endorseme
 in PR B; opt-out will not delete vouches or change the trust graph. `/me/settings` needed
 no route reorder; its test remains a real-router guard.
 
+### Sprint 133 PR B — skill endorsements (ADR-100)
+
+`20261013-skill-endorsements.sql` creates `auth.skill_endorsements`: one row per (endorser, skill tag)
+(`skill_endorsements_one_per_tag`), `endorsee_id`, `match_id` (the qualifying completed
+`requests.matches` id, no cross-schema FK), `withdrawn_at` (NULL = active) and a monotonic `revision`.
+FKs to `auth.users` and `auth.user_tags` cascade, so deleting a tag deletes its vouches.
+
+| Method | Path | Data / audience |
+|---|---|---|
+| POST | `/auth/skills/endorsements` | `{ tag_id }`. The writing statement itself checks `skillVisibleToSql` **and** a completed match between caller and owner (`completedPairSql`, either direction) and derives `endorsee_id` from the tag. Missing, hidden or ineligible → the same 404; own skill → 400; tag deleted mid-request (FK 23503) → 404. 201 new, 200 revived (same row, revision + 1) or already active (no-op). Returns `{id,tag_id,endorsee_id,created_at}`. |
+| DELETE | `/auth/skills/endorsements/:tagId` | Withdraws the caller's active vouch (revision + 1). Idempotent 200 `{ withdrawn: true }`. No eligibility check: withdrawing only removes trust. |
+| GET | `/auth/skills/users/:userId` | Each skill adds `endorsement_count` (active vouches), `endorsed_by_me`, `can_endorse` (not self and a completed match with the owner). |
+
+`DELETE /auth/profile/tags/:tagId` now runs in a transaction: lock the tag row `FOR UPDATE` (a concurrent
+endorse's FK check waits), read its active vouches, delete, commit, then publish one event per cascaded
+vouch. Skill sharing opt-out hides vouches but never deletes them.
+
+**Event publishing** (`src/events/endorsementEvents.ts`): `skill_endorsement_changed`
+`{ endorser_id, endorsee_id, job_id }` on the **dedicated** queue `karmyq-skill-endorsement-social-graph`
+(never `karmyq-events`; BUG-060), after commit. Job id `endorsement-<row>-r<revision>` per state change,
+`endorsement-<row>-deleted` per cascade; a retry reuses the change's id. A failed enqueue still returns
+success and logs both user ids; repair with social-graph's `reconcileEndorsementEdges` backfill.
+
 ### Tables Owned by This Service
 
 ```sql
@@ -142,6 +165,8 @@ CREATE TABLE auth.founding_circle_submissions (
 ```
 
 ### Tables Read by This Service
+- `requests.matches`, `requests.help_requests` - Sprint 133 PR B endorsement eligibility (completed match
+  between caller and skill owner, either direction).
 - `communities.members` - Sprint 103 founding-circle reviewer check: allowlisted reviewers must also
   be active community admins to list/update intake submissions.
 
@@ -606,13 +631,16 @@ Service health check.
 - Mobile app (for authentication)
 
 ### Events Published
-- None (auth service does not publish events currently)
+- `skill_endorsement_changed` (Sprint 133 PR B) on the dedicated `karmyq-skill-endorsement-social-graph`
+  queue; sole consumer social-graph-service. Published by POST/DELETE `/auth/skills/endorsements` and by
+  `DELETE /auth/profile/tags/:tagId` when the tag had active vouches.
 
 ### Events Consumed
 - None
 
 ### External Dependencies
 - PostgreSQL (auth schema)
+- Redis via Bull (`bull`, Sprint 133 PR B) for the endorsement event queue
 - JWT library (jsonwebtoken)
 - bcrypt (password hashing)
 

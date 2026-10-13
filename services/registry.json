@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updated": "2026-10-12",
+  "updated": "2026-10-13",
   "services": {
     "auth-service": {
       "port": 3001,
@@ -11,7 +11,8 @@
         "services": [],
         "infrastructure": [
           "postgres",
-          "redis"
+          "redis",
+          "bull-queue"
         ]
       },
       "apis": {
@@ -96,7 +97,7 @@
           {
             "method": "GET",
             "path": "/auth/skills/users/:userId",
-            "description": "Skill tags visible to self or active co-members when sharing is on; hidden/missing owner gives the same 404. No interests, needs, or email."
+            "description": "Skill tags visible to self or active co-members when sharing is on; hidden/missing owner gives the same 404. No interests, needs, or email. Sprint 133 PR B: each skill adds endorsement_count (active vouches), endorsed_by_me and can_endorse (a completed match with the owner, either direction)."
           },
           {
             "method": "GET",
@@ -107,6 +108,16 @@
             "method": "GET",
             "path": "/auth/skills/communities/:communityId/search",
             "description": "Live active member-only exact slug/label/synonym or normalized free-text skill search; visible active members only, limit 50 ordered by name and ID."
+          },
+          {
+            "method": "POST",
+            "path": "/auth/skills/endorsements",
+            "description": "Sprint 133 PR B (ADR-100): vouch for a skill tag { tag_id }. Eligibility (skillVisibleToSql + a completed match with the owner) is evaluated in the writing statement; missing, hidden and ineligible all give the same 404; own skill 400. 201 new, 200 revived or already active (no-op). Publishes skill_endorsement_changed after commit."
+          },
+          {
+            "method": "DELETE",
+            "path": "/auth/skills/endorsements/:tagId",
+            "description": "Sprint 133 PR B (ADR-100): withdraw the caller's vouch; idempotent 200 { withdrawn: true }. Publishes skill_endorsement_changed only when an active vouch was withdrawn."
           }
         ],
         "consumes": []
@@ -116,7 +127,13 @@
       ],
       "health_check": "http://localhost:3001/health",
       "criticality": "critical",
-      "notes": "Foundation service - no dependencies on other services. Sprint 132 PR A (ADR-099): auth.user_tags is the matching skill source, with nullable skill_slug referencing auth.skill_vocabulary. Legacy /users/:userId/skills routes removed; Sprint 133 PR A (ADR-100): opt-out active co-member skill visibility and exact community discovery; auth.user_skills dropped."
+      "events": {
+        "publishes": [
+          "skill_endorsement_changed"
+        ],
+        "subscribes": []
+      },
+      "notes": "Foundation service - no dependencies on other services. Sprint 132 PR A (ADR-099): auth.user_tags is the matching skill source, with nullable skill_slug referencing auth.skill_vocabulary. Legacy /users/:userId/skills routes removed; Sprint 133 PR A (ADR-100): opt-out active co-member skill visibility and exact community discovery; auth.user_skills dropped. Sprint 133 PR B (ADR-100): auth.skill_endorsements (one row per endorser+tag, revision job ids); DELETE /auth/profile/tags/:tagId publishes one skill_endorsement_changed per cascaded active vouch after commit. Events ride the dedicated karmyq-skill-endorsement-social-graph queue (BUG-060)."
     },
     "community-service": {
       "port": 3002,
@@ -910,7 +927,8 @@
         ],
         "infrastructure": [
           "postgres",
-          "redis"
+          "redis",
+          "bull-queue"
         ]
       },
       "apis": {
@@ -1028,10 +1046,11 @@
       "events": {
         "publishes": [],
         "subscribes": [
-          "match_completed"
+          "match_completed",
+          "skill_endorsement_changed"
         ]
       },
-      "notes": "Trust-first design foundation. Sprint 27: match_completed \u2192 social_graph.connections. Sprint 65: match_completed \u2192 social_graph.trust_edges. Sprint 67: ego-network rewrite \u2014 GET /trust/graph (aggregate) + GET /trust/graph/:communityId (community ego-network). Sprint 68: intrinsic Ebbinghaus decay via trust_edges_live view + decay config endpoints. Sprint 90: visible decay (ADR-070) \u2014 graph edges carry decayTier; new /trust/me/memory + /trust/relationships/fading endpoints; classifyDecayTier lives in @karmyq/shared. Governance endpoints are in community-service. match_completed uses karmyq-completion-social-graph alongside the retained legacy handler; graph counters remain at-least-once effects."
+      "notes": "Trust-first design foundation. Sprint 27: match_completed \u2192 social_graph.connections. Sprint 65: match_completed \u2192 social_graph.trust_edges. Sprint 67: ego-network rewrite \u2014 GET /trust/graph (aggregate) + GET /trust/graph/:communityId (community ego-network). Sprint 68: intrinsic Ebbinghaus decay via trust_edges_live view + decay config endpoints. Sprint 90: visible decay (ADR-070) \u2014 graph edges carry decayTier; new /trust/me/memory + /trust/relationships/fading endpoints; classifyDecayTier lives in @karmyq/shared. Governance endpoints are in community-service. match_completed uses karmyq-completion-social-graph alongside the retained legacy handler; graph counters remain at-least-once effects. Sprint 133 PR B (ADR-100): skill_endorsement_changed { endorser_id, endorsee_id } on the dedicated karmyq-skill-endorsement-social-graph queue (sole consumer) reconciles trust_edges.endorsement_count per community (distinct endorsers 0..2, never increment). Both edge writers (reconcile and upsertTrustEdge) hold a per-pair pg_advisory_xact_lock and compute raw_weight in place. Operator backfill: node dist/scripts/reconcileEndorsementEdges.js [--apply]."
     },
     "simulation-service": {
       "port": null,
@@ -1085,10 +1104,12 @@
       "type": "queue",
       "backend": "redis",
       "required_for": [
+        "auth-service",
         "community-service",
         "request-service",
         "reputation-service",
-        "notification-service"
+        "notification-service",
+        "social-graph-service"
       ]
     }
   },

@@ -252,6 +252,7 @@ const CONCEPT_ORDER = [
   'neighborhood-service-layer',
   'what-is-karma',
   'trust-and-karma',
+  'skill-endorsements',
   'trust-score',
   'trust-paths',
   'trust-path',
@@ -590,7 +591,7 @@ function generateNav(
 
   // Non-technical concept pages (split into Why Karmyq / How It Works)
   const whyKarmyq = ['platform-overview', 'the-village-model', 'neighborhood-service-layer', 'community-design', 'open-source-and-agpl', 'how-karmyq-learns'];
-  const howItWorks = ['inventories', 'ux-design-principles', 'trust-and-karma', 'trust-score', 'reading-the-trust-graph', 'what-is-karma', 'trust-paths', 'trust-path', 'reputation-decay', 'designed-to-forget', 'why-ratings-are-private', 'unified-feed', 'community-home', 'community-and-provider-two-facets', 'community-scale', 'community-identity', 'network-cohesion', 'trust-model-evolution', 'community-evolution', 'fractal-feed', 'community-discovery', 'provider-mode', 'trust-questions', 'governance', 'observability', 'time-boxed-exemptions'];
+  const howItWorks = ['inventories', 'ux-design-principles', 'trust-and-karma', 'skill-endorsements', 'trust-score', 'reading-the-trust-graph', 'what-is-karma', 'trust-paths', 'trust-path', 'reputation-decay', 'designed-to-forget', 'why-ratings-are-private', 'unified-feed', 'community-home', 'community-and-provider-two-facets', 'community-scale', 'community-identity', 'network-cohesion', 'trust-model-evolution', 'community-evolution', 'fractal-feed', 'community-discovery', 'provider-mode', 'trust-questions', 'governance', 'observability', 'time-boxed-exemptions'];
 
   const nav = {
     sections: [
