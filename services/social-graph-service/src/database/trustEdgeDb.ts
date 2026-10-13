@@ -1,3 +1,4 @@
+import type { PoolClient } from 'pg';
 import { pool } from '../config/database';
 import { isActiveRecently } from '../services/disclosureProjection';
 
@@ -114,6 +115,61 @@ export async function getInteractionWeightsForCommunity(communityId: string): Pr
   return weights;
 }
 
+/**
+ * raw_weight computed INSIDE the UPDATE from the row's current count columns, never from a value read in
+ * an earlier statement (Sprint 133 / ADR-100): a reconcile committing between a read and a write could
+ * otherwise be overwritten with a stale count. Parameters are the four weights starting at `$offset`,
+ * in the order `rawWeightParams` produces; the expression mirrors `computeRawWeight`.
+ */
+export function rawWeightSql(offset: number): string {
+  return `match_completed_count * $${offset} + endorsement_count * $${offset + 1} + karma_given_count * $${offset + 2} + event_count * $${offset + 3}`;
+}
+
+export function rawWeightParams(weights: InteractionWeights): number[] {
+  return [weights.match_completed, weights.endorsement, weights.karma_given, weights.event];
+}
+
+export async function updateRawWeightInPlace(client: PoolClient, edgeIds: string[], weights: InteractionWeights): Promise<void> {
+  if (!edgeIds.length) return;
+  await client.query(
+    `UPDATE social_graph.trust_edges SET raw_weight = ${rawWeightSql(1)}, updated_at = NOW() WHERE id = ANY($5::uuid[])`,
+    [...rawWeightParams(weights), edgeIds]
+  );
+}
+
+/**
+ * Run `fn` in one transaction holding the pair's advisory lock. Every writer of a pair's trust edges
+ * (the match_completed path and the endorsement reconcile) takes this lock, so their read-then-write
+ * sequences serialize instead of interleaving. The key is the NORMALIZED pair, matching trust_edges.
+ */
+export async function withPairLock<T>(userA: string, userB: string, fn: (client: PoolClient) => Promise<T>): Promise<T> {
+  const { userIdA, userIdB } = normalizePair(userA, userB);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SELECT pg_advisory_xact_lock(hashtextextended('trust-pair:' || $1 || ':' || $2, 0))", [userIdA, userIdB]);
+    const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function getStabilityGrowthRate(communityId: string): Promise<number> {
+  const configResult = await pool.query(
+    `SELECT stability_growth_rate FROM social_graph.trust_decay_config
+     WHERE community_id = $1 OR community_id IS NULL
+     ORDER BY community_id NULLS LAST
+     LIMIT 1`,
+    [communityId]
+  );
+  return configResult.rows.length > 0 ? configResult.rows[0].stability_growth_rate : 0.20;
+}
+
 export async function upsertTrustEdge(params: {
   userA: string;
   userB: string;
@@ -124,60 +180,30 @@ export async function upsertTrustEdge(params: {
   const { userIdA, userIdB } = normalizePair(userA, userB);
 
   const countColumn = `${interactionType}_count`;
-
-  // Upsert the edge, incrementing the appropriate count column
-  await pool.query(
-    `INSERT INTO social_graph.trust_edges
-       (user_id_a, user_id_b, community_id, ${countColumn}, raw_weight, last_interaction_at)
-     VALUES ($1, $2, $3, 1, 0, NOW())
-     ON CONFLICT (user_id_a, user_id_b, community_id) DO UPDATE SET
-       ${countColumn}        = social_graph.trust_edges.${countColumn} + 1,
-       last_interaction_at  = NOW(),
-       updated_at           = NOW()`,
-    [userIdA, userIdB, communityId]
-  );
-
-  // Fetch updated counts to recompute raw_weight
-  const edgeResult = await pool.query(
-    `SELECT match_completed_count, endorsement_count, karma_given_count, event_count
-     FROM social_graph.trust_edges
-     WHERE user_id_a = $1 AND user_id_b = $2 AND community_id = $3`,
-    [userIdA, userIdB, communityId]
-  );
-
-  if (edgeResult.rows.length === 0) return;
-
-  const row = edgeResult.rows[0];
-  const counts: InteractionCounts = {
-    match_completed: row.match_completed_count,
-    endorsement: row.endorsement_count,
-    karma_given: row.karma_given_count,
-    event: row.event_count,
-  };
-
+  // Config reads stay outside the pair lock; only the edge writes need it.
   const interactionWeights = await getInteractionWeightsForCommunity(communityId);
-  const rawWeight = computeRawWeight(counts, interactionWeights);
+  const growthRate = await getStabilityGrowthRate(communityId);
 
-  // Fetch stability growth rate for this community (fall back to global)
-  const configResult = await pool.query(
-    `SELECT stability_growth_rate FROM social_graph.trust_decay_config
-     WHERE community_id = $1 OR community_id IS NULL
-     ORDER BY community_id NULLS LAST
-     LIMIT 1`,
-    [communityId]
-  );
-  const growthRate = configResult.rows.length > 0
-    ? configResult.rows[0].stability_growth_rate
-    : 0.20;
-
-  await pool.query(
-    `UPDATE social_graph.trust_edges
-     SET raw_weight = $1,
-         stability  = stability * $2,
-         updated_at = NOW()
-     WHERE user_id_a = $3 AND user_id_b = $4 AND community_id = $5`,
-    [rawWeight, 1 + growthRate, userIdA, userIdB, communityId]
-  );
+  await withPairLock(userIdA, userIdB, async client => {
+    // Upsert the edge, incrementing the appropriate count column
+    const upserted = await client.query(
+      `INSERT INTO social_graph.trust_edges
+         (user_id_a, user_id_b, community_id, ${countColumn}, raw_weight, last_interaction_at)
+       VALUES ($1, $2, $3, 1, 0, NOW())
+       ON CONFLICT (user_id_a, user_id_b, community_id) DO UPDATE SET
+         ${countColumn}        = social_graph.trust_edges.${countColumn} + 1,
+         last_interaction_at  = NOW(),
+         updated_at           = NOW()
+       RETURNING id`,
+      [userIdA, userIdB, communityId]
+    );
+    const edgeId = upserted.rows[0].id;
+    await updateRawWeightInPlace(client, [edgeId], interactionWeights);
+    await client.query(
+      `UPDATE social_graph.trust_edges SET stability = stability * $1, updated_at = NOW() WHERE id = $2`,
+      [1 + growthRate, edgeId]
+    );
+  });
 }
 
 export async function getTrustEdge(userA: string, userB: string, communityId: string): Promise<TrustEdgeRow | null> {

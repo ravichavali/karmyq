@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { socialGraphApi } from '@/lib/api';
+import MemberSkills from './skills/MemberSkills';
 
 interface TrustPathNode {
   id: string;
@@ -112,6 +113,12 @@ export function TrustCard({ userId, onClose }: { userId: string; onClose: () => 
                 </div>
               </div>
             )}
+
+            {/* ADR-100: the card opens for a match partner, so this is where a completed exchange can be vouched for. */}
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Skills</p>
+              <MemberSkills userId={userId} />
+            </div>
           </>
         ) : (
           <p className="text-sm text-gray-500">Could not load trust information.</p>

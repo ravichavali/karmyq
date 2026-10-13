@@ -19,6 +19,7 @@
   "dependencies": {
     "@karmyq/shared": "*",
     "bcryptjs": "^2.4.3",
+    "bull": "^4.11.5",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

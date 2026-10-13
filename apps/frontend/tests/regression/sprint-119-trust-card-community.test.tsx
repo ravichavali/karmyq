@@ -8,6 +8,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { TrustCard } from '../../src/components/TrustCard';
 
 jest.mock('@/lib/api', () => ({
+  // Sprint 133 PR B: TrustCard renders the partner's skills (MemberSkills).
+  skillsService: { getUserSkills: jest.fn().mockResolvedValue({ data: [] }), endorse: jest.fn(), withdrawEndorsement: jest.fn() },
   socialGraphApi: {
     get: jest.fn(),
   },
