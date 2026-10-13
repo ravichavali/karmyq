@@ -55,7 +55,7 @@ describe('in-place raw_weight expression', () => {
     const weights = { match_completed: 1.5, endorsement: 0.75, karma_given: 0.2, event: 3 };
     const columns = { match_completed_count: 4, endorsement_count: 2, karma_given_count: 7, event_count: 1 };
     const params = rawWeightParams(weights);
-    let expr = rawWeightSql(1);
+    let expr = rawWeightSql(1).split('::float8').join('');
     params.forEach((value, i) => { expr = expr.split(`$${i + 1}`).join(`(${value})`); });
     for (const [column, value] of Object.entries(columns)) expr = expr.split(column).join(`(${value})`);
     expect(expr).toMatch(/^[\d\s.()+*]+$/);
@@ -63,6 +63,10 @@ describe('in-place raw_weight expression', () => {
     const evaluated = new Function(`return ${expr}`)();
     expect(evaluated).toBeCloseTo(computeRawWeight(
       { match_completed: 4, endorsement: 2, karma_given: 7, event: 1 }, weights), 10);
+  });
+
+  it('types every weight parameter float8: integer * unknown would bind a fractional weight as integer', () => {
+    expect(rawWeightSql(1).match(/\$\d+::float8/g)).toEqual(['$1::float8', '$2::float8', '$3::float8', '$4::float8']);
   });
 
   it('honours the parameter offset so it can be embedded after other parameters', () => {
@@ -114,8 +118,34 @@ describe('handleEndorsementChanged payload validation', () => {
   beforeEach(() => ((pool as any).connect as jest.Mock).mockClear());
   it.each([
     undefined, {}, { endorser_id: A }, { endorser_id: A, endorsee_id: 'nope' }, { endorser_id: A, endorsee_id: A },
-  ])('rejects %j without touching the database', async payload => {
-    await expect(handleEndorsementChanged(payload as any)).rejects.toThrow(/endorsement/i);
+  ])('drops %j as terminal (logged, no retry storm) without touching the database', async payload => {
+    const { logger } = require('../../src/config/logger');
+    (logger.error as jest.Mock).mockClear();
+    await expect(handleEndorsementChanged(payload as any)).resolves.toBeUndefined();
     expect((pool as any).connect).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(expect.stringMatching(/endorsement/i), undefined, expect.anything());
+  });
+});
+
+describe('handleEndorsementChanged clears the pair path cache when the graph changed', () => {
+  const answer = (targets: unknown[], edges: unknown[]) => async (sql: string) => {
+    if (/FROM auth\.skill_endorsements/.test(sql)) return { rows: targets };
+    if (/FROM social_graph\.trust_edges/.test(sql) && /FOR UPDATE/.test(sql)) return { rows: edges };
+    if (/INSERT INTO social_graph\.trust_edges/.test(sql)) return { rows: [{ id: 'edge-new' }] };
+    return { rows: [] };
+  };
+  const cacheClears = () => ((pool as any).query as jest.Mock).mock.calls.filter(([sql]) => /DELETE FROM auth\.social_distances/.test(String(sql)));
+  beforeEach(() => ((pool as any).query as jest.Mock).mockReset().mockResolvedValue({ rows: [] }));
+
+  it('an inserted endorsement edge changes topology: the cache is cleared for the pair', async () => {
+    ((pool as any).connect as jest.Mock).mockResolvedValue({ query: jest.fn(answer([{ community_id: C1, n: 1 }], [])), release: jest.fn() });
+    await handleEndorsementChanged({ endorser_id: A, endorsee_id: B });
+    expect(cacheClears().map(([, params]) => params)).toEqual([[A, B]]);
+  });
+
+  it('a redelivered no-op leaves the cache alone', async () => {
+    ((pool as any).connect as jest.Mock).mockResolvedValue({ query: jest.fn(answer([{ community_id: C1, n: 1 }], [{ id: 'e', community_id: C1, endorsement_count: 1 }])), release: jest.fn() });
+    await handleEndorsementChanged({ endorser_id: A, endorsee_id: B });
+    expect(cacheClears()).toEqual([]);
   });
 });

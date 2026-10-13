@@ -55,7 +55,8 @@ time only: a completed match is permanent, so a vouch survives the endorser leav
 row. Every real state change bumps `revision` in the same statement; a repeat endorse of an active
 row, or a repeat withdrawal, changes nothing and publishes nothing. Opting out of skill sharing hides
 the skill and its vouch controls but does **not** delete endorsements or change trust edges: a vouch is
-a fact, visibility is a display rule. Deleting the tag cascades its endorsements.
+a fact, visibility is a display rule. Deleting the tag cascades its endorsements; the delete locks the tag
+and every endorsement row of it first, so a concurrent revive cannot slip between read and cascade.
 
 **Trust graph: reconcile, never increment.** `skill_endorsement_changed` carries only which pair
 changed. social-graph recomputes, for the pair and each community, `endorsement_count` = number of
@@ -84,10 +85,14 @@ social-graph). Other events keep their transport this sprint; BUG-060 tracks the
 tag-deletion cascade. Distinct changes never share an id (no timestamp collisions); a retried publish of
 the same change reuses its id, so Bull drops the duplicate.
 
-**Publish after commit; the lost-enqueue gap is accepted.** If the enqueue fails after the commit, the
-API still succeeds and logs the error with both user ids; the pair heals on its next endorsement change.
+**Publish after commit; the lost-enqueue gap is accepted.** If the enqueue fails or exceeds its 2 s bound after
+the commit, the API still succeeds and logs the error with both user ids; the pair heals on its next endorsement change.
 Operators repair drift with `node dist/scripts/reconcileEndorsementEdges.js` inside the social-graph
 container (dry run by default, `--apply` to write; a demo run needs its own authorization). No outbox.
+
+**Formula-derived weight.** Reconcile, like the `match_completed` path before it, rewrites `raw_weight` from
+the count columns. An edge whose weight was not formula-derived (a fusion carry edge, a curated demo edge
+with a projected weight) is normalized to the formula on its first endorsement change.
 
 **Known limitation.** A community split copies `endorsement_count` into the child community's edges
 (`fissionService.ts`). Because reconcile derives counts from match communities, the pair's next

@@ -23,9 +23,13 @@ export interface EndorsementChangedPayload { endorser_id: string; endorsee_id: s
 export async function handleEndorsementChanged(payload: EndorsementChangedPayload): Promise<void> {
   const { endorser_id, endorsee_id } = payload ?? ({} as EndorsementChangedPayload);
   if (!isUuid(endorser_id) || !isUuid(endorsee_id) || endorser_id === endorsee_id) {
-    throw new Error('Invalid skill_endorsement_changed payload: endorsement needs two distinct user ids');
+    // Terminal: a malformed payload can never succeed, so dropping it beats ten retries and a parked failed job.
+    logger.error('Dropping invalid skill_endorsement_changed payload: endorsement needs two distinct user ids', undefined, { payload });
+    return;
   }
   const plan = await reconcileEndorsementPair(endorser_id, endorsee_id);
+  // Like match_completed: a changed edge (an inserted one changes BFS topology) invalidates cached paths.
+  if (plan.updates.length || plan.inserts.length) await clearTrustPathCache(endorser_id, endorsee_id);
   logger.info('✅ Endorsement trust edges reconciled', { endorser_id, endorsee_id, updates: plan.updates.length, inserts: plan.inserts.length });
 }
 

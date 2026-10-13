@@ -71,16 +71,17 @@ router.delete('/:tagId', authMiddleware, async (req: Request, res: Response) => 
     return res.status(401).json({ success: false, message: 'Authentication required' });
   }
   const { tagId } = req.params;
-  // ADR-100: deleting a skill cascades its endorsements, which is an endorsement change for every
-  // active endorser. Lock the tag first (a concurrent endorse's FK check then waits for us), collect
-  // the active rows inside the transaction, and publish one event per row only after COMMIT.
+  // ADR-100: deleting a skill cascades its endorsements, an endorsement change for every endorser. Lock
+  // the tag (a concurrent new endorse's FK check waits) and EVERY endorsement row, withdrawn ones included
+  // (a concurrent revive is an UPDATE that takes no FK lock), then publish one event per row after COMMIT.
+  // Reconcile is idempotent, so an event for a row that was already withdrawn is harmless.
   let cascaded: Array<{ id: string; endorser_id: string }>;
   try {
     cascaded = await withTransaction(async q => {
       const tag = await q('SELECT id FROM auth.user_tags WHERE id = $1 AND user_id = $2 FOR UPDATE', [tagId, userId]);
       if (!tag.rows.length) return [];
       const active = (await q(
-        'SELECT id, endorser_id FROM auth.skill_endorsements WHERE user_tag_id = $1 AND withdrawn_at IS NULL', [tagId])).rows;
+        'SELECT id, endorser_id FROM auth.skill_endorsements WHERE user_tag_id = $1 FOR UPDATE', [tagId])).rows;
       await q('DELETE FROM auth.user_tags WHERE id = $1 AND user_id = $2', [tagId, userId]);
       return active;
     });

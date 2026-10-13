@@ -105,6 +105,10 @@ beforeAll(async () => {
   for (const id of [c1, c2, c3]) {
     await pool.query('INSERT INTO communities.communities(id,name,description,creator_id) VALUES ($1,$2,$3,$4)', [id, `S133 endorse ${id}`, 'Fixture', users.a]);
   }
+  // Fractional weights in c3: binding 2.5 to an integer-typed parameter must not break the in-place
+  // raw_weight UPDATE (code review: `integer * $n` infers $n as integer). Cascades with the community.
+  await pool.query(`INSERT INTO social_graph.interaction_weights (community_id, interaction_type, weight)
+    VALUES ($1,'match_completed',0.5), ($1,'endorsement',2.5)`, [c3]);
   const member = (u: string, c: string) => pool.query("INSERT INTO communities.members(user_id,community_id,role,status) VALUES ($1,$2,'member','active')", [u, c]);
   for (const c of [c1, c2]) { await member(users.a, c); await member(users.b, c); }
   await member(users.p, c3); await member(users.q, c3);
@@ -275,7 +279,9 @@ describe('concurrency on the pair lock (in-process, real PostgreSQL)', () => {
     const after = await edge(users.p, users.q, c3);
     expect(after.match_completed_count).toBe(before.match_completed_count + 1);
     expect(after.endorsement_count).toBe(1);
-    expect(after.raw_weight).toBeCloseTo(formula(after, await getInteractionWeightsForCommunity(c3)), 10);
+    const weights = await getInteractionWeightsForCommunity(c3);
+    expect([weights.match_completed, weights.endorsement]).toEqual([0.5, 2.5]);
+    expect(after.raw_weight).toBeCloseTo(formula(after, weights), 10);
   });
 
   it('the operator backfill reports drift in dry-run without writing, and --apply repairs it', async () => {

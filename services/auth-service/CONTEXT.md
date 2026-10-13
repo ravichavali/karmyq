@@ -73,15 +73,16 @@ FKs to `auth.users` and `auth.user_tags` cascade, so deleting a tag deletes its 
 | DELETE | `/auth/skills/endorsements/:tagId` | Withdraws the caller's active vouch (revision + 1). Idempotent 200 `{ withdrawn: true }`. No eligibility check: withdrawing only removes trust. |
 | GET | `/auth/skills/users/:userId` | Each skill adds `endorsement_count` (active vouches), `endorsed_by_me`, `can_endorse` (not self and a completed match with the owner). |
 
-`DELETE /auth/profile/tags/:tagId` now runs in a transaction: lock the tag row `FOR UPDATE` (a concurrent
-endorse's FK check waits), read its active vouches, delete, commit, then publish one event per cascaded
-vouch. Skill sharing opt-out hides vouches but never deletes them.
+`DELETE /auth/profile/tags/:tagId` now runs in a transaction (`withTransaction`, `src/database/db.ts`): lock the
+tag row `FOR UPDATE` (a concurrent new endorse's FK check waits) and **every** endorsement row of the tag
+`FOR UPDATE`, withdrawn ones included (a concurrent revive is an UPDATE that takes no FK lock), delete,
+commit, then publish one event per cascaded row. Skill sharing opt-out hides vouches but never deletes them.
 
 **Event publishing** (`src/events/endorsementEvents.ts`): `skill_endorsement_changed`
 `{ endorser_id, endorsee_id, job_id }` on the **dedicated** queue `karmyq-skill-endorsement-social-graph`
 (never `karmyq-events`; BUG-060), after commit. Job id `endorsement-<row>-r<revision>` per state change,
-`endorsement-<row>-deleted` per cascade; a retry reuses the change's id. A failed enqueue still returns
-success and logs both user ids; repair with social-graph's `reconcileEndorsementEdges` backfill.
+`endorsement-<row>-deleted` per cascade; a retry reuses the change's id. The enqueue is bounded (ioredis `maxRetriesPerRequest: 1`, `connectTimeout: 2000`, a 2 s race), so a Redis
+outage cannot hang the request. A failed or timed-out enqueue still returns success and logs both user ids; repair with social-graph's `reconcileEndorsementEdges` backfill.
 
 ### Tables Owned by This Service
 

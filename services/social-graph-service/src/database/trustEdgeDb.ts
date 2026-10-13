@@ -130,7 +130,8 @@ export async function getInteractionWeightsForCommunity(communityId: string, db:
  * in the order `rawWeightParams` produces; the expression mirrors `computeRawWeight`.
  */
 export function rawWeightSql(offset: number): string {
-  return `match_completed_count * $${offset} + endorsement_count * $${offset + 1} + karma_given_count * $${offset + 2} + event_count * $${offset + 3}`;
+  // ::float8 matters: `integer * $n` would infer $n as integer and reject a fractional weight such as 2.5.
+  return `match_completed_count * $${offset}::float8 + endorsement_count * $${offset + 1}::float8 + karma_given_count * $${offset + 2}::float8 + event_count * $${offset + 3}::float8`;
 }
 
 export function rawWeightParams(weights: InteractionWeights): number[] {

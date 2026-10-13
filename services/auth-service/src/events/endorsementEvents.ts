@@ -9,11 +9,15 @@ import { createLogger } from '@karmyq/shared/utils/logger';
  */
 export const ENDORSEMENT_QUEUE = 'karmyq-skill-endorsement-social-graph';
 export const endorsementLog = createLogger('auth-service');
+/** The longest a request waits on Redis after its DB change has committed. */
+const ENQUEUE_TIMEOUT_MS = 2000;
 
 let queue: Queue.Queue | undefined;
 function endorsementQueue(): Queue.Queue {
   if (!queue) {
     queue = new Queue(ENDORSEMENT_QUEUE, process.env.REDIS_URL || 'redis://localhost:6379', {
+      // Fail fast when Redis is unreachable instead of queueing commands offline (directedNotifications.ts).
+      redis: { maxRetriesPerRequest: 1, connectTimeout: 2000 },
       defaultJobOptions: {
         attempts: 10,
         backoff: { type: 'exponential', delay: 2000 },
@@ -49,14 +53,20 @@ export function endorsementJobId(change: Pick<EndorsementChange, 'rowId' | 'revi
 export async function publishEndorsementChanged(change: EndorsementChange): Promise<boolean> {
   const jobId = endorsementJobId(change);
   const payload = { endorser_id: change.endorser_id, endorsee_id: change.endorsee_id, job_id: jobId };
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
-    await endorsementQueue().add('skill_endorsement_changed', {
-      eventType: 'skill_endorsement_changed', payload, timestamp: new Date().toISOString(), source: 'auth-service',
-    }, { jobId });
+    await Promise.race([
+      endorsementQueue().add('skill_endorsement_changed', {
+        eventType: 'skill_endorsement_changed', payload, timestamp: new Date().toISOString(), source: 'auth-service',
+      }, { jobId }),
+      new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error('Endorsement queue timed out')), ENQUEUE_TIMEOUT_MS); }),
+    ]);
     return true;
   } catch (error) {
     endorsementLog.error('Failed to enqueue skill_endorsement_changed; trust edge stale until the next change or a backfill',
       error instanceof Error ? error : new Error(String(error)), payload);
     return false;
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
 }

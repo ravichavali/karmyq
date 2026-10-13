@@ -158,6 +158,20 @@ describe('POST /auth/skills/endorsements', () => {
     errorSpy.mockRestore();
   });
 
+  it('a hung enqueue (Redis unreachable) is bounded: the committed endorsement still answers promptly and logs', async () => {
+    const { endorsementLog } = require('../../src/events/endorsementEvents');
+    const errorSpy = jest.spyOn(endorsementLog, 'error').mockImplementation(() => undefined);
+    mockAdd.mockImplementation(() => new Promise(() => undefined));
+    db({ upsert: [{ id: ROW, tag_id: TAG, endorsee_id: OWNER, created_at: CREATED, revision: 1, inserted: true }] });
+    const started = Date.now();
+    const res = await post({ tag_id: TAG });
+    expect(res.status).toBe(201);
+    expect(Date.now() - started).toBeLessThan(4000);
+    expect(errorSpy).toHaveBeenCalledWith(expect.any(String), expect.any(Error),
+      expect.objectContaining({ endorser_id: CALLER, endorsee_id: OWNER }));
+    errorSpy.mockRestore();
+  });
+
   it('a tag deleted mid-request (FK violation) answers the same 404', async () => {
     mockQuery.mockImplementation(async (sql: string) => {
       if (/INSERT INTO auth\.skill_endorsements/.test(sql)) throw Object.assign(new Error('fk'), { code: '23503' });
@@ -230,8 +244,12 @@ describe('DELETE /auth/profile/tags/:tagId cascades endorsements', () => {
       [{ endorser_id: CALLER, endorsee_id: OWNER, job_id: `endorsement-${ROW}-deleted` }, { jobId: `endorsement-${ROW}-deleted` }],
       [{ endorser_id: OTHER_ENDORSER, endorsee_id: OWNER, job_id: `endorsement-${ROW_2}-deleted` }, { jobId: `endorsement-${ROW_2}-deleted` }],
     ]);
-    const [, endorsementParams] = mockClientQuery.mock.calls.find(([sql]) => /FROM auth\.skill_endorsements/.test(String(sql)))!;
+    const [endorsementSql, endorsementParams] = mockClientQuery.mock.calls.find(([sql]) => /FROM auth\.skill_endorsements/.test(String(sql)))!;
     expect(endorsementParams).toEqual([TAG]);
+    // Every row for the tag, withdrawn ones included, locked: a concurrent revive (an UPDATE that takes no
+    // FK lock on the tag) must wait for this delete instead of slipping in between read and cascade.
+    expect(endorsementSql).not.toMatch(/withdrawn_at/);
+    expect(endorsementSql).toMatch(/FOR UPDATE/);
     expect(mockRelease).toHaveBeenCalledTimes(1);
   });
 

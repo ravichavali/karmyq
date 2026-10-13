@@ -827,7 +827,9 @@ unchanged; a concurrent endorsement reconcile can no longer be overwritten with 
 **Queue**: the dedicated `karmyq-skill-endorsement-social-graph` (publisher auth-service, sole consumer
 this service). Never `karmyq-events`: BUG-060 confirmed that Bull hands shared-queue jobs to workers
 without a handler for them. Payload `{ endorser_id, endorsee_id, job_id }` names the pair only, never a
-delta; `handleEndorsementChanged` rejects malformed or self pairs.
+delta; `handleEndorsementChanged` drops malformed or self pairs as terminal (logged, not retried) and, when
+the reconcile changed any edge, clears the pair's cached paths (`clearTrustPathCache`), as `match_completed` does.
+Weights are bound as `float8` in the in-place `raw_weight` expression, so fractional weights work.
 
 **Action**: `reconcileEndorsementPair` (`src/services/endorsementReconcile.ts`) under `withPairLock`:
 read per-community distinct active endorsers for the pair (0..2) from `auth.skill_endorsements` joined to

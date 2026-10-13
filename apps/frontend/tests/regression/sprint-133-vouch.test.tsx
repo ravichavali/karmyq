@@ -16,7 +16,9 @@ const skill = (over: Record<string, unknown> = {}) => ({
 const item = async (label = 'Carpentry') => (await screen.findByText(label)).closest('li') as HTMLElement;
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  // Frontend Jest clears nothing between tests; reset so queued once-values cannot leak across tests.
+  for (const fn of Object.values(svc)) fn.mockReset();
+  (socialGraphApi.get as jest.Mock).mockReset();
   svc.endorse.mockResolvedValue({ data: { id: 'row-1', tag_id: 'tag-1', endorsee_id: 'caleb', created_at: '2026-10-13T00:00:00Z' } });
   svc.withdrawEndorsement.mockResolvedValue({ data: { withdrawn: true } });
 });
@@ -29,8 +31,10 @@ it('shows no vouch control without a completed match (can_endorse false)', async
   expect(within(li).queryByRole('button')).not.toBeInTheDocument();
 });
 
-it('vouch posts the tag id and updates the count and the button', async () => {
-  svc.getUserSkills.mockResolvedValue({ data: [skill({ can_endorse: true })] });
+it('vouch posts the tag id and shows the reloaded count and button', async () => {
+  svc.getUserSkills
+    .mockResolvedValueOnce({ data: [skill({ can_endorse: true })] })
+    .mockResolvedValueOnce({ data: [skill({ can_endorse: true, endorsed_by_me: true, endorsement_count: 1 })] });
   render(<MemberSkills userId="caleb" />);
   const li = await item();
   expect(within(li).queryByText(/vouch(es)?$/)).toBeNull();
@@ -40,14 +44,40 @@ it('vouch posts the tag id and updates the count and the button', async () => {
   expect(within(li).getByText('1 vouch')).toBeInTheDocument();
 });
 
-it('withdraw calls DELETE for that tag and decrements the count', async () => {
-  svc.getUserSkills.mockResolvedValue({ data: [skill({ can_endorse: true, endorsed_by_me: true, endorsement_count: 2 })] });
+it('withdraw calls DELETE for that tag and shows the reloaded count', async () => {
+  svc.getUserSkills
+    .mockResolvedValueOnce({ data: [skill({ can_endorse: true, endorsed_by_me: true, endorsement_count: 2 })] })
+    .mockResolvedValueOnce({ data: [skill({ can_endorse: true, endorsement_count: 1 })] });
   render(<MemberSkills userId="caleb" />);
   const li = await item();
   fireEvent.click(within(li).getByRole('button', { name: 'Withdraw vouch for Carpentry' }));
   await waitFor(() => expect(svc.withdrawEndorsement).toHaveBeenCalledWith('tag-1'));
   expect(await within(li).findByRole('button', { name: 'Vouch for Carpentry' })).toBeInTheDocument();
   expect(within(li).getByText('1 vouch')).toBeInTheDocument();
+});
+
+it('shows the server count after a vouch, not a local +1 (a stale view of an already-active vouch is a 200 no-op)', async () => {
+  svc.getUserSkills
+    .mockResolvedValueOnce({ data: [skill({ can_endorse: true, endorsement_count: 1 })] })
+    .mockResolvedValueOnce({ data: [skill({ can_endorse: true, endorsed_by_me: true, endorsement_count: 1 })] });
+  render(<MemberSkills userId="caleb" />);
+  const li = await item();
+  fireEvent.click(within(li).getByRole('button', { name: 'Vouch for Carpentry' }));
+  expect(await within(li).findByRole('button', { name: 'Withdraw vouch for Carpentry' })).toBeInTheDocument();
+  expect(within(li).getByText('1 vouch')).toBeInTheDocument();
+  expect(svc.getUserSkills).toHaveBeenCalledTimes(2);
+});
+
+it('a saved vouch whose reload fails falls back to the local estimate without an error', async () => {
+  svc.getUserSkills
+    .mockResolvedValueOnce({ data: [skill({ can_endorse: true, endorsement_count: 1 })] })
+    .mockRejectedValueOnce(new Error('offline'));
+  render(<MemberSkills userId="caleb" />);
+  const li = await item();
+  fireEvent.click(within(li).getByRole('button', { name: 'Vouch for Carpentry' }));
+  expect(await within(li).findByText('2 vouches')).toBeInTheDocument();
+  expect(within(li).getByRole('button', { name: 'Withdraw vouch for Carpentry' })).toBeInTheDocument();
+  expect(screen.queryByRole('alert')).toBeNull();
 });
 
 it('a failed vouch keeps the previous state and says so', async () => {

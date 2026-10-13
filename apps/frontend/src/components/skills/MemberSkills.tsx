@@ -20,8 +20,9 @@ export default function MemberSkills({ userId }: { userId: string }) {
     return () => { current = false }
   }, [userId])
 
-  // ADR-100: vouching is allowed after a completed match (the server decides can_endorse). The local
-  // count moves only after the server accepts the change, so a failure leaves the previous state.
+  // ADR-100: vouching is allowed after a completed match (the server decides can_endorse). After the
+  // server accepts a change, reload its counts: a stale view's repeat vouch or withdrawal is a 200 no-op,
+  // so a local +1/-1 could lie. A failed change leaves the previous state.
   const toggleVouch = async (skill: MemberSkill) => {
     const withdrawing = !!skill.endorsed_by_me
     setBusyTag(skill.tag_id)
@@ -29,13 +30,20 @@ export default function MemberSkills({ userId }: { userId: string }) {
     try {
       if (withdrawing) await skillsService.withdrawEndorsement(skill.tag_id)
       else await skillsService.endorse(skill.tag_id)
+    } catch {
+      setError('Could not update your vouch. Please try again.')
+      setBusyTag(null)
+      return
+    }
+    try {
+      setSkills((await skillsService.getUserSkills(userId)).data)
+    } catch {
+      // The change is saved; without a fresh read, show the best local estimate.
       setSkills(prev => prev.map(s => s.tag_id !== skill.tag_id ? s : {
         ...s,
         endorsed_by_me: !withdrawing,
         endorsement_count: Math.max(0, (s.endorsement_count ?? 0) + (withdrawing ? -1 : 1)),
       }))
-    } catch {
-      setError('Could not update your vouch. Please try again.')
     } finally {
       setBusyTag(null)
     }
