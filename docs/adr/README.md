@@ -30,7 +30,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 ## Index
 
 ### Core Architecture
-- [ADR-100: Skill Visibility and Endorsements](ADR-100-skill-visibility-and-endorsements.md) — Accepted
+- [ADR-100: Skill Visibility and Endorsements](ADR-100-skill-visibility-and-endorsements.md) — Implemented
 - [ADR-099: Inventories and Directed Requests](ADR-099-inventories-and-directed-requests.md) — Implemented
 - [ADR-003: Multi-Tenant RLS Database Design](ADR-003-multi-tenant-rls.md) — Accepted
 - [ADR-004: Microservices Event-Driven Architecture](ADR-004-microservices-event-driven.md) — Accepted
