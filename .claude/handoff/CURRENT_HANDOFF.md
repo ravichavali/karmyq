@@ -256,7 +256,8 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 - **Sprint 132 closeout: COMPLETE (2026-10-10).** #299 (advisories + renewals, v11.82.0, `dfe52c03`) and #300 (BUG-061 + ADR-099
   Implemented, v11.83.0, `aa6352e8`) are both deployed and smoke-tested. Branches `agent/claude/sprint-132-advisories` and
   `agent/claude/sprint-132-closeout` are merged; never commit on them.
-- **Exemptions RENEWED (maintainer, 2026-10-08, shipped in #299):** `node-forge` and `braces` now run 2026-10-08 → **2026-10-15**.
+- **Exemptions RENEWED again (maintainer, 2026-10-14, #304):** `node-forge` and `braces` run 2026-10-14 → **2026-10-21** once #304 merges.
+- **Earlier renewal (maintainer, 2026-10-08, shipped in #299):** `node-forge` and `braces` ran 2026-10-08 → 2026-10-15.
   Re-check both before then (`npm view`, the GHSA page, `npm ls --all`); remove each if upstream ships a fix.
   History of the ordering decision follows.
 - **Exemptions (closeout ordering, maintainer review 2026-10-08):** `node-forge` is **already invalid**
@@ -320,4 +321,7 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 7a. **CURRENT: PR Q (BUG-060, HIGH)** on `agent/claude/sprint-133-pr-q-queue-migration`: plan in a fresh chat (which events, which
    consumers, the `completionEvents.ts` per-consumer pattern, legacy-handler retention for queued jobs), then implement; the B1
    reproduction test must show 0 lost jobs for migrated events. Target 2026-10-15. A live endorse/withdraw smoke is a demo write: ask first. **Then the BUG-060 queue-migration PR (Q), then PR D.**
-8. Re-check `node-forge` and `braces` before **2026-10-15**.
+8. ~~Re-check `node-forge` and `braces` before 2026-10-15~~: DONE 2026-10-14. There is still no upstream fix (node-forge 1.4.0, braces 3.0.3, both
+   `first_patched_version` null; @expo/cli 57.0.30 still needs `^1.3.3`). The maintainer explicitly authorized renewal to **2026-10-21**.
+   Renewal PR [#304](https://github.com/ravichavali/karmyq/pull/304) (v11.87.0, branch `agent/claude/sprint-133-exemption-renewal`)
+   **must merge before 2026-10-15**, or every push fails the gate. PR Q then re-bumps its version from master at its own merge. Next re-check is due before **2026-10-21**.
