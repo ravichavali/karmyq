@@ -482,8 +482,12 @@ export async function computeTrustPath(
  * Called when a match completes — the direct edge now exists, so cached
  * paths (which may show longer indirect routes) are stale.
  */
-export async function clearTrustPathCache(userA: string, userB: string): Promise<void> {
-  await pool.query(
+/** `db` lets a caller clear inside its own transaction, so the invalidation commits or rolls back with the
+ * edge change it belongs to (Sprint 133 endorsement reconcile). */
+export async function clearTrustPathCache(
+  userA: string, userB: string, db: { query: (text: string, params?: unknown[]) => Promise<unknown> } = pool
+): Promise<void> {
+  await db.query(
     `DELETE FROM auth.social_distances
      WHERE (user_a_id = $1 AND user_b_id = $2)
         OR (user_a_id = $2 AND user_b_id = $1)`,

@@ -41,6 +41,8 @@ If a request has no trust badge, no connection was found within 3 degrees of sep
 
 Every time you complete an exchange with someone, a trust connection is created. These connections spread outward: your connections' connections become your 2° network, and so on. The more you participate, the more people will see a trust badge when your name appears in their feed.
 
+**Vouches strengthen a connection.** After an exchange, either of you can vouch for the other's skills. A vouch adds to the connection in the community where the exchange happened, at most once per person (so a pair adds at most two vouches), and the added trust goes away if the vouch is withdrawn. See [Skill Endorsements](/docs/concepts/skill-endorsements).
+
 ---
 
 ## What Each Label Really Means
@@ -62,4 +64,5 @@ We're careful that a badge never claims more than what actually happened. Each l
 ## Related
 
 - [How Trust Paths Work](/docs/concepts/trust-paths)
+- [Skill Endorsements](/docs/concepts/skill-endorsements)
 - [Your Karma & Reputation](/docs/guides/understanding-karma)

@@ -45,6 +45,10 @@
           "href": "/docs/concepts/trust-and-karma"
         },
         {
+          "label": "Skill Endorsements: Vouching for What You Saw",
+          "href": "/docs/concepts/skill-endorsements"
+        },
+        {
           "label": "Trust Score",
           "href": "/docs/concepts/trust-score"
         },

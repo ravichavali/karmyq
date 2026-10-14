@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware } from '@karmyq/shared/middleware';
-import { query } from '../database/db';
+import { query, withTransaction } from '../database/db';
+import { publishEndorsementChanged } from '../events/endorsementEvents';
 import { TAG_SUGGESTIONS } from '../constants/tagSuggestions';
 import { listSkillSuggestions, resolveSkillSlug } from '../services/skillVocabulary';
 
@@ -70,10 +71,26 @@ router.delete('/:tagId', authMiddleware, async (req: Request, res: Response) => 
     return res.status(401).json({ success: false, message: 'Authentication required' });
   }
   const { tagId } = req.params;
-  await query(
-    'DELETE FROM auth.user_tags WHERE id = $1 AND user_id = $2',
-    [tagId, userId]
-  );
+  // ADR-100: deleting a skill cascades its endorsements, an endorsement change for every endorser. Lock
+  // the tag (a concurrent new endorse's FK check waits) and EVERY endorsement row, withdrawn ones included
+  // (a concurrent revive is an UPDATE that takes no FK lock), then publish one event per row after COMMIT.
+  // Reconcile is idempotent, so an event for a row that was already withdrawn is harmless.
+  let cascaded: Array<{ id: string; endorser_id: string }>;
+  try {
+    cascaded = await withTransaction(async q => {
+      const tag = await q('SELECT id FROM auth.user_tags WHERE id = $1 AND user_id = $2 FOR UPDATE', [tagId, userId]);
+      if (!tag.rows.length) return [];
+      const active = (await q(
+        'SELECT id, endorser_id FROM auth.skill_endorsements WHERE user_tag_id = $1 FOR UPDATE', [tagId])).rows;
+      await q('DELETE FROM auth.user_tags WHERE id = $1 AND user_id = $2', [tagId, userId]);
+      return active;
+    });
+  } catch (error) {
+    (req as any).logger?.error('Failed to delete tag', error instanceof Error ? error : new Error(String(error)), { userId });
+    return res.status(500).json({ success: false, message: 'Failed to delete tag', error: 'INTERNAL_ERROR' });
+  }
+  await Promise.all(cascaded.map(row =>
+    publishEndorsementChanged({ rowId: row.id, revision: 'deleted', endorser_id: row.endorser_id, endorsee_id: userId })));
   res.json({ success: true });
 });
 

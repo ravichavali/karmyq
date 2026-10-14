@@ -24,3 +24,12 @@ export function activeMemberSql(communityParam: string, viewerParam: string): st
       AND skill_membership.user_id = ${viewerParam}::uuid AND skill_membership.status = 'active'
   )`;
 }
+
+/** A completed match between the owner and the viewer, in either direction (ADR-100 eligibility).
+ * Needs `requests.matches m JOIN requests.help_requests r ON r.id = m.request_id` in scope. */
+export function completedPairSql(ownerExpr: string, viewerParam: string): string {
+  return `m.status = 'completed' AND (
+    (r.requester_id = ${viewerParam}::uuid AND m.responder_id = ${ownerExpr})
+    OR (r.requester_id = ${ownerExpr} AND m.responder_id = ${viewerParam}::uuid)
+  )`;
+}

@@ -1063,7 +1063,11 @@ export const collectiveService = {
     requestApi.get('/collectives', { params }),
 }
 
-export interface MemberSkill { tag_id: string; label: string; skill_slug: string | null }
+export interface MemberSkill {
+  tag_id: string; label: string; skill_slug: string | null
+  // ADR-100 vouches: active vouch count, whether you vouched, whether a completed match lets you vouch.
+  endorsement_count?: number; endorsed_by_me?: boolean; can_endorse?: boolean
+}
 export interface SkillDirectoryEntry { skill_key: string; label: string; member_count: number }
 export interface SkillSearchMember { user_id: string; name: string; skills: Array<{ tag_id: string; label: string }> }
 
@@ -1072,6 +1076,8 @@ export const skillsService = {
   getCommunitySkillDirectory: (communityId: string) => api.get<SkillDirectoryEntry[]>(`/auth/skills/communities/${communityId}`),
   searchCommunitySkills: (communityId: string, skill: string) =>
     api.get<SkillSearchMember[]>(`/auth/skills/communities/${communityId}/search`, { params: { skill } }),
+  endorse: (tagId: string) => api.post('/auth/skills/endorsements', { tag_id: tagId }),
+  withdrawEndorsement: (tagId: string) => api.delete(`/auth/skills/endorsements/${tagId}`),
 }
 
 export const trustQuestionsService = {

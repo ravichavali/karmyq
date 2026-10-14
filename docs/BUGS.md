@@ -1581,7 +1581,7 @@ and no repo source reaches it. Exempted until **2026-10-09** (ADR-059 amendment 
 
 ---
 
-## BUG-060 · [2026-10-05] · open
+## BUG-060 · [2026-10-05] · **CONFIRMED** (Sprint 133 PR B) · open · **HIGH**
 
 **UNVERIFIED: competing workers may lose shared-queue events other than completion.** The
 maintainer-relayed PR #293 review suspects `request_created`, `karma_awarded`,
@@ -1590,6 +1590,34 @@ workers without matching named handlers, failing the job instead of delivering i
 subscribers. This has not been reproduced. PR C repairs the reproduced `match_completed`
 competition with per-service queues; the other event types remain separate later-sprint scope.
 Reproduce and inspect retry/failure behavior before planning a broader delivery change.
+
+**Confirmed (2026-10-13, Sprint 133 PR B Task B1).** Two independent proofs:
+
+- **Mechanism, from the installed source (`bull@4.16.5`).** `getNextJob` moves ANY waiting job to active
+  with `brpoplpush` (`node_modules/bull/lib/queue.js:1246`); `lib/commands/moveToActive-8.lua` has no
+  job-name filter. `processJob` then fails a job whose name the worker never registered with
+  `Missing process handler for job type <name>` (`queue.js:1203-1208`). A deterministic probe on a
+  scratch queue reproduces exactly that failure.
+- **Live, against the real notification, reputation and social-graph containers**
+  (`tests/integration/sprint-133-bug-060-shared-queue.integration.test.ts`, CI run 38465333100, job
+  115532264069). 60 `request_created` jobs published with the production options (`attempts: 3`,
+  exponential backoff): **45 delivered, 15 permanently failed and never reached notification-service
+  (25%)**; 38 jobs had at least one `Missing process handler` attempt (77 lost attempts). Every
+  completed job wrote exactly one notification; every error was the missing-handler error.
+
+**Impact today:** every event on `karmyq-events` that is handled by only some of the three consuming
+services is subject to the same loss (`request_created`, `karma_awarded`, `match_created`, the offer/dibs
+events, `join_request_created`, `interaction_feedback_submitted`, …). Retries reduce but do not remove it:
+each attempt is a fresh draw among the attached workers.
+
+**Scope this sprint (spec Critical Note 7):** only the new `skill_endorsement_changed` event avoids it, on
+the dedicated queue `karmyq-skill-endorsement-social-graph` (ADR-100). No other event's transport changes
+in Sprint 133. **Severity: HIGH** (decided 2026-10-13 in the PR #303 review): user-visible notifications are silently
+dropped. **Plan (review recommendation, 2026-10-13):** a separate, urgent queue-migration PR immediately
+after PR B and **before PR D**, targeting **2026-10-15**, moving the remaining events to per-consumer queues
+(the `match_completed` pattern in `services/request-service/src/events/completionEvents.ts`). HIGH SLA
+deadline: **2026-10-20**. Re-run `tests/integration/sprint-133-bug-060-shared-queue.integration.test.ts`
+against the migrated events; its live half should then show 0 missing-handler failures.
 
 ---
 

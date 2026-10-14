@@ -47,6 +47,8 @@ describe('Completion rate display', () => {
 // ─── Component tests ──────────────────────────────────────────────────────────
 
 jest.mock('../../src/lib/api', () => ({
+  // Sprint 133 PR B: TrustCard renders the partner's skills (MemberSkills).
+  skillsService: { getUserSkills: jest.fn().mockResolvedValue({ data: [] }), endorse: jest.fn(), withdrawEndorsement: jest.fn() },
   socialGraphApi: {
     get: jest.fn(),
     interceptors: { request: { use: jest.fn() }, response: { use: jest.fn() } },

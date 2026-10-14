@@ -1,6 +1,8 @@
 import Queue from 'bull';
 import { clearTrustPathCache } from '../services/pathComputation';
 import { reconcileMatchCompletedCommunities } from '../services/trustEdgeService';
+import { reconcileEndorsementPair } from '../services/endorsementReconcile';
+import { isUuid } from '../services/communityContext';
 import { logger } from '../config/logger';
 import { pool } from '../config/database';
 
@@ -9,6 +11,26 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const eventQueue = new Queue('karmyq-events', REDIS_URL);
 const completionQueue = new Queue('karmyq-completion-social-graph', REDIS_URL);
 completionQueue.on('error', error => logger.error('Completion queue error', error instanceof Error ? error : undefined));
+// ADR-100 / BUG-060: endorsement changes ride a dedicated queue (mirrored in auth-service
+// src/events/endorsementEvents.ts); the shared karmyq-events queue would let other services' workers fail them.
+export const ENDORSEMENT_QUEUE = 'karmyq-skill-endorsement-social-graph';
+const endorsementQueue = new Queue(ENDORSEMENT_QUEUE, REDIS_URL);
+endorsementQueue.on('error', error => logger.error('Endorsement queue error', error instanceof Error ? error : undefined));
+
+/** The `skill_endorsement_changed` payload: which pair changed, never a delta. */
+export interface EndorsementChangedPayload { endorser_id: string; endorsee_id: string; job_id?: string }
+
+export async function handleEndorsementChanged(payload: EndorsementChangedPayload): Promise<void> {
+  const { endorser_id, endorsee_id } = payload ?? ({} as EndorsementChangedPayload);
+  if (!isUuid(endorser_id) || !isUuid(endorsee_id) || endorser_id === endorsee_id) {
+    // Terminal: a malformed payload can never succeed, so dropping it beats ten retries and a parked failed job.
+    logger.error('Dropping invalid skill_endorsement_changed payload: endorsement needs two distinct user ids', undefined, { payload });
+    return;
+  }
+  // The reconcile clears the pair's cached paths inside its own transaction when it changes an edge.
+  const plan = await reconcileEndorsementPair(endorser_id, endorsee_id);
+  logger.info('✅ Endorsement trust edges reconciled', { endorser_id, endorsee_id, updates: plan.updates.length, inserts: plan.inserts.length });
+}
 
 /** The `match_completed` event payload (as published by request-service `matches.ts`). */
 export interface MatchCompletedPayload {
@@ -83,6 +105,9 @@ export async function initEventSubscriber() {
     };
     eventQueue.process('match_completed', handleCompletion);
     completionQueue.process('match_completed', handleCompletion);
+    endorsementQueue.process('skill_endorsement_changed', async (job: Queue.Job) => {
+      await handleEndorsementChanged(job.data.payload as EndorsementChangedPayload);
+    });
 
     logger.info('✅ Social graph event subscriber initialized');
   } catch (error) {

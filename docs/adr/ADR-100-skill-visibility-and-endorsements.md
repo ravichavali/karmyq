@@ -2,7 +2,7 @@
 
 **Status**: Accepted
 **Date**: 2026-10-12
-**Sprint**: 133 — PR A (visibility and discovery); PR B (endorsements) follows
+**Sprint**: 133 — PR A (visibility and discovery); PR B (endorsements)
 
 ## Context
 
@@ -40,13 +40,64 @@ so an image rollback does not need the legacy table. Historical migration tests 
 the old table transactionally. `GET /requests/matched/for-user` and its unused frontend
 wrapper are retired; the curated feed continues using skill tags.
 
-## Endorsements — PR B pending
+## Endorsements (PR B)
 
-The maintainer approved vouching by completed-match partners and pair-capped trust edge
-reconciliation. PR B will document its eligibility checks, transport evidence from BUG-060,
-revision job IDs, serialization, withdrawals and enqueue recovery here. PR A implements
-visibility and discovery only. Turning sharing off is a display rule: it will not delete
-endorsements or change trust edges.
+**Eligibility.** A member may vouch for a skill tag of someone they share a **completed** match with,
+in either direction, and whose skill they can currently see (`skillVisibleToSql`). Both conditions
+are evaluated inside the same SQL statement that writes the row (`POST /auth/skills/endorsements`,
+`services/auth-service/src/routes/skills.ts`), so visibility cannot change between check and write.
+The endorsee is the tag's owner, read in that statement. A missing tag, a hidden tag and a caller
+with no completed match get the same 404; a vouch for your own skill is a 400. The most recent
+qualifying match is stored in `match_id` (no cross-schema FK). Eligibility is checked at write
+time only: a completed match is permanent, so a vouch survives the endorser leaving the community.
+
+**One row per (endorser, tag).** Withdrawing sets `withdrawn_at`; re-endorsing clears it on the same
+row. Every real state change bumps `revision` in the same statement; a repeat endorse of an active
+row, or a repeat withdrawal, changes nothing and publishes nothing. Opting out of skill sharing hides
+the skill and its vouch controls but does **not** delete endorsements or change trust edges: a vouch is
+a fact, visibility is a display rule. Deleting the tag cascades its endorsements; the delete locks the tag
+and every endorsement row of it first, so a concurrent revive cannot slip between read and cascade.
+
+**Trust graph: reconcile, never increment.** `skill_endorsement_changed` carries only which pair
+changed. social-graph recomputes, for the pair and each community, `endorsement_count` = number of
+distinct endorsers among the two with an active endorsement whose match's request is in that community
+(`requests.request_communities`). The value is 0, 1 or 2: five vouches from one person count once,
+mutual vouching counts twice; per-skill counts on the profile keep the detail. Redelivery, retries,
+withdrawal and tag deletion therefore converge to the same row. Reconcile never touches `stability`;
+it moves `last_interaction_at` only when the count rises and inserts an edge only for a count above 0
+(`services/social-graph-service/src/services/endorsementReconcile.ts`). When it changes an edge it clears the
+pair's cached trust paths in the same transaction, so a retry can never commit the edge without the invalidation.
+
+**Serialization.** Both writers of a pair's edges, the endorsement reconcile and the `match_completed`
+path (`upsertTrustEdge`), run in one transaction holding
+`pg_advisory_xact_lock(hashtextextended('trust-pair:' || a || ':' || b, 0))` on the normalized pair
+(`withPairLock`, `trustEdgeDb.ts`). `raw_weight` is computed inside the `UPDATE` from the row's current
+count columns, never from a value read earlier. A real-Postgres test proves a stale reconcile released
+after a withdrawal's reconcile ends at 0, and a negative control proves the same interleaving without
+the lock ends at 1.
+
+**Transport.** BUG-060 is confirmed: Bull 4.16.5 hands any waiting job to any worker and fails a job
+whose name that worker never registered (`bull/lib/queue.js:1203-1208`, `:1246`). Live, 15 of 60
+`request_created` jobs on the shared queue never reached their only handler. The event therefore uses the
+dedicated queue `karmyq-skill-endorsement-social-graph` (publisher auth-service, sole consumer
+social-graph). Other events keep their transport this sprint; BUG-060 tracks them.
+
+**Job ids.** `endorsement-<row id>-r<revision>` for a state change and `endorsement-<row id>-deleted` for a
+tag-deletion cascade. Distinct changes never share an id (no timestamp collisions); a retried publish of
+the same change reuses its id, so Bull drops the duplicate.
+
+**Publish after commit; the lost-enqueue gap is accepted.** If the enqueue fails or exceeds its 2 s bound after
+the commit, the API still succeeds and logs the error with both user ids; the pair heals on its next endorsement change.
+Operators repair drift with `node dist/scripts/reconcileEndorsementEdges.js` inside the social-graph
+container (dry run by default, `--apply` to write; a demo run needs its own authorization). No outbox.
+
+**Formula-derived weight.** Reconcile, like the `match_completed` path before it, rewrites `raw_weight` from
+the count columns. An edge whose weight was not formula-derived (a fusion carry edge, a curated demo edge
+with a projected weight) is normalized to the formula on its first endorsement change.
+
+**Known limitation.** A community split copies `endorsement_count` into the child community's edges
+(`fissionService.ts`). Because reconcile derives counts from match communities, the pair's next
+endorsement change sets that inherited copy to 0.
 
 ## Consequences
 
@@ -64,3 +115,8 @@ to skill discovery, rather than changing request matching or the profile editor.
 - JWT-only membership checks: would preserve access after a member leaves.
 - Separate visibility rules for search and profiles: would make opting out incomplete.
 - Substring search: would make a full skill key and a partial query behave differently.
+- Incrementing `endorsement_count` per event: retries and re-endorsements would inflate trust and a
+  withdrawal could not be reversed exactly.
+- Publishing on the shared `karmyq-events` queue: BUG-060 loses a share of those jobs.
+- A transactional outbox: closes the lost-enqueue gap but adds a relay; deferred while a backfill exists.
+- Vouching by any co-member: would let people vouch for skills they never saw used.

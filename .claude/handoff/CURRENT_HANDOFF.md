@@ -1,16 +1,33 @@
 # Sprint 133 — Skills Depth — Handoff
 
-**Date**: 2026-10-12 (**PR S SHIPPED**, v11.84.0)
-**Status**: **PR S SHIPPED and LIVE; PR A [#302](https://github.com/ravichavali/karmyq/pull/302) is DRAFT, implemented and validated, awaiting only CodeQL false-positive dismissal authorization.** [#301](https://github.com/ravichavali/karmyq/pull/301)
-merged as `278d3306` on 2026-10-12 by `gh pr merge --squash --admin`. The maintainer explicitly authorized the bypass:
-the required review cannot be satisfied when the PR author is the only account. [CI/CD 38302920724](https://github.com/ravichavali/karmyq/actions/runs/38302920724)
-reported DEPLOYMENT SUCCESSFUL, all critical services healthy, no rollback. CI integration job 114576625737 ran
-`sprint-133-request-detail-visibility` against real Postgres (4/4). **Read-only smoke as maria.reyes: 11/11 PASS**
-(own request 200 without `requester_email`; a community-scope request in a non-member community 404, same body as an
-absent id; another user without `email`; anonymous `/users/:id` 401; own profile with `email`; members list as a
-member with 0 leaked emails out of 105 rows; non-steward `?status=pending` 403; no `admin_note` for a non-steward).
-#236 was already closed (2026-10-02); a comment now links the fix. This handoff rides on the PR A branch
-`agent/claude/sprint-133-pr-a-skill-visibility`, cut from `origin/master` `278d3306` (no docs-only master push).
+**Date**: 2026-10-13 (**PR B implemented, in review**: draft [#303](https://github.com/ravichavali/karmyq/pull/303))
+**PR B status (2026-10-13, Claude executing, Codex reviewing):** B1–B9 done on `agent/claude/sprint-133-pr-b-endorsements`.
+**BUG-060 CONFIRMED** (CI run 38465333100: 15 of 60 `request_created` jobs permanently lost on the shared queue; mechanism
+traced to `bull/lib/queue.js:1203-1208,1246`), so endorsements use the dedicated queue `karmyq-skill-endorsement-social-graph`.
+Gates: /simplify (4 agents, applied), /code-review high (6 fixed RED→GREEN, rest ruled), /security-review (no findings).
+Ledger with every ruling: `.superpowers/sdd/2026-10-08-sprint-133-skills-depth/progress.md`.
+**Review round 1 (Codex, relayed 2026-10-13):** CodeQL #610/#611 **dismissed** by the maintainer; all checks on `219a45ff`
+passed. Codex did **not** recommend merging yet: (P2) endorsement path-cache invalidation was not retry-safe (cleared after
+COMMIT, so a retry with matching counts skipped it) → **fixed**: the clear now runs inside the reconcile transaction, with a
+fault-injection regression; ADR-100 had two malformed headings → **fixed**; the backfill dry-run description claimed
+write-then-rollback → **corrected** (it returns the plan before any write). **BUG-060 is HIGH** (decided in the #303 review):
+a separate urgent **queue-migration PR** goes right after PR B and **before PR D**, target **2026-10-15** (SLA 2026-10-20).
+**Codex re-review (2026-10-14, `219a45ff → 12820e51`): no remaining code blockers; all four findings addressed;** recommended
+version stamping and merge (fresh verification: social-graph 12 unit + 172 regression, tsc, drift 41/41, CI 38512441049 green on
+`12820e51`). Real-Postgres fault injection for the cache clear would strengthen coverage but is not a blocker. **Maintainer
+authorized the admin merge 2026-10-14.** Version stamped **11.86.0** (master was 11.85.0). **Note for PR D:** reconcile rewrites `raw_weight` by formula, so seeded edges must carry formula-consistent weights.
+**Previous status: PR S and PR A SHIPPED and LIVE.** [#302](https://github.com/ravichavali/karmyq/pull/302)
+merged as `e7ff481d` on 2026-10-13 (the maintainer ran the merge). The master Code Scanning Gate first failed on
+CodeQL #607–609: line-shift re-raises of already-dismissed `js/request-forgery` FPs on unchanged fixed-path calls in
+`api.ts` (521, 830, 1063). The maintainer dismissed them; a `--failed` rerun of [CI/CD 38410709880](https://github.com/ravichavali/karmyq/actions/runs/38410709880)
+(attempt 2) built the images and deployed. All 9 services healthy, no rollback. **Read-only smoke as maria.reyes: 10/10 PASS**
+(settings expose `share_skills_with_communities`; own skills 200; directory 200 for all 6 member communities; absent
+community 404; absent user 404; anonymous 401; invalid id 400; empty search 400; retired `/requests/matched/for-user`
+no longer 200 (403)). **Not smoke-covered on live data:** demo users have zero skill tags, so every directory is empty and
+search/co-member visibility could not be exercised live. That rests on CI real-Postgres evidence (6/6 visibility cases) until
+PR D seeds skills; re-run the smoke after PR D. PR S shipped earlier as `278d3306` (v11.84.0, smoke 11/11).
+This handoff rides on the PR B branch `agent/claude/sprint-133-pr-b-endorsements`, cut from `origin/master`
+`e7ff481d` (no docs-only master push).
 
 > **Merge-conflict rule for this file.** The Sprint 132 closeout branch carries a newer Sprint 132
 > handoff. The closeout **archives** it to `.claude/handoff/archive/` before or with its last PR. When
@@ -26,9 +43,9 @@ member with 0 leaked emails out of 105 rows; non-steward `?status=pending` 403; 
 2. **Check the precondition first (plan Task S0):** the Sprint 132 closeout PRs (the `shell-quote`/`sharp` + `node-forge`-decision
    advisory fix and BUG-061, commit `4c709023`) are MERGED and deployed, and the Sprint 132 handoff is
    archived. If not, switch to `agent/claude/sprint-132-closeout` and follow its handoff instead.
-3. Continue PR A on `agent/claude/sprint-133-pr-a-skill-visibility`, assigned to Codex by the
-   maintainer. PR S is shipped; do not recreate its branch. Verify the live tree/PR state and
-   resume the next unchecked PR A action below. Never branch off a stale local master.
+3. Start PR B on `agent/claude/sprint-133-pr-b-endorsements` (cut from `origin/master` `e7ff481d`).
+   PR S and PR A are shipped; never commit on their branches. Begin at plan Task B1 (BUG-060
+   reproduction before choosing the transport). Never branch off a stale local master.
 4. Open the plan: [`docs/superpowers/plans/2026-10-08-sprint-133-skills-depth.md`](../../docs/superpowers/plans/2026-10-08-sprint-133-skills-depth.md).
    **One PR section per fresh chat**, in order S → A → B → D.
 5. PR A uses `superpowers:executing-plans` inline, with migration, whole-branch and process reviewers.
@@ -51,8 +68,9 @@ security PR first closes BUG-056, BUG-062 and BUG-058.
 | PR | Scope | Branch | State |
 |---|---|---|---|
 | **S** | BUG-056 (`GET /requests/:id` gate + drop `requester_email`, directed rules unchanged), BUG-062 (member email: `/users/:userId` auth + self-only; community detail/members admin-only), BUG-058 (cap → 7, monitor retired, #236) | `agent/claude/sprint-133-pr-s-security` | **SHIPPED v11.84.0** ([#301](https://github.com/ravichavali/karmyq/pull/301), `278d3306`, deploy 38302920724, smoke 11/11). Also fixed in review: preferred-provider read, admin-notes gate, `join_request_message` on active rows, `GET /offers/:id` `helper_email`, gate ordering in `audit-exemptions.js`. Logged BUG-063/064/065 |
-| A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, skills setting on `/users/me/settings` (no route-order bug: withdrawn 2026-10-11), drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | **DRAFT [#302](https://github.com/ravichavali/karmyq/pull/302)**, implementation `9297326f`, generated schema `f3ec5e8b`, constant historical DDL + distinct-count test `dc0fa849`; all pushed through required pre-push checks (27/27 tasks). tsc x4 exit 0 on implementation commit. Version target 11.85.0, live master still 11.84.0 (`278d3306`). [Independent schema parity 38314874105](https://github.com/ravichavali/karmyq/actions/runs/38314874105) **passed byte-for-byte** on `dc0fa849`. [Integration job 115030114933](https://github.com/ravichavali/karmyq/actions/runs/38314874262/job/115030114933) on `dc0fa849`: visibility **6/6**, historical skills **9/9**, whole integration **139/139** + curated reset **2/2**, actual job log verified. Backend, frontend, auth, Docker build, landing build, lint, audit and PR contract passed. CodeQL #606 **fixed without dismissal**; #603–605 **dismissed by the maintainer as false positives** (2026-10-12). See PR Validation ledger and triage below. |
-| B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | Not started |
+| A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, skills setting on `/users/me/settings` (no route-order bug: withdrawn 2026-10-11), drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | **SHIPPED v11.85.0** ([#302](https://github.com/ravichavali/karmyq/pull/302), `e7ff481d`, deploy 38410709880 attempt 2, smoke 10/10). CodeQL #603–605 (PR) and #607–609 (master line-shift) dismissed by the maintainer as false positives |
+| B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | **APPROVED → MERGING** [#303](https://github.com/ravichavali/karmyq/pull/303), v11.86.0: B1–B10 done (Claude); CodeQL #610/#611 dismissed (maintainer); Codex review round 1 fixed, re-review clean (2026-10-14); admin merge authorized 2026-10-14. B11 deploy + read-only smoke follow; ADR-100 → Implemented rides the next PR (no docs-only master push) |
+| Q | **BUG-060 (HIGH)**: move the remaining shared-queue events off `karmyq-events` to per-consumer queues (completionEvents pattern); re-run the B1 reproduction expecting 0 lost jobs | not cut yet (after PR B merges, from fresh `origin/master`) | **NEXT after B**, target 2026-10-15; scope/plan in its own chat |
 | D | Curated demo seed: skills, items, endorsements (demo apply needs per-operation authorization) | `agent/claude/sprint-133-pr-d-demo-seed` | Not started |
 
 Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is reserved.
@@ -237,7 +255,8 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
   **2026-10-15**, with BUG-056 (2026-10-14) and BUG-058 (2026-10-15). If PR S cannot merge by then,
   write dated risk acceptances for the maintainer (plan Task S0). `docs/BUGS.md` conflicts with the
   closeout branch's BUG-061 entry on merge: keep both, 061 before 062.
-- **BUG-060** (UNVERIFIED shared-queue competition): reproduced or refuted in PR B Task B1.
+- **BUG-060: CONFIRMED and HIGH** (PR B Task B1: 15/60 and 16/60 `request_created` jobs lost live; severity decided in the #303 review).
+  Fix = the queue-migration PR **Q**, right after PR B and before PR D, target 2026-10-15, SLA 2026-10-20.
 - **New finding for IDEAS (PR B Task B7):** `match_completed` trust-edge increments are not idempotent
   (`upsertTrustEdge` `+ 1`); a redelivered completion over-counts.
 - **Directed-notify lookup `expires_at > NOW()`** and the standing rollback policy (fix-forward once
@@ -250,7 +269,7 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 | Field | Value |
 |---|---|
 | **Planning branch** | `feature/sprint-133-skills-depth`, base `origin/master` `6041c92c` (docs only) |
-| **Active editor** | Codex, assigned by the maintainer 2026-10-12 to execute PR A on the existing branch; shared tree verified clean at `3a79b032` |
+| **Active editor** | **Claude executes PR B** (maintainer, 2026-10-13: "You hold this lane and I will use codex for review"). Codex is the non-author reviewer of PR B |
 | **Reviewer role** | A non-author reviews each completed diff |
 | **Shared resources** | ADR-100 allocated to this sprint. Maintainer assigned PR A execution to Codex 2026-10-12; root version stamp only (11.85.0 from current origin/master 11.84.0), re-check before merge. No dependency upgrades or demo data operation are authorized by this task. |
 
@@ -275,37 +294,12 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 4. ~~PR S Task S8~~: DONE 2026-10-12 (#301 merged `278d3306`, deploy 38302920724, smoke 11/11, #236 linked).
 5. **Maintainer decisions owed:** BUG-065 (HIGH proposed, `GET /requests` list breadth, due 2026-10-17) and
    BUG-064 (offers visibility). BUG-063 (export reads a nonexistent schema) is unassigned.
-6. **CURRENT: PR A execution** on `agent/claude/sprint-133-pr-a-skill-visibility`. Codex is the active
-   editor per maintainer assignment 2026-10-12. A1 tests, A3/A4 auth, A5 retirement, A6 frontend and
-   A7/A8 docs are present and new tests promoted to regression. A2 migration passed review;
-   historical Sprint 132 integration tests recreate their old-table precondition transactionally.
-   Whole-branch high review fixed independent privacy loading/retry and exact Unicode search
-   normalization; no high-confidence security findings. Deferred minor: directory initially shows
-   an empty message while loading. Pre-commit process review and full suite passed before each
-   code/test/schema commit; all three pushes passed required hooks. Changes after `dc0fa849` are
-   handoff-only. Independent-base byte parity passed on that commit. The literal original historical
-   table fixture resolved CodeQL #606 without a dismissal: its PR instance reports fixed after
-   [analysis 38314870074](https://github.com/ravichavali/karmyq/actions/runs/38314870074).
-   **CodeQL #603–605 DISMISSED** by the maintainer on 2026-10-12 as false positives: the documented
-   `js/request-forgery` class on the new fixed-prefix Axios calls in `api.ts:1071–1074` (the auto-mode
-   classifier blocked the agent's own dismissal call). CodeQL now passes on `f5085ac5`. Gate run
-   38316058425 failed at 22:22, before the dismissal, and was re-run with `--failed`.
-   **Next:** once the gate is green, mark #302 ready (version 11.85.0 is already committed, and
-   master is 11.84.0 at `278d3306`), then get explicit admin-merge authorization, deploy and run
-   a read-only smoke. The "27/27 tasks" above are the plan's tasks; deploy and smoke are still pending.
-   Real-SQL evidence at `dc0fa849` is verified: the sixth case adds two tag labels for one owner
-   to prove directory counts are distinct members, then opt-out
-   drops the count exactly once. [Integration job 115030114933](https://github.com/ravichavali/karmyq/actions/runs/38314874262/job/115030114933)
-   passed **6/6** new visibility cases, **9/9** historical skills, **139/139** total + curated reset
-   **2/2**. Keep draft until the code-scanning gate is green. [Gate 115028996449](https://github.com/ravichavali/karmyq/actions/runs/38314874262/job/115028996449)
-   confirmed exactly #603–605 after both required analyses on `dc0fa849`; the maintainer later dismissed them (above).
-   After authorized dismissal, re-run the failed checks and hand readiness to Claude; Admin merge
-   authorization and deployment/smoke remain outstanding. No PR B branch before PR A deploys.
-   Local PostgreSQL is unavailable; real-SQL evidence comes from actual CI job logs, not mocks.
-   Windows test process needs Git Bash first in PATH: default `bash`
-   resolves to WSL with no installed distribution. No route reordering is needed. The ledger is
-   `.superpowers/sdd/2026-10-08-sprint-133-skills-depth/progress.md`; PR B/D remain unstarted.
-   Reporting-only root `test:tdd` is missing from Turbo and the hook prints passed after the
-   task error; PR A tests were run directly and promoted to blocking regression, so no TDD-report
-   success is claimed. No merge/deploy is authorized; Codex hands readiness to Claude.
-7. Re-check `node-forge` and `braces` before **2026-10-15**.
+6. ~~PR A~~: DONE 2026-10-13 (#302 merged `e7ff481d`, v11.85.0, deploy 38410709880 attempt 2, smoke 10/10).
+   Deferred minor: the skills directory shows its empty message while the first fetch is loading.
+   Ledger: `.superpowers/sdd/2026-10-08-sprint-133-skills-depth/progress.md`. Known tooling gaps: root `test:tdd` is
+   missing from Turbo, yet the pre-push hook prints "TDD tests passed" anyway, and on Windows the test process needs
+   Git Bash first in PATH (the default `bash` resolves to WSL with no distribution installed).
+   **Expect a master CodeQL line-shift re-raise whenever a PR edits `api.ts`**: the dismissal is per line, so a merge
+   needs a maintainer dismissal plus a `--failed` rerun before it deploys.
+7. **CURRENT: PR B merge/deploy** ([#303](https://github.com/ravichavali/karmyq/pull/303)): review done, v11.86.0 stamped, admin merge authorized 2026-10-14. Remaining: merge, watch deploy + health, read-only smoke (`GET /api/auth/skills/users/<co-member>` 200 with `endorsement_count`/`can_endorse`), ADR-100 → Implemented on the next PR's branch. A live endorse/withdraw smoke is a demo write: ask first. **Then the BUG-060 queue-migration PR (Q), then PR D.**
+8. Re-check `node-forge` and `braces` before **2026-10-15**.

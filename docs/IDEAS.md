@@ -827,3 +827,21 @@ pass still notifies the owner about an ask that has already expired. Add `AND (r
 OR r.expires_at > NOW())`. Use the same predicate as the rest of the directed-ask surfaces; check
 the column name against `requests.help_requests` first. Then repin the privacy gate's SQL-hash
 exception for that query. Small; fits any request/notification PR.
+
+## [2026-10-13] Skill endorsements follow-ups (Sprint 133 PR B)
+
+- **`match_completed` trust-edge increments are not idempotent.** `upsertTrustEdge` adds 1 to
+  `match_completed_count` (and grows `stability`) per delivery, so a redelivered completion over-counts.
+  PR B serialized it under the pair lock but kept the increment. The arc: derive
+  `match_completed_count` by reconcile from `requests.matches` + `request_communities`, the way
+  `endorsement_count` now is (`social-graph-service/src/services/endorsementReconcile.ts`).
+- **Endorsement notification.** Tell someone when a match partner vouches for their skill (a
+  `skill_endorsement_changed` consumer in notification-service needs its own dedicated queue: BUG-060).
+- **Endorsement-weighted matching.** Feed ranking reads `auth.user_tags` only; a vouched skill could
+  rank higher. Sprint 134 candidate; touches `packages/shared` matching.
+- **Fission copies `endorsement_count`.** `community-service/src/services/fissionService.ts` copies it into
+  child edges; the pair's next reconcile resets it to the match-derived value. Either stop copying the
+  column or let reconcile treat split lineage as the parent community.
+- **Vouch from the request page.** `/matches/:id` only redirects to `/requests/:id`, which exposes no
+  completed partner, so PR B put vouching in the Helping-tab TrustCard and the People tab. A
+  "vouch for <name>" prompt on a completed ask would need the partner id in `GET /requests/:id`.

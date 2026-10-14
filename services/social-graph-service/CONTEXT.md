@@ -84,6 +84,8 @@ See [migration 009_social_graph.sql](../../infrastructure/postgres/migrations/00
 - `reputation.karma_records` - Karma scores for trust path calculation
 - `requests.matches` + `requests.help_requests` - completed-help topology for reciprocal relationship
   context (Sprint 116; platform-wide under ADR-077)
+- `auth.skill_endorsements` + `requests.matches` + `requests.request_communities` - Sprint 133 PR B
+  endorsement reconcile (active vouches and the community of each vouch's qualifying match)
 
 Sprint 116 adds no table, column, view, or migration. `relationshipContextDb.ts` reads the existing
 completed-match, active-membership, trust-edge-live, and decay-config sources above.
@@ -813,6 +815,37 @@ Redis/Bull.
 
 Historical gaps are repaired by the one-time idempotent backfill
 `scripts/backfill-community-connections.sql` (not a migration).
+
+**Sprint 133 PR B (ADR-100): `upsertTrustEdge` is serialized per pair.** It runs in one transaction
+holding `withPairLock` (`pg_advisory_xact_lock(hashtextextended('trust-pair:' || a || ':' || b, 0))` on the
+normalized pair, `src/database/trustEdgeDb.ts`) and computes `raw_weight` inside the UPDATE from the
+row's current counts (`updateRawWeightInPlace`). Counts, stability growth and the resulting weight are
+unchanged; a concurrent endorsement reconcile can no longer be overwritten with a stale count.
+
+### skill_endorsement_changed (Sprint 133 PR B, ADR-100)
+
+**Queue**: the dedicated `karmyq-skill-endorsement-social-graph` (publisher auth-service, sole consumer
+this service). Never `karmyq-events`: BUG-060 confirmed that Bull hands shared-queue jobs to workers
+without a handler for them. Payload `{ endorser_id, endorsee_id, job_id }` names the pair only, never a
+delta; `handleEndorsementChanged` drops malformed or self pairs as terminal (logged, not retried) ; when the
+reconcile changes any edge it clears the pair's cached paths (`clearTrustPathCache`) **inside the same
+transaction**, so a failed invalidation rolls the edge change back and the Bull retry redoes both.
+Weights are bound as `float8` in the in-place `raw_weight` expression, so fractional weights work.
+
+**Action**: `reconcileEndorsementPair` (`src/services/endorsementReconcile.ts`) under `withPairLock`:
+read per-community distinct active endorsers for the pair (0..2) from `auth.skill_endorsements` joined to
+each vouch's match request communities, `SELECT … FOR UPDATE` the pair's edges, set every edge to its
+target (0 when absent), insert a missing edge only for a target above 0, move `last_interaction_at` only
+on an increase, never touch `stability`, then recompute `raw_weight` in place. Idempotent: redelivery,
+withdrawal, re-endorsement and tag deletion converge. `setReconcileBarrierForTests` is a test-only pause.
+
+**Backfill** (lost-enqueue gap): `node dist/scripts/reconcileEndorsementEdges.js` in this container is a
+dry run that prints drifted edges; `--apply` reconciles each drifted pair. A demo run needs its own
+maintainer authorization.
+
+**Known limitation**: a community split copies `endorsement_count` into child edges
+(community-service `fissionService.ts`); the pair's next endorsement change resets that copy to the
+match-derived value (0 in the child).
 
 ---
 
