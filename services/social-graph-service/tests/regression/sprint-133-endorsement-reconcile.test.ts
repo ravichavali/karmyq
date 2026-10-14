@@ -127,25 +127,48 @@ describe('handleEndorsementChanged payload validation', () => {
   });
 });
 
-describe('handleEndorsementChanged clears the pair path cache when the graph changed', () => {
-  const answer = (targets: unknown[], edges: unknown[]) => async (sql: string) => {
-    if (/FROM auth\.skill_endorsements/.test(sql)) return { rows: targets };
-    if (/FROM social_graph\.trust_edges/.test(sql) && /FOR UPDATE/.test(sql)) return { rows: edges };
-    if (/INSERT INTO social_graph\.trust_edges/.test(sql)) return { rows: [{ id: 'edge-new' }] };
-    return { rows: [] };
-  };
-  const cacheClears = () => ((pool as any).query as jest.Mock).mock.calls.filter(([sql]) => /DELETE FROM auth\.social_distances/.test(String(sql)));
-  beforeEach(() => ((pool as any).query as jest.Mock).mockReset().mockResolvedValue({ rows: [] }));
+describe('handleEndorsementChanged invalidates cached paths retry-safely (Codex review P2)', () => {
+  // A stateful fake: committed edges + a committed "cache cleared" flag; a transaction buffers its
+  // writes and only COMMIT applies them. The first cache DELETE on ANY connection fails (fault injection).
+  function fakeDb() {
+    const committed = { edges: [] as Array<{ id: string; community_id: string; endorsement_count: number }>, cacheCleared: 0 };
+    let failNextCacheDelete = true;
+    const deleteCache = () => {
+      if (failNextCacheDelete) { failNextCacheDelete = false; throw new Error('injected: cache delete failed'); }
+    };
+    ((pool as any).query as jest.Mock).mockReset().mockImplementation(async (sql: string) => {
+      if (/DELETE FROM auth\.social_distances/.test(sql)) { deleteCache(); committed.cacheCleared++; }
+      return { rows: [] };
+    });
+    ((pool as any).connect as jest.Mock).mockReset().mockImplementation(async () => {
+      let pending: { edges: typeof committed.edges; cacheCleared: number } = { edges: [], cacheCleared: 0 };
+      const query = jest.fn(async (sql: string) => {
+        if (/^BEGIN/.test(sql)) pending = { edges: [], cacheCleared: 0 };
+        if (/^COMMIT/.test(sql)) { committed.edges.push(...pending.edges); committed.cacheCleared += pending.cacheCleared; }
+        if (/FROM auth\.skill_endorsements/.test(sql)) return { rows: [{ community_id: C1, n: 1 }] };
+        if (/FROM social_graph\.trust_edges/.test(sql) && /FOR UPDATE/.test(sql)) return { rows: committed.edges };
+        if (/INSERT INTO social_graph\.trust_edges/.test(sql)) { pending.edges.push({ id: 'edge-new', community_id: C1, endorsement_count: 1 }); return { rows: [{ id: 'edge-new' }] }; }
+        if (/DELETE FROM auth\.social_distances/.test(sql)) { deleteCache(); pending.cacheCleared++; }
+        return { rows: [] };
+      });
+      return { query, release: jest.fn() };
+    });
+    return committed;
+  }
 
-  it('an inserted endorsement edge changes topology: the cache is cleared for the pair', async () => {
-    ((pool as any).connect as jest.Mock).mockResolvedValue({ query: jest.fn(answer([{ community_id: C1, n: 1 }], [])), release: jest.fn() });
-    await handleEndorsementChanged({ endorser_id: A, endorsee_id: B });
-    expect(cacheClears().map(([, params]) => params)).toEqual([[A, B]]);
+  it('a failed cache delete rolls the reconcile back, so the retry redoes the edge AND the invalidation', async () => {
+    const db = fakeDb();
+    await expect(handleEndorsementChanged({ endorser_id: A, endorsee_id: B })).rejects.toThrow(/cache delete failed/);
+    expect(db.edges).toEqual([]);            // nothing committed without its invalidation
+    await handleEndorsementChanged({ endorser_id: A, endorsee_id: B }); // Bull retry
+    expect(db.edges).toHaveLength(1);
+    expect(db.cacheCleared).toBe(1);         // stale paths cannot survive the retry
   });
 
   it('a redelivered no-op leaves the cache alone', async () => {
-    ((pool as any).connect as jest.Mock).mockResolvedValue({ query: jest.fn(answer([{ community_id: C1, n: 1 }], [{ id: 'e', community_id: C1, endorsement_count: 1 }])), release: jest.fn() });
+    const db = fakeDb();
+    db.edges.push({ id: 'e', community_id: C1, endorsement_count: 1 });
     await handleEndorsementChanged({ endorser_id: A, endorsee_id: B });
-    expect(cacheClears()).toEqual([]);
+    expect(db.cacheCleared).toBe(0);
   });
 });

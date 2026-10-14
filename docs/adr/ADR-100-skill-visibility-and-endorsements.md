@@ -40,7 +40,7 @@ so an image rollback does not need the legacy table. Historical migration tests 
 the old table transactionally. `GET /requests/matched/for-user` and its unused frontend
 wrapper are retired; the curated feed continues using skill tags.
 
-## Endor## Endorsements (PR B)
+## Endorsements (PR B)
 
 **Eligibility.** A member may vouch for a skill tag of someone they share a **completed** match with,
 in either direction, and whose skill they can currently see (`skillVisibleToSql`). Both conditions
@@ -65,7 +65,8 @@ distinct endorsers among the two with an active endorsement whose match's reques
 mutual vouching counts twice; per-skill counts on the profile keep the detail. Redelivery, retries,
 withdrawal and tag deletion therefore converge to the same row. Reconcile never touches `stability`;
 it moves `last_interaction_at` only when the count rises and inserts an edge only for a count above 0
-(`services/social-graph-service/src/services/endorsementReconcile.ts`).
+(`services/social-graph-service/src/services/endorsementReconcile.ts`). When it changes an edge it clears the
+pair's cached trust paths in the same transaction, so a retry can never commit the edge without the invalidation.
 
 **Serialization.** Both writers of a pair's edges, the endorsement reconcile and the `match_completed`
 path (`upsertTrustEdge`), run in one transaction holding
@@ -98,7 +99,7 @@ with a projected weight) is normalized to the formula on its first endorsement c
 (`fissionService.ts`). Because reconcile derives counts from match communities, the pair's next
 endorsement change sets that inherited copy to 0.
 
-quences
+## Consequences
 
 Members can discover community skills while sharing remains under the owner's control.
 Leaving a shared community or becoming pending removes cross-user access immediately.

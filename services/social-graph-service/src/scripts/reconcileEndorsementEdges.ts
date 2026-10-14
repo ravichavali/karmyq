@@ -1,7 +1,9 @@
 /**
  * Operator backfill for the ADR-100 lost-enqueue gap: recompute every pair's `endorsement_count` from
- * `auth.skill_endorsements`. Both modes run the event handler's own reconcile under the pair lock; the
- * default dry run rolls back instead of writing, so the preview is exactly what `--apply` would write.
+ * `auth.skill_endorsements`. Both modes run the event handler's own reconcile under the pair lock. The
+ * default dry run computes the same write plan there and returns BEFORE executing any write (the empty
+ * transaction then ends with ROLLBACK); it does not perform the writes and undo them. `--apply` executes
+ * that plan. The preview is the plan at that moment; it can differ from a later `--apply` if data changes.
  *
  *   docker exec <social-graph container> node dist/scripts/reconcileEndorsementEdges.js           # dry run
  *   docker exec <social-graph container> node dist/scripts/reconcileEndorsementEdges.js --apply   # write

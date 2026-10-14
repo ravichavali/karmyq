@@ -1581,7 +1581,7 @@ and no repo source reaches it. Exempted until **2026-10-09** (ADR-059 amendment 
 
 ---
 
-## BUG-060 · [2026-10-05] · **CONFIRMED** (Sprint 133 PR B) · open · **HIGH** (proposed)
+## BUG-060 · [2026-10-05] · **CONFIRMED** (Sprint 133 PR B) · open · **HIGH**
 
 **UNVERIFIED: competing workers may lose shared-queue events other than completion.** The
 maintainer-relayed PR #293 review suspects `request_created`, `karma_awarded`,
@@ -1612,9 +1612,12 @@ each attempt is a fresh draw among the attached workers.
 
 **Scope this sprint (spec Critical Note 7):** only the new `skill_endorsement_changed` event avoids it, on
 the dedicated queue `karmyq-skill-endorsement-social-graph` (ADR-100). No other event's transport changes
-in Sprint 133. **Needs a maintainer decision:** severity (HIGH proposed: user-visible notifications are
-silently dropped) and when to move the remaining events to per-consumer queues (the `match_completed`
-pattern in `services/request-service/src/events/completionEvents.ts`).
+in Sprint 133. **Severity: HIGH** (decided 2026-10-13 in the PR #303 review): user-visible notifications are silently
+dropped. **Plan (review recommendation, 2026-10-13):** a separate, urgent queue-migration PR immediately
+after PR B and **before PR D**, targeting **2026-10-15**, moving the remaining events to per-consumer queues
+(the `match_completed` pattern in `services/request-service/src/events/completionEvents.ts`). HIGH SLA
+deadline: **2026-10-20**. Re-run `tests/integration/sprint-133-bug-060-shared-queue.integration.test.ts`
+against the migrated events; its live half should then show 0 missing-handler failures.
 
 ---
 

@@ -6,9 +6,13 @@
 traced to `bull/lib/queue.js:1203-1208,1246`), so endorsements use the dedicated queue `karmyq-skill-endorsement-social-graph`.
 Gates: /simplify (4 agents, applied), /code-review high (6 fixed RED→GREEN, rest ruled), /security-review (no findings).
 Ledger with every ruling: `.superpowers/sdd/2026-10-08-sprint-133-skills-depth/progress.md`.
-**Maintainer decisions owed for PR B:** (1) dismiss the new CodeQL `js/request-forgery` FPs on `api.ts:1079-1080` (the two
-new `skillsService` wrappers; same documented class); (2) BUG-060 severity (HIGH proposed) and when the other shared-queue
-events move off `karmyq-events`; (3) merge authorization after Codex review. Version bump at merge time (11.86.0 if master is
+**Review round 1 (Codex, relayed 2026-10-13):** CodeQL #610/#611 **dismissed** by the maintainer; all checks on `219a45ff`
+passed. Codex did **not** recommend merging yet: (P2) endorsement path-cache invalidation was not retry-safe (cleared after
+COMMIT, so a retry with matching counts skipped it) → **fixed**: the clear now runs inside the reconcile transaction, with a
+fault-injection regression; ADR-100 had two malformed headings → **fixed**; the backfill dry-run description claimed
+write-then-rollback → **corrected** (it returns the plan before any write). **BUG-060 is HIGH** (decided in the #303 review):
+a separate urgent **queue-migration PR** goes right after PR B and **before PR D**, target **2026-10-15** (SLA 2026-10-20).
+**Still owed:** Codex re-review of the round-1 fixes, then maintainer merge authorization. Version bump at merge time (11.86.0 if master is
 still 11.85.0). **Note for PR D:** reconcile rewrites `raw_weight` by formula, so seeded edges must carry formula-consistent weights.
 **Previous status: PR S and PR A SHIPPED and LIVE.** [#302](https://github.com/ravichavali/karmyq/pull/302)
 merged as `e7ff481d` on 2026-10-13 (the maintainer ran the merge). The master Code Scanning Gate first failed on
@@ -64,6 +68,7 @@ security PR first closes BUG-056, BUG-062 and BUG-058.
 | **S** | BUG-056 (`GET /requests/:id` gate + drop `requester_email`, directed rules unchanged), BUG-062 (member email: `/users/:userId` auth + self-only; community detail/members admin-only), BUG-058 (cap → 7, monitor retired, #236) | `agent/claude/sprint-133-pr-s-security` | **SHIPPED v11.84.0** ([#301](https://github.com/ravichavali/karmyq/pull/301), `278d3306`, deploy 38302920724, smoke 11/11). Also fixed in review: preferred-provider read, admin-notes gate, `join_request_message` on active rows, `GET /offers/:id` `helper_email`, gate ordering in `audit-exemptions.js`. Logged BUG-063/064/065 |
 | A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, skills setting on `/users/me/settings` (no route-order bug: withdrawn 2026-10-11), drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | **SHIPPED v11.85.0** ([#302](https://github.com/ravichavali/karmyq/pull/302), `e7ff481d`, deploy 38410709880 attempt 2, smoke 10/10). CodeQL #603–605 (PR) and #607–609 (master line-shift) dismissed by the maintainer as false positives |
 | B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | **IN REVIEW** draft [#303](https://github.com/ravichavali/karmyq/pull/303): B1–B9 done (Claude); Codex review, CodeQL FP dismissal and merge authorization pending |
+| Q | **BUG-060 (HIGH)**: move the remaining shared-queue events off `karmyq-events` to per-consumer queues (completionEvents pattern); re-run the B1 reproduction expecting 0 lost jobs | not cut yet (after PR B merges, from fresh `origin/master`) | **NEXT after B**, target 2026-10-15; scope/plan in its own chat |
 | D | Curated demo seed: skills, items, endorsements (demo apply needs per-operation authorization) | `agent/claude/sprint-133-pr-d-demo-seed` | Not started |
 
 Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is reserved.
@@ -293,5 +298,5 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
    Git Bash first in PATH (the default `bash` resolves to WSL with no distribution installed).
    **Expect a master CodeQL line-shift re-raise whenever a PR edits `api.ts`**: the dismissal is per line, so a merge
    needs a maintainer dismissal plus a `--failed` rerun before it deploys.
-7. **CURRENT: PR B review/merge** ([#303](https://github.com/ravichavali/karmyq/pull/303)): Codex reviews the branch diff; Claude answers findings (`review-response`), then B10 final verification, B11 version bump + merge (maintainer authorization) + deploy + read-only smoke + ADR-100 → Implemented. A live endorse/withdraw smoke is a demo write: ask first. PR D follows PR B's deploy.
+7. **CURRENT: PR B review/merge** ([#303](https://github.com/ravichavali/karmyq/pull/303)): Codex reviews the branch diff; Claude answers findings (`review-response`), then B10 final verification, B11 version bump + merge (maintainer authorization) + deploy + read-only smoke + ADR-100 → Implemented. A live endorse/withdraw smoke is a demo write: ask first. **Then the BUG-060 queue-migration PR (Q), then PR D.**
 8. Re-check `node-forge` and `braces` before **2026-10-15**.

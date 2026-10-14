@@ -27,9 +27,8 @@ export async function handleEndorsementChanged(payload: EndorsementChangedPayloa
     logger.error('Dropping invalid skill_endorsement_changed payload: endorsement needs two distinct user ids', undefined, { payload });
     return;
   }
+  // The reconcile clears the pair's cached paths inside its own transaction when it changes an edge.
   const plan = await reconcileEndorsementPair(endorser_id, endorsee_id);
-  // Like match_completed: a changed edge (an inserted one changes BFS topology) invalidates cached paths.
-  if (plan.updates.length || plan.inserts.length) await clearTrustPathCache(endorser_id, endorsee_id);
   logger.info('✅ Endorsement trust edges reconciled', { endorser_id, endorsee_id, updates: plan.updates.length, inserts: plan.inserts.length });
 }
 

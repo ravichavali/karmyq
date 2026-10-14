@@ -1,5 +1,6 @@
 import type { PoolClient } from 'pg';
 import { getInteractionWeightsForCommunity, InteractionWeights, updateRawWeightInPlace, withPairLock } from '../database/trustEdgeDb';
+import { clearTrustPathCache } from './pathComputation';
 
 /**
  * Sprint 133 PR B / ADR-100: skill endorsements feed `trust_edges.endorsement_count` by RECONCILE, never
@@ -84,11 +85,16 @@ export async function reconcileEndorsementPairLocked(
        RETURNING id`, [userIdA, userIdB, ins.community_id, ins.n]);
     await updateRawWeightInPlace(client, inserted.rows[0].id, await weightsFor(ins.community_id));
   }
+  // Invalidate cached paths IN this transaction (an inserted edge changes BFS topology). If the delete
+  // fails, the edge writes roll back with it and the retry redoes both; clearing after COMMIT would let
+  // a retry see matching counts, skip the clear, and leave stale paths behind.
+  if (plan.updates.length || plan.inserts.length) await clearTrustPathCache(userIdA, userIdB, client);
   return plan;
 }
 
 /** Reconcile one pair under its advisory lock. Idempotent: running it 1 or 10 times yields the same rows.
- * With `dryRun` the plan is computed under the same lock and the transaction rolls back. */
+ * With `dryRun` the plan is computed under the same lock and returned before any write; the transaction
+ * (which wrote nothing) ends with ROLLBACK. */
 export async function reconcileEndorsementPair(userA: string, userB: string, opts: { dryRun?: boolean } = {}): Promise<EndorsementWritePlan> {
   return withPairLock(userA, userB, (client, { userIdA, userIdB }) =>
     reconcileEndorsementPairLocked(client, userIdA, userIdB, opts), { rollback: opts.dryRun });
