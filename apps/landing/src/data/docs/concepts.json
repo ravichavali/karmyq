@@ -780,8 +780,8 @@
       "slug": "adr-100-skill-visibility-and-endorsements",
       "number": "100",
       "title": "ADR-100: Skill Visibility and Endorsements",
-      "status": "accepted",
-      "description": "**Status**: Accepted",
+      "status": "implemented",
+      "description": "**Status**: Implemented (PR A v11.85.0 `e7ff481d`, deployed 2026-10-13; PR B v11.86.0 `1291b1d4`, deployed 2026-10-14)",
       "filename": "ADR-100-skill-visibility-and-endorsements.md"
     }
   ]
