@@ -43,3 +43,26 @@ it('the routed handler updates the trust score from the envelope payload', async
   });
   expect(mockQuery.mock.calls[1][1]).toEqual([4.5, 4.5, 4.5, 2, 'ts']);
 });
+
+// BUG-067: mocks accept any SQL, so check the handler's SET columns against the real schema. init.sql is generated from
+// the migration chain and held to it by CI's drift check, so it is the live arbiter for column names.
+it('BUG-067: every column the feedback handler sets exists on reputation.trust_scores', async () => {
+  const { readFileSync } = require('fs');
+  const { join } = require('path');
+  const initSql: string = readFileSync(join(__dirname, '..', '..', '..', '..', 'infrastructure', 'postgres', 'init.sql'), 'utf8');
+  const table = initSql.match(/CREATE TABLE reputation\.trust_scores \(([\s\S]*?)\n\);/);
+  expect(table).not.toBeNull();
+  const columns = new Set(table![1].split('\n').map((l) => l.trim().split(/\s+/)[0]).filter(Boolean));
+  expect(columns.has('total_feedback_received')).toBe(true); // the parse found the real column list
+
+  mockQuery
+    .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'ts', avg_helpfulness: 4, avg_responsiveness: 4, avg_clarity: 4, total_feedback_received: 1 }] })
+    .mockResolvedValueOnce({ rowCount: 1, rows: [] });
+  await mockQueues['karmyq-events-reputation'].interaction_feedback_submitted({
+    data: { eventType: 'interaction_feedback_submitted', payload: { to_user_id: 'u', community_id: 'c', helpfulness: 5, responsiveness: 5, clarity: 5 } },
+  });
+  const update: string = mockQuery.mock.calls[1][0];
+  const setColumns = update.split(/\bSET\b/i)[1].split(/\bWHERE\b/i)[0].split(',').map((s) => s.trim().split(/\s*=/)[0]);
+  expect(setColumns.length).toBe(5);
+  expect(setColumns.filter((c) => !columns.has(c))).toEqual([]);
+});

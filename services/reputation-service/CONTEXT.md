@@ -9,6 +9,8 @@
   **`karmyq-events-reputation`**, a queue no other service attaches to, via `startConsumerQueue` (the service refuses
   to start if its handlers differ from the routing table). The handler also stays on `karmyq-events` for one release
   to drain old jobs. The publisher no longer exposes `getEventQueue`.
+  **BUG-067:** the feedback handler set a nonexistent `trust_scores.updated_at` and never succeeded; it now sets
+  `last_updated`, and a regression test checks its columns against `init.sql`.
 - **2026-10-05 (Sprint 132 PR C, ADR-099)**: new completion jobs arrive on
   `karmyq-completion-reputation` from request-service's durable fanout dispatcher. The same
   canonical standing/badge/evolution handler also remains on `karmyq-events` for legacy jobs.

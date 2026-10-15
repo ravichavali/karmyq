@@ -192,7 +192,7 @@ export async function initEventSubscriber() {
                avg_responsiveness = $2,
                avg_clarity = $3,
                total_feedback_received = $4,
-               updated_at = CURRENT_TIMESTAMP
+               last_updated = CURRENT_TIMESTAMP
            WHERE id = $5`,
           [
             parseFloat(newAvgHelpfulness.toFixed(2)),

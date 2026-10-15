@@ -1762,3 +1762,21 @@ is missing. `services/notification-service/tests/regression/sprint-133-pr-q-cons
 push (recipient, title, body, data) for each event and that a missing recipient sends nothing.
 
 ---
+
+## BUG-067 · [2026-10-15] · fixed (Sprint 133 PR Q, pending deploy) · **MEDIUM**
+
+**Interaction feedback has never updated trust scores.** The reputation-service `interaction_feedback_submitted`
+handler (`services/reputation-service/src/events/subscriber.ts`) ran `UPDATE reputation.trust_scores … SET …,
+updated_at = CURRENT_TIMESTAMP`. `reputation.trust_scores` has no `updated_at` column (it has `last_updated`, which
+`karmaService.ts` uses), so every delivery failed with `column "updated_at" of relation "trust_scores" does not exist`.
+It failed all 3 attempts and was parked. Before ADR-101, BUG-060 hid it: most feedback jobs were taken and failed by
+notification or social-graph workers first. The handler has been written this way since `d01a5e3b` (2025-12-13). Its
+unit test mocked the query, so the column was never checked. Found by the PR Q integration test (CI run 38795162265):
+the 20 feedback jobs reached reputation's own queue and all failed in the handler.
+
+**Fixed (Sprint 133 PR Q, #305).** It sets `last_updated`. `services/reputation-service/tests/regression/
+sprint-133-pr-q-consumer-queue.test.ts` checks every column the handler sets against the `reputation.trust_scores`
+definition in `infrastructure/postgres/init.sql`. The PR Q integration test asserts the exact feedback totals after 20
+real deliveries.
+
+---
