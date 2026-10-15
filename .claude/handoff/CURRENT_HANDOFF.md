@@ -1,6 +1,17 @@
 # Sprint 133 — Skills Depth — Handoff
 
-**Date**: 2026-10-14 (**PR B SHIPPED**, v11.86.0; **exemption renewal #304 SHIPPED**, v11.87.0)
+**Date**: 2026-10-15 (**PR Q IN REVIEW**: [#305](https://github.com/ravichavali/karmyq/pull/305), awaiting Codex review; PR B and #304 shipped)
+**PR Q (2026-10-15): implemented, CI green, ready for review.** [#305](https://github.com/ravichavali/karmyq/pull/305), branch
+`agent/claude/sprint-133-pr-q-queue-migration`. All CI checks pass. [Integration run 38797421203](https://github.com/ravichavali/karmyq/actions/runs/38797421203)
+on `ca97b521` logged `PR Q EVIDENCE {"published":80,"completed":80,"failedAttempts":0}`. The B1 control, which still publishes to the legacy queue
+directly, loses 15/60 there, as expected. ADR-101 is **Accepted**. Also fixed in this PR: **BUG-066** (offer/on-duty pushes never sent) and **BUG-067**
+(reputation feedback handler set a nonexistent `trust_scores.updated_at` and never succeeded; found by the integration test). Logged, not fixed: **BUG-068**
+(`POST /requests/matches/:matchId/feedback` selects a nonexistent `help_requests.community_id`, so no real feedback event is ever published; the
+maintainer must decide which community a feedback credits; due 2026-10-29). Gates: /simplify (4 agents, applied); /code-review high (10 findings: 5 fixed
+RED->GREEN, BUG-068 logged, 4 ruled); /security-review (no findings). Every ruling is in `.superpowers/sdd/2026-10-15-sprint-133-pr-q-queue-migration/progress.md`.
+**Before merge:** Codex review; version bump from `origin/master` at merge time (11.88.0 if nothing else lands first); maintainer merge authorization.
+**After deploy:** ADR-101 -> Implemented, BUG-060/066/067 -> fixed with the version (rides the PR D branch); read-only check that the demo's
+`bull:karmyq-events:wait`/`:delayed` drain (ask first: shared demo server); then the legacy-handler removal follow-up in `docs/IDEAS.md`.
 **#304 SHIPPED and LIVE (2026-10-15 03:31 UTC).** The maintainer merged [#304](https://github.com/ravichavali/karmyq/pull/304)
 as `aded1986` (v11.87.0). [CI/CD 38676752463](https://github.com/ravichavali/karmyq/actions/runs/38676752463) passed on
 attempt 1: Security Audit, Code Scanning Gate (no CodeQL re-raise, since `api.ts` was untouched) and Deploy to Demo all green.
@@ -88,7 +99,7 @@ security PR first closes BUG-056, BUG-062 and BUG-058.
 | **S** | BUG-056 (`GET /requests/:id` gate + drop `requester_email`, directed rules unchanged), BUG-062 (member email: `/users/:userId` auth + self-only; community detail/members admin-only), BUG-058 (cap → 7, monitor retired, #236) | `agent/claude/sprint-133-pr-s-security` | **SHIPPED v11.84.0** ([#301](https://github.com/ravichavali/karmyq/pull/301), `278d3306`, deploy 38302920724, smoke 11/11). Also fixed in review: preferred-provider read, admin-notes gate, `join_request_message` on active rows, `GET /offers/:id` `helper_email`, gate ordering in `audit-exemptions.js`. Logged BUG-063/064/065 |
 | A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, skills setting on `/users/me/settings` (no route-order bug: withdrawn 2026-10-11), drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | **SHIPPED v11.85.0** ([#302](https://github.com/ravichavali/karmyq/pull/302), `e7ff481d`, deploy 38410709880 attempt 2, smoke 10/10). CodeQL #603–605 (PR) and #607–609 (master line-shift) dismissed by the maintainer as false positives |
 | B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | **SHIPPED v11.86.0** ([#303](https://github.com/ravichavali/karmyq/pull/303), `1291b1d4`, deploy 38579973619 attempt 2 after maintainer dismissed CodeQL #612/#613, smoke 7/7 read-only). Codex review round 1 fixed, re-review clean. ADR-100 → Implemented on the PR Q branch |
-| Q | **BUG-060 (HIGH)**: move the remaining shared-queue events off `karmyq-events` to per-consumer queues (completionEvents pattern); re-run the B1 reproduction expecting 0 lost jobs | `agent/claude/sprint-133-pr-q-queue-migration` (cut 2026-10-14 from `1291b1d4`; carries only this handoff + ADR-100 Implemented so far) | **PLANNED 2026-10-15** ([plan](../../docs/superpowers/plans/2026-10-15-sprint-133-pr-q-queue-migration.md), ADR-101 allocated); execute Tasks 0-10 next. Target 2026-10-15, SLA 2026-10-20 |
+| Q | **BUG-060 (HIGH)**: move the remaining shared-queue events off `karmyq-events` to per-consumer queues (completionEvents pattern); re-run the B1 reproduction expecting 0 lost jobs | `agent/claude/sprint-133-pr-q-queue-migration` (cut 2026-10-14 from `1291b1d4`; carries only this handoff + ADR-100 Implemented so far) | **IN REVIEW** ([#305](https://github.com/ravichavali/karmyq/pull/305), CI green incl. integration 80/80, 0 failed attempts). Also fixes BUG-066 and BUG-067; logs BUG-068. Awaiting Codex review, then version bump + merge auth. SLA 2026-10-20 |
 | D | Curated demo seed: skills, items, endorsements (demo apply needs per-operation authorization) | `agent/claude/sprint-133-pr-d-demo-seed` | Not started |
 
 Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is reserved.
@@ -311,7 +322,7 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 2. ~~Ship the BUG-061 PR~~: DONE 2026-10-10 (#300, `aa6352e8`, deploy 38078595371 green, smoke passed).
 3. ~~Start Sprint 133 PR S (S0–S6)~~: DONE 2026-10-10/11 on `agent/claude/sprint-133-pr-s-security`.
 4. ~~PR S Task S8~~: DONE 2026-10-12 (#301 merged `278d3306`, deploy 38302920724, smoke 11/11, #236 linked).
-5. **Maintainer decisions owed:** BUG-065 (HIGH proposed, `GET /requests` list breadth, due 2026-10-17) and
+5. **Maintainer decisions owed:** BUG-068 (which community a feedback event credits, due 2026-10-29), BUG-065 (HIGH proposed, `GET /requests` list breadth, due 2026-10-17) and
    BUG-064 (offers visibility). BUG-063 (export reads a nonexistent schema) is unassigned.
 6. ~~PR A~~: DONE 2026-10-13 (#302 merged `e7ff481d`, v11.85.0, deploy 38410709880 attempt 2, smoke 10/10).
    Deferred minor: the skills directory shows its empty message while the first fetch is loading.
@@ -322,7 +333,7 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
    needs a maintainer dismissal plus a `--failed` rerun before it deploys.
 7. ~~PR B~~: DONE 2026-10-14 (#303 merged `1291b1d4`, v11.86.0, deploy 38579973619 attempt 2, smoke 7/7 read-only). Expect the CodeQL
    line-shift re-raise on every merge that shifts `api.ts` lines.
-7a. **CURRENT: PR Q (BUG-060, HIGH)** on `agent/claude/sprint-133-pr-q-queue-migration`: plan in a fresh chat (which events, which
+7a. **CURRENT: PR Q in review** ([#305](https://github.com/ravichavali/karmyq/pull/305)); next: Codex review, then version bump, merge authorization, deploy and the post-deploy steps in the header. Original brief: on `agent/claude/sprint-133-pr-q-queue-migration`, plan in a fresh chat (which events, which
    consumers, the `completionEvents.ts` per-consumer pattern, legacy-handler retention for queued jobs), then implement; the B1
    reproduction test must show 0 lost jobs for migrated events. Target 2026-10-15. A live endorse/withdraw smoke is a demo write: ask first. **Then the BUG-060 queue-migration PR (Q), then PR D.**
    **PR Q planning decisions (maintainer, 2026-10-15):** (1) **ADR-101 allocated** for per-consumer event queues.
