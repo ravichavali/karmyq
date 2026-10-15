@@ -1581,7 +1581,7 @@ and no repo source reaches it. Exempted until **2026-10-09** (ADR-059 amendment 
 
 ---
 
-## BUG-060 · [2026-10-05] · **CONFIRMED** (Sprint 133 PR B) · open · **HIGH**
+## BUG-060 · [2026-10-05] · **CONFIRMED** (Sprint 133 PR B) · fixed (Sprint 133 PR Q, pending deploy) · **HIGH**
 
 **UNVERIFIED: competing workers may lose shared-queue events other than completion.** The
 maintainer-relayed PR #293 review suspects `request_created`, `karma_awarded`,
@@ -1618,6 +1618,17 @@ after PR B and **before PR D**, targeting **2026-10-15**, moving the remaining e
 (the `match_completed` pattern in `services/request-service/src/events/completionEvents.ts`). HIGH SLA
 deadline: **2026-10-20**. Re-run `tests/integration/sprint-133-bug-060-shared-queue.integration.test.ts`
 against the migrated events; its live half should then show 0 missing-handler failures.
+
+**Fixed (Sprint 133 PR Q, #305, ADR-101; pending deploy).** Every event is routed by
+`packages/shared/events/routes.ts` to the one queue its consumer owns (`karmyq-events-notification`,
+`karmyq-events-reputation`), to a dedicated transport, or nowhere (unconsumed: not enqueued). A consumer refuses to
+start unless its handlers equal its routes exactly. cleanup-service, which wrote `dibs_expired` and `match_reminder`
+straight to `karmyq-events` with a single attempt, now publishes through the router. Nothing publishes to
+`karmyq-events` any more; its legacy handlers stay for one release to drain old jobs.
+`tests/regression/sprint-133-pr-q-event-routes.test.ts` gates publish sites, consumers and the registry.
+`tests/integration/sprint-133-pr-q-per-consumer-queues.integration.test.ts` publishes through the real router against
+the real containers. The B1 live test is unchanged (it still publishes to the legacy queue directly) and is retired
+with the legacy handlers.
 
 ---
 
@@ -1732,5 +1743,22 @@ payload, requirements, requester name) of a community-scoped ask that `GET /requ
   communities). The reviewer stresses this is still a bypass of the request-privacy boundary until fixed.
 - **Owner:** maintainer decides; Claude implements. **Deadline: 2026-10-17** (≤ 1-week SLA for HIGH), or
   a dated risk acceptance.
+
+---
+
+## BUG-066 · [2026-10-15] · fixed (Sprint 133 PR Q, pending deploy) · **MEDIUM**
+
+**Offer and on-duty push notifications have never been sent.** The notification-service handlers for
+`offer_submitted`, `offer_accepted`, `offer_declined` and `provider_went_on_duty` destructured their fields
+(`requesterUserId`, `providerUserId`, `price`, `communityIds`) from `job.data`. The shared publisher wraps every
+event as `{ eventType, payload, timestamp, source }`, so those fields were always `undefined`.
+`sendPushToUsers([undefined], …)` found no device token (`services/notification-service/src/lib/expoPush.ts:28-35`)
+and returned without sending. `provider_went_on_duty` returned even earlier, at `if (!communityIds?.length)`. Nothing
+failed, so nothing was logged. The handlers were written that way in `ea43bed8` (2026-03-26), and no test covered
+any of them. Found by the Sprint 133 PR Q event inventory.
+
+**Fixed (Sprint 133 PR Q, #305).** All four read `job.data.payload`, and each returns without pushing when its recipient
+is missing. `services/notification-service/tests/regression/sprint-133-pr-q-consumer-queue.test.ts` asserts the exact
+push (recipient, title, body, data) for each event and that a missing recipient sends nothing.
 
 ---

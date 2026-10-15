@@ -452,6 +452,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-007-polymorphic-request-system',
       'adr-099-inventories-and-directed-requests',
       'adr-100-skill-visibility-and-endorsements',
+      'adr-101-per-consumer-event-queues',
       'adr-005-minimalist-dashboard',
       'adr-008-three-column-dashboard',
     ],

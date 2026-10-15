@@ -783,6 +783,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented (PR A v11.85.0 `e7ff481d`, deployed 2026-10-13; PR B v11.86.0 `1291b1d4`, deployed 2026-10-14)",
       "filename": "ADR-100-skill-visibility-and-endorsements.md"
+    },
+    {
+      "slug": "adr-101-per-consumer-event-queues",
+      "number": "101",
+      "title": "ADR-101: Per-Consumer Event Queues",
+      "status": "accepted",
+      "description": "**Status**: Accepted (Sprint 133 PR Q; flips to Implemented after deploy)",
+      "filename": "ADR-101-per-consumer-event-queues.md"
     }
   ]
 }

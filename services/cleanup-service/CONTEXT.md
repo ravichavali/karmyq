@@ -17,6 +17,10 @@ Changes below.
 
 ## Recent Changes
 
+- **2026-10-15 (Sprint 133 PR Q, ADR-101, BUG-060)**: `dibs_expired` and `match_reminder` are published through
+  `createPublisher('cleanup-service')` (`src/events/publisher.ts`, initialized in `startServer`) instead of a
+  hand-built `karmyq-events` queue. They reach `karmyq-events-notification` with the standard 3 attempts. The old path
+  used one attempt on the shared queue, where other services' workers could fail them.
 - **2026-08-21 (Sprint 126 / ADR-096 — the decay job no longer writes trust scores)**:
   `updateDecayedTrustScores()` is now a logging no-op, and the dead `recordActivity()` twin was
   deleted from `src/jobs/reputationDecayJob.ts`.
@@ -54,7 +58,7 @@ Changes below.
 | Reputation Decay | Daily 3:00 AM | **NO-OP since Sprint 126** — logs and returns; writes nothing |
 | Activity Log Cleanup | Weekly Sun 4:00 AM | Remove old activity logs (>90 days) **where `related_entity_id IS NULL`** — attributable rows are projection state |
 | Decay Report | Weekly Mon 9:00 AM | Generate community decay statistics |
-| Expire Dibs | Every 5 minutes | Find pending `requests.dibs` records past `expires_at`, set `status=expired`, reset `help_requests.status` to `open`, publish `dibs_expired` event |
+| Expire Dibs | Every 5 minutes | Find pending `requests.dibs` records past `expires_at`, set `status=expired`, reset `help_requests.status` to `open`, publish `dibs_expired` event (routed to notification, ADR-101) |
 | Trust Edge Sweep | Daily 4:30 AM | Delete `social_graph.trust_edges` where `current_weight < disappearance_threshold` (via `trust_edges_live` view) |
 | ~~Request TTL Sweep~~ | **RETIRED (Sprint 90 / ADR-069)** | `requestTtlSweepJob` (`sweepExpiredRequests`) hard-deleted completed+rated requests + their matches (cascade-deleting conversations/messages) at 30 days — destroyed the aggregate ADR-069 keeps, before the 180-day anonymize window. **Superseded by Memory Retention** (anonymize, keep aggregates). Job file, cron, and `/jobs/sweep-request-ttl` endpoint removed. |
 | Memory Retention (Sprint 90 / ADR-069) | Daily 3:30 AM | `memoryRetentionJob.forgetExchangeContent()` — anonymize aged completed-request free-text (`title`/`description`/`payload`/`requirements` → `'[forgotten]'`/`'{}'`) **and cascade-forget its conversation's `messages.content` in one atomic CTE** (the Exchange Unit); hard-delete `expired = TRUE` + **unmatched** requests aged from `updated_at`; backstop old messages. **`reputation.karma_records` is never touched** (no PII; `reason` is a load-bearing enum). Windows resolve **per-request: per-community override → global → fallback** (MAX over the request's communities via `request_communities` → `retention_config`). Manual trigger: `POST /jobs/forget-content`. |

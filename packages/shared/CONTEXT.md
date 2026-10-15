@@ -100,7 +100,7 @@ Producers must emit only the canonical four; `critical`/`normal` are retired. Se
 | `./schemas/reputation-disclosure` | Reputation disclosure boundary schema (ADR-082) |
 | `./trust/decayTier` | Trust decay tier calculation |
 | `./projections/completed-exchange` | Completed-exchange projection |
-| `./events/publisher` | `createPublisher(source)` — Bull queue factory; returns `{ initEventPublisher, publishEvent, getEventQueue }` |
+| `./events/publisher` | `createPublisher(source)` returns `{ initEventPublisher, publishEvent }`; `publishEvent` routes per ADR-101 and resolves `Job | null` (`getEventQueue` removed in Sprint 133 PR Q) |
 
 > **Sprint 122 PR 4 (ADR-089):** `./api/client`, `./api/mobile-storage` and `./api/web-storage`
 > were **removed**. Their sources have been excluded from the build since `11ebb6a4` (2026-01-23),
@@ -118,6 +118,20 @@ Producers must emit only the canonical four; `critical`/`normal` are retired. Se
 > one release, and direct route literals are catalogued drift rather than fully swept.
 
 ---
+
+## Event routing (Sprint 133 PR Q, ADR-101)
+
+Root exports from `events/routes.ts` and `events/consumer.ts`:
+- `EVENT_ROUTES`: each routed event → its one consumer.
+- `DEDICATED_EVENTS`: events with their own transport, each with its `{ queue, consumers }`.
+- `UNCONSUMED_EVENTS`, `EVENT_CONSUMERS`.
+- `consumerQueueName(c)` → `karmyq-events-<c>`; `eventsFor(c)` → its routed events, sorted.
+- `startConsumerQueue(consumer, handlers, redisUrl)`: throws unless the handler names equal `eventsFor(consumer)`.
+- Types: `EventHandler`, `EventConsumer`.
+
+`publishEvent` enqueues a routed event on its consumer's queue, resolves `null` for an unconsumed one, and **throws**
+for a dedicated or unclassified name. Adding an event means adding it to exactly one class.
+`tests/regression/sprint-133-pr-q-event-routes.test.ts` fails on an unclassified publish site.
 
 ## Canonical completed-match standing policy (added 2026-08-20, ADR-096)
 

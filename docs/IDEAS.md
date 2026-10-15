@@ -845,3 +845,11 @@ exception for that query. Small; fits any request/notification PR.
 - **Vouch from the request page.** `/matches/:id` only redirects to `/requests/:id`, which exposes no
   completed partner, so PR B put vouching in the Helping-tab TrustCard and the People tab. A
   "vouch for <name>" prompt on a completed ask would need the partner id in `GET /requests/:id`.
+- **Remove the legacy `karmyq-events` handlers (ADR-101 follow-up).** After the PR Q deploy, nothing publishes to
+  `karmyq-events`. Once a read-only check (ask first: shared demo server) shows `bull:karmyq-events:wait` and `:delayed`
+  are empty, remove the legacy registrations in notification, reputation and social-graph (including the Sprint 132
+  `match_completed` ones), drop the gate's `LEGACY_SUBSCRIBERS` allowance, and retire the live half of
+  `tests/integration/sprint-133-bug-060-shared-queue.integration.test.ts`.
+- **`karma_awarded` has a handler and a route but no publisher.** notification-service handles it (with milestone
+  notifications) and ADR-101 routes it, but no service publishes it. Either publish it from the standing projector or
+  delete the handler and route.

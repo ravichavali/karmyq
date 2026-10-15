@@ -320,6 +320,10 @@
           "href": "/docs/concepts/adr-100-skill-visibility-and-endorsements"
         },
         {
+          "label": "Per-Consumer Event Queues",
+          "href": "/docs/concepts/adr-101-per-consumer-event-queues"
+        },
+        {
           "label": "Minimalist Dashboard Design",
           "href": "/docs/concepts/adr-005-minimalist-dashboard"
         },

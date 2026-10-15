@@ -5,6 +5,10 @@
 
 ## Recent Changes
 
+- **2026-10-15 (Sprint 133 PR Q, ADR-101, BUG-060)**: `interaction_feedback_submitted` is consumed from
+  **`karmyq-events-reputation`**, a queue no other service attaches to, via `startConsumerQueue` (the service refuses
+  to start if its handlers differ from the routing table). The handler also stays on `karmyq-events` for one release
+  to drain old jobs. The publisher no longer exposes `getEventQueue`.
 - **2026-10-05 (Sprint 132 PR C, ADR-099)**: new completion jobs arrive on
   `karmyq-completion-reputation` from request-service's durable fanout dispatcher. The same
   canonical standing/badge/evolution handler also remains on `karmyq-events` for legacy jobs.
@@ -1258,7 +1262,7 @@ if (parseInt(helperHistory.rows[0].count) === 1) {
 ## Debugging Common Issues
 
 ### Karma not being awarded
-1. Check event queue is running: `redis-cli LLEN karmyq-events`
+1. Check the completion queue is draining: `redis-cli LLEN bull:karmyq-completion-reputation:wait` (match_completed, ADR-099)
 2. Check event subscriber logs for errors
 3. Verify match_completed event was published: Check request-service logs
 4. Check karma_records table: `SELECT * FROM reputation.karma_records WHERE user_id = '...' ORDER BY created_at DESC LIMIT 5`
@@ -1292,7 +1296,7 @@ SELECT SUM(points) FROM reputation.karma_records WHERE user_id = '...' AND commu
 1. Check REDIS_URL is correct
 2. Verify Redis is running: `redis-cli -u $REDIS_URL ping`
 3. Check event subscriber initialization in logs
-4. Test queue connection: `redis-cli LLEN karmyq-events`
+4. Test queue connection: `redis-cli LLEN bull:karmyq-events-reputation:wait` (routed events, ADR-101)
 
 ## Testing
 
@@ -1325,8 +1329,9 @@ curl "http://localhost:3004/reputation/history/user-uuid?limit=10"
 
 **Simulate Match Completion (triggers karma award):**
 ```bash
-# Use Redis CLI to publish event
-redis-cli LPUSH karmyq-events '{"event":"match_completed","payload":{"match_id":"uuid","request_id":"uuid","requester_id":"uuid","responder_id":"uuid"}}'
+# Complete a real match through request-service (`PUT /api/matches/:id/complete`, routes/matches.ts:561):
+# match_completed is a dedicated transport (karmyq-completion-dispatch, ADR-099) and cannot be
+# published through createPublisher, and Bull jobs are hashes, so a raw LPUSH never reaches a worker.
 ```
 
 ### Unit Tests

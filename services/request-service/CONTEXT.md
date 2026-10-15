@@ -212,7 +212,7 @@ requests work for providers too.
 - **Runtime:** Node.js 18
 - **Framework:** Express.js
 - **Database Schema:** `requests`
-- **Event Queues:** `karmyq-events` (Bull/Redis)
+- **Event Queues:** routed per consumer by `@karmyq/shared` (`karmyq-events-notification`, `karmyq-events-reputation`; ADR-101), plus the dedicated `karmyq-completion-dispatch` and `karmyq-directed-notifications` (ADR-099). Unconsumed events are not enqueued.
 - **External Services:** PostgreSQL, Redis
 
 ### 2.2 Key Components (v9.0)
@@ -2118,6 +2118,12 @@ Service health check.
 ## 4. Events
 
 ### 4.1 Published Events
+
+> **Sprint 133 PR Q (ADR-101).** The table below is historical: its dotted names and payloads predate the code. The
+> live list of what this service publishes is `services/registry.json` (held to the source by
+> `tests/regression/sprint-133-pr-q-event-routes.test.ts`), and each event's queue comes from
+> `packages/shared/events/routes.ts`. `publishEvent` resolves `null` for an unconsumed event and throws for an
+> unclassified one.
 
 | Event Name | Queue | Payload | When Emitted |
 |------------|-------|---------|--------------|
