@@ -62,6 +62,13 @@ describe('createPublisher (ADR-101 routed)', () => {
     await expect(p.publishEvent('match_completed', {})).rejects.toThrow('Event match_completed has a dedicated transport: karmyq-completion-dispatch');
   });
 
+  it.each(['constructor', 'toString', 'hasOwnProperty', '__proto__'])('treats inherited key %s as unclassified, never as a route', async (name) => {
+    const p = createPublisher('svc');
+    await p.initEventPublisher();
+    await expect(p.publishEvent(name, {})).rejects.toThrow(`Event ${name} is not classified in packages/shared/events/routes.ts`);
+    expect(mockConstructed).toEqual([]);
+  });
+
   it('throws for an unclassified event', async () => {
     const p = createPublisher('svc');
     await p.initEventPublisher();

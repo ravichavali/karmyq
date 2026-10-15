@@ -1,6 +1,8 @@
 import Queue from 'bull';
 import { consumerQueueName, DEDICATED_EVENTS, EVENT_ROUTES, EventConsumer, UNCONSUMED_EVENTS } from './routes';
 
+const hasOwn = (o: object, key: string): boolean => Object.prototype.hasOwnProperty.call(o, key);
+
 const JOB_OPTIONS: Queue.JobOptions = {
   removeOnComplete: 100,
   removeOnFail: false,
@@ -32,10 +34,11 @@ export function createPublisher(source: string) {
   /** Enqueue on the one consumer queue that handles `eventType` (ADR-101); null for an unconsumed event. */
   async function publishEvent(eventType: string, payload: any): Promise<Queue.Job | null> {
     if (!redis) throw new Error('Event queue not initialized');
-    const consumer = EVENT_ROUTES[eventType];
+    // Own keys only: a plain-object lookup of 'constructor' or 'toString' would return an inherited function.
+    const consumer = hasOwn(EVENT_ROUTES, eventType) ? EVENT_ROUTES[eventType] : undefined;
     if (!consumer) {
       if (UNCONSUMED_EVENTS.has(eventType)) return null;
-      const dedicated = DEDICATED_EVENTS[eventType];
+      const dedicated = hasOwn(DEDICATED_EVENTS, eventType) ? DEDICATED_EVENTS[eventType] : undefined;
       if (dedicated) throw new Error(`Event ${eventType} has a dedicated transport: ${dedicated.queue}`);
       throw new Error(`Event ${eventType} is not classified in packages/shared/events/routes.ts`);
     }

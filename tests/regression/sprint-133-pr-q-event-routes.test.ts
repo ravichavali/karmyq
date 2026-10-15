@@ -20,6 +20,7 @@ const loadServiceSources = (): SourceFile[] =>
   tracked(':(glob)services/*/src/**/*.ts').filter((p) => !p.includes('/__tests__/')).map((path) => ({ path, text: read(path) }));
 const serviceOf = (path: string) => path.split('/')[1];
 const matches = (text: string, re: RegExp) => [...text.matchAll(re)].map((m) => m[1]);
+const hasOwn = (o: object, key: string) => Object.prototype.hasOwnProperty.call(o, key); // 'constructor' in {} is true
 
 function scan(files: SourceFile[]) {
   const published: Array<{ service: string; path: string; name: string; via: 'router' | 'direct' }> = [];
@@ -45,13 +46,13 @@ function violations(files: SourceFile[], registry: any): string[] {
   const out: string[] = [];
   const s = scan(files);
   for (const p of s.published) {
-    const dedicated = p.name in DEDICATED_EVENTS;
+    const dedicated = hasOwn(DEDICATED_EVENTS, p.name);
     if (p.via === 'direct' && !dedicated) out.push(`direct queue add of non-dedicated ${p.name} in ${p.path}`);
-    if (p.via === 'router' && !(p.name in EVENT_ROUTES) && !UNCONSUMED_EVENTS.has(p.name)) {
+    if (p.via === 'router' && !hasOwn(EVENT_ROUTES, p.name) && !UNCONSUMED_EVENTS.has(p.name)) {
       if (!(dedicated && p.service === 'request-service' && s.intercepted.has(p.name))) out.push(`unclassified ${p.name} in ${p.path}`);
     }
   }
-  for (const name of s.intercepted) if (!(name in DEDICATED_EVENTS)) out.push(`interceptor routes non-dedicated ${name}`);
+  for (const name of s.intercepted) if (!hasOwn(DEDICATED_EVENTS, name)) out.push(`interceptor routes non-dedicated ${name}`);
   for (const path of s.dynamic) if (path !== INTERCEPTOR) out.push(`dynamic publishEvent name in ${path}`);
   for (const path of s.legacyTouches) if (!LEGACY_SUBSCRIBERS.includes(path)) out.push(`karmyq-events referenced outside the legacy subscribers: ${path}`);
   for (const c of EVENT_CONSUMERS) {
@@ -92,6 +93,10 @@ describe('Sprint 133 PR Q: event routing gate (ADR-101)', () => {
     it('flags an unclassified publish', () => {
       expect(violations(withFile({ path: 'services/request-service/src/x.ts', text: "await publishEvent('not_a_real_event', {})" }), registry))
         .toContain('unclassified not_a_real_event in services/request-service/src/x.ts');
+    });
+    it('flags an inherited object key as unclassified', () => {
+      expect(violations(withFile({ path: 'services/request-service/src/x.ts', text: "await publishEvent('constructor', {})" }), registry))
+        .toContain('unclassified constructor in services/request-service/src/x.ts');
     });
     it('flags a new karmyq-events user', () => {
       expect(violations(withFile({ path: 'services/cleanup-service/src/x.ts', text: "new Queue('karmyq-events')" }), registry))
