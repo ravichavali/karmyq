@@ -1,0 +1,132 @@
+/**
+ * Sprint 133 PR Q (ADR-101, BUG-060). The routing table in packages/shared/events/routes.ts is the
+ * single source of truth; this gate holds the live service source and services/registry.json to it.
+ * Every rule has a negative fixture below proving it can fail.
+ */
+import { readFileSync, readdirSync, statSync } from 'fs';
+import { join, relative, sep } from 'path';
+import { DEDICATED_EVENTS, EVENT_CONSUMERS, EVENT_ROUTES, UNCONSUMED_EVENTS, eventsFor } from '@karmyq/shared';
+import type { EventConsumer } from '@karmyq/shared';
+
+type SourceFile = { path: string; text: string };
+const ROOT = join(__dirname, '..', '..');
+const LEGACY_SUBSCRIBERS = [
+  'services/notification-service/src/events/subscriber.ts',
+  'services/reputation-service/src/events/subscriber.ts',
+  'services/social-graph-service/src/events/subscriber.ts',
+];
+const INTERCEPTOR = 'services/request-service/src/events/publisher.ts';
+
+function walk(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) return name === '__tests__' || name === 'node_modules' ? [] : walk(full);
+    return full.endsWith('.ts') ? [full] : [];
+  });
+}
+function loadServiceSources(): SourceFile[] {
+  const services = readdirSync(join(ROOT, 'services')).filter((s) => {
+    try { return statSync(join(ROOT, 'services', s, 'src')).isDirectory(); } catch { return false; }
+  });
+  return services.flatMap((s) => walk(join(ROOT, 'services', s, 'src')))
+    .map((full) => ({ path: relative(ROOT, full).split(sep).join('/'), text: readFileSync(full, 'utf8') }));
+}
+const serviceOf = (path: string) => path.split('/')[1];
+const matches = (text: string, re: RegExp) => [...text.matchAll(re)].map((m) => m[1]);
+
+function scan(files: SourceFile[]) {
+  const published: Array<{ service: string; path: string; name: string; via: 'router' | 'direct' }> = [];
+  const dynamic: string[] = [];
+  const legacyTouches: string[] = [];
+  const registered: Record<string, string[]> = {};
+  const intercepted = new Set<string>();
+  for (const f of files) {
+    for (const name of matches(f.text, /\bpublishEvent\(\s*['"]([^'"]+)['"]/g)) published.push({ service: serviceOf(f.path), path: f.path, name, via: 'router' });
+    if (/from 'bull'/.test(f.text)) {
+      for (const name of matches(f.text, /\.add\(\s*['"]([^'"]+)['"]/g)) published.push({ service: serviceOf(f.path), path: f.path, name, via: 'direct' });
+    }
+    if (/\bpublishEvent\(\s*(?!['"])[^\s)]/.test(f.text.replace(/function publishEvent\(/g, ''))) dynamic.push(f.path);
+    if (/['"]karmyq-events['"]/.test(f.text)) legacyTouches.push(f.path);
+    const regs = matches(f.text, /\bregister\(\s*['"]([^'"]+)['"]/g);
+    if (regs.length) registered[serviceOf(f.path)] = regs.sort();
+    if (f.path === INTERCEPTOR) for (const name of matches(f.text, /type === ['"]([^'"]+)['"]/g)) intercepted.add(name);
+  }
+  return { published, dynamic, legacyTouches, registered, intercepted };
+}
+
+function violations(files: SourceFile[], registry: any): string[] {
+  const out: string[] = [];
+  const s = scan(files);
+  for (const p of s.published) {
+    const dedicated = p.name in DEDICATED_EVENTS;
+    if (p.via === 'direct' && !dedicated) out.push(`direct queue add of non-dedicated ${p.name} in ${p.path}`);
+    if (p.via === 'router' && !(p.name in EVENT_ROUTES) && !UNCONSUMED_EVENTS.has(p.name)) {
+      if (!(dedicated && p.service === 'request-service' && s.intercepted.has(p.name))) out.push(`unclassified ${p.name} in ${p.path}`);
+    }
+  }
+  for (const name of s.intercepted) if (!(name in DEDICATED_EVENTS)) out.push(`interceptor routes non-dedicated ${name}`);
+  for (const path of s.dynamic) if (path !== INTERCEPTOR) out.push(`dynamic publishEvent name in ${path}`);
+  for (const path of s.legacyTouches) if (!LEGACY_SUBSCRIBERS.includes(path)) out.push(`karmyq-events referenced outside the legacy subscribers: ${path}`);
+  for (const c of EVENT_CONSUMERS) {
+    const got = JSON.stringify(s.registered[`${c}-service`] ?? []);
+    if (got !== JSON.stringify(eventsFor(c))) out.push(`${c}-service registers ${got}, routes say ${JSON.stringify(eventsFor(c))}`);
+  }
+  for (const [service, def] of Object.entries<any>(registry.services)) {
+    const pubs = [...new Set(s.published.filter((p) => p.service === service).map((p) => p.name))].sort();
+    const consumer = service.replace(/-service$/, '');
+    const subs = [
+      ...((EVENT_CONSUMERS as readonly string[]).includes(consumer) ? eventsFor(consumer as EventConsumer) : []),
+      ...Object.entries(DEDICATED_EVENTS).filter(([, d]) => d.consumers.includes(consumer)).map(([n]) => n),
+    ].sort();
+    const want = { publishes: pubs, subscribes: subs };
+    const have = { publishes: [...(def.events?.publishes ?? [])].sort(), subscribes: [...(def.events?.subscribes ?? [])].sort() };
+    if (JSON.stringify(want) !== JSON.stringify(have)) out.push(`registry ${service}.events ${JSON.stringify(have)} != source ${JSON.stringify(want)}`);
+  }
+  return out;
+}
+
+const registry = JSON.parse(readFileSync(join(ROOT, 'services', 'registry.json'), 'utf8'));
+
+describe('Sprint 133 PR Q: event routing gate (ADR-101)', () => {
+  it('the live source and registry have no violations', () => {
+    expect(violations(loadServiceSources(), registry)).toEqual([]);
+  });
+
+  it('scans enough to mean something', () => {
+    const s = scan(loadServiceSources());
+    expect(new Set(s.published.map((p) => p.service)).size).toBeGreaterThanOrEqual(5);
+    expect(s.published.length).toBeGreaterThanOrEqual(40); // 46 sites on 2026-10-15; a floor, not a count, so new publishes don't break it
+    expect([...s.intercepted].sort()).toEqual(['directed_request_created', 'match_completed']);
+  });
+
+  describe('negative fixtures: each rule can fail', () => {
+    const live = loadServiceSources();
+    const withFile = (f: SourceFile) => [...live, f];
+    it('flags an unclassified publish', () => {
+      expect(violations(withFile({ path: 'services/request-service/src/x.ts', text: "await publishEvent('not_a_real_event', {})" }), registry))
+        .toContain('unclassified not_a_real_event in services/request-service/src/x.ts');
+    });
+    it('flags a new karmyq-events user', () => {
+      expect(violations(withFile({ path: 'services/cleanup-service/src/x.ts', text: "new Queue('karmyq-events')" }), registry))
+        .toContain('karmyq-events referenced outside the legacy subscribers: services/cleanup-service/src/x.ts');
+    });
+    it('flags a direct add of a routed event', () => {
+      expect(violations(withFile({ path: 'services/cleanup-service/src/y.ts', text: "import Queue from 'bull';\nq.add('dibs_expired', {})" }), registry))
+        .toContain('direct queue add of non-dedicated dibs_expired in services/cleanup-service/src/y.ts');
+    });
+    it('flags a consumer whose registrations drift from the routes', () => {
+      const drifted = live.map((f) => f.path === 'services/reputation-service/src/events/subscriber.ts'
+        ? { ...f, text: f.text.replace("register('interaction_feedback_submitted'", "register('typo_event'") } : f);
+      expect(violations(drifted, registry).some((v) => v.startsWith('reputation-service registers ["typo_event"]'))).toBe(true);
+    });
+    it('flags a registry that disagrees with the source', () => {
+      const stale = JSON.parse(JSON.stringify(registry));
+      stale.services['notification-service'].events.subscribes.push('user_joined_community');
+      expect(violations(live, stale).some((v) => v.startsWith('registry notification-service.events'))).toBe(true);
+    });
+    it('flags a dynamic event name', () => {
+      expect(violations(withFile({ path: 'services/community-service/src/z.ts', text: 'await publishEvent(name, {})' }), registry))
+        .toContain('dynamic publishEvent name in services/community-service/src/z.ts');
+    });
+  });
+});
