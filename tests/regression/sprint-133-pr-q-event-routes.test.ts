@@ -14,6 +14,9 @@ const LEGACY_SUBSCRIBERS = [
   'services/social-graph-service/src/events/subscriber.ts',
 ];
 const INTERCEPTOR = 'services/request-service/src/events/publisher.ts';
+// A service's publisher module forwards its callers' names to the shared publisher (request-service also intercepts the
+// dedicated ones). Its callers' literal names are scanned, so a dynamic name is allowed there and nowhere else.
+const PUBLISHER_MODULE = /^services\/[^/]+\/src\/events\/publisher\.ts$/;
 
 // Tracked files only (the shared live arbiter); `**` needs :(glob) magic or git silently drops src/index.ts.
 const loadServiceSources = (): SourceFile[] =>
@@ -53,7 +56,7 @@ function violations(files: SourceFile[], registry: any): string[] {
     }
   }
   for (const name of s.intercepted) if (!hasOwn(DEDICATED_EVENTS, name)) out.push(`interceptor routes non-dedicated ${name}`);
-  for (const path of s.dynamic) if (path !== INTERCEPTOR) out.push(`dynamic publishEvent name in ${path}`);
+  for (const path of s.dynamic) if (!PUBLISHER_MODULE.test(path)) out.push(`dynamic publishEvent name in ${path}`);
   for (const path of s.legacyTouches) if (!LEGACY_SUBSCRIBERS.includes(path)) out.push(`karmyq-events referenced outside the legacy subscribers: ${path}`);
   for (const c of EVENT_CONSUMERS) {
     const got = JSON.stringify(s.registered[`${c}-service`] ?? []);
@@ -119,6 +122,8 @@ describe('Sprint 133 PR Q: event routing gate (ADR-101)', () => {
     it('flags a dynamic event name', () => {
       expect(violations(withFile({ path: 'services/community-service/src/z.ts', text: 'await publishEvent(name, {})' }), registry))
         .toContain('dynamic publishEvent name in services/community-service/src/z.ts');
+      expect(violations(withFile({ path: 'services/community-service/src/events/publisher.ts', text: 'return shared.publishEvent(type, payload)' }), registry)
+        .filter((v) => v.startsWith('dynamic'))).toEqual([]);
     });
   });
 });
