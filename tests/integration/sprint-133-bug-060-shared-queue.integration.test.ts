@@ -13,9 +13,9 @@
  * Missing infrastructure is a failure, never a skip.
  */
 import Queue from 'bull';
-import { execFileSync } from 'child_process';
 import { randomUUID } from 'crypto';
 import { createPool } from '../fixtures';
+import { containerIps, settle } from './queueHelpers';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6380';
 const MISSING = /^Missing process handler for job type /;
@@ -23,21 +23,6 @@ const N = 60;
 // The production publisher's options (packages/shared/events/publisher.ts).
 const PRODUCTION_JOB_OPTIONS = { attempts: 3, backoff: { type: 'exponential', delay: 2000 }, removeOnComplete: false, removeOnFail: false };
 const SUBSCRIBER_CONTAINERS = ['karmyq-notification-service-test', 'karmyq-reputation-service-test', 'karmyq-social-graph-service-test'];
-
-const containerIps = (name: string): string[] =>
-  execFileSync('docker', ['inspect', '-f', '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}', name], { encoding: 'utf8' })
-    .trim().split(/\s+/).filter(Boolean);
-
-async function settle(jobs: Queue.Job[], timeoutMs: number) {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const fresh = await Promise.all(jobs.map(async (j) => (await j.queue.getJob(j.id))!));
-    const states = await Promise.all(fresh.map((j) => j.getState()));
-    if (states.every((s) => s === 'completed' || s === 'failed')) return fresh.map((j, i) => ({ job: j, state: states[i] }));
-    if (Date.now() > deadline) throw new Error(`jobs did not settle: ${JSON.stringify(states)}`);
-    await new Promise((r) => setTimeout(r, 250));
-  }
-}
 
 describe('Sprint 133 BUG-060: shared karmyq-events queue competition', () => {
   jest.setTimeout(120000);
