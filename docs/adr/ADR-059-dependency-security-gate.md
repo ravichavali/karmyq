@@ -372,3 +372,21 @@ run the networked `npm audit` before reading the registry, so while the audit en
 unavailable" instead of being refused, and the pre-push hook went red on an unrelated diff. The registry is
 now read first. Both orders fail closed; only the reason was wrong. The refusal cases run with `PATH`
 emptied so they never touch the network, which reproduced the push failure in six seconds before the fix.
+
+## Amendment (Sprint 133, 2026-10-14): renewals
+
+**Status**: Accepted · **Decision**: maintainer, 2026-10-14
+
+Both exemptions were due to lapse on 2026-10-15 (`expires` is the first invalid day). A hand re-check on
+2026-10-14 found no upstream fix for either:
+
+| Package | Advisory | Latest release | Patched version | New window |
+|---|---|---|---|---|
+| `node-forge` | GHSA-86w9-cpqp-85rv | 1.4.0 (range `<= 1.4.0`) | none, not withdrawn | 2026-10-14 → 2026-10-21 |
+| `braces` | GHSA-vfj7-8cjw-p6xm | 3.0.3 (range `<= 3.0.3`) | none, not withdrawn | 2026-10-14 → 2026-10-21 |
+
+Expo has not moved: the latest `@expo/cli` (57.0.30) still depends on `node-forge ^1.3.3`. Reach is
+unchanged. `npm ls --all --omit=dev` reaches both packages only through `apps/mobile` → `expo` →
+`@expo/cli` (the Expo developer CLI), with one lock node each. Under the maintainer's 2026-10-08 rule
+(remove an exemption once upstream ships a fix, otherwise renew it for seven days), both are renewed
+for seven days, the cap.
