@@ -19,7 +19,8 @@ Changes below.
 
 - **2026-10-15 (Sprint 133 PR Q, ADR-101, BUG-060)**: `dibs_expired` and `match_reminder` are published through
   `createPublisher('cleanup-service')` (`src/events/publisher.ts`, initialized in `startServer`) instead of a
-  hand-built `karmyq-events` queue. They reach `karmyq-events-notification` with the standard 3 attempts. The old path
+  hand-built `karmyq-events` queue. `publishEvent` initializes the publisher on first use (once), because node-cron
+  schedules register at module load and can fire before `startServer` runs. They reach `karmyq-events-notification` with the standard 3 attempts. The old path
   used one attempt on the shared queue, where other services' workers could fail them.
 - **2026-08-21 (Sprint 126 / ADR-096 — the decay job no longer writes trust scores)**:
   `updateDecayedTrustScores()` is now a logging no-op, and the dead `recordActivity()` twin was
