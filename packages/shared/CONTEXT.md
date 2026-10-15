@@ -129,6 +129,7 @@ Root exports from `events/routes.ts` and `events/consumer.ts`:
 - `startConsumerQueue(consumer, handlers, redisUrl)`: throws unless the handler names equal `eventsFor(consumer)`.
 - Types: `EventHandler`, `EventConsumer`.
 
+Each consumer queue is opened lazily on the first publish to it (`initEventPublisher` only records `REDIS_URL`).
 `publishEvent` enqueues a routed event on its consumer's queue, resolves `null` for an unconsumed one, and **throws**
 for a dedicated or unclassified name. Adding an event means adding it to exactly one class.
 `tests/regression/sprint-133-pr-q-event-routes.test.ts` fails on an unclassified publish site.

@@ -97,8 +97,8 @@ Each rule has a negative fixture proving it can fail.
 
 ### Negative
 
-- Each publishing service opens one Bull queue per consumer (two today, three Redis connections
-  each).
+- A publishing service opens a consumer's Bull queue on its first publish to that consumer, so it
+  holds at most one queue per consumer it actually uses. In practice only request-service uses both today.
 - Adding a consumer to an existing event means moving it to `DEDICATED_EVENTS` and writing a
   dispatch module, which is deliberate friction.
 - `publishEvent` now throws for an unclassified name. The gate makes that unreachable for literal
