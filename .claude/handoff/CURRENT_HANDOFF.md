@@ -1,6 +1,10 @@
 # Sprint 133 — Skills Depth — Handoff
 
-**Date**: 2026-10-14 (**PR B SHIPPED**, v11.86.0)
+**Date**: 2026-10-14 (**PR B SHIPPED**, v11.86.0; **exemption renewal #304 SHIPPED**, v11.87.0)
+**#304 SHIPPED and LIVE (2026-10-15 03:31 UTC).** The maintainer merged [#304](https://github.com/ravichavali/karmyq/pull/304)
+as `aded1986` (v11.87.0). [CI/CD 38676752463](https://github.com/ravichavali/karmyq/actions/runs/38676752463) passed on
+attempt 1: Security Audit, Code Scanning Gate (no CodeQL re-raise, since `api.ts` was untouched) and Deploy to Demo all green.
+`node-forge` and `braces` exemptions now expire **2026-10-21**. PR Q re-bumps its version from master (now 11.87.0) at merge.
 **PR B SHIPPED and LIVE (2026-10-14).** [#303](https://github.com/ravichavali/karmyq/pull/303) merged as `1291b1d4` by
 `gh pr merge --squash --admin` (explicit maintainer authorization "I authorize admin merge", 2026-10-14). The master Code
 Scanning Gate first failed on CodeQL #612/#613: line-shift re-raises of the dismissed `js/request-forgery` FP class on
@@ -256,7 +260,7 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 - **Sprint 132 closeout: COMPLETE (2026-10-10).** #299 (advisories + renewals, v11.82.0, `dfe52c03`) and #300 (BUG-061 + ADR-099
   Implemented, v11.83.0, `aa6352e8`) are both deployed and smoke-tested. Branches `agent/claude/sprint-132-advisories` and
   `agent/claude/sprint-132-closeout` are merged; never commit on them.
-- **Exemptions RENEWED again (maintainer, 2026-10-14, #304):** `node-forge` and `braces` run 2026-10-14 → **2026-10-21** once #304 merges.
+- **Exemptions RENEWED again (maintainer, 2026-10-14, #304):** `node-forge` and `braces` run 2026-10-14 → **2026-10-21**. #304 merged as `aded1986` and deployed green (CI/CD 38676752463).
 - **Earlier renewal (maintainer, 2026-10-08, shipped in #299):** `node-forge` and `braces` ran 2026-10-08 → 2026-10-15.
   Re-check both before then (`npm view`, the GHSA page, `npm ls --all`); remove each if upstream ships a fix.
   History of the ordering decision follows.
@@ -323,5 +327,8 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
    reproduction test must show 0 lost jobs for migrated events. Target 2026-10-15. A live endorse/withdraw smoke is a demo write: ask first. **Then the BUG-060 queue-migration PR (Q), then PR D.**
 8. ~~Re-check `node-forge` and `braces` before 2026-10-15~~: DONE 2026-10-14. There is still no upstream fix (node-forge 1.4.0, braces 3.0.3, both
    `first_patched_version` null; @expo/cli 57.0.30 still needs `^1.3.3`). The maintainer explicitly authorized renewal to **2026-10-21**.
-   Renewal PR [#304](https://github.com/ravichavali/karmyq/pull/304) (v11.87.0, branch `agent/claude/sprint-133-exemption-renewal`)
-   **must merge before 2026-10-15**, or every push fails the gate. PR Q then re-bumps its version from master at its own merge. Next re-check is due before **2026-10-21**.
+   Renewal PR [#304](https://github.com/ravichavali/karmyq/pull/304) (v11.87.0) merged by the maintainer as `aded1986`
+   (2026-10-15 03:31 UTC) and deployed green on attempt 1 (CI/CD 38676752463). Branch `agent/claude/sprint-133-exemption-renewal`
+   is merged; never commit on it. PR Q re-bumps its version from master (11.87.0) at its own merge.
+9. **Re-check `node-forge` and `braces` before 2026-10-21** (`npm view`, the GHSA page, `npm ls --all`). Remove each exemption if
+   upstream ships a fix. Renewing needs explicit maintainer authorization again.
