@@ -7,7 +7,7 @@ import Queue from 'bull';
 import { randomUUID } from 'crypto';
 import { consumerQueueName, createPublisher } from '@karmyq/shared';
 import { createPool } from '../fixtures';
-import { containerIps, settle } from './queueHelpers';
+import { containerIps, newCommunityFixture, removeCommunityFixture, seedCommunityFixture, settle, workerIps } from './queueHelpers';
 
 process.env.REDIS_URL ??= 'redis://localhost:6380'; // createPublisher reads it at init; its own default is 6379
 const REDIS_URL = process.env.REDIS_URL;
@@ -15,10 +15,6 @@ const SOURCE = 'sprint-133-pr-q-test';
 const N = 60;
 const M = 20;
 
-async function workerIps(queue: Queue.Queue): Promise<string[]> {
-  const workers: Array<{ addr?: string }> = (await queue.getWorkers()) ?? [];
-  return workers.map((w) => (w.addr ?? '').replace(/:\d+$/, ''));
-}
 // Match on this test's own jobs, never on queue totals: containers can still emit events left over from earlier suites.
 async function jobsWhere(queue: Queue.Queue, pred: (data: any) => boolean): Promise<string[]> {
   const jobs = await queue.getJobs(['waiting', 'active', 'completed', 'failed', 'delayed']);
@@ -32,23 +28,20 @@ describe('Sprint 133 PR Q: per-consumer queues deliver every job', () => {
   const notificationQ = new Queue(consumerQueueName('notification'), REDIS_URL);
   const reputationQ = new Queue(consumerQueueName('reputation'), REDIS_URL);
   const legacy = new Queue('karmyq-events', REDIS_URL);
-  const requester = randomUUID(), member = randomUUID(), community = randomUUID();
+  const fx = newCommunityFixture();
+  const { requester, member, community } = fx;
   const published: Queue.Job[] = [];
 
   beforeAll(async () => {
     await publisher.initEventPublisher();
-    for (const id of [requester, member]) await pool.query('INSERT INTO auth.users(id,name,email,password_hash) VALUES ($1,$2,$3,$4)', [id, 'PR Q fixture', `${id}@prq.test`, 'not-a-login']);
-    await pool.query('INSERT INTO communities.communities(id,name,description,creator_id) VALUES ($1,$2,$3,$4)', [community, `PR Q ${community}`, 'Fixture', requester]);
-    for (const id of [requester, member]) await pool.query("INSERT INTO communities.members(user_id,community_id,role,status) VALUES ($1,$2,'member','active')", [id, community]);
+    await seedCommunityFixture(pool, fx, 'PR Q');
     await pool.query('INSERT INTO reputation.trust_scores(user_id,community_id,total_feedback_received) VALUES ($1,$2,0)', [member, community]);
   });
   afterAll(async () => {
     try {
       for (const j of published) await j.remove().catch(() => undefined);
-      await pool.query('DELETE FROM notifications.notifications WHERE user_id=$1', [member]);
       await pool.query('DELETE FROM reputation.trust_scores WHERE user_id=$1', [member]);
-      await pool.query('DELETE FROM communities.communities WHERE id=$1', [community]);
-      await pool.query('DELETE FROM auth.users WHERE id=ANY($1::uuid[])', [[requester, member]]);
+      await removeCommunityFixture(pool, fx);
     } finally {
       const publisherQueues = new Set(published.map((j) => j.queue)); // the publisher has no close(); its queues are reachable from its jobs
       await Promise.all([...publisherQueues, notificationQ, reputationQ, legacy].map((q) => q.close()));

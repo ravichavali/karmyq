@@ -16,17 +16,18 @@
 type Handler = (job: { data: unknown }) => Promise<unknown>;
 const handlers: Record<string, Handler> = {};
 
-jest.mock('bull', () =>
-  ((impl: any) => function MockBull(...a: any[]) { return impl(...a); })(() => ({
+// A plain constructor, not jest.fn(impl): the root config's resetMocks would wipe the implementation.
+jest.mock('bull', () => function MockBull() {
+  return {
     process: (nameOrFn: unknown, fn?: Handler) => {
       if (typeof nameOrFn === 'string' && fn) handlers[nameOrFn] = fn;
       else handlers.__default = nameOrFn as Handler;
     },
-    on: jest.fn(),
-    add: jest.fn(),
-    close: jest.fn(),
-  })),
-);
+    on: () => undefined,
+    add: () => undefined,
+    close: () => undefined,
+  };
+});
 
 const mockAward = jest.fn<Promise<unknown>, unknown[]>(async () => ({
   matchId: 'match-1',

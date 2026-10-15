@@ -15,7 +15,7 @@
 import Queue from 'bull';
 import { randomUUID } from 'crypto';
 import { createPool } from '../fixtures';
-import { containerIps, settle } from './queueHelpers';
+import { containerIps, newCommunityFixture, removeCommunityFixture, seedCommunityFixture, settle, workerIps } from './queueHelpers';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6380';
 const MISSING = /^Missing process handler for job type /;
@@ -46,21 +46,18 @@ describe('Sprint 133 BUG-060: shared karmyq-events queue competition', () => {
   describe('live: request_created against the real notification, reputation and social-graph subscribers', () => {
     const pool = createPool();
     const events = new Queue('karmyq-events', REDIS_URL);
-    const requester = randomUUID(), member = randomUUID(), community = randomUUID();
+    const fx = newCommunityFixture();
+    const { requester, member, community } = fx;
     const published: Queue.Job[] = [];
 
     beforeAll(async () => {
       await pool.query('SELECT 1');
-      for (const id of [requester, member]) await pool.query('INSERT INTO auth.users(id,name,email,password_hash) VALUES ($1,$2,$3,$4)', [id, 'BUG-060 fixture', `${id}@bug060.test`, 'not-a-login']);
-      await pool.query('INSERT INTO communities.communities(id,name,description,creator_id) VALUES ($1,$2,$3,$4)', [community, `BUG-060 ${community}`, 'Fixture', requester]);
-      for (const id of [requester, member]) await pool.query("INSERT INTO communities.members(user_id,community_id,role,status) VALUES ($1,$2,'member','active')", [id, community]);
+      await seedCommunityFixture(pool, fx, 'BUG-060');
     });
     afterAll(async () => {
       try {
         for (const j of published) await j.remove().catch(() => undefined);
-        await pool.query('DELETE FROM notifications.notifications WHERE user_id=$1', [member]);
-        await pool.query('DELETE FROM communities.communities WHERE id=$1', [community]);
-        await pool.query('DELETE FROM auth.users WHERE id=ANY($1::uuid[])', [[requester, member]]);
+        await removeCommunityFixture(pool, fx);
       } finally {
         await events.close();
         await pool.end();
@@ -68,10 +65,10 @@ describe('Sprint 133 BUG-060: shared karmyq-events queue competition', () => {
     });
 
     it('records every job outcome; any failure is a missing-handler failure and every completion wrote its notification', async () => {
-      const workers: Array<{ addr?: string }> = (await events.getWorkers()) ?? [];
-      const workerIps = new Set(workers.map((w) => (w.addr ?? '').replace(/:\d+$/, '')));
+      const workers = await workerIps(events);
+      const attachedIps = new Set(workers);
       for (const name of SUBSCRIBER_CONTAINERS) {
-        expect({ name, attached: containerIps(name).some((ip) => workerIps.has(ip)) }).toEqual({ name, attached: true });
+        expect({ name, attached: containerIps(name).some((ip) => attachedIps.has(ip)) }).toEqual({ name, attached: true });
       }
 
       const requestIds = Array.from({ length: N }, () => randomUUID());

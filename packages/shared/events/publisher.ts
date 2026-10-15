@@ -1,5 +1,5 @@
 import Queue from 'bull';
-import { consumerQueueName, DEDICATED_EVENTS, EVENT_CONSUMERS, EVENT_ROUTES, EventConsumer, UNCONSUMED_EVENTS } from './routes';
+import { consumerQueueName, DEDICATED_EVENTS, EVENT_ROUTES, EventConsumer, UNCONSUMED_EVENTS } from './routes';
 
 const JOB_OPTIONS: Queue.JobOptions = {
   removeOnComplete: 100,
@@ -9,21 +9,29 @@ const JOB_OPTIONS: Queue.JobOptions = {
 };
 
 export function createPublisher(source: string) {
-  let queues: Map<EventConsumer, Queue.Queue> | undefined;
+  let redis: string | undefined;
+  // Opened on first use: most services publish to one consumer (or none), and each Bull queue holds Redis connections.
+  const queues = new Map<EventConsumer, Queue.Queue>();
+
+  function queueFor(consumer: EventConsumer): Queue.Queue {
+    let queue = queues.get(consumer);
+    if (!queue) {
+      const name = consumerQueueName(consumer);
+      queue = new Queue(name, redis!, { defaultJobOptions: JOB_OPTIONS });
+      queue.on('error', (error) => console.error(`Event queue ${name} error:`, error));
+      queues.set(consumer, queue);
+    }
+    return queue;
+  }
 
   async function initEventPublisher() {
-    const redis = process.env.REDIS_URL || 'redis://localhost:6379';
-    queues = new Map(EVENT_CONSUMERS.map((consumer) => {
-      const queue = new Queue(consumerQueueName(consumer), redis, { defaultJobOptions: JOB_OPTIONS });
-      queue.on('error', (error) => console.error(`Event queue ${consumerQueueName(consumer)} error:`, error));
-      return [consumer, queue] as const;
-    }));
-    console.log('✅ Event publisher connected to Redis');
+    redis = process.env.REDIS_URL || 'redis://localhost:6379';
+    console.log('✅ Event publisher ready');
   }
 
   /** Enqueue on the one consumer queue that handles `eventType` (ADR-101); null for an unconsumed event. */
   async function publishEvent(eventType: string, payload: any): Promise<Queue.Job | null> {
-    if (!queues) throw new Error('Event queue not initialized');
+    if (!redis) throw new Error('Event queue not initialized');
     const consumer = EVENT_ROUTES[eventType];
     if (!consumer) {
       if (UNCONSUMED_EVENTS.has(eventType)) return null;
@@ -31,7 +39,7 @@ export function createPublisher(source: string) {
       if (dedicated) throw new Error(`Event ${eventType} has a dedicated transport: ${dedicated.queue}`);
       throw new Error(`Event ${eventType} is not classified in packages/shared/events/routes.ts`);
     }
-    const job = await queues.get(consumer)!.add(eventType, {
+    const job = await queueFor(consumer).add(eventType, {
       eventType,
       payload,
       timestamp: new Date().toISOString(),

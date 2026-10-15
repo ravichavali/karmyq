@@ -1,6 +1,7 @@
 const handlers: Record<string, (job: any) => Promise<void>> = {};
 const mockQuery = jest.fn();
-jest.mock('bull', () => ((impl: any) => function MockBull(...a: any[]) { return impl(...a); })(() => ({ process: (type: string, fn: any) => { handlers[type] = fn; }, on: jest.fn() })));
+// A plain constructor, not jest.fn(impl): the root config's resetMocks would wipe the implementation.
+jest.mock('bull', () => function MockBull() { return { process: (type: string, fn: any) => { handlers[type] = fn; }, on: () => undefined }; });
 jest.mock('../../src/database/db', () => ({ query: (...args: any[]) => mockQuery(...args) }));
 jest.mock('../../src/lib/expoPush', () => ({ sendPushToUsers: jest.fn() }));
 const mockCreate = jest.fn();

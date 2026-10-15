@@ -4,9 +4,8 @@
  * any waiting job and fails a job whose name it never registered (bull/lib/queue.js:1203-1208,1246),
  * so no queue may have workers from two services. Every published name must appear exactly once below.
  */
-export type EventConsumer = 'notification' | 'reputation';
-
-export const EVENT_CONSUMERS: readonly EventConsumer[] = Object.freeze(['notification', 'reputation'] as const);
+export const EVENT_CONSUMERS = Object.freeze(['notification', 'reputation'] as const);
+export type EventConsumer = typeof EVENT_CONSUMERS[number];
 
 export const EVENT_ROUTES: Readonly<Record<string, EventConsumer>> = Object.freeze({
   dibs_accepted: 'notification',

@@ -12,7 +12,7 @@
 
 const mockQuery = jest.fn();
 jest.mock('../../src/database/db', () => ({ query: (...args: any[]) => mockQuery(...args) }));
-jest.mock('../../src/events/publisher', () => ({ publishEvent: jest.fn(), initEventPublisher: jest.fn(), getEventQueue: jest.fn() }));
+jest.mock('../../src/events/publisher', () => ({ publishEvent: jest.fn(), initEventPublisher: jest.fn() }));
 
 import { fetchDecisions } from '../../src/routes/requests';
 

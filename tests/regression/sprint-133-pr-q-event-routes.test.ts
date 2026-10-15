@@ -3,13 +3,11 @@
  * single source of truth; this gate holds the live service source and services/registry.json to it.
  * Every rule has a negative fixture below proving it can fail.
  */
-import { readFileSync, readdirSync, statSync } from 'fs';
-import { join, relative, sep } from 'path';
 import { DEDICATED_EVENTS, EVENT_CONSUMERS, EVENT_ROUTES, UNCONSUMED_EVENTS, eventsFor } from '@karmyq/shared';
 import type { EventConsumer } from '@karmyq/shared';
+import { read, tracked } from './helpers/workspaces';
 
 type SourceFile = { path: string; text: string };
-const ROOT = join(__dirname, '..', '..');
 const LEGACY_SUBSCRIBERS = [
   'services/notification-service/src/events/subscriber.ts',
   'services/reputation-service/src/events/subscriber.ts',
@@ -17,20 +15,9 @@ const LEGACY_SUBSCRIBERS = [
 ];
 const INTERCEPTOR = 'services/request-service/src/events/publisher.ts';
 
-function walk(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) return name === '__tests__' || name === 'node_modules' ? [] : walk(full);
-    return full.endsWith('.ts') ? [full] : [];
-  });
-}
-function loadServiceSources(): SourceFile[] {
-  const services = readdirSync(join(ROOT, 'services')).filter((s) => {
-    try { return statSync(join(ROOT, 'services', s, 'src')).isDirectory(); } catch { return false; }
-  });
-  return services.flatMap((s) => walk(join(ROOT, 'services', s, 'src')))
-    .map((full) => ({ path: relative(ROOT, full).split(sep).join('/'), text: readFileSync(full, 'utf8') }));
-}
+// Tracked files only (the shared live arbiter); `**` needs :(glob) magic or git silently drops src/index.ts.
+const loadServiceSources = (): SourceFile[] =>
+  tracked(':(glob)services/*/src/**/*.ts').filter((p) => !p.includes('/__tests__/')).map((path) => ({ path, text: read(path) }));
 const serviceOf = (path: string) => path.split('/')[1];
 const matches = (text: string, re: RegExp) => [...text.matchAll(re)].map((m) => m[1]);
 
@@ -85,22 +72,22 @@ function violations(files: SourceFile[], registry: any): string[] {
   return out;
 }
 
-const registry = JSON.parse(readFileSync(join(ROOT, 'services', 'registry.json'), 'utf8'));
+const registry = JSON.parse(read('services/registry.json'));
+const live = loadServiceSources(); // scanned once; every case below reuses it
 
 describe('Sprint 133 PR Q: event routing gate (ADR-101)', () => {
   it('the live source and registry have no violations', () => {
-    expect(violations(loadServiceSources(), registry)).toEqual([]);
+    expect(violations(live, registry)).toEqual([]);
   });
 
   it('scans enough to mean something', () => {
-    const s = scan(loadServiceSources());
+    const s = scan(live);
     expect(new Set(s.published.map((p) => p.service)).size).toBeGreaterThanOrEqual(5);
     expect(s.published.length).toBeGreaterThanOrEqual(40); // 46 sites on 2026-10-15; a floor, not a count, so new publishes don't break it
     expect([...s.intercepted].sort()).toEqual(['directed_request_created', 'match_completed']);
   });
 
   describe('negative fixtures: each rule can fail', () => {
-    const live = loadServiceSources();
     const withFile = (f: SourceFile) => [...live, f];
     it('flags an unclassified publish', () => {
       expect(violations(withFile({ path: 'services/request-service/src/x.ts', text: "await publishEvent('not_a_real_event', {})" }), registry))
