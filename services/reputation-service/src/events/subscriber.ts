@@ -1,4 +1,5 @@
 import Queue from 'bull';
+import { startConsumerQueue, EventHandler } from '@karmyq/shared';
 import { awardKarmaForCompletedMatch } from '../services/standingProjector';
 import { checkAndAwardBadges } from '../services/badgeService';
 import { updateProviderCompletionRate } from '../services/providerTrustService';
@@ -32,6 +33,15 @@ async function getRepeatMatchCount(userA: string, userB: string): Promise<number
 const eventQueue = new Queue('karmyq-events', REDIS_URL);
 const completionQueue = new Queue('karmyq-completion-reputation', REDIS_URL);
 completionQueue.on('error', error => console.error('Completion queue error:', error));
+
+// ADR-101 / BUG-060: every routed handler is registered twice: on this service's own queue, which no
+// other service's workers attach to, and on the legacy shared queue so jobs published before this
+// deploy still drain. Nothing publishes to karmyq-events any more.
+const handlers: Record<string, EventHandler> = {};
+const register = (name: string, handler: EventHandler) => {
+  handlers[name] = handler;
+  eventQueue.process(name, handler);
+};
 
 // Community evolution queue — processes jobs queued by trustEvolutionService after user evolution
 const communityEvolutionQueue = new Queue('karmyq-community-evolution', REDIS_URL);
@@ -138,7 +148,7 @@ export async function initEventSubscriber() {
     completionQueue.process('match_completed', handleCompletion);
 
     // Process interaction_feedback_submitted events
-    eventQueue.process('interaction_feedback_submitted', async (job) => {
+    register('interaction_feedback_submitted', async (job) => {
       console.log('Processing interaction_feedback_submitted event:', job.data);
 
       const { payload } = job.data;
@@ -199,6 +209,8 @@ export async function initEventSubscriber() {
         throw error;
       }
     });
+
+    startConsumerQueue('reputation', handlers, REDIS_URL);
 
     console.log('✅ Event subscriber initialized');
   } catch (error) {

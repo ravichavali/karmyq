@@ -17,7 +17,7 @@ type Handler = (job: { data: unknown }) => Promise<unknown>;
 const handlers: Record<string, Handler> = {};
 
 jest.mock('bull', () =>
-  jest.fn().mockImplementation(() => ({
+  ((impl: any) => function MockBull(...a: any[]) { return impl(...a); })(() => ({
     process: (nameOrFn: unknown, fn?: Handler) => {
       if (typeof nameOrFn === 'string' && fn) handlers[nameOrFn] = fn;
       else handlers.__default = nameOrFn as Handler;
