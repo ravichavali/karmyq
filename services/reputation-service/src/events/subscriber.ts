@@ -171,18 +171,13 @@ export async function initEventSubscriber() {
         const currentTotal = trustScore.total_feedback_received || 0;
         const newTotal = currentTotal + 1;
 
-        // Calculate new averages (weighted by total feedback received)
-        const newAvgHelpfulness = helpfulness
-          ? ((trustScore.avg_helpfulness * currentTotal) + helpfulness) / newTotal
-          : trustScore.avg_helpfulness;
-
-        const newAvgResponsiveness = responsiveness
-          ? ((trustScore.avg_responsiveness * currentTotal) + responsiveness) / newTotal
-          : trustScore.avg_responsiveness;
-
-        const newAvgClarity = clarity
-          ? ((trustScore.avg_clarity * currentTotal) + clarity) / newTotal
-          : trustScore.avg_clarity;
+        // Calculate new averages (weighted by total feedback received). node-pg returns numeric columns as
+        // strings and a rating may arrive as one, so coerce both: '4.00' + 5 would concatenate.
+        const average = (current: unknown, rating: unknown) =>
+          rating ? ((Number(current) * currentTotal) + Number(rating)) / newTotal : Number(current);
+        const newAvgHelpfulness = average(trustScore.avg_helpfulness, helpfulness);
+        const newAvgResponsiveness = average(trustScore.avg_responsiveness, responsiveness);
+        const newAvgClarity = average(trustScore.avg_clarity, clarity);
 
         // Update trust score with new interaction quality metrics
         await query(

@@ -1774,9 +1774,27 @@ notification or social-graph workers first. The handler has been written this wa
 unit test mocked the query, so the column was never checked. Found by the PR Q integration test (CI run 38795162265):
 the 20 feedback jobs reached reputation's own queue and all failed in the handler.
 
-**Fixed (Sprint 133 PR Q, #305).** It sets `last_updated`. `services/reputation-service/tests/regression/
+**Fixed (Sprint 133 PR Q, #305).** It sets `last_updated`. The same handler also threw on any feedback that omitted a rating
+(`.toFixed` on the `numeric` string node-pg returns) and would concatenate a rating sent as a string; it now coerces
+both with `Number()`. `services/reputation-service/tests/regression/
 sprint-133-pr-q-consumer-queue.test.ts` checks every column the handler sets against the `reputation.trust_scores`
 definition in `infrastructure/postgres/init.sql`. The PR Q integration test asserts the exact feedback totals after 20
 real deliveries.
+
+---
+
+## BUG-068 · [2026-10-15] · open · **MEDIUM** (proposed)
+
+**`POST /requests/matches/:matchId/feedback` always fails, so interaction feedback is never published.** The route
+(`services/request-service/src/routes/feedback.ts:46`) selects `r.community_id` from `requests.help_requests`, which
+has no such column: a request's communities live in `requests.request_communities` and there can be several. Postgres
+raises `column r.community_id does not exist` and the route returns 500 before `interaction_feedback_submitted` is
+published, so the reputation queue added by ADR-101 (and the BUG-067 handler fix) never receives a real event. Found
+by the Sprint 133 PR Q `/code-review`; the PR Q integration test publishes synthetic events, so it cannot see this.
+
+- **Open policy question (maintainer):** which community should a feedback event credit? The match's request may
+  span several communities; the reputation handler updates one `trust_scores` row per `(user, community)`.
+- **Owner:** the maintainer decides; Claude implements. Needs a real-SQL route test (the existing feedback tests mock
+  the query). **Deadline: 2026-10-29** (≤ 2-week SLA), or a dated risk acceptance.
 
 ---

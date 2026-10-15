@@ -66,3 +66,14 @@ it('BUG-067: every column the feedback handler sets exists on reputation.trust_s
   expect(setColumns.length).toBe(5);
   expect(setColumns.filter((c) => !columns.has(c))).toEqual([]);
 });
+
+// node-pg returns numeric(3,2) columns as strings ('4.00'), and a rating may be omitted or arrive as a string.
+it('averages with numeric DB strings, an omitted rating and a string rating without throwing or concatenating', async () => {
+  mockQuery
+    .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'ts', avg_helpfulness: '4.00', avg_responsiveness: '4.00', avg_clarity: '3.00', total_feedback_received: 1 }] })
+    .mockResolvedValueOnce({ rowCount: 1, rows: [] });
+  await mockQueues['karmyq-events-reputation'].interaction_feedback_submitted({
+    data: { eventType: 'interaction_feedback_submitted', payload: { to_user_id: 'u', community_id: 'c', helpfulness: '5', clarity: 4 } },
+  });
+  expect(mockQuery.mock.calls[1][1]).toEqual([4.5, 4, 3.5, 2, 'ts']);
+});
