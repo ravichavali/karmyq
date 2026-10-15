@@ -1,6 +1,6 @@
 const handlers: Record<string, (job: any) => Promise<void>> = {};
 const mockQuery = jest.fn();
-jest.mock('bull', () => jest.fn().mockImplementation(() => ({
+jest.mock('bull', () => ((impl: any) => function MockBull(...a: any[]) { return impl(...a); })(() => ({
   process: (type: string, handler: any) => { handlers[type] = handler; }, on: jest.fn(),
 })));
 jest.mock('../../src/database/db', () => ({ query: (...args: any[]) => mockQuery(...args) }));

@@ -1,7 +1,7 @@
 const mockQueues: Record<string, Record<string, (job: any) => Promise<void>>> = {};
 const mockQuery = jest.fn();
 const mockRelease = jest.fn();
-jest.mock('bull', () => jest.fn().mockImplementation((name: string) => {
+jest.mock('bull', () => ((impl: any) => function MockBull(...a: any[]) { return impl(...a); })((name: string) => {
   mockQueues[name] ??= {};
   return { process: (type: string, handler: any) => { mockQueues[name][type] = handler; }, on: jest.fn() };
 }));
