@@ -22,6 +22,21 @@ describe('startConsumerQueue', () => {
       .toThrow('karmyq-events-notification handlers do not match EVENT_ROUTES: missing [request_created], unrouted []');
   });
 
+  it('also attaches every routed handler, the same function, to a legacy drain queue', () => {
+    const handlers = handlerFor(['interaction_feedback_submitted']);
+    const legacy = { processed: [] as Array<[string, unknown]>, process(n: string, h: unknown) { this.processed.push([n, h]); } };
+    startConsumerQueue('reputation', handlers, 'redis://x', legacy as any);
+    expect(legacy.processed).toEqual([['interaction_feedback_submitted', handlers.interaction_feedback_submitted]]);
+  });
+
+  it('validates before attaching anything, so a mismatch never starts legacy workers', () => {
+    const legacy = { process: jest.fn() };
+    const before = Object.keys(mockQueues).length;
+    expect(() => startConsumerQueue('reputation', handlerFor(['typo_event']), 'redis://x', legacy as any)).toThrow('handlers do not match');
+    expect(legacy.process).not.toHaveBeenCalled();
+    expect(Object.keys(mockQueues).length).toBe(before);
+  });
+
   it('refuses to start with an unrouted handler and names it', () => {
     const names = [...eventsFor('reputation'), 'match_completed'];
     expect(() => startConsumerQueue('reputation', handlerFor(names), 'redis://x'))

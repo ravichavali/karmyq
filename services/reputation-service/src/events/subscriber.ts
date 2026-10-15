@@ -34,14 +34,13 @@ const eventQueue = new Queue('karmyq-events', REDIS_URL);
 const completionQueue = new Queue('karmyq-completion-reputation', REDIS_URL);
 completionQueue.on('error', error => console.error('Completion queue error:', error));
 
-// ADR-101 / BUG-060: every routed handler is registered twice: on this service's own queue, which no
-// other service's workers attach to, and on the legacy shared queue so jobs published before this
-// deploy still drain. Nothing publishes to karmyq-events any more.
+// ADR-101 / BUG-060: routed handlers are collected here and attached by startConsumerQueue, after it
+// validates them against the routing table, to this service's own queue (no other service's workers
+// attach to it) and, for one release, to the legacy shared queue so jobs published before the deploy
+// can drain. On the legacy queue the other services' workers still compete for those stragglers.
+// Nothing publishes to karmyq-events any more.
 const handlers: Record<string, EventHandler> = {};
-const register = (name: string, handler: EventHandler) => {
-  handlers[name] = handler;
-  eventQueue.process(name, handler);
-};
+const register = (name: string, handler: EventHandler) => { handlers[name] = handler; };
 
 // Community evolution queue — processes jobs queued by trustEvolutionService after user evolution
 const communityEvolutionQueue = new Queue('karmyq-community-evolution', REDIS_URL);
@@ -210,7 +209,7 @@ export async function initEventSubscriber() {
       }
     });
 
-    startConsumerQueue('reputation', handlers, REDIS_URL);
+    startConsumerQueue('reputation', handlers, REDIS_URL, eventQueue);
 
     console.log('✅ Event subscriber initialized');
   } catch (error) {
