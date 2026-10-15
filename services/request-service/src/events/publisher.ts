@@ -3,7 +3,6 @@ import { publishDirectedNotification, startDirectedNotificationRelay } from './d
 import { publishCompletionEvent, startCompletionDelivery } from './completionEvents';
 
 const shared = createPublisher('request-service');
-export const getEventQueue = shared.getEventQueue;
 export async function initEventPublisher() {
   await shared.initEventPublisher();
   startDirectedNotificationRelay();

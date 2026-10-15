@@ -11,6 +11,12 @@ export * from './utils/response';
 
 // Events
 export { createPublisher } from './events/publisher';
+export { startConsumerQueue } from './events/consumer';
+export type { EventHandler } from './events/consumer';
+export {
+  EVENT_CONSUMERS, EVENT_ROUTES, DEDICATED_EVENTS, UNCONSUMED_EVENTS, consumerQueueName, eventsFor,
+} from './events/routes';
+export type { EventConsumer } from './events/routes';
 
 // Trust (Sprint 90 — visible decay model, ADR-070)
 export { classifyDecayTier } from './src/trust/decayTier';
