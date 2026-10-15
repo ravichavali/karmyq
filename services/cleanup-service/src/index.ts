@@ -16,6 +16,7 @@ import {
 } from './jobs/reputationDecayJob';
 import { sendMatchReminders } from './jobs/matchReminderJob';
 import { expireDibs } from './jobs/expireDibs';
+import { initEventPublisher } from './events/publisher';
 import { sweepDeadTrustEdges } from './jobs/trustEdgeSweepJob';
 import { forgetExchangeContent } from './jobs/memoryRetentionJob';
 import pool from './database/db';
@@ -412,6 +413,7 @@ async function startServer() {
     // Test database connection
     await pool.query('SELECT NOW()');
     logger.info('Database connection established');
+    await initEventPublisher();
 
     app.listen(PORT, () => {
       logger.info(`Cleanup Service running on port ${PORT}`);

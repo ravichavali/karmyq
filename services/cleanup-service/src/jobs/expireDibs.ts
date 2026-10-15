@@ -1,15 +1,6 @@
-import Queue from 'bull';
 import { logger } from '../utils/logger';
 import pool from '../database/db';
-
-let eventQueue: Queue.Queue | null = null;
-
-function getQueue(): Queue.Queue {
-  if (!eventQueue) {
-    eventQueue = new Queue('karmyq-events', process.env.REDIS_URL || 'redis://localhost:6379');
-  }
-  return eventQueue;
-}
+import { publishEvent } from '../events/publisher';
 
 /**
  * Dibs Expiry Job
@@ -34,7 +25,6 @@ export async function expireDibs(): Promise<number> {
     }
 
     logger.info(`Expiring ${result.rows.length} dibs record(s)`);
-    const queue = getQueue();
     let expiredCount = 0;
 
     for (const dibs of result.rows) {
@@ -63,15 +53,10 @@ export async function expireDibs(): Promise<number> {
         await client.query('COMMIT');
 
         // Publish event for notification service (outside transaction to decouple from DB)
-        await queue.add('dibs_expired', {
-          eventType: 'dibs_expired',
-          payload: {
-            dibs_id: dibs.id,
-            request_id: dibs.request_id,
-            provider_user_id: dibs.provider_user_id,
-          },
-          timestamp: new Date().toISOString(),
-          source: 'cleanup-service',
+        await publishEvent('dibs_expired', {
+          dibs_id: dibs.id,
+          request_id: dibs.request_id,
+          provider_user_id: dibs.provider_user_id,
         });
 
         logger.info('Expired dibs record', {

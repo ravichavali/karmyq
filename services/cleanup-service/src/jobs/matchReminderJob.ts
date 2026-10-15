@@ -1,15 +1,6 @@
-import Queue from 'bull';
 import { logger } from '../utils/logger';
 import pool from '../database/db';
-
-let eventQueue: Queue.Queue | null = null;
-
-function getQueue(): Queue.Queue {
-  if (!eventQueue) {
-    eventQueue = new Queue('karmyq-events', process.env.REDIS_URL || 'redis://localhost:6379');
-  }
-  return eventQueue;
-}
+import { publishEvent } from '../events/publisher';
 
 /**
  * Match Reminder Job
@@ -46,23 +37,16 @@ export async function sendMatchReminders(): Promise<void> {
     }
 
     logger.info(`Sending ${result.rows.length} match reminder(s)`);
-    const queue = getQueue();
-
     for (const match of result.rows) {
-      await queue.add('match_reminder', {
-        eventType: 'match_reminder',
-        payload: {
-          match_id: match.id,
-          responder_id: match.responder_id,
-          requester_id: match.requester_id,
-          request_title: match.title,
-          request_type: match.request_type,
-          scheduled_at: match.scheduled_at,
-          travel_time_minutes: match.travel_time_minutes,
-          payload: match.payload,
-        },
-        timestamp: new Date().toISOString(),
-        source: 'cleanup-service',
+      await publishEvent('match_reminder', {
+        match_id: match.id,
+        responder_id: match.responder_id,
+        requester_id: match.requester_id,
+        request_title: match.title,
+        request_type: match.request_type,
+        scheduled_at: match.scheduled_at,
+        travel_time_minutes: match.travel_time_minutes,
+        payload: match.payload,
       });
 
       logger.info('Published match_reminder event', {
