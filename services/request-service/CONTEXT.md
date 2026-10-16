@@ -7,6 +7,17 @@
 
 ## Recent Changes
 
+- **2026-10-16 (Sprint 133 PR V, BUG-065 + BUG-064)**: `GET /requests` lists only what `GET /requests/:id`
+  would open. The read boundary is one SQL fragment, `requestReadableSql(alias, viewerParam)` in
+  `src/db/eligibility.ts`, which wraps the directed-audience predicate around own ∨ any-status match responder ∨
+  pre-selected provider ∨ directed ∨ `requestReachableSql` (live member ∨ active sister link ∨ `trust_network`/
+  `platform` scope). `buildRequestsQuery` ANDs it on the browse branch and always binds the viewer, so a
+  spoofed `requester_id` stays browse. `getRequestReachability` builds its columns from the same helpers. The
+  community feed view, `/community/:id/pulse`, `/community/:id/open-asks` and `/retention-policy?communityId`
+  check `communities.members` (`isActiveMember`), not the JWT claim (same `NOT_A_MEMBER` 403). Standing offers
+  (`GET /offers`, `GET /offers/:id`) are readable by the offerer and live members of the offer's community only
+  (`is_public` is not consulted). `PUT`/`DELETE`/`PUT /privacy /offers/:id` and the `POST /matches` `offer_id`
+  lookup select by id AND offerer, so a foreign offer gets the same 404 as a missing one (it used to get 403).
 - **2026-10-10 (Sprint 133 PR S, BUG-056 + BUG-062)**: `GET /requests/:id` is now gated: readable by
   the requester, a responder on a match of any status, a directed ask's audience (the
   `directedAudienceSql` predicate is unchanged), or a viewer inside the request's visibility audience
@@ -510,6 +521,13 @@ Get all help requests with optional filters.
 - `limit` (number) - Max results (default: 50)
 - `offset` (number) - Pagination offset (default: 0)
 - `include_admin_notes` (boolean) - When `true` and `community_id` is also provided, each request in the response includes an `admin_note` field scoped to that community (sourced from `requests.request_admin_notes`). Only returned to active admins/moderators of the community.
+- `requester_id` (UUID) - Equal to the caller: the private "my requests" list (directed-audience predicate only). Any other value is still browse and still gated.
+
+**Visibility boundary (BUG-065, Sprint 133 PR V):** browse rows are filtered by `requestReadableSql`, the
+same boundary `GET /requests/:id` enforces, so the list never shows a row the detail route would 404. The
+list differs from the detail route in exactly three named ways, each pinned by the parity test in
+`tests/integration/sprint-133-pr-v-read-boundary.integration.test.ts`: it drops `expired = TRUE` rows, it never
+browses directed asks, and it drops the viewer's own live `proposed`/`matched` matches (BUG-002).
 
 **Response:**
 ```json
@@ -583,7 +601,7 @@ type UnifiedFeedItem =
 
 **`view=community` specifics (Sprint 86 / ADR-066):**
 - Assembled entirely from request-service's own DB reads — **no external feed service call** (ADR-066 single-source). Texture queries are best-effort (each in try/catch; a failure degrades to "no texture", never breaks the feed).
-- **Requires `community_id`** → `400 COMMUNITY_ID_REQUIRED` if missing. **Caller must be a member** of that community (JWT `communities` claim) → `403 NOT_A_MEMBER` otherwise, before any texture read.
+- **Requires `community_id`** → `400 COMMUNITY_ID_REQUIRED` if missing. **Caller must be a live member** of that community (`communities.members`, not the JWT claim; BUG-065) → `403 NOT_A_MEMBER` otherwise, before any texture read.
 - `activity` = one community pulse (exchanges completed this week, new members, open-requests count, recent helpers). `story` = recent first-exchange narratives. Never includes a `decision` item.
 
 **Vocabulary reconciliation (Sprint 85 / ADR-066, migration `20260603-feed-vocab-reconciliation.sql`):**
@@ -680,8 +698,8 @@ shared `fetchCommunityPulse()` helper that also builds the in-feed `activity` ca
 pulse and the in-feed `ActivityCard` can never report different numbers. Adds one new field
 `timeSensitive`. Read-only; no schema change.
 
-**Authentication:** Required (JWT). **Members-only** — gated on the JWT `communities` claim (NOT
-`communityMemberships`, which is always `undefined` → always 403). A non-member caller → `403 NOT_A_MEMBER`.
+**Authentication:** Required (JWT). **Members-only** — gated on live membership in `communities.members`
+(BUG-065: never the login-time JWT claim). A non-member caller → `403 NOT_A_MEMBER`.
 Unknown community → `404`.
 
 **Window:** last 7 days. `openAsks`/`timeSensitive` count only `status='open' AND expired = FALSE`
@@ -717,7 +735,7 @@ every open + unexpired ask attached to the community — **including the caller'
 already offered on** — using the identical predicate as the pulse `openAsks` count
 (`status='open' AND expired = FALSE`, scoped via `request_communities`), so the count and the rows
 can never diverge. Browse-only: the frontend renders these cards read-only (no Offer).
-**Members-only** (JWT `communities` claim → `403 NOT_A_MEMBER`). Returns `{ items, count }` of
+**Members-only** (live `communities.members` row, not the JWT claim → `403 NOT_A_MEMBER`). Returns `{ items, count }` of
 canonical request-card data scoped to this community. **Implementation:** `src/routes/requests.ts` —
 `router.get('/community/:communityId/open-asks')`.
 
@@ -779,7 +797,7 @@ the member's **own** held vs forgotten request counts. Read-only, **no PII**.
 } }
 ```
 
-Membership-gated on the JWT `communities` claim when `?communityId=` is supplied (non-member → 403).
+Gated on live membership in `communities.members` when `?communityId=` is supplied (non-member → 403; BUG-065).
 **Route order:** registered **before** `router.get('/:id')` so the static path isn't captured as an id.
 Window resolution is the pure exported `resolveRetentionWindows(rows, communityId?)` (mirrors the
 cleanup-service `memoryRetentionJob` so the page and the forgetting job agree). The actual forgetting
@@ -1469,17 +1487,25 @@ Toggle request urgency between `urgent` and `medium` (Sprint 36). Admin only.
 
 ### 3.2 Help Offers
 
+**Visibility boundary (BUG-064, Sprint 133 PR V):** a standing offer is readable by its offerer and by live
+(`status = 'active'`) members of its community, decided in SQL by `offerReadableSql`. `is_public` and
+`offerer_visibility_consent` are not consulted. A foreign offer answers exactly like a missing id on every route:
+`GET /offers/:id`, `PUT`/`DELETE /offers/:id`, `PUT /offers/:id/privacy` (all `404 Offer not found`) and
+`POST /matches` with an `offer_id` that is not the caller's (`404 Offer not found`; only the owner reaches the
+`400 Offer is not active` check).
+
 #### GET /offers
-Get all help offers with optional filters.
+Get all help offers with optional filters, within the boundary above.
 
-**Query Parameters:** Same as GET /requests
+**Query Parameters:** `community_id` (narrows within the boundary, never widens it), `status` (default
+`active`), `type`, `limit`, `offset`.
 
-**Implementation:** `src/routes/offers.ts:8`
+**Implementation:** `src/routes/offers.ts` `router.get('/')`
 
 #### GET /offers/:id
-Get specific offer details.
+Get specific offer details, within the boundary above.
 
-**Implementation:** `src/routes/offers.ts:60`
+**Implementation:** `src/routes/offers.ts` `router.get('/:id')`
 
 #### POST /offers
 Create new help offer. The offerer is the JWT caller; a body `offerer_id` is ignored (BUG-061).
@@ -2903,6 +2929,16 @@ CREATE TABLE auth.user_interests (
 - No breaking changes to existing API contracts
 
 ### 10.4 Recent Fixes
+
+**Sprint 133 PR V — Request and offer read boundary (v11.89.0, #306):**
+
+- **BUG-065 — `GET /requests` listed any community's asks to any signed-in user.** The browse list now ANDs
+  `requestReadableSql`, the same boundary as `GET /requests/:id`, and the four community reads that trusted the JWT
+  claim (feed view, pulse, open-asks, retention policy) check `communities.members`. Tests:
+  `tests/integration/sprint-133-pr-v-read-boundary.integration.test.ts` (list/detail parity by identity, stale claim),
+  `tests/regression/sprint-133-pr-v-read-boundary.test.ts`.
+- **BUG-064 — standing offers had no visibility gate.** Offerer or live member only; a foreign offer is the same 404
+  as a missing one on every route. Same tests.
 
 **Sprint 107 — App Shell Clarity & Commitment Truth (v11.15.0, branch `feature/sprint-107-app-shell-clarity`):**
 
