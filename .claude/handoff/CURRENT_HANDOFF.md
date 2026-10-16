@@ -114,10 +114,11 @@ This handoff rides on the PR B branch `agent/claude/sprint-133-pr-b-endorsements
    and begin at Task V0 (deadline check). PR S, A, B, Q and #304 are shipped; never commit on their branches.
 4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
    slash command: superpowers removed it as a deprecated stub.
-5. **After PR V deploys:** PR D, from the [sprint plan](../../docs/superpowers/plans/2026-10-08-sprint-133-skills-depth.md) section
-   *PR D*, in a fresh chat, on a branch re-cut from `origin/master` (see the header). Note for PR D (from PR B): reconcile rewrites
-   `raw_weight` by formula, so seeded endorsement edges must carry formula-consistent weights. The demo apply is a demo write:
-   per-operation authorization.
+5. **After PR V deploys:** PR D in a fresh chat, from
+   [`docs/superpowers/plans/2026-10-16-sprint-133-pr-d-demo-seed.md`](../../docs/superpowers/plans/2026-10-16-sprint-133-pr-d-demo-seed.md)
+   (it supersedes the sketch in the sprint plan), starting at Task D0, on a branch re-cut from `origin/master` (see the header).
+   The demo apply is a **full curated reset**: it deletes all simulated activity since July and needs its own explicit
+   authorization at the time; a live endorse/withdraw smoke afterwards is a second, separate authorization.
 6. GitHub merges need explicit maintainer merge authorization (the maintainer's approval would be self-approval; ask
    "admin merge, yes/no?"); repo auto-merge is disabled.
 
@@ -142,7 +143,7 @@ security PR first closes BUG-056, BUG-062 and BUG-058.
 | B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | **SHIPPED v11.86.0** ([#303](https://github.com/ravichavali/karmyq/pull/303), `1291b1d4`, deploy 38579973619 attempt 2 after maintainer dismissed CodeQL #612/#613, smoke 7/7 read-only). Codex review round 1 fixed, re-review clean. ADR-100 → Implemented on the PR Q branch |
 | Q | **BUG-060 (HIGH)**: move the remaining shared-queue events off `karmyq-events` to per-consumer queues (completionEvents pattern); re-run the B1 reproduction expecting 0 lost jobs | `agent/claude/sprint-133-pr-q-queue-migration` (cut 2026-10-14 from `1291b1d4`; live PR base `aded1986`) | **SHIPPED v11.88.0** ([#305](https://github.com/ravichavali/karmyq/pull/305), `36a9972f`, deploy 38948723833 attempt 1, all 9 healthy; integration 80/80, 0 failed attempts). Also fixed BUG-066 and BUG-067; logged BUG-068. Owed: read-only demo drain check (ask first), then legacy-handler removal |
 | **V** | **BUG-065 (HIGH)**: `GET /requests` list uses the detail route's boundary (one SQL fragment, parity-tested), plus four claim-gated community reads → live membership; **BUG-064**: offers readable by owner + live members, one 404 for every "not yours" | `agent/claude/sprint-133-pr-v-visibility` (cut 2026-10-16 from `d5276e2c`) | **NEXT**, planned 2026-10-16; [plan](../../docs/superpowers/plans/2026-10-16-sprint-133-pr-v-visibility.md). BUG-065 due 2026-10-17 (risk acceptance per Task V0 if missed) |
-| D | Curated demo seed: skills, items, endorsements (demo apply needs per-operation authorization) | re-cut from `origin/master` after PR V merges (the old `agent/claude/sprint-133-pr-d-demo-seed` holds only `d5276e2c`) | after PR V |
+| D | Curated demo seed: skills (+ one opt-out), 7 story-shaped vouches (1 withdrawn), personal + Tool Library items; counts derived and proven by social-graph's reconcile dry-run in the CI reset step | re-cut from `origin/master` after PR V merges (the old `agent/claude/sprint-133-pr-d-demo-seed` holds only `d5276e2c`) | after PR V; **planned 2026-10-16**: [plan](../../docs/superpowers/plans/2026-10-16-sprint-133-pr-d-demo-seed.md). Demo apply = full curated reset, separately authorized |
 | L | ADR-101 legacy-handler removal **+ BUG-068 retirement** (dead feedback route, event, handler, sim call) | not cut | needs the read-only demo drain check first (ask); **due 2026-10-29** (BUG-068) |
 
 Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is reserved.
@@ -376,6 +377,13 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
    needs a maintainer dismissal plus a `--failed` rerun before it deploys.
 7. ~~PR B~~: DONE 2026-10-14 (#303 merged `1291b1d4`, v11.86.0, deploy 38579973619 attempt 2, smoke 7/7 read-only). Expect the CodeQL
    line-shift re-raise on every merge that shifts `api.ts` lines.
+7c. **PR D planned (2026-10-16, second planning chat).** Maintainer decisions: (1) apply by the **full curated reset**
+   (`reset:demo --apply --publish-config`, Sprint 117 runbook; also clears maria.reyes's drift, 6 live memberships vs 2 in the
+   manifest, cause UNVERIFIED, and refreshes stories expiring 2026-11-12); (2) skills for every exchange helper (2–4), about
+   half the ambient people (1–2), **one opt-out** (`person.ambient-09`); (3) **story-shaped vouches**: Sophia↔Maria, Wei→Maria,
+   Elena↔Fatima, Amina→Noah, and James→Maria withdrawn; (4) **personal items + 4 Tool Library items, no borrows**. Counts are
+   derived by the writer and proven by running social-graph's `reconcileEndorsementPairLocked` in dry-run (zero planned
+   writes) inside the CI-gated `tests/tdd/sprint-117-demo-reset.integration.test.ts`. No migration, no shared change, no ADR.
 7b. **CURRENT: PR V** (planned 2026-10-16). Maintainer decisions, 2026-10-16 planning chat:
    (1) bundle BUG-065 + BUG-064 into one request-service PR **before PR D**;
    (2) **BUG-065:** list = the detail route's boundary (reviewer recommendation), directed asks excluded from browse;
