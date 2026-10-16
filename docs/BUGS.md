@@ -1581,7 +1581,7 @@ and no repo source reaches it. Exempted until **2026-10-09** (ADR-059 amendment 
 
 ---
 
-## BUG-060 · [2026-10-05] · **CONFIRMED** (Sprint 133 PR B) · fixed (Sprint 133 PR Q, pending deploy) · **HIGH**
+## BUG-060 · [2026-10-05] · **CONFIRMED** (Sprint 133 PR B) · fixed (Sprint 133 PR Q, v11.88.0, `36a9972f`, deployed 2026-10-16) · **HIGH**
 
 **UNVERIFIED: competing workers may lose shared-queue events other than completion.** The
 maintainer-relayed PR #293 review suspects `request_created`, `karma_awarded`,
@@ -1619,7 +1619,7 @@ after PR B and **before PR D**, targeting **2026-10-15**, moving the remaining e
 deadline: **2026-10-20**. Re-run `tests/integration/sprint-133-bug-060-shared-queue.integration.test.ts`
 against the migrated events; its live half should then show 0 missing-handler failures.
 
-**Fixed (Sprint 133 PR Q, #305, ADR-101; pending deploy).** Every event is routed by
+**Fixed (Sprint 133 PR Q, #305, ADR-101; v11.88.0 `36a9972f`, deployed 2026-10-16).** Every event is routed by
 `packages/shared/events/routes.ts` to the one queue its consumer owns (`karmyq-events-notification`,
 `karmyq-events-reputation`), to a dedicated transport, or nowhere (unconsumed: not enqueued). A consumer refuses to
 start unless its handlers equal its routes exactly. cleanup-service, which wrote `dibs_expired` and `match_reminder`
@@ -1746,7 +1746,7 @@ payload, requirements, requester name) of a community-scoped ask that `GET /requ
 
 ---
 
-## BUG-066 · [2026-10-15] · fixed (Sprint 133 PR Q, pending deploy) · **MEDIUM**
+## BUG-066 · [2026-10-15] · fixed (Sprint 133 PR Q, v11.88.0, `36a9972f`, deployed 2026-10-16) · **MEDIUM**
 
 **Offer and on-duty push notifications have never been sent.** The notification-service handlers for
 `offer_submitted`, `offer_accepted`, `offer_declined` and `provider_went_on_duty` destructured their fields
@@ -1763,7 +1763,7 @@ push (recipient, title, body, data) for each event and that a missing recipient 
 
 ---
 
-## BUG-067 · [2026-10-15] · fixed (Sprint 133 PR Q, pending deploy) · **MEDIUM**
+## BUG-067 · [2026-10-15] · fixed (Sprint 133 PR Q, v11.88.0, `36a9972f`, deployed 2026-10-16) · **MEDIUM**
 
 **Interaction feedback has never updated trust scores.** The reputation-service `interaction_feedback_submitted`
 handler (`services/reputation-service/src/events/subscriber.ts`) ran `UPDATE reputation.trust_scores … SET …,

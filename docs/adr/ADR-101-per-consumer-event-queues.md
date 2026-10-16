@@ -1,6 +1,6 @@
 # ADR-101: Per-Consumer Event Queues
 
-**Status**: Accepted (Sprint 133 PR Q; flips to Implemented after deploy)
+**Status**: Implemented (Sprint 133 PR Q v11.88.0 `36a9972f`, deployed 2026-10-16, CI/CD 38948723833)
 **Date**: 2026-10-15
 **Sprint**: 133 — PR Q (BUG-060, HIGH)
 **Deciders**: Maintainer (ADR number allocated, BUG-066 and unconsumed-event policy decided 2026-10-15); Claude (implementation)
