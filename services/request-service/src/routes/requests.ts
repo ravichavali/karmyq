@@ -2,6 +2,7 @@ import { notDirectedSql, directedAudienceSql, matchParticipantSql } from '../db/
 import { Router, Request, Response } from 'express';
 import { query } from '../database/db';
 import { getRequestReachability } from '../db/eligibility';
+import { isActiveMember } from '../db/inventoryDb';
 import { publishEvent } from '../events/publisher';
 import { buildRequestsQuery } from '../utils/queryBuilder';
 import {
@@ -1332,9 +1333,8 @@ async function respondCommunityFeed(
     return;
   }
 
-  // Guard 2: only members see a community's feed + texture (JWT `communities` claim).
-  const memberships = (req as any).user?.communities ?? [];
-  if (!memberships.some((c: any) => c.id === communityId)) {
+  // Guard 2: only LIVE members see a community's feed + texture (communities.members, never the JWT claim).
+  if (!(await isActiveMember(communityId, (req as any).user?.userId))) {
     sendError(res, 'NOT_A_MEMBER', 'You must be a member of this community to view its feed', HTTP_STATUS.FORBIDDEN, undefined, meta);
     return;
   }
@@ -1412,15 +1412,14 @@ router.get('/curated', handleCuratedFeed);
 /**
  * Sprint 89 / ADR-068 — GET /requests/community/:communityId/pulse
  * The community's weekly help-loop pulse for the warm community Home hero. Members-only: gated on
- * the JWT `communities` claim (NOT `communityMemberships`, which is always undefined → always 403).
+ * live membership in communities.members (BUG-065), never the login-time JWT claim.
  * Reuses the single S86 texture aggregation, so the hero pulse and the in-feed ActivityCard agree.
  */
 router.get('/community/:communityId/pulse', async (req: Request<RouteParams>, res: Response) => {
   const meta = { requestId: (req as any).id };
   const { communityId } = req.params;
 
-  const memberships = (req as any).user?.communities ?? [];
-  if (!memberships.some((c: any) => c.id === communityId)) {
+  if (!(await isActiveMember(communityId, (req as any).user?.userId))) {
     sendError(res, 'NOT_A_MEMBER', 'You must be a member of this community to view its pulse', HTTP_STATUS.FORBIDDEN, undefined, meta);
     return;
   }
@@ -1458,14 +1457,13 @@ router.get('/community/:communityId/pulse', async (req: Request<RouteParams>, re
  * things it counts). This uses the identical predicate as the pulse `open_requests_count`
  * (`status='open' AND expired=FALSE`, scoped via `request_communities`), so the count and the rows
  * can never diverge. The view is browse-only; the frontend renders these cards read-only (no Offer).
- * Members-only, gated on the JWT `communities` claim (NOT `communityMemberships`).
+ * Members-only, gated on live membership in communities.members (BUG-065), never the JWT claim.
  */
-router.get('/community/:communityId/open-asks', async (req: Request, res: Response) => {
+router.get('/community/:communityId/open-asks', async (req: Request<RouteParams>, res: Response) => {
   const meta = { requestId: (req as any).id };
   const { communityId } = req.params;
 
-  const memberships = (req as any).user?.communities ?? [];
-  if (!memberships.some((c: any) => c.id === communityId)) {
+  if (!(await isActiveMember(communityId, (req as any).user?.userId))) {
     sendError(res, 'NOT_A_MEMBER', 'You must be a member of this community to view its open asks', HTTP_STATUS.FORBIDDEN, undefined, meta);
     return;
   }
@@ -1538,7 +1536,7 @@ router.get('/offered-awaiting', async (req: Request, res: Response) => {
  * Sprint 90 / ADR-069 — GET /requests/retention-policy?communityId=
  * Backs the "What Karmyq remembers" transparency page: the resolved retention windows plus a count of
  * the member's OWN requests currently held vs already forgotten. Read-only, no PII (no titles/bodies).
- * Membership-gated on the JWT `communities` claim when a communityId is supplied.
+ * Gated on live membership in communities.members (BUG-065) when a communityId is supplied.
  *
  * ⚠️ Route order: MUST be registered BEFORE `router.get('/:id', ...)` below — Express matches top-down,
  * so a later registration would let `/:id` capture "retention-policy" as an id.
@@ -1550,8 +1548,7 @@ router.get('/retention-policy', async (req: Request, res: Response) => {
 
   // Gate: if scoped to a community, the caller must be a member of it.
   if (communityId) {
-    const memberships = (req as any).user?.communities ?? [];
-    if (!memberships.some((c: any) => c.id === communityId)) {
+    if (!(await isActiveMember(communityId, userId))) {
       sendError(res, 'NOT_A_MEMBER', 'You must be a member of this community to view its retention policy', HTTP_STATUS.FORBIDDEN, undefined, meta);
       return;
     }

@@ -12,6 +12,7 @@ import express from 'express';
 import request from 'supertest';
 import { query } from '../../src/database/db';
 import requestsRouter, { resolveRetentionWindows } from '../../src/routes/requests';
+import * as inventoryDb from '../../src/db/inventoryDb';
 
 describe('Sprint 90: resolveRetentionWindows (pure)', () => {
   it('falls back to hardcoded windows when config is empty', () => {
@@ -58,11 +59,19 @@ describe('Sprint 90: GET /requests/retention-policy (route)', () => {
     return app;
   }
 
+  // BUG-065: the gate reads live membership, so the lookup is stubbed here; even a stale claim for the
+  // target community must not admit a caller whose live row is gone.
   it('rejects a non-member caller (community-scoped) with 403 — no DB needed', async () => {
-    const notAMember = [{ id: 'other-community', name: 'Elsewhere', role: 'member' }];
-    const res = await request(appAs('u1', notAMember)).get('/requests/retention-policy?communityId=target-community');
-    expect(res.status).toBe(403);
-    expect(res.body.success).toBe(false);
+    const lookup = jest.spyOn(inventoryDb, 'isActiveMember').mockResolvedValue(false);
+    try {
+      const staleClaim = [{ id: 'target-community', name: 'Target', role: 'member' }];
+      const res = await request(appAs('u1', staleClaim)).get('/requests/retention-policy?communityId=target-community');
+      expect(res.status).toBe(403);
+      expect(res.body.success).toBe(false);
+      expect(lookup).toHaveBeenCalledWith('target-community', 'u1');
+    } finally {
+      lookup.mockRestore();
+    }
   });
 
   // DB-backed: a member gets the resolved policy, proving the static path is NOT shadowed by `/:id`.

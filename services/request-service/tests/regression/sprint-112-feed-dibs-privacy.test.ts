@@ -64,7 +64,8 @@ function curatedApp() {
   const a = express();
   a.use(express.json());
   a.use((req: any, _res: any, next: any) => {
-    // Member of the test community so the community-view membership guard passes.
+    // The claim is only a hint; the community-view guard reads live membership (BUG-065), which
+    // makeCuratedMock answers below.
     req.user = { userId: CALLER, email: 'c@test.com', communities: [{ id: 'cccccccc-cccc-cccc-cccc-cccccccccccc', role: 'member' }] };
     req.logger = { error: () => {} }; // handler logs via req.logger?.error; no-op in test
     next();
@@ -137,6 +138,10 @@ describe('GET /requests/curated — live response carries no requester reputatio
     // Sister-community links (only consulted when includeSisterCommunities=true) — one linked sister.
     if (/community_links cl/.test(sql)) {
       return Promise.resolve({ rowCount: 1, rows: [{ sister_community_id: 'dddddddd-dddd-dddd-dddd-dddddddddddd', trust_carry_factor: 0.40 }] });
+    }
+    // Live membership (isActiveMember) for the community-view guard: the caller is an active member.
+    if (/^SELECT 1 FROM communities\.members WHERE community_id = \$1 AND user_id = \$2\s+AND status = 'active'$/.test(sql)) {
+      return Promise.resolve({ rowCount: 1, rows: [{ '?column?': 1 }] });
     }
     // user_request_preferences → subscribe to 'generic' so the (generic) request survives filtering.
     if (/user_request_preferences/.test(sql)) {
