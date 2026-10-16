@@ -18,6 +18,7 @@ import { requestReadableSql, requestReachableSql } from '../../src/db/eligibilit
 import { directedAudienceSql } from '../../src/db/directedAudience';
 import requestsRouter from '../../src/routes/requests';
 import offersRouter from '../../src/routes/offers';
+import feedRouter from '../../src/routes/feed';
 
 const VIEWER = '11111111-1111-1111-1111-111111111111';
 const OTHER = '22222222-2222-2222-2222-222222222222';
@@ -118,6 +119,39 @@ describe('community reads use live membership (stale JWT claim)', () => {
     expect(res.body.error).toBe('NOT_A_MEMBER');
     const lookup = mockQuery.mock.calls.find(([sql]) => /FROM communities\.members/.test(sql));
     expect(lookup?.[1]).toEqual([COMMUNITY, VIEWER]);
+  });
+
+  it('403s a claim-holding non-member on the community feed view before scoring or logging impressions', async () => {
+    const res = await request(app(requestsRouter, '/requests', [{ id: COMMUNITY, role: 'member' }]))
+      .get(`/requests/curated?view=community&community_id=${COMMUNITY}`);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('NOT_A_MEMBER');
+    // The membership lookup is the first query: no profile, ranking or feed read ran, and no impression was written.
+    expect(mockQuery.mock.calls[0][0]).toMatch(/FROM communities\.members/);
+    expect(mockQuery.mock.calls[0][1]).toEqual([COMMUNITY, VIEWER]);
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('403s a claim-holding non-member on GET /requests/feed/community-health', async () => {
+    const res = await request(app(feedRouter, '/requests/feed', [{ id: COMMUNITY, role: 'member' }]))
+      .get(`/requests/feed/community-health?community_id=${COMMUNITY}`);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('NOT_A_MEMBER');
+    expect(mockQuery.mock.calls.every(([sql]) => /FROM communities\.members/.test(sql))).toBe(true);
+  });
+
+  // Postgres rejects a non-UUID for a uuid column (22P02); the gate must still answer the plain 403.
+  it.each([
+    '/requests/community/not-a-uuid/pulse',
+    '/requests/community/not-a-uuid/open-asks',
+    '/requests/retention-policy?communityId=not-a-uuid',
+    '/requests/curated?view=community&community_id=not-a-uuid',
+  ])('403s a malformed community id on %s without reaching the database', async (url) => {
+    mockQuery.mockImplementation(async () => { throw Object.assign(new Error('invalid input syntax for type uuid'), { code: '22P02' }); });
+    const res = await request(app(requestsRouter, '/requests', [])).get(url);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('NOT_A_MEMBER');
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 });
 
