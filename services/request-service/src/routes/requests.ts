@@ -278,6 +278,21 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
     const communityId = req.query.community_id as string | undefined;
     const tierFilter = req.query.tier as string | undefined; // Optional: 'community', 'trust_network', 'platform'
 
+    // Sprint 86 / ADR-066 view=community guards run before any scoring or impression logging, so a
+    // non-member pays for nothing and leaves no impressions. Only LIVE members see a community's feed +
+    // texture (communities.members, never the JWT claim; BUG-065).
+    if (req.query.view === 'community') {
+      const meta = { requestId: (req as any).id };
+      if (!communityId) {
+        sendError(res, 'COMMUNITY_ID_REQUIRED', 'community_id is required for the community feed', HTTP_STATUS.BAD_REQUEST, undefined, meta);
+        return;
+      }
+      if (!(await isActiveMember(communityId, userId))) {
+        sendError(res, 'NOT_A_MEMBER', 'You must be a member of this community to view its feed', HTTP_STATUS.FORBIDDEN, undefined, meta);
+        return;
+      }
+    }
+
     // Get user profile for matching
     const userProfile = await getUserProfile(userId);
 
@@ -770,10 +785,10 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
     }
 
     // Sprint 86 / ADR-066 — view=community returns the community-scoped union (requests + texture,
-    // no decision band). community_id is required and the caller must be a member (guarded inside).
+    // no decision band). community_id and live membership were checked at the top of this handler.
     if (req.query.view === 'community') {
       logRequestImpressions(req, userId, filteredRequests);
-      await respondCommunityFeed(req, res, communityId, filteredRequests);
+      await respondCommunityFeed(req, res, communityId!, filteredRequests);
       return;
     }
 
@@ -1315,29 +1330,18 @@ async function fetchCommunityPulse(communityId: string): Promise<CommunityPulse 
  * Sprint 86 / ADR-066 — assemble + send the Community Feed unified feed ({ items }): the requests
  * the member can fill in this community, then the community texture (one activity summary, then
  * stories). NO decision band — decisions are the member's cross-community queue, a Dashboard-Home
- * concern. Requires a community_id (400) and verifies the caller is a member (403) BEFORE any
- * texture read, so a non-member can never pull a community's texture. Texture queries are
+ * concern. handleCuratedFeed requires a community_id (400) and a live member (403) before any scoring,
+ * impression log or texture read, so a non-member can never pull a community's texture. Texture queries are
  * best-effort: a failure degrades to "no texture" and logs, never breaking the feed.
  */
 async function respondCommunityFeed(
   req: Request,
   res: Response,
-  communityId: string | undefined,
+  communityId: string,
   scoredRequests: any[],
 ): Promise<void> {
   const meta = { requestId: (req as any).id };
-
-  // Guard 1: the community feed is community-scoped — a missing community_id is a client error.
-  if (!communityId) {
-    sendError(res, 'COMMUNITY_ID_REQUIRED', 'community_id is required for the community feed', HTTP_STATUS.BAD_REQUEST, undefined, meta);
-    return;
-  }
-
-  // Guard 2: only LIVE members see a community's feed + texture (communities.members, never the JWT claim).
-  if (!(await isActiveMember(communityId, (req as any).user?.userId))) {
-    sendError(res, 'NOT_A_MEMBER', 'You must be a member of this community to view its feed', HTTP_STATUS.FORBIDDEN, undefined, meta);
-    return;
-  }
+  // community_id presence and live membership are checked at the top of handleCuratedFeed.
 
   // Requests the member can fill (the curated query already scoped these to this community).
   // Sprint 112 (ADR-082): non-reversible rank priority, not the exact composite feedScore (see view=home).

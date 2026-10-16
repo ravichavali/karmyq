@@ -53,8 +53,8 @@ beforeEach(() => {
       return { rows: [{ requester_id: OWNER }], rowCount: 1 };
     // The offer exists and belongs to OWNER. Owner writes look it up `WHERE id = $1 AND offerer_id = $2`
     // (BUG-064), so the row comes back only when the bound offerer is OWNER.
-    if (/SELECT offerer_id FROM requests\.help_offers WHERE id = \$1 AND offerer_id = \$2/.test(s))
-      return params[1] === OWNER ? { rows: [{ offerer_id: OWNER }], rowCount: 1 } : { rows: [], rowCount: 0 };
+    if (/FROM requests\.help_offers WHERE id = \$1 AND offerer_id = \$2/.test(s))
+      return params[1] === OWNER ? { rows: [{ id: ID, status: 'active' }], rowCount: 1 } : { rows: [], rowCount: 0 };
     if (/FROM communities\.members/.test(s))
       return params[1] === OWNER ? { rows: [{ id: 'm1' }], rowCount: 1 } : { rows: [], rowCount: 0 };
     if (/offer_ttl_days/.test(s)) return { rows: [], rowCount: 0 };

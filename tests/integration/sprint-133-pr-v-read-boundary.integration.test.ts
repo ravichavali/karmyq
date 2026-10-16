@@ -38,6 +38,8 @@ describe('Sprint 133 PR V request and offer read boundary (BUG-065, BUG-064)', (
     await pool.query('INSERT INTO requests.request_communities(request_id,community_id) VALUES ($1,$2)', [row.id, C]);
     return row.id as string;
   };
+  // Envelope meta (requestId, timestamp) differs per response by design; everything else must match.
+  const withoutMeta = ({ meta: _meta, ...rest }: Record<string, unknown>) => rest;
   const listIds = async (viewer: string, qs: string) => {
     const res = await api(viewer, 'get', `/requests?${qs}`);
     expect(res.status).toBe(200);
@@ -176,7 +178,7 @@ describe('Sprint 133 PR V request and offer read boundary (BUG-065, BUG-064)', (
     const foreign = await api(X, 'get', `/offers/${offerId}`);
     const absent = await api(X, 'get', `/offers/${randomUUID()}`);
     expect(foreign.status).toBe(404);
-    expect(foreign.body).toEqual(absent.body);
+    expect(withoutMeta(foreign.body)).toEqual(withoutMeta(absent.body));
   });
 
   it('answers a foreign offer exactly like a missing one on every write route', async () => {
@@ -190,7 +192,8 @@ describe('Sprint 133 PR V request and offer read boundary (BUG-065, BUG-064)', (
     for (const [route, call] of pairs) {
       const foreign = await call(offerId);
       const absent = await call(missing);
-      expect({ route, status: foreign.status, body: foreign.body }).toEqual({ route, status: absent.status, body: absent.body });
+      expect({ route, status: foreign.status, body: withoutMeta(foreign.body) })
+        .toEqual({ route, status: absent.status, body: withoutMeta(absent.body) });
       expect({ route, status: foreign.status }).toEqual({ route, status: 404 });
     }
     const offer = (await pool.query('SELECT title, status, is_public FROM requests.help_offers WHERE id=$1', [offerId])).rows[0];

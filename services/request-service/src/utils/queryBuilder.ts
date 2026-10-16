@@ -54,6 +54,7 @@ export function buildRequestsQuery(filters: RequestsQueryFilters): RequestsQuery
   // Always bound: with no viewer the boundary still admits trust_network/platform asks, as GET /requests/:id does.
   const viewerParam = bind(viewer_id ?? null);
   const isPrivate = !!requester_id && requester_id === viewer_id;
+  if (!isPrivate) conditions.push(requestReadableSql('r', viewerParam));
   if (viewer_id) {
     // BUG-002: exclude requests the viewer already has a live offer/match on.
     conditions.push(`NOT EXISTS (
@@ -82,7 +83,6 @@ export function buildRequestsQuery(filters: RequestsQueryFilters): RequestsQuery
       LEFT JOIN requests.request_admin_notes ran ON ran.request_id = r.id AND ran.community_id = ${adminNotesParam}::uuid` : ''}
       WHERE r.expired = FALSE
         AND ${isPrivate ? directedAudienceSql('r', requesterParam!) : notDirectedSql('r')}
-        AND (${isPrivate ? 'TRUE' : requestReadableSql('r', viewerParam)})
         AND (${conditions.join('\n        AND ') || 'TRUE'})
       GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.scheduled_for, u.name${groupByExtra}
       ORDER BY r.created_at DESC

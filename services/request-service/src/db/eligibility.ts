@@ -64,9 +64,10 @@ function requestSisterSql(alias: string, viewerParam: string): string {
 
 /** The visibility audience of a non-directed request: member ∨ sister-reachable ∨ wide scope. */
 export function requestReachableSql(alias: string, viewerParam: string): string {
-  return `(${requestMemberSql(alias, viewerParam)}
-       OR ${requestSisterSql(alias, viewerParam)}
-       OR ${alias}.visibility_scope IN ('trust_network', 'platform'))`;
+  // Cheapest arm first: the column test settles wide-scope rows before any subquery runs.
+  return `(${alias}.visibility_scope IN ('trust_network', 'platform')
+       OR ${requestMemberSql(alias, viewerParam)}
+       OR ${requestSisterSql(alias, viewerParam)})`;
 }
 
 /**
@@ -78,11 +79,11 @@ export function requestReachableSql(alias: string, viewerParam: string): string 
 export function requestReadableSql(alias: string, viewerParam: string): string {
   return `/* request-readable */ (${directedAudienceSql(alias, viewerParam)}
      AND (${alias}.requester_id = ${viewerParam}
+       OR ${alias}.is_directed
        OR EXISTS (SELECT 1 FROM requests.matches readable_match
          WHERE readable_match.request_id = ${alias}.id AND readable_match.responder_id = ${viewerParam})
        OR EXISTS (SELECT 1 FROM requests.provider_profiles readable_provider
          WHERE readable_provider.id = ${alias}.preferred_provider_id AND readable_provider.user_id = ${viewerParam})
-       OR ${alias}.is_directed
        OR ${requestReachableSql(alias, viewerParam)}))`;
 }
 

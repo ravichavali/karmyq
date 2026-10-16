@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
+import { findOwnOffer } from '../db/helpOffersDb';
 import {
   sendSuccess,
   sendNotFound,
@@ -18,11 +19,6 @@ function offerReadableSql(alias: string, viewerParam: string): string {
   return `(${alias}.offerer_id = ${viewerParam} OR EXISTS (
           SELECT 1 FROM communities.members cm
           WHERE cm.community_id = ${alias}.community_id AND cm.user_id = ${viewerParam} AND cm.status = 'active'))`;
-}
-
-// Owner-only writes look the offer up by id AND offerer, so a foreign offer is the same 404 as a missing one.
-async function findOwnOffer(id: unknown, userId: string) {
-  return query(`SELECT offerer_id FROM requests.help_offers WHERE id = $1 AND offerer_id = $2`, [id, userId]);
 }
 
 // GET /offers - Get all offers
@@ -80,6 +76,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const viewerId = (req as any).user?.userId ?? null;
 
     const result = await query(
       `SELECT
@@ -91,7 +88,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       LEFT JOIN auth.users u ON o.offerer_id = u.id
       LEFT JOIN communities.communities c ON o.community_id = c.id
       WHERE o.id = $1 AND ${offerReadableSql('o', '$2')}`,
-      [id, (req as any).user?.userId ?? null]
+      [id, viewerId]
     );
 
     if (result.rowCount === 0) {
