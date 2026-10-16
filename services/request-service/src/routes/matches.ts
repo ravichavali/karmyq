@@ -199,11 +199,12 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    // Verify offer exists and is active (if provided), and belongs to the responder.
+    // Verify the offer is the responder's own (if provided) and active. A foreign offer answers
+    // exactly like a missing one (BUG-064), so only its owner ever reaches the status check.
     if (offer_id) {
       const offerCheck = await query(
-        `SELECT id, status, offerer_id FROM requests.help_offers WHERE id = $1`,
-        [offer_id]
+        `SELECT id, status FROM requests.help_offers WHERE id = $1 AND offerer_id = $2`,
+        [offer_id, responder_id]
       );
 
       if (offerCheck.rowCount === 0) {
@@ -218,16 +219,7 @@ router.post('/', async (req: Request, res: Response) => {
           success: false,
           message: 'Offer is not active',
         });
-      }
-
-      // The linked offer must belong to the responder (the JWT identity).
-      if (offerCheck.rows[0].offerer_id !== responder_id) {
-        return res.status(403).json({
-          success: false,
-          message: 'Offer must belong to the responder',
-        });
-      }
-    }
+      }    }
 
     // Create match
     const matchResult = await query(
