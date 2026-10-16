@@ -1706,7 +1706,7 @@ The frontend calls it (`communityService.exportCommunityData`, `apps/frontend/sr
 
 ---
 
-## BUG-064 · [2026-10-10] · planned (Sprint 133 PR V) · **MEDIUM** (proposed)
+## BUG-064 · [2026-10-10] · fixed (Sprint 133 PR V, v11.89.0) · **MEDIUM**
 
 **Standing offers have no visibility gate.** `GET /offers` (`services/request-service/src/routes/offers.ts:16-60`)
 lists every `requests.help_offers` row filtered only by optional client-supplied `community_id`/`status`/`type`,
@@ -1724,10 +1724,15 @@ question (should a standing offer follow its community's membership, like reques
   `PUT`/`DELETE /offers/:id` and the `POST /matches` offer lookup becomes the same 404 as a missing id (today they
   answer 403 or 400 for a foreign offer, which reveals that it exists). Fixed in **Sprint 133 PR V**
   (`docs/superpowers/plans/2026-10-16-sprint-133-pr-v-visibility.md`), together with BUG-065.
+- **Fix (Sprint 133 PR V, #306):** `routes/offers.ts` `offerReadableSql` (owner or live member) on `GET /offers`
+  and `GET /offers/:id`; `PUT`/`DELETE`/`PUT /privacy` and the `POST /matches` offer lookup select by id AND offerer,
+  so a foreign offer is the same 404 as a missing one. Tests: `tests/integration/sprint-133-pr-v-read-boundary.integration.test.ts`
+  (offer boundary, oracles on every write route), `services/request-service/tests/regression/sprint-133-pr-v-read-boundary.test.ts`.
+  The merge SHA is recorded after merge.
 
 ---
 
-## BUG-065 · [2026-10-10] · planned (Sprint 133 PR V) · **HIGH** (proposed)
+## BUG-065 · [2026-10-10] · fixed (Sprint 133 PR V, v11.89.0) · **HIGH**
 
 **`GET /requests?community_id=X` lists any community's requests to any authenticated user.** The browse
 list (`services/request-service/src/routes/requests.ts` `GET /`, built by `utils/queryBuilder.ts`
@@ -1757,6 +1762,12 @@ payload, requirements, requester name) of a community-scoped ask that `GET /requ
   Fixed in **Sprint 133 PR V** (`docs/superpowers/plans/2026-10-16-sprint-133-pr-v-visibility.md`), together with
   BUG-064. If PR V has not merged by the end of 2026-10-17, its Task V0 proposes a dated risk acceptance for the
   maintainer to sign.
+- **Fix (Sprint 133 PR V, #306):** `db/eligibility.ts` `requestReadableSql` is the one boundary; `buildRequestsQuery`
+  ANDs it on the browse branch with the viewer always bound (a spoofed `requester_id` stays browse), and
+  `getRequestReachability` builds its columns from the same helpers. The four claim-gated community reads call
+  `isActiveMember`. Tests: `tests/integration/sprint-133-pr-v-read-boundary.integration.test.ts` (list/detail parity
+  over every viewer/ask pair by identity with three named exceptions, outsider and spoofed-requester lists, stale-claim
+  403s), `services/request-service/tests/regression/sprint-133-pr-v-read-boundary.test.ts`. The merge SHA is recorded after merge.
 
 ---
 

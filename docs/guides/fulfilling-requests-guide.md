@@ -26,6 +26,23 @@ committing to before you offer.
 The former standalone request feed now redirects to Dashboard Home, so the live browsing surfaces are
 Dashboard Home, Community Home, and the community open-asks view reached from the weekly pulse.
 
+**You only see what you can open.** Browsing a community's requests shows exactly the asks whose
+detail page you could open: asks shared with your community or a sister community, asks shared with
+the trust network or the whole platform, and asks you are already involved in. A community's feed,
+weekly pulse and open-asks view are for its current members. If you leave a community, they close to
+you at once.
+
+---
+
+## Standing Offers
+
+A standing offer says "I can help with this" before anyone asks: a skill you have or a tool you're
+happy to lend. Post one from the **Help Offers** page (`/offers`) and pick the community it's for.
+
+Members of that community see it, and so do you. Nobody outside the community can see it. If you
+leave the community, you still see your own offer, but its members are the only other people who can
+find it. Only you can change or withdraw your offer.
+
 ---
 
 ## Opening a Request
