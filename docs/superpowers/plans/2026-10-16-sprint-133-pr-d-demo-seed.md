@@ -306,6 +306,11 @@ Every exit code is 0, and `git status` shows only intended files.
   all simulated activity since July; reseeds the manifest including skills, vouches and items). Authorize, yes/no?"
   Only on yes: the Sprint 117 runbook, dry-run first (`reset:demo` without `--apply`), show the plan, then
   `reset:demo -- --apply --publish-config`.
+- [ ] **Real-data guard before `--apply`.** `auth.founding_circle_submissions` (real karmyq.org/join notes) is classified
+  `reset` (`tablePolicy.ts:56`), so the reset deletes it. The maintainer confirmed on 2026-10-16 that it was empty and
+  accepted the reset on that basis. Re-check at apply time, read-only:
+  `SELECT count(*) FROM auth.founding_circle_submissions;`. If it is **not 0**, stop and ask the maintainer: export
+  the rows first, or reclassify the table `preserve` in a follow-up PR. Never apply over real submissions.
 - [ ] Read-only afterwards: `verify:demo` reports `ready: true` with `skillsVisible`; re-run the PR A (10 checks) and
   PR B (7 checks) read-only smokes from the handoff, now on non-empty data.
 - [ ] Optional, **separately authorized**: one live endorse → withdraw round trip as a protected persona on a seeded

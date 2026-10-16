@@ -384,6 +384,9 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
    Elena↔Fatima, Amina→Noah, and James→Maria withdrawn; (4) **personal items + 4 Tool Library items, no borrows**. Counts are
    derived by the writer and proven by running social-graph's `reconcileEndorsementPairLocked` in dry-run (zero planned
    writes) inside the CI-gated `tests/tdd/sprint-117-demo-reset.integration.test.ts`. No migration, no shared change, no ADR.
+   **The reset also deletes `auth.founding_circle_submissions`** (real karmyq.org/join notes, classified `reset`). The
+   maintainer confirmed 2026-10-16 that there are none and the reset may proceed. Task D11 re-checks the count right before
+   `--apply` and stops if it isn't 0. This is not authorization to run the reset: ask again at D11.
 7b. **CURRENT: PR V** (planned 2026-10-16). Maintainer decisions, 2026-10-16 planning chat:
    (1) bundle BUG-065 + BUG-064 into one request-service PR **before PR D**;
    (2) **BUG-065:** list = the detail route's boundary (reviewer recommendation), directed asks excluded from browse;
