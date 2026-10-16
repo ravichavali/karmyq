@@ -121,19 +121,24 @@ describe('Sprint 91: request-service feed router', () => {
     ]);
   });
 
-  it('GET /requests/feed/community-health returns the health summary', async () => {
+  // Members-only since Sprint 133 PR V (BUG-065): the live membership lookup must find the caller.
+  it('GET /requests/feed/community-health returns the health summary to a live member', async () => {
+    const communityId = '11111111-1111-4111-8111-111111111111';
     const health = {
-      communityId: 'community-1',
+      communityId,
       communityName: 'Community 1',
       networkStrength: 62,
       networkStrengthLabel: 'Strong',
     };
+    mockQuery.mockResolvedValueOnce({ rows: [{ '?column?': 1 }], rowCount: 1 } as any);
     mockGetCommunityHealthSummary.mockResolvedValueOnce(health);
 
-    const res = await request(buildApp()).get('/requests/feed/community-health?community_id=community-1');
+    const res = await request(buildApp()).get(`/requests/feed/community-health?community_id=${communityId}`);
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ success: true, data: health });
+    expect(mockQuery.mock.calls[0][0]).toMatch(/FROM communities\.members/);
+    expect(mockQuery.mock.calls[0][1]).toEqual([communityId, 'viewer-1']);
   });
 
   it('dropped legacy feed endpoints are not mounted', async () => {

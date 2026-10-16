@@ -14,7 +14,9 @@
   `platform` scope). `buildRequestsQuery` ANDs it on the browse branch and always binds the viewer, so a
   spoofed `requester_id` stays browse. `getRequestReachability` builds its columns from the same helpers. The
   community feed view, `/community/:id/pulse`, `/community/:id/open-asks` and `/retention-policy?communityId`
-  check `communities.members` (`isActiveMember`), not the JWT claim (same `NOT_A_MEMBER` 403). Standing offers
+  check `communities.members` (`isActiveMember`), not the JWT claim (same `NOT_A_MEMBER` 403), and
+  `/requests/feed/community-health`, which had no membership check at all, now requires the same. A malformed
+  community id is a plain 403 (no 22P02 → 500). Standing offers
   (`GET /offers`, `GET /offers/:id`) are readable by the offerer and live members of the offer's community only
   (`is_public` is not consulted). `PUT`/`DELETE`/`PUT /privacy /offers/:id` and the `POST /matches` `offer_id`
   lookup select by id AND offerer, so a foreign offer gets the same 404 as a missing one (it used to get 403).
@@ -2008,7 +2010,9 @@ Dismiss a feed item (writes `feed.dismissed_items`); the item is excluded from t
 Community health hero metrics for the `CommunityHealthHero` component. Requires `community_id`
 (`400` if missing); returns `404` for an unknown community.
 
-**Authentication:** Required (JWT token)
+**Authentication:** Required (JWT token). **Members-only** since Sprint 133 PR V (BUG-065): a caller
+without a live `communities.members` row (or with a malformed id) gets `403 NOT_A_MEMBER`. No web
+surface renders `CommunityHealthHero` today.
 
 **Implementation:** `src/routes/feed.ts` + `src/services/feed/socialKarmaFeedComposer.ts`
 
