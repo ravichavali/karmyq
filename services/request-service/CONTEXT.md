@@ -1497,7 +1497,7 @@ Toggle request urgency between `urgent` and `medium` (Sprint 36). Admin only.
 `400 Offer is not active` check).
 
 #### GET /offers
-Get all help offers with optional filters, within the boundary above.
+Get the help offers the caller may read (their own, or their live communities' offers), with optional filters.
 
 **Query Parameters:** `community_id` (narrows within the boundary, never widens it), `status` (default
 `active`), `type`, `limit`, `offset`.
@@ -1505,7 +1505,7 @@ Get all help offers with optional filters, within the boundary above.
 **Implementation:** `src/routes/offers.ts` `router.get('/')`
 
 #### GET /offers/:id
-Get specific offer details, within the boundary above.
+Get one offer the caller may read (their own, or a live community's); otherwise 404.
 
 **Implementation:** `src/routes/offers.ts` `router.get('/:id')`
 

@@ -389,12 +389,12 @@
         {
           "method": "GET",
           "path": "/offers",
-          "description": "Get all help offers with optional filters."
+          "description": "Get the help offers the caller may read (their own, or their live communities' offers), with optional filters."
         },
         {
           "method": "GET",
           "path": "/offers/:id",
-          "description": "Get specific offer details."
+          "description": "Get one offer the caller may read (their own, or a live community's); otherwise 404."
         },
         {
           "method": "POST",

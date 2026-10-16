@@ -622,7 +622,7 @@
         "subscribes": []
       },
       "healthCheck": "http://localhost:3003/health",
-      "notes": "Server-driven UI: Schema API provides dynamic form definitions. Admin API enables zero-code request type creation. Sprint 43: feed_events table logs impressions/outcomes for weight tuning (ADR-048). match_completed uses karmyq-completion-dispatch with stable jobs fanned out to three service-specific completion queues; legacy handlers remain. Sprint 132 BUG-061: DELETE /requests/:id and POST/PUT/DELETE /offers authorize the JWT caller, ignoring body user_id/offerer_id.",
+      "notes": "Server-driven UI: Schema API provides dynamic form definitions. Admin API enables zero-code request type creation. Sprint 43: feed_events table logs impressions/outcomes for weight tuning (ADR-048). match_completed uses karmyq-completion-dispatch with stable jobs fanned out to three service-specific completion queues; legacy handlers remain. Sprint 132 BUG-061: DELETE /requests/:id and POST/PUT/DELETE /offers authorize the JWT caller, ignoring body user_id/offerer_id. Sprint 133 PR V (BUG-065/BUG-064): GET /requests lists only what GET /requests/:id would open (one requestReadableSql boundary), community reads check live membership, and standing offers are readable by the offerer and live community members only, with a foreign offer answering 404 like a missing one.",
       "databaseSchemas": [
         "requests",
         "feed",
