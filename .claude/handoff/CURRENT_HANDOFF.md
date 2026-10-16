@@ -1,6 +1,19 @@
 # Sprint 133 — Skills Depth — Handoff
 
-**Date**: 2026-10-16 (**PR Q SHIPPED and LIVE**, v11.88.0; **PR D next**, nothing started)
+**Date**: 2026-10-16 (**PR Q SHIPPED and LIVE**, v11.88.0; **PR V planned and next** (BUG-065 HIGH + BUG-064), then PR D)
+**PR V PLANNED (2026-10-16 planning chat).** The maintainer chose to bundle the open request-service visibility bugs into one
+PR **before PR D**: BUG-065 (list = detail boundary, one SQL fragment) and BUG-064 (offers: owner + live members). The planning
+inventory added four claim-gated community reads (`routes/requests.ts:1336,1422,1467,1553`), fixed in the same PR under BUG-065.
+**BUG-068 is out:** its route has no client (the web app rates through reputation-service `/reputation/feedback`), so the
+maintainer chose to **retire it in the ADR-101 legacy-handler removal PR**, before 2026-10-29. New **BUG-069** logged
+(admin writes trust the JWT claim; 5 services; unassigned). Plan:
+[`docs/superpowers/plans/2026-10-16-sprint-133-pr-v-visibility.md`](../../docs/superpowers/plans/2026-10-16-sprint-133-pr-v-visibility.md).
+Branch `agent/claude/sprint-133-pr-v-visibility` (cut from `d5276e2c`, i.e. `origin/master` `36a9972f` + the PR Q doc flips;
+it now carries this handoff). **BUG-065's deadline is 2026-10-17:** if PR V isn't merged by then, Task V0 proposes a dated
+risk acceptance (to 2026-10-20) for the maintainer to sign.
+**The old PR D branch** `agent/claude/sprint-133-pr-d-demo-seed` holds only `d5276e2c`, which PR V now contains. After PR V
+merges, re-cut PR D from the new `origin/master` and delete the old branch only after `git diff origin/master
+origin/agent/claude/sprint-133-pr-d-demo-seed` shows nothing beyond what PR V carried.
 **PR Q SHIPPED (2026-10-16).** Branch protection requires one approving GitHub review, so the agent merge was blocked (auto-merge is disabled
 for this repo), and the maintainer merged [#305](https://github.com/ravichavali/karmyq/pull/305) as `36a9972f` (v11.88.0) at 18:37 UTC.
 [CI/CD 38948723833](https://github.com/ravichavali/karmyq/actions/runs/38948723833) passed on attempt 1: tests, Integration Tests, Code Scanning Gate (no
@@ -96,12 +109,17 @@ This handoff rides on the PR B branch `agent/claude/sprint-133-pr-b-endorsements
 2. **Check the precondition first (plan Task S0):** the Sprint 132 closeout PRs (the `shell-quote`/`sharp` + `node-forge`-decision
    advisory fix and BUG-061, commit `4c709023`) are MERGED and deployed, and the Sprint 132 handoff is
    archived. If not, switch to `agent/claude/sprint-132-closeout` and follow its handoff instead.
-3. **Start PR D** on `agent/claude/sprint-133-pr-d-demo-seed` (cut 2026-10-16 from `origin/master` `36a9972f`; it carries this handoff
-   and the PR Q post-deploy doc flips). PR S, A, B, Q and #304 are shipped; never commit on their branches.
-4. Open the [sprint plan](../../docs/superpowers/plans/2026-10-08-sprint-133-skills-depth.md), section *PR D*, in a fresh chat. Note for
-   PR D (from PR B): reconcile rewrites `raw_weight` by formula, so seeded endorsement edges must carry formula-consistent weights. The demo
-   apply is a demo write: per-operation authorization.
-5. GitHub merges need an approving review (or explicit admin-merge authorization); repo auto-merge is disabled.
+3. **Start PR V** on `agent/claude/sprint-133-pr-v-visibility` (it exists and carries this handoff; reuse it, don't re-cut). Open
+   [`docs/superpowers/plans/2026-10-16-sprint-133-pr-v-visibility.md`](../../docs/superpowers/plans/2026-10-16-sprint-133-pr-v-visibility.md)
+   and begin at Task V0 (deadline check). PR S, A, B, Q and #304 are shipped; never commit on their branches.
+4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
+   slash command: superpowers removed it as a deprecated stub.
+5. **After PR V deploys:** PR D, from the [sprint plan](../../docs/superpowers/plans/2026-10-08-sprint-133-skills-depth.md) section
+   *PR D*, in a fresh chat, on a branch re-cut from `origin/master` (see the header). Note for PR D (from PR B): reconcile rewrites
+   `raw_weight` by formula, so seeded endorsement edges must carry formula-consistent weights. The demo apply is a demo write:
+   per-operation authorization.
+6. GitHub merges need explicit maintainer merge authorization (the maintainer's approval would be self-approval; ask
+   "admin merge, yes/no?"); repo auto-merge is disabled.
 
 ## Sprint goal
 
@@ -123,7 +141,9 @@ security PR first closes BUG-056, BUG-062 and BUG-058.
 | A | Opt-out skill visibility to co-members, `/auth/skills` directory + search, skills setting on `/users/me/settings` (no route-order bug: withdrawn 2026-10-11), drop `auth.user_skills`, retire `/requests/matched/for-user` | `agent/claude/sprint-133-pr-a-skill-visibility` | **SHIPPED v11.85.0** ([#302](https://github.com/ravichavali/karmyq/pull/302), `e7ff481d`, deploy 38410709880 attempt 2, smoke 10/10). CodeQL #603–605 (PR) and #607–609 (master line-shift) dismissed by the maintainer as false positives |
 | B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | **SHIPPED v11.86.0** ([#303](https://github.com/ravichavali/karmyq/pull/303), `1291b1d4`, deploy 38579973619 attempt 2 after maintainer dismissed CodeQL #612/#613, smoke 7/7 read-only). Codex review round 1 fixed, re-review clean. ADR-100 → Implemented on the PR Q branch |
 | Q | **BUG-060 (HIGH)**: move the remaining shared-queue events off `karmyq-events` to per-consumer queues (completionEvents pattern); re-run the B1 reproduction expecting 0 lost jobs | `agent/claude/sprint-133-pr-q-queue-migration` (cut 2026-10-14 from `1291b1d4`; live PR base `aded1986`) | **SHIPPED v11.88.0** ([#305](https://github.com/ravichavali/karmyq/pull/305), `36a9972f`, deploy 38948723833 attempt 1, all 9 healthy; integration 80/80, 0 failed attempts). Also fixed BUG-066 and BUG-067; logged BUG-068. Owed: read-only demo drain check (ask first), then legacy-handler removal |
-| D | Curated demo seed: skills, items, endorsements (demo apply needs per-operation authorization) | `agent/claude/sprint-133-pr-d-demo-seed` (cut 2026-10-16 from `36a9972f`) | **NEXT**, not started; branch carries the handoff + PR Q doc flips |
+| **V** | **BUG-065 (HIGH)**: `GET /requests` list uses the detail route's boundary (one SQL fragment, parity-tested), plus four claim-gated community reads → live membership; **BUG-064**: offers readable by owner + live members, one 404 for every "not yours" | `agent/claude/sprint-133-pr-v-visibility` (cut 2026-10-16 from `d5276e2c`) | **NEXT**, planned 2026-10-16; [plan](../../docs/superpowers/plans/2026-10-16-sprint-133-pr-v-visibility.md). BUG-065 due 2026-10-17 (risk acceptance per Task V0 if missed) |
+| D | Curated demo seed: skills, items, endorsements (demo apply needs per-operation authorization) | re-cut from `origin/master` after PR V merges (the old `agent/claude/sprint-133-pr-d-demo-seed` holds only `d5276e2c`) | after PR V |
+| L | ADR-101 legacy-handler removal **+ BUG-068 retirement** (dead feedback route, event, handler, sim call) | not cut | needs the read-only demo drain check first (ask); **due 2026-10-29** (BUG-068) |
 
 Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is reserved.
 
@@ -322,7 +342,7 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 | Field | Value |
 |---|---|
 | **Planning branch** | `feature/sprint-133-skills-depth`, base `origin/master` `6041c92c` (docs only) |
-| **Active editor** | **Claude owns PR Q**; Codex completed the non-author review on `32cad5a5` (2026-10-15). Only the handoff was updated locally by Codex; Claude should commit it with merge preparation. |
+| **Active editor** | **Claude owns PR V** (planned 2026-10-16). PR Q's Codex review is complete and shipped. |
 | **Reviewer role** | A non-author reviews each completed diff |
 | **Shared resources** | ADR-100 and ADR-101 allocated to this sprint. Re-read `origin/master` for PR Q's version stamp at merge time (11.88.0 if master remains 11.87.0). No dependency upgrades, merge, deploy or demo data operation are authorized by this review. |
 
@@ -345,8 +365,8 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 2. ~~Ship the BUG-061 PR~~: DONE 2026-10-10 (#300, `aa6352e8`, deploy 38078595371 green, smoke passed).
 3. ~~Start Sprint 133 PR S (S0–S6)~~: DONE 2026-10-10/11 on `agent/claude/sprint-133-pr-s-security`.
 4. ~~PR S Task S8~~: DONE 2026-10-12 (#301 merged `278d3306`, deploy 38302920724, smoke 11/11, #236 linked).
-5. **Maintainer decisions owed:** BUG-068 (which community a feedback event credits, due 2026-10-29), BUG-065 (HIGH proposed, `GET /requests` list breadth, due 2026-10-17) and
-   BUG-064 (offers visibility). BUG-063 (export reads a nonexistent schema) is unassigned.
+5. ~~Maintainer decisions owed on BUG-068, BUG-065, BUG-064~~: DECIDED 2026-10-16 (see 7b). Still unassigned: BUG-063 (export reads a
+   nonexistent schema, due 2026-10-24) and BUG-069 (due 2026-10-30).
 6. ~~PR A~~: DONE 2026-10-13 (#302 merged `e7ff481d`, v11.85.0, deploy 38410709880 attempt 2, smoke 10/10).
    Deferred minor: the skills directory shows its empty message while the first fetch is loading.
    Ledger: `.superpowers/sdd/2026-10-08-sprint-133-skills-depth/progress.md`. Known tooling gaps: root `test:tdd` is
@@ -356,7 +376,16 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
    needs a maintainer dismissal plus a `--failed` rerun before it deploys.
 7. ~~PR B~~: DONE 2026-10-14 (#303 merged `1291b1d4`, v11.86.0, deploy 38579973619 attempt 2, smoke 7/7 read-only). Expect the CodeQL
    line-shift re-raise on every merge that shifts `api.ts` lines.
-7a. ~~PR Q~~: DONE 2026-10-16 (#305 merged by the maintainer as `36a9972f`, v11.88.0, deploy 38948723833 attempt 1, all 9 healthy). Owed: the read-only drain check and legacy removal in the header. **CURRENT: PR D.** Original brief: on `agent/claude/sprint-133-pr-q-queue-migration`, plan in a fresh chat (which events, which
+7b. **CURRENT: PR V** (planned 2026-10-16). Maintainer decisions, 2026-10-16 planning chat:
+   (1) bundle BUG-065 + BUG-064 into one request-service PR **before PR D**;
+   (2) **BUG-065:** list = the detail route's boundary (reviewer recommendation), directed asks excluded from browse;
+   (3) **BUG-064:** owner + live members of the offer's community (`is_public` ignored);
+   (4) **BUG-068:** first answer was "credit every shared community". After planning showed the route has no client, the
+   maintainer chose **retire it with the legacy-handler removal (PR L)**, still due 2026-10-29.
+   Planning also found the claim-gated community reads (folded into PR V under BUG-065) and logged **BUG-069** (admin writes on
+   the JWT claim, cross-service, unassigned, proposed MEDIUM, due 2026-10-30). Order: **V → D → L**, but L must land by
+   2026-10-29, so if D slips, L goes first. L needs the read-only demo drain check (ask first).
+7a. ~~PR Q~~: DONE 2026-10-16 (#305 merged by the maintainer as `36a9972f`, v11.88.0, deploy 38948723833 attempt 1, all 9 healthy). Owed: the read-only drain check and legacy removal in the header. Original brief: on `agent/claude/sprint-133-pr-q-queue-migration`, plan in a fresh chat (which events, which
    consumers, the `completionEvents.ts` per-consumer pattern, legacy-handler retention for queued jobs), then implement; the B1
    reproduction test must show 0 lost jobs for migrated events. Target 2026-10-15. A live endorse/withdraw smoke is a demo write: ask first. **Then the BUG-060 queue-migration PR (Q), then PR D.**
    **PR Q planning decisions (maintainer, 2026-10-15):** (1) **ADR-101 allocated** for per-consumer event queues.

@@ -1706,7 +1706,7 @@ The frontend calls it (`communityService.exportCommunityData`, `apps/frontend/sr
 
 ---
 
-## BUG-064 · [2026-10-10] · open · **MEDIUM** (proposed)
+## BUG-064 · [2026-10-10] · planned (Sprint 133 PR V) · **MEDIUM** (proposed)
 
 **Standing offers have no visibility gate.** `GET /offers` (`services/request-service/src/routes/offers.ts:16-60`)
 lists every `requests.help_offers` row filtered only by optional client-supplied `community_id`/`status`/`type`,
@@ -1719,10 +1719,15 @@ question (should a standing offer follow its community's membership, like reques
   membership plus owner access. BUG-063 should be assigned separately.
 - **Owner:** the maintainer decides the intended visibility; Claude implements. **Deadline: 2026-10-24**
   (≤ 2-week SLA), or a dated risk acceptance.
+- **Maintainer decision (2026-10-16, Sprint 133 planning):** readable by the **offerer and live members of the
+  offer's community**; `is_public` is not consulted. Every "not yours" answer on `GET /offers/:id`,
+  `PUT`/`DELETE /offers/:id` and the `POST /matches` offer lookup becomes the same 404 as a missing id (today they
+  answer 403 or 400 for a foreign offer, which reveals that it exists). Fixed in **Sprint 133 PR V**
+  (`docs/superpowers/plans/2026-10-16-sprint-133-pr-v-visibility.md`), together with BUG-065.
 
 ---
 
-## BUG-065 · [2026-10-10] · open · **HIGH** (proposed)
+## BUG-065 · [2026-10-10] · planned (Sprint 133 PR V) · **HIGH** (proposed)
 
 **`GET /requests?community_id=X` lists any community's requests to any authenticated user.** The browse
 list (`services/request-service/src/routes/requests.ts` `GET /`, built by `utils/queryBuilder.ts`
@@ -1743,6 +1748,15 @@ payload, requirements, requester name) of a community-scoped ask that `GET /requ
   communities). The reviewer stresses this is still a bypass of the request-privacy boundary until fixed.
 - **Owner:** maintainer decides; Claude implements. **Deadline: 2026-10-17** (≤ 1-week SLA for HIGH), or
   a dated risk acceptance.
+- **Maintainer decision (2026-10-16, Sprint 133 planning):** the list uses **the same boundary as the detail
+  route**. Directed asks stay out of public browsing. One SQL fragment in `services/request-service/src/db/eligibility.ts`
+  serves both, with a real-SQL list/detail parity test over every (viewer, ask) pair. The same planning inventory
+  found four more community reads of request data gated on the JWT `communities` claim, not a live lookup
+  (`routes/requests.ts:1336` community feed view, `:1422` pulse, `:1467` open-asks, `:1553` retention policy). A member
+  removed from the community keeps reading them until their token refreshes. They are fixed in the same PR.
+  Fixed in **Sprint 133 PR V** (`docs/superpowers/plans/2026-10-16-sprint-133-pr-v-visibility.md`), together with
+  BUG-064. If PR V has not merged by the end of 2026-10-17, its Task V0 proposes a dated risk acceptance for the
+  maintainer to sign.
 
 ---
 
@@ -1783,7 +1797,7 @@ real deliveries.
 
 ---
 
-## BUG-068 · [2026-10-15] · open · **MEDIUM** (proposed)
+## BUG-068 · [2026-10-15] · planned (retire with the ADR-101 legacy-handler removal) · **MEDIUM** (proposed)
 
 **`POST /requests/matches/:matchId/feedback` always fails, so interaction feedback is never published.** The route
 (`services/request-service/src/routes/feedback.ts:46`) selects `r.community_id` from `requests.help_requests`, which
@@ -1796,5 +1810,40 @@ by the Sprint 133 PR Q `/code-review`; the PR Q integration test publishes synth
   span several communities; the reputation handler updates one `trust_scores` row per `(user, community)`.
 - **Owner:** the maintainer decides; Claude implements. Needs a real-SQL route test (the existing feedback tests mock
   the query). **Deadline: 2026-10-29** (≤ 2-week SLA), or a dated risk acceptance.
+- **Reclassified: dead route (Sprint 133 planning, 2026-10-16).** The router is mounted at `/matches`
+  (`services/request-service/src/index.ts`), so the path is `POST /matches/:matchId/feedback`, and **no client calls
+  it**. The web app rates through reputation-service `POST /reputation/feedback` (`apps/frontend/src/lib/api.ts:791`),
+  which writes `feedback.feedback` and already restricts attribution to one of the request's communities (BUG-013).
+  The only caller is `services/simulation-service/src/api-client.ts:461`, which discards errors
+  (`.catch(() => null)`), so the 500s went unnoticed. The route alone writes `requests.interaction_feedback` and,
+  through the event, the `trust_scores` averages (`avg_helpfulness`, `avg_responsiveness`, `avg_clarity`). Only
+  reputation's community-health endpoint (`routes/health.ts`) reads them, and they are always 0.
+- **Maintainer decision (2026-10-16):** **retire it**, in the ADR-101 legacy-handler removal PR, which already edits
+  the reputation subscriber and the event route table: the route, the `interaction_feedback_submitted` event (publisher,
+  `packages/shared/events/routes.ts` entry, reputation handler), the simulation call, and the health endpoint's reads of
+  the averages. What happens to the `interaction_feedback` table and the `trust_scores` average columns is decided in
+  that PR's plan (a column drop needs a migration). Still due **2026-10-29**.
+
+---
+
+## BUG-069 · [2026-10-16] · open · **MEDIUM** (proposed)
+
+**Admin and moderator write checks trust the JWT `communities` claim, not live membership.** CLAUDE.md
+(*Authentication*) requires authorization decisions to re-derive membership from `communities.members`; the claim is a
+login-time snapshot. These sites gate writes on the claim alone, so a demoted or removed admin keeps admin powers until
+the token expires (1 hour, `services/auth-service/src/routes/auth.ts:74`):
+`services/request-service/src/middleware/adminAuth.ts:106` (`requireAdmin`: an admin role in **any** community admits
+the caller to the `/admin/schemas` and request admin-actions routers), `services/request-service/src/routes/adminActions.ts:11`
+(`isAdminOrModOfRequestCommunity`), and `services/request-service/src/routes/collectives.ts:447,485`. Files in other
+services also read the claim and are **not yet classified**: `community-service` `routes/communities.ts`, `fusions.ts`,
+`splits.ts`, `trust-questions.ts`; `reputation-service` `routes/providerReviews.ts`, `reputation.ts`;
+`social-graph-service` `database/trustEdgeDb.ts`, `routes/trustDecayConfig.ts`. Found 2026-10-16 by the Sprint 133 PR V
+planning inventory (the four request-service *read* gates of the same kind are fixed in PR V under BUG-065).
+
+- **Fix:** one live-role helper per service, used by every gate; a real-SQL test per site where the token claims
+  `admin` but the row says `member` (or `left`), expecting 403. Classify every hit of
+  `grep -rn "\.communities" services/*/src` untruncated first; hint-only reads (defaults, event fan-out) stay.
+- **Owner:** unassigned; the maintainer sets severity (5 services, 1-hour window). **Deadline: 2026-10-30** (≤ 2-week
+  SLA at the proposed MEDIUM).
 
 ---
