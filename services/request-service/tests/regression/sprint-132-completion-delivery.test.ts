@@ -2,7 +2,7 @@ type Handler = (job: any) => Promise<void>;
 const mockQueues: Record<string, { add: jest.Mock; process: jest.Mock; on: jest.Mock }> = {};
 const mockHandlers: Record<string, Handler> = {};
 const mockSharedPublish = jest.fn();
-jest.mock('@karmyq/shared', () => ({ createPublisher: () => ({ initEventPublisher: jest.fn(), getEventQueue: jest.fn(), publishEvent: mockSharedPublish }) }));
+jest.mock('@karmyq/shared', () => ({ createPublisher: () => ({ initEventPublisher: jest.fn(), publishEvent: mockSharedPublish }) }));
 jest.mock('../../src/events/directedNotifications', () => ({ publishDirectedNotification: jest.fn(), startDirectedNotificationRelay: jest.fn() }));
 jest.mock('bull', () => jest.fn().mockImplementation((name: string) => {
   return mockQueues[name] = {

@@ -213,7 +213,7 @@ describe('dotenv config() is quiet (Sprint 131 D1)', () => {
     // under tests/ that stopped resolving would otherwise vanish unnoticed.
     expect(calls.map((c) => `${c.file}:${c.line}`).sort()).toEqual([
       'services/auth-service/src/index.ts:19',
-      'services/cleanup-service/src/index.ts:24',
+      'services/cleanup-service/src/index.ts:25',
       'services/community-service/src/index.ts:34',
       'services/messaging-service/src/index.ts:15',
       'services/notification-service/src/index.ts:21',

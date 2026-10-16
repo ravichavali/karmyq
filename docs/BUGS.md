@@ -1581,7 +1581,7 @@ and no repo source reaches it. Exempted until **2026-10-09** (ADR-059 amendment 
 
 ---
 
-## BUG-060 · [2026-10-05] · **CONFIRMED** (Sprint 133 PR B) · open · **HIGH**
+## BUG-060 · [2026-10-05] · **CONFIRMED** (Sprint 133 PR B) · fixed (Sprint 133 PR Q, pending deploy) · **HIGH**
 
 **UNVERIFIED: competing workers may lose shared-queue events other than completion.** The
 maintainer-relayed PR #293 review suspects `request_created`, `karma_awarded`,
@@ -1618,6 +1618,17 @@ after PR B and **before PR D**, targeting **2026-10-15**, moving the remaining e
 (the `match_completed` pattern in `services/request-service/src/events/completionEvents.ts`). HIGH SLA
 deadline: **2026-10-20**. Re-run `tests/integration/sprint-133-bug-060-shared-queue.integration.test.ts`
 against the migrated events; its live half should then show 0 missing-handler failures.
+
+**Fixed (Sprint 133 PR Q, #305, ADR-101; pending deploy).** Every event is routed by
+`packages/shared/events/routes.ts` to the one queue its consumer owns (`karmyq-events-notification`,
+`karmyq-events-reputation`), to a dedicated transport, or nowhere (unconsumed: not enqueued). A consumer refuses to
+start unless its handlers equal its routes exactly. cleanup-service, which wrote `dibs_expired` and `match_reminder`
+straight to `karmyq-events` with a single attempt, now publishes through the router. Nothing publishes to
+`karmyq-events` any more; its legacy handlers stay for one release to drain old jobs.
+`tests/regression/sprint-133-pr-q-event-routes.test.ts` gates publish sites, consumers and the registry.
+`tests/integration/sprint-133-pr-q-per-consumer-queues.integration.test.ts` publishes through the real router against
+the real containers. The B1 live test is unchanged (it still publishes to the legacy queue directly) and is retired
+with the legacy handlers.
 
 ---
 
@@ -1732,5 +1743,58 @@ payload, requirements, requester name) of a community-scoped ask that `GET /requ
   communities). The reviewer stresses this is still a bypass of the request-privacy boundary until fixed.
 - **Owner:** maintainer decides; Claude implements. **Deadline: 2026-10-17** (≤ 1-week SLA for HIGH), or
   a dated risk acceptance.
+
+---
+
+## BUG-066 · [2026-10-15] · fixed (Sprint 133 PR Q, pending deploy) · **MEDIUM**
+
+**Offer and on-duty push notifications have never been sent.** The notification-service handlers for
+`offer_submitted`, `offer_accepted`, `offer_declined` and `provider_went_on_duty` destructured their fields
+(`requesterUserId`, `providerUserId`, `price`, `communityIds`) from `job.data`. The shared publisher wraps every
+event as `{ eventType, payload, timestamp, source }`, so those fields were always `undefined`.
+`sendPushToUsers([undefined], …)` found no device token (`services/notification-service/src/lib/expoPush.ts:28-35`)
+and returned without sending. `provider_went_on_duty` returned even earlier, at `if (!communityIds?.length)`. Nothing
+failed, so nothing was logged. The handlers were written that way in `ea43bed8` (2026-03-26), and no test covered
+any of them. Found by the Sprint 133 PR Q event inventory.
+
+**Fixed (Sprint 133 PR Q, #305).** All four read `job.data.payload`, and each returns without pushing when its recipient
+is missing. `services/notification-service/tests/regression/sprint-133-pr-q-consumer-queue.test.ts` asserts the exact
+push (recipient, title, body, data) for each event and that a missing recipient sends nothing.
+
+---
+
+## BUG-067 · [2026-10-15] · fixed (Sprint 133 PR Q, pending deploy) · **MEDIUM**
+
+**Interaction feedback has never updated trust scores.** The reputation-service `interaction_feedback_submitted`
+handler (`services/reputation-service/src/events/subscriber.ts`) ran `UPDATE reputation.trust_scores … SET …,
+updated_at = CURRENT_TIMESTAMP`. `reputation.trust_scores` has no `updated_at` column (it has `last_updated`, which
+`karmaService.ts` uses), so every delivery failed with `column "updated_at" of relation "trust_scores" does not exist`.
+It failed all 3 attempts and was parked. Before ADR-101, BUG-060 hid it: most feedback jobs were taken and failed by
+notification or social-graph workers first. The handler has been written this way since `d01a5e3b` (2025-12-13). Its
+unit test mocked the query, so the column was never checked. Found by the PR Q integration test (CI run 38795162265):
+the 20 feedback jobs reached reputation's own queue and all failed in the handler.
+
+**Fixed (Sprint 133 PR Q, #305).** It sets `last_updated`. The same handler also threw on any feedback that omitted a rating
+(`.toFixed` on the `numeric` string node-pg returns) and would concatenate a rating sent as a string; it now coerces
+both with `Number()`. `services/reputation-service/tests/regression/
+sprint-133-pr-q-consumer-queue.test.ts` checks every column the handler sets against the `reputation.trust_scores`
+definition in `infrastructure/postgres/init.sql`. The PR Q integration test asserts the exact feedback totals after 20
+real deliveries.
+
+---
+
+## BUG-068 · [2026-10-15] · open · **MEDIUM** (proposed)
+
+**`POST /requests/matches/:matchId/feedback` always fails, so interaction feedback is never published.** The route
+(`services/request-service/src/routes/feedback.ts:46`) selects `r.community_id` from `requests.help_requests`, which
+has no such column: a request's communities live in `requests.request_communities` and there can be several. Postgres
+raises `column r.community_id does not exist` and the route returns 500 before `interaction_feedback_submitted` is
+published, so the reputation queue added by ADR-101 (and the BUG-067 handler fix) never receives a real event. Found
+by the Sprint 133 PR Q `/code-review`; the PR Q integration test publishes synthetic events, so it cannot see this.
+
+- **Open policy question (maintainer):** which community should a feedback event credit? The match's request may
+  span several communities; the reputation handler updates one `trust_scores` row per `(user, community)`.
+- **Owner:** the maintainer decides; Claude implements. Needs a real-SQL route test (the existing feedback tests mock
+  the query). **Deadline: 2026-10-29** (≤ 2-week SLA), or a dated risk acceptance.
 
 ---

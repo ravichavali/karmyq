@@ -1,4 +1,5 @@
 import Queue from 'bull';
+import { startConsumerQueue, EventHandler } from '@karmyq/shared';
 import { awardKarmaForCompletedMatch } from '../services/standingProjector';
 import { checkAndAwardBadges } from '../services/badgeService';
 import { updateProviderCompletionRate } from '../services/providerTrustService';
@@ -32,6 +33,14 @@ async function getRepeatMatchCount(userA: string, userB: string): Promise<number
 const eventQueue = new Queue('karmyq-events', REDIS_URL);
 const completionQueue = new Queue('karmyq-completion-reputation', REDIS_URL);
 completionQueue.on('error', error => console.error('Completion queue error:', error));
+
+// ADR-101 / BUG-060: routed handlers are collected here and attached by startConsumerQueue, after it
+// validates them against the routing table, to this service's own queue (no other service's workers
+// attach to it) and, for one release, to the legacy shared queue so jobs published before the deploy
+// can drain. On the legacy queue the other services' workers still compete for those stragglers.
+// Nothing publishes to karmyq-events any more.
+const handlers: Record<string, EventHandler> = {};
+const register = (name: string, handler: EventHandler) => { handlers[name] = handler; };
 
 // Community evolution queue — processes jobs queued by trustEvolutionService after user evolution
 const communityEvolutionQueue = new Queue('karmyq-community-evolution', REDIS_URL);
@@ -138,7 +147,7 @@ export async function initEventSubscriber() {
     completionQueue.process('match_completed', handleCompletion);
 
     // Process interaction_feedback_submitted events
-    eventQueue.process('interaction_feedback_submitted', async (job) => {
+    register('interaction_feedback_submitted', async (job) => {
       console.log('Processing interaction_feedback_submitted event:', job.data);
 
       const { payload } = job.data;
@@ -162,18 +171,13 @@ export async function initEventSubscriber() {
         const currentTotal = trustScore.total_feedback_received || 0;
         const newTotal = currentTotal + 1;
 
-        // Calculate new averages (weighted by total feedback received)
-        const newAvgHelpfulness = helpfulness
-          ? ((trustScore.avg_helpfulness * currentTotal) + helpfulness) / newTotal
-          : trustScore.avg_helpfulness;
-
-        const newAvgResponsiveness = responsiveness
-          ? ((trustScore.avg_responsiveness * currentTotal) + responsiveness) / newTotal
-          : trustScore.avg_responsiveness;
-
-        const newAvgClarity = clarity
-          ? ((trustScore.avg_clarity * currentTotal) + clarity) / newTotal
-          : trustScore.avg_clarity;
+        // Calculate new averages (weighted by total feedback received). node-pg returns numeric columns as
+        // strings and a rating may arrive as one, so coerce both: '4.00' + 5 would concatenate.
+        const average = (current: unknown, rating: unknown) =>
+          rating ? ((Number(current) * currentTotal) + Number(rating)) / newTotal : Number(current);
+        const newAvgHelpfulness = average(trustScore.avg_helpfulness, helpfulness);
+        const newAvgResponsiveness = average(trustScore.avg_responsiveness, responsiveness);
+        const newAvgClarity = average(trustScore.avg_clarity, clarity);
 
         // Update trust score with new interaction quality metrics
         await query(
@@ -182,7 +186,7 @@ export async function initEventSubscriber() {
                avg_responsiveness = $2,
                avg_clarity = $3,
                total_feedback_received = $4,
-               updated_at = CURRENT_TIMESTAMP
+               last_updated = CURRENT_TIMESTAMP
            WHERE id = $5`,
           [
             parseFloat(newAvgHelpfulness.toFixed(2)),
@@ -199,6 +203,8 @@ export async function initEventSubscriber() {
         throw error;
       }
     });
+
+    startConsumerQueue('reputation', handlers, REDIS_URL, eventQueue);
 
     console.log('✅ Event subscriber initialized');
   } catch (error) {

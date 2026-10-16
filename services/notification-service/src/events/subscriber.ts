@@ -1,4 +1,5 @@
 import Queue from 'bull';
+import { startConsumerQueue, EventHandler } from '@karmyq/shared';
 import { createNotification } from '../services/notificationService';
 import { query } from '../database/db';
 import { sendPushToUsers } from '../lib/expoPush';
@@ -13,10 +14,18 @@ completionQueue.on('error', error => console.error('Completion queue error:', er
 const directedQueue = new Queue('karmyq-directed-notifications', REDIS_URL);
 directedQueue.on('error', error => console.error('Directed notification queue error:', error));
 
+// ADR-101 / BUG-060: routed handlers are collected here and attached by startConsumerQueue, after it
+// validates them against the routing table, to this service's own queue (no other service's workers
+// attach to it) and, for one release, to the legacy shared queue so jobs published before the deploy
+// can drain. On the legacy queue the other services' workers still compete for those stragglers.
+// Nothing publishes to karmyq-events any more.
+const handlers: Record<string, EventHandler> = {};
+const register = (name: string, handler: EventHandler) => { handlers[name] = handler; };
+
 export async function initEventSubscriber() {
   try {
     // Process match_created events
-    eventQueue.process('match_created', async (job) => {
+    register('match_created', async (job) => {
       console.log('Processing match_created event:', job.data);
 
       const { payload } = job.data;
@@ -110,7 +119,7 @@ export async function initEventSubscriber() {
     completionQueue.process('match_completed', handleCompletion);
 
     // Process karma_awarded events
-    eventQueue.process('karma_awarded', async (job) => {
+    register('karma_awarded', async (job) => {
       console.log('Processing karma_awarded event:', job.data);
 
       const { payload } = job.data;
@@ -173,7 +182,7 @@ export async function initEventSubscriber() {
     });
 
     // Process request_created events
-    eventQueue.process('request_created', async (job) => {
+    register('request_created', async (job) => {
       console.log('Processing request_created event:', job.data);
 
       const { payload } = job.data;
@@ -252,7 +261,7 @@ export async function initEventSubscriber() {
     });
 
     // Process join_request_created events
-    eventQueue.process('join_request_created', async (job) => {
+    register('join_request_created', async (job) => {
       console.log('Processing join_request_created event:', job.data);
 
       const { payload } = job.data;
@@ -305,7 +314,7 @@ export async function initEventSubscriber() {
     });
 
     // Process match_reminder events (published by cleanup-service cron job)
-    eventQueue.process('match_reminder', async (job) => {
+    register('match_reminder', async (job) => {
       console.log('Processing match_reminder event:', job.data);
 
       const { payload } = job.data;
@@ -326,7 +335,7 @@ export async function initEventSubscriber() {
     });
 
     // Handle preferred_provider_selected event
-    eventQueue.process('preferred_provider_selected', async (job) => {
+    register('preferred_provider_selected', async (job) => {
       console.log('Processing preferred_provider_selected event:', job.data);
       const { payload } = job.data;
       const { provider_user_id, request_id, requester_name, request_type, request_title } = payload;
@@ -350,7 +359,7 @@ export async function initEventSubscriber() {
     });
 
     // Handle provider_review_received event
-    eventQueue.process('provider_review_received', async (job) => {
+    register('provider_review_received', async (job) => {
       console.log('Processing provider_review_received event:', job.data);
       const { payload } = job.data;
       const { provider_user_id } = payload;
@@ -375,11 +384,12 @@ export async function initEventSubscriber() {
     });
 
     // Handle provider_went_on_duty event — push open requests in provider's communities
-    eventQueue.process('provider_went_on_duty', async (job) => {
+    register('provider_went_on_duty', async (job) => {
       console.log('Processing provider_went_on_duty event:', job.data);
-      const { providerUserId, communityIds } = job.data;
+      // BUG-066: the publisher wraps every event as { eventType, payload, timestamp, source }.
+      const { providerUserId, communityIds } = job.data.payload ?? {};
 
-      if (!communityIds?.length) return;
+      if (!providerUserId || !communityIds?.length) return;
 
       try {
         const result = await query(
@@ -409,9 +419,14 @@ export async function initEventSubscriber() {
     });
 
     // Handle offer_submitted event — notify requester that an offer arrived
-    eventQueue.process('offer_submitted', async (job) => {
+    register('offer_submitted', async (job) => {
       console.log('Processing offer_submitted event:', job.data);
-      const { requesterUserId, price } = job.data;
+      // BUG-066: fields live under job.data.payload.
+      const { requesterUserId, price } = job.data.payload ?? {};
+      if (!requesterUserId) {
+        console.warn('⚠️  offer_submitted: missing requesterUserId, skipping push');
+        return;
+      }
 
       try {
         const priceText = price ? ` for $${price}` : '';
@@ -429,9 +444,14 @@ export async function initEventSubscriber() {
     });
 
     // Handle offer_accepted event — notify provider their offer was accepted
-    eventQueue.process('offer_accepted', async (job) => {
+    register('offer_accepted', async (job) => {
       console.log('Processing offer_accepted event:', job.data);
-      const { providerUserId } = job.data;
+      // BUG-066: fields live under job.data.payload.
+      const { providerUserId } = job.data.payload ?? {};
+      if (!providerUserId) {
+        console.warn('⚠️  offer_accepted: missing providerUserId, skipping push');
+        return;
+      }
 
       try {
         await sendPushToUsers(
@@ -448,9 +468,14 @@ export async function initEventSubscriber() {
     });
 
     // Handle offer_declined event — notify provider their offer was not accepted
-    eventQueue.process('offer_declined', async (job) => {
+    register('offer_declined', async (job) => {
       console.log('Processing offer_declined event:', job.data);
-      const { providerUserId } = job.data;
+      // BUG-066: fields live under job.data.payload.
+      const { providerUserId } = job.data.payload ?? {};
+      if (!providerUserId) {
+        console.warn('⚠️  offer_declined: missing providerUserId, skipping push');
+        return;
+      }
 
       try {
         await sendPushToUsers(
@@ -467,7 +492,7 @@ export async function initEventSubscriber() {
     });
 
     // Handle dibs_submitted event — notify provider that a requester wants their help first
-    eventQueue.process('dibs_submitted', async (job) => {
+    register('dibs_submitted', async (job) => {
       console.log('Processing dibs_submitted event:', job.data);
       const { payload } = job.data;
       const { dibsId, requestId, providerUserId, expiresAt } = payload;
@@ -519,7 +544,7 @@ export async function initEventSubscriber() {
     });
 
     // Handle dibs_accepted event — notify requester that the provider accepted
-    eventQueue.process('dibs_accepted', async (job) => {
+    register('dibs_accepted', async (job) => {
       console.log('Processing dibs_accepted event:', job.data);
       const { payload } = job.data;
       const { dibsId, requestId } = payload;
@@ -565,7 +590,7 @@ export async function initEventSubscriber() {
     });
 
     // Handle dibs_declined event — notify requester that provider passed, request is now public
-    eventQueue.process('dibs_declined', async (job) => {
+    register('dibs_declined', async (job) => {
       console.log('Processing dibs_declined event:', job.data);
       const { payload } = job.data;
       const { dibsId, requestId } = payload;
@@ -612,7 +637,7 @@ export async function initEventSubscriber() {
 
     // Handle dibs_expired event — notify requester that the dibs window closed, request is now public
     // Handles both camelCase (request-service test route) and snake_case (cleanup-service cron job) payloads
-    eventQueue.process('dibs_expired', async (job) => {
+    register('dibs_expired', async (job) => {
       console.log('Processing dibs_expired event:', job.data);
       const { payload } = job.data;
 
@@ -657,7 +682,7 @@ export async function initEventSubscriber() {
     });
 
     // Handle split_vote_started event — notify all community members that voting is open
-    eventQueue.process('split_vote_started', async (job) => {
+    register('split_vote_started', async (job) => {
       console.log('Processing split_vote_started event:', job.data);
       const { payload } = job.data;
       const { community_id, proposal_id, group_a_name, group_b_name, voting_ends_at } = payload;
@@ -691,7 +716,7 @@ export async function initEventSubscriber() {
     });
 
     // Handle fusion_vote_started — notify members in both communities that voting is open
-    eventQueue.process('fusion_vote_started', async (job) => {
+    register('fusion_vote_started', async (job) => {
       console.log('Processing fusion_vote_started event:', job.data);
       const { payload } = job.data;
       const { proposal_id, community_a_id, community_b_id, merged_community_name, voting_ends_at } = payload;
@@ -729,6 +754,8 @@ export async function initEventSubscriber() {
         throw error;
       }
     });
+
+    startConsumerQueue('notification', handlers, REDIS_URL, eventQueue);
 
     console.log('✅ Event subscriber initialized');
   } catch (error) {

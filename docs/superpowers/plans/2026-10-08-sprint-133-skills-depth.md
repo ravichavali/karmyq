@@ -6,6 +6,9 @@
 > **Four PRs, in order: S → A → B → D.** Run **one PR section per fresh chat**. Don't start a section
 > until the previous PR is merged **and** its deploy and health verify are green. **Nothing here starts
 > until the Sprint 132 closeout has shipped** (advisory fix, BUG-061 PR; see Task S0).
+>
+> **PR Q (added 2026-10-14, BUG-060 HIGH) runs between B and D** and has its own plan:
+> [`2026-10-15-sprint-133-pr-q-queue-migration.md`](2026-10-15-sprint-133-pr-q-queue-migration.md).
 
 **Goal:** Members can see the skills of people they share a community with, search their community
 for a skill, and vouch for a skill of someone they completed a match with. Vouches feed the trust

@@ -14,6 +14,13 @@ borrow your {item}”, linked to `/requests/:id`. No `communities.members` fan-o
 are disabled for this template. Borrow creation never emits `request_created`. Provider-on-duty
 request discovery excludes directed asks. Existing notification caller ownership from PR S remains.
 
+**Sprint 133 PR Q (ADR-101, BUG-060, BUG-066).** Every routed handler (the 17 events `eventsFor('notification')`
+returns) is registered on **`karmyq-events-notification`**, a queue no other service attaches to, via
+`startConsumerQueue`. The service refuses to start if that set differs from the routing table. The same handlers stay
+on `karmyq-events` for one release to drain jobs published before the deploy; nothing publishes there any more. The
+`offer_submitted`, `offer_accepted`, `offer_declined` and `provider_went_on_duty` push handlers now read
+`job.data.payload` (they read `job.data` and never sent a push) and skip when the recipient is missing.
+
 PR C review correction: directed jobs use **`karmyq-directed-notifications`**, consumed only here.
 Legacy `karmyq-events` handlers remain registered. Recipient inserts use the partial unique index
 `uq_directed_notification_recipient` on user_id and data.request_id for this event type, with
@@ -784,7 +791,7 @@ const notificationHandler = (data: any) => {
 
 ### Real-time notifications delayed
 1. Check Redis connection
-2. Verify event queue is processing: `redis-cli LLEN karmyq-events`
+2. Verify the consumer queue is draining (ADR-101): `redis-cli LLEN bull:karmyq-events-notification:wait` (and `ZCARD bull:karmyq-events-notification:failed`)
 3. Check for errors in event subscriber logs
 4. Test SSE connection is active
 5. Check network connectivity (SSE can be blocked by proxies)
@@ -836,7 +843,8 @@ curl -X PUT http://localhost:3005/notifications/user-uuid/preferences \
 
 **Trigger Notification (via event):**
 ```bash
-redis-cli LPUSH karmyq-events '{"event":"match_created","payload":{"match_id":"uuid","request_id":"uuid","requester_id":"uuid","responder_id":"uuid"}}'
+# Bull jobs are hashes, not raw list entries: publish through the routed publisher (ADR-101)
+node -e "const {createPublisher}=require('@karmyq/shared');const p=createPublisher('manual');p.initEventPublisher().then(()=>p.publishEvent('match_created',{match_id:'uuid',request_id:'uuid',requester_id:'uuid',responder_id:'uuid'})).then(()=>process.exit(0))"
 ```
 
 ### Unit Tests

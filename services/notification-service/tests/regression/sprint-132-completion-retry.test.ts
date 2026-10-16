@@ -1,10 +1,11 @@
 const mockQueues: Record<string, Record<string, (job: any) => Promise<void>>> = {};
 const mockQuery = jest.fn();
 const mockRelease = jest.fn();
-jest.mock('bull', () => jest.fn().mockImplementation((name: string) => {
+// A plain constructor, not jest.fn(impl): the root config's resetMocks would wipe the implementation.
+jest.mock('bull', () => function MockBull(name: string) {
   mockQueues[name] ??= {};
-  return { process: (type: string, handler: any) => { mockQueues[name][type] = handler; }, on: jest.fn() };
-}));
+  return { process: (type: string, handler: any) => { mockQueues[name][type] = handler; }, on: () => undefined };
+});
 jest.mock('../../src/database/db', () => ({ query: (...a: any[]) => mockQuery(...a), getClient: async () => ({ query: (...a: any[]) => mockQuery(...a), release: mockRelease }) }));
 jest.mock('../../src/lib/expoPush', () => ({ sendPushToUsers: jest.fn() }));
 import { initEventSubscriber } from '../../src/events/subscriber';

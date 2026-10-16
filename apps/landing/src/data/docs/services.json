@@ -119,7 +119,8 @@
       ],
       "events": {
         "publishes": [
-          "skill_endorsement_changed"
+          "skill_endorsement_changed",
+          "user_created"
         ],
         "subscribes": []
       },
@@ -323,12 +324,18 @@
       ],
       "events": {
         "publishes": [
-          "user_joined_community",
-          "community_created",
+          "activity_joined",
           "community.config.created",
           "community.config.updated",
-          "activity_joined",
-          "fusion_vote_started"
+          "community_archived",
+          "community_created",
+          "fusion_vote_started",
+          "join_request_created",
+          "norm_established",
+          "norm_proposed",
+          "split_vote_started",
+          "user_joined_community",
+          "user_left_community"
         ],
         "subscribes": []
       },
@@ -588,18 +595,29 @@
       ],
       "events": {
         "publishes": [
-          "match_completed",
-          "request_created",
-          "offer_created",
-          "preferred_provider_selected",
-          "provider_went_on_duty",
-          "offer_submitted",
-          "offer_accepted",
-          "offer_declined",
-          "dibs_submitted",
           "dibs_accepted",
           "dibs_declined",
-          "directed_request_created"
+          "dibs_expired",
+          "dibs_submitted",
+          "directed_request_created",
+          "interaction_feedback_submitted",
+          "match_accepted",
+          "match_cancelled",
+          "match_completed",
+          "match_created",
+          "match_proposed_by_admin",
+          "match_rejected",
+          "offer_accepted",
+          "offer_created",
+          "offer_declined",
+          "offer_submitted",
+          "offer_withdrawn",
+          "preferred_provider_selected",
+          "privacy_settings_updated",
+          "provider_went_on_duty",
+          "request_cancelled",
+          "request_completed",
+          "request_created"
         ],
         "subscribes": []
       },
@@ -664,11 +682,12 @@
       ],
       "events": {
         "publishes": [
-          "karma_awarded",
-          "badge_earned",
+          "health_metrics_calculated",
+          "milestone_achieved",
           "provider_review_received"
         ],
         "subscribes": [
+          "interaction_feedback_submitted",
           "match_completed"
         ]
       },
@@ -715,18 +734,25 @@
       "events": {
         "publishes": [],
         "subscribes": [
-          "match_completed",
+          "dibs_accepted",
+          "dibs_declined",
+          "dibs_expired",
+          "dibs_submitted",
+          "directed_request_created",
+          "fusion_vote_started",
+          "join_request_created",
           "karma_awarded",
-          "request_created",
-          "user_joined_community",
-          "preferred_provider_selected",
-          "provider_review_received",
+          "match_completed",
+          "match_created",
           "match_reminder",
-          "provider_went_on_duty",
-          "offer_submitted",
           "offer_accepted",
           "offer_declined",
-          "directed_request_created"
+          "offer_submitted",
+          "preferred_provider_selected",
+          "provider_review_received",
+          "provider_went_on_duty",
+          "request_created",
+          "split_vote_started"
         ]
       },
       "healthCheck": "http://localhost:3005/health",
@@ -818,7 +844,8 @@
       ],
       "events": {
         "publishes": [
-          "dibs_expired"
+          "dibs_expired",
+          "match_reminder"
         ],
         "subscribes": []
       },
@@ -1069,5 +1096,5 @@
       ]
     }
   },
-  "updated": "2026-10-13"
+  "updated": "2026-10-15"
 }

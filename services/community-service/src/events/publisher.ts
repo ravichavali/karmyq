@@ -1,4 +1,4 @@
 import { createPublisher } from '@karmyq/shared';
 
-const { initEventPublisher, publishEvent, getEventQueue } = createPublisher('community-service');
-export { initEventPublisher, publishEvent, getEventQueue };
+const { initEventPublisher, publishEvent } = createPublisher('community-service');
+export { initEventPublisher, publishEvent };

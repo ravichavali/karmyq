@@ -47,6 +47,21 @@ Provider notifications only fire when they require your attention — you won't 
 
 ---
 
+## Mobile Push Alerts
+
+If you use the Karmyq mobile app and have allowed notifications, a few provider events also send a push alert to your phone:
+
+| Alert | When it fires |
+|-------|---------------|
+| **Someone offered to help** | A provider sent an offer on your request (with the price, if there is one) |
+| **Offer accepted!** | The requester accepted your offer |
+| **Offer declined** | The requester chose a different offer |
+| **Requests waiting in your community** | You went on duty and there are open requests in your communities |
+
+These alerts didn't arrive before October 2026 because of a bug; they work now.
+
+---
+
 ## Opening a Notification Stream
 
 Click the bell or briefcase to open a dropdown showing that stream's recent notifications. Each notification shows:

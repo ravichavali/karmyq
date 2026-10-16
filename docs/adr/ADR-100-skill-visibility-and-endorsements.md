@@ -1,6 +1,6 @@
 # ADR-100: Skill Visibility and Endorsements
 
-**Status**: Accepted
+**Status**: Implemented (PR A v11.85.0 `e7ff481d`, deployed 2026-10-13; PR B v11.86.0 `1291b1d4`, deployed 2026-10-14)
 **Date**: 2026-10-12
 **Sprint**: 133 — PR A (visibility and discovery); PR B (endorsements)
 

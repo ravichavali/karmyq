@@ -214,9 +214,14 @@ Success: `{ "success": true, "data": T, "message": "optional" }`.
 Error: `{ "success": false, "message": "Human-readable", "error": "ERROR_CODE" }` (string code).
 
 ### Events
-Bull queue `karmyq-events`: `match_completed` → Reputation, Notification; `karma_awarded`,
-`request_created`, `user_joined_community` → Notification. Publishers/subscribers in
-[services/registry.json](services/registry.json).
+Every event is routed by `packages/shared/events/routes.ts` (ADR-101) in one of three ways:
+- to its ONE consumer's queue, `karmyq-events-<consumer>` (`notification`, `reputation`);
+- to a dedicated transport (`match_completed`, `directed_request_created`, `skill_endorsement_changed`);
+- nowhere, if nothing consumes it: unconsumed events are not enqueued.
+
+**Never attach two services' workers to one Bull queue.** Bull fails a job whose name the taking
+worker never registered (BUG-060). `tests/regression/sprint-133-pr-q-event-routes.test.ts` gates
+this and holds the [services/registry.json](services/registry.json) events to the source.
 
 ### Workspace dependencies
 **Every workspace declares every package it imports.** Hoisting is npm's private optimization, not
