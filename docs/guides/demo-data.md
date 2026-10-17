@@ -147,6 +147,33 @@ Because the platform models real time, demo content behaves like the real produc
   rotated explicitly before they age out** — see *Rotating the stories* below. This is a standing
   operational obligation, not a background process.
 
+### Skills, vouches, shared items and standing offers (Sprint 133)
+
+The baseline also carries the skills layer, so there is something real to try:
+
+- **Co-member skills and vouches.** Signed in as Maria Reyes, open the profile of a co-member such as
+  Sophia and you see her skills, with vouches where a neighbour has endorsed her after a completed
+  exchange. Maria's own cooking skill shows 2 vouches (from Sophia and Wei). A third vouch, from James
+  for her driving, was withdrawn and so does not count.
+- **Community skill search.** Portland Mutual Aid, Southeast PDX and PDX Service Providers each have a
+  skill directory, and searching a skill (for example bookkeeping in PDX Service Providers) lists the
+  members who hold it.
+- **An opted-out member.** One member of PDX Service Providers has turned off skill sharing. Searching
+  the skill that member holds shows the other holder but not them, and their profile is a 404 to
+  co-members.
+- **Shared items.** The Tool Library has four community-owned items (no personal owner), and members
+  such as James, Priya, Sophia, Maria, Elena and Fatima have shared personal items (ladder, drill, camp
+  stove, stand mixer, projector, board games) to the communities they belong to. There are no borrow
+  requests.
+- **Standing offers.** Sophia's meal prep and Priya's tutoring are active offers in Portland Mutual Aid,
+  so Maria sees them. A third offer, airport rides, sits in PDX Rides Collective, which Maria is not in:
+  it is absent from her list and opening it directly is a 404.
+
+**Counts are derived, never typed in.** Vouch totals and the trust-edge weights that include them are
+computed from the seeded vouches by the same rule production's reconcile uses (distinct endorsers per
+pair and community, withdrawn vouches excluded). The manifest declares no counts. CI runs the real
+reconcile in dry run over every seeded pair after a full reset and expects it to plan no changes.
+
 Everything you see is illustrative synthetic data — real numbers and names would belong to real
 people. It is not a frozen screenshot; it is the actual product running on curated, truthful history.
 
