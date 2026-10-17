@@ -11,9 +11,12 @@ is in and maria is not, takeshi lists 993 community-scope asks and maria lists 0
 community-health are 403 for a non-member and 200 for a member, and a malformed id is 403. **Not smoke-covered live:** the
 demo has **no standing offers**, so BUG-064 rests on CI's real-SQL test until PR D seeds some. This doc flip rides the new PR D
 branch `agent/claude/sprint-133-pr-d-curated-seed`, cut from `05d29d28` (no docs-only master push).
-**Old PR D branch** `agent/claude/sprint-133-pr-d-demo-seed`: its only commit `d5276e2c` is fully on master (checked 2026-10-17:
-of its files, only the handoff and BUGS.md differ, and PR V's later edits supersede both). It is not reused, because re-cutting
-the same name would need a force-push. The maintainer may delete it.
+**Old PR D branch** `agent/claude/sprint-133-pr-d-demo-seed`: **deleted 2026-10-17** at the maintainer's request, locally and on origin
+(its only commit `d5276e2c` was verified to be on master first).
+**Dependabot (maintainer, 2026-10-17): handle it right after PR D Task D0, before D1.** The 2 open high alerts on master,
+[#168 node-forge](https://github.com/ravichavali/karmyq/security/dependabot/168) and [#169 braces](https://github.com/ravichavali/karmyq/security/dependabot/169),
+are the exemptions that expire **2026-10-21**. Claude holds the dependency lane. Renew or fix them as a short, separate dependency PR
+(the #304 pattern), not inside PR D.
 **PR V follow-ups (logged in #306, unassigned):** request owner-write 403/404 oracle; the detail route moved onto
 `requestReadableSql`; one `isActiveMember` (two helpers, opposite argument order); list query performance (CTE +
 `matches(request_id, responder_id)` index, which needs a migration); retire or honor `help_offers.is_public`; BUG-069.
