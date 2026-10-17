@@ -376,7 +376,7 @@ export interface CompiledEndorsement {
   withdrawnAt: Date | null;
   /** 1 for an active vouch, 2 for a withdrawn one (one change after creation). */
   revision: number;
-  updatedAt?: Date;
+  updatedAt: Date;
 }
 
 export interface CompiledItem {

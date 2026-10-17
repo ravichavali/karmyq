@@ -85,14 +85,23 @@ export const OFFER_TTL_DAYS = 60;
 export const TEXT_LIMITS: Readonly<{ tagValue: number; itemName: number; offerTitle: number }> = {
   tagValue: 100, itemName: 120, offerTitle: 255,
 };
-const SKILL_VALUE_MAX = TEXT_LIMITS.tagValue;
 const OFFER_MIN_RUNWAY_DAYS = 30;
 const SKILL_CREATED_AGE: FixtureAge = 'P120D';
 const ITEM_CREATED_AGE: FixtureAge = 'P30D';
 
 /** The directory's skill_key for free text: lower(regexp_replace(trim(v), '[^a-zA-Z0-9]+', '_', 'g')). */
-function normalizeSkillText(value: string): string {
+export function normalizeSkillText(value: string): string {
   return value.replace(/^ +| +$/g, '').replace(/[^a-zA-Z0-9]+/g, '_').toLowerCase();
+}
+
+/** The directory key of a skill: its vocabulary slug, else the normalized free text. */
+export function skillKey(skill: { skillSlug: string | null; tagValue: string }): string {
+  return skill.skillSlug ?? normalizeSkillText(skill.tagValue);
+}
+
+/** When an offer created at `createdAt` lapses (communities.settings.offer_ttl_days). */
+function offerExpiresAtMs(createdAt: Date): number {
+  return createdAt.getTime() + OFFER_TTL_DAYS * DAY_MS;
 }
 
 function uuidFrom(raw: string): string {
@@ -149,6 +158,8 @@ export function compileManifest(manifest: DemoFixtureManifest, anchor: Date): Co
   const personKeys = new Set(manifest.people.map(p => p.key));
   const communityKeys = new Set(manifest.communities.map(c => c.key));
 
+  const exchangeByKey = new Map(manifest.exchanges.map(e => [e.key, e]));
+
   validateUniqueness(manifest);
   validateReferences(manifest, personKeys, communityKeys);
   validateMariaMemberOnly(manifest);
@@ -156,7 +167,7 @@ export function compileManifest(manifest: DemoFixtureManifest, anchor: Date): Co
   validatePeopleCount(manifest);
   validateActiveCohorts(manifest);
   validateLifecycles(manifest);
-  validateSkillsLayer(manifest, anchor);
+  validateSkillsLayer(manifest, anchor, personKeys, communityKeys, exchangeByKey);
 
   const personIdByKey = new Map<SemanticKey, string>();
   const people: CompiledPerson[] = manifest.people.map(p => {
@@ -319,7 +330,6 @@ export function compileManifest(manifest: DemoFixtureManifest, anchor: Date): Co
     .filter(p => p.shareSkills === false)
     .map(p => ({ userId: personIdByKey.get(p.key)!, shareSkillsWithCommunities: false }));
 
-  const exchangeByKey = new Map(manifest.exchanges.map(e => [e.key, e]));
   const endorsements: CompiledEndorsement[] = manifest.endorsements.map(e => {
     const tag = skillById.get(e.skill)!;
     const exchange = exchangeByKey.get(e.exchange)!;
@@ -378,7 +388,7 @@ export function compileManifest(manifest: DemoFixtureManifest, anchor: Date): Co
       expired: false,
       createdAt,
       updatedAt: createdAt,
-      expiresAt: new Date(createdAt.getTime() + OFFER_TTL_DAYS * DAY_MS),
+      expiresAt: new Date(offerExpiresAtMs(createdAt)),
     };
   });
 
@@ -531,9 +541,13 @@ function findCommunityCreator(manifest: DemoFixtureManifest, community: Semantic
  * The skills layer, validated against the rules the live APIs enforce (ADR-100 endorsements,
  * inventory write rules, POST /offers). Every refusal names the offending fixture key.
  */
-function validateSkillsLayer(manifest: DemoFixtureManifest, anchor: Date): void {
-  const personKeys = new Set(manifest.people.map(p => p.key));
-  const communityKeys = new Set(manifest.communities.map(c => c.key));
+function validateSkillsLayer(
+  manifest: DemoFixtureManifest,
+  anchor: Date,
+  personKeys: Set<SemanticKey>,
+  communityKeys: Set<SemanticKey>,
+  exchangeByKey: Map<string, DemoFixtureManifest['exchanges'][number]>,
+): void {
   const activeIn = new Set(
     manifest.memberships.filter(m => m.status === 'active').map(m => `${m.user}|${m.community}`));
   const isActive = (person: SemanticKey, community: SemanticKey) => activeIn.has(`${person}|${community}`);
@@ -551,8 +565,8 @@ function validateSkillsLayer(manifest: DemoFixtureManifest, anchor: Date): void 
         fail(`Refusing manifest: ${sk.key} value "${sk.value}" must equal the vocabulary label "${SKILL_VOCABULARY[sk.slug]}"`);
       }
     }
-    if (sk.value.length === 0 || sk.value.length > SKILL_VALUE_MAX) {
-      fail(`Refusing manifest: ${sk.key} value must be 1 to ${SKILL_VALUE_MAX} characters, found ${sk.value.length}`);
+    if (sk.value.length === 0 || sk.value.length > TEXT_LIMITS.tagValue) {
+      fail(`Refusing manifest: ${sk.key} value must be 1 to ${TEXT_LIMITS.tagValue} characters, found ${sk.value.length}`);
     }
     const tagKey = `${sk.owner}|${sk.value}`;
     if (tagValues.has(tagKey)) fail(`Refusing manifest: ${sk.key} is a duplicate skill value "${sk.value}" for ${sk.owner}`);
@@ -560,7 +574,6 @@ function validateSkillsLayer(manifest: DemoFixtureManifest, anchor: Date): void 
     skillByKey.set(sk.key, sk);
   }
 
-  const exchangeByKey = new Map(manifest.exchanges.map(e => [e.key, e]));
   const endorsedOnce = new Set<string>();
   for (const e of manifest.endorsements) {
     requirePerson(e.endorser, personKeys);
@@ -605,10 +618,13 @@ function validateSkillsLayer(manifest: DemoFixtureManifest, anchor: Date): void 
     shares.forEach(c => requireCommunity(c, communityKeys));
     if (personKeys.has(it.owner)) {
       if (it.createdBy !== undefined) requirePerson(it.createdBy, personKeys);
-      shares.forEach((c, i) => {
+      shares.forEach(c => {
         if (!isActive(it.owner, c)) fail(`Refusing manifest: ${it.key} is shared to ${c} but ${it.owner} is not an active member`);
-        if (shares.indexOf(c) !== i) fail(`Refusing manifest: ${it.key} has a duplicate share to ${c}`);
       });
+      if (new Set(shares).size !== shares.length) {
+        const dup = shares.find((c, i) => shares.indexOf(c) !== i);
+        fail(`Refusing manifest: ${it.key} has a duplicate share to ${dup}`);
+      }
     } else if (communityKeys.has(it.owner)) {
       if (shares.length > 0) fail(`Refusing manifest: ${it.key} is community-owned and cannot be shared`);
       const creator = it.createdBy;
@@ -630,7 +646,7 @@ function validateSkillsLayer(manifest: DemoFixtureManifest, anchor: Date): void 
       fail(`Refusing manifest: ${o.key} title must be 1 to ${TEXT_LIMITS.offerTitle} characters, found ${o.title.length}`);
     }
     if (!OFFER_CATEGORIES.has(o.category)) fail(`Refusing manifest: ${o.key} has invalid category ${o.category}`);
-    const expiresAt = ageFrom(anchor, o.createdAge).getTime() + OFFER_TTL_DAYS * DAY_MS;
+    const expiresAt = offerExpiresAtMs(ageFrom(anchor, o.createdAge));
     if (expiresAt - anchor.getTime() < OFFER_MIN_RUNWAY_DAYS * DAY_MS) {
       fail(`Refusing manifest: ${o.key} would expire less than ${OFFER_MIN_RUNWAY_DAYS} days after the anchor`);
     }
@@ -681,7 +697,7 @@ export function expectedSkillDirectory(
   for (const skill of baseline.skills) {
     if (!active.has(skill.userId)) continue;
     if (hidden.has(skill.userId) && skill.userId !== viewer.id) continue;
-    const key = skill.skillSlug ?? normalizeSkillText(skill.tagValue);
+    const key = skillKey(skill);
     const set = holders.get(key) ?? new Set<string>();
     set.add(skill.userId);
     holders.set(key, set);

@@ -10,7 +10,8 @@
  * check passes, `ready` is false and `storyIds` is withheld.
  */
 
-import { compileManifest, expectedSkillDirectory, semanticUuid } from './compiler';
+import { compileManifest, expectedSkillDirectory, semanticUuid, skillKey } from './compiler';
+import type { CompiledDemoBaseline } from './types';
 import { CURATED_DEMO_MANIFEST, STORY_HARD_FLOOR } from './manifest';
 
 /** ADR-082 raw reputation/relationship metrics that must never appear in ordinary responses. */
@@ -131,11 +132,6 @@ const PERSON = {
 } as const;
 const COMMUNITY = { pma: 'community.portland-mutual-aid', providers: 'community.providers' } as const;
 
-/** The normalization the live directory and search use for free-text skills. */
-function normalizeSkillText(value: string): string {
-  return value.trim().replace(/[^a-zA-Z0-9]+/g, '_').toLowerCase();
-}
-
 /** Run a read; a thrown error (deps should not throw) fails closed as a transport error. */
 async function safeRead<T>(read: () => Promise<ApiRead<T>>): Promise<ApiRead<T>> {
   try {
@@ -154,9 +150,8 @@ function ok<T>(read: ApiRead<T>): read is ApiRead<T> & { data: T } {
  * (the directory exposes no identities), and the Providers directory must equal the compiler's
  * expectation for Noah exactly.
  */
-async function checkSkillsVisible(deps: DemoVerificationDeps): Promise<string[]> {
+async function checkSkillsVisible(deps: DemoVerificationDeps, baseline: CompiledDemoBaseline): Promise<string[]> {
   const failed: string[] = [];
-  const baseline = compileManifest(CURATED_DEMO_MANIFEST, new Date());
   const id = semanticUuid;
 
   const sophia = await safeRead(() => deps.getMemberSkills('maria', id(PERSON.sophia)));
@@ -174,9 +169,8 @@ async function checkSkillsVisible(deps: DemoVerificationDeps): Promise<string[]>
   if (hidden.status !== 404) failed.push('skills.opt-out-profile-hidden');
 
   // X: a skill key both the opted-out member and Amina hold, so Amina is a positive control.
-  const keyOf = (s: { skillSlug: string | null; tagValue: string }) => s.skillSlug ?? normalizeSkillText(s.tagValue);
   const keysOf = (personKey: string) =>
-    new Set(baseline.skills.filter(s => s.userId === id(personKey)).map(keyOf));
+    new Set(baseline.skills.filter(s => s.userId === id(personKey)).map(skillKey));
   const aminaKeys = keysOf(PERSON.amina);
   const sharedX = [...keysOf(PERSON.optOut)].filter(k => aminaKeys.has(k)).sort()[0];
   const search: ApiRead<SkillSearchRow[]> = sharedX
@@ -186,11 +180,12 @@ async function checkSkillsVisible(deps: DemoVerificationDeps): Promise<string[]>
   if (!(ok(search) && !search.data.some(r => r.user_id === id(PERSON.optOut)))) failed.push('skills.opt-out-search-absent');
 
   const directory = await safeRead(() => deps.getSkillDirectory('provider', id(COMMUNITY.providers)));
-  const canonical = (m: Record<string, number>) =>
-    JSON.stringify(Object.entries(m).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
   const expected = expectedSkillDirectory(baseline, COMMUNITY.providers, PERSON.noah);
   const actual = ok(directory) ? Object.fromEntries(directory.data.map(e => [e.skill_key, e.member_count])) : null;
-  if (!(actual && canonical(actual) === canonical(expected))) failed.push('skills.directory-exact');
+  const expectedKeys = Object.keys(expected);
+  const exact = actual !== null && Object.keys(actual).length === expectedKeys.length &&
+    expectedKeys.every(k => actual[k] === expected[k]);
+  if (!exact) failed.push('skills.directory-exact');
   return failed;
 }
 
@@ -248,7 +243,7 @@ export async function verifyCuratedDemo(deps: DemoVerificationDeps): Promise<Dem
   const ordinaryPrivacy = findForbiddenKeys(ordinaryContext).length === 0;
   const providerPrivacy = findForbiddenKeys(providerContext).length === 0;
   const providerStory = await deps.getProviderStoryValid();
-  const skillFailures = await checkSkillsVisible(deps);
+  const skillFailures = await checkSkillsVisible(deps, compileManifest(CURATED_DEMO_MANIFEST, new Date()));
   const offerFailures = await checkOfferBoundary(deps);
 
   // NOTE: the demo-session read-only (403 write) check is NOT here — it requires an actual

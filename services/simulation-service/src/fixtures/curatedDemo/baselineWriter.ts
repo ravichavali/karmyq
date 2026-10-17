@@ -229,7 +229,7 @@ export async function writeBaseline(
       `INSERT INTO auth.skill_endorsements
          (id, endorser_id, endorsee_id, user_tag_id, match_id, created_at, updated_at, withdrawn_at, revision)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [e.id, e.endorserId, e.endorseeId, e.userTagId, e.matchId, e.createdAt, e.updatedAt ?? e.withdrawnAt ?? e.createdAt, e.withdrawnAt, e.revision],
+      [e.id, e.endorserId, e.endorseeId, e.userTagId, e.matchId, e.createdAt, e.updatedAt, e.withdrawnAt, e.revision],
     );
   }
   for (const item of baseline.items) {

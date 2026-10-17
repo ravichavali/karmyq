@@ -99,6 +99,33 @@ export class ApiClient {
   }
 
   /**
+   * Auth API - A member's skills (GET /auth/skills/users/:id). A hidden or missing profile rejects
+   * with `response.status` 404; callers read the status off the error.
+   */
+  async getMemberSkills(userId: string): Promise<any> {
+    const response = await executeWithRetry(() => this.client.get(`/auth/skills/users/${userId}`));
+    return response.data.data;
+  }
+
+  /**
+   * Auth API - A community's skill directory (GET /auth/skills/communities/:id).
+   */
+  async getSkillDirectory(communityId: string): Promise<any> {
+    const response = await executeWithRetry(() => this.client.get(`/auth/skills/communities/${communityId}`));
+    return response.data.data;
+  }
+
+  /**
+   * Auth API - Members of a community holding a skill (GET /auth/skills/communities/:id/search).
+   */
+  async searchCommunitySkills(communityId: string, skill: string): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.get(`/auth/skills/communities/${communityId}/search`, { params: { skill } })
+    );
+    return response.data.data;
+  }
+
+  /**
    * Request API - Create request
    */
   async createRequest(data: {

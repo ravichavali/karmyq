@@ -138,10 +138,6 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
   const provider = new ApiClient(env.baseUrl);
   await provider.login(env.providerEmail, env.password);
   const clients: Record<DemoViewer, ApiClient> = { maria, provider, unrelated };
-  const skillsGet = async (viewer: DemoViewer, path: string) => {
-    const response = await clients[viewer].client.get(path);
-    return response.data.data;
-  };
 
   const context = await maria
     .getMatchRelationshipContext(env.storyIds.ordinaryRequestId, env.storyIds.ordinaryMatchId)
@@ -218,10 +214,10 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
     async getStoryIds() {
       return env.storyIds;
     },
-    getMemberSkills: (viewer, userId) => readOf(() => skillsGet(viewer, `/auth/skills/users/${userId}`)),
-    getSkillDirectory: (viewer, communityId) => readOf(() => skillsGet(viewer, `/auth/skills/communities/${communityId}`)),
+    getMemberSkills: (viewer, userId) => readOf(() => clients[viewer].getMemberSkills(userId)),
+    getSkillDirectory: (viewer, communityId) => readOf(() => clients[viewer].getSkillDirectory(communityId)),
     searchCommunitySkills: (viewer, communityId, skill) =>
-      readOf(() => skillsGet(viewer, `/auth/skills/communities/${communityId}/search?skill=${encodeURIComponent(skill)}`)),
+      readOf(() => clients[viewer].searchCommunitySkills(communityId, skill)),
     listOffers: viewer => readOf(() => clients[viewer].listOffers()),
     getOffer: (viewer, offerId) => readOf(() => clients[viewer].getOffer(offerId)),
   };

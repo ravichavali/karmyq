@@ -3,7 +3,7 @@ import {
   verifyCuratedDemo,
   type DemoVerificationDeps,
 } from '../../src/fixtures/curatedDemo/verifier';
-import { compileManifest, expectedSkillDirectory, semanticUuid } from '../../src/fixtures/curatedDemo/compiler';
+import { compileManifest, expectedSkillDirectory, semanticUuid, skillKey as keyOf } from '../../src/fixtures/curatedDemo/compiler';
 import { CURATED_DEMO_MANIFEST } from '../../src/fixtures/curatedDemo/manifest';
 
 // Sprint 133 PR D: the five skills/offer deps, answering a healthy demo so these Sprint 117 cases still
@@ -12,8 +12,6 @@ function healthySkillsAndOffers(): Pick<DemoVerificationDeps,
   'getMemberSkills' | 'getSkillDirectory' | 'searchCommunitySkills' | 'listOffers' | 'getOffer'> {
   const baseline = compileManifest(CURATED_DEMO_MANIFEST, new Date());
   const id = semanticUuid;
-  const keyOf = (s: { skillSlug: string | null; tagValue: string }) =>
-    s.skillSlug ?? s.tagValue.trim().replace(/[^a-zA-Z0-9]+/g, '_').toLowerCase();
   const keys = (person: string) => new Set(baseline.skills.filter(s => s.userId === id(person)).map(keyOf));
   const x = [...keys('person.ambient-09')].filter(k => keys('person.bridge').has(k))[0];
   const directory = Object.entries(expectedSkillDirectory(baseline, 'community.providers', 'person.provider'))
