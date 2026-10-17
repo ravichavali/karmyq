@@ -1,13 +1,31 @@
 # Sprint 133 — Skills Depth — Handoff
 
-**Date**: 2026-10-17 (**PR V SHIPPED and LIVE**, v11.89.0; **PR D re-planned, rev 2: execute next, starting D0b**)
+**Date**: 2026-10-17 (**PR V SHIPPED and LIVE**, v11.89.0; **PR D rev 2 reviewed, amendments applied: execute next, starting D0**)
+**CODEX PLAN REVIEW (2026-10-17, `d089b8b3`).** Three amendments, all **APPLIED by Claude 2026-10-17** (verified first: the UTC cutoff reproduced with `validateRegistry`; the directory has no identities, `skills.ts:56-71`; `sprint-123-audit-exemption-gate.test.ts:67` validates the branch registry against `new Date()`, so an unmerged PR D fails pre-push after the cutoff even though PR CI uses the merge ref) in
+`docs/superpowers/plans/2026-10-16-sprint-133-pr-d-demo-seed.md`:
+- **P1, D0b deadline (`:231`):** expiry is UTC, so deployment must finish before **2026-10-21 00:00 UTC
+  / October 20, 5:00 p.m. PDT**, not local end-of-day. The repo's `validateRegistry` accepted the current
+  registry at `2026-10-20T23:59:59Z` and rejected both entries at `2026-10-21T00:00:00Z`
+  (`scripts/lib/exemption-registry.js:17-18`, `scripts/audit-exemptions.js:123`). Use this exact cutoff below.
+- **P2, skills verifier (`:183-187`):** the directory returns skill aggregates, not member identities
+  (`services/auth-service/src/routes/skills.ts:56-67`). Specify a search read (`:73-85`) with an opted-in
+  positive control and assert ambient-09's absence by user id; also assert the expected directory counts.
+- **P2, return from D0b (`:243-244`):** after renewal deploy, return to the PR D branch, fetch and merge
+  `origin/master` before D1. Otherwise its branch-local registry still expires October 21 even though the
+  renewal shipped. D0's existing fetch happens before D0b (`plan:223-224`).
+Review checked the roster, offers route, reconciler, compiler, writer and CI reset test. Gotcha discovery
+returned only `docs/gotchas/dotenv-config-must-pass-quiet.md` (read). No suite or demo operation was run.
+Live GitHub connector reconciliation: no open PRs; [#306](https://github.com/ravichavali/karmyq/pull/306)
+is merged as `05d29d28`; local `origin/master` is also `05d29d28`. Shell GitHub access was network-blocked.
+Claude retains implementation ownership; this review leaves only this handoff uncommitted for the author.
+
 **PR D PLAN REVISION 2 (2026-10-17 planning chat).** The plan was re-checked against `05d29d28`: the only change to a
 cited file since its `60bcc4cd` base is the `inventoryDb.ts` UUID guard, which doesn't affect the seed. **Maintainer
 decision:** PR D also seeds **3 standing offers**, two in Portland Mutual Aid and one in PDX Rides Collective, where
 Maria isn't a member. A new `offerBoundary` verifier check and a post-reset read-only smoke then cover BUG-064 live.
 Marcus Lee, the existing unrelated persona and a Rides member, is the positive control, so no new host env var.
 `provider.contrast` resolved: nothing reads it. **New Task D0b:** the exemption renewal PR, which must be
-**merged and deployed by the end of 2026-10-20**, because `expires: 2026-10-21` is the first invalid day. Upstream
+**deployed before 2026-10-21T00:00Z (October 20, 5:00 p.m. PDT)**, because `expires: 2026-10-21` is the first invalid day. Upstream
 was re-checked 2026-10-17: node-forge 1.4.0 and braces 3.0.3 are still the latest, so it will be a renewal, which
 needs explicit maintainer authorization at the time.
 **PR V SHIPPED (2026-10-17).** The maintainer authorized the admin merge ("Approve admin merge"). Claude merged
@@ -185,7 +203,8 @@ This handoff rides on the PR B branch `agent/claude/sprint-133-pr-b-endorsements
 5. **Start PR D** in a fresh chat on `agent/claude/sprint-133-pr-d-curated-seed` (cut from `05d29d28`; it carries this handoff), from
    [`docs/superpowers/plans/2026-10-16-sprint-133-pr-d-demo-seed.md`](../../docs/superpowers/plans/2026-10-16-sprint-133-pr-d-demo-seed.md)
    (revision 2, 2026-10-17; it supersedes the sketch in the sprint plan). D0's PR V precondition is checked; do the
-   rest of D0, then **D0b (exemption renewal PR, deadline end of 2026-10-20)**, then D1. Re-run the PR B / PR A skill
+   rest of D0 (the Codex amendments are applied), then **D0b (exemption renewal PR,
+   deploy before October 20, 5:00 p.m. PDT)**, merge renewed master back into PR D, then D1. Re-run the PR B / PR A skill
    smokes and the BUG-064 offer smoke after PR D seeds data.
    The demo apply is a **full curated reset**: it deletes all simulated activity since July and needs its own explicit
    authorization at the time; a live endorse/withdraw smoke afterwards is a second, separate authorization.
@@ -214,7 +233,7 @@ security PR first closes BUG-056, BUG-062 and BUG-058.
 | Q | **BUG-060 (HIGH)**: move the remaining shared-queue events off `karmyq-events` to per-consumer queues (completionEvents pattern); re-run the B1 reproduction expecting 0 lost jobs | `agent/claude/sprint-133-pr-q-queue-migration` (cut 2026-10-14 from `1291b1d4`; live PR base `aded1986`) | **SHIPPED v11.88.0** ([#305](https://github.com/ravichavali/karmyq/pull/305), `36a9972f`, deploy 38948723833 attempt 1, all 9 healthy; integration 80/80, 0 failed attempts). Also fixed BUG-066 and BUG-067; logged BUG-068. Owed: read-only demo drain check (ask first), then legacy-handler removal |
 | V | **BUG-065 (HIGH)**: request-list boundary + five live-membership read gates (including community-health); **BUG-064**: owner/live-member offer reads + uniform owner-write 404 | `agent/claude/sprint-133-pr-v-visibility` | **SHIPPED v11.89.0** ([#306](https://github.com/ravichavali/karmyq/pull/306), `05d29d28`, deploy 38985813305 attempt 1, all healthy; smoke 15/15 + member control 993 vs 0). Met the BUG-065 deadline. Follow-ups in the header |
 | D | Curated demo seed: skills (+ one opt-out), 7 story-shaped vouches (1 withdrawn), personal + Tool Library items, **3 standing offers (BUG-064 live coverage)**; counts derived and proven by social-graph's reconcile dry-run in the CI reset step | `agent/claude/sprint-133-pr-d-curated-seed` (cut 2026-10-17 from `05d29d28`; old `-demo-seed` branch deleted) | **NEXT**; planned 2026-10-16, **revised 2026-10-17** (rev 2: offers + D0b): [plan](../../docs/superpowers/plans/2026-10-16-sprint-133-pr-d-demo-seed.md). Demo apply = full curated reset, separately authorized |
-| R | **Exemption renewal** (`node-forge`, `braces`), PR D Task D0b, #304 pattern | `agent/claude/sprint-133-exemption-renewal-2` (not cut) | **Before PR D's D1; merged + deployed by end of 2026-10-20.** Needs maintainer renewal authorization |
+| R | **Exemption renewal** (`node-forge`, `braces`), PR D Task D0b, #304 pattern | `agent/claude/sprint-133-exemption-renewal-2` (not cut) | **Before PR D's D1; deployed before 2026-10-21T00:00Z (Oct 20, 5:00 p.m. PDT), then merged back into PR D.** Needs maintainer renewal authorization |
 | L | ADR-101 legacy-handler removal **+ BUG-068 retirement** (dead feedback route, event, handler, sim call) | not cut | needs the read-only demo drain check first (ask); **due 2026-10-29** (BUG-068) |
 
 Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is reserved.
@@ -460,7 +479,7 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
    `--apply` and stops if it isn't 0. This is not authorization to run the reset: ask again at D11.
    **(5) Revision 2 (maintainer, 2026-10-17): seed 3 standing offers** so BUG-064 gets a live read-only smoke (plan Critical
    Notes 9 and 11). The Dependabot renewal is Task D0b, a separate PR before D1.
-7b. **CURRENT: PR V** (reviewed and CI green at `8ddefbf2`; draft #306; V11 version preparation next, see header). Maintainer decisions, 2026-10-16 planning chat:
+7b. **PR V planning history (SHIPPED as `05d29d28`; see header).** Maintainer decisions, 2026-10-16 planning chat:
    (1) bundle BUG-065 + BUG-064 into one request-service PR **before PR D**;
    (2) **BUG-065:** list = the detail route's boundary (reviewer recommendation), directed asks excluded from browse;
    (3) **BUG-064:** owner + live members of the offer's community (`is_public` ignored);
@@ -484,4 +503,4 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
    is merged; never commit on it. PR Q re-bumps its version from master (11.87.0) at its own merge.
 9. **Re-check `node-forge` and `braces` before 2026-10-21** (`npm view`, the GHSA page, `npm ls --all`). Remove each exemption if
    upstream ships a fix. Renewing needs explicit maintainer authorization again. **Now PR D Task D0b**; `npm view` on
-   2026-10-17 still shows 1.4.0 / 3.0.3 (no fix). The renewal must be merged + deployed by **end of 2026-10-20**.
+   2026-10-17 still shows 1.4.0 / 3.0.3 (no fix). The renewal must be deployed before **2026-10-21T00:00Z (October 20, 5:00 p.m. PDT)**, then merged into PR D before D1.

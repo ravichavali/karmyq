@@ -13,6 +13,11 @@
 > 2026-10-17). (c) The `provider.contrast` UNVERIFIED item is resolved (Critical Note 9). Re-checked on `05d29d28`: since
 > `60bcc4cd` the only change to a file this plan cites is a UUID guard in `inventoryDb.ts` `isActiveMember` (`:66-72`),
 > which doesn't affect the seed.
+>
+> **Revision 2.1 (2026-10-17, Codex plan review of `d089b8b3`; all three findings verified, then applied).** D0b's
+> cutoff is UTC: **2026-10-21T00:00Z = October 20, 5:00 p.m. PDT**. The opt-out is proven by search with Amina as the
+> positive control and by exact directory counts, since the directory carries no identities. D0b now ends by merging
+> renewed `origin/master` back into PR D before D1.
 
 **Goal:** After one authorized curated reset, the demo shows the skills features with real data. Maria sees her
 co-members' skills and vouches, community skill directories have entries, one member's opt-out visibly hides them, and
@@ -88,7 +93,9 @@ Expected reconciled pair counts: Maria–Sophia **2**, Maria–Wei **1**, Maria�
 count stays 0), Elena–Fatima **2**, Amina–Noah **1**. Maria's cooking skill shows **2** vouches.
 
 **Opt-out:** `person.ambient-09` (PDX Service Providers): 1–2 skills, `share_skills_with_communities = false`, no
-endorsements in or out. The viewer who proves it is hidden is Noah (protected, same community).
+endorsements in or out. One of its skills (*X*) is also held by Amina (`person.bridge`), the positive control. The viewer
+who proves ambient-09 is hidden is Noah (protected, same community), through the *X* search and the exact directory
+counts (Critical Note 9).
 
 **Items:** personal items owned by people in the Tool Library, Portland Mutual Aid and Southeast PDX rosters, each shared
 only to communities its owner actively belongs to (for example a ladder and a drill from James or Priya shared to the Tool
@@ -184,8 +191,24 @@ Mutual Aid members, and ambient-13 is a PDX Rides Collective member.
    for the exact response fields first). As Maria: `GET /auth/skills/users/<sophia>` is 200 and shows a skill with a
    vouch. Maria's own `GET /auth/skills/users/<maria>` shows cooking with endorsement count 2.
    `GET /auth/skills/communities/<portland-mutual-aid>` lists a non-zero member count. As Noah:
-   `GET /auth/skills/users/<ambient-09>` is 404, and ambient-09 is absent from the providers directory. `ready`
-   requires it. **`provider.contrast` is unaffected (resolved 2026-10-17):** the expectation is declarative only, since
+   `GET /auth/skills/users/<ambient-09>` is 404. **The opt-out is proven by search, not the directory** (finding
+   2026-10-17): `GET /auth/skills/communities/:id` returns only `skill_key`, `label` and `member_count` per skill, with
+   no user identities (`services/auth-service/src/routes/skills.ts:56-71`), so "absent from the directory" can't be
+   asserted. Instead:
+   - **Fixture:** ambient-09 holds a skill (call it *X*) that **Amina** (`person.bridge`, a visible PDX Service
+     Providers member who isn't the viewer) also holds. *X* is a vocabulary slug, or a free-text value both share
+     exactly.
+   - **Search, positive control plus absence by id:** as Noah,
+     `GET /auth/skills/communities/<providers>/search?skill=<X>` (`skills.ts:73-93`; rows carry `user_id`) **contains
+     Amina's `user_id`** and **doesn't contain ambient-09's `user_id`**. An empty result fails: an empty result would
+     also "not contain" ambient-09.
+   - **Directory counts are exact:** as Noah, the providers directory's `{skill_key → member_count}` map **equals** the
+     expected map computed from the compiled baseline: per skill key, the distinct active Providers members holding it
+     who share skills, plus Noah himself (the owner always sees his own, `skillVisibleToSql`). Opted-out members are
+     excluded. For *X* that's exactly the visible holders, one fewer than its raw holders. Export that expectation from
+     the compiler (`expectedSkillDirectory(baseline, communityKey, viewerKey)`) so the verifier and the root
+     integration test use one derivation, not a hand-typed number.
+   `ready` requires all of it. **`provider.contrast` is unaffected (resolved 2026-10-17):** the expectation is declarative only, since
    no source or test reads `provider-contrast` (`types.ts:157`, `manifest.ts:312` are its only occurrences), and the
    live provider pick ranks by `sharedConnections`, not weights (`mariaRelationshipStory.ts:260-265`). The Amina→Noah
    vouch changes only that edge's count and weight, and adds no edge (Critical Note 3 throws on a missing one), so no
@@ -228,9 +251,12 @@ Mutual Aid members, and ambient-13 is a PDX Rides Collective member.
 
 ## Task D0b: Exemption renewal PR (separate, before D1)
 
-**Hard deadline: merged and deployed by the end of 2026-10-20.** `expires: 2026-10-21` is the first *invalid* day
-(`expires <= today`, `scripts/audit-exemptions.js`), so from 2026-10-21 every push and deploy fails the ADR-059 gate,
-PR D's included. Claude holds the dependency lane. This follows the #304 pattern: a short PR, never inside PR D.
+**Hard deadline: deployed before 2026-10-21T00:00:00Z = 2026-10-20 at 17:00 PDT.** `expires: 2026-10-21` is the first
+*invalid* day (`expires <= today`, `scripts/audit-exemptions.js:123`), and "today" is the **UTC** date
+(`todayUtc`, `scripts/lib/exemption-registry.js:17-19`; `parseUtcDate` anchors `expires` at `T00:00:00Z`, `:4-6`).
+Reproduced with the validator (2026-10-17): `2026-10-20T23:59:59Z` (16:59:59 PDT) validates clean;
+`2026-10-21T00:00:00Z` (17:00 PDT on the 20th) reports both entries EXPIRED. From then on every push and deploy fails the
+ADR-059 gate, PR D's included. Plan to merge by midday PDT on the 20th to leave room for a deploy rerun. Claude holds the dependency lane. This follows the #304 pattern: a short PR, never inside PR D.
 
 - [ ] Branch `agent/claude/sprint-133-exemption-renewal-2` from fresh `origin/master`.
 - [ ] Re-check upstream by hand: `npm view node-forge version`, `npm view braces version`, each GHSA page
@@ -241,7 +267,16 @@ PR D's included. Claude holds the dependency lane. This follows the #304 pattern
   `expires` to at most 7 days later, update each `decision`, and add the ADR-059 renewal amendment line, as #304 did.
 - [ ] Version: the minor from `origin/master` (11.90.0 if nothing else merged). PR D then re-bumps at its own merge.
 - [ ] `npm exec --workspace=tests -- jest regression` (includes the audit-exemption gate); push; CI green; ask "admin
-  merge, yes/no?"; wait for deploy + health. Record it in the handoff on the PR D branch, not on master.
+  merge, yes/no?"; wait for deploy + health.
+- [ ] **Return to PR D and take the renewal before D1.** `git switch agent/claude/sprint-133-pr-d-curated-seed`,
+  `git fetch origin`, `git merge origin/master` (merge commit, no rebase). Then prove the branch carries it:
+  `git diff origin/master -- security/audit-exemptions.json` is empty, and
+  `npm exec --workspace=tests -- jest --runTestsByPath regression/sprint-123-audit-exemption-gate.test.ts` passes. This
+  is required, not hygiene: that test validates the **branch's own** registry against `new Date()`
+  (`sprint-123-audit-exemption-gate.test.ts:67`). Without the merge, PR D keeps the 2026-10-21 entries, and from the
+  cutoff the pre-push regression fails on every PR D push, even though the renewal is live on master. (PR CI uses
+  the merge ref, `ci.yml:6`, so CI alone could look green.) Record the renewal in the handoff on the PR D branch, not
+  on master.
 
 ## Task D1: TDD tests first
 
@@ -261,7 +296,11 @@ PR D's included. Claude holds the dependency lane. This follows the #304 pattern
     offer by a non-member of its community, unknown offer category, offer expiring within 30 days of the anchor);
   - writer: with a recording client, the endorsement insert follows the matches insert and the user_tags insert; the
     count `UPDATE` follows the projection; a `rowCount` of 0 on the count update throws.
-  - verifier: `skillsVisible` false makes `ready` false; each failing sub-read is reported. The same for
+  - verifier: `skillsVisible` false makes `ready` false; each failing sub-read is reported, including the three opt-out
+    failure modes: ambient-09's id present in the *X* search, Amina's id missing (an empty search must fail), and a
+    directory map that differs from `expectedSkillDirectory` by one count.
+  - `expectedSkillDirectory` for Providers as Noah: *X*'s count equals its raw holder count minus 1 (ambient-09), and
+    flipping ambient-09 to sharing raises it by exactly 1. The same for
     `offerBoundary`, including two cases: a 403 for the foreign offer fails the check (only 404 passes), and a 404 for
     the unrelated persona's read fails it (a vacuous boundary).
 - [ ] `sprint-133-demo-seed-arbiters.test.ts`: every manifest `skill_slug` occurs in an
@@ -272,6 +311,9 @@ PR D's included. Claude holds the dependency lane. This follows the #304 pattern
   `apps/frontend/src/pages/offers/new.tsx`. Include a negative fixture proving each parser finds a planted extra value.
 - [ ] Root `tests/tdd/sprint-117-demo-reset.integration.test.ts`: after each reset, the Critical Note 4 assertions,
   plus row counts **by key** for user_tags, endorsements (active/withdrawn), privacy settings, items, shares and offers.
+  Run the directory and search SQL for Providers as Noah, by importing auth-service's `skillVisibleToSql` and
+  `activeMemberSql` (`auth-service/src/db/skillVisibility.ts`, exported). The directory must equal
+  `expectedSkillDirectory`, and the *X* search must contain Amina's id and not ambient-09's.
   For offers, run PR V's boundary predicate on the reset database. `offerReadableSql` isn't exported (`offers.ts:18`),
   so read its body out of `services/request-service/src/routes/offers.ts` at run time and substitute the alias and
   parameter. Don't paste a copy: a pasted copy would be a shadow that never fails. With Maria as the viewer it returns exactly the
