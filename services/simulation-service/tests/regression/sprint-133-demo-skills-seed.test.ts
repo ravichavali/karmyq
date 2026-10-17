@@ -475,6 +475,12 @@ describe('Sprint 133 PR D: the compiler refuses an invalid seed, naming the key 
       'endorsement.sophia-maria-cooking', /before its exchange/i);
   });
 
+  it('refuses a vouch older than the skill tag it vouches for (CR4)', () => {
+    // Skill tags are created P120D before the anchor (compiler SKILL_CREATED_AGE).
+    expectRefusal(patchEndorsement('endorsement.sophia-maria-cooking', { createdAge: 'P121D' }),
+      'endorsement.sophia-maria-cooking', /before its skill/i);
+  });
+
   it('refuses a withdrawal dated before its vouch', () => {
     const james = CURATED_DEMO_MANIFEST.endorsements.find(e => e.key === 'endorsement.james-maria-driving')!;
     const before = `PT${ageHours(james.createdAge) + 24}H` as FixtureAge;
@@ -525,6 +531,12 @@ describe('Sprint 133 PR D: the compiler refuses an invalid seed, naming the key 
     const item = communityItem();
     // James is an active plain member of the Tool Library (manifest.ts:115-122).
     expectRefusal(patchItem(item.key, { createdBy: JAMES }), item.key, /not an active admin/i);
+  });
+
+  it('refuses a personal item whose createdBy is not its owner (CR3)', () => {
+    const item = personalSharedItem();
+    const other = item.owner === MARIA ? JAMES : MARIA;
+    expectRefusal(patchItem(item.key, { createdBy: other }), item.key, /createdBy .* must equal its owner/i);
   });
 
   it.each([
@@ -744,6 +756,8 @@ interface LiveWorld {
   search: (viewer: DemoViewer, communityId: string, skill: string) => ApiRead<SkillSearchRow[]>;
   offerLists: Record<string, ApiRead<OfferView[]>>; // viewer
   offers: Record<string, ApiRead<OfferView>>; // `${viewer}:${offerId}`
+  /** The user id each persona client is actually logged in as (null = could not be read). */
+  identities: Record<DemoViewer, string | null>;
 }
 
 const UNREAD = { status: 0, data: null };
@@ -782,6 +796,7 @@ function liveWorld(): LiveWorld {
       [`maria:${id('offer.sophia-meal-prep')}`]: { status: 200, data: { id: id('offer.sophia-meal-prep') } },
       [`unrelated:${id('offer.rides-airport')}`]: { status: 200, data: { id: id('offer.rides-airport') } },
     },
+    identities: { maria: id(MARIA), provider: id(NOAH), unrelated: id(OUTSIDER) },
   };
 }
 
@@ -796,6 +811,7 @@ function depsFor(world: LiveWorld, searches: string[] = []): DemoVerificationDep
     getProviderContext: async () => ({ bond_depth: 1, provider_rating: 4.5 }),
     getProviderStoryValid: async () => true,
     getStoryIds: async () => ({ ordinaryRequestId: ORD_REQ, ordinaryMatchId: MATCH, providerRequestId: PROV_REQ, providerOfferId: PROV_OFFER }),
+    getViewerUserId: async viewer => world.identities[viewer],
     getMemberSkills: async (viewer, userId) => world.memberSkills[`${viewer}:${userId}`] ?? UNREAD,
     getSkillDirectory: async (viewer, communityId) => world.directories[`${viewer}:${communityId}`] ?? UNREAD,
     searchCommunitySkills: async (viewer, communityId, skill) => {
@@ -851,6 +867,40 @@ describe('Sprint 133 PR D: verifier skillsVisible and offerBoundary', () => {
     expect(report.checks.offerBoundary).toBe(true);
     expect(report.ready).toBe(false);
     expect(report.storyIds).toBeUndefined();
+  });
+
+  describe('persona identity guard (CR2): a wrong env account must not pass or fail vacuously', () => {
+    it.each<[DemoViewer, string, string[]]>([
+      ['maria', 'personas.maria-identity', ['skillsVisible', 'offerBoundary']],
+      ['provider', 'personas.provider-identity', ['skillsVisible']],
+      ['unrelated', 'personas.unrelated-identity', ['offerBoundary']],
+    ])('a wrong %s account fails closed with %s', async (viewer, failedRead, failedChecks) => {
+      const world = liveWorld();
+      world.identities[viewer] = id('person.ambient-01');
+      const report = await verifyCuratedDemo(depsFor(world));
+      expect(report.failedReads).toEqual([failedRead]);
+      for (const check of ['skillsVisible', 'offerBoundary'] as const) {
+        expect(report.checks[check]).toBe(!failedChecks.includes(check));
+      }
+      expect(report.ready).toBe(false);
+      expect(report.storyIds).toBeUndefined();
+    });
+
+    it('an unreadable identity (null) fails closed the same way', async () => {
+      const world = liveWorld();
+      world.identities.provider = null;
+      const report = await verifyCuratedDemo(depsFor(world));
+      expect(report.failedReads).toEqual(['personas.provider-identity']);
+      expect(report.ready).toBe(false);
+    });
+
+    it('the healthy world has every persona on its manifest identity and passes', async () => {
+      const world = liveWorld();
+      expect(world.identities).toEqual({ maria: id(MARIA), provider: id(NOAH), unrelated: id(OUTSIDER) });
+      const report = await verifyCuratedDemo(depsFor(world));
+      expect(report.failedReads).toEqual([]);
+      expect(report.ready).toBe(true);
+    });
   });
 
   it.each<[string, Perturb, string]>([

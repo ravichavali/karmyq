@@ -9,7 +9,7 @@ import { CURATED_DEMO_MANIFEST } from '../../src/fixtures/curatedDemo/manifest';
 // Sprint 133 PR D: the five skills/offer deps, answering a healthy demo so these Sprint 117 cases still
 // isolate the check under test. Their failure modes are covered in tests/tdd/sprint-133.
 function healthySkillsAndOffers(): Pick<DemoVerificationDeps,
-  'getMemberSkills' | 'getSkillDirectory' | 'searchCommunitySkills' | 'listOffers' | 'getOffer'> {
+  'getViewerUserId' | 'getMemberSkills' | 'getSkillDirectory' | 'searchCommunitySkills' | 'listOffers' | 'getOffer'> {
   const baseline = compileManifest(CURATED_DEMO_MANIFEST, new Date());
   const id = semanticUuid;
   const keys = (person: string) => new Set(baseline.skills.filter(s => s.userId === id(person)).map(keyOf));
@@ -17,7 +17,9 @@ function healthySkillsAndOffers(): Pick<DemoVerificationDeps,
   const directory = Object.entries(expectedSkillDirectory(baseline, 'community.providers', 'person.provider'))
     .map(([skill_key, member_count]) => ({ skill_key, label: skill_key, member_count }));
   const ridesOffer = id('offer.rides-airport');
+  const persona = { maria: 'person.maria', provider: 'person.provider', unrelated: 'person.outsider' } as const;
   return {
+    getViewerUserId: async viewer => id(persona[viewer]),
     getMemberSkills: async (viewer, userId) => {
       if (viewer === 'provider') return { status: 404, data: null };
       const count = userId === id('person.maria') ? 2 : 1;

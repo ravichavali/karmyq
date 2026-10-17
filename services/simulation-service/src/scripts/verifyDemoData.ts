@@ -131,13 +131,19 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
   await helper.login(env.helperEmail, env.password);
 
   const unrelated = new ApiClient(env.baseUrl);
-  await unrelated.login(env.unrelatedEmail, env.password);
+  const unrelatedAuth = await unrelated.login(env.unrelatedEmail, env.password);
 
   // Noah (the provider persona) proves the skills opt-out from a viewer who shares a community with
   // the opted-out member; the existing provider env, no new persona or variable.
   const provider = new ApiClient(env.baseUrl);
-  await provider.login(env.providerEmail, env.password);
+  const providerAuth = await provider.login(env.providerEmail, env.password);
   const clients: Record<DemoViewer, ApiClient> = { maria, provider, unrelated };
+  // The user id each persona's login response reported, for the verifier's identity guard.
+  const loggedInAs: Record<DemoViewer, string | null> = {
+    maria: mariaId ?? null,
+    provider: providerAuth.user?.id ?? null,
+    unrelated: unrelatedAuth.user?.id ?? null,
+  };
 
   const context = await maria
     .getMatchRelationshipContext(env.storyIds.ordinaryRequestId, env.storyIds.ordinaryMatchId)
@@ -214,6 +220,7 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
     async getStoryIds() {
       return env.storyIds;
     },
+    getViewerUserId: async viewer => loggedInAs[viewer],
     getMemberSkills: (viewer, userId) => readOf(() => clients[viewer].getMemberSkills(userId)),
     getSkillDirectory: (viewer, communityId) => readOf(() => clients[viewer].getSkillDirectory(communityId)),
     searchCommunitySkills: (viewer, communityId, skill) =>

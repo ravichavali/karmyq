@@ -90,6 +90,11 @@ export interface DemoVerificationDeps {
   /** True only if the configured provider offer exists, is live/pending, and belongs to the provider. */
   getProviderStoryValid(): Promise<boolean>;
   getStoryIds(): Promise<VerifiedStoryIds>;
+  /**
+   * The user id the viewer's client is actually logged in as (null when it cannot be read). The
+   * verifier compares it with the manifest persona so a wrong env account fails closed.
+   */
+  getViewerUserId(viewer: DemoViewer): Promise<string | null>;
   /** GET /auth/skills/users/:userId as the viewer. */
   getMemberSkills(viewer: DemoViewer, userId: string): Promise<ApiRead<MemberSkillView[]>>;
   /** GET /auth/skills/communities/:communityId as the viewer. */
@@ -116,7 +121,7 @@ export interface DemoVerificationReport {
     skillsVisible: boolean;
     offerBoundary: boolean;
   };
-  /** Ids of the skills/offer sub-reads that failed (empty when both checks hold). */
+  /** Ids of the persona-identity, skills and offer sub-reads that failed (empty when all hold). */
   failedReads: string[];
   forbiddenKeyPaths: string[];
   runwayDays: number;
@@ -130,6 +135,12 @@ const PERSON = {
   noah: 'person.provider',
   optOut: 'person.ambient-09',
 } as const;
+/** The manifest persona each env account must be logged in as (identity guard). */
+const VIEWER_PERSONA: Record<DemoViewer, string> = {
+  maria: 'person.maria',
+  provider: 'person.provider',
+  unrelated: 'person.outsider',
+};
 const COMMUNITY = { pma: 'community.portland-mutual-aid', providers: 'community.providers' } as const;
 
 /** Run a read; a thrown error (deps should not throw) fails closed as a transport error. */
@@ -143,6 +154,25 @@ async function safeRead<T>(read: () => Promise<ApiRead<T>>): Promise<ApiRead<T>>
 
 function ok<T>(read: ApiRead<T>): read is ApiRead<T> & { data: T } {
   return read.status === 200 && read.data !== null && read.data !== undefined;
+}
+
+/**
+ * Fail-closed identity guard: the account each persona client is logged in as must be the manifest
+ * persona. Without it a wrong env account (e.g. a provider sharing no community with ambient-09)
+ * passes the opt-out and boundary checks vacuously or fails them for the wrong reason.
+ */
+async function checkPersonaIdentity(deps: DemoVerificationDeps): Promise<Set<DemoViewer>> {
+  const wrong = new Set<DemoViewer>();
+  for (const viewer of Object.keys(VIEWER_PERSONA) as DemoViewer[]) {
+    let actual: string | null = null;
+    try {
+      actual = await deps.getViewerUserId(viewer);
+    } catch {
+      actual = null;
+    }
+    if (actual !== semanticUuid(VIEWER_PERSONA[viewer])) wrong.add(viewer);
+  }
+  return wrong;
 }
 
 /**
@@ -243,6 +273,9 @@ export async function verifyCuratedDemo(deps: DemoVerificationDeps): Promise<Dem
   const ordinaryPrivacy = findForbiddenKeys(ordinaryContext).length === 0;
   const providerPrivacy = findForbiddenKeys(providerContext).length === 0;
   const providerStory = await deps.getProviderStoryValid();
+  const wrongPersonas = await checkPersonaIdentity(deps);
+  const identityFailures = (['maria', 'provider', 'unrelated'] as const)
+    .filter(v => wrongPersonas.has(v)).map(v => `personas.${v}-identity`);
   const skillFailures = await checkSkillsVisible(deps, compileManifest(CURATED_DEMO_MANIFEST, new Date()));
   const offerFailures = await checkOfferBoundary(deps);
 
@@ -253,13 +286,13 @@ export async function verifyCuratedDemo(deps: DemoVerificationDeps): Promise<Dem
   const checks = {
     mariaMemberOnly, richFloor, reciprocalTopology, unrelatedDenied,
     runway, ordinaryPrivacy, providerPrivacy, providerStory,
-    skillsVisible: skillFailures.length === 0,
-    offerBoundary: offerFailures.length === 0,
+    skillsVisible: skillFailures.length === 0 && !wrongPersonas.has('maria') && !wrongPersonas.has('provider'),
+    offerBoundary: offerFailures.length === 0 && !wrongPersonas.has('maria') && !wrongPersonas.has('unrelated'),
   };
   const ready = Object.values(checks).every(Boolean);
 
   const report: DemoVerificationReport = {
-    ready, checks, failedReads: [...skillFailures, ...offerFailures], forbiddenKeyPaths, runwayDays,
+    ready, checks, failedReads: [...identityFailures, ...skillFailures, ...offerFailures], forbiddenKeyPaths, runwayDays,
   };
   if (ready) {
     report.storyIds = await deps.getStoryIds();

@@ -594,6 +594,9 @@ function validateSkillsLayer(
     }
     if (optedOut.has(endorsee)) fail(`Refusing manifest: ${e.key} endorsee ${endorsee} has opted out of sharing skills`);
     const createdMs = durationMs(e.createdAge);
+    if (createdMs >= durationMs(SKILL_CREATED_AGE)) {
+      fail(`Refusing manifest: ${e.key} is created before its skill ${e.skill} (skill tags are created ${SKILL_CREATED_AGE} before the anchor)`);
+    }
     if (createdMs >= durationMs(exchange.completedAge)) {
       fail(`Refusing manifest: ${e.key} is created before its exchange ${e.exchange} completed`);
     }
@@ -617,7 +620,14 @@ function validateSkillsLayer(
     const shares = it.sharedWith ?? [];
     shares.forEach(c => requireCommunity(c, communityKeys));
     if (personKeys.has(it.owner)) {
-      if (it.createdBy !== undefined) requirePerson(it.createdBy, personKeys);
+      if (it.createdBy !== undefined) {
+        requirePerson(it.createdBy, personKeys);
+        // The live inventory API records the caller as created_by (inventoryDb.ts), and a personal
+        // item can only be created by its owner.
+        if (it.createdBy !== it.owner) {
+          fail(`Refusing manifest: ${it.key} createdBy ${it.createdBy} must equal its owner ${it.owner}`);
+        }
+      }
       shares.forEach(c => {
         if (!isActive(it.owner, c)) fail(`Refusing manifest: ${it.key} is shared to ${c} but ${it.owner} is not an active member`);
       });
