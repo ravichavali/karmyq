@@ -5,7 +5,7 @@ describe('buildRequestsQuery', () => {
     const { queryText, params } = buildRequestsQuery({});
     expect(queryText).toContain('FROM requests.help_requests');
     expect(queryText).toContain('r.expired = FALSE');
-    expect(params).toHaveLength(2); // limit + offset
+    expect(params).toHaveLength(3); // viewer (always bound, BUG-065) + limit + offset
   });
 
   it('adds status filter when provided', () => {

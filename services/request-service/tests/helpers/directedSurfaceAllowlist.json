@@ -331,8 +331,8 @@
   },
   {
     "file": "services/request-service/src/db/eligibility.ts",
-    "hash": "d2fe2bd53b9ecb665a299a509c715a2131d6f4387a29144e3a0ff53dfca77a09",
-    "reason": "Eligibility reads an audience boolean before exposing lifecycle metadata; non-audience directed requests return the same not-found object as absent IDs. New offers use current recipients, not historical match participants.",
+    "hash": "e47a1e2627ef70d9b60822a019a98a451c3fc4ab1178fcae23025cb02a438cda",
+    "reason": "Eligibility reads an audience boolean before exposing lifecycle metadata; non-audience directed requests return the same not-found object as absent IDs. New offers use current recipients, not historical match participants. Re-pinned in Sprint 133 PR V (BUG-065): the member and sister EXISTS bodies moved verbatim into shared helpers that GET /requests also uses; the selected columns and the WHERE are unchanged.",
     "label": "AS in_directed_audience"
   },
   {

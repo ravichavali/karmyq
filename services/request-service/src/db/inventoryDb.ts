@@ -63,7 +63,13 @@ export async function isActiveAdmin(communityId: string, userId: string): Promis
   );
   return result.rows.length > 0;
 }
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Live membership, never the JWT claim. A malformed id is simply not a community the caller belongs to:
+// answering false (not a Postgres 22P02 → 500) keeps every gate's 403 identical for bad and foreign ids.
+// Argument order is (communityId, userId); providerReachService.isActiveMember takes (userId, communityId).
 export async function isActiveMember(communityId: string, userId: string): Promise<boolean> {
+  if (typeof communityId !== 'string' || !UUID_RE.test(communityId)) return false;
   const result = await query(
     `SELECT 1 FROM communities.members WHERE community_id = $1 AND user_id = $2
     AND status = 'active'`,

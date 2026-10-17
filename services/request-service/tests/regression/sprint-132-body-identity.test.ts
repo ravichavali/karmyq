@@ -51,8 +51,10 @@ beforeEach(() => {
     const s = String(sql);
     if (/SELECT requester_id FROM requests\.help_requests/.test(s))
       return { rows: [{ requester_id: OWNER }], rowCount: 1 };
-    if (/SELECT offerer_id FROM requests\.help_offers/.test(s))
-      return { rows: [{ offerer_id: OWNER }], rowCount: 1 };
+    // The offer exists and belongs to OWNER. Owner writes look it up `WHERE id = $1 AND offerer_id = $2`
+    // (BUG-064), so the row comes back only when the bound offerer is OWNER.
+    if (/FROM requests\.help_offers WHERE id = \$1 AND offerer_id = \$2/.test(s))
+      return params[1] === OWNER ? { rows: [{ id: ID, status: 'active' }], rowCount: 1 } : { rows: [], rowCount: 0 };
     if (/FROM communities\.members/.test(s))
       return params[1] === OWNER ? { rows: [{ id: 'm1' }], rowCount: 1 } : { rows: [], rowCount: 0 };
     if (/offer_ttl_days/.test(s)) return { rows: [], rowCount: 0 };
@@ -91,9 +93,10 @@ describe('BUG-061: offer routes act only as the JWT caller', () => {
     expect(writes()[0][1][1]).toBe(OWNER);
   });
 
+  // Rejected as 404, not 403, since BUG-064: a foreign offer answers exactly like a missing one.
   it('PUT rejects a non-offerer naming the offerer in the body', async () => {
     const res = await request(await buildApp(ATTACKER)).put(`/offers/${ID}`).send({ title: 'Hijacked', user_id: OWNER });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
     expect(writes()).toHaveLength(0);
   });
 
@@ -104,7 +107,7 @@ describe('BUG-061: offer routes act only as the JWT caller', () => {
 
   it('DELETE rejects a non-offerer naming the offerer in the body', async () => {
     const res = await request(await buildApp(ATTACKER)).delete(`/offers/${ID}`).send({ user_id: OWNER });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
     expect(writes()).toHaveLength(0);
   });
 

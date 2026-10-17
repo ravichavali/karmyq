@@ -788,8 +788,8 @@
       "slug": "adr-101-per-consumer-event-queues",
       "number": "101",
       "title": "ADR-101: Per-Consumer Event Queues",
-      "status": "accepted",
-      "description": "**Status**: Accepted (Sprint 133 PR Q; flips to Implemented after deploy)",
+      "status": "implemented",
+      "description": "**Status**: Implemented (Sprint 133 PR Q v11.88.0 `36a9972f`, deployed 2026-10-16, CI/CD 38948723833)",
       "filename": "ADR-101-per-consumer-event-queues.md"
     }
   ]

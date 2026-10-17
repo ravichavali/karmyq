@@ -75,6 +75,27 @@ human-readable labels rather than raw database values.
 
 ---
 
+## Who can see your request
+
+The audience you pick when you post decides who can find and open your request:
+
+- **Community** — members of the community you posted to, plus members of any sister community it
+  has chosen to share its feed with.
+- **Trust network** and **Platform** — anyone signed in to Karmyq.
+
+People already involved with your request can always open it, wherever they are: anyone who has
+offered to help (even after their exchange is finished, or after they leave the community) and a
+provider you picked for it.
+
+A **borrow ask** for a particular item is private to you and that item's owner (or the community
+admins, for a community-owned item). It never appears when anyone browses.
+
+Membership is checked live. When someone leaves your community, they stop seeing its requests at
+once, even if they're still signed in. Anyone outside the audience who tries to open your request
+gets the same "not found" page as for a request that doesn't exist.
+
+---
+
 ## Tips
 
 - Post earlier than you think you need to

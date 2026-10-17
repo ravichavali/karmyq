@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { query, withTransaction } from '../database/db';
 import { getRequestReachability } from '../db/eligibility';
+import { findOwnOffer } from '../db/helpOffersDb';
 import { matchParticipantSql } from '../db/directedAudience';
 import { publishEvent } from '../events/publisher';
 import {
@@ -199,12 +200,10 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    // Verify offer exists and is active (if provided), and belongs to the responder.
+    // Verify the offer is the responder's own (if provided) and active. A foreign offer answers
+    // exactly like a missing one (BUG-064), so only its owner ever reaches the status check.
     if (offer_id) {
-      const offerCheck = await query(
-        `SELECT id, status, offerer_id FROM requests.help_offers WHERE id = $1`,
-        [offer_id]
-      );
+      const offerCheck = await findOwnOffer(offer_id, responder_id);
 
       if (offerCheck.rowCount === 0) {
         return res.status(404).json({
@@ -217,14 +216,6 @@ router.post('/', async (req: Request, res: Response) => {
         return res.status(400).json({
           success: false,
           message: 'Offer is not active',
-        });
-      }
-
-      // The linked offer must belong to the responder (the JWT identity).
-      if (offerCheck.rows[0].offerer_id !== responder_id) {
-        return res.status(403).json({
-          success: false,
-          message: 'Offer must belong to the responder',
         });
       }
     }

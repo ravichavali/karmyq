@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { RouteParams } from '@karmyq/shared/middleware/auth';
 import { query } from '../database/db';
+import { isActiveMember } from '../db/inventoryDb';
 import { BasicFeedRanker } from '../services/feed/basicFeedRanker';
 import { SocialKarmaFeedComposer } from '../services/feed/socialKarmaFeedComposer';
 
@@ -168,6 +169,10 @@ router.get('/community-health', async (req: AuthenticatedRequest, res: Response)
     const communityId = req.query.community_id as string;
     if (!communityId) {
       return res.status(400).json({ success: false, error: 'community_id required' });
+    }
+    // BUG-065: a community's health metrics are for its live members (communities.members), like its pulse.
+    if (!(await isActiveMember(communityId, userId))) {
+      return res.status(403).json({ success: false, message: 'You must be a member of this community to view its health', error: 'NOT_A_MEMBER' });
     }
 
     const healthSummary = await socialKarmaComposer.getCommunityHealthSummary(communityId);

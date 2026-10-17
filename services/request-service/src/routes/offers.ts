@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
+import { findOwnOffer } from '../db/helpOffersDb';
 import {
   sendSuccess,
   sendNotFound,
@@ -12,10 +13,19 @@ import {
 
 const router = Router();
 
+// BUG-064: a standing offer is readable by its offerer and by live members of its community, nothing
+// else (`is_public` is not consulted). Out-of-boundary offers answer exactly like a missing id.
+function offerReadableSql(alias: string, viewerParam: string): string {
+  return `(${alias}.offerer_id = ${viewerParam} OR EXISTS (
+          SELECT 1 FROM communities.members cm
+          WHERE cm.community_id = ${alias}.community_id AND cm.user_id = ${viewerParam} AND cm.status = 'active'))`;
+}
+
 // GET /offers - Get all offers
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { community_id, status = 'active', type, limit = 50, offset = 0 } = req.query;
+    const viewerId = (req as any).user?.userId ?? null;
 
     let queryText = `
       SELECT
@@ -27,10 +37,12 @@ router.get('/', async (req: Request, res: Response) => {
       LEFT JOIN auth.users u ON o.offerer_id = u.id
       LEFT JOIN communities.communities c ON o.community_id = c.id
       WHERE o.status = $1
+        AND ${offerReadableSql('o', '$2')}
     `;
 
-    const params: any[] = [status];
-    let paramCount = 2;
+    // A community_id filter narrows within the boundary; it never widens it.
+    const params: any[] = [status, viewerId];
+    let paramCount = 3;
 
     if (community_id) {
       queryText += ` AND o.community_id = $${paramCount}`;
@@ -64,6 +76,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const viewerId = (req as any).user?.userId ?? null;
 
     const result = await query(
       `SELECT
@@ -74,8 +87,8 @@ router.get('/:id', async (req: Request, res: Response) => {
       FROM requests.help_offers o
       LEFT JOIN auth.users u ON o.offerer_id = u.id
       LEFT JOIN communities.communities c ON o.community_id = c.id
-      WHERE o.id = $1`,
-      [id]
+      WHERE o.id = $1 AND ${offerReadableSql('o', '$2')}`,
+      [id, viewerId]
     );
 
     if (result.rowCount === 0) {
@@ -174,23 +187,11 @@ router.put('/:id', async (req: Request, res: Response) => {
       return sendUnauthorized(res, 'Authentication required');
     }
 
-    // Check if user is the offerer
-    const offerCheck = await query(
-      `SELECT offerer_id FROM requests.help_offers WHERE id = $1`,
-      [id]
-    );
-
+    const offerCheck = await findOwnOffer(id, user_id);
     if (offerCheck.rowCount === 0) {
       return res.status(404).json({
         success: false,
         message: 'Offer not found',
-      });
-    }
-
-    if (offerCheck.rows[0].offerer_id !== user_id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only the offerer can update this offer',
       });
     }
 
@@ -248,23 +249,11 @@ router.delete('/:id', async (req: Request, res: Response) => {
       return sendUnauthorized(res, 'Authentication required');
     }
 
-    // Check if user is the offerer
-    const offerCheck = await query(
-      `SELECT offerer_id FROM requests.help_offers WHERE id = $1`,
-      [id]
-    );
-
+    const offerCheck = await findOwnOffer(id, user_id);
     if (offerCheck.rowCount === 0) {
       return res.status(404).json({
         success: false,
         message: 'Offer not found',
-      });
-    }
-
-    if (offerCheck.rows[0].offerer_id !== user_id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only the offerer can withdraw this offer',
       });
     }
 
@@ -313,23 +302,11 @@ router.put('/:id/privacy', async (req: Request, res: Response) => {
       });
     }
 
-    // Check if user is the offerer
-    const offerCheck = await query(
-      `SELECT offerer_id FROM requests.help_offers WHERE id = $1`,
-      [id]
-    );
-
+    const offerCheck = await findOwnOffer(id, user_id);
     if (offerCheck.rowCount === 0) {
       return res.status(404).json({
         success: false,
         message: 'Offer not found',
-      });
-    }
-
-    if (offerCheck.rows[0].offerer_id !== user_id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only the offerer can update privacy settings',
       });
     }
 

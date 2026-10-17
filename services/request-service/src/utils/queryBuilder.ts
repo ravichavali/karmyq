@@ -1,4 +1,5 @@
 import { notDirectedSql, directedAudienceSql } from '../db/directedAudience';
+import { requestReadableSql } from '../db/eligibility';
 export interface RequestsQueryFilters {
   community_id?: string;
   status?: string;
@@ -35,11 +36,37 @@ export function buildRequestsQuery(filters: RequestsQueryFilters): RequestsQuery
   } = filters;
 
   const includeAdminNotes = include_admin_notes === 'true' && !!community_id;
-  // The requester filter occupies this bound parameter; only a JWT-equal requester
-  // selects a private list. All other uses remain browse, including spoofed filters.
-  const requesterParam = (includeAdminNotes ? 1 : 0) + (status ? 1 : 0) + (community_id && !includeAdminNotes ? 1 : 0) + 1;
+  // Each value is bound once, in order; `bind` returns its `$n`, so no position is ever counted by hand.
+  const params: any[] = [];
+  const bind = (value: unknown) => { params.push(value); return `$${params.length}`; };
 
-  let queryText = `
+  // When include_admin_notes is active, community_id is bound once as $1 for the JOIN and the WHERE
+  // filter reuses it. If community_id is absent, includeAdminNotes is always false (see above).
+  const adminNotesParam = includeAdminNotes ? bind(community_id) : null;
+  const conditions: string[] = [];
+  if (status) conditions.push(`r.status = ${bind(status)}`);
+  if (community_id) conditions.push(`rc.community_id = ${adminNotesParam ?? bind(community_id)}`);
+  // Only a JWT-equal requester selects the private list. All other uses remain browse, including
+  // spoofed filters, and browse is gated by the read boundary below (BUG-065).
+  const requesterParam = requester_id ? bind(requester_id) : null;
+  if (requesterParam) conditions.push(`r.requester_id = ${requesterParam}`);
+  if (type) conditions.push(`r.category = ${bind(type)}`);
+  // Always bound: with no viewer the boundary still admits trust_network/platform asks, as GET /requests/:id does.
+  const viewerParam = bind(viewer_id ?? null);
+  const isPrivate = !!requester_id && requester_id === viewer_id;
+  if (!isPrivate) conditions.push(requestReadableSql('r', viewerParam));
+  if (viewer_id) {
+    // BUG-002: exclude requests the viewer already has a live offer/match on.
+    conditions.push(`NOT EXISTS (
+        SELECT 1 FROM requests.matches m_self
+        WHERE m_self.request_id = r.id
+          AND m_self.responder_id = ${viewerParam}
+          AND m_self.status IN ('proposed', 'matched')
+      )`);
+  }
+
+  const groupByExtra = includeAdminNotes ? ', ran.note' : '';
+  const queryText = `
       SELECT DISTINCT
         r.id, r.requester_id, r.title, r.description,
         r.category, r.urgency, r.status, r.created_at, r.updated_at,
@@ -52,71 +79,14 @@ export function buildRequestsQuery(filters: RequestsQueryFilters): RequestsQuery
       FROM requests.help_requests r
       LEFT JOIN auth.users u ON r.requester_id = u.id
       LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
-      LEFT JOIN communities.communities c ON rc.community_id = c.id${includeAdminNotes ? '\n      LEFT JOIN requests.request_admin_notes ran ON ran.request_id = r.id AND ran.community_id = $1::uuid' : ''}
+      LEFT JOIN communities.communities c ON rc.community_id = c.id${includeAdminNotes ? `
+      LEFT JOIN requests.request_admin_notes ran ON ran.request_id = r.id AND ran.community_id = ${adminNotesParam}::uuid` : ''}
       WHERE r.expired = FALSE
-        AND ${requester_id && requester_id === viewer_id ? directedAudienceSql('r', `$${requesterParam}`) : notDirectedSql('r')}
-    `;
-
-  // When include_admin_notes is active, community_id is bound as $1 in the JOIN clause above.
-  // We push it once here so the WHERE filter can reference the same $1 param — eliminating
-  // a duplicate push. If community_id is absent, includeAdminNotes is always false (see above),
-  // so this branch is only entered when community_id is defined.
-  const params: any[] = [];
-  let paramCount = 1;
-
-  if (includeAdminNotes) {
-    // community_id occupies $1 for the JOIN; the WHERE filter below will reuse $1.
-    params.push(community_id);
-    paramCount++;
-  }
-
-  if (status) {
-    queryText += ` AND r.status = $${paramCount}`;
-    params.push(status);
-    paramCount++;
-  }
-
-  if (community_id) {
-    if (includeAdminNotes) {
-      // $1 is already bound to community_id for the JOIN above — reuse it for the WHERE filter.
-      queryText += ` AND rc.community_id = $1`;
-    } else {
-      queryText += ` AND rc.community_id = $${paramCount}`;
-      params.push(community_id);
-      paramCount++;
-    }
-  }
-
-  if (requester_id) {
-    queryText += ` AND r.requester_id = $${paramCount}`;
-    params.push(requester_id);
-    paramCount++;
-  }
-
-  if (type) {
-    queryText += ` AND r.category = $${paramCount}`;
-    params.push(type);
-    paramCount++;
-  }
-
-  if (viewer_id) {
-    // BUG-002: exclude requests the viewer already has a live offer/match on.
-    queryText += ` AND NOT EXISTS (
-        SELECT 1 FROM requests.matches m_self
-        WHERE m_self.request_id = r.id
-          AND m_self.responder_id = $${paramCount}
-          AND m_self.status IN ('proposed', 'matched')
-      )`;
-    params.push(viewer_id);
-    paramCount++;
-  }
-
-  const groupByExtra = includeAdminNotes ? ', ran.note' : '';
-  queryText += `
+        AND ${isPrivate ? directedAudienceSql('r', requesterParam!) : notDirectedSql('r')}
+        AND (${conditions.join('\n        AND ') || 'TRUE'})
       GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.scheduled_for, u.name${groupByExtra}
       ORDER BY r.created_at DESC
-      LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
-  params.push(limit, offset);
+      LIMIT ${bind(limit)} OFFSET ${bind(offset)}`;
 
   return { queryText, params };
 }

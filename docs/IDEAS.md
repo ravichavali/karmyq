@@ -850,6 +850,10 @@ exception for that query. Small; fits any request/notification PR.
   are empty, remove the legacy registrations in notification, reputation and social-graph (including the Sprint 132
   `match_completed` ones), drop the gate's `LEGACY_SUBSCRIBERS` allowance, and retire the live half of
   `tests/integration/sprint-133-bug-060-shared-queue.integration.test.ts`.
+  **Also retire BUG-068 in the same PR** (maintainer, 2026-10-16): the dead request-service `POST /matches/:matchId/feedback`
+  route, the `interaction_feedback_submitted` event (publisher, route-table entry, reputation handler), the simulation
+  call (`api-client.ts:461`) and the health endpoint's reads of the `trust_scores` averages. Due **2026-10-29**. Decide in
+  that plan whether `requests.interaction_feedback` and the average columns are dropped (migration) or left.
 - **`karma_awarded` has a handler and a route but no publisher.** notification-service handles it (with milestone
   notifications) and ADR-101 routes it, but no service publishes it. Either publish it from the standing projector or
   delete the handler and route.

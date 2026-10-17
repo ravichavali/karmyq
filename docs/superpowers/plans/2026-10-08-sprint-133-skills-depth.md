@@ -606,6 +606,11 @@ for p in services/auth-service services/social-graph-service services/simulation
 
 # PR D — Curated demo seed: skills, items, endorsements
 
+> **Superseded 2026-10-16** by the detailed plan
+> [`2026-10-16-sprint-133-pr-d-demo-seed.md`](2026-10-16-sprint-133-pr-d-demo-seed.md) (maintainer decisions: full
+> curated reset, story-core skills + one opt-out, story-shaped vouches, personal + Tool Library items). PR D now runs
+> **after PR V**. The sketch below is kept as history.
+
 Branch: `agent/claude/sprint-133-pr-d-demo-seed`, cut from `origin/master` **after PR B deploys**.
 `/code-review` at **medium**.
 
