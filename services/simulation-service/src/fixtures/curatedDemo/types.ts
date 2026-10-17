@@ -63,6 +63,12 @@ export interface FixturePerson {
   email: string;
   classification: FixtureClassification;
   bio?: string;
+  /**
+   * `false` opts the person out of sharing skills with their communities
+   * (`auth.user_privacy_settings.share_skills_with_communities = false`). Omitted means the
+   * live default (shared), which writes no privacy row, as for a real new user.
+   */
+  shareSkills?: false;
 }
 
 export interface FixtureCommunity {
@@ -146,6 +152,53 @@ export interface ActivityFixture {
   createdAge: FixtureAge;
 }
 
+/** A skill tag (`auth.user_tags`, `tag_type = 'skill'`) held by one person. */
+export interface SkillFixture {
+  key: SemanticKey;
+  owner: SemanticKey;
+  /** The stored `tag_value`; for a slugged skill it is the vocabulary label. */
+  value: string;
+  /** A `auth.skill_vocabulary` slug, or omitted for a deliberate free-text tag. */
+  slug?: string;
+}
+
+/** A vouch for one of a person's skills, anchored on a completed exchange between the pair. */
+export interface EndorsementFixture {
+  key: SemanticKey;
+  endorser: SemanticKey;
+  /** A {@link SkillFixture} key; the endorsee is that skill's owner. */
+  skill: SemanticKey;
+  exchange: SemanticKey;
+  createdAge: FixtureAge;
+  withdrawnAge?: FixtureAge;
+}
+
+/** An `inventory.items` row, owned by a person or by a community. */
+export interface ItemFixture {
+  key: SemanticKey;
+  /** A person key (personal item) or a community key (community-owned item). */
+  owner: SemanticKey;
+  name: string;
+  description?: string;
+  category: string;
+  condition?: string;
+  status?: string;
+  /** Communities a personal item is shared to; a community-owned item has none. */
+  sharedWith?: SemanticKey[];
+  createdBy?: SemanticKey;
+}
+
+/** A standing offer (`requests.help_offers`). */
+export interface OfferFixture {
+  key: SemanticKey;
+  offerer: SemanticKey;
+  community: SemanticKey;
+  title: string;
+  description: string;
+  category: string;
+  createdAge: FixtureAge;
+}
+
 /** A named outward-behaviour expectation the verifier asserts through ordinary APIs. */
 export interface FixtureExpectation {
   key: string;
@@ -161,7 +214,9 @@ export interface FixtureExpectation {
     | 'pulse'
     | 'retention'
     | 'governance'
-    | 'activity';
+    | 'activity'
+    | 'skills'
+    | 'offer-boundary';
   subjects: SemanticKey[];
   value?: number;
 }
@@ -185,6 +240,10 @@ export interface DemoFixtureManifest {
   providers: ProviderFixture[];
   governance: GovernanceFixture[];
   activities: ActivityFixture[];
+  skills: SkillFixture[];
+  endorsements: EndorsementFixture[];
+  items: ItemFixture[];
+  offers: OfferFixture[];
   expectedBehaviors: FixtureExpectation[];
 }
 
@@ -291,6 +350,78 @@ export interface CompiledCompletedExchange {
   category: string;
 }
 
+export interface CompiledSkill {
+  id: string;
+  key: SemanticKey;
+  userId: string;
+  tagValue: string;
+  skillSlug: string | null;
+  createdAt: Date;
+}
+
+export interface CompiledSkillSetting {
+  userId: string;
+  shareSkillsWithCommunities: boolean;
+}
+
+export interface CompiledEndorsement {
+  id: string;
+  key: SemanticKey;
+  endorserId: string;
+  endorseeId: string;
+  userTagId: string;
+  matchId: string;
+  communityId: string;
+  createdAt: Date;
+  withdrawnAt: Date | null;
+  /** 1 for an active vouch, 2 for a withdrawn one (one change after creation). */
+  revision: number;
+  updatedAt?: Date;
+}
+
+export interface CompiledItem {
+  id: string;
+  key: SemanticKey;
+  ownerUserId: string | null;
+  ownerCommunityId: string | null;
+  name: string;
+  description: string | null;
+  category: string;
+  condition: string | null;
+  status: string;
+  createdBy: string | null;
+  createdAt: Date;
+}
+
+export interface CompiledItemShare {
+  itemId: string;
+  communityId: string;
+  sharedAt: Date;
+}
+
+export interface CompiledOffer {
+  id: string;
+  key: SemanticKey;
+  communityId: string;
+  offererId: string;
+  title: string;
+  description: string;
+  category: string;
+  status: 'active';
+  expired: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  expiresAt: Date;
+}
+
+/** Derived trust-edge endorsement count for one normalized pair in one community. */
+export interface CompiledEndorsementCount {
+  userIdA: string;
+  userIdB: string;
+  communityId: string;
+  count: number;
+}
+
 export interface CompiledDemoBaseline {
   anchor: Date;
   people: CompiledPerson[];
@@ -302,5 +433,12 @@ export interface CompiledDemoBaseline {
   activities: CompiledActivity[];
   /** Chronologically ordered completed exchanges for the fixture projection. */
   projectionEvents: CompiledCompletedExchange[];
+  skills: CompiledSkill[];
+  skillSettings: CompiledSkillSetting[];
+  endorsements: CompiledEndorsement[];
+  items: CompiledItem[];
+  itemShares: CompiledItemShare[];
+  offers: CompiledOffer[];
+  endorsementCounts: CompiledEndorsementCount[];
   expectedBehaviors: FixtureExpectation[];
 }

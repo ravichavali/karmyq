@@ -258,6 +258,14 @@ export function compileManifest(manifest: DemoFixtureManifest, anchor: Date): Co
     governance,
     activities,
     projectionEvents,
+    // D3: replace these placeholders with the validated, compiled skills layer.
+    skills: [],
+    skillSettings: [],
+    endorsements: [],
+    items: [],
+    itemShares: [],
+    offers: [],
+    endorsementCounts: [],
     expectedBehaviors: manifest.expectedBehaviors,
   };
 }
