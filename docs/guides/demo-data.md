@@ -227,8 +227,8 @@ because that file is injected into every service container and must never carry
 | `API_BASE_URL` | Where rotation drives the ordinary APIs |
 | `DEMO_MARIA_EMAIL` | The persona (falls back to `DEMO_PERSONA_EMAIL`) |
 | `DEMO_HELPER_EMAIL` | Offers help on the ordinary request — **must share a community with Maria** or rotation refuses |
-| `DEMO_PROVIDER_EMAIL` | Submits the provider offer |
-| `DEMO_UNRELATED_EMAIL` | Proves an out-of-audience viewer is denied — **must share ZERO communities with Maria** |
+| `DEMO_PROVIDER_EMAIL` | Submits the provider offer; must be Noah Williams (`noah.williams@test.karmyq.com`, `person.provider`), who is also the viewer for the skills opt-out checks |
+| `DEMO_UNRELATED_EMAIL` | Proves an out-of-audience viewer is denied — **must be Marcus Lee** (`marcus.lee@test.karmyq.com`, `person.outsider`, a PDX Rides Collective member) and **share ZERO communities with Maria** |
 | `DEMO_PERSONA_PASSWORD` | Shared simulation password |
 | `DEMO_ENV_FILE` | Absolute path to the compose env file the ids are published into |
 | `DEMO_ENABLE_CMD` / `DEMO_RESTART_AUTH_CMD` | `scripts/demo/enable-demo.sh` and `scripts/demo/restart-auth.sh`; both fail-closed if unset |

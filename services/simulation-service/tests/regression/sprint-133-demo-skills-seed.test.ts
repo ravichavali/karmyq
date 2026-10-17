@@ -953,3 +953,45 @@ describe('Sprint 133 PR D: ApiClient offer reads', () => {
     expect(get.mock.calls[1][0]).toBe('/offers/o-missing');
   });
 });
+
+describe('Sprint 133 PR D: ApiClient skills reads (CR9)', () => {
+  function fakeHttp(get: jest.Mock) {
+    return { defaults: { headers: { common: {} as Record<string, string> } }, get, post: jest.fn() };
+  }
+  const wrap = (data: unknown) => ({ data: { success: true, data } });
+
+  it('getMemberSkills reads GET /auth/skills/users/:id and unwraps response.data.data', async () => {
+    const skills = [{ tag_id: 't-1', label: 'Cooking', endorsement_count: 2 }];
+    const get = jest.fn().mockResolvedValue(wrap(skills));
+    mockedAxios.create.mockReturnValue(fakeHttp(get) as never);
+    await expect(new ApiClient('http://localhost/api').getMemberSkills('user-1')).resolves.toEqual(skills);
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(get.mock.calls[0][0]).toBe('/auth/skills/users/user-1');
+  });
+
+  it('getMemberSkills surfaces a hidden profile as a rejection carrying the 404 status', async () => {
+    const get = jest.fn().mockRejectedValue(Object.assign(new Error('Not found'), { response: { status: 404 } }));
+    mockedAxios.create.mockReturnValue(fakeHttp(get) as never);
+    await expect(new ApiClient('http://localhost/api').getMemberSkills('user-hidden')).rejects.toMatchObject({ response: { status: 404 } });
+  });
+
+  it('getSkillDirectory reads GET /auth/skills/communities/:id and unwraps response.data.data', async () => {
+    const directory = [{ skill_key: 'cooking', label: 'Cooking', member_count: 2 }];
+    const get = jest.fn().mockResolvedValue(wrap(directory));
+    mockedAxios.create.mockReturnValue(fakeHttp(get) as never);
+    await expect(new ApiClient('http://localhost/api').getSkillDirectory('c-1')).resolves.toEqual(directory);
+    expect(get.mock.calls[0]).toEqual(['/auth/skills/communities/c-1']);
+  });
+
+  it('searchCommunitySkills reads the search path with the term as a params entry (axios URL-encodes it) and unwraps', async () => {
+    const rows = [{ user_id: 'u-1', name: 'Amina' }];
+    const get = jest.fn().mockResolvedValue(wrap(rows));
+    mockedAxios.create.mockReturnValue(fakeHttp(get) as never);
+    const term = 'bike repair & more/é';
+    await expect(new ApiClient('http://localhost/api').searchCommunitySkills('c-1', term)).resolves.toEqual(rows);
+    expect(get.mock.calls[0][0]).toBe('/auth/skills/communities/c-1/search');
+    expect(get.mock.calls[0][1]).toEqual({ params: { skill: term } });
+    // The term must not be spliced into the path unencoded.
+    expect(get.mock.calls[0][0]).not.toContain(term);
+  });
+});

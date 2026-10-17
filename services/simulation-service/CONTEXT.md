@@ -386,8 +386,17 @@ stable across resets. Skill X for the opt-out proof is `bookkeeping`, held by Am
   directory is non-empty; as Noah, ambient-09's profile is 404, the bookkeeping search contains Amina and
   not ambient-09, and the providers directory map equals `expectedSkillDirectory`) and `offerBoundary`
   (Maria lists both Portland Mutual Aid offers and not the rides offer; the rides offer is 404 to her and
-  200 to Marcus Lee). `failedReads` ids: `skills.member-profile`, `skills.own-cooking-vouches`, `skills.community-directory`, `skills.opt-out-profile-hidden`, `skills.opt-out-search-control`, `skills.opt-out-search-absent`, `skills.directory-exact`, `offers.member-list`, `offers.member-read`, `offers.foreign-list-absent`, `offers.foreign-read-404`, `offers.non-vacuous-read`. New `ApiClient` methods:
-  `listOffers()`, `getOffer(id)`.
+  200 to Marcus Lee). `failedReads` ids: `personas.maria-identity`, `personas.provider-identity`, `personas.unrelated-identity`, `skills.member-profile`, `skills.own-cooking-vouches`, `skills.community-directory`, `skills.opt-out-profile-hidden`, `skills.opt-out-search-control`, `skills.opt-out-search-absent`, `skills.directory-exact`, `offers.member-list`, `offers.member-read`, `offers.foreign-list-absent`, `offers.foreign-read-404`, `offers.non-vacuous-read`. New `ApiClient` methods:
+  `listOffers()`, `getOffer(id)`, `getMemberSkills(userId)`, `getSkillDirectory(communityId)`,
+  `searchCommunitySkills(communityId, skill)` (the term goes in `params`, so axios URL-encodes it).
+- **Identity guard** (`getViewerUserId(viewer)` dep): each persona client's logged-in user id must equal
+  `semanticUuid('person.maria' | 'person.provider' | 'person.outsider')`. A mismatch (or unreadable id) adds
+  `personas.<viewer>-identity` to `failedReads`, fails the checks that persona feeds (Maria: both; provider:
+  `skillsVisible`; unrelated: `offerBoundary`) and makes `ready` false, so a wrong env account cannot pass
+  vacuously. `buildDeps` reads the ids from the login responses.
+- **Compiler rules (review CR3/CR4):** a personal item's `createdBy`, if set, must equal its owner (the live
+  inventory API records the caller as `created_by`); an endorsement's `createdAge` must be younger than its
+  skill tag's (P120D).
 - Applying this to the demo is a full curated reset and needs its own maintainer authorization.
 
 ## Sprint 131 PR B2 — declared imports (2026-09-17)
