@@ -200,7 +200,7 @@ Ride providers include `ride_details` (vehicle_type, max_passengers, advance_boo
 ## Recent Changes
 
 ### Sprint 133 PR D (2026-10-17) - curated skills layer
-Curated seed gains skills, a skills-sharing opt-out, endorsements, items and standing offers; counts are
+Curated seed gains (visible on the demo only after the next authorized curated reset) skills, a skills-sharing opt-out, endorsements, items and standing offers; counts are
 derived (`deriveEndorsementCounts`, `applyEndorsementCounts`) and proven against social-graph's reconcile
 in CI; the verifier gains `skillsVisible` and `offerBoundary`. See *Sprint 133 PR D* under Sprint 117.
 

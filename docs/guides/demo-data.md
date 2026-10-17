@@ -149,7 +149,7 @@ Because the platform models real time, demo content behaves like the real produc
 
 ### Skills, vouches, shared items and standing offers (Sprint 133)
 
-The baseline also carries the skills layer, so there is something real to try:
+After the next curated reset, the baseline also carries the skills layer, so there is something real to try:
 
 - **Co-member skills and vouches.** Signed in as Maria Reyes, open the profile of a co-member such as
   Sophia and you see her skills, with vouches where a neighbour has endorsed her after a completed
