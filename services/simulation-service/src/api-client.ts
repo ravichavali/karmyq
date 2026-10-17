@@ -82,6 +82,23 @@ export class ApiClient {
   }
 
   /**
+   * Request API - Offers visible to the authenticated viewer (GET /offers, boundary-filtered).
+   */
+  async listOffers(): Promise<any[]> {
+    const response = await executeWithRetry(() => this.client.get('/offers'));
+    return response.data.data.offers;
+  }
+
+  /**
+   * Request API - One offer (GET /offers/:id). A foreign or missing offer rejects with
+   * `response.status` 404; callers read the status off the error.
+   */
+  async getOffer(offerId: string): Promise<any> {
+    const response = await executeWithRetry(() => this.client.get(`/offers/${offerId}`));
+    return response.data.data;
+  }
+
+  /**
    * Request API - Create request
    */
   async createRequest(data: {

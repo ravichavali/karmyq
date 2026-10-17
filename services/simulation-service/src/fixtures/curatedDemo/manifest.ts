@@ -510,6 +510,8 @@ const CURATED_EXPECTATIONS: FixtureExpectation[] = [
   { key: 'retention.tool', description: 'Tool Library shows retention/forgotten transparency.', kind: 'retention', subjects: ['community.tool-library'] },
   { key: 'governance.pma', description: 'Portland Mutual Aid shows an open governance proposal.', kind: 'governance', subjects: ['community.portland-mutual-aid'] },
   { key: 'activity.pma', description: 'Portland Mutual Aid shows an upcoming activity.', kind: 'activity', subjects: ['community.portland-mutual-aid'] },
+  { key: 'skills.visible', description: 'Skills and vouches are visible to community members; the opted-out member is hidden from search and counts.', kind: 'skills', subjects: ['person.maria', 'person.shared-sophia', 'person.ambient-09', 'person.bridge', 'person.provider', 'community.portland-mutual-aid', 'community.providers'] },
+  { key: 'offers.boundary', description: 'A member reads their communities\' offers; a foreign community\'s offer is a 404 while a member of that community reads it.', kind: 'offer-boundary', subjects: ['person.maria', 'person.outsider', 'person.ambient-13', 'community.rides'] },
 ];
 
 export const CURATED_DEMO_MANIFEST: DemoFixtureManifest = {
