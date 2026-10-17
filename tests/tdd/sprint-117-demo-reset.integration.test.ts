@@ -19,8 +19,10 @@
  *    trust edge the reset wrote (weights resolved by social-graph's getInteractionWeightsForCommunity);
  *  - the seeded rows by key: skills, endorsements (active/withdrawn), privacy settings, items,
  *    shares and offers;
- *  - the Providers skill directory and search, run as Noah with auth-service's exported
- *    `skillVisibleToSql` / `activeMemberSql`, equal `expectedSkillDirectory` and hide ambient-09;
+ *  - the Providers skill directory and search, run as Noah with auth-service's own route statements
+ *    (read from routes/skills.ts at run time, resolved with its exported `skillVisibleToSql` /
+ *    `activeMemberSql`), equal `expectedSkillDirectory` and hide ambient-09;
+ *  - the pair lock is withPairLock's own statement, read from social-graph's source at run time;
  *  - PR V's offer boundary predicate, read out of request-service's source at run time.
  */
 
@@ -35,7 +37,7 @@ import {
   semanticUuid,
 } from '../../services/simulation-service/src/fixtures/curatedDemo/compiler';
 import type { CompiledDemoBaseline } from '../../services/simulation-service/src/fixtures/curatedDemo/types';
-import { getInteractionWeightsForCommunity, normalizePair } from '../../services/social-graph-service/src/database/trustEdgeDb';
+import { computeRawWeight, getInteractionWeightsForCommunity, normalizePair } from '../../services/social-graph-service/src/database/trustEdgeDb';
 import { reconcileEndorsementPairLocked } from '../../services/social-graph-service/src/services/endorsementReconcile';
 import { activeMemberSql, skillVisibleToSql } from '../../services/auth-service/src/db/skillVisibility';
 
@@ -94,10 +96,87 @@ const EXPECTED_PAIR_COUNTS: Array<[string, string, string, number]> = [
   ['person.bridge', 'person.provider', 'community.providers', 1],
 ];
 
-/** Take the pair lock exactly as social-graph's withPairLock does, then run the real reconcile in dry run. */
+const REPO = path.resolve(__dirname, '../..');
+const readSource = (relative: string) => fs.readFileSync(path.join(REPO, relative), 'utf8');
+
+/**
+ * The advisory-lock statement, read out of social-graph's `withPairLock` at run time (never restated
+ * here), with its parameter binding checked: `[pair.userIdA, pair.userIdB]`.
+ */
+function pairLockSql(): string {
+  const source = readSource('services/social-graph-service/src/database/trustEdgeDb.ts');
+  const fn = /export async function withPairLock[\s\S]*?\n\}/.exec(source);
+  if (!fn) throw new Error('withPairLock not found in social-graph trustEdgeDb.ts');
+  const lock = /client\.query\(\s*(["'`])(SELECT pg_advisory_xact_lock\([\s\S]*?\))\1\s*,\s*\[\s*pair\.userIdA\s*,\s*pair\.userIdB\s*\]\s*\)/.exec(fn[0]);
+  if (!lock) throw new Error('withPairLock no longer takes pg_advisory_xact_lock with [pair.userIdA, pair.userIdB]');
+  return lock[2];
+}
+
+/** Take the pair lock with withPairLock's own statement, then run the real reconcile in dry run. */
 async function dryRunReconcile(client: PoolClient, a: string, b: string) {
-  await client.query("SELECT pg_advisory_xact_lock(hashtextextended('trust-pair:' || $1 || ':' || $2, 0))", [a, b]);
+  await client.query(pairLockSql(), [a, b]);
   return reconcileEndorsementPairLocked(client, a, b, { dryRun: true });
+}
+
+/**
+ * The skill directory and search statements, read out of auth-service's routes/skills.ts at run time.
+ * The route builds them from module-local template strings (`normalizedSkillSql`, `skillKey`,
+ * `communityJoins`, `communityWhere`) plus the exported `activeMemberSql` / `skillVisibleToSql`.
+ * This resolves exactly those interpolations, so a change to any join, filter or the skill_key
+ * expression in the route changes what this test runs. Anything it cannot resolve is a failure.
+ */
+function skillsRouteSql(): { directory: string; search: string; skillKey: string } {
+  const source = readSource('services/auth-service/src/routes/skills.ts');
+  if (!/import\s*\{[^}]*\bactiveMemberSql\b[^}]*\}\s*from\s*'\.\.\/db\/skillVisibility'/.test(source)
+    || !/import\s*\{[^}]*\bskillVisibleToSql\b[^}]*\}\s*from\s*'\.\.\/db\/skillVisibility'/.test(source)) {
+    throw new Error('routes/skills.ts no longer imports activeMemberSql and skillVisibleToSql from ../db/skillVisibility');
+  }
+  const consts = new Map<string, string>();
+  for (const m of source.matchAll(/const (\w+) = `([^`]*)`;/g)) consts.set(m[1], m[2]);
+  const functions = new Map<string, (...args: string[]) => string>([
+    ['activeMemberSql', (c, v) => activeMemberSql(c, v)],
+    ['skillVisibleToSql', (o, v) => skillVisibleToSql(o, v)],
+  ]);
+  for (const m of source.matchAll(/const (\w+) = \((\w+): string\) => `([^`]*)`;/g)) {
+    const [, name, param, body] = m;
+    functions.set(name, (arg: string) => body.split(`\${${param}}`).join(arg));
+  }
+
+  const resolve = (template: string, depth = 0): string => {
+    if (depth > 8) throw new Error('routes/skills.ts interpolation nests too deeply to resolve');
+    return template.replace(/\$\{([^{}]*)\}/g, (_whole, expr: string) => {
+      const e = expr.trim();
+      if (consts.has(e)) return resolve(consts.get(e)!, depth + 1);
+      const call = /^(\w+)\((.*)\)$/.exec(e);
+      if (call && functions.has(call[1]) && /^\s*'[^']*'\s*(,\s*'[^']*'\s*)*$/.test(call[2])) {
+        const args = [...call[2].matchAll(/'([^']*)'/g)].map(a => a[1]);
+        return resolve(functions.get(call[1])!(...args), depth + 1);
+      }
+      throw new Error(`routes/skills.ts interpolation this test cannot resolve: \${${e}}`);
+    });
+  };
+
+  const routeQuery = (route: string): string => {
+    const start = source.indexOf(`router.get('${route}', `);
+    if (start < 0) throw new Error(`routes/skills.ts route ${route} not found`);
+    const q = /await query\(`([^`]*)`/.exec(source.slice(start));
+    if (!q) throw new Error(`routes/skills.ts route ${route} has no query template`);
+    return resolve(q[1]);
+  };
+
+  if (!consts.has('skillKey')) throw new Error('routes/skills.ts skillKey expression not found');
+  const sql = {
+    directory: routeQuery('/communities/:communityId'),
+    search: routeQuery('/communities/:communityId/search'),
+    skillKey: resolve(consts.get('skillKey')!),
+  };
+  for (const [name, text] of Object.entries(sql)) {
+    if (text.includes('${')) throw new Error(`unresolved interpolation in ${name}: ${text}`);
+  }
+  if (!/AS skill_key/.test(sql.directory) || !/member_count/.test(sql.directory) || !/AS user_id/.test(sql.search)) {
+    throw new Error('routes/skills.ts directory/search statements no longer return skill_key/member_count/user_id');
+  }
+  return sql;
 }
 
 /**
@@ -227,8 +306,11 @@ async function assertSkillsAndOffersLayer(pool: Pool, baseline: CompiledDemoBase
   }
   for (const r of edges.rows) {
     const w = weights.get(r.community_id)!;
-    const expected = r.match_completed_count * w.match_completed + r.endorsement_count * w.endorsement
-      + r.karma_given_count * w.karma_given + r.event_count * w.event;
+    // social-graph's own formula, not a restatement of it.
+    const expected = computeRawWeight({
+      match_completed: r.match_completed_count, endorsement: r.endorsement_count,
+      karma_given: r.karma_given_count, event: r.event_count,
+    }, w);
     expect({ edge: `${r.user_id_a}|${r.user_id_b}|${r.community_id}`, raw: Number(r.raw_weight.toFixed(9)) })
       .toEqual({ edge: `${r.user_id_a}|${r.user_id_b}|${r.community_id}`, raw: Number(expected.toFixed(9)) });
   }
@@ -238,17 +320,11 @@ async function assertSkillsAndOffersLayer(pool: Pool, baseline: CompiledDemoBase
   const noah = key('person.provider');
   const optOut = key('person.ambient-09');
   const amina = key('person.bridge');
-  // The directory key exactly as routes/skills.ts groups it (COALESCE(slug, normalized value)).
-  const skillKeySql = "COALESCE(t.skill_slug, lower(regexp_replace(trim(t.tag_value), '[^a-zA-Z0-9]+', '_', 'g')))";
-  const joins = `FROM auth.user_tags t
-    JOIN auth.users u ON u.id = t.user_id
-    JOIN communities.members cm ON cm.user_id = u.id AND cm.community_id = $1 AND cm.status = 'active'
-    LEFT JOIN auth.user_privacy_settings ps ON ps.user_id = u.id`;
-  const where = `t.tag_type = 'skill' AND ${activeMemberSql('$1', '$2')} AND ${skillVisibleToSql('u', '$2')}`;
+  // The route's own statements and skill_key expression, read from routes/skills.ts (no restated SQL).
+  const routeSql = skillsRouteSql();
+  const skillKeySql = routeSql.skillKey;
 
-  const directory = await pool.query<{ skill_key: string; member_count: number }>(
-    `SELECT ${skillKeySql} AS skill_key, COUNT(DISTINCT u.id)::int AS member_count ${joins} WHERE ${where} GROUP BY 1`,
-    [providers, noah]);
+  const directory = await pool.query<{ skill_key: string; member_count: number }>(routeSql.directory, [providers, noah]);
   expect(Object.fromEntries(directory.rows.map(r => [r.skill_key, r.member_count])))
     .toEqual(expectedSkillDirectory(baseline, 'community.providers', 'person.provider'));
 
@@ -260,8 +336,8 @@ async function assertSkillsAndOffersLayer(pool: Pool, baseline: CompiledDemoBase
     [optOut, amina]);
   expect(shared.rows.length).toBeGreaterThanOrEqual(1);
   for (const { skill_key: x } of shared.rows) {
-    const search = await pool.query<{ user_id: string }>(
-      `SELECT DISTINCT u.id AS user_id ${joins} WHERE ${where} AND ${skillKeySql} = $3`, [providers, noah, x]);
+    // $3 is what the route binds after resolveSkillSlug: a slug, or the text it normalizes itself.
+    const search = await pool.query<{ user_id: string }>(routeSql.search, [providers, noah, x]);
     const found = search.rows.map(r => r.user_id);
     expect({ x, amina: found.includes(amina), optOut: found.includes(optOut) }).toEqual({ x, amina: true, optOut: false });
   }

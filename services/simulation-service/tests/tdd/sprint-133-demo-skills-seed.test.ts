@@ -384,24 +384,61 @@ describe('Sprint 133 PR D: deriveEndorsementCounts', () => {
 
 // ---------------------------------------------------------------------------
 // Fail-closed compiler: one planted violation per rule (Critical Notes 1, 6, 8, 11)
+//
+// Each refusal must name the offending fixture's key AND say which rule it broke. The rule
+// fragments below are the contract D3's messages conform to (case-insensitive):
+//   exchange not between the pair  -> "not between"        self-vouch            -> "self"
+//   party not an active member     -> "not an active member" endorsee opted out  -> "opted out"
+//   duplicate (endorser, skill) / duplicate tag value -> "duplicate"
+//   vouch older than its exchange  -> "before its exchange" withdrawal before vouch -> "withdrawn before"
+//   unknown slug -> "unknown skill slug"   slugged value != label -> "vocabulary label"
+//   value > 100 chars -> "100 characters"  shared community item -> "community-owned"
+//   community item creator not admin -> "not an active admin"
+//   item/offer enum outside its set -> "invalid category" | "invalid condition" | "invalid status"
+//   offer expiring within 30 days of the anchor -> "30 days"
 // ---------------------------------------------------------------------------
 
-describe('Sprint 133 PR D: the compiler refuses an invalid seed, naming the key', () => {
+/** Compile must throw, and the message must carry both the key and the rule's wording. */
+function expectRefusal(manifest: DemoFixtureManifest, key: string, rule: RegExp): void {
+  let message: string | null = null;
+  try {
+    compile(manifest);
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  expect(message).not.toBeNull();
+  expect(message).toContain(key);
+  expect(message).toMatch(rule);
+}
+
+describe('Sprint 133 PR D: the compiler refuses an invalid seed, naming the key and the rule', () => {
   // Critical Note 1: endorsements follow the live API's write rule (ADR-100).
   it('refuses a vouch whose named exchange is not between the pair', () => {
-    expect(() => compile(patchEndorsement('endorsement.wei-maria-cooking', { exchange: 'exchange.maria-sophia-4' })))
-      .toThrow(/endorsement\.wei-maria-cooking/);
+    // maria-sophia-4 is a real completed exchange in the same community; Wei is simply not a party.
+    expectRefusal(patchEndorsement('endorsement.wei-maria-cooking', { exchange: 'exchange.maria-sophia-4' }),
+      'endorsement.wei-maria-cooking', /not between/i);
   });
 
-  it('refuses a vouch whose endorser has left the exchange community', () => {
-    const left: DemoFixtureManifest = {
+  describe('a vouch whose endorser has left the exchange community', () => {
+    // Collateral: Wei's own items are dropped, since leaving PMA would also strand their shares.
+    const withoutWeiItems = (): DemoFixtureManifest => ({
       ...CURATED_DEMO_MANIFEST,
-      memberships: CURATED_DEMO_MANIFEST.memberships.map(m => (m.user === WEI && m.community === PMA ? { ...m, status: 'left' as const } : m)),
-      // Keep the plant to one violation: items Wei owns would otherwise also lose their share audience.
       items: CURATED_DEMO_MANIFEST.items.filter(i => i.owner !== WEI),
-    };
-    expect(CURATED_DEMO_MANIFEST.memberships.some(m => m.user === WEI && m.community === PMA && m.status === 'active')).toBe(true);
-    expect(() => compile(left)).toThrow(/endorsement\.wei-maria-cooking/);
+    });
+
+    it('control: the collateral mutation alone compiles cleanly', () => {
+      expect(() => compile(withoutWeiItems())).not.toThrow();
+    });
+
+    it('is refused once Wei leaves Portland Mutual Aid', () => {
+      expect(CURATED_DEMO_MANIFEST.memberships.some(m => m.user === WEI && m.community === PMA && m.status === 'active')).toBe(true);
+      const base = withoutWeiItems();
+      const left: DemoFixtureManifest = {
+        ...base,
+        memberships: base.memberships.map(m => (m.user === WEI && m.community === PMA ? { ...m, status: 'left' as const } : m)),
+      };
+      expectRefusal(left, 'endorsement.wei-maria-cooking', /not an active member/i);
+    });
   });
 
   it('refuses a vouch for an endorsee who opted out of sharing skills', () => {
@@ -409,16 +446,19 @@ describe('Sprint 133 PR D: the compiler refuses an invalid seed, naming the key'
       ...CURATED_DEMO_MANIFEST,
       people: CURATED_DEMO_MANIFEST.people.map(p => (p.key === SOPHIA ? { ...p, shareSkills: false as const } : p)),
     };
-    expect(() => compile(optedOut)).toThrow(/endorsement\.maria-sophia-tutoring/);
+    expectRefusal(optedOut, 'endorsement.maria-sophia-tutoring', /opted out/i);
   });
 
-  it('refuses a self-vouch', () => {
-    expect(() => compile(patchEndorsement('endorsement.sophia-maria-cooking', { endorser: MARIA })))
-      .toThrow(/endorsement\.sophia-maria-cooking/);
+  it('refuses a self-vouch as a self-vouch', () => {
+    // A self-vouch cannot have an exchange "between" one person, so the pair rule could also fire.
+    // The wording pins the reason: the compiler must report the self-vouch, checked first.
+    expectRefusal(patchEndorsement('endorsement.sophia-maria-cooking', { endorser: MARIA }),
+      'endorsement.sophia-maria-cooking', /self/i);
   });
 
   it('refuses a second vouch by the same endorser on the same skill', () => {
     const original = CURATED_DEMO_MANIFEST.endorsements.find(e => e.key === 'endorsement.sophia-maria-cooking')!;
+    // Otherwise valid: maria-sophia-2 (P120D) is between the pair in PMA, and P100D is after it.
     const dup: DemoFixtureManifest = {
       ...CURATED_DEMO_MANIFEST,
       endorsements: [
@@ -426,36 +466,36 @@ describe('Sprint 133 PR D: the compiler refuses an invalid seed, naming the key'
         { ...original, key: 'endorsement.sophia-maria-cooking-dup', exchange: 'exchange.maria-sophia-2', createdAge: 'P100D' },
       ],
     };
-    expect(() => compile(dup)).toThrow(/endorsement\.sophia-maria-cooking-dup/);
+    expectRefusal(dup, 'endorsement.sophia-maria-cooking-dup', /duplicate/i);
   });
 
   it('refuses a vouch older than its exchange', () => {
     // exchange.maria-sophia-4 completed P12D before the anchor (manifest.ts:207).
-    expect(() => compile(patchEndorsement('endorsement.sophia-maria-cooking', { createdAge: 'P13D' })))
-      .toThrow(/endorsement\.sophia-maria-cooking/);
+    expectRefusal(patchEndorsement('endorsement.sophia-maria-cooking', { createdAge: 'P13D' }),
+      'endorsement.sophia-maria-cooking', /before its exchange/i);
   });
 
   it('refuses a withdrawal dated before its vouch', () => {
     const james = CURATED_DEMO_MANIFEST.endorsements.find(e => e.key === 'endorsement.james-maria-driving')!;
     const before = `PT${ageHours(james.createdAge) + 24}H` as FixtureAge;
-    expect(() => compile(patchEndorsement('endorsement.james-maria-driving', { withdrawnAge: before })))
-      .toThrow(/endorsement\.james-maria-driving/);
+    expectRefusal(patchEndorsement('endorsement.james-maria-driving', { withdrawnAge: before }),
+      'endorsement.james-maria-driving', /withdrawn before/i);
   });
 
   // Critical Note 6: skills.
   it('refuses a skill slug that is not in the vocabulary', () => {
     const skill = unendorsedSkill(s => s.slug !== undefined);
-    expect(() => compile(patchSkill(skill.key, { slug: 'not_a_vocabulary_slug' }))).toThrow(new RegExp(skill.key.replace(/\./g, '\\.')));
+    expectRefusal(patchSkill(skill.key, { slug: 'not_a_vocabulary_slug' }), skill.key, /unknown skill slug/i);
   });
 
   it('refuses a slugged skill whose value is not the vocabulary label', () => {
     const skill = unendorsedSkill(s => s.slug !== undefined);
-    expect(() => compile(patchSkill(skill.key, { value: 'Not the vocabulary label' }))).toThrow(new RegExp(skill.key.replace(/\./g, '\\.')));
+    expectRefusal(patchSkill(skill.key, { value: 'Not the vocabulary label' }), skill.key, /vocabulary label/i);
   });
 
   it('refuses a skill value longer than 100 characters', () => {
     const skill = unendorsedSkill(s => s.slug === undefined);
-    expect(() => compile(patchSkill(skill.key, { value: 'x'.repeat(101) }))).toThrow(new RegExp(skill.key.replace(/\./g, '\\.')));
+    expectRefusal(patchSkill(skill.key, { value: 'x'.repeat(101) }), skill.key, /100 characters/i);
   });
 
   it('refuses a duplicate tag value for one person', () => {
@@ -464,7 +504,7 @@ describe('Sprint 133 PR D: the compiler refuses an invalid seed, naming the key'
       ...CURATED_DEMO_MANIFEST,
       skills: [...CURATED_DEMO_MANIFEST.skills, { ...skill, key: 'skill.planted-duplicate' }],
     };
-    expect(() => compile(dup)).toThrow(/skill\.planted-duplicate/);
+    expectRefusal(dup, 'skill.planted-duplicate', /duplicate/i);
   });
 
   // Critical Note 8: items follow inventory's write rules.
@@ -473,43 +513,42 @@ describe('Sprint 133 PR D: the compiler refuses an invalid seed, naming the key'
     const member = activeMemberKeys(CURATED_DEMO_MANIFEST, item.owner);
     const foreign = CURATED_DEMO_MANIFEST.communities.map(c => c.key).find(c => !member.has(c))!;
     expect(foreign).toBeDefined();
-    expect(() => compile(patchItem(item.key, { sharedWith: [...(item.sharedWith ?? []), foreign] })))
-      .toThrow(new RegExp(item.key.replace(/\./g, '\\.')));
+    expectRefusal(patchItem(item.key, { sharedWith: [...(item.sharedWith ?? []), foreign] }), item.key, /not an active member/i);
   });
 
   it('refuses a shared community-owned item', () => {
     const item = communityItem();
-    expect(() => compile(patchItem(item.key, { sharedWith: [TOOL_LIBRARY] }))).toThrow(new RegExp(item.key.replace(/\./g, '\\.')));
+    expectRefusal(patchItem(item.key, { sharedWith: [TOOL_LIBRARY] }), item.key, /community-owned/i);
   });
 
   it('refuses a community item created by a member who is not an active admin', () => {
     const item = communityItem();
     // James is an active plain member of the Tool Library (manifest.ts:115-122).
-    expect(() => compile(patchItem(item.key, { createdBy: JAMES }))).toThrow(new RegExp(item.key.replace(/\./g, '\\.')));
+    expectRefusal(patchItem(item.key, { createdBy: JAMES }), item.key, /not an active admin/i);
   });
 
   it.each([
-    ['category', { category: 'not_a_category' }],
-    ['condition', { condition: 'not_a_condition' }],
-    ['status', { status: 'not_a_status' }],
-  ] as Array<[string, Partial<ItemFixture>]>)('refuses an item %s outside the CHECK set', (_field, patch) => {
+    ['category', { category: 'not_a_category' }, /invalid category/i],
+    ['condition', { condition: 'not_a_condition' }, /invalid condition/i],
+    ['status', { status: 'not_a_status' }, /invalid status/i],
+  ] as Array<[string, Partial<ItemFixture>, RegExp]>)('refuses an item %s outside the CHECK set', (_field, patch, rule) => {
     const item = personalSharedItem();
-    expect(() => compile(patchItem(item.key, patch))).toThrow(new RegExp(item.key.replace(/\./g, '\\.')));
+    expectRefusal(patchItem(item.key, patch), item.key, rule);
   });
 
   // Critical Note 11: offers follow POST /offers's write rule.
   it('refuses an offer by someone who is not an active member of its community', () => {
-    expect(() => compile(patchOffer('offer.rides-airport', { offerer: MARIA }))).toThrow(/offer\.rides-airport/);
+    expectRefusal(patchOffer('offer.rides-airport', { offerer: MARIA }), 'offer.rides-airport', /not an active member/i);
   });
 
   it('refuses an offer category outside the offer form\'s set', () => {
-    expect(() => compile(patchOffer('offer.sophia-meal-prep', { category: 'not_a_category' }))).toThrow(/offer\.sophia-meal-prep/);
+    expectRefusal(patchOffer('offer.sophia-meal-prep', { category: 'not_a_category' }), 'offer.sophia-meal-prep', /invalid category/i);
   });
 
   it('refuses an offer expiring less than 30 days after the anchor, and accepts exactly 30', () => {
     // expires_at = created_at + OFFER_TTL_DAYS: created P31D ago -> 29 days left; P30D ago -> exactly 30.
     expect(OFFER_TTL_DAYS).toBe(60);
-    expect(() => compile(patchOffer('offer.priya-tutoring', { createdAge: 'P31D' }))).toThrow(/offer\.priya-tutoring/);
+    expectRefusal(patchOffer('offer.priya-tutoring', { createdAge: 'P31D' }), 'offer.priya-tutoring', /30 days/i);
     expect(() => compile(patchOffer('offer.priya-tutoring', { createdAge: 'P30D' }))).not.toThrow();
   });
 });
@@ -613,7 +652,8 @@ describe('Sprint 133 PR D: baseline writer', () => {
       const hit = wanted.filter(w => [w.userIdA, w.userIdB, w.communityId].every(v => u.params.includes(v)));
       expect(hit).toHaveLength(1);
       expect(u.params).toContain(hit[0].count);
-      expect(u.params.map(String)).toEqual(expect.arrayContaining(['10.5', '5.5', '3.5', '2.5']));
+      // Numeric equality: a weight may be bound as a number or a numeric string.
+      expect(u.params.map(Number)).toEqual(expect.arrayContaining([10.5, 5.5, 3.5, 2.5]));
       return `${hit[0].userIdA}|${hit[0].userIdB}|${hit[0].communityId}`;
     });
     expect(matched.sort()).toEqual(wanted.map(w => `${w.userIdA}|${w.userIdB}|${w.communityId}`).sort());
