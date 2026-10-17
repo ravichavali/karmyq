@@ -536,6 +536,20 @@ describe('Sprint 133 PR D: the compiler refuses an invalid seed, naming the key 
     expectRefusal(patchItem(item.key, patch), item.key, rule);
   });
 
+  it('refuses an item name over the varchar limit or empty (database must never reject first)', () => {
+    const item = personalSharedItem();
+    expectRefusal(patchItem(item.key, { name: 'x'.repeat(121) }), item.key, /name must be 1 to 120 characters/i);
+    expectRefusal(patchItem(item.key, { name: '' }), item.key, /name must be 1 to 120 characters/i);
+    expect(() => compile(patchItem(item.key, { name: 'x'.repeat(120) }))).not.toThrow();
+  });
+
+  it('refuses an offer title over the varchar limit or empty', () => {
+    const key = 'offer.sophia-meal-prep';
+    expectRefusal(patchOffer(key, { title: 'x'.repeat(256) }), key, /title must be 1 to 255 characters/i);
+    expectRefusal(patchOffer(key, { title: '' }), key, /title must be 1 to 255 characters/i);
+    expect(() => compile(patchOffer(key, { title: 'x'.repeat(255) }))).not.toThrow();
+  });
+
   // Critical Note 11: offers follow POST /offers's write rule.
   it('refuses an offer by someone who is not an active member of its community', () => {
     expectRefusal(patchOffer('offer.rides-airport', { offerer: MARIA }), 'offer.rides-airport', /not an active member/i);

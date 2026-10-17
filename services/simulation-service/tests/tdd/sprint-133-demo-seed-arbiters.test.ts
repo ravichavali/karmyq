@@ -23,6 +23,7 @@ import {
   OFFER_CATEGORIES,
   OFFER_TTL_DAYS,
   SKILL_VOCABULARY,
+  TEXT_LIMITS,
 } from '../../src/fixtures/curatedDemo/compiler';
 
 const REPO = path.resolve(__dirname, '../../../..');
@@ -73,7 +74,30 @@ function parseOfferCategories(tsx: string): string[] {
   return [...select[0].matchAll(/<option\s+value="([^"]+)"/g)].map(m => m[1]);
 }
 
+/** varchar(n) of one column inside the CREATE TABLE statement of `table`. */
+function parseVarcharLimit(initSql: string, table: string, column: string): number {
+  const [schema, name] = table.split('.');
+  const body = new RegExp(`CREATE TABLE ${schema}\\.${name} \\(([\\s\\S]*?)\\n\\);`).exec(initSql);
+  if (!body) throw new Error('CREATE TABLE ' + table + ' not found');
+  const col = new RegExp(`\\b${column}\\s+character varying\\((\\d+)\\)`).exec(body[1]);
+  if (!col) throw new Error(table + '.' + column + ' varchar limit not found');
+  return Number(col[1]);
+}
+
 describe('Sprint 133 PR D: seed enums equal their live arbiters', () => {
+  it('uses init.sql varchar limits for tag value, item name and offer title', () => {
+    const initSql = read(INIT_SQL);
+    expect(TEXT_LIMITS).toEqual({
+      tagValue: parseVarcharLimit(initSql, 'auth.user_tags', 'tag_value'),
+      itemName: parseVarcharLimit(initSql, 'inventory.items', 'name'),
+      offerTitle: parseVarcharLimit(initSql, 'requests.help_offers', 'title'),
+    });
+    // Negative: a drifted limit is parsed (and the comparison above would go red).
+    const planted = initSql.replace(/(\bname character varying\()120\)/, "$1121)");
+    expect(planted).not.toBe(initSql);
+    expect(parseVarcharLimit(planted, 'inventory.items', 'name')).toBe(121);
+  });
+
   it('uses only vocabulary slugs the migrations insert, with the migrations\' labels', () => {
     const vocabulary = parseVocabulary(migrationTexts());
     expect(vocabulary.get('cooking')).toBe('Cooking'); // non-vacuity: the parser reads the real file

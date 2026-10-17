@@ -77,7 +77,15 @@ export const OFFER_CATEGORIES: ReadonlySet<string> = new Set(
 /** communities.settings.offer_ttl_days DEFAULT (init.sql). */
 export const OFFER_TTL_DAYS = 60;
 
-const SKILL_VALUE_MAX = 100;
+/**
+ * varchar limits of the bounded text columns the seed writes (init.sql): auth.user_tags.tag_value,
+ * inventory.items.name, requests.help_offers.title. The arbiter test parses init.sql and compares.
+ * The other written columns are enum-bounded (sets above) or have no text column.
+ */
+export const TEXT_LIMITS: Readonly<{ tagValue: number; itemName: number; offerTitle: number }> = {
+  tagValue: 100, itemName: 120, offerTitle: 255,
+};
+const SKILL_VALUE_MAX = TEXT_LIMITS.tagValue;
 const OFFER_MIN_RUNWAY_DAYS = 30;
 const SKILL_CREATED_AGE: FixtureAge = 'P120D';
 const ITEM_CREATED_AGE: FixtureAge = 'P30D';
@@ -585,6 +593,9 @@ function validateSkillsLayer(manifest: DemoFixtureManifest, anchor: Date): void 
   }
 
   for (const it of manifest.items) {
+    if (it.name.length === 0 || it.name.length > TEXT_LIMITS.itemName) {
+      fail(`Refusing manifest: ${it.key} name must be 1 to ${TEXT_LIMITS.itemName} characters, found ${it.name.length}`);
+    }
     if (!ITEM_CATEGORIES.has(it.category)) fail(`Refusing manifest: ${it.key} has invalid category ${it.category}`);
     if (it.condition !== undefined && !ITEM_CONDITIONS.has(it.condition)) {
       fail(`Refusing manifest: ${it.key} has invalid condition ${it.condition}`);
@@ -614,6 +625,9 @@ function validateSkillsLayer(manifest: DemoFixtureManifest, anchor: Date): void 
     requireCommunity(o.community, communityKeys);
     if (!isActive(o.offerer, o.community)) {
       fail(`Refusing manifest: ${o.key} offerer ${o.offerer} is not an active member of ${o.community}`);
+    }
+    if (o.title.length === 0 || o.title.length > TEXT_LIMITS.offerTitle) {
+      fail(`Refusing manifest: ${o.key} title must be 1 to ${TEXT_LIMITS.offerTitle} characters, found ${o.title.length}`);
     }
     if (!OFFER_CATEGORIES.has(o.category)) fail(`Refusing manifest: ${o.key} has invalid category ${o.category}`);
     const expiresAt = ageFrom(anchor, o.createdAge).getTime() + OFFER_TTL_DAYS * DAY_MS;
@@ -657,6 +671,9 @@ export function expectedSkillDirectory(
   if (!community) fail(`Unknown community ${communityKey}`);
   const viewer = baseline.people.find(p => p.key === viewerKey);
   if (!viewer) fail(`Unknown person ${viewerKey}`);
+  if (!baseline.memberships.some(m => m.userId === viewer.id && m.communityId === community.id && m.status === 'active')) {
+    fail(`${viewerKey} is not an active member of ${communityKey}; the directory route answers 404`);
+  }
   const active = new Set(
     baseline.memberships.filter(m => m.communityId === community.id && m.status === 'active').map(m => m.userId));
   const hidden = new Set(baseline.skillSettings.filter(s => !s.shareSkillsWithCommunities).map(s => s.userId));
