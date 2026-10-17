@@ -3,8 +3,8 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
 > **One PR, after PR V.** PR V (BUG-065/064, `docs/superpowers/plans/2026-10-16-sprint-133-pr-v-visibility.md`) merges and
-> deploys first. Then cut `agent/claude/sprint-133-pr-d-demo-seed` **fresh from `origin/master`**: the old branch of that
-> name holds only `d5276e2c`, which PR V carries. Diff it against master before deleting it (handoff header).
+> deploys first (done 2026-10-17: `05d29d28`, v11.89.0). The branch is **`agent/claude/sprint-133-pr-d-curated-seed`**, cut
+> from `05d29d28` and carrying the handoff. The old `agent/claude/sprint-133-pr-d-demo-seed` (only `d5276e2c`, fully on master) is superseded.
 > This plan supersedes the *PR D* sketch (Tasks D1–D6) in `docs/superpowers/plans/2026-10-08-sprint-133-skills-depth.md`.
 
 **Goal:** After one authorized curated reset, the demo shows the skills features with real data. Maria sees her
@@ -174,10 +174,9 @@ Library and Portland Mutual Aid, a camping stove from Sophia, a stand mixer from
 
 - [ ] PR V is merged and deployed green (`gh pr list --state merged --search "PR V"`; latest master deploy run
   succeeded). If not, stop: PR D waits.
-- [ ] `git fetch origin && git switch -c agent/claude/sprint-133-pr-d-demo-seed-v2 origin/master`, or delete and recreate
-  the old branch name **after** `git diff origin/master origin/agent/claude/sprint-133-pr-d-demo-seed` shows nothing
-  PR V didn't carry (memory: *Handoff stranded by the merge*). Bring the handoff over by committing it on the new
-  branch.
+- [x] Branch `agent/claude/sprint-133-pr-d-curated-seed` cut from `origin/master` `05d29d28` (2026-10-17) and carries the handoff.
+  The old branch's only commit was verified on master. Before starting, `git fetch origin` and merge `origin/master` if it moved
+  (merge commit, no rebase).
 - [ ] Read `services/simulation-service/.claude/README.md` and `CONTEXT.md` (*Sprint 117* section) and
   `tests/claude.md`. Run `node scripts/gotcha-check.js --for services/simulation-service/src/fixtures/curatedDemo
   tests/tdd/sprint-117-demo-reset.integration.test.ts` and read every hit.
