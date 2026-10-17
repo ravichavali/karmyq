@@ -390,3 +390,22 @@ unchanged. `npm ls --all --omit=dev` reaches both packages only through `apps/mo
 `@expo/cli` (the Expo developer CLI), with one lock node each. Under the maintainer's 2026-10-08 rule
 (remove an exemption once upstream ships a fix, otherwise renew it for seven days), both are renewed
 for seven days, the cap.
+
+## Amendment (Sprint 133, 2026-10-17): renewals
+
+**Status**: Accepted · **Decision**: maintainer, 2026-10-17
+
+Both exemptions were due to lapse on 2026-10-21 (`expires` is the first invalid day, read as a UTC date, so
+the gate would have failed from 2026-10-20 17:00 PDT). A hand re-check on 2026-10-17 found no upstream fix
+for either:
+
+| Package | Advisory | Latest release | Patched version | New window |
+|---|---|---|---|---|
+| `node-forge` | GHSA-86w9-cpqp-85rv | 1.4.0 (range `<= 1.4.0`) | none, not withdrawn | 2026-10-17 → 2026-10-24 |
+| `braces` | GHSA-vfj7-8cjw-p6xm | 3.0.3 (range `<= 3.0.3`) | none, not withdrawn | 2026-10-17 → 2026-10-24 |
+
+Expo has not moved off either package. The latest `@expo/cli` (58.1.11) and
+`@expo/code-signing-certificates` (0.0.7) depend on `node-forge ^1.4.0`, and the latest `micromatch`
+(4.0.8) depends on `braces ^3.0.3`. Reach is unchanged: `npm ls --all --omit=dev` reaches both packages
+only through `apps/mobile` → `expo` → `@expo/cli`. Under the maintainer's 2026-10-08 rule, both are
+renewed for seven days, the cap.
