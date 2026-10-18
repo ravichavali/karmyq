@@ -522,6 +522,12 @@ describe('Sprint 133 PR D: the compiler refuses an invalid seed, naming the key 
     expectRefusal(patchItem(item.key, { sharedWith: [...(item.sharedWith ?? []), foreign] }), item.key, /not an active member/i);
   });
 
+  it('refuses a personal item shared twice to the same community', () => {
+    const item = personalSharedItem();
+    const c = item.sharedWith![0];
+    expectRefusal(patchItem(item.key, { sharedWith: [c, c] }), item.key, /duplicate share to/i);
+  });
+
   it('refuses a shared community-owned item', () => {
     const item = communityItem();
     expectRefusal(patchItem(item.key, { sharedWith: [TOOL_LIBRARY] }), item.key, /community-owned/i);
@@ -689,6 +695,40 @@ describe('Sprint 133 PR D: baseline writer', () => {
     await expect(applyEndorsementCounts(recordingClient(rowCount).client, baseline)).rejects.toThrow(/endorsement/i);
     await expect(writeBaseline(recordingClient(rowCount).client, baseline, NO_TABLES, '$2a$12$hash')).rejects.toThrow(/endorsement/i);
     await expect(applyEndorsementCounts(recordingClient(1).client, baseline)).resolves.toBeUndefined();
+  });
+});
+
+describe('Sprint 133 PR D: readWeights precedence (community row beats global row)', () => {
+  const baseline = compile();
+  const one = { ...baseline, endorsementCounts: baseline.endorsementCounts.filter(c => c.count > 0).slice(0, 1) };
+  const community = one.endorsementCounts[0].communityId;
+  const global = { community_id: null, interaction_type: 'endorsement', weight: 5.5 };
+  const local = { community_id: community, interaction_type: 'endorsement', weight: 7.25 };
+
+  async function weightsBound(rows: unknown[]): Promise<number[]> {
+    const calls: RecordedCall[] = [];
+    const client = {
+      query: async (sql: string, params: unknown[] = []) => {
+        calls.push({ sql, params });
+        if (isWeightsRead(sql)) return { rows, rowCount: rows.length };
+        return { rows: [], rowCount: 1 };
+      },
+    } as unknown as PoolClient;
+    await applyEndorsementCounts(client, one);
+    const update = calls.find(c => isCountUpdate(c.sql))!;
+    return update.params.slice(1, 5).map(Number); // match_completed, endorsement, karma_given, event
+  }
+
+  it.each([
+    ['community row before the global row', [local, global]],
+    ['community row after the global row', [global, local]],
+  ])('uses the community weight with the %s', async (_name, rows) => {
+    expect(await weightsBound(rows)).toEqual([1, 7.25, 1, 1]);
+  });
+
+  it('defaults an absent type to 1.0 and uses a global row when no community row exists', async () => {
+    expect(await weightsBound([])).toEqual([1, 1, 1, 1]);
+    expect(await weightsBound([global])).toEqual([1, 5.5, 1, 1]);
   });
 });
 

@@ -7,7 +7,7 @@ import { compileManifest, expectedSkillDirectory, semanticUuid, skillKey as keyO
 import { CURATED_DEMO_MANIFEST } from '../../src/fixtures/curatedDemo/manifest';
 
 // Sprint 133 PR D: the five skills/offer deps, answering a healthy demo so these Sprint 117 cases still
-// isolate the check under test. Their failure modes are covered in tests/tdd/sprint-133.
+// isolate the check under test. Their failure modes are covered in tests/regression/sprint-133-demo-skills-seed.test.ts.
 function healthySkillsAndOffers(): Pick<DemoVerificationDeps,
   'getViewerUserId' | 'getMemberSkills' | 'getSkillDirectory' | 'searchCommunitySkills' | 'listOffers' | 'getOffer'> {
   const baseline = compileManifest(CURATED_DEMO_MANIFEST, new Date());

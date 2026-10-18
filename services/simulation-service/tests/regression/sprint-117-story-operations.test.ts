@@ -48,6 +48,14 @@ describe('Sprint 117 story rotation', () => {
     expect(deps.retireOld).not.toHaveBeenCalled();
   });
 
+  it('names the failed reads in the refusal so a down demo is diagnosable', async () => {
+    const deps = rotationDeps([], { verifyReady: false });
+    deps.verify.mockResolvedValueOnce({ ready: false, failedReads: ['personas.unrelated-identity', 'skills.endorsements'] });
+    await expect(rotateStories(deps)).rejects.toThrow(
+      /^Refusing rotation: replacement stories are not ready.*personas\.unrelated-identity.*skills\.endorsements/,
+    );
+  });
+
   it('does not retire old stories when the demo session re-check fails', async () => {
     const deps = rotationDeps([], { sessionOk: false });
     await expect(rotateStories(deps)).rejects.toThrow(/demo session/i);

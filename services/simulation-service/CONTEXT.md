@@ -397,6 +397,16 @@ stable across resets. Skill X for the opt-out proof is `bookkeeping`, held by Am
 - **Compiler rules (review CR3/CR4):** a personal item's `createdBy`, if set, must equal its owner (the live
   inventory API records the caller as `created_by`); an endorsement's `createdAge` must be younger than its
   skill tag's (P120D).
+- **Hidden reads cannot tell hidden from absent.** The three opt-out "hidden" reads (profile 404, search
+  absence, foreign offer 404) cannot distinguish a hidden row from a missing one. Existence is proven in CI
+  (the privacy row and the tags, by id) and the live reset is transactional, so a partial seed cannot ship.
+- **Failure diagnostics (review I1):** `rotateStories` appends the verifier's `failedReads` to its refusal
+  (`Refusing rotation: replacement stories are not ready (failed reads: ...)`), so `reset:demo` and
+  `rotate:demo-stories` name the failing ids while the demo is down. `buildRotationDeps().verify` carries them.
+- **Deploy-to-reset window.** After PR D deploys and before the authorized curated reset, `verify:demo`
+  reports not-ready by design: the `skills.*` and `offers.*` ids fail because that data is not seeded yet, and
+  `rotate:demo-stories` refuses. The curated reset is the remedy. A `personas.*` id is different: it means a
+  wrong `DEMO_*_EMAIL` on the host (not missing data) and must be fixed in the host env BEFORE the reset.
 - Applying this to the demo is a full curated reset and needs its own maintainer authorization.
 
 ## Sprint 131 PR B2 — declared imports (2026-09-17)

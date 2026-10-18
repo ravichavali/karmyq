@@ -113,7 +113,7 @@ export function buildRotationDeps(publishConfigEnabled: boolean): RotationDeps {
     async verify() {
       const deps = await buildDeps({ ...env, storyIds: created ?? env.storyIds });
       const report = await verifyCuratedDemo(deps);
-      return { ready: report.ready, storyIds: report.storyIds };
+      return { ready: report.ready, storyIds: report.storyIds, failedReads: report.failedReads };
     },
     async publishConfig() {
       if (!publishConfigEnabled || !created) return;

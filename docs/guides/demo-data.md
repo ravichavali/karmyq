@@ -169,6 +169,12 @@ After the next curated reset, the baseline also carries the skills layer, so the
   so Maria sees them. A third offer, airport rides, sits in PDX Rides Collective, which Maria is not in:
   it is absent from her list and opening it directly is a 404.
 
+**Between deploy and reset, the demo reports not-ready on purpose.** After the skills layer is deployed and
+before the authorized curated reset, `verify:demo` reports not-ready: the `skills.*` and `offers.*` checks
+fail because that data is not seeded yet, and `rotate:demo-stories` refuses (its message lists the failing
+ids). The curated reset is the remedy. A `personas.*` id is different: it means a wrong `DEMO_*_EMAIL` on
+the host, not missing data, and it must be fixed before the reset.
+
 **Counts are derived, never typed in.** Vouch totals and the trust-edge weights that include them are
 computed from the seeded vouches by the same rule production's reconcile uses (distinct endorsers per
 pair and community, withdrawn vouches excluded). The manifest declares no counts. CI runs the real

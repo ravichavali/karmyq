@@ -17,7 +17,7 @@ export interface RotationDeps {
   /** Create replacement live stories through ordinary APIs; returns their server-generated IDs. */
   createStories(): Promise<VerifiedStoryIds>;
   /** Authoritative readback verification of the replacement stories. */
-  verify(): Promise<{ ready: boolean; storyIds?: VerifiedStoryIds }>;
+  verify(): Promise<{ ready: boolean; storyIds?: VerifiedStoryIds; failedReads?: string[] }>;
   /** Back up and atomically replace the allowlisted demo config variables. */
   publishConfig(): Promise<void>;
   /** (Re-)enable public demo traffic BEFORE the demo-session re-check can pass. Idempotent. */
@@ -45,7 +45,10 @@ export async function rotateStories(deps: RotationDeps): Promise<RotationResult>
 
   const report = await deps.verify();
   if (!report.ready) {
-    throw new Error('Refusing rotation: replacement stories are not ready');
+    // Name the failing read ids: a reset runs with the demo disabled, so this message is the only
+    // diagnostic the operator gets.
+    const failed = report.failedReads?.length ? ` (failed reads: ${report.failedReads.join(', ')})` : '';
+    throw new Error(`Refusing rotation: replacement stories are not ready${failed}`);
   }
 
   await deps.publishConfig();

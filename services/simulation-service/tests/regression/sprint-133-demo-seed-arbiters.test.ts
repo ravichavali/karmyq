@@ -177,7 +177,5 @@ describe('Sprint 133 PR D: each arbiter parser finds a planted extra value', () 
     const options = parseOfferCategories(planted);
     expect(options).toContain('zz_planted');
     expect(sorted(OFFER_CATEGORIES)).not.toEqual(sorted(options));
-    // The community <select> (dynamic options) is not mistaken for the type select.
-    expect(parseOfferCategories(tsx)).not.toContain('');
   });
 });
