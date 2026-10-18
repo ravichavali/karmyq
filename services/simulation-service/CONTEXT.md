@@ -199,6 +199,11 @@ Ride providers include `ride_details` (vehicle_type, max_passengers, advance_boo
 
 ## Recent Changes
 
+### Sprint 133 PR D (2026-10-17) - curated skills layer
+Curated seed gains (visible on the demo only after the next authorized curated reset) skills, a skills-sharing opt-out, endorsements, items and standing offers; counts are
+derived (`deriveEndorsementCounts`, `applyEndorsementCounts`) and proven against social-graph's reconcile
+in CI; the verifier gains `skillsVisible` and `offerBoundary`. See *Sprint 133 PR D* under Sprint 117.
+
 ### Sprint 78 (2026-05-31) — Autonomous fission
 - **`vote-on-governance-workflow.ts`** now drives the full fission loop for an admin's communities: (1) **propose** a split when `current_members >= 140` (urgent threshold) and no active proposal exists; (2) **vote** on `voting` split/fusion proposals; (3) **execute** any `approved` split. Over-cap communities now split with zero human action.
 - **`api-client.ts`**: added `executeSplit`, `createSplitProposal`, `startSplitVote`.
@@ -343,6 +348,66 @@ The simulation service now owns two distinct populations:
 The verifier is the only authority that publishes the four server-generated story IDs, and only after
 authoritative privacy-scoped readback. Health is read-only; rotation replaces only finite live stories.
 The legacy `scripts/truncate-database.*` paths now delegate to `reset:demo` or refuse.
+
+### Sprint 133 PR D: curated skills layer (2026-10-17)
+
+The curated manifest gains four fixture kinds, on top of `shareSkills?: false` on a person:
+`skills` (`auth.user_tags`, slugged or deliberate free text), the opt-out (`auth.user_privacy_settings`,
+only for the opted-out person, `person.ambient-09`), `endorsements` (`auth.skill_endorsements`, each on
+one seeded exchange; one withdrawn, `revision = 2`) and `items` / item shares (`inventory`), plus
+`offers` (`requests.help_offers`, three active standing offers). Ids are `semanticUuid(key)`, so they are
+stable across resets. Skill X for the opt-out proof is `bookkeeping`, held by Amina and ambient-09.
+
+- **Compiler fails closed** (`compiler.ts`, each error names the semantic key): endorsement rules are
+  ADR-100's write rule (endorser != endorsee, skill belongs to endorsee, exchange between the pair with a
+  completed match, both active members at the anchor, endorsee not opted out, `createdAge` younger than the
+  exchange, `withdrawnAge` younger than `createdAge`, one per endorser and skill); items follow
+  `inventoryDb` (one owner, shares only to communities the owner actively belongs to, community-owned items
+  have no shares and an admin `createdBy`); offers need an active-member offerer and `expires_at` at least
+  30 days after the anchor. Text limits (`TEXT_LIMITS`: tag 100, item name 120, offer title 255) are checked.
+- **Arbiter-locked constants:** `SKILL_VOCABULARY`, `ITEM_CATEGORIES/CONDITIONS/STATUSES`, `OFFER_CATEGORIES`
+  and `OFFER_TTL_DAYS` are asserted against the migrations, `init.sql` CHECK sets, `offer_ttl_days` and the
+  offer form options by `tests/regression/sprint-133-demo-seed-arbiters.test.ts`. Never edit one without
+  its source.
+- **Counts are derived.** `deriveEndorsementCounts` mirrors `ENDORSEMENT_TARGETS_SQL`
+  (`social-graph-service/src/services/endorsementReconcile.ts`): per normalized pair and community, the
+  distinct endorsers with at least one non-withdrawn endorsement. Expected: Maria-Sophia 2, Maria-Wei 1,
+  Maria-James 0, Elena-Fatima 2, Amina-Noah 1.
+- **`applyEndorsementCounts`** (`baselineWriter.ts`, after `insertProjections`) reads
+  `social_graph.interaction_weights` (community row beats global row, default 1.0) and sets
+  `endorsement_count` and `raw_weight` in one `UPDATE` per pair; it throws unless exactly one edge row is
+  updated.
+- **CI proof:** `tests/tdd/sprint-117-demo-reset.integration.test.ts` runs social-graph's real
+  `reconcileEndorsementPairLocked` in dry run under the pair lock after each of the two resets and expects
+  no planned writes, checks `raw_weight` against the formula and the exact pair counts by identity, and
+  includes a negative case (bump a count, expect a planned update).
+- **Verifier** (`verifier.ts`, `ready` requires both; reads fail closed to status 0):
+  `skillsVisible` (Maria sees Sophia's skills and her own cooking with 2 vouches; the Portland Mutual Aid
+  directory is non-empty; as Noah, ambient-09's profile is 404, the bookkeeping search contains Amina and
+  not ambient-09, and the providers directory map equals `expectedSkillDirectory`) and `offerBoundary`
+  (Maria lists both Portland Mutual Aid offers and not the rides offer; the rides offer is 404 to her and
+  200 to Marcus Lee). `failedReads` ids: `personas.maria-identity`, `personas.provider-identity`, `personas.unrelated-identity`, `skills.member-profile`, `skills.own-cooking-vouches`, `skills.community-directory`, `skills.opt-out-profile-hidden`, `skills.opt-out-search-control`, `skills.opt-out-search-absent`, `skills.directory-exact`, `offers.member-list`, `offers.member-read`, `offers.foreign-list-absent`, `offers.foreign-read-404`, `offers.non-vacuous-read`. New `ApiClient` methods:
+  `listOffers()`, `getOffer(id)`, `getMemberSkills(userId)`, `getSkillDirectory(communityId)`,
+  `searchCommunitySkills(communityId, skill)` (the term goes in `params`, so axios URL-encodes it).
+- **Identity guard** (`getViewerUserId(viewer)` dep): each persona client's logged-in user id must equal
+  `semanticUuid('person.maria' | 'person.provider' | 'person.outsider')`. A mismatch (or unreadable id) adds
+  `personas.<viewer>-identity` to `failedReads`, fails the checks that persona feeds (Maria: both; provider:
+  `skillsVisible`; unrelated: `offerBoundary`) and makes `ready` false, so a wrong env account cannot pass
+  vacuously. `buildDeps` reads the ids from the login responses.
+- **Compiler rules (review CR3/CR4):** a personal item's `createdBy`, if set, must equal its owner (the live
+  inventory API records the caller as `created_by`); an endorsement's `createdAge` must be younger than its
+  skill tag's (P120D).
+- **Hidden reads cannot tell hidden from absent.** The three opt-out "hidden" reads (profile 404, search
+  absence, foreign offer 404) cannot distinguish a hidden row from a missing one. Existence is proven in CI
+  (the privacy row and the tags, by id) and the live reset is transactional, so a partial seed cannot ship.
+- **Failure diagnostics (review I1):** `rotateStories` appends the verifier's `failedReads` to its refusal
+  (`Refusing rotation: replacement stories are not ready (failed reads: ...)`), so `reset:demo` and
+  `rotate:demo-stories` name the failing ids while the demo is down. `buildRotationDeps().verify` carries them.
+- **Deploy-to-reset window.** After PR D deploys and before the authorized curated reset, `verify:demo`
+  reports not-ready by design: the `skills.*` and `offers.*` ids fail because that data is not seeded yet, and
+  `rotate:demo-stories` refuses. The curated reset is the remedy. A `personas.*` id is different: it means a
+  wrong `DEMO_*_EMAIL` on the host (not missing data) and must be fixed in the host env BEFORE the reset.
+- Applying this to the demo is a full curated reset and needs its own maintainer authorization.
 
 ## Sprint 131 PR B2 — declared imports (2026-09-17)
 

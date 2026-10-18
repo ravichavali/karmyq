@@ -3,6 +3,40 @@ import {
   verifyCuratedDemo,
   type DemoVerificationDeps,
 } from '../../src/fixtures/curatedDemo/verifier';
+import { compileManifest, expectedSkillDirectory, semanticUuid, skillKey as keyOf } from '../../src/fixtures/curatedDemo/compiler';
+import { CURATED_DEMO_MANIFEST } from '../../src/fixtures/curatedDemo/manifest';
+
+// Sprint 133 PR D: the five skills/offer deps, answering a healthy demo so these Sprint 117 cases still
+// isolate the check under test. Their failure modes are covered in tests/regression/sprint-133-demo-skills-seed.test.ts.
+function healthySkillsAndOffers(): Pick<DemoVerificationDeps,
+  'getViewerUserId' | 'getMemberSkills' | 'getSkillDirectory' | 'searchCommunitySkills' | 'listOffers' | 'getOffer'> {
+  const baseline = compileManifest(CURATED_DEMO_MANIFEST, new Date());
+  const id = semanticUuid;
+  const keys = (person: string) => new Set(baseline.skills.filter(s => s.userId === id(person)).map(keyOf));
+  const x = [...keys('person.ambient-09')].filter(k => keys('person.bridge').has(k))[0];
+  const directory = Object.entries(expectedSkillDirectory(baseline, 'community.providers', 'person.provider'))
+    .map(([skill_key, member_count]) => ({ skill_key, label: skill_key, member_count }));
+  const ridesOffer = id('offer.rides-airport');
+  const persona = { maria: 'person.maria', provider: 'person.provider', unrelated: 'person.outsider' } as const;
+  return {
+    getViewerUserId: async viewer => id(persona[viewer]),
+    getMemberSkills: async (viewer, userId) => {
+      if (viewer === 'provider') return { status: 404, data: null };
+      const count = userId === id('person.maria') ? 2 : 1;
+      return { status: 200, data: [{ tag_id: 't', label: 'Cooking', skill_slug: 'cooking', endorsement_count: count }] };
+    },
+    getSkillDirectory: async (viewer) => viewer === 'provider'
+      ? { status: 200, data: directory }
+      : { status: 200, data: [{ skill_key: 'cooking', label: 'Cooking', member_count: 2 }] },
+    searchCommunitySkills: async (_viewer, _community, skill) => ({
+      status: 200, data: skill === x ? [{ user_id: id('person.bridge') }] : [],
+    }),
+    listOffers: async () => ({ status: 200, data: [{ id: id('offer.sophia-meal-prep') }, { id: id('offer.priya-tutoring') }] }),
+    getOffer: async (viewer, offerId) => offerId === ridesOffer && viewer === 'maria'
+      ? { status: 404, data: null }
+      : { status: 200, data: { id: offerId } },
+  };
+}
 
 const ORD_REQ = '11111111-1111-5111-8111-111111111111';
 const MATCH = '22222222-2222-5222-8222-222222222222';
@@ -46,6 +80,7 @@ function fakeWorld(overrides: WorldOverrides = {}): DemoVerificationDeps {
       providerRequestId: PROV_REQ,
       providerOfferId: OFFER,
     }),
+    ...healthySkillsAndOffers(),
   };
 }
 

@@ -3,9 +3,21 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
 > **One PR, after PR V.** PR V (BUG-065/064, `docs/superpowers/plans/2026-10-16-sprint-133-pr-v-visibility.md`) merges and
-> deploys first. Then cut `agent/claude/sprint-133-pr-d-demo-seed` **fresh from `origin/master`**: the old branch of that
-> name holds only `d5276e2c`, which PR V carries. Diff it against master before deleting it (handoff header).
+> deploys first (done 2026-10-17: `05d29d28`, v11.89.0). The branch is **`agent/claude/sprint-133-pr-d-curated-seed`**, cut
+> from `05d29d28` and carrying the handoff. The old `agent/claude/sprint-133-pr-d-demo-seed` (only `d5276e2c`, fully on master) is superseded.
 > This plan supersedes the *PR D* sketch (Tasks D1–D6) in `docs/superpowers/plans/2026-10-08-sprint-133-skills-depth.md`.
+>
+> **Revision 2 (2026-10-17, PR D planning chat, after PR V shipped).** (a) **Standing offers added** (maintainer decision 5
+> below), so the BUG-064 boundary PR V shipped gets a live read-only smoke after the reset. (b) **Task D0b**: the
+> `node-forge`/`braces` exemption renewal ships as its own short dependency PR right after D0, before D1 (maintainer,
+> 2026-10-17). (c) The `provider.contrast` UNVERIFIED item is resolved (Critical Note 9). Re-checked on `05d29d28`: since
+> `60bcc4cd` the only change to a file this plan cites is a UUID guard in `inventoryDb.ts` `isActiveMember` (`:66-72`),
+> which doesn't affect the seed.
+>
+> **Revision 2.1 (2026-10-17, Codex plan review of `d089b8b3`; all three findings verified, then applied).** D0b's
+> cutoff is UTC: **2026-10-21T00:00Z = October 20, 5:00 p.m. PDT**. The opt-out is proven by search with Amina as the
+> positive control and by exact directory counts, since the directory carries no identities. D0b now ends by merging
+> renewed `origin/master` back into PR D before D1.
 
 **Goal:** After one authorized curated reset, the demo shows the skills features with real data. Maria sees her
 co-members' skills and vouches, community skill directories have entries, one member's opt-out visibly hides them, and
@@ -34,6 +46,9 @@ maintainer decisions of **2026-10-16** (PR D planning chat, recorded in the hand
 3. **Story-shaped endorsements**, about 7 rows (table below), including one withdrawn vouch.
 4. **Items:** five or six personal items shared to their owners' communities, plus four community-owned Tool Library
    items. **No borrow requests.**
+5. **Standing offers (2026-10-17):** three `requests.help_offers` rows. Two are active in Portland Mutual Aid, where Maria
+   is a member, and one is in PDX Rides Collective, where she isn't. The post-reset smoke then shows on live data that a
+   member sees an offer and a non-member gets 404.
 
 ## Global Constraints
 
@@ -48,7 +63,10 @@ maintainer decisions of **2026-10-16** (PR D planning chat, recorded in the hand
   `infrastructure/postgres/migrations/*.sql`, and the item category, condition and status sets come from the
   `items_*_check` constraints in `infrastructure/postgres/init.sql`. A regression test parses those files and fails if
   the manifest or the compiler's constants disagree. No hand-written shadow list goes unchecked (CLAUDE.md
-  Discipline 5).
+  Discipline 5). `requests.help_offers.category` has **no** CHECK (`init.sql:2388-2405`). Its live arbiter is the
+  offer form's type `<option>` list (`apps/frontend/src/pages/offers/new.tsx:149-154`), which `POST /offers` stores as
+  `category` (`routes/offers.ts:147-151`). The offer TTL's arbiter is `offer_ttl_days integer DEFAULT 60`
+  (`init.sql:1339`), and the writer seeds `communities.settings` with defaults (`baselineWriter.ts:137-141`).
 - **Tests:** workspace tests start in `services/simulation-service/tests/tdd/`. The real-DB proof extends the CI-gated
   root file named above. The CI step runs that single file (`.github/workflows/ci.yml:341-353`), so a new root file
   would not run. Promote when green; restore any unrelated files the promoter sweeps.
@@ -75,12 +93,25 @@ Expected reconciled pair counts: Maria–Sophia **2**, Maria–Wei **1**, Maria�
 count stays 0), Elena–Fatima **2**, Amina–Noah **1**. Maria's cooking skill shows **2** vouches.
 
 **Opt-out:** `person.ambient-09` (PDX Service Providers): 1–2 skills, `share_skills_with_communities = false`, no
-endorsements in or out. The viewer who proves it is hidden is Noah (protected, same community).
+endorsements in or out. One of its skills (*X*) is also held by Amina (`person.bridge`), the positive control. The viewer
+who proves ambient-09 is hidden is Noah (protected, same community), through the *X* search and the exact directory
+counts (Critical Note 9).
 
 **Items:** personal items owned by people in the Tool Library, Portland Mutual Aid and Southeast PDX rosters, each shared
 only to communities its owner actively belongs to (for example a ladder and a drill from James or Priya shared to the Tool
 Library and Portland Mutual Aid, a camping stove from Sophia, a stand mixer from Maria). Four community-owned items with
 `owner_community_id = community.tool-library`, `created_by = person.steward-tools` (its admin), and no shares.
+
+**Standing offers** (`requests.help_offers`, status `active`, `expired = false`, privacy columns left at their defaults):
+
+| Key | Offerer | Community | Category | Created | Maria can read? |
+|---|---|---|---|---|---|
+| `offer.sophia-meal-prep` | `person.shared-sophia` | Portland Mutual Aid | `physical_help` | `P5D` | yes (member) |
+| `offer.priya-tutoring` | `person.shared-priya` | Portland Mutual Aid | `skills` | `P9D` | yes (member) |
+| `offer.rides-airport` | `person.ambient-13` | PDX Rides Collective | `transportation` | `P7D` | **no**: 404, absent from her list |
+
+Rosters (`manifest.ts:95-150`): Maria is in Portland Mutual Aid and Southeast PDX only. Sophia and Priya are Portland
+Mutual Aid members, and ambient-13 is a PDX Rides Collective member.
 
 ## File map
 
@@ -88,17 +119,18 @@ Library and Portland Mutual Aid, a camping stove from Sophia, a stand mixer from
 | File | Responsibility |
 |---|---|
 | `services/simulation-service/tests/tdd/sprint-133-demo-skills-seed.test.ts` | Compiler rules (fail-closed cases), derived counts, writer SQL shape, verifier skills check |
-| `services/simulation-service/tests/tdd/sprint-133-demo-seed-arbiters.test.ts` | Parses migrations/`init.sql`: vocabulary slugs, item CHECK sets vs compiler constants |
+| `services/simulation-service/tests/tdd/sprint-133-demo-seed-arbiters.test.ts` | Parses migrations/`init.sql`: vocabulary slugs, item CHECK sets, `offer_ttl_days` default vs compiler constants; offer categories vs `offers/new.tsx` options |
 
 ### Modified files
 | File | Change |
 |---|---|
-| `services/simulation-service/src/fixtures/curatedDemo/types.ts` | `SkillFixture`, `EndorsementFixture`, `ItemFixture`, `shareSkills?: false` on `FixturePerson`; compiled counterparts; `CompiledDemoBaseline` gains `skills`, `skillSettings`, `endorsements`, `items`, `itemShares`, `endorsementCounts`; new `FixtureExpectation` kind `'skills'` |
-| `.../curatedDemo/manifest.ts` | The seed content above; `skills`/`endorsements`/`items` arrays on `CURATED_DEMO_MANIFEST`; one `skills` expectation |
+| `services/simulation-service/src/fixtures/curatedDemo/types.ts` | `SkillFixture`, `EndorsementFixture`, `ItemFixture`, `OfferFixture`, `shareSkills?: false` on `FixturePerson`; compiled counterparts; `CompiledDemoBaseline` gains `skills`, `skillSettings`, `endorsements`, `items`, `itemShares`, `offers`, `endorsementCounts`; new `FixtureExpectation` kinds `'skills'` and `'offer-boundary'` |
+| `.../curatedDemo/manifest.ts` | The seed content above; `skills`/`endorsements`/`items`/`offers` arrays on `CURATED_DEMO_MANIFEST`; one `skills` and one `offer-boundary` expectation |
 | `.../curatedDemo/compiler.ts` | Validation + compilation for the new kinds; `deriveEndorsementCounts()` |
-| `.../curatedDemo/baselineWriter.ts` | Inserts (after users, communities, matches); `applyEndorsementCounts()` after `insertProjections` |
-| `.../curatedDemo/verifier.ts`, `src/scripts/verifyDemoData.ts` | `skillsVisible` check + its live deps |
-| `tests/tdd/sprint-117-demo-reset.integration.test.ts` | Skills-layer assertions after each reset, incl. the reconcile dry-run |
+| `.../curatedDemo/baselineWriter.ts` | Inserts (after users, communities, memberships, matches); `applyEndorsementCounts()` after `insertProjections` |
+| `.../curatedDemo/verifier.ts`, `src/scripts/verifyDemoData.ts` | `skillsVisible` and `offerBoundary` checks + their live deps |
+| `services/simulation-service/src/api-client.ts` | `listOffers()` (`GET /offers`) and `getOffer(id)` (`GET /offers/:id`) for the verifier |
+| `tests/tdd/sprint-117-demo-reset.integration.test.ts` | Skills-layer and offer assertions after each reset, incl. the reconcile dry-run |
 | `services/simulation-service/tests/regression/sprint-117-api-verifier.test.ts`, `sprint-117-verification-logic.test.ts` | New dep / check in fixtures (each edit noted in the ledger) |
 | `docs/guides/demo-data.md`, `services/simulation-service/CONTEXT.md` | What the demo now shows and why counts are derived |
 
@@ -139,9 +171,9 @@ Library and Portland Mutual Aid, a camping stove from Sophia, a stand mixer from
    check can fail: a temporary negative case bumps one count by 1 inside a rolled-back transaction and expects a
    planned update.
 5. **Insert order and FKs.** `auth.user_tags` and `auth.user_privacy_settings` go after users. Inventory items and
-   shares go after communities and memberships. `auth.skill_endorsements` goes after user_tags **and** after the exchange
+   shares go after communities and memberships, and so do `requests.help_offers`. `auth.skill_endorsements` goes after user_tags **and** after the exchange
    matches (step 5). `applyEndorsementCounts` runs after `insertProjections`. All ids are `semanticUuid(key)`
-   (`skill.<person>.<slug-or-value>`, `endorsement.*`, `item.*`), so they are stable across resets (the existing
+   (`skill.<person>.<slug-or-value>`, `endorsement.*`, `item.*`, `offer.*`), so they are stable across resets (the existing
    twice-applied determinism test then covers them). A withdrawn endorsement has `withdrawn_at` set and `revision = 2`
    (one change after creation); active ones have `revision = 1`.
 6. **Skills.** `tag_value` ≤ 100 chars, unique per (user, `'skill'`, value) (`user_tags_unique`). `skill_slug` is
@@ -159,28 +191,92 @@ Library and Portland Mutual Aid, a camping stove from Sophia, a stand mixer from
    for the exact response fields first). As Maria: `GET /auth/skills/users/<sophia>` is 200 and shows a skill with a
    vouch. Maria's own `GET /auth/skills/users/<maria>` shows cooking with endorsement count 2.
    `GET /auth/skills/communities/<portland-mutual-aid>` lists a non-zero member count. As Noah:
-   `GET /auth/skills/users/<ambient-09>` is 404, and ambient-09 is absent from the providers directory. `ready`
-   requires it. Check that the existing `provider.contrast` expectation still holds with the extra endorsement weight on
-   the Amina–Noah edge: read how `getProviderContext` decides contrast before assuming it ignores weights.
+   `GET /auth/skills/users/<ambient-09>` is 404. **The opt-out is proven by search, not the directory** (finding
+   2026-10-17): `GET /auth/skills/communities/:id` returns only `skill_key`, `label` and `member_count` per skill, with
+   no user identities (`services/auth-service/src/routes/skills.ts:56-71`), so "absent from the directory" can't be
+   asserted. Instead:
+   - **Fixture:** ambient-09 holds a skill (call it *X*) that **Amina** (`person.bridge`, a visible PDX Service
+     Providers member who isn't the viewer) also holds. *X* is a vocabulary slug, or a free-text value both share
+     exactly.
+   - **Search, positive control plus absence by id:** as Noah,
+     `GET /auth/skills/communities/<providers>/search?skill=<X>` (`skills.ts:73-93`; rows carry `user_id`) **contains
+     Amina's `user_id`** and **doesn't contain ambient-09's `user_id`**. An empty result fails: an empty result would
+     also "not contain" ambient-09.
+   - **Directory counts are exact:** as Noah, the providers directory's `{skill_key → member_count}` map **equals** the
+     expected map computed from the compiled baseline: per skill key, the distinct active Providers members holding it
+     who share skills, plus Noah himself (the owner always sees his own, `skillVisibleToSql`). Opted-out members are
+     excluded. For *X* that's exactly the visible holders, one fewer than its raw holders. Export that expectation from
+     the compiler (`expectedSkillDirectory(baseline, communityKey, viewerKey)`) so the verifier and the root
+     integration test use one derivation, not a hand-typed number.
+   `ready` requires all of it. **`provider.contrast` is unaffected (resolved 2026-10-17):** the expectation is declarative only, since
+   no source or test reads `provider-contrast` (`types.ts:157`, `manifest.ts:312` are its only occurrences), and the
+   live provider pick ranks by `sharedConnections`, not weights (`mariaRelationshipStory.ts:260-265`). The Amina→Noah
+   vouch changes only that edge's count and weight, and adds no edge (Critical Note 3 throws on a missing one), so no
+   connection set changes.
+   **Second check, `offerBoundary`** (read `routes/offers.ts:25-104` for the exact fields first): as Maria,
+   `GET /offers` contains both Portland Mutual Aid offer ids and **not** `offer.rides-airport`; `GET /offers/<rides
+   offer>` is **404** (never 403: PR V made foreign and missing identical); `GET /offers/<sophia offer>` is 200. As the
+   existing **unrelated** persona (`DEMO_UNRELATED_EMAIL` = Marcus Lee, `person.outsider`, a PDX Rides Collective member
+   and not the offerer; `verifyDemoData.ts:50,122-123`, `docs/guides/demo-data.md:204`), `GET /offers/<rides offer>` is
+   200. That makes the 404 non-vacuous: the row exists, and the membership half (not just the owner half) grants
+   access. No new host env var. `ready` requires it.
 10. **Demo apply is the maintainer's call, at the time.** Never run `reset:demo --apply` without explicit authorization
     in that session for that operation, naming lane "PR D". The plan, the merge and the deploy don't authorize it.
     Use the Sprint 117 host runbook (`.claude/handoff/archive/2026-07-08-sprint-117-curated-demo-reset-COMPLETE.md:30-40`)
     and memory *Demo-host wiring traps*. The reset deletes all simulated activity since July. Say so in the request.
     A live endorse/withdraw round trip afterwards is a **separate** demo write needing its own authorization.
+11. **Offers follow `POST /offers`'s write rule** (`routes/offers.ts:106-162`): the offerer is an **active** member of the
+    offer's community at the anchor. The compiler enforces it and names the key. `category` is in the offer-form set
+    (Global Constraints). `status = 'active'`, `expired = false`, `created_at = updated_at = ageFrom(anchor,
+    createdAge)`, `expires_at = created_at + 60 days`, mirroring `offer_ttl_days`. The arbiter test locks the 60 to
+    `init.sql`. The compiler throws if `expires_at` is less than **30 days** after the anchor. The cleanup job marks an
+    offer expired once `expires_at <= now` (`cleanup-service/src/jobs/expirationJob.ts:29-34`), and `GET /offers` lists
+    only `status = 'active'`, so an offer about to expire would leave the smoke empty a few days after the reset. Leave
+    `is_public` and `offerer_visibility_consent` at their column defaults: PR V doesn't consult them, and the seed
+    mustn't suggest it does. No `offer_created` event is published (the writer is SQL, as for requests).
+    `requests.help_offers` is already `reset` (`tablePolicy.ts:83`), so no policy change.
 
 ---
 
 ## Task D0: Branch and precondition
 
-- [ ] PR V is merged and deployed green (`gh pr list --state merged --search "PR V"`; latest master deploy run
-  succeeded). If not, stop: PR D waits.
-- [ ] `git fetch origin && git switch -c agent/claude/sprint-133-pr-d-demo-seed-v2 origin/master`, or delete and recreate
-  the old branch name **after** `git diff origin/master origin/agent/claude/sprint-133-pr-d-demo-seed` shows nothing
-  PR V didn't carry (memory: *Handoff stranded by the merge*). Bring the handoff over by committing it on the new
-  branch.
+- [x] PR V is merged and deployed green: `05d29d28` is `origin/master`, and CI/CD 38985813305 passed on attempt 1
+  (handoff header, 2026-10-17).
+- [x] Branch `agent/claude/sprint-133-pr-d-curated-seed` cut from `origin/master` `05d29d28` (2026-10-17) and carries the handoff.
+  The old branch's only commit was verified on master. Before starting, `git fetch origin` and merge `origin/master` if it moved
+  (merge commit, no rebase).
 - [ ] Read `services/simulation-service/.claude/README.md` and `CONTEXT.md` (*Sprint 117* section) and
   `tests/claude.md`. Run `node scripts/gotcha-check.js --for services/simulation-service/src/fixtures/curatedDemo
   tests/tdd/sprint-117-demo-reset.integration.test.ts` and read every hit.
+
+## Task D0b: Exemption renewal PR (separate, before D1)
+
+**Hard deadline: deployed before 2026-10-21T00:00:00Z = 2026-10-20 at 17:00 PDT.** `expires: 2026-10-21` is the first
+*invalid* day (`expires <= today`, `scripts/audit-exemptions.js:123`), and "today" is the **UTC** date
+(`todayUtc`, `scripts/lib/exemption-registry.js:17-19`; `parseUtcDate` anchors `expires` at `T00:00:00Z`, `:4-6`).
+Reproduced with the validator (2026-10-17): `2026-10-20T23:59:59Z` (16:59:59 PDT) validates clean;
+`2026-10-21T00:00:00Z` (17:00 PDT on the 20th) reports both entries EXPIRED. From then on every push and deploy fails the
+ADR-059 gate, PR D's included. Plan to merge by midday PDT on the 20th to leave room for a deploy rerun. Claude holds the dependency lane. This follows the #304 pattern: a short PR, never inside PR D.
+
+- [ ] Branch `agent/claude/sprint-133-exemption-renewal-2` from fresh `origin/master`.
+- [ ] Re-check upstream by hand: `npm view node-forge version`, `npm view braces version`, each GHSA page
+  (`first_patched_version`, withdrawn?), `npm view @expo/cli dependencies.node-forge`, and `npm ls --all node-forge braces`.
+  Planning chat, 2026-10-17: still node-forge 1.4.0 and braces 3.0.3, no fix. If upstream fixed one, **remove** that
+  exemption and bump surgically (CLAUDE.md *Dependency edits are surgical*) instead of renewing it.
+- [ ] **Ask the maintainer to authorize the renewal**, quoting the re-check. Only on yes: set `created` to today and
+  `expires` to at most 7 days later, update each `decision`, and add the ADR-059 renewal amendment line, as #304 did.
+- [ ] Version: the minor from `origin/master` (11.90.0 if nothing else merged). PR D then re-bumps at its own merge.
+- [ ] `npm exec --workspace=tests -- jest regression` (includes the audit-exemption gate); push; CI green; ask "admin
+  merge, yes/no?"; wait for deploy + health.
+- [ ] **Return to PR D and take the renewal before D1.** `git switch agent/claude/sprint-133-pr-d-curated-seed`,
+  `git fetch origin`, `git merge origin/master` (merge commit, no rebase). Then prove the branch carries it:
+  `git diff origin/master -- security/audit-exemptions.json` is empty, and
+  `npm exec --workspace=tests -- jest --runTestsByPath regression/sprint-123-audit-exemption-gate.test.ts` passes. This
+  is required, not hygiene: that test validates the **branch's own** registry against `new Date()`
+  (`sprint-123-audit-exemption-gate.test.ts:67`). Without the merge, PR D keeps the 2026-10-21 entries, and from the
+  cutoff the pre-push regression fails on every PR D push, even though the renewal is live on master. (PR CI uses
+  the merge ref, `ci.yml:6`, so CI alone could look green.) Record the renewal in the handoff on the PR D branch, not
+  on master.
 
 ## Task D1: TDD tests first
 
@@ -189,23 +285,39 @@ Library and Portland Mutual Aid, a camping stove from Sophia, a stand mixer from
 - [ ] `sprint-133-demo-skills-seed.test.ts`:
   - compiled manifest: Maria has ≥ 3 skills and ≥ 1 active vouch; every exchange helper has 2–4 skills; exactly one
     opted-out person, with ≥ 1 skill and no endorsements; 7 endorsements, 1 withdrawn; personal items shared only within
-    owner memberships; 4 Tool Library items with no shares;
+    owner memberships; 4 Tool Library items with no shares; 3 offers, two in Portland Mutual Aid and one in PDX Rides
+    Collective, each with `expires_at` at least 30 days after the anchor;
   - `deriveEndorsementCounts` returns exactly {Maria–Sophia/PMA: 2, Maria–Wei/PMA: 1, Maria–James/PMA: 0 (or absent),
     Elena–Fatima/SE: 2, Amina–Noah/Providers: 1}, keyed by normalized ids;
   - fail-closed: one planted manifest per rule in Critical Notes 1, 6 and 8 throws, naming the key (no completed
     exchange between the pair, exchange community the endorser left, opted-out endorsee, self-vouch, duplicate
     (endorser, skill), vouch older than its exchange, withdrawal before creation, shared item to a non-member
-    community, shared community item, community item created by a non-admin, unknown slug, duplicate tag value);
+    community, shared community item, community item created by a non-admin, unknown slug, duplicate tag value,
+    offer by a non-member of its community, unknown offer category, offer expiring within 30 days of the anchor);
   - writer: with a recording client, the endorsement insert follows the matches insert and the user_tags insert; the
     count `UPDATE` follows the projection; a `rowCount` of 0 on the count update throws.
-  - verifier: `skillsVisible` false makes `ready` false; each failing sub-read is reported.
+  - verifier: `skillsVisible` false makes `ready` false; each failing sub-read is reported, including the three opt-out
+    failure modes: ambient-09's id present in the *X* search, Amina's id missing (an empty search must fail), and a
+    directory map that differs from `expectedSkillDirectory` by one count.
+  - `expectedSkillDirectory` for Providers as Noah: *X*'s count equals its raw holder count minus 1 (ambient-09), and
+    flipping ambient-09 to sharing raises it by exactly 1. The same for
+    `offerBoundary`, including two cases: a 403 for the foreign offer fails the check (only 404 passes), and a 404 for
+    the unrelated persona's read fails it (a vacuous boundary).
 - [ ] `sprint-133-demo-seed-arbiters.test.ts`: every manifest `skill_slug` occurs in an
   `INSERT INTO auth.skill_vocabulary` in `infrastructure/postgres/migrations/*.sql`. The compiler's item category,
   condition and status sets equal the `items_category_check`, `items_condition_check` and `items_status_check`
-  arrays parsed from `infrastructure/postgres/init.sql`. Include a negative fixture proving the parser finds a planted
-  extra value.
+  arrays parsed from `infrastructure/postgres/init.sql`. The compiler's offer TTL equals the parsed `offer_ttl_days`
+  default, and its offer category set equals the `<option value>`s of the type select in
+  `apps/frontend/src/pages/offers/new.tsx`. Include a negative fixture proving each parser finds a planted extra value.
 - [ ] Root `tests/tdd/sprint-117-demo-reset.integration.test.ts`: after each reset, the Critical Note 4 assertions,
-  plus row counts **by key** for user_tags, endorsements (active/withdrawn), privacy settings, items and shares.
+  plus row counts **by key** for user_tags, endorsements (active/withdrawn), privacy settings, items, shares and offers.
+  Run the directory and search SQL for Providers as Noah, by importing auth-service's `skillVisibleToSql` and
+  `activeMemberSql` (`auth-service/src/db/skillVisibility.ts`, exported). The directory must equal
+  `expectedSkillDirectory`, and the *X* search must contain Amina's id and not ambient-09's.
+  For offers, run PR V's boundary predicate on the reset database. `offerReadableSql` isn't exported (`offers.ts:18`),
+  so read its body out of `services/request-service/src/routes/offers.ts` at run time and substitute the alias and
+  parameter. Don't paste a copy: a pasted copy would be a shadow that never fails. With Maria as the viewer it returns exactly the
+  two Portland Mutual Aid offer ids. With `person.outsider` (a member, not the offerer) it includes the rides offer.
 - [ ] **Verify red:** `npm exec --workspace=services/simulation-service -- jest tests/tdd/sprint-133` fails on the
   missing types and exports. The root file is proven red in CI's *Sprint 117 curated reset integration* step (no local
   Docker): confirm from the first CI log.
@@ -217,7 +329,8 @@ Library and Portland Mutual Aid, a camping stove from Sophia, a stand mixer from
 - [ ] Add the fixture and compiled types (File map). `SkillFixture { key; owner; value; slug?: string }`,
   `EndorsementFixture { key; endorser; skill; exchange; createdAge; withdrawnAge? }`,
   `ItemFixture { key; owner; name; description?; category; condition?; status?; sharedWith?: SemanticKey[];
-  createdBy? }` (owner is a person or a community key), and `shareSkills?: false` on `FixturePerson`.
+  createdBy? }` (owner is a person or a community key), `OfferFixture { key; offerer; community; title; description;
+  category; createdAge }`, and `shareSkills?: false` on `FixturePerson`.
 - [ ] Author the seed content (the tables above). Keep every story floor intact; add no person, community, membership
   or exchange.
 - [ ] **Verify:** `npx tsc --noEmit -p services/simulation-service`.
@@ -226,7 +339,7 @@ Library and Portland Mutual Aid, a camping stove from Sophia, a stand mixer from
 
 **Files:** `compiler.ts`.
 
-- [ ] Validation for every rule in Critical Notes 1, 6 and 8, in the existing `fail(...)` style with the key in the
+- [ ] Validation for every rule in Critical Notes 1, 6, 8 and 11, in the existing `fail(...)` style with the key in the
   message. Wire it into `compileManifest` beside `validateReferences`.
 - [ ] Compile the new rows (stable `semanticUuid` ids, anchor-relative timestamps via `ageFrom`) and
   `deriveEndorsementCounts` (Critical Note 2) into the baseline.
@@ -247,8 +360,9 @@ Library and Portland Mutual Aid, a camping stove from Sophia, a stand mixer from
 
 **Files:** `verifier.ts`, `src/scripts/verifyDemoData.ts`, the two Sprint 117 verifier tests.
 
-- [ ] `skillsVisible` and its deps (Critical Note 9), authenticated as Maria and Noah like the existing deps. Add the
-  `'skills'` expectation to the manifest.
+- [ ] `skillsVisible` and `offerBoundary` and their deps (Critical Note 9), authenticated as Maria, Noah (provider
+  client) and the unrelated persona, like the existing deps. No new persona login. Add `listOffers`/`getOffer` to `api-client.ts`, with errors surfacing the HTTP status the way
+  `statusOf` already reads it (`verifyDemoData.ts`). Add the `'skills'` and `'offer-boundary'` expectations to the manifest.
 - [ ] **Verify:** verifier TDD cases green; existing verifier regressions updated only to supply the new dep (each
   edit in the ledger).
 
@@ -257,8 +371,8 @@ Library and Portland Mutual Aid, a camping stove from Sophia, a stand mixer from
 **Files:** `docs/guides/demo-data.md`, `services/simulation-service/CONTEXT.md`.
 
 - [ ] *demo-data.md*: what a visitor can now try (co-member skills and vouches on Maria's and Sophia's profiles,
-  community skill search, the Tool Library's shared items, an opted-out member who doesn't appear) and that counts are
-  derived from seeded vouches, never typed in.
+  community skill search, the Tool Library's shared items, an opted-out member who doesn't appear, standing offers in
+  Maria's community, and none from a community she isn't in) and that counts are derived from seeded vouches, never typed in.
 - [ ] *CONTEXT.md*: a Sprint 133 PR D section under *Sprint 117: Curated Demo Reset* (new fixture kinds, the count
   derivation and its reconcile proof, the verifier check); Recent Changes.
 - [ ] Regenerate landing docs; `git add -f` new generated pages only; revert timestamp/HEAD-sha churn.
@@ -278,7 +392,7 @@ Library and Portland Mutual Aid, a camping stove from Sophia, a stand mixer from
   RED→GREEN or ruled in the ledger.
 - [ ] `/security-review`. **Verify:** findings fixed or dismissals justified (the seed holds no secret; the credential
   hash still comes from the coordinator; check that no new fixture text leaks into an ordinary-scope API the privacy
-  checks don't cover).
+  checks don't cover). The seeded offer text is fixture copy and names no real person.
 
 ## Task D9: Final verification
 
@@ -296,7 +410,11 @@ Every exit code is 0, and `git status` shows only intended files.
 ## Task D10: PR, merge, deploy
 
 - [ ] Push; open the PR (content tables, the reconcile-dry-run proof, verifier change, ledger rulings). In CI, confirm the
-  *Sprint 117 curated reset integration* step ran the new assertions on **both** resets and passed.
+  *Sprint 117 curated reset integration* step ran the new assertions on **both** resets and passed. **`ubuntu-latest`
+  moves to Ubuntu 26 from 2026-10-19:** if that step or the Postgres service fails on a no-dep diff, check the runner
+  image first (handoff *Persistent obligations*) before debugging the seed.
+- [ ] D0b's renewal PR must already be merged and deployed (one merge at a time), and PR D's version re-derives from
+  `origin/master` after it.
 - [ ] Version bump from `origin/master` at merge time. Land the handoff (PR D awaiting merge) **before** asking for
   merge authorization; ask "admin merge, yes/no?". Then `/deploy`. The deploy doesn't touch demo data.
 
@@ -312,7 +430,9 @@ Every exit code is 0, and `git status` shows only intended files.
   `SELECT count(*) FROM auth.founding_circle_submissions;`. If it is **not 0**, stop and ask the maintainer: export
   the rows first, or reclassify the table `preserve` in a follow-up PR. Never apply over real submissions.
 - [ ] Read-only afterwards: `verify:demo` reports `ready: true` with `skillsVisible`; re-run the PR A (10 checks) and
-  PR B (7 checks) read-only smokes from the handoff, now on non-empty data.
+  PR B (7 checks) read-only smokes from the handoff, now on non-empty data. Add the **BUG-064 live smoke** (read-only):
+  as Maria, `GET /offers` lists the two Portland Mutual Aid offers and not the rides offer; `GET /offers/<rides offer>`
+  is 404; as Marcus Lee (Rides member) the same id is 200. Record the result on BUG-064 ("smoke-covered live"), on the next branch.
 - [ ] Optional, **separately authorized**: one live endorse → withdraw round trip as a protected persona on a seeded
   exchange, checking the edge count goes up then back, cleaned up by API.
 
@@ -335,4 +455,20 @@ Every exit code is 0, and `git status` shows only intended files.
   policy (`tablePolicy.ts`).
 - **UNVERIFIED:** why maria.reyes has 6 live memberships (simulation, fission/fusion, or a manual change). The reset
   makes it moot, but if the dry-run plan shows unexpected tables or rows, stop and ask.
-- **UNVERIFIED:** whether `provider.contrast` reads edge weights (Critical Note 9 says to check).
+- ~~**UNVERIFIED:** whether `provider.contrast` reads edge weights~~ **Resolved 2026-10-17:** no code reads it (Critical Note 9).
+
+## Self-review, revision 2 (2026-10-17, on `05d29d28`)
+
+- Facts read this session: `requests.help_offers` columns (`init.sql:2388-2405`, no CHECK); `offer_ttl_days DEFAULT
+  60` (`init.sql:1339`); `POST /offers` membership rule and insert (`routes/offers.ts:106-162`); `offerReadableSql` and
+  `GET /offers` status filter (`:18-40`); cleanup offer expiry (`expirationJob.ts:29-34`); offer form categories
+  (`offers/new.tsx:149-154`); `tablePolicy.ts:83`; rosters (`manifest.ts:95-150`); provider-contrast consumers (none);
+  `selectProvider` (`mariaRelationshipStory.ts:260-265`); `security/audit-exemptions.json` expiries; `npm view` latest
+  node-forge 1.4.0 and braces 3.0.3.
+- **Verified:** `offerReadableSql` is **not exported** (a module-local `function` at `offers.ts:18`, used only at `:40,90`).
+  So the root test reads the predicate out of the source at run time (D1) and must not export it from request-service,
+  since that would change another service's code (Global Constraints). If the extraction finds no match, the test fails.
+- **Verified:** the verifier's personas come from env (`verifyDemoData.ts:44-56`). `DEMO_UNRELATED_EMAIL` is Marcus Lee
+  (`person.outsider`, `manifest.ts:52`), a PDX Rides Collective member (`manifest.ts:134-139`; Sprint 117 archive
+  `:205`). He's the offer positive control, with no new env var.
+- Maria shares no community with PDX Rides Collective, so the "unrelated" guide rule (`demo-data.md:204`) still holds.

@@ -207,6 +207,55 @@ export async function writeBaseline(
     );
   }
 
+  // 7b. Skills layer (Sprint 133 PR D). Tags and the opt-out follow users; endorsements follow the
+  // exchange matches (step 5) and the tags; items, shares and offers follow communities + memberships.
+  for (const skill of baseline.skills) {
+    await client.query(
+      `INSERT INTO auth.user_tags (id, user_id, tag_type, tag_value, skill_slug, created_at)
+       VALUES ($1, $2, 'skill', $3, $4, $5)`,
+      [skill.id, skill.userId, skill.tagValue, skill.skillSlug, skill.createdAt],
+    );
+  }
+  // Only the opted-out person gets a row; everyone else keeps the column default (share = true).
+  for (const setting of baseline.skillSettings) {
+    await client.query(
+      `INSERT INTO auth.user_privacy_settings (user_id, share_skills_with_communities, created_at, updated_at)
+       VALUES ($1, $2, $3, $3)`,
+      [setting.userId, setting.shareSkillsWithCommunities, baseline.anchor],
+    );
+  }
+  for (const e of baseline.endorsements) {
+    await client.query(
+      `INSERT INTO auth.skill_endorsements
+         (id, endorser_id, endorsee_id, user_tag_id, match_id, created_at, updated_at, withdrawn_at, revision)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [e.id, e.endorserId, e.endorseeId, e.userTagId, e.matchId, e.createdAt, e.updatedAt, e.withdrawnAt, e.revision],
+    );
+  }
+  for (const item of baseline.items) {
+    await client.query(
+      `INSERT INTO inventory.items
+         (id, owner_user_id, owner_community_id, name, description, category, condition, status, created_by, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)`,
+      [item.id, item.ownerUserId, item.ownerCommunityId, item.name, item.description, item.category, item.condition, item.status, item.createdBy, item.createdAt],
+    );
+  }
+  for (const share of baseline.itemShares) {
+    await client.query(
+      `INSERT INTO inventory.item_shares (item_id, community_id, shared_at) VALUES ($1, $2, $3)`,
+      [share.itemId, share.communityId, share.sharedAt],
+    );
+  }
+  // is_public / offerer_visibility_consent are left at their column defaults on purpose.
+  for (const offer of baseline.offers) {
+    await client.query(
+      `INSERT INTO requests.help_offers
+         (id, community_id, offerer_id, title, description, category, status, expired, expires_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [offer.id, offer.communityId, offer.offererId, offer.title, offer.description, offer.category, offer.status, offer.expired, offer.expiresAt, offer.createdAt, offer.updatedAt],
+    );
+  }
+
   // 8. Global reseed: default interaction weights and trust-decay config (community-agnostic).
   await client.query(
     `INSERT INTO social_graph.interaction_weights (community_id, interaction_type, weight) VALUES
@@ -224,6 +273,65 @@ export async function writeBaseline(
 
   // 9. Completed-exchange projection inserts (connections, trust edges, karma) — added in Task 6.
   await insertProjections(client, baseline);
+
+  // 10. Derived endorsement counts + the weights that include them (Critical Note 3).
+  await applyEndorsementCounts(client, baseline);
+}
+
+type InteractionWeightRow = { community_id: string | null; interaction_type: string; weight: number | string };
+
+/**
+ * Read the four interaction weights for a community inside the reset transaction, resolved like
+ * `getInteractionWeightsForCommunity` (social-graph trustEdgeDb.ts): per type the community row
+ * beats the global (NULL) row, and an absent type defaults to 1.0. Nothing is hard-coded here.
+ */
+async function readWeights(client: PoolClient, communityId: string) {
+  const result = await client.query<InteractionWeightRow>(
+    `SELECT community_id, interaction_type, weight FROM social_graph.interaction_weights
+     WHERE community_id = $1 OR community_id IS NULL`,
+    [communityId],
+  );
+  const weights = { match_completed: 1.0, endorsement: 1.0, karma_given: 1.0, event: 1.0 };
+  const fromCommunity = new Set<string>();
+  for (const row of result.rows) {
+    const type = row.interaction_type as keyof typeof weights;
+    if (!(type in weights)) continue;
+    if (row.community_id === null && fromCommunity.has(type)) continue;
+    weights[type] = Number(row.weight);
+    if (row.community_id !== null) fromCommunity.add(type);
+  }
+  return weights;
+}
+
+/**
+ * Set `endorsement_count` and `raw_weight` on the projected edges, once per derived pair with
+ * n > 0, in ONE statement per edge so the weight is computed from the row's stored columns.
+ * Every endorsement sits on a seeded exchange, so its edge must exist: anything other than
+ * exactly one updated row is a fixture/projection bug and aborts the reset. `stability` and
+ * `last_interaction_at` stay as the projection set them.
+ */
+export async function applyEndorsementCounts(client: PoolClient, baseline: CompiledDemoBaseline): Promise<void> {
+  const weightsByCommunity = new Map<string, Awaited<ReturnType<typeof readWeights>>>();
+  for (const entry of baseline.endorsementCounts) {
+    if (entry.count <= 0) continue;
+    let w = weightsByCommunity.get(entry.communityId);
+    if (!w) {
+      w = await readWeights(client, entry.communityId);
+      weightsByCommunity.set(entry.communityId, w);
+    }
+    const result = await client.query(
+      `UPDATE social_graph.trust_edges SET
+         endorsement_count = $1::int,
+         raw_weight = match_completed_count * $2::float8 + $1::int * $3::float8 + karma_given_count * $4::float8 + event_count * $5::float8
+       WHERE user_id_a = $6 AND user_id_b = $7 AND community_id = $8`,
+      [entry.count, w.match_completed, w.endorsement, w.karma_given, w.event, entry.userIdA, entry.userIdB, entry.communityId],
+    );
+    if (result.rowCount !== 1) {
+      throw new Error(
+        `Refusing reset: endorsement count for pair ${entry.userIdA}/${entry.userIdB} in ${entry.communityId} updated ${result.rowCount} trust edges, expected exactly 1`,
+      );
+    }
+  }
 }
 
 /**

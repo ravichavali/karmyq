@@ -17,8 +17,12 @@ import type {
   FixturePerson,
   GovernanceFixture,
   HistoricalExchangeFixture,
+  EndorsementFixture,
   HistoricalRequestFixture,
+  ItemFixture,
+  OfferFixture,
   ProviderFixture,
+  SkillFixture,
   SemanticKey,
 } from './types';
 
@@ -58,7 +62,7 @@ export const CURATED_PEOPLE: FixturePerson[] = [
   { key: 'person.ambient-06', name: 'Mateo Garcia', email: 'mateo.garcia@test.karmyq.com', classification: 'ambient' },
   { key: 'person.ambient-07', name: 'Zara Ahmed', email: 'zara.ahmed@test.karmyq.com', classification: 'ambient' },
   { key: 'person.ambient-08', name: 'Caleb Brown', email: 'caleb.brown@test.karmyq.com', classification: 'ambient' },
-  { key: 'person.ambient-09', name: 'Nora Thompson', email: 'nora.thompson@test.karmyq.com', classification: 'ambient' },
+  { key: 'person.ambient-09', name: 'Nora Thompson', email: 'nora.thompson@test.karmyq.com', classification: 'ambient', shareSkills: false },
   { key: 'person.ambient-10', name: 'Diego Morales', email: 'diego.morales@test.karmyq.com', classification: 'ambient' },
   { key: 'person.ambient-11', name: 'Leila Haddad', email: 'leila.haddad@test.karmyq.com', classification: 'ambient' },
   { key: 'person.ambient-12', name: 'Jonas Miller', email: 'jonas.miller@test.karmyq.com', classification: 'ambient' },
@@ -304,6 +308,195 @@ const CURATED_ACTIVITIES: ActivityFixture[] = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Skills layer (Sprint 133 PR D). Skills are `auth.user_tags` rows; a slugged skill stores
+// the vocabulary LABEL as its value, a free-text tag has no slug. Endorsements sit on a
+// seeded exchange between the pair; trust-edge counts are DERIVED from them, never authored.
+// ---------------------------------------------------------------------------
+
+/** Short name used in skill keys -> the person's semantic key. */
+const SKILL_OWNER: Record<string, SemanticKey> = {
+  maria: 'person.maria',
+  elena: 'person.helper',
+  noah: 'person.provider',
+  sophia: 'person.shared-sophia',
+  james: 'person.shared-james',
+  priya: 'person.shared-priya',
+  wei: 'person.maria-exclusive',
+  fatima: 'person.helper-exclusive',
+  amina: 'person.bridge',
+};
+
+function sk(who: string, label: string, slug?: string): SkillFixture {
+  const slugPart = slug ?? label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return {
+    key: `skill.${who}.${slugPart}`,
+    owner: SKILL_OWNER[who] ?? `person.${who}`,
+    value: label,
+    ...(slug ? { slug } : {}),
+  };
+}
+
+const CURATED_SKILLS: SkillFixture[] = [
+  // Story core: everyone who helped in a seeded exchange holds 2-4 skills.
+  sk('maria', 'Cooking', 'cooking'),
+  sk('maria', 'Driving', 'driving'),
+  sk('maria', 'Gardening', 'gardening'),
+  sk('elena', 'Tech support', 'tech_support'),
+  sk('elena', 'Tutoring', 'tutoring'),
+  sk('elena', 'Grant writing'),
+  sk('noah', 'Handyman', 'handyman'),
+  sk('noah', 'Plumbing', 'plumbing'),
+  sk('noah', 'Electrical', 'electrical'),
+  sk('noah', 'Home repair', 'home_repair'),
+  sk('sophia', 'Tutoring', 'tutoring'),
+  sk('sophia', 'Cooking', 'cooking'),
+  sk('sophia', 'Baking', 'baking'),
+  sk('james', 'Home repair', 'home_repair'),
+  sk('james', 'Carpentry', 'carpentry'),
+  sk('james', 'Driving', 'driving'),
+  sk('priya', 'Tutoring', 'tutoring'),
+  sk('priya', 'Coding', 'coding'),
+  sk('priya', 'Resume review'),
+  sk('wei', 'Cooking', 'cooking'),
+  sk('wei', 'Tech support', 'tech_support'),
+  sk('fatima', 'Childcare', 'childcare'),
+  sk('fatima', 'Languages', 'languages'),
+  sk('fatima', 'Arabic translation'),
+  // Amina holds skill X (bookkeeping) together with the opted-out ambient-09: the positive
+  // control for the opt-out proof (a search as Noah finds Amina, never ambient-09).
+  sk('amina', 'Bookkeeping', 'bookkeeping'),
+  sk('amina', 'Organizing', 'organizing'),
+  sk('amina', 'Writing', 'writing'),
+  // Ambient helpers.
+  sk('ambient-02', 'Music', 'music'),
+  sk('ambient-02', 'Design', 'design'),
+  sk('ambient-03', 'Photography', 'photography'),
+  sk('ambient-03', 'Art', 'art'),
+  sk('ambient-05', 'Cleaning', 'cleaning'),
+  sk('ambient-05', 'Pet care', 'pet_care'),
+  sk('ambient-07', 'Moving', 'moving'),
+  sk('ambient-07', 'Bike repair'),
+  // About half of the other ambient people hold 1-2.
+  sk('ambient-01', 'Gardening', 'gardening'),
+  sk('ambient-04', 'Elder care', 'elder_care'),
+  sk('ambient-06', 'Carpentry', 'carpentry'),
+  sk('ambient-08', 'Tool sharpening'),
+  sk('ambient-10', 'Writing', 'writing'),
+  sk('ambient-11', 'Childcare', 'childcare'),
+  sk('ambient-13', 'Driving', 'driving'),
+  // ambient-09 opts out of sharing skills (see its person fixture) and still holds skills.
+  sk('ambient-09', 'Bookkeeping', 'bookkeeping'),
+  sk('ambient-09', 'Spreadsheet help'),
+];
+
+function vouch(
+  key: string,
+  endorser: SemanticKey,
+  skill: SemanticKey,
+  exchange: SemanticKey,
+  createdAge: EndorsementFixture['createdAge'],
+  withdrawnAge?: EndorsementFixture['createdAge'],
+): EndorsementFixture {
+  return { key, endorser, skill, exchange, createdAge, ...(withdrawnAge ? { withdrawnAge } : {}) };
+}
+
+const CURATED_ENDORSEMENTS: EndorsementFixture[] = [
+  vouch('endorsement.sophia-maria-cooking', 'person.shared-sophia', 'skill.maria.cooking', 'exchange.maria-sophia-4', 'P10D'),
+  vouch('endorsement.maria-sophia-tutoring', 'person.maria', 'skill.sophia.tutoring', 'exchange.maria-sophia-3', 'P40D'),
+  vouch('endorsement.wei-maria-cooking', 'person.maria-exclusive', 'skill.maria.cooking', 'exchange.maria-wei-2', 'P9D'),
+  // Withdrawn: the edge stays (it comes from exchanges) and its endorsement count stays 0.
+  vouch('endorsement.james-maria-driving', 'person.shared-james', 'skill.maria.driving', 'exchange.maria-james-2', 'P40D', 'P20D'),
+  vouch('endorsement.helper-fatima', 'person.helper', 'skill.fatima.childcare', 'exchange.helper-fatima-1', 'P44D'),
+  vouch('endorsement.fatima-helper', 'person.helper-exclusive', 'skill.elena.tech_support', 'exchange.helper-fatima-2', 'P11D'),
+  vouch('endorsement.amina-noah-handyman', 'person.bridge', 'skill.noah.handyman', 'exchange.amina-provider-1', 'P43D'),
+];
+
+// ---------------------------------------------------------------------------
+// Items: personal items shared only to communities the owner actively belongs to, plus
+// four Tool Library items owned by the community (created by its admin, never shared).
+// No borrow requests are seeded.
+// ---------------------------------------------------------------------------
+
+const CURATED_ITEMS: ItemFixture[] = [
+  {
+    key: 'item.james-extension-ladder', owner: 'person.shared-james', name: 'Extension ladder',
+    description: '24-foot fiberglass ladder. Happy to lend for a weekend.', category: 'tools', condition: 'good',
+    sharedWith: ['community.tool-library', 'community.portland-mutual-aid'],
+  },
+  {
+    key: 'item.priya-cordless-drill', owner: 'person.shared-priya', name: 'Cordless drill',
+    description: 'Drill and driver set with two batteries.', category: 'tools', condition: 'like_new',
+    sharedWith: ['community.tool-library', 'community.portland-mutual-aid'],
+  },
+  {
+    key: 'item.sophia-camp-stove', owner: 'person.shared-sophia', name: 'Two-burner camp stove',
+    description: 'Propane not included.', category: 'camping', condition: 'good',
+    sharedWith: ['community.portland-mutual-aid', 'community.southeast-pdx'],
+  },
+  {
+    key: 'item.maria-stand-mixer', owner: 'person.maria', name: 'Stand mixer',
+    description: 'Great for big batches of bread or cookies.', category: 'kitchen', condition: 'like_new',
+    sharedWith: ['community.portland-mutual-aid', 'community.southeast-pdx'],
+  },
+  {
+    key: 'item.elena-projector', owner: 'person.helper', name: 'Portable projector',
+    description: 'Good for a movie night or a neighborhood meeting.', category: 'electronics', condition: 'good',
+    sharedWith: ['community.southeast-pdx'],
+  },
+  {
+    key: 'item.fatima-board-games', owner: 'person.helper-exclusive', name: 'Board game collection',
+    description: 'A dozen family-friendly games.', category: 'party', condition: 'fair',
+    sharedWith: ['community.southeast-pdx'],
+  },
+  {
+    key: 'item.library-shop-vacuum', owner: 'community.tool-library', name: 'Wet/dry shop vacuum',
+    description: 'Community-owned. Return it empty.', category: 'tools', condition: 'good',
+    createdBy: 'person.steward-tools',
+  },
+  {
+    key: 'item.library-folding-tables', owner: 'community.tool-library', name: 'Folding tables (set of four)',
+    description: 'Community-owned. Fits a block party.', category: 'party', condition: 'good',
+    createdBy: 'person.steward-tools',
+  },
+  {
+    key: 'item.library-pressure-washer', owner: 'community.tool-library', name: 'Electric pressure washer',
+    description: 'Community-owned.', category: 'tools', condition: 'fair',
+    createdBy: 'person.steward-tools',
+  },
+  {
+    key: 'item.library-canopy', owner: 'community.tool-library', name: 'Pop-up canopy',
+    description: 'Community-owned. Ten by ten feet.', category: 'camping', condition: 'good',
+    createdBy: 'person.steward-tools',
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Standing offers. Two are in Portland Mutual Aid (Maria is a member and can read them); one
+// is in PDX Rides Collective (Maria is not a member: she gets 404, and it is absent from her list).
+// ---------------------------------------------------------------------------
+
+const CURATED_OFFERS: OfferFixture[] = [
+  {
+    key: 'offer.sophia-meal-prep', offerer: 'person.shared-sophia', community: 'community.portland-mutual-aid',
+    title: 'Batch meal prep for a neighbor',
+    description: 'I can cook a few days of meals for someone recovering or short on time.',
+    category: 'physical_help', createdAge: 'P5D',
+  },
+  {
+    key: 'offer.priya-tutoring', offerer: 'person.shared-priya', community: 'community.portland-mutual-aid',
+    title: 'Free math and coding tutoring',
+    description: 'Evenings, for students or adults picking up a new skill.',
+    category: 'skills', createdAge: 'P9D',
+  },
+  {
+    key: 'offer.rides-airport', offerer: 'person.ambient-13', community: 'community.rides',
+    title: 'Airport rides on weekends',
+    description: 'Room for two passengers and luggage. Message me a few days ahead.',
+    category: 'transportation', createdAge: 'P7D',
+  },
+];
+
 const CURATED_EXPECTATIONS: FixtureExpectation[] = [
   { key: 'reciprocal.maria-helper', description: 'Maria and Elena see a reciprocal ≤2-degree path.', kind: 'reciprocal-topology', subjects: ['person.maria', 'person.helper'] },
   { key: 'shared.maria-helper', description: 'Maria and Elena share ≥3 named neighbors.', kind: 'shared-neighbors', subjects: ['person.maria', 'person.helper'], value: STORY_HARD_FLOOR.minSharedPeople },
@@ -317,6 +510,8 @@ const CURATED_EXPECTATIONS: FixtureExpectation[] = [
   { key: 'retention.tool', description: 'Tool Library shows retention/forgotten transparency.', kind: 'retention', subjects: ['community.tool-library'] },
   { key: 'governance.pma', description: 'Portland Mutual Aid shows an open governance proposal.', kind: 'governance', subjects: ['community.portland-mutual-aid'] },
   { key: 'activity.pma', description: 'Portland Mutual Aid shows an upcoming activity.', kind: 'activity', subjects: ['community.portland-mutual-aid'] },
+  { key: 'skills.visible', description: 'Skills and vouches are visible to community members; the opted-out member is hidden from search and counts.', kind: 'skills', subjects: ['person.maria', 'person.shared-sophia', 'person.ambient-09', 'person.bridge', 'person.provider', 'community.portland-mutual-aid', 'community.providers'] },
+  { key: 'offers.boundary', description: 'A member reads their communities\' offers; a foreign community\'s offer is a 404 while a member of that community reads it.', kind: 'offer-boundary', subjects: ['person.maria', 'person.outsider', 'person.ambient-13', 'community.rides'] },
 ];
 
 export const CURATED_DEMO_MANIFEST: DemoFixtureManifest = {
@@ -336,6 +531,10 @@ export const CURATED_DEMO_MANIFEST: DemoFixtureManifest = {
   providers: CURATED_PROVIDERS,
   governance: CURATED_GOVERNANCE,
   activities: CURATED_ACTIVITIES,
+  skills: CURATED_SKILLS,
+  endorsements: CURATED_ENDORSEMENTS,
+  items: CURATED_ITEMS,
+  offers: CURATED_OFFERS,
   expectedBehaviors: CURATED_EXPECTATIONS,
 };
 

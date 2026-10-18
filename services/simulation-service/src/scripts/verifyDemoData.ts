@@ -17,7 +17,9 @@ import { floorFromRelationshipContext } from '../scenarios/mariaRelationshipStor
 import { demoSessionMatchesPublished, reciprocalContextsMatch } from '../fixtures/curatedDemo/demoVerificationLogic';
 import {
   verifyCuratedDemo,
+  type ApiRead,
   type DemoVerificationDeps,
+  type DemoViewer,
   type OrdinaryFloor,
 } from '../fixtures/curatedDemo/verifier';
 
@@ -85,6 +87,15 @@ function statusOf(error: unknown): number {
   return typeof status === 'number' ? status : 0;
 }
 
+/** Run a read and report its HTTP status; never throws (status 0 = transport error). */
+async function readOf<T>(read: () => Promise<T>): Promise<ApiRead<T>> {
+  try {
+    return { status: 200, data: await read() };
+  } catch (error) {
+    return { status: statusOf(error), data: null };
+  }
+}
+
 /**
  * Verify the PUBLIC demo session end-to-end: POST /auth/demo-session must resolve a coherent
  * session whose `demo.stories` match the expected IDs, and that session token must be READ-ONLY
@@ -120,7 +131,19 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
   await helper.login(env.helperEmail, env.password);
 
   const unrelated = new ApiClient(env.baseUrl);
-  await unrelated.login(env.unrelatedEmail, env.password);
+  const unrelatedAuth = await unrelated.login(env.unrelatedEmail, env.password);
+
+  // Noah (the provider persona) proves the skills opt-out from a viewer who shares a community with
+  // the opted-out member; the existing provider env, no new persona or variable.
+  const provider = new ApiClient(env.baseUrl);
+  const providerAuth = await provider.login(env.providerEmail, env.password);
+  const clients: Record<DemoViewer, ApiClient> = { maria, provider, unrelated };
+  // The user id each persona's login response reported, for the verifier's identity guard.
+  const loggedInAs: Record<DemoViewer, string | null> = {
+    maria: mariaId ?? null,
+    provider: providerAuth.user?.id ?? null,
+    unrelated: unrelatedAuth.user?.id ?? null,
+  };
 
   const context = await maria
     .getMatchRelationshipContext(env.storyIds.ordinaryRequestId, env.storyIds.ordinaryMatchId)
@@ -197,6 +220,13 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
     async getStoryIds() {
       return env.storyIds;
     },
+    getViewerUserId: async viewer => loggedInAs[viewer],
+    getMemberSkills: (viewer, userId) => readOf(() => clients[viewer].getMemberSkills(userId)),
+    getSkillDirectory: (viewer, communityId) => readOf(() => clients[viewer].getSkillDirectory(communityId)),
+    searchCommunitySkills: (viewer, communityId, skill) =>
+      readOf(() => clients[viewer].searchCommunitySkills(communityId, skill)),
+    listOffers: viewer => readOf(() => clients[viewer].listOffers()),
+    getOffer: (viewer, offerId) => readOf(() => clients[viewer].getOffer(offerId)),
   };
 }
 

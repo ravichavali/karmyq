@@ -147,6 +147,39 @@ Because the platform models real time, demo content behaves like the real produc
   rotated explicitly before they age out** — see *Rotating the stories* below. This is a standing
   operational obligation, not a background process.
 
+### Skills, vouches, shared items and standing offers (Sprint 133)
+
+After the next curated reset, the baseline also carries the skills layer, so there is something real to try:
+
+- **Co-member skills and vouches.** Signed in as Maria Reyes, open the profile of a co-member such as
+  Sophia and you see her skills, with vouches where a neighbour has endorsed her after a completed
+  exchange. Maria's own cooking skill shows 2 vouches (from Sophia and Wei). A third vouch, from James
+  for her driving, was withdrawn and so does not count.
+- **Community skill search.** Portland Mutual Aid, Southeast PDX and PDX Service Providers each have a
+  skill directory, and searching a skill (for example bookkeeping in PDX Service Providers) lists the
+  members who hold it.
+- **An opted-out member.** One member of PDX Service Providers has turned off skill sharing. Searching
+  the skill that member holds shows the other holder but not them, and their profile is a 404 to
+  co-members.
+- **Shared items.** The Tool Library has four community-owned items (no personal owner), and members
+  such as James, Priya, Sophia, Maria, Elena and Fatima have shared personal items (ladder, drill, camp
+  stove, stand mixer, projector, board games) to the communities they belong to. There are no borrow
+  requests.
+- **Standing offers.** Sophia's meal prep and Priya's tutoring are active offers in Portland Mutual Aid,
+  so Maria sees them. A third offer, airport rides, sits in PDX Rides Collective, which Maria is not in:
+  it is absent from her list and opening it directly is a 404.
+
+**Between deploy and reset, the demo reports not-ready on purpose.** After the skills layer is deployed and
+before the authorized curated reset, `verify:demo` reports not-ready: the `skills.*` and `offers.*` checks
+fail because that data is not seeded yet, and `rotate:demo-stories` refuses (its message lists the failing
+ids). The curated reset is the remedy. A `personas.*` id is different: it means a wrong `DEMO_*_EMAIL` on
+the host, not missing data, and it must be fixed before the reset.
+
+**Counts are derived, never typed in.** Vouch totals and the trust-edge weights that include them are
+computed from the seeded vouches by the same rule production's reconcile uses (distinct endorsers per
+pair and community, withdrawn vouches excluded). The manifest declares no counts. CI runs the real
+reconcile in dry run over every seeded pair after a full reset and expects it to plan no changes.
+
 Everything you see is illustrative synthetic data — real numbers and names would belong to real
 people. It is not a frozen screenshot; it is the actual product running on curated, truthful history.
 
@@ -200,8 +233,8 @@ because that file is injected into every service container and must never carry
 | `API_BASE_URL` | Where rotation drives the ordinary APIs |
 | `DEMO_MARIA_EMAIL` | The persona (falls back to `DEMO_PERSONA_EMAIL`) |
 | `DEMO_HELPER_EMAIL` | Offers help on the ordinary request — **must share a community with Maria** or rotation refuses |
-| `DEMO_PROVIDER_EMAIL` | Submits the provider offer |
-| `DEMO_UNRELATED_EMAIL` | Proves an out-of-audience viewer is denied — **must share ZERO communities with Maria** |
+| `DEMO_PROVIDER_EMAIL` | Submits the provider offer; must be Noah Williams (`noah.williams@test.karmyq.com`, `person.provider`), who is also the viewer for the skills opt-out checks |
+| `DEMO_UNRELATED_EMAIL` | Proves an out-of-audience viewer is denied — **must be Marcus Lee** (`marcus.lee@test.karmyq.com`, `person.outsider`, a PDX Rides Collective member) and **share ZERO communities with Maria** |
 | `DEMO_PERSONA_PASSWORD` | Shared simulation password |
 | `DEMO_ENV_FILE` | Absolute path to the compose env file the ids are published into |
 | `DEMO_ENABLE_CMD` / `DEMO_RESTART_AUTH_CMD` | `scripts/demo/enable-demo.sh` and `scripts/demo/restart-auth.sh`; both fail-closed if unset |

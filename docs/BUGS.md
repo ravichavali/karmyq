@@ -1728,7 +1728,8 @@ question (should a standing offer follow its community's membership, like reques
   and `GET /offers/:id`; `PUT`/`DELETE`/`PUT /privacy` and the `POST /matches` offer lookup select by id AND offerer,
   so a foreign offer is the same 404 as a missing one. Tests: `tests/integration/sprint-133-pr-v-read-boundary.integration.test.ts`
   (offer boundary, oracles on every write route), `services/request-service/tests/regression/sprint-133-pr-v-read-boundary.test.ts`.
-  The merge SHA is recorded after merge.
+  **Shipped:** merged as `05d29d28` (#306, v11.89.0), deployed by CI/CD 38985813305 (all services healthy, no rollback). Not
+  smoke-covered live: the demo has no standing offers; this half rests on the CI real-SQL test.
 
 ---
 
@@ -1767,7 +1768,9 @@ payload, requirements, requester name) of a community-scoped ask that `GET /requ
   `getRequestReachability` builds its columns from the same helpers. The four claim-gated community reads call
   `isActiveMember`. Tests: `tests/integration/sprint-133-pr-v-read-boundary.integration.test.ts` (list/detail parity
   over every viewer/ask pair by identity with three named exceptions, outsider and spoofed-requester lists, stale-claim
-  403s), `services/request-service/tests/regression/sprint-133-pr-v-read-boundary.test.ts`. The merge SHA is recorded after merge.
+  403s), `services/request-service/tests/regression/sprint-133-pr-v-read-boundary.test.ts`. **Shipped:** merged as `05d29d28` (#306,
+  v11.89.0), deployed by CI/CD 38985813305. Live read-only smoke as maria.reyes 15/15, with a member control: across six communities
+  she is not in, a member sees 993 community-scope asks and she sees 0.
 
 ---
 
