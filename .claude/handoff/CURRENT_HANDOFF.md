@@ -1,6 +1,28 @@
 # Sprint 133 — Skills Depth — Handoff
 
-**Date**: 2026-10-17 (**PR V SHIPPED and LIVE**, v11.89.0; **PR D rev 2 reviewed, amendments applied: execute next, starting D0**)
+**Date**: 2026-10-18 (**PR D implemented, D9 verified green, PR published; awaiting CI + final whole-branch review, then merge authorization**)
+
+**PR D SECURITY REVIEW RECEIVED (2026-10-17).** The maintainer supplied a security review of
+`92aced5c`: **no vulnerabilities found**, and the candidate pass returned nothing for false-positive
+filtering. Reported coverage: parameterized writer SQL and the existing identifier guard; credential
+hash flow and absence of credential literals; deterministic UUID hashing; GET-only ApiClient additions;
+verifier output; empty example password; synthetic test-domain personas. This records the supplied
+review, not an independent security rerun. Local HEAD matches the reviewed commit; the tree was clean
+before this handoff edit. No tests or demo operations were run in this receipt session.
+
+**State reconciliation (2026-10-17).** GitHub connector lists **no open PRs**. Local history contains
+the PR D implementation, `/simplify`, and code-review follow-ups through `92aced5c`; PR D is not yet
+published. [#307](https://github.com/ravichavali/karmyq/pull/307) is merged as `4c18c1df` (v11.90.0),
+and merge `83da3cf4` brings it into this branch. Both exemptions now expire **2026-10-24**
+(`security/audit-exemptions.json:12,22`); the old October 21/D0b instructions below are history.
+The #307 deploy is **verified**: [CI/CD 39057635738](https://github.com/ravichavali/karmyq/actions/runs/39057635738) on `4c18c1df` succeeded with every job green, Deploy to Demo included (Claude, 2026-10-17). Shell GitHub access was network-blocked;
+live PR state came from the connector. Claude retains branch ownership; only this handoff is
+left uncommitted for Claude to include in the next authorized branch commit.
+
+**D9 final verification (Claude, 2026-10-18, on `92aced5c`):** `tsc` 0; simulation unit+regression 17 suites / 185 tests; root regression 39 / 902; `npm test` 27/27 tasks. **D10:** PR published (maintainer: "We can publish the PR"); next, confirm CI's *Sprint 117 curated reset integration* step ran the new assertions on both resets, and the SDD final whole-branch review (ledger `.superpowers/sdd/2026-10-16-sprint-133-pr-d-demo-seed/progress.md`). Version re-derives from `origin/master` (11.90.0 → 11.91.0) at merge time.
+The supplied security review supplies no merge or demo-reset authorization.
+
+**Planning history (superseded by current state above):**
 **CODEX PLAN REVIEW (2026-10-17, `d089b8b3`).** Three amendments, all **APPLIED by Claude 2026-10-17** (verified first: the UTC cutoff reproduced with `validateRegistry`; the directory has no identities, `skills.ts:56-71`; `sprint-123-audit-exemption-gate.test.ts:67` validates the branch registry against `new Date()`, so an unmerged PR D fails pre-push after the cutoff even though PR CI uses the merge ref) in
 `docs/superpowers/plans/2026-10-16-sprint-133-pr-d-demo-seed.md`:
 - **P1, D0b deadline (`:231`):** expiry is UTC, so deployment must finish before **2026-10-21 00:00 UTC
@@ -200,11 +222,11 @@ This handoff rides on the PR B branch `agent/claude/sprint-133-pr-b-endorsements
 3. **PR V is SHIPPED** (v11.89.0, `05d29d28`); PR S, A, B, Q, V and #304 are shipped. Never commit on their branches.
 4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
    slash command: superpowers removed it as a deprecated stub.
-5. **Start PR D** in a fresh chat on `agent/claude/sprint-133-pr-d-curated-seed` (cut from `05d29d28`; it carries this handoff), from
+5. **Continue PR D** on `agent/claude/sprint-133-pr-d-curated-seed` at `92aced5c`, using
    [`docs/superpowers/plans/2026-10-16-sprint-133-pr-d-demo-seed.md`](../../docs/superpowers/plans/2026-10-16-sprint-133-pr-d-demo-seed.md)
-   (revision 2, 2026-10-17; it supersedes the sketch in the sprint plan). D0's PR V precondition is checked; do the
-   rest of D0 (the Codex amendments are applied), then **D0b (exemption renewal PR,
-   deploy before October 20, 5:00 p.m. PDT)**, merge renewed master back into PR D, then D1. Re-run the PR B / PR A skill
+   (revision 2, 2026-10-17; it supersedes the sketch in the sprint plan). Implementation and review follow-ups
+   are committed; security review reports no findings on that head. Complete **D9 final verification**, then
+   **D10 PR publication/CI** (#307 deploy already verified). Re-run the PR B / PR A skill
    smokes and the BUG-064 offer smoke after PR D seeds data.
    The demo apply is a **full curated reset**: it deletes all simulated activity since July and needs its own explicit
    authorization at the time; a live endorse/withdraw smoke afterwards is a second, separate authorization.
@@ -232,8 +254,8 @@ security PR first closes BUG-056, BUG-062 and BUG-058.
 | B | BUG-060 reproduction → transport choice; `auth.skill_endorsements`; reconcile-not-increment `endorsement_count`; vouch UI | `agent/claude/sprint-133-pr-b-endorsements` | **SHIPPED v11.86.0** ([#303](https://github.com/ravichavali/karmyq/pull/303), `1291b1d4`, deploy 38579973619 attempt 2 after maintainer dismissed CodeQL #612/#613, smoke 7/7 read-only). Codex review round 1 fixed, re-review clean. ADR-100 → Implemented on the PR Q branch |
 | Q | **BUG-060 (HIGH)**: move the remaining shared-queue events off `karmyq-events` to per-consumer queues (completionEvents pattern); re-run the B1 reproduction expecting 0 lost jobs | `agent/claude/sprint-133-pr-q-queue-migration` (cut 2026-10-14 from `1291b1d4`; live PR base `aded1986`) | **SHIPPED v11.88.0** ([#305](https://github.com/ravichavali/karmyq/pull/305), `36a9972f`, deploy 38948723833 attempt 1, all 9 healthy; integration 80/80, 0 failed attempts). Also fixed BUG-066 and BUG-067; logged BUG-068. Owed: read-only demo drain check (ask first), then legacy-handler removal |
 | V | **BUG-065 (HIGH)**: request-list boundary + five live-membership read gates (including community-health); **BUG-064**: owner/live-member offer reads + uniform owner-write 404 | `agent/claude/sprint-133-pr-v-visibility` | **SHIPPED v11.89.0** ([#306](https://github.com/ravichavali/karmyq/pull/306), `05d29d28`, deploy 38985813305 attempt 1, all healthy; smoke 15/15 + member control 993 vs 0). Met the BUG-065 deadline. Follow-ups in the header |
-| D | Curated demo seed: skills (+ one opt-out), 7 story-shaped vouches (1 withdrawn), personal + Tool Library items, **3 standing offers (BUG-064 live coverage)**; counts derived and proven by social-graph's reconcile dry-run in the CI reset step | `agent/claude/sprint-133-pr-d-curated-seed` (cut 2026-10-17 from `05d29d28`; old `-demo-seed` branch deleted) | **NEXT**; planned 2026-10-16, **revised 2026-10-17** (rev 2: offers + D0b): [plan](../../docs/superpowers/plans/2026-10-16-sprint-133-pr-d-demo-seed.md). Demo apply = full curated reset, separately authorized |
-| R | **Exemption renewal** (`node-forge`, `braces`), PR D Task D0b, #304 pattern | `agent/claude/sprint-133-exemption-renewal-2` (not cut) | **Before PR D's D1; deployed before 2026-10-21T00:00Z (Oct 20, 5:00 p.m. PDT), then merged back into PR D.** Needs maintainer renewal authorization |
+| D | Curated demo seed: skills (+ one opt-out), 7 story-shaped vouches (1 withdrawn), personal + Tool Library items, **3 standing offers (BUG-064 live coverage)**; reconcile proof in CI reset step | `agent/claude/sprint-133-pr-d-curated-seed` | **IMPLEMENTED, UNPUBLISHED** at `92aced5c`; supplied security review clean on that head. D9 final verification and D10 publication next. [Plan](../../docs/superpowers/plans/2026-10-16-sprint-133-pr-d-demo-seed.md). Demo apply separately authorized |
+| R | **Exemption renewal** (`node-forge`, `braces`), PR D Task D0b | `agent/claude/sprint-133-exemption-renewal-2` | **MERGED** [#307](https://github.com/ravichavali/karmyq/pull/307), `4c18c1df`, v11.90.0; merged back via `83da3cf4`. Expires 2026-10-24 (gate fails from 2026-10-23 17:00 PDT; re-check before then). Deploy verified: CI/CD 39057635738 green |
 | L | ADR-101 legacy-handler removal **+ BUG-068 retirement** (dead feedback route, event, handler, sim call) | not cut | needs the read-only demo drain check first (ask); **due 2026-10-29** (BUG-068) |
 
 Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is reserved.
@@ -433,7 +455,7 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 | Field | Value |
 |---|---|
 | **Planning branch** | `feature/sprint-133-skills-depth`, base `origin/master` `6041c92c` (docs only) |
-| **Active editor** | **Claude** shipped PR V (2026-10-17); PR D is next, in a fresh chat, on `agent/claude/sprint-133-pr-d-curated-seed`. |
+| **Active editor** | **Claude** owns PR D on `agent/claude/sprint-133-pr-d-curated-seed`; implementation/review follow-ups at `92aced5c`. Codex recorded the supplied security review in this handoff only. |
 | **Reviewer role** | A non-author reviews each completed diff |
 | **Shared resources** | ADR-100 and ADR-101 allocated to this sprint. Re-read `origin/master` for PR V's version stamp at merge time; no version is reserved. No dependency upgrades, merge, deploy or demo data operation are authorized by this review. |
 
@@ -451,6 +473,11 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 - Contributor agents never self-merge; only Claude marks the sprint complete after actual delivery.
 
 ## Next unchecked action
+
+**Current next action: PR D D9 final verification, then D10 publication and CI.** The implementation
+is committed at `92aced5c`, with the supplied clean security review on that head. No open PRs were
+visible on 2026-10-17. Verify #307 deployment before merge preparation; do not restart D0/D1.
+The numbered entries below retain the sprint's decision history.
 
 1. ~~Merge and deploy #299~~: DONE 2026-10-10 (`dfe52c03`, deploy 38076041625 green).
 2. ~~Ship the BUG-061 PR~~: DONE 2026-10-10 (#300, `aa6352e8`, deploy 38078595371 green, smoke passed).
@@ -501,6 +528,6 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
    Renewal PR [#304](https://github.com/ravichavali/karmyq/pull/304) (v11.87.0) merged by the maintainer as `aded1986`
    (2026-10-15 03:31 UTC) and deployed green on attempt 1 (CI/CD 38676752463). Branch `agent/claude/sprint-133-exemption-renewal`
    is merged; never commit on it. PR Q re-bumps its version from master (11.87.0) at its own merge.
-9. **Re-check `node-forge` and `braces` before 2026-10-21** (`npm view`, the GHSA page, `npm ls --all`). Remove each exemption if
-   upstream ships a fix. Renewing needs explicit maintainer authorization again. **Now PR D Task D0b**; `npm view` on
-   2026-10-17 still shows 1.4.0 / 3.0.3 (no fix). The renewal must be deployed before **2026-10-21T00:00Z (October 20, 5:00 p.m. PDT)**, then merged into PR D before D1.
+9. **Renewal #307 merged 2026-10-17** as `4c18c1df` and merged into PR D via `83da3cf4`.
+   Re-check both packages before **2026-10-24T00:00Z (October 23, 5:00 p.m. PDT)**. Remove each
+   exemption if upstream ships a fix; another renewal requires explicit maintainer authorization.
