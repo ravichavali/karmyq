@@ -1,6 +1,6 @@
 # Sprint 133 — Skills Depth — Handoff
 
-**Date**: 2026-10-18 (**PR D implemented, D9 verified green, PR published; awaiting CI + final whole-branch review, then merge authorization**)
+**Date**: 2026-10-18 (**PR D [#308](https://github.com/ravichavali/karmyq/pull/308) published, reviews clean, v11.91.0 stamped; awaiting CI, then admin-merge authorization**)
 
 **PR D SECURITY REVIEW RECEIVED (2026-10-17).** The maintainer supplied a security review of
 `92aced5c`: **no vulnerabilities found**, and the candidate pass returned nothing for false-positive
@@ -21,6 +21,10 @@ left uncommitted for Claude to include in the next authorized branch commit.
 
 **D9 final verification (Claude, 2026-10-18, on `92aced5c`):** `tsc` 0; simulation unit+regression 17 suites / 185 tests; root regression 39 / 902; `npm test` 27/27 tasks. **D10:** PR published (maintainer: "We can publish the PR"); next, confirm CI's *Sprint 117 curated reset integration* step ran the new assertions on both resets, and the SDD final whole-branch review (ledger `.superpowers/sdd/2026-10-16-sprint-133-pr-d-demo-seed/progress.md`). Version re-derives from `origin/master` (11.90.0 → 11.91.0) at merge time.
 The supplied security review supplies no merge or demo-reset authorization.
+
+**PR D PUBLISHED (2026-10-18): [#308](https://github.com/ravichavali/karmyq/pull/308).** CI run 39137266848 on `284c5d83`: all tests green, Integration 164/164, and the *Sprint 117 curated reset integration* step PASS 2/2. `assertSkillsAndOffersLayer` runs inside `applyToTestDb` once per reset, so the reconcile dry-run and the new assertions ran on **both** resets on real Postgres. CodeQL raised 10 new alerts: js/request-forgery #614-#618 (`api-client.ts`; the host is the `API_BASE_URL` env baseURL) and js/sql-injection #619-#623 (the root test reading SQL from production source). **The maintainer authorized dismissal; Claude dismissed all 10 via the API** (false positive / used in tests). Do not edit `api-client.ts` or the root reset test before merge: any line shift re-raises them. The SDD final whole-branch review (Opus) found it ready after fixes. I1 (rotation/reset refusal dropped `failedReads`; deploy-to-reset window undocumented) and minors M1-M5/M7 were fixed in `995bd0e4` (simulation 17/190; root 39/902); scoped re-review clean. **Version stamped 11.91.0** from `origin/master` `4c18c1df` (11.90.0). **Next: CI green on the new head, then ask "admin merge, yes/no?"**, wait for deploy + health, then ask for the D11 curated reset authorization.
+
+**D11 runbook addition (final review I1(c)): before `reset:demo --apply`, run `verify:demo` read-only on the host.** It is expected to be not-ready, failing only `skills.*`/`offers.*` ids because nothing is seeded yet. **Any `personas.*` id means a wrong `DEMO_*_EMAIL` on the host** (unrelated must be marcus.lee = `person.outsider`, provider must be noah.williams = `person.provider`). Fix the host env first; otherwise the reset leaves the demo disabled. After the deploy and before the reset, `verify:demo` and `rotate:demo-stories` are not-ready by design; the curated reset is the remedy. After D11, flip the "after the next curated reset" qualifiers in demo-data.md and CONTEXT.md (final review M8).
 
 **Planning history (superseded by current state above):**
 **CODEX PLAN REVIEW (2026-10-17, `d089b8b3`).** Three amendments, all **APPLIED by Claude 2026-10-17** (verified first: the UTC cutoff reproduced with `validateRegistry`; the directory has no identities, `skills.ts:56-71`; `sprint-123-audit-exemption-gate.test.ts:67` validates the branch registry against `new Date()`, so an unmerged PR D fails pre-push after the cutoff even though PR CI uses the merge ref) in
