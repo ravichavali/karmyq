@@ -2,7 +2,9 @@
 
 **Date**: 2026-10-19
 **Outcome**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md)).
-The exemption renewal + closeout PR [#309](https://github.com/ravichavali/karmyq/pull/309) (v11.92.0) is open.
+The exemption renewal + closeout PR [#309](https://github.com/ravichavali/karmyq/pull/309) (v11.92.0) carries this file,
+so it was open when written; `gh pr view 309` is the live state. Once merged, record its SHA and deploy run on the next
+branch and rewrite this line.
 
 > Git and PR state (`gh pr list`, `git log origin/master`) outrank anything written here. No parallel lanes are active.
 

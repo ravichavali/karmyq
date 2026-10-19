@@ -5,7 +5,7 @@
 live state carrier is now `.claude/handoff/CURRENT_HANDOFF.md` (Sprint 134 planning).
 
 **CLOSEOUT RECORD (D12, Claude, 2026-10-19).**
-- **Exemption re-check, 2026-10-19: no upstream fix** (evidence: ADR-059 amendment "Renewals (Sprint 133, 2026-10-19)").
+- **Exemption re-check, 2026-10-19: no upstream fix** (evidence: ADR-059 "Amendment (Sprint 133, 2026-10-19): renewals").
   **The maintainer authorized a 7-day renewal** ("Yes, renew both"): expires 2026-10-26, so the gate fails from
   **2026-10-25 17:00 PDT**. Commit `f36efd08` (v11.92.0, PR #309), which also carries the Sprint 133 closeout docs
   (maintainer's choice of base).

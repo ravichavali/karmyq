@@ -414,10 +414,12 @@ renewed for seven days, the cap.
 
 **Status**: Accepted · **Decision**: maintainer, 2026-10-19
 
-Same re-check, reach and rule as the 2026-10-17 amendment above; only the observed versions and the window
-change (previous expiry 2026-10-24):
+Same re-check and rule as the 2026-10-17 amendment above; only the observed versions and the window change
+(previous expiry 2026-10-24). Reach was re-measured, not inherited: `npm ls --all --omit=dev node-forge braces`
+on 2026-10-19 still reaches both only through `apps/mobile` → `expo` 57.0.25 → `@expo/cli` 57.0.27 (the
+lockfile's resolution; the newer upstream releases below are not installed).
 
-| Package | Latest release | Patched version | Expo dependent (latest) | New window |
+| Package | Latest release | Patched version | Upstream dependent (latest) | New window |
 |---|---|---|---|---|
 | `node-forge` | 1.4.0 | none, not withdrawn | `@expo/cli` 58.1.13, `@expo/code-signing-certificates` 0.0.7 → `^1.4.0` | 2026-10-19 → 2026-10-26 |
 | `braces` | 3.0.3 | none, not withdrawn | `micromatch` 4.0.8 → `^3.0.3` | 2026-10-19 → 2026-10-26 |
