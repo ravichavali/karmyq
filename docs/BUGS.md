@@ -1728,8 +1728,10 @@ question (should a standing offer follow its community's membership, like reques
   and `GET /offers/:id`; `PUT`/`DELETE`/`PUT /privacy` and the `POST /matches` offer lookup select by id AND offerer,
   so a foreign offer is the same 404 as a missing one. Tests: `tests/integration/sprint-133-pr-v-read-boundary.integration.test.ts`
   (offer boundary, oracles on every write route), `services/request-service/tests/regression/sprint-133-pr-v-read-boundary.test.ts`.
-  **Shipped:** merged as `05d29d28` (#306, v11.89.0), deployed by CI/CD 38985813305 (all services healthy, no rollback). Not
-  smoke-covered live: the demo has no standing offers; this half rests on the CI real-SQL test.
+  **Shipped:** merged as `05d29d28` (#306, v11.89.0), deployed by CI/CD 38985813305 (all services healthy, no rollback). **Smoke-covered live (2026-10-19)** after Sprint 133 PR D's
+  curated reset seeded standing offers: as Maria, `GET /offers` lists both Portland Mutual Aid offers and not the Rides offer;
+  `GET /offers/<rides>` is 404 (not 403); `GET /offers/<Sophia offer>` is 200; as Marcus Lee (Rides member, not the offerer)
+  the Rides offer is 200. `verify:demo` `offerBoundary` passes on the same data.
 
 ---
 

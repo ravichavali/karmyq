@@ -1,12 +1,58 @@
 # Sprint 133 — Skills Depth — Handoff
 
-**Date**: 2026-10-18 (**PR D SHIPPED and LIVE**, v11.91.0, [#308](https://github.com/ravichavali/karmyq/pull/308) `312f9d13`; **next: D11 curated reset, which needs its own maintainer authorization**)
+**Date**: 2026-10-19 (**PR D SHIPPED and LIVE**, v11.91.0, [#308](https://github.com/ravichavali/karmyq/pull/308) `312f9d13`; **D11 curated reset DONE 2026-10-19**: `verify:demo` ready, live smoke 27/27; next: Sprint 133 closeout (D12))
+
+**D11 CURATED RESET DONE (2026-10-19, lane "PR D", maintainer-authorized: "D11 Curated reset is authorized. Go ahead.").**
+- **Preflight:** `auth.founding_circle_submissions` count = **0**. The host was at `312f9d13`. The env came from the Sprint 117 runbook (`~/demo-scripts/pr-d-reset-env.sh`, LF, non-empty assertions), with persona emails pinned to the manifest: maria.reyes / elena.torres / noah.williams / marcus.lee @test.karmyq.com.
+- **Deviation from Codex's runbook rule (recorded honestly):** pre-reset `verify:demo` returned `unavailable` (missing story IDs), so no `checks`/`failedReads` existed and the identity guard was **not** observed before the apply. Claude proceeded because the four emails are the manifest's own addresses for those personas and the reset writes users from the manifest. The guard was then exercised for real twice: by the reset's built-in rotation verify, which now gates on all checks, and by the post-reset `verify:demo` (`failedReads: []`). **Root cause and fix for next time:** `verify:demo` reads story IDs from the process env, not from `.env.demo`. Export them first: `set -a; eval "$(grep -E '^DEMO_(ORDINARY_REQUEST|ORDINARY_MATCH|PROVIDER_REQUEST|PROVIDER_OFFER)_ID=' .env.demo)"; set +a`. With lapsed stories it may still be unavailable; then the by-construction argument above is the fallback, and it must be stated.
+- **Dry-run:** 36 people, 6 communities, 45 memberships, 29 requests, 22 projection events; 93 tables reset, 5 reseed, 6 preserve.
+- **Apply** (`nohup`, anchor 2026-10-19T19:27:10Z): backup `/home/ubuntu/demo-backups/karmyq-demo-20261019T192724468Z.dump`; `applied, verified, config published, demo re-enabled, mutation resumed`; exit 0. New story IDs are published to `.env.demo`.
+- **`verify:demo` (read-only, after the reset): `ready: true`.** All 10 checks are true, including `skillsVisible` and `offerBoundary`. `failedReads: []`, runway 60 days, demo session read-only.
+- **Live read-only smoke from Claude's machine: 27/27 PASS.**
+  - PR A, 13 checks: settings, own skills, directory for both of Maria's communities, Providers 404 for a non-member, absent/anonymous/invalid/empty cases, retired route 403, co-member search shows Sophia, opted-out profile 404 for Noah, and the Providers *bookkeeping* search has Amina in and ambient-09 out.
+  - PR B, 7 checks: vouch fields; Sophia's vouch; Maria's own vouch shows `endorsed_by_me`; anonymous POST 401, invalid tag 400, absent tag 404, all rejected writes.
+  - BUG-064 offers, 5 checks: both PMA offers listed and the Rides offer excluded; Rides 404 for Maria and 200 for Marcus; Sophia's offer 200.
+- **Live trust edges match the plan exactly:** Maria–Sophia 2, Maria–Wei 1, Maria–James 0 (edge kept, vouch withdrawn), Elena–Fatima 2, Amina–Noah 1. There are 6 active vouches and 1 withdrawn, and `raw_weight` follows the formula (for example 4×10 + 2×5 = 50).
+- **Docs on this branch:** BUG-064 marked smoke-covered live; M8 qualifiers flipped in `demo-data.md` and `CONTEXT.md`; landing pages regenerated. **#308 PR body:** #624 added under Security dismissals (Codex follow-up).
+- **Not done (optional, needs separate authorization):** the live endorse → withdraw round trip.
+- **Next:** D12 Sprint 133 closeout (archive the handoff, Sprint 134 agenda: IDEAS follow-ups, BUG-069, PR L due 2026-10-29). The exemption re-check is due before 2026-10-23 17:00 PDT. Expo SDK drift is still uninvestigated.
+
+**CODEX CLOSEOUT REVIEW (2026-10-19, branch head `19d0fa4c`).** Live GitHub confirms #308
+merged as `312f9d13`, CI/CD 39141790455 attempt 2 successful, and no open PRs. Attempt 1's
+Code Scanning Gate log names #624 at `api-client.ts:79`; its deploy job was skipped. Attempt 2's
+Deploy to Demo job [117744703958](https://github.com/ravichavali/karmyq/actions/runs/39141790455/job/117744703958)
+logs `DEPLOYMENT SUCCESSFUL` and all nine services healthy. No rollback execution was found in
+the deploy log. The PR D diff adds methods after `getRequest()` and leaves that method unchanged.
+This review made no demo-host connection and did not independently inspect the current demo data.
+
+Two runbook defects are corrected here: Quick Start/ownership/next-action still pointed to the
+merged PR branch and an unmerged #308; and absence of `personas.*` alone was not sufficient
+preflight evidence. A local CLI probe with required env removed returned exit 0 and
+`{ ready: false, unavailable: true, reason: ... }`, without `checks` or `failedReads`
+(`services/simulation-service/src/scripts/verifyDemoData.ts:233-241`). **Require a complete
+verification report before interpreting the identity guard**: `unavailable` must not be true,
+`checks` must contain the verifier's ten boolean checks, and `failedReads` must be an array.
+Missing/invalid output, login/transport failure, any `personas.*` entry, or other unexpected
+failures must be diagnosed before applying. Only the expected `skills.*`/`offers.*` failures
+may be attributed to the unseeded layer; `ready: true` is not required before the reset.
+
+**Author follow-up:** #308's live PR body lists only #614-#623 under Security dismissals.
+Add [#624](https://github.com/ravichavali/karmyq/security/code-scanning/624), its false-positive
+justification and the authorized dismissal, per `.github/pull_request_template.md:53-55`.
+The reported Expo SDK drift failure remains uninvestigated. Both exemptions still expire
+2026-10-24 (`security/audit-exemptions.json:12,22`); this review did not re-query upstream advisories.
+Only this handoff is changed locally, left uncommitted for Claude. No reset, merge, dependency
+change or other demo operation is authorized by this review.
 
 **PR D SHIPPED (2026-10-18).** The maintainer authorized the admin merge after Codex review ("I approve admin merge of the PR"). Claude merged [#308](https://github.com/ravichavali/karmyq/pull/308) as `312f9d13` (v11.91.0) with `gh pr merge --squash --admin`; CI was green on `dcd6b53f`. [CI/CD 39141790455](https://github.com/ravichavali/karmyq/actions/runs/39141790455) attempt 1 was **blocked by the Code Scanning Gate on #624** (`js/request-forgery`, `api-client.ts:79`). That is the pre-existing `getRequest()`, untouched by PR D: master's own analysis raised it after the PR-ref dismissals (#614-#623). With maintainer authorization Claude dismissed #624 as a false positive and re-ran the failed jobs. **Attempt 2: all jobs green, DEPLOYMENT SUCCESSFUL, health check passed.** The deploy does not change demo data: **the demo still shows the July baseline until D11.** Between now and the reset, `verify:demo` and `rotate:demo-stories` are not-ready by design.
 **Next (D11, ask first; the request must say it comes from lane "PR D"):** "Lane PR D requests a full curated reset of karmyq.com (downtime; deletes all simulated activity since July; reseeds the manifest including skills, vouches, items and offers). Authorize, yes/no?" Before `--apply`, do two read-only checks on the host: `SELECT count(*) FROM auth.founding_circle_submissions` must be 0, and `verify:demo` must show no `personas.*` failedReads. Then follow the Sprint 117 runbook: dry-run first, then `reset:demo -- --apply --publish-config`. Afterwards run `verify:demo` (expect `ready: true`), the PR A/B skill smokes and the BUG-064 offer smoke. Then flip the M8 qualifiers on this branch. **Stories expire 2026-11-12**, so the reset is also the rotation remedy. The exemptions expire **2026-10-24** (gate fails from 2026-10-23 17:00 PDT), so re-check before then.
 This closeout handoff rides `agent/claude/sprint-133-pr-d-closeout` (cut from `312f9d13`; no docs-only master push).
 
-**After merge:** wait for CI/CD deploy + health. The deploy does not touch demo data. Then ask separately for the D11 curated reset (see the D11 runbook addition below). Post-merge doc flips (BUG-064 "smoke-covered live" after D11, qualifier flip M8, Sprint 133 closeout) ride the next branch; there is no docs-only master push. If the merge did not happen, check `gh pr view 308` before acting on this line.
+**After D11:** record the actual verifier and PR A/B/BUG-064 smoke results, then flip the M8 qualifiers
+and BUG-064's live-coverage note on this closeout branch. No docs-only master push. D11 is pending
+maintainer authorization; the verified deployment does not authorize the reset.
+
+**Historical pre-merge review (superseded by the shipped status above):**
 
 **CODEX REVIEW (2026-10-18, `b71cc51c`, base `4c18c1df`): no blocking code findings.** Reviewed
 the compiler and fixture rules, writer order and count/weight update, outward verifier and persona
@@ -66,7 +112,7 @@ The supplied security review supplies no merge or demo-reset authorization.
 
 **PR D PUBLISHED (2026-10-18): [#308](https://github.com/ravichavali/karmyq/pull/308).** CI run 39137266848 on `284c5d83`: all tests green, Integration 164/164, and the *Sprint 117 curated reset integration* step PASS 2/2. `assertSkillsAndOffersLayer` runs inside `applyToTestDb` once per reset, so the reconcile dry-run and the new assertions ran on **both** resets on real Postgres. CodeQL raised 10 new alerts: js/request-forgery #614-#618 (`api-client.ts`; the host is the `API_BASE_URL` env baseURL) and js/sql-injection #619-#623 (the root test reading SQL from production source). **The maintainer authorized dismissal; Claude dismissed all 10 via the API** (false positive / used in tests). Do not edit `api-client.ts` or the root reset test before merge: any line shift re-raises them. The SDD final whole-branch review (Opus) found it ready after fixes. I1 (rotation/reset refusal dropped `failedReads`; deploy-to-reset window undocumented) and minors M1-M5/M7 were fixed in `995bd0e4` (simulation 17/190; root 39/902); scoped re-review clean. **Version stamped 11.91.0** from `origin/master` `4c18c1df` (11.90.0). CI on `54de962a` is fully green: CodeQL dismissals held, reset step PASS, Code Scanning Gate, Security Audit and Docker build all pass. **Maintainer (2026-10-18): "I will get the PR reviewed by Codex. Leave it open"**, so no merge authorization was given. **Next:** Codex reviews #308. Claude answers its findings with `review-response` (verify each one first; do not touch `api-client.ts` or the root reset test without expecting CodeQL re-raises). Then ask "admin merge, yes/no?", wait for deploy and health, and ask separately for the D11 curated reset. The SDD ledger stays at `.superpowers/sdd/2026-10-16-sprint-133-pr-d-demo-seed/progress.md` (local, git-ignored) until merge.
 
-**D11 runbook addition (final review I1(c)): before `reset:demo --apply`, run `verify:demo` read-only on the host.** It is expected to be not-ready, failing only `skills.*`/`offers.*` ids because nothing is seeded yet. **Any `personas.*` id means a wrong `DEMO_*_EMAIL` on the host** (unrelated must be marcus.lee = `person.outsider`, provider must be noah.williams = `person.provider`). Fix the host env first; otherwise the reset leaves the demo disabled. After the deploy and before the reset, `verify:demo` and `rotate:demo-stories` are not-ready by design; the curated reset is the remedy. After D11, flip the "after the next curated reset" qualifiers in demo-data.md and CONTEXT.md (final review M8).
+**D11 runbook addition (final review I1(c), tightened by Codex 2026-10-19): before `reset:demo --apply`, run `verify:demo` read-only on the host.** Require its complete report (`checks` with ten booleans and a `failedReads` array), not an unavailable/error result; missing env can return exit 0 with no identity check at all. It is expected to be not-ready with `skills.*`/`offers.*` failures because nothing is seeded yet. **Any `personas.*` id means an identity guard failure** (unrelated must be marcus.lee = `person.outsider`, provider must be noah.williams = `person.provider`). Diagnose missing/unavailable output, login/transport errors, identity failures and other unexpected failures before applying. Fix the host env where necessary; otherwise the reset can leave the demo disabled. After D11, flip the "after the next curated reset" qualifiers in demo-data.md and CONTEXT.md (final review M8).
 
 **Planning history (superseded by current state above):**
 **CODEX PLAN REVIEW (2026-10-17, `d089b8b3`).** Three amendments, all **APPLIED by Claude 2026-10-17** (verified first: the UTC cutoff reproduced with `validateRegistry`; the directory has no identities, `skills.ts:56-71`; `sprint-123-audit-exemption-gate.test.ts:67` validates the branch registry against `new Date()`, so an unmerged PR D fails pre-push after the cutoff even though PR CI uses the merge ref) in
@@ -268,12 +314,12 @@ This handoff rides on the PR B branch `agent/claude/sprint-133-pr-b-endorsements
 3. **PR V is SHIPPED** (v11.89.0, `05d29d28`); PR S, A, B, Q, V and #304 are shipped. Never commit on their branches.
 4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
    slash command: superpowers removed it as a deprecated stub.
-5. **Continue PR D** on `agent/claude/sprint-133-pr-d-curated-seed` at reviewed head `b71cc51c`, using
+5. **Continue D11 closeout** on `agent/claude/sprint-133-pr-d-closeout` (base `312f9d13`), using
    [`docs/superpowers/plans/2026-10-16-sprint-133-pr-d-demo-seed.md`](../../docs/superpowers/plans/2026-10-16-sprint-133-pr-d-demo-seed.md)
-   (revision 2.1). D9 and publication are complete; #308 is open, Codex review found no blocking code
-   findings, and CI is green on `b71cc51c`. Refresh PR metadata, commit this handoff through normal
-   checks, then request maintainer merge authorization after CI (#307 deploy already verified). Re-run the PR B / PR A skill
-   smokes and the BUG-064 offer smoke after PR D seeds data.
+   (revision 2.1). #308 is merged and deployed as v11.91.0; do not return to its merged branch.
+   Request separate maintainer authorization for D11. Once authorized, check submissions count is 0,
+   require a complete pre-reset verifier report as described above, review the dry-run, then follow
+   the guarded reset runbook. Re-run the PR B / PR A skill smokes and BUG-064 offer smoke after seeding.
    The demo apply is a **full curated reset**: it deletes all simulated activity since July and needs its own explicit
    authorization at the time; a live endorse/withdraw smoke afterwards is a second, separate authorization.
 6. GitHub merges need explicit maintainer merge authorization (the maintainer's approval would be self-approval; ask
@@ -501,7 +547,7 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 | Field | Value |
 |---|---|
 | **Planning branch** | `feature/sprint-133-skills-depth`, base `origin/master` `6041c92c` (docs only) |
-| **Active editor** | **Claude** owns PR D (#308) on `agent/claude/sprint-133-pr-d-curated-seed`; Codex review complete on `b71cc51c`, handoff-only review update left for Claude to commit. |
+| **Active editor** | **Claude** owns D11/closeout on `agent/claude/sprint-133-pr-d-closeout`, based on deployed `312f9d13`. Codex closeout review changes only this handoff for Claude to commit. |
 | **Reviewer role** | A non-author reviews each completed diff |
 | **Shared resources** | ADR-100 and ADR-101 allocated to this sprint. Re-read `origin/master` for PR V's version stamp at merge time; no version is reserved. No dependency upgrades, merge, deploy or demo data operation are authorized by this review. |
 
@@ -520,10 +566,12 @@ Versions: each PR bumps the minor from `origin/master` at merge time. Nothing is
 
 ## Next unchecked action
 
-**Current next action: finish PR D D10 merge preparation.** #308 is open and unmerged at `b71cc51c`,
-Codex review has no blocking code findings, and latest CI is green. Claude refreshes the PR metadata,
-lands this handoff through normal checks, waits for CI, then requests maintainer admin-merge
-authorization. After deploy/health, ask separately for D11. Do not restart D0/D1 or republish the PR.
+**Current next action: request maintainer authorization for D11 from lane PR D.** #308 is merged
+and deployed as `312f9d13`, v11.91.0. Continue on `agent/claude/sprint-133-pr-d-closeout`. Before
+an authorized apply: require zero founding-circle submissions, a complete pre-reset verifier
+report with no identity failures (see the tightened runbook above), and review the dry-run.
+Record post-reset verification/smokes before closeout. Add #624 to #308's Security dismissals;
+re-check exemptions before October 23, 5:00 p.m. PDT. Expo SDK drift remains uninvestigated.
 The numbered entries below retain the sprint's decision history.
 
 1. ~~Merge and deploy #299~~: DONE 2026-10-10 (`dfe52c03`, deploy 38076041625 green).
