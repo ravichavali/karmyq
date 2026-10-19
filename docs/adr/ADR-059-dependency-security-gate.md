@@ -414,17 +414,10 @@ renewed for seven days, the cap.
 
 **Status**: Accepted · **Decision**: maintainer, 2026-10-19
 
-Both exemptions were due to lapse on 2026-10-24 (`expires` is the first invalid day, read as a UTC date, so
-the gate would have failed from 2026-10-23 17:00 PDT). A hand re-check on 2026-10-19 found no upstream fix
-for either:
+Same re-check, reach and rule as the 2026-10-17 amendment above; only the observed versions and the window
+change (previous expiry 2026-10-24):
 
-| Package | Advisory | Latest release | Patched version | New window |
+| Package | Latest release | Patched version | Expo dependent (latest) | New window |
 |---|---|---|---|---|
-| `node-forge` | GHSA-86w9-cpqp-85rv | 1.4.0 (range `<= 1.4.0`) | none, not withdrawn | 2026-10-19 → 2026-10-26 |
-| `braces` | GHSA-vfj7-8cjw-p6xm | 3.0.3 (range `<= 3.0.3`) | none, not withdrawn | 2026-10-19 → 2026-10-26 |
-
-Expo has not moved off either package. The latest `@expo/cli` (58.1.13) and
-`@expo/code-signing-certificates` (0.0.7) depend on `node-forge ^1.4.0`, and the latest `micromatch`
-(4.0.8) depends on `braces ^3.0.3`. Reach is unchanged: `npm ls --all --omit=dev` reaches both packages
-only through `apps/mobile` → `expo` → `@expo/cli`. Under the maintainer's 2026-10-08 rule, both are
-renewed for seven days, the cap.
+| `node-forge` | 1.4.0 | none, not withdrawn | `@expo/cli` 58.1.13, `@expo/code-signing-certificates` 0.0.7 → `^1.4.0` | 2026-10-19 → 2026-10-26 |
+| `braces` | 3.0.3 | none, not withdrawn | `micromatch` 4.0.8 → `^3.0.3` | 2026-10-19 → 2026-10-26 |

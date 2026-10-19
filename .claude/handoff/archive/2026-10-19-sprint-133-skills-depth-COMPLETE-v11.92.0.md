@@ -5,13 +5,10 @@
 live state carrier is now `.claude/handoff/CURRENT_HANDOFF.md` (Sprint 134 planning).
 
 **CLOSEOUT RECORD (D12, Claude, 2026-10-19).**
-- **Exemption re-check, 2026-10-19: no upstream fix.** node-forge 1.4.0 latest; GHSA-86w9-cpqp-85rv `<= 1.4.0`, patched null,
-  not withdrawn; @expo/cli 58.1.13 and @expo/code-signing-certificates 0.0.7 need `^1.4.0`. braces 3.0.3 latest;
-  GHSA-vfj7-8cjw-p6xm `<= 3.0.3`, patched null, not withdrawn; micromatch 4.0.8 needs `^3.0.3`. `npm ls --all --omit=dev`
-  reaches both only via `apps/mobile → expo → @expo/cli`. **The maintainer authorized a 7-day renewal** (2026-10-19, "Yes, renew
-  both"): `created 2026-10-19`, `expires 2026-10-26`, so the gate fails from **2026-10-25 17:00 PDT**. Commit `f36efd08`
-  (v11.92.0) on this branch, which also carries the Sprint 133 closeout docs (maintainer's choice of base). Gate exit 0;
-  `validateRegistry` accepts at `2026-10-25T23:59:59Z` and rejects both at `2026-10-26T00:00:00Z`.
+- **Exemption re-check, 2026-10-19: no upstream fix** (evidence: ADR-059 amendment "Renewals (Sprint 133, 2026-10-19)").
+  **The maintainer authorized a 7-day renewal** ("Yes, renew both"): expires 2026-10-26, so the gate fails from
+  **2026-10-25 17:00 PDT**. Commit `f36efd08` (v11.92.0, PR #309), which also carries the Sprint 133 closeout docs
+  (maintainer's choice of base).
 - **Expo SDK drift diagnosed (read-only, no dependency change).** The scheduled workflow has been red **every day since
   2026-09-29** (21 runs; one earlier red on 09-24), not since 10-17. Cause: Expo SDK 57 patch releases. The lockfile pins
   `expo` 57.0.25 against the live map's `~57.0.30`, plus 8 `expo-*` patches. The divergence gate itself is healthy (no errors,
