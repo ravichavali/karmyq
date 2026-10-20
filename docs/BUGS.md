@@ -1571,13 +1571,14 @@ exhaustion on deeply nested patterns) covers every `braces` version, and 3.0.3 i
 GitHub-reviewed 2026-10-02 22:36Z and blocked the master deploy of Sprint 132 PR A (#290, run
 37077914525, attempt 2) with 18 high findings. Production reach is only `apps/mobile` → `expo` →
 `@expo/cli` → `@expo/metro-file-map` → `micromatch` → `braces` (developer tooling); no service image
-and no repo source reaches it. Exempted until **2026-10-09** (ADR-059 amendment "braces exemption").
+and no repo source reaches it. Originally exempted until 2026-10-09 (ADR-059 amendment "braces exemption");
+currently exempted until the Deadline on the Owner line below.
 
 - **Resolve by:** a patched `braces` (Dependabot security updates open a PR when one appears) or
   an upstream move of `micromatch`/`@expo/metro-file-map` off it; then delete the exemption.
-  Otherwise renew by hand before 2026-10-09: `npm view braces version`, the GHSA page,
+  Otherwise renew by hand before the Deadline below: `npm view braces version`, the GHSA page,
   `npm ls braces --all`.
-- **Owner:** Claude (dependency lane). **Deadline: 2026-10-24** (exemption expiry; ≤ 1-week SLA). **Renewed 2026-10-17** by maintainer decision after a hand re-check found no fix (3.0.3 latest, `first_patched_version: null`, not withdrawn; micromatch 4.0.8 latest still depends on `braces ^3.0.3`); ADR-059 amendment "Renewals (Sprint 133, 2026-10-17)". `node-forge` was renewed alongside it, also to 2026-10-24. **Earlier: renewed 2026-10-14** by maintainer decision after a hand re-check found no fix (3.0.3 latest, `first_patched_version: null`, not withdrawn); ADR-059 amendment "Renewals (Sprint 133, 2026-10-14)". `node-forge` was renewed alongside it, also to 2026-10-21. **Earlier: renewed 2026-10-08** by maintainer decision after a hand re-check found no fix (3.0.3 latest, `first_patched_version: null`); ADR-059 amendment "renewals and the 2026-10-08 advisory batch". `node-forge` was renewed alongside it, also to 2026-10-15.
+- **Owner:** Claude (dependency lane). **Deadline: 2026-10-26** (exemption expiry; ≤ 1-week SLA). **Renewed 2026-10-19** by maintainer decision after a hand re-check found no fix (3.0.3 latest, `first_patched_version: null`, not withdrawn; micromatch 4.0.8 latest still depends on `braces ^3.0.3`; production reach re-checked unchanged); `node-forge` was renewed alongside it, also to 2026-10-26. Evidence for this and the earlier renewals (2026-10-17, 2026-10-14, 2026-10-08): the ADR-059 renewal amendments.
 
 ---
 
@@ -1728,8 +1729,10 @@ question (should a standing offer follow its community's membership, like reques
   and `GET /offers/:id`; `PUT`/`DELETE`/`PUT /privacy` and the `POST /matches` offer lookup select by id AND offerer,
   so a foreign offer is the same 404 as a missing one. Tests: `tests/integration/sprint-133-pr-v-read-boundary.integration.test.ts`
   (offer boundary, oracles on every write route), `services/request-service/tests/regression/sprint-133-pr-v-read-boundary.test.ts`.
-  **Shipped:** merged as `05d29d28` (#306, v11.89.0), deployed by CI/CD 38985813305 (all services healthy, no rollback). Not
-  smoke-covered live: the demo has no standing offers; this half rests on the CI real-SQL test.
+  **Shipped:** merged as `05d29d28` (#306, v11.89.0), deployed by CI/CD 38985813305 (all services healthy, no rollback). **Smoke-covered live (2026-10-19)** after Sprint 133 PR D's
+  curated reset seeded standing offers: as Maria, `GET /offers` lists both Portland Mutual Aid offers and not the Rides offer;
+  `GET /offers/<rides>` is 404 (not 403); `GET /offers/<Sophia offer>` is 200; as Marcus Lee (Rides member, not the offerer)
+  the Rides offer is 200. `verify:demo` `offerBoundary` passes on the same data.
 
 ---
 

@@ -857,3 +857,16 @@ exception for that query. Small; fits any request/notification PR.
 - **`karma_awarded` has a handler and a route but no publisher.** notification-service handles it (with milestone
   notifications) and ADR-101 routes it, but no service publishes it. Either publish it from the standing projector or
   delete the handler and route.
+
+## [2026-10-19] Request-service read-boundary follow-ups (Sprint 133 PR V, #306)
+
+Logged in the #306 description and the Sprint 133 handoff; captured here so they survive the handoff archive.
+
+- **Owner-write 403/404 oracle.** Request owner-write routes still answer differently for "absent" and "not yours";
+  make them uniform the way PR V did for offers (BUG-064).
+- **Detail route on `requestReadableSql`.** `GET /requests/:id` still combines the boundary in JS
+  (`services/request-service/src/routes/requests.ts:1674`); the real-database parity matrix guards the duplication.
+  Move it onto the one SQL fragment in `db/eligibility.ts`.
+- **One `isActiveMember`.** Two helpers exist with opposite argument order; keep one.
+- **List-query performance.** A CTE plus a `matches(request_id, responder_id)` index (needs a migration).
+- **`help_offers.is_public`.** Reads ignore it since BUG-064's fix; retire the column or honor it.
