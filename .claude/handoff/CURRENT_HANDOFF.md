@@ -59,22 +59,18 @@ expire 2026-10-26 on master.
 6. **PR V follow-ups**: `docs/IDEAS.md` "[2026-10-19] Request-service read-boundary follow-ups".
 7. **Sprint 133 PR B follow-ups**: `docs/IDEAS.md` "[2026-10-13] Skill endorsements follow-ups".
 8. **BUG-061 follow-ups and directed-notify `expires_at`**: `docs/IDEAS.md` 2026-10-08 entries.
-8. **Exemption renewal treadmill** (review follow-ups; maintainer decision, no policy change implied): (a) a scheduled
-   checker that walks `security/audit-exemptions.json` and produces the re-check evidence; (b) reach-scoped audit
+9. **Exemption renewal treadmill** (review follow-ups; no policy change implied): (a) a scheduled checker that walks
+   `security/audit-exemptions.json` and produces the re-check evidence; (b) reach-scoped audit
    (`scripts/audit-exemptions.js:318-320` audits the whole lockfile, so a mobile-only finding blocks every service
    deploy); (b) changes ADR-059 policy and needs an amendment.
-9. Optional, separately authorized: live endorse → withdraw round trip on the demo.
+10. Optional, separately authorized: live endorse → withdraw round trip on the demo.
 
-## Maintainer decisions owed
+## Queue drain check (PR L precondition, read-only)
 
-- **Expo SDK drift** (red daily since 2026-09-29, issue #279): patch-level drift inside SDK 57 (`expo` 57.0.25 → ~57.0.30
-  and 8 `expo-*` packages). No advisory or feature need, so no bump has been started. Choose:
-  (a) authorize a surgical 9-package patch bump; or (b) accept it deliberately. ADR-094's registry
-  (`security/expo-divergences.json`) is the reviewed acceptance mechanism, but an entry pins Expo's exact `expoPins`
-  (`scripts/expo-divergences.js:233`), so every new Expo patch re-reds the run; making patch-level drift advisory would
-  be a workflow change. Also open: the workflow's silent-failure gap (`docs/IDEAS.md` 2026-09-13).
-- **`verify:demo` story IDs**: fix the script (candidate 7), or, if declined, add §5 to the existing gotcha
-  `docs/gotchas/demo-host-scripts-cwd-and-sourced-env.md` (it already covers sourced-env traps) rather than a new entry.
+The maintainer authorized it on 2026-10-19 for the Sprint 134 planning / PR L lane. It has **not run**: the auto-mode
+classifier refused Claude's SSH read. The maintainer runs it themselves, or grants the permission, before PR L is
+planned in detail. **Pass criteria:** the legacy `bull:karmyq-events` queue's `wait`, `active`, `delayed` and `paused`
+are all 0, and each `karmyq-events-<consumer>` queue is served only by its own consumer's container.
 
 ## Standing rules
 
