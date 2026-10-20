@@ -2,9 +2,11 @@
 
 **Date**: 2026-10-19
 **Outcome**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md)).
-The exemption renewal + closeout PR [#309](https://github.com/ravichavali/karmyq/pull/309) (v11.92.0) carries this file,
-so it was open when written; `gh pr view 309` is the live state. Once merged, record its SHA and deploy run on the next
-branch and rewrite this line.
+**#309 SHIPPED and LIVE (2026-10-19):** the maintainer authorized the admin merge ("admin merge approved") after an external
+review (no blocking findings; its P3 fixed in `9497d63c`). Merged as `1746cdf2` (v11.92.0).
+[CI/CD 39366367275](https://github.com/ravichavali/karmyq/actions/runs/39366367275) passed on attempt 1: Code Scanning Gate
+green (**no CodeQL re-raise** this time), Security Audit green, all 9 services healthy, no rollback. The exemptions now
+expire 2026-10-26 on master.
 
 > Git and PR state (`gh pr list`, `git log origin/master`) outrank anything written here. No parallel lanes are active.
 
@@ -14,19 +16,17 @@ branch and rewrite this line.
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-133-exemption-renewal-3` (renewal `f36efd08` + Sprint 133 closeout docs) |
-| **Base** | `agent/claude/sprint-133-pr-d-closeout` `8228ef43`, itself cut from `origin/master` `312f9d13` (v11.91.0) |
+| **Branch** | `agent/claude/sprint-134-planning` (cut from `origin/master` `1746cdf2`, v11.92.0); carries this handoff, no PR yet |
 | **Active editor** | Claude |
-| **Shared resources** | dependency lane: **Claude** (maintainer-designated); version 11.92.0 re-derived from `origin/master` at merge time |
+| **Shared resources** | dependency lane: **Claude** (maintainer-designated); each PR re-derives its version from `origin/master` at merge time |
 
 ## Quick Start
 
-1. `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`. If #309 is merged, start Sprint 134
-   planning on a fresh branch from `origin/master` with the `sprint-planning` skill.
-2. If #309 is open: SDLC gates are recorded in its description; CI green → ask "admin merge, yes/no?" →
-   `gh pr merge 309 --squash --admin` → watch CI/CD to DEPLOYMENT SUCCESSFUL + health. **Expect a master CodeQL
-   re-raise** of the `js/request-forgery` FP class (#624 hit an unchanged line); then `gh run rerun <id> --failed`.
-3. Record the merge SHA and deploy run on the Sprint 134 planning branch (no docs-only master push).
+1. `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
+2. Plan Sprint 134 on `agent/claude/sprint-134-planning` with the `sprint-planning` skill, starting from the candidates and
+   dated obligations below. PR L and BUG-063 are dated and come first unless the maintainer reorders.
+3. **Expect a master CodeQL re-raise** of the `js/request-forgery` FP class on any merge that shifts `api.ts` /
+   `api-client.ts` lines (PR L touches `api-client.ts:461`); ask before dismissing, then `gh run rerun <id> --failed`.
 
 ## Dated obligations
 
