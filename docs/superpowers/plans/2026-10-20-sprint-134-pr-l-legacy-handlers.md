@@ -48,7 +48,7 @@ The ADR-101 gate tightens from "only the three legacy subscribers may name `karm
 | `packages/shared/src/events/__tests__/{consumer,publisher,routes}.test.ts` | Retarget off `interaction_feedback_submitted` / the legacy queue |
 | `services/request-service/src/routes/feedback.ts` + its mount in `src/index.ts` | **Delete** the dead route (BUG-068), including the publisher at `:148` |
 | `services/request-service/tests/**` feedback tests | Delete the tests of the deleted route (they mock the failing query) |
-| `services/reputation-service/src/routes/health.ts` | Stop reading `trust_scores` averages (`:39-41`, `:77-78`); the columns stay until L2 |
+| `services/reputation-service/src/routes/health.ts` | **Not changed in L** (corrected 2026-10-20). Its averages come from `reputation.community_health_metrics` (`:39-41`, `:77-79`, `:95-97`) and a `requests.interaction_feedback` aggregate (`:184-203`), not `trust_scores`, and they feed the 40% quality term of `calculateNetworkStrength` (`:240-268`). All of it moves to **L2** with the data drop, together with BUG-070 (`r.community_id` at `:168,179,192`) |
 | `services/reputation-service/tests/regression/sprint-133-pr-q-consumer-queue.test.ts` | Remove the `interaction_feedback_submitted` cases (`:32-76`) and keep the BUG-067 column check only if a writer remains (none will) |
 | `services/simulation-service/src/api-client.ts` | Delete the feedback call (`:505`; it was `:461`) and its callers |
 | `tests/regression/sprint-133-pr-q-event-routes.test.ts` | Delete `LEGACY_SUBSCRIBERS` (`:11-15`); any `karmyq-events` reference fails; keep the negative fixtures and add one that plants a `karmyq-events` reference in a subscriber |
@@ -116,7 +116,7 @@ $R CLIENT LIST    # map each worker's addr to a container IP (docker network ins
 
 ## Task L5: BUG-068 route and callers
 
-- [ ] Delete the request-service route, its mount and its tests; delete the simulation call; update the reputation health route.
+- [ ] Delete the request-service route, its mount and its tests; delete the simulation call. Leave `routes/health.ts` alone (L2).
   request-service, reputation-service and simulation-service tests and `tsc`.
 
 ## Task L6: Integration tests

@@ -114,11 +114,15 @@ fire on any failure, not only on a check that produced outputs.
   `tests/regression/sprint-129-demo-health-workflow.test.ts`, which pins the fixed shape next door (root is correct: it gates a root
   workflow file).
 
-- [ ] Test first. The **file/update-issue** steps (today `:154`, `:262`) must be
-  `always() && (failure() || steps.check.outputs.issue != '0' || steps.check.outputs.result == '')`. The **close-when-clean** step
-  (today `:232`) must be `always() && steps.check.outcome == 'success' && steps.check.outputs.issue == '0'`, so it never closes the
-  issue on a run that failed before the check. These are `.github/workflows/demo-health.yml:243` and `:225`; read `:144` too. Add a
-  negative fixture with today's conditions, which must fail.
+- [ ] Test first. Three steps, three different conditions. Assert each by step **name**, not line:
+  - **"File or update the drift issue"** (today `:153-154`) → `always() && (failure() || steps.check.outputs.issue != '0' ||
+    steps.check.outputs.result == '')` (`demo-health.yml:243`). No separate `steps.check.outcome` term: `failure()` is already true
+    when the check step failed or was skipped by an earlier failure (the spec states the same shape).
+  - **"Close stale drift issues when the gate is green"** (today `:231-232`) → `always() && steps.check.outcome == 'success' &&
+    steps.check.outputs.issue == '0'` (`demo-health.yml:225`), so it never closes the issue on a run that failed before the check.
+  - **"Fail the run when drift is present"** (today `:261-262`) → **unchanged**, `steps.check.outputs.status != '0'`. Pin it in the test,
+    so a nonzero gate status can never turn the run green.
+  Read `demo-health.yml:144` too. Add a negative fixture with today's conditions for the first two steps, which must fail.
 - [ ] Apply the shape. Add a generic fallback issue body for an empty `result` payload ("the drift check did not run to completion;
   see run <url>").
 - [ ] `npm test --workspace=tests` green.

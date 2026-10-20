@@ -57,7 +57,7 @@ sit at the tail and are the most likely to spill into Sprint 135. That is expect
 | — | **X** | Exemption re-check of node-forge + braces; a renewal PR **only on the maintainer's explicit yes** | gate fails **2026-10-25 17:00 PDT** | handoff *Dated obligations* (the #304/#307/#309 pattern) |
 | 3 | **D** | `verify:demo` loads `DEMO_ENV_FILE ?? '.env.demo'` without overriding the environment | none | `plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md` |
 | 4 | **L** | ADR-101 legacy-handler removal + BUG-068 code retirement (**no migration**) | **2026-10-29** | `plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md` (**PROVISIONAL**) |
-| 5 | **L2** | Migration: drop `requests.interaction_feedback` and the seven dead feedback-average columns, and update every reader | none (follows L) | written at PR start |
+| 5 | **L2** | Migration: drop `requests.interaction_feedback` and the seven dead feedback-average columns, and update every reader; BUG-070 | BUG-070 **2026-11-03** | written at PR start |
 | 6 | **K** | BUG-069: admin/moderator writes re-derive the role from live membership | **2026-10-30** | written at PR start |
 | 7 | **V** | Sprint 133 PR V read-boundary follow-ups | none | written at PR start |
 | 8 | **B** | Sprint 133 PR B skill-endorsement follow-ups | none | written at PR start |
@@ -118,9 +118,9 @@ except where a field had no live column:
 **Tests.** The mocked regression test `services/community-service/tests/regression/sprint-112-governance-export-privacy.test.ts`
 encodes the wrong table names (`:71`, `:75` regex `community\.memberships`). It is updated to the live names, and a new
 real-SQL integration test, `tests/integration/sprint-134-community-export.integration.test.ts`, proves end to end:
-admin export 200 with every section populated, a member 403, a non-member 403, a removed former admin 403; members/CSV
-and activity routes 200 for the admin; the activity counts exact for a seeded fixture; a date-filtered export returns
-200, which proves the ambiguity is fixed. A schema-truth unit gate asserts every `schema.table` the router names exists in
+admin export 200 with every section populated by exact id sets; a second community's requests, matches and members never
+appear in the first community's export; a member, a non-member and a removed former admin each get 403 on **all three**
+routes; the activity counts exact for a seeded fixture; a date-filtered export returns 200, which proves the ambiguity is fixed. A schema-truth unit gate asserts every `schema.table` the router names exists in
 `init.sql`.
 
 **Fallback.** If PR A cannot merge by end of 2026-10-23, Task A0 of its plan holds a ready-to-sign dated risk acceptance
@@ -144,9 +144,13 @@ map fields sorted), prove with node-by-node diff + `npm view` parity, `npx -y np
 
 **Workflow fix (same PR, `docs/IDEAS.md` 2026-09-13).** `.github/workflows/expo-sdk-drift.yml` gates its reporting
 steps on `steps.check.outputs.*` (`:154`, `:232`, `:262`). A failure in checkout/setup-node/`npm ci` skips all three, so
-the run goes red with no issue filed. Apply the demo-health pattern: `always() && (failure() || steps.check.outcome !=
-'success' || steps.check.outputs.issue != '0' || steps.check.outputs.result == '')`, plus a generic fallback issue body
-when the payload is empty.
+the run goes red with no issue filed. Apply the demo-health pattern exactly as `.github/workflows/demo-health.yml` implements
+it: the file/update-issue step (`:154`) gets `always() && (failure() || steps.check.outputs.issue != '0' ||
+steps.check.outputs.result == '')` (`demo-health.yml:243`; a separate `steps.check.outcome` term is redundant because
+`failure()` is already true whenever the check step failed or was skipped by an earlier failure). The close-when-clean step
+(`:232`) gets `always() && steps.check.outcome == 'success' && steps.check.outputs.issue == '0'` (`demo-health.yml:225`). The
+"Fail the run when drift is present" step (`:261-262`) keeps `steps.check.outputs.status != '0'`, so a nonzero gate status can
+never turn green. Add a generic fallback issue body for an empty payload.
 
 ## PR D — `verify:demo` reads `.env.demo` itself
 
@@ -159,7 +163,16 @@ Variables already in the environment win.
 - Loading happens in `main()`, not `readEnv()`: the reset/rotate flows also call `readEnv()` and must stay unaffected.
 - A **missing default** `.env.demo` is not an error; the CLI falls back to the environment, as today. A **missing
   explicit** `DEMO_ENV_FILE` is an error: the operator named a file that is not there.
-- The report names which file was loaded, never its values.
+- **Resolve a relative path against `INIT_CWD ?? process.cwd()`.** Under `npm --workspace @karmyq/simulation-service run
+  verify:demo`, `cwd` is `services/simulation-service/` while npm's `INIT_CWD` is the directory npm was invoked from (both
+  measured on this checkout, 2026-10-20). Resolving against `cwd` would silently miss the repo-root `.env.demo` (gotcha
+  `demo-host-scripts-cwd-and-sourced-env`).
+- The report names which file was loaded, or the resolved default path it looked for and did not find, never its values.
+- **`.env.demo` holds only the story IDs and the compose env.** The persona password, the four persona emails, `API_BASE_URL`
+  and the absolute `DEMO_ENV_FILE` live in `.env.demo.rotation` (`docs/guides/demo-data.md:224-227`,
+  `.env.demo.rotation.example`), which is deliberately separate because `.env.demo` is injected into every container. The operator
+  still sources `.env.demo.rotation`; this PR removes only the manual export of the four story IDs. Never move the password into
+  `.env.demo`.
 - No gotcha entry (maintainer, 2026-10-19).
 
 ## PR L — ADR-101 legacy handlers + BUG-068 code retirement (due 2026-10-29; PROVISIONAL)
@@ -177,9 +190,10 @@ clean, PR L becomes a drain step plus a dated risk acceptance.
   the live half of `tests/integration/sprint-133-bug-060-shared-queue.integration.test.ts` (`:46-…`).
 - Retire BUG-068: the request-service route `services/request-service/src/routes/feedback.ts` (publisher at `:148`), the
   `interaction_feedback_submitted` route-table entry (`packages/shared/events/routes.ts:28`), the reputation handler
-  (`subscriber.ts:150`), the simulation call (`services/simulation-service/src/api-client.ts:505`; it was `:461`), the
-  reputation health route's reads of the `trust_scores` averages (`routes/health.ts:39-41,77-78`), and the
-  `services/registry.json` entries (`:633`, `:727`).
+  (`subscriber.ts:150`), the simulation call (`services/simulation-service/src/api-client.ts:505`; it was `:461`), and the
+  `services/registry.json` entries (`:633`, `:727`). The reputation health route's average reads are **not** in L. They read
+  `reputation.community_health_metrics` and `requests.interaction_feedback`, not `trust_scores`, and they move to L2 with the
+  rest of the data (corrected 2026-10-20 after `/code-review` on #310).
 - **Consequence to decide in the final plan:** `interaction_feedback_submitted` is reputation's **only** routed event
   (`packages/shared/src/events/__tests__/routes.test.ts:21`). After L, `EVENT_CONSUMERS`
   (`packages/shared/events/routes.ts:7`) would list `reputation` with nothing routed to it. Recommendation: remove
@@ -195,11 +209,23 @@ Maintainer 2026-10-20: drop, in its own PR after L. One migration drops `request
 `avg_helpfulness`, `avg_responsiveness`, `avg_clarity`, `total_feedback_received`, and
 `reputation.community_health_metrics` `avg_helpfulness`, `avg_responsiveness`, `avg_clarity`. Every reader is updated
 (inventory 2026-10-20, re-run untruncated at PR start): `reputation-service` `services/healthMetricsService.ts` (`:42-54`
-aggregate, `:100-115` upsert), `services/milestoneDetector.ts` (`:41-92`), `routes/health.ts`; `request-service`
+aggregate, `:100-115` upsert), `services/milestoneDetector.ts` (`:41-92`), `routes/health.ts` (snapshot reads of
+`community_health_metrics` `:39-41`, `:77-79`, `:95-97`; the `requests.interaction_feedback` aggregate `:184-203`); `request-service`
 `services/feed/socialKarmaFeedComposer.ts` (`:31-59`, feed ranking; values have always been 0, so ranking does not
 change); `simulation-service` `fixtures/curatedDemo/tablePolicy.ts:91`; the e2e seeds `tests/e2e/seed-social-karma-v2*.sql`;
 and their tests. `init.sql` is regenerated with `scripts/regenerate-init-sql.sh`; the `migration-validator` agent runs before
 commit. A dry-run against a disposable copy is a demo-host operation and needs its own authorization.
+
+**Open decision for L2 (maintainer):** `calculateNetworkStrength` (`routes/health.ts:240-268`) weights a quality term built from
+the three averages at 40%. Dropping the averages changes the `network_strength` score that the health endpoint returns. Either
+re-weight the remaining terms (activity and density) or keep quality at a documented 0. That is an API behavior change, decided
+at PR start.
+
+**BUG-070 is folded into L2** (proposed; the maintainer confirms). The same defect class as BUG-063 (`r.community_id` on
+`help_requests`) breaks `healthMetricsService.ts:18,31,48` (the nightly snapshot cron) and `routes/health.ts:168,179,192`. L2 is
+already rewriting those functions, so it links them through `request_communities`, adds a real-SQL test of the cron and the
+fallback, and deletes the dead request-service `FeedComposer` (`services/feed/feedComposer.ts`, no importer), whose three queries
+carry the same defect. BUG-070 is due 2026-11-03.
 
 ## PR K — BUG-069: admin writes trust the JWT claim (due 2026-10-30)
 
@@ -254,7 +280,7 @@ scope (it needs an ADR-059 amendment).
 | A | GET | `/communities/:communityId/export/members` | 500 → works |
 | A | GET | `/communities/:communityId/export/activity` | 500 → works; four distinct counts |
 | L | POST | `/matches/:matchId/feedback` (request-service) | **removed** (dead, BUG-068) |
-| L | GET | reputation community-health | stops reporting the always-0 feedback averages |
+| L2 | GET | reputation `/community-health/:communityId` | stops reporting the always-0 feedback averages; `network_strength` weighting per the L2 decision; the fallback stops 500ing (BUG-070) |
 | K | various admin writes | — | stale-claim admin → 403 |
 
 ## Frontend Changes

@@ -29,6 +29,7 @@ unaffected.
 | File | Change |
 |------|--------|
 | `services/simulation-service/src/scripts/verifyDemoData.ts` | `main()` (`:233`) calls the loader first; the file header documents it |
+| `services/simulation-service/src/scripts/rotateMariaStories.ts` | `:120` uses the shared `resolveDemoEnvPath` (same default, same `INIT_CWD` fix) |
 | `docs/guides/demo-data.md` | Operator section: `verify:demo` reads `.env.demo`; the story-ID list at `:122` no longer needs a manual export |
 | `services/simulation-service/CONTEXT.md` | `verify:demo` env contract |
 | `package.json` | Version bump at merge time |
@@ -43,13 +44,21 @@ unaffected.
    the contract.
 2. **Load in `main()`, not in `readEnv()`.** `readEnv()` (`:45-70`) is shared with the reset/rotate flows
    (`rotateMariaStories.ts:105`), which create their own story IDs.
-3. **Path:** `process.env.DEMO_ENV_FILE ?? '.env.demo'`, resolved against `process.cwd()`. That is the same expression as
-   `rotateMariaStories.ts:120`, so both read and write the same file. Do not invent a second default.
-4. **Missing file:** a missing default is not an error; the CLI falls back to the environment, as today. A missing **explicit**
+3. **Path:** `process.env.DEMO_ENV_FILE ?? '.env.demo'`, with a relative path resolved against **`process.env.INIT_CWD ??
+   process.cwd()`**, not `cwd`. Under `npm --workspace @karmyq/simulation-service run …`, `cwd` is `services/simulation-service/`
+   while `INIT_CWD` is where npm was invoked. Measured on this checkout 2026-10-20: from the repo root, `cwd=…\services\simulation-service`
+   and `INIT_CWD=…\karmyq`. Resolving against `cwd` would silently miss the repo-root `.env.demo` (gotcha
+   `demo-host-scripts-cwd-and-sourced-env`). `rotateMariaStories.ts:120` has the same default and the same trap; both call one exported
+   `resolveDemoEnvPath(env)` so they always read and write the same file. Do not invent a second default.
+4. **Missing file:** a missing default is not an error; the CLI falls back to the environment, as today, but the report names
+   the resolved path it looked for (`envFile: null, envFileLookedFor: <abs path>`) so a cwd mistake is visible. A missing **explicit**
    `DEMO_ENV_FILE` is reported through the existing unavailable path (`{ ready: false, unavailable: true, reason }`). Do not change
    that path's exit-code behaviour in this PR.
-5. **Never print values.** The report may name the loaded path and the keys that came from the file; never their values
-   (`DEMO_PERSONA_PASSWORD` lives there).
+5. **Never print values.** The report may name the loaded path and the keys that came from the file; never their values.
+5a. **`.env.demo` is not where the credentials live.** `DEMO_PERSONA_PASSWORD`, the four persona emails, `API_BASE_URL` and the
+   absolute `DEMO_ENV_FILE` are in `.env.demo.rotation` (`.env.demo.rotation.example`; `docs/guides/demo-data.md:224-227`), which is
+   deliberately separate because `.env.demo` is injected into every service container. **Never move the password into `.env.demo`.**
+   The operator still sources `.env.demo.rotation`; this PR removes only the manual export of the four story IDs.
 6. **The file is written by `configPublisher.ts`** as plain `KEY=value` lines (`replaceEnvLines`). Memory warns about CRLF and quoting
    on the demo host: the test must cover a CRLF file and a quoted value, and assert that dotenv parses both to the bare value.
 
@@ -65,7 +74,11 @@ unaffected.
   `process.env`. Assert exact values:
   1. A file with all four story IDs and an empty env → all four applied; `result.loadedFrom` equals the absolute path.
   2. The env already has `DEMO_ORDINARY_REQUEST_ID=from-env` → it stays `from-env`; the other three come from the file.
-  3. No `DEMO_ENV_FILE` and no `.env.demo` in cwd → `{ loadedFrom: null }`, env unchanged, no throw.
+  3. No `DEMO_ENV_FILE` and no `.env.demo` at the resolved default → `{ loadedFrom: null, lookedFor: <abs path> }`, env unchanged,
+     no throw.
+  3a. `INIT_CWD` = a temp "repo root" holding `.env.demo`, `cwd` = a different temp dir with none → the root file loads (the npm
+     `--workspace` case). With `INIT_CWD` unset, the `cwd` file loads.
+  3b. `rotateMariaStories` resolves the same absolute path as the loader for the same env (one `resolveDemoEnvPath`).
   4. `DEMO_ENV_FILE` names a missing file → throws `verify:demo unavailable — DEMO_ENV_FILE not found: <path>`.
   5. A CRLF file and a `KEY="quoted"` value → bare values, with no `\r`.
   6. Nothing the loader returns or logs contains a value from the file (spy on `console.*`).
@@ -80,8 +93,10 @@ cd services/simulation-service && npx jest tests/tdd/sprint-134-demo-env-file.te
 **Files:**
 - Create: `services/simulation-service/src/scripts/demoEnvFile.ts`
 
-- [ ] `export function loadDemoEnvFile(env: NodeJS.ProcessEnv = process.env, cwd = process.cwd()): { loadedFrom: string | null; keys: string[] }`.
-  Resolve the path from Note 3; if it is absent and was the default, return `{ loadedFrom: null, keys: [] }`; if it is absent and
+- [ ] `export function resolveDemoEnvPath(env = process.env, cwd = process.cwd()): { path: string; explicit: boolean }` (Note 3),
+  and switch `rotateMariaStories.ts:120` to it.
+- [ ] `export function loadDemoEnvFile(env: NodeJS.ProcessEnv = process.env, cwd = process.cwd()): { loadedFrom: string | null; lookedFor: string; keys: string[] }`.
+  Resolve the path with `resolveDemoEnvPath`; if it is absent and was the default, return `{ loadedFrom: null, lookedFor, keys: [] }`; if it is absent and
   explicit, throw (Note 4). Otherwise `dotenv.config({ path, override: false, quiet: true, processEnv: env })`. dotenv 17 supports
   `processEnv`; **confirm it in `node_modules/dotenv/lib/main.d.ts` before relying on it** (a changelog is a hypothesis). Return the
   parsed keys only.
@@ -122,6 +137,9 @@ cd services/simulation-service && npx jest tests/tdd/sprint-134-demo-env-file.te
 ## Task D8: Merge + deploy (maintainer-authorized)
 
 - [ ] Handoff landed first; "admin merge, yes/no?"
-- [ ] **Human validation** (maintainer, on the demo host; a demo-host operation, so Claude asks before running it): with **no** story IDs
-  exported, `npm --workspace @karmyq/simulation-service run verify:demo` reports `envFile: <path>` and `ready: true`. With one ID
-  exported to a wrong value, the report fails on that ID, which proves the environment wins.
+- [ ] **Human validation** (maintainer, on the demo host; a demo-host operation, so Claude asks before running it). In a fresh shell,
+  source `.env.demo.rotation` as the operator guide says (it carries the password, emails, `API_BASE_URL` and the absolute
+  `DEMO_ENV_FILE`) and export **no** story IDs. `npm --workspace @karmyq/simulation-service run verify:demo` reports
+  `envFile: <path>` and `ready: true`. Then, with `DEMO_ENV_FILE` unset, run it from the repo root: it must still find the root
+  `.env.demo` (the `INIT_CWD` case). Finally, with one ID exported to a wrong value, the report fails on that ID, which proves the
+  environment wins.

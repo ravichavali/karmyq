@@ -41,13 +41,13 @@ advisory fix, v11.93.0), opened 2026-10-20 and **awaiting the maintainer's merge
 
 | # | PR | Scope | Due | Plan | Status |
 |---|---|---|---|---|---|
-| 0 | **F** | follow-redirects 1.16.0 → 1.16.1 (GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c, high, published 2026-10-20); one-node splice; v11.93.0 | high SLA 10-27; **blocks every push/deploy until merged** | spec *PR F* | **#310** open; awaiting "admin merge, yes/no?" |
+| 0 | **F** | follow-redirects 1.16.0 → 1.16.1 (GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c, high, published 2026-10-20); one-node splice; v11.93.0 | high SLA 10-27; **blocks every push/deploy until merged** | spec *PR F* | **#310** open; CI green at `47561a61`; gates recorded (see *#310 review*); awaiting "admin merge, yes/no?" |
 | 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | NEXT after F |
 | 2 | **E** | Expo SDK 57 patch (#279) + drift-workflow silent-failure fix | — | [`plans/2026-10-20-sprint-134-pr-e-expo-patch.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-e-expo-patch.md) | planned |
 | — | **X** | Exemption re-check; renewal PR **only on explicit yes** | gate fails **10-25 17:00 PDT** | *Dated obligations* below | due ~10-23 |
 | 3 | **D** | `verify:demo` loads `DEMO_ENV_FILE ?? '.env.demo'` | — | [`plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md) | planned |
 | 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | **PROVISIONAL: blocked on drain check** |
-| 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers | after L | write at PR start | — |
+| 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers (incl. the reputation health route); **BUG-070** | BUG-070 **2026-11-03** | write at PR start | — |
 | 6 | **K** | BUG-069: admin writes re-derive live role (ADR; **number from the maintainer**) | **2026-10-30** | write at PR start | — |
 | 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | write at PR start | — |
 | 8 | **B** | PR B endorsement follow-ups (`docs/IDEAS.md` 2026-10-13) | — | write at PR start | — |
@@ -68,6 +68,15 @@ B and C are the likeliest to spill into Sprint 135, which is expected. One merge
 - PR E includes the `expo-sdk-drift.yml` silent-failure fix (`docs/IDEAS.md` 2026-09-13), as the previous handoff suggested.
   The maintainer may veto.
 
+## #310 review (2026-10-20)
+
+CI green at `47561a61` (run 39497569765, incl. Integration Tests, Security Audit, Code Scanning Gate). An external read-only
+review found no correctness issue in the dependency fix. Gates on #310: `/simplify` clean (no source code; lock splice is the
+right depth, no override needed, no other lockfile holds follow-redirects); `/code-review` (medium) found the code clean and 8
+findings in the planning docs, all verified and fixed (BUG-070 logged; PR D now resolves `.env.demo` against `INIT_CWD`; PR E
+workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note corrected). The external review's PR A fixture
+(second community + denial on all three routes) and v11.94.0 items are applied. `/security-review`: see the PR body.
+
 ## Dated obligations
 
 | Item | Due | Note |
@@ -77,6 +86,7 @@ B and C are the likeliest to spill into Sprint 135, which is expected. One merge
 | node-forge + braces ADR-059 exemptions | **2026-10-26** (gate fails **2026-10-25 17:00 PDT**) | Re-check ~10-23, after PR E if it has merged: `node scripts/audit-exemptions.js` (it audits the lockfile, so a published upstream fix alone does not trip it), `npm view node-forge version` / `npm view braces version`, `gh api advisories/<GHSA> --jq '.vulnerabilities[].first_patched_version'`, `npm view @expo/cli dependencies.node-forge`, `npm view micromatch dependencies.braces`. `@expo/cli@57.0.31` still declares `node-forge ^1.3.3` (2026-10-20). Remove if fixed; **renewal needs explicit authorization**. BUG-059 |
 | **PR L** (BUG-068) | **2026-10-29** | Blocked on the drain check below |
 | **BUG-069** | **2026-10-30** | PR K. ADR number allocated by the maintainer. If the inventory shows it cannot merge in time, propose a dated risk acceptance and split by service |
+| **BUG-070** (BUG-063 class in reputation health + dead `FeedComposer`) | **2026-11-03** | Logged 2026-10-20 (LOW, proposed); folded into PR L2 pending maintainer confirmation |
 | Demo stories | ~2026-12-18 | `demo-health.yml` watches the runway |
 
 ## Queue drain check (PR L precondition, read-only)

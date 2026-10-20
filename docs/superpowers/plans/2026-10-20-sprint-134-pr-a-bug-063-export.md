@@ -50,8 +50,13 @@ stops a nonexistent `schema.table` from coming back.
    Dropping the `trust_scores` join from the activity report is consistent with it.
 5. **Admin gate semantics do not change**: live `communities.members` row, `role = 'admin'`, `status = 'active'`. That is already
    CLAUDE.md-compliant (live lookup, not the JWT claim).
-6. **No FORCE RLS** on these tables (`init.sql` has 0 occurrences); existing routes (`activities.ts:18`) query `communities.members`
-   through the same `pool`, so RLS does not block the fix.
+6. **RLS is enabled on these tables, and `export.ts` sets no DB context.** `init.sql` enables RLS on `communities.members`
+   (`:6765`), `communities.norms` (`:6777`) and others the export reads, and `export.ts` queries the bare `pool`. The queries see
+   rows because every environment connects as its postgres image's **bootstrap superuser** (`POSTGRES_USER`: dev
+   `infrastructure/docker/docker-compose.yml:9`, prod `docker-compose.prod.yml:219`, CI `tests/docker-compose.test.yml:16`), and
+   superusers bypass RLS. The absence of FORCE RLS is **not** the reason (corrected 2026-10-20 after `/code-review` on #310). Do not
+   rely on that silently: Task A2 asserts **exact, non-empty** id sets per section, so an RLS-filtered empty section fails the test
+   rather than passing as `[]`.
 7. **Integration tests need Postgres + live services; this box has neither.** CI's integration job is the arbiter. A demo-host
    disposable DB needs per-operation authorization. Do not claim the integration test passes until CI shows it.
 8. **The mocked regression test encoded the bug.** Updating its regexes is required, not optional, but it is not the proof.
@@ -98,12 +103,17 @@ cd services/community-service && npx jest tests/tdd/sprint-134-export-schema-tru
   **whose JWT claim still says admin of C**. Two non-directed asks by M linked to C via `request_communities`, one directed ask (must
   not appear). One completed match where A responded to M's ask, one proposed match. One norm with two `norm_approvals`. A
   `communities.settings` row. Fewer than five karma participants, so `community_reputation_summary` must be **absent**.
+- [ ] **Second community D** (the cross-community boundary): its own admin AD and member MD; an ask by MD linked only to D, with a
+  completed match; a norm in D; a `settings` row for D. Plus one ask by M linked to **both** C and D (a multi-community request,
+  which `request_communities` allows), which must appear in C's export exactly once.
 - [ ] Assertions (exact values, not presence):
-  - `GET /communities/C/export` as A → 200; `data.members` ids = {A, M, F} (the full roster, all statuses);
-    `data.requests` ids = M's two non-directed asks only; `data.matches` = both matches; `data.norms[0].approval_count === 2`;
-    `data.settings` has exactly the live column keys; no `community_reputation_summary` key.
-  - The same with `?date_start=2000-01-01` → 200 (proves the qualification fix).
-  - As M, X and F → 403 each (F proves the gate reads the row, not the claim).
+  - `GET /communities/C/export` as A → 200; `data.members` ids = {A, M, F} exactly (the full roster, all statuses; AD and MD
+    absent); `data.requests` ids = M's two C-only asks + the C∧D ask, each once, and D's ask absent; `data.matches` = C's two matches
+    only, D's absent; `data.norms` = C's norm only, `approval_count === 2`; `data.settings` is C's row (assert a value that differs
+    from D's), with exactly the live column keys; no `community_reputation_summary` key.
+  - The same with `?date_start=2000-01-01` → 200 with the same id sets (proves the qualification fix without hiding rows).
+  - **Denial matrix, all three routes:** as M, X and F, each of `GET /export`, `/export/members` and `/export/activity` → 403 (9
+    assertions). F proves the gate reads the row, not the claim. Also AD (admin of D, not of C) → 403 on all three for C.
   - `GET /export/members` as A → 200 CSV whose header is `Name,Email,Role,Status,Joined Date`; `?format=json` row count 3.
   - `GET /export/activity?format=json` as A → 200. Set the matched ask's `status='completed'` in the fixture, so the
     expected rows are exact: M `Helps Given 0, Helps Received 1, Requests Created 2, Requests Completed 1`;
@@ -203,7 +213,7 @@ Expected: both green; the schema-truth gate reports 0 unknown tables/columns, an
 - [ ] `npm test` (root) green; `npm test --workspace=tests` (~1 min, root gates read other workspaces); `npx tsc --noEmit` in
   community-service; revert `apps/landing/src/data/docs/` churn. The TDD promoter may move the new `tdd/` test to `regression/`.
   Keep that, and restore any unrelated promoted file.
-- [ ] Bump the version from `origin/master`'s `package.json` (expected v11.93.0 if A merges first).
+- [ ] Bump the version from `origin/master`'s `package.json` (ordinarily **v11.94.0**: PR F takes v11.93.0 and merges first; re-derive at merge time regardless).
 - [ ] Push and open the PR (PR contract headers per `pr-contract.yml`). Confirm the **integration job** ran the new test and it passed;
   quote the job's line in the PR. If CI integration does not run it, say so. Do not claim it.
 
