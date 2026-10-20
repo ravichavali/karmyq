@@ -33,22 +33,32 @@ expire 2026-10-26 on master.
 | Item | Due | Note |
 |---|---|---|
 | node-forge + braces ADR-059 exemptions | **2026-10-26** (gate fails **2026-10-25 17:00 PDT**) | Re-check: `node scripts/audit-exemptions.js` (it audits the lockfile, so an exemption shows as stale only when its advisory no longer matches the locked version, e.g. withdrawn or after an upgrade; a published upstream fix alone does not trip it, hence the upstream checks that follow), `npm view node-forge version` / `npm view braces version`, `gh api advisories/<GHSA> --jq '.vulnerabilities[].first_patched_version'`, and the Expo dependents' ranges (`npm view @expo/cli dependencies.node-forge`, `npm view micromatch dependencies.braces`). Remove if fixed; renewal needs explicit authorization. BUG-059 |
-| **BUG-063** community export reads a nonexistent schema | **2026-10-24** | LOW, unassigned; fix or dated risk acceptance |
-| **PR L**: ADR-101 legacy-handler removal + BUG-068 retirement | **2026-10-29** | Needs the read-only demo queue drain check first (`bull:karmyq-events:wait`/`:delayed` empty; per-consumer workers): **ask before touching the host**. BUG-068 touches simulation `api-client.ts:461`: expect a CodeQL line-shift re-raise |
+| **BUG-063** community export reads a nonexistent schema | **2026-10-24** | LOW. **Maintainer 2026-10-19: fix it in Sprint 134.** If the fix can't merge by 2026-10-24, propose a dated risk acceptance |
+| **PR L**: ADR-101 legacy-handler removal + BUG-068 retirement | **2026-10-29** | Precondition: the read-only demo queue drain check (see *Queue drain check* below). **Maintainer authorized it 2026-10-19**, but the auto-mode classifier refused the SSH read ("Production Reads"), so it has **not run**. BUG-068 touches simulation `api-client.ts:461`: expect a CodeQL line-shift re-raise |
 | **BUG-069** admin writes trust the JWT claim (5 services) | **2026-10-30** | MEDIUM (proposed), unassigned |
 | Demo stories | ~2026-12-18 | D11 reset reported a 60-day runway; `demo-health.yml` watches it |
 
-## Sprint 134 candidates (for the planning chat)
+## Sprint 134 scope
 
-1. **PR L** (above), dated.
-2. **BUG-069**, dated; cross-service, so an ADR if it lands as a shared helper.
-3. **BUG-063**, dated (small).
-4. **PR V follow-ups**: `docs/IDEAS.md` "[2026-10-19] Request-service read-boundary follow-ups".
-5. **Sprint 133 PR B follow-ups**: `docs/IDEAS.md` "[2026-10-13] Skill endorsements follow-ups".
-6. **BUG-061 follow-ups and directed-notify `expires_at`**: `docs/IDEAS.md` 2026-10-08 entries.
-7. **`verify:demo` env loading** (simplify review, 2026-10-19): `verifyDemoData.ts:67-70` reads story IDs only from
-   `process.env`, so an operator must export them from `.env.demo` by hand (the D11 deviation). Load
-   `DEMO_ENV_FILE ?? '.env.demo'` the way `rotateMariaStories.ts:120` names it.
+**Committed by the maintainer (2026-10-19):**
+1. **BUG-063** (dated 2026-10-24): fix it.
+2. **PR L** (dated 2026-10-29): ADR-101 legacy-handler removal + BUG-068 retirement, after the drain check.
+3. **Expo SDK drift: patch it.** A surgical, in-place lockfile bump of the 9 SDK 57 patches named in issue #279
+   (`expo` 57.0.25 → ~57.0.30, `@expo/metro-runtime`, `expo-camera`, `expo-constants`, `expo-linking`, `expo-location`,
+   `expo-notifications`, `expo-router`, `expo-splash-screen`). This is dependency work earned by a maintainer decision;
+   Claude holds the lane. Re-derive the targets from a fresh `npx expo install --check` at plan time (Expo keeps
+   publishing). Prove it with strict `npm ci`, `npm ls --all`, mobile tests, `tsc --noEmit` and a green dispatched
+   `Expo SDK drift` run; then close #279. Consider fixing the workflow's silent-failure gap (`docs/IDEAS.md` 2026-09-13)
+   in the same PR.
+4. **`verify:demo` reads `.env.demo` itself.** `verifyDemoData.ts:67-70` reads story IDs only from `process.env`, so an
+   operator must export them by hand (the D11 deviation). Load `DEMO_ENV_FILE ?? '.env.demo'` (the path
+   `rotateMariaStories.ts:120` already uses) without overriding values already set in the environment. No gotcha entry.
+
+**Candidates (the maintainer picks):**
+5. **BUG-069** (dated 2026-10-30); cross-service, so an ADR if it lands as a shared helper.
+6. **PR V follow-ups**: `docs/IDEAS.md` "[2026-10-19] Request-service read-boundary follow-ups".
+7. **Sprint 133 PR B follow-ups**: `docs/IDEAS.md` "[2026-10-13] Skill endorsements follow-ups".
+8. **BUG-061 follow-ups and directed-notify `expires_at`**: `docs/IDEAS.md` 2026-10-08 entries.
 8. **Exemption renewal treadmill** (review follow-ups; maintainer decision, no policy change implied): (a) a scheduled
    checker that walks `security/audit-exemptions.json` and produces the re-check evidence; (b) reach-scoped audit
    (`scripts/audit-exemptions.js:318-320` audits the whole lockfile, so a mobile-only finding blocks every service
