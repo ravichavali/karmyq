@@ -12,7 +12,7 @@ stops a nonexistent `schema.table` from coming back.
 **Tech Stack:** the canonical stack in `CLAUDE.md` → *System Architecture*.
 
 **Spec:** `docs/superpowers/specs/2026-10-20-sprint-134-dated-obligations-design.md` → *PR A*.
-**Branch:** `agent/claude/sprint-134-pr-a-bug-063-export`, cut from `origin/agent/claude/sprint-134-planning` (the planning docs ride along).
+**Branch:** `agent/claude/sprint-134-pr-a-bug-063-export`, cut from `origin/master` after PR F merges.
 **Deadline:** BUG-063 is due **2026-10-24 (Saturday)**. Target: PR open 10-21, merge 10-22.
 
 ---
@@ -73,10 +73,8 @@ stops a nonexistent `schema.table` from coming back.
 **Files:**
 - Create: `services/community-service/tests/tdd/sprint-134-export-schema-truth.test.ts`
 
-- [ ] `git fetch origin && git switch -c agent/claude/sprint-134-pr-a-bug-063-export origin/agent/claude/sprint-134-planning`
-  The planning docs (spec, plans, handoff) ride along to master in this PR, with no docs-only master push. First confirm
-  `git merge-base --is-ancestor origin/master origin/agent/claude/sprint-134-planning`; if master has moved, merge `origin/master`
-  into the branch (merge commit, never rebase).
+- [ ] **PR F must have merged first** (it unblocks the ADR-059 gate and carries the planning docs). Then
+  `git fetch origin && git switch -c agent/claude/sprint-134-pr-a-bug-063-export origin/master`.
 - [ ] Write the gate. It reads `export.ts` and `init.sql` as text. For every `FROM|JOIN <schema>.<table>` in `export.ts`, it asserts
   that `CREATE TABLE <schema>.<table> (` exists in `init.sql`. For every `alias.column` whose alias is bound in the same query
   (`FROM communities.members m` → `m`), it asserts the column appears in that table's `CREATE TABLE` body. Include a negative fixture

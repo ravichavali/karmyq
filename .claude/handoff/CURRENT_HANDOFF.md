@@ -1,7 +1,8 @@
 # Sprint 134 — Dated Obligations and Boundary Hardening — Handoff
 
 **Date**: 2026-10-20
-**Status**: PLANNED. Spec + per-PR plans committed on `agent/claude/sprint-134-planning`; **next chat executes PR A**.
+**Status**: PLANNED. Spec + per-PR plans committed on `agent/claude/sprint-134-planning`, which is also **PR F** (follow-redirects
+advisory fix, v11.93.0), opened 2026-10-20 and **awaiting the maintainer's merge decision**. After F merges, **the next chat executes PR A**.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
 #309 merged `1746cdf2` (v11.92.0), CI/CD 39366367275 green.
 
@@ -28,13 +29,9 @@
 
 | Field | Value |
 |---|---|
-| **Planning branch** | `agent/claude/sprint-134-planning` (from `origin/master` `1746cdf2`, v11.92.0); no PR. The docs ride along in PR A: cut PR A **from this branch** (see note) |
+| **Planning branch** | `agent/claude/sprint-134-planning` (from `origin/master` `1746cdf2`, v11.92.0) = **PR F**. The planning docs reach master with F (no docs-only master push). Every later PR is cut from `origin/master` after the previous one merges |
 | **Active editor** | Claude |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated); each PR re-derives its version from `origin/master` at merge time |
-
-**Planning docs reach master via PR A** (no docs-only master push): cut PR A's branch from `origin/agent/claude/sprint-134-planning`
-instead of `origin/master`. The planning commits are docs only and are based on the current master tip, so the squash carries them.
-If master moves before PR A branches, merge `origin/master` into the planning branch first (merge commit, no rebase).
 
 ## Spec and plans
 
@@ -44,7 +41,8 @@ If master moves before PR A branches, merge `origin/master` into the planning br
 
 | # | PR | Scope | Due | Plan | Status |
 |---|---|---|---|---|---|
-| 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | NEXT |
+| 0 | **F** | follow-redirects 1.16.0 → 1.16.1 (GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c, high, published 2026-10-20); one-node splice; v11.93.0 | high SLA 10-27; **blocks every push/deploy until merged** | spec *PR F* | PR open; awaiting "admin merge, yes/no?" |
+| 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | NEXT after F |
 | 2 | **E** | Expo SDK 57 patch (#279) + drift-workflow silent-failure fix | — | [`plans/2026-10-20-sprint-134-pr-e-expo-patch.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-e-expo-patch.md) | planned |
 | — | **X** | Exemption re-check; renewal PR **only on explicit yes** | gate fails **10-25 17:00 PDT** | *Dated obligations* below | due ~10-23 |
 | 3 | **D** | `verify:demo` loads `DEMO_ENV_FILE ?? '.env.demo'` | — | [`plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md) | planned |
@@ -65,6 +63,8 @@ B and C are the likeliest to spill into Sprint 135, which is expected. One merge
 - **BUG-068 data: drop it, in a separate PR L2** after the code-only PR L. The drop covers the `requests.interaction_feedback` table,
   4 `trust_scores` columns and 3 `community_health_metrics` columns; readers include the feed composer and milestone detector.
 - **Drain check: not run** as of 2026-10-20. PR L's plan stays provisional until the maintainer reports it.
+- **follow-redirects advisories (2026-10-20): fix now, on the planning branch, as PR F.** They were found when the planning push's
+  pre-push hook failed on a docs-only diff. Proof in the spec's *PR F* section.
 - PR E includes the `expo-sdk-drift.yml` silent-failure fix (`docs/IDEAS.md` 2026-09-13), as the previous handoff suggested.
   The maintainer may veto.
 
@@ -72,6 +72,7 @@ B and C are the likeliest to spill into Sprint 135, which is expected. One merge
 
 | Item | Due | Note |
 |---|---|---|
+| **follow-redirects** GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c (high) | **2026-10-27** (≤ 1 week) | PR F; until it merges, the ADR-059 gate fails every PR and master deploy |
 | **BUG-063** | **2026-10-24** | PR A. If not merged by end of 10-23, PR A plan Task A0 has a ready dated risk acceptance (new date 10-31) for the maintainer to sign |
 | node-forge + braces ADR-059 exemptions | **2026-10-26** (gate fails **2026-10-25 17:00 PDT**) | Re-check ~10-23, after PR E if it has merged: `node scripts/audit-exemptions.js` (it audits the lockfile, so a published upstream fix alone does not trip it), `npm view node-forge version` / `npm view braces version`, `gh api advisories/<GHSA> --jq '.vulnerabilities[].first_patched_version'`, `npm view @expo/cli dependencies.node-forge`, `npm view micromatch dependencies.braces`. `@expo/cli@57.0.31` still declares `node-forge ^1.3.3` (2026-10-20). Remove if fixed; **renewal needs explicit authorization**. BUG-059 |
 | **PR L** (BUG-068) | **2026-10-29** | Blocked on the drain check below |
@@ -111,8 +112,9 @@ maintainer runs it (paste-ready commands: PR L plan Task L0) or grants the read.
 
 - Master `1746cdf2` v11.92.0, deployed green; no open PRs.
 - Scheduled `Expo SDK drift` run 39424368063 on master is **red by design**: it detected the #279 drift (9 packages). PR E fixes it.
-- Note on `npm ls --all`'s baseline: `apps/mobile/claude.md` records four pre-existing errors and memory records three. PR E
-  measures it at HEAD.
+- `npm ls --all` baseline (measured 2026-10-20 at HEAD): 3 invalid (color-string, ms, picomatch) + 1 missing
+  (`@react-native/metro-config`, required by react-native-worklets). Those are the "four" `apps/mobile/claude.md` records; memory
+  counts only the invalids. Judge any splice by "no new errors".
 
 ## Standing rules
 

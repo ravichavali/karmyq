@@ -3,8 +3,8 @@
 **Date**: 2026-10-20
 **Status**: Approved (maintainer scope 2026-10-19; candidate choices and BUG-063/BUG-068 decisions 2026-10-20)
 **Version**: v11.92.0 → one minor bump per PR, each re-derived from `origin/master` at merge time
-**Sprint Branch**: one branch per PR, `agent/claude/sprint-134-pr-<letter>-<slug>`, each cut from `origin/master`, except PR A,
-which is cut from the planning branch so the planning docs ride along (no docs-only master push)
+**Sprint Branch**: one branch per PR, `agent/claude/sprint-134-pr-<letter>-<slug>`, each cut from `origin/master`. PR F is the
+exception: it is the planning branch itself, so the planning docs reach master with it (no docs-only master push)
 **Planning branch**: `agent/claude/sprint-134-planning` (this spec, the per-PR plans, the handoff)
 
 ---
@@ -51,6 +51,7 @@ sit at the tail and are the most likely to spill into Sprint 135. That is expect
 
 | # | PR | Scope | Due | Plan |
 |---|---|---|---|---|
+| 0 | **F** | follow-redirects 1.16.0 → 1.16.1 (GHSA-q3jh-wrc6-jgq8, GHSA-8r9p-f939-6h3c, both high, published 2026-10-20 ~17:55Z); one-node lock splice; carries the planning docs | high SLA 2026-10-27, but it **blocks every push and deploy now** | done on the planning branch (see *PR F*) |
 | 1 | **A** | BUG-063: repair every community export query against the live schema | **2026-10-24** (target merge 10-22) | `plans/2026-10-20-sprint-134-pr-a-bug-063-export.md` |
 | 2 | **E** | Expo SDK 57 patch: surgical lock splice, plus the drift workflow's silent-failure gap | none (issue #279) | `plans/2026-10-20-sprint-134-pr-e-expo-patch.md` |
 | — | **X** | Exemption re-check of node-forge + braces; a renewal PR **only on the maintainer's explicit yes** | gate fails **2026-10-25 17:00 PDT** | handoff *Dated obligations* (the #304/#307/#309 pattern) |
@@ -67,6 +68,17 @@ A and E come before X so that X re-checks against the post-Expo lockfile. `@expo
 `node-forge ^1.3.3` (`npm view`, 2026-10-20), so PR E does not retire the node-forge exemption.
 
 ---
+
+## PR F — follow-redirects advisories (found during planning, 2026-10-20)
+
+The planning branch's pre-push hook failed on a docs-only diff: `sprint-75-security-gate` and `sprint-123-audit-exemption-gate`
+both reported `follow-redirects` GHSA-q3jh-wrc6-jgq8 and GHSA-8r9p-f939-6h3c (high; range `>=1.16.0 <1.16.1`; fixed in 1.16.1;
+published 2026-10-20 17:53Z and 17:58Z). The lock has one node, `node_modules/follow-redirects@1.16.0`, reached only via root
+`axios@1.20.0`, whose declared range `^1.16.0` admits 1.16.1, so no manifest changes. Maintainer (2026-10-20): fix it now on the
+planning branch. Splice: `version`/`resolved`/`integrity` only (every other lock field is identical between 1.16.0 and 1.16.1 per
+`npm view`), plus the v11.93.0 bump. Proof: node-level diff (2 changed nodes, 1879 keys, order identical);
+`npx -y npm@11.19.0 ci` exit 0 with 1.16.1 on disk; `npm ls --all` errors identical to the pre-change baseline (3 invalid + 1
+missing); `node scripts/audit-exemptions.js` 0 unexempted. It ships first because the ADR-059 gate blocks every other PR until it does.
 
 ## PR A — BUG-063: community export (due 2026-10-24)
 
