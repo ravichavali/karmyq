@@ -1864,3 +1864,28 @@ planning inventory (the four request-service *read* gates of the same kind are f
   SLA at the proposed MEDIUM).
 
 ---
+
+## BUG-070 · [2026-10-20] · open · **LOW** (proposed)
+
+**The BUG-063 defect class outside the export router: queries read `help_requests.community_id`, which does not exist.**
+`requests.help_requests` has no `community_id` (a request's communities are in `requests.request_communities`;
+`infrastructure/postgres/init.sql` `CREATE TABLE requests.help_requests`). Found by the Sprint 134 planning `/code-review`
+on #310 plus an untruncated grep of `r.community_id` across `services/*/src` (2026-10-20):
+
+- **reputation-service, live.** `src/services/healthMetricsService.ts:18`, `:31`, `:48` (the nightly 02:00 cron
+  `src/cron/healthMetricsCalculator.ts:13` → `calculateAllCommunityMetrics`) and `src/routes/health.ts:168`, `:179`, `:192`
+  (the `GET /community-health/:communityId` current-metrics fallback). Every call fails with
+  `column r.community_id does not exist`, so `reputation.community_health_metrics` never receives a fresh snapshot and the
+  fallback 500s. It fails closed and exposes nothing.
+- **request-service, dead code.** `src/services/feed/feedComposer.ts:278-288`, `:348-356`, `:516`. The `FeedComposer` class
+  has no importer (`routes/feed.ts:6` uses `SocialKarmaFeedComposer`), so it never runs.
+
+Not affected: every other `r.community_id` hit is a JavaScript row mapping over a query that selects `community_id` from a
+table that has it. `services/request-service/src/routes/feedback.ts:46` is BUG-068 (retired in Sprint 134 PR L).
+
+- **Proposed fix:** in Sprint 134 PR L2, which already rewrites `healthMetricsService.ts` and the health route's average
+  reads: link through `request_communities`, add a real-SQL test of the cron and the fallback, and delete the dead `FeedComposer`.
+- **Owner:** Claude (Sprint 134 PR L2); the maintainer confirms the severity and the placement. **Deadline: 2026-11-03**
+  (≤ 2-week SLA).
+
+---
