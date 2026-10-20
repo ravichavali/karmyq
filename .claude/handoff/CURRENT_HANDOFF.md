@@ -1,7 +1,7 @@
 # Sprint 134 — Dated Obligations and Boundary Hardening — Handoff
 
 **Date**: 2026-10-20
-**Status**: PLANNED. Spec + per-PR plans committed on `agent/claude/sprint-134-planning`, which is also **PR F** (follow-redirects
+**Status**: PLANNED. Spec + per-PR plans committed on `agent/claude/sprint-134-planning`, which is also **PR F, #310** (follow-redirects
 advisory fix, v11.93.0), opened 2026-10-20 and **awaiting the maintainer's merge decision**. After F merges, **the next chat executes PR A**.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
 #309 merged `1746cdf2` (v11.92.0), CI/CD 39366367275 green.
@@ -41,7 +41,7 @@ advisory fix, v11.93.0), opened 2026-10-20 and **awaiting the maintainer's merge
 
 | # | PR | Scope | Due | Plan | Status |
 |---|---|---|---|---|---|
-| 0 | **F** | follow-redirects 1.16.0 → 1.16.1 (GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c, high, published 2026-10-20); one-node splice; v11.93.0 | high SLA 10-27; **blocks every push/deploy until merged** | spec *PR F* | PR open; awaiting "admin merge, yes/no?" |
+| 0 | **F** | follow-redirects 1.16.0 → 1.16.1 (GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c, high, published 2026-10-20); one-node splice; v11.93.0 | high SLA 10-27; **blocks every push/deploy until merged** | spec *PR F* | **#310** open; awaiting "admin merge, yes/no?" |
 | 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | NEXT after F |
 | 2 | **E** | Expo SDK 57 patch (#279) + drift-workflow silent-failure fix | — | [`plans/2026-10-20-sprint-134-pr-e-expo-patch.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-e-expo-patch.md) | planned |
 | — | **X** | Exemption re-check; renewal PR **only on explicit yes** | gate fails **10-25 17:00 PDT** | *Dated obligations* below | due ~10-23 |
