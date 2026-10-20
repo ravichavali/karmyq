@@ -1,78 +1,121 @@
-# Between sprints — Sprint 133 closed, Sprint 134 planning next — Handoff
+# Sprint 134 — Dated Obligations and Boundary Hardening — Handoff
 
-**Date**: 2026-10-19
-**Outcome**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md)).
-**#309 SHIPPED and LIVE (2026-10-19):** the maintainer authorized the admin merge ("admin merge approved") after an external
-review (no blocking findings; its P3 fixed in `9497d63c`). Merged as `1746cdf2` (v11.92.0).
-[CI/CD 39366367275](https://github.com/ravichavali/karmyq/actions/runs/39366367275) passed on attempt 1: Code Scanning Gate
-green (**no CodeQL re-raise** this time), Security Audit green, all 9 services healthy, no rollback. The exemptions now
-expire 2026-10-26 on master.
+**Date**: 2026-10-20
+**Status**: PLANNED. Spec + per-PR plans committed on `agent/claude/sprint-134-planning`; **next chat executes PR A**.
+**Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
+#309 merged `1746cdf2` (v11.92.0), CI/CD 39366367275 green.
 
 > Git and PR state (`gh pr list`, `git log origin/master`) outrank anything written here. No parallel lanes are active.
 
+**Sprint goal:** clear the dated obligations (BUG-063 by 10-24, PR L by 10-29, BUG-069 by 10-30, the exemption re-check before
+10-25 17:00 PDT), patch the Expo drift and the `verify:demo` env gap, then work down the Sprint 133 follow-up tail.
+
 ---
+
+## Quick Start
+
+1. Read this handoff, then `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
+2. Find the next PR in *PR sequence* whose status is not SHIPPED. Reuse its branch if it exists; otherwise
+   `git switch -c agent/claude/sprint-134-pr-<letter>-<slug> origin/master`. Never branch off a stale local master.
+3. Open that PR's plan (table below). **PR L's plan is PROVISIONAL**: execute only its Task L0 until the maintainer reports the
+   drain check. PRs L2/K/V/B/C have no plan yet: write it first in that PR's chat from the spec section (`sprint-planning`/
+   `superpowers:writing-plans`), then execute.
+4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
+   slash command; superpowers removed it as a deprecated stub.
+5. One fresh chat per PR (CLAUDE.md *Chat cadence*). Update this file at every PR open/merge.
 
 ## Ownership and base
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-134-planning` (cut from `origin/master` `1746cdf2`, v11.92.0); carries this handoff, no PR yet |
+| **Planning branch** | `agent/claude/sprint-134-planning` (from `origin/master` `1746cdf2`, v11.92.0); no PR. The docs ride along in PR A: cut PR A **from this branch** (see note) |
 | **Active editor** | Claude |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated); each PR re-derives its version from `origin/master` at merge time |
 
-## Quick Start
+**Planning docs reach master via PR A** (no docs-only master push): cut PR A's branch from `origin/agent/claude/sprint-134-planning`
+instead of `origin/master`. The planning commits are docs only and are based on the current master tip, so the squash carries them.
+If master moves before PR A branches, merge `origin/master` into the planning branch first (merge commit, no rebase).
 
-1. `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
-2. Plan Sprint 134 on `agent/claude/sprint-134-planning` with the `sprint-planning` skill, starting from the candidates and
-   dated obligations below. PR L and BUG-063 are dated and come first unless the maintainer reorders.
-3. **Expect a master CodeQL re-raise** of the `js/request-forgery` FP class on any merge that shifts `api.ts` /
-   `api-client.ts` lines (PR L touches `api-client.ts:461`); ask before dismissing, then `gh run rerun <id> --failed`.
+## Spec and plans
+
+- Spec: [`docs/superpowers/specs/2026-10-20-sprint-134-dated-obligations-design.md`](../../docs/superpowers/specs/2026-10-20-sprint-134-dated-obligations-design.md)
+
+## PR sequence
+
+| # | PR | Scope | Due | Plan | Status |
+|---|---|---|---|---|---|
+| 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | NEXT |
+| 2 | **E** | Expo SDK 57 patch (#279) + drift-workflow silent-failure fix | — | [`plans/2026-10-20-sprint-134-pr-e-expo-patch.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-e-expo-patch.md) | planned |
+| — | **X** | Exemption re-check; renewal PR **only on explicit yes** | gate fails **10-25 17:00 PDT** | *Dated obligations* below | due ~10-23 |
+| 3 | **D** | `verify:demo` loads `DEMO_ENV_FILE ?? '.env.demo'` | — | [`plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md) | planned |
+| 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | **PROVISIONAL: blocked on drain check** |
+| 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers | after L | write at PR start | — |
+| 6 | **K** | BUG-069: admin writes re-derive live role (ADR; **number from the maintainer**) | **2026-10-30** | write at PR start | — |
+| 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | write at PR start | — |
+| 8 | **B** | PR B endorsement follow-ups (`docs/IDEAS.md` 2026-10-13) | — | write at PR start | — |
+| 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
+
+B and C are the likeliest to spill into Sprint 135, which is expected. One merge at a time; wait for deploy + health before the next.
+
+## Maintainer decisions (2026-10-19 / 2026-10-20)
+
+- Committed scope: BUG-063, PR L, the Expo patch, `verify:demo` env (2026-10-19). Candidates **all chosen**: BUG-069, PR V follow-ups,
+  PR B follow-ups, exemption checker (a) (2026-10-20). Treadmill item (b) (reach-scoped audit) is **not** in scope.
+- **BUG-063: repair every section** (not just the schema name). The bug is wider than filed: nine defect classes (spec table).
+- **BUG-068 data: drop it, in a separate PR L2** after the code-only PR L. The drop covers the `requests.interaction_feedback` table,
+  4 `trust_scores` columns and 3 `community_health_metrics` columns; readers include the feed composer and milestone detector.
+- **Drain check: not run** as of 2026-10-20. PR L's plan stays provisional until the maintainer reports it.
+- PR E includes the `expo-sdk-drift.yml` silent-failure fix (`docs/IDEAS.md` 2026-09-13), as the previous handoff suggested.
+  The maintainer may veto.
 
 ## Dated obligations
 
 | Item | Due | Note |
 |---|---|---|
-| node-forge + braces ADR-059 exemptions | **2026-10-26** (gate fails **2026-10-25 17:00 PDT**) | Re-check: `node scripts/audit-exemptions.js` (it audits the lockfile, so an exemption shows as stale only when its advisory no longer matches the locked version, e.g. withdrawn or after an upgrade; a published upstream fix alone does not trip it, hence the upstream checks that follow), `npm view node-forge version` / `npm view braces version`, `gh api advisories/<GHSA> --jq '.vulnerabilities[].first_patched_version'`, and the Expo dependents' ranges (`npm view @expo/cli dependencies.node-forge`, `npm view micromatch dependencies.braces`). Remove if fixed; renewal needs explicit authorization. BUG-059 |
-| **BUG-063** community export reads a nonexistent schema | **2026-10-24** | LOW. **Maintainer 2026-10-19: fix it in Sprint 134.** If the fix can't merge by 2026-10-24, propose a dated risk acceptance |
-| **PR L**: ADR-101 legacy-handler removal + BUG-068 retirement | **2026-10-29** | Precondition: the read-only demo queue drain check (see *Queue drain check* below). **Maintainer authorized it 2026-10-19**, but the auto-mode classifier refused the SSH read ("Production Reads"), so it has **not run**. BUG-068 touches simulation `api-client.ts:461`: expect a CodeQL line-shift re-raise |
-| **BUG-069** admin writes trust the JWT claim (5 services) | **2026-10-30** | MEDIUM (proposed), unassigned |
-| Demo stories | ~2026-12-18 | D11 reset reported a 60-day runway; `demo-health.yml` watches it |
-
-## Sprint 134 scope
-
-**Committed by the maintainer (2026-10-19):**
-1. **BUG-063** (dated 2026-10-24): fix it.
-2. **PR L** (dated 2026-10-29): ADR-101 legacy-handler removal + BUG-068 retirement, after the drain check.
-3. **Expo SDK drift: patch it.** A surgical, in-place lockfile bump of the 9 SDK 57 patches named in issue #279
-   (`expo` 57.0.25 → ~57.0.30, `@expo/metro-runtime`, `expo-camera`, `expo-constants`, `expo-linking`, `expo-location`,
-   `expo-notifications`, `expo-router`, `expo-splash-screen`). This is dependency work earned by a maintainer decision;
-   Claude holds the lane. Re-derive the targets from a fresh `npx expo install --check` at plan time (Expo keeps
-   publishing). Prove it with strict `npm ci`, `npm ls --all`, mobile tests, `tsc --noEmit` and a green dispatched
-   `Expo SDK drift` run; then close #279. Consider fixing the workflow's silent-failure gap (`docs/IDEAS.md` 2026-09-13)
-   in the same PR.
-4. **`verify:demo` reads `.env.demo` itself.** `verifyDemoData.ts:67-70` reads story IDs only from `process.env`, so an
-   operator must export them by hand (the D11 deviation). Load `DEMO_ENV_FILE ?? '.env.demo'` (the path
-   `rotateMariaStories.ts:120` already uses) without overriding values already set in the environment. No gotcha entry.
-
-**Candidates (the maintainer picks):**
-5. **BUG-069** (dated 2026-10-30); cross-service, so an ADR if it lands as a shared helper.
-6. **PR V follow-ups**: `docs/IDEAS.md` "[2026-10-19] Request-service read-boundary follow-ups".
-7. **Sprint 133 PR B follow-ups**: `docs/IDEAS.md` "[2026-10-13] Skill endorsements follow-ups".
-8. **BUG-061 follow-ups and directed-notify `expires_at`**: `docs/IDEAS.md` 2026-10-08 entries.
-9. **Exemption renewal treadmill** (review follow-ups; no policy change implied): (a) a scheduled checker that walks
-   `security/audit-exemptions.json` and produces the re-check evidence; (b) reach-scoped audit
-   (`scripts/audit-exemptions.js:318-320` audits the whole lockfile, so a mobile-only finding blocks every service
-   deploy); (b) changes ADR-059 policy and needs an amendment.
-10. Optional, separately authorized: live endorse → withdraw round trip on the demo.
+| **BUG-063** | **2026-10-24** | PR A. If not merged by end of 10-23, PR A plan Task A0 has a ready dated risk acceptance (new date 10-31) for the maintainer to sign |
+| node-forge + braces ADR-059 exemptions | **2026-10-26** (gate fails **2026-10-25 17:00 PDT**) | Re-check ~10-23, after PR E if it has merged: `node scripts/audit-exemptions.js` (it audits the lockfile, so a published upstream fix alone does not trip it), `npm view node-forge version` / `npm view braces version`, `gh api advisories/<GHSA> --jq '.vulnerabilities[].first_patched_version'`, `npm view @expo/cli dependencies.node-forge`, `npm view micromatch dependencies.braces`. `@expo/cli@57.0.31` still declares `node-forge ^1.3.3` (2026-10-20). Remove if fixed; **renewal needs explicit authorization**. BUG-059 |
+| **PR L** (BUG-068) | **2026-10-29** | Blocked on the drain check below |
+| **BUG-069** | **2026-10-30** | PR K. ADR number allocated by the maintainer. If the inventory shows it cannot merge in time, propose a dated risk acceptance and split by service |
+| Demo stories | ~2026-12-18 | `demo-health.yml` watches the runway |
 
 ## Queue drain check (PR L precondition, read-only)
 
-The maintainer authorized it on 2026-10-19 for the Sprint 134 planning / PR L lane. It has **not run**: the auto-mode
-classifier refused Claude's SSH read. The maintainer runs it themselves, or grants the permission, before PR L is
-planned in detail. **Pass criteria:** the legacy `bull:karmyq-events` queue's `wait`, `active`, `delayed` and `paused`
-are all 0, and each `karmyq-events-<consumer>` queue is served only by its own consumer's container.
+Authorized by the maintainer 2026-10-19 for the PR L lane, but the auto-mode classifier refused Claude's SSH read; **not run**. The
+maintainer runs it (paste-ready commands: PR L plan Task L0) or grants the read. **Pass:** legacy `bull:karmyq-events` `wait`,
+`active`, `delayed` and `paused` all 0, and each `karmyq-events-<consumer>` queue is served only by its own consumer's container.
+
+## Critical implementation notes (from the spec, verbatim)
+
+1. **Read the schema, not the code.** Every table/column in a changed query is checked against `infrastructure/postgres/init.sql`
+   before the query is written. BUG-063 and BUG-068 both shipped because a mock encoded the wrong name.
+2. **The community schema is `communities` (plural) and the membership table is `members`.** A request's communities are in
+   `requests.request_communities`; `help_requests` has no `community_id`.
+3. **Qualify every column in a joined query.** `auth.users.created_at` makes an unqualified `created_at` ambiguous.
+4. **Real-SQL integration tests need Postgres + live services.** This Windows box has none (CLAUDE.md *Host environments*).
+   CI's integration job is the arbiter; a demo-host disposable container needs per-operation authorization.
+5. **Lockfile work is a splice, never a regen.** Windows re-resolve strips `libc` fields and drops override/nested nodes.
+   Prove with node-by-node diff + `npm view` parity (order and completeness), `npx -y npm@11.19.0 ci` (consistency and integrity),
+   and `npm ls --all` (3 pre-existing invalids: color-string, ms, picomatch). A green local `npm ci` alone proves nothing.
+6. **`dotenv` 17 must be called with `quiet: true`** (gotcha), and with `override: false` so the environment wins.
+7. **No demo-host operation without explicit per-operation authorization** (the drain check, any dry-run, any smoke that
+   reads Redis). The classifier may refuse even an authorized read; then hand the command to the maintainer.
+8. **Ask before:** any ADR number, any merge ("admin merge, yes/no?"), any exemption renewal, any CodeQL dismissal.
+9. **Expect the CodeQL `js/request-forgery` re-raise** on master after any merge that shifts `apps/frontend/src/lib/api.ts`
+   or `services/simulation-service/src/api-client.ts` lines (PR L). Ask before dismissing, then `gh run rerun <id> --failed`.
+10. **Re-derive the version at merge time** from `origin/master`'s `package.json`, never at branch time.
+11. **`npm test` regenerates `apps/landing/src/data/docs/`** with timestamp/HEAD-sha churn; revert it before committing.
+12. **New sprint tests start in the changed workspace's `tests/tdd/`**; real-SQL tests that drive live services go in root
+    `tests/integration/` (the Sprint 133 pattern). The TDD promoter sweeps every green `tdd/` file repo-wide; restore unrelated ones.
+
+## Known state at planning time (2026-10-20)
+
+- Master `1746cdf2` v11.92.0, deployed green; no open PRs.
+- Scheduled `Expo SDK drift` run 39424368063 on master is **red by design**: it detected the #279 drift (9 packages). PR E fixes it.
+- Note on `npm ls --all`'s baseline: `apps/mobile/claude.md` records four pre-existing errors and memory records three. PR E
+  measures it at HEAD.
 
 ## Standing rules
 
-Every demo-host operation, merge, exemption renewal and CodeQL dismissal needs explicit per-operation authorization.
-Never push docs-only to master; fold docs into the next PR.
+Every demo-host operation, merge, exemption renewal, CodeQL dismissal and ADR number needs explicit per-operation authorization.
+Never push docs-only to master; fold docs into the next PR. Reconcile this handoff against `gh pr list` / `git log` after every
+merge and at session end.
