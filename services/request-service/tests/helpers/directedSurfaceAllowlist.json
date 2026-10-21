@@ -336,18 +336,6 @@
     "label": "AS in_directed_audience"
   },
   {
-    "file": "services/community-service/src/routes/export.ts",
-    "hash": "77afa60fd510e1ed74383c4417b0be25e0b864e1abc1809230045e25a015d189",
-    "reason": "Export requests: literal NOT r.is_directed WHERE filter; dateClause is built only from fixed AND date comparisons at export.ts:100-113. Legacy schema references remain outside scope; static coverage only.",
-    "label": "SELECT\n          r.id,"
-  },
-  {
-    "file": "services/community-service/src/routes/export.ts",
-    "hash": "5b606604d27d02cb0b8659e16e20df236d17071144f1e621fbf28c4cae4ca411",
-    "reason": "Export matches: literal NOT r.is_directed WHERE filter; dateClause and replacement contain fixed AND bound date comparisons only. Legacy schema references remain outside scope.",
-    "label": "SELECT\n          m.id,"
-  },
-  {
     "file": "services/request-service/src/db/dibsDb.ts",
     "hash": "3cee831d0ce1466d525ab8d48a1d93cfaca16c476b5dae1cae252aba6ac079b9",
     "reason": "Both prior and prior_similar read blocks have NOT-directed WHERE filters. SIMILARITY_KEY_SQL is the fixed COALESCE expression at dibsDb.ts:68-69; it cannot introduce OR.",

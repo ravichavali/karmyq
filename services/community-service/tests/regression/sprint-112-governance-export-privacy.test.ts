@@ -68,11 +68,11 @@ function exportMock(over: { cohort?: number } = {}) {
   // by the aggregate query itself, so `cohort` drives participating_members here.
   const contributors = over.cohort ?? 5;
   return (sql: string) => {
-    if (/SELECT role FROM community\.memberships/.test(sql)) return Promise.resolve({ rows: [{ role: 'admin' }] });
-    if (/FROM community\.communities/.test(sql)) return Promise.resolve({ rows: [{ id: COMMUNITY, name: 'Maplewood' }] });
+    if (/SELECT role FROM communities\.members/.test(sql)) return Promise.resolve({ rows: [{ role: 'admin' }] });
+    if (/FROM communities\.communities/.test(sql)) return Promise.resolve({ rows: [{ id: COMMUNITY, name: 'Maplewood' }] });
     if (/COUNT\(DISTINCT k\.user_id\)/.test(sql)) return Promise.resolve({ rows: [{ participating_members: contributors, transaction_count: 18, total_karma_points: 400 }] });
     if (/"Helps Given"/.test(sql)) return Promise.resolve({ rows: [{ Member: 'Sam', 'Helps Given': 2, 'Helps Received': 1, 'Requests Created': 0, 'Requests Completed': 1 }] });
-    if (/FROM community\.memberships m/.test(sql)) return Promise.resolve({ rows: [{ id: 'm1', user_id: U2, user_name: 'Sam', role: 'member', status: 'active' }] });
+    if (/FROM communities\.members m/.test(sql)) return Promise.resolve({ rows: [{ id: 'm1', user_id: U2, user_name: 'Sam', role: 'member', status: 'active' }] });
     return Promise.resolve({ rows: [] });
   };
 }

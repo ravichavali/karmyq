@@ -1692,7 +1692,7 @@ This also undercuts BUG-056: dropping `requester_email` from `GET /requests/:id`
 
 ---
 
-## BUG-063 · [2026-10-10] · open · **LOW**
+## BUG-063 · [2026-10-10] · fixed (Sprint 134 PR A) · **LOW**
 
 **Community data export always fails: it reads a schema that does not exist.** Every handler in
 `services/community-service/src/routes/export.ts` (`:68`, `:127`, `:287`, `:305`, `:342`, `:367`) queries
@@ -1704,6 +1704,18 @@ The frontend calls it (`communityService.exportCommunityData`, `apps/frontend/sr
 
 - **Fix:** `communities.members`, plus a real-SQL test that an admin export succeeds and a member gets 403.
 - **Owner:** unassigned. **Deadline: 2026-10-24** (≤ 2-week SLA).
+- **Wider than filed (verified against `init.sql`, Sprint 134 planning).** The schema name was one of seven
+  defect groups: `community.memberships`/`communities`/`norms`/`settings` (schema is `communities`, table
+  `members`); `members.created_at` (it has `joined_at`); `help_requests.community_id` (link through
+  `requests.request_communities`); `norms.approval_count` (count `communities.norm_approvals`); four
+  nonexistent `settings` columns (`match_ttl_days`, `session_ttl_days`, `karma_decay_enabled`,
+  `karma_half_life_months`); `trust_scores.helps_given/helps_received`; and an unqualified `created_at` date
+  filter, ambiguous once `auth.users` is joined. The mocked regression test encoded the wrong names.
+- **Resolution (Sprint 134 PR A):** every query repaired (maintainer: repair every section). The activity
+  report's four counts are now distinct (the old Requests Completed counted the same thing as Helps Given).
+  Proof: a schema-truth gate (`services/community-service/tests/regression/sprint-134-export-schema-truth.test.ts`)
+  and a real-SQL integration test (`tests/integration/sprint-134-community-export.integration.test.ts`). The
+  directed-surface allowlist lost its two export exceptions. Version and merge sha: recorded at merge.
 
 ---
 
@@ -1885,7 +1897,7 @@ table that has it. `services/request-service/src/routes/feedback.ts:46` is BUG-0
 
 - **Proposed fix:** in Sprint 134 PR L2, which already rewrites `healthMetricsService.ts` and the health route's average
   reads: link through `request_communities`, add a real-SQL test of the cron and the fallback, and delete the dead `FeedComposer`.
-- **Owner:** Claude (Sprint 134 PR L2); the maintainer confirms the severity and the placement. **Deadline: 2026-11-03**
+- **Owner:** Claude (Sprint 134 PR L2; placement confirmed by the maintainer 2026-10-20). **Deadline: 2026-11-03**
   (≤ 2-week SLA).
 
 ---

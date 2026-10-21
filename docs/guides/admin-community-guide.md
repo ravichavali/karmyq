@@ -105,6 +105,41 @@ Allows you to connect a specific member to a request. When you propose a match:
 
 This is the key tool for high-touch facilitation. It doesn't force anyone into anything; it surfaces the opportunity where the proposed helper will see it.
 
+### Exporting community data
+
+The **Export Data** panel offers three downloads, each as JSON or CSV. Only a current, active admin of the
+community can download them. Karmyq checks your membership at the moment you click, so a former admin, an admin
+of a different community, or a regular member gets "Only community admins can export data".
+
+**Full Export** is the community's record:
+- The community itself (name, description, access type, size, creation date)
+- The full member roster, including members who have left, with names, emails, roles, statuses and join dates
+- The community's requests and their matches
+- Norms, with how many members have approved each
+- Community settings (request, offer, message and notification lifetimes, reputation half-life, activity types)
+
+The CSV version of the full export contains the member roster only. Use JSON for everything else. In CSV files,
+text that begins with `=`, `+`, `-` or `@` starts with an apostrophe, so a spreadsheet shows it as text instead of
+running it as a formula.
+
+**Members** is the roster alone: Name, Email, Role, Status, Joined Date.
+
+**Activity** has one row per active member, sorted by name:
+
+| Column | What it counts |
+|---|---|
+| Helps Given | Completed exchanges where the member was the helper |
+| Helps Received | Completed exchanges on the member's own requests |
+| Requests Created | Requests the member posted |
+| Requests Completed | The member's own requests that reached completed |
+
+Every request count covers only requests shared with this community. A request shared with two communities appears
+in both communities' exports. Private requests directed at one person or community never appear in any export.
+
+No export shows an individual member's karma or trust score. The full export includes a community reputation
+summary (members who earned karma, number of karma transactions, total points) only when at least five members have
+earned karma. With fewer, the totals could be traced back to individuals, so the summary is left out.
+
 ---
 
 ## Acting as a Connector

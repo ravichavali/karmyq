@@ -337,7 +337,7 @@
         ]
       },
       "database_schemas": [
-        "community"
+        "communities"
       ],
       "health_check": "http://localhost:3002/health",
       "criticality": "critical",

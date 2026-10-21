@@ -7,7 +7,7 @@
 
 - **Port**: 3002
 - **Health Check**: http://localhost:3002/health
-- **Database Schema**: community
+- **Database Schema**: communities
 - **Status**: production
 - **Criticality**: critical
 
@@ -309,7 +309,7 @@ community-service/
 
 ---
 
-**Last Updated**: 2026-03-03
+**Last Updated**: 2026-10-21
 **Service Owner**: core
 **Criticality**: critical
 **Impact Radius**: 3 dependent service(s)

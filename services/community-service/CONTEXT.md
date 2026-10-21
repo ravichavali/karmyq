@@ -5,6 +5,31 @@
 
 ## Recent Changes
 
+- **2026-10-21 (Sprint 134 PR A, BUG-063 fixed)**: all three export routes (`src/routes/export.ts`)
+  500'd for everyone since they were written. They named a schema that does not exist (`community.*`;
+  the live one is `communities`, with `members` not `memberships`) and columns the live schema lacks:
+  `members.created_at`, `help_requests.community_id` (an ask's communities are in
+  `requests.request_communities`), `norms.approval_count`, four `settings` columns, and
+  `trust_scores.helps_given/helps_received`; the date filter was an unqualified, ambiguous `created_at`.
+  The only test mocked `pool.query` with regexes encoding the wrong names, so it stayed green.
+  Now: `GET /:communityId/export` returns `community`, `members` (full roster, all statuses, with
+  email), `requests` and `matches` (non-directed asks linked through `request_communities`),
+  `norms` (`approval_count` counted from `norm_approvals`), `settings` (the live columns:
+  `request_ttl_days, offer_ttl_days, message_ttl_days, notification_ttl_days,
+  reputation_half_life_months, activity_types, updated_at`) and the ADR-082
+  `community_reputation_summary` (≥5 contributors). `/export/activity` has four integer counts per
+  active member: Helps Given / Helps Received (completed matches as responder / on own asks),
+  Requests Created / Requests Completed (own asks / own asks with status `completed`). The date
+  filter is qualified per query and wrapped as `AND (...)`, so the Sprint 132 directed-surface gate
+  proves the `NOT r.is_directed` guard without allowlist exceptions. `date_start`/`date_end` must be
+  `YYYY-MM-DD` (else 400 `INVALID_DATE_RANGE`, checked after the admin gate; other errors are `sendError`
+  `FORBIDDEN` / `NOT_FOUND` / `INTERNAL_ERROR`); `date_end` includes its
+  whole day; members filter on `joined_at` (a missing bound is NULL and does not filter, so NULL timestamps still
+  appear unfiltered). CSV text starting with `= + - @` tab or CR is prefixed with `'` (CSV injection). The reputation summary ignores the date filter (always
+  all-time): overlapping windows could otherwise be subtracted to isolate one member's karma. Proof:
+  `tests/regression/sprint-134-export-schema-truth.test.ts` (every table/column against `init.sql`), `tests/regression/sprint-134-export-date-filter.test.ts` and
+  root `tests/integration/sprint-134-community-export.integration.test.ts` (real SQL, two communities).
+
 - **2026-10-10 (Sprint 133 PR S, BUG-062)**: member email is admin-only. `GET /communities/:id` and
   `GET /communities/:communityId/members` shape rows through `src/utils/memberVisibility.ts`:
   `user_email` only for a **live** active admin (`communities.members`, never the JWT claim) or on the
@@ -1670,7 +1695,8 @@ src/
   non-identifying `community_reputation_summary { participating_members, transaction_count,
   total_karma_points }` only when ≥5 active members, omitted otherwise.
 - `GET /communities/:communityId/export/activity` — keeps per-member activity counts (helps/requests)
-  but drops Total Karma, Trust Score, and karma-ranked ordering.
+  but drops Total Karma, Trust Score, and karma-ranked ordering. (Sprint 134 PR A redefined the four
+  counts against the live schema; see Recent Changes.)
 
 ---
 

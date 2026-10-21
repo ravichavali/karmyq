@@ -342,7 +342,7 @@
       "healthCheck": "http://localhost:3002/health",
       "notes": "Sprint 47: Group Communities — community_type field, activities + activity_participants tables, activities API endpoints, activity_joined event Sprint 132 BUG-061: POST /communities/:communityId/members is admin-only (invited_by = JWT caller); PUT/DELETE /communities/:id and norm create/approve/delete authorize the JWT caller, ignoring body ids.",
       "databaseSchemas": [
-        "community"
+        "communities"
       ]
     },
     {

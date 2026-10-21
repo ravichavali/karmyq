@@ -1,25 +1,14 @@
 import { Router, Request, Response } from 'express';
 import pool from '../database/db';
 import { createLogger } from '@karmyq/shared/utils/logger';
+import { sendError } from '@karmyq/shared/utils/response';
 
 const router = Router();
 const logger = createLogger('community-service:export');
 
-interface ExportOptions {
-  format: 'json' | 'csv';
-  include?: {
-    members?: boolean;
-    requests?: boolean;
-    matches?: boolean;
-    norms?: boolean;
-    settings?: boolean;
-    karma?: boolean;
-  };
-  dateRange?: {
-    start?: string;
-    end?: string;
-  };
-}
+// A text cell starting with one of these runs as a formula in a spreadsheet (CSV injection); members
+// control names and titles, and admins open these files. A leading quote makes the cell plain text.
+const FORMULA_PREFIX = /^[=+\-@\t\r]/;
 
 // Helper to convert data to CSV
 function toCSV(data: any[], headers?: string[]): string {
@@ -31,8 +20,9 @@ function toCSV(data: any[], headers?: string[]): string {
     keys.map(key => {
       const value = row[key];
       if (value === null || value === undefined) return '';
-      if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
-        return `"${value.replace(/"/g, '""')}"`;
+      if (typeof value === 'string') {
+        const text = FORMULA_PREFIX.test(value) ? `'${value}` : value;
+        return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
       }
       if (value instanceof Date) return value.toISOString();
       return String(value);
@@ -40,6 +30,14 @@ function toCSV(data: any[], headers?: string[]): string {
   );
 
   return [headerRow, ...rows].join('\n');
+}
+
+// A calendar date (YYYY-MM-DD) that exists; Postgres would turn anything else into a 500. JS accepts
+// year 0000, Postgres does not.
+function isCalendarDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^(?!0000)\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
 }
 
 // GET /communities/:communityId/export
@@ -59,35 +57,33 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
     karma: req.query.karma !== 'false',
   };
 
-  const dateStart = req.query.date_start as string;
-  const dateEnd = req.query.date_end as string;
+  const dateStart = req.query.date_start;
+  const dateEnd = req.query.date_end;
 
   try {
     // Verify user is admin of this community
     const memberCheck = await pool.query(`
-      SELECT role FROM community.memberships
+      SELECT role FROM communities.members
       WHERE community_id = $1 AND user_id = $2 AND status = 'active'
     `, [communityId, userId]);
 
     if (memberCheck.rows.length === 0 || memberCheck.rows[0].role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only community admins can export data',
-      });
+      return sendError(res, 'FORBIDDEN', 'Only community admins can export data', 403);
+    }
+
+    if ([dateStart, dateEnd].some(value => value !== undefined && !isCalendarDate(value))) {
+      return sendError(res, 'INVALID_DATE_RANGE', 'date_start and date_end must be dates (YYYY-MM-DD)', 400);
     }
 
     // Get community info
     const communityResult = await pool.query(`
       SELECT id, name, description, access_type, current_members, max_members, created_at
-      FROM community.communities
+      FROM communities.communities
       WHERE id = $1
     `, [communityId]);
 
     if (communityResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Community not found',
-      });
+      return sendError(res, 'NOT_FOUND', 'Community not found', 404);
     }
 
     const exportData: any = {
@@ -95,22 +91,14 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
       community: communityResult.rows[0],
     };
 
-    // Build date filter
-    const dateFilter = [];
-    const dateParams: any[] = [communityId];
-    let paramIndex = 2;
-
-    if (dateStart) {
-      dateFilter.push(`created_at >= $${paramIndex}`);
-      dateParams.push(dateStart);
-      paramIndex++;
-    }
-    if (dateEnd) {
-      dateFilter.push(`created_at <= $${paramIndex}`);
-      dateParams.push(dateEnd);
-      paramIndex++;
-    }
-    const dateClause = dateFilter.length > 0 ? `AND ${dateFilter.join(' AND ')}` : '';
+    // Build date filter. The column is qualified per query: an unqualified created_at is ambiguous
+    // once auth.users (which has its own created_at) is joined. It is always a predicate, used as
+    // `AND (...)`, so the directed-surface gate can see that it cannot carry an OR past a guard.
+    // Both bounds are always $2/$3; a missing one is NULL and does not filter (so a row with a NULL
+    // timestamp still appears in an unfiltered export). date_end includes its whole day.
+    const dateParams = [communityId, dateStart ?? null, dateEnd ?? null];
+    const dateClauseFor = (column: string) =>
+      `($2::date IS NULL OR ${column} >= $2::date) AND ($3::date IS NULL OR ${column} < $3::date + 1)`;
 
     // Export members
     if (include.members) {
@@ -122,11 +110,10 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
           u.email as user_email,
           m.role,
           m.status,
-          m.joined_at,
-          m.created_at
-        FROM community.memberships m
+          m.joined_at
+        FROM communities.members m
         JOIN auth.users u ON m.user_id = u.id
-        WHERE m.community_id = $1 ${dateClause}
+        WHERE m.community_id = $1 AND (${dateClauseFor('m.joined_at')})
         ORDER BY m.joined_at
       `, dateParams);
       exportData.members = membersResult.rows;
@@ -147,7 +134,9 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
           r.expires_at
         FROM requests.help_requests r
         JOIN auth.users u ON r.requester_id = u.id
-        WHERE /* not-directed */ NOT r.is_directed AND r.community_id = $1 ${dateClause}
+        WHERE /* not-directed */ NOT r.is_directed
+          AND EXISTS (SELECT 1 FROM requests.request_communities rc WHERE rc.request_id = r.id AND rc.community_id = $1)
+          AND (${dateClauseFor('r.created_at')})
         ORDER BY r.created_at DESC
       `, dateParams);
       exportData.requests = requestsResult.rows;
@@ -168,7 +157,9 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
         FROM requests.matches m
         JOIN requests.help_requests r ON m.request_id = r.id
         JOIN auth.users u ON m.responder_id = u.id
-        WHERE /* not-directed */ NOT r.is_directed AND r.community_id = $1 ${dateClause.replace(/created_at/g, 'm.created_at')}
+        WHERE /* not-directed */ NOT r.is_directed
+          AND EXISTS (SELECT 1 FROM requests.request_communities rc WHERE rc.request_id = r.id AND rc.community_id = $1)
+          AND (${dateClauseFor('m.created_at')})
         ORDER BY m.created_at DESC
       `, dateParams);
       exportData.matches = matchesResult.rows;
@@ -182,13 +173,13 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
           n.description,
           n.rationale,
           n.status,
-          n.approval_count,
+          (SELECT COUNT(*) FROM communities.norm_approvals a WHERE a.norm_id = n.id)::int AS approval_count,
           n.created_by,
           u.name as creator_name,
           n.created_at
-        FROM community.norms n
+        FROM communities.norms n
         JOIN auth.users u ON n.created_by = u.id
-        WHERE n.community_id = $1 ${dateClause}
+        WHERE n.community_id = $1 AND (${dateClauseFor('n.created_at')})
         ORDER BY n.created_at
       `, dateParams);
       exportData.norms = normsResult.rows;
@@ -200,14 +191,12 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
         SELECT
           request_ttl_days,
           offer_ttl_days,
-          match_ttl_days,
-          notification_ttl_days,
           message_ttl_days,
-          session_ttl_days,
-          karma_decay_enabled,
-          karma_half_life_months,
+          notification_ttl_days,
+          reputation_half_life_months,
+          activity_types,
           updated_at
-        FROM community.settings
+        FROM communities.settings
         WHERE community_id = $1
       `, [communityId]);
       exportData.settings = settingsResult.rows[0] || null;
@@ -215,8 +204,10 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
 
     // Reputation export — Sprint 112 (ADR-082). Member-level karma records, trust scores, and ranks
     // are NOT exported (no admin browsing exception for another member's exact reputation). Instead,
-    // a non-identifying community aggregate is included ONLY when at least five active members keep
+    // a non-identifying community aggregate is included ONLY when at least five distinct contributing members keep
     // it from being decomposed back to an individual; below that cohort the section is omitted.
+    // Sprint 134: it is always all-time and ignores the date filter. Two overlapping windows that each
+    // pass the cohort could otherwise be subtracted to recover one member's exact karma.
     if (include.karma) {
       const aggRes = await pool.query(`
         SELECT
@@ -224,8 +215,8 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
           COUNT(*)::int AS transaction_count,
           COALESCE(SUM(k.points), 0)::int AS total_karma_points
         FROM reputation.karma_records k
-        WHERE k.community_id = $1 ${dateClause}
-      `, dateParams);
+        WHERE k.community_id = $1
+      `, [communityId]);
       const agg = aggRes.rows[0];
       // Suppress on the count of DISTINCT CONTRIBUTING members, not total active membership — a
       // 50-member community where only one person earned karma must still be suppressed, else the
@@ -267,10 +258,7 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
 
   } catch (error) {
     logger.error('Failed to export community data', error instanceof Error ? error : new Error(String(error)));
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to export community data',
-    });
+    return sendError(res, 'INTERNAL_ERROR', 'Failed to export community data', 500);
   }
 });
 
@@ -284,15 +272,12 @@ router.get('/:communityId/export/members', async (req: Request, res: Response) =
   try {
     // Verify user is admin
     const memberCheck = await pool.query(`
-      SELECT role FROM community.memberships
+      SELECT role FROM communities.members
       WHERE community_id = $1 AND user_id = $2 AND status = 'active'
     `, [communityId, userId]);
 
     if (memberCheck.rows.length === 0 || memberCheck.rows[0].role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only community admins can export data',
-      });
+      return sendError(res, 'FORBIDDEN', 'Only community admins can export data', 403);
     }
 
     const result = await pool.query(`
@@ -302,7 +287,7 @@ router.get('/:communityId/export/members', async (req: Request, res: Response) =
         m.role as "Role",
         m.status as "Status",
         to_char(m.joined_at, 'YYYY-MM-DD') as "Joined Date"
-      FROM community.memberships m
+      FROM communities.members m
       JOIN auth.users u ON m.user_id = u.id
       WHERE m.community_id = $1
       ORDER BY m.joined_at
@@ -322,10 +307,7 @@ router.get('/:communityId/export/members', async (req: Request, res: Response) =
 
   } catch (error) {
     logger.error('Failed to export members', error instanceof Error ? error : new Error(String(error)));
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to export members',
-    });
+    return sendError(res, 'INTERNAL_ERROR', 'Failed to export members', 500);
   }
 });
 
@@ -339,34 +321,43 @@ router.get('/:communityId/export/activity', async (req: Request, res: Response) 
   try {
     // Verify user is admin
     const memberCheck = await pool.query(`
-      SELECT role FROM community.memberships
+      SELECT role FROM communities.members
       WHERE community_id = $1 AND user_id = $2 AND status = 'active'
     `, [communityId, userId]);
 
     if (memberCheck.rows.length === 0 || memberCheck.rows[0].role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only community admins can export data',
-      });
+      return sendError(res, 'FORBIDDEN', 'Only community admins can export data', 403);
     }
 
     // Sprint 112 (ADR-082): the stewardship activity report keeps per-member ACTIVITY counts
-    // (helps given/received, requests created/completed) but NOT member reputation — no Total Karma,
-    // no Trust Score, and no karma-ranked ordering (which would itself reveal relative reputation).
+    // (Helps Given, Helps Received, Requests Created, Requests Completed) but NOT member reputation —
+    // no Total Karma, no Trust Score, and no karma-ranked ordering (which would itself reveal relative
+    // reputation). Sprint 134 (BUG-063): every count is over this community's non-directed asks, linked
+    // through requests.request_communities. Helps = completed matches the member responded to (given)
+    // or received on their own asks; Requests Completed = the member's own asks with status completed.
     const result = await pool.query(`
       SELECT
         u.name as "Member",
-        COALESCE(t.helps_given, 0) as "Helps Given",
-        COALESCE(t.helps_received, 0) as "Helps Received",
-        (SELECT COUNT(*) FROM requests.help_requests r
-         WHERE /* not-directed */ NOT r.is_directed AND r.requester_id = m.user_id AND r.community_id = $1) as "Requests Created",
         (SELECT COUNT(*) FROM requests.matches mt
          JOIN requests.help_requests r ON mt.request_id = r.id
-         WHERE /* not-directed */ NOT r.is_directed AND mt.responder_id = m.user_id AND r.community_id = $1
-         AND mt.status = 'completed') as "Requests Completed"
-      FROM community.memberships m
+         WHERE /* not-directed */ NOT r.is_directed AND mt.responder_id = m.user_id AND mt.status = 'completed'
+           AND EXISTS (SELECT 1 FROM requests.request_communities rc WHERE rc.request_id = r.id AND rc.community_id = $1)
+        )::int as "Helps Given",
+        (SELECT COUNT(*) FROM requests.matches mt
+         JOIN requests.help_requests r ON mt.request_id = r.id
+         WHERE /* not-directed */ NOT r.is_directed AND r.requester_id = m.user_id AND mt.status = 'completed'
+           AND EXISTS (SELECT 1 FROM requests.request_communities rc WHERE rc.request_id = r.id AND rc.community_id = $1)
+        )::int as "Helps Received",
+        (SELECT COUNT(*) FROM requests.help_requests r
+         WHERE /* not-directed */ NOT r.is_directed AND r.requester_id = m.user_id
+           AND EXISTS (SELECT 1 FROM requests.request_communities rc WHERE rc.request_id = r.id AND rc.community_id = $1)
+        )::int as "Requests Created",
+        (SELECT COUNT(*) FROM requests.help_requests r
+         WHERE /* not-directed */ NOT r.is_directed AND r.requester_id = m.user_id AND r.status = 'completed'
+           AND EXISTS (SELECT 1 FROM requests.request_communities rc WHERE rc.request_id = r.id AND rc.community_id = $1)
+        )::int as "Requests Completed"
+      FROM communities.members m
       JOIN auth.users u ON m.user_id = u.id
-      LEFT JOIN reputation.trust_scores t ON t.user_id = m.user_id AND t.community_id = $1
       WHERE m.community_id = $1 AND m.status = 'active'
       ORDER BY u.name ASC
     `, [communityId]);
@@ -385,10 +376,7 @@ router.get('/:communityId/export/activity', async (req: Request, res: Response) 
 
   } catch (error) {
     logger.error('Failed to export activity', error instanceof Error ? error : new Error(String(error)));
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to export activity report',
-    });
+    return sendError(res, 'INTERNAL_ERROR', 'Failed to export activity report', 500);
   }
 });
 
