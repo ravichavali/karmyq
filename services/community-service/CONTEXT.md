@@ -25,7 +25,7 @@
   `YYYY-MM-DD` (else 400 `INVALID_DATE_RANGE`, checked after the admin gate); `date_end` includes its
   whole day; members filter on `joined_at`. The reputation summary ignores the date filter (always
   all-time): overlapping windows could otherwise be subtracted to isolate one member's karma. Proof:
-  `tests/tdd/sprint-134-export-schema-truth.test.ts` (every table/column against `init.sql`) and
+  `tests/regression/sprint-134-export-schema-truth.test.ts` (every table/column against `init.sql`), `tests/regression/sprint-134-export-date-filter.test.ts` and
   root `tests/integration/sprint-134-community-export.integration.test.ts` (real SQL, two communities).
 
 - **2026-10-10 (Sprint 133 PR S, BUG-062)**: member email is admin-only. `GET /communities/:id` and

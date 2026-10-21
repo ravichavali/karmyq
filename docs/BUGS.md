@@ -1713,7 +1713,7 @@ The frontend calls it (`communityService.exportCommunityData`, `apps/frontend/sr
   filter, ambiguous once `auth.users` is joined. The mocked regression test encoded the wrong names.
 - **Resolution (Sprint 134 PR A):** every query repaired (maintainer: repair every section). The activity
   report's four counts are now distinct (the old Requests Completed counted the same thing as Helps Given).
-  Proof: a schema-truth gate (`services/community-service/tests/tdd/sprint-134-export-schema-truth.test.ts`)
+  Proof: a schema-truth gate (`services/community-service/tests/regression/sprint-134-export-schema-truth.test.ts`)
   and a real-SQL integration test (`tests/integration/sprint-134-community-export.integration.test.ts`). The
   directed-surface allowlist lost its two export exceptions. Version and merge sha: recorded at merge.
 
