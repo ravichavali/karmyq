@@ -3,7 +3,7 @@
 **Date**: 2026-10-21
 **Status**: IN PROGRESS. **PR F #310 SHIPPED** 2026-10-20: merged `63a6cd26` (v11.93.0) by the maintainer (the classifier refused
 Claude's `--admin` merge), deployed by CI/CD 39516935342 (all 15 jobs green, all 9 services healthy, no rollback, no CodeQL re-raise).
-**PR A is implemented and its PR is open** (v11.94.0; see *PR A state*). Next: CI green incl. the integration job, then the
+**PR A is implemented; #311 is open** (v11.94.0; see *PR A state*). Next: CI green incl. the integration job, then the
 maintainer's merge decision ("admin merge, yes/no?"); after deploy, PR E in a fresh chat.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
 #309 merged `1746cdf2` (v11.92.0), CI/CD 39366367275 green.
@@ -31,7 +31,7 @@ maintainer's merge decision ("admin merge, yes/no?"); after deploy, PR E in a fr
 
 | Field | Value |
 |---|---|
-| **Current branch** | `agent/claude/sprint-134-pr-a-bug-063-export` (from `origin/master` `63a6cd26`, v11.93.0); PR A open from it (number in *PR sequence*). The planning branch `agent/claude/sprint-134-planning` merged as #310 and can be deleted. Every later PR is cut from `origin/master` after the previous one merges |
+| **Current branch** | `agent/claude/sprint-134-pr-a-bug-063-export` (from `origin/master` `63a6cd26`, v11.93.0); PR A #311 open from it. The planning branch `agent/claude/sprint-134-planning` merged as #310 and can be deleted. Every later PR is cut from `origin/master` after the previous one merges |
 | **Active editor** | Claude |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated); each PR re-derives its version from `origin/master` at merge time |
 
@@ -44,7 +44,7 @@ maintainer's merge decision ("admin merge, yes/no?"); after deploy, PR E in a fr
 | # | PR | Scope | Due | Plan | Status |
 |---|---|---|---|---|---|
 | 0 | **F** | follow-redirects 1.16.0 → 1.16.1 (GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c, high, published 2026-10-20); one-node splice; v11.93.0 | high SLA 10-27 | spec *PR F* | **SHIPPED** `63a6cd26` (#310), CI/CD 39516935342 green |
-| 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | **PR OPEN** (A1–A11 done, v11.94.0): awaiting CI (integration job must run `sprint-134-community-export`) + maintainer merge decision. See *PR A state* below |
+| 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | **PR #311 OPEN** (A1–A11 done, v11.94.0): awaiting CI (integration job must run `sprint-134-community-export`) + maintainer merge decision. See *PR A state* below |
 | 2 | **E** | Expo SDK 57 patch (#279) + drift-workflow silent-failure fix | — | [`plans/2026-10-20-sprint-134-pr-e-expo-patch.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-e-expo-patch.md) | planned |
 | — | **X** | Exemption re-check; renewal PR **only on explicit yes** | gate fails **10-25 17:00 PDT** | *Dated obligations* below | due ~10-23 |
 | 3 | **D** | `verify:demo` loads `DEMO_ENV_FILE ?? '.env.demo'` | — | [`plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md) | planned |
