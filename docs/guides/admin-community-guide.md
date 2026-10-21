@@ -118,7 +118,9 @@ of a different community, or a regular member gets "Only community admins can ex
 - Norms, with how many members have approved each
 - Community settings (request, offer, message and notification lifetimes, reputation half-life, activity types)
 
-The CSV version of the full export contains the member roster only. Use JSON for everything else.
+The CSV version of the full export contains the member roster only. Use JSON for everything else. In CSV files,
+text that begins with `=`, `+`, `-` or `@` starts with an apostrophe, so a spreadsheet shows it as text instead of
+running it as a formula.
 
 **Members** is the roster alone: Name, Email, Role, Status, Joined Date.
 

@@ -44,6 +44,13 @@ function extractQueries(source: string): string[] {
   return [...source.matchAll(/pool\.query\(`([\s\S]*?)`/g)].map(m => m[1]);
 }
 
+/** Every `.query(` call whose SQL is not an inline template literal, so `extractQueries` cannot check it. */
+function unscannableQueries(source: string): string[] {
+  return [...source.matchAll(/\b(\w+)\.query\(\s*([^\s])/g)]
+    .filter(m => m[1] !== 'pool' || m[2] !== '`')
+    .map(m => `${m[1]}.query(${m[2]}`);
+}
+
 /** Every schema-truth violation in `queries`, de-duplicated and sorted. */
 function checkQueries(queries: string[], schema: Map<string, Set<string>>): string[] {
   const problems = new Set<string>();
@@ -113,7 +120,12 @@ function checkQueries(queries: string[], schema: Map<string, Set<string>>): stri
 
 describe('Sprint 134 PR A — community export SQL matches init.sql (BUG-063)', () => {
   const schema = parseSchema(fs.readFileSync(INIT_SQL, 'utf8'));
-  const exportQueries = extractQueries(fs.readFileSync(EXPORT_TS, 'utf8'));
+  const exportSource = fs.readFileSync(EXPORT_TS, 'utf8');
+  const exportQueries = extractQueries(exportSource);
+
+  it('can see every query the router runs (no SQL outside an inline pool.query template)', () => {
+    expect(unscannableQueries(exportSource)).toEqual([]);
+  });
 
   it('parses init.sql and finds the router\'s queries', () => {
     expect(schema.get('communities.members')).toEqual(new Set([
@@ -129,6 +141,17 @@ describe('Sprint 134 PR A — community export SQL matches init.sql (BUG-063)', 
   });
 
   describe('negative fixtures (each rule can fail)', () => {
+    it('reports a query the extractor cannot read: a quoted string, a variable, or another client', () => {
+      const source = [
+        "await pool.query('SELECT role FROM community.memberships WHERE user_id = $1', [u]);",
+        'await pool.query(sql, params);',
+        'await client.query(`SELECT 1`);',
+        'await pool.query(`SELECT 1`);',
+      ].join('\n');
+      expect(unscannableQueries(source)).toEqual(["pool.query('", 'pool.query(s', 'client.query(`']);
+      expect(extractQueries(source)).toEqual(['SELECT 1']);
+    });
+
     it('reports a wrong schema and a nonexistent qualified column', () => {
       expect(checkQueries([
         'SELECT role FROM community.memberships WHERE community_id = $1',

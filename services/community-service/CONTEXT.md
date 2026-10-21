@@ -24,7 +24,8 @@
   proves the `NOT r.is_directed` guard without allowlist exceptions. `date_start`/`date_end` must be
   `YYYY-MM-DD` (else 400 `INVALID_DATE_RANGE`, checked after the admin gate; other errors are `sendError`
   `FORBIDDEN` / `NOT_FOUND` / `INTERNAL_ERROR`); `date_end` includes its
-  whole day; members filter on `joined_at`. The reputation summary ignores the date filter (always
+  whole day; members filter on `joined_at` (a missing bound is NULL and does not filter, so NULL timestamps still
+  appear unfiltered). CSV text starting with `= + - @` tab or CR is prefixed with `'` (CSV injection). The reputation summary ignores the date filter (always
   all-time): overlapping windows could otherwise be subtracted to isolate one member's karma. Proof:
   `tests/regression/sprint-134-export-schema-truth.test.ts` (every table/column against `init.sql`), `tests/regression/sprint-134-export-date-filter.test.ts` and
   root `tests/integration/sprint-134-community-export.integration.test.ts` (real SQL, two communities).

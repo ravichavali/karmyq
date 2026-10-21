@@ -6,6 +6,10 @@ import { sendError } from '@karmyq/shared/utils/response';
 const router = Router();
 const logger = createLogger('community-service:export');
 
+// A text cell starting with one of these runs as a formula in a spreadsheet (CSV injection); members
+// control names and titles, and admins open these files. A leading quote makes the cell plain text.
+const FORMULA_PREFIX = /^[=+\-@\t\r]/;
+
 // Helper to convert data to CSV
 function toCSV(data: any[], headers?: string[]): string {
   if (!data || data.length === 0) return '';
@@ -16,8 +20,9 @@ function toCSV(data: any[], headers?: string[]): string {
     keys.map(key => {
       const value = row[key];
       if (value === null || value === undefined) return '';
-      if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
-        return `"${value.replace(/"/g, '""')}"`;
+      if (typeof value === 'string') {
+        const text = FORMULA_PREFIX.test(value) ? `'${value}` : value;
+        return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
       }
       if (value instanceof Date) return value.toISOString();
       return String(value);
@@ -27,9 +32,10 @@ function toCSV(data: any[], headers?: string[]): string {
   return [headerRow, ...rows].join('\n');
 }
 
-// A calendar date (YYYY-MM-DD) that exists; Postgres would turn anything else into a 500.
+// A calendar date (YYYY-MM-DD) that exists; Postgres would turn anything else into a 500. JS accepts
+// year 0000, Postgres does not.
 function isCalendarDate(value: unknown): value is string {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  if (typeof value !== 'string' || !/^(?!0000)\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
 }
@@ -88,11 +94,11 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
     // Build date filter. The column is qualified per query: an unqualified created_at is ambiguous
     // once auth.users (which has its own created_at) is joined. It is always a predicate, used as
     // `AND (...)`, so the directed-surface gate can see that it cannot carry an OR past a guard.
-    // Both bounds are always $2/$3; a missing one is NULL and COALESCEs to an open end. date_end
-    // includes its whole day.
+    // Both bounds are always $2/$3; a missing one is NULL and does not filter (so a row with a NULL
+    // timestamp still appears in an unfiltered export). date_end includes its whole day.
     const dateParams = [communityId, dateStart ?? null, dateEnd ?? null];
     const dateClauseFor = (column: string) =>
-      `${column} >= COALESCE($2::date, '-infinity') AND ${column} < COALESCE($3::date + 1, 'infinity')`;
+      `($2::date IS NULL OR ${column} >= $2::date) AND ($3::date IS NULL OR ${column} < $3::date + 1)`;
 
     // Export members
     if (include.members) {
@@ -198,7 +204,7 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
 
     // Reputation export — Sprint 112 (ADR-082). Member-level karma records, trust scores, and ranks
     // are NOT exported (no admin browsing exception for another member's exact reputation). Instead,
-    // a non-identifying community aggregate is included ONLY when at least five active members keep
+    // a non-identifying community aggregate is included ONLY when at least five distinct contributing members keep
     // it from being decomposed back to an individual; below that cohort the section is omitted.
     // Sprint 134: it is always all-time and ignores the date filter. Two overlapping windows that each
     // pass the cohort could otherwise be subtracted to recover one member's exact karma.

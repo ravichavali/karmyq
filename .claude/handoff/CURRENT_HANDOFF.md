@@ -78,9 +78,8 @@ real-SQL `tests/integration/sprint-134-community-export.integration.test.ts` (**
 That matches BUG-062 (live admins see emails and non-active rows) and the spec ("full roster, all statuses"), but it means
 an admin can keep downloading a departed member's email. Maintainer's call whether to log it.
 
-**Deferred minors (final review):** `isCalendarDate` accepts
-`0000-01-01` (Postgres 500); the schema-truth gate only reads template-literal `pool.query` calls and blanks `"quoted"`
-identifiers; the guide quotes the 403 message but CSV downloads show "Failed to export data". Follow-up: when BUG-070 (PR
+**Deferred minors (final review):** the schema-truth gate blanks `"quoted"` identifiers (it now fails on any query it
+cannot read); the guide quotes the 403 message but CSV downloads show "Failed to export data". Follow-up: when BUG-070 (PR
 L2) needs it, lift `parseSchema`/`checkQueries` into a shared test helper rather than copying them.
 
 ## Maintainer decisions (2026-10-19 / 2026-10-20)

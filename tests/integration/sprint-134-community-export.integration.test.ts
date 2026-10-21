@@ -13,13 +13,14 @@ import { createPool, ServiceUrls } from '../fixtures';
 
 describe('Sprint 134 PR A community export against the live schema (BUG-063)', () => {
   const pool = createPool();
-  // C: A active admin, M active member, F former admin (left) whose JWT claim still says admin of C.
+  // C: A active admin, M active member, F former admin (left) whose JWT claim still says admin of C,
+  // N former member (left) whose joined_at is NULL (an unfiltered export must still list them).
   // D: AD active admin, MD active member. X belongs to neither.
-  const A = randomUUID(), M = randomUUID(), F = randomUUID(), X = randomUUID(), AD = randomUUID(), MD = randomUUID();
+  const A = randomUUID(), M = randomUUID(), F = randomUUID(), N = randomUUID(), X = randomUUID(), AD = randomUUID(), MD = randomUUID();
   const C = randomUUID(), D = randomUUID();
-  const users = [A, M, F, X, AD, MD];
+  const users = [A, M, F, N, X, AD, MD];
   const names: Record<string, string> = {
-    [A]: 'Export A', [M]: 'Export M', [F]: 'Export F', [X]: 'Export X', [AD]: 'Export AD', [MD]: 'Export MD',
+    [A]: 'Export A', [M]: 'Export M', [F]: 'Export F', [N]: 'Export N', [X]: 'Export X', [AD]: 'Export AD', [MD]: 'Export MD',
   };
   const claims: Record<string, Array<{ id: string; name: string; role: string }>> = {
     [F]: [{ id: C, name: 'Export C', role: 'admin' }],
@@ -67,6 +68,7 @@ describe('Sprint 134 PR A community export against the live schema (BUG-063)', (
     const join = (user: string, community: string, role: string, status: string) => pool.query(
       'INSERT INTO communities.members(user_id,community_id,role,status) VALUES ($1,$2,$3,$4)', [user, community, role, status]);
     await join(A, C, 'admin', 'active'); await join(M, C, 'member', 'active'); await join(F, C, 'admin', 'left');
+    await join(N, C, 'member', 'left');
     await join(AD, D, 'admin', 'active'); await join(MD, D, 'member', 'active');
 
     asks.completed = await insertAsk(M, [C], { status: 'completed' });
@@ -89,6 +91,7 @@ describe('Sprint 134 PR A community export against the live schema (BUG-063)', (
     // One row per date-filtered section sits at noon on 2020-01-01; everything else is today.
     const OLD = '2020-01-01 12:00:00';
     await pool.query('UPDATE communities.members SET joined_at=$1 WHERE user_id=$2 AND community_id=$3', [OLD, F, C]);
+    await pool.query('UPDATE communities.members SET joined_at=NULL WHERE user_id=$1 AND community_id=$2', [N, C]);
     await pool.query('UPDATE requests.help_requests SET created_at=$1 WHERE id=$2', [OLD, asks.completed]);
     await pool.query('UPDATE requests.matches SET created_at=$1 WHERE id=$2', [OLD, matches.completed]);
     await pool.query('UPDATE communities.norms SET created_at=$1 WHERE id=$2', [OLD, normC]);
@@ -108,9 +111,10 @@ describe('Sprint 134 PR A community export against the live schema (BUG-063)', (
     } finally { await pool.end(); }
   });
 
-  const expectFullExport = (data: any) => {
+  // A date window never matches N's NULL joined_at; without one, N is part of the full roster.
+  const expectFullExport = (data: any, members = [A, M, F, N]) => {
     expect(data.community.id).toBe(C);
-    expect(userIds(data.members)).toEqual([A, M, F].sort());
+    expect(userIds(data.members)).toEqual(members.sort());
     expect(ids(data.requests)).toEqual([asks.completed, asks.proposed, asks.both].sort());
     expect(ids(data.matches)).toEqual([matches.completed, matches.proposed].sort());
     expect(data.norms.map((n: { id: string; approval_count: number }) => [n.id, n.approval_count])).toEqual([[normC, 2]]);
@@ -131,7 +135,7 @@ describe('Sprint 134 PR A community export against the live schema (BUG-063)', (
   it('applies a date filter in every joined query without hiding rows', async () => {
     const res = await get(A, `/communities/${C}/export?format=json&date_start=2000-01-01`);
     expect(res.status).toBe(200);
-    expectFullExport(res.body.data);
+    expectFullExport(res.body.data, [A, M, F]);
   });
 
   const windowed = async (qs: string) => {
@@ -179,11 +183,11 @@ describe('Sprint 134 PR A community export against the live schema (BUG-063)', (
     expect(csv.headers['content-type']).toMatch(/^text\/csv/);
     const lines = csv.text.split('\n');
     expect(lines[0]).toBe('Name,Email,Role,Status,Joined Date');
-    expect(lines).toHaveLength(4);
+    expect(lines).toHaveLength(5);
 
     const json = await get(A, `/communities/${C}/export/members?format=json`);
     expect(json.status).toBe(200);
-    expect(json.body.data.map((r: { Name: string }) => r.Name).sort()).toEqual(['Export A', 'Export F', 'Export M']);
+    expect(json.body.data.map((r: { Name: string }) => r.Name).sort()).toEqual(['Export A', 'Export F', 'Export M', 'Export N']);
   });
 
   it('reports exact activity counts for C\'s active members, alphabetically, with no reputation', async () => {
