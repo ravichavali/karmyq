@@ -12,12 +12,9 @@
  */
 
 import { execFileSync } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
 import { parse as parseYaml } from 'yaml';
-import { Ctx, evaluateCondition } from '../helpers/workflowConditions';
-
-const WORKFLOW_PATH = path.join(__dirname, '..', '..', '.github', 'workflows', 'expo-sdk-drift.yml');
+import { Ctx, evaluateCondition } from './helpers/workflowConditions';
+import { read } from './helpers/workspaces';
 
 const FILE_ISSUE = 'File or update the drift issue';
 const CLOSE_STALE = 'Close stale drift issues when the gate is green';
@@ -29,9 +26,10 @@ const BROKEN = {
   [CLOSE_STALE]: "steps.check.outputs.status == '0'",
 };
 
+const WORKFLOW = parseYaml(read('.github/workflows/expo-sdk-drift.yml'));
+
 function step(name: string): any {
-  const wf = parseYaml(fs.readFileSync(WORKFLOW_PATH, 'utf8'));
-  const jobs = Object.values(wf.jobs ?? {}) as any[];
+  const jobs = Object.values(WORKFLOW.jobs ?? {}) as any[];
   expect(jobs).toHaveLength(1);
   const found = (jobs[0].steps ?? []).filter((s: any) => s.name === name);
   expect(found).toHaveLength(1);
@@ -44,15 +42,19 @@ function condition(name: string): string {
   return cond as string;
 }
 
-/** The states a scheduled run can be in. Only the first is green. */
+/** The states a scheduled run can be in. Only GREEN is silent. */
+const GREEN = 'green: gate ran clean';
+const DRIFT = 'drift: gate ran and reported issue=1';
+const NO_ISSUE_FLAG = 'gate wrote status=0 but no issue flag';
+const EARLIER_FAILED = 'EARLIER step failed (checkout/setup-node/npm ci), so check never ran';
 const STATES: Array<{ label: string; ctx: Ctx; mustNotify: boolean }> = [
   {
-    label: 'green: gate ran clean',
+    label: GREEN,
     ctx: { jobFailed: false, outcome: 'success', outputs: { status: '0', issue: '0', result: 'eyJvayI6dHJ1ZX0=' } },
     mustNotify: false,
   },
   {
-    label: 'drift: gate ran and reported issue=1',
+    label: DRIFT,
     ctx: { jobFailed: false, outcome: 'success', outputs: { status: '1', issue: '1', result: 'eyJvayI6ZmFsc2V9' } },
     mustNotify: true,
   },
@@ -62,7 +64,7 @@ const STATES: Array<{ label: string; ctx: Ctx; mustNotify: boolean }> = [
     mustNotify: true,
   },
   {
-    label: 'gate wrote status=0 but no issue flag',
+    label: NO_ISSUE_FLAG,
     ctx: { jobFailed: false, outcome: 'success', outputs: { status: '0', issue: '', result: 'eyJvayI6dHJ1ZX0=' } },
     mustNotify: true,
   },
@@ -72,12 +74,13 @@ const STATES: Array<{ label: string; ctx: Ctx; mustNotify: boolean }> = [
     mustNotify: true,
   },
   {
-    label: 'EARLIER step failed (checkout/setup-node/npm ci), so check never ran',
+    label: EARLIER_FAILED,
     ctx: { jobFailed: true, outcome: '', outputs: {} },
     mustNotify: true,
   },
 ];
-const GREEN = STATES[0].label;
+const state = (label: string): Ctx => STATES.find((s) => s.label === label)!.ctx;
+const firing = (cond: string): string[] => STATES.filter((s) => evaluateCondition(cond, s.ctx)).map((s) => s.label);
 
 describe('expo-sdk-drift workflow: the file-issue step notifies on every failure shape', () => {
   it('calls always(), without which every other case is moot', () => {
@@ -89,7 +92,8 @@ describe('expo-sdk-drift workflow: the file-issue step notifies on every failure
   });
 
   it('stays silent ONLY in the green state', () => {
-    const silent = STATES.filter((s) => !evaluateCondition(condition(FILE_ISSUE), s.ctx));
+    const cond = condition(FILE_ISSUE);
+    const silent = STATES.filter((s) => !evaluateCondition(cond, s.ctx));
     expect(silent.map((s) => s.label)).toEqual([GREEN]);
   });
 });
@@ -101,8 +105,7 @@ describe('expo-sdk-drift workflow: the close step closes ONLY on a clean gate', 
   });
 
   it('closes in the green state and in no other', () => {
-    const closes = STATES.filter((s) => evaluateCondition(condition(CLOSE_STALE), s.ctx));
-    expect(closes.map((s) => s.label)).toEqual([GREEN]);
+    expect(firing(condition(CLOSE_STALE))).toEqual([GREEN]);
   });
 });
 
@@ -112,8 +115,8 @@ describe('expo-sdk-drift workflow: the fail step keeps a nonzero gate status red
   });
 
   it('fails the run on drift and not on green', () => {
-    expect(evaluateCondition(condition(FAIL_RUN), STATES[1].ctx)).toBe(true);
-    expect(evaluateCondition(condition(FAIL_RUN), STATES[0].ctx)).toBe(false);
+    expect(evaluateCondition(condition(FAIL_RUN), state(DRIFT))).toBe(true);
+    expect(evaluateCondition(condition(FAIL_RUN), state(GREEN))).toBe(false);
   });
 });
 
@@ -125,15 +128,14 @@ describe('expo-sdk-drift workflow: reporting survives the check never running', 
   });
 
   /** The inline renderer that turns RESULT into the issue's details section. */
-  function renderer(): string {
+  const renderer = (() => {
     const match = (step(FILE_ISSUE).run as string).match(/details=\$\(node -e '([\s\S]*?)'\)/);
-    expect(match).not.toBeNull();
-    return match![1];
-  }
+    return match ? match[1] : '';
+  })();
 
   function render(result: string): { status: number; out: string } {
     try {
-      const out = execFileSync(process.execPath, ['-e', renderer()], {
+      const out = execFileSync(process.execPath, ['-e', renderer], {
         env: { ...process.env, RESULT: result },
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'ignore'],
@@ -145,6 +147,7 @@ describe('expo-sdk-drift workflow: reporting survives the check never running', 
   }
 
   it('renders a real payload', () => {
+    expect(renderer).not.toBe('');
     const payload = { ok: false, errors: [], blocking: [{ package: 'expo', installed: '57.0.1', expoPins: '~57.0.2' }], cleared: [], stale: [], mismatched: [] };
     const { status, out } = render(Buffer.from(JSON.stringify(payload)).toString('base64'));
     expect(status).toBe(0);
@@ -152,6 +155,7 @@ describe('expo-sdk-drift workflow: reporting survives the check never running', 
   });
 
   it('fails on an empty payload, so the fallback is what fires', () => {
+    expect(renderer).not.toBe('');
     expect(render('').status).not.toBe(0);
   });
 
@@ -167,19 +171,15 @@ describe('expo-sdk-drift workflow: reporting survives the check never running', 
 
 describe('expo-sdk-drift workflow: the assertions reject the pre-fix conditions', () => {
   it('the old file-issue condition goes silent when an earlier step failed', () => {
-    const earlier = STATES[5];
-    expect(earlier.mustNotify).toBe(true);
-    expect(evaluateCondition(BROKEN[FILE_ISSUE], earlier.ctx)).toBe(false);
-    expect(BROKEN[FILE_ISSUE]).not.toMatch(/always\(\)/);
+    expect(evaluateCondition(BROKEN[FILE_ISSUE], state(EARLIER_FAILED))).toBe(false);
   });
 
   it('the old close condition closes on a gate that wrote no issue flag', () => {
-    const closes = STATES.filter((s) => evaluateCondition(BROKEN[CLOSE_STALE], s.ctx));
-    expect(closes.map((s) => s.label)).not.toEqual([GREEN]);
+    expect(firing(BROKEN[CLOSE_STALE])).toEqual([GREEN, NO_ISSUE_FLAG]);
   });
 
-  it('the model applies GitHub\'s implicit success() to a condition with no status function', () => {
-    expect(evaluateCondition("steps.check.outputs.issue != '0'", STATES[5].ctx)).toBe(false);
-    expect(evaluateCondition("always() && steps.check.outputs.issue != '0'", STATES[5].ctx)).toBe(true);
+  it("the model applies GitHub's implicit success() to a condition with no status function", () => {
+    expect(evaluateCondition("always() && steps.check.outputs.issue != '0'", state(EARLIER_FAILED))).toBe(true);
+    expect(evaluateCondition("steps.check.outputs.issue != '0'", state(EARLIER_FAILED))).toBe(false);
   });
 });

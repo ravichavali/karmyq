@@ -7,14 +7,14 @@
  *   GitHub applies an implicit `success()` to every `if:`. A step gated only on
  *   `steps.check.outputs.*` is therefore SKIPPED when an earlier step fails — so a broken
  *   `npm ci`, a checkout failure, or a crashed check files nothing at all. The run goes red and
- *   nobody is told. That is the silent-signal failure BUG-035 was filed for, and
- *   `.github/workflows/expo-sdk-drift.yml` still has it at `:154`, `:232` and `:262`.
+ *   nobody is told. That is the silent-signal failure BUG-035 was filed for
+ *   (`sprint-134-expo-drift-workflow.test.ts` pins the same fix in expo-sdk-drift.yml).
  *
  * A second, subtler shape: a check that exits 0 *without writing* `GITHUB_OUTPUT` leaves
  * `issue` as the empty string. An `issue == '1'` test reads that as "nothing to report" and stays
  * silent precisely when the check is most broken.
  *
- * ⚠️ HONEST LIMIT: the evaluator below is a MODEL of GitHub's expression semantics, not GitHub.
+ * ⚠️ HONEST LIMIT: the evaluator (`./helpers/workflowConditions`) is a MODEL of GitHub's expression semantics, not GitHub.
  * It cannot prove the workflow runs correctly on GitHub — Task E dispatches it after merge for
  * that. What it does prove is that the condition still notifies in every failure shape, so nobody
  * can quietly narrow it back to `issue == '1'`.
@@ -25,7 +25,7 @@ import * as path from 'path';
 // `yaml` (2.x) is what the tests workspace DECLARES; js-yaml is only a root dependency,
 // so importing it here would rely on a hoist rather than a declared edge.
 import { parse as parseYaml } from 'yaml';
-import { Ctx, evaluateCondition } from '../helpers/workflowConditions';
+import { Ctx, evaluateCondition } from './helpers/workflowConditions';
 
 const WORKFLOW_PATH = path.join(__dirname, '..', '..', '.github', 'workflows', 'demo-health.yml');
 
