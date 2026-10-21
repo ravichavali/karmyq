@@ -1,9 +1,8 @@
 # Sprint 134 PR L — ADR-101 Legacy Handlers + BUG-068 Retirement Implementation Plan
 
-> ## ⛔ PROVISIONAL — DO NOT EXECUTE PAST TASK L0
-> The maintainer has not yet reported the read-only demo queue drain check (as of 2026-10-20). Task L0 records the result.
-> If the check is not clean, this plan is replaced by a drain step + dated risk acceptance; do not "work around" it.
-> Finalize this plan (remove this banner, settle the *Open decisions*) in the PR L chat once L0 has a result.
+> ## ✅ Drain-check gate PASSED (2026-10-20); see Task L0
+> Still to do at the start of the PR L chat, before Task L2: settle the *Open decisions* with the maintainer, re-run the
+> Task L1 inventory untruncated, then remove this banner.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task.
@@ -91,7 +90,17 @@ $R CLIENT LIST    # map each worker's addr to a container IP (docker network ins
 ```
 
   (Key types are Bull 3's layout; if `TYPE bull:karmyq-events:<k>` disagrees on the host, the host wins and the command is adjusted.)
-- [ ] Record the numbers verbatim in the handoff and in this plan. **Not clean → stop**, and propose a drain step (let the legacy handlers
+- [x] Ran 2026-10-20. **Result (run by the maintainer on the demo host, 2026-10-20, after #310 deployed): PASS.**
+  - Legacy `bull:karmyq-events`: `wait` 0, `active` 0, `paused` 0, `delayed` 0.
+  - `CLIENT LIST` workers (names decoded from base64; IPs mapped with `docker inspect`): `karmyq-events-notification` → 1 worker,
+    notification-service (172.18.0.16); `karmyq-events-reputation` → 1 worker, reputation-service (172.18.0.9). Every dedicated queue is
+    likewise served only by its owner: `karmyq-completion-dispatch` request (.2); `karmyq-completion-{notification,reputation,social-graph}`
+    their own services (.16, .9, .3); `karmyq-directed-notifications` notification (.16); `karmyq-skill-endorsement-social-graph`
+    social-graph (.3); `karmyq-community-evolution` reputation (.9).
+  - Legacy `karmyq-events` still has one worker each from notification (.16), social-graph (.3) and reputation (.9). Expected: those
+    are the legacy handlers PR L removes.
+  - Nothing publishes to `karmyq-events` since the PR Q deploy (ADR-101), so the result holds until PR L ships; PR L10 re-checks after deploy.
+- [x] Record the numbers verbatim in the handoff and in this plan. **Not clean → stop**, and propose a drain step (let the legacy handlers
   run until zero, then re-check) plus a dated risk acceptance for BUG-068 if 2026-10-29 is at risk.
 
 ## Task L1: Branch + untruncated inventory
