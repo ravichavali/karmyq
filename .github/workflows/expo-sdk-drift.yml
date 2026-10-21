@@ -151,9 +151,20 @@ jobs:
           fi
 
       - name: File or update the drift issue
-        if: steps.check.outputs.issue == '1'
+        # Default to NOTIFYING. GitHub prefixes `success() &&` to a condition with no status
+        # function, so an outputs-only test was SKIPPED whenever checkout, setup-node or `npm ci`
+        # failed: a red run with no issue filed (BUG-035). Only an explicit issue=0 earns silence.
+        # Same shape as demo-health.yml (Sprint 129); `failure()` already covers a check step
+        # that failed or was skipped by an earlier failure.
+        if: >-
+          always() &&
+          (failure() ||
+           steps.check.outputs.issue != '0' ||
+           steps.check.outputs.result == '')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Without a checkout there is no git remote to infer the repository from.
+          GH_REPO: ${{ github.repository }}
           RESULT: ${{ steps.check.outputs.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -162,6 +173,9 @@ jobs:
             --description "apps/mobile has drifted from Expo's live SDK version map" \
             --color 'B60205' 2>/dev/null || true
 
+          # An empty RESULT (the check never ran) makes the renderer throw. Under `bash -e` that
+          # would abort this step before filing anything, in exactly the case always() is for.
+          set +e
           details=$(node -e '
           const result = JSON.parse(Buffer.from(process.env.RESULT, "base64").toString("utf8"));
           const sections = [];
@@ -195,10 +209,19 @@ jobs:
           );
           process.stdout.write(sections.join("\n\n"));
           ')
+          render_status=$?
+          set -e
+          summary="The Expo divergence gate rejected the result from \`npx expo install --check\`
+          against Expo's **live** version map."
+          if [ "$render_status" -ne 0 ] || [ -z "$details" ]; then
+            summary="The Expo SDK drift check failed before the divergence gate produced a result."
+            details="### The drift check did not run to completion
+          No gate result was produced, so the drift state is unknown. A step before or inside the
+          check failed (checkout, setup-node, \`npm ci\`, or the gate itself); see the run log: $RUN_URL"
+          fi
 
           body=$(cat <<EOF
-          The Expo divergence gate rejected the result from \`npx expo install --check\`
-          against Expo's **live** version map.
+          $summary
 
           $details
 
@@ -229,9 +252,11 @@ jobs:
           fi
 
       - name: Close stale drift issues when the gate is green
-        if: steps.check.outputs.status == '0'
+        # Only a check that ran to success AND wrote an explicit issue=0 may close the issue.
+        if: always() && steps.check.outcome == 'success' && steps.check.outputs.issue == '0'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           existing=$(gh api graphql --paginate \
