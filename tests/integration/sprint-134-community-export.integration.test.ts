@@ -29,6 +29,7 @@ describe('Sprint 134 PR A community export against the live schema (BUG-063)', (
   const get = (id: string, url: string) =>
     request(ServiceUrls.COMMUNITY).get(url).set('Authorization', `Bearer ${token(id)}`);
   const ids = (rows: Array<{ id: string }>) => rows.map(r => r.id).sort();
+  const userIds = (rows: Array<{ user_id: string }>) => rows.map(r => r.user_id).sort();
 
   const asks: Record<string, string> = {};
   const matches: Record<string, string> = {};
@@ -109,7 +110,7 @@ describe('Sprint 134 PR A community export against the live schema (BUG-063)', (
 
   const expectFullExport = (data: any) => {
     expect(data.community.id).toBe(C);
-    expect(data.members.map((m: { user_id: string }) => m.user_id).sort()).toEqual([A, M, F].sort());
+    expect(userIds(data.members)).toEqual([A, M, F].sort());
     expect(ids(data.requests)).toEqual([asks.completed, asks.proposed, asks.both].sort());
     expect(ids(data.matches)).toEqual([matches.completed, matches.proposed].sort());
     expect(data.norms.map((n: { id: string; approval_count: number }) => [n.id, n.approval_count])).toEqual([[normC, 2]]);
@@ -138,7 +139,7 @@ describe('Sprint 134 PR A community export against the live schema (BUG-063)', (
     expect(res.status).toBe(200);
     const { members, requests, matches: found, norms } = res.body.data;
     return {
-      members: members.map((m: { user_id: string }) => m.user_id).sort(),
+      members: userIds(members),
       requests: ids(requests), matches: ids(found), norms: ids(norms),
     };
   };
@@ -166,9 +167,10 @@ describe('Sprint 134 PR A community export against the live schema (BUG-063)', (
   ])('refuses %s on all three routes', async (_label, viewer) => {
     const statuses = [];
     for (const path of ['export', 'export/members', 'export/activity']) {
-      statuses.push((await get(viewer, `/communities/${C}/${path}`)).status);
+      const res = await get(viewer, `/communities/${C}/${path}`);
+      statuses.push(`${res.status} ${res.body.error}`);
     }
-    expect(statuses).toEqual([403, 403, 403]);
+    expect(statuses).toEqual(['403 FORBIDDEN', '403 FORBIDDEN', '403 FORBIDDEN']);
   });
 
   it('exports the member roster as CSV and JSON', async () => {

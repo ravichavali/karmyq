@@ -22,7 +22,8 @@
   Requests Created / Requests Completed (own asks / own asks with status `completed`). The date
   filter is qualified per query and wrapped as `AND (...)`, so the Sprint 132 directed-surface gate
   proves the `NOT r.is_directed` guard without allowlist exceptions. `date_start`/`date_end` must be
-  `YYYY-MM-DD` (else 400 `INVALID_DATE_RANGE`, checked after the admin gate); `date_end` includes its
+  `YYYY-MM-DD` (else 400 `INVALID_DATE_RANGE`, checked after the admin gate; other errors are `sendError`
+  `FORBIDDEN` / `NOT_FOUND` / `INTERNAL_ERROR`); `date_end` includes its
   whole day; members filter on `joined_at`. The reputation summary ignores the date filter (always
   all-time): overlapping windows could otherwise be subtracted to isolate one member's karma. Proof:
   `tests/regression/sprint-134-export-schema-truth.test.ts` (every table/column against `init.sql`), `tests/regression/sprint-134-export-date-filter.test.ts` and

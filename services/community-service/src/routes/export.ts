@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import pool from '../database/db';
 import { createLogger } from '@karmyq/shared/utils/logger';
+import { sendError } from '@karmyq/shared/utils/response';
 
 const router = Router();
 const logger = createLogger('community-service:export');
@@ -61,18 +62,11 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
     `, [communityId, userId]);
 
     if (memberCheck.rows.length === 0 || memberCheck.rows[0].role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only community admins can export data',
-      });
+      return sendError(res, 'FORBIDDEN', 'Only community admins can export data', 403);
     }
 
-    if ((dateStart !== undefined && !isCalendarDate(dateStart)) || (dateEnd !== undefined && !isCalendarDate(dateEnd))) {
-      return res.status(400).json({
-        success: false,
-        message: 'date_start and date_end must be dates (YYYY-MM-DD)',
-        error: 'INVALID_DATE_RANGE',
-      });
+    if ([dateStart, dateEnd].some(value => value !== undefined && !isCalendarDate(value))) {
+      return sendError(res, 'INVALID_DATE_RANGE', 'date_start and date_end must be dates (YYYY-MM-DD)', 400);
     }
 
     // Get community info
@@ -83,10 +77,7 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
     `, [communityId]);
 
     if (communityResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Community not found',
-      });
+      return sendError(res, 'NOT_FOUND', 'Community not found', 404);
     }
 
     const exportData: any = {
@@ -97,13 +88,11 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
     // Build date filter. The column is qualified per query: an unqualified created_at is ambiguous
     // once auth.users (which has its own created_at) is joined. It is always a predicate, used as
     // `AND (...)`, so the directed-surface gate can see that it cannot carry an OR past a guard.
-    // date_end includes its whole day.
-    const dateBounds: Array<[(column: string, param: string) => string, string]> = [];
-    if (typeof dateStart === 'string') dateBounds.push([(column, param) => `${column} >= ${param}::date`, dateStart]);
-    if (typeof dateEnd === 'string') dateBounds.push([(column, param) => `${column} < ${param}::date + 1`, dateEnd]);
-    const dateParams = [communityId, ...dateBounds.map(([, value]) => value)];
+    // Both bounds are always $2/$3; a missing one is NULL and COALESCEs to an open end. date_end
+    // includes its whole day.
+    const dateParams = [communityId, dateStart ?? null, dateEnd ?? null];
     const dateClauseFor = (column: string) =>
-      dateBounds.map(([bound], i) => bound(column, `$${i + 2}`)).join(' AND ') || 'TRUE';
+      `${column} >= COALESCE($2::date, '-infinity') AND ${column} < COALESCE($3::date + 1, 'infinity')`;
 
     // Export members
     if (include.members) {
@@ -263,10 +252,7 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
 
   } catch (error) {
     logger.error('Failed to export community data', error instanceof Error ? error : new Error(String(error)));
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to export community data',
-    });
+    return sendError(res, 'INTERNAL_ERROR', 'Failed to export community data', 500);
   }
 });
 
@@ -285,10 +271,7 @@ router.get('/:communityId/export/members', async (req: Request, res: Response) =
     `, [communityId, userId]);
 
     if (memberCheck.rows.length === 0 || memberCheck.rows[0].role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only community admins can export data',
-      });
+      return sendError(res, 'FORBIDDEN', 'Only community admins can export data', 403);
     }
 
     const result = await pool.query(`
@@ -318,10 +301,7 @@ router.get('/:communityId/export/members', async (req: Request, res: Response) =
 
   } catch (error) {
     logger.error('Failed to export members', error instanceof Error ? error : new Error(String(error)));
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to export members',
-    });
+    return sendError(res, 'INTERNAL_ERROR', 'Failed to export members', 500);
   }
 });
 
@@ -340,10 +320,7 @@ router.get('/:communityId/export/activity', async (req: Request, res: Response) 
     `, [communityId, userId]);
 
     if (memberCheck.rows.length === 0 || memberCheck.rows[0].role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only community admins can export data',
-      });
+      return sendError(res, 'FORBIDDEN', 'Only community admins can export data', 403);
     }
 
     // Sprint 112 (ADR-082): the stewardship activity report keeps per-member ACTIVITY counts
@@ -393,10 +370,7 @@ router.get('/:communityId/export/activity', async (req: Request, res: Response) 
 
   } catch (error) {
     logger.error('Failed to export activity', error instanceof Error ? error : new Error(String(error)));
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to export activity report',
-    });
+    return sendError(res, 'INTERNAL_ERROR', 'Failed to export activity report', 500);
   }
 });
 
