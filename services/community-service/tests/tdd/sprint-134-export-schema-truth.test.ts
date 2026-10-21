@@ -102,7 +102,9 @@ function checkQueries(queries: string[], schema: Map<string, Set<string>>): stri
     } else {
       for (const name of bare) {
         const owners = tables.filter(t => schema.get(t)?.has(name));
-        if (owners.length > 0) problems.add(`unqualified column ${name} in a joined query (${owners.join(', ')})`);
+        problems.add(owners.length > 0
+          ? `unqualified column ${name} in a joined query (${owners.join(', ')})`
+          : `unknown bare identifier ${name} in a joined query`);
       }
     }
   }
@@ -146,6 +148,15 @@ describe('Sprint 134 PR A — community export SQL matches init.sql (BUG-063)', 
       expect(checkQueries([
         'SELECT m.id FROM communities.members m JOIN auth.users u ON m.user_id = u.id WHERE created_at >= $2',
       ], schema)).toEqual(['unqualified column created_at in a joined query (auth.users)']);
+    });
+
+    it('reports a bare identifier no joined table has (a typo is not silently ignored)', () => {
+      expect(checkQueries([
+        "SELECT m.id FROM communities.members m JOIN auth.users u ON m.user_id = u.id WHERE stauts = 'active' ORDER BY created_on",
+      ], schema)).toEqual([
+        'unknown bare identifier created_on in a joined query',
+        'unknown bare identifier stauts in a joined query',
+      ]);
     });
 
     it('checks interpolated date-filter columns against the alias they name', () => {

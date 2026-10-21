@@ -26,6 +26,13 @@ function toCSV(data: any[], headers?: string[]): string {
   return [headerRow, ...rows].join('\n');
 }
 
+// A calendar date (YYYY-MM-DD) that exists; Postgres would turn anything else into a 500.
+function isCalendarDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
+}
+
 // GET /communities/:communityId/export
 // Export community data in JSON or CSV format
 router.get('/:communityId/export', async (req: Request, res: Response) => {
@@ -43,8 +50,8 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
     karma: req.query.karma !== 'false',
   };
 
-  const dateStart = req.query.date_start as string;
-  const dateEnd = req.query.date_end as string;
+  const dateStart = req.query.date_start;
+  const dateEnd = req.query.date_end;
 
   try {
     // Verify user is admin of this community
@@ -57,6 +64,14 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
       return res.status(403).json({
         success: false,
         message: 'Only community admins can export data',
+      });
+    }
+
+    if ((dateStart !== undefined && !isCalendarDate(dateStart)) || (dateEnd !== undefined && !isCalendarDate(dateEnd))) {
+      return res.status(400).json({
+        success: false,
+        message: 'date_start and date_end must be dates (YYYY-MM-DD)',
+        error: 'INVALID_DATE_RANGE',
       });
     }
 
@@ -82,12 +97,13 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
     // Build date filter. The column is qualified per query: an unqualified created_at is ambiguous
     // once auth.users (which has its own created_at) is joined. It is always a predicate, used as
     // `AND (...)`, so the directed-surface gate can see that it cannot carry an OR past a guard.
-    const dateBounds: Array<[string, string]> = [];
-    if (dateStart) dateBounds.push(['>=', dateStart]);
-    if (dateEnd) dateBounds.push(['<=', dateEnd]);
+    // date_end includes its whole day.
+    const dateBounds: Array<[(column: string, param: string) => string, string]> = [];
+    if (typeof dateStart === 'string') dateBounds.push([(column, param) => `${column} >= ${param}::date`, dateStart]);
+    if (typeof dateEnd === 'string') dateBounds.push([(column, param) => `${column} < ${param}::date + 1`, dateEnd]);
     const dateParams = [communityId, ...dateBounds.map(([, value]) => value)];
     const dateClauseFor = (column: string) =>
-      dateBounds.map(([op], i) => `${column} ${op} $${i + 2}`).join(' AND ') || 'TRUE';
+      dateBounds.map(([bound], i) => bound(column, `$${i + 2}`)).join(' AND ') || 'TRUE';
 
     // Export members
     if (include.members) {
@@ -195,6 +211,8 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
     // are NOT exported (no admin browsing exception for another member's exact reputation). Instead,
     // a non-identifying community aggregate is included ONLY when at least five active members keep
     // it from being decomposed back to an individual; below that cohort the section is omitted.
+    // Sprint 134: it is always all-time and ignores the date filter. Two overlapping windows that each
+    // pass the cohort could otherwise be subtracted to recover one member's exact karma.
     if (include.karma) {
       const aggRes = await pool.query(`
         SELECT
@@ -202,8 +220,8 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
           COUNT(*)::int AS transaction_count,
           COALESCE(SUM(k.points), 0)::int AS total_karma_points
         FROM reputation.karma_records k
-        WHERE k.community_id = $1 AND (${dateClauseFor('k.created_at')})
-      `, dateParams);
+        WHERE k.community_id = $1
+      `, [communityId]);
       const agg = aggRes.rows[0];
       // Suppress on the count of DISTINCT CONTRIBUTING members, not total active membership — a
       // 50-member community where only one person earned karma must still be suppressed, else the

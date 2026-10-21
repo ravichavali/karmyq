@@ -21,7 +21,10 @@
   active member: Helps Given / Helps Received (completed matches as responder / on own asks),
   Requests Created / Requests Completed (own asks / own asks with status `completed`). The date
   filter is qualified per query and wrapped as `AND (...)`, so the Sprint 132 directed-surface gate
-  proves the `NOT r.is_directed` guard without allowlist exceptions. Proof:
+  proves the `NOT r.is_directed` guard without allowlist exceptions. `date_start`/`date_end` must be
+  `YYYY-MM-DD` (else 400 `INVALID_DATE_RANGE`, checked after the admin gate); `date_end` includes its
+  whole day; members filter on `joined_at`. The reputation summary ignores the date filter (always
+  all-time): overlapping windows could otherwise be subtracted to isolate one member's karma. Proof:
   `tests/tdd/sprint-134-export-schema-truth.test.ts` (every table/column against `init.sql`) and
   root `tests/integration/sprint-134-community-export.integration.test.ts` (real SQL, two communities).
 

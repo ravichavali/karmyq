@@ -84,6 +84,13 @@ describe('Sprint 134 PR A community export against the live schema (BUG-063)', (
     // Two karma participants in C: below the ADR-082 cohort of five, so the summary must be absent.
     await pool.query(`INSERT INTO reputation.karma_records(user_id,community_id,points,reason)
       VALUES ($1,$3,10,'export fixture'),($2,$3,5,'export fixture')`, [A, M, C]);
+
+    // One row per date-filtered section sits at noon on 2020-01-01; everything else is today.
+    const OLD = '2020-01-01 12:00:00';
+    await pool.query('UPDATE communities.members SET joined_at=$1 WHERE user_id=$2 AND community_id=$3', [OLD, F, C]);
+    await pool.query('UPDATE requests.help_requests SET created_at=$1 WHERE id=$2', [OLD, asks.completed]);
+    await pool.query('UPDATE requests.matches SET created_at=$1 WHERE id=$2', [OLD, matches.completed]);
+    await pool.query('UPDATE communities.norms SET created_at=$1 WHERE id=$2', [OLD, normC]);
   });
 
   afterAll(async () => {
@@ -124,6 +131,34 @@ describe('Sprint 134 PR A community export against the live schema (BUG-063)', (
     const res = await get(A, `/communities/${C}/export?format=json&date_start=2000-01-01`);
     expect(res.status).toBe(200);
     expectFullExport(res.body.data);
+  });
+
+  const windowed = async (qs: string) => {
+    const res = await get(A, `/communities/${C}/export?format=json&${qs}`);
+    expect(res.status).toBe(200);
+    const { members, requests, matches: found, norms } = res.body.data;
+    return {
+      members: members.map((m: { user_id: string }) => m.user_id).sort(),
+      requests: ids(requests), matches: ids(found), norms: ids(norms),
+    };
+  };
+  const oldOnly = () => ({ members: [F], requests: [asks.completed], matches: [matches.completed], norms: [normC] });
+
+  it('a date_start after the old rows excludes exactly them', async () => {
+    expect(await windowed('date_start=2021-01-01')).toEqual({
+      members: [A, M].sort(), requests: [asks.proposed, asks.both].sort(), matches: [matches.proposed], norms: [],
+    });
+  });
+
+  it('date_end includes its whole day, alone or with date_start', async () => {
+    expect(await windowed('date_end=2020-01-01')).toEqual(oldOnly());
+    expect(await windowed('date_start=2020-01-01&date_end=2020-01-01')).toEqual(oldOnly());
+  });
+
+  it('rejects a date that is not YYYY-MM-DD with 400, not a database error', async () => {
+    const res = await get(A, `/communities/${C}/export?date_start=yesterday`);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('INVALID_DATE_RANGE');
   });
 
   it.each([
