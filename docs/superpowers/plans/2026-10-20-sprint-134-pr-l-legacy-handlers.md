@@ -1,8 +1,8 @@
 # Sprint 134 PR L — ADR-101 Legacy Handlers + BUG-068 Retirement Implementation Plan
 
 > ## ✅ Drain-check gate PASSED (2026-10-20); see Task L0
-> Still to do at the start of the PR L chat, before Task L2: settle the *Open decisions* with the maintainer, re-run the
-> Task L1 inventory untruncated, then remove this banner.
+> Open decisions **settled by the maintainer 2026-10-20** (both recommendations accepted). Still to do at the start of the PR L chat:
+> re-run the Task L1 inventory untruncated, then remove this banner.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task.
@@ -22,15 +22,15 @@ The ADR-101 gate tightens from "only the three legacy subscribers may name `karm
 
 ---
 
-## Open decisions (settle with the maintainer before Task L2)
+## Decisions (maintainer, 2026-10-20: both recommendations accepted)
 
-1. **Reputation's consumer queue.** `interaction_feedback_submitted` is reputation's only routed event
+1. **Reputation's consumer queue. DECIDED: remove it.** `interaction_feedback_submitted` is reputation's only routed event
    (`packages/shared/src/events/__tests__/routes.test.ts:21`). **Recommendation:** remove `reputation` from `EVENT_CONSUMERS`
    (`packages/shared/events/routes.ts:7`) and the `startConsumerQueue('reputation', …)` call (`reputation-service subscriber.ts:207`).
    Reputation keeps its dedicated `match_completed` completion queue (`:147`) and `communityEvolutionQueue` (`:47`). Recorded as an
    **ADR-101 amendment** (no new number). The alternative is to keep an empty consumer queue for future events, which is a queue
    with no purpose.
-2. **PR Q integration test's reputation probe.** `tests/integration/sprint-133-pr-q-per-consumer-queues.integration.test.ts:63-69`
+2. **PR Q integration test's reputation probe. DECIDED: narrow to notification.** `tests/integration/sprint-133-pr-q-per-consumer-queues.integration.test.ts:63-69`
    proves reputation delivery with `interaction_feedback_submitted`. With decision 1, narrow it to notification delivery and keep its
    "no failed attempt" assertion.
 

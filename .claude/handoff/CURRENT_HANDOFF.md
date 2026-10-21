@@ -20,8 +20,8 @@ The spec and plans are on master. **Next chat executes PR A** on `agent/claude/s
 1. Read this handoff, then `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
 2. Find the next PR in *PR sequence* whose status is not SHIPPED. Reuse its branch if it exists; otherwise
    `git switch -c agent/claude/sprint-134-pr-<letter>-<slug> origin/master`. Never branch off a stale local master.
-3. Open that PR's plan (table below). **PR L's drain-check gate PASSED (2026-10-20)**; its chat settles the plan's *Open decisions*
-   with the maintainer first. PRs L2/K/V/B/C have no plan yet: write it first in that PR's chat from the spec section (`sprint-planning`/
+3. Open that PR's plan (table below). **PR L's drain-check gate PASSED (2026-10-20)**; both of its open decisions are settled
+   (maintainer 2026-10-20); its chat re-runs the Task L1 inventory first. PRs L2/K/V/B/C have no plan yet: write it first in that PR's chat from the spec section (`sprint-planning`/
    `superpowers:writing-plans`), then execute.
 4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
    slash command; superpowers removed it as a deprecated stub.
@@ -48,7 +48,7 @@ The spec and plans are on master. **Next chat executes PR A** on `agent/claude/s
 | 2 | **E** | Expo SDK 57 patch (#279) + drift-workflow silent-failure fix | — | [`plans/2026-10-20-sprint-134-pr-e-expo-patch.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-e-expo-patch.md) | planned |
 | — | **X** | Exemption re-check; renewal PR **only on explicit yes** | gate fails **10-25 17:00 PDT** | *Dated obligations* below | due ~10-23 |
 | 3 | **D** | `verify:demo` loads `DEMO_ENV_FILE ?? '.env.demo'` | — | [`plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md) | planned |
-| 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | drain check **PASSED** 2026-10-20; open decisions to settle at PR start |
+| 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | drain check **PASSED** 2026-10-20; decisions settled; ready after A/E/D |
 | 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers (incl. the reputation health route); **BUG-070** | BUG-070 **2026-11-03** | write at PR start | — |
 | 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) | **2026-10-30** | write at PR start | — |
 | 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | write at PR start | — |
@@ -67,6 +67,8 @@ B and C are the likeliest to spill into Sprint 135, which is expected. One merge
 - **2026-10-20 (after #310):** BUG-070 **belongs in L2** (confirmed). Exemptions: **renew node-forge and braces if no upstream
   fix is available** (standing authorization for this re-check; still remove any whose fix has shipped). ADR: **ADR-102 is allocated
   to PR K (BUG-069)** ("whatever is the next ADR"; highest on master is ADR-101, no open PR claims 102).
+- **PR L decisions (2026-10-20):** remove `reputation` from `EVENT_CONSUMERS` and its consumer-queue startup, recorded as an
+  **ADR-101 amendment** (no new number); narrow the PR Q integration test's delivery probe to notification.
 - **Drain check: PASSED** (maintainer ran it 2026-10-20; numbers below). PR L is unblocked.
 - **follow-redirects advisories (2026-10-20): fix now, on the planning branch, as PR F.** They were found when the planning push's
   pre-push hook failed on a docs-only diff. Proof in the spec's *PR F* section.
