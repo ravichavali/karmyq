@@ -1885,7 +1885,7 @@ table that has it. `services/request-service/src/routes/feedback.ts:46` is BUG-0
 
 - **Proposed fix:** in Sprint 134 PR L2, which already rewrites `healthMetricsService.ts` and the health route's average
   reads: link through `request_communities`, add a real-SQL test of the cron and the fallback, and delete the dead `FeedComposer`.
-- **Owner:** Claude (Sprint 134 PR L2); the maintainer confirms the severity and the placement. **Deadline: 2026-11-03**
+- **Owner:** Claude (Sprint 134 PR L2; placement confirmed by the maintainer 2026-10-20). **Deadline: 2026-11-03**
   (≤ 2-week SLA).
 
 ---
