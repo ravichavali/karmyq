@@ -96,7 +96,8 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
     };
 
     // Build date filter. The column is qualified per query: an unqualified created_at is ambiguous
-    // once auth.users (which has its own created_at) is joined.
+    // once auth.users (which has its own created_at) is joined. It is always a predicate, used as
+    // `AND (...)`, so the directed-surface gate can see that it cannot carry an OR past a guard.
     const dateParams: any[] = [communityId];
     if (dateStart) dateParams.push(dateStart);
     if (dateEnd) dateParams.push(dateEnd);
@@ -105,7 +106,7 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
       let paramIndex = 2;
       if (dateStart) filter.push(`${column} >= $${paramIndex++}`);
       if (dateEnd) filter.push(`${column} <= $${paramIndex++}`);
-      return filter.length > 0 ? `AND ${filter.join(' AND ')}` : '';
+      return filter.length > 0 ? filter.join(' AND ') : 'TRUE';
     };
 
     // Export members
@@ -121,7 +122,7 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
           m.joined_at
         FROM communities.members m
         JOIN auth.users u ON m.user_id = u.id
-        WHERE m.community_id = $1 ${dateClauseFor('m.joined_at')}
+        WHERE m.community_id = $1 AND (${dateClauseFor('m.joined_at')})
         ORDER BY m.joined_at
       `, dateParams);
       exportData.members = membersResult.rows;
@@ -144,7 +145,7 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
         JOIN auth.users u ON r.requester_id = u.id
         WHERE /* not-directed */ NOT r.is_directed
           AND EXISTS (SELECT 1 FROM requests.request_communities rc WHERE rc.request_id = r.id AND rc.community_id = $1)
-          ${dateClauseFor('r.created_at')}
+          AND (${dateClauseFor('r.created_at')})
         ORDER BY r.created_at DESC
       `, dateParams);
       exportData.requests = requestsResult.rows;
@@ -167,7 +168,7 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
         JOIN auth.users u ON m.responder_id = u.id
         WHERE /* not-directed */ NOT r.is_directed
           AND EXISTS (SELECT 1 FROM requests.request_communities rc WHERE rc.request_id = r.id AND rc.community_id = $1)
-          ${dateClauseFor('m.created_at')}
+          AND (${dateClauseFor('m.created_at')})
         ORDER BY m.created_at DESC
       `, dateParams);
       exportData.matches = matchesResult.rows;
@@ -187,7 +188,7 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
           n.created_at
         FROM communities.norms n
         JOIN auth.users u ON n.created_by = u.id
-        WHERE n.community_id = $1 ${dateClauseFor('n.created_at')}
+        WHERE n.community_id = $1 AND (${dateClauseFor('n.created_at')})
         ORDER BY n.created_at
       `, dateParams);
       exportData.norms = normsResult.rows;
@@ -221,7 +222,7 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
           COUNT(*)::int AS transaction_count,
           COALESCE(SUM(k.points), 0)::int AS total_karma_points
         FROM reputation.karma_records k
-        WHERE k.community_id = $1 ${dateClauseFor('k.created_at')}
+        WHERE k.community_id = $1 AND (${dateClauseFor('k.created_at')})
       `, dateParams);
       const agg = aggRes.rows[0];
       // Suppress on the count of DISTINCT CONTRIBUTING members, not total active membership — a
@@ -348,22 +349,34 @@ router.get('/:communityId/export/activity', async (req: Request, res: Response) 
     }
 
     // Sprint 112 (ADR-082): the stewardship activity report keeps per-member ACTIVITY counts
-    // (helps given/received, requests created/completed) but NOT member reputation — no Total Karma,
-    // no Trust Score, and no karma-ranked ordering (which would itself reveal relative reputation).
+    // (Helps Given, Helps Received, Requests Created, Requests Completed) but NOT member reputation —
+    // no Total Karma, no Trust Score, and no karma-ranked ordering (which would itself reveal relative
+    // reputation). Sprint 134 (BUG-063): every count is over this community's non-directed asks, linked
+    // through requests.request_communities. Helps = completed matches the member responded to (given)
+    // or received on their own asks; Requests Completed = the member's own asks with status completed.
     const result = await pool.query(`
       SELECT
         u.name as "Member",
-        COALESCE(t.helps_given, 0) as "Helps Given",
-        COALESCE(t.helps_received, 0) as "Helps Received",
-        (SELECT COUNT(*) FROM requests.help_requests r
-         WHERE /* not-directed */ NOT r.is_directed AND r.requester_id = m.user_id AND r.community_id = $1) as "Requests Created",
         (SELECT COUNT(*) FROM requests.matches mt
          JOIN requests.help_requests r ON mt.request_id = r.id
-         WHERE /* not-directed */ NOT r.is_directed AND mt.responder_id = m.user_id AND r.community_id = $1
-         AND mt.status = 'completed') as "Requests Completed"
-      FROM community.memberships m
+         WHERE /* not-directed */ NOT r.is_directed AND mt.responder_id = m.user_id AND mt.status = 'completed'
+           AND EXISTS (SELECT 1 FROM requests.request_communities rc WHERE rc.request_id = r.id AND rc.community_id = $1)
+        )::int as "Helps Given",
+        (SELECT COUNT(*) FROM requests.matches mt
+         JOIN requests.help_requests r ON mt.request_id = r.id
+         WHERE /* not-directed */ NOT r.is_directed AND r.requester_id = m.user_id AND mt.status = 'completed'
+           AND EXISTS (SELECT 1 FROM requests.request_communities rc WHERE rc.request_id = r.id AND rc.community_id = $1)
+        )::int as "Helps Received",
+        (SELECT COUNT(*) FROM requests.help_requests r
+         WHERE /* not-directed */ NOT r.is_directed AND r.requester_id = m.user_id
+           AND EXISTS (SELECT 1 FROM requests.request_communities rc WHERE rc.request_id = r.id AND rc.community_id = $1)
+        )::int as "Requests Created",
+        (SELECT COUNT(*) FROM requests.help_requests r
+         WHERE /* not-directed */ NOT r.is_directed AND r.requester_id = m.user_id AND r.status = 'completed'
+           AND EXISTS (SELECT 1 FROM requests.request_communities rc WHERE rc.request_id = r.id AND rc.community_id = $1)
+        )::int as "Requests Completed"
+      FROM communities.members m
       JOIN auth.users u ON m.user_id = u.id
-      LEFT JOIN reputation.trust_scores t ON t.user_id = m.user_id AND t.community_id = $1
       WHERE m.community_id = $1 AND m.status = 'active'
       ORDER BY u.name ASC
     `, [communityId]);
