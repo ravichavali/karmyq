@@ -65,7 +65,7 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
   try {
     // Verify user is admin of this community
     const memberCheck = await pool.query(`
-      SELECT role FROM community.memberships
+      SELECT role FROM communities.members
       WHERE community_id = $1 AND user_id = $2 AND status = 'active'
     `, [communityId, userId]);
 
@@ -79,7 +79,7 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
     // Get community info
     const communityResult = await pool.query(`
       SELECT id, name, description, access_type, current_members, max_members, created_at
-      FROM community.communities
+      FROM communities.communities
       WHERE id = $1
     `, [communityId]);
 
@@ -284,7 +284,7 @@ router.get('/:communityId/export/members', async (req: Request, res: Response) =
   try {
     // Verify user is admin
     const memberCheck = await pool.query(`
-      SELECT role FROM community.memberships
+      SELECT role FROM communities.members
       WHERE community_id = $1 AND user_id = $2 AND status = 'active'
     `, [communityId, userId]);
 
@@ -339,7 +339,7 @@ router.get('/:communityId/export/activity', async (req: Request, res: Response) 
   try {
     // Verify user is admin
     const memberCheck = await pool.query(`
-      SELECT role FROM community.memberships
+      SELECT role FROM communities.members
       WHERE community_id = $1 AND user_id = $2 AND status = 'active'
     `, [communityId, userId]);
 
