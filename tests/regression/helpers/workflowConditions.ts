@@ -26,8 +26,13 @@ const STATUS_FUNCTION = /\b(always|failure|success|cancelled)\(\)/;
  * term is the whole bug class (an outputs-only step is SKIPPED once an earlier step fails), so
  * the model applies it too.
  */
-export function evaluateCondition(expr: string, ctx: Ctx): boolean {
+export function evaluateCondition(expr: string, ctx: Ctx, stepId = 'check'): boolean {
   const normalized = expr.replace(/\s+/g, ' ').trim();
+
+  // `ctx` models ONE step. A misspelled id reads '' on GitHub, so it must not resolve here.
+  for (const [, id] of normalized.matchAll(/steps\.([A-Za-z0-9_-]+)\./g)) {
+    if (id !== stepId) throw new Error(`Condition references step '${id}', not the modelled '${stepId}'`);
+  }
 
   // Allowlist: functions, step references, string literals, boolean operators, parens.
   const allowed =

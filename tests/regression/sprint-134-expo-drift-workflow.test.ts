@@ -46,6 +46,7 @@ function condition(name: string): string {
 const GREEN = 'green: gate ran clean';
 const DRIFT = 'drift: gate ran and reported issue=1';
 const NO_ISSUE_FLAG = 'gate wrote status=0 but no issue flag';
+const STATUS_WITHOUT_ISSUE = 'gate status=1 but issue normalized to 0 (died between its two prints)';
 const EARLIER_FAILED = 'EARLIER step failed (checkout/setup-node/npm ci), so check never ran';
 const STATES: Array<{ label: string; ctx: Ctx; mustNotify: boolean }> = [
   {
@@ -66,6 +67,11 @@ const STATES: Array<{ label: string; ctx: Ctx; mustNotify: boolean }> = [
   {
     label: NO_ISSUE_FLAG,
     ctx: { jobFailed: false, outcome: 'success', outputs: { status: '0', issue: '', result: 'eyJvayI6dHJ1ZX0=' } },
+    mustNotify: true,
+  },
+  {
+    label: STATUS_WITHOUT_ISSUE,
+    ctx: { jobFailed: false, outcome: 'success', outputs: { status: '1', issue: '0', result: 'eyJvayI6ZmFsc2V9' } },
     mustNotify: true,
   },
   {
@@ -118,6 +124,13 @@ describe('expo-sdk-drift workflow: the fail step keeps a nonzero gate status red
     expect(evaluateCondition(condition(FAIL_RUN), state(DRIFT))).toBe(true);
     expect(evaluateCondition(condition(FAIL_RUN), state(GREEN))).toBe(false);
   });
+
+  it('never turns a run red without filing: every state the fail step fires on, the file step does too', () => {
+    const fails = firing(condition(FAIL_RUN));
+    expect(fails).toContain(STATUS_WITHOUT_ISSUE);
+    const notifies = firing(condition(FILE_ISSUE));
+    expect(fails.filter((label) => !notifies.includes(label))).toEqual([]);
+  });
 });
 
 describe('expo-sdk-drift workflow: reporting survives the check never running', () => {
@@ -167,6 +180,12 @@ describe('expo-sdk-drift workflow: reporting survives the check never running', 
     expect(run).toMatch(/did not run to completion/);
     expect(run).toMatch(/\$RUN_URL/);
   });
+
+  it('names the run link once: the body already ends with it', () => {
+    const fallback = (step(FILE_ISSUE).run as string).match(/details="### The drift check did not run[\s\S]*?"\n/);
+    expect(fallback).not.toBeNull();
+    expect(fallback![0]).not.toMatch(/RUN_URL/);
+  });
 });
 
 describe('expo-sdk-drift workflow: the assertions reject the pre-fix conditions', () => {
@@ -176,6 +195,11 @@ describe('expo-sdk-drift workflow: the assertions reject the pre-fix conditions'
 
   it('the old close condition closes on a gate that wrote no issue flag', () => {
     expect(firing(BROKEN[CLOSE_STALE])).toEqual([GREEN, NO_ISSUE_FLAG]);
+  });
+
+  it('the model refuses a step id other than the check step', () => {
+    expect(() => evaluateCondition("always() && steps.chek.outputs.issue != '0'", state(GREEN))).toThrow(/chek/);
+    expect(() => evaluateCondition("always() && steps.chek.outcome == 'success'", state(GREEN))).toThrow(/chek/);
   });
 
   it("the model applies GitHub's implicit success() to a condition with no status function", () => {
