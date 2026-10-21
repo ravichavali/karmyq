@@ -1,10 +1,10 @@
 # Sprint 134 — Dated Obligations and Boundary Hardening — Handoff
 
-**Date**: 2026-10-20
+**Date**: 2026-10-21
 **Status**: IN PROGRESS. **PR F #310 SHIPPED** 2026-10-20: merged `63a6cd26` (v11.93.0) by the maintainer (the classifier refused
 Claude's `--admin` merge), deployed by CI/CD 39516935342 (all 15 jobs green, all 9 services healthy, no rollback, no CodeQL re-raise).
-The spec and plans are on master. **Next chat executes PR A** on `agent/claude/sprint-134-pr-a-bug-063-export` (already cut from
-`63a6cd26`; it carries only this handoff reconciliation so far).
+**PR A is implemented and its PR is open** (v11.94.0; see *PR A state*). Next: CI green incl. the integration job, then the
+maintainer's merge decision ("admin merge, yes/no?"); after deploy, PR E in a fresh chat.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
 #309 merged `1746cdf2` (v11.92.0), CI/CD 39366367275 green.
 
@@ -31,7 +31,7 @@ The spec and plans are on master. **Next chat executes PR A** on `agent/claude/s
 
 | Field | Value |
 |---|---|
-| **Current branch** | `agent/claude/sprint-134-pr-a-bug-063-export` (from `origin/master` `63a6cd26`, v11.93.0); no PR yet. Reuse it for PR A. The planning branch `agent/claude/sprint-134-planning` merged as #310 and can be deleted. Every later PR is cut from `origin/master` after the previous one merges |
+| **Current branch** | `agent/claude/sprint-134-pr-a-bug-063-export` (from `origin/master` `63a6cd26`, v11.93.0); PR A open from it (number in *PR sequence*). The planning branch `agent/claude/sprint-134-planning` merged as #310 and can be deleted. Every later PR is cut from `origin/master` after the previous one merges |
 | **Active editor** | Claude |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated); each PR re-derives its version from `origin/master` at merge time |
 
@@ -44,7 +44,7 @@ The spec and plans are on master. **Next chat executes PR A** on `agent/claude/s
 | # | PR | Scope | Due | Plan | Status |
 |---|---|---|---|---|---|
 | 0 | **F** | follow-redirects 1.16.0 → 1.16.1 (GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c, high, published 2026-10-20); one-node splice; v11.93.0 | high SLA 10-27 | spec *PR F* | **SHIPPED** `63a6cd26` (#310), CI/CD 39516935342 green |
-| 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | **NEXT**: branch cut, Task A1 not started; expected v11.94.0 |
+| 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | **PR OPEN** (A1–A11 done, v11.94.0): awaiting CI (integration job must run `sprint-134-community-export`) + maintainer merge decision. See *PR A state* below |
 | 2 | **E** | Expo SDK 57 patch (#279) + drift-workflow silent-failure fix | — | [`plans/2026-10-20-sprint-134-pr-e-expo-patch.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-e-expo-patch.md) | planned |
 | — | **X** | Exemption re-check; renewal PR **only on explicit yes** | gate fails **10-25 17:00 PDT** | *Dated obligations* below | due ~10-23 |
 | 3 | **D** | `verify:demo` loads `DEMO_ENV_FILE ?? '.env.demo'` | — | [`plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md) | planned |
@@ -56,6 +56,32 @@ The spec and plans are on master. **Next chat executes PR A** on `agent/claude/s
 | 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
 
 B and C are the likeliest to spill into Sprint 135, which is expected. One merge at a time; wait for deploy + health before the next.
+
+## PR A state (2026-10-21)
+
+Branch `agent/claude/sprint-134-pr-a-bug-063-export`, executed inline (`superpowers:executing-plans`). All 12 export queries
+match `init.sql`; gates `services/community-service/tests/regression/sprint-134-export-{schema-truth,date-filter}.test.ts`;
+real-SQL `tests/integration/sprint-134-community-export.integration.test.ts` (**CI-only; not run locally**). Local: root
+`npm test` green, tests workspace 101 + 902, community-service 9 + 186, tsc 0.
+
+**Deviations the maintainer should see (rulings):**
+- **Reputation summary is now all-time**, ignoring `date_start`/`date_end` (spec said only "qualified"). `/code-review` showed
+  two overlapping windows could be subtracted to isolate one member's karma, defeating ADR-082's 5-contributor rule. No UI
+  sends dates.
+- Date params must be `YYYY-MM-DD` (400 `INVALID_DATE_RANGE`); `date_end` includes its whole day.
+- The two reviewed `directedSurfaceAllowlist.json` exceptions for export.ts are **deleted**: the date filter is now `AND (...)`,
+  so the Sprint 132 scanner proves the guard statically.
+- `services/registry.json` `database_schemas` `community` → `communities` (source of the generated `.claude/README.md` line).
+- Activity "Requests Created" for the fixture is 3 (plan said 2; the C∧D ask added by the external review counts).
+
+**Open policy question (not changed):** the full export and `/export/members` list members who have **left**, with email.
+That matches BUG-062 (live admins see emails and non-active rows) and the spec ("full roster, all statuses"), but it means
+an admin can keep downloading a departed member's email. Maintainer's call whether to log it.
+
+**Deferred minors (final review):** 403/500 export bodies lack an ADR-074 `error` code; `isCalendarDate` accepts
+`0000-01-01` (Postgres 500); the schema-truth gate only reads template-literal `pool.query` calls and blanks `"quoted"`
+identifiers; the guide quotes the 403 message but CSV downloads show "Failed to export data". Follow-up: when BUG-070 (PR
+L2) needs it, lift `parseSchema`/`checkQueries` into a shared test helper rather than copying them.
 
 ## Maintainer decisions (2026-10-19 / 2026-10-20)
 
