@@ -181,11 +181,11 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
           n.description,
           n.rationale,
           n.status,
-          n.approval_count,
+          (SELECT COUNT(*) FROM communities.norm_approvals a WHERE a.norm_id = n.id)::int AS approval_count,
           n.created_by,
           u.name as creator_name,
           n.created_at
-        FROM community.norms n
+        FROM communities.norms n
         JOIN auth.users u ON n.created_by = u.id
         WHERE n.community_id = $1 ${dateClauseFor('n.created_at')}
         ORDER BY n.created_at
@@ -199,14 +199,12 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
         SELECT
           request_ttl_days,
           offer_ttl_days,
-          match_ttl_days,
-          notification_ttl_days,
           message_ttl_days,
-          session_ttl_days,
-          karma_decay_enabled,
-          karma_half_life_months,
+          notification_ttl_days,
+          reputation_half_life_months,
+          activity_types,
           updated_at
-        FROM community.settings
+        FROM communities.settings
         WHERE community_id = $1
       `, [communityId]);
       exportData.settings = settingsResult.rows[0] || null;
