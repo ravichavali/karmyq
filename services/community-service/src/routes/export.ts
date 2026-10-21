@@ -5,22 +5,6 @@ import { createLogger } from '@karmyq/shared/utils/logger';
 const router = Router();
 const logger = createLogger('community-service:export');
 
-interface ExportOptions {
-  format: 'json' | 'csv';
-  include?: {
-    members?: boolean;
-    requests?: boolean;
-    matches?: boolean;
-    norms?: boolean;
-    settings?: boolean;
-    karma?: boolean;
-  };
-  dateRange?: {
-    start?: string;
-    end?: string;
-  };
-}
-
 // Helper to convert data to CSV
 function toCSV(data: any[], headers?: string[]): string {
   if (!data || data.length === 0) return '';
@@ -98,16 +82,12 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
     // Build date filter. The column is qualified per query: an unqualified created_at is ambiguous
     // once auth.users (which has its own created_at) is joined. It is always a predicate, used as
     // `AND (...)`, so the directed-surface gate can see that it cannot carry an OR past a guard.
-    const dateParams: any[] = [communityId];
-    if (dateStart) dateParams.push(dateStart);
-    if (dateEnd) dateParams.push(dateEnd);
-    const dateClauseFor = (column: string) => {
-      const filter = [];
-      let paramIndex = 2;
-      if (dateStart) filter.push(`${column} >= $${paramIndex++}`);
-      if (dateEnd) filter.push(`${column} <= $${paramIndex++}`);
-      return filter.length > 0 ? filter.join(' AND ') : 'TRUE';
-    };
+    const dateBounds: Array<[string, string]> = [];
+    if (dateStart) dateBounds.push(['>=', dateStart]);
+    if (dateEnd) dateBounds.push(['<=', dateEnd]);
+    const dateParams = [communityId, ...dateBounds.map(([, value]) => value)];
+    const dateClauseFor = (column: string) =>
+      dateBounds.map(([op], i) => `${column} ${op} $${i + 2}`).join(' AND ') || 'TRUE';
 
     // Export members
     if (include.members) {

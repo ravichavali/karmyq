@@ -127,9 +127,8 @@ describe('Sprint 134 PR A community export against the live schema (BUG-063)', (
   });
 
   it.each([
-    ['a plain member', 'M'], ['a non-member', 'X'], ['a former admin with a stale admin claim', 'F'], ['another community\'s admin', 'AD'],
-  ])('refuses %s on all three routes', async (_label, who) => {
-    const viewer = { M, X, F, AD }[who as 'M' | 'X' | 'F' | 'AD'];
+    ['a plain member', M], ['a non-member', X], ['a former admin with a stale admin claim', F], ['another community\'s admin', AD],
+  ])('refuses %s on all three routes', async (_label, viewer) => {
     const statuses = [];
     for (const path of ['export', 'export/members', 'export/activity']) {
       statuses.push((await get(viewer, `/communities/${C}/${path}`)).status);
