@@ -1,8 +1,10 @@
 # Sprint 134 — Dated Obligations and Boundary Hardening — Handoff
 
 **Date**: 2026-10-20
-**Status**: PLANNED. Spec + per-PR plans committed on `agent/claude/sprint-134-planning`, which is also **PR F, #310** (follow-redirects
-advisory fix, v11.93.0), opened 2026-10-20 and **awaiting the maintainer's merge decision**. After F merges, **the next chat executes PR A**.
+**Status**: IN PROGRESS. **PR F #310 SHIPPED** 2026-10-20: merged `63a6cd26` (v11.93.0) by the maintainer (the classifier refused
+Claude's `--admin` merge), deployed by CI/CD 39516935342 (all 15 jobs green, all 9 services healthy, no rollback, no CodeQL re-raise).
+The spec and plans are on master. **Next chat executes PR A** on `agent/claude/sprint-134-pr-a-bug-063-export` (already cut from
+`63a6cd26`; it carries only this handoff reconciliation so far).
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
 #309 merged `1746cdf2` (v11.92.0), CI/CD 39366367275 green.
 
@@ -29,7 +31,7 @@ advisory fix, v11.93.0), opened 2026-10-20 and **awaiting the maintainer's merge
 
 | Field | Value |
 |---|---|
-| **Planning branch** | `agent/claude/sprint-134-planning` (from `origin/master` `1746cdf2`, v11.92.0) = **PR F**. The planning docs reach master with F (no docs-only master push). Every later PR is cut from `origin/master` after the previous one merges |
+| **Current branch** | `agent/claude/sprint-134-pr-a-bug-063-export` (from `origin/master` `63a6cd26`, v11.93.0); no PR yet. Reuse it for PR A. The planning branch `agent/claude/sprint-134-planning` merged as #310 and can be deleted. Every later PR is cut from `origin/master` after the previous one merges |
 | **Active editor** | Claude |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated); each PR re-derives its version from `origin/master` at merge time |
 
@@ -41,8 +43,8 @@ advisory fix, v11.93.0), opened 2026-10-20 and **awaiting the maintainer's merge
 
 | # | PR | Scope | Due | Plan | Status |
 |---|---|---|---|---|---|
-| 0 | **F** | follow-redirects 1.16.0 → 1.16.1 (GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c, high, published 2026-10-20); one-node splice; v11.93.0 | high SLA 10-27; **blocks every push/deploy until merged** | spec *PR F* | **#310** open; CI green at `47561a61`; gates recorded (see *#310 review*); awaiting "admin merge, yes/no?" |
-| 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | NEXT after F |
+| 0 | **F** | follow-redirects 1.16.0 → 1.16.1 (GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c, high, published 2026-10-20); one-node splice; v11.93.0 | high SLA 10-27 | spec *PR F* | **SHIPPED** `63a6cd26` (#310), CI/CD 39516935342 green |
+| 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | **NEXT**: branch cut, Task A1 not started; expected v11.94.0 |
 | 2 | **E** | Expo SDK 57 patch (#279) + drift-workflow silent-failure fix | — | [`plans/2026-10-20-sprint-134-pr-e-expo-patch.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-e-expo-patch.md) | planned |
 | — | **X** | Exemption re-check; renewal PR **only on explicit yes** | gate fails **10-25 17:00 PDT** | *Dated obligations* below | due ~10-23 |
 | 3 | **D** | `verify:demo` loads `DEMO_ENV_FILE ?? '.env.demo'` | — | [`plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md) | planned |
@@ -70,7 +72,7 @@ B and C are the likeliest to spill into Sprint 135, which is expected. One merge
 
 ## #310 review (2026-10-20)
 
-CI green at `47561a61` (run 39497569765, incl. Integration Tests, Security Audit, Code Scanning Gate). An external read-only
+Final head `05adfd10`: 20/20 checks green; earlier CI green at `47561a61` (run 39497569765, incl. Integration Tests, Security Audit, Code Scanning Gate). An external read-only
 review found no correctness issue in the dependency fix. Gates on #310: `/simplify` clean (no source code; lock splice is the
 right depth, no override needed, no other lockfile holds follow-redirects); `/code-review` (medium) found the code clean and 8
 findings in the planning docs, all verified and fixed (BUG-070 logged; PR D now resolves `.env.demo` against `INIT_CWD`; PR E
@@ -81,7 +83,7 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 
 | Item | Due | Note |
 |---|---|---|
-| **follow-redirects** GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c (high) | **2026-10-27** (≤ 1 week) | PR F; until it merges, the ADR-059 gate fails every PR and master deploy |
+| ~~follow-redirects GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c (high)~~ | ~~2026-10-27~~ | **DONE**: #310 `63a6cd26`, live 2026-10-21 00:00Z. Dependabot never raised alerts for them (the lock moved within hours); open alerts are only #168 node-forge and #169 braces (exempted) |
 | **BUG-063** | **2026-10-24** | PR A. If not merged by end of 10-23, PR A plan Task A0 has a ready dated risk acceptance (new date 10-31) for the maintainer to sign |
 | node-forge + braces ADR-059 exemptions | **2026-10-26** (gate fails **2026-10-25 17:00 PDT**) | Re-check ~10-23, after PR E if it has merged: `node scripts/audit-exemptions.js` (it audits the lockfile, so a published upstream fix alone does not trip it), `npm view node-forge version` / `npm view braces version`, `gh api advisories/<GHSA> --jq '.vulnerabilities[].first_patched_version'`, `npm view @expo/cli dependencies.node-forge`, `npm view micromatch dependencies.braces`. `@expo/cli@57.0.31` still declares `node-forge ^1.3.3` (2026-10-20). Remove if fixed; **renewal needs explicit authorization**. BUG-059 |
 | **PR L** (BUG-068) | **2026-10-29** | Blocked on the drain check below |
