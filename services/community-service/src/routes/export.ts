@@ -95,22 +95,18 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
       community: communityResult.rows[0],
     };
 
-    // Build date filter
-    const dateFilter = [];
+    // Build date filter. The column is qualified per query: an unqualified created_at is ambiguous
+    // once auth.users (which has its own created_at) is joined.
     const dateParams: any[] = [communityId];
-    let paramIndex = 2;
-
-    if (dateStart) {
-      dateFilter.push(`created_at >= $${paramIndex}`);
-      dateParams.push(dateStart);
-      paramIndex++;
-    }
-    if (dateEnd) {
-      dateFilter.push(`created_at <= $${paramIndex}`);
-      dateParams.push(dateEnd);
-      paramIndex++;
-    }
-    const dateClause = dateFilter.length > 0 ? `AND ${dateFilter.join(' AND ')}` : '';
+    if (dateStart) dateParams.push(dateStart);
+    if (dateEnd) dateParams.push(dateEnd);
+    const dateClauseFor = (column: string) => {
+      const filter = [];
+      let paramIndex = 2;
+      if (dateStart) filter.push(`${column} >= $${paramIndex++}`);
+      if (dateEnd) filter.push(`${column} <= $${paramIndex++}`);
+      return filter.length > 0 ? `AND ${filter.join(' AND ')}` : '';
+    };
 
     // Export members
     if (include.members) {
@@ -122,11 +118,10 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
           u.email as user_email,
           m.role,
           m.status,
-          m.joined_at,
-          m.created_at
-        FROM community.memberships m
+          m.joined_at
+        FROM communities.members m
         JOIN auth.users u ON m.user_id = u.id
-        WHERE m.community_id = $1 ${dateClause}
+        WHERE m.community_id = $1 ${dateClauseFor('m.joined_at')}
         ORDER BY m.joined_at
       `, dateParams);
       exportData.members = membersResult.rows;
@@ -147,7 +142,9 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
           r.expires_at
         FROM requests.help_requests r
         JOIN auth.users u ON r.requester_id = u.id
-        WHERE /* not-directed */ NOT r.is_directed AND r.community_id = $1 ${dateClause}
+        WHERE /* not-directed */ NOT r.is_directed
+          AND EXISTS (SELECT 1 FROM requests.request_communities rc WHERE rc.request_id = r.id AND rc.community_id = $1)
+          ${dateClauseFor('r.created_at')}
         ORDER BY r.created_at DESC
       `, dateParams);
       exportData.requests = requestsResult.rows;
@@ -168,7 +165,9 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
         FROM requests.matches m
         JOIN requests.help_requests r ON m.request_id = r.id
         JOIN auth.users u ON m.responder_id = u.id
-        WHERE /* not-directed */ NOT r.is_directed AND r.community_id = $1 ${dateClause.replace(/created_at/g, 'm.created_at')}
+        WHERE /* not-directed */ NOT r.is_directed
+          AND EXISTS (SELECT 1 FROM requests.request_communities rc WHERE rc.request_id = r.id AND rc.community_id = $1)
+          ${dateClauseFor('m.created_at')}
         ORDER BY m.created_at DESC
       `, dateParams);
       exportData.matches = matchesResult.rows;
@@ -188,7 +187,7 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
           n.created_at
         FROM community.norms n
         JOIN auth.users u ON n.created_by = u.id
-        WHERE n.community_id = $1 ${dateClause}
+        WHERE n.community_id = $1 ${dateClauseFor('n.created_at')}
         ORDER BY n.created_at
       `, dateParams);
       exportData.norms = normsResult.rows;
@@ -224,7 +223,7 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
           COUNT(*)::int AS transaction_count,
           COALESCE(SUM(k.points), 0)::int AS total_karma_points
         FROM reputation.karma_records k
-        WHERE k.community_id = $1 ${dateClause}
+        WHERE k.community_id = $1 ${dateClauseFor('k.created_at')}
       `, dateParams);
       const agg = aggRes.rows[0];
       // Suppress on the count of DISTINCT CONTRIBUTING members, not total active membership — a
@@ -302,7 +301,7 @@ router.get('/:communityId/export/members', async (req: Request, res: Response) =
         m.role as "Role",
         m.status as "Status",
         to_char(m.joined_at, 'YYYY-MM-DD') as "Joined Date"
-      FROM community.memberships m
+      FROM communities.members m
       JOIN auth.users u ON m.user_id = u.id
       WHERE m.community_id = $1
       ORDER BY m.joined_at
