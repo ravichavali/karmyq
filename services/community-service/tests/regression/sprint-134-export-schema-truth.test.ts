@@ -41,7 +41,7 @@ function parseSchema(initSql: string): Map<string, Set<string>> {
 
 /** The SQL text of every `pool.query(\`...\`)` call. */
 function extractQueries(source: string): string[] {
-  return [...source.matchAll(/pool\.query\(`([\s\S]*?)`/g)].map(m => m[1]);
+  return [...source.matchAll(/pool\.query\(\s*`([\s\S]*?)`/g)].map(m => m[1]);
 }
 
 /** Every `.query(` call whose SQL is not an inline template literal, so `extractQueries` cannot check it. */
@@ -150,6 +150,13 @@ describe('Sprint 134 PR A — community export SQL matches init.sql (BUG-063)', 
       ].join('\n');
       expect(unscannableQueries(source)).toEqual(["pool.query('", 'pool.query(s', 'client.query(`']);
       expect(extractQueries(source)).toEqual(['SELECT 1']);
+    });
+
+    it('reads a template that starts on the line after pool.query( (Codex review)', () => {
+      const source = 'await pool.query(\n  `SELECT role FROM community.memberships WHERE user_id = $1`, [u]);';
+      expect(unscannableQueries(source)).toEqual([]);
+      expect(extractQueries(source)).toEqual(['SELECT role FROM community.memberships WHERE user_id = $1']);
+      expect(checkQueries(extractQueries(source), schema)).toEqual(['unknown table community.memberships']);
     });
 
     it('reports a wrong schema and a nonexistent qualified column', () => {

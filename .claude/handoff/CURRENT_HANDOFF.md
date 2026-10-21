@@ -3,8 +3,8 @@
 **Date**: 2026-10-21
 **Status**: IN PROGRESS. **PR F #310 SHIPPED** 2026-10-20: merged `63a6cd26` (v11.93.0) by the maintainer (the classifier refused
 Claude's `--admin` merge), deployed by CI/CD 39516935342 (all 15 jobs green, all 9 services healthy, no rollback, no CodeQL re-raise).
-**PR A is implemented; #311 is open** (v11.94.0; see *PR A state*). Next: CI green incl. the integration job, then the
-maintainer's merge decision ("admin merge, yes/no?"); after deploy, PR E in a fresh chat.
+**PR A #311: CI green, Codex-reviewed, awaiting the maintainer's admin-merge authorization** (v11.94.0; see *PR A state*).
+After merge: watch CI/CD + health, record the merge sha in `docs/BUGS.md`; then PR E in a fresh chat.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
 #309 merged `1746cdf2` (v11.92.0), CI/CD 39366367275 green.
 
@@ -44,7 +44,7 @@ maintainer's merge decision ("admin merge, yes/no?"); after deploy, PR E in a fr
 | # | PR | Scope | Due | Plan | Status |
 |---|---|---|---|---|---|
 | 0 | **F** | follow-redirects 1.16.0 → 1.16.1 (GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c, high, published 2026-10-20); one-node splice; v11.93.0 | high SLA 10-27 | spec *PR F* | **SHIPPED** `63a6cd26` (#310), CI/CD 39516935342 green |
-| 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | **PR #311 OPEN** (A1–A11 done, v11.94.0): awaiting CI (integration job must run `sprint-134-community-export`) + maintainer merge decision. See *PR A state* below |
+| 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | **PR #311 OPEN**, CI green (integration 11/11), Codex-reviewed; awaiting admin-merge authorization. v11.94.0. See *PR A state* below |
 | 2 | **E** | Expo SDK 57 patch (#279) + drift-workflow silent-failure fix | — | [`plans/2026-10-20-sprint-134-pr-e-expo-patch.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-e-expo-patch.md) | planned |
 | — | **X** | Exemption re-check; renewal PR **only on explicit yes** | gate fails **10-25 17:00 PDT** | *Dated obligations* below | due ~10-23 |
 | 3 | **D** | `verify:demo` loads `DEMO_ENV_FILE ?? '.env.demo'` | — | [`plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md) | planned |
@@ -61,8 +61,14 @@ B and C are the likeliest to spill into Sprint 135, which is expected. One merge
 
 Branch `agent/claude/sprint-134-pr-a-bug-063-export`, executed inline (`superpowers:executing-plans`). All 12 export queries
 match `init.sql`; gates `services/community-service/tests/regression/sprint-134-export-{schema-truth,date-filter}.test.ts`;
-real-SQL `tests/integration/sprint-134-community-export.integration.test.ts` (**CI-only; not run locally**). Local: root
-`npm test` green, tests workspace 101 + 902, community-service 9 + 186, tsc 0.
+real-SQL `tests/integration/sprint-134-community-export.integration.test.ts` (CI-only). **CI green on `b8bf6d25`** (run
+39655079036: export suite 11/11, integration 175/175, every check). Community-service 9 unit + 197 regression; pre-push 27/27.
+
+**Review history:** first gate pass + Opus final review (2026-10-20); second gate pass at the maintainer's request (2026-10-21):
+`/simplify` → shared `sendError` (403/404/500 now carry `FORBIDDEN`/`NOT_FOUND`/`INTERNAL_ERROR`); `/code-review` → NULL-safe
+date predicate, CSV formula-injection neutralisation, gate fails on any unreadable `.query(`, year 0000 → 400;
+`/security-review` → no findings. **Codex review of `b8bf6d25`: no blocking findings**; its P3 (the extractor skipped a
+template starting on the line after `pool.query(`) is fixed with a negative fixture and a real injection proof.
 
 **Deviations the maintainer should see (rulings):**
 - **Reputation summary is now all-time**, ignoring `date_start`/`date_end` (spec said only "qualified"). `/code-review` showed
@@ -74,13 +80,14 @@ real-SQL `tests/integration/sprint-134-community-export.integration.test.ts` (**
 - `services/registry.json` `database_schemas` `community` → `communities` (source of the generated `.claude/README.md` line).
 - Activity "Requests Created" for the fixture is 3 (plan said 2; the C∧D ask added by the external review counts).
 
-**Open policy question (not changed):** the full export and `/export/members` list members who have **left**, with email.
-That matches BUG-062 (live admins see emails and non-active rows) and the spec ("full roster, all statuses"), but it means
-an admin can keep downloading a departed member's email. Maintainer's call whether to log it.
+**Open policy questions (maintainer; not changed in this PR):**
+- All-time reputation summary (above). Codex recommends keeping it; repeated snapshots over time remain a broader limit.
+- The full export and `/export/members` list members who have **left**, with email (BUG-062-consistent; spec: "full roster,
+  all statuses"). Codex recommends keeping it for this bugfix and treating retention as a separate policy decision.
 
-**Deferred minors (final review):** the schema-truth gate blanks `"quoted"` identifiers (it now fails on any query it
-cannot read); the guide quotes the 403 message but CSV downloads show "Failed to export data". Follow-up: when BUG-070 (PR
-L2) needs it, lift `parseSchema`/`checkQueries` into a shared test helper rather than copying them.
+**Deferred minors:** the schema-truth gate blanks `"quoted"` identifiers; the guide quotes the 403 message but CSV downloads
+show "Failed to export data"; CSV formula neutralisation does not cover a `;`-splitting locale or a leading space (security
+review, ~3/10). Follow-up: when BUG-070 (PR L2) needs it, lift `parseSchema`/`checkQueries` into a shared test helper.
 
 ## Maintainer decisions (2026-10-19 / 2026-10-20)
 
