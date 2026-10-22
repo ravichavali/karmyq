@@ -22,6 +22,7 @@ import {
   type RotationDeps,
 } from '../fixtures/curatedDemo/storyLifecycle';
 import { verifyCuratedDemo, type VerifiedStoryIds } from '../fixtures/curatedDemo/verifier';
+import { resolveDemoEnvPath } from './demoEnvFile';
 import { buildDeps, readEnv, verifyDemoSessionReadOnly } from './verifyDemoData';
 
 const execFileAsync = promisify(execFile);
@@ -117,8 +118,8 @@ export function buildRotationDeps(publishConfigEnabled: boolean): RotationDeps {
     },
     async publishConfig() {
       if (!publishConfigEnabled || !created) return;
-      const envPath = process.env.DEMO_ENV_FILE ?? '.env.demo';
-      await publishDemoConfig(envPath, {
+      // The same INIT_CWD-resolved file `verify:demo` reads (demoEnvFile.ts).
+      await publishDemoConfig(resolveDemoEnvPath().path, {
         DEMO_PERSONA_EMAIL: env.mariaEmail,
         DEMO_ORDINARY_REQUEST_ID: created.ordinaryRequestId,
         DEMO_ORDINARY_MATCH_ID: created.ordinaryMatchId,

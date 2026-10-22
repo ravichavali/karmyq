@@ -202,6 +202,14 @@ describe('resolveDemoEnvPath', () => {
       explicit: true,
     });
   });
+
+  it('treats an exported-but-empty DEMO_ENV_FILE or INIT_CWD as unset', () => {
+    const cwd = tempDir();
+    expect(resolveDemoEnvPath({ INIT_CWD: '', DEMO_ENV_FILE: '' }, cwd)).toEqual({
+      path: path.join(cwd, '.env.demo'),
+      explicit: false,
+    });
+  });
 });
 
 describe('rotate:demo-stories publishes to the file verify:demo reads', () => {
