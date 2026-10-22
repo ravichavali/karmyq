@@ -433,8 +433,8 @@ GHSA-2464-fhr4-w9xw (critical, remote code execution in the Image Optimization A
 memory bug on glibc Linux; the advisory's workaround is `sharp >= 0.35.5`) and GHSA-p3m5-59mp-jv5r (high, App Router
 denial of service through Server Actions). Both cover `>=16.0.0 <=16.4.0`, and both are first patched in 16.4.1.
 No 16.3.x backport exists. Neither advisory is reachable on the demo: `sharp` has been 0.35.5 since the
-2026-10-08 override, the frontend image is `node:24-alpine` (musl, not glibc), and both apps use the Pages Router
-with no Server Action. The gate audits the declared tree, not reachability, and critical is never exemptible,
+2026-10-08 override, the frontend image is `node:24-alpine` (musl, not glibc), and neither app has a Server Action
+(the frontend uses the Pages Router; the landing site uses the App Router as a static export, with no server runtime). The gate audits the declared tree, not reachability, and critical is never exemptible,
 so `next` moves anyway.
 
 Fix: an in-place lock splice, `next` 16.3.8 → 16.4.2, together with `@next/env` and the eight `@next/swc-*`

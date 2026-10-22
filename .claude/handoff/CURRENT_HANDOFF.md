@@ -173,7 +173,8 @@ unauthenticated RCE in the Image Optimization API with SVG) and GHSA-p3m5-59mp-j
 `>=16.0.0 <=16.4.0`, first patched 16.4.1, published 15:50–15:53Z 2026-10-22 (after #313's deploy). No 16.3.x backport.
 **Not reachable on the demo** (traced in `/code-review`): the RCE is the `sharp`/libvips bug on glibc (workaround `sharp >= 0.35.5`;
 the lock has had 0.35.5 via the `sharp@<0.35.5` override since #299) and the frontend image is `node:24-alpine`; the DoS needs App
-Router + a Server Action, and both apps are Pages Router with no `'use server'`. The bump is still required: the gate audits presence
+Router + a Server Action, and neither app has one (no `'use server'`; frontend is Pages Router, landing is App Router as a static
+export, so it has no server runtime; corrected after Codex review of #314). The bump is still required: the gate audits presence
 and critical is never exemptible. `next` is now `sharp`'s only dependent and declares `^0.35.5` itself, so the override is
 redundant for it (kept: harmless, guards any re-resolve; removal is an optional follow-up). Dependency work earned by a security advisory; Claude
 holds the lane. **This took the chat instead of PR L**: a critical fails every PR's Security Audit, so neither PR L nor the
@@ -196,6 +197,11 @@ efficiency, altitude clean; simplification trimmed the ADR amendment to the prec
 the exemption cell rewritten; the handoff's "open" is true at push; the `sharp` override is kept (optional follow-up); and
 `guides/demo-data.json` + `services/simulation-service.json` are **kept**: they are PR D's guide/CONTEXT text, which #313 shipped
 without regenerating (disclosed in the PR body). `/security-review`: no findings (integrity + `resolved` parity 10/10, no host change).
+
+**Codex review (2026-10-22, at `0efa187d`): no blocking findings; ready for maintainer merge.** It verified all 10 nodes against
+npm's hashes and dependency metadata (no unrelated nodes), 585 local tests, and green head CI (run 39835152925: security,
+integration, app builds, Docker). Its one P3 (the ADR said both apps use the Pages Router; landing is App Router as a static
+export) is fixed in the ADR, the regenerated page, this file and the PR body; the conclusion is unchanged.
 
 **Post-merge check (next chat):** the deploy's health verify; karmyq.com `window.next.version` should read 16.4.2 (ask before any
 browser smoke on the demo).
