@@ -28,6 +28,18 @@ hand-rolled with `@expo/vector-icons`; state is the one Zustand store in `store/
 
 ## Recent changes
 
+- **Sprint 134 PR E (#279):** nine SDK-managed packages move one patch to the live SDK 57 map
+  (re-derived 2026-10-21: Expo 57.0.31, Router 57.0.29), with twenty hoisted nodes their
+  manifests require: `expo@57.0.31`'s ten moved direct ranges (`@expo/cli` 57.0.32, `-config`,
+  `-config-plugins`, `-fingerprint`, `-local-build-cache-provider`, `-metro-config`,
+  `babel-preset-expo`, `expo-asset`, `expo-modules-autolinking`/`-core`) and ten of their own
+  transitives (`xcode` 3 → 4 is a major move: `@expo/config-plugins@57.0.11` declares `^4.0.0`,
+  and it drops `uuid`). Spliced in place: the Windows re-resolve also dropped fifteen nested
+  nodes whose requirers still need them (e.g. `@expo/cli/node_modules/ms@2.1.3`; hoisted `ms` is
+  2.0.0), so a scratch lock is never copied wholesale. `SDK_PINNED` unchanged; jest divergences
+  untouched; `npm ls --all` errors identical to HEAD. Run `npm ci` from a `C:\` (uppercase)
+  cwd on Windows: a lowercase `c:\` cwd writes workspace junctions that crash `npm ls`
+  (`reading 'edgesOut'`).
 - **Sprint 131 #268:** six `expo-*` packages move one patch to the live SDK 57 map (Expo
   57.0.25, Router 57.0.23), with seven hoisted transitives their manifests require (`@expo/cli`,
   `babel-preset-expo`, `expo-modules-core`/`-jsi`, `@expo/ui`, `expo-glass-effect`,

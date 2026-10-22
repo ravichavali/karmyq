@@ -7,14 +7,14 @@
  *   GitHub applies an implicit `success()` to every `if:`. A step gated only on
  *   `steps.check.outputs.*` is therefore SKIPPED when an earlier step fails — so a broken
  *   `npm ci`, a checkout failure, or a crashed check files nothing at all. The run goes red and
- *   nobody is told. That is the silent-signal failure BUG-035 was filed for, and
- *   `.github/workflows/expo-sdk-drift.yml` still has it at `:154`, `:232` and `:262`.
+ *   nobody is told. That is the silent-signal failure BUG-035 was filed for
+ *   (`sprint-134-expo-drift-workflow.test.ts` pins the same fix in expo-sdk-drift.yml).
  *
  * A second, subtler shape: a check that exits 0 *without writing* `GITHUB_OUTPUT` leaves
  * `issue` as the empty string. An `issue == '1'` test reads that as "nothing to report" and stays
  * silent precisely when the check is most broken.
  *
- * ⚠️ HONEST LIMIT: the evaluator below is a MODEL of GitHub's expression semantics, not GitHub.
+ * ⚠️ HONEST LIMIT: the evaluator (`./helpers/workflowConditions`) is a MODEL of GitHub's expression semantics, not GitHub.
  * It cannot prove the workflow runs correctly on GitHub — Task E dispatches it after merge for
  * that. What it does prove is that the condition still notifies in every failure shape, so nobody
  * can quietly narrow it back to `issue == '1'`.
@@ -25,6 +25,7 @@ import * as path from 'path';
 // `yaml` (2.x) is what the tests workspace DECLARES; js-yaml is only a root dependency,
 // so importing it here would rely on a hoist rather than a declared edge.
 import { parse as parseYaml } from 'yaml';
+import { Ctx, evaluateCondition } from './helpers/workflowConditions';
 
 const WORKFLOW_PATH = path.join(__dirname, '..', '..', '.github', 'workflows', 'demo-health.yml');
 
@@ -76,51 +77,6 @@ function stepWithId(wf: any, id: string): any {
   const found = steps(wf).find((s) => s.id === id);
   expect(found).toBeDefined();
   return found;
-}
-
-/** A simulated GitHub step/job state. */
-interface Ctx {
-  jobFailed: boolean;
-  outcome: string;
-  outputs: Record<string, string>;
-}
-
-/**
- * Evaluate the GitHub-expression subset our conditions use.
- *
- * Deliberately refuses anything outside a small allowlist rather than trying to be a general
- * parser: if a future condition needs syntax this cannot model, the test must fail loudly instead
- * of silently approving an expression it does not understand.
- */
-function evaluateCondition(expr: string, ctx: Ctx): boolean {
-  const normalized = expr.replace(/\s+/g, ' ').trim();
-
-  // Allowlist: functions, step references, string literals, boolean operators, parens.
-  const allowed =
-    /^[\sA-Za-z0-9_.'()!=&|]+$/.test(normalized) &&
-    !/[;`${}[\]]/.test(normalized);
-  if (!allowed) {
-    throw new Error(
-      `Condition uses syntax this test cannot model, so it cannot be verified: ${normalized}`,
-    );
-  }
-
-  let js = normalized;
-  js = js.replace(/\balways\(\)/g, 'true');
-  js = js.replace(/\bfailure\(\)/g, String(ctx.jobFailed));
-  js = js.replace(/\bsuccess\(\)/g, String(!ctx.jobFailed));
-  js = js.replace(/\bcancelled\(\)/g, 'false');
-  js = js.replace(/steps\.[A-Za-z0-9_-]+\.outputs\.([A-Za-z0-9_-]+)/g, (_m, name) =>
-    JSON.stringify(ctx.outputs[name] ?? ''),
-  );
-  js = js.replace(/steps\.[A-Za-z0-9_-]+\.outcome/g, JSON.stringify(ctx.outcome));
-
-  if (/steps\./.test(js) || /[A-Za-z_]\w*\s*\(/.test(js)) {
-    throw new Error(`Unresolved reference or unmodelled function in condition: ${js}`);
-  }
-
-  // eslint-disable-next-line no-new-func
-  return Boolean(new Function(`"use strict"; return (${js});`)());
 }
 
 /** The states a scheduled run can be in, and whether a human must be told. */

@@ -532,6 +532,15 @@ than an accident. Background: BUG-039, BUG-040.
 
 ## [2026-09-13] other
 
+**Done in Sprint 134 PR E (2026-10-21):** the file step fires on `always() && (failure() || issue != '0'
+|| status != '0' || result == '')`, the close step needs `outcome == 'success'`, `status == '0'` and
+`issue == '0'`, and the fail step is unchanged; fallback body and `GH_REPO` added. Gate:
+`tests/regression/sprint-134-expo-drift-workflow.test.ts`; the condition model is now shared in
+`tests/regression/helpers/workflowConditions.ts`. Line numbers below are historical. **Still open:**
+(a) one repo-wide gate over every step that runs `gh issue create|comment|close`, with shared failure
+shapes, instead of one test per workflow; (b) a close step that fails on a green run (a `gh` or
+GraphQL error) still leaves a red run with nothing filed, in both workflows.
+
 `.github/workflows/expo-sdk-drift.yml` still has the silent-failure gap that Sprint 129 fixed in the
 new demo-health workflow.
 

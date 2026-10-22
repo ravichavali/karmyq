@@ -1692,7 +1692,7 @@ This also undercuts BUG-056: dropping `requester_email` from `GET /requests/:id`
 
 ---
 
-## BUG-063 · [2026-10-10] · fixed (Sprint 134 PR A) · **LOW**
+## BUG-063 · [2026-10-10] · fixed (Sprint 134 PR A, v11.94.0) · **LOW**
 
 **Community data export always fails: it reads a schema that does not exist.** Every handler in
 `services/community-service/src/routes/export.ts` (`:68`, `:127`, `:287`, `:305`, `:342`, `:367`) queries
@@ -1715,7 +1715,8 @@ The frontend calls it (`communityService.exportCommunityData`, `apps/frontend/sr
   report's four counts are now distinct (the old Requests Completed counted the same thing as Helps Given).
   Proof: a schema-truth gate (`services/community-service/tests/regression/sprint-134-export-schema-truth.test.ts`)
   and a real-SQL integration test (`tests/integration/sprint-134-community-export.integration.test.ts`). The
-  directed-surface allowlist lost its two export exceptions. Version and merge sha: recorded at merge.
+  directed-surface allowlist lost its two export exceptions. **Shipped v11.94.0**: #311 merged `bf524296` (2026-10-21),
+  CI/CD 39666220132 green (deploy + health). Inside the SLA (due 2026-10-24).
 
 ---
 
