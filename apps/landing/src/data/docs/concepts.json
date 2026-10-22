@@ -789,7 +789,7 @@
       "number": "101",
       "title": "ADR-101: Per-Consumer Event Queues",
       "status": "implemented",
-      "description": "**Status**: Implemented (Sprint 133 PR Q v11.88.0 `36a9972f`, deployed 2026-10-16, CI/CD 38948723833)",
+      "description": "**Status**: Implemented (Sprint 133 PR Q v11.88.0 `36a9972f`, deployed 2026-10-16, CI/CD 38948723833); amended Sprint 134 PR L (legacy handlers removed, reputation no longer a consumer)",
       "filename": "ADR-101-per-consumer-event-queues.md"
     }
   ]

@@ -29,7 +29,7 @@ match projects karma to both participants â€” the helper and the person helped â
 rules a new exchange uses today, at the time the exchange actually completed. Nothing is written
 that a live match would not have written.
 
-Two-sided ratings (helpfulness, responsiveness, clarity) are a real part of the platform and feed
+Two-sided ratings (after a completed exchange, each participant privately rates the other from 1 to 5) are a real part of the platform and feed
 the Social Karma system, which surfaces patterns of participation without reducing people to a
 single number. **The demo currently contains no ratings at all.** Quality signals are therefore
 neutral rather than synthesized: rather than invent feedback nobody gave, the demo leaves that
