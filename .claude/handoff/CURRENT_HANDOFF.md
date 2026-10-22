@@ -19,7 +19,7 @@ is on `refs/heads/master` and still dismissed (the lines did not shift between P
 `Next.js 16.4.2` for frontend and landing, "DEPLOYMENT SUCCESSFUL", all 9 services healthy, the failure step skipped (no
 rollback), 0 open CodeQL alerts on master (checked 21:25Z). **Exemption re-check 2026-10-22 21:25Z:** unchanged (0 unexempted,
 19 exempt, no upstream fix); renewal deferred to a 10-24 (UTC) chat so it does not shorten the window. **Now:** PR L
-(see *PR L state*), which **merges only after the renewal**; the renewal PR (cut fresh on 10-24) takes the next merge slot.
+**#315** (see *PR L state*), which **merges only after the renewal**; the renewal PR (cut fresh on 10-24) takes the next merge slot.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
 #309 merged `1746cdf2` (v11.92.0), CI/CD 39366367275 green.
 
@@ -50,7 +50,7 @@ rollback), 0 open CodeQL alerts on master (checked 21:25Z). **Exemption re-check
 
 | Field | Value |
 |---|---|
-| **Current branch** | `agent/claude/sprint-134-pr-l-legacy-handlers` (from `origin/master` `0321c415`) carries PR L (open, awaiting maintainer merge; see *PR L state*). The exemption renewal goes on a **fresh** branch cut from `origin/master` on 10-24 (UTC), not on this one, and **merges first** (before 10-25 17:00 PDT). PR L merges after it: update this branch from `origin/master` with a merge commit and re-bump the version then. The PR N branch merged as #314, PR D as #313, PR E as #312 and PR A as #311; all can be deleted. The planning branch `agent/claude/sprint-134-planning` merged as #310 and can be deleted. Every later PR is cut from `origin/master` after the previous one merges |
+| **Current branch** | `agent/claude/sprint-134-pr-l-legacy-handlers` (from `origin/master` `0321c415`) carries PR L (**#315 open**, awaiting maintainer merge; see *PR L state*). The exemption renewal goes on a **fresh** branch cut from `origin/master` on 10-24 (UTC), not on this one, and **merges first** (before 10-25 17:00 PDT). PR L merges after it: update this branch from `origin/master` with a merge commit and re-bump the version then. The PR N branch merged as #314, PR D as #313, PR E as #312 and PR A as #311; all can be deleted. The planning branch `agent/claude/sprint-134-planning` merged as #310 and can be deleted. Every later PR is cut from `origin/master` after the previous one merges |
 | **Active editor** | Claude |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated); each PR re-derives its version from `origin/master` at merge time |
 
@@ -68,7 +68,7 @@ rollback), 0 open CodeQL alerts on master (checked 21:25Z). **Exemption re-check
 | 3 | **D** | `verify:demo` loads `DEMO_ENV_FILE`, else the repo-root `.env.demo` | — | [`plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md) | **SHIPPED** `866857ed` (#313, v11.96.0), CI/CD 39797190307 green. Human validation (Task D8) pending; see *PR D state* |
 | — | **N** | `next` 16.3.8 → 16.4.2 (GHSA-2464-fhr4-w9xw critical RCE + GHSA-p3m5-59mp-jv5r high, published 2026-10-22 15:52Z); 10-node splice; v11.97.0 | critical: blocks every PR now | *PR N state* below | **SHIPPED** `0321c415` (#314, v11.97.0), CI/CD 39853173679 green |
 | — | **X** | Exemption **renewal** (re-checked 2026-10-22 three times: no upstream fix, renewal needed) | gate fails **10-25 17:00 PDT** | *Dated obligations* below | **On 10-24 (UTC)**, cut fresh from `origin/master`; created 10-24 → expires 10-31. **Takes the next merge slot, ahead of PR L** |
-| 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | **PR OPEN** (see *PR L state*), awaiting maintainer merge. **Merges only after the renewal PR** (the renewal owns the next slot before 10-25 17:00 PDT); after the renewal merges, update this branch from `origin/master` with a merge commit and re-bump the version |
+| 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | **PR OPEN #315** (v11.98.0, see *PR L state*), awaiting maintainer merge. **Merges only after the renewal PR** (the renewal owns the next slot before 10-25 17:00 PDT); after the renewal merges, update this branch from `origin/master` with a merge commit and re-bump the version |
 | 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers (incl. the reputation health route); **BUG-070** | BUG-070 **2026-11-03** | write at PR start | — |
 | 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) | **2026-10-30** | write at PR start | — |
 | 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | write at PR start | — |
@@ -214,7 +214,7 @@ code-scanning alerts on master. No browser smoke was run (the build log is the e
 ## PR L state (2026-10-22)
 
 Executed inline (`superpowers:executing-plans`) on `agent/claude/sprint-134-pr-l-legacy-handlers` from `origin/master` `0321c415`,
-**v11.98.0** (re-derived from `origin/master`). **Open, awaiting maintainer merge; merges only after the renewal PR.** When the
+**v11.98.0** (re-derived from `origin/master`). **#315 open, awaiting maintainer merge; merges only after the renewal PR.** When the
 renewal has merged: update this branch from `origin/master` with a merge commit (no rebase), re-bump to the next free version,
 re-run `npm test`, then ask.
 
