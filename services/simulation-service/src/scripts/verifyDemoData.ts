@@ -9,10 +9,14 @@
  * reachable API it prints a clear unavailable result. Every read fails closed: an error on any
  * check marks that check false rather than throwing the whole verification away.
  *
+ * Sprint 134: before reading env it applies the published story keys from `DEMO_ENV_FILE`, else the
+ * repo-root `.env.demo` (see demoEnvFile.ts), without overriding: variables already exported win.
+ *
  *   npm --workspace @karmyq/simulation-service run verify:demo
  */
 
 import { ApiClient } from '../api-client';
+import { loadDemoEnvFile } from './demoEnvFile';
 import { floorFromRelationshipContext } from '../scenarios/mariaRelationshipStory';
 import { demoSessionMatchesPublished, reciprocalContextsMatch } from '../fixtures/curatedDemo/demoVerificationLogic';
 import {
@@ -230,13 +234,21 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
   };
 }
 
-async function main(): Promise<void> {
+/** `envRoot` overrides the repo root a relative env-file path resolves against (tests only). */
+export async function main(envRoot?: string): Promise<void> {
   let env: VerifyEnv;
+  // Paths and key names only: the report names the env file it loaded (or looked for) and any
+  // exported story key that overrides it with a different value, never a value.
+  let envFile: { envFile: string | null; envFileLookedFor?: string; envFileShadowed?: string[] } = { envFile: null };
   try {
+    const { loadedFrom, lookedFor, shadowed } = loadDemoEnvFile(process.env, envRoot);
+    envFile = loadedFrom
+      ? { envFile: loadedFrom, envFileShadowed: shadowed }
+      : { envFile: null, envFileLookedFor: lookedFor };
     env = readEnv();
     assertStoryIds(env);
   } catch (error) {
-    console.log(JSON.stringify({ ready: false, unavailable: true, reason: error instanceof Error ? error.message : String(error) }, null, 2));
+    console.log(JSON.stringify({ ready: false, unavailable: true, reason: error instanceof Error ? error.message : String(error), ...envFile }, null, 2));
     return;
   }
 
@@ -245,7 +257,7 @@ async function main(): Promise<void> {
   // Also verify the public demo session is coherent and read-only (needs the demo enabled).
   const demoSessionReadOnly = await verifyDemoSessionReadOnly(env.baseUrl, env.storyIds);
   const overallReady = report.ready && demoSessionReadOnly;
-  console.log(JSON.stringify({ ...report, demoSessionReadOnly, ready: overallReady }, null, 2));
+  console.log(JSON.stringify({ ...report, demoSessionReadOnly, ready: overallReady, ...envFile }, null, 2));
   if (!overallReady) process.exitCode = 1;
 }
 

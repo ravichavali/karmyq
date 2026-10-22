@@ -22,6 +22,7 @@ import {
   type RotationDeps,
 } from '../fixtures/curatedDemo/storyLifecycle';
 import { verifyCuratedDemo, type VerifiedStoryIds } from '../fixtures/curatedDemo/verifier';
+import { resolveDemoEnvPath } from './demoEnvFile';
 import { buildDeps, readEnv, verifyDemoSessionReadOnly } from './verifyDemoData';
 
 const execFileAsync = promisify(execFile);
@@ -32,7 +33,9 @@ async function runRequiredCommand(name: string, raw: string | undefined): Promis
     throw new Error(`Refusing rotation: ${name} is not set — this host-specific step must be wired.`);
   }
   const [command, ...args] = raw.trim().split(/\s+/);
-  await execFileAsync(command, args);
+  // Hand the host scripts the absolute env file this CLI publishes to, so the two never resolve
+  // DEMO_ENV_FILE separately.
+  await execFileAsync(command, args, { env: { ...process.env, DEMO_ENV_FILE: resolveDemoEnvPath().path } });
 }
 
 const nodeFsDeps: ConfigFsDeps = {
@@ -117,8 +120,8 @@ export function buildRotationDeps(publishConfigEnabled: boolean): RotationDeps {
     },
     async publishConfig() {
       if (!publishConfigEnabled || !created) return;
-      const envPath = process.env.DEMO_ENV_FILE ?? '.env.demo';
-      await publishDemoConfig(envPath, {
+      // The same repo-root-resolved file `verify:demo` reads (demoEnvFile.ts).
+      await publishDemoConfig(resolveDemoEnvPath().path, {
         DEMO_PERSONA_EMAIL: env.mariaEmail,
         DEMO_ORDINARY_REQUEST_ID: created.ordinaryRequestId,
         DEMO_ORDINARY_MATCH_ID: created.ordinaryMatchId,
