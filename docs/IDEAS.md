@@ -879,3 +879,11 @@ Logged in the #306 description and the Sprint 133 handoff; captured here so they
 - **One `isActiveMember`.** Two helpers exist with opposite argument order; keep one.
 - **List-query performance.** A CTE plus a `matches(request_id, responder_id)` index (needs a migration).
 - **`help_offers.is_public`.** Reads ignore it since BUG-064's fix; retire the column or honor it.
+
+## [2026-10-21] open-question
+
+Data exports are nice, but could they give people a way to harvest other members' data? How do we prevent that
+kind of abuse? It is not simple: members share their email to register, which makes it reachable to others. We need
+to work through data-safety considerations for exports (and community data access generally).
+
+---
