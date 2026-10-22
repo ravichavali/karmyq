@@ -296,7 +296,7 @@ describe('verify:demo main() reports the env file', () => {
 });
 
 describe('rotate:demo-stories publishes to the file verify:demo reads', () => {
-  isolateProcessEnv([...Object.keys(PERSONA_ENV), 'INIT_CWD', 'DEMO_ENV_FILE']);
+  isolateProcessEnv([...Object.keys(PERSONA_ENV), 'INIT_CWD', 'DEMO_ENV_FILE', 'DEMO_ENABLE_CMD', 'DEMO_RESTART_AUTH_CMD']);
 
   it('writes the INIT_CWD-resolved .env.demo, the same path loadDemoEnvFile looks for', async () => {
     const repoRoot = tempDir();
@@ -313,5 +313,32 @@ describe('rotate:demo-stories publishes to the file verify:demo reads', () => {
     expect(published).toContain('DEMO_ORDINARY_MATCH_ID=match-new');
     expect(published).toContain('DEMO_PROVIDER_REQUEST_ID=req-service');
     expect(published).toContain('DEMO_PROVIDER_OFFER_ID=offer-new');
+  });
+
+  it('hands the host commands that same absolute file, so the shell scripts cannot re-anchor elsewhere', async () => {
+    // enable-demo.sh / restart-auth.sh resolve a relative or unset DEMO_ENV_FILE against the repo
+    // root; INIT_CWD can differ. The probe records the DEMO_ENV_FILE each command receives.
+    const repoRoot = tempDir();
+    const probeDir = tempDir();
+    const probe = writeFileIn(
+      probeDir,
+      'probe.js',
+      "require('fs').writeFileSync(process.argv[2], String(process.env.DEMO_ENV_FILE));\n",
+    );
+    const enableOut = path.join(probeDir, 'enable.txt');
+    const restartOut = path.join(probeDir, 'restart.txt');
+    Object.assign(process.env, PERSONA_ENV, {
+      INIT_CWD: repoRoot,
+      DEMO_ENABLE_CMD: `node ${probe} ${enableOut}`,
+      DEMO_RESTART_AUTH_CMD: `node ${probe} ${restartOut}`,
+    });
+
+    const deps = buildRotationDeps(true);
+    await deps.enableDemo();
+    await deps.restartAuth();
+
+    const expected = path.join(repoRoot, '.env.demo');
+    expect(fs.readFileSync(enableOut, 'utf8')).toBe(expected);
+    expect(fs.readFileSync(restartOut, 'utf8')).toBe(expected);
   });
 });

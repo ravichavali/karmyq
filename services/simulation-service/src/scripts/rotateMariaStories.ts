@@ -33,7 +33,9 @@ async function runRequiredCommand(name: string, raw: string | undefined): Promis
     throw new Error(`Refusing rotation: ${name} is not set — this host-specific step must be wired.`);
   }
   const [command, ...args] = raw.trim().split(/\s+/);
-  await execFileAsync(command, args);
+  // Hand the host scripts the absolute env file this CLI publishes to: they re-anchor a relative or
+  // unset DEMO_ENV_FILE to the repo root, which need not be npm's INIT_CWD.
+  await execFileAsync(command, args, { env: { ...process.env, DEMO_ENV_FILE: resolveDemoEnvPath().path } });
 }
 
 const nodeFsDeps: ConfigFsDeps = {

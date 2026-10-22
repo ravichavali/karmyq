@@ -206,7 +206,8 @@ repo-root file). `verify:demo`'s `main()` applies it via `loadDemoEnvFile` (dote
 `quiet: true`) before `readEnv()`, so exported variables win and the operator no longer exports the four
 story IDs. A missing default is not an error; a missing explicit `DEMO_ENV_FILE` reports unavailable. The
 report adds `envFile` (and `envFileLookedFor` when the default is absent): paths only, never values.
-`readEnv()` is unchanged, and `rotate:demo-stories` publishes to the same resolved path.
+`readEnv()` is unchanged, and `rotate:demo-stories` publishes to the same resolved path and passes it, absolute,
+as `DEMO_ENV_FILE` to `DEMO_ENABLE_CMD`/`DEMO_RESTART_AUTH_CMD` (those scripts anchor relative paths to the repo root).
 
 ### Sprint 133 PR D (2026-10-17) - curated skills layer
 Curated seed gains (live on the demo since the authorized curated reset of 2026-10-19) skills, a skills-sharing opt-out, endorsements, items and standing offers; counts are
