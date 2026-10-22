@@ -63,7 +63,8 @@ hand-written list of call sites had missed.
 Eight services call it (`auth`, `cleanup`, `community`, `messaging`, `notification`, `reputation`,
 `request`, `simulation`), plus five files under `tests/` — `e2e/playwright.config.ts`,
 `e2e/tests/fixtures/auth.ts`, `integration/setup.ts`, `load/load-test.ts` and `setup.ts`, which calls
-it twice, for 14 call sites in 13 files. `social-graph-service` does not use dotenv,
+it twice. Simulation also calls it a second time, in `src/scripts/demoEnvFile.ts` (Sprint 134: the
+`verify:demo` env-file loader). That makes 15 call sites in 14 files. `social-graph-service` does not use dotenv,
 and `geocoding-service` is plain JS and does not either — so neither appears in the gate's expected
 set. If a new service starts using dotenv, the gate's discovery picks it up and its non-vacuity
 assertion, which pins the service list by identity, will need updating along with it.

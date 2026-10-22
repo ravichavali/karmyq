@@ -31,20 +31,41 @@ jest.mock('../../src/api-client', () => ({
   },
 }));
 
-const STORY_FILE = [
-  'DEMO_ORDINARY_REQUEST_ID=file-ordinary-req-7f3a',
-  'DEMO_ORDINARY_MATCH_ID=file-ordinary-match-91c2',
-  'DEMO_PROVIDER_REQUEST_ID=file-provider-req-5d0e',
-  'DEMO_PROVIDER_OFFER_ID=file-provider-offer-2b8b',
-  '',
-].join('\n');
+const STORY = {
+  DEMO_ORDINARY_REQUEST_ID: 'file-ordinary-req-7f3a',
+  DEMO_ORDINARY_MATCH_ID: 'file-ordinary-match-91c2',
+  DEMO_PROVIDER_REQUEST_ID: 'file-provider-req-5d0e',
+  DEMO_PROVIDER_OFFER_ID: 'file-provider-offer-2b8b',
+};
+const STORY_FILE = Object.entries(STORY).map(([key, value]) => `${key}=${value}\n`).join('');
+const STORY_KEYS = Object.keys(STORY).sort();
 
-const STORY_KEYS = [
-  'DEMO_ORDINARY_MATCH_ID',
-  'DEMO_ORDINARY_REQUEST_ID',
-  'DEMO_PROVIDER_OFFER_ID',
-  'DEMO_PROVIDER_REQUEST_ID',
-];
+/** The persona/connection env from `.env.demo.rotation`; never in `.env.demo`. */
+const PERSONA_ENV = {
+  API_BASE_URL: 'http://api.invalid',
+  DEMO_MARIA_EMAIL: 'maria@example.test',
+  DEMO_HELPER_EMAIL: 'helper@example.test',
+  DEMO_PROVIDER_EMAIL: 'provider@example.test',
+  DEMO_UNRELATED_EMAIL: 'unrelated@example.test',
+  DEMO_PERSONA_PASSWORD: 'not-a-real-password',
+};
+
+/** Clear these `process.env` keys before each test of the enclosing describe; restore them after. */
+function isolateProcessEnv(keys: string[]): void {
+  const saved: Record<string, string | undefined> = {};
+  beforeEach(() => {
+    for (const key of keys) {
+      saved[key] = process.env[key];
+      delete process.env[key];
+    }
+  });
+  afterEach(() => {
+    for (const key of keys) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  });
+}
 
 const tempDirs: string[] = [];
 
@@ -75,13 +96,7 @@ describe('loadDemoEnvFile', () => {
     expect(result.loadedFrom).toBe(file);
     expect(result.lookedFor).toBe(file);
     expect([...result.keys].sort()).toEqual(STORY_KEYS);
-    expect(env).toEqual({
-      INIT_CWD: root,
-      DEMO_ORDINARY_REQUEST_ID: 'file-ordinary-req-7f3a',
-      DEMO_ORDINARY_MATCH_ID: 'file-ordinary-match-91c2',
-      DEMO_PROVIDER_REQUEST_ID: 'file-provider-req-5d0e',
-      DEMO_PROVIDER_OFFER_ID: 'file-provider-offer-2b8b',
-    });
+    expect(env).toEqual({ INIT_CWD: root, ...STORY });
   });
 
   it('keeps a variable already in the environment; the file fills only the rest', () => {
@@ -179,7 +194,7 @@ describe('loadDemoEnvFile', () => {
       const result = loadDemoEnvFile({ INIT_CWD: root }, root);
 
       const emitted = JSON.stringify([result, ...spies.map(s => s.mock.calls), stdout.mock.calls]);
-      for (const value of ['file-ordinary-req-7f3a', 'file-ordinary-match-91c2', 'file-provider-req-5d0e', 'file-provider-offer-2b8b']) {
+      for (const value of Object.values(STORY)) {
         expect(emitted).not.toContain(value);
       }
       // Non-vacuity: the result does carry the keys, so the scan above read a populated result.
@@ -214,27 +229,15 @@ describe('resolveDemoEnvPath', () => {
 });
 
 describe('verify:demo main() reports the env file', () => {
-  const KEYS = [
-    'API_BASE_URL', 'DEMO_MARIA_EMAIL', 'DEMO_PERSONA_EMAIL', 'DEMO_HELPER_EMAIL', 'DEMO_PROVIDER_EMAIL',
-    'DEMO_UNRELATED_EMAIL', 'DEMO_PERSONA_PASSWORD', 'INIT_CWD', 'DEMO_ENV_FILE', ...STORY_KEYS,
-  ];
-  const saved: Record<string, string | undefined> = {};
+  isolateProcessEnv([...Object.keys(PERSONA_ENV), 'DEMO_PERSONA_EMAIL', 'INIT_CWD', 'DEMO_ENV_FILE', ...STORY_KEYS]);
   let log: jest.SpyInstance;
 
   beforeEach(() => {
-    for (const key of KEYS) {
-      saved[key] = process.env[key];
-      delete process.env[key];
-    }
     log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     log.mockRestore();
-    for (const [key, value] of Object.entries(saved)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
   });
 
   function printedReport(): Record<string, unknown> {
@@ -262,15 +265,7 @@ describe('verify:demo main() reports the env file', () => {
 
   it('names the default path it looked for when no file is there', async () => {
     const root = tempDir();
-    process.env.INIT_CWD = root;
-    Object.assign(process.env, {
-      API_BASE_URL: 'http://api.invalid',
-      DEMO_MARIA_EMAIL: 'm@example.test',
-      DEMO_HELPER_EMAIL: 'h@example.test',
-      DEMO_PROVIDER_EMAIL: 'p@example.test',
-      DEMO_UNRELATED_EMAIL: 'u@example.test',
-      DEMO_PERSONA_PASSWORD: 'not-a-real-password',
-    });
+    Object.assign(process.env, PERSONA_ENV, { INIT_CWD: root });
 
     await main();
 
@@ -301,38 +296,18 @@ describe('verify:demo main() reports the env file', () => {
 });
 
 describe('rotate:demo-stories publishes to the file verify:demo reads', () => {
-  const ROTATE_ENV = {
-    API_BASE_URL: 'http://api.invalid',
-    DEMO_MARIA_EMAIL: 'maria@example.test',
-    DEMO_HELPER_EMAIL: 'helper@example.test',
-    DEMO_PROVIDER_EMAIL: 'provider@example.test',
-    DEMO_UNRELATED_EMAIL: 'unrelated@example.test',
-    DEMO_PERSONA_PASSWORD: 'not-a-real-password',
-  };
-  const saved: Record<string, string | undefined> = {};
-
-  beforeEach(() => {
-    for (const key of [...Object.keys(ROTATE_ENV), 'INIT_CWD', 'DEMO_ENV_FILE']) saved[key] = process.env[key];
-  });
-
-  afterEach(() => {
-    for (const [key, value] of Object.entries(saved)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
-  });
+  isolateProcessEnv([...Object.keys(PERSONA_ENV), 'INIT_CWD', 'DEMO_ENV_FILE']);
 
   it('writes the INIT_CWD-resolved .env.demo, the same path loadDemoEnvFile looks for', async () => {
     const repoRoot = tempDir();
     const rootFile = writeFileIn(repoRoot, '.env.demo', STORY_FILE);
-    Object.assign(process.env, ROTATE_ENV, { INIT_CWD: repoRoot });
-    delete process.env.DEMO_ENV_FILE;
+    Object.assign(process.env, PERSONA_ENV, { INIT_CWD: repoRoot });
 
     const deps = buildRotationDeps(true);
     await deps.createStories();
     await deps.publishConfig();
 
-    expect(loadDemoEnvFile({ INIT_CWD: repoRoot }, process.cwd()).lookedFor).toBe(rootFile);
+    expect(resolveDemoEnvPath({ INIT_CWD: repoRoot }).path).toBe(rootFile);
     const published = fs.readFileSync(rootFile, 'utf8');
     expect(published).toContain('DEMO_ORDINARY_REQUEST_ID=req-generic');
     expect(published).toContain('DEMO_ORDINARY_MATCH_ID=match-new');
