@@ -15,7 +15,7 @@ is on `refs/heads/master` and still dismissed (the lines did not shift between P
 **Expo drift closed:** scheduled run 39782668093 on master (`eea83267`, 12:57Z 2026-10-22) green, the first with the PR E fix; no open drift issue.
 **New critical, 2026-10-22 15:52Z:** `next` GHSA-2464-fhr4-w9xw (unauthenticated RCE, image optimizer) + GHSA-p3m5-59mp-jv5r
 (high DoS), `16.0.0–16.4.0`, published after #313's deploy. Critical is never exemptible, so **every PR's Security Audit fails
-until it merges.** **Now:** PR N (next 16.3.8 → 16.4.2) **open, awaiting maintainer merge** on
+until it merges.** **Now:** PR N **#314** (next 16.3.8 → 16.4.2) **open, awaiting maintainer merge** on
 `agent/claude/sprint-134-pr-n-next-critical`; **then** the renewal PR on ~10-24 (fresh from `origin/master`), **then** PR L.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
 #309 merged `1746cdf2` (v11.92.0), CI/CD 39366367275 green.
@@ -47,7 +47,7 @@ until it merges.** **Now:** PR N (next 16.3.8 → 16.4.2) **open, awaiting maint
 
 | Field | Value |
 |---|---|
-| **Current branch** | `agent/claude/sprint-134-pr-n-next-critical` (from `origin/master` `866857ed`) carries PR N: **open (v11.97.0), awaiting maintainer merge**. Do not reuse it. The exemption renewal goes on a **fresh** branch cut from `origin/master` after PR N merges and its deploy + health verify finish (on ~10-24; merge before 10-25 17:00 PDT). PR L follows the renewal (its merge must not take the slot the renewal needs). The PR D branch merged as #313, the PR E branch as #312 and the PR A branch as #311; all can be deleted. The planning branch `agent/claude/sprint-134-planning` merged as #310 and can be deleted. Every later PR is cut from `origin/master` after the previous one merges |
+| **Current branch** | `agent/claude/sprint-134-pr-n-next-critical` (from `origin/master` `866857ed`) carries PR N: **#314 open (v11.97.0), awaiting maintainer merge**. Do not reuse it. The exemption renewal goes on a **fresh** branch cut from `origin/master` after PR N merges and its deploy + health verify finish (on ~10-24; merge before 10-25 17:00 PDT). PR L follows the renewal (its merge must not take the slot the renewal needs). The PR D branch merged as #313, the PR E branch as #312 and the PR A branch as #311; all can be deleted. The planning branch `agent/claude/sprint-134-planning` merged as #310 and can be deleted. Every later PR is cut from `origin/master` after the previous one merges |
 | **Active editor** | Claude |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated); each PR re-derives its version from `origin/master` at merge time |
 
@@ -63,7 +63,7 @@ until it merges.** **Now:** PR N (next 16.3.8 → 16.4.2) **open, awaiting maint
 | 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | **SHIPPED** `bf524296` (#311, v11.94.0), CI/CD 39666220132 green. Human validation (Task A12) pending: maintainer downloads all three exports on karmyq.com. See *PR A state* below |
 | 2 | **E** | Expo SDK 57 patch (#279) + drift-workflow silent-failure fix | — | [`plans/2026-10-20-sprint-134-pr-e-expo-patch.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-e-expo-patch.md) | **SHIPPED** `eea83267` (#312, v11.95.0), CI/CD 39711848936 attempt 2 green. See *PR E state* |
 | 3 | **D** | `verify:demo` loads `DEMO_ENV_FILE`, else the repo-root `.env.demo` | — | [`plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md) | **SHIPPED** `866857ed` (#313, v11.96.0), CI/CD 39797190307 green. Human validation (Task D8) pending; see *PR D state* |
-| — | **N** | `next` 16.3.8 → 16.4.2 (GHSA-2464-fhr4-w9xw critical RCE + GHSA-p3m5-59mp-jv5r high, published 2026-10-22 15:52Z); 10-node splice; v11.97.0 | critical: blocks every PR now | *PR N state* below | **PR OPEN** (v11.97.0), awaiting maintainer merge |
+| — | **N** | `next` 16.3.8 → 16.4.2 (GHSA-2464-fhr4-w9xw critical RCE + GHSA-p3m5-59mp-jv5r high, published 2026-10-22 15:52Z); 10-node splice; v11.97.0 | critical: blocks every PR now | *PR N state* below | **PR OPEN #314** (v11.97.0), awaiting maintainer merge |
 | — | **X** | Exemption **renewal** (re-checked 2026-10-22 twice: no upstream fix, renewal needed) | gate fails **10-25 17:00 PDT** | *Dated obligations* below | **On ~10-24**, cut fresh from `origin/master` after N merges and deploys; created 10-24 → expires 10-31 |
 | 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | drain check **PASSED** 2026-10-20; decisions settled; ready. Deferred 2026-10-22 by the `next` critical (PR N). Its chat can start before 10-24 on a branch cut after N merges, but **it merges only after the renewal** (the renewal owns the next slot before 10-25 17:00 PDT); re-run Task L1 first |
 | 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers (incl. the reputation health route); **BUG-070** | BUG-070 **2026-11-03** | write at PR start | — |
@@ -166,7 +166,7 @@ run `npm --workspace @karmyq/simulation-service run verify:demo` from the repo r
 `envFileShadowed: []`, `ready: true`. Repeat from `services/simulation-service/` with `DEMO_ENV_FILE` unset → same file.
 Export one ID to a wrong value → the report fails and lists it under `envFileShadowed`.
 
-## PR N state (2026-10-22)
+## PR N state (2026-10-22, #314)
 
 Found by this chat's exemption re-check: `audit-exemptions` exit 1, `BLOCKING (critical): next`. GHSA-2464-fhr4-w9xw (critical,
 unauthenticated RCE in the Image Optimization API with SVG) and GHSA-p3m5-59mp-jv5r (high, Server Actions DoS), both
@@ -233,7 +233,7 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 |---|---|---|
 | ~~follow-redirects GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c (high)~~ | ~~2026-10-27~~ | **DONE**: #310 `63a6cd26`, live 2026-10-21 00:00Z. Dependabot never raised alerts for them (the lock moved within hours); open alerts are only #168 node-forge and #169 braces (exempted) |
 | ~~BUG-063~~ | ~~2026-10-24~~ | **DONE**: #311 `bf524296` (v11.94.0), live 2026-10-21; no risk acceptance needed |
-| **`next` GHSA-2464-fhr4-w9xw (critical) + GHSA-p3m5-59mp-jv5r (high)** | now (blocks every PR) | **PR N open** (v11.97.0), 16.3.8 → 16.4.2; see *PR N state* |
+| **`next` GHSA-2464-fhr4-w9xw (critical) + GHSA-p3m5-59mp-jv5r (high)** | now (blocks every PR) | **PR N #314 open** (v11.97.0), 16.3.8 → 16.4.2; see *PR N state* |
 | node-forge + braces ADR-059 exemptions | **2026-10-26** (gate fails **2026-10-25 17:00 PDT**) | **No upstream fix → renew (pre-authorized, maintainer 2026-10-20).** Last re-check 2026-10-22 18:30Z (unchanged from 04:10Z): `audit-exemptions` 0 unexempted besides the `next` critical (19 exempt); GHSA-86w9-cpqp-85rv node-forge `<= 1.4.0`, latest 1.4.0, `first_patched_version` empty; GHSA-vfj7-8cjw-p6xm braces `<= 3.0.3`, latest 3.0.3, empty; `@expo/cli@sdk-57` 57.0.32 `node-forge ^1.3.3` (SDK 58's `^1.4.0` is still vulnerable, so no SDK move helps); `micromatch@4.0.8` `braces ^3.0.3`. **Renewal PR on 2026-10-24 (UTC)**, cut fresh from `origin/master` **after PR N merges and deploys**; created 10-24 → expires 10-31 (7-day cap); it takes the merge slot before 10-25 17:00 PDT (PR L merges after it). Re-run first: `node scripts/audit-exemptions.js` (audits the lockfile, so a published fix alone does not trip it), `npm view node-forge version`, `npm view braces version`, `gh api advisories/<GHSA> --jq '.vulnerabilities[].first_patched_version'`, `npm view @expo/cli@sdk-57 dependencies.node-forge`, `npm view micromatch dependencies.braces`. Remove any exemption whose fix has shipped and is reachable. BUG-059 |
 | **PR L** (BUG-068) | **2026-10-29** | Unblocked: drain check passed 2026-10-20 (below) |
 | **BUG-069** | **2026-10-30** | PR K. **ADR-102** (allocated 2026-10-20). If the inventory shows it cannot merge in time, propose a dated risk acceptance and split by service |
