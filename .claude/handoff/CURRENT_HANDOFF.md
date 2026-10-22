@@ -32,6 +32,10 @@ on ~10-24, cut fresh from `origin/master`.
 4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
    slash command; superpowers removed it as a deprecated stub.
 5. One fresh chat per PR (CLAUDE.md *Chat cadence*). Update this file at every PR open/merge.
+6. **Stopping point = PR creation (maintainer, 2026-10-22, standing).** Run all gates, push this handoff on the PR branch marking
+   the PR "open, awaiting maintainer merge", open the PR, report the link, and **stop**. Don't watch CI, ask for a merge, or do
+   post-merge work in that chat. The next chat starts with `gh pr checks <n>` / `git log origin/master` and handles any CI red,
+   the merged PR's deploy check, CodeQL master re-raises and the post-merge record.
 
 ## Ownership and base
 
