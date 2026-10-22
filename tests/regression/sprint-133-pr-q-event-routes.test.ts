@@ -1,18 +1,14 @@
 /**
  * Sprint 133 PR Q (ADR-101, BUG-060). The routing table in packages/shared/events/routes.ts is the
  * single source of truth; this gate holds the live service source and services/registry.json to it.
- * Every rule has a negative fixture below proving it can fail.
+ * Every rule has a negative fixture below proving it can fail. Sprint 134 PR L removed the legacy
+ * shared-queue handlers, so no service may name `karmyq-events` at all.
  */
 import { DEDICATED_EVENTS, EVENT_CONSUMERS, EVENT_ROUTES, UNCONSUMED_EVENTS, eventsFor } from '@karmyq/shared';
 import type { EventConsumer } from '@karmyq/shared';
 import { read, tracked } from './helpers/workspaces';
 
 type SourceFile = { path: string; text: string };
-const LEGACY_SUBSCRIBERS = [
-  'services/notification-service/src/events/subscriber.ts',
-  'services/reputation-service/src/events/subscriber.ts',
-  'services/social-graph-service/src/events/subscriber.ts',
-];
 const INTERCEPTOR = 'services/request-service/src/events/publisher.ts';
 // A service's publisher module forwards its callers' names to the shared publisher (request-service also intercepts the
 // dedicated ones). Its callers' literal names are scanned, so a dynamic name is allowed there and nowhere else.
@@ -57,7 +53,10 @@ function violations(files: SourceFile[], registry: any): string[] {
   }
   for (const name of s.intercepted) if (!hasOwn(DEDICATED_EVENTS, name)) out.push(`interceptor routes non-dedicated ${name}`);
   for (const path of s.dynamic) if (!PUBLISHER_MODULE.test(path)) out.push(`dynamic publishEvent name in ${path}`);
-  for (const path of s.legacyTouches) if (!LEGACY_SUBSCRIBERS.includes(path)) out.push(`karmyq-events referenced outside the legacy subscribers: ${path}`);
+  for (const path of s.legacyTouches) out.push(`legacy karmyq-events queue referenced in ${path}`);
+  for (const service of Object.keys(s.registered)) {
+    if (!(EVENT_CONSUMERS as readonly string[]).includes(service.replace(/-service$/, ''))) out.push(`${service} registers routed handlers but is not an event consumer`);
+  }
   for (const c of EVENT_CONSUMERS) {
     const got = JSON.stringify(s.registered[`${c}-service`] ?? []);
     if (got !== JSON.stringify(eventsFor(c))) out.push(`${c}-service registers ${got}, routes say ${JSON.stringify(eventsFor(c))}`);
@@ -103,16 +102,26 @@ describe('Sprint 133 PR Q: event routing gate (ADR-101)', () => {
     });
     it('flags a new karmyq-events user', () => {
       expect(violations(withFile({ path: 'services/cleanup-service/src/x.ts', text: "new Queue('karmyq-events')" }), registry))
-        .toContain('karmyq-events referenced outside the legacy subscribers: services/cleanup-service/src/x.ts');
+        .toContain('legacy karmyq-events queue referenced in services/cleanup-service/src/x.ts');
+    });
+    it('flags a karmyq-events queue reopened in a former legacy subscriber', () => {
+      const path = 'services/notification-service/src/events/subscriber.ts';
+      const reopened = live.map((f) => f.path === path ? { ...f, text: `${f.text}\nconst eventQueue = new Queue('karmyq-events', REDIS_URL);` } : f);
+      expect(violations(reopened, registry)).toContain(`legacy karmyq-events queue referenced in ${path}`);
+    });
+    it('flags routed handlers registered by a service that is not an event consumer', () => {
+      const path = 'services/reputation-service/src/events/subscriber.ts';
+      const planted = live.map((f) => f.path === path ? { ...f, text: `${f.text}\nregister('interaction_feedback_submitted', handler);` } : f);
+      expect(violations(planted, registry)).toContain('reputation-service registers routed handlers but is not an event consumer');
     });
     it('flags a direct add of a routed event', () => {
       expect(violations(withFile({ path: 'services/cleanup-service/src/y.ts', text: "import Queue from 'bull';\nq.add('dibs_expired', {})" }), registry))
         .toContain('direct queue add of non-dedicated dibs_expired in services/cleanup-service/src/y.ts');
     });
     it('flags a consumer whose registrations drift from the routes', () => {
-      const drifted = live.map((f) => f.path === 'services/reputation-service/src/events/subscriber.ts'
-        ? { ...f, text: f.text.replace("register('interaction_feedback_submitted'", "register('typo_event'") } : f);
-      expect(violations(drifted, registry).some((v) => v.startsWith('reputation-service registers ["typo_event"]'))).toBe(true);
+      const drifted = live.map((f) => f.path === 'services/notification-service/src/events/subscriber.ts'
+        ? { ...f, text: f.text.replace("register('request_created'", "register('typo_event'") } : f);
+      expect(violations(drifted, registry).some((v) => v.startsWith('notification-service registers [') && v.includes('"typo_event"'))).toBe(true);
     });
     it('flags a registry that disagrees with the source', () => {
       const stale = JSON.parse(JSON.stringify(registry));
