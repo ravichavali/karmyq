@@ -8,7 +8,11 @@ Sprint 134 PR L (BUG-068): the `submitFeedback` action is removed with its workf
 `FEEDBACK_COMMENTS` pool and `ApiClient.submitMatchFeedback`. It posted to request-service
 `POST /matches/:matchId/feedback`, which always failed (the client discarded the error) and is now retired, so the
 simulation never produced rating data. The live rating path is reputation-service `POST /reputation/feedback`
-(ADR-036); no workflow calls it yet. `sprint-72-simulation-engine.test.ts` asserts no profile schedules the action.
+(ADR-036); no workflow calls it yet. **Mix shift:** `selectWorkflow` picks in proportion to the remaining weights, so
+removing a 0.15–0.30 weight makes every other action of the four affected profiles fire proportionally more often:
+ACTIVE_HELPER ×1.072, REQUESTER ×1.115, COMMUNITY_BUILDER ×1.068, SOCIAL_USER ×1.063 (raw weights, before the session
+affinity boosts). The removed action never wrote anything, so the demo simulation (PM2, restarted by `scripts/deploy.sh`)
+now performs that much more real activity per session. No weight was retuned to compensate.
 
 Sprint 132 PR C review: `inventory.borrow_notification_outbox` is a reset table alongside inventory
 items/shares. Request hard deletion cascades its pending delivery intents. This classification

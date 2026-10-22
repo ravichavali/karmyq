@@ -64,7 +64,8 @@ scans `services/*/src` and fails on any of these:
 - an unclassified publish site, or a dynamic event name;
 - a direct Bull `add` of a non-dedicated event;
 - any reference to `karmyq-events` outside the three legacy subscribers (since Sprint 134 PR L: any
-  reference at all; see the amendment below);
+  hard-coded `karmyq-events*` queue name in code, and any consumer queue opened outside its own service; see the
+  amendment below);
 - a consumer whose `register(...)` set differs from its routes;
 - `services/registry.json` events that differ from the source.
 
@@ -150,13 +151,19 @@ for future events, would be a queue with no purpose; the next routed reputation 
 (maintainer, 2026-10-20). The `requests.interaction_feedback` table and the always-0 average columns are
 dropped separately in Sprint 134 PR L2.
 
-**The gate tightens.** `tests/regression/sprint-133-pr-q-event-routes.test.ts` now fails on **any**
-`karmyq-events` reference in `services/*/src`, and on `register(...)` calls in a service that is not in
-`EVENT_CONSUMERS` (otherwise a dropped consumer's handlers would go unchecked). Both rules have negative
-fixtures. The BUG-060 integration test keeps only its mechanism half (a scratch queue); the PR Q integration
+**The gate tightens.** `tests/regression/sprint-133-pr-q-event-routes.test.ts` now fails on any string or
+template literal in `services/*/src` code that starts with `karmyq-events` (found with the TypeScript parser, so
+comments do not count); on a `consumerQueueName(c)` or `startConsumerQueue(c, …)` call outside `c`'s own service;
+and on `register(...)` calls, merged across a service's files, that differ from the service's routes (`[]` for a
+service that is not in `EVENT_CONSUMERS`, so a dropped consumer's handlers cannot go unchecked). Each rule has
+negative fixtures. The BUG-060 integration test keeps only its mechanism half (a scratch queue); the PR Q integration
 test narrows to notification and asserts that no container attaches a worker to `karmyq-events` or to
 `karmyq-events-reputation`.
 
-**After deploy.** A read-only check confirms that no container lists a `karmyq-events` or
-`karmyq-events-reputation` worker and that neither queue receives new jobs. The keys left in Redis are inert;
-deleting them is not part of this change.
+**After deploy.** The 2026-10-20 drain check predates the removal, so a job added to either queue in between
+would have no worker afterwards. Nothing in the source can add one (the gate forbids the names, and
+`interaction_feedback_submitted` was never successfully published), but a read-only check confirms it: no
+container lists a `karmyq-events` or `karmyq-events-reputation` worker, and `wait`, `active`, `delayed` and
+`paused` are 0 on both. A nonzero count is a stranded job, and what happens to it is the maintainer's call. The
+keys left in Redis (including the parked failed jobs this ADR chose not to redrive) are inert; deleting them is a
+separate demo operation that needs its own authorization.

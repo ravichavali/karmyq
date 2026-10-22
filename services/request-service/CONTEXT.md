@@ -2136,7 +2136,6 @@ Service health check.
 | `offer.created` | `karmyq-events` | `{ offer_id, offerer_id, community_id, category }` | After successful offer creation |
 | `match.created` | `karmyq-events` | `{ match_id, request_id, offer_id, responder_id }` | When request and responder are matched |
 | `match.completed` | `karmyq-events` | `{ match_id, request_id, responder_id, completed_at }` | When match is marked as completed |
-| `interaction_feedback.submitted` | `karmyq-events` | `{ feedback_id, match_id, from_user_id, to_user_id, ratings }` | Retired in Sprint 134 PR L (BUG-068); never emitted in practice |
 | `privacy_settings.updated` | `karmyq-events` | `{ entity_type, entity_id, is_public, visibility_consent }` | When request/offer privacy changes (Social Karma v2.0) |
 
 ### 4.2 Consumed Events

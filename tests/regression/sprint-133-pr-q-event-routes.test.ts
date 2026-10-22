@@ -6,6 +6,7 @@
  */
 import { DEDICATED_EVENTS, EVENT_CONSUMERS, EVENT_ROUTES, UNCONSUMED_EVENTS, eventsFor } from '@karmyq/shared';
 import type { EventConsumer } from '@karmyq/shared';
+import * as ts from 'typescript';
 import { read, tracked } from './helpers/workspaces';
 
 type SourceFile = { path: string; text: string };
@@ -26,10 +27,25 @@ const routedFor = (service: string): string[] => {
   return (EVENT_CONSUMERS as readonly string[]).includes(consumer) ? eventsFor(consumer as EventConsumer) : [];
 };
 
+// A string or template literal in code (comments are not literals) that starts with a karmyq-events queue name.
+// Consumers get their queue name from consumerQueueName, so a hard-coded one reopens a retired queue or bypasses the router.
+function hardCodesQueueName(path: string, text: string): boolean {
+  if (!text.includes('karmyq-events')) return false;
+  let hit = false;
+  const visit = (n: ts.Node): void => {
+    if ((ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) && n.text.startsWith('karmyq-events')) hit = true;
+    else if (ts.isTemplateExpression(n) && n.head.text.startsWith('karmyq-events')) hit = true;
+    else ts.forEachChild(n, visit);
+  };
+  visit(ts.createSourceFile(path, text, ts.ScriptTarget.Latest, false));
+  return hit;
+}
+
 function scan(files: SourceFile[]) {
   const published: Array<{ service: string; path: string; name: string; via: 'router' | 'direct' }> = [];
   const dynamic: string[] = [];
   const queueNameLiterals: string[] = [];
+  const foreignConsumerQueues: Array<{ consumer: string; path: string }> = [];
   const registered: Record<string, string[]> = {};
   const intercepted = new Set<string>();
   for (const f of files) {
@@ -38,15 +54,17 @@ function scan(files: SourceFile[]) {
       for (const name of matches(f.text, /\.add\(\s*['"]([^'"]+)['"]/g)) published.push({ service: serviceOf(f.path), path: f.path, name, via: 'direct' });
     }
     if (/\bpublishEvent\(\s*(?!['"])[^\s)]/.test(f.text.replace(/function publishEvent\(/g, ''))) dynamic.push(f.path);
-    // Any hard-coded karmyq-events* queue name in code, quoted or templated: consumers get theirs from consumerQueueName.
-    // Comment lines are skipped, so prose about the retired shared queue does not count.
-    const code = f.text.split('\n').filter((l) => !/^\s*(\/\/|\/?\*)/.test(l)).join('\n');
-    if (/(['"`])karmyq-events[^'"`\s]*\1/.test(code)) queueNameLiterals.push(f.path);
+    if (hardCodesQueueName(f.path, f.text)) queueNameLiterals.push(f.path);
+    // One queue per consumer, one consumer per queue: only the consumer's own service may open or start its queue.
+    for (const consumer of matches(f.text, /\b(?:consumerQueueName|startConsumerQueue)\(\s*['"]([^'"]+)['"]/g)) {
+      if (`${consumer}-service` !== serviceOf(f.path)) foreignConsumerQueues.push({ consumer, path: f.path });
+    }
     const regs = matches(f.text, /\bregister\(\s*['"]([^'"]+)['"]/g);
-    if (regs.length) registered[serviceOf(f.path)] = regs.sort();
+    if (regs.length) (registered[serviceOf(f.path)] ??= []).push(...regs);
     if (f.path === INTERCEPTOR) for (const name of matches(f.text, /type === ['"]([^'"]+)['"]/g)) intercepted.add(name);
   }
-  return { published, dynamic, queueNameLiterals, registered, intercepted };
+  for (const regs of Object.values(registered)) regs.sort();
+  return { published, dynamic, queueNameLiterals, foreignConsumerQueues, registered, intercepted };
 }
 
 function violations(files: SourceFile[], registry: any): string[] {
@@ -62,6 +80,7 @@ function violations(files: SourceFile[], registry: any): string[] {
   for (const name of s.intercepted) if (!hasOwn(DEDICATED_EVENTS, name)) out.push(`interceptor routes non-dedicated ${name}`);
   for (const path of s.dynamic) if (!PUBLISHER_MODULE.test(path)) out.push(`dynamic publishEvent name in ${path}`);
   for (const path of s.queueNameLiterals) out.push(`hard-coded karmyq-events queue name in ${path}`);
+  for (const { consumer, path } of s.foreignConsumerQueues) out.push(`${consumer} consumer queue opened in ${path}`);
   // Every consumer registers exactly its routes, and a service that is not a consumer registers nothing.
   for (const service of new Set([...Object.keys(s.registered), ...EVENT_CONSUMERS.map((c) => `${c}-service`)])) {
     const got = JSON.stringify(s.registered[service] ?? []);
@@ -120,10 +139,32 @@ describe('Sprint 133 PR Q: event routing gate (ADR-101)', () => {
       const files = [
         { path: 'services/reputation-service/src/q1.ts', text: "new Queue('karmyq-events-reputation', REDIS_URL)" },
         { path: 'services/reputation-service/src/q2.ts', text: 'new Queue(`karmyq-events-${consumer}`, REDIS_URL)' },
-        { path: 'services/reputation-service/src/q3.ts', text: "// the old `karmyq-events` queue\n/** the shared `karmyq-events` queue */\n * a `karmyq-events-reputation` note" },
+        { path: 'services/reputation-service/src/q3.ts', text: "// the old `karmyq-events` queue\n/** the shared `karmyq-events` queue */\n/*\n * a `karmyq-events-reputation` note\n */" },
       ];
       const flagged = violations([...live, ...files], registry).filter((v) => v.startsWith('hard-coded karmyq-events'));
       expect(flagged).toEqual(['services/reputation-service/src/q1.ts', 'services/reputation-service/src/q2.ts'].map((p) => `hard-coded karmyq-events queue name in ${p}`));
+    });
+    it('flags a queue name in code that shares its line with a comment, or a spaced template', () => {
+      const files = [
+        { path: 'services/reputation-service/src/q4.ts', text: "/* legacy */ const q = new Queue('karmyq-events', REDIS_URL);" },
+        { path: 'services/reputation-service/src/q5.ts', text: 'new Queue(`karmyq-events-${ consumer }`, REDIS_URL)' },
+      ];
+      const flagged = violations([...live, ...files], registry).filter((v) => v.startsWith('hard-coded karmyq-events'));
+      expect(flagged).toEqual(files.map((f) => `hard-coded karmyq-events queue name in ${f.path}`));
+    });
+    it("flags a service that opens another consumer's queue, by name or by starting it", () => {
+      const files = [
+        { path: 'services/reputation-service/src/q6.ts', text: "new Queue(consumerQueueName('notification'), REDIS_URL).process('request_created', h);" },
+        { path: 'services/reputation-service/src/q7.ts', text: "startConsumerQueue('notification', handlers, REDIS_URL);" },
+      ];
+      const flagged = violations([...live, ...files], registry).filter((v) => v.includes('consumer queue opened in'));
+      expect(flagged).toEqual(files.map((f) => `notification consumer queue opened in ${f.path}`));
+    });
+    it("judges a consumer's registrations across all of its files", () => {
+      const extra = { path: 'services/notification-service/src/events/more.ts', text: "register('typo_event', h);" };
+      const drift = violations([...live, extra], registry).find((v) => v.startsWith('notification-service registers ['));
+      expect(drift).toBeDefined();
+      expect(JSON.parse(drift!.split(' registers ')[1].split(', routes say ')[0])).toEqual([...eventsFor('notification'), 'typo_event'].sort());
     });
     it('flags routed handlers registered by a service that is not an event consumer', () => {
       const path = 'services/reputation-service/src/events/subscriber.ts';

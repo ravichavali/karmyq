@@ -912,3 +912,7 @@ request's communities, BUG-013). It would change demo standing over time, so it 
 - **Assert the worker-queue set, not retired names one by one.** The PR Q integration test checks that nothing attaches to
   `karmyq-events` and `karmyq-events-reputation`. Stronger: the set of `karmyq-events*` queues with live workers equals the
   names built from `EVENT_CONSUMERS` (one `CLIENT LIST`).
+- **Delete the inert legacy queue keys on the demo.** After PR L deploys and its read-only check shows `wait`, `active`,
+  `delayed` and `paused` at 0, `bull:karmyq-events:*` (including the parked failed jobs ADR-101 chose not to redrive) and
+  `bull:karmyq-events-reputation:*` only use Redis memory. Removing them is a demo data operation: it needs its own
+  authorization and a dry-run listing of the keys first. Owner: whoever runs PR L's post-deploy check.
