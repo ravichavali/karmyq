@@ -199,6 +199,15 @@ Ride providers include `ride_details` (vehicle_type, max_passengers, advance_boo
 
 ## Recent Changes
 
+### Sprint 134 PR D (2026-10-22) - `verify:demo` reads the demo env file
+`src/scripts/demoEnvFile.ts`: `resolveDemoEnvPath` resolves `DEMO_ENV_FILE || '.env.demo'` against npm's
+`INIT_CWD || cwd` (under `npm --workspace`, `cwd` is this workspace, so the old relative default missed the
+repo-root file). `verify:demo`'s `main()` applies it via `loadDemoEnvFile` (dotenv, `override: false`,
+`quiet: true`) before `readEnv()`, so exported variables win and the operator no longer exports the four
+story IDs. A missing default is not an error; a missing explicit `DEMO_ENV_FILE` reports unavailable. The
+report adds `envFile` (and `envFileLookedFor` when the default is absent): paths only, never values.
+`readEnv()` is unchanged, and `rotate:demo-stories` publishes to the same resolved path.
+
 ### Sprint 133 PR D (2026-10-17) - curated skills layer
 Curated seed gains (live on the demo since the authorized curated reset of 2026-10-19) skills, a skills-sharing opt-out, endorsements, items and standing offers; counts are
 derived (`deriveEndorsementCounts`, `applyEndorsementCounts`) and proven against social-graph's reconcile
@@ -342,7 +351,7 @@ The simulation service now owns two distinct populations:
 |---|---|
 | `npm --workspace @karmyq/simulation-service run reset:demo` | Print the reset plan (no mutation). |
 | `npm --workspace @karmyq/simulation-service run reset:demo -- --apply` | Guarded destructive reset (fingerprint + backup + lock + txn; approved downtime). |
-| `npm --workspace @karmyq/simulation-service run verify:demo` | Read-only outward-API health + privacy verification. |
+| `npm --workspace @karmyq/simulation-service run verify:demo` | Read-only outward-API health + privacy verification. Loads `DEMO_ENV_FILE ?? '.env.demo'` (relative to npm's `INIT_CWD`) without overriding exported variables; the report names the file as `envFile`. |
 | `npm --workspace @karmyq/simulation-service run rotate:demo-stories` | Explicit finite live-story rotation (never a full reset). |
 
 The verifier is the only authority that publishes the four server-generated story IDs, and only after

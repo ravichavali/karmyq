@@ -221,6 +221,21 @@ on real data, not hand-inserted rows), verifies them, backs up and rewrites only
 keys in `.env.demo`, re-enables the demo, recreates auth-service, and re-verifies a live demo
 session. It is fail-closed at every step: if verification fails, no config is published.
 
+### Checking the demo by hand
+
+`verify:demo` is read-only. With `.env.demo.rotation` sourced as above:
+
+```bash
+npm --workspace @karmyq/simulation-service run verify:demo
+```
+
+It reads the four story ids itself (Sprint 134), from the file `DEMO_ENV_FILE` names or else from
+`.env.demo` in the directory you ran npm from. **Do not export the ids by hand.** A value already in
+your environment wins over the file, so a stale export is the one way to verify the wrong stories.
+The report names the file it loaded as `envFile`, or the path it looked for as `envFileLookedFor`
+when there was none; if that path is not your repo root, you ran npm from the wrong directory. A
+`DEMO_ENV_FILE` that names a missing file reports the demo as unavailable.
+
 ### The wiring, and why it is a separate file
 
 `.env.demo.rotation` (template: `.env.demo.rotation.example`, chmod 600, never committed) holds the
