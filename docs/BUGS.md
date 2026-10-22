@@ -1858,7 +1858,7 @@ by the Sprint 133 PR Q `/code-review`; the PR Q integration test publishes synth
   allowlist entries; `interaction_feedback_submitted` from the routing table and `services/registry.json`; the reputation
   handler, and with it reputation's consumer queue (it was the only routed event; ADR-101 amendment); the simulation's
   `submitFeedback` action and `ApiClient.submitMatchFeedback`. The policy question above is moot: nothing publishes the
-  event. Tests: `services/request-service/tests/tdd/sprint-134-bug-068-feedback-retired.test.ts` (real app, both paths
+  event. Tests: `services/request-service/tests/regression/sprint-134-bug-068-feedback-retired.test.ts` (real app, both paths
   reach the 404 handler with no feedback SQL), the live 404 case in `tests/integration/sprint-132-security-authz.integration.test.ts`,
   and the tightened `tests/regression/sprint-133-pr-q-event-routes.test.ts`. **Still open for PR L2:** the
   `requests.interaction_feedback` table, the four `trust_scores` columns and the three `community_health_metrics`

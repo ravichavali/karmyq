@@ -2911,7 +2911,7 @@ CREATE TABLE auth.user_interests (
 - **BUG-068 — `POST /matches/:matchId/feedback` always failed.** It selected `help_requests.community_id`, which does
   not exist, so it 500ed before writing or publishing; the only caller (the simulation) discarded the error. Both
   feedback routes are removed rather than repaired (maintainer, 2026-10-16). Tests:
-  `tests/tdd/sprint-134-bug-068-feedback-retired.test.ts` (real app: both paths reach the 404 handler, no feedback
+  `tests/regression/sprint-134-bug-068-feedback-retired.test.ts` (real app: both paths reach the 404 handler, no feedback
   SQL runs) and the live case in `tests/integration/sprint-132-security-authz.integration.test.ts`.
 
 **Sprint 133 PR V — Request and offer read boundary (v11.89.0, #306):**
