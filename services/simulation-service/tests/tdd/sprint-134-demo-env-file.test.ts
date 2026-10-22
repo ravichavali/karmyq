@@ -11,6 +11,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { loadDemoEnvFile, resolveDemoEnvPath } from '../../src/scripts/demoEnvFile';
 import { buildRotationDeps } from '../../src/scripts/rotateMariaStories';
+import { main } from '../../src/scripts/verifyDemoData';
 
 // The rotate flow creates stories through the API; a fake client lets it reach publishConfig offline.
 jest.mock('../../src/api-client', () => ({
@@ -209,6 +210,93 @@ describe('resolveDemoEnvPath', () => {
       path: path.join(cwd, '.env.demo'),
       explicit: false,
     });
+  });
+});
+
+describe('verify:demo main() reports the env file', () => {
+  const KEYS = [
+    'API_BASE_URL', 'DEMO_MARIA_EMAIL', 'DEMO_PERSONA_EMAIL', 'DEMO_HELPER_EMAIL', 'DEMO_PROVIDER_EMAIL',
+    'DEMO_UNRELATED_EMAIL', 'DEMO_PERSONA_PASSWORD', 'INIT_CWD', 'DEMO_ENV_FILE', ...STORY_KEYS,
+  ];
+  const saved: Record<string, string | undefined> = {};
+  let log: jest.SpyInstance;
+
+  beforeEach(() => {
+    for (const key of KEYS) {
+      saved[key] = process.env[key];
+      delete process.env[key];
+    }
+    log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    log.mockRestore();
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+
+  function printedReport(): Record<string, unknown> {
+    expect(log).toHaveBeenCalledTimes(1);
+    return JSON.parse(log.mock.calls[0][0] as string);
+  }
+
+  it('loads the story IDs into the environment and names the file, never a value', async () => {
+    const root = tempDir();
+    const rootFile = writeFileIn(root, '.env.demo', STORY_FILE);
+    process.env.INIT_CWD = root;
+
+    await main();
+
+    expect(process.env.DEMO_PROVIDER_OFFER_ID).toBe('file-provider-offer-2b8b');
+    const report = printedReport();
+    expect(report).toEqual({
+      ready: false,
+      unavailable: true,
+      reason: 'verify:demo unavailable — missing env: baseUrl, mariaEmail, helperEmail, providerEmail, unrelatedEmail, password',
+      envFile: rootFile,
+    });
+    expect(log.mock.calls[0][0]).not.toContain('file-provider-offer-2b8b');
+  });
+
+  it('names the default path it looked for when no file is there', async () => {
+    const root = tempDir();
+    process.env.INIT_CWD = root;
+    Object.assign(process.env, {
+      API_BASE_URL: 'http://api.invalid',
+      DEMO_MARIA_EMAIL: 'm@example.test',
+      DEMO_HELPER_EMAIL: 'h@example.test',
+      DEMO_PROVIDER_EMAIL: 'p@example.test',
+      DEMO_UNRELATED_EMAIL: 'u@example.test',
+      DEMO_PERSONA_PASSWORD: 'not-a-real-password',
+    });
+
+    await main();
+
+    expect(printedReport()).toEqual({
+      ready: false,
+      unavailable: true,
+      reason: 'verify:demo unavailable — missing story IDs: ordinaryRequestId, ordinaryMatchId, providerRequestId, providerOfferId',
+      envFile: null,
+      envFileLookedFor: path.join(root, '.env.demo'),
+    });
+  });
+
+  it('reports a missing explicit DEMO_ENV_FILE through the unavailable path', async () => {
+    const root = tempDir();
+    process.env.INIT_CWD = root;
+    process.env.DEMO_ENV_FILE = 'nope.env';
+
+    await main();
+
+    expect(printedReport()).toEqual({
+      ready: false,
+      unavailable: true,
+      reason: `verify:demo unavailable — DEMO_ENV_FILE not found: ${path.join(root, 'nope.env')}`,
+      envFile: null,
+    });
+    expect(process.exitCode).toBeFalsy();
   });
 });
 
