@@ -1,6 +1,6 @@
 # Sprint 134 — Dated Obligations and Boundary Hardening — Handoff
 
-**Date**: 2026-10-21
+**Date**: 2026-10-22
 **Status**: IN PROGRESS. **PR F #310 SHIPPED** 2026-10-20: merged `63a6cd26` (v11.93.0) by the maintainer (the classifier refused
 Claude's `--admin` merge), deployed by CI/CD 39516935342 (all 15 jobs green, all 9 services healthy, no rollback, no CodeQL re-raise).
 **PR A #311 SHIPPED** 2026-10-21: admin-merged `bf524296` (v11.94.0) on the maintainer's authorization after Codex review;
@@ -37,7 +37,7 @@ on ~10-24, cut fresh from `origin/master`.
 
 | Field | Value |
 |---|---|
-| **Current branch** | `agent/claude/sprint-134-pr-d-verify-demo-env` (from `origin/master` `eea83267`, v11.95.0); no PR yet. Reuse it for PR D (or for the exemption renewal if that must land first; then cut PR D fresh after it merges). The PR E branch merged as #312 and the PR A branch as #311; both can be deleted. The planning branch `agent/claude/sprint-134-planning` merged as #310 and can be deleted. Every later PR is cut from `origin/master` after the previous one merges |
+| **Current branch** | `agent/claude/sprint-134-pr-d-verify-demo-env` (from `origin/master` `eea83267`) carries PR D: **#313 open (v11.96.0), awaiting maintainer merge**. Do not reuse it. The exemption renewal goes on a **fresh** branch cut from `origin/master` after #313 merges and its deploy + health verify finish (on ~10-24; merge before 10-25 17:00 PDT). The PR E branch merged as #312 and the PR A branch as #311; both can be deleted. The planning branch `agent/claude/sprint-134-planning` merged as #310 and can be deleted. Every later PR is cut from `origin/master` after the previous one merges |
 | **Active editor** | Claude |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated); each PR re-derives its version from `origin/master` at merge time |
 
@@ -141,6 +141,11 @@ test helpers applied), `/code-review` medium (10 findings: 6 fixed, 2 ruled, 2 r
   failure mode the guide warns about. `||` not `??`: an empty `DEMO_ENV_FILE` means the default (matches `:-` in the scripts).
 - Not fixed (ruled): rotate does not load the file (spec keeps reset/rotate unaffected); the loader's `verify:demo` error
   prefix (only verify calls it).
+
+**CI:** #313 20/20 green. CodeQL #625 (`js/command-line-injection`, a re-raise of the dismissed #567 after a line shift) and #626/#627
+(`js/path-injection`, operator `DEMO_ENV_FILE`) were dismissed as false positives on the maintainer's authorization (2026-10-22).
+**Expect a re-raise on master after the merge** (PR-ref dismissals do not carry); ask before dismissing, then `gh run rerun <id> --failed`.
+Codex review at `abe876a6`: no blocking implementation findings; its one finding (this table's stale *Current branch* row) is fixed.
 
 **Human validation (Task D8, maintainer, demo host; ask before running):** source `.env.demo.rotation`, export no story IDs,
 run `npm --workspace @karmyq/simulation-service run verify:demo` from the repo root → `envFile: <repo>/.env.demo`,
