@@ -52,7 +52,7 @@ on ~10-24, cut fresh from `origin/master`.
 | 0 | **F** | follow-redirects 1.16.0 → 1.16.1 (GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c, high, published 2026-10-20); one-node splice; v11.93.0 | high SLA 10-27 | spec *PR F* | **SHIPPED** `63a6cd26` (#310), CI/CD 39516935342 green |
 | 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | **SHIPPED** `bf524296` (#311, v11.94.0), CI/CD 39666220132 green. Human validation (Task A12) pending: maintainer downloads all three exports on karmyq.com. See *PR A state* below |
 | 2 | **E** | Expo SDK 57 patch (#279) + drift-workflow silent-failure fix | — | [`plans/2026-10-20-sprint-134-pr-e-expo-patch.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-e-expo-patch.md) | **SHIPPED** `eea83267` (#312, v11.95.0), CI/CD 39711848936 attempt 2 green. See *PR E state* |
-| 3 | **D** | `verify:demo` loads `DEMO_ENV_FILE ?? '.env.demo'` | — | [`plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md) | **IN PROGRESS** on `agent/claude/sprint-134-pr-d-verify-demo-env` (cut from `eea83267`; carries the handoff + IDEAS commits). Ordered BEFORE X (maintainer, 2026-10-22) |
+| 3 | **D** | `verify:demo` loads `DEMO_ENV_FILE`, else the repo-root `.env.demo` | — | [`plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md) | **PR OPEN** (v11.96.0), awaiting maintainer merge; see *PR D state*. Ordered BEFORE X (maintainer, 2026-10-22) |
 | — | **X** | Exemption **renewal** (re-check done 2026-10-22: no upstream fix, renewal needed) | gate fails **10-25 17:00 PDT** | *Dated obligations* below | **On ~10-24**, cut fresh from `origin/master` after D merges; created 10-24 → expires 10-31 |
 | 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | drain check **PASSED** 2026-10-20; decisions settled; ready after A/E/D |
 | 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers (incl. the reputation health route); **BUG-070** | BUG-070 **2026-11-03** | write at PR start | — |
@@ -122,6 +122,30 @@ close step failing on green is a logged follow-up, not a blocker. Its review sta
 branch dispatch (run 39708884381) before merge; the merge landed before any scheduled master run, so no new drift issue was
 filed. **Still to confirm:** the scheduled drift run at 07:15 UTC 2026-10-22 on master is green (first scheduled run with the fix).
 Not yet fired at 04:10Z 2026-10-22; recent scheduled runs actually started 11:36-14:40Z (GitHub cron delay). No open drift issue then.
+
+## PR D state (2026-10-22)
+
+Executed inline (`superpowers:executing-plans`) on `agent/claude/sprint-134-pr-d-verify-demo-env`, v11.96.0 (re-derived from
+`origin/master` `eea83267`). `src/scripts/demoEnvFile.ts`: `resolveDemoEnvPath` + `loadDemoEnvFile`; `verify:demo` `main()` applies
+the story keys before `readEnv()`; `rotate:demo-stories` publishes to the same path and hands it, absolute, to the host commands.
+Tests: `services/simulation-service/tests/tdd/sprint-134-demo-env-file.test.ts` (17, real temp files). Gates: `/simplify` (4 agents,
+test helpers applied), `/code-review` medium (10 findings: 6 fixed, 2 ruled, 2 resolved by the fix), `/security-review` no findings.
+
+**Rulings for the maintainer (deviations from spec/plan):**
+- **Anchor = the repo root, not `INIT_CWD`.** `scripts/demo/*.sh` already anchor a relative/unset `DEMO_ENV_FILE` to the repo
+  root; `INIT_CWD` can differ (and nested npm runs inherit it), which would let rotate publish to one file while
+  `restart-auth.sh` sources another. The spec's goal (find the repo-root file) holds on every invocation.
+- **Only `DEMO_CONFIG_KEYS` are applied** (via `dotenv.parse`, not `config()`): `.env.demo` is the compose env and carries
+  `JWT_SECRET`, `POSTGRES_PASSWORD`, `INTERNAL_SECRET`. So the sprint-131 dotenv gate is unchanged (no new `config()` call).
+- The report adds `envFileShadowed`: exported story keys whose value differs from the file (names only), the stale-export
+  failure mode the guide warns about. `||` not `??`: an empty `DEMO_ENV_FILE` means the default (matches `:-` in the scripts).
+- Not fixed (ruled): rotate does not load the file (spec keeps reset/rotate unaffected); the loader's `verify:demo` error
+  prefix (only verify calls it).
+
+**Human validation (Task D8, maintainer, demo host; ask before running):** source `.env.demo.rotation`, export no story IDs,
+run `npm --workspace @karmyq/simulation-service run verify:demo` from the repo root → `envFile: <repo>/.env.demo`,
+`envFileShadowed: []`, `ready: true`. Repeat from `services/simulation-service/` with `DEMO_ENV_FILE` unset → same file.
+Export one ID to a wrong value → the report fails and lists it under `envFileShadowed`.
 
 ## Maintainer decisions (2026-10-19 / 2026-10-20)
 
