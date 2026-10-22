@@ -8,11 +8,10 @@ import { pool } from '../config/database';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
-const eventQueue = new Queue('karmyq-events', REDIS_URL);
 const completionQueue = new Queue('karmyq-completion-social-graph', REDIS_URL);
 completionQueue.on('error', error => logger.error('Completion queue error', error instanceof Error ? error : undefined));
 // ADR-100 / BUG-060: endorsement changes ride a dedicated queue (mirrored in auth-service
-// src/events/endorsementEvents.ts); the shared karmyq-events queue would let other services' workers fail them.
+// src/events/endorsementEvents.ts); a queue shared with other services' workers would let them fail these jobs.
 export const ENDORSEMENT_QUEUE = 'karmyq-skill-endorsement-social-graph';
 const endorsementQueue = new Queue(ENDORSEMENT_QUEUE, REDIS_URL);
 endorsementQueue.on('error', error => logger.error('Endorsement queue error', error instanceof Error ? error : undefined));
@@ -103,7 +102,6 @@ export async function initEventSubscriber() {
       logger.info('Processing match_completed event', job.data);
       await handleMatchCompleted(job.data.payload as MatchCompletedPayload);
     };
-    eventQueue.process('match_completed', handleCompletion);
     completionQueue.process('match_completed', handleCompletion);
     endorsementQueue.process('skill_endorsement_changed', async (job: Queue.Job) => {
       await handleEndorsementChanged(job.data.payload as EndorsementChangedPayload);
@@ -115,5 +113,3 @@ export async function initEventSubscriber() {
     throw error;
   }
 }
-
-export default eventQueue;

@@ -18,7 +18,8 @@ describe('event routing table (ADR-101)', () => {
   });
 
   it('pins the exact routes', () => {
-    expect(eventsFor('reputation')).toEqual(['interaction_feedback_submitted']);
+    // Sprint 134 PR L: interaction_feedback_submitted was retired (BUG-068), so reputation consumes only dedicated transports.
+    expect([...EVENT_CONSUMERS]).toEqual(['notification']);
     expect(eventsFor('notification')).toEqual([
       'dibs_accepted', 'dibs_declined', 'dibs_expired', 'dibs_submitted', 'fusion_vote_started',
       'join_request_created', 'karma_awarded', 'match_created', 'match_reminder', 'offer_accepted',
@@ -32,6 +33,5 @@ describe('event routing table (ADR-101)', () => {
   it('never names the shared legacy queue', () => {
     for (const c of EVENT_CONSUMERS) expect(consumerQueueName(c)).not.toBe('karmyq-events');
     expect(consumerQueueName('notification')).toBe('karmyq-events-notification');
-    expect(consumerQueueName('reputation')).toBe('karmyq-events-reputation');
   });
 });

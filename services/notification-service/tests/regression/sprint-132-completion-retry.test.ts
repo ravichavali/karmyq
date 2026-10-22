@@ -24,7 +24,6 @@ it('keeps one completion notification per participant after a second-recipient f
   const emit = jest.spyOn(notificationEmitter, 'emit');
   await initEventSubscriber();
   const handler = mockQueues['karmyq-completion-notification'].match_completed;
-  expect(handler).toBe(mockQueues['karmyq-events'].match_completed);
   const job = { data: { payload: { match_id: 'match', request_id: 'ask', requester_id: 'R', responder_id: 'O' } } };
   await expect(handler(job)).rejects.toThrow('second recipient');
   await handler(job); await handler(job);

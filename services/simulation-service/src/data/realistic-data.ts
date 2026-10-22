@@ -146,29 +146,6 @@ export const ACTIVITY_TEMPLATES: Record<string, Array<{title: string, descriptio
   ],
 };
 
-// ============================================================================
-// Feedback Comment Pool
-// Imported by submit-feedback-workflow.ts
-// ============================================================================
-
-export const FEEDBACK_COMMENTS = [
-  'Really helpful, showed up on time and went above and beyond.',
-  'Great communication throughout. Would ask again.',
-  'Friendly and efficient. Made everything easy.',
-  'Genuinely kind — this is what neighbors are for.',
-  'Quick response and followed through exactly as promised.',
-  'A little hard to coordinate timing but ultimately came through.',
-  'Did the job well. No complaints.',
-  'Could not have managed without this help — so grateful.',
-  'Super patient and thoughtful. Real community spirit.',
-  'Flexible scheduling made it work for both of us. Thank you.',
-  'Came through on short notice. Portland neighbors are the best.',
-  'Reliable and kind. Exactly what mutual aid should feel like.',
-  'We ended up having great conversation too. Unexpected bonus!',
-  'Offered to help with other things too. Very generous.',
-  'Did not hesitate when I reached out. That means everything.',
-];
-
 export const FOUNDERS = [
   { firstName: 'Maria', lastName: 'Reyes', bio: 'Community organizer and mutual aid advocate in SE Portland.' },
   { firstName: 'James', lastName: 'Okafor', bio: 'Longtime Northeast Portland resident focused on neighbor connections.' },

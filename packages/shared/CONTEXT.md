@@ -126,9 +126,12 @@ Root exports from `events/routes.ts` and `events/consumer.ts`:
 - `DEDICATED_EVENTS`: events with their own transport, each with its `{ queue, consumers }`.
 - `UNCONSUMED_EVENTS`, `EVENT_CONSUMERS`.
 - `consumerQueueName(c)` → `karmyq-events-<c>`; `eventsFor(c)` → its routed events, sorted.
-- `startConsumerQueue(consumer, handlers, redisUrl, legacyQueue?)`: throws unless the handler names equal
-  `eventsFor(consumer)`, before any worker attaches. It then attaches each handler to the consumer queue and, during the
-  drain release, to `legacyQueue`. Routing lookups use own keys only, so `constructor` or `toString` is unclassified.
+- `startConsumerQueue(consumer, handlers, redisUrl)`: throws unless the handler names equal `eventsFor(consumer)`,
+  before its queue opens. It then attaches each handler to the consumer queue. Sprint 134 PR L removed the optional
+  `legacyQueue` drain parameter with the legacy `karmyq-events` handlers. Routing lookups use own keys only, so
+  `constructor` or `toString` is unclassified.
+- Sprint 134 PR L (BUG-068): `interaction_feedback_submitted` is retired, so `EVENT_CONSUMERS` is `['notification']`;
+  reputation consumes only its dedicated queues.
 - Types: `EventHandler`, `EventConsumer`.
 
 Each consumer queue is opened lazily on the first publish to it (`initEventPublisher` only records `REDIS_URL`).

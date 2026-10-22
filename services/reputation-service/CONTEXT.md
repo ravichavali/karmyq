@@ -5,6 +5,16 @@
 
 ## Recent Changes
 
+- **2026-10-22 (Sprint 134 PR L, ADR-101 amendment, BUG-068)**: reputation-service is **no longer an event
+  consumer**. Its one routed event, `interaction_feedback_submitted`, came only from request-service
+  `POST /matches/:matchId/feedback`, which always failed and had no client (BUG-068), so the route, the event and this
+  service's trust_scores-averaging handler are retired together. The subscriber no longer starts
+  `karmyq-events-reputation` and no longer opens the legacy `karmyq-events` queue (drain check clean, 2026-10-20).
+  It attaches only to `karmyq-completion-reputation` (`match_completed`) and `karmyq-community-evolution`. The
+  `trust_scores` `avg_helpfulness`/`avg_responsiveness`/`avg_clarity`/`total_feedback_received` columns now have no
+  writer and no reader in service code; PR L2 drops them. The always-0 `community_health_metrics` averages (built from
+  a `requests.interaction_feedback` aggregate, read by `routes/health.ts`, `milestoneDetector.ts` and request-service's
+  feed composer) also stay until L2, with BUG-070.
 - **2026-10-15 (Sprint 133 PR Q, ADR-101, BUG-060)**: `interaction_feedback_submitted` is consumed from
   **`karmyq-events-reputation`**, a queue no other service attaches to, via `startConsumerQueue` (the service refuses
   to start if its handlers differ from the routing table). The handler also stays on `karmyq-events` for one release
@@ -955,7 +965,6 @@ for why that path had been throwing `42703` on every match since Sprint 62.
 
 ### Events Consumed
 - `match_completed` - Award karma when help exchange completed; also recalculates `completion_rate` on `reputation.provider_trust_scores` if responder has an active provider profile (cross-schema: `requests.provider_profiles`)
-- `interaction_feedback_submitted` - Update trust scores with interaction quality (Social Karma v2.0)
 
 ### External Dependencies
 - PostgreSQL (reputation schema)
@@ -994,7 +1003,7 @@ LOG_LEVEL=info                   # debug, info, warn, error
 - `src/services/milestoneDetector.ts` - Milestone detection logic (Social Karma v2.0) - NEW
 
 ### Events
-- `src/events/subscriber.ts` - Listens to match_completed and interaction_feedback_submitted events
+- `src/events/subscriber.ts` - Listens to match_completed on `karmyq-completion-reputation` and processes `karmyq-community-evolution` jobs
 
 ### Background Jobs
 - `src/cron/healthMetricsCalculator.ts` - Daily health metrics aggregation (Social Karma v2.0) - NEW
@@ -1298,7 +1307,7 @@ SELECT SUM(points) FROM reputation.karma_records WHERE user_id = '...' AND commu
 1. Check REDIS_URL is correct
 2. Verify Redis is running: `redis-cli -u $REDIS_URL ping`
 3. Check event subscriber initialization in logs
-4. Test queue connection: `redis-cli LLEN bull:karmyq-events-reputation:wait` (routed events, ADR-101)
+4. Test queue connection: `redis-cli LLEN bull:karmyq-completion-reputation:wait` (match_completed, ADR-099; reputation has no routed-event queue since Sprint 134 PR L)
 
 ## Testing
 

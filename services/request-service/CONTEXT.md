@@ -7,6 +7,12 @@
 
 ## Recent Changes
 
+- **2026-10-22 (Sprint 134 PR L, BUG-068, ADR-101 amendment)**: the dead interaction-feedback routes
+  `POST`/`GET /matches/:id/feedback` (`src/routes/feedback.ts`) are removed, with their mount and their three
+  directed-surface allowlist entries. POST always 500ed on `help_requests.community_id` and no client called either
+  route; see section 3.4. request-service no longer publishes `interaction_feedback_submitted` (retired from the
+  routing table), and the legacy `karmyq-events` handlers in the consumers are gone. `requests.interaction_feedback`
+  and the feed composer's always-0 averages stay until PR L2.
 - **2026-10-16 (Sprint 133 PR V, BUG-065 + BUG-064)**: `GET /requests` lists only what `GET /requests/:id`
   would open. The read boundary is one SQL fragment, `requestReadableSql(alias, viewerParam)` in
   `src/db/eligibility.ts`, which wraps the directed-audience predicate around own ∨ any-status match responder ∨
@@ -36,7 +42,7 @@
   Partial enqueue retries reuse match-based job IDs. Ten total attempts use exponential retries starting at 2 seconds;
   successful identities are retained for 24 hours without count eviction, failed jobs are retained.
   This is at-least-once delivery with bounded queue deduplication, not exactly-once effects.
-  Legacy shared handlers remain for queued pre-upgrade events, whose competition is not repaired.
+  The legacy shared handlers that drained pre-upgrade events were removed in Sprint 134 PR L.
   Other event transports are unchanged. The existing gap between database completion and the
   first Redis enqueue is not covered by a transactional completion outbox; a publish failure
   there still needs operator recovery. Real integration cases assert all three subscriber effects.
@@ -225,7 +231,7 @@ requests work for providers too.
 - **Runtime:** Node.js 18
 - **Framework:** Express.js
 - **Database Schema:** `requests`
-- **Event Queues:** routed per consumer by `@karmyq/shared` (`karmyq-events-notification`, `karmyq-events-reputation`; ADR-101), plus the dedicated `karmyq-completion-dispatch` and `karmyq-directed-notifications` (ADR-099). Unconsumed events are not enqueued.
+- **Event Queues:** routed per consumer by `@karmyq/shared` (`karmyq-events-notification`; ADR-101), plus the dedicated `karmyq-completion-dispatch` and `karmyq-directed-notifications` (ADR-099). Unconsumed events are not enqueued.
 - **External Services:** PostgreSQL, Redis
 
 ### 2.2 Key Components (v9.0)
@@ -235,8 +241,7 @@ src/
 ├── routes/
 │   ├── requests.ts       # Polymorphic request CRUD + curated feed endpoint
 │   ├── offers.ts         # Help offer CRUD
-│   ├── matches.ts        # Match creation and status updates
-│   └── feedback.ts       # Interaction feedback (Social Karma v2.0)
+│   └── matches.ts        # Match creation and status updates
 ├── services/
 │   └── matcher.ts        # Type-specific matching algorithms
 ├── database/
@@ -2016,45 +2021,13 @@ surface renders `CommunityHealthHero` today.
 
 **Implementation:** `src/routes/feed.ts` + `src/services/feed/socialKarmaFeedComposer.ts`
 
-### 3.4 Interaction Feedback (Social Karma v2.0)
+### 3.4 Interaction Feedback (retired, Sprint 134 PR L)
 
-#### POST /matches/:id/feedback
-Submit interaction feedback for a completed match.
-
-**Request:**
-```json
-{
-  "helpfulness": 5,
-  "responsiveness": 4,
-  "clarity": 5,
-  "comment": "Great communication, very helpful exchange!",
-  "allow_featuring": true
-}
-```
-
-**Validation:**
-- Match must be completed
-- The author is the **JWT caller**, who must be the requester or the responder. A body `from_user_id` from older clients is ignored (BUG-057, Sprint 132 PR S; it used to let anyone author feedback as either participant).
-- Can only submit feedback once per match
-- All ratings must be 1-5
-
-**Two-Way Consent Logic:**
-When both parties submit feedback with `allow_featuring = true`:
-1. Check `requester_visibility_consent` and `responder_visibility_consent`
-2. If both true: Names visible in featured story
-3. If either false: Anonymous story only
-4. Update `matches.requester_visible` and `matches.responder_visible`
-
-**Events Published:** `interaction_feedback.submitted`
-
-**Implementation:** `src/routes/feedback.ts`
-
-#### GET /matches/:id/feedback
-Get feedback for a match.
-
-**Authorization:** Only the requester or the responder can view, checked for the **JWT caller**. A `user_id` query param from older clients is ignored (BUG-057, Sprint 132 PR S; it used to let anyone read feedback by naming a participant). Non-participant → 403.
-
-**Implementation:** `src/routes/feedback.ts`
+`POST` and `GET /matches/:id/feedback` were removed in Sprint 134 PR L (BUG-068). POST always failed: it selected
+`help_requests.community_id`, which does not exist, so it never wrote `requests.interaction_feedback` or published
+`interaction_feedback_submitted`, and GET could only return empty feedback. No client called either route. Both paths
+now fall through to the app's 404 `NOT_FOUND`. Members rate each other through reputation-service
+`POST /reputation/feedback` (ADR-036). The `requests.interaction_feedback` table is dropped in PR L2.
 
 ### 3.5 Health Check
 
@@ -2163,7 +2136,6 @@ Service health check.
 | `offer.created` | `karmyq-events` | `{ offer_id, offerer_id, community_id, category }` | After successful offer creation |
 | `match.created` | `karmyq-events` | `{ match_id, request_id, offer_id, responder_id }` | When request and responder are matched |
 | `match.completed` | `karmyq-events` | `{ match_id, request_id, responder_id, completed_at }` | When match is marked as completed |
-| `interaction_feedback.submitted` | `karmyq-events` | `{ feedback_id, match_id, from_user_id, to_user_id, ratings }` | When user submits feedback (Social Karma v2.0) |
 | `privacy_settings.updated` | `karmyq-events` | `{ entity_type, entity_id, is_public, visibility_consent }` | When request/offer privacy changes (Social Karma v2.0) |
 
 ### 4.2 Consumed Events
@@ -2933,6 +2905,14 @@ CREATE TABLE auth.user_interests (
 - No breaking changes to existing API contracts
 
 ### 10.4 Recent Fixes
+
+**Sprint 134 PR L — Dead interaction-feedback routes retired (BUG-068):**
+
+- **BUG-068 — `POST /matches/:matchId/feedback` always failed.** It selected `help_requests.community_id`, which does
+  not exist, so it 500ed before writing or publishing; the only caller (the simulation) discarded the error. Both
+  feedback routes are removed rather than repaired (maintainer, 2026-10-16). Tests:
+  `tests/regression/sprint-134-bug-068-feedback-retired.test.ts` (real app: both paths reach the 404 handler, no feedback
+  SQL runs) and the live case in `tests/integration/sprint-132-security-authz.integration.test.ts`.
 
 **Sprint 133 PR V — Request and offer read boundary (v11.89.0, #306):**
 

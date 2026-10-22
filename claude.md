@@ -215,7 +215,7 @@ Error: `{ "success": false, "message": "Human-readable", "error": "ERROR_CODE" }
 
 ### Events
 Every event is routed by `packages/shared/events/routes.ts` (ADR-101) in one of three ways:
-- to its ONE consumer's queue, `karmyq-events-<consumer>` (`notification`, `reputation`);
+- to its ONE consumer's queue, `karmyq-events-<consumer>` (today only `notification`);
 - to a dedicated transport (`match_completed`, `directed_request_created`, `skill_endorsement_changed`);
 - nowhere, if nothing consumes it: unconsumed events are not enqueued.
 

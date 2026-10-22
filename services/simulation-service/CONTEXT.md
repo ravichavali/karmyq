@@ -4,6 +4,16 @@
 **Status**: development
 **Criticality**: optional — used for demo data generation only
 
+Sprint 134 PR L (BUG-068): the `submitFeedback` action is removed with its workflow, profile weights, type field,
+`FEEDBACK_COMMENTS` pool and `ApiClient.submitMatchFeedback`. It posted to request-service
+`POST /matches/:matchId/feedback`, which always failed (the client discarded the error) and is now retired, so the
+simulation never produced rating data. The live rating path is reputation-service `POST /reputation/feedback`
+(ADR-036); no workflow calls it yet. **Mix shift:** `selectWorkflow` picks in proportion to the remaining weights, so
+removing a 0.15–0.30 weight makes every other action of the four affected profiles fire proportionally more often:
+ACTIVE_HELPER ×1.072, REQUESTER ×1.115, COMMUNITY_BUILDER ×1.068, SOCIAL_USER ×1.063 (raw weights, before the session
+affinity boosts). The removed action never wrote anything, so the demo simulation (PM2, restarted by `scripts/deploy.sh`)
+now performs that much more real activity per session. No weight was retuned to compensate.
+
 Sprint 132 PR C review: `inventory.borrow_notification_outbox` is a reset table alongside inventory
 items/shares. Request hard deletion cascades its pending delivery intents. This classification
 adds no demo operation authorization; the disposable CI curated reset gate verifies it.
@@ -58,7 +68,7 @@ Generates realistic synthetic activity on the karmyq.com demo environment. Simul
 src/
 ├── config/           # default.json — worker count, profile distribution, growth rate
 ├── data/
-│   └── realistic-data.ts  # COMMUNITIES, request templates, PROVIDER_TEMPLATES, FEEDBACK_COMMENTS, name lists
+│   └── realistic-data.ts  # COMMUNITIES, request templates, PROVIDER_TEMPLATES, name lists
 ├── profiles/
 │   └── index.ts      # User behavior profiles + selectWorkflow() — picks action based on weights
 ├── types.ts          # UserProfile, ActionWeight, SimulatedUser, SimulationConfig types
@@ -92,7 +102,6 @@ Growth (new user registration) runs on a standalone `setInterval` every 3 minute
 | `offer-workflow.ts` | Offer help on an open request | ACTIVE_HELPER, COMMUNITY_BUILDER |
 | `accept-offer-workflow.ts` | Accept a proposed match | REQUESTER |
 | `complete-match-workflow.ts` | Mark match complete (both sides) | ACTIVE_HELPER, REQUESTER, COMMUNITY_BUILDER |
-| `submit-feedback-workflow.ts` | Rate a completed match (helpfulness/responsiveness/clarity) | ACTIVE_HELPER, REQUESTER, COMMUNITY_BUILDER, SOCIAL_USER |
 | `browse-workflow.ts` | Browse requests (no side effects) | BROWSER, others |
 | `message-workflow.ts` | Send a message in a match conversation | SOCIAL_USER, ACTIVE_HELPER |
 | `join-community-workflow.ts` | Discover and join communities | All profiles (forced if 0 communities) |
@@ -124,8 +133,6 @@ Growth (new user registration) runs on a standalone `setInterval` every 3 minute
 | Email domain | `@test.karmyq.com` | `db-user-loader.ts` | All sim user queries filtered to this domain via `SIM_ACTOR_POOL_FILTER`; explicitly excludes `@karmyq.test` e2e fixtures (Sprint 77) |
 | `createCommunities` weight (COMMUNITY_BUILDER) | 0.001 | `profiles/index.ts` | Near-zero — avoids community proliferation |
 | `createCollective` weight (COMMUNITY_BUILDER) | 0.01 | `profiles/index.ts` | Near-zero |
-| `submitFeedback` weight (ACTIVE_HELPER) | 0.25 | `profiles/index.ts` | High weight — drives Social Karma data |
-| `submitFeedback` weight (REQUESTER) | 0.30 | `profiles/index.ts` | Requesters rate their helpers |
 
 ---
 

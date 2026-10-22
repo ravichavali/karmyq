@@ -59,16 +59,6 @@ describe('Profile weight invariants', () => {
     expect(w).toBeLessThanOrEqual(0.015);
   });
 
-  it('ACTIVE_HELPER submitFeedback weight ≥ 0.20', () => {
-    const w = ACTIVE_HELPER.actions.submitFeedback?.weight ?? 0;
-    expect(w).toBeGreaterThanOrEqual(0.20);
-  });
-
-  it('REQUESTER submitFeedback weight ≥ 0.25', () => {
-    const w = REQUESTER.actions.submitFeedback?.weight ?? 0;
-    expect(w).toBeGreaterThanOrEqual(0.25);
-  });
-
   it('COMMUNITY_BUILDER voteOnGovernance weight > 0', () => {
     const w = COMMUNITY_BUILDER.actions.voteOnGovernance?.weight ?? 0;
     expect(w).toBeGreaterThan(0);

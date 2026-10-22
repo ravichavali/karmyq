@@ -36,7 +36,6 @@ export interface UserProfile {
     scheduleActivity?: ActionWeight;
     joinActivity?: ActionWeight;
     voteOnGovernance?: ActionWeight;
-    submitFeedback?: ActionWeight;
     callDibs?: ActionWeight;
     acceptOrDeclineDibs?: ActionWeight;
     nominateMember?: ActionWeight;

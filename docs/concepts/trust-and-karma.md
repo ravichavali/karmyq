@@ -30,7 +30,7 @@ Your personal trust score (0–100) reflects how much your community peers trust
 
 - **Depth**: How many interactions you've completed in the last 12 months
 - **Breadth**: How many distinct people you've helped or been helped by
-- **Feedback**: Weighted average of helpfulness, responsiveness, and clarity ratings
+- **Feedback**: Weighted average of the private 1–5 ratings your exchange partners gave you
 
 The score is community-specific — you may have different trust scores in different communities, reflecting different participation levels. A cross-community carry system gives you a starting floor in a new community based on a decayed fraction of your best score elsewhere.
 
