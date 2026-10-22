@@ -6,8 +6,6 @@ import { sendPushToUsers } from '../lib/expoPush';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
-// Event queue - must match the queue name used by publishers
-const eventQueue = new Queue('karmyq-events', REDIS_URL);
 const completionQueue = new Queue('karmyq-completion-notification', REDIS_URL);
 completionQueue.on('error', error => console.error('Completion queue error:', error));
 // Only notification-service consumes this queue; unrelated workers cannot steal directed jobs.
@@ -16,9 +14,7 @@ directedQueue.on('error', error => console.error('Directed notification queue er
 
 // ADR-101 / BUG-060: routed handlers are collected here and attached by startConsumerQueue, after it
 // validates them against the routing table, to this service's own queue (no other service's workers
-// attach to it) and, for one release, to the legacy shared queue so jobs published before the deploy
-// can drain. On the legacy queue the other services' workers still compete for those stragglers.
-// Nothing publishes to karmyq-events any more.
+// attach to it). Sprint 134 PR L removed the legacy shared-queue handlers after a clean drain check.
 const handlers: Record<string, EventHandler> = {};
 const register = (name: string, handler: EventHandler) => { handlers[name] = handler; };
 
@@ -115,7 +111,6 @@ export async function initEventSubscriber() {
         throw error;
       }
     };
-    eventQueue.process('match_completed', handleCompletion);
     completionQueue.process('match_completed', handleCompletion);
 
     // Process karma_awarded events
@@ -755,7 +750,7 @@ export async function initEventSubscriber() {
       }
     });
 
-    startConsumerQueue('notification', handlers, REDIS_URL, eventQueue);
+    startConsumerQueue('notification', handlers, REDIS_URL);
 
     console.log('✅ Event subscriber initialized');
   } catch (error) {
@@ -763,5 +758,3 @@ export async function initEventSubscriber() {
     throw error;
   }
 }
-
-export default eventQueue;

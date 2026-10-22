@@ -8,7 +8,7 @@ import { pool } from '../config/database';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
-const eventQueue = new Queue('karmyq-events', REDIS_URL);
+// ADR-101: dedicated queues only; Sprint 134 PR L removed the legacy shared-queue match_completed handler.
 const completionQueue = new Queue('karmyq-completion-social-graph', REDIS_URL);
 completionQueue.on('error', error => logger.error('Completion queue error', error instanceof Error ? error : undefined));
 // ADR-100 / BUG-060: endorsement changes ride a dedicated queue (mirrored in auth-service
@@ -103,7 +103,6 @@ export async function initEventSubscriber() {
       logger.info('Processing match_completed event', job.data);
       await handleMatchCompleted(job.data.payload as MatchCompletedPayload);
     };
-    eventQueue.process('match_completed', handleCompletion);
     completionQueue.process('match_completed', handleCompletion);
     endorsementQueue.process('skill_endorsement_changed', async (job: Queue.Job) => {
       await handleEndorsementChanged(job.data.payload as EndorsementChangedPayload);
@@ -115,5 +114,3 @@ export async function initEventSubscriber() {
     throw error;
   }
 }
-
-export default eventQueue;

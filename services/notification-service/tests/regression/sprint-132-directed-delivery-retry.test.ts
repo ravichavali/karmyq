@@ -20,7 +20,7 @@ it('isolates directed jobs and inserts only one notification per recipient acros
   });
   const emit = jest.spyOn(notificationEmitter, 'emit');
   await initEventSubscriber();
-  expect(queues['karmyq-events'].directed_request_created).toBeUndefined();
+  expect(queues['karmyq-events']).toBeUndefined(); // Sprint 134 PR L: no legacy shared queue at all
   const handler = queues['karmyq-directed-notifications'].directed_request_created;
   const job = { data: { payload: { request_id: 'ask', requester_id: 'R', recipient_user_ids: ['O', 'A'], title: 'Ask to borrow Ladder', inventory_item_id: 'item' } } };
   await expect(handler(job)).rejects.toThrow('injected'); await handler(job); await handler(job);
