@@ -897,3 +897,18 @@ PR L removed the simulation's `submitFeedback` action because it posted to the r
 does not. If demo profiles should rate their exchanges, add a workflow that calls the live reputation-service
 `POST /reputation/feedback` (ADR-036: participant of a completed match, one rating per match, attributed to one of the
 request's communities, BUG-013). It would change demo standing over time, so it needs a decision before it ships.
+
+## [2026-10-22] Event-gate and dotenv-gate depth follow-ups (Sprint 134 PR L `/simplify`, altitude review)
+
+- **Put the consumer guarantee in the type system.** The event-routes gate finds handler registrations by matching a local
+  closure named `register(`. Rename the closure and that rule goes blind. A typed factory in `packages/shared`
+  (`createConsumer<C extends EventConsumer>(c)` returning `{ register(name: RoutedEvent<C>, h), start(redisUrl) }`, with
+  `EVENT_ROUTES` declared `as const satisfies …`) would make the compiler reject a non-consumer service and a typo'd event
+  name. Keep the regex rule until then.
+- **The dotenv-quiet gate pins call sites by `file:line`.** Any edit above a `config()` call in one of its 14 pinned sites
+  breaks it (PR L re-pinned request-service 36 → 35 after deleting an import). Keying by file plus each call's position
+  among that file's calls, or by its normalized text, would keep the "every site resolves" proof without the line
+  coupling. Not changed in PR L: weakening an identity key in a gate deserves its own decision.
+- **Assert the worker-queue set, not retired names one by one.** The PR Q integration test checks that nothing attaches to
+  `karmyq-events` and `karmyq-events-reputation`. Stronger: the set of `karmyq-events*` queues with live workers equals the
+  names built from `EVENT_CONSUMERS` (one `CLIENT LIST`).

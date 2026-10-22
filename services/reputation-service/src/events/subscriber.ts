@@ -28,8 +28,7 @@ async function getRepeatMatchCount(userA: string, userB: string): Promise<number
   return parseInt(result.rows[0]?.cnt ?? '0', 10);
 }
 
-// ADR-101: reputation consumes only dedicated queues. Sprint 134 PR L retired its one routed event
-// (interaction_feedback_submitted, BUG-068) and the legacy shared karmyq-events handlers.
+// ADR-101: reputation has no routed events (BUG-068 retired its one), so it consumes only dedicated queues.
 const completionQueue = new Queue('karmyq-completion-reputation', REDIS_URL);
 completionQueue.on('error', error => console.error('Completion queue error:', error));
 

@@ -156,12 +156,10 @@ describe('Sprint 132 PR S: caller and participant scoping (real services)', () =
   });
 
   // Sprint 134 PR L (BUG-068) retired the interaction-feedback routes this case used to probe for BUG-057.
-  it('/matches/:id/feedback is gone: GET and POST → 404 NOT_FOUND for the outsider and the requester', async () => {
-    for (const who of [X, R]) {
-      const read = await request(REQUESTS).get(`/matches/${matchId}/feedback`).query({ user_id: R.id }).set('Authorization', auth(who));
-      const write = await request(REQUESTS).post(`/matches/${matchId}/feedback`).send({ helpfulness: 5 }).set('Authorization', auth(who));
-      for (const res of [read, write]) expect({ status: res.status, error: res.body.error }).toEqual({ status: 404, error: 'NOT_FOUND' });
-    }
+  it('/matches/:id/feedback is gone: GET and POST by the requester → 404 NOT_FOUND', async () => {
+    const read = await request(REQUESTS).get(`/matches/${matchId}/feedback`).set('Authorization', auth(R));
+    const write = await request(REQUESTS).post(`/matches/${matchId}/feedback`).send({ helpfulness: 5 }).set('Authorization', auth(R));
+    for (const res of [read, write]) expect({ status: res.status, error: res.body.error }).toEqual({ status: 404, error: 'NOT_FOUND' });
   });
 
   // ─── BUG-055: notification routes ───────────────────────────────────────

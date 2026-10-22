@@ -24,7 +24,6 @@ it('keeps one completion notification per participant after a second-recipient f
   const emit = jest.spyOn(notificationEmitter, 'emit');
   await initEventSubscriber();
   const handler = mockQueues['karmyq-completion-notification'].match_completed;
-  expect(mockQueues['karmyq-events']).toBeUndefined(); // Sprint 134 PR L: no legacy shared queue
   const job = { data: { payload: { match_id: 'match', request_id: 'ask', requester_id: 'R', responder_id: 'O' } } };
   await expect(handler(job)).rejects.toThrow('second recipient');
   await handler(job); await handler(job);

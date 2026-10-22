@@ -14,7 +14,7 @@ directedQueue.on('error', error => console.error('Directed notification queue er
 
 // ADR-101 / BUG-060: routed handlers are collected here and attached by startConsumerQueue, after it
 // validates them against the routing table, to this service's own queue (no other service's workers
-// attach to it). Sprint 134 PR L removed the legacy shared-queue handlers after a clean drain check.
+// attach to it).
 const handlers: Record<string, EventHandler> = {};
 const register = (name: string, handler: EventHandler) => { handlers[name] = handler; };
 

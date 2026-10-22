@@ -20,11 +20,16 @@ const loadServiceSources = (): SourceFile[] =>
 const serviceOf = (path: string) => path.split('/')[1];
 const matches = (text: string, re: RegExp) => [...text.matchAll(re)].map((m) => m[1]);
 const hasOwn = (o: object, key: string) => Object.prototype.hasOwnProperty.call(o, key); // 'constructor' in {} is true
+// The events routed to a service; [] for a service that is not an EVENT_CONSUMERS entry.
+const routedFor = (service: string): string[] => {
+  const consumer = service.replace(/-service$/, '');
+  return (EVENT_CONSUMERS as readonly string[]).includes(consumer) ? eventsFor(consumer as EventConsumer) : [];
+};
 
 function scan(files: SourceFile[]) {
   const published: Array<{ service: string; path: string; name: string; via: 'router' | 'direct' }> = [];
   const dynamic: string[] = [];
-  const legacyTouches: string[] = [];
+  const queueNameLiterals: string[] = [];
   const registered: Record<string, string[]> = {};
   const intercepted = new Set<string>();
   for (const f of files) {
@@ -33,12 +38,15 @@ function scan(files: SourceFile[]) {
       for (const name of matches(f.text, /\.add\(\s*['"]([^'"]+)['"]/g)) published.push({ service: serviceOf(f.path), path: f.path, name, via: 'direct' });
     }
     if (/\bpublishEvent\(\s*(?!['"])[^\s)]/.test(f.text.replace(/function publishEvent\(/g, ''))) dynamic.push(f.path);
-    if (/['"]karmyq-events['"]/.test(f.text)) legacyTouches.push(f.path);
+    // Any hard-coded karmyq-events* queue name in code, quoted or templated: consumers get theirs from consumerQueueName.
+    // Comment lines are skipped, so prose about the retired shared queue does not count.
+    const code = f.text.split('\n').filter((l) => !/^\s*(\/\/|\/?\*)/.test(l)).join('\n');
+    if (/(['"`])karmyq-events[^'"`\s]*\1/.test(code)) queueNameLiterals.push(f.path);
     const regs = matches(f.text, /\bregister\(\s*['"]([^'"]+)['"]/g);
     if (regs.length) registered[serviceOf(f.path)] = regs.sort();
     if (f.path === INTERCEPTOR) for (const name of matches(f.text, /type === ['"]([^'"]+)['"]/g)) intercepted.add(name);
   }
-  return { published, dynamic, legacyTouches, registered, intercepted };
+  return { published, dynamic, queueNameLiterals, registered, intercepted };
 }
 
 function violations(files: SourceFile[], registry: any): string[] {
@@ -53,19 +61,18 @@ function violations(files: SourceFile[], registry: any): string[] {
   }
   for (const name of s.intercepted) if (!hasOwn(DEDICATED_EVENTS, name)) out.push(`interceptor routes non-dedicated ${name}`);
   for (const path of s.dynamic) if (!PUBLISHER_MODULE.test(path)) out.push(`dynamic publishEvent name in ${path}`);
-  for (const path of s.legacyTouches) out.push(`legacy karmyq-events queue referenced in ${path}`);
-  for (const service of Object.keys(s.registered)) {
-    if (!(EVENT_CONSUMERS as readonly string[]).includes(service.replace(/-service$/, ''))) out.push(`${service} registers routed handlers but is not an event consumer`);
-  }
-  for (const c of EVENT_CONSUMERS) {
-    const got = JSON.stringify(s.registered[`${c}-service`] ?? []);
-    if (got !== JSON.stringify(eventsFor(c))) out.push(`${c}-service registers ${got}, routes say ${JSON.stringify(eventsFor(c))}`);
+  for (const path of s.queueNameLiterals) out.push(`hard-coded karmyq-events queue name in ${path}`);
+  // Every consumer registers exactly its routes, and a service that is not a consumer registers nothing.
+  for (const service of new Set([...Object.keys(s.registered), ...EVENT_CONSUMERS.map((c) => `${c}-service`)])) {
+    const got = JSON.stringify(s.registered[service] ?? []);
+    const want = JSON.stringify(routedFor(service));
+    if (got !== want) out.push(`${service} registers ${got}, routes say ${want}`);
   }
   for (const [service, def] of Object.entries<any>(registry.services)) {
     const pubs = [...new Set(s.published.filter((p) => p.service === service).map((p) => p.name))].sort();
     const consumer = service.replace(/-service$/, '');
     const subs = [
-      ...((EVENT_CONSUMERS as readonly string[]).includes(consumer) ? eventsFor(consumer as EventConsumer) : []),
+      ...routedFor(service),
       ...Object.entries(DEDICATED_EVENTS).filter(([, d]) => d.consumers.includes(consumer)).map(([n]) => n),
     ].sort();
     const want = { publishes: pubs, subscribes: subs };
@@ -102,17 +109,26 @@ describe('Sprint 133 PR Q: event routing gate (ADR-101)', () => {
     });
     it('flags a new karmyq-events user', () => {
       expect(violations(withFile({ path: 'services/cleanup-service/src/x.ts', text: "new Queue('karmyq-events')" }), registry))
-        .toContain('legacy karmyq-events queue referenced in services/cleanup-service/src/x.ts');
+        .toContain('hard-coded karmyq-events queue name in services/cleanup-service/src/x.ts');
     });
     it('flags a karmyq-events queue reopened in a former legacy subscriber', () => {
       const path = 'services/notification-service/src/events/subscriber.ts';
       const reopened = live.map((f) => f.path === path ? { ...f, text: `${f.text}\nconst eventQueue = new Queue('karmyq-events', REDIS_URL);` } : f);
-      expect(violations(reopened, registry)).toContain(`legacy karmyq-events queue referenced in ${path}`);
+      expect(violations(reopened, registry)).toContain(`hard-coded karmyq-events queue name in ${path}`);
+    });
+    it('flags any hard-coded karmyq-events-* name, quoted or templated, but not one in a comment', () => {
+      const files = [
+        { path: 'services/reputation-service/src/q1.ts', text: "new Queue('karmyq-events-reputation', REDIS_URL)" },
+        { path: 'services/reputation-service/src/q2.ts', text: 'new Queue(`karmyq-events-${consumer}`, REDIS_URL)' },
+        { path: 'services/reputation-service/src/q3.ts', text: "// the old `karmyq-events` queue\n/** the shared `karmyq-events` queue */\n * a `karmyq-events-reputation` note" },
+      ];
+      const flagged = violations([...live, ...files], registry).filter((v) => v.startsWith('hard-coded karmyq-events'));
+      expect(flagged).toEqual(['services/reputation-service/src/q1.ts', 'services/reputation-service/src/q2.ts'].map((p) => `hard-coded karmyq-events queue name in ${p}`));
     });
     it('flags routed handlers registered by a service that is not an event consumer', () => {
       const path = 'services/reputation-service/src/events/subscriber.ts';
       const planted = live.map((f) => f.path === path ? { ...f, text: `${f.text}\nregister('interaction_feedback_submitted', handler);` } : f);
-      expect(violations(planted, registry)).toContain('reputation-service registers routed handlers but is not an event consumer');
+      expect(violations(planted, registry)).toContain('reputation-service registers ["interaction_feedback_submitted"], routes say []');
     });
     it('flags a direct add of a routed event', () => {
       expect(violations(withFile({ path: 'services/cleanup-service/src/y.ts', text: "import Queue from 'bull';\nq.add('dibs_expired', {})" }), registry))
