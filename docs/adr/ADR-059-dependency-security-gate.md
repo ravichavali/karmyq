@@ -423,3 +423,20 @@ lockfile's resolution; the newer upstream releases below are not installed).
 |---|---|---|---|---|
 | `node-forge` | 1.4.0 | none, not withdrawn | `@expo/cli` 58.1.13, `@expo/code-signing-certificates` 0.0.7 → `^1.4.0` | 2026-10-19 → 2026-10-26 |
 | `braces` | 3.0.3 | none, not withdrawn | `micromatch` 4.0.8 → `^3.0.3` | 2026-10-19 → 2026-10-26 |
+
+## Amendment (Sprint 134, 2026-10-22): `next` critical advisory
+
+**Status**: Accepted · **Decision**: fix in place, no exemption (critical is never exemptible)
+
+Two `next` advisories were published at 15:50–15:53 UTC on 2026-10-22, after that day's deploy of v11.96.0:
+GHSA-2464-fhr4-w9xw (critical, remote code execution in the Image Optimization API through the `sharp`/libvips
+memory bug on glibc Linux; the advisory's workaround is `sharp >= 0.35.5`) and GHSA-p3m5-59mp-jv5r (high, App Router
+denial of service through Server Actions). Both cover `>=16.0.0 <=16.4.0`, and both are first patched in 16.4.1.
+No 16.3.x backport exists. Neither advisory is reachable on the demo: `sharp` has been 0.35.5 since the
+2026-10-08 override, the frontend image is `node:24-alpine` (musl, not glibc), and neither app has a Server Action
+(the frontend uses the Pages Router; the landing site uses the App Router as a static export, with no server runtime). The gate audits the declared tree, not reachability, and critical is never exemptible,
+so `next` moves anyway.
+
+Fix: an in-place lock splice, `next` 16.3.8 → 16.4.2, together with `@next/env` and the eight `@next/swc-*`
+binaries. The `apps/frontend` and `apps/landing` ranges become `^16.4.2`. `next`'s new `sharp ^0.35.5` range
+is already satisfied by the existing `sharp@<0.35.5` override, so nothing else moves.
