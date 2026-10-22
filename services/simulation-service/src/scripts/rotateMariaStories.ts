@@ -33,8 +33,8 @@ async function runRequiredCommand(name: string, raw: string | undefined): Promis
     throw new Error(`Refusing rotation: ${name} is not set — this host-specific step must be wired.`);
   }
   const [command, ...args] = raw.trim().split(/\s+/);
-  // Hand the host scripts the absolute env file this CLI publishes to: they re-anchor a relative or
-  // unset DEMO_ENV_FILE to the repo root, which need not be npm's INIT_CWD.
+  // Hand the host scripts the absolute env file this CLI publishes to, so the two never resolve
+  // DEMO_ENV_FILE separately.
   await execFileAsync(command, args, { env: { ...process.env, DEMO_ENV_FILE: resolveDemoEnvPath().path } });
 }
 
@@ -120,7 +120,7 @@ export function buildRotationDeps(publishConfigEnabled: boolean): RotationDeps {
     },
     async publishConfig() {
       if (!publishConfigEnabled || !created) return;
-      // The same INIT_CWD-resolved file `verify:demo` reads (demoEnvFile.ts).
+      // The same repo-root-resolved file `verify:demo` reads (demoEnvFile.ts).
       await publishDemoConfig(resolveDemoEnvPath().path, {
         DEMO_PERSONA_EMAIL: env.mariaEmail,
         DEMO_ORDINARY_REQUEST_ID: created.ordinaryRequestId,

@@ -9,8 +9,8 @@
  * reachable API it prints a clear unavailable result. Every read fails closed: an error on any
  * check marks that check false rather than throwing the whole verification away.
  *
- * Sprint 134: before reading env it loads `DEMO_ENV_FILE ?? '.env.demo'` (resolved against npm's
- * `INIT_CWD`; see demoEnvFile.ts) without overriding, so variables already exported win.
+ * Sprint 134: before reading env it applies the published story keys from `DEMO_ENV_FILE`, else the
+ * repo-root `.env.demo` (see demoEnvFile.ts), without overriding: variables already exported win.
  *
  *   npm --workspace @karmyq/simulation-service run verify:demo
  */
@@ -234,13 +234,17 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
   };
 }
 
-export async function main(): Promise<void> {
+/** `envRoot` overrides the repo root a relative env-file path resolves against (tests only). */
+export async function main(envRoot?: string): Promise<void> {
   let env: VerifyEnv;
-  // Paths only: the report names the env file it loaded (or looked for), never a value from it.
-  let envFile: { envFile: string | null; envFileLookedFor?: string } = { envFile: null };
+  // Paths and key names only: the report names the env file it loaded (or looked for) and any
+  // exported story key that overrides it with a different value, never a value.
+  let envFile: { envFile: string | null; envFileLookedFor?: string; envFileShadowed?: string[] } = { envFile: null };
   try {
-    const { loadedFrom, lookedFor } = loadDemoEnvFile();
-    envFile = loadedFrom ? { envFile: loadedFrom } : { envFile: null, envFileLookedFor: lookedFor };
+    const { loadedFrom, lookedFor, shadowed } = loadDemoEnvFile(process.env, envRoot);
+    envFile = loadedFrom
+      ? { envFile: loadedFrom, envFileShadowed: shadowed }
+      : { envFile: null, envFileLookedFor: lookedFor };
     env = readEnv();
     assertStoryIds(env);
   } catch (error) {

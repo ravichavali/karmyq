@@ -200,14 +200,16 @@ Ride providers include `ride_details` (vehicle_type, max_passengers, advance_boo
 ## Recent Changes
 
 ### Sprint 134 PR D (2026-10-22) - `verify:demo` reads the demo env file
-`src/scripts/demoEnvFile.ts`: `resolveDemoEnvPath` resolves `DEMO_ENV_FILE || '.env.demo'` against npm's
-`INIT_CWD || cwd` (under `npm --workspace`, `cwd` is this workspace, so the old relative default missed the
-repo-root file). `verify:demo`'s `main()` applies it via `loadDemoEnvFile` (dotenv, `override: false`,
-`quiet: true`) before `readEnv()`, so exported variables win and the operator no longer exports the four
-story IDs. A missing default is not an error; a missing explicit `DEMO_ENV_FILE` reports unavailable. The
-report adds `envFile` (and `envFileLookedFor` when the default is absent): paths only, never values.
-`readEnv()` is unchanged, and `rotate:demo-stories` publishes to the same resolved path and passes it, absolute,
-as `DEMO_ENV_FILE` to `DEMO_ENABLE_CMD`/`DEMO_RESTART_AUTH_CMD` (those scripts anchor relative paths to the repo root).
+`src/scripts/demoEnvFile.ts`: `resolveDemoEnvPath` resolves `DEMO_ENV_FILE` (unset or empty → `.env.demo`)
+against the **repo root**, as `scripts/demo/*.sh` do (under `npm --workspace`, `cwd` is this workspace, so the
+old relative default missed the repo-root file). `verify:demo`'s `main()` calls `loadDemoEnvFile` before
+`readEnv()`: it applies only `DEMO_CONFIG_KEYS` (the four story IDs + `DEMO_PERSONA_EMAIL`, the keys rotation
+publishes; the rest of `.env.demo` is compose secrets and is never applied) via `dotenv.parse`, and exported
+variables win, so the operator no longer exports the story IDs. A missing default is not an error; a missing
+explicit `DEMO_ENV_FILE` reports unavailable. The report adds `envFile` + `envFileShadowed` (exported keys whose
+value differs from the file), or `envFileLookedFor` when the default is absent: paths and key names, never
+values. `readEnv()` is unchanged; `rotate:demo-stories` publishes to the same resolved path and passes it,
+absolute, as `DEMO_ENV_FILE` to `DEMO_ENABLE_CMD`/`DEMO_RESTART_AUTH_CMD`.
 
 ### Sprint 133 PR D (2026-10-17) - curated skills layer
 Curated seed gains (live on the demo since the authorized curated reset of 2026-10-19) skills, a skills-sharing opt-out, endorsements, items and standing offers; counts are
@@ -352,7 +354,7 @@ The simulation service now owns two distinct populations:
 |---|---|
 | `npm --workspace @karmyq/simulation-service run reset:demo` | Print the reset plan (no mutation). |
 | `npm --workspace @karmyq/simulation-service run reset:demo -- --apply` | Guarded destructive reset (fingerprint + backup + lock + txn; approved downtime). |
-| `npm --workspace @karmyq/simulation-service run verify:demo` | Read-only outward-API health + privacy verification. Loads `DEMO_ENV_FILE ?? '.env.demo'` (relative to npm's `INIT_CWD`) without overriding exported variables; the report names the file as `envFile`. |
+| `npm --workspace @karmyq/simulation-service run verify:demo` | Read-only outward-API health + privacy verification. Applies the story keys from `DEMO_ENV_FILE`, else the repo-root `.env.demo`, without overriding exported variables; the report names the file as `envFile`. |
 | `npm --workspace @karmyq/simulation-service run rotate:demo-stories` | Explicit finite live-story rotation (never a full reset). |
 
 The verifier is the only authority that publishes the four server-generated story IDs, and only after

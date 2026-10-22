@@ -220,7 +220,6 @@ describe('dotenv config() is quiet (Sprint 131 D1)', () => {
       'services/reputation-service/src/index.ts:26',
       'services/request-service/src/index.ts:36',
       'services/simulation-service/src/index.ts:16',
-      'services/simulation-service/src/scripts/demoEnvFile.ts:37',
       'tests/e2e/playwright.config.ts:4',
       'tests/e2e/tests/fixtures/auth.ts:4',
       'tests/integration/setup.ts:32',

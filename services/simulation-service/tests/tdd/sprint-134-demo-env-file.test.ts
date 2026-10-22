@@ -1,9 +1,11 @@
 /**
- * Sprint 134 PR D — `verify:demo` loads `DEMO_ENV_FILE ?? '.env.demo'` itself.
+ * Sprint 134 PR D — `verify:demo` loads the demo env file itself.
  *
  * Runs against real temp files with an env object passed in (never the real `process.env`, except
- * where the rotate flow reads it). Variables already in the environment win; a missing default file
- * is not an error; a missing explicit `DEMO_ENV_FILE` is; values never reach the result or a log.
+ * where a CLI reads it). The path is `DEMO_ENV_FILE`, else `.env.demo`, anchored to the repo root as
+ * the shell scripts anchor it. Only the published story keys are applied, and exported variables win;
+ * a missing default file is not an error; a missing explicit `DEMO_ENV_FILE` is; values never reach
+ * the result or a log.
  */
 
 import * as fs from 'node:fs';
@@ -30,6 +32,22 @@ jest.mock('../../src/api-client', () => ({
     }
   },
 }));
+
+// The real execFile, wrapped to record the options each host command is launched with.
+const mockExecFileOptions: Array<{ env?: NodeJS.ProcessEnv } | undefined> = [];
+jest.mock('node:child_process', () => {
+  const actual = jest.requireActual('node:child_process');
+  return {
+    ...actual,
+    execFile: (...args: unknown[]) => {
+      mockExecFileOptions.push(args[2] as { env?: NodeJS.ProcessEnv });
+      return actual.execFile(...args);
+    },
+  };
+});
+
+/** services/simulation-service/tests/tdd → the repo root. */
+const REPO_ROOT = path.resolve(__dirname, '../../../..');
 
 const STORY = {
   DEMO_ORDINARY_REQUEST_ID: 'file-ordinary-req-7f3a',
@@ -89,79 +107,70 @@ describe('loadDemoEnvFile', () => {
   it('applies all four story IDs from the default .env.demo and reports its absolute path', () => {
     const root = tempDir();
     const file = writeFileIn(root, '.env.demo', STORY_FILE);
-    const env: NodeJS.ProcessEnv = { INIT_CWD: root };
+    const env: NodeJS.ProcessEnv = {};
 
-    const result = loadDemoEnvFile(env, tempDir());
+    const result = loadDemoEnvFile(env, root);
 
-    expect(result.loadedFrom).toBe(file);
-    expect(result.lookedFor).toBe(file);
-    expect([...result.keys].sort()).toEqual(STORY_KEYS);
-    expect(env).toEqual({ INIT_CWD: root, ...STORY });
+    expect(result).toEqual({ loadedFrom: file, lookedFor: file, keys: Object.keys(STORY), shadowed: [] });
+    expect(env).toEqual(STORY);
   });
 
-  it('keeps a variable already in the environment; the file fills only the rest', () => {
+  it('keeps a variable already in the environment and names it as shadowed only when it differs', () => {
     const root = tempDir();
     writeFileIn(root, '.env.demo', STORY_FILE);
-    const env: NodeJS.ProcessEnv = { INIT_CWD: root, DEMO_ORDINARY_REQUEST_ID: 'from-env' };
+    const env: NodeJS.ProcessEnv = {
+      DEMO_ORDINARY_REQUEST_ID: 'stale-from-env',
+      DEMO_ORDINARY_MATCH_ID: STORY.DEMO_ORDINARY_MATCH_ID,
+    };
 
-    loadDemoEnvFile(env, root);
+    const result = loadDemoEnvFile(env, root);
 
-    expect(env.DEMO_ORDINARY_REQUEST_ID).toBe('from-env');
-    expect(env.DEMO_ORDINARY_MATCH_ID).toBe('file-ordinary-match-91c2');
-    expect(env.DEMO_PROVIDER_REQUEST_ID).toBe('file-provider-req-5d0e');
-    expect(env.DEMO_PROVIDER_OFFER_ID).toBe('file-provider-offer-2b8b');
+    expect(env).toEqual({ ...STORY, DEMO_ORDINARY_REQUEST_ID: 'stale-from-env' });
+    expect(result.shadowed).toEqual(['DEMO_ORDINARY_REQUEST_ID']);
+  });
+
+  it('applies only the published story keys, never the compose secrets beside them', () => {
+    const root = tempDir();
+    writeFileIn(
+      root,
+      '.env.demo',
+      `JWT_SECRET=compose-secret-1\nPOSTGRES_PASSWORD=compose-secret-2\nAPI_BASE_URL=http://internal:3001\n` +
+        `DEMO_PERSONA_EMAIL=maria@test.karmyq.com\n${STORY_FILE}`,
+    );
+    const env: NodeJS.ProcessEnv = {};
+
+    const result = loadDemoEnvFile(env, root);
+
+    expect(env).toEqual({ DEMO_PERSONA_EMAIL: 'maria@test.karmyq.com', ...STORY });
+    expect([...result.keys].sort()).toEqual(['DEMO_PERSONA_EMAIL', ...STORY_KEYS].sort());
   });
 
   it('treats a missing default file as no file: names the path it looked for, changes nothing', () => {
     const root = tempDir();
-    const env: NodeJS.ProcessEnv = { INIT_CWD: root, DEMO_ORDINARY_REQUEST_ID: 'from-env' };
+    const env: NodeJS.ProcessEnv = { DEMO_ORDINARY_REQUEST_ID: 'from-env' };
 
-    const result = loadDemoEnvFile(env, tempDir());
+    const result = loadDemoEnvFile(env, root);
 
-    expect(result).toEqual({ loadedFrom: null, lookedFor: path.join(root, '.env.demo'), keys: [] });
-    expect(env).toEqual({ INIT_CWD: root, DEMO_ORDINARY_REQUEST_ID: 'from-env' });
-  });
-
-  it('resolves the default against INIT_CWD (the npm --workspace case), not cwd', () => {
-    const repoRoot = tempDir();
-    const workspaceCwd = tempDir();
-    const rootFile = writeFileIn(repoRoot, '.env.demo', STORY_FILE);
-    writeFileIn(workspaceCwd, '.env.demo', 'DEMO_ORDINARY_REQUEST_ID=wrong-cwd-file\n');
-    const env: NodeJS.ProcessEnv = { INIT_CWD: repoRoot };
-
-    const result = loadDemoEnvFile(env, workspaceCwd);
-
-    expect(result.loadedFrom).toBe(rootFile);
-    expect(env.DEMO_ORDINARY_REQUEST_ID).toBe('file-ordinary-req-7f3a');
-  });
-
-  it('falls back to cwd when INIT_CWD is unset', () => {
-    const cwd = tempDir();
-    const cwdFile = writeFileIn(cwd, '.env.demo', STORY_FILE);
-    const env: NodeJS.ProcessEnv = {};
-
-    const result = loadDemoEnvFile(env, cwd);
-
-    expect(result.loadedFrom).toBe(cwdFile);
-    expect(env.DEMO_PROVIDER_OFFER_ID).toBe('file-provider-offer-2b8b');
+    expect(result).toEqual({ loadedFrom: null, lookedFor: path.join(root, '.env.demo'), keys: [], shadowed: [] });
+    expect(env).toEqual({ DEMO_ORDINARY_REQUEST_ID: 'from-env' });
   });
 
   it('loads an explicit DEMO_ENV_FILE instead of the default', () => {
     const root = tempDir();
     writeFileIn(root, '.env.demo', 'DEMO_ORDINARY_REQUEST_ID=default-file\n');
     const explicit = writeFileIn(tempDir(), 'custom.env', STORY_FILE);
-    const env: NodeJS.ProcessEnv = { INIT_CWD: root, DEMO_ENV_FILE: explicit };
+    const env: NodeJS.ProcessEnv = { DEMO_ENV_FILE: explicit };
 
     const result = loadDemoEnvFile(env, root);
 
     expect(result.loadedFrom).toBe(explicit);
-    expect(env.DEMO_ORDINARY_REQUEST_ID).toBe('file-ordinary-req-7f3a');
+    expect(env.DEMO_ORDINARY_REQUEST_ID).toBe(STORY.DEMO_ORDINARY_REQUEST_ID);
   });
 
   it('throws when an explicit DEMO_ENV_FILE is missing, naming the resolved path', () => {
     const root = tempDir();
     writeFileIn(root, '.env.demo', STORY_FILE);
-    const env: NodeJS.ProcessEnv = { INIT_CWD: root, DEMO_ENV_FILE: 'missing.env' };
+    const env: NodeJS.ProcessEnv = { DEMO_ENV_FILE: 'missing.env' };
 
     expect(() => loadDemoEnvFile(env, root)).toThrow(
       new Error(`verify:demo unavailable — DEMO_ENV_FILE not found: ${path.join(root, 'missing.env')}`),
@@ -176,7 +185,7 @@ describe('loadDemoEnvFile', () => {
       '.env.demo',
       'DEMO_ORDINARY_REQUEST_ID="quoted-req-44aa"\r\nDEMO_ORDINARY_MATCH_ID=crlf-match-88bb\r\n',
     );
-    const env: NodeJS.ProcessEnv = { INIT_CWD: root };
+    const env: NodeJS.ProcessEnv = {};
 
     loadDemoEnvFile(env, root);
 
@@ -186,18 +195,18 @@ describe('loadDemoEnvFile', () => {
 
   it('never returns or logs a value from the file', () => {
     const root = tempDir();
-    writeFileIn(root, '.env.demo', STORY_FILE);
+    writeFileIn(root, '.env.demo', `JWT_SECRET=compose-secret-1\n${STORY_FILE}`);
     const methods = ['log', 'info', 'warn', 'error', 'debug'] as const;
     const spies = methods.map(m => jest.spyOn(console, m).mockImplementation(() => undefined));
     const stdout = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
     try {
-      const result = loadDemoEnvFile({ INIT_CWD: root }, root);
+      const result = loadDemoEnvFile({ DEMO_ORDINARY_REQUEST_ID: 'stale-from-env' }, root);
 
       const emitted = JSON.stringify([result, ...spies.map(s => s.mock.calls), stdout.mock.calls]);
-      for (const value of Object.values(STORY)) {
+      for (const value of [...Object.values(STORY), 'compose-secret-1', 'stale-from-env']) {
         expect(emitted).not.toContain(value);
       }
-      // Non-vacuity: the result does carry the keys, so the scan above read a populated result.
+      // Non-vacuity: the result does carry key names, so the scan above read a populated result.
       expect(emitted).toContain('DEMO_ORDINARY_REQUEST_ID');
     } finally {
       spies.forEach(s => s.mockRestore());
@@ -207,29 +216,34 @@ describe('loadDemoEnvFile', () => {
 });
 
 describe('resolveDemoEnvPath', () => {
-  it('marks the default as implicit and DEMO_ENV_FILE as explicit, both absolute', () => {
-    const root = tempDir();
-    expect(resolveDemoEnvPath({ INIT_CWD: root }, '/elsewhere')).toEqual({
-      path: path.join(root, '.env.demo'),
+  it('anchors the default to the repo root, whatever INIT_CWD and cwd say', () => {
+    expect(resolveDemoEnvPath({ INIT_CWD: tempDir() })).toEqual({
+      path: path.join(REPO_ROOT, '.env.demo'),
       explicit: false,
-    });
-    expect(resolveDemoEnvPath({ INIT_CWD: root, DEMO_ENV_FILE: 'sub/x.env' }, '/elsewhere')).toEqual({
-      path: path.join(root, 'sub', 'x.env'),
-      explicit: true,
     });
   });
 
-  it('treats an exported-but-empty DEMO_ENV_FILE or INIT_CWD as unset', () => {
-    const cwd = tempDir();
-    expect(resolveDemoEnvPath({ INIT_CWD: '', DEMO_ENV_FILE: '' }, cwd)).toEqual({
-      path: path.join(cwd, '.env.demo'),
+  it('resolves a relative DEMO_ENV_FILE against the root and keeps an absolute one', () => {
+    const root = tempDir();
+    const absolute = path.join(tempDir(), 'x.env');
+    expect(resolveDemoEnvPath({ DEMO_ENV_FILE: 'sub/x.env' }, root)).toEqual({
+      path: path.join(root, 'sub', 'x.env'),
+      explicit: true,
+    });
+    expect(resolveDemoEnvPath({ DEMO_ENV_FILE: absolute }, root)).toEqual({ path: absolute, explicit: true });
+  });
+
+  it('treats an exported-but-empty DEMO_ENV_FILE as unset', () => {
+    const root = tempDir();
+    expect(resolveDemoEnvPath({ DEMO_ENV_FILE: '' }, root)).toEqual({
+      path: path.join(root, '.env.demo'),
       explicit: false,
     });
   });
 });
 
 describe('verify:demo main() reports the env file', () => {
-  isolateProcessEnv([...Object.keys(PERSONA_ENV), 'DEMO_PERSONA_EMAIL', 'INIT_CWD', 'DEMO_ENV_FILE', ...STORY_KEYS]);
+  isolateProcessEnv([...Object.keys(PERSONA_ENV), 'DEMO_PERSONA_EMAIL', 'DEMO_ENV_FILE', ...STORY_KEYS]);
   let log: jest.SpyInstance;
 
   beforeEach(() => {
@@ -248,26 +262,36 @@ describe('verify:demo main() reports the env file', () => {
   it('loads the story IDs into the environment and names the file, never a value', async () => {
     const root = tempDir();
     const rootFile = writeFileIn(root, '.env.demo', STORY_FILE);
-    process.env.INIT_CWD = root;
 
-    await main();
+    await main(root);
 
-    expect(process.env.DEMO_PROVIDER_OFFER_ID).toBe('file-provider-offer-2b8b');
-    const report = printedReport();
-    expect(report).toEqual({
+    expect(process.env.DEMO_PROVIDER_OFFER_ID).toBe(STORY.DEMO_PROVIDER_OFFER_ID);
+    expect(printedReport()).toEqual({
       ready: false,
       unavailable: true,
       reason: 'verify:demo unavailable — missing env: baseUrl, mariaEmail, helperEmail, providerEmail, unrelatedEmail, password',
       envFile: rootFile,
+      envFileShadowed: [],
     });
-    expect(log.mock.calls[0][0]).not.toContain('file-provider-offer-2b8b');
+    expect(log.mock.calls[0][0]).not.toContain(STORY.DEMO_PROVIDER_OFFER_ID);
+  });
+
+  it('names a stale exported story ID as shadowed, without its value', async () => {
+    const root = tempDir();
+    writeFileIn(root, '.env.demo', STORY_FILE);
+    process.env.DEMO_ORDINARY_MATCH_ID = 'stale-export-31d9';
+
+    await main(root);
+
+    expect(printedReport().envFileShadowed).toEqual(['DEMO_ORDINARY_MATCH_ID']);
+    expect(log.mock.calls[0][0]).not.toContain('stale-export-31d9');
   });
 
   it('names the default path it looked for when no file is there', async () => {
     const root = tempDir();
-    Object.assign(process.env, PERSONA_ENV, { INIT_CWD: root });
+    Object.assign(process.env, PERSONA_ENV);
 
-    await main();
+    await main(root);
 
     expect(printedReport()).toEqual({
       ready: false,
@@ -280,10 +304,9 @@ describe('verify:demo main() reports the env file', () => {
 
   it('reports a missing explicit DEMO_ENV_FILE through the unavailable path', async () => {
     const root = tempDir();
-    process.env.INIT_CWD = root;
     process.env.DEMO_ENV_FILE = 'nope.env';
 
-    await main();
+    await main(root);
 
     expect(printedReport()).toEqual({
       ready: false,
@@ -295,50 +318,45 @@ describe('verify:demo main() reports the env file', () => {
   });
 });
 
-describe('rotate:demo-stories publishes to the file verify:demo reads', () => {
-  isolateProcessEnv([...Object.keys(PERSONA_ENV), 'INIT_CWD', 'DEMO_ENV_FILE', 'DEMO_ENABLE_CMD', 'DEMO_RESTART_AUTH_CMD']);
+describe('rotate:demo-stories uses the file verify:demo reads', () => {
+  isolateProcessEnv([...Object.keys(PERSONA_ENV), 'DEMO_ENV_FILE', 'DEMO_ENABLE_CMD', 'DEMO_RESTART_AUTH_CMD']);
 
-  it('writes the INIT_CWD-resolved .env.demo, the same path loadDemoEnvFile looks for', async () => {
-    const repoRoot = tempDir();
-    const rootFile = writeFileIn(repoRoot, '.env.demo', STORY_FILE);
-    Object.assign(process.env, PERSONA_ENV, { INIT_CWD: repoRoot });
+  /** A temp env file named relative to the repo root, as a relative DEMO_ENV_FILE would be. */
+  function rootRelativeEnvFile(): { file: string; relative: string } {
+    const file = writeFileIn(tempDir(), '.env.demo', STORY_FILE);
+    return { file, relative: path.relative(REPO_ROOT, file) };
+  }
+
+  it('publishes a relative DEMO_ENV_FILE against the repo root, not cwd', async () => {
+    const { file, relative } = rootRelativeEnvFile();
+    Object.assign(process.env, PERSONA_ENV, { DEMO_ENV_FILE: relative });
 
     const deps = buildRotationDeps(true);
     await deps.createStories();
     await deps.publishConfig();
 
-    expect(resolveDemoEnvPath({ INIT_CWD: repoRoot }).path).toBe(rootFile);
-    const published = fs.readFileSync(rootFile, 'utf8');
+    expect(resolveDemoEnvPath().path).toBe(file);
+    const published = fs.readFileSync(file, 'utf8');
     expect(published).toContain('DEMO_ORDINARY_REQUEST_ID=req-generic');
     expect(published).toContain('DEMO_ORDINARY_MATCH_ID=match-new');
     expect(published).toContain('DEMO_PROVIDER_REQUEST_ID=req-service');
     expect(published).toContain('DEMO_PROVIDER_OFFER_ID=offer-new');
   });
 
-  it('hands the host commands that same absolute file, so the shell scripts cannot re-anchor elsewhere', async () => {
-    // enable-demo.sh / restart-auth.sh resolve a relative or unset DEMO_ENV_FILE against the repo
-    // root; INIT_CWD can differ. The probe records the DEMO_ENV_FILE each command receives.
-    const repoRoot = tempDir();
-    const probeDir = tempDir();
-    const probe = writeFileIn(
-      probeDir,
-      'probe.js',
-      "require('fs').writeFileSync(process.argv[2], String(process.env.DEMO_ENV_FILE));\n",
-    );
-    const enableOut = path.join(probeDir, 'enable.txt');
-    const restartOut = path.join(probeDir, 'restart.txt');
+  it('hands both host commands that same file as an absolute DEMO_ENV_FILE', async () => {
+    const { file, relative } = rootRelativeEnvFile();
+    // No paths in the command: runRequiredCommand splits on whitespace.
     Object.assign(process.env, PERSONA_ENV, {
-      INIT_CWD: repoRoot,
-      DEMO_ENABLE_CMD: `node ${probe} ${enableOut}`,
-      DEMO_RESTART_AUTH_CMD: `node ${probe} ${restartOut}`,
+      DEMO_ENV_FILE: relative,
+      DEMO_ENABLE_CMD: 'node --version',
+      DEMO_RESTART_AUTH_CMD: 'node --version',
     });
+    mockExecFileOptions.length = 0;
 
     const deps = buildRotationDeps(true);
     await deps.enableDemo();
     await deps.restartAuth();
 
-    const expected = path.join(repoRoot, '.env.demo');
-    expect(fs.readFileSync(enableOut, 'utf8')).toBe(expected);
-    expect(fs.readFileSync(restartOut, 'utf8')).toBe(expected);
+    expect(mockExecFileOptions.map(options => options?.env?.DEMO_ENV_FILE)).toEqual([file, file]);
   });
 });

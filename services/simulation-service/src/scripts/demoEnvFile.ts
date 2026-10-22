@@ -1,40 +1,55 @@
 /**
  * Sprint 134 PR D — the demo env file that `verify:demo` reads and `rotate:demo-stories` writes.
  *
- * The path is `DEMO_ENV_FILE ?? '.env.demo'`, and a relative path resolves against npm's `INIT_CWD`
- * (where npm was invoked), not `cwd`: under `npm --workspace @karmyq/simulation-service run …`, `cwd`
- * is the workspace directory and would silently miss the repo-root `.env.demo`. Both CLIs resolve it
- * here so they always read and write the same file.
+ * The path is `DEMO_ENV_FILE`, else `.env.demo`; an unset or empty value means the default. A relative
+ * path resolves against the repo root, as `scripts/demo/*.sh` resolve it, never against `cwd` (under
+ * `npm --workspace …`, `cwd` is this workspace) or `INIT_CWD` (wherever npm happened to be invoked).
+ * Both CLIs resolve it here so they always read and write the same file.
  */
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import * as dotenv from 'dotenv';
+import { parse } from 'dotenv';
+import { DEMO_CONFIG_KEYS } from '../fixtures/curatedDemo/configPublisher';
+
+/** This file is in services/simulation-service/{src,dist}/scripts. */
+const REPO_ROOT = resolve(__dirname, '../../../..');
 
 export function resolveDemoEnvPath(
   env: NodeJS.ProcessEnv = process.env,
-  cwd: string = process.cwd(),
+  root: string = REPO_ROOT,
 ): { path: string; explicit: boolean } {
-  // `||`, not `??`: an exported-but-empty variable means unset, not "the base directory itself".
   const explicit = Boolean(env.DEMO_ENV_FILE);
-  return { path: resolve(env.INIT_CWD || cwd, env.DEMO_ENV_FILE || '.env.demo'), explicit };
+  return { path: resolve(root, env.DEMO_ENV_FILE || '.env.demo'), explicit };
 }
 
 /**
- * Apply the demo env file to `env` without overriding: variables already set win. A missing default
- * file is not an error (the caller falls back to the environment); a missing explicit
- * `DEMO_ENV_FILE` is. Returns the path and the keys the file holds, never their values.
+ * Apply the published story keys (`DEMO_CONFIG_KEYS`) from the demo env file to `env`. The rest of
+ * the file is compose config and secrets, and is never applied. Variables already set win; those
+ * whose value differs from the file are named in `shadowed`. A missing default file is not an error
+ * (the caller falls back to the environment); a missing explicit `DEMO_ENV_FILE` is. Returns paths
+ * and key names, never values.
  */
 export function loadDemoEnvFile(
   env: NodeJS.ProcessEnv = process.env,
-  cwd: string = process.cwd(),
-): { loadedFrom: string | null; lookedFor: string; keys: string[] } {
-  const { path, explicit } = resolveDemoEnvPath(env, cwd);
+  root: string = REPO_ROOT,
+): { loadedFrom: string | null; lookedFor: string; keys: string[]; shadowed: string[] } {
+  const { path, explicit } = resolveDemoEnvPath(env, root);
   if (!existsSync(path)) {
     if (explicit) throw new Error(`verify:demo unavailable — DEMO_ENV_FILE not found: ${path}`);
-    return { loadedFrom: null, lookedFor: path, keys: [] };
+    return { loadedFrom: null, lookedFor: path, keys: [], shadowed: [] };
   }
-  const result = dotenv.config({ path, override: false, quiet: true, processEnv: env });
-  if (result.error) throw new Error(`verify:demo unavailable — cannot read ${path}: ${result.error.message}`);
-  return { loadedFrom: path, lookedFor: path, keys: Object.keys(result.parsed ?? {}) };
+  let parsed: Record<string, string>;
+  try {
+    parsed = parse(readFileSync(path));
+  } catch (error) {
+    throw new Error(`verify:demo unavailable — cannot read ${path}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const keys = DEMO_CONFIG_KEYS.filter(key => parsed[key] !== undefined);
+  const shadowed: string[] = [];
+  for (const key of keys) {
+    if (env[key] === undefined) env[key] = parsed[key];
+    else if (env[key] !== parsed[key]) shadowed.push(key);
+  }
+  return { loadedFrom: path, lookedFor: path, keys, shadowed };
 }

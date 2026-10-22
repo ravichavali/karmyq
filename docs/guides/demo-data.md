@@ -230,10 +230,11 @@ npm --workspace @karmyq/simulation-service run verify:demo
 ```
 
 It reads the four story ids itself (Sprint 134), from the file `DEMO_ENV_FILE` names or else from
-`.env.demo` in the directory you ran npm from. **Do not export the ids by hand.** A value already in
-your environment wins over the file, so a stale export is the one way to verify the wrong stories.
-The report names the file it loaded as `envFile`, or the path it looked for as `envFileLookedFor`
-when there was none; if that path is not your repo root, you ran npm from the wrong directory. A
+the repo-root `.env.demo`; a relative `DEMO_ENV_FILE` is taken from the repo root, as the rotation
+scripts take it. It reads only the story keys, never the secrets beside them. **Do not export the ids
+by hand.** A value already in your environment wins over the file, so a stale export is the one way to
+verify the wrong stories; the report lists any such key under `envFileShadowed` (names only). It names
+the file it loaded as `envFile`, or the path it looked for as `envFileLookedFor` when there was none. A
 `DEMO_ENV_FILE` that names a missing file reports the demo as unavailable.
 
 ### The wiring, and why it is a separate file
