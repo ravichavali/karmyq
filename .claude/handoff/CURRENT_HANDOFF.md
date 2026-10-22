@@ -8,8 +8,9 @@ CI/CD 39666220132 green (all 14 jobs, deploy + health, no rollback, no CodeQL re
 **PR E #312 SHIPPED** 2026-10-22: admin-merged `eea83267` (v11.95.0) on the maintainer's authorization after Codex review.
 CI/CD 39711848936 attempt 1 failed only because npm's bulk advisory endpoint hung (4 audit tests timed out at 120 s; deploy
 skipped, no rollback); attempt 2 (re-run `--failed` at 03:20Z once the endpoint answered) green: 14/14 jobs, all 9 services
-healthy, no rollback, 0 open CodeQL alerts. **Next:** the exemption re-check (~10-23, *Dated obligations*), then **PR D** in a
-fresh chat on `agent/claude/sprint-134-pr-d-verify-demo-env` (cut from `eea83267`; carries only this post-merge record, unpushed).
+healthy, no rollback, 0 open CodeQL alerts. **Exemption re-check done 2026-10-22** (no upstream fix; renewal needed).
+**Now:** PR D on `agent/claude/sprint-134-pr-d-verify-demo-env` (maintainer ordered it before the renewal); **then** the renewal PR
+on ~10-24, cut fresh from `origin/master`.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
 #309 merged `1746cdf2` (v11.92.0), CI/CD 39366367275 green.
 
@@ -51,8 +52,8 @@ fresh chat on `agent/claude/sprint-134-pr-d-verify-demo-env` (cut from `eea83267
 | 0 | **F** | follow-redirects 1.16.0 → 1.16.1 (GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c, high, published 2026-10-20); one-node splice; v11.93.0 | high SLA 10-27 | spec *PR F* | **SHIPPED** `63a6cd26` (#310), CI/CD 39516935342 green |
 | 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | **SHIPPED** `bf524296` (#311, v11.94.0), CI/CD 39666220132 green. Human validation (Task A12) pending: maintainer downloads all three exports on karmyq.com. See *PR A state* below |
 | 2 | **E** | Expo SDK 57 patch (#279) + drift-workflow silent-failure fix | — | [`plans/2026-10-20-sprint-134-pr-e-expo-patch.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-e-expo-patch.md) | **SHIPPED** `eea83267` (#312, v11.95.0), CI/CD 39711848936 attempt 2 green. See *PR E state* |
-| — | **X** | Exemption re-check; renewal PR **only on explicit yes** | gate fails **10-25 17:00 PDT** | *Dated obligations* below | due ~10-23 |
-| 3 | **D** | `verify:demo` loads `DEMO_ENV_FILE ?? '.env.demo'` | — | [`plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md) | **NEXT** (after X if a renewal PR is needed): branch cut from `eea83267` |
+| 3 | **D** | `verify:demo` loads `DEMO_ENV_FILE ?? '.env.demo'` | — | [`plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md) | **IN PROGRESS** on `agent/claude/sprint-134-pr-d-verify-demo-env` (cut from `eea83267`; carries the handoff + IDEAS commits). Ordered BEFORE X (maintainer, 2026-10-22) |
+| — | **X** | Exemption **renewal** (re-check done 2026-10-22: no upstream fix, renewal needed) | gate fails **10-25 17:00 PDT** | *Dated obligations* below | **On ~10-24**, cut fresh from `origin/master` after D merges; created 10-24 → expires 10-31 |
 | 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | drain check **PASSED** 2026-10-20; decisions settled; ready after A/E/D |
 | 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers (incl. the reputation health route); **BUG-070** | BUG-070 **2026-11-03** | write at PR start | — |
 | 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) | **2026-10-30** | write at PR start | — |
@@ -120,6 +121,7 @@ close step failing on green is a logged follow-up, not a blocker. Its review sta
 **Post-merge (2026-10-22):** merged `eea83267`; deployed by CI/CD 39711848936 attempt 2 (see Status). #279 was closed by the
 branch dispatch (run 39708884381) before merge; the merge landed before any scheduled master run, so no new drift issue was
 filed. **Still to confirm:** the scheduled drift run at 07:15 UTC 2026-10-22 on master is green (first scheduled run with the fix).
+Not yet fired at 04:10Z 2026-10-22; recent scheduled runs actually started 11:36-14:40Z (GitHub cron delay). No open drift issue then.
 
 ## Maintainer decisions (2026-10-19 / 2026-10-20)
 
@@ -154,7 +156,7 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 |---|---|---|
 | ~~follow-redirects GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c (high)~~ | ~~2026-10-27~~ | **DONE**: #310 `63a6cd26`, live 2026-10-21 00:00Z. Dependabot never raised alerts for them (the lock moved within hours); open alerts are only #168 node-forge and #169 braces (exempted) |
 | ~~BUG-063~~ | ~~2026-10-24~~ | **DONE**: #311 `bf524296` (v11.94.0), live 2026-10-21; no risk acceptance needed |
-| node-forge + braces ADR-059 exemptions | **2026-10-26** (gate fails **2026-10-25 17:00 PDT**) | Re-check ~10-23, after PR E if it has merged: `node scripts/audit-exemptions.js` (it audits the lockfile, so a published upstream fix alone does not trip it), `npm view node-forge version` / `npm view braces version`, `gh api advisories/<GHSA> --jq '.vulnerabilities[].first_patched_version'`, `npm view @expo/cli dependencies.node-forge`, `npm view micromatch dependencies.braces`. `@expo/cli@57.0.32` still declares `node-forge ^1.3.3` (2026-10-21). Remove if fixed; **renew if not (maintainer, 2026-10-20)**. Renew on ~10-24 to maximize the 7-day window (expires ~10-31), then the maintainer merges before 10-25 17:00 PDT. BUG-059 |
+| node-forge + braces ADR-059 exemptions | **2026-10-26** (gate fails **2026-10-25 17:00 PDT**) | **Re-checked 2026-10-22 04:10Z: NO upstream fix → renew (pre-authorized).** `audit-exemptions` 0 unexempted (19 exempt); GHSA-86w9-cpqp-85rv node-forge vulnerable `<= 1.4.0`, `first_patched_version` null, latest 1.4.0; GHSA-vfj7-8cjw-p6xm braces `<= 3.0.3`, patched null, latest 3.0.3; `@expo/cli` sdk-57 tag 57.0.32 still `^1.3.3`, and even SDK 58's 58.1.14 declares `^1.4.0` (still vulnerable), so no SDK move helps; `micromatch@4.0.8` `^3.0.3`. **Maintainer 2026-10-22: PR D first, renewal PR on ~10-24** (cut fresh from `origin/master`; must merge before 10-25 17:00 PDT, so PR D's merge+deploy must not slip past ~10-24). Original instructions: re-check ~10-23, after PR E if it has merged: `node scripts/audit-exemptions.js` (it audits the lockfile, so a published upstream fix alone does not trip it), `npm view node-forge version` / `npm view braces version`, `gh api advisories/<GHSA> --jq '.vulnerabilities[].first_patched_version'`, `npm view @expo/cli dependencies.node-forge`, `npm view micromatch dependencies.braces`. `@expo/cli@57.0.32` still declares `node-forge ^1.3.3` (2026-10-21). Remove if fixed; **renew if not (maintainer, 2026-10-20)**. Renew on ~10-24 to maximize the 7-day window (expires ~10-31), then the maintainer merges before 10-25 17:00 PDT. BUG-059 |
 | **PR L** (BUG-068) | **2026-10-29** | Unblocked: drain check passed 2026-10-20 (below) |
 | **BUG-069** | **2026-10-30** | PR K. **ADR-102** (allocated 2026-10-20). If the inventory shows it cannot merge in time, propose a dated risk acceptance and split by service |
 | **BUG-070** (BUG-063 class in reputation health + dead `FeedComposer`) | **2026-11-03** | Logged 2026-10-20 (LOW, proposed); **in PR L2** (maintainer confirmed 2026-10-20) |
