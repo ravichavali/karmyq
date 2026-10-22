@@ -4,11 +4,13 @@
  */
 
 import { WorkerPool } from '../../src/worker-pool';
+import { ApiClient } from '../../src/api-client';
 import {
   ACTIVE_HELPER,
   REQUESTER,
   COMMUNITY_BUILDER,
   SOCIAL_USER,
+  ALL_PROFILES,
 } from '../../src/profiles';
 import {
   GENERIC_REQUESTS,
@@ -59,14 +61,10 @@ describe('Profile weight invariants', () => {
     expect(w).toBeLessThanOrEqual(0.015);
   });
 
-  it('ACTIVE_HELPER submitFeedback weight ≥ 0.20', () => {
-    const w = ACTIVE_HELPER.actions.submitFeedback?.weight ?? 0;
-    expect(w).toBeGreaterThanOrEqual(0.20);
-  });
-
-  it('REQUESTER submitFeedback weight ≥ 0.25', () => {
-    const w = REQUESTER.actions.submitFeedback?.weight ?? 0;
-    expect(w).toBeGreaterThanOrEqual(0.25);
+  // Sprint 134 PR L (BUG-068): the action posted to the retired POST /matches/:id/feedback, which always 500ed.
+  it('no profile schedules the retired submitFeedback action, and the client has no call for it', () => {
+    expect(ALL_PROFILES.filter((p) => 'submitFeedback' in p.actions).map((p) => p.name)).toEqual([]);
+    expect('submitMatchFeedback' in ApiClient.prototype).toBe(false);
   });
 
   it('COMMUNITY_BUILDER voteOnGovernance weight > 0', () => {

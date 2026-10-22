@@ -494,17 +494,6 @@ export class ApiClient {
     return this.client.post(`/communities/${communityId}/splits/${splitId}/start-vote`).catch(() => null);
   }
 
-  async submitMatchFeedback(matchId: string, data: {
-    from_user_id: string;
-    helpfulness?: number;
-    responsiveness?: number;
-    clarity?: number;
-    comment?: string;
-    allow_featuring?: boolean;
-  }): Promise<any> {
-    return this.client.post(`/matches/${matchId}/feedback`, data).catch(() => null);
-  }
-
   async callDibs(requestId: string, providerUserId: string): Promise<any> {
     return this.client.post(`/requests/${requestId}/dibs`, { provider_user_id: providerUserId }).catch(() => null);
   }

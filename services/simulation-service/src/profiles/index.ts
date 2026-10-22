@@ -7,7 +7,6 @@ import { UserProfile, SimulatedUser, SimulationConfig, WorkflowContext, UserSess
 import { ApiClient } from '../api-client';
 import { getPool } from '../db-user-loader';
 import { voteOnGovernanceWorkflow } from '../workflows/vote-on-governance-workflow';
-import { submitFeedbackWorkflow } from '../workflows/submit-feedback-workflow';
 import { callDibsWorkflow, respondToDibsWorkflow } from '../workflows/dibs-workflow';
 import { nominateMemberWorkflow, ratifyNominationWorkflow } from '../workflows/governance-nominate-workflow';
 import {
@@ -43,7 +42,6 @@ export const ACTIVE_HELPER: UserProfile = {
     browseProviders: { weight: 0.05, avgPerSession: 0.2 },
     joinActivity: { weight: 0.15, avgPerSession: 1 },
     voteOnGovernance: { weight: 0.10, avgPerSession: 0.3 },
-    submitFeedback: { weight: 0.25, avgPerSession: 1 },
     callDibs: { weight: 0.10, avgPerSession: 0.3 },
   },
   sessionDuration: { min: 15, max: 45, unit: 'minutes' },
@@ -61,7 +59,6 @@ export const REQUESTER: UserProfile = {
     browseRequests: { weight: 0.3, avgPerSession: 2 },
     offerHelp: { weight: 0.1, avgPerSession: 0.2 },
     joinActivity: { weight: 0.05, avgPerSession: 0.2 },
-    submitFeedback: { weight: 0.30, avgPerSession: 1 },
     acceptOrDeclineDibs: { weight: 0.10, avgPerSession: 0.2 },
   },
   sessionDuration: { min: 10, max: 30, unit: 'minutes' },
@@ -100,7 +97,6 @@ export const COMMUNITY_BUILDER: UserProfile = {
     scheduleActivity: { weight: 0.15, avgPerSession: 0.3 },
     joinActivity: { weight: 0.10, avgPerSession: 0.5 },
     voteOnGovernance: { weight: 0.12, avgPerSession: 0.4 },
-    submitFeedback: { weight: 0.20, avgPerSession: 0.8 },
     callDibs: { weight: 0.05, avgPerSession: 0.1 },
     nominateMember: { weight: 0.02, avgPerSession: 0.05 },
     ratifyNomination: { weight: 0.05, avgPerSession: 0.1 },
@@ -123,7 +119,6 @@ export const SOCIAL_USER: UserProfile = {
     registerAsProvider: { weight: 0.02, avgPerSession: 0.01 },
     joinActivity: { weight: 0.20, avgPerSession: 1 },
     voteOnGovernance: { weight: 0.10, avgPerSession: 0.3 },
-    submitFeedback: { weight: 0.15, avgPerSession: 0.5 },
     ratifyNomination: { weight: 0.03, avgPerSession: 0.05 },
   },
   sessionDuration: { min: 15, max: 45, unit: 'minutes' },
@@ -193,7 +188,6 @@ export async function selectWorkflow(
   if (actions.joinActivity?.weight) candidates.push({ weight: actions.joinActivity.weight, fn: () => joinActivityWorkflow(ctx), name: 'joinActivity' });
 
   if (actions.voteOnGovernance?.weight) candidates.push({ weight: actions.voteOnGovernance.weight, fn: () => voteOnGovernanceWorkflow(user, client), name: 'voteOnGovernance' });
-  if (actions.submitFeedback?.weight) candidates.push({ weight: actions.submitFeedback.weight, fn: () => submitFeedbackWorkflow(user, client), name: 'submitFeedback' });
   if (actions.callDibs?.weight) candidates.push({ weight: actions.callDibs.weight, fn: () => callDibsWorkflow(user, client), name: 'callDibs' });
   if (actions.acceptOrDeclineDibs?.weight) candidates.push({ weight: actions.acceptOrDeclineDibs.weight, fn: () => respondToDibsWorkflow(user, client), name: 'respondToDibs' });
   if (actions.nominateMember?.weight) candidates.push({ weight: actions.nominateMember.weight, fn: () => nominateMemberWorkflow(user, client), name: 'nominateMember' });
