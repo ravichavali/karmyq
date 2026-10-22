@@ -214,9 +214,19 @@ code-scanning alerts on master. No browser smoke was run (the build log is the e
 ## PR L state (2026-10-22)
 
 Executed inline (`superpowers:executing-plans`) on `agent/claude/sprint-134-pr-l-legacy-handlers` from `origin/master` `0321c415`,
-**v11.98.0** (re-derived from `origin/master`). **#315 open, awaiting maintainer merge; merges only after the renewal PR.** When the
-renewal has merged: update this branch from `origin/master` with a merge commit (no rebase), re-bump to the next free version,
-re-run `npm test`, then ask.
+**v11.98.0** (re-derived from `origin/master`). **#315 open; merges only after the renewal PR merges and deploys.**
+**Codex review at `9c57a866` (2026-10-22): no blocking findings.** CI green, including all three changed integration suites (174
+tests passed; 60/60 notification jobs delivered, zero failed attempts; run 39863929755). Codex agreed with deleting the GET route and
+with accepting the simulation mix shift without retuning.
+**Admin merge APPROVED by the maintainer (2026-10-22 23:10Z), to run only after the renewal.** The maintainer chose "after the
+renewal" over "now". Sequence for that chat:
+1. Confirm the renewal PR merged and its deploy and health verify finished.
+2. Update this branch from `origin/master` with a merge commit (no rebase). Resolve the handoff conflict: both PRs carry the #314
+   record.
+3. Re-bump to the next free version and re-run the gates (`npm test`, `npm test --workspace=tests`, `tsc` on the touched workspaces).
+4. Ask the maintainer to run the read-only check on both retired queues, right before the merge (Codex recommendation).
+5. Run `gh pr merge 315 --squash --admin` once. If the classifier refuses it, hand over the command.
+6. After the deploy, run the same queue check again.
 
 **What changed.** The three subscribers no longer open `karmyq-events`; `match_completed` arrives only on each completion queue.
 `startConsumerQueue` loses `legacyQueue`. `interaction_feedback_submitted` is retired, so `EVENT_CONSUMERS` is `['notification']`
