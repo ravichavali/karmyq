@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { query } from '../database/db';
+import { isLiveAdmin } from '../db/liveRole';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import type { CreateCollectiveInput } from '@karmyq/shared/schemas/providers';
 
@@ -444,10 +445,8 @@ router.post('/:id/communities', authMiddleware, async (req: AuthenticatedRequest
       [id, userId]
     );
 
-    const memberships = req.user!.communities ?? [];
-    const isCommunityAdmin = memberships.some(
-      (m: any) => m.id === community_id && m.role === 'admin'
-    );
+    // A LIVE community admin, never the JWT claim (BUG-069).
+    const isCommunityAdmin = await isLiveAdmin(community_id, userId);
 
     if (authCheck.rowCount === 0 && !isCommunityAdmin) {
       return res.status(403).json({ success: false, message: 'Only collective admins or community admins can link to communities' });
@@ -482,10 +481,7 @@ router.delete('/:id/communities/:communityId', authMiddleware, async (req: Authe
       [id, userId]
     );
 
-    const memberships = req.user!.communities ?? [];
-    const isCommunityAdmin = memberships.some(
-      (m: any) => m.id === communityId && m.role === 'admin'
-    );
+    const isCommunityAdmin = await isLiveAdmin(communityId, userId);
 
     if (authCheck.rowCount === 0 && !isCommunityAdmin) {
       return res.status(403).json({ success: false, message: 'Only collective admins or community admins can unlink communities' });

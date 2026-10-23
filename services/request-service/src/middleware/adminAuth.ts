@@ -8,14 +8,13 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { isDemoReadOnlySession } from '@karmyq/shared/middleware/auth';
+import { isLiveAdminOfAnyCommunity } from '../db/liveRole';
 
 interface JWTPayload {
   userId: string;
   email: string;
-  role?: string;
   sessionMode?: string;
   communities?: Array<{ id: string; name: string; role: string }>;
-  communityMemberships?: Array<{ id: string; name: string; role: string }>; // legacy alias
 }
 
 // HTTP methods a read-only demo session may use through this non-shared verifier.
@@ -90,8 +89,11 @@ export function verifyToken(req: Request, res: Response, next: NextFunction) {
 /**
  * Require admin role middleware
  * Must be used after verifyToken
+ *
+ * Admits a LIVE admin of any community (BUG-069, ADR-102): the role comes from
+ * communities.members, never the token's `communities` claim.
  */
-export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const user = (req as any).user as JWTPayload | undefined;
 
   if (!user) {
@@ -101,13 +103,7 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
     });
   }
 
-  // Check if user has admin role in any community
-  // JWT uses 'communities' field; support legacy 'communityMemberships' alias too
-  const memberships = user.communities ?? user.communityMemberships ?? [];
-  const isAdmin = user.role === 'admin' ||
-    memberships.some(m => m.role === 'admin');
-
-  if (!isAdmin) {
+  if (!(await isLiveAdminOfAnyCommunity(user.userId))) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'
