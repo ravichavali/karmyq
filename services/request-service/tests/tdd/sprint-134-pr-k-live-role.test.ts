@@ -161,6 +161,25 @@ describe('admin actions on a request (requireAdmin mount + per-request gate)', (
   });
 });
 
+describe('BUG-071: requester-offer routes sit before the admin-actions mount', () => {
+  // A requester who administers nothing: requireAdmin would refuse them if these routes fell through to it.
+  beforeEach(() => mocked.isLiveAdminOfAnyCommunity.mockResolvedValue(false));
+  const member = [{ id: C, name: 'Member', role: 'member' }];
+
+  it('GET /requests/:id/offers reaches the owner check (the request is theirs, no offers yet)', async () => {
+    const res = await send('get', `/requests/${REQ}/offers`, undefined, member);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual([]);
+    expect(mocked.isLiveAdminOfAnyCommunity).not.toHaveBeenCalled();
+  });
+  it.each(['accept', 'decline'])('PUT /requests/offers/:id/%s reaches the offer lookup (no pending offer → 404)', async (action) => {
+    const res = await send('put', `/requests/offers/${COLLECTIVE}/${action}`, undefined, member);
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('NOT_FOUND');
+    expect(mocked.isLiveAdminOfAnyCommunity).not.toHaveBeenCalled();
+  });
+});
+
 describe('collective <-> community links (collective admin OR live community admin)', () => {
   const routes: Array<[method: 'post' | 'delete', path: string, body: object | undefined, liveStatus: number]> = [
     ['post', `/collectives/${COLLECTIVE}/communities`, { community_id: C }, 201],

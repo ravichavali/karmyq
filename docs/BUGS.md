@@ -1902,3 +1902,22 @@ table that has it. `services/request-service/src/routes/feedback.ts:46` is BUG-0
   (≤ 2-week SLA).
 
 ---
+
+## BUG-071 · [2026-10-22] · open · **MEDIUM** (proposed)
+
+**The requester-offer routes 403 every requester who is not a community admin somewhere.**
+`services/request-service/src/index.ts` mounts `requesterOffersRouter` (`GET /requests/:id/offers`,
+`PUT /requests/offers/:id/accept`, `PUT /requests/offers/:id/decline`) at `:162`, **after** the `/requests` admin-actions
+mount at `:150-157`. That mount runs `...adminAuth` (`verifyToken` + `requireAdmin`) as mount-level middleware for every
+`/requests` path that reaches it. Nothing earlier answers those three paths: `routes/requests.ts` has no `/:id/offers` or
+`/offers/:id/*` route and no `router.use`, and `dibsRouter`'s paths are `/dibs/*`. So `requireAdmin` returns
+`403 "Admin access required"` before `requesterOffersRouter` is reached. The frontend calls all three
+(`apps/frontend/src/lib/api/providerApi.ts:24,29,34`). Present since 2026-03-26: `b26e7b5d` added `requesterOffersRouter`
+after the admin mount that `bd63e084` added on 2026-03-23. Found 2026-10-22 by the Sprint 134 PR K inventory.
+
+- **Impact:** product, not security. An ordinary requester cannot view, accept or decline provider offers. The gate
+  over-denies; it exposes nothing.
+- **Fix:** mount `requesterOffersRouter` before the admin-actions mount, as `dibsRouter` already is (its comment documents
+  the same trap). Planned in Sprint 134 PR K, Task K2.
+
+---

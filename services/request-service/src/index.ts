@@ -145,6 +145,13 @@ app.use(
 // Each route applies authMiddleware individually
 app.use('/requests', rateLimiters.standard, dibsRouter);
 
+// Requester-side offer management: view, accept, decline provider offers
+// IMPORTANT: also BEFORE adminActionsRouter, for the same reason as dibs (BUG-071: mounted after it,
+// requireAdmin refused every requester who is not an admin somewhere).
+// Routes: GET /requests/:id/offers, PUT /requests/offers/:id/accept, PUT /requests/offers/:id/decline
+// Each route applies authMiddleware individually
+app.use('/requests', rateLimiters.standard, requesterOffersRouter);
+
 // Admin actions on requests (boost, propose-match, urgent toggle)
 // Requires admin role in at least one community; route handlers further scope to the request's community
 app.use(
@@ -155,11 +162,6 @@ app.use(
   dbContextMiddleware(pool),
   adminActionsRouter
 );
-
-// Requester-side offer management: view, accept, decline provider offers
-// Routes: GET /requests/:id/offers, PUT /requests/offers/:id/accept, PUT /requests/offers/:id/decline
-// Each route applies authMiddleware individually
-app.use('/requests', rateLimiters.standard, requesterOffersRouter);
 
 app.use(
   '/offers',
