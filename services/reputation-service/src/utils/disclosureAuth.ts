@@ -82,14 +82,6 @@ export async function checkAggregateAccess(
   return { allowed: cohort >= MIN_AGGREGATE_COHORT };
 }
 
-/** True when the JWT memberships mark the caller as an admin of the community. */
-export function isCommunityAdmin(
-  memberships: Array<{ id?: string; role?: string }> | undefined,
-  communityId: string,
-): boolean {
-  return (memberships ?? []).some((m) => m.id === communityId && m.role === 'admin');
-}
-
 /**
  * Build the canonical community-scoped self summary for the caller, or null when the caller is not
  * an active member of the community. Composes the existing karma-with-decay and trust-score

@@ -5,6 +5,7 @@ import { getCommunityTrustScore, } from '../database/communityTrustDb';
 import { calculateCommunityTrustScore } from '../services/communityTrustService';
 import { getUserBadges } from '../services/badgeService';
 import { query } from '../database/db';
+import { isLiveAdmin } from '../utils/liveRole';
 import { insertFeedback, hasSubmittedFeedback, getMatchParticipation } from '../database/feedbackDb';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import {
@@ -487,9 +488,8 @@ router.put('/trust-config/:userId/:communityId', authMiddleware, async (req: Aut
 router.get('/communities/:communityId/trust-evolution', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { communityId } = req.params;
-    const memberships = req.user?.communities ?? [];
-    const isAdmin = memberships.some((m: any) => m.id === communityId && m.role === 'admin');
-    if (!isAdmin) {
+    // A LIVE community admin, never the JWT claim (BUG-069, ADR-102).
+    if (!(await isLiveAdmin(communityId, req.user?.userId))) {
       return res.status(403).json({ success: false, message: 'Forbidden' });
     }
     const [config, optInRate] = await Promise.all([
@@ -511,9 +511,8 @@ router.get('/communities/:communityId/trust-evolution', authMiddleware, async (r
 router.put('/communities/:communityId/trust-evolution', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { communityId } = req.params;
-    const memberships = req.user?.communities ?? [];
-    const isAdmin = memberships.some((m: any) => m.id === communityId && m.role === 'admin');
-    if (!isAdmin) {
+    // A LIVE community admin, never the JWT claim (BUG-069, ADR-102).
+    if (!(await isLiveAdmin(communityId, req.user?.userId))) {
       return res.status(403).json({ success: false, message: 'Forbidden' });
     }
     const { community_evolution_enabled, cross_community_prior } = req.body;
@@ -540,9 +539,8 @@ router.put('/communities/:communityId/trust-evolution', authMiddleware, async (r
 router.get('/community/:communityId/evolution/history', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { communityId } = req.params;
-    const memberships = req.user?.communities ?? [];
-    const isAdmin = memberships.some((m: any) => m.id === communityId && m.role === 'admin');
-    if (!isAdmin) return res.status(403).json({ success: false, message: 'Admin only' });
+    // A LIVE community admin, never the JWT claim (BUG-069, ADR-102).
+    if (!(await isLiveAdmin(communityId, req.user?.userId))) return res.status(403).json({ success: false, message: 'Admin only' });
 
     const limit = Math.min(parseInt((req.query.limit as string) ?? '50', 10), 100);
     const offset = parseInt((req.query.offset as string) ?? '0', 10);
@@ -558,9 +556,8 @@ router.get('/community/:communityId/evolution/history', authMiddleware, async (r
 router.get('/community/:communityId/evolution/summary', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { communityId } = req.params;
-    const memberships = req.user?.communities ?? [];
-    const isAdmin = memberships.some((m: any) => m.id === communityId && m.role === 'admin');
-    if (!isAdmin) return res.status(403).json({ success: false, message: 'Admin only' });
+    // A LIVE community admin, never the JWT claim (BUG-069, ADR-102).
+    if (!(await isLiveAdmin(communityId, req.user?.userId))) return res.status(403).json({ success: false, message: 'Admin only' });
 
     const summary = await getCommunityEvolutionSummary(communityId);
     return res.json({ success: true, data: summary });
@@ -574,9 +571,8 @@ router.get('/community/:communityId/evolution/summary', authMiddleware, async (r
 router.put('/community/:communityId/evolution/toggle', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { communityId } = req.params;
-    const memberships = req.user?.communities ?? [];
-    const isAdmin = memberships.some((m: any) => m.id === communityId && m.role === 'admin');
-    if (!isAdmin) return res.status(403).json({ success: false, message: 'Admin only' });
+    // A LIVE community admin, never the JWT claim (BUG-069, ADR-102).
+    if (!(await isLiveAdmin(communityId, req.user?.userId))) return res.status(403).json({ success: false, message: 'Admin only' });
 
     const { enabled } = req.body;
     if (typeof enabled !== 'boolean') {
