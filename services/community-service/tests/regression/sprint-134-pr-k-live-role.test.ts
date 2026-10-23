@@ -22,12 +22,8 @@ jest.mock('../../src/database/db', () => ({
 jest.mock('../../src/events/publisher', () => ({ publishEvent: jest.fn() }));
 jest.mock('../../src/services/fusionService', () => ({ executeFusion: jest.fn() }));
 jest.mock('../../src/services/fissionService', () => ({ executeSplit: jest.fn(), clusterCommunityMembers: jest.fn() }));
-jest.mock('../../src/utils/liveRole', () => ({
-  ...jest.requireActual('../../src/utils/liveRole'),
-  getLiveRole: jest.fn(),
-  isLiveAdmin: jest.fn(),
-  isLiveAdminOfAnyCommunity: jest.fn(),
-}));
+// Automock: every export is a jest.fn (the helper's own cases use jest.requireActual).
+jest.mock('../../src/utils/liveRole');
 
 import * as liveRole from '../../src/utils/liveRole';
 import { executeFusion } from '../../src/services/fusionService';

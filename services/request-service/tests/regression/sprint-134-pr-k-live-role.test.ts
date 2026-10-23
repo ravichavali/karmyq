@@ -23,13 +23,8 @@ jest.mock('../../src/database/db', () => ({
   withTransaction: (fn: any) => fn((...args: any[]) => mockQuery(...args)),
   initDatabase: jest.fn(),
 }));
-jest.mock('../../src/db/liveRole', () => ({
-  ...jest.requireActual('../../src/db/liveRole'),
-  getLiveRole: jest.fn(),
-  isLiveAdmin: jest.fn(),
-  isLiveAdminOfAnyCommunity: jest.fn(),
-  hasLiveRoleInRequestCommunities: jest.fn(),
-}));
+// Automock: every export is a jest.fn (the helper's own cases use jest.requireActual).
+jest.mock('../../src/db/liveRole');
 
 import * as liveRole from '../../src/db/liveRole';
 
@@ -50,14 +45,11 @@ let app: any;
 beforeAll(async () => {
   app = (await import('../../src/index')).default;
 });
+// The root jest config resets every mock before each test (resetMocks).
 beforeEach(() => {
-  mockQuery.mockReset();
   // The only rows a gated route needs before its gate: "the request exists".
   mockQuery.mockImplementation(async (sql: string) =>
     /^\s*SELECT id FROM requests\.help_requests/.test(sql) ? { rows: [{ id: REQ }], rowCount: 1 } : { rows: [], rowCount: 0 });
-  for (const fn of [mocked.getLiveRole, mocked.isLiveAdmin, mocked.isLiveAdminOfAnyCommunity, mocked.hasLiveRoleInRequestCommunities]) {
-    (fn as jest.Mock).mockReset();
-  }
 });
 
 const writes = () => mockQuery.mock.calls.map(([sql]) => String(sql)).filter((sql) => /^\s*(INSERT|UPDATE|DELETE)\b/i.test(sql));
@@ -176,6 +168,11 @@ describe('BUG-071: requester-offer routes sit before the admin-actions mount', (
     const res = await send('put', `/requests/offers/${COLLECTIVE}/${action}`, undefined, member);
     expect(res.status).toBe(404);
     expect(res.body.error).toBe('NOT_FOUND');
+    expect(mocked.isLiveAdminOfAnyCommunity).not.toHaveBeenCalled();
+  });
+  it('the admin chain covers only the admin-action routes: an unmatched /requests path is a plain 404', async () => {
+    const res = await send('post', `/requests/${REQ}/not-a-route`, {}, member);
+    expect(res.status).toBe(404);
     expect(mocked.isLiveAdminOfAnyCommunity).not.toHaveBeenCalled();
   });
 });

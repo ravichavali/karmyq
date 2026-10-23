@@ -24,7 +24,7 @@ router.post('/:communityId/splits', async (req: any, res: Response) => {
   const { communityId } = req.params;
   const userId = req.user?.userId;
 
-  if (!(await isLiveAdmin(communityId, req.user?.userId))) {
+  if (!(await isLiveAdmin(communityId, userId))) {
     return res.status(403).json({ success: false, message: 'Admin only' });
   }
 
@@ -226,7 +226,7 @@ router.post('/:communityId/splits/:splitId/execute', async (req: any, res: Respo
   const { communityId, splitId } = req.params;
   const userId = req.user?.userId;
 
-  if (!(await isLiveAdmin(communityId, req.user?.userId))) {
+  if (!(await isLiveAdmin(communityId, userId))) {
     return res.status(403).json({ success: false, message: 'Admin only' });
   }
 

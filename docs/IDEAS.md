@@ -908,6 +908,10 @@ to work through data-safety considerations for exports (and community data acces
   that); delete both in a shared-package PR.
 - **Stacked `/requests` rate limiters count one request several times.** Each `/requests` mount in request-service runs
   `rateLimiters.standard` (express-rate-limit 8.7.0 increments, then only warns `ERR_ERL_DOUBLE_COUNT`), so an admin
-  action counts once per mount it passes (4 since BUG-071's mount move). Apply the limiter once per request.
+  action counts once per mount it passes. Apply the limiter once per request.
+- **request-service `tests/integration/dynamic-schemas.test.ts` is a dead manual suite.** It is not a `*.integration.test.ts`, so
+  CI never runs it; it signs `userId: 'admin-user-id'` (not a UUID, so its admin writes already failed on the `uuid`
+  `ui_schemas.created_by`) with a `role: 'admin'` claim that no issuer signs and `requireAdmin` no longer reads (ADR-102).
+  Rewrite it as a root `tests/integration/*.integration.test.ts` with a live admin row, or delete it.
 
 ---

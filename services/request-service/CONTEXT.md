@@ -2942,13 +2942,16 @@ CREATE TABLE auth.user_interests (
   gate on boost, unboost, propose-match and urgent, and the collective link/unlink community-admin check now read
   `communities.members` through `src/db/liveRole.ts` (`getLiveRole`, `isLiveAdmin`, `isLiveAdminOfAnyCommunity`,
   `hasLiveRoleInRequestCommunities`; arguments `(communityId, userId)`; a malformed id answers false, not a 500).
-  `db/inventoryDb.ts` `isActiveAdmin`/`isActiveMember` delegate to it. The dead `user.role` branch and the legacy
+  `db/inventoryDb.ts` `isActiveMember` delegates to it. The dead `user.role` branch and the legacy
   `communityMemberships` alias are gone. Tests: `tests/regression/sprint-134-pr-k-live-role.test.ts`, root
   `tests/integration/sprint-134-pr-k-live-admin-role.integration.test.ts`, and the static gate
   `tests/regression/sprint-134-pr-k-claim-gate.test.ts`.
 - **BUG-071 — the requester-offer routes 403'd every requester who is not an admin somewhere.**
   `requesterOffersRouter` (`GET /requests/:id/offers`, `PUT /requests/offers/:id/accept|decline`) was mounted after the
-  admin-actions mount, whose mount-level `requireAdmin` ran first. It is now mounted before it, like `dibsRouter`.
+  admin-actions mount, whose prefix-wide `requireAdmin` ran first. The admin chain now runs only on the three
+  admin-action paths (`app.all([...'/requests/:requestId/{boost,propose-match,urgent}'])`), so nothing else under
+  `/requests` falls through it; an unmatched `/requests` path is a plain 404. `db/inventoryDb.ts` `isActiveAdmin` had no
+  callers and is deleted.
 
 **Sprint 133 PR V — Request and offer read boundary (v11.89.0, #306):**
 

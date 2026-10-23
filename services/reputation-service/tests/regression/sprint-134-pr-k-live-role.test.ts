@@ -32,25 +32,20 @@ jest.mock('../../src/services/trustEvolutionService', () => ({
 }));
 jest.mock('../../src/database/trustEvolutionDb', () => ({
   getUserTrustConfig: jest.fn(), upsertUserTrustConfig: jest.fn(), getEvolutionLog: jest.fn(),
-  getCommunityEvolutionConfig: jest.fn(async () => ({ community_evolution_enabled: true, cross_community_prior: 0.5 })),
-  updateCommunityEvolutionConfig: jest.fn(), getEvolutionOptInRate: jest.fn(async () => 0.25),
+  getCommunityEvolutionConfig: jest.fn(), updateCommunityEvolutionConfig: jest.fn(), getEvolutionOptInRate: jest.fn(),
   isCrossCommunityParticipant: jest.fn(), getGlobalEvolutionPreference: jest.fn(), upsertGlobalEvolutionPreference: jest.fn(),
 }));
 jest.mock('../../src/services/effectiveParamsCache', () => ({ getCachedEffectiveParams: jest.fn() }));
 jest.mock('../../src/database/communityEvolutionDb', () => ({
-  getCommunityEvolutionHistory: jest.fn(async () => []),
-  getCommunityEvolutionSummary: jest.fn(async () => ({ total_evaluations: 0 })),
+  getCommunityEvolutionHistory: jest.fn(),
+  getCommunityEvolutionSummary: jest.fn(),
 }));
 jest.mock('../../src/services/providerTrustService', () => ({
-  recalculateProviderTrustScore: jest.fn(), backfillAllProviderTrustScores: jest.fn(async () => 3),
+  recalculateProviderTrustScore: jest.fn(), backfillAllProviderTrustScores: jest.fn(),
 }));
 jest.mock('../../src/events/publisher', () => ({ publishEvent: jest.fn() }));
-jest.mock('../../src/utils/liveRole', () => ({
-  ...jest.requireActual('../../src/utils/liveRole'),
-  getLiveRole: jest.fn(),
-  isLiveAdmin: jest.fn(),
-  isLiveAdminOfAnyCommunity: jest.fn(),
-}));
+// Automock: every export is a jest.fn (the helper's own cases use jest.requireActual).
+jest.mock('../../src/utils/liveRole');
 
 import * as liveRole from '../../src/utils/liveRole';
 import { updateCommunityEvolutionConfig } from '../../src/database/trustEvolutionDb';
@@ -71,12 +66,9 @@ app.use(express.json());
 app.use('/reputation', reputationRouter);
 app.use('/reputation', providerReviewsRouter);
 
+// The root jest config resets every mock before each test (resetMocks), so implementations are armed per test.
 beforeEach(() => {
-  mockQuery.mockReset();
   mockQuery.mockResolvedValue({ rows: [], rowCount: 0 });
-  for (const fn of [mocked.getLiveRole, mocked.isLiveAdmin, mocked.isLiveAdminOfAnyCommunity]) fn.mockReset();
-  (updateCommunityEvolutionConfig as jest.Mock).mockClear();
-  (backfillAllProviderTrustScores as jest.Mock).mockClear();
 });
 
 type Method = 'get' | 'put' | 'post';
@@ -163,7 +155,7 @@ describe('POST /reputation/provider-trust/recalculate (admin of any community, l
   });
   it('runs the backfill for a live admin with an empty claim', async () => {
     mocked.isLiveAdminOfAnyCommunity.mockResolvedValue(true);
-    (backfillAllProviderTrustScores as jest.Mock).mockResolvedValue(3); // per test: resetMocks wipes module-scope impls
+    (backfillAllProviderTrustScores as jest.Mock).mockResolvedValue(3);
     const res = await send('post', '/reputation/provider-trust/recalculate', undefined, EMPTY_CLAIM);
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual({ updated: 3 });

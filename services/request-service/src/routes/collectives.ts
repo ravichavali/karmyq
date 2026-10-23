@@ -445,10 +445,8 @@ router.post('/:id/communities', authMiddleware, async (req: AuthenticatedRequest
       [id, userId]
     );
 
-    // A LIVE community admin, never the JWT claim (BUG-069).
-    const isCommunityAdmin = await isLiveAdmin(community_id, userId);
-
-    if (authCheck.rowCount === 0 && !isCommunityAdmin) {
+    // Collective admin, or a LIVE community admin (never the JWT claim, BUG-069).
+    if (authCheck.rowCount === 0 && !(await isLiveAdmin(community_id, userId))) {
       return res.status(403).json({ success: false, message: 'Only collective admins or community admins can link to communities' });
     }
 
@@ -481,9 +479,7 @@ router.delete('/:id/communities/:communityId', authMiddleware, async (req: Authe
       [id, userId]
     );
 
-    const isCommunityAdmin = await isLiveAdmin(communityId, userId);
-
-    if (authCheck.rowCount === 0 && !isCommunityAdmin) {
+    if (authCheck.rowCount === 0 && !(await isLiveAdmin(communityId, userId))) {
       return res.status(403).json({ success: false, message: 'Only collective admins or community admins can unlink communities' });
     }
 

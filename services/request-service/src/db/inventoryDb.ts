@@ -1,6 +1,6 @@
 import { query, withTransaction } from '../database/db';
 import { directedAudienceSql } from './directedAudience';
-import { getLiveRole, isLiveAdmin } from './liveRole';
+import { getLiveRole } from './liveRole';
 
 // Only internal callers supply SQL identifiers/parameter positions. Viewer values stay bound.
 export function itemManagerSql(alias: string, viewerParam: string): string {
@@ -58,9 +58,6 @@ function sharedWithSql(alias: string, viewerParam: string): string {
 
 // Live membership, never the JWT claim (liveRole.ts, ADR-102): a malformed id answers false, not a 500.
 // Argument order is (communityId, userId); providerReachService.isActiveMember takes (userId, communityId).
-export async function isActiveAdmin(communityId: string, userId: string): Promise<boolean> {
-  return await isLiveAdmin(communityId, userId);
-}
 export async function isActiveMember(communityId: string, userId: string): Promise<boolean> {
   return (await getLiveRole(communityId, userId)) !== null;
 }

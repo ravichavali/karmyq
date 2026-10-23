@@ -1,4 +1,5 @@
 import { pool } from '../config/database';
+import { isUuid } from '../services/communityContext';
 
 /**
  * The caller's LIVE community role (BUG-069, ADR-102). Every authorization and visibility decision
@@ -11,10 +12,8 @@ import { pool } from '../config/database';
  */
 export type LiveRole = 'admin' | 'moderator' | 'member' | null;
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export async function getLiveRole(communityId: unknown, userId: string | undefined): Promise<LiveRole> {
-  if (!userId || typeof communityId !== 'string' || !UUID_RE.test(communityId)) return null;
+  if (!userId || !isUuid(communityId)) return null;
   const result = await pool.query(
     `SELECT role FROM communities.members
      WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,

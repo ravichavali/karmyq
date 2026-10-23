@@ -38,7 +38,7 @@ router.post('/:communityId/fusions', async (req: any, res: Response) => {
   const { communityId } = req.params;
   const userId = req.user?.userId;
 
-  if (!(await isLiveAdmin(communityId, req.user?.userId))) return res.status(403).json({ success: false, message: 'Admin only' });
+  if (!(await isLiveAdmin(communityId, userId))) return res.status(403).json({ success: false, message: 'Admin only' });
 
   const { target_community_id, merged_community_name, rationale } = req.body;
   if (!target_community_id || !merged_community_name) {
@@ -74,7 +74,7 @@ router.post('/:communityId/fusions/:fusionId/accept', async (req: any, res: Resp
 
   const proposal = await getFusionProposal(fusionId);
   if (!proposal) return res.status(404).json({ success: false, message: 'Proposal not found' });
-  if (!(await isLiveAdmin(proposal.community_b_id, req.user?.userId))) return res.status(403).json({ success: false, message: 'Admin of target community only' });
+  if (!(await isLiveAdmin(proposal.community_b_id, userId))) return res.status(403).json({ success: false, message: 'Admin of target community only' });
   if (proposal.status !== 'pending_acceptance') return res.status(422).json({ success: false, message: 'Proposal must be in pending_acceptance status' });
 
   try {
@@ -230,7 +230,7 @@ router.post('/:communityId/fusions/:fusionId/execute', async (req: any, res: Res
 
   const proposal = await getFusionProposal(fusionId);
   if (!proposal) return res.status(404).json({ success: false, message: 'Proposal not found' });
-  if (!(await isLiveAdmin(proposal.community_a_id, req.user?.userId)) && !(await isLiveAdmin(proposal.community_b_id, req.user?.userId))) {
+  if (!(await isLiveAdmin(proposal.community_a_id, userId)) && !(await isLiveAdmin(proposal.community_b_id, userId))) {
     return res.status(403).json({ success: false, message: 'Admin of either community required' });
   }
 

@@ -13,26 +13,25 @@
  *    reviewed hint-only reads in ALLOWLIST. Matching is by identity (file, enclosing scope, line
  *    text), both ways: every read has an entry and every entry still has its read.
  * 2. Every call to a live-role helper is awaited. An un-awaited call is a truthy Promise, which
- *    turns `if (!isLiveAdmin(...))` into a gate that admits everyone.
+ *    turns `if (!isLiveAdmin(...))` into a gate that admits everyone. The helper names are derived
+ *    from the source, never listed by hand: every function a `liveRole.ts` module exports, plus, to a
+ *    fixpoint, every exported function that calls one (request-service `inventoryDb.isActiveMember`).
  * 3. No service reads the shared tenant middleware's claim-derived `communityRole`, or uses its
  *    `adminOnlyMiddleware` (which decides from that field). That keeps H5 below a dead hint.
  */
+import { existsSync } from 'fs';
+import { join } from 'path';
 import * as ts from 'typescript';
 
-import { read, tracked } from './helpers/workspaces';
+import { allServicePaths, read, ROOT, tracked } from './helpers/workspaces';
 
 type SourceFile = { path: string; text: string };
+type Parsed = SourceFile & { sf: ts.SourceFile; lines: string[] };
 
 const CLAIM_FIELDS = new Set(['communities', 'communityMemberships']);
 const USER_IDENTIFIERS = new Set(['user', 'decoded']);
-const LIVE_ROLE_HELPERS = new Set([
-  'getLiveRole',
-  'isLiveAdmin',
-  'isLiveAdminOfAnyCommunity',
-  'hasLiveRoleInRequestCommunities',
-  'isActiveAdmin',
-  'isActiveMember',
-]);
+/** ADR-102: each service that gates on a role owns one of these. */
+const LIVE_ROLE_MODULE = /^services\/[^/]+\/src\/(?:.+\/)?liveRole\.ts$/;
 const TENANT_ROLE_NAMES = new Set(['communityRole', 'adminOnlyMiddleware']);
 
 /** Hint-only claim reads (plan *Inventory* H1–H5). Nothing here decides access. */
@@ -119,6 +118,41 @@ function scopeOf(node: ts.Node): string {
   return '<module>';
 }
 
+const parse = (f: SourceFile): Parsed =>
+  ({ ...f, sf: ts.createSourceFile(f.path, f.text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS), lines: f.text.split(/\r?\n/) });
+
+const calleeName = (call: ts.CallExpression): string => {
+  const c = unwrap(call.expression);
+  return ts.isIdentifier(c) ? c.text : ts.isPropertyAccessExpression(c) ? c.name.text : '';
+};
+
+function callsAny(node: ts.Node, names: Set<string>): boolean {
+  let found = false;
+  const visit = (n: ts.Node) => {
+    if (found) return;
+    if (ts.isCallExpression(n) && names.has(calleeName(n))) found = true;
+    else ts.forEachChild(n, visit);
+  };
+  visit(node);
+  return found;
+}
+
+/** Every function a liveRole module exports, then every exported function that calls a helper, to a fixpoint. */
+function liveRoleHelpers(files: Parsed[]): Set<string> {
+  const exported = files.flatMap((f) => f.sf.statements
+    .filter((s): s is ts.FunctionDeclaration => ts.isFunctionDeclaration(s) && !!s.name
+      && !!s.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword))
+    .map((fn) => ({ path: f.path, name: fn.name!.text, fn })));
+  const helpers = new Set(exported.filter((e) => LIVE_ROLE_MODULE.test(e.path)).map((e) => e.name));
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const e of exported) {
+      if (!helpers.has(e.name) && callsAny(e.fn, helpers)) { helpers.add(e.name); grew = true; }
+    }
+  }
+  return helpers;
+}
+
 const parentOf = (node: ts.Node): ts.Node | undefined => {
   let p = node.parent;
   while (p && ts.isParenthesizedExpression(p)) p = p.parent;
@@ -131,19 +165,22 @@ function isAwaited(call: ts.CallExpression): boolean {
   if (parent && ts.isAwaitExpression(parent)) return true;
   if (!parent || !ts.isArrayLiteralExpression(parent)) return false;
   const all = parentOf(parent);
-  return !!all && ts.isCallExpression(all) && all.arguments[0] === parent
-    && ts.isPropertyAccessExpression(all.expression) && all.expression.getText() === 'Promise.all'
-    && ts.isAwaitExpression(parentOf(all) ?? all);
+  if (!all || !ts.isCallExpression(all) || all.arguments[0] !== parent) return false;
+  const awaited = parentOf(all);
+  return all.expression.getText() === 'Promise.all' && !!awaited && ts.isAwaitExpression(awaited);
 }
 
-function violations(files: SourceFile[]): string[] {
+function violations(sources: SourceFile[]): string[] {
   const out: string[] = [];
   const used = new Set<number>();
+  const files = sources.map(parse);
+  const helpers = liveRoleHelpers(files);
 
   for (const file of files) {
-    const sf = ts.createSourceFile(file.path, file.text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-    const where = (node: ts.Node) => `${file.path}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`;
-    const lineText = (node: ts.Node) => file.text.split(/\r?\n/)[sf.getLineAndCharacterOfPosition(node.getStart(sf)).line].trim();
+    const { sf } = file;
+    const lineOf = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line;
+    const where = (node: ts.Node) => `${file.path}:${lineOf(node) + 1}`;
+    const lineText = (node: ts.Node) => file.lines[lineOf(node)].trim();
     const isService = file.path.startsWith('services/');
 
     const claimRead = (node: ts.Node) => {
@@ -164,10 +201,8 @@ function violations(files: SourceFile[]): string[] {
           if ((ts.isIdentifier(key) || ts.isStringLiteralLike(key)) && CLAIM_FIELDS.has(key.text)) claimRead(el);
         }
       }
-      if (ts.isCallExpression(node)) {
-        const callee = unwrap(node.expression);
-        const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : '';
-        if (LIVE_ROLE_HELPERS.has(name) && !isAwaited(node)) out.push(`unawaited ${name}() ${where(node)}`);
+      if (ts.isCallExpression(node) && helpers.has(calleeName(node)) && !isAwaited(node)) {
+        out.push(`unawaited ${calleeName(node)}() ${where(node)}`);
       }
       if (isService && ts.isIdentifier(node) && TENANT_ROLE_NAMES.has(node.text)) out.push(`tenant claim role ${node.text} ${where(node)}`);
       ts.forEachChild(node, visit);
@@ -191,11 +226,28 @@ describe('Sprint 134 PR K: role gates read live membership, not the JWT claim (A
     expect(base).toEqual([]);
   });
 
-  it('scans enough to mean something', () => {
-    const paths = live.map((f) => f.path);
-    expect(paths.filter((p) => /^services\/[^/]+\/src\/index\.ts$/.test(p)).length).toBeGreaterThanOrEqual(9);
-    expect(paths.length).toBeGreaterThanOrEqual(200);
-    expect(paths).toContain('packages/shared/middleware/tenant.ts');
+  it('scans every registry service entrypoint, the four liveRole modules and the tenant middleware', () => {
+    const paths = new Set(live.map((f) => f.path));
+    // From services/registry.json (the live arbiter); geocoding-service is JavaScript, so it has no index.ts.
+    const entrypoints = allServicePaths().map((p) => `${p}/src/index.ts`).filter((p) => existsSync(join(ROOT, p)));
+    expect(entrypoints.length).toBeGreaterThanOrEqual(9);
+    expect(entrypoints.filter((p) => !paths.has(p))).toEqual([]);
+    expect([...paths].filter((p) => LIVE_ROLE_MODULE.test(p)).sort()).toEqual([
+      'services/community-service/src/utils/liveRole.ts',
+      'services/reputation-service/src/utils/liveRole.ts',
+      'services/request-service/src/db/liveRole.ts',
+      'services/social-graph-service/src/database/liveRole.ts',
+    ]);
+    expect(paths.has('packages/shared/middleware/tenant.ts')).toBe(true);
+  });
+
+  it('derives the live-role helper names from the source', () => {
+    // requireAdmin is found, not listed: an exported middleware that calls isLiveAdminOfAnyCommunity. Express
+    // calls it (adminAuth = [verifyToken, requireAdmin]), so it has no call site to check.
+    expect([...liveRoleHelpers(live.map(parse))].sort()).toEqual([
+      'getLiveRole', 'hasLiveRoleInRequestCommunities', 'isActiveMember', 'isLiveAdmin', 'isLiveAdminOfAnyCommunity',
+      'requireAdmin',
+    ]);
   });
 
   describe('negative fixtures: each rule can fail', () => {
@@ -227,6 +279,10 @@ describe('Sprint 134 PR K: role gates read live membership, not the JWT claim (A
     });
     it('accepts a live-role call inside an awaited Promise.all', () => {
       expect(added(fixture('export async function p(c: string, u: string) {\n  const [r] = await Promise.all([getLiveRole(c, u), q()]);\n  return r;\n}'))).toEqual([]);
+    });
+    it('derives wrappers: an exported function that calls a helper is a helper too', () => {
+      expect(added(fixture('export async function isMod(c: string, u: string) {\n  return (await getLiveRole(c, u)) === "moderator";\n}\nexport async function gate(c: string, u: string) {\n  if (!isMod(c, u)) return false;\n  return true;\n}')))
+        .toEqual(['unawaited isMod() services/request-service/src/routes/fixture.ts:5']);
     });
     it('flags a live-role call inside an un-awaited Promise.all', () => {
       expect(added(fixture('export function s(c: string, u: string) {\n  return Promise.all([isLiveAdmin(c, u)]).then(([a]) => a);\n}')))

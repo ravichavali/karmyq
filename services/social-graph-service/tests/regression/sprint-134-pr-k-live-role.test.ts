@@ -17,11 +17,8 @@ jest.mock('../../src/database/trustDecayConfigDb', () => ({
   getGlobalDecayConfig: jest.fn(),
   upsertDecayConfig: jest.fn(),
 }));
-jest.mock('../../src/database/liveRole', () => ({
-  ...jest.requireActual('../../src/database/liveRole'),
-  getLiveRole: jest.fn(),
-  isLiveAdmin: jest.fn(),
-}));
+// Automock: every export is a jest.fn (the helper's own cases use jest.requireActual).
+jest.mock('../../src/database/liveRole');
 
 import * as liveRole from '../../src/database/liveRole';
 import { getDecayConfig, upsertDecayConfig } from '../../src/database/trustDecayConfigDb';
