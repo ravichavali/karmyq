@@ -28,7 +28,7 @@ describe('Sprint 134 PR K: admin gates read live membership, not the JWT claim (
   const token = (id: string) => jwt.sign({ userId: id, email: `${id}@karmyq.test`, communities: claims[id] },
     process.env.JWT_SECRET || 'dev-secret-key');
 
-  let ask: string, ownAsk: string, fusion: string, split: string, collective: string;
+  let ask: string, ownAsk: string, fusion: string, split: string, splitOfC2: string, collective: string;
   const MISSING = randomUUID(); // a trust question / choice id that does not exist: the A rows stop at 404
 
   type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
@@ -81,6 +81,9 @@ describe('Sprint 134 PR K: admin gates read live membership, not the JWT claim (
       VALUES ($1,$2,$3,'PR K merged','voting') RETURNING id`, [C2, C, A2])).rows[0].id;
     split = (await pool.query(`INSERT INTO communities.split_proposals(community_id,proposed_by,split_type,group_a_name,group_b_name,status)
       VALUES ($1,$2,'admin_initiated','PR K a','PR K b','voting') RETURNING id`, [C, A])).rows[0].id;
+    // An approved split of C2: an admin of C must not be able to reach it through C's path.
+    splitOfC2 = (await pool.query(`INSERT INTO communities.split_proposals(community_id,proposed_by,split_type,group_a_name,group_b_name,status)
+      VALUES ($1,$2,'admin_initiated','PR K c2 a','PR K c2 b','approved') RETURNING id`, [C2, A2])).rows[0].id;
     collective = (await pool.query(`INSERT INTO requests.provider_collectives(name,created_by) VALUES ('PR K collective',$1) RETURNING id`, [A2])).rows[0].id;
   });
 
@@ -159,6 +162,14 @@ describe('Sprint 134 PR K: admin gates read live membership, not the JWT claim (
       .toEqual([{ status: 'inactive' }]); // linked, then unlinked
     expect((await pool.query('SELECT base_half_life_days FROM social_graph.trust_decay_config WHERE community_id=$1', [C])).rows)
       .toEqual([{ base_half_life_days: 45 }]);
+  });
+
+  it.each([
+    ['assignments', 'put' as Method, () => `/communities/${C}/splits/${splitOfC2}/assignments`, [{ userId: A2, assignedTo: 'group_a' }]],
+    ['execute', 'post' as Method, () => `/communities/${C}/splits/${splitOfC2}/execute`, undefined],
+  ])("an admin of C cannot reach C2's split through C's path (%s → 404)", async (_label, method, path, body) => {
+    expect((await call(ServiceUrls.COMMUNITY, method, path(), body as object | undefined, A)).status).toBe(404);
+    expect((await pool.query('SELECT status FROM communities.split_proposals WHERE id=$1', [splitOfC2])).rows).toEqual([{ status: 'approved' }]);
   });
 
   it("an admin of another community is not an admin of this request's community", async () => {

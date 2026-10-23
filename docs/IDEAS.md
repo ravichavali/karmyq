@@ -897,12 +897,16 @@ to work through data-safety considerations for exports (and community data acces
   alone by PR K: community-service `members.ts` (POST/PUT/DELETE), `settings.ts` (3), `stats.ts`, `export.ts` (3),
   `norms.ts`, `communities.ts` PUT and DELETE `/:id`, `links.ts isAdmin`, `activities.ts getMembership`; request-service
   `providerReachService.isActiveMember` (reversed argument order) and `requests.ts` admin-notes/triage queries.
-- **Should any community's admin edit platform-wide resources?** `requireAdmin` (`/admin/schemas`), the trust-question
-  writes and `POST /reputation/provider-trust/recalculate` admit an admin of **any** community (now live). That is a
-  policy question for the maintainer, not a stale-claim bug; PR K kept the scope.
+- **Platform-wide admin surfaces admit any community creator** — now **BUG-073** (open, proposed HIGH): `requireAdmin`
+  (`/admin/schemas`), the trust-question writes and the provider-trust backfill admit an admin of any community, and
+  creating a community makes you one. Needs a platform-admin decision.
 - **Moderators cannot reach the moderator-capable admin actions.** The `/requests` admin-actions mount keeps
   `requireAdmin` (admin somewhere), so a moderator who is admin nowhere is refused before the handler's admin-or-moderator
-  check. Either drop the mount gate (the handlers already gate per request) or narrow the handlers to admins.
+  check. Either drop the chain's `requireAdmin` (the handlers already gate per request, but they check that the request
+  exists before the gate, so non-admins would then see 404 vs 403) or narrow the handlers to admins.
+- **Fusion actions load the proposal before authorizing.** accept/reject/start-vote/execute answer 404 for an unknown
+  proposal id and 403 for a real one. Ids are `gen_random_uuid()`, so probing is impractical; accept/reject need the
+  proposal to know which community to check. Make the two answers uniform if fusions ever become enumerable.
 - **Delete the shared tenant middleware's claim role.** `packages/shared/middleware/tenant.ts` copies the claim's role
   onto `req.communityRole`, and `adminOnlyMiddleware` decides from it. No service uses either (the PR K gate enforces
   that); delete both in a shared-package PR.

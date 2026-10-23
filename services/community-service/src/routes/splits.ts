@@ -123,6 +123,11 @@ router.put('/:communityId/splits/:splitId/assignments', async (req: any, res: Re
   }
 
   try {
+    // The gate checked :communityId, so the split must belong to it (as start-vote checks).
+    const proposal = await getProposal(splitId);
+    if (!proposal || proposal.community_id !== communityId) {
+      return res.status(404).json({ success: false, message: 'Proposal not found' });
+    }
     await updateAssignments(splitId, changes);
     const updated = await getAssignments(splitId);
     res.json({ success: true, data: updated });
@@ -231,6 +236,10 @@ router.post('/:communityId/splits/:splitId/execute', async (req: any, res: Respo
   }
 
   try {
+    const proposal = await getProposal(splitId);
+    if (!proposal || proposal.community_id !== communityId) {
+      return res.status(404).json({ success: false, message: 'Proposal not found' });
+    }
     const { childAId, childBId } = await executeSplit(splitId, userId, pool);
     res.json({ success: true, data: { child_community_a_id: childAId, child_community_b_id: childBId } });
   } catch (err: any) {

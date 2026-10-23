@@ -9,7 +9,8 @@
  * of this file against the unfixed tree failed on every claim read the PR K inventory classified.
  *
  * 1. Claim reads: an access of `communities` / `communityMemberships` on a user object (`user`,
- *    `decoded`, or any `.user` property), by dot, bracket or destructuring, must be one of the
+ *    `decoded`, any `.user` property, a `jwt.verify`/`decode`/`verifyTokenWithRotation` result, or a
+ *    variable bound to one of those in the same file), by dot, bracket or destructuring, must be one of the
  *    reviewed hint-only reads in ALLOWLIST. Matching is by identity (file, enclosing scope, line
  *    text), both ways: every read has an entry and every entry still has its read.
  * 2. Every call to a live-role helper is awaited. An un-awaited call is a truthy Promise, which
@@ -101,10 +102,35 @@ function unwrap(node: ts.Expression): ts.Expression {
   return n;
 }
 
-const isUserObject = (node: ts.Expression): boolean => {
-  const n = unwrap(node);
-  return (ts.isIdentifier(n) && USER_IDENTIFIERS.has(n.text)) || (ts.isPropertyAccessExpression(n) && n.name.text === 'user');
+/** Calls whose result is a decoded token: `jwt.verify(...)`, `jwt.decode(...)`, `verifyTokenWithRotation(...)`. */
+const TOKEN_DECODERS = new Set(['verify', 'decode', 'verifyTokenWithRotation']);
+
+/** `user`, `decoded`, any `.user` property, a decoded token, or (per file) a variable bound to one of those. */
+const isUserObject = (node: ts.Expression, aliases: ReadonlySet<string>): boolean => {
+  let n = unwrap(node);
+  if (ts.isAwaitExpression(n)) n = unwrap(n.expression);
+  return (ts.isIdentifier(n) && (USER_IDENTIFIERS.has(n.text) || aliases.has(n.text)))
+    || (ts.isPropertyAccessExpression(n) && n.name.text === 'user')
+    || (ts.isCallExpression(n) && TOKEN_DECODERS.has(calleeName(n)));
 };
+
+/** Names bound to a user object anywhere in the file (`const caller = req.user`), to a fixpoint. */
+function userAliases(sf: ts.SourceFile): Set<string> {
+  const decls: Array<{ name: string; init: ts.Expression }> = [];
+  const collect = (n: ts.Node) => {
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) decls.push({ name: n.name.text, init: n.initializer });
+    ts.forEachChild(n, collect);
+  };
+  collect(sf);
+  const aliases = new Set<string>();
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const d of decls) {
+      if (!aliases.has(d.name) && !USER_IDENTIFIERS.has(d.name) && isUserObject(d.init, aliases)) { aliases.add(d.name); grew = true; }
+    }
+  }
+  return aliases;
+}
 
 /** Nearest named function, else nearest `router.<verb>('<path>')`-style call, else `<module>`. */
 function scopeOf(node: ts.Node): string {
@@ -178,6 +204,8 @@ function violations(sources: SourceFile[]): string[] {
 
   for (const file of files) {
     const { sf } = file;
+    const aliases = userAliases(sf);
+    const isUser = (node: ts.Expression) => isUserObject(node, aliases);
     const lineOf = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line;
     const where = (node: ts.Node) => `${file.path}:${lineOf(node) + 1}`;
     const lineText = (node: ts.Node) => file.lines[lineOf(node)].trim();
@@ -192,10 +220,10 @@ function violations(sources: SourceFile[]): string[] {
     };
 
     const visit = (node: ts.Node) => {
-      if (ts.isPropertyAccessExpression(node) && CLAIM_FIELDS.has(node.name.text) && isUserObject(node.expression)) claimRead(node);
+      if (ts.isPropertyAccessExpression(node) && CLAIM_FIELDS.has(node.name.text) && isUser(node.expression)) claimRead(node);
       if (ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression)
-        && CLAIM_FIELDS.has(node.argumentExpression.text) && isUserObject(node.expression)) claimRead(node);
-      if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer && isUserObject(node.initializer)) {
+        && CLAIM_FIELDS.has(node.argumentExpression.text) && isUser(node.expression)) claimRead(node);
+      if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer && isUser(node.initializer)) {
         for (const el of node.name.elements) {
           const key = el.propertyName ?? el.name;
           if ((ts.isIdentifier(key) || ts.isStringLiteralLike(key)) && CLAIM_FIELDS.has(key.text)) claimRead(el);
@@ -266,6 +294,14 @@ describe('Sprint 134 PR K: role gates read live membership, not the JWT claim (A
     it('flags the legacy communityMemberships alias', () => {
       expect(added(fixture('export function h(user: any) {\n  return user.communityMemberships;\n}')))
         .toEqual(['claim read services/request-service/src/routes/fixture.ts:2 [h] return user.communityMemberships;']);
+    });
+    it('flags a claim read through an alias of req.user', () => {
+      expect(added(fixture("export function q(req: any) {\n  const caller = req.user;\n  return caller.communities.some((m: any) => m.role === 'admin');\n}")))
+        .toEqual(["claim read services/request-service/src/routes/fixture.ts:3 [q] return caller.communities.some((m: any) => m.role === 'admin');"]);
+    });
+    it('flags a claim read on a decoded token', () => {
+      expect(added(fixture("export function r(t: string) {\n  const payload = jwt.verify(t, 's') as any;\n  return payload.communities;\n}")))
+        .toEqual(['claim read services/request-service/src/routes/fixture.ts:3 [r] return payload.communities;']);
     });
     it('does not flag a destructured result of a function call (a DB-built list)', () => {
       expect(added(fixture('export async function j(b: any) {\n  const { communities } = await b();\n  return communities;\n}'))).toEqual([]);

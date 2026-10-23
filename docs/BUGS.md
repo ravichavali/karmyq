@@ -1934,3 +1934,41 @@ after the admin mount that `bd63e084` added on 2026-03-23. Found 2026-10-22 by t
   PR K integration test.
 
 ---
+
+## BUG-072 · [2026-10-22] · fixed (Sprint 134 PR K) · **MEDIUM** (proposed)
+
+**An admin of one community could rewrite another community's split assignments, and execute its approved split.**
+`PUT /communities/:communityId/splits/:splitId/assignments` and `POST .../execute`
+(`services/community-service/src/routes/splits.ts`) checked that the caller administers `:communityId`, then acted on
+`:splitId` without checking that the split belongs to that community. `start-vote` and `vote` already check
+`proposal.community_id !== communityId`. `executeSplit` only requires the caller to be an active **member** of the split's
+own community (`services/fissionService.ts`). So an admin of A who is merely a member of B could execute B's approved
+split through `/communities/A/...`, and any admin of A could rewrite B's assignments. Pre-existing; found 2026-10-22 by the
+Sprint 134 PR K `/code-review` (the gate lines changed in PR K, the missing ownership check did not).
+
+- **Fixed (Sprint 134 PR K, 2026-10-22).** Both handlers load the proposal after the gate and answer 404 when it is not
+  the path community's, as `start-vote` does. RED first in `services/community-service/tests/regression/sprint-134-pr-k-live-role.test.ts`
+  (assignments wrote with 200 and execute reached the executor); real SQL in
+  `tests/integration/sprint-134-pr-k-live-admin-role.integration.test.ts` (an approved C2 split through C's path → 404, unchanged).
+
+---
+
+## BUG-073 · [2026-10-22] · open · **HIGH** (proposed)
+
+**Platform-wide admin surfaces admit anyone who creates a community.** `requireAdmin` (request-service `/admin/schemas`:
+the request UI schemas every community uses), the six trust-question writes (community-service
+`/communities/trust-questions`, a global table with no community column) and `POST /reputation/provider-trust/recalculate`
+(a whole-platform backfill) admit "an admin of any community". Any authenticated user can create a community, and
+`POST /communities` inserts the creator as `role = 'admin'` (`services/community-service/src/routes/communities.ts:595-597`).
+So in practice every user can edit global configuration. `auth.users` has no platform-role column, so there is no other
+"platform admin" to check. Pre-existing: the JWT-claim gates had the same hole, because the create response carries a
+refreshed token. PR K made these gates live and kept their scope; found 2026-10-22 by its `/code-review`.
+
+- **Needs a decision (maintainer):** what makes someone a platform admin (an `auth.users` role, an allowlist in config,
+  or a designated platform community), and whether `/admin/schemas` and trust questions should become per-community.
+- **Not fixed in PR K:** it needs a schema and policy decision, not a gate change. ADR-102 records the scope as
+  inherited, not as intended.
+- **Owner:** maintainer decides; Claude implements. **Deadline:** ≤ 1 week at the proposed HIGH (2026-10-29), or a dated
+  risk acceptance.
+
+---

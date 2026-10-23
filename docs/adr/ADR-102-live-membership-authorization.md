@@ -56,9 +56,12 @@ Rules every module follows:
 - An active row whose `role` is NULL is a `'member'`; the column is nullable with `DEFAULT 'member'`.
 - A gate always `await`s the helper. An un-awaited call is a truthy Promise and admits everyone.
 
-Each gate keeps its existing scope. "Admin of this community" stays per community, and "admin of any community"
-(`requireAdmin`, trust questions, the provider-trust backfill) stays any community. Only the source of the role
-changes.
+Each gate keeps its existing scope; only the source of the role changes. "Admin of this community" stays per
+community, and the gate must check the community the action targets (Sprint 134 PR K found split assignments and
+execute checking the path community but acting on another community's split, BUG-072). "Admin of any community"
+(`requireAdmin`, trust questions, the provider-trust backfill) is **inherited, not endorsed**. Anyone who creates a
+community is its admin, so these platform-wide surfaces are open to every user (BUG-073). Choosing a real
+platform-admin rule is a separate decision.
 
 **Enforcement.** `tests/regression/sprint-134-pr-k-claim-gate.test.ts` parses every tracked service source file and
 the shared middleware with the TypeScript AST. It fails on:

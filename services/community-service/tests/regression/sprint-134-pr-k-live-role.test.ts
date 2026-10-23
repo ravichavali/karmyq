@@ -46,6 +46,7 @@ const STALE_ADMIN = [{ id: C, name: 'A', role: 'admin' }, { id: C2, name: 'B', r
 
 let claim: unknown[] = [];
 let fusionStatus = 'discussion';
+let splitCommunity = C; // the community the split proposal belongs to
 const app = express();
 app.use(express.json());
 app.use((req: any, _res, next) => {
@@ -59,10 +60,16 @@ app.use('/communities', communitiesRouter);
 
 beforeEach(() => {
   mockQuery.mockReset();
-  mockQuery.mockImplementation(async (sql: string) =>
-    /^\s*SELECT \* FROM communities\.fusion_proposals WHERE id/.test(sql)
-      ? { rows: [{ id: PROPOSAL, community_a_id: C, community_b_id: C2, status: fusionStatus }], rowCount: 1 }
-      : { rows: [], rowCount: 0 });
+  splitCommunity = C;
+  mockQuery.mockImplementation(async (sql: string) => {
+    if (/^\s*SELECT \* FROM communities\.fusion_proposals WHERE id/.test(sql)) {
+      return { rows: [{ id: PROPOSAL, community_a_id: C, community_b_id: C2, status: fusionStatus }], rowCount: 1 };
+    }
+    if (/^\s*SELECT \* FROM communities\.split_proposals WHERE id/.test(sql)) {
+      return { rows: [{ id: PROPOSAL, community_id: splitCommunity, status: 'voting' }], rowCount: 1 };
+    }
+    return { rows: [], rowCount: 0 };
+  });
   for (const fn of [mocked.getLiveRole, mocked.isLiveAdmin, mocked.isLiveAdminOfAnyCommunity, executeFusion, executeSplit]) {
     (fn as jest.Mock).mockReset();
   }
@@ -130,7 +137,7 @@ const communityAdminRoutes: Row[] = [
   ['post', `/communities/${C}/fusions/${PROPOSAL}/execute`, undefined, [C, C2], 422, 'approved'],
   ['post', `/communities/${C}/splits`, {}, [C], 400, 'discussion'],
   ['put', `/communities/${C}/splits/${PROPOSAL}/assignments`, {}, [C], 400, 'discussion'],
-  ['post', `/communities/${C}/splits/${PROPOSAL}/start-vote`, undefined, [C], 404, 'discussion'],
+  ['post', `/communities/${C}/splits/${PROPOSAL}/start-vote`, undefined, [C], 422, 'discussion'],
   ['post', `/communities/${C}/splits/${PROPOSAL}/execute`, undefined, [C], 422, 'discussion'],
 ];
 
@@ -149,6 +156,17 @@ describe('community-admin gates', () => {
     fusionStatus = status;
     mocked.isLiveAdmin.mockResolvedValue(true);
     expect((await send(method, path, body, [])).status).toBe(live);
+  });
+  it.each([
+    ['put', `/communities/${C}/splits/${PROPOSAL}/assignments`, [{ userId: U, assignedTo: 'group_a' }]],
+    ['post', `/communities/${C}/splits/${PROPOSAL}/execute`, undefined],
+  ] as Array<[Method, string, unknown]>)('%s %s refuses a split that belongs to another community (404, nothing written)', async (method, path, body) => {
+    splitCommunity = C2; // the caller is a live admin of C; the split is C2's
+    mocked.isLiveAdmin.mockResolvedValue(true);
+    const res = await send(method, path, body, []);
+    expect(res.status).toBe(404);
+    expect(writes()).toEqual([]);
+    expect(executeSplit).not.toHaveBeenCalled();
   });
   it('start-vote and execute admit a live admin of the TARGET community alone', async () => {
     fusionStatus = 'voting';

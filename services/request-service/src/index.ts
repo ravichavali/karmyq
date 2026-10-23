@@ -148,13 +148,18 @@ app.use('/requests', rateLimiters.standard, dibsRouter);
 // Each route applies authMiddleware individually
 app.use('/requests', rateLimiters.standard, requesterOffersRouter);
 
-// Admin actions on requests (boost, propose-match, urgent toggle). The admin chain runs on these paths
-// only: mounted on the whole /requests prefix it gated every path that fell through to it, which refused
-// the requester-offer routes to every requester who is not an admin somewhere (BUG-071). requireAdmin
-// admits a live admin of any community; the handlers further scope to the request's community.
+// Admin actions on requests (boost, propose-match, urgent toggle). The admin chain runs on exactly the
+// router's own routes, read from the router so no second list can drift: mounted on the whole /requests
+// prefix it gated every path that fell through to it, which refused the requester-offer routes to every
+// requester who is not an admin somewhere (BUG-071). requireAdmin admits a live admin of any community;
+// the handlers further scope to the request's community. (optionalTenantMiddleware also reads the
+// request id in :id as a candidate community id; no community has that id, so it sets no context.)
+const adminActionPaths = [...new Set(
+  (adminActionsRouter.stack as unknown as Array<{ route?: { path: string } }>)
+    .flatMap((layer) => (layer.route ? [`/requests${layer.route.path}`] : []))
+)];
 app.all(
-  // :requestId, not :id: optionalTenantMiddleware reads params.id as a community id.
-  ['/requests/:requestId/boost', '/requests/:requestId/propose-match', '/requests/:requestId/urgent'],
+  adminActionPaths,
   rateLimiters.standard,
   ...adminAuth,
   optionalTenantMiddleware,

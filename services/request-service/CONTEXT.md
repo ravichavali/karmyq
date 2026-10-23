@@ -2948,10 +2948,10 @@ CREATE TABLE auth.user_interests (
   `tests/regression/sprint-134-pr-k-claim-gate.test.ts`.
 - **BUG-071 — the requester-offer routes 403'd every requester who is not an admin somewhere.**
   `requesterOffersRouter` (`GET /requests/:id/offers`, `PUT /requests/offers/:id/accept|decline`) was mounted after the
-  admin-actions mount, whose prefix-wide `requireAdmin` ran first. The admin chain now runs only on the three
-  admin-action paths (`app.all([...'/requests/:requestId/{boost,propose-match,urgent}'])`), so nothing else under
-  `/requests` falls through it; an unmatched `/requests` path is a plain 404. `db/inventoryDb.ts` `isActiveAdmin` had no
-  callers and is deleted.
+  admin-actions mount, whose prefix-wide `requireAdmin` ran first. The admin chain now runs only on the routes
+  `adminActionsRouter` defines, read from its `stack` (`app.all(adminActionPaths, ...)`), so a route added there is gated
+  automatically and nothing else under `/requests` falls through it; an unmatched `/requests` path is a plain 404.
+  `db/inventoryDb.ts` `isActiveAdmin` had no callers and is deleted.
 
 **Sprint 133 PR V — Request and offer read boundary (v11.89.0, #306):**
 

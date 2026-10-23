@@ -27,6 +27,7 @@ jest.mock('../../src/database/db', () => ({
 jest.mock('../../src/db/liveRole');
 
 import * as liveRole from '../../src/db/liveRole';
+import adminActionsRouter from '../../src/routes/adminActions';
 
 const actual = jest.requireActual('../../src/db/liveRole') as typeof liveRole;
 const mocked = liveRole as jest.Mocked<typeof liveRole>;
@@ -174,6 +175,21 @@ describe('BUG-071: requester-offer routes sit before the admin-actions mount', (
     const res = await send('post', `/requests/${REQ}/not-a-route`, {}, member);
     expect(res.status).toBe(404);
     expect(mocked.isLiveAdminOfAnyCommunity).not.toHaveBeenCalled();
+  });
+});
+
+describe("every route adminActionsRouter defines sits behind the admin chain (no hand-kept path list)", () => {
+  const routes = (adminActionsRouter.stack as unknown as Array<{ route?: { path: string; methods: Record<string, boolean> } }>)
+    .flatMap((layer) => (layer.route ? Object.keys(layer.route.methods).map((m) => [m, layer.route!.path] as const) : []));
+
+  it('reads the routes from the router itself', () => {
+    expect(routes).toEqual(expect.arrayContaining([['post', '/:id/boost'], ['delete', '/:id/boost'], ['post', '/:id/propose-match'], ['patch', '/:id/urgent']]));
+  });
+  it.each(routes)('%s %s refuses a caller who is an admin nowhere, at the chain', async (method, path) => {
+    mocked.isLiveAdminOfAnyCommunity.mockResolvedValue(false);
+    const res = await send(method as 'post' | 'delete' | 'patch', `/requests${path.replace(':id', REQ)}`, {}, STALE_ADMIN);
+    expect(res.status).toBe(403);
+    expect(res.body.message).toBe('Admin access required');
   });
 });
 
