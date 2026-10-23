@@ -1856,7 +1856,7 @@ by the Sprint 133 PR Q `/code-review`; the PR Q integration test publishes synth
 
 ---
 
-## BUG-069 · [2026-10-16] · open · **MEDIUM** (proposed)
+## BUG-069 · [2026-10-16] · fixed (Sprint 134 PR K, ADR-102) · **MEDIUM** (proposed)
 
 **Admin and moderator write checks trust the JWT `communities` claim, not live membership.** CLAUDE.md
 (*Authentication*) requires authorization decisions to re-derive membership from `communities.members`; the claim is a
@@ -1875,6 +1875,14 @@ planning inventory (the four request-service *read* gates of the same kind are f
   `grep -rn "\.communities" services/*/src` untruncated first; hint-only reads (defaults, event fan-out) stay.
 - **Owner:** unassigned; the maintainer sets severity (5 services, 1-hour window). **Deadline: 2026-10-30** (≤ 2-week
   SLA at the proposed MEDIUM).
+- **Fixed (Sprint 134 PR K, 2026-10-22; ADR-102).** The untruncated inventory found 136 `.communities` hits: 90 SQL
+  table references, 19 other objects, 27 claim reads. 21 claim reads were gates (12 sites, 31 routes, four services:
+  request, community, reputation, social-graph; the auth-service read is the `/verify` echo). Each service now has one
+  `liveRole` module, `(communityId, userId)`, and every gate awaits it. The six hint-only reads and the shared tenant
+  middleware's are allowlisted in `tests/regression/sprint-134-pr-k-claim-gate.test.ts`, which fails on any other claim
+  read, any un-awaited live-role call, and any service read of `req.communityRole`. Real SQL:
+  `tests/integration/sprint-134-pr-k-live-admin-role.integration.test.ts` (demoted admin, removed admin, live admin with
+  an empty claim, on all 31 routes). `social-graph database/trustEdgeDb.ts` was SQL only. Found on the way: BUG-071.
 
 ---
 
@@ -1903,7 +1911,7 @@ table that has it. `services/request-service/src/routes/feedback.ts:46` is BUG-0
 
 ---
 
-## BUG-071 · [2026-10-22] · open · **MEDIUM** (proposed)
+## BUG-071 · [2026-10-22] · fixed (Sprint 134 PR K) · **MEDIUM** (proposed)
 
 **The requester-offer routes 403 every requester who is not a community admin somewhere.**
 `services/request-service/src/index.ts` mounts `requesterOffersRouter` (`GET /requests/:id/offers`,
@@ -1919,5 +1927,8 @@ after the admin mount that `bd63e084` added on 2026-03-23. Found 2026-10-22 by t
   over-denies; it exposes nothing.
 - **Fix:** mount `requesterOffersRouter` before the admin-actions mount, as `dibsRouter` already is (its comment documents
   the same trap). Planned in Sprint 134 PR K, Task K2.
+- **Fixed (Sprint 134 PR K, 2026-10-22).** Mounted before the admin-actions mount. Reproduced first against the real app
+  (`services/request-service/tests/tdd/sprint-134-pr-k-live-role.test.ts`: all three routes 403 → 200/404); real SQL in the
+  PR K integration test.
 
 ---

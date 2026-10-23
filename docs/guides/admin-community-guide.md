@@ -65,6 +65,14 @@ Use the **sub-toggle** at the top of the tab to switch between two views:
 
 This keeps community culture and membership in context with each other, since a community's norms define the expectations its members are held to.
 
+### Role changes take effect immediately
+
+Admin powers follow a person's **current** role in the community. If you change an admin to a member, or they leave or
+are removed, their next admin action is refused, even if they never sign out. That covers editing tags or location,
+fusion and split steps, trust-evolution settings, boosting or flagging requests, and linking provider collectives. Their
+screen may still show admin controls for a while, but using one is refused. Karmyq checks the current role on every
+admin action, so a newly promoted admin's actions are accepted at once.
+
 ---
 
 ## Stewardship → Steward requests (Requests + Insights + Admin Actions)

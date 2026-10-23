@@ -538,14 +538,22 @@ export const dbContextMiddleware = (pool) => async (req, res, next) => {
   next();
 };
 
-// 4. Require Role
-export const requireRole = (roles) => (req, res, next) => {
-  if (!roles.includes(req.role)) {
+// 4. Require Role: from the LIVE row, never req.role (ADR-102)
+export const requireRole = (roles) => async (req, res, next) => {
+  const role = await getLiveRole(req.communityId, req.user.userId); // the service's liveRole module
+  if (!roles.includes(role)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   next();
 };
 ```
+
+> ⚠️ **The `communities` claim is a hint, not an authorization input** ([ADR-102](adr/ADR-102-live-membership-authorization.md)).
+> It is a login-time snapshot (a demoted or removed admin keeps it until the token expires) and holds at most 15
+> communities. Every role or membership decision reads `communities.members` through the service's `liveRole` module
+> (`getLiveRole`, `isLiveAdmin`, `isLiveAdminOfAnyCommunity`; arguments `(communityId, userId)`), with `await`.
+> `tests/regression/sprint-134-pr-k-claim-gate.test.ts` fails on any other claim read. `tenantMiddleware`'s
+> `req.role`/`req.communityRole` is the claim's copy and must not gate anything.
 
 ### Usage in Services
 

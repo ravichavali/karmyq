@@ -30,6 +30,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 ## Index
 
 ### Core Architecture
+- [ADR-102: Authorization Re-derives the Role from Live Membership](ADR-102-live-membership-authorization.md) — Accepted
 - [ADR-101: Per-Consumer Event Queues](ADR-101-per-consumer-event-queues.md) — Implemented
 - [ADR-100: Skill Visibility and Endorsements](ADR-100-skill-visibility-and-endorsements.md) — Implemented
 - [ADR-099: Inventories and Directed Requests](ADR-099-inventories-and-directed-requests.md) — Implemented

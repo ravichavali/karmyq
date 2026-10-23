@@ -818,7 +818,10 @@ feed continues to consume the same skill store through `getUserProfile`.
   `members.ts` POST members, `adminActions.ts` propose-match, `governance.ts` `nominated_user_id`
   and `dibs.ts`. Include a negative fixture that plants `const { created_by } = req.body`.
   Avoid a body-stripping middleware: it would silently break the four target-user endpoints.
-- **One live-membership helper per service.** community-service has at least five hand-written
+- **One live-membership helper per service.** *(Partly done, Sprint 134 PR K / ADR-102: each of request, community,
+  reputation and social-graph now has one `liveRole` module, used by every gate PR K fixed; the copies in files PR K
+  touched collapsed onto it. The already-live inline copies listed below remain; see the 2026-10-22 PR K follow-ups.)*
+  community-service has at least five hand-written
   copies of `SELECT role FROM communities.members WHERE … status='active'`. They include
   `activities.ts:16 getMembership`, `links.ts:16 isAdmin`, and `members.ts` POST/PUT/DELETE, and
   the copies already differ (`rowCount===0 || role!=='admin'` vs `rows[0]?.role !== 'admin'`).
@@ -885,5 +888,26 @@ Logged in the #306 description and the Sprint 133 handoff; captured here so they
 Data exports are nice, but could they give people a way to harvest other members' data? How do we prevent that
 kind of abuse? It is not simple: members share their email to register, which makes it reachable to others. We need
 to work through data-safety considerations for exports (and community data access generally).
+
+---
+
+## [2026-10-22] Sprint 134 PR K follow-ups (BUG-069, ADR-102)
+
+- **Move the remaining live-role copies onto each service's `liveRole` module.** Already live and correct, so left
+  alone by PR K: community-service `members.ts` (POST/PUT/DELETE), `settings.ts` (3), `stats.ts`, `export.ts` (3),
+  `norms.ts`, `communities.ts` PUT and DELETE `/:id`, `links.ts isAdmin`, `activities.ts getMembership`; request-service
+  `providerReachService.isActiveMember` (reversed argument order) and `requests.ts` admin-notes/triage queries.
+- **Should any community's admin edit platform-wide resources?** `requireAdmin` (`/admin/schemas`), the trust-question
+  writes and `POST /reputation/provider-trust/recalculate` admit an admin of **any** community (now live). That is a
+  policy question for the maintainer, not a stale-claim bug; PR K kept the scope.
+- **Moderators cannot reach the moderator-capable admin actions.** The `/requests` admin-actions mount keeps
+  `requireAdmin` (admin somewhere), so a moderator who is admin nowhere is refused before the handler's admin-or-moderator
+  check. Either drop the mount gate (the handlers already gate per request) or narrow the handlers to admins.
+- **Delete the shared tenant middleware's claim role.** `packages/shared/middleware/tenant.ts` copies the claim's role
+  onto `req.communityRole`, and `adminOnlyMiddleware` decides from it. No service uses either (the PR K gate enforces
+  that); delete both in a shared-package PR.
+- **Stacked `/requests` rate limiters count one request several times.** Each `/requests` mount in request-service runs
+  `rateLimiters.standard` (express-rate-limit 8.7.0 increments, then only warns `ERR_ERL_DOUBLE_COUNT`), so an admin
+  action counts once per mount it passes (4 since BUG-071's mount move). Apply the limiter once per request.
 
 ---
