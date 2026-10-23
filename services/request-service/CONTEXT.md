@@ -2949,8 +2949,10 @@ CREATE TABLE auth.user_interests (
 - **BUG-071 — the requester-offer routes 403'd every requester who is not an admin somewhere.**
   `requesterOffersRouter` (`GET /requests/:id/offers`, `PUT /requests/offers/:id/accept|decline`) was mounted after the
   admin-actions mount, whose prefix-wide `requireAdmin` ran first. The admin chain now runs only on the routes
-  `adminActionsRouter` defines, read from its `stack` (`app.all(adminActionPaths, ...)`), so a route added there is gated
-  automatically and nothing else under `/requests` falls through it; an unmatched `/requests` path is a plain 404.
+  `adminActionsRouter` defines: `app.all(adminChainPaths(adminActionsRouter, '/requests'), ...)` reads them from the
+  router and throws at startup on any layer it could not cover (`router.use`, an array or RegExp path). A route added
+  there is gated automatically, nothing else under `/requests` falls through it, and an unmatched `/requests` path is a
+  plain 404. The mount order is unchanged.
   `db/inventoryDb.ts` `isActiveAdmin` had no callers and is deleted.
 
 **Sprint 133 PR V — Request and offer read boundary (v11.89.0, #306):**

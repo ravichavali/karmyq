@@ -28,6 +28,8 @@ jest.mock('../../src/db/liveRole');
 
 import * as liveRole from '../../src/db/liveRole';
 import adminActionsRouter from '../../src/routes/adminActions';
+import { adminChainPaths } from '../../src/middleware/adminAuth';
+import { Router } from 'express';
 
 const actual = jest.requireActual('../../src/db/liveRole') as typeof liveRole;
 const mocked = liveRole as jest.Mocked<typeof liveRole>;
@@ -182,6 +184,20 @@ describe("every route adminActionsRouter defines sits behind the admin chain (no
   const routes = (adminActionsRouter.stack as unknown as Array<{ route?: { path: string; methods: Record<string, boolean> } }>)
     .flatMap((layer) => (layer.route ? Object.keys(layer.route.methods).map((m) => [m, layer.route!.path] as const) : []));
 
+  it('adminChainPaths reads exactly the router\'s route paths', () => {
+    expect(adminChainPaths(adminActionsRouter, '/requests'))
+      .toEqual(['/requests/:id/boost', '/requests/:id/propose-match', '/requests/:id/urgent']);
+  });
+  it.each([
+    ['a router.use layer', (r: Router) => r.use((_q, _s, next) => next())],
+    ['an array path', (r: Router) => r.post(['/:id/a', '/:id/b'], (_q, s) => s.end())],
+    ['a RegExp path', (r: Router) => r.post(/^\/x$/, (_q, s) => s.end())],
+  ])('adminChainPaths fails closed (throws) on %s, which the admin chain could not cover', (_label, add) => {
+    const r = Router();
+    r.post('/:id/ok', (_q, s) => s.end());
+    add(r);
+    expect(() => adminChainPaths(r, '/requests')).toThrow(/plain string-path route/);
+  });
   it('reads the routes from the router itself', () => {
     expect(routes).toEqual(expect.arrayContaining([['post', '/:id/boost'], ['delete', '/:id/boost'], ['post', '/:id/propose-match'], ['patch', '/:id/urgent']]));
   });

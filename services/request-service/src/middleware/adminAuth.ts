@@ -5,7 +5,7 @@
  * Protects admin-only routes.
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { isDemoReadOnlySession } from '@karmyq/shared/middleware/auth';
 import { isLiveAdminOfAnyCommunity } from '../db/liveRole';
@@ -117,3 +117,19 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
  * Combined middleware: verify token and require admin
  */
 export const adminAuth = [verifyToken, requireAdmin];
+
+/**
+ * The paths an admin chain must cover: every route `router` defines, under `prefix`. Read from the
+ * router itself so no second list can drift (BUG-071). Fails closed: a layer that is not a plain
+ * string-path route (`router.use`, an array or RegExp path) throws at startup instead of being left
+ * ungated.
+ */
+export function adminChainPaths(router: Router, prefix: string): string[] {
+  const layers = router.stack as unknown as Array<{ route?: { path: unknown } }>;
+  return [...new Set(layers.map((layer) => {
+    if (!layer.route || typeof layer.route.path !== 'string') {
+      throw new Error(`${prefix}: every admin router layer must be a plain string-path route, or the admin chain cannot cover it`);
+    }
+    return `${prefix}${layer.route.path}`;
+  }))];
+}

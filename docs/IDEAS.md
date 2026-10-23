@@ -912,7 +912,11 @@ to work through data-safety considerations for exports (and community data acces
   that); delete both in a shared-package PR.
 - **Stacked `/requests` rate limiters count one request several times.** Each `/requests` mount in request-service runs
   `rateLimiters.standard` (express-rate-limit 8.7.0 increments, then only warns `ERR_ERL_DOUBLE_COUNT`), so an admin
-  action counts once per mount it passes. Apply the limiter once per request.
+  action counts once per mount it passes (3, as before PR K). Apply the limiter once per request.
+- **Collective admins can link their collective to any community.** `POST /requests/collectives/:id/communities` admits a
+  collective admin OR a live admin of the target community, so a collective admin needs nothing from the community they
+  link into (pre-existing; PR K only made the community-admin half live). Decide whether a link needs the community's
+  consent (an admin, or a pending link the community accepts).
 - **request-service `tests/integration/dynamic-schemas.test.ts` is a dead manual suite.** It is not a `*.integration.test.ts`, so
   CI never runs it; it signs `userId: 'admin-user-id'` (not a UUID, so its admin writes already failed on the `uuid`
   `ui_schemas.created_by`) with a `role: 'admin'` claim that no issuer signs and `requireAdmin` no longer reads (ADR-102).

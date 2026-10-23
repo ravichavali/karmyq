@@ -1927,9 +1927,9 @@ after the admin mount that `bd63e084` added on 2026-03-23. Found 2026-10-22 by t
   over-denies; it exposes nothing.
 - **Fix:** mount `requesterOffersRouter` before the admin-actions mount, as `dibsRouter` already is (its comment documents
   the same trap). Planned in Sprint 134 PR K, Task K2.
-- **Fixed (Sprint 134 PR K, 2026-10-22).** The admin chain now runs only on the three admin-action paths, so no other
-  `/requests` route falls through `requireAdmin` (first fixed by moving the mount; `/simplify` moved the fix to the root
-  cause). Reproduced first against the real app
+- **Fixed (Sprint 134 PR K, 2026-10-22).** The admin chain now runs only on the routes `adminActionsRouter` defines
+  (`adminChainPaths`, read from the router, fails closed on a layer it cannot cover), so no other `/requests` route falls
+  through `requireAdmin`; the mount order is unchanged. Reproduced first against the real app
   (`services/request-service/tests/regression/sprint-134-pr-k-live-role.test.ts`: all three routes 403 → 200/404); real SQL in the
   PR K integration test.
 
