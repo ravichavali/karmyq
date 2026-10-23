@@ -11,7 +11,7 @@
   `src/utils/liveRole.ts` (`getLiveRole`, moved there from `utils/memberVisibility.ts`, plus `isLiveAdmin` and
   `isLiveAdminOfAnyCommunity`; arguments `(communityId, userId)`; a malformed id answers null, an active row with a
   NULL role is a member). `fusions.ts`/`splits.ts` lose their claim `isAdmin` and their duplicate `isMember`. Trust
-  questions keep "admin of any community", now live. Tests: `tests/tdd/sprint-134-pr-k-live-role.test.ts` and the root
+  questions keep "admin of any community", now live. Tests: `tests/regression/sprint-134-pr-k-live-role.test.ts` and the root
   integration/static-gate tests named in ADR-102.
 - **2026-10-21 (Sprint 134 PR A, BUG-063 fixed)**: all three export routes (`src/routes/export.ts`)
   500'd for everyone since they were written. They named a schema that does not exist (`community.*`;

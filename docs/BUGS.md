@@ -1928,7 +1928,7 @@ after the admin mount that `bd63e084` added on 2026-03-23. Found 2026-10-22 by t
 - **Fix:** mount `requesterOffersRouter` before the admin-actions mount, as `dibsRouter` already is (its comment documents
   the same trap). Planned in Sprint 134 PR K, Task K2.
 - **Fixed (Sprint 134 PR K, 2026-10-22).** Mounted before the admin-actions mount. Reproduced first against the real app
-  (`services/request-service/tests/tdd/sprint-134-pr-k-live-role.test.ts`: all three routes 403 → 200/404); real SQL in the
+  (`services/request-service/tests/regression/sprint-134-pr-k-live-role.test.ts`: all three routes 403 → 200/404); real SQL in the
   PR K integration test.
 
 ---

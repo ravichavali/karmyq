@@ -2943,7 +2943,7 @@ CREATE TABLE auth.user_interests (
   `communities.members` through `src/db/liveRole.ts` (`getLiveRole`, `isLiveAdmin`, `isLiveAdminOfAnyCommunity`,
   `hasLiveRoleInRequestCommunities`; arguments `(communityId, userId)`; a malformed id answers false, not a 500).
   `db/inventoryDb.ts` `isActiveAdmin`/`isActiveMember` delegate to it. The dead `user.role` branch and the legacy
-  `communityMemberships` alias are gone. Tests: `tests/tdd/sprint-134-pr-k-live-role.test.ts`, root
+  `communityMemberships` alias are gone. Tests: `tests/regression/sprint-134-pr-k-live-role.test.ts`, root
   `tests/integration/sprint-134-pr-k-live-admin-role.integration.test.ts`, and the static gate
   `tests/regression/sprint-134-pr-k-claim-gate.test.ts`.
 - **BUG-071 — the requester-offer routes 403'd every requester who is not an admin somewhere.**

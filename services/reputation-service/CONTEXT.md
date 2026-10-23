@@ -10,7 +10,7 @@
   and `POST /reputation/provider-trust/recalculate` (admin of any community) decided from the JWT `communities` claim.
   They now read `communities.members` through `src/utils/liveRole.ts` (`getLiveRole`, `isLiveAdmin`,
   `isLiveAdminOfAnyCommunity`; arguments `(communityId, userId)`, unlike `disclosureAuth.getActiveMembership`). The
-  uncalled claim helper `disclosureAuth.isCommunityAdmin` is deleted. Tests: `tests/tdd/sprint-134-pr-k-live-role.test.ts`
+  uncalled claim helper `disclosureAuth.isCommunityAdmin` is deleted. Tests: `tests/regression/sprint-134-pr-k-live-role.test.ts`
   and the root integration/static-gate tests named in ADR-102.
 - **2026-10-15 (Sprint 133 PR Q, ADR-101, BUG-060)**: `interaction_feedback_submitted` is consumed from
   **`karmyq-events-reputation`**, a queue no other service attaches to, via `startConsumerQueue` (the service refuses
