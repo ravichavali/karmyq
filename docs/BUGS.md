@@ -1564,7 +1564,7 @@ That exemption was capped at 7 days by hand to respect the rule.
 
 ---
 
-## BUG-059 · [2026-10-02] · open · **HIGH**
+## BUG-059 · [2026-10-02] · closed (advisory withdrawn; exemption deleted in Sprint 134 PR X, v11.98.0) · **HIGH**
 
 **`braces` GHSA-vfj7-8cjw-p6xm has no fix and is exempted for 7 days.** The advisory (stack
 exhaustion on deeply nested patterns) covers every `braces` version, and 3.0.3 is the latest. It was
@@ -1579,6 +1579,9 @@ currently exempted until the Deadline on the Owner line below.
   Otherwise renew by hand before the Deadline below: `npm view braces version`, the GHSA page,
   `npm ls braces --all`.
 - **Owner:** Claude (dependency lane). **Deadline: 2026-10-26** (exemption expiry; ≤ 1-week SLA). **Renewed 2026-10-19** by maintainer decision after a hand re-check found no fix (3.0.3 latest, `first_patched_version: null`, not withdrawn; micromatch 4.0.8 latest still depends on `braces ^3.0.3`; production reach re-checked unchanged); `node-forge` was renewed alongside it, also to 2026-10-26. Evidence for this and the earlier renewals (2026-10-17, 2026-10-14, 2026-10-08): the ADR-059 renewal amendments.
+- **Resolution (Sprint 134 PR X, 2026-10-26):** GitHub withdrew GHSA-vfj7-8cjw-p6xm on 2026-10-23 12:53Z, and
+  `npm audit` no longer reports `braces`. The exemption is deleted. `braces` is still 3.0.3, with no code
+  change; nothing in the tree moved. ADR-059 amendment "Security PR X".
 
 ---
 
@@ -1827,7 +1830,7 @@ real deliveries.
 
 ---
 
-## BUG-068 · [2026-10-15] · planned (retire with the ADR-101 legacy-handler removal) · **MEDIUM** (proposed)
+## BUG-068 · [2026-10-15] · fixed (code: Sprint 134 PR L; data drop: PR L2) · **MEDIUM**
 
 **`POST /requests/matches/:matchId/feedback` always fails, so interaction feedback is never published.** The route
 (`services/request-service/src/routes/feedback.ts:46`) selects `r.community_id` from `requests.help_requests`, which
@@ -1853,6 +1856,16 @@ by the Sprint 133 PR Q `/code-review`; the PR Q integration test publishes synth
   `packages/shared/events/routes.ts` entry, reputation handler), the simulation call, and the health endpoint's reads of
   the averages. What happens to the `interaction_feedback` table and the `trust_scores` average columns is decided in
   that PR's plan (a column drop needs a migration). Still due **2026-10-29**.
+- **Fixed in code (Sprint 134 PR L, 2026-10-22).** Removed: both `/matches/:matchId/feedback` routes (GET too: it read
+  only `requests.interaction_feedback`, which the failing POST never wrote), their mount and three directed-surface
+  allowlist entries; `interaction_feedback_submitted` from the routing table and `services/registry.json`; the reputation
+  handler, and with it reputation's consumer queue (it was the only routed event; ADR-101 amendment); the simulation's
+  `submitFeedback` action and `ApiClient.submitMatchFeedback`. The policy question above is moot: nothing publishes the
+  event. Tests: `services/request-service/tests/regression/sprint-134-bug-068-feedback-retired.test.ts` (real app, both paths
+  reach the 404 handler with no feedback SQL), the live 404 case in `tests/integration/sprint-132-security-authz.integration.test.ts`,
+  and the tightened `tests/regression/sprint-133-pr-q-event-routes.test.ts`. **Still open for PR L2:** the
+  `requests.interaction_feedback` table, the four `trust_scores` columns and the three `community_health_metrics`
+  averages, and the health endpoint's reads of them (with BUG-070).
 
 ---
 

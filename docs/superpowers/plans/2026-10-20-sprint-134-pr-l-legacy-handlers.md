@@ -1,8 +1,8 @@
 # Sprint 134 PR L — ADR-101 Legacy Handlers + BUG-068 Retirement Implementation Plan
 
-> ## ✅ Drain-check gate PASSED (2026-10-20); see Task L0
-> Open decisions **settled by the maintainer 2026-10-20** (both recommendations accepted). Still to do at the start of the PR L chat:
-> re-run the Task L1 inventory untruncated, then remove this banner.
+> ## ✅ Executed 2026-10-22 (L1–L9) on `agent/claude/sprint-134-pr-l-legacy-handlers`
+> Drain check passed 2026-10-20 (Task L0); decisions settled 2026-10-20. The L1 inventory was re-run untruncated and found surfaces
+> this File Map missed (see the handoff's *PR L state*). L10 (merge, deploy, post-deploy queue check) is the maintainer's.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task.

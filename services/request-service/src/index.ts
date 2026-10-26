@@ -12,7 +12,6 @@ import offersRouter from './routes/offers';
 import providerOffersRouter from './routes/providerOffers';
 import requesterOffersRouter from './routes/requesterOffers';
 import matchesRouter from './routes/matches';
-import feedbackRouter from './routes/feedback';
 import schemasRouter from './routes/schemas';
 import providersRouter from './routes/providers';
 import collectivesRouter from './routes/collectives';
@@ -180,15 +179,6 @@ app.use(
   optionalTenantMiddleware,
   dbContextMiddleware(pool),
   matchesRouter
-);
-
-app.use(
-  '/matches',
-  rateLimiters.standard,
-  authMiddleware,
-  optionalTenantMiddleware,
-  dbContextMiddleware(pool),
-  feedbackRouter
 );
 
 // 404 handler

@@ -1,6 +1,6 @@
 # @karmyq/shared — Context
 
-**Last Updated**: 2026-09-24 (Sprint 131 D6 zod 4)
+**Last Updated**: 2026-10-26 (Sprint 134 PR X zod 4.6.6)
 
 Shared TypeScript library consumed by all Karmyq services and frontend apps.
 
@@ -126,9 +126,12 @@ Root exports from `events/routes.ts` and `events/consumer.ts`:
 - `DEDICATED_EVENTS`: events with their own transport, each with its `{ queue, consumers }`.
 - `UNCONSUMED_EVENTS`, `EVENT_CONSUMERS`.
 - `consumerQueueName(c)` → `karmyq-events-<c>`; `eventsFor(c)` → its routed events, sorted.
-- `startConsumerQueue(consumer, handlers, redisUrl, legacyQueue?)`: throws unless the handler names equal
-  `eventsFor(consumer)`, before any worker attaches. It then attaches each handler to the consumer queue and, during the
-  drain release, to `legacyQueue`. Routing lookups use own keys only, so `constructor` or `toString` is unclassified.
+- `startConsumerQueue(consumer, handlers, redisUrl)`: throws unless the handler names equal `eventsFor(consumer)`,
+  before its queue opens. It then attaches each handler to the consumer queue. Sprint 134 PR L removed the optional
+  `legacyQueue` drain parameter with the legacy `karmyq-events` handlers. Routing lookups use own keys only, so
+  `constructor` or `toString` is unclassified.
+- Sprint 134 PR L (BUG-068): `interaction_feedback_submitted` is retired, so `EVENT_CONSUMERS` is `['notification']`;
+  reputation consumes only its dedicated queues.
 - Types: `EventHandler`, `EventConsumer`.
 
 Each consumer queue is opened lazily on the first publish to it (`initEventPublisher` only records `REDIS_URL`).
@@ -252,7 +255,10 @@ Root exports from `@karmyq/shared` define the strict request/offer relationship-
 ## Sprint 131 D6 — zod 4 (2026-09-24)
 
 `zod` **→ 4.6.5** (#264) in this package and root. zod 3 is gone from the runtime graph. Only
-`@expo/cli` still nests its own 3.25.76, and nothing in our source imports it. The zod
+`@expo/cli` still nests its own 3.25.76, and nothing in our source imports it. **Sprint 134 PR X
+(2026-10-26):** `zod` → **4.6.6** here and in root (GHSA-mrhx-c7xc-m3w5, high: unbounded array issues),
+and the root override `"@expo/cli": { "zod": "4.6.6" }` removed that nested 3.25.76, so the tree holds
+one zod (ADR-059 amendment "Security PR X"). The zod
 `DIVERGENCE_ALLOWLIST` entry in `tests/regression/sprint-131-workspace-declarations.test.ts` is retired, so the map is empty.
 
 A two-version differential over the real request schemas (102 cases) found 20 verdict changes,

@@ -783,7 +783,7 @@ D8 (cleanup-service on eslint 10) follow-ups. None is scheduled.
 - **(a) Root declares `ioredis` in production `dependencies` and imports nothing** (`package.json:60`). That lands it in every service image, which CLAUDE.md forbids for new root deps. Dropping it, or moving root to 6, retires the D9 `DIVERGENCE_ALLOWLIST` entry in `tests/regression/sprint-131-workspace-declarations.test.ts`.
 - **(b) `bull@4` pins `ioredis ^5.3.2`,** so the queue can never leave ioredis 5 while it is on Bull. Moving it means bull → BullMQ, a separate decision.
 - **(c) Redis-outage cost is still ~10.5 s per cache command at outage start and up to ~42 s mid-outage.** ioredis flushes its queue only every 21st retry, and the attempt count grows through the outage, so once the v5 backoff caps at 2 s a window lasts ~42 s. The backoff is now pinned deliberately. This is the ~298 s-per-match CI hang noted at `ci.yml:330`. A fail-fast policy (`maxRetriesPerRequest: 1` / `enableOfflineQueue: false`) would be a behavior change that deserves its own plan.
-- **(d) The root `overrides` now carry both `"undici@7.0.0 - 7.28.0": "^7.29.0"` and a bare `"undici": "7.30.0"`** (D9's mid-flight security pin). The range selector is now redundant. Bare exact pins (this one and engine.io's `".": "6.6.11"`) also force any future cross-major dependent onto that version. Narrow them to range selectors (e.g. `"undici@<7.30.0"`) in the next dependency PR, with a strict `npm ci`.
+- **(d) The root `overrides` now carry both `"undici@7.0.0 - 7.28.0": "^7.29.0"` and a bare `"undici": "7.30.0"`** (D9's mid-flight security pin). The range selector is now redundant. Bare exact pins (this one and engine.io's `".": "6.6.11"`) also force any future cross-major dependent onto that version. Narrow them to range selectors (e.g. `"undici@<7.30.0"`) in the next dependency PR, with a strict `npm ci`. **Partly done (Sprint 134 PR X):** the redundant selector is deleted; the bare pins (`undici` now 7.30.1, `engine.io`) remain.
 
 ## [2026-09-30] Dependency policy follow-ups
 
@@ -866,6 +866,8 @@ exception for that query. Small; fits any request/notification PR.
   route, the `interaction_feedback_submitted` event (publisher, route-table entry, reputation handler), the simulation
   call (`api-client.ts:461`) and the health endpoint's reads of the `trust_scores` averages. Due **2026-10-29**. Decide in
   that plan whether `requests.interaction_feedback` and the average columns are dropped (migration) or left.
+  **[2026-10-22] Done in Sprint 134 PR L** (code only; the drain check passed 2026-10-20). The health endpoint's reads
+  and the data drop moved to PR L2 (maintainer, 2026-10-20). Reputation also left `EVENT_CONSUMERS` (ADR-101 amendment).
 - **`karma_awarded` has a handler and a route but no publisher.** notification-service handles it (with milestone
   notifications) and ADR-101 routes it, but no service publishes it. Either publish it from the standing projector or
   delete the handler and route.
@@ -921,5 +923,57 @@ to work through data-safety considerations for exports (and community data acces
   CI never runs it; it signs `userId: 'admin-user-id'` (not a UUID, so its admin writes already failed on the `uuid`
   `ui_schemas.created_by`) with a `role: 'admin'` claim that no issuer signs and `requireAdmin` no longer reads (ADR-102).
   Rewrite it as a root `tests/integration/*.integration.test.ts` with a live admin row, or delete it.
+
+## [2026-10-22] The simulation never rates a completed exchange (Sprint 134 PR L)
+
+PR L removed the simulation's `submitFeedback` action because it posted to the retired, always-failing request-service
+`POST /matches/:matchId/feedback` and discarded the error. So the simulation has never produced rating data, and still
+does not. If demo profiles should rate their exchanges, add a workflow that calls the live reputation-service
+`POST /reputation/feedback` (ADR-036: participant of a completed match, one rating per match, attributed to one of the
+request's communities, BUG-013). It would change demo standing over time, so it needs a decision before it ships.
+
+## [2026-10-22] Event-gate and dotenv-gate depth follow-ups (Sprint 134 PR L `/simplify`, altitude review)
+
+- **Put the consumer guarantee in the type system.** The event-routes gate finds handler registrations by matching a local
+  closure named `register(`. Rename the closure and that rule goes blind. A typed factory in `packages/shared`
+  (`createConsumer<C extends EventConsumer>(c)` returning `{ register(name: RoutedEvent<C>, h), start(redisUrl) }`, with
+  `EVENT_ROUTES` declared `as const satisfies …`) would make the compiler reject a non-consumer service and a typo'd event
+  name. Keep the regex rule until then.
+- **The dotenv-quiet gate pins call sites by `file:line`.** Any edit above a `config()` call in one of its 14 pinned sites
+  breaks it (PR L re-pinned request-service 36 → 35 after deleting an import). Keying by file plus each call's position
+  among that file's calls, or by its normalized text, would keep the "every site resolves" proof without the line
+  coupling. Not changed in PR L: weakening an identity key in a gate deserves its own decision.
+- **Assert the worker-queue set, not retired names one by one.** The PR Q integration test checks that nothing attaches to
+  `karmyq-events` and `karmyq-events-reputation`. Stronger: the set of `karmyq-events*` queues with live workers equals the
+  names built from `EVENT_CONSUMERS` (one `CLIENT LIST`).
+- **Delete the inert legacy queue keys on the demo.** After PR L deploys and its read-only check shows `wait`, `active`,
+  `delayed` and `paused` at 0, `bull:karmyq-events:*` (including the parked failed jobs ADR-101 chose not to redrive) and
+  `bull:karmyq-events-reputation:*` only use Redis memory. Removing them is a demo data operation: it needs its own
+  authorization and a dry-run listing of the keys first. Owner: whoever runs PR L's post-deploy check.
+
+## [2026-10-26] Dependency-gate follow-ups (Sprint 134 Security PR X)
+
+Left alone by the security PR, which stayed within what the advisories earned. (Its review closed the stale
+`body-parser@<1.20.6` target, the dead `undici` selector from the 2026-09-29 D9 follow-up (d), and the `qs` floor
+under `body-parser` 2.4.0.)
+
+- **Bare override floors loosen stricter dependents.** `"qs": ">=6.16.0"` had overridden `body-parser` 2.4.0's own
+  `qs ^6.16.1` down (`npm explain qs`: overridden, was `^6.16.1`); PR X raised the floor to `>=6.16.1`, which only
+  moves the problem to the next dependent that raises its floor, and with no upper bound a re-resolve could take a
+  future `qs` 7 for dependents that declare `^6`. A selector, `"qs@<6.16.1": "6.16.1"` (the repo's
+  `body-parser@<1.20.9` / `sharp@<0.35.5` form), lifts only copies below the floor and never loosens anyone. The
+  other bare floors (`node-forge`, `minimatch`, `fast-uri`, `ip-address`, `browserslist`) behave the same way. Trace
+  npm's selector matching before converting them.
+- **A high package that also carries a moderate advisory cannot be exempted.** `evaluateAudit` clears a high entry
+  only when every advisory reachable from it is exempted, and the registry accepts only `high`. `undici` (one high,
+  two moderates) could not have been exempted had no fix existed. This fails closed, but leaves the exemption path
+  unusable for such a package. The deeper fix also removes the gate's last dependence on npm's package ranking (the
+  advisory-object rank check exists only because the evaluator skips entries below high): decide per advisory, not
+  per package. Block every unexempted high or critical advisory object where it sits, keep critical unexemptible, and
+  fail closed on a high or critical entry with no high or critical advisory reachable from it.
+- **The local npm is not CI's.** `package.json` declares `"packageManager": "npm@10.8.2"` and the Windows PATH `npm`
+  is 10.8.2, while CI takes the npm bundled with Node `24.x` (11.19.0 on Node 24.21.0, master run 39853173679). Their
+  audit reports differ (gotcha `adr-059-cannot-tell-no-answer-from-no-advisories`). Aligning them would make the
+  pre-push gate read what CI reads. Cheaper first step: have the gate print `npm --version` when it fails.
 
 ---

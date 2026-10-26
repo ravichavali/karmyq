@@ -1,6 +1,6 @@
 # ADR-101: Per-Consumer Event Queues
 
-**Status**: Implemented (Sprint 133 PR Q v11.88.0 `36a9972f`, deployed 2026-10-16, CI/CD 38948723833)
+**Status**: Implemented (Sprint 133 PR Q v11.88.0 `36a9972f`, deployed 2026-10-16, CI/CD 38948723833); amended Sprint 134 PR L (legacy handlers removed, reputation no longer a consumer)
 **Date**: 2026-10-15
 **Sprint**: 133 — PR Q (BUG-060, HIGH)
 **Deciders**: Maintainer (ADR number allocated, BUG-066 and unconsumed-event policy decided 2026-10-15); Claude (implementation)
@@ -63,7 +63,9 @@ services, so its events get the standard retries.
 scans `services/*/src` and fails on any of these:
 - an unclassified publish site, or a dynamic event name;
 - a direct Bull `add` of a non-dedicated event;
-- any reference to `karmyq-events` outside the three legacy subscribers;
+- any reference to `karmyq-events` outside the three legacy subscribers (since Sprint 134 PR L: any
+  hard-coded `karmyq-events*` queue name in code, and any consumer queue opened outside its own service; see the
+  amendment below);
 - a consumer whose `register(...)` set differs from its routes;
 - `services/registry.json` events that differ from the source.
 
@@ -83,7 +85,8 @@ Each rule has a negative fixture proving it can fail.
 - **No redrive.** Failed jobs parked on the demo's `karmyq-events` are not replayed: they are
   stale notifications, and replaying them would notify people about old activity.
 - **Follow-up.** Remove the legacy handlers and retire the B1 live reproduction test once a
-  read-only check shows the demo's `karmyq-events` has nothing waiting or delayed.
+  read-only check shows the demo's `karmyq-events` has nothing waiting or delayed. **Done in Sprint 134
+  PR L** (see the amendment below).
 
 ## Consequences
 
@@ -127,3 +130,40 @@ Each rule has a negative fixture proving it can fail.
 
 - Rejected by the maintainer (2026-10-15). It's a queue that only grows, and it records nothing a
   consumer could use.
+
+## Amendment (Sprint 134, 2026-10-22): legacy handlers removed; reputation is no longer a consumer
+
+**The drain check passed.** The maintainer ran the read-only check on the demo host on 2026-10-20, after
+#310 deployed: the legacy `bull:karmyq-events` had `wait`, `active`, `paused` and `delayed` all 0, and each
+`karmyq-events-<consumer>` queue was served only by its own consumer's container. Nothing has published to
+`karmyq-events` since this ADR deployed, so the result holds until the removal ships.
+
+**Legacy handlers removed.** notification, reputation and social-graph no longer open `karmyq-events`.
+`match_completed` arrives only on each service's completion queue (ADR-099). `startConsumerQueue` loses its
+optional `legacyQueue` parameter, and the unused `export default eventQueue` in each subscriber goes too.
+
+**Reputation is no longer a consumer.** Its one routed event, `interaction_feedback_submitted`, was published
+only by request-service `POST /matches/:matchId/feedback`. That route always failed (BUG-068) and no client
+called it, so the route, the event and the reputation handler are retired together. `EVENT_CONSUMERS` is now
+`['notification']`, and reputation no longer starts `karmyq-events-reputation`. It keeps its dedicated queues:
+`karmyq-completion-reputation` and `karmyq-community-evolution`. The alternative, an empty consumer queue kept
+for future events, would be a queue with no purpose; the next routed reputation event adds it back
+(maintainer, 2026-10-20). The `requests.interaction_feedback` table and the always-0 average columns are
+dropped separately in Sprint 134 PR L2.
+
+**The gate tightens.** `tests/regression/sprint-133-pr-q-event-routes.test.ts` now fails on any string or
+template literal in `services/*/src` code that starts with `karmyq-events` (found with the TypeScript parser, so
+comments do not count); on a `consumerQueueName(c)` or `startConsumerQueue(c, …)` call outside `c`'s own service;
+and on `register(...)` calls, merged across a service's files, that differ from the service's routes (`[]` for a
+service that is not in `EVENT_CONSUMERS`, so a dropped consumer's handlers cannot go unchecked). Each rule has
+negative fixtures. The BUG-060 integration test keeps only its mechanism half (a scratch queue); the PR Q integration
+test narrows to notification and asserts that no container attaches a worker to `karmyq-events` or to
+`karmyq-events-reputation`.
+
+**After deploy.** The 2026-10-20 drain check predates the removal, so a job added to either queue in between
+would have no worker afterwards. Nothing in the source can add one (the gate forbids the names, and
+`interaction_feedback_submitted` was never successfully published), but a read-only check confirms it: no
+container lists a `karmyq-events` or `karmyq-events-reputation` worker, and `wait`, `active`, `delayed` and
+`paused` are 0 on both. A nonzero count is a stranded job, and what happens to it is the maintainer's call. The
+keys left in Redis (including the parked failed jobs this ADR chose not to redrive) are inert; deleting them is a
+separate demo operation that needs its own authorization.

@@ -43,7 +43,9 @@ the DB user `karmyq_prod`.
 
 `audit-exemptions.js` validates audit evidence before matching the ADR-059 registry (Sprint 128,
 BUG-038). Empty/malformed reports, npm error objects, invalid severity graphs, unsupported exit
-statuses, signals and timeouts fail with an unavailable-evidence error. The subprocess captures
+statuses, signals and timeouts fail with an unavailable-evidence error. A severity graph is invalid
+when an advisory outranks its own package or a `via` names a missing entry; a dependent ranked below
+the package it names is valid npm 10 output (Sprint 134 PR X). The subprocess captures
 stderr and has a 120-second timeout; upstream error bodies are not echoed. Only valid npm success
 or finding output is evaluated. A critical finding cannot be exempted. Retry unavailable evidence;
 remove an unmatched exemption only after a valid report establishes that it no longer matches.

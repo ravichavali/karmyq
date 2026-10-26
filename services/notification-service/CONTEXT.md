@@ -14,15 +14,20 @@ borrow your {item}”, linked to `/requests/:id`. No `communities.members` fan-o
 are disabled for this template. Borrow creation never emits `request_created`. Provider-on-duty
 request discovery excludes directed asks. Existing notification caller ownership from PR S remains.
 
+**Sprint 134 PR L (ADR-101 amendment).** The legacy `karmyq-events` queue is gone: the subscriber no longer opens it, and
+`startConsumerQueue` no longer takes a drain queue. The maintainer's drain check (2026-10-20) found it empty. Routed events
+arrive only on `karmyq-events-notification`, and `match_completed` only on `karmyq-completion-notification`. The unused
+`export default eventQueue` is removed. Notification is now the only `EVENT_CONSUMERS` entry.
+
 **Sprint 133 PR Q (ADR-101, BUG-060, BUG-066).** Every routed handler (the 17 events `eventsFor('notification')`
 returns) is registered on **`karmyq-events-notification`**, a queue no other service attaches to, via
-`startConsumerQueue`. The service refuses to start if that set differs from the routing table. The same handlers stay
-on `karmyq-events` for one release to drain jobs published before the deploy; nothing publishes there any more. The
+`startConsumerQueue`. The service refuses to start if that set differs from the routing table. The same handlers stayed
+on `karmyq-events` for one release to drain jobs published before the deploy; Sprint 134 PR L removed them (above). The
 `offer_submitted`, `offer_accepted`, `offer_declined` and `provider_went_on_duty` push handlers now read
 `job.data.payload` (they read `job.data` and never sent a push) and skip when the recipient is missing.
 
 PR C review correction: directed jobs use **`karmyq-directed-notifications`**, consumed only here.
-Legacy `karmyq-events` handlers remain registered. Recipient inserts use the partial unique index
+Recipient inserts use the partial unique index
 `uq_directed_notification_recipient` on user_id and data.request_id for this event type, with
 `ON CONFLICT DO NOTHING`; redelivery emits no duplicate SSE notification. After all
 current recipients are handled (including preferences that disable delivery), the subscriber stamps
@@ -35,7 +40,7 @@ and publication state; notification-service updates only delivered_at after proc
 including a terminal job with no eligible recipients. It never changes request or intent payloads.
 
 Completion delivery correction (2026-10-05, ADR-099): new `match_completed` jobs arrive on
-`karmyq-completion-notification`; the same handler remains on the legacy shared queue.
+`karmyq-completion-notification`; the legacy shared-queue copy was removed in Sprint 134 PR L.
 Per-recipient completion inserts take a transaction advisory lock keyed by user/match, then
 check the stored notification before inserting. A failure sending to the second participant
 can retry without duplicating the first participant's stored notification or SSE emission.

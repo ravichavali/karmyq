@@ -1,6 +1,6 @@
 /**
  * Sprint 133 PR Q (ADR-101, BUG-060, BUG-066): notification-service consumes its own queue and its
- * push handlers read the published envelope's payload.
+ * push handlers read the published envelope's payload. Sprint 134 PR L removed the legacy shared queue.
  */
 const mockQueues: Record<string, Record<string, (job: any) => Promise<void>>> = {};
 const mockQuery = jest.fn();
@@ -25,11 +25,9 @@ describe('ADR-101: notification consumes its own queue', () => {
     expect(Object.keys(mockQueues['karmyq-events-notification']).sort()).toEqual(eventsFor('notification'));
   });
 
-  it('keeps the same handler on the legacy queue for every routed event (drain)', () => {
-    for (const name of eventsFor('notification')) {
-      expect({ name, same: mockQueues['karmyq-events'][name] === mockQueues['karmyq-events-notification'][name] }).toEqual({ name, same: true });
-    }
-    expect(typeof mockQueues['karmyq-events'].match_completed).toBe('function');
+  it('opens no legacy karmyq-events queue (Sprint 134 PR L) and takes match_completed only from its completion queue', () => {
+    expect(Object.keys(mockQueues).sort()).toEqual(['karmyq-completion-notification', 'karmyq-directed-notifications', 'karmyq-events-notification']);
+    expect(Object.keys(mockQueues['karmyq-completion-notification'])).toEqual(['match_completed']);
   });
 });
 
