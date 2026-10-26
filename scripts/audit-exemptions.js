@@ -149,6 +149,13 @@ const owns = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 
 // Validate only the report contract consumed here. Unknown or partial entries cannot be
 // silently skipped: that would make absence of understood evidence look like a clean audit.
+//
+// Severity is ranked only against advisory objects. An advisory ranked above its own package
+// would be skipped by the evaluator, which reads high and critical entries only; that is the
+// hiding shape. A string `via` names another entry, which carries its advisories under the same
+// rule and is evaluated on its own, so a dependent ranked below it hides nothing. npm produces
+// that shape: it ranks a dependent by the meta-advisories that apply to its own version and range,
+// and names the package regardless (npm 10.8.2: expo-server-sdk moderate via undici high).
 function validAuditReport(report) {
   if (!isRecord(report) || owns(report, 'error') || !owns(report, 'vulnerabilities') ||
       !isRecord(report.vulnerabilities)) return false;
@@ -156,8 +163,7 @@ function validAuditReport(report) {
   return Object.entries(vulns).every(([name, entry]) =>
     isRecord(entry) && entry.name === name && SEVERITIES.has(entry.severity) &&
     Array.isArray(entry.via) && entry.via.every((via) => {
-      if (typeof via === 'string') return owns(vulns, via) &&
-        isRecord(vulns[via]) && severityRank(vulns[via].severity) <= severityRank(entry.severity);
+      if (typeof via === 'string') return owns(vulns, via) && isRecord(vulns[via]);
       return isRecord(via) && SEVERITIES.has(via.severity) &&
         severityRank(via.severity) <= severityRank(entry.severity) &&
         typeof via.url === 'string' && /^https:\/\/github\.com\/advisories\/GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/.test(via.url);

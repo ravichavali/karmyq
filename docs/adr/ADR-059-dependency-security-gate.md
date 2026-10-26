@@ -440,3 +440,39 @@ so `next` moves anyway.
 Fix: an in-place lock splice, `next` 16.3.8 → 16.4.2, together with `@next/env` and the eight `@next/swc-*`
 binaries. The `apps/frontend` and `apps/landing` ranges become `^16.4.2`. `next`'s new `sharp ^0.35.5` range
 is already satisfied by the existing `sharp@<0.35.5` override, so nothing else moves.
+
+## Amendment (Sprint 134, 2026-10-26): Security PR X
+
+**Status**: Accepted · **Decision**: maintainer, 2026-10-20 (node-forge renewal, reconfirmed 2026-10-26) and
+2026-10-26 (every `zod` copy to 4.6.6)
+
+Both exemptions lapsed on 2026-10-26 before a renewal merged, so every push and CI run failed the gate. Three
+high advisories published since the 2026-10-19 renewal failed it as well. A re-check on 2026-10-26 found:
+
+| Package | Advisory | State on 2026-10-26 | Action |
+|---|---|---|---|
+| `braces` | GHSA-vfj7-8cjw-p6xm | withdrawn 2026-10-23 12:53Z | exemption deleted (BUG-059 closed) |
+| `node-forge` | GHSA-86w9-cpqp-85rv | `<= 1.4.0`, no patched version, not withdrawn; 1.4.0 latest; `@expo/cli` 58.1.15 and `@expo/code-signing-certificates` 0.0.7 still need `^1.4.0` | renewed 2026-10-26 → 2026-11-02 |
+| `body-parser` | GHSA-27r3-jxmh-p828 (high, published 2026-10-23) | `>= 2.0.0 < 2.4.0` | 2.3.0 → 2.4.0 |
+| `undici` | GHSA-xjj6-f33q-929c (high) and two moderates (published 2026-10-23) | `>= 7.18.0 < 7.30.1` | 7.30.0 → 7.30.1 |
+| `zod` | GHSA-mrhx-c7xc-m3w5 (high, published 2026-10-01) | `< 4.6.6` | root 4.6.5 → 4.6.6; `@expo/cli`'s nested 3.25.76 removed |
+
+Fix: an in-place lock splice whose packages match npm 11.19.0's own re-resolve node for node (that reference
+pinned `zod` exactly; the shipped ranges are `^4.6.6`). `body-parser` 2.4.0 also requires `content-type ^2.1.0`, so its nested copy moves 2.0.0 → 2.1.0.
+Its `qs ^6.16.1` edge is governed by the root `qs >=6.16.0` override, and npm keeps `qs` 6.16.0 (the fix is in
+`body-parser`'s own stream handling, not in `qs`). The exact `undici` override moves to 7.30.1. `@expo/cli`
+(57.0.32, and the latest 58.1.15) declares `zod ^3.25.76`, so the scoped override
+`"@expo/cli": { "zod": "4.6.6" }` points it at the root copy and the nested node goes. `@expo/cli` loads `zod`
+only in two dev-server schema modules. Its real consumers were run on the same valid and invalid plugin
+manifests, command outputs and MCP arguments under `zod` 3.25.76 and 4.6.6, and every outcome matched.
+
+**Validator rule.** `validAuditReport` rejected the report from npm 10.8.2 (the Windows box's PATH `npm`):
+`expo-server-sdk` moderate with `via: ["undici"]`, and `undici` high. npm ranks a dependent by the
+meta-advisories that apply to its own version and range, and names the package in `via` regardless
+(`@npmcli/arborist` `lib/audit-report.js`, `lib/vuln.js`). CI's npm 11.19.0 omitted `expo-server-sdk`
+entirely, so only the local gate and the pre-push hook failed closed on valid evidence. Severity is now ranked
+only against advisory objects. An advisory ranked above its own package would be skipped, because the
+evaluator reads only high and critical entries, so that check stays. A string `via` names another entry,
+which is evaluated on its own, so a dependent ranked below it hides nothing.
+`tests/regression/sprint-128-audit-response-contract.test.ts` holds both sides: npm's shape is accepted and
+still blocks on `undici`, and a high advisory under a moderate package is still rejected.

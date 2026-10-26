@@ -29,8 +29,25 @@ const invalidReports: [string, unknown][] = [
   ['advisory missing severity', { vulnerabilities: { 'image-size': { ...finding, via: [{ url: finding.via[0].url }] } } }],
   ['dangling reference', { vulnerabilities: { parent: { name: 'parent', severity: 'high', via: ['absent'] } } }],
   ['critical hidden under low root', { vulnerabilities: { 'image-size': { ...finding, severity: 'low', via: [{ ...finding.via[0], severity: 'critical' }] } } }],
-  ['high hidden under low parent', { vulnerabilities: { 'image-size': finding, parent: { name: 'parent', severity: 'low', via: ['image-size'] } } }],
+  // The shape that really would hide a high: the advisory sits on a package ranked below it, and
+  // the evaluator skips entries below high. A string `via` cannot do this (see the tests below).
+  ['high advisory under moderate package', { vulnerabilities: { 'image-size': { ...finding, severity: 'moderate' } } }],
 ];
+
+// npm 10.8.2 (the user-level npm on the Windows box, 2026-10-26) ranks a dependent by the
+// meta-advisories that apply to its own version and range, yet names the package in `via`
+// regardless, so the named package can outrank it. CI's npm 11.19.0 omitted the dependent.
+// Trimmed to the fields the gate reads.
+const advisory = (id: string, severity: string) =>
+  ({ url: `https://github.com/advisories/${id}`, severity, title: 'fixture' });
+const npmDependentBelowVia = { vulnerabilities: {
+  undici: { name: 'undici', severity: 'high', via: [
+    advisory('GHSA-4qv8-2p9j-2685', 'moderate'),
+    advisory('GHSA-f72v-6w45-q472', 'moderate'),
+    advisory('GHSA-xjj6-f33q-929c', 'high'),
+  ] },
+  'expo-server-sdk': { name: 'expo-server-sdk', severity: 'moderate', via: ['undici'] },
+} };
 
 describe.each([{ exemptions: [] }, { exemptions: [exemption] }])('audit evidence before registry matching (%j)', registry => {
   it.each(invalidReports)('rejects %s without removal advice', (_name, report) => {
@@ -47,6 +64,28 @@ it('retains clean, exemption and unmatched-entry policy for valid reports', () =
   expect(gate.evaluateAudit(affected, { exemptions: [] }, NOW).blocking).toHaveLength(1);
   expect(gate.evaluateAudit(affected, { exemptions: [exemption] }, NOW).ok).toBe(true);
   expect(gate.evaluateAudit(clean, { exemptions: [exemption] }, NOW).unused).toEqual([exemption]);
+});
+
+it('accepts a dependent ranked below the package it names, which still blocks on its own entry', () => {
+  expect(gate.evaluateAudit(npmDependentBelowVia, { exemptions: [] }, NOW)).toEqual({
+    ok: false, errors: [], cleared: [], unused: [],
+    blocking: [{
+      package: 'undici', severity: 'high',
+      reason: 'undici GHSA-4qv8-2p9j-2685 (moderate), undici GHSA-f72v-6w45-q472 (moderate), undici GHSA-xjj6-f33q-929c (high)',
+    }],
+  });
+});
+
+it('a low dependent neither hides nor clears the high it names', () => {
+  const report = { vulnerabilities: { 'image-size': finding, parent: { name: 'parent', severity: 'low', via: ['image-size'] } } };
+  expect(gate.evaluateAudit(report, { exemptions: [] }, NOW)).toEqual({
+    ok: false, errors: [], cleared: [], unused: [],
+    blocking: [{ package: 'image-size', severity: 'high', reason: 'image-size GHSA-w3rx-r6r6-pgpr (high)' }],
+  });
+  expect(gate.evaluateAudit(report, { exemptions: [exemption] }, NOW)).toEqual({
+    ok: true, errors: [], blocking: [], unused: [],
+    cleared: [{ package: 'image-size', severity: 'high', via: ['GHSA-w3rx-r6r6-pgpr'] }],
+  });
 });
 
 it('never exempts a critical root even when its leaf advisory is registered high', () => {
@@ -143,5 +182,11 @@ describe('audit acquisition and actual CLI', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('BLOCKING (high): image-size');
     expect(result.stderr).toContain('ADR-059 gate FAILED');
+  });
+  it('CLI evaluates npm 10 output where a dependent is ranked below the package it names', () => {
+    const result = invoke({ stdout: JSON.stringify(npmDependentBelowVia), status: 1 }, true);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('BLOCKING (high): undici');
+    expect(result.stderr).not.toMatch(/audit evidence unavailable or invalid/i);
   });
 });

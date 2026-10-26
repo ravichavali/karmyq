@@ -887,3 +887,26 @@ kind of abuse? It is not simple: members share their email to register, which ma
 to work through data-safety considerations for exports (and community data access generally).
 
 ---
+
+## [2026-10-26] Dependency-gate follow-ups (Sprint 134 Security PR X)
+
+Left alone by the security PR, which stayed within what the advisories earned.
+
+- **`qs` override floor vs `body-parser`'s range.** `body-parser` 2.4.0 declares `qs ^6.16.1`. The root
+  `"qs": ">=6.16.0"` override governs that edge, so npm keeps `qs` 6.16.0 (`npm explain qs`: overridden, was
+  `^6.16.1`). 6.16.1 has no advisory but bounds `parse` nesting and `arrayLimit` on input that request bodies reach.
+  Raising the floor to `>=6.16.1` is a one-node splice with identical dependencies.
+- **Stale `body-parser` 1.x override.** `"body-parser@<1.20.6": "1.20.6"` pins any 1.x copy to a version that
+  GHSA-27r3-jxmh-p828 covers (`< 1.20.9`). No 1.x node exists, so it is inert, and the gate would flag a
+  reintroduced copy. Retarget it to 1.20.9 or delete it.
+- **Redundant `undici` selector** is still open: see the 2026-09-29 D9 follow-up (d). The exact pin is now 7.30.1.
+- **A high package that also carries a moderate advisory cannot be exempted.** `evaluateAudit` clears a high entry
+  only when every advisory reachable from it is exempted, and the registry accepts only `high`. `undici` (one high,
+  two moderates) could not have been exempted had no fix existed. This fails closed, but leaves the exemption path
+  unusable for such a package.
+- **The local npm is not CI's.** `package.json` declares `"packageManager": "npm@10.8.2"` and the Windows PATH `npm`
+  is 10.8.2, while CI takes the npm bundled with Node `24.x` (11.19.0 on Node 24.21.0, master run 39853173679). Their
+  audit reports differ (gotcha `adr-059-cannot-tell-no-answer-from-no-advisories`). Aligning them would make the
+  pre-push gate read what CI reads.
+
+---

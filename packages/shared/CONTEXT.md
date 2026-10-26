@@ -1,6 +1,6 @@
 # @karmyq/shared — Context
 
-**Last Updated**: 2026-09-24 (Sprint 131 D6 zod 4)
+**Last Updated**: 2026-10-26 (Sprint 134 PR X zod 4.6.6)
 
 Shared TypeScript library consumed by all Karmyq services and frontend apps.
 
@@ -252,7 +252,10 @@ Root exports from `@karmyq/shared` define the strict request/offer relationship-
 ## Sprint 131 D6 — zod 4 (2026-09-24)
 
 `zod` **→ 4.6.5** (#264) in this package and root. zod 3 is gone from the runtime graph. Only
-`@expo/cli` still nests its own 3.25.76, and nothing in our source imports it. The zod
+`@expo/cli` still nests its own 3.25.76, and nothing in our source imports it. **Sprint 134 PR X
+(2026-10-26):** `zod` → **4.6.6** here and in root (GHSA-mrhx-c7xc-m3w5, high: unbounded array issues),
+and the root override `"@expo/cli": { "zod": "4.6.6" }` removed that nested 3.25.76, so the tree holds
+one zod (ADR-059 amendment "Security PR X"). The zod
 `DIVERGENCE_ALLOWLIST` entry in `tests/regression/sprint-131-workspace-declarations.test.ts` is retired, so the map is empty.
 
 A two-version differential over the real request schemas (102 cases) found 20 verdict changes,
