@@ -19,13 +19,13 @@ is on `refs/heads/master` and still dismissed (the lines did not shift between P
 `Next.js 16.4.2` for frontend and landing, "DEPLOYMENT SUCCESSFUL", all 9 services healthy, the failure step skipped (no
 rollback), 0 open CodeQL alerts on master (checked 21:25Z). **Exemption re-check 2026-10-22 21:25Z:** unchanged (0 unexempted,
 19 exempt, no upstream fix); renewal deferred to a 10-24 (UTC) chat so it does not shorten the window. **Now:** PR L
-**#315** (see *PR L state*), which **merges only after the renewal**; the renewal PR (cut fresh on 10-24) takes the next merge slot.
+**#315** (see *PR L state*), which **merges only after the renewal**; no renewal PR was cut on 10-24; **Security PR X** (2026-10-26) is the renewal and takes the next merge slot.
 **Security PR X open (2026-10-26)** on `agent/claude/sprint-134-pr-x-security` (v11.98.0), awaiting maintainer merge: braces
 exemption removed (withdrawn), node-forge renewed to 2026-11-02, body-parser/undici/zod highs fixed, audit validator fixed. It
 takes the **next merge slot**, then #315 (re-bump), then PR K (re-bump). See *PR X state*.
 **PR K (BUG-069) complete locally at `5d7fe9bb`, NOT yet pushed (2026-10-25)**: the pre-push hook is blocked by the expired exemptions (below) on `agent/claude/sprint-134-pr-k-live-admin-role`
 (see *PR K state*); it merges **after #315**. ⚠️ **As of 2026-10-25 no exemption-renewal PR exists** (`gh pr list`), and the
-gate fails **2026-10-25 17:00 PDT**. After that, every PR's Security Audit goes red until the renewal merges.
+gate fails **2026-10-25 17:00 PDT**. After that, every PR's Security Audit goes red until the renewal merges. **Security PR X is that renewal.**
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
 #309 merged `1746cdf2` (v11.92.0), CI/CD 39366367275 green.
 
@@ -56,7 +56,7 @@ gate fails **2026-10-25 17:00 PDT**. After that, every PR's Security Audit goes 
 
 | Field | Value |
 |---|---|
-| **Current branch** | `agent/claude/sprint-134-pr-x-security` (from `origin/master` `0321c415`) carries Security PR X (see *PR X state*); it merges first. `agent/claude/sprint-134-pr-k-live-admin-role` (from `origin/master` `0321c415`) carries PR K (see *PR K state*); it merges after #315 and is updated from `origin/master` with a merge commit once #315 lands. `agent/claude/sprint-134-pr-l-legacy-handlers` (from `origin/master` `0321c415`) carries PR L (**#315 open**, awaiting maintainer merge; see *PR L state*). The exemption renewal goes on a **fresh** branch cut from `origin/master` on 10-24 (UTC), not on this one, and **merges first** (before 10-25 17:00 PDT). PR L merges after it: update this branch from `origin/master` with a merge commit and re-bump the version then. The PR N branch merged as #314, PR D as #313, PR E as #312 and PR A as #311; all can be deleted. The planning branch `agent/claude/sprint-134-planning` merged as #310 and can be deleted. Every later PR is cut from `origin/master` after the previous one merges |
+| **Current branch** | `agent/claude/sprint-134-pr-x-security` (from `origin/master` `0321c415`) carries Security PR X (see *PR X state*); it merges first. `agent/claude/sprint-134-pr-k-live-admin-role` (from `origin/master` `0321c415`) carries PR K (see *PR K state*); it merges after #315 and is updated from `origin/master` with a merge commit once #315 lands. `agent/claude/sprint-134-pr-l-legacy-handlers` (from `origin/master` `0321c415`) carries PR L (**#315 open**, awaiting maintainer merge; see *PR L state*). The exemption renewal is Security PR X (the current branch), which **merges first**. PR L merges after it: update this branch from `origin/master` with a merge commit and re-bump the version then. The PR N branch merged as #314, PR D as #313, PR E as #312 and PR A as #311; all can be deleted. The planning branch `agent/claude/sprint-134-planning` merged as #310 and can be deleted. Every later PR is cut from `origin/master` after the previous one merges |
 | **Active editor** | Claude |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated); each PR re-derives its version from `origin/master` at merge time |
 
@@ -220,7 +220,7 @@ code-scanning alerts on master. No browser smoke was run (the build log is the e
 ## PR L state (2026-10-22)
 
 Executed inline (`superpowers:executing-plans`) on `agent/claude/sprint-134-pr-l-legacy-handlers` from `origin/master` `0321c415`,
-**v11.98.0** (re-derived from `origin/master`). **#315 open; merges only after the renewal PR merges and deploys.**
+**v11.98.0** (re-derived from `origin/master`). **#315 open; merges only after the renewal PR (Security PR X) merges and deploys.**
 **Codex review at `9c57a866` (2026-10-22): no blocking findings.** CI green, including all three changed integration suites (174
 tests passed; 60/60 notification jobs delivered, zero failed attempts; run 39863929755). Codex agreed with deleting the GET route and
 with accepting the simulation mix shift without retuning.
@@ -281,7 +281,7 @@ it, or authorizes it per operation): no `karmyq-events` or `karmyq-events-reputa
 `agent/claude/sprint-134-pr-k-live-admin-role` from `origin/master` `0321c415`, **v11.98.0** (re-derived from `origin/master`
 11.97.0; #315 also claims 11.98.0, so whichever merges second re-bumps). Executed inline (`superpowers:executing-plans`) from
 [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md).
-**Merges after #315** (and after the exemption renewal, which owns the next slot).
+**Merges after #315** (and after Security PR X, the exemption renewal, which owns the next slot).
 
 **Inventory (untruncated):** 136 `\.communities` hits = 90 SQL table refs + 19 other objects + 27 claim reads: 21 fixed
 (12 gate sites, 31 routes, 4 services), 6 hint-only allowlisted, plus 2 inert reads in `packages/shared/middleware/tenant.ts`.
@@ -337,38 +337,48 @@ findings* below is addressed. The record is in the ADR-059 amendment "Security P
 1.4.0 latest, GHSA `<= 1.4.0`, no patch, not withdrawn; `@expo/cli` 58.1.15 / code-signing 0.0.7 need `^1.4.0`; prod reach
 only `apps/mobile` → `expo` → `@expo/cli`). Lock splice (guarded scratchpad script; each old field had to equal the old
 registry manifest): `body-parser` 2.3.0 → 2.4.0, its nested `content-type` 2.0.0 → 2.1.0 (2.4.0 needs `^2.1.0`), `undici`
-7.30.0 → 7.30.1, root `zod` 4.6.5 → 4.6.6, nested `@expo/cli/node_modules/zod` 3.25.76 **removed**. Manifests: root and
+7.30.0 → 7.30.1, root `zod` 4.6.5 → 4.6.6, nested `@expo/cli/node_modules/zod` 3.25.76 **removed**, and (after `/code-review`)
+`qs` 6.16.0 → 6.16.1. Manifests: root and
 `packages/shared` `zod ^4.6.6`; overrides `"undici": "7.30.1"` (it was an **exact** 7.30.0 pin, which the findings had not
-listed) and `"@expo/cli": { "zod": "4.6.6" }`. `scripts/audit-exemptions.js` `validAuditReport`: a string `via` must name an
+listed) and `"@expo/cli": { "zod": "4.6.6" }`; after `/code-review`: `"qs": ">=6.16.1"` (was `>=6.16.0`, which overrode `body-parser`
+2.4.0's own `^6.16.1` down), `"body-parser@<1.20.9": "1.20.9"` (was `<1.20.6` → 1.20.6, a version the same advisory covers;
+no 1.x node exists) and the dead `"undici@7.0.0 - 7.28.0"` selector deleted (D9 follow-up (d)). `scripts/audit-exemptions.js` `validAuditReport`: a string `via` must name an
 entry but is no longer ranked against its dependent; advisory objects still are.
 **Why the validator failed:** the PATH `npm` on this box is **10.8.2** (pre-push hook and local gate); CI's is 11.19.0. Only 10.8.2
 emits `expo-server-sdk` moderate via `undici` high; 11.19.0 omits the dependent. Traced in arborist (`audit-report.js:177-183`,
 `vuln.js:166-171`): a dependent is ranked by the meta-advisories that apply to its own version and range.
 
-**Proof.** Node diff vs a byte copy: 6 nodes changed (incl. root), 1 removed, 0 added, 0 key-order changes. **npm 11.19.0's own
+**Proof** (re-run after the review fixes). Node diff vs a byte copy: 7 nodes changed (incl. root), 1 removed, 0 added, 0 key-order
+changes. **npm 11.19.0's own
 re-resolve** of the same edits (scratch copy of all 15 workspace manifests; `install --package-lock-only`, then
-`update body-parser` and `update undici`) produced the same packages node for node (only the root version and the `^` on zod
-differ; the reference pinned exact). Registry parity 20/20 fields (checker shown failing on injected defects). Strict
+`update body-parser`, `update undici`, and after the review `update qs`) produced the same packages node for node (only the root version and the `^` on zod
+differ; the reference pinned exact). Registry parity 25/25 fields (checker shown failing on injected defects). Strict
 `npx -y npm@11.19.0 ci` exit 0 (lock untouched). `npm ls --all`: identical stderr error set (3 invalid + 1 missing) and an
 identical 175-line invalid/missing/UNMET multiset. `npm ls` shows `zod@4.6.6 overridden` on the `@expo/cli` edge (settles the
 UNVERIFIED note). Gate: exit 0, 0 unexempted, 4 findings under the node-forge exemption, on **both** the npm 10.8.2 and 11.19.0
 reports. `@expo/cli` on zod 4: a differential run of its real consumers (`DevToolsPlugin` constructor, `PluginSchema`,
 `DevToolsPluginOutputSchema`, `DevToolsPluginCliExtensionResults.parseOutputText`, `createMCPDevToolsExtensionSchema`) on 22
 valid/invalid cases gave identical outcomes under zod 3.25.76 and 4.6.6 (schemas confirmed built by each copy). Mobile `tsc`
-clean, jest 2/2. Validator: test-first (3 new tests red on the old rule), then 56/56 green; deleting the advisory-rank check turns
-the two negative fixtures red.
+clean, jest 2/2. Validator: test-first (red on the old rule), then consolidated by `/simplify` to 55 tests, of which exactly the two new
+valid-shape rows go red on the old rule; deleting the advisory-rank check turns the two negative fixtures red.
+`sprint-131-d9-security-overrides`: undici floor 7.30.1 and a zod row (the `@expo/cli` pin must equal the lock's single zod
+copy); red on "root 4.6.7 + nested 4.6.6" and on "pin 4.6.5".
 
 **Rulings for the maintainer:**
-- **`qs` stays 6.16.0.** `body-parser` 2.4.0 declares `qs ^6.16.1`, but the root `"qs": ">=6.16.0"` override governs the edge
-  (`npm explain qs`: overridden, was `^6.16.1`), and npm's own resolution keeps 6.16.0. The fix is `body-parser`'s own stream
-  handling (`f7075eae`); 6.16.1 has no advisory. Raising the floor is logged in `docs/IDEAS.md` 2026-10-26.
+- **`qs` 6.16.0 → 6.16.1 (added after `/code-review`, beyond the findings table).** `body-parser` 2.4.0 declares `qs ^6.16.1`;
+  the bare `"qs": ">=6.16.0"` override had loosened that edge (`npm explain qs`: overridden, was `^6.16.1`). 6.16.1 has no
+  advisory but bounds `parse` on request-reachable input. One node, identical dependencies; npm's own re-resolve moves only
+  `qs`. Converting the bare floors to selectors is a follow-up (`docs/IDEAS.md` 2026-10-26).
 - **zod 4.6.6, not 4.6.7** (published 2026-10-12): the maintainer's target is the first patched version; `^4.6.6` admits 4.6.7.
 - **The Sprint 128 fixture "high hidden under low parent" was wrong**: the child is its own high entry and is evaluated. It now
   asserts that the child blocks, and clears only by its own exemption.
 - **No new BUG number** for the validator defect: PR K's branch holds BUG-071..073 unmerged, so a master-based number would
   collide. The ADR-059 amendment and the gotcha carry it.
-- Not changed: the inert `body-parser@<1.20.6` override (it points at a now-vulnerable 1.20.6; no 1.x node exists), the redundant
-  `undici` range selector, and the moderates below. All logged in `docs/IDEAS.md` 2026-10-26.
+- **Ruled, not fixed:** the `@expo/cli` MCP `registerTool` path is not exercised under zod 4. It needs `EXPO_UNSTABLE_MCP_SERVER`
+  and the `expo-mcp` package (`@expo/cli` `MCP.js:43-50`); this repo has neither. Adding `expo-mcp` means re-checking it.
+  The validator still ranks advisory objects against their own package, but that mirrors npm's construction (`vuln.js`:
+  `via` is `this.advisories`, severity is their max), unlike the removed rule; deciding per advisory is the logged follow-up.
+- Not changed: the moderates below (logged in `docs/IDEAS.md` 2026-10-26).
 
 **Out of scope, found here:** moderates `fast-uri` (4 GHSAs, published 2026-10-23, SLA **2026-11-06**) and `ip-address`
 (GHSA-rxp7-6hxx-x8q5, published 2026-10-22, SLA **2026-11-05**); see *Dated obligations*. Expo drift is back: issue **#316**
@@ -381,7 +391,7 @@ awaits a maintainer decision). `npx expo install --check` exits 1 for exactly th
 
 Reported by Codex's read-only review of PR K at `9d22380a` (2026-10-26). Each line below was re-checked the same day against
 the live arbiters: `gh api advisories/<GHSA>`, `npm view`, `npm audit --json` (exit 1: 0 critical, 7 high, 6 moderate) and
-`package-lock.json`. **Nothing has been changed yet.** Dependency work earned by advisories; the lane holder is **Claude**
+`package-lock.json`. Nothing had changed when this table was written; every row is addressed in PR X (*PR X state*). Dependency work earned by advisories; the lane holder is **Claude**
 (maintainer-designated; confirm before starting, CLAUDE.md *dependency lane*).
 
 | Item | Live evidence | Action |
@@ -441,7 +451,7 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | `fast-uri` GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr (moderate) + 2 low | **2026-11-06** | Published 2026-10-23; `>= 4.0.0 < 4.2.3`, fixed 4.2.3; lock 4.2.1 (override `>=4.2.1`). Not yet scheduled |
 | ~~node-forge + braces ADR-059 exemptions~~ → **Security PR X** | ~~EXPIRED 2026-10-26 00:00Z~~ **PR X open** | No renewal PR was opened on 10-24, so the exemptions lapsed and the pre-push hook and CI Security Audit now fail on every branch. The scope grew since the 10-22 re-check (Codex review of PR K, 2026-10-26, verified the same day): see *Security PR X findings*. Highs are due ≤ 1 week from publication (body-parser 2026-10-30). BUG-059 |
 | **PR L** (BUG-068) | **2026-10-29** | Unblocked: drain check passed 2026-10-20 (below) |
-| **BUG-069** | **2026-10-30** | PR K (**complete 2026-10-25, push blocked by the expired exemptions**, v11.98.0, merges after the renewal and #315). **ADR-102**. The inventory showed it fits one PR, so no risk acceptance or split was needed |
+| **BUG-069** | **2026-10-30** | PR K (**complete 2026-10-25, push blocked by the expired exemptions**, v11.98.0, merges after Security PR X and #315). **ADR-102**. The inventory showed it fits one PR, so no risk acceptance or split was needed |
 | **BUG-073** (any community creator passes the "admin of any community" gates) | **2026-10-29** at the proposed HIGH | Logged 2026-10-22 by PR K's `/code-review`, **open**: needs a maintainer decision on what a platform admin is (no `auth.users` role exists), or a dated risk acceptance |
 | **BUG-070** (BUG-063 class in reputation health + dead `FeedComposer`) | **2026-11-03** | Logged 2026-10-20 (LOW, proposed); **in PR L2** (maintainer confirmed 2026-10-20) |
 | Demo stories | ~2026-12-18 | `demo-health.yml` watches the runway |

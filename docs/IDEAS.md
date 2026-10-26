@@ -783,7 +783,7 @@ D8 (cleanup-service on eslint 10) follow-ups. None is scheduled.
 - **(a) Root declares `ioredis` in production `dependencies` and imports nothing** (`package.json:60`). That lands it in every service image, which CLAUDE.md forbids for new root deps. Dropping it, or moving root to 6, retires the D9 `DIVERGENCE_ALLOWLIST` entry in `tests/regression/sprint-131-workspace-declarations.test.ts`.
 - **(b) `bull@4` pins `ioredis ^5.3.2`,** so the queue can never leave ioredis 5 while it is on Bull. Moving it means bull → BullMQ, a separate decision.
 - **(c) Redis-outage cost is still ~10.5 s per cache command at outage start and up to ~42 s mid-outage.** ioredis flushes its queue only every 21st retry, and the attempt count grows through the outage, so once the v5 backoff caps at 2 s a window lasts ~42 s. The backoff is now pinned deliberately. This is the ~298 s-per-match CI hang noted at `ci.yml:330`. A fail-fast policy (`maxRetriesPerRequest: 1` / `enableOfflineQueue: false`) would be a behavior change that deserves its own plan.
-- **(d) The root `overrides` now carry both `"undici@7.0.0 - 7.28.0": "^7.29.0"` and a bare `"undici": "7.30.0"`** (D9's mid-flight security pin). The range selector is now redundant. Bare exact pins (this one and engine.io's `".": "6.6.11"`) also force any future cross-major dependent onto that version. Narrow them to range selectors (e.g. `"undici@<7.30.0"`) in the next dependency PR, with a strict `npm ci`.
+- **(d) The root `overrides` now carry both `"undici@7.0.0 - 7.28.0": "^7.29.0"` and a bare `"undici": "7.30.0"`** (D9's mid-flight security pin). The range selector is now redundant. Bare exact pins (this one and engine.io's `".": "6.6.11"`) also force any future cross-major dependent onto that version. Narrow them to range selectors (e.g. `"undici@<7.30.0"`) in the next dependency PR, with a strict `npm ci`. **Partly done (Sprint 134 PR X):** the redundant selector is deleted; the bare pins (`undici` now 7.30.1, `engine.io`) remain.
 
 ## [2026-09-30] Dependency policy follow-ups
 
@@ -890,19 +890,16 @@ to work through data-safety considerations for exports (and community data acces
 
 ## [2026-10-26] Dependency-gate follow-ups (Sprint 134 Security PR X)
 
-Left alone by the security PR, which stayed within what the advisories earned.
+Left alone by the security PR, which stayed within what the advisories earned. (Its review closed the stale
+`body-parser@<1.20.6` target, the dead `undici` selector from the 2026-09-29 D9 follow-up (d), and the `qs` floor
+under `body-parser` 2.4.0.)
 
-- **`qs` override floor vs `body-parser`'s range.** `body-parser` 2.4.0 declares `qs ^6.16.1`. The root
-  `"qs": ">=6.16.0"` override governs that edge, so npm keeps `qs` 6.16.0 (`npm explain qs`: overridden, was
-  `^6.16.1`). 6.16.1 has no advisory but bounds `parse` nesting and `arrayLimit` on input that request bodies reach.
-  The deeper fix is a selector, `"qs@<6.16.0": "6.16.0"` (the repo's `body-parser@<1.20.6` / `sharp@<0.35.5`
-  form): it lifts only copies below the floor and never loosens a stricter dependent. That moves `qs` to 6.16.1 (a
-  one-node splice with identical dependencies). The other bare floors (`node-forge`, `minimatch`, `fast-uri`,
-  `ip-address`, `browserslist`) loosen dependents the same way.
-- **Stale `body-parser` 1.x override.** `"body-parser@<1.20.6": "1.20.6"` pins any 1.x copy to a version that
-  GHSA-27r3-jxmh-p828 covers (`< 1.20.9`). No 1.x node exists, so it is inert, and the gate would flag a
-  reintroduced copy. Retarget it to 1.20.9 or delete it.
-- **Redundant `undici` selector** is still open: see the 2026-09-29 D9 follow-up (d). The exact pin is now 7.30.1.
+- **Bare override floors loosen stricter dependents.** `"qs": ">=6.16.0"` had overridden `body-parser` 2.4.0's own
+  `qs ^6.16.1` down (`npm explain qs`: overridden, was `^6.16.1`); PR X raised the floor to `>=6.16.1`, which only
+  moves the problem to the next dependent that raises its floor. A selector, `"qs@<6.16.1": "6.16.1"` (the repo's
+  `body-parser@<1.20.9` / `sharp@<0.35.5` form), lifts only copies below the floor and never loosens anyone. The
+  other bare floors (`node-forge`, `minimatch`, `fast-uri`, `ip-address`, `browserslist`) behave the same way. Trace
+  npm's selector matching before converting them.
 - **A high package that also carries a moderate advisory cannot be exempted.** `evaluateAudit` clears a high entry
   only when every advisory reachable from it is exempted, and the registry accepts only `high`. `undici` (one high,
   two moderates) could not have been exempted had no fix existed. This fails closed, but leaves the exemption path

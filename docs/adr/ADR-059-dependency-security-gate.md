@@ -459,14 +459,20 @@ high advisories published since the 2026-10-19 renewal failed it as well. A re-c
 
 Fix: an in-place lock splice whose packages match npm 11.19.0's own re-resolve node for node (that reference
 pinned `zod` exactly; the shipped ranges are `^4.6.6`). `body-parser` 2.4.0 also requires `content-type ^2.1.0`, so its nested copy moves 2.0.0 → 2.1.0.
-Its `qs ^6.16.1` edge is governed by the root `qs >=6.16.0` override, and npm keeps `qs` 6.16.0 (the fix is in
-`body-parser`'s own stream handling, not in `qs`). The exact `undici` override moves to 7.30.1. `@expo/cli`
+Its `qs ^6.16.1` edge had been loosened by the bare root `qs >=6.16.0` override, so the floor becomes `>=6.16.1` and
+`qs` moves 6.16.0 → 6.16.1 (no advisory; the `body-parser` fix is in its own stream handling). The
+`body-parser@<1.20.9` selector now lifts any 1.x copy to the patched 1.20.9 (it pointed at 1.20.6, which this
+advisory covers; no 1.x copy exists). The exact `undici` override moves to 7.30.1, and the range selector it
+shadowed is deleted. `@expo/cli`
 (57.0.32, and the latest 58.1.15) declares `zod ^3.25.76`, so the scoped override
 `"@expo/cli": { "zod": "4.6.6" }` pins it to the root's current version, so it resolves the root copy and the
 nested node goes. The pin is exact on purpose (a `$zod` reference would carry `@expo/cli` across a future
 major unchecked), so the two must move together. `@expo/cli` loads `zod`
 only in two dev-server schema modules. Its real consumers were run on the same valid and invalid plugin
-manifests, command outputs and MCP arguments under `zod` 3.25.76 and 4.6.6, and every outcome matched.
+manifests, command outputs and MCP arguments under `zod` 3.25.76 and 4.6.6, and every outcome matched. Its MCP
+`registerTool` path was not run: it needs `EXPO_UNSTABLE_MCP_SERVER` and the `expo-mcp` package, and this repo has
+neither, so adding `expo-mcp` means re-checking it under zod 4. `sprint-131-d9-security-overrides.test.ts` fails
+if the pin and the lock's single `zod` copy diverge.
 
 **Validator rule.** `validAuditReport` rejected the report from npm 10.8.2 (the Windows box's PATH `npm`):
 `expo-server-sdk` moderate with `via: ["undici"]`, and `undici` high. npm ranks a dependent by the
