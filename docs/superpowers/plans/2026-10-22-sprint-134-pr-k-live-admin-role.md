@@ -1,5 +1,11 @@
 # Sprint 134 PR K — BUG-069: Admin Gates Re-derive the Live Role Implementation Plan
 
+> ## ✅ Executed 2026-10-22 (K6 first, then K1–K9) on `agent/claude/sprint-134-pr-k-live-admin-role`
+> Deviations from this plan, made by the gates: BUG-071 is fixed at the root (the admin chain covers exactly the router's own
+> routes via `adminChainPaths`; the mount move in K2 was reverted). BUG-072 (split ownership) was fixed and BUG-073 logged
+> from `/code-review`. Tests were promoted from `tdd/` to `regression/`. The gate derives its helper names instead of K6's list.
+> See the handoff's *PR K state*.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or
 > superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

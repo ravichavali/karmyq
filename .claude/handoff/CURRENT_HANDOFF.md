@@ -20,8 +20,9 @@ is on `refs/heads/master` and still dismissed (the lines did not shift between P
 rollback), 0 open CodeQL alerts on master (checked 21:25Z). **Exemption re-check 2026-10-22 21:25Z:** unchanged (0 unexempted,
 19 exempt, no upstream fix); renewal deferred to a 10-24 (UTC) chat so it does not shorten the window. **Now:** PR L
 **#315** (see *PR L state*), which **merges only after the renewal**; the renewal PR (cut fresh on 10-24) takes the next merge slot.
-**PR K (BUG-069) in progress since 2026-10-22** on `agent/claude/sprint-134-pr-k-live-admin-role` (see *PR K state*); it merges
-**after #315**.
+**PR K (BUG-069) open, awaiting Codex review and maintainer merge (2026-10-25)** on `agent/claude/sprint-134-pr-k-live-admin-role`
+(see *PR K state*); it merges **after #315**. ⚠️ **As of 2026-10-25 no exemption-renewal PR exists** (`gh pr list`), and the
+gate fails **2026-10-25 17:00 PDT**. After that, every PR's Security Audit goes red until the renewal merges.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
 #309 merged `1746cdf2` (v11.92.0), CI/CD 39366367275 green.
 
@@ -72,7 +73,7 @@ rollback), 0 open CodeQL alerts on master (checked 21:25Z). **Exemption re-check
 | — | **X** | Exemption **renewal** (re-checked 2026-10-22 three times: no upstream fix, renewal needed) | gate fails **10-25 17:00 PDT** | *Dated obligations* below | **On 10-24 (UTC)**, cut fresh from `origin/master`; created 10-24 → expires 10-31. **Takes the next merge slot, ahead of PR L** |
 | 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | **PR OPEN #315** (v11.98.0, see *PR L state*), awaiting maintainer merge. **Merges only after the renewal PR** (the renewal owns the next slot before 10-25 17:00 PDT); after the renewal merges, update this branch from `origin/master` with a merge commit and re-bump the version |
 | 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers (incl. the reputation health route); **BUG-070** | BUG-070 **2026-11-03** | write at PR start | — |
-| 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **IN PROGRESS** (see *PR K state*); merges after #315 |
+| 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **PR OPEN** (v11.98.0, see *PR K state*), awaiting Codex review and maintainer merge; merges after #315 |
 | 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | write at PR start | — |
 | 8 | **B** | PR B endorsement follow-ups (`docs/IDEAS.md` 2026-10-13) | — | write at PR start | — |
 | 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
@@ -271,15 +272,55 @@ equality, demo Redis key cleanup.
 it, or authorizes it per operation): no `karmyq-events` or `karmyq-events-reputation` worker in `CLIENT LIST`, and `wait`,
 `active`, `delayed`, `paused` all 0 on both. Then PR L2.
 
-## PR K state (2026-10-22)
+## PR K state (2026-10-25)
 
-Branch `agent/claude/sprint-134-pr-k-live-admin-role` from `origin/master` `0321c415`. Plan written (`superpowers:writing-plans`);
-executing inline (`superpowers:executing-plans`), static gate first (Task K6 as K0).
+**PR open, awaiting Codex review and maintainer merge** (number in the PR-opened commit that follows this one). Branch
+`agent/claude/sprint-134-pr-k-live-admin-role` from `origin/master` `0321c415`, **v11.98.0** (re-derived from `origin/master`
+11.97.0; #315 also claims 11.98.0, so whichever merges second re-bumps). Executed inline (`superpowers:executing-plans`) from
+[`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md).
+**Merges after #315** (and after the exemption renewal, which owns the next slot).
+
 **Inventory (untruncated):** 136 `\.communities` hits = 90 SQL table refs + 19 other objects + 27 claim reads: 21 fixed
 (12 gate sites, 31 routes, 4 services), 6 hint-only allowlisted, plus 2 inert reads in `packages/shared/middleware/tenant.ts`.
 **Fits one PR well before 10-30**, so no dated risk acceptance or split (the condition the maintainer set did not trigger).
-**Found: BUG-071** — the requester-offer routes are mounted after the `/requests` admin mount, so `requireAdmin` 403s every
-requester who is admin nowhere (since 2026-03-26); fixed in K by moving one mount. Rulings for the maintainer are in the plan.
+
+**What changed.** One `liveRole` module per service (request `db/`, community `utils/`, reputation `utils/`, social-graph
+`database/`): `getLiveRole`/`isLiveAdmin`/`isLiveAdminOfAnyCommunity` (+ request's `hasLiveRoleInRequestCommunities`),
+`(communityId, userId)`, UUID guard, NULL role = `'member'`. Every claim gate uses it; the dead `user.role` branches and the
+`communityMemberships` alias are gone. ADR-102 (+ README index, `ADR_GROUPS`, ADR-010 amendment), ARCHITECTURE.md's
+`requireRole` example, CLAUDE.md *Authentication*, 4 CONTEXT.md files, the admin guide.
+- **BUG-071 fixed** (found by the inventory): the requester-offer routes were refused for anyone who administers nothing,
+  because a prefix-wide admin chain ran first. The admin chain now covers exactly `adminActionsRouter`'s own routes,
+  using `app.all(adminChainPaths(...))`. `adminChainPaths` reads the router and throws at startup on a layer it cannot cover.
+  The mount order is unchanged.
+- **BUG-072 fixed** (found by `/code-review`): split assignments/execute checked the path community's admin, then acted on any split.
+- **BUG-073 logged, OPEN, proposed HIGH** (found by `/code-review`; maintainer decision): "admin of any community" (`/admin/schemas`,
+  trust questions, provider-trust backfill) admits anyone who creates a community. `auth.users` has no platform role, so a
+  fix needs a design decision. ADR-102 records the scope as inherited, not endorsed. **Deadline 10-29 at the proposed HIGH, or a
+  dated risk acceptance.**
+- Gate `tests/regression/sprint-134-pr-k-claim-gate.test.ts` (17): claim reads (incl. aliases and decoded tokens) vs a
+  two-way identity allowlist; un-awaited live-role calls (helper names derived, it found `requireAdmin`); tenant `communityRole`.
+  It failed first on the unfixed tree with exactly the 22 inventory reads.
+- Real SQL (CI-only here): `tests/integration/sprint-134-pr-k-live-admin-role.integration.test.ts`. It covers 31 routes ×
+  {demoted, removed, live admin with an empty claim}, plus the admin-elsewhere, malformed-id, BUG-071 and BUG-072 cases.
+
+**Rulings for the maintainer:** admin-only **reads** in reputation fixed too; "any community" scope kept (now BUG-073);
+moderators still refused by `requireAdmin` on admin actions (dropping it would expose a 404/403 request-existence oracle);
+only the duplicates in touched files collapsed (inline copies logged); shared tenant middleware untouched but proven inert;
+event fan-out/feed default stay hint-only; unmatched `/requests/*` paths now 404 for everyone (were 401/403 for non-admins).
+Follow-ups in `docs/IDEAS.md` 2026-10-22 (PR K).
+
+**Gates (on `b5808f25` + the version bump):** root `npm test` 27/27; tests workspace 101 + 942; request 161 + 450, community
+9 + 242, reputation 5 + 315, social-graph 12 + 183; `tsc --noEmit` clean ×4. `/simplify` (4 agents, applied: root-cause
+BUG-071, derived gate names, dead `isActiveAdmin` deleted); `/code-review` high (9: BUG-072 fixed, derived chain, alias
+reads, churn reverted; 5 ruled) then medium re-run (fail-closed `adminChainPaths`, mount order restored; rest ruled);
+`/security-review`: no findings. Ledger: `.superpowers/sdd/2026-10-22-sprint-134-pr-k-live-admin-role/progress.md` (local).
+
+**Next chat:** `gh pr checks <n>` (the integration job is the real-SQL arbiter). After #315 merges, update this branch from
+`origin/master` with a **merge commit** (expect conflicts in `services/request-service/src/index.ts`, the four CONTEXT.md
+files, `docs/BUGS.md`, `docs/IDEAS.md`, this handoff: take the newer content), re-bump the version, re-run the gates.
+**Human validation (after deploy):** demote a test admin to member in a second browser, then that admin's **Update tags**
+→ refused; a requester who administers nothing accepts a provider offer → accepted.
 
 ## Maintainer decisions (2026-10-19 / 2026-10-20)
 
@@ -317,7 +358,8 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | ~~`next` GHSA-2464-fhr4-w9xw (critical) + GHSA-p3m5-59mp-jv5r (high)~~ | ~~now~~ | **DONE**: #314 `0321c415` (v11.97.0), live 2026-10-22 21:14Z (CI/CD 39853173679) |
 | node-forge + braces ADR-059 exemptions | **2026-10-26** (gate fails **2026-10-25 17:00 PDT**) | **No upstream fix → renew (pre-authorized, maintainer 2026-10-20).** Last re-check 2026-10-22 21:25Z (unchanged from 04:10Z and 18:30Z; the `next` critical is gone since #314): `audit-exemptions` 0 unexempted (19 exempt); GHSA-86w9-cpqp-85rv node-forge `<= 1.4.0`, latest 1.4.0, `first_patched_version` empty; GHSA-vfj7-8cjw-p6xm braces `<= 3.0.3`, latest 3.0.3, empty; `@expo/cli@sdk-57` 57.0.32 `node-forge ^1.3.3` (SDK 58's `^1.4.0` is still vulnerable, so no SDK move helps); `micromatch@4.0.8` `braces ^3.0.3`. **Renewal PR on 2026-10-24 (UTC)**, cut fresh from `origin/master` **after PR N merges and deploys**; created 10-24 → expires 10-31 (7-day cap); it takes the merge slot before 10-25 17:00 PDT (PR L merges after it). Re-run first: `node scripts/audit-exemptions.js` (audits the lockfile, so a published fix alone does not trip it), `npm view node-forge version`, `npm view braces version`, `gh api advisories/<GHSA> --jq '.vulnerabilities[].first_patched_version'`, `npm view @expo/cli@sdk-57 dependencies.node-forge`, `npm view micromatch dependencies.braces`. Remove any exemption whose fix has shipped and is reachable. BUG-059 |
 | **PR L** (BUG-068) | **2026-10-29** | Unblocked: drain check passed 2026-10-20 (below) |
-| **BUG-069** | **2026-10-30** | PR K. **ADR-102** (allocated 2026-10-20). If the inventory shows it cannot merge in time, propose a dated risk acceptance and split by service |
+| **BUG-069** | **2026-10-30** | PR K (**PR open 2026-10-25**, v11.98.0, merges after #315). **ADR-102**. The inventory showed it fits one PR, so no risk acceptance or split was needed |
+| **BUG-073** (any community creator passes the "admin of any community" gates) | **2026-10-29** at the proposed HIGH | Logged 2026-10-22 by PR K's `/code-review`, **open**: needs a maintainer decision on what a platform admin is (no `auth.users` role exists), or a dated risk acceptance |
 | **BUG-070** (BUG-063 class in reputation health + dead `FeedComposer`) | **2026-11-03** | Logged 2026-10-20 (LOW, proposed); **in PR L2** (maintainer confirmed 2026-10-20) |
 | Demo stories | ~2026-12-18 | `demo-health.yml` watches the runway |
 
