@@ -896,7 +896,8 @@ under `body-parser` 2.4.0.)
 
 - **Bare override floors loosen stricter dependents.** `"qs": ">=6.16.0"` had overridden `body-parser` 2.4.0's own
   `qs ^6.16.1` down (`npm explain qs`: overridden, was `^6.16.1`); PR X raised the floor to `>=6.16.1`, which only
-  moves the problem to the next dependent that raises its floor. A selector, `"qs@<6.16.1": "6.16.1"` (the repo's
+  moves the problem to the next dependent that raises its floor, and with no upper bound a re-resolve could take a
+  future `qs` 7 for dependents that declare `^6`. A selector, `"qs@<6.16.1": "6.16.1"` (the repo's
   `body-parser@<1.20.9` / `sharp@<0.35.5` form), lifts only copies below the floor and never loosens anyone. The
   other bare floors (`node-forge`, `minimatch`, `fast-uri`, `ip-address`, `browserslist`) behave the same way. Trace
   npm's selector matching before converting them.

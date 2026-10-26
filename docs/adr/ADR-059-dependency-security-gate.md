@@ -453,7 +453,7 @@ high advisories published since the 2026-10-19 renewal failed it as well. A re-c
 |---|---|---|---|
 | `braces` | GHSA-vfj7-8cjw-p6xm | withdrawn 2026-10-23 12:53Z | exemption deleted (BUG-059 closed) |
 | `node-forge` | GHSA-86w9-cpqp-85rv | `<= 1.4.0`, no patched version, not withdrawn; 1.4.0 latest; `@expo/cli` 58.1.15 and `@expo/code-signing-certificates` 0.0.7 still need `^1.4.0` | renewed 2026-10-26 → 2026-11-02 |
-| `body-parser` | GHSA-27r3-jxmh-p828 (high, published 2026-10-23) | `>= 2.0.0 < 2.4.0` | 2.3.0 → 2.4.0 |
+| `body-parser` | GHSA-27r3-jxmh-p828 (high, published 2026-10-23) | `>= 2.0.0 < 2.4.0` and `< 1.20.9` | 2.3.0 → 2.4.0; the 1.x selector retargeted to 1.20.9 |
 | `undici` | GHSA-xjj6-f33q-929c (high) and two moderates (published 2026-10-23) | `>= 7.18.0 < 7.30.1` | 7.30.0 → 7.30.1 |
 | `zod` | GHSA-mrhx-c7xc-m3w5 (high, published 2026-10-01) | `< 4.6.6` | root 4.6.5 → 4.6.6; `@expo/cli`'s nested 3.25.76 removed |
 

@@ -68,6 +68,17 @@ it('accepts a dependent ranked below the package it names, which blocks or clear
   });
 });
 
+it('blocks a dependent ranked above the package it names on the advisories it reaches', () => {
+  const report = { vulnerabilities: {
+    'image-size': { ...finding, severity: 'moderate', via: [{ ...finding.via[0], severity: 'moderate' }] },
+    'expo-server-sdk': { name: 'expo-server-sdk', severity: 'high', via: ['image-size'] },
+  } };
+  expect(gate.evaluateAudit(report, { exemptions: [] }, NOW)).toEqual({
+    ok: false, errors: [], cleared: [], unused: [],
+    blocking: [{ package: 'expo-server-sdk', severity: 'high', reason: 'image-size GHSA-w3rx-r6r6-pgpr (moderate)' }],
+  });
+});
+
 it('never exempts a critical root even when its leaf advisory is registered high', () => {
   const report = { vulnerabilities: { 'image-size': { ...finding, severity: 'critical' } } };
   expect(gate.evaluateAudit(report, { exemptions: [exemption] }, NOW).ok).toBe(false);

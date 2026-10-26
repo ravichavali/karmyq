@@ -364,6 +364,15 @@ valid-shape rows go red on the old rule; deleting the advisory-rank check turns 
 `sprint-131-d9-security-overrides`: undici floor 7.30.1 and a zod row (the `@expo/cli` pin must equal the lock's single zod
 copy); red on "root 4.6.7 + nested 4.6.6" and on "pin 4.6.5".
 
+**Gates.** `npm test` 27/27 **cold** (jest cache cleared, `--force`, 0 cached) on `6ac124a0`; `tests` workspace 101 + 929 after
+the re-review fix; `tsc --noEmit` clean ×10 (shared + 9 TS services). `/simplify` (4 agents, applied): dead `isRecord` guard
+dropped, one dependent-below-via fixture, CLI case folded into the existing `it.each`, ADR override wording. `/code-review` high
+(8): `qs` floor, `body-parser` 1.x target, dead `undici` selector, pin-lockstep test fixed; handoff reconciled; MCP path and
+the remaining advisory-rank check ruled (below). Medium re-run (7): ADR table now lists the advisory's `< 1.20.9` range; an
+above-ranked-dependent test added (red when the evaluator drops sub-high advisories and skips the entry); the rest repeat
+ruled or logged items. `/security-review`: no findings (registry `resolved`/`integrity` parity for all five moved packages, no
+install scripts, `body-parser` 2.3.0 → 2.4.0 `lib/` diff keeps the `qs.parse` options, crafted reports all fail closed).
+
 **Rulings for the maintainer:**
 - **`qs` 6.16.0 → 6.16.1 (added after `/code-review`, beyond the findings table).** `body-parser` 2.4.0 declares `qs ^6.16.1`;
   the bare `"qs": ">=6.16.0"` override had loosened that edge (`npm explain qs`: overridden, was `^6.16.1`). 6.16.1 has no
