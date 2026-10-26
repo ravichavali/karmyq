@@ -1,30 +1,23 @@
 /**
  * Sprint 133 PR B Task B1: BUG-060 reproduction (evidence, not a fix).
  *
- * Three services attach workers to the shared `karmyq-events` queue, each registering only its own
- * job names. Bull 4.16.5 pops ANY waiting job (`brpoplpush` wait -> active, lib/queue.js:1246; the
- * moveToActive Lua script has no name filter) and fails a job whose name has no local handler
- * ('Missing process handler for job type <name>', lib/queue.js:1203-1208). This file proves both
- * halves against real Redis and the real running subscribers:
- *   1. the mechanism, deterministically, on a scratch queue;
- *   2. the live behavior, by publishing N `request_created` jobs (handled ONLY by
- *      notification-service) with the production publisher's job options and recording every job's
- *      final state, every attempt's error, and the notification rows each delivery wrote.
- * Missing infrastructure is a failure, never a skip.
+ * Bull 4.16.5 pops ANY waiting job (`brpoplpush` wait -> active, lib/queue.js:1246; the moveToActive
+ * Lua script has no name filter) and fails a job whose name has no local handler ('Missing process
+ * handler for job type <name>', lib/queue.js:1203-1208). That is why no queue may carry two services'
+ * workers (ADR-101). This file proves the mechanism, deterministically, on a scratch queue.
+ *
+ * The live half, which published to the shared `karmyq-events` queue and recorded the jobs the three
+ * competing subscribers lost, was retired in Sprint 134 PR L with the legacy handlers themselves.
+ * sprint-133-pr-q-per-consumer-queues.integration.test.ts now asserts that no container attaches to
+ * `karmyq-events` at all. Missing infrastructure is a failure, never a skip.
  */
 import Queue from 'bull';
 import { randomUUID } from 'crypto';
-import { createPool } from '../fixtures';
-import { containerIps, newCommunityFixture, removeCommunityFixture, seedCommunityFixture, settle, workerIps } from './queueHelpers';
+import { settle } from './queueHelpers';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6380';
-const MISSING = /^Missing process handler for job type /;
-const N = 60;
-// The production publisher's options (packages/shared/events/publisher.ts).
-const PRODUCTION_JOB_OPTIONS = { attempts: 3, backoff: { type: 'exponential', delay: 2000 }, removeOnComplete: false, removeOnFail: false };
-const SUBSCRIBER_CONTAINERS = ['karmyq-notification-service-test', 'karmyq-reputation-service-test', 'karmyq-social-graph-service-test'];
 
-describe('Sprint 133 BUG-060: shared karmyq-events queue competition', () => {
+describe('Sprint 133 BUG-060: a shared queue loses jobs to foreign workers', () => {
   jest.setTimeout(120000);
 
   it('mechanism: a worker that registered only other names takes a foreign job and fails it', async () => {
@@ -41,79 +34,5 @@ describe('Sprint 133 BUG-060: shared karmyq-events queue competition', () => {
       await probe.obliterate({ force: true }).catch(() => undefined);
       await probe.close();
     }
-  });
-
-  describe('live: request_created against the real notification, reputation and social-graph subscribers', () => {
-    const pool = createPool();
-    const events = new Queue('karmyq-events', REDIS_URL);
-    const fx = newCommunityFixture();
-    const { requester, member, community } = fx;
-    const published: Queue.Job[] = [];
-
-    beforeAll(async () => {
-      await pool.query('SELECT 1');
-      await seedCommunityFixture(pool, fx, 'BUG-060');
-    });
-    afterAll(async () => {
-      try {
-        for (const j of published) await j.remove().catch(() => undefined);
-        await removeCommunityFixture(pool, fx);
-      } finally {
-        await events.close();
-        await pool.end();
-      }
-    });
-
-    it('records every job outcome; any failure is a missing-handler failure and every completion wrote its notification', async () => {
-      const workers = await workerIps(events);
-      const attachedIps = new Set(workers);
-      for (const name of SUBSCRIBER_CONTAINERS) {
-        expect({ name, attached: containerIps(name).some((ip) => attachedIps.has(ip)) }).toEqual({ name, attached: true });
-      }
-
-      const requestIds = Array.from({ length: N }, () => randomUUID());
-      for (const request_id of requestIds) {
-        published.push(await events.add('request_created', {
-          eventType: 'request_created',
-          payload: { request_id, community_id: community, requester_id: requester, title: 'BUG-060 probe' },
-          timestamp: new Date().toISOString(),
-          source: 'sprint-133-bug-060-test',
-        }, PRODUCTION_JOB_OPTIONS));
-      }
-      const outcomes = await settle(published, 90000);
-
-      const rows = await pool.query(
-        "SELECT data->>'request_id' AS request_id, count(*)::int AS n FROM notifications.notifications WHERE user_id=$1 AND type='new_request' GROUP BY 1",
-        [member]);
-      const delivered = new Map<string, number>(rows.rows.map((r) => [r.request_id, r.n]));
-
-      const records = outcomes.map(({ job, state }) => ({
-        request_id: job.data.payload.request_id as string,
-        state,
-        attemptsMade: job.attemptsMade,
-        errors: (job.stacktrace ?? []).map((s) => s.split('\n')[0].replace(/^Error: /, '')),
-        notifications: delivered.get(job.data.payload.request_id) ?? 0,
-      }));
-      const lostAttempts = records.reduce((n, r) => n + r.errors.filter((e) => MISSING.test(e)).length, 0);
-      const summary = {
-        published: N,
-        completed: records.filter((r) => r.state === 'completed').length,
-        failed: records.filter((r) => r.state === 'failed').length,
-        jobsWithMissingHandlerAttempt: records.filter((r) => r.errors.some((e) => MISSING.test(e))).length,
-        missingHandlerAttempts: lostAttempts,
-        neverReachedNotification: records.filter((r) => r.notifications === 0).length,
-        workersOnKarmyqEvents: workers.length,
-      };
-      // Evidence for BUGS.md / ADR-100: printed in the CI job log on every run.
-      console.warn(`BUG-060 EVIDENCE ${JSON.stringify(summary)}`);
-      console.warn(`BUG-060 FAILED JOBS ${JSON.stringify(records.filter((r) => r.state === 'failed'))}`);
-
-      // Every error observed is the shared-queue mechanism, not a handler fault.
-      for (const r of records) for (const e of r.errors) expect(e).toMatch(MISSING);
-      // A completed job reached notification exactly once; a failed one never did.
-      for (const r of records) expect({ id: r.request_id, n: r.notifications }).toEqual({ id: r.request_id, n: r.state === 'completed' ? 1 : 0 });
-      // One clean run cannot refute competition (the mechanism test above proves it); it can only fail to observe it.
-      expect(summary.completed + summary.failed).toBe(N);
-    });
   });
 });

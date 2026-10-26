@@ -863,6 +863,8 @@ exception for that query. Small; fits any request/notification PR.
   route, the `interaction_feedback_submitted` event (publisher, route-table entry, reputation handler), the simulation
   call (`api-client.ts:461`) and the health endpoint's reads of the `trust_scores` averages. Due **2026-10-29**. Decide in
   that plan whether `requests.interaction_feedback` and the average columns are dropped (migration) or left.
+  **[2026-10-22] Done in Sprint 134 PR L** (code only; the drain check passed 2026-10-20). The health endpoint's reads
+  and the data drop moved to PR L2 (maintainer, 2026-10-20). Reputation also left `EVENT_CONSUMERS` (ADR-101 amendment).
 - **`karma_awarded` has a handler and a route but no publisher.** notification-service handles it (with milestone
   notifications) and ADR-101 routes it, but no service publishes it. Either publish it from the standing projector or
   delete the handler and route.
@@ -887,6 +889,33 @@ kind of abuse? It is not simple: members share their email to register, which ma
 to work through data-safety considerations for exports (and community data access generally).
 
 ---
+
+## [2026-10-22] The simulation never rates a completed exchange (Sprint 134 PR L)
+
+PR L removed the simulation's `submitFeedback` action because it posted to the retired, always-failing request-service
+`POST /matches/:matchId/feedback` and discarded the error. So the simulation has never produced rating data, and still
+does not. If demo profiles should rate their exchanges, add a workflow that calls the live reputation-service
+`POST /reputation/feedback` (ADR-036: participant of a completed match, one rating per match, attributed to one of the
+request's communities, BUG-013). It would change demo standing over time, so it needs a decision before it ships.
+
+## [2026-10-22] Event-gate and dotenv-gate depth follow-ups (Sprint 134 PR L `/simplify`, altitude review)
+
+- **Put the consumer guarantee in the type system.** The event-routes gate finds handler registrations by matching a local
+  closure named `register(`. Rename the closure and that rule goes blind. A typed factory in `packages/shared`
+  (`createConsumer<C extends EventConsumer>(c)` returning `{ register(name: RoutedEvent<C>, h), start(redisUrl) }`, with
+  `EVENT_ROUTES` declared `as const satisfies …`) would make the compiler reject a non-consumer service and a typo'd event
+  name. Keep the regex rule until then.
+- **The dotenv-quiet gate pins call sites by `file:line`.** Any edit above a `config()` call in one of its 14 pinned sites
+  breaks it (PR L re-pinned request-service 36 → 35 after deleting an import). Keying by file plus each call's position
+  among that file's calls, or by its normalized text, would keep the "every site resolves" proof without the line
+  coupling. Not changed in PR L: weakening an identity key in a gate deserves its own decision.
+- **Assert the worker-queue set, not retired names one by one.** The PR Q integration test checks that nothing attaches to
+  `karmyq-events` and `karmyq-events-reputation`. Stronger: the set of `karmyq-events*` queues with live workers equals the
+  names built from `EVENT_CONSUMERS` (one `CLIENT LIST`).
+- **Delete the inert legacy queue keys on the demo.** After PR L deploys and its read-only check shows `wait`, `active`,
+  `delayed` and `paused` at 0, `bull:karmyq-events:*` (including the parked failed jobs ADR-101 chose not to redrive) and
+  `bull:karmyq-events-reputation:*` only use Redis memory. Removing them is a demo data operation: it needs its own
+  authorization and a dry-run listing of the keys first. Owner: whoever runs PR L's post-deploy check.
 
 ## [2026-10-26] Dependency-gate follow-ups (Sprint 134 Security PR X)
 

@@ -37,23 +37,22 @@ describe('createPublisher (ADR-101 routed)', () => {
     expect(mockAdds['karmyq-events-notification']).toHaveBeenCalledWith('request_created', {
       eventType: 'request_created', payload: { request_id: 'r1' }, timestamp: expect.any(String), source: 'request-service',
     });
-    expect(mockAdds['karmyq-events-reputation']).toBeUndefined();
+    expect(mockConstructed).toEqual(['karmyq-events-notification']);
   });
 
-  it('routes interaction_feedback_submitted to the reputation queue only', async () => {
+  it('treats the retired interaction_feedback_submitted as unclassified (Sprint 134 PR L, BUG-068)', async () => {
     const p = createPublisher('request-service');
     await p.initEventPublisher();
-    await p.publishEvent('interaction_feedback_submitted', { to_user_id: 'u' });
-    expect(mockAdds['karmyq-events-reputation']).toHaveBeenCalledTimes(1);
-    expect(mockAdds['karmyq-events-notification']).toBeUndefined();
+    await expect(p.publishEvent('interaction_feedback_submitted', { to_user_id: 'u' }))
+      .rejects.toThrow('Event interaction_feedback_submitted is not classified in packages/shared/events/routes.ts');
+    expect(mockConstructed).toEqual([]);
   });
 
   it('skips Redis for an unconsumed event and resolves null', async () => {
     const p = createPublisher('auth-service');
     await p.initEventPublisher();
     await expect(p.publishEvent('user_created', { userId: 'u' })).resolves.toBeNull();
-    expect(mockAdds['karmyq-events-notification']).toBeUndefined();
-    expect(mockAdds['karmyq-events-reputation']).toBeUndefined();
+    expect(mockConstructed).toEqual([]);
   });
 
   it('throws for a dedicated event and names its transport', async () => {

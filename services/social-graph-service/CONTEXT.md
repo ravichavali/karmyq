@@ -787,8 +787,9 @@ None currently. Future consideration:
 ### match_completed
 
 Sprint 132 PR C (2026-10-05, ADR-099): new completion jobs arrive on
-`karmyq-completion-social-graph`, independently of reputation and notifications. The same
-handler remains on `karmyq-events` for legacy queued jobs. Test/development compose explicitly
+`karmyq-completion-social-graph`, independently of reputation and notifications. Sprint 134 PR L
+removed the legacy `karmyq-events` copy of this handler (drain check clean, 2026-10-20), so the service
+attaches only to its completion and endorsement queues. Test/development compose explicitly
 sets REDIS_URL and waits for Redis; otherwise Bull defaults to localhost inside this container.
 Existing graph counters remain at-least-once effects: an interrupted handler retry or an
 operator replay outside the queue identity retention window can increment them again.

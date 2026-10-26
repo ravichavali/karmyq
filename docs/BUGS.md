@@ -1830,7 +1830,7 @@ real deliveries.
 
 ---
 
-## BUG-068 · [2026-10-15] · planned (retire with the ADR-101 legacy-handler removal) · **MEDIUM** (proposed)
+## BUG-068 · [2026-10-15] · fixed (code: Sprint 134 PR L; data drop: PR L2) · **MEDIUM**
 
 **`POST /requests/matches/:matchId/feedback` always fails, so interaction feedback is never published.** The route
 (`services/request-service/src/routes/feedback.ts:46`) selects `r.community_id` from `requests.help_requests`, which
@@ -1856,6 +1856,16 @@ by the Sprint 133 PR Q `/code-review`; the PR Q integration test publishes synth
   `packages/shared/events/routes.ts` entry, reputation handler), the simulation call, and the health endpoint's reads of
   the averages. What happens to the `interaction_feedback` table and the `trust_scores` average columns is decided in
   that PR's plan (a column drop needs a migration). Still due **2026-10-29**.
+- **Fixed in code (Sprint 134 PR L, 2026-10-22).** Removed: both `/matches/:matchId/feedback` routes (GET too: it read
+  only `requests.interaction_feedback`, which the failing POST never wrote), their mount and three directed-surface
+  allowlist entries; `interaction_feedback_submitted` from the routing table and `services/registry.json`; the reputation
+  handler, and with it reputation's consumer queue (it was the only routed event; ADR-101 amendment); the simulation's
+  `submitFeedback` action and `ApiClient.submitMatchFeedback`. The policy question above is moot: nothing publishes the
+  event. Tests: `services/request-service/tests/regression/sprint-134-bug-068-feedback-retired.test.ts` (real app, both paths
+  reach the 404 handler with no feedback SQL), the live 404 case in `tests/integration/sprint-132-security-authz.integration.test.ts`,
+  and the tightened `tests/regression/sprint-133-pr-q-event-routes.test.ts`. **Still open for PR L2:** the
+  `requests.interaction_feedback` table, the four `trust_scores` columns and the three `community_health_metrics`
+  averages, and the health endpoint's reads of them (with BUG-070).
 
 ---
 

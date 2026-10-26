@@ -1,5 +1,4 @@
 import Queue from 'bull';
-import { startConsumerQueue, EventHandler } from '@karmyq/shared';
 import { awardKarmaForCompletedMatch } from '../services/standingProjector';
 import { checkAndAwardBadges } from '../services/badgeService';
 import { updateProviderCompletionRate } from '../services/providerTrustService';
@@ -29,18 +28,9 @@ async function getRepeatMatchCount(userA: string, userB: string): Promise<number
   return parseInt(result.rows[0]?.cnt ?? '0', 10);
 }
 
-// Event queue - must match the queue name used by publishers
-const eventQueue = new Queue('karmyq-events', REDIS_URL);
+// ADR-101: reputation has no routed events (BUG-068 retired its one), so it consumes only dedicated queues.
 const completionQueue = new Queue('karmyq-completion-reputation', REDIS_URL);
 completionQueue.on('error', error => console.error('Completion queue error:', error));
-
-// ADR-101 / BUG-060: routed handlers are collected here and attached by startConsumerQueue, after it
-// validates them against the routing table, to this service's own queue (no other service's workers
-// attach to it) and, for one release, to the legacy shared queue so jobs published before the deploy
-// can drain. On the legacy queue the other services' workers still compete for those stragglers.
-// Nothing publishes to karmyq-events any more.
-const handlers: Record<string, EventHandler> = {};
-const register = (name: string, handler: EventHandler) => { handlers[name] = handler; };
 
 // Community evolution queue — processes jobs queued by trustEvolutionService after user evolution
 const communityEvolutionQueue = new Queue('karmyq-community-evolution', REDIS_URL);
@@ -143,68 +133,7 @@ export async function initEventSubscriber() {
         throw error; // Will retry based on Bull's retry settings
       }
     };
-    eventQueue.process('match_completed', handleCompletion);
     completionQueue.process('match_completed', handleCompletion);
-
-    // Process interaction_feedback_submitted events
-    register('interaction_feedback_submitted', async (job) => {
-      console.log('Processing interaction_feedback_submitted event:', job.data);
-
-      const { payload } = job.data;
-      const { to_user_id, helpfulness, responsiveness, clarity, community_id } = payload;
-
-      try {
-        // Get current trust score for the user
-        const trustScoreResult = await query(
-          `SELECT id, avg_helpfulness, avg_responsiveness, avg_clarity, total_feedback_received
-           FROM reputation.trust_scores
-           WHERE user_id = $1 AND community_id = $2`,
-          [to_user_id, community_id]
-        );
-
-        if (trustScoreResult.rowCount === 0) {
-          console.log('No trust score found for user, skipping feedback update');
-          return;
-        }
-
-        const trustScore = trustScoreResult.rows[0];
-        const currentTotal = trustScore.total_feedback_received || 0;
-        const newTotal = currentTotal + 1;
-
-        // Calculate new averages (weighted by total feedback received). node-pg returns numeric columns as
-        // strings and a rating may arrive as one, so coerce both: '4.00' + 5 would concatenate.
-        const average = (current: unknown, rating: unknown) =>
-          rating ? ((Number(current) * currentTotal) + Number(rating)) / newTotal : Number(current);
-        const newAvgHelpfulness = average(trustScore.avg_helpfulness, helpfulness);
-        const newAvgResponsiveness = average(trustScore.avg_responsiveness, responsiveness);
-        const newAvgClarity = average(trustScore.avg_clarity, clarity);
-
-        // Update trust score with new interaction quality metrics
-        await query(
-          `UPDATE reputation.trust_scores
-           SET avg_helpfulness = $1,
-               avg_responsiveness = $2,
-               avg_clarity = $3,
-               total_feedback_received = $4,
-               last_updated = CURRENT_TIMESTAMP
-           WHERE id = $5`,
-          [
-            parseFloat(newAvgHelpfulness.toFixed(2)),
-            parseFloat(newAvgResponsiveness.toFixed(2)),
-            parseFloat(newAvgClarity.toFixed(2)),
-            newTotal,
-            trustScore.id
-          ]
-        );
-
-        console.log('✅ Trust score updated with interaction feedback for user:', to_user_id);
-      } catch (error) {
-        console.error('❌ Failed to update trust score with feedback:', error);
-        throw error;
-      }
-    });
-
-    startConsumerQueue('reputation', handlers, REDIS_URL, eventQueue);
 
     console.log('✅ Event subscriber initialized');
   } catch (error) {
@@ -212,5 +141,3 @@ export async function initEventSubscriber() {
     throw error;
   }
 }
-
-export default eventQueue;

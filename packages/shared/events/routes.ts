@@ -4,7 +4,8 @@
  * any waiting job and fails a job whose name it never registered (bull/lib/queue.js:1203-1208,1246),
  * so no queue may have workers from two services. Every published name must appear exactly once below.
  */
-export const EVENT_CONSUMERS = Object.freeze(['notification', 'reputation'] as const);
+// Reputation left in Sprint 134 PR L: its one routed event was retired (BUG-068); it keeps its dedicated queues.
+export const EVENT_CONSUMERS = Object.freeze(['notification'] as const);
 export type EventConsumer = typeof EVENT_CONSUMERS[number];
 
 export const EVENT_ROUTES: Readonly<Record<string, EventConsumer>> = Object.freeze({
@@ -25,7 +26,6 @@ export const EVENT_ROUTES: Readonly<Record<string, EventConsumer>> = Object.free
   provider_went_on_duty: 'notification',
   request_created: 'notification',
   split_vote_started: 'notification',
-  interaction_feedback_submitted: 'reputation',
 });
 
 /**

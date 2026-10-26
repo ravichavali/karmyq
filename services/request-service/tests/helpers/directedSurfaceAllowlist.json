@@ -186,24 +186,6 @@
     "label": "WHERE o.provider_user_id = $1"
   },
   {
-    "file": "services/request-service/src/routes/feedback.ts",
-    "hash": "548265999d68fbb2caa3c1020ff2228c9a2a309560dc13148125dc82ef5815da",
-    "reason": "JWT participant validation for feedback; no request title.",
-    "label": "SELECT m.id, m.status, r.requester_id, m.responder_id,"
-  },
-  {
-    "file": "services/request-service/src/routes/feedback.ts",
-    "hash": "d550f45b03d34b4899da99388baaaec870717743d6035133cd55599784e34584",
-    "reason": "Consent lookup after participant authorization; public stories exclude directed asks.",
-    "label": "r.requester_visibility_consent,"
-  },
-  {
-    "file": "services/request-service/src/routes/feedback.ts",
-    "hash": "ab6d912c734a567631b534ce8584088e3ce3df2b47e6c757fb0c7bb878916dc5",
-    "reason": "Participant feedback lookup; no ask content.",
-    "label": "SELECT m.id, r.requester_id, m.responder_id, m.requester_visible"
-  },
-  {
     "file": "services/request-service/src/routes/matches.ts",
     "hash": "22836db62d4355602ad6e3056cd42c356ca037b754bdc86e75815125b6e3331b",
     "reason": "Scheduling lookup after audience-guarded participant acceptance.",

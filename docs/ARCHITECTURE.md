@@ -276,8 +276,8 @@ See [TR-002: Multi-Tenancy](../requirements/technical/TR-002-multi-tenancy.md) f
 
 - **Technology**: Bull (Node.js job queue)
 - **Backend**: Redis
-- **Queues**: one per consumer, `karmyq-events-<consumer>` (`karmyq-events-notification`,
-  `karmyq-events-reputation`), plus the dedicated transports below (ADR-101)
+- **Queues**: one per consumer, `karmyq-events-<consumer>` (today only `karmyq-events-notification`; reputation
+  left in Sprint 134 PR L), plus the dedicated transports below (ADR-101)
 
 **Routing (Sprint 133 PR Q, ADR-101).** `packages/shared/events/routes.ts` sorts every event name into one of three
 classes:
@@ -287,8 +287,8 @@ classes:
 
 An unclassified name throws. A consumer attaches with `startConsumerQueue`, which refuses to start unless its handlers
 equal its routes. Two services' workers never share one queue: Bull fails a job whose name the taking worker never
-registered, which lost 25% of `request_created` jobs on the old shared `karmyq-events` queue (BUG-060). That queue keeps
-legacy handlers for one release to drain old jobs; nothing publishes to it.
+registered, which lost 25% of `request_created` jobs on the old shared `karmyq-events` queue (BUG-060). Its legacy
+handlers drained old jobs for one release and were removed in Sprint 134 PR L; nothing publishes to or consumes it.
 
 Sprint 132 PR C (ADR-099) isolates two deliveries from that legacy queue. Directed borrow
 notifications use `karmyq-directed-notifications` with transactional borrow intent and live

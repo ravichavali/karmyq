@@ -512,16 +512,6 @@
           "description": "Community health hero metrics for the `CommunityHealthHero` component. Requires `community_id`"
         },
         {
-          "method": "POST",
-          "path": "/matches/:id/feedback",
-          "description": "Submit interaction feedback for a completed match."
-        },
-        {
-          "method": "GET",
-          "path": "/matches/:id/feedback",
-          "description": "Get feedback for a match."
-        },
-        {
           "method": "GET",
           "path": "/providers",
           "description": "List all provider profiles. Optional query param: `service_type`. **Public** (no auth required)."
