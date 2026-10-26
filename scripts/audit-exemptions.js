@@ -155,7 +155,7 @@ const owns = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 // hiding shape. A string `via` names another entry, which carries its advisories under the same
 // rule and is evaluated on its own, so a dependent ranked below it hides nothing. npm produces
 // that shape: it ranks a dependent by the meta-advisories that apply to its own version and range,
-// and names the package regardless (npm 10.8.2: expo-server-sdk moderate via undici high).
+// and names the package regardless (fixture: sprint-128-audit-response-contract.test.ts).
 function validAuditReport(report) {
   if (!isRecord(report) || owns(report, 'error') || !owns(report, 'vulnerabilities') ||
       !isRecord(report.vulnerabilities)) return false;
@@ -163,7 +163,7 @@ function validAuditReport(report) {
   return Object.entries(vulns).every(([name, entry]) =>
     isRecord(entry) && entry.name === name && SEVERITIES.has(entry.severity) &&
     Array.isArray(entry.via) && entry.via.every((via) => {
-      if (typeof via === 'string') return owns(vulns, via) && isRecord(vulns[via]);
+      if (typeof via === 'string') return owns(vulns, via);
       return isRecord(via) && SEVERITIES.has(via.severity) &&
         severityRank(via.severity) <= severityRank(entry.severity) &&
         typeof via.url === 'string' && /^https:\/\/github\.com\/advisories\/GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/.test(via.url);

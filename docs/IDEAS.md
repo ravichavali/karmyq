@@ -895,7 +895,10 @@ Left alone by the security PR, which stayed within what the advisories earned.
 - **`qs` override floor vs `body-parser`'s range.** `body-parser` 2.4.0 declares `qs ^6.16.1`. The root
   `"qs": ">=6.16.0"` override governs that edge, so npm keeps `qs` 6.16.0 (`npm explain qs`: overridden, was
   `^6.16.1`). 6.16.1 has no advisory but bounds `parse` nesting and `arrayLimit` on input that request bodies reach.
-  Raising the floor to `>=6.16.1` is a one-node splice with identical dependencies.
+  The deeper fix is a selector, `"qs@<6.16.0": "6.16.0"` (the repo's `body-parser@<1.20.6` / `sharp@<0.35.5`
+  form): it lifts only copies below the floor and never loosens a stricter dependent. That moves `qs` to 6.16.1 (a
+  one-node splice with identical dependencies). The other bare floors (`node-forge`, `minimatch`, `fast-uri`,
+  `ip-address`, `browserslist`) loosen dependents the same way.
 - **Stale `body-parser` 1.x override.** `"body-parser@<1.20.6": "1.20.6"` pins any 1.x copy to a version that
   GHSA-27r3-jxmh-p828 covers (`< 1.20.9`). No 1.x node exists, so it is inert, and the gate would flag a
   reintroduced copy. Retarget it to 1.20.9 or delete it.
@@ -903,10 +906,13 @@ Left alone by the security PR, which stayed within what the advisories earned.
 - **A high package that also carries a moderate advisory cannot be exempted.** `evaluateAudit` clears a high entry
   only when every advisory reachable from it is exempted, and the registry accepts only `high`. `undici` (one high,
   two moderates) could not have been exempted had no fix existed. This fails closed, but leaves the exemption path
-  unusable for such a package.
+  unusable for such a package. The deeper fix also removes the gate's last dependence on npm's package ranking (the
+  advisory-object rank check exists only because the evaluator skips entries below high): decide per advisory, not
+  per package. Block every unexempted high or critical advisory object where it sits, keep critical unexemptible, and
+  fail closed on a high or critical entry with no high or critical advisory reachable from it.
 - **The local npm is not CI's.** `package.json` declares `"packageManager": "npm@10.8.2"` and the Windows PATH `npm`
   is 10.8.2, while CI takes the npm bundled with Node `24.x` (11.19.0 on Node 24.21.0, master run 39853173679). Their
   audit reports differ (gotcha `adr-059-cannot-tell-no-answer-from-no-advisories`). Aligning them would make the
-  pre-push gate read what CI reads.
+  pre-push gate read what CI reads. Cheaper first step: have the gate print `npm --version` when it fails.
 
 ---

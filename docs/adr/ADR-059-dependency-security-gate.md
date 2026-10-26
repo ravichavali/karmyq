@@ -462,7 +462,9 @@ pinned `zod` exactly; the shipped ranges are `^4.6.6`). `body-parser` 2.4.0 also
 Its `qs ^6.16.1` edge is governed by the root `qs >=6.16.0` override, and npm keeps `qs` 6.16.0 (the fix is in
 `body-parser`'s own stream handling, not in `qs`). The exact `undici` override moves to 7.30.1. `@expo/cli`
 (57.0.32, and the latest 58.1.15) declares `zod ^3.25.76`, so the scoped override
-`"@expo/cli": { "zod": "4.6.6" }` points it at the root copy and the nested node goes. `@expo/cli` loads `zod`
+`"@expo/cli": { "zod": "4.6.6" }` pins it to the root's current version, so it resolves the root copy and the
+nested node goes. The pin is exact on purpose (a `$zod` reference would carry `@expo/cli` across a future
+major unchecked), so the two must move together. `@expo/cli` loads `zod`
 only in two dev-server schema modules. Its real consumers were run on the same valid and invalid plugin
 manifests, command outputs and MCP arguments under `zod` 3.25.76 and 4.6.6, and every outcome matched.
 
