@@ -783,7 +783,7 @@ D8 (cleanup-service on eslint 10) follow-ups. None is scheduled.
 - **(a) Root declares `ioredis` in production `dependencies` and imports nothing** (`package.json:60`). That lands it in every service image, which CLAUDE.md forbids for new root deps. Dropping it, or moving root to 6, retires the D9 `DIVERGENCE_ALLOWLIST` entry in `tests/regression/sprint-131-workspace-declarations.test.ts`.
 - **(b) `bull@4` pins `ioredis ^5.3.2`,** so the queue can never leave ioredis 5 while it is on Bull. Moving it means bull → BullMQ, a separate decision.
 - **(c) Redis-outage cost is still ~10.5 s per cache command at outage start and up to ~42 s mid-outage.** ioredis flushes its queue only every 21st retry, and the attempt count grows through the outage, so once the v5 backoff caps at 2 s a window lasts ~42 s. The backoff is now pinned deliberately. This is the ~298 s-per-match CI hang noted at `ci.yml:330`. A fail-fast policy (`maxRetriesPerRequest: 1` / `enableOfflineQueue: false`) would be a behavior change that deserves its own plan.
-- **(d) The root `overrides` now carry both `"undici@7.0.0 - 7.28.0": "^7.29.0"` and a bare `"undici": "7.30.0"`** (D9's mid-flight security pin). The range selector is now redundant. Bare exact pins (this one and engine.io's `".": "6.6.11"`) also force any future cross-major dependent onto that version. Narrow them to range selectors (e.g. `"undici@<7.30.0"`) in the next dependency PR, with a strict `npm ci`.
+- **(d) The root `overrides` now carry both `"undici@7.0.0 - 7.28.0": "^7.29.0"` and a bare `"undici": "7.30.0"`** (D9's mid-flight security pin). The range selector is now redundant. Bare exact pins (this one and engine.io's `".": "6.6.11"`) also force any future cross-major dependent onto that version. Narrow them to range selectors (e.g. `"undici@<7.30.0"`) in the next dependency PR, with a strict `npm ci`. **Partly done (Sprint 134 PR X):** the redundant selector is deleted; the bare pins (`undici` now 7.30.1, `engine.io`) remain.
 
 ## [2026-09-30] Dependency policy follow-ups
 
@@ -916,3 +916,30 @@ request's communities, BUG-013). It would change demo standing over time, so it 
   `delayed` and `paused` at 0, `bull:karmyq-events:*` (including the parked failed jobs ADR-101 chose not to redrive) and
   `bull:karmyq-events-reputation:*` only use Redis memory. Removing them is a demo data operation: it needs its own
   authorization and a dry-run listing of the keys first. Owner: whoever runs PR L's post-deploy check.
+
+## [2026-10-26] Dependency-gate follow-ups (Sprint 134 Security PR X)
+
+Left alone by the security PR, which stayed within what the advisories earned. (Its review closed the stale
+`body-parser@<1.20.6` target, the dead `undici` selector from the 2026-09-29 D9 follow-up (d), and the `qs` floor
+under `body-parser` 2.4.0.)
+
+- **Bare override floors loosen stricter dependents.** `"qs": ">=6.16.0"` had overridden `body-parser` 2.4.0's own
+  `qs ^6.16.1` down (`npm explain qs`: overridden, was `^6.16.1`); PR X raised the floor to `>=6.16.1`, which only
+  moves the problem to the next dependent that raises its floor, and with no upper bound a re-resolve could take a
+  future `qs` 7 for dependents that declare `^6`. A selector, `"qs@<6.16.1": "6.16.1"` (the repo's
+  `body-parser@<1.20.9` / `sharp@<0.35.5` form), lifts only copies below the floor and never loosens anyone. The
+  other bare floors (`node-forge`, `minimatch`, `fast-uri`, `ip-address`, `browserslist`) behave the same way. Trace
+  npm's selector matching before converting them.
+- **A high package that also carries a moderate advisory cannot be exempted.** `evaluateAudit` clears a high entry
+  only when every advisory reachable from it is exempted, and the registry accepts only `high`. `undici` (one high,
+  two moderates) could not have been exempted had no fix existed. This fails closed, but leaves the exemption path
+  unusable for such a package. The deeper fix also removes the gate's last dependence on npm's package ranking (the
+  advisory-object rank check exists only because the evaluator skips entries below high): decide per advisory, not
+  per package. Block every unexempted high or critical advisory object where it sits, keep critical unexemptible, and
+  fail closed on a high or critical entry with no high or critical advisory reachable from it.
+- **The local npm is not CI's.** `package.json` declares `"packageManager": "npm@10.8.2"` and the Windows PATH `npm`
+  is 10.8.2, while CI takes the npm bundled with Node `24.x` (11.19.0 on Node 24.21.0, master run 39853173679). Their
+  audit reports differ (gotcha `adr-059-cannot-tell-no-answer-from-no-advisories`). Aligning them would make the
+  pre-push gate read what CI reads. Cheaper first step: have the gate print `npm --version` when it fails.
+
+---

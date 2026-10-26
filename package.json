@@ -62,7 +62,7 @@
     "pg": "^8.23.0",
     "redis": "^6.2.1",
     "winston": "^3.18.3",
-    "zod": "^4.6.5"
+    "zod": "^4.6.6"
   },
   "overrides": {
     "esbuild": "0.28.1",
@@ -73,7 +73,7 @@
     "@xmldom/xmldom": "^0.8.15",
     "node-forge": ">=1.4.0",
     "fast-uri": ">=4.2.1",
-    "qs": ">=6.16.0",
+    "qs": ">=6.16.1",
     "ip-address": ">=10.7.2",
     "browserslist": ">=4.28.8",
     "postcss": "^8.5.25",
@@ -93,7 +93,7 @@
     "form-data@4.0.0 - 4.0.5": "4.0.6",
     "brace-expansion": "5.0.12",
     "js-yaml": "4.3.2",
-    "body-parser@<1.20.6": "1.20.6",
+    "body-parser@<1.20.9": "1.20.9",
     "shell-quote@<1.11.0": "1.12.0",
     "sharp@<0.35.5": "0.35.5",
     "jsdom": {
@@ -101,9 +101,11 @@
     },
     "@swc/helpers": "0.5.23",
     "socket.io-parser@<=4.2.6": "4.2.7",
-    "undici@7.0.0 - 7.28.0": "^7.29.0",
-    "undici": "7.30.0",
-    "nanoid": "^3.3.18"
+    "undici": "7.30.1",
+    "nanoid": "^3.3.18",
+    "@expo/cli": {
+      "zod": "4.6.6"
+    }
   },
   "packageManager": "npm@10.8.2"
 }

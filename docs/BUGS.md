@@ -1564,7 +1564,7 @@ That exemption was capped at 7 days by hand to respect the rule.
 
 ---
 
-## BUG-059 · [2026-10-02] · open · **HIGH**
+## BUG-059 · [2026-10-02] · closed (advisory withdrawn; exemption deleted in Sprint 134 PR X, v11.98.0) · **HIGH**
 
 **`braces` GHSA-vfj7-8cjw-p6xm has no fix and is exempted for 7 days.** The advisory (stack
 exhaustion on deeply nested patterns) covers every `braces` version, and 3.0.3 is the latest. It was
@@ -1579,6 +1579,9 @@ currently exempted until the Deadline on the Owner line below.
   Otherwise renew by hand before the Deadline below: `npm view braces version`, the GHSA page,
   `npm ls braces --all`.
 - **Owner:** Claude (dependency lane). **Deadline: 2026-10-26** (exemption expiry; ≤ 1-week SLA). **Renewed 2026-10-19** by maintainer decision after a hand re-check found no fix (3.0.3 latest, `first_patched_version: null`, not withdrawn; micromatch 4.0.8 latest still depends on `braces ^3.0.3`; production reach re-checked unchanged); `node-forge` was renewed alongside it, also to 2026-10-26. Evidence for this and the earlier renewals (2026-10-17, 2026-10-14, 2026-10-08): the ADR-059 renewal amendments.
+- **Resolution (Sprint 134 PR X, 2026-10-26):** GitHub withdrew GHSA-vfj7-8cjw-p6xm on 2026-10-23 12:53Z, and
+  `npm audit` no longer reports `braces`. The exemption is deleted. `braces` is still 3.0.3, with no code
+  change; nothing in the tree moved. ADR-059 amendment "Security PR X".
 
 ---
 

@@ -29,8 +29,16 @@ const invalidReports: [string, unknown][] = [
   ['advisory missing severity', { vulnerabilities: { 'image-size': { ...finding, via: [{ url: finding.via[0].url }] } } }],
   ['dangling reference', { vulnerabilities: { parent: { name: 'parent', severity: 'high', via: ['absent'] } } }],
   ['critical hidden under low root', { vulnerabilities: { 'image-size': { ...finding, severity: 'low', via: [{ ...finding.via[0], severity: 'critical' }] } } }],
-  ['high hidden under low parent', { vulnerabilities: { 'image-size': finding, parent: { name: 'parent', severity: 'low', via: ['image-size'] } } }],
+  // Moderate is the highest rank the evaluator skips.
+  ['high advisory under moderate package', { vulnerabilities: { 'image-size': { ...finding, severity: 'moderate' } } }],
 ];
+
+// npm 10.8.2's shape (2026-10-26: expo-server-sdk moderate via undici high): a dependent ranked
+// below the package it names. CI's npm 11.19.0 omitted the dependent.
+const dependentBelowVia = { vulnerabilities: {
+  'image-size': finding,
+  'expo-server-sdk': { name: 'expo-server-sdk', severity: 'moderate', via: ['image-size'] },
+} };
 
 describe.each([{ exemptions: [] }, { exemptions: [exemption] }])('audit evidence before registry matching (%j)', registry => {
   it.each(invalidReports)('rejects %s without removal advice', (_name, report) => {
@@ -47,6 +55,28 @@ it('retains clean, exemption and unmatched-entry policy for valid reports', () =
   expect(gate.evaluateAudit(affected, { exemptions: [] }, NOW).blocking).toHaveLength(1);
   expect(gate.evaluateAudit(affected, { exemptions: [exemption] }, NOW).ok).toBe(true);
   expect(gate.evaluateAudit(clean, { exemptions: [exemption] }, NOW).unused).toEqual([exemption]);
+});
+
+it('accepts a dependent ranked below the package it names, which blocks or clears on its own entry', () => {
+  expect(gate.evaluateAudit(dependentBelowVia, { exemptions: [] }, NOW)).toEqual({
+    ok: false, errors: [], cleared: [], unused: [],
+    blocking: [{ package: 'image-size', severity: 'high', reason: 'image-size GHSA-w3rx-r6r6-pgpr (high)' }],
+  });
+  expect(gate.evaluateAudit(dependentBelowVia, { exemptions: [exemption] }, NOW)).toEqual({
+    ok: true, errors: [], blocking: [], unused: [],
+    cleared: [{ package: 'image-size', severity: 'high', via: ['GHSA-w3rx-r6r6-pgpr'] }],
+  });
+});
+
+it('blocks a dependent ranked above the package it names on the advisories it reaches', () => {
+  const report = { vulnerabilities: {
+    'image-size': { ...finding, severity: 'moderate', via: [{ ...finding.via[0], severity: 'moderate' }] },
+    'expo-server-sdk': { name: 'expo-server-sdk', severity: 'high', via: ['image-size'] },
+  } };
+  expect(gate.evaluateAudit(report, { exemptions: [] }, NOW)).toEqual({
+    ok: false, errors: [], cleared: [], unused: [],
+    blocking: [{ package: 'expo-server-sdk', severity: 'high', reason: 'image-size GHSA-w3rx-r6r6-pgpr (moderate)' }],
+  });
 });
 
 it('never exempts a critical root even when its leaf advisory is registered high', () => {
@@ -138,10 +168,12 @@ describe('audit acquisition and actual CLI', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('gate clean: 0 high/critical');
   });
-  it('CLI blocks a real-shaped high finding even after the live tree is remediated', () => {
-    const result = invoke({ stdout: JSON.stringify(affected), status: 1 }, true);
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain('BLOCKING (high): image-size');
-    expect(result.stderr).toContain('ADR-059 gate FAILED');
-  });
+  it.each([['finding', affected], ['dependent ranked below it', dependentBelowVia]])(
+    'CLI blocks a real-shaped high finding even after the live tree is remediated (%s)', (_name, report) => {
+      const result = invoke({ stdout: JSON.stringify(report), status: 1 }, true);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('BLOCKING (high): image-size');
+      expect(result.stderr).toContain('ADR-059 gate FAILED');
+    },
+  );
 });
