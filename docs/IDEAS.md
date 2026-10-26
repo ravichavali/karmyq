@@ -977,3 +977,17 @@ under `body-parser` 2.4.0.)
   pre-push gate read what CI reads. Cheaper first step: have the gate print `npm --version` when it fails.
 
 ---
+
+## [2026-10-26] architecture
+
+**Platform admin as a separate role from community admin** (maintainer decision 2026-10-26: "We need to have admin of a
+community and admin of the platform"). Tabled as a new feature for a future sprint; it is the fix for **BUG-073**.
+
+Today "admin of any community" stands in for a platform admin, and any user who creates a community becomes one. The
+surfaces that need the platform role: request-service `/admin/schemas` (`requireAdmin`), community-service's six
+trust-question writes, and reputation-service `POST /reputation/provider-trust/recalculate`. `auth.users` has no role
+column. The feature's spec has to choose how a platform admin is designated (an `auth.users` role, a config allowlist, or a
+designated platform community) and whether `/admin/schemas` and trust questions should become per-community instead. The
+check must read live state, not a JWT claim (ADR-102).
+
+---

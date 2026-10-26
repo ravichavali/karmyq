@@ -1966,7 +1966,7 @@ Sprint 134 PR K `/code-review` (the gate lines changed in PR K, the missing owne
 
 ---
 
-## BUG-073 · [2026-10-22] · open · **HIGH** (proposed)
+## BUG-073 · [2026-10-22] · open, **deferred to a future-sprint feature** (maintainer, 2026-10-26) · **HIGH** (proposed)
 
 **Platform-wide admin surfaces admit anyone who creates a community.** `requireAdmin` (request-service `/admin/schemas`:
 the request UI schemas every community uses), the six trust-question writes (community-service
@@ -1977,11 +1977,14 @@ So in practice every user can edit global configuration. `auth.users` has no pla
 "platform admin" to check. Pre-existing: the JWT-claim gates had the same hole, because the create response carries a
 refreshed token. PR K made these gates live and kept their scope; found 2026-10-22 by its `/code-review`.
 
-- **Needs a decision (maintainer):** what makes someone a platform admin (an `auth.users` role, an allowlist in config,
-  or a designated platform community), and whether `/admin/schemas` and trust questions should become per-community.
+- **Maintainer decision (2026-10-26):** there are two roles, **community admin** and **platform admin**. The fix is a new
+  feature that adds the platform role, tabled for a future sprint (`docs/IDEAS.md` 2026-10-26 *architecture*). Its spec
+  chooses how a platform admin is designated (an `auth.users` role, an allowlist in config, or a designated platform
+  community) and whether `/admin/schemas` and trust questions become per-community.
 - **Not fixed in PR K:** it needs a schema and policy decision, not a gate change. ADR-102 records the scope as
   inherited, not as intended.
-- **Owner:** maintainer decides; Claude implements. **Deadline:** ≤ 1 week at the proposed HIGH (2026-10-29), or a dated
-  risk acceptance.
+- **Owner:** Claude implements the feature in the sprint that schedules it. **Deadline:** the 2026-10-29 one-week HIGH
+  deadline is replaced by the maintainer's deferral; the gap stays open until the feature ships. No target sprint or
+  review date is set yet.
 
 ---

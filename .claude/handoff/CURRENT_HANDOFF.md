@@ -30,8 +30,8 @@ healthy, "Notify on failure" skipped (no rollback). **No CodeQL re-raise** (0 op
 post-deploy queue check **PASSED**: no worker and no jobs on either retired queue. See *PR L state*.
 **Now: PR K (BUG-069)** on `agent/claude/sprint-134-pr-k-live-admin-role` (see *PR K state*): `origin/master` `ff3f394e`
 merged in (`396e31cc`) and re-bumped to **v11.100.0** (`76ef8e8f`) on 2026-10-26; gates re-run; pushed and opened as **#319**
-(open, awaiting the maintainer's merge). **BUG-073 is due 2026-10-29** at the proposed HIGH: it needs a maintainer decision
-or a dated risk acceptance.
+(open, awaiting the maintainer's merge). **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
+become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26); the 10-29 deadline no longer applies.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
 #309 merged `1746cdf2` (v11.92.0), CI/CD 39366367275 green.
 
@@ -337,8 +337,8 @@ It takes the next merge slot.
 - **BUG-072 fixed** (found by `/code-review`): split assignments/execute checked the path community's admin, then acted on any split.
 - **BUG-073 logged, OPEN, proposed HIGH** (found by `/code-review`; maintainer decision): "admin of any community" (`/admin/schemas`,
   trust questions, provider-trust backfill) admits anyone who creates a community. `auth.users` has no platform role, so a
-  fix needs a design decision. ADR-102 records the scope as inherited, not endorsed. **Deadline 10-29 at the proposed HIGH, or a
-  dated risk acceptance.**
+  fix needs a design decision. ADR-102 records the scope as inherited, not endorsed. **Maintainer, 2026-10-26: tabled** as a
+  future-sprint feature that separates platform admin from community admin; the 10-29 deadline no longer applies.
 - Gate `tests/regression/sprint-134-pr-k-claim-gate.test.ts` (17): claim reads (incl. aliases and decoded tokens) vs a
   two-way identity allowlist; un-awaited live-role calls (helper names derived, it found `requireAdmin`); tenant `communityRole`.
   It failed first on the unfixed tree with exactly the 22 inventory reads.
@@ -386,7 +386,7 @@ reads, churn reverted; 5 ruled) then medium re-run (fail-closed `adminChainPaths
 
 **Next chat:** `gh pr checks 319` (the integration job is the real-SQL arbiter; integration tests are CI-only on this box).
 Handle any CI red. After the maintainer merges: the deploy's health verify and the CodeQL master check, then PR L2.
-**BUG-073 is due 2026-10-29** (proposed HIGH): a maintainer decision on what a platform admin is, or a dated risk acceptance.
+BUG-073 is tabled (maintainer, 2026-10-26) as a future-sprint platform-admin feature; it is not PR L2's scope.
 **Human validation (after deploy):** demote a test admin to member in a second browser, then that admin's **Update tags**
 → refused; a requester who administers nothing accepts a provider offer → accepted.
 
@@ -538,7 +538,7 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | ~~node-forge + braces ADR-059 exemptions~~ → **Security PR X** | ~~EXPIRED 2026-10-26 00:00Z~~ | **DONE**: #317 `e15622bc` (v11.98.0), live 2026-10-26 22:25Z (CI/CD 40410093954). The lapse blocked pushes and CI Security Audit from 10-26 00:00Z until the merge. body-parser/undici/zod highs fixed inside their SLA (body-parser due 10-30). BUG-059 closed |
 | ~~**PR L** (BUG-068)~~ | ~~2026-10-29~~ | **DONE**: #315 `ff3f394e` (v11.99.0), merged 2026-10-26 23:05:13Z (CI/CD 40417261628); post-deploy queue check PASS. The demo key cleanup is a separate, unscheduled operation (*PR L state*) |
 | **BUG-069** | **2026-10-30** | PR K **#319 open** (v11.100.0, pushed 2026-10-26 after #315; awaiting the maintainer's merge). **ADR-102**. The inventory showed it fits one PR, so no risk acceptance or split was needed |
-| **BUG-073** (any community creator passes the "admin of any community" gates) | **2026-10-29** at the proposed HIGH | Logged 2026-10-22 by PR K's `/code-review`, **open**: needs a maintainer decision on what a platform admin is (no `auth.users` role exists), or a dated risk acceptance |
+| BUG-073 (any community creator passes the "admin of any community" gates) | ~~2026-10-29~~ → **tabled** | Logged 2026-10-22 by PR K's `/code-review`, still **open**. **Maintainer, 2026-10-26:** separate community admin from platform admin, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26 *architecture*). No target sprint or review date set |
 | **BUG-070** (BUG-063 class in reputation health + dead `FeedComposer`) | **2026-11-03** | Logged 2026-10-20 (LOW, proposed); **in PR L2** (maintainer confirmed 2026-10-20) |
 | Demo stories | ~2026-12-18 | `demo-health.yml` watches the runway |
 
