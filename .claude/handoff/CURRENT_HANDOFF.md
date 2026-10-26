@@ -70,7 +70,7 @@ gate fails **2026-10-25 17:00 PDT**. After that, every PR's Security Audit goes 
 | 2 | **E** | Expo SDK 57 patch (#279) + drift-workflow silent-failure fix | — | [`plans/2026-10-20-sprint-134-pr-e-expo-patch.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-e-expo-patch.md) | **SHIPPED** `eea83267` (#312, v11.95.0), CI/CD 39711848936 attempt 2 green. See *PR E state* |
 | 3 | **D** | `verify:demo` loads `DEMO_ENV_FILE`, else the repo-root `.env.demo` | — | [`plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md) | **SHIPPED** `866857ed` (#313, v11.96.0), CI/CD 39797190307 green. Human validation (Task D8) pending; see *PR D state* |
 | — | **N** | `next` 16.3.8 → 16.4.2 (GHSA-2464-fhr4-w9xw critical RCE + GHSA-p3m5-59mp-jv5r high, published 2026-10-22 15:52Z); 10-node splice; v11.97.0 | critical: blocks every PR now | *PR N state* below | **SHIPPED** `0321c415` (#314, v11.97.0), CI/CD 39853173679 green |
-| — | **X** | Exemption **renewal** (re-checked 2026-10-22 three times: no upstream fix, renewal needed) | gate fails **10-25 17:00 PDT** | *Dated obligations* below | **On 10-24 (UTC)**, cut fresh from `origin/master`; created 10-24 → expires 10-31. **Takes the next merge slot, ahead of PR L** |
+| — | **X** | **Security PR (overdue, blocks every push and CI):** remove the braces exemption (advisory withdrawn 2026-10-23); renew node-forge; fix the new highs in body-parser, undici and zod; make the audit validator accept npm's inconsistent severities. See *Security PR X findings* | exemptions **expired 2026-10-26 00:00Z** (10-25 17:00 PDT) | *Security PR X findings* below | **NEXT**, in a fresh chat from `origin/master`; merges first, then #315, then PR K |
 | 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | **PR OPEN #315** (v11.98.0, see *PR L state*), awaiting maintainer merge. **Merges only after the renewal PR** (the renewal owns the next slot before 10-25 17:00 PDT); after the renewal merges, update this branch from `origin/master` with a merge commit and re-bump the version |
 | 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers (incl. the reputation health route); **BUG-070** | BUG-070 **2026-11-03** | write at PR start | — |
 | 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **DONE LOCALLY, push blocked** by the expired exemptions (v11.98.0, see *PR K state*); merges after the renewal and #315 |
@@ -316,11 +316,38 @@ BUG-071, derived gate names, dead `isActiveAdmin` deleted); `/code-review` high 
 reads, churn reverted; 5 ruled) then medium re-run (fail-closed `adminChainPaths`, mount order restored; rest ruled);
 `/security-review`: no findings. Ledger: `.superpowers/sdd/2026-10-22-sprint-134-pr-k-live-admin-role/progress.md` (local).
 
+**Codex review (2026-10-26, at `9d22380a`): no blocking findings**; 139 focused regression tests passed; real SQL unverified until CI (see *Security PR X findings*).
+
 **Next chat:** `gh pr checks <n>` (the integration job is the real-SQL arbiter). After #315 merges, update this branch from
 `origin/master` with a **merge commit** (expect conflicts in `services/request-service/src/index.ts`, the four CONTEXT.md
 files, `docs/BUGS.md`, `docs/IDEAS.md`, this handoff: take the newer content), re-bump the version, re-run the gates.
 **Human validation (after deploy):** demote a test admin to member in a second browser, then that admin's **Update tags**
 → refused; a requester who administers nothing accepts a provider offer → accepted.
+
+## Security PR X findings (verified 2026-10-26; carry into the security PR's chat)
+
+Reported by Codex's read-only review of PR K at `9d22380a` (2026-10-26). Each line below was re-checked the same day against
+the live arbiters: `gh api advisories/<GHSA>`, `npm view`, `npm audit --json` (exit 1: 0 critical, 7 high, 6 moderate) and
+`package-lock.json`. **Nothing has been changed yet.** Dependency work earned by advisories; the lane holder is **Claude**
+(maintainer-designated; confirm before starting, CLAUDE.md *dependency lane*).
+
+| Item | Live evidence | Action |
+|---|---|---|
+| **braces** GHSA-vfj7-8cjw-p6xm | `withdrawn_at: 2026-10-23T12:53:02Z`; absent from today's `npm audit` | **Remove** the exemption (the gate's "still matches a LIVE advisory" test fails on it) |
+| **node-forge** GHSA-86w9-cpqp-85rv (high) | still live, `<= 1.4.0`, `first_patched_version` null; latest 1.4.0; lock `node_modules/node-forge@1.4.0` (via `@expo/cli` → `@expo/code-signing-certificates`) | **Renew** (7-day cap). The 2026-10-20 pre-authorization covered that re-check: **confirm it still stands** before renewing |
+| **body-parser** GHSA-27r3-jxmh-p828 (high, published 2026-10-23) | `>= 2.0.0, < 2.4.0` (and `< 1.20.9`); lock `body-parser@2.3.0` (Express 5) | Bump to **2.4.0** (in-place splice) |
+| **undici** GHSA-xjj6-f33q-929c (high) + GHSA-4qv8-2p9j-2685, GHSA-f72v-6w45-q472 (moderate) | `>=7.18.0 <7.30.1`; lock `undici@7.30.0` (via `expo-server-sdk`) | Bump to **7.30.1** or later in-range |
+| **zod** GHSA-mrhx-c7xc-m3w5 (high, published 2026-10-01; **not** reported by the 10-22 re-checks, which showed 0 unexempted; when npm's audit feed picked it up is UNVERIFIED) | `< 4.6.6`; lock **two** copies: root `zod@4.6.5` and `@expo/cli/node_modules/zod@3.25.76`; latest 4.6.7 | Root: bump to **4.6.6+**. The nested 3.x copy has **no 3.x fix**, and 4.x is a major for `@expo/cli`: check whether a newer `@expo/cli` (SDK 57) moves off zod 3, else it needs an exemption decision |
+| **Audit report rejected** | `node scripts/audit-exemptions.js` → "Audit evidence unavailable or invalid". `validAuditReport` (`scripts/audit-exemptions.js:159-160`) requires a string `via` to point at a vulnerability of equal or lower severity; npm reports `expo-server-sdk` **moderate** with `via: ["undici"]` and `undici` **high** | Fix the validator (the inconsistency is npm's, so the rule must tolerate it without hiding a high), with a negative fixture. Fixing undici may clear today's instance, but not the rule |
+
+Notes: npm's `fixAvailable` for zod/node-forge points at `expo@54.0.38` (a downgrade) — ignore it. Prove the lock edit as
+spec note 5 says (node diff, `npm view` parity, `npx -y npm@11.19.0 ci` from `C:\`, `npm ls --all` vs baseline). Cut the branch
+fresh from `origin/master`; it takes the next merge slot ahead of #315 and PR K.
+
+**Codex review of PR K (`9d22380a`, 2026-10-26):** no blocking findings introduced by PR K. 139 focused regression tests
+passed locally. Real-SQL integration is unverified until CI. Codex supports BUG-073 as **HIGH** with a separate
+platform-admin decision; BUG-073 is inherited and does not block PR K. The review stayed read-only; no push, gate bypass or
+exemption change.
 
 ## Maintainer decisions (2026-10-19 / 2026-10-20)
 
@@ -356,7 +383,7 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | ~~follow-redirects GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c (high)~~ | ~~2026-10-27~~ | **DONE**: #310 `63a6cd26`, live 2026-10-21 00:00Z. Dependabot never raised alerts for them (the lock moved within hours); open alerts are only #168 node-forge and #169 braces (exempted) |
 | ~~BUG-063~~ | ~~2026-10-24~~ | **DONE**: #311 `bf524296` (v11.94.0), live 2026-10-21; no risk acceptance needed |
 | ~~`next` GHSA-2464-fhr4-w9xw (critical) + GHSA-p3m5-59mp-jv5r (high)~~ | ~~now~~ | **DONE**: #314 `0321c415` (v11.97.0), live 2026-10-22 21:14Z (CI/CD 39853173679) |
-| node-forge + braces ADR-059 exemptions | **2026-10-26** (gate fails **2026-10-25 17:00 PDT**) | **No upstream fix → renew (pre-authorized, maintainer 2026-10-20).** Last re-check 2026-10-22 21:25Z (unchanged from 04:10Z and 18:30Z; the `next` critical is gone since #314): `audit-exemptions` 0 unexempted (19 exempt); GHSA-86w9-cpqp-85rv node-forge `<= 1.4.0`, latest 1.4.0, `first_patched_version` empty; GHSA-vfj7-8cjw-p6xm braces `<= 3.0.3`, latest 3.0.3, empty; `@expo/cli@sdk-57` 57.0.32 `node-forge ^1.3.3` (SDK 58's `^1.4.0` is still vulnerable, so no SDK move helps); `micromatch@4.0.8` `braces ^3.0.3`. **Renewal PR on 2026-10-24 (UTC)**, cut fresh from `origin/master` **after PR N merges and deploys**; created 10-24 → expires 10-31 (7-day cap); it takes the merge slot before 10-25 17:00 PDT (PR L merges after it). Re-run first: `node scripts/audit-exemptions.js` (audits the lockfile, so a published fix alone does not trip it), `npm view node-forge version`, `npm view braces version`, `gh api advisories/<GHSA> --jq '.vulnerabilities[].first_patched_version'`, `npm view @expo/cli@sdk-57 dependencies.node-forge`, `npm view micromatch dependencies.braces`. Remove any exemption whose fix has shipped and is reachable. BUG-059 |
+| ~~node-forge + braces ADR-059 exemptions~~ → **Security PR X** | **EXPIRED 2026-10-26 00:00Z** | No renewal PR was opened on 10-24, so the exemptions lapsed and the pre-push hook and CI Security Audit now fail on every branch. The scope grew since the 10-22 re-check (Codex review of PR K, 2026-10-26, verified the same day): see *Security PR X findings*. Highs are due ≤ 1 week from publication (body-parser 2026-10-30). BUG-059 |
 | **PR L** (BUG-068) | **2026-10-29** | Unblocked: drain check passed 2026-10-20 (below) |
 | **BUG-069** | **2026-10-30** | PR K (**complete 2026-10-25, push blocked by the expired exemptions**, v11.98.0, merges after the renewal and #315). **ADR-102**. The inventory showed it fits one PR, so no risk acceptance or split was needed |
 | **BUG-073** (any community creator passes the "admin of any community" gates) | **2026-10-29** at the proposed HIGH | Logged 2026-10-22 by PR K's `/code-review`, **open**: needs a maintainer decision on what a platform admin is (no `auth.users` role exists), or a dated risk acceptance |
