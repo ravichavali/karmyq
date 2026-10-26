@@ -20,7 +20,7 @@ is on `refs/heads/master` and still dismissed (the lines did not shift between P
 rollback), 0 open CodeQL alerts on master (checked 21:25Z). **Exemption re-check 2026-10-22 21:25Z:** unchanged (0 unexempted,
 19 exempt, no upstream fix); renewal deferred to a 10-24 (UTC) chat so it does not shorten the window. **Now:** PR L
 **#315** (see *PR L state*), which **merges only after the renewal**; no renewal PR was cut on 10-24; **Security PR X** (2026-10-26) is the renewal and takes the next merge slot.
-**Security PR X #317 open (2026-10-26)** on `agent/claude/sprint-134-pr-x-security` (v11.98.0), awaiting maintainer merge: braces
+**Security PR X #317 open (2026-10-26), Codex review: no blocking findings; CI 20/20 green at `f1114580`** on `agent/claude/sprint-134-pr-x-security` (v11.98.0), awaiting maintainer merge: braces
 exemption removed (withdrawn), node-forge renewed to 2026-11-02, body-parser/undici/zod highs fixed, audit validator fixed. It
 takes the **next merge slot**, then #315 (re-bump), then PR K (re-bump). See *PR X state*.
 **PR K (BUG-069) complete locally at `5d7fe9bb`, NOT yet pushed (2026-10-25)**: the pre-push hook is blocked by the expired exemptions (below) on `agent/claude/sprint-134-pr-k-live-admin-role`
@@ -394,7 +394,15 @@ install scripts, `body-parser` 2.3.0 → 2.4.0 `lib/` diff keeps the `qs.parse` 
 (open; scheduled run 2026-10-26 14:14Z; `expo-notifications` 57.0.23 → ~57.0.24, published 2026-10-22; no advisory, so it
 awaits a maintainer decision). `npx expo install --check` exits 1 for exactly that plus the registered jest pair.
 
-**Next chat:** `gh pr checks 317` (pushed at `d2598446`). After the merge and deploy: the CodeQL master check, then #315's sequence (*PR L state*).
+**Codex review (2026-10-26, at `f1114580`): no blocking findings; ready for maintainer merge.** It verified CI (20 checks
+green, the PR deploy skipped as expected), 100 focused regression tests locally (`--no-cache`), the live gate (0 unexempted;
+the 4 node-forge findings exempt), registry URL/integrity/dependencies/engines for all five moved packages (no install scripts),
+and `@expo/cli`'s real schema consumers under zod 4.6.6. It recommends **keeping all three scope additions** (`qs` 6.16.1, the
+1.x `body-parser` target, the dead `undici` selector removal) and accepts the MCP path as a documented limitation while
+`expo-mcp` is absent. Read-only; no merge. Re-checked live afterwards: `gh pr checks 317` 20 pass + Deploy skipped;
+`mergeStateStatus` BLOCKED (branch protection: needs the maintainer's merge).
+
+**Next chat:** `gh pr checks 317` (head `f1114580` before this record). After the merge and deploy: the CodeQL master check, then #315's sequence (*PR L state*).
 
 ## Security PR X findings (verified 2026-10-26; addressed in PR X)
 
