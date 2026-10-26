@@ -29,7 +29,7 @@ authorization. CI/CD 40417261628 green: 14/14 jobs, "All critical services healt
 healthy, "Notify on failure" skipped (no rollback). **No CodeQL re-raise** (0 open alerts on master). The maintainer's
 post-deploy queue check **PASSED**: no worker and no jobs on either retired queue. See *PR L state*.
 **Now: PR K (BUG-069)** on `agent/claude/sprint-134-pr-k-live-admin-role` (see *PR K state*): `origin/master` `ff3f394e`
-merged in (`396e31cc`) and re-bumped to **v11.100.0** (`76ef8e8f`) on 2026-10-26; gates re-run; pushed and opened as a PR
+merged in (`396e31cc`) and re-bumped to **v11.100.0** (`76ef8e8f`) on 2026-10-26; gates re-run; pushed and opened as **#319**
 (open, awaiting the maintainer's merge). **BUG-073 is due 2026-10-29** at the proposed HIGH: it needs a maintainer decision
 or a dated risk acceptance.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
@@ -61,7 +61,7 @@ or a dated risk acceptance.
 
 | Field | Value |
 |---|---|
-| **Current branch** | `agent/claude/sprint-134-pr-k-live-admin-role` (from `origin/master` `0321c415`; `origin/master` `ff3f394e` merged in at `396e31cc`) carries PR K (open, v11.100.0, awaiting the maintainer's merge; see *PR K state*); it takes the next merge slot. PR L merged as #315, Security PR X as #317, PR N as #314, PR D as #313, PR E as #312 and PR A as #311; all those branches can be deleted. The planning branch `agent/claude/sprint-134-planning` merged as #310 and can be deleted. Every later PR (L2 next) is cut from `origin/master` after the previous one merges |
+| **Current branch** | `agent/claude/sprint-134-pr-k-live-admin-role` (from `origin/master` `0321c415`; `origin/master` `ff3f394e` merged in at `396e31cc`) carries PR K (**#319 open**, v11.100.0, awaiting the maintainer's merge; see *PR K state*); it takes the next merge slot. PR L merged as #315, Security PR X as #317, PR N as #314, PR D as #313, PR E as #312 and PR A as #311; all those branches can be deleted. The planning branch `agent/claude/sprint-134-planning` merged as #310 and can be deleted. Every later PR (L2 next) is cut from `origin/master` after the previous one merges |
 | **Active editor** | Claude |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated); each PR re-derives its version from `origin/master` at merge time |
 
@@ -81,7 +81,7 @@ or a dated risk acceptance.
 | — | **X** | **Security PR (overdue, blocks every push and CI):** remove the braces exemption (advisory withdrawn 2026-10-23); renew node-forge; fix the new highs in body-parser, undici and zod; make the audit validator accept npm's inconsistent severities. See *Security PR X findings* | exemptions **expired 2026-10-26 00:00Z** (10-25 17:00 PDT) | *Security PR X findings* below | **SHIPPED** `e15622bc` (#317, v11.98.0), CI/CD 40410093954 green |
 | 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | **SHIPPED** `ff3f394e` (#315, v11.99.0), CI/CD 40417261628 green; post-deploy queue check PASS. See *PR L state* |
 | 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers (incl. the reputation health route); **BUG-070** | BUG-070 **2026-11-03** | write at PR start | — |
-| 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **PR OPEN** (**v11.100.0**, see *PR K state*): `origin/master` `ff3f394e` merged in and re-bumped 2026-10-26 after #315. Awaiting the maintainer's merge; takes the next merge slot |
+| 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **PR OPEN #319** (**v11.100.0**, see *PR K state*): `origin/master` `ff3f394e` merged in and re-bumped 2026-10-26 after #315. Awaiting the maintainer's merge; takes the next merge slot |
 | 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | write at PR start | — |
 | 8 | **B** | PR B endorsement follow-ups (`docs/IDEAS.md` 2026-10-13) | — | write at PR start | — |
 | 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
@@ -314,7 +314,7 @@ passed. PR L2 follows PR K.
 
 ## PR K state (2026-10-26)
 
-**PR open, awaiting the maintainer's merge (2026-10-26).** Code finished at `5d7fe9bb` (2026-10-25); its first push was blocked
+**#319 open, awaiting the maintainer's merge (2026-10-26).** Code finished at `5d7fe9bb` (2026-10-25); its first push was blocked
 only by the lapsed ADR-059 exemptions, which #317 fixed. Branch `agent/claude/sprint-134-pr-k-live-admin-role` from
 `origin/master` `0321c415`, **v11.100.0** (re-derived 2026-10-26 from `origin/master` `ff3f394e` 11.99.0, which #315 took).
 Executed inline (`superpowers:executing-plans`) from
@@ -384,7 +384,7 @@ reads, churn reverted; 5 ruled) then medium re-run (fail-closed `adminChainPaths
    stamp in `architecture.json`, CRLF in `adr-010`). **`/simplify`, `/code-review` and `/security-review` were not re-run:**
    the merge changed nothing in PR K's code (proof above).
 
-**Next chat:** `gh pr checks <n>` (the integration job is the real-SQL arbiter; integration tests are CI-only on this box).
+**Next chat:** `gh pr checks 319` (the integration job is the real-SQL arbiter; integration tests are CI-only on this box).
 Handle any CI red. After the maintainer merges: the deploy's health verify and the CodeQL master check, then PR L2.
 **BUG-073 is due 2026-10-29** (proposed HIGH): a maintainer decision on what a platform admin is, or a dated risk acceptance.
 **Human validation (after deploy):** demote a test admin to member in a second browser, then that admin's **Update tags**
@@ -537,7 +537,7 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | `fast-uri` GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr (moderate) + 2 low | **2026-11-06** | Published 2026-10-23; `>= 4.0.0 < 4.2.3`, fixed 4.2.3; lock 4.2.1 (override `>=4.2.1`). Not yet scheduled. Dependabot **#318** (`fast-uri` 4.2.1 → 4.2.3, opened 2026-10-26 22:10Z) is a **queued proposal**, not the lane holder. Its lock diff is +3/−81 lines, so inspect what it drops before using it |
 | ~~node-forge + braces ADR-059 exemptions~~ → **Security PR X** | ~~EXPIRED 2026-10-26 00:00Z~~ | **DONE**: #317 `e15622bc` (v11.98.0), live 2026-10-26 22:25Z (CI/CD 40410093954). The lapse blocked pushes and CI Security Audit from 10-26 00:00Z until the merge. body-parser/undici/zod highs fixed inside their SLA (body-parser due 10-30). BUG-059 closed |
 | ~~**PR L** (BUG-068)~~ | ~~2026-10-29~~ | **DONE**: #315 `ff3f394e` (v11.99.0), merged 2026-10-26 23:05:13Z (CI/CD 40417261628); post-deploy queue check PASS. The demo key cleanup is a separate, unscheduled operation (*PR L state*) |
-| **BUG-069** | **2026-10-30** | PR K **open** (v11.100.0, pushed 2026-10-26 after #315; awaiting the maintainer's merge). **ADR-102**. The inventory showed it fits one PR, so no risk acceptance or split was needed |
+| **BUG-069** | **2026-10-30** | PR K **#319 open** (v11.100.0, pushed 2026-10-26 after #315; awaiting the maintainer's merge). **ADR-102**. The inventory showed it fits one PR, so no risk acceptance or split was needed |
 | **BUG-073** (any community creator passes the "admin of any community" gates) | **2026-10-29** at the proposed HIGH | Logged 2026-10-22 by PR K's `/code-review`, **open**: needs a maintainer decision on what a platform admin is (no `auth.users` role exists), or a dated risk acceptance |
 | **BUG-070** (BUG-063 class in reputation health + dead `FeedComposer`) | **2026-11-03** | Logged 2026-10-20 (LOW, proposed); **in PR L2** (maintainer confirmed 2026-10-20) |
 | Demo stories | ~2026-12-18 | `demo-health.yml` watches the runway |
