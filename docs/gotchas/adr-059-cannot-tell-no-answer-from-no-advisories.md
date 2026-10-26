@@ -7,6 +7,15 @@ The regression `tests/regression/sprint-128-audit-response-contract.test.ts` exe
 reports, severity graphs, process exit/signal/timeout handling and the actual CLI. Its real-child
 stderr fixture proves the sanitized handler is not bypassed by subprocess output.
 
+**The local gate and CI can read different reports for one lock.** On the Windows box the PATH `npm`
+is a user-level 10.8.2, which the CLI and the pre-push hook invoke; CI runs 11.19.0. On 2026-10-26,
+npm 10.8.2 reported `expo-server-sdk` moderate with `via: ["undici"]` (high), while 11.19.0 omitted
+`expo-server-sdk`. npm ranks a dependent by the meta-advisories that apply to its own version and
+range, so a string `via` may outrank its dependent. Sprint 128's rule called that shape invalid, and
+the local gate failed closed on valid evidence until Sprint 134 PR X ranked severity only against
+advisory objects. When the local gate and CI disagree, compare their two reports before suspecting
+the endpoint.
+
 Historical failure, retained to explain the rule:
 
 | Registry | Result |
