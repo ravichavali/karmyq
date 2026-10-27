@@ -89,8 +89,8 @@ Untruncated `rg` scans on the current branch cover services, tests, packages, fr
 - [x] Fetch and reconcile master/version and open PRs; change only three root version occurrences to the next version. Expected no dependency graph change.
 - [x] Run `npm test` with correct Git utilities on PATH, affected TypeScript checks, `npm run feedback:check` on staged changes, and process-reviewer checklist before the commit. Final authorized suite exit 0: 27/27 tasks (22 cached), root regression 952/952; affected compilers clean. Process reviewer checked docs/coverage/feedback, reconciled the final log and returned PASS. CI “Integration Tests” must establish real-SQL correctness; no local claim substitutes for it.
 - [x] Update handoff: Active editor Codex until handback, plan + evidence + decisions, BUG-070, explicit next action for Claude review. Self-review plan coverage and mark completed steps with evidence.
-- [ ] Restore generated churn LAST; force-stage meaningful landing docs. Inspect final staged diff, run required pre-commit checks, commit, then push as a separate command (never `commit; push`). Expected clean tree, no bypass flags.
-- [ ] Fill every PR-template section including Validation ledger (tested tree/commit, command, cache, outcome, limitation), own gate findings/rulings, CI-only integration and no demo deployment. Open PR, link it in handoff if needed in a final checked commit/push, report link, then stop without watching CI or merging.
+- [x] Restore generated churn LAST; force-stage meaningful landing docs. Final source change committed as `7f0606d5` and pushed separately, with mandatory hooks and 27/27 pre-push tasks; no bypass flags.
+- [x] Fill every PR-template section including Validation ledger (tested tree/commit, command, cache, outcome, limitation), own gate findings/rulings, CI-only integration and no demo deployment. [PR #320](https://github.com/ravichavali/karmyq/pull/320) opened; actual link/state recorded in the final handoff-only documentation checkpoint. Stop after delivery without watching CI or merging.
 
 ## Plan self-review
 
@@ -98,4 +98,4 @@ Spec coverage maps to Tasks 1–3. All five Review Focus cases have owning tests
 
 ## Delivery audit
 
-The final commit/push/PR steps occur after this plan is committed. Confirm their completion from the PR and its Validation ledger; do not repeat implementation because these delivery checkboxes were recorded before those actions. Schema regeneration and scratch cleanup passed under explicit maintainer authorization.
+Implementation committed/pushed as `7f0606d5`; PR #320 is open. This final documentation checkpoint records those actual events and changes no implementation/schema. Confirm current review/CI state from the PR's Validation ledger. Schema regeneration and scratch cleanup passed under explicit maintainer authorization; CI integration remains pending the next review chat.

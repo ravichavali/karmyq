@@ -33,8 +33,9 @@ Codex review #2 (no findings). CI/CD 40441255956 green: 14/14 jobs, "All critica
 all 9 services healthy, "Notify on failure" skipped (no rollback). **No CodeQL re-raise** (0 open alerts on master; the
 merge-sha analyses raised nothing new, highest alert still #627). ADR-102 flipped to Implemented. BUG-069 closed inside its
 10-30 date. Human validation pending (*PR K state*). See *PR K state*.
-**Now: PR L2** on `agent/claude/sprint-134-pr-l2-drop-feedback-schema` (cut from `origin/master` `dd585016`; carries only this
-post-merge record plus L2 implementation in progress). Plan written; Codex is the author/executor, Claude reviews after PR open. **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
+**Now: PR L2 [#320](https://github.com/ravichavali/karmyq/pull/320) OPEN**, awaiting cross-agent review + maintainer merge,
+on `agent/claude/sprint-134-pr-l2-drop-feedback-schema` (from `origin/master` `dd585016`; implementation `7f0606d5`,
+v11.101.0). Codex is the author/executor; Claude reviews next. **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
 become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26); the 10-29 deadline no longer applies.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
 #309 merged `1746cdf2` (v11.92.0), CI/CD 39366367275 green.
@@ -66,7 +67,7 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 | Field | Value |
 |---|---|
 | **Current branch** | `agent/claude/sprint-134-pr-l2-drop-feedback-schema` (from `origin/master` `dd585016`) for PR L2; bootstrap record `a00ead82` plus Codex's L2 work. PR K merged as #319, PR L as #315, Security PR X as #317, PR N as #314, PR D as #313, PR E as #312 and PR A as #311. The planning branch `agent/claude/sprint-134-planning` merged as #310 and can be deleted. Later PRs start from origin/master after the preceding merge/deploy |
-| **Active editor** | Codex (PR L2 author/executor; Claude reviews after PR creation) |
+| **Active editor** | Codex (PR L2 author/executor; handing back #320 for Claude's cross-agent review) |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated); each PR re-derives its version from `origin/master` at merge time |
 
 ## Spec and plans
@@ -84,7 +85,7 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 | — | **N** | `next` 16.3.8 → 16.4.2 (GHSA-2464-fhr4-w9xw critical RCE + GHSA-p3m5-59mp-jv5r high, published 2026-10-22 15:52Z); 10-node splice; v11.97.0 | critical: blocks every PR now | *PR N state* below | **SHIPPED** `0321c415` (#314, v11.97.0), CI/CD 39853173679 green |
 | — | **X** | **Security PR (overdue, blocks every push and CI):** remove the braces exemption (advisory withdrawn 2026-10-23); renew node-forge; fix the new highs in body-parser, undici and zod; make the audit validator accept npm's inconsistent severities. See *Security PR X findings* | exemptions **expired 2026-10-26 00:00Z** (10-25 17:00 PDT) | *Security PR X findings* below | **SHIPPED** `e15622bc` (#317, v11.98.0), CI/CD 40410093954 green |
 | 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | **SHIPPED** `ff3f394e` (#315, v11.99.0), CI/CD 40417261628 green; post-deploy queue check PASS. See *PR L state* |
-| 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers (incl. the reputation health route); **BUG-070** | BUG-070 **2026-11-03** | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md) | In progress — see PR L2 state |
+| 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers, numeric widths and nightly isolation; **BUG-070** | BUG-070 **2026-11-03** | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md) | **OPEN [#320](https://github.com/ravichavali/karmyq/pull/320), awaiting cross-agent review + maintainer merge** |
 | 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **SHIPPED** `dd585016` (#319, v11.100.0), CI/CD 40441255956 green; real SQL 101/101. Human validation pending; see *PR K state* |
 | 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | write at PR start | — |
 | 8 | **B** | PR B endorsement follow-ups (`docs/IDEAS.md` 2026-10-13) | — | write at PR start | — |
@@ -94,18 +95,14 @@ B and C are the likeliest to spill into Sprint 135, which is expected. One merge
 
 ## PR L2 state (Codex author/executor, 2026-10-27)
 
-**Final local test gate PASSED after explicit authorization:** npm test exited 0, 27/27 tasks
-(22 cached); root regression 952/952, reputation 5 unit + 328 regression (3 existing TODOs), request
-161 unit + 418 regression (1 existing DB skip). This includes the final feed cap, generated init.sql
-and docs. The process reviewer reconciled its documentation/coverage/feedback checks with this
-final log and returned PASS; the record below specifies the review handoff after delivery.
-
-**Review status on PR creation: open, awaiting cross-agent review + maintainer merge.**
-The remaining author delivery actions are commit, push and PR creation; GitHub is the arbiter.
-Find the PR with `gh pr view agent/claude/sprint-134-pr-l2-drop-feedback-schema` (the link/number
-will also be reported in the author chat). If no PR exists, delivery is incomplete; do not merge.
-**Next action: Claude checks that PR's CI and runs the cross-agent code/security reviews.**
-The author stops after opening it; no CI watching, merge or deployment in this chat.
+**[PR #320](https://github.com/ravichavali/karmyq/pull/320) is open, awaiting cross-agent review +
+maintainer merge.** Implementation `7f0606d5` is pushed. Final authorized npm test and the installed
+pre-push unit/regression gate both passed 27/27; see the PR's [Validation ledger](https://github.com/ravichavali/karmyq/pull/320#validation)
+for the tested commit, commands, cache and limitations. The process reviewer returned PASS.
+Only this handoff and the plan completion metadata change after the implementation commit; this
+documentation checkpoint records the actual PR link/state. No logic/schema edits since that tested commit.
+**Next action: Claude checks #320's CI, especially Integration Tests, and runs cross-agent
+`/code-review` and `/security-review`.** The author does not watch CI, merge or deploy in this chat.
 
 Plan: `docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md`.
 BUG-070 is included, due **2026-11-03**, fixed in code; merge/deploy pending. Root version
