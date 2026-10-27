@@ -1,7 +1,7 @@
 # ADR-102: Authorization Re-derives the Role from Live Membership
 
 **Date**: 2026-10-22
-**Status**: Accepted (Sprint 134 PR K; flips to Implemented when deployed)
+**Status**: Implemented (Sprint 134 PR K v11.100.0 `dd585016`, deployed 2026-10-27, CI/CD 40441255956)
 **Sprint**: 134 — PR K (BUG-069, MEDIUM, due 2026-10-30)
 **Deciders**: Maintainer (ADR number allocated 2026-10-20; scope set in the Sprint 134 spec); Claude (implementation)
 **Related**: [ADR-010](ADR-010-jwt-multi-community-auth.md) (the JWT `communities` claim; amended by this ADR),
