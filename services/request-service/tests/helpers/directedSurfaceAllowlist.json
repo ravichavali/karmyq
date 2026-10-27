@@ -218,37 +218,37 @@
   {
     "file": "services/request-service/src/routes/requests.ts",
     "hash": "b3f4816c6afea96601681d923cf597babe3b44900ddedb78fb9b22b8169403af",
-    "reason": "Owner identity lookup; ownership checked before mutation. Sprint 134 PR V: lookup/mutation binds both request id and verified JWT requester; absent/foreign/vanished rows return 404 before events. Covered by owner-write route tests and CI real-SQL matrix.",
+    "reason": "Owner identity lookup; ownership checked before mutation. Sprint 134 PR V: lookup/mutation binds both request id and verified JWT requester; absent/foreign/vanished rows return 404 before events. Local route tests cover wiring; the real-SQL matrix is authored and awaits CI execution.",
     "label": "SELECT requester_id FROM requests.help_requests WHERE id = $1 AND requester_id = $2"
   },
   {
     "file": "services/request-service/src/routes/requests.ts",
     "hash": "772fee74dd92f44a12ab23522f8b2e77d8bbdbd0e0e290db8df90151485bd4f0",
-    "reason": "Fixed field owner-only update; directed routing fields cannot be edited. Sprint 134 PR V: lookup/mutation binds both request id and verified JWT requester; absent/foreign/vanished rows return 404 before events. Covered by owner-write route tests and CI real-SQL matrix.",
+    "reason": "Fixed field owner-only update; directed routing fields cannot be edited. Sprint 134 PR V: lookup/mutation binds both request id and verified JWT requester; absent/foreign/vanished rows return 404 before events. Local route tests cover wiring; the real-SQL matrix is authored and awaits CI execution.",
     "label": "${updates.join(', ')}"
   },
   {
     "file": "services/request-service/src/routes/requests.ts",
     "hash": "b3f4816c6afea96601681d923cf597babe3b44900ddedb78fb9b22b8169403af",
-    "reason": "Owner identity lookup; ownership checked before mutation. Sprint 134 PR V: lookup/mutation binds both request id and verified JWT requester; absent/foreign/vanished rows return 404 before events. Covered by owner-write route tests and CI real-SQL matrix.",
+    "reason": "Owner identity lookup; ownership checked before mutation. Sprint 134 PR V: lookup/mutation binds both request id and verified JWT requester; absent/foreign/vanished rows return 404 before events. Local route tests cover wiring; the real-SQL matrix is authored and awaits CI execution.",
     "label": "SELECT requester_id FROM requests.help_requests WHERE id = $1 AND requester_id = $2"
   },
   {
     "file": "services/request-service/src/routes/requests.ts",
     "hash": "9dde4b0525a2e36b0fcf74a463c727eb7867026eda5e7021476cee437a36805d",
-    "reason": "Requester-only cancellation. Sprint 134 PR V: lookup/mutation binds both request id and verified JWT requester; absent/foreign/vanished rows return 404 before events. Covered by owner-write route tests and CI real-SQL matrix.",
+    "reason": "Requester-only cancellation. Sprint 134 PR V: lookup/mutation binds both request id and verified JWT requester; absent/foreign/vanished rows return 404 before events. Local route tests cover wiring; the real-SQL matrix is authored and awaits CI execution.",
     "label": "SET status = 'cancelled'"
   },
   {
     "file": "services/request-service/src/routes/requests.ts",
     "hash": "b3f4816c6afea96601681d923cf597babe3b44900ddedb78fb9b22b8169403af",
-    "reason": "Owner identity lookup; ownership checked before mutation. Sprint 134 PR V: lookup/mutation binds both request id and verified JWT requester; absent/foreign/vanished rows return 404 before events. Covered by owner-write route tests and CI real-SQL matrix.",
+    "reason": "Owner identity lookup; ownership checked before mutation. Sprint 134 PR V: lookup/mutation binds both request id and verified JWT requester; absent/foreign/vanished rows return 404 before events. Local route tests cover wiring; the real-SQL matrix is authored and awaits CI execution.",
     "label": "SELECT requester_id FROM requests.help_requests WHERE id = $1 AND requester_id = $2"
   },
   {
     "file": "services/request-service/src/routes/requests.ts",
     "hash": "4f51b439734207742686faeca79a9151a05d057d78f7acbc0d8c5ba1c87ab1ed",
-    "reason": "Fixed field owner-only update; directed routing fields cannot be edited. Sprint 134 PR V: lookup/mutation binds both request id and verified JWT requester; absent/foreign/vanished rows return 404 before events. Covered by owner-write route tests and CI real-SQL matrix.",
+    "reason": "Fixed field owner-only update; directed routing fields cannot be edited. Sprint 134 PR V: lookup/mutation binds both request id and verified JWT requester; absent/foreign/vanished rows return 404 before events. Local route tests cover wiring; the real-SQL matrix is authored and awaits CI execution.",
     "label": "${updates.join(', ')}"
   },
   {

@@ -460,6 +460,11 @@
         },
         "/offers",
         {
+          "method": "PUT",
+          "path": "/offers/:id/privacy",
+          "description": "Offer owner updates offerer_visibility_consent only. Sprint 134 PR V retires the inert is_public input/response/event field: legacy-only body returns 400; mixed body updates consent only. Ownership precedes body validation, so foreign/missing offers return identical 404. The inert DB column remains until a later schema PR; read audience remains owner or live community member."
+        },
+        {
           "method": "POST",
           "path": "/matches",
           "description": "Create a member's offer to help (proposed match). Responder is the verified JWT identity (ADR-064; body responder_id ignored). Eligibility = the request's feed-VISIBILITY boundary (shared getRequestReachability helper, also used by GET /:id can_offer): member of a request community OR trust_network/platform scope OR sister-reachable. Out-of-audience (e.g. community-scoped ask the viewer can't see) -> 403 REQUEST_NOT_REACHABLE. Plus invariants: open+unexpired (400 REQUEST_NOT_OPEN), not own (400 OWN_REQUEST), no existing live offer (409 ALREADY_OFFERED). Admin-proposed matches use POST /requests/:id/propose-match instead."

@@ -31,7 +31,6 @@ function app(caller = VIEWER) {
 
 interface Scenario {
   requesterId?: string;
-  anyMatch?: boolean;
   activeMatch?: { id: string; status: string } | null;
   isDirected?: boolean;
   status?: string;
@@ -113,11 +112,10 @@ describe('GET /requests/:id visibility gate (BUG-056)', () => {
   });
 
   it.each(['proposed', 'matched', 'completed', 'cancelled'])(
-    'returns 200 to a match responder whose match is %s even when unreachable',
+    'projects lifecycle for a SQL-admitted viewer with a %s match',
     async (status) => {
       const active = status === 'proposed' || status === 'matched';
       mockScenario({
-        anyMatch: true,
         activeMatch: active ? { id: 'match-1', status } : null,
         status: active ? 'open' : 'completed',
         isMember: false,
@@ -125,6 +123,8 @@ describe('GET /requests/:id visibility gate (BUG-056)', () => {
       const res = await request(app()).get(`/requests/${REQUEST_ID}`);
       expect(res.status).toBe(200);
       expect(res.body.data.id).toBe(REQUEST_ID);
+      expect(res.body.data.viewer_relation).toBe(active ? 'already_offered' : 'not_actionable');
+      expect(res.body.data.viewer_match).toEqual(active ? { id: 'match-1', status } : null);
     },
   );
 
@@ -149,7 +149,7 @@ describe('GET /requests/:id visibility gate (BUG-056)', () => {
   });
 
   it('does not consult offer eligibility for a closed request SQL has admitted', async () => {
-    mockScenario({ anyMatch: true, isMember: false, status: 'completed' });
+    mockScenario({ isMember: false, status: 'completed' });
     const res = await request(app()).get(`/requests/${REQUEST_ID}`);
     expect(res.status).toBe(200);
     expect(res.body.data.viewer_relation).toBe('not_actionable');
@@ -192,16 +192,6 @@ describe('GET /offers/:id email exposure (BUG-062)', () => {
     expect(res.status).toBe(200);
     expect(res.body.data).not.toHaveProperty('helper_email');
     expect(String(mockQuery.mock.calls[0][0])).not.toMatch(/email/i);
-  });
-});
-
-describe('GET /requests/:id preferred provider (code-review follow-up)', () => {
-  it('returns 200 to the pre-selected provider even when unreachable', async () => {
-    mockScenario({ isMember: false });
-    const res = await request(app()).get(`/requests/${REQUEST_ID}`);
-    expect(res.status).toBe(200);
-    expect(res.body.data.viewer_relation).toBe('not_actionable');
-    expect(res.body.data).not.toHaveProperty('viewer_is_preferred_provider');
   });
 });
 

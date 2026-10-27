@@ -16,11 +16,16 @@
   candidate CTE before joining names/aggregating communities; a community filter still narrows the
   returned community names/ids and notes. One `db/liveRole.isActiveMember(communityId, userId)` now
   serves inventory, requests, feed and providers, including malformed-id rejection and active
-  membership with a null role. The reversed provider helper is removed. The composite match read
-  index is prepared in `20261027-001-request-match-read-index.sql`; schema regeneration awaits
-  separate demo-host authorization. Offer `is_public` policy awaits the maintainer; unchanged here.
+  membership with a null role. The reversed provider helper is removed. The composite match index
+  is deferred pending query-plan measurements on representative data. `PUT /offers/:id/privacy`
+  now accepts only `offerer_visibility_consent`: legacy `is_public`-only bodies return 400 for the
+  owner; mixed bodies update consent only. The response and privacy event omit `is_public`.
+  Foreign/missing offers still return the same 404 before body validation. Offer reads remain owner
+  or live community member. The inert column stays until a later schema PR; PR V has no migration
+  or init.sql change and needs no demo-host operation. CI's schema drift step runs before the whole
+  integration suite, so the checkpoint's unregenerated index had blocked every database test.
   Local route/query tests supplement the root real-SQL read-boundary, request-detail and provider
-  matrices (CI only on Windows). No query-speed improvement is claimed without measurements.
+  matrices (**pending CI**, not executed locally on Windows). No query-speed improvement is claimed.
 
 - **2026-10-27 (Sprint 134 PR L2, BUG-070)**: `requests.interaction_feedback` is dropped after
   PR L retired its routes/event. `SocialKarmaFeedComposer` no longer reads the retired community-health

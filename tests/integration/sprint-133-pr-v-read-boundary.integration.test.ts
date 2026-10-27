@@ -268,11 +268,23 @@ describe('Sprint 133 PR V request and offer read boundary (BUG-065, BUG-064)', (
     }
   });
 
-  it('has the non-unique request/responder index without a status filter', async () => {
-    const index = await pool.query(`SELECT indexdef FROM pg_indexes
-      WHERE schemaname='requests' AND tablename='matches' AND indexname='idx_matches_request_responder'`);
-    expect(index.rows).toHaveLength(1);
-    expect(index.rows[0].indexdef).toMatch(/USING btree \(request_id, responder_id\)$/);
-    expect(index.rows[0].indexdef).not.toMatch(/UNIQUE|WHERE/);
+  it('rejects a legacy-only offer privacy body without mutating the inert column', async () => {
+    await pool.query('UPDATE requests.help_offers SET is_public=TRUE WHERE id=$1', [offerId]);
+    const before = (await pool.query('SELECT * FROM requests.help_offers WHERE id=$1', [offerId])).rows[0];
+    const res = await api(M, 'put', `/offers/${offerId}/privacy`).send({ is_public: false });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe('No privacy settings provided to update');
+    expect((await pool.query('SELECT * FROM requests.help_offers WHERE id=$1', [offerId])).rows[0]).toEqual(before);
+  });
+
+  it.each([
+    { offerer_visibility_consent: true, is_public: false },
+    { offerer_visibility_consent: false },
+  ])('offer privacy updates consent only, omitting the retired flag: %j', async body => {
+    const res = await api(M, 'put', `/offers/${offerId}/privacy`).send(body);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ id: offerId, offerer_visibility_consent: body.offerer_visibility_consent });
+    const row = (await pool.query('SELECT is_public,offerer_visibility_consent FROM requests.help_offers WHERE id=$1', [offerId])).rows[0];
+    expect(row).toEqual({ is_public: true, offerer_visibility_consent: body.offerer_visibility_consent });
   });
 });

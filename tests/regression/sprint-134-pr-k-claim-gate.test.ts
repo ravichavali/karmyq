@@ -16,7 +16,7 @@
  * 2. Every call to a live-role helper is awaited. An un-awaited call is a truthy Promise, which
  *    turns `if (!isLiveAdmin(...))` into a gate that admits everyone. The helper names are derived
  *    from the source, never listed by hand: every function a `liveRole.ts` module exports, plus, to a
- *    fixpoint, every exported function that calls one (request-service `inventoryDb.isActiveMember`).
+ *    fixpoint, every exported function that calls one (request-service `liveRole.isActiveMember`).
  * 3. No service reads the shared tenant middleware's claim-derived `communityRole`, or uses its
  *    `adminOnlyMiddleware` (which decides from that field). That keeps H5 below a dead hint.
  */
