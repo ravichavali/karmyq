@@ -94,7 +94,7 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 | 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | **SHIPPED** `ff3f394e` (#315, v11.99.0), CI/CD 40417261628 green; post-deploy queue check PASS. See *PR L state* |
 | 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers, numeric widths and nightly isolation; **BUG-070** | BUG-070 **2026-11-03** | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md) | **SHIPPED** #320 `47c9a323` (v11.101.0), CI/CD 40579675258 green; nightly human validation pending. |
 | 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **SHIPPED** `dd585016` (#319, v11.100.0), CI/CD 40441255956 green; real SQL 101/101. Human validation pending; see *PR K state* |
-| 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **IN PROGRESS**: scope decisions resolved; API-only offer retirement; no schema diff. Final gates + PR creation next, then Claude reviews. |
+| 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **AWAITING CLAUDE REVIEW**: implementation/gates complete; final session action opens the PR. Resolve live PR by branch; CI database proof pending. |
 | 8 | **B** | PR B endorsement follow-ups (`docs/IDEAS.md` 2026-10-13) | — | write at PR start | — |
 | 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
 | — | **Per-community health-quality weight (planned PR)** | Persist the weight in `communities.community_configs`; choose a quality signal source; requires an ADR number allocated by the maintainer | Not scheduled | Write after ADR allocation + signal decision | Separate planned PR, not part of L2 |
@@ -102,6 +102,11 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 B and C are the likeliest to spill into Sprint 135, which is expected. One merge at a time; wait for deploy + health before the next.
 
 ## PR V state (Codex, 2026-10-27)
+
+**Implementation complete; awaiting Claude review and maintainer merge.** The final action of this
+chat opens the full-template PR after a clean push. Use
+`gh pr view agent/codex/sprint-134-pr-v-read-boundaries` for the live PR/URL; do not infer CI results
+from this document. Stop at creation; no CI watch, merge or deploy in this chat.
 
 Branch `agent/codex/sprint-134-pr-v-read-boundaries`, from `origin/master` `47c9a323`.
 First commit `1721dc5f` is the #320 post-merge record. Root version **11.102.0** is provisional;
@@ -163,8 +168,17 @@ DELETE lookup and single-field UPDATE-builder cleanups are deferred. Exactly 13 
 removed; new logs are in TEMP. No source blocker from mandatory process review; full-suite
 condition now satisfied. Real SQL remains **pending CI** and no merge readiness is claimed.
 
-**Next action:** refresh final gates/validation ledger, push clean and create the full-template PR. Stop at PR creation;
-Claude reviews. L2's first-02:00 reputation-log human validation remains pending separately.
+**Committed-head recheck, `83c2713e`:** direct `npm test --workspace=services/request-service`
+passed **161 unit + 446 regression, 1 existing DB skip**; direct `npm test --workspace=tests` passed
+**101 unit + 952 regression**. No Turbo replay for either; Jest cache retained. Service run emitted
+a worker-teardown warning despite exit 0. Service tsc exit 0, exact root strict changed-path grep
+empty (grep 1), infrastructure diff against `origin/master` empty (exit 0). Latest master is still
+`47c9a323` / 11.101.0; PR V's 11.102.0 remains provisional at merge time. Only handoff/plan metadata
+changes after this tested commit. The PR's Validation ledger carries commands/cache/limitations.
+
+**Next action (Claude):** resolve the PR from the branch, inspect its actual CI (especially schema
+proof followed by the entire database suite), and review. No SQL runtime proof is claimed before
+that CI run. L2's first-02:00 reputation-log human validation remains pending separately.
 
 ## PR L2 state (Codex author/executor, 2026-10-27)
 
