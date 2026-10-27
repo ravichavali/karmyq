@@ -102,9 +102,21 @@ pushed. The maintainer's confirmed quality-weight follow-up supersedes their sco
 changes code, tests, docs and two strict-null checks, with no migration/init.sql change. See the PR's
 [Validation ledger](https://github.com/ravichavali/karmyq/pull/320#validation) for the latest tested
 commit, commands, cache and limitations; earlier 27/27 results predate this weighting correction.
-**Next action: Claude runs cross-agent `/code-review` and `/security-review` on #320.** CI passed
-at implementation head `cd81ea3b`; verify the latest head before recommending a maintainer merge.
-No merge or deployment is authorized by this checkpoint.
+**Next action: Claude confirms the asymmetric-weight test amendment and latest CI before
+recommending a maintainer merge.** CI passed at implementation head `cd81ea3b`; verify the latest
+head and re-derive the version from master at merge time. The maintainer relayed the cross-agent
+review below; no merge or deployment is authorized by this checkpoint.
+
+**Review test amendment (2026-10-27):** CONFIRMED: the existing w=0.4 examples used activity,
+density and quality all equal to 50, so they did not distinguish weighting formulas. Both suites
+now also assert unequal activity 50, density 100 and quality 80 at w=0.4 produce 72; the feed label
+is Strong. Existing rows remain. New cases started in each workspace's tests/tdd, failed with a
+temporary ignored-weight mutation (66.67 reputation / 66.7 feed), then passed against the restored
+production bytes and were folded into the existing regression suites. Only tests and this handoff
+change; production code, migration and init.sql remain unchanged. See the PR Validation ledger for
+the exact tested/pushed head and cache details. Latest CI and review confirmation remain pending.
+After an authorized deployment, inspect the first 02:00 run: community trust recalculation,
+the milestone batch and the feed's transition from empty zero scores to computed scores.
 
 **CI follow-up (maintainer reported failure, 2026-10-27):** head `4db4fa6f` passed local unit/regression
 but [Integration Tests failed](https://github.com/ravichavali/karmyq/actions/runs/40565448245/job/122407295038):

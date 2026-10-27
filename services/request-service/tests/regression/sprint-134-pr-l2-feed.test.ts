@@ -5,6 +5,7 @@ const mockQuery = query as jest.MockedFunction<typeof query>;
 
 it.each([
   [25, '0.5000', 50, 0.4, 50, 'Growing'],
+  [25, '1.0000', 80, 0.4, 72, 'Strong'],
   [50, '12.0000', 0, 0, 100, 'Thriving'],
   [50, '12.0000', 25, -1, 100, 'Thriving'],
   [50, '12.0000', 25, 2, 25, 'Developing'],
