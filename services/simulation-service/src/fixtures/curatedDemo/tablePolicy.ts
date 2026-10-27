@@ -88,7 +88,6 @@ export const TABLE_POLICY: Record<string, TablePolicy> = {
   'requests.provider_ride_details': 'reset',
   'requests.provider_rate_cards': 'reset',
   'requests.feed_events': 'reset',
-  'requests.interaction_feedback': 'reset',
   'requests.collective_community_links': 'reset',
   'requests.provider_collective_members': 'reset',
   'requests.provider_collectives': 'reset',

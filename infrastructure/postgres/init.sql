@@ -1259,7 +1259,7 @@ CREATE TABLE communities.health_summary (
     active_members integer DEFAULT 0,
     network_strength numeric(5,2) DEFAULT 0,
     trend_direction character varying(20) DEFAULT 'stable'::character varying,
-    trend_percentage numeric(5,2) DEFAULT 0,
+    trend_percentage numeric(20,2) DEFAULT 0,
     last_calculated timestamp without time zone DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -2130,12 +2130,9 @@ CREATE TABLE reputation.community_health_metrics (
     total_active_requesters integer DEFAULT 0,
     total_active_helpers integer DEFAULT 0,
     unique_participant_count integer DEFAULT 0,
-    avg_helpfulness numeric(3,2) DEFAULT 0,
-    avg_responsiveness numeric(3,2) DEFAULT 0,
-    avg_clarity numeric(3,2) DEFAULT 0,
-    network_density numeric(5,4) DEFAULT 0,
-    growth_rate_matches numeric(5,2) DEFAULT 0,
-    growth_rate_participants numeric(5,2) DEFAULT 0,
+    network_density numeric(20,4) DEFAULT 0,
+    growth_rate_matches numeric(20,2) DEFAULT 0,
+    growth_rate_participants numeric(20,2) DEFAULT 0,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -2262,11 +2259,7 @@ CREATE TABLE reputation.trust_scores (
     offers_accepted integer DEFAULT 0,
     average_feedback numeric(3,2) DEFAULT 0,
     last_updated timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    last_activity_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    avg_helpfulness numeric(3,2) DEFAULT 0,
-    avg_responsiveness numeric(3,2) DEFAULT 0,
-    avg_clarity numeric(3,2) DEFAULT 0,
-    total_feedback_received integer DEFAULT 0
+    last_activity_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
 );
 
 --
@@ -2274,24 +2267,6 @@ CREATE TABLE reputation.trust_scores (
 --
 
 COMMENT ON COLUMN reputation.trust_scores.last_activity_at IS 'Last time user performed a counted activity in this community';
-
---
--- Name: COLUMN trust_scores.avg_helpfulness; Type: COMMENT; Schema: reputation; Owner: -
---
-
-COMMENT ON COLUMN reputation.trust_scores.avg_helpfulness IS 'Average helpfulness rating from interactions (1-5)';
-
---
--- Name: COLUMN trust_scores.avg_responsiveness; Type: COMMENT; Schema: reputation; Owner: -
---
-
-COMMENT ON COLUMN reputation.trust_scores.avg_responsiveness IS 'Average responsiveness rating (1-5)';
-
---
--- Name: COLUMN trust_scores.avg_clarity; Type: COMMENT; Schema: reputation; Owner: -
---
-
-COMMENT ON COLUMN reputation.trust_scores.avg_clarity IS 'Average clarity rating (1-5)';
 
 --
 -- Name: user_trust_configs; Type: TABLE; Schema: reputation; Owner: -
@@ -2499,50 +2474,6 @@ COMMENT ON COLUMN requests.help_requests.is_public IS 'Whether this request is p
 --
 
 COMMENT ON COLUMN requests.help_requests.requester_visibility_consent IS 'Requester consents to having their name visible in completions';
-
---
--- Name: interaction_feedback; Type: TABLE; Schema: requests; Owner: -
---
-
-CREATE TABLE requests.interaction_feedback (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    match_id uuid NOT NULL,
-    from_user_id uuid NOT NULL,
-    to_user_id uuid NOT NULL,
-    helpfulness integer,
-    responsiveness integer,
-    clarity integer,
-    comment text,
-    allow_featuring boolean DEFAULT false,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT interaction_feedback_clarity_check CHECK (((clarity >= 1) AND (clarity <= 5))),
-    CONSTRAINT interaction_feedback_helpfulness_check CHECK (((helpfulness >= 1) AND (helpfulness <= 5))),
-    CONSTRAINT interaction_feedback_responsiveness_check CHECK (((responsiveness >= 1) AND (responsiveness <= 5)))
-);
-
---
--- Name: TABLE interaction_feedback; Type: COMMENT; Schema: requests; Owner: -
---
-
-COMMENT ON TABLE requests.interaction_feedback IS 'Feedback about the interaction/exchange quality, not the person';
-
---
--- Name: COLUMN interaction_feedback.helpfulness; Type: COMMENT; Schema: requests; Owner: -
---
-
-COMMENT ON COLUMN requests.interaction_feedback.helpfulness IS 'How helpful was the exchange (1-5)';
-
---
--- Name: COLUMN interaction_feedback.responsiveness; Type: COMMENT; Schema: requests; Owner: -
---
-
-COMMENT ON COLUMN requests.interaction_feedback.responsiveness IS 'How responsive was communication (1-5)';
-
---
--- Name: COLUMN interaction_feedback.clarity; Type: COMMENT; Schema: requests; Owner: -
---
-
-COMMENT ON COLUMN requests.interaction_feedback.clarity IS 'How clear was the communication (1-5)';
 
 --
 -- Name: matches; Type: TABLE; Schema: requests; Owner: -
@@ -3850,20 +3781,6 @@ ALTER TABLE ONLY requests.help_requests
     ADD CONSTRAINT help_requests_pkey PRIMARY KEY (id);
 
 --
--- Name: interaction_feedback interaction_feedback_match_id_from_user_id_key; Type: CONSTRAINT; Schema: requests; Owner: -
---
-
-ALTER TABLE ONLY requests.interaction_feedback
-    ADD CONSTRAINT interaction_feedback_match_id_from_user_id_key UNIQUE (match_id, from_user_id);
-
---
--- Name: interaction_feedback interaction_feedback_pkey; Type: CONSTRAINT; Schema: requests; Owner: -
---
-
-ALTER TABLE ONLY requests.interaction_feedback
-    ADD CONSTRAINT interaction_feedback_pkey PRIMARY KEY (id);
-
---
 -- Name: matches matches_pkey; Type: CONSTRAINT; Schema: requests; Owner: -
 --
 
@@ -5050,18 +4967,6 @@ CREATE INDEX idx_help_requests_scheduled_for ON requests.help_requests USING btr
 --
 
 CREATE INDEX idx_help_requests_type ON requests.help_requests USING btree (request_type);
-
---
--- Name: idx_interaction_feedback_match; Type: INDEX; Schema: requests; Owner: -
---
-
-CREATE INDEX idx_interaction_feedback_match ON requests.interaction_feedback USING btree (match_id);
-
---
--- Name: idx_interaction_feedback_to_user; Type: INDEX; Schema: requests; Owner: -
---
-
-CREATE INDEX idx_interaction_feedback_to_user ON requests.interaction_feedback USING btree (to_user_id);
 
 --
 -- Name: idx_matches_partial_completion; Type: INDEX; Schema: requests; Owner: -
@@ -6429,27 +6334,6 @@ ALTER TABLE ONLY requests.help_requests
     ADD CONSTRAINT help_requests_requester_id_fkey FOREIGN KEY (requester_id) REFERENCES auth.users(id);
 
 --
--- Name: interaction_feedback interaction_feedback_from_user_id_fkey; Type: FK CONSTRAINT; Schema: requests; Owner: -
---
-
-ALTER TABLE ONLY requests.interaction_feedback
-    ADD CONSTRAINT interaction_feedback_from_user_id_fkey FOREIGN KEY (from_user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
---
--- Name: interaction_feedback interaction_feedback_match_id_fkey; Type: FK CONSTRAINT; Schema: requests; Owner: -
---
-
-ALTER TABLE ONLY requests.interaction_feedback
-    ADD CONSTRAINT interaction_feedback_match_id_fkey FOREIGN KEY (match_id) REFERENCES requests.matches(id) ON DELETE CASCADE;
-
---
--- Name: interaction_feedback interaction_feedback_to_user_id_fkey; Type: FK CONSTRAINT; Schema: requests; Owner: -
---
-
-ALTER TABLE ONLY requests.interaction_feedback
-    ADD CONSTRAINT interaction_feedback_to_user_id_fkey FOREIGN KEY (to_user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
---
 -- Name: matches matches_offer_id_fkey; Type: FK CONSTRAINT; Schema: requests; Owner: -
 --
 
@@ -7131,5 +7015,6 @@ INSERT INTO public.schema_migrations (migration_name) VALUES
   ('20261004-directed-borrow-delivery.sql'),
   ('20261004-directed-requests.sql'),
   ('20261008-skill-visibility.sql'),
-  ('20261013-skill-endorsements.sql')
+  ('20261013-skill-endorsements.sql'),
+  ('20261027-drop-interaction-feedback.sql')
 ON CONFLICT (migration_name) DO NOTHING;

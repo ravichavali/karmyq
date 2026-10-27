@@ -7,6 +7,26 @@
 
 ## Recent Changes
 
+- **2026-10-27 (Sprint 134 PR L2, BUG-070)**: `requests.interaction_feedback` is dropped after
+  PR L retired its routes/event. `SocialKarmaFeedComposer` no longer reads the retired community-health
+  averages; its existing total-match activity term is min(100, matches × 2). The maintainer's
+  2026-10-27 decision makes `qualityWeight` the tunable value, clamped to [0,1], default 0:
+  `strength = (1-w) * (2*activity + density) / 3 + w*quality`. At w=0 the remaining terms split
+  the full weight 2:1; w=0.4 reproduces the historical 40/40/20 mix. Synthetic tests now use
+  realistic snapshots. The unimported production `FeedComposer` and its obsolete tests/allowlist
+  entry are removed. Reputation's nightly/fallback SQL is repaired through request_communities in
+  the same PR. Live private ratings remain in reputation-service `POST /reputation/feedback`.
+  **Density cap (maintainer follow-up):** the feed uses `min(100, network_density × 100)`, matching
+  reputation's density contribution. The repaired cron begins creating snapshots that previously did
+  not exist, so the card can move from its empty zero state to a computed score. Density above 1 is
+  normal for an all-time metric; with quality weight zero and both terms capped, strength reaches 100.
+  Density `12.0000` with 50+ completed matches returns **100 / Thriving**, keeping the /100 card and bar
+  bounded. Regression: `tests/regression/sprint-134-pr-l2-feed.test.ts` (50 and 75 completed matches).
+  25 matches with density 0.5 returns **50 / Growing**. Optional normalized quality score and weight
+  arguments are internal; there is no HTTP override or new quality source. Per-community weight in
+  `communities.community_configs` is a separate planned PR requiring a maintainer-allocated ADR and
+  quality signal design. The weighting correction changes no migration or generated schema.
+
 - **2026-10-22 (Sprint 134 PR L, BUG-068, ADR-101 amendment)**: the dead interaction-feedback routes
   `POST`/`GET /matches/:id/feedback` (`src/routes/feedback.ts`) are removed, with their mount and their three
   directed-surface allowlist entries. POST always 500ed on `help_requests.community_id` and no client called either
@@ -397,32 +417,7 @@ CREATE INDEX idx_matches_request_id ON requests.matches(request_id);
 CREATE INDEX idx_matches_status ON requests.matches(status);
 ```
 
-**requests.interaction_feedback** - Social Karma v2.0 exchange quality ratings
-```sql
-CREATE TABLE requests.interaction_feedback (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    match_id UUID NOT NULL REFERENCES requests.matches(id) ON DELETE CASCADE,
-    from_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    to_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-
-    -- Interaction quality ratings (1-5)
-    helpfulness INTEGER CHECK (helpfulness BETWEEN 1 AND 5),
-    responsiveness INTEGER CHECK (responsiveness BETWEEN 1 AND 5),
-    clarity INTEGER CHECK (clarity BETWEEN 1 AND 5),
-
-    -- Optional comment about the exchange (not the person)
-    comment TEXT,
-
-    -- Visibility consent for featuring in stories
-    allow_featuring BOOLEAN DEFAULT false,
-
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(match_id, from_user_id)
-);
-
-CREATE INDEX idx_interaction_feedback_match ON requests.interaction_feedback(match_id);
-CREATE INDEX idx_interaction_feedback_to_user ON requests.interaction_feedback(to_user_id);
-```
+**Retired in Sprint 134 PR L2:** the interaction-feedback table and its indexes were dropped after the only writer was removed (BUG-068). Private feedback lives in `feedback.feedback`, owned by reputation-service.
 
 #### Privacy Design Principles (Social Karma v2.0)
 - **Privacy First**: All requests/offers default to `is_public = false`
@@ -2027,7 +2022,7 @@ surface renders `CommunityHealthHero` today.
 `help_requests.community_id`, which does not exist, so it never wrote `requests.interaction_feedback` or published
 `interaction_feedback_submitted`, and GET could only return empty feedback. No client called either route. Both paths
 now fall through to the app's 404 `NOT_FOUND`. Members rate each other through reputation-service
-`POST /reputation/feedback` (ADR-036). The `requests.interaction_feedback` table is dropped in PR L2.
+`POST /reputation/feedback` (ADR-036). The `requests.interaction_feedback` table is dropped in PR L2 (migration `20261027-drop-interaction-feedback.sql`).
 
 ### 3.5 Health Check
 

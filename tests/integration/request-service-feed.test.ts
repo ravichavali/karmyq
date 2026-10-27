@@ -83,19 +83,13 @@ beforeAll(async () => {
        total_matches_completed,
        total_active_helpers,
        network_density,
-       avg_helpfulness,
-       avg_responsiveness,
-       avg_clarity,
        growth_rate_matches
-     ) VALUES ($1, 25, 10, 0.5, 4, 4, 4, 10)
+     ) VALUES ($1, 25, 10, 0.5, 10)
      ON CONFLICT (community_id, snapshot_date)
      DO UPDATE SET
        total_matches_completed = EXCLUDED.total_matches_completed,
        total_active_helpers = EXCLUDED.total_active_helpers,
        network_density = EXCLUDED.network_density,
-       avg_helpfulness = EXCLUDED.avg_helpfulness,
-       avg_responsiveness = EXCLUDED.avg_responsiveness,
-       avg_clarity = EXCLUDED.avg_clarity,
        growth_rate_matches = EXCLUDED.growth_rate_matches`,
     [testCommunityId]
   );
@@ -203,8 +197,8 @@ describe('Sprint 91 request-service feed integration', () => {
 
     expect(response.body.data).toMatchObject({
       communityId: testCommunityId,
-      networkStrength: 62,
-      networkStrengthLabel: 'Strong',
+      networkStrength: 50,
+      networkStrengthLabel: 'Growing',
       trendDirection: 'growing',
     });
   });

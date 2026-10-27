@@ -1899,7 +1899,7 @@ planning inventory (the four request-service *read* gates of the same kind are f
 
 ---
 
-## BUG-070 · [2026-10-20] · open · **LOW** (proposed)
+## BUG-070 · [2026-10-20] · fixed (Sprint 134 PR L2; deploy pending) · **LOW** (proposed)
 
 **The BUG-063 defect class outside the export router: queries read `help_requests.community_id`, which does not exist.**
 `requests.help_requests` has no `community_id` (a request's communities are in `requests.request_communities`;
@@ -1917,9 +1917,22 @@ on #310 plus an untruncated grep of `r.community_id` across `services/*/src` (20
 Not affected: every other `r.community_id` hit is a JavaScript row mapping over a query that selects `community_id` from a
 table that has it. `services/request-service/src/routes/feedback.ts:46` is BUG-068 (retired in Sprint 134 PR L).
 
-- **Proposed fix:** in Sprint 134 PR L2, which already rewrites `healthMetricsService.ts` and the health route's average
-  reads: link through `request_communities`, add a real-SQL test of the cron and the fallback, and delete the dead `FeedComposer`.
-- **Owner:** Claude (Sprint 134 PR L2; placement confirmed by the maintainer 2026-10-20). **Deadline: 2026-11-03**
+- **Fix (Sprint 134 PR L2):** shared `communityHealthMetrics.ts` scopes completed matches with a
+  `request_communities` EXISTS; the nightly snapshot/cache and health-route fallback use the same reader.
+  The dead `FeedComposer`, its dedicated tests, and its cases in mixed suites are removed (the inventory
+  confirmed test importers but no production importer). The retired table and seven average/count columns
+  are dropped in one migration. Per the maintainer's 2026-10-27 decision, the tunable quality weight w
+  defaults to zero, is clamped to [0,1], and leaves activity/density sharing the full score 2:1:
+  `(1-w) * (2*activity + density) / 3 + w*quality`. Both strength surfaces can reach 100; private ratings
+  remain separate. This weighting correction changes no migration/init.sql. Real SQL cron/fallback/upsert/growth and
+  community-isolation tests: `tests/integration/sprint-134-pr-l2-health.integration.test.ts` — **CI-only on
+  Windows; Integration Tests is the arbiter, not local mocked SQL**. Deployment remains pending.
+  **First-working-cron follow-up (maintainer, 2026-10-27):** isolate health/trust and milestone failures
+  per community so later communities are still attempted. In the same migration, widen snapshot density
+  to NUMERIC(20,4), both snapshot growth fields and cached trend percentage to NUMERIC(20,2).
+  Real-SQL cases require density 12 (zero cached members), 1100% match growth, 2300% participant
+  growth and cached 1100% trend while every other fixture community still receives its snapshot.
+- **Owner:** Codex author/executor, Claude cross-agent reviewer (Sprint 134 PR L2; maintainer reconfirmed inclusion). **Deadline: 2026-11-03**
   (≤ 2-week SLA).
 
 ---

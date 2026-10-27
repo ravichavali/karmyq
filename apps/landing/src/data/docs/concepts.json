@@ -796,7 +796,7 @@
       "slug": "adr-102-live-membership-authorization",
       "number": "102",
       "title": "ADR-102: Authorization Re-derives the Role from Live Membership",
-      "status": "accepted",
+      "status": "implemented",
       "description": "**Date**: 2026-10-22",
       "filename": "ADR-102-live-membership-authorization.md"
     }

@@ -12,7 +12,7 @@ export interface CommunityHealthSummary {
 }
 
 export class SocialKarmaFeedComposer {
-  async getCommunityHealthSummary(communityId: string): Promise<CommunityHealthSummary | null> {
+  async getCommunityHealthSummary(communityId: string, qualityScore = 0, qualityWeight = 0): Promise<CommunityHealthSummary | null> {
     const communityResult = await query(
       `SELECT id, name FROM communities.communities WHERE id = $1`,
       [communityId]
@@ -28,9 +28,6 @@ export class SocialKarmaFeedComposer {
         total_matches_completed,
         total_active_helpers,
         network_density,
-        avg_helpfulness,
-        avg_responsiveness,
-        avg_clarity,
         growth_rate_matches
       FROM reputation.community_health_metrics
       WHERE community_id = $1
@@ -54,15 +51,15 @@ export class SocialKarmaFeedComposer {
 
     const metrics = metricsResult.rows[0];
     const totalMatches = Number(metrics.total_matches_completed) || 0;
-    const avgHelpfulness = Number(metrics.avg_helpfulness) || 0;
-    const avgResponsiveness = Number(metrics.avg_responsiveness) || 0;
-    const avgClarity = Number(metrics.avg_clarity) || 0;
     const networkDensity = Number(metrics.network_density) || 0;
 
     const activityScore = Math.min(100, totalMatches * 2);
-    const qualityScore = ((avgHelpfulness + avgResponsiveness + avgClarity) / 3) * 20;
-    const densityScore = networkDensity * 100;
-    const networkStrength = activityScore * 0.4 + qualityScore * 0.4 + densityScore * 0.2;
+    // No live quality source is chosen yet; weight defaults to zero and the remaining terms
+    // split the full score 2:1. These optional arguments are internal, not HTTP overrides.
+    const quality = Number.isFinite(qualityScore) ? Math.min(100, Math.max(0, qualityScore)) : 0;
+    const densityScore = Math.min(100, networkDensity * 100);
+    const w = Number.isNaN(qualityWeight) ? 0 : Math.min(1, Math.max(0, qualityWeight));
+    const networkStrength = (1 - w) * (2 * activityScore + densityScore) / 3 + w * quality;
     const growthRate = Number(metrics.growth_rate_matches) || 0;
 
     return {

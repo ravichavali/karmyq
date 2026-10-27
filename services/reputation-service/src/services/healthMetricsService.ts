@@ -1,4 +1,5 @@
 import { query } from '../database/db';
+import { readCurrentCommunityMetrics } from './communityHealthMetrics';
 import { publishEvent } from '../events/publisher';
 import { calculateCommunityTrustScore } from './communityTrustService';
 
@@ -10,56 +11,15 @@ export async function calculateCommunityHealthMetrics(communityId: string): Prom
   try {
     console.log(`Calculating health metrics for community: ${communityId}`);
 
-    // Get all completed matches for this community
-    const matchesResult = await query(
-      `SELECT COUNT(*) as total
-       FROM requests.matches m
-       INNER JOIN requests.help_requests r ON m.request_id = r.id
-       WHERE r.community_id = $1 AND m.status = 'completed'`,
-      [communityId]
-    );
-
-    const totalMatches = parseInt(matchesResult.rows[0].total || 0);
-
-    // Get unique participants (requesters and helpers)
-    const participantsResult = await query(
-      `SELECT
-         COUNT(DISTINCT r.requester_id) as requesters,
-         COUNT(DISTINCT m.responder_id) as helpers
-       FROM requests.matches m
-       INNER JOIN requests.help_requests r ON m.request_id = r.id
-       WHERE r.community_id = $1 AND m.status = 'completed'`,
-      [communityId]
-    );
-
-    const totalRequesters = parseInt(participantsResult.rows[0].requesters || 0);
-    const totalHelpers = parseInt(participantsResult.rows[0].helpers || 0);
-    const uniqueParticipants = totalRequesters + totalHelpers;
-
-    // Get average interaction quality from feedback
-    const qualityResult = await query(
-      `SELECT
-         AVG(f.helpfulness) as avg_helpfulness,
-         AVG(f.responsiveness) as avg_responsiveness,
-         AVG(f.clarity) as avg_clarity
-       FROM requests.interaction_feedback f
-       INNER JOIN requests.matches m ON f.match_id = m.id
-       INNER JOIN requests.help_requests r ON m.request_id = r.id
-       WHERE r.community_id = $1`,
-      [communityId]
-    );
-
-    const avgHelpfulness = parseFloat(qualityResult.rows[0]?.avg_helpfulness || 0);
-    const avgResponsiveness = parseFloat(qualityResult.rows[0]?.avg_responsiveness || 0);
-    const avgClarity = parseFloat(qualityResult.rows[0]?.avg_clarity || 0);
-
-    // Calculate network density (matches per member)
-    const communityResult = await query(
-      `SELECT current_members FROM communities.communities WHERE id = $1`,
-      [communityId]
-    );
-    const totalMembers = parseInt(communityResult.rows[0]?.current_members || 1);
-    const networkDensity = totalMatches / totalMembers;
+    const current = await readCurrentCommunityMetrics(communityId);
+    const {
+      total_matches_completed: totalMatches,
+      total_active_requesters: totalRequesters,
+      total_active_helpers: totalHelpers,
+      unique_participants: uniqueParticipants,
+      network_density: networkDensity,
+      network_strength: networkStrength,
+    } = current;
 
     // Get previous snapshot for growth calculation (7 days ago)
     const previousSnapshot = await query(
@@ -75,7 +35,7 @@ export async function calculateCommunityHealthMetrics(communityId: string): Prom
     let growthRateMatches = 0;
     let growthRateParticipants = 0;
 
-    if (previousSnapshot.rowCount > 0) {
+    if ((previousSnapshot.rowCount ?? 0) > 0) {
       const prevMatches = parseInt(previousSnapshot.rows[0].total_matches_completed || 0);
       const prevParticipants = parseInt(previousSnapshot.rows[0].unique_participant_count || 0);
 
@@ -97,22 +57,16 @@ export async function calculateCommunityHealthMetrics(communityId: string): Prom
          total_active_requesters,
          total_active_helpers,
          unique_participant_count,
-         avg_helpfulness,
-         avg_responsiveness,
-         avg_clarity,
          network_density,
          growth_rate_matches,
          growth_rate_participants
-       ) VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       ) VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (community_id, snapshot_date)
        DO UPDATE SET
          total_matches_completed = EXCLUDED.total_matches_completed,
          total_active_requesters = EXCLUDED.total_active_requesters,
          total_active_helpers = EXCLUDED.total_active_helpers,
          unique_participant_count = EXCLUDED.unique_participant_count,
-         avg_helpfulness = EXCLUDED.avg_helpfulness,
-         avg_responsiveness = EXCLUDED.avg_responsiveness,
-         avg_clarity = EXCLUDED.avg_clarity,
          network_density = EXCLUDED.network_density,
          growth_rate_matches = EXCLUDED.growth_rate_matches,
          growth_rate_participants = EXCLUDED.growth_rate_participants`,
@@ -122,9 +76,6 @@ export async function calculateCommunityHealthMetrics(communityId: string): Prom
         totalRequesters,
         totalHelpers,
         uniqueParticipants,
-        avgHelpfulness,
-        avgResponsiveness,
-        avgClarity,
         networkDensity,
         growthRateMatches,
         growthRateParticipants,
@@ -132,7 +83,7 @@ export async function calculateCommunityHealthMetrics(communityId: string): Prom
     );
 
     // Update community health summary cache
-    await updateHealthSummary(communityId, totalMatches, uniqueParticipants, networkDensity, avgHelpfulness, avgResponsiveness, avgClarity, growthRateMatches);
+    await updateHealthSummary(communityId, totalMatches, uniqueParticipants, networkStrength, growthRateMatches);
 
     // Publish event
     await publishEvent('health_metrics_calculated', {
@@ -165,8 +116,12 @@ export async function calculateAllCommunityMetrics(): Promise<void> {
     console.log(`Found ${communities.rowCount} active communities`);
 
     for (const community of communities.rows) {
-      await calculateCommunityHealthMetrics(community.id);
-      await calculateCommunityTrustScore(community.id);
+      try {
+        await calculateCommunityHealthMetrics(community.id);
+        await calculateCommunityTrustScore(community.id);
+      } catch (error) {
+        console.error(`[healthMetrics] Failed for ${community.id}:`, error);
+      }
     }
 
     console.log('Completed daily health metrics calculation for all communities');
@@ -183,27 +138,9 @@ async function updateHealthSummary(
   communityId: string,
   totalExchanges: number,
   activeMembers: number,
-  networkDensity: number,
-  avgHelpfulness: number,
-  avgResponsiveness: number,
-  avgClarity: number,
+  networkStrength: number,
   trendPercentage: number
 ): Promise<void> {
-  // Calculate network strength
-  const matchesPerParticipant = activeMembers > 0 ? totalExchanges / activeMembers : 0;
-  const activityScore = Math.min(100, matchesPerParticipant * 20);
-
-  const avgQuality = (avgHelpfulness + avgResponsiveness + avgClarity) / 3;
-  const qualityScore = (avgQuality / 5) * 100;
-
-  const densityScore = Math.min(100, networkDensity * 100);
-
-  const networkStrength = (
-    activityScore * 0.4 +
-    qualityScore * 0.4 +
-    densityScore * 0.2
-  );
-
   const trendDirection = trendPercentage > 5 ? 'growing' :
                         trendPercentage < -5 ? 'declining' : 'stable';
 
