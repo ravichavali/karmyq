@@ -197,8 +197,8 @@ describe('Sprint 91 request-service feed integration', () => {
 
     expect(response.body.data).toMatchObject({
       communityId: testCommunityId,
-      networkStrength: 62,
-      networkStrengthLabel: 'Strong',
+      networkStrength: 50,
+      networkStrengthLabel: 'Growing',
       trendDirection: 'growing',
     });
   });

@@ -84,7 +84,7 @@ describe('Sprint 134 L2 nightly health + HTTP fallback against migrated SQL (BUG
 
   const expectedCurrent = {
     total_matches_completed: 3, total_active_requesters: 2, total_active_helpers: 2,
-    unique_participants: 4, network_density: 0.3, network_strength: 12,
+    unique_participants: 4, network_density: 0.3, network_strength: 20,
   };
 
   const assertEveryCommunitySnapshot = async () => {
@@ -141,7 +141,7 @@ describe('Sprint 134 L2 nightly health + HTTP fallback against migrated SQL (BUG
     expect(response.body.data.current).toEqual(expectedCurrent);
     expect((await api(D)).body.data.current).toEqual({
       total_matches_completed: 2, total_active_requesters: 2, total_active_helpers: 1,
-      unique_participants: 3, network_density: 2, network_strength: 25.33,
+      unique_participants: 3, network_density: 2, network_strength: 42.22,
     });
   });
 
@@ -168,7 +168,7 @@ describe('Sprint 134 L2 nightly health + HTTP fallback against migrated SQL (BUG
       expect(snapshot).toEqual([{ total_matches_completed: 3, total_active_requesters: 2, total_active_helpers: 2,
         unique_participant_count: 4, network_density: '0.3000', growth_rate_matches: '0.00' }]);
       expect((await query('SELECT total_exchanges,active_members,network_strength FROM communities.health_summary WHERE community_id=$1', [C])).rows)
-        .toEqual([{ total_exchanges: 3, active_members: 4, network_strength: '12.00' }]);
+        .toEqual([{ total_exchanges: 3, active_members: 4, network_strength: '20.00' }]);
     });
   });
 
@@ -180,7 +180,7 @@ describe('Sprint 134 L2 nightly health + HTTP fallback against migrated SQL (BUG
         FROM reputation.community_health_metrics WHERE community_id=$1 AND snapshot_date=CURRENT_DATE`, [DENSE])).rows)
         .toEqual([{ total_matches_completed: 12, unique_participant_count: 24, network_density: '12.0000' }]);
       expect((await query('SELECT total_exchanges,network_strength FROM communities.health_summary WHERE community_id=$1', [DENSE])).rows)
-        .toEqual([{ total_exchanges: 12, network_strength: '24.00' }]);
+        .toEqual([{ total_exchanges: 12, network_strength: '40.00' }]);
     });
   });
 

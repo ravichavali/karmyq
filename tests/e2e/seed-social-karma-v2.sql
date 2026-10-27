@@ -179,10 +179,10 @@ BEGIN
 
   RAISE NOTICE '✅ Created health metrics snapshots';
 
-  -- Cache the same default-zero-quality score used by reputation health.
+  -- Cache the same zero-quality-weight score used by reputation health: (2*40 + 72)/3.
   INSERT INTO communities.health_summary
     (community_id, total_exchanges, active_members, network_strength, trend_direction, trend_percentage)
-  VALUES (v_community_id, 60, 30, 30.4, 'growing', 12.5)
+  VALUES (v_community_id, 60, 30, 50.67, 'growing', 12.5)
   ON CONFLICT (community_id) DO UPDATE SET
     total_exchanges = EXCLUDED.total_exchanges, active_members = EXCLUDED.active_members,
     network_strength = EXCLUDED.network_strength, trend_direction = EXCLUDED.trend_direction,
@@ -196,7 +196,7 @@ BEGIN
   RAISE NOTICE '- 10 featured stories';
   RAISE NOTICE '- 4 milestones achieved';
   RAISE NOTICE '- 2 health metrics snapshots';
-  RAISE NOTICE '- Network strength: 30.4/100 (Developing)';
+  RAISE NOTICE '- Cached reputation health strength: 50.67/100';
   RAISE NOTICE '- Growth: +12.5%% (7-day)';
   RAISE NOTICE '';
   RAISE NOTICE 'Test the endpoints:';

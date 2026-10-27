@@ -35,7 +35,7 @@ export async function calculateCommunityHealthMetrics(communityId: string): Prom
     let growthRateMatches = 0;
     let growthRateParticipants = 0;
 
-    if (previousSnapshot.rowCount > 0) {
+    if ((previousSnapshot.rowCount ?? 0) > 0) {
       const prevMatches = parseInt(previousSnapshot.rows[0].total_matches_completed || 0);
       const prevParticipants = parseInt(previousSnapshot.rows[0].unique_participant_count || 0);
 

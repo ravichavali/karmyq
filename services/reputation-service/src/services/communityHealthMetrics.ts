@@ -10,21 +10,23 @@ export interface CurrentCommunityMetrics {
 }
 
 /**
- * Quality is an optional normalized score (0–100), reserved for an explicitly chosen future
- * source. Current callers omit it: the retired interaction averages never supplied live data.
- * Keep the existing 40/40/20 weights, so retiring those averages does not inflate the score.
+ * The tunable quality weight defaults to zero. Activity and density split the remaining weight
+ * 2:1, so unavailable quality never strands 40% of the score. Quality is normalized to 0–100;
+ * its signal source and persisted community weight belong to a separate planned PR.
  */
 export function calculateNetworkStrength(
   totalMatches: number,
   uniqueParticipants: number,
   networkDensity: number,
   qualityScore = 0,
+  qualityWeight = 0,
 ): number {
   const matchesPerParticipant = uniqueParticipants > 0 ? totalMatches / uniqueParticipants : 0;
   const activity = Math.min(100, Math.max(0, matchesPerParticipant * 20));
   const density = Math.min(100, Math.max(0, networkDensity * 100));
   const quality = Number.isFinite(qualityScore) ? Math.min(100, Math.max(0, qualityScore)) : 0;
-  return Number((activity * 0.4 + quality * 0.4 + density * 0.2).toFixed(2));
+  const w = Number.isNaN(qualityWeight) ? 0 : Math.min(1, Math.max(0, qualityWeight));
+  return Number(((1 - w) * (2 * activity + density) / 3 + w * quality).toFixed(2));
 }
 
 /** The snapshot writer and HTTP fallback must read the same community-scoped source. */

@@ -23,13 +23,23 @@ describe('Sprint 134 L2 community health (BUG-070)', () => {
   });
 
   it.each([
-    [10, 4, 0.5, undefined, 30],
+    [10, 4, 0.5, undefined, 50],
     [10, 4, 0.5, 50, 50],
     [0, 0, 0, undefined, 0],
-    [1000, 1, 20, 200, 100],
-    [10, 4, 0.5, -100, 30],
+    [1000, 1, 20, 0, 100],
+    [10, 4, 0.5, -100, 50],
   ])('scores matches=%s participants=%s density=%s quality=%s as %s', (matches, participants, density, quality, expected) => {
     expect(calculateNetworkStrength(matches, participants, density, quality)).toBe(expected);
+  });
+
+  it.each([
+    [10, 4, 0.5, 50, 0.4, 50],
+    [1000, 1, 12, 0, 0, 100],
+    [1000, 1, 12, 25, -1, 100],
+    [1000, 1, 12, 25, 2, 25],
+    [1000, 1, 12, 25, NaN, 100],
+  ])('uses a clamped quality weight: %s/%s/%s quality=%s weight=%s → %s', (matches, participants, density, quality, weight, expected) => {
+    expect(calculateNetworkStrength(matches, participants, density, quality, weight)).toBe(expected);
   });
 
   it('returns finite metrics with no exchanges and zero cached members', async () => {
@@ -42,7 +52,7 @@ describe('Sprint 134 L2 community health (BUG-070)', () => {
     });
   });
 
-  it('fallback projects only live metrics with default-zero quality', async () => {
+  it('fallback projects only live metrics with default-zero quality weight', async () => {
     mockQuery.mockResolvedValueOnce(result([]))
       .mockResolvedValueOnce(result([{ total: '10' }]))
       .mockResolvedValueOnce(result([{ requesters: '2', helpers: '2' }]))
@@ -51,7 +61,7 @@ describe('Sprint 134 L2 community health (BUG-070)', () => {
     expect(response.status).toBe(200);
     expect(response.body.data.current).toEqual({
       total_matches_completed: 10, total_active_requesters: 2, total_active_helpers: 2,
-      unique_participants: 4, network_density: 0.5, network_strength: 30,
+      unique_participants: 4, network_density: 0.5, network_strength: 50,
     });
   });
 
@@ -65,12 +75,12 @@ describe('Sprint 134 L2 community health (BUG-070)', () => {
     expect(response.status).toBe(200);
     expect(response.body.data.current).toEqual({
       total_matches_completed: 10, total_active_requesters: 2, total_active_helpers: 2,
-      unique_participants: 4, network_density: 0.5, network_strength: 30,
+      unique_participants: 4, network_density: 0.5, network_strength: 50,
     });
     expect(response.body.data.trend).toEqual({ matches_growth: 10, participants_growth: -2, direction: 'growing' });
   });
 
-  it('stores the same default-zero score in the community cache', async () => {
+  it('stores the same zero-quality-weight score in the community cache', async () => {
     mockQuery.mockResolvedValueOnce(result([{ total: '10' }]))
       .mockResolvedValueOnce(result([{ requesters: '2', helpers: '2' }]))
       .mockResolvedValueOnce(result([{ current_members: 20 }]))
@@ -78,7 +88,7 @@ describe('Sprint 134 L2 community health (BUG-070)', () => {
       .mockResolvedValue(result([]));
     await calculateCommunityHealthMetrics('C');
     const cache = mockQuery.mock.calls.find(([sql]) => sql.includes('INSERT INTO communities.health_summary'));
-    expect(cache?.[1]).toEqual(['C', 10, 4, 30, 'growing', 100]);
+    expect(cache?.[1]).toEqual(['C', 10, 4, 50, 'growing', 100]);
   });
 
   it('denies aggregates before snapshot or fallback reads', async () => {

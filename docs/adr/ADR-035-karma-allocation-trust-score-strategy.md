@@ -82,8 +82,11 @@ Two new modules in `services/reputation-service/src/services/`:
 - Private feedback ratings contribute to trust score through the ADR-036/039 rating path.
   **Sprint 134 PR L2 correction:** the separate helpfulness/responsiveness/clarity columns and
   `requests.interaction_feedback` were dead data and are dropped; they never supplied that signal.
-  Community-health strength keeps its 40/40/20 formula with an optional normalized quality-score
-  argument defaulting to zero. No private-rating source or API override is added.
+  **Maintainer decision (2026-10-27):** community-health strength uses a named quality weight w,
+  clamped to [0,1], default 0: `(1-w) * (2*activity + density) / 3 + w*quality`. At w=0 the remaining
+  terms split the full score 2:1 and can reach 100; w=0.4 recovers the historical 40/40/20 mix.
+  No private-rating source or API override is added. Persisting the weight per community is a
+  separate planned PR needing an ADR number from the maintainer and a chosen quality signal source.
 - Both algorithms are easy to unit test in isolation
 - Adding new signals (connections, recency) requires only changes to the strategy module
 

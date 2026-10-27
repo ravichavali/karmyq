@@ -98,7 +98,7 @@ async function recordMilestone(
       [communityId, milestoneType]
     );
 
-    if (existing.rowCount > 0) {
+    if ((existing.rowCount ?? 0) > 0) {
       // Milestone already recorded
       return;
     }

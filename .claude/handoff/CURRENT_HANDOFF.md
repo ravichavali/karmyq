@@ -34,7 +34,7 @@ all 9 services healthy, "Notify on failure" skipped (no rollback). **No CodeQL r
 merge-sha analyses raised nothing new, highest alert still #627). ADR-102 flipped to Implemented. BUG-069 closed inside its
 10-30 date. Human validation pending (*PR K state*). See *PR K state*.
 **Now: PR L2 [#320](https://github.com/ravichavali/karmyq/pull/320) OPEN**, awaiting cross-agent review + maintainer merge,
-on `agent/claude/sprint-134-pr-l2-drop-feedback-schema` (from `origin/master` `dd585016`; implementation `7f0606d5`,
+on `agent/claude/sprint-134-pr-l2-drop-feedback-schema` (from `origin/master` `dd585016`; initial implementation `7f0606d5`,
 v11.101.0). Codex is the author/executor; Claude reviews next. **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
 become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26); the 10-29 deadline no longer applies.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
@@ -90,34 +90,41 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 | 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | write at PR start | — |
 | 8 | **B** | PR B endorsement follow-ups (`docs/IDEAS.md` 2026-10-13) | — | write at PR start | — |
 | 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
+| — | **Per-community health-quality weight (planned PR)** | Persist the weight in `communities.community_configs`; choose a quality signal source; requires an ADR number allocated by the maintainer | Not scheduled | Write after ADR allocation + signal decision | Separate planned PR, not part of L2 |
 
 B and C are the likeliest to spill into Sprint 135, which is expected. One merge at a time; wait for deploy + health before the next.
 
 ## PR L2 state (Codex author/executor, 2026-10-27)
 
 **[PR #320](https://github.com/ravichavali/karmyq/pull/320) is open, awaiting cross-agent review +
-maintainer merge.** Implementation `7f0606d5` is pushed. Final authorized npm test and the installed
-pre-push unit/regression gate both passed 27/27; see the PR's [Validation ledger](https://github.com/ravichavali/karmyq/pull/320#validation)
-for the tested commit, commands, cache and limitations. The process reviewer returned PASS.
-Only this handoff and the plan completion metadata change after the implementation commit; this
-documentation checkpoint records the actual PR link/state. No logic/schema edits since that tested commit.
+maintainer merge.** Initial implementation `7f0606d5` and documentation checkpoint `239c6c79` are
+pushed. The maintainer's confirmed quality-weight follow-up supersedes their score expectations and
+changes code, tests, docs and two strict-null checks, with no migration/init.sql change. See the PR's
+[Validation ledger](https://github.com/ravichavali/karmyq/pull/320#validation) for the latest tested
+commit, commands, cache and limitations; earlier 27/27 results predate this weighting correction.
 **Next action: Claude checks #320's CI, especially Integration Tests, and runs cross-agent
 `/code-review` and `/security-review`.** The author does not watch CI, merge or deploy in this chat.
 
 Plan: `docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md`.
 BUG-070 is included, due **2026-11-03**, fixed in code; merge/deploy pending. Root version
 **11.101.0** is provisional from origin/master `dd585016` (11.100.0); re-derive again at merge time.
-Only Dependabot #318 was open at the latest pre-delivery live check; dependency lane stays Claude's.
+The latest live check shows #320 and Dependabot #318 open; dependency lane stays Claude's.
 
-Decisions the reviewer needs: quality is an optional internal normalized score [0,100], default 0,
-with existing 40/40/20 weights and no HTTP override/private-rating substitute. Existing requester+
-helper role-count semantics and the feed's separate activity formula stay. The maintainer's two
-follow-ups are included: per-community catches in both nightly loops; wider numeric snapshot/cache
-fields; feed density contribution capped at 100 (density 12 + 50/75 matches → 60 / Strong). Nine real-SQL
-cases include density 12, match/participant growth 1100%/2300%, cache 1100%, and every fixture snapshot.
-**Maintainer confirmation before merge:** the implemented quality parameter defaults to zero, so
-reputation health strength tops out at 60/100. This interpretation remains explicit in the PR;
-no configurable quality weight or replacement rating source was added.
+**Confirmed maintainer decision (2026-10-27):** the tunable parameter is the named quality weight w,
+clamped to [0,1], default 0. Both surfaces compute `(1-w)*(2*activity+density)/3+w*quality`.
+At w=0, activity/density split the full weight 2:1 and can reach 100; w=0.4 recovers the historical
+40/40/20 mix. Existing activity definitions, participant-count semantics and density cap of 100 stay.
+Feed density 12 with 50/75 matches returns 100 / Thriving; 25 matches/density 0.5 returns 50 / Growing.
+Reputation (10,4,0.5) returns 50; real-SQL C=20.00, D=42.22, DENSE=40.00. This supersedes the earlier
+default-zero quality-score interpretation and 60-point ceiling; the decision is no longer open.
+There is no HTTP override, persisted weight or newly selected quality signal in L2. The same push
+fixes strict-null rowCount comparisons in healthMetricsService/milestoneDetector. The requested
+tests-project compiler filter is empty; the two reported errors are removed, with 70 unchanged
+unrelated existing diagnostics remaining. Migration/init.sql are unchanged by this follow-up.
+
+**Separate planned PR — per-community health-quality weight:** persist w in
+`communities.community_configs`, with its own design/plan and quality signal source. The maintainer
+must allocate the ADR number before that work starts. No ADR number or implementation is self-assigned.
 
 **Authorized schema operation PASSED:** original generator, strict L2 migration reapply twice,
 full-chain drift check, fresh restore and byte-identical regeneration. One migration drops the

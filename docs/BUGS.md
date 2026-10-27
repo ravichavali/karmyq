@@ -1921,8 +1921,10 @@ table that has it. `services/request-service/src/routes/feedback.ts:46` is BUG-0
   `request_communities` EXISTS; the nightly snapshot/cache and health-route fallback use the same reader.
   The dead `FeedComposer`, its dedicated tests, and its cases in mixed suites are removed (the inventory
   confirmed test importers but no production importer). The retired table and seven average/count columns
-  are dropped in one migration. Quality is an optional internal normalized score, default zero, retaining
-  the 40/40/20 weights. Live private ratings remain separate. Real SQL cron/fallback/upsert/growth and
+  are dropped in one migration. Per the maintainer's 2026-10-27 decision, the tunable quality weight w
+  defaults to zero, is clamped to [0,1], and leaves activity/density sharing the full score 2:1:
+  `(1-w) * (2*activity + density) / 3 + w*quality`. Both strength surfaces can reach 100; private ratings
+  remain separate. This weighting correction changes no migration/init.sql. Real SQL cron/fallback/upsert/growth and
   community-isolation tests: `tests/integration/sprint-134-pr-l2-health.integration.test.ts` — **CI-only on
   Windows; Integration Tests is the arbiter, not local mocked SQL**. Deployment remains pending.
   **First-working-cron follow-up (maintainer, 2026-10-27):** isolate health/trust and milestone failures

@@ -12,7 +12,7 @@ export interface CommunityHealthSummary {
 }
 
 export class SocialKarmaFeedComposer {
-  async getCommunityHealthSummary(communityId: string): Promise<CommunityHealthSummary | null> {
+  async getCommunityHealthSummary(communityId: string, qualityScore = 0, qualityWeight = 0): Promise<CommunityHealthSummary | null> {
     const communityResult = await query(
       `SELECT id, name FROM communities.communities WHERE id = $1`,
       [communityId]
@@ -54,10 +54,12 @@ export class SocialKarmaFeedComposer {
     const networkDensity = Number(metrics.network_density) || 0;
 
     const activityScore = Math.min(100, totalMatches * 2);
-    // Retired interaction averages supplied no live quality signal; preserve their zero contribution.
-    const qualityScore = 0;
+    // No live quality source is chosen yet; weight defaults to zero and the remaining terms
+    // split the full score 2:1. These optional arguments are internal, not HTTP overrides.
+    const quality = Number.isFinite(qualityScore) ? Math.min(100, Math.max(0, qualityScore)) : 0;
     const densityScore = Math.min(100, networkDensity * 100);
-    const networkStrength = activityScore * 0.4 + qualityScore * 0.4 + densityScore * 0.2;
+    const w = Number.isNaN(qualityWeight) ? 0 : Math.min(1, Math.max(0, qualityWeight));
+    const networkStrength = (1 - w) * (2 * activityScore + densityScore) / 3 + w * quality;
     const growthRate = Number(metrics.growth_rate_matches) || 0;
 
     return {

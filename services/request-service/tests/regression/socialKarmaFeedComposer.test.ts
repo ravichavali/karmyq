@@ -13,7 +13,7 @@ describe('SocialKarmaFeedComposer - Community Health Summary', () => {
     composer = new SocialKarmaFeedComposer();
   });
 
-  it('preserves the existing activity and density weights with zero quality', async () => {
+  it('splits the full weight 2:1 between activity and density when quality weight is zero', async () => {
     mockQuery
       .mockResolvedValueOnce({
         rows: [{ id: 'comm-1', name: 'Test Community' }],
@@ -32,8 +32,8 @@ describe('SocialKarmaFeedComposer - Community Health Summary', () => {
     const summary = await composer.getCommunityHealthSummary('comm-1');
 
     expect(summary).not.toBeNull();
-    expect(summary!.networkStrength).toBeCloseTo(30, 1);
-    expect(summary!.networkStrengthLabel).toBe('Developing');
+    expect(summary!.networkStrength).toBeCloseTo(50, 1);
+    expect(summary!.networkStrengthLabel).toBe('Growing');
     expect(summary!.trendDirection).toBe('growing');
   });
 
@@ -55,15 +55,16 @@ describe('SocialKarmaFeedComposer - Community Health Summary', () => {
 
     const summary = await composer.getCommunityHealthSummary('comm-1');
 
-    expect(summary!.networkStrength).toBeCloseTo(50, 1);
+    expect(summary!.networkStrength).toBeCloseTo(83.3, 1);
     expect(summary!.trendDirection).toBe('stable');
   });
 
   it.each([
-    ['Strong', 50, 1, 60],
-    ['Growing', 50, 0.5, 50],
-    ['Developing', 25, 0.5, 30],
-    ['Building', 2, 0.02, 2],
+    ['Thriving', 50, 1, 100],
+    ['Strong', 30, 0.6, 60],
+    ['Growing', 25, 0.5, 50],
+    ['Developing', 10, 0.2, 20],
+    ['Building', 2, 0.02, 3.3],
   ])('returns "%s" for its score range', async (label, matches, density, expectedScore) => {
     mockQuery
       .mockResolvedValueOnce({
@@ -165,7 +166,7 @@ describe('SocialKarmaFeedComposer - Community Health Summary', () => {
 
     const summary = await composer.getCommunityHealthSummary('comm-1');
 
-    expect(summary!.networkStrength).toBeCloseTo(20.3, 1);
+    expect(summary!.networkStrength).toBeCloseTo(33.8, 1);
     expect(summary!.growthRate).toBeCloseTo(4.6, 1);
   });
 });

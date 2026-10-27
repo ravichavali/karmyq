@@ -13,8 +13,11 @@
   drops `requests.interaction_feedback`, those three snapshot columns, and the four retired
   `trust_scores` interaction-feedback columns. Live private `feedback.feedback` and
   `trust_scores.average_feedback` are preserved. Quality milestones are no longer generated.
-  Strength retains activity × 0.4 + quality × 0.4 + density × 0.2: quality is an optional internal
-  normalized score [0,100], default **0**, with no HTTP override or replacement rating source.
+  **Maintainer decision (2026-10-27):** the tunable parameter is `qualityWeight`, clamped to [0,1]
+  and defaulting to **0**. Strength is `(1-w) * (2*activity + density) / 3 + w*quality`, with activity,
+  density and quality on a 0–100 scale. At w=0, activity/density split the full weight 2:1 and can
+  reach 100; w=0.4 reproduces the historical 40/40/20 mix. The optional normalized quality score has
+  no selected signal source yet. No HTTP override or per-community configuration is added in L2.
   Snapshot, cache and fallback use the same calculation. Participant count retains the existing sum
   of distinct requesters and distinct helpers (a person in both roles counts twice); density divides
   by at least one cached member to avoid zero division. The aggregate membership/cohort guard stays.
@@ -621,7 +624,7 @@ Get community health metrics and trends.
       "total_active_requesters": 2,
       "total_active_helpers": 2,
       "network_density": 0.5,
-      "network_strength": 30
+      "network_strength": 50
     },
     "trend": {
       "matches_growth": 15.2,
@@ -638,12 +641,16 @@ Get community health metrics and trends.
 
 **Network Strength Calculation:**
 ```
-network_strength = weighted_average(
-  activity_score * 0.4,      // min(100, matches / role-count participants * 20)
-  quality_score * 0.4,       // optional internal [0,100] score; current default 0
-  density_score * 0.2        // min(100, matches per cached member * 100)
-)
+w = clamp(qualityWeight, 0, 1)  // default 0
+activity = min(100, matches / role-count participants * 20)
+density = min(100, matches per cached member * 100)
+network_strength = (1 - w) * (2 * activity + density) / 3 + w * quality
 ```
+
+Quality is a normalized internal score [0,100]. With default w=0, `(10 matches, 4 participants,
+density 0.5)` yields 50; activity and density can reach a full 100. A separate planned PR will
+persist per-community weight in `communities.community_configs`; it needs a maintainer-allocated ADR
+number and a chosen quality signal source. The L2 weighting follow-up changes no migration/init.sql.
 
 ### GET /reputation/milestones/:communityId
 Get community milestone achievements.
