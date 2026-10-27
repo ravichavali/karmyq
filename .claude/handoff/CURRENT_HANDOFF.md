@@ -102,8 +102,9 @@ pushed. The maintainer's confirmed quality-weight follow-up supersedes their sco
 changes code, tests, docs and two strict-null checks, with no migration/init.sql change. See the PR's
 [Validation ledger](https://github.com/ravichavali/karmyq/pull/320#validation) for the latest tested
 commit, commands, cache and limitations; earlier 27/27 results predate this weighting correction.
-**Next action: Claude checks #320's CI, especially Integration Tests, and runs cross-agent
-`/code-review` and `/security-review`.** The author does not watch CI, merge or deploy in this chat.
+**Next action: Claude runs cross-agent `/code-review` and `/security-review` on #320.** CI passed
+at implementation head `cd81ea3b`; verify the latest head before recommending a maintainer merge.
+No merge or deployment is authorized by this checkpoint.
 
 **CI follow-up (maintainer reported failure, 2026-10-27):** head `4db4fa6f` passed local unit/regression
 but [Integration Tests failed](https://github.com/ravichavali/karmyq/actions/runs/40565448245/job/122407295038):
@@ -112,7 +113,16 @@ but [Integration Tests failed](https://github.com/ravichavali/karmyq/actions/run
 `tests/integration/sprint-134-pr-l2-health.integration.test.ts:34` now has explicit `varchar` casts,
 matching `requests.matches.status` in `infrastructure/postgres/init.sql:2487`. No production code,
 migration or schema changes. This corrects fixture setup; cron/fallback assertions did not execute
-on that CI head. The PR Validation ledger records current local verification and pending SQL proof.
+on that CI head. The correction was pushed as `cd81ea3b`.
+
+**CI verified after the maintainer reported completion (2026-10-27):** all checks passed at
+`cd81ea3b` (deploy skipped for the PR). [Integration Tests](https://github.com/ravichavali/karmyq/actions/runs/40567960729/job/122415775045)
+passed 19/19 suites and 283/283 cases, including all nine L2 cases, then 2/2 curated-reset cases.
+This proves the repaired fixture, fallback, nightly snapshot/cache, density 12, growth above 1000%,
+all six community snapshots and same-day upsert against real PostgreSQL. Schema regeneration,
+security audit, code scanning, unit/regression, frontend, landing and Docker checks also passed.
+This follow-up changes only this handoff; the PR Validation ledger identifies the tested code head
+and later documentation checkpoint. Independent Claude reviews and maintainer merge remain pending.
 
 Plan: `docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md`.
 BUG-070 is included, due **2026-11-03**, fixed in code; merge/deploy pending. Root version
@@ -144,8 +154,9 @@ The separate scratch PostgreSQL 15 container/directory were removed; no live DB/
 Validation and own simplification/correctness/security findings/rulings are in the PR's **Validation**
 and **Quality gates** sections. Local pre-commit and pre-push results must be reconciled there against
 the actual final commit. Tests started in workspace tests/tdd and are promoted to regression.
-**CI Integration Tests is the real-SQL health-cron/fallback arbiter** on this Windows box; those nine
-cases were authored/discovered but not run locally. E2E seeds were schema-inspected, not executed.
+**CI Integration Tests is the real-SQL health-cron/fallback arbiter** on this Windows box; all nine
+cases passed at `cd81ea3b` in the linked CI run, and were not run locally. E2E seeds were
+schema-inspected, not executed by the L2 suite.
 Claude's independent review remains pending; the author's own passes do not replace it.
 
 ## PR A state (2026-10-21)
