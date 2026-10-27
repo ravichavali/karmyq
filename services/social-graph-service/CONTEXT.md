@@ -990,6 +990,14 @@ See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision
 
 ## Recent Changes
 
+### Sprint 134 PR K: live admin role (2026-10-22, BUG-069, ADR-102)
+- **FIX (BUG-069)**: `PUT /trust/decay-config/:communityId` decided from the JWT `communities` claim (and a dead
+  `user.role` branch), so a demoted or removed admin could still rewrite the community's decay policy until the token
+  expired. It now requires a live admin row through `src/database/liveRole.ts` (`getLiveRole`, `isLiveAdmin`;
+  arguments `(communityId, userId)`). The GET's local membership copy moves onto the same helper; its 404
+  `DECAY_CONFIG_NOT_AVAILABLE` is unchanged. Tests: `tests/regression/sprint-134-pr-k-live-role.test.ts` and the root
+  integration/static-gate tests named in ADR-102.
+
 ### Sprint 120: True Scores & Graph Polish (2026-07-17)
 - **FIX (BUG-030)**: `auth.social_distances.path_trust_score` is now `DOUBLE PRECISION`, matching
   fractional decay-derived trust scores without rounding. Batch path computation isolates failures

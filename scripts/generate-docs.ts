@@ -442,6 +442,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
     slugs: [
       'adr-004-microservices-event-driven',
       'adr-010-jwt-multi-community-auth',
+      'adr-102-live-membership-authorization',
       'adr-013-monorepo-turborepo',
       'adr-065-karmyq-org-and-com-domain-roles',
       'adr-075-karmyq-org-multi-route-relaunch',

@@ -818,7 +818,10 @@ feed continues to consume the same skill store through `getUserProfile`.
   `members.ts` POST members, `adminActions.ts` propose-match, `governance.ts` `nominated_user_id`
   and `dibs.ts`. Include a negative fixture that plants `const { created_by } = req.body`.
   Avoid a body-stripping middleware: it would silently break the four target-user endpoints.
-- **One live-membership helper per service.** community-service has at least five hand-written
+- **One live-membership helper per service.** *(Partly done, Sprint 134 PR K / ADR-102: each of request, community,
+  reputation and social-graph now has one `liveRole` module, used by every gate PR K fixed; the copies in files PR K
+  touched collapsed onto it. The already-live inline copies listed below remain; see the 2026-10-22 PR K follow-ups.)*
+  community-service has at least five hand-written
   copies of `SELECT role FROM communities.members WHERE … status='active'`. They include
   `activities.ts:16 getMembership`, `links.ts:16 isAdmin`, and `members.ts` POST/PUT/DELETE, and
   the copies already differ (`rowCount===0 || role!=='admin'` vs `rows[0]?.role !== 'admin'`).
@@ -890,6 +893,37 @@ to work through data-safety considerations for exports (and community data acces
 
 ---
 
+## [2026-10-22] Sprint 134 PR K follow-ups (BUG-069, ADR-102)
+
+- **Move the remaining live-role copies onto each service's `liveRole` module.** Already live and correct, so left
+  alone by PR K: community-service `members.ts` (POST/PUT/DELETE), `settings.ts` (3), `stats.ts`, `export.ts` (3),
+  `norms.ts`, `communities.ts` PUT and DELETE `/:id`, `links.ts isAdmin`, `activities.ts getMembership`; request-service
+  `providerReachService.isActiveMember` (reversed argument order) and `requests.ts` admin-notes/triage queries.
+- **Platform-wide admin surfaces admit any community creator** — now **BUG-073** (open, proposed HIGH): `requireAdmin`
+  (`/admin/schemas`), the trust-question writes and the provider-trust backfill admit an admin of any community, and
+  creating a community makes you one. Needs a platform-admin decision.
+- **Moderators cannot reach the moderator-capable admin actions.** The `/requests` admin-actions mount keeps
+  `requireAdmin` (admin somewhere), so a moderator who is admin nowhere is refused before the handler's admin-or-moderator
+  check. Either drop the chain's `requireAdmin` (the handlers already gate per request, but they check that the request
+  exists before the gate, so non-admins would then see 404 vs 403) or narrow the handlers to admins.
+- **Fusion actions load the proposal before authorizing.** accept/reject/start-vote/execute answer 404 for an unknown
+  proposal id and 403 for a real one. Ids are `gen_random_uuid()`, so probing is impractical; accept/reject need the
+  proposal to know which community to check. Make the two answers uniform if fusions ever become enumerable.
+- **Delete the shared tenant middleware's claim role.** `packages/shared/middleware/tenant.ts` copies the claim's role
+  onto `req.communityRole`, and `adminOnlyMiddleware` decides from it. No service uses either (the PR K gate enforces
+  that); delete both in a shared-package PR.
+- **Stacked `/requests` rate limiters count one request several times.** Each `/requests` mount in request-service runs
+  `rateLimiters.standard` (express-rate-limit 8.7.0 increments, then only warns `ERR_ERL_DOUBLE_COUNT`), so an admin
+  action counts once per mount it passes (3, as before PR K). Apply the limiter once per request.
+- **Collective admins can link their collective to any community.** `POST /requests/collectives/:id/communities` admits a
+  collective admin OR a live admin of the target community, so a collective admin needs nothing from the community they
+  link into (pre-existing; PR K only made the community-admin half live). Decide whether a link needs the community's
+  consent (an admin, or a pending link the community accepts).
+- **request-service `tests/integration/dynamic-schemas.test.ts` is a dead manual suite.** It is not a `*.integration.test.ts`, so
+  CI never runs it; it signs `userId: 'admin-user-id'` (not a UUID, so its admin writes already failed on the `uuid`
+  `ui_schemas.created_by`) with a `role: 'admin'` claim that no issuer signs and `requireAdmin` no longer reads (ADR-102).
+  Rewrite it as a root `tests/integration/*.integration.test.ts` with a live admin row, or delete it.
+
 ## [2026-10-22] The simulation never rates a completed exchange (Sprint 134 PR L)
 
 PR L removed the simulation's `submitFeedback` action because it posted to the retired, always-failing request-service
@@ -941,5 +975,19 @@ under `body-parser` 2.4.0.)
   is 10.8.2, while CI takes the npm bundled with Node `24.x` (11.19.0 on Node 24.21.0, master run 39853173679). Their
   audit reports differ (gotcha `adr-059-cannot-tell-no-answer-from-no-advisories`). Aligning them would make the
   pre-push gate read what CI reads. Cheaper first step: have the gate print `npm --version` when it fails.
+
+---
+
+## [2026-10-26] architecture
+
+**Platform admin as a separate role from community admin** (maintainer decision 2026-10-26: "We need to have admin of a
+community and admin of the platform"). Tabled as a new feature for a future sprint; it is the fix for **BUG-073**.
+
+Today "admin of any community" stands in for a platform admin, and any user who creates a community becomes one. The
+surfaces that need the platform role: request-service `/admin/schemas` (`requireAdmin`), community-service's six
+trust-question writes, and reputation-service `POST /reputation/provider-trust/recalculate`. `auth.users` has no role
+column. The feature's spec has to choose how a platform admin is designated (an `auth.users` role, a config allowlist, or a
+designated platform community) and whether `/admin/schemas` and trust questions should become per-community instead. The
+check must read live state, not a JWT claim (ADR-102).
 
 ---

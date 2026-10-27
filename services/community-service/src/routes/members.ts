@@ -2,7 +2,8 @@ import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { query, withTransaction } from '../database/db';
 import { publishEvent } from '../events/publisher';
-import { canSeeNonActiveMembers, getLiveRole, LiveRole, shapeMemberRows } from '../utils/memberVisibility';
+import { canSeeNonActiveMembers, shapeMemberRows } from '../utils/memberVisibility';
+import { getLiveRole, LiveRole } from '../utils/liveRole';
 import {
   sendSuccess,
   sendError,

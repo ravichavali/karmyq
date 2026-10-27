@@ -15,7 +15,8 @@ import {
   HTTP_STATUS
 } from '@karmyq/shared/utils/response';
 import { normalizeTags } from '../utils/tags';
-import { getLiveRole, shapeMemberRows } from '../utils/memberVisibility';
+import { shapeMemberRows } from '../utils/memberVisibility';
+import { getLiveRole, isLiveAdmin } from '../utils/liveRole';
 import { RouteParams } from '@karmyq/shared/middleware/auth';
 
 const router = Router();
@@ -637,10 +638,8 @@ router.put('/:id/tags', async (req: Request, res: Response) => {
     const { tags } = req.body;
     const user = (req as any).user;
 
-    // Auth check: caller must be admin of this community (via JWT communities field)
-    const memberships: Array<{ id: string; name: string; role: string }> = user?.communities ?? [];
-    const isAdmin = memberships.some((m) => m.id === communityId && m.role === 'admin');
-    if (!isAdmin) {
+    // Auth check: caller must be a LIVE admin of this community, never the JWT claim (BUG-069)
+    if (!(await isLiveAdmin(communityId, user?.userId))) {
       return sendForbidden(res, 'Only community admins can update tags', { requestId: (req as any).id });
     }
 
@@ -687,10 +686,8 @@ router.put('/:id/location', async (req: Request, res: Response) => {
     const { lat, lng } = req.body;
     const user = (req as any).user;
 
-    // Auth check: caller must be admin of this community (via JWT communities field)
-    const memberships: Array<{ id: string; name: string; role: string }> = user?.communities ?? [];
-    const isAdmin = memberships.some((m) => m.id === communityId && m.role === 'admin');
-    if (!isAdmin) {
+    // Auth check: caller must be a LIVE admin of this community, never the JWT claim (BUG-069)
+    if (!(await isLiveAdmin(communityId, user?.userId))) {
       return sendForbidden(res, 'Only community admins can update location', { requestId: (req as any).id });
     }
 

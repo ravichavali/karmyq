@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { query } from '../database/db';
+import { isLiveAdminOfAnyCommunity } from '../utils/liveRole';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { recalculateProviderTrustScore, backfillAllProviderTrustScores } from '../services/providerTrustService';
 import { publishEvent } from '../events/publisher';
@@ -127,11 +128,8 @@ router.get('/provider-reviews/:providerId', authMiddleware, async (req: any, res
 // every active provider. Safe to run multiple times — idempotent.
 router.post('/provider-trust/recalculate', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const user = req.user!;
-    const memberships = user.communities ?? [];
-    const isAdmin = (user as any).role === 'admin' || memberships.some((m: any) => m.role === 'admin');
-
-    if (!isAdmin) {
+    // A LIVE admin of any community, never the JWT claim (BUG-069, ADR-102).
+    if (!(await isLiveAdminOfAnyCommunity(req.user!.userId))) {
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
 

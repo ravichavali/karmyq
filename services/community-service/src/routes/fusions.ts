@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import pool from '../database/db';
+import { getLiveRole, isLiveAdmin } from '../utils/liveRole';
 import { publishEvent } from '../events/publisher';
 import { executeFusion } from '../services/fusionService';
 import {
@@ -14,18 +15,7 @@ import {
 
 const router = Router();
 
-function isAdmin(req: any, communityId: string): boolean {
-  const memberships = req.user?.communities ?? [];
-  return memberships.some((m: any) => m.id === communityId && m.role === 'admin');
-}
-
-async function isMember(userId: string, communityId: string): Promise<boolean> {
-  const res = await pool.query(
-    `SELECT id FROM communities.members WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
-    [communityId, userId]
-  );
-  return res.rows.length > 0;
-}
+// Roles come from communities.members via ../utils/liveRole, never the JWT claim (BUG-069, ADR-102).
 
 function computeTally(votes: any[], totalMembers: number, quorumPct: number, approvalPct: number) {
   const votedCount = votes.length;
@@ -48,7 +38,7 @@ router.post('/:communityId/fusions', async (req: any, res: Response) => {
   const { communityId } = req.params;
   const userId = req.user?.userId;
 
-  if (!isAdmin(req, communityId)) return res.status(403).json({ success: false, message: 'Admin only' });
+  if (!(await isLiveAdmin(communityId, userId))) return res.status(403).json({ success: false, message: 'Admin only' });
 
   const { target_community_id, merged_community_name, rationale } = req.body;
   if (!target_community_id || !merged_community_name) {
@@ -84,7 +74,7 @@ router.post('/:communityId/fusions/:fusionId/accept', async (req: any, res: Resp
 
   const proposal = await getFusionProposal(fusionId);
   if (!proposal) return res.status(404).json({ success: false, message: 'Proposal not found' });
-  if (!isAdmin(req, proposal.community_b_id)) return res.status(403).json({ success: false, message: 'Admin of target community only' });
+  if (!(await isLiveAdmin(proposal.community_b_id, userId))) return res.status(403).json({ success: false, message: 'Admin of target community only' });
   if (proposal.status !== 'pending_acceptance') return res.status(422).json({ success: false, message: 'Proposal must be in pending_acceptance status' });
 
   try {
@@ -101,7 +91,7 @@ router.post('/:communityId/fusions/:fusionId/reject', async (req: any, res: Resp
 
   const proposal = await getFusionProposal(fusionId);
   if (!proposal) return res.status(404).json({ success: false, message: 'Proposal not found' });
-  if (!isAdmin(req, proposal.community_b_id)) return res.status(403).json({ success: false, message: 'Admin of target community only' });
+  if (!(await isLiveAdmin(proposal.community_b_id, req.user?.userId))) return res.status(403).json({ success: false, message: 'Admin of target community only' });
   if (proposal.status !== 'pending_acceptance') return res.status(422).json({ success: false, message: 'Proposal must be in pending_acceptance status' });
 
   try {
@@ -125,7 +115,7 @@ router.get('/:communityId/fusions/:fusionId', async (req: any, res: Response) =>
   if (!isPartyA && !isPartyB) return res.status(403).json({ success: false, message: 'Not a party to this proposal' });
 
   const inCommunity = isPartyA ? proposal.community_a_id : proposal.community_b_id;
-  if (!(await isMember(userId, inCommunity))) return res.status(403).json({ success: false, message: 'Must be an active member' });
+  if ((await getLiveRole(inCommunity, userId)) === null) return res.status(403).json({ success: false, message: 'Must be an active member' });
 
   try {
     const [votesA, votesB, membersA, membersB] = await Promise.all([
@@ -158,7 +148,7 @@ router.post('/:communityId/fusions/:fusionId/start-vote', async (req: any, res: 
 
   const proposal = await getFusionProposal(fusionId);
   if (!proposal) return res.status(404).json({ success: false, message: 'Proposal not found' });
-  if (!isAdmin(req, proposal.community_a_id) && !isAdmin(req, proposal.community_b_id)) {
+  if (!(await isLiveAdmin(proposal.community_a_id, req.user?.userId)) && !(await isLiveAdmin(proposal.community_b_id, req.user?.userId))) {
     return res.status(403).json({ success: false, message: 'Admin of either community required' });
   }
   if (proposal.status !== 'discussion') return res.status(422).json({ success: false, message: 'Proposal must be in discussion status' });
@@ -188,7 +178,7 @@ router.post('/:communityId/fusions/:fusionId/vote', async (req: any, res: Respon
   const isPartyA = communityId === proposal.community_a_id;
   const isPartyB = communityId === proposal.community_b_id;
   if (!isPartyA && !isPartyB) return res.status(403).json({ success: false, message: 'Not a party to this proposal' });
-  if (!(await isMember(userId, communityId))) return res.status(403).json({ success: false, message: 'Must be an active member' });
+  if ((await getLiveRole(communityId, userId)) === null) return res.status(403).json({ success: false, message: 'Must be an active member' });
   if (proposal.status !== 'voting') return res.status(422).json({ success: false, message: 'Voting is not open' });
 
   const { vote } = req.body;
@@ -240,7 +230,7 @@ router.post('/:communityId/fusions/:fusionId/execute', async (req: any, res: Res
 
   const proposal = await getFusionProposal(fusionId);
   if (!proposal) return res.status(404).json({ success: false, message: 'Proposal not found' });
-  if (!isAdmin(req, proposal.community_a_id) && !isAdmin(req, proposal.community_b_id)) {
+  if (!(await isLiveAdmin(proposal.community_a_id, userId)) && !(await isLiveAdmin(proposal.community_b_id, userId))) {
     return res.status(403).json({ success: false, message: 'Admin of either community required' });
   }
 

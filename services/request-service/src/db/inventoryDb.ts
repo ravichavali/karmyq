@@ -1,5 +1,6 @@
 import { query, withTransaction } from '../database/db';
 import { directedAudienceSql } from './directedAudience';
+import { getLiveRole } from './liveRole';
 
 // Only internal callers supply SQL identifiers/parameter positions. Viewer values stay bound.
 export function itemManagerSql(alias: string, viewerParam: string): string {
@@ -55,27 +56,10 @@ function sharedWithSql(alias: string, viewerParam: string): string {
             AND share_owner.user_id = ${alias}.owner_user_id AND share_owner.status = 'active')))), '[]'::jsonb)`;
 }
 
-export async function isActiveAdmin(communityId: string, userId: string): Promise<boolean> {
-  const result = await query(
-    `SELECT 1 FROM communities.members WHERE community_id = $1 AND user_id = $2
-    AND status = 'active' AND role = 'admin'`,
-    [communityId, userId]
-  );
-  return result.rows.length > 0;
-}
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-// Live membership, never the JWT claim. A malformed id is simply not a community the caller belongs to:
-// answering false (not a Postgres 22P02 → 500) keeps every gate's 403 identical for bad and foreign ids.
+// Live membership, never the JWT claim (liveRole.ts, ADR-102): a malformed id answers false, not a 500.
 // Argument order is (communityId, userId); providerReachService.isActiveMember takes (userId, communityId).
 export async function isActiveMember(communityId: string, userId: string): Promise<boolean> {
-  if (typeof communityId !== 'string' || !UUID_RE.test(communityId)) return false;
-  const result = await query(
-    `SELECT 1 FROM communities.members WHERE community_id = $1 AND user_id = $2
-    AND status = 'active'`,
-    [communityId, userId]
-  );
-  return result.rows.length > 0;
+  return (await getLiveRole(communityId, userId)) !== null;
 }
 export async function listMine(userId: string) {
   const result = await query(

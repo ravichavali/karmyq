@@ -5,6 +5,13 @@
 
 ## Recent Changes
 
+- **2026-10-22 (Sprint 134 PR K, BUG-069 fixed, ADR-102)**: `GET`/`PUT /reputation/communities/:communityId/trust-evolution`,
+  `GET /reputation/community/:communityId/evolution/history` and `/summary`, `PUT .../evolution/toggle` (community admin)
+  and `POST /reputation/provider-trust/recalculate` (admin of any community) decided from the JWT `communities` claim.
+  They now read `communities.members` through `src/utils/liveRole.ts` (`getLiveRole`, `isLiveAdmin`,
+  `isLiveAdminOfAnyCommunity`; arguments `(communityId, userId)`, unlike `disclosureAuth.getActiveMembership`). The
+  uncalled claim helper `disclosureAuth.isCommunityAdmin` is deleted. Tests: `tests/regression/sprint-134-pr-k-live-role.test.ts`
+  and the root integration/static-gate tests named in ADR-102.
 - **2026-10-22 (Sprint 134 PR L, ADR-101 amendment, BUG-068)**: reputation-service is **no longer an event
   consumer**. Its one routed event, `interaction_feedback_submitted`, came only from request-service
   `POST /matches/:matchId/feedback`, which always failed and had no client (BUG-068), so the route, the event and this

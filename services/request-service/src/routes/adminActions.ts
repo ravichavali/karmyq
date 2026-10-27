@@ -2,26 +2,14 @@ import { notDirectedSql } from '../db/directedAudience';
 import { Router, Request, Response } from 'express';
 import { RouteParams } from '@karmyq/shared/middleware/auth';
 import { query } from '../database/db';
+import { hasLiveRoleInRequestCommunities } from '../db/liveRole';
 import { publishEvent } from '../events/publisher';
 
 const router = Router();
 
-// Helper: check if the authenticated user is an admin or moderator of any community this request belongs to
+// The authenticated user is a LIVE admin or moderator of a community this request belongs to (BUG-069).
 async function isAdminOrModOfRequestCommunity(requestId: string, user: any): Promise<boolean> {
-  const memberships: Array<{ id: string; role: string }> = user.communities ?? [];
-  const adminCommunityIds = memberships
-    .filter((m) => m.role === 'admin' || m.role === 'moderator')
-    .map((m) => m.id);
-
-  if (adminCommunityIds.length === 0) return false;
-
-  const result = await query(
-    `SELECT community_id FROM requests.request_communities WHERE request_id = $1`,
-    [requestId]
-  );
-
-  const requestCommunityIds: string[] = result.rows.map((r: any) => r.community_id);
-  return adminCommunityIds.some((id) => requestCommunityIds.includes(id));
+  return await hasLiveRoleInRequestCommunities(requestId, user?.userId, ['admin', 'moderator']);
 }
 
 // POST /requests/:id/boost — Admin boosts a request for 48 hours

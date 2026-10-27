@@ -791,6 +791,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented (Sprint 133 PR Q v11.88.0 `36a9972f`, deployed 2026-10-16, CI/CD 38948723833); amended Sprint 134 PR L (legacy handlers removed, reputation no longer a consumer)",
       "filename": "ADR-101-per-consumer-event-queues.md"
+    },
+    {
+      "slug": "adr-102-live-membership-authorization",
+      "number": "102",
+      "title": "ADR-102: Authorization Re-derives the Role from Live Membership",
+      "status": "accepted",
+      "description": "**Date**: 2026-10-22",
+      "filename": "ADR-102-live-membership-authorization.md"
     }
   ]
 }

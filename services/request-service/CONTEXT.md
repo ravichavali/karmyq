@@ -2906,6 +2906,27 @@ CREATE TABLE auth.user_interests (
 
 ### 10.4 Recent Fixes
 
+**Sprint 134 PR K — Admin gates read the live role (ADR-102):**
+
+- **BUG-069 — admin gates trusted the JWT `communities` claim.** A demoted or removed admin kept admin powers until
+  the token expired (1 h), and an admin of a community beyond the claim's 15 entries was refused. `requireAdmin`
+  (`/admin/schemas` and the `/requests` admin-actions mount; "admin of any community"), the per-request admin/moderator
+  gate on boost, unboost, propose-match and urgent, and the collective link/unlink community-admin check now read
+  `communities.members` through `src/db/liveRole.ts` (`getLiveRole`, `isLiveAdmin`, `isLiveAdminOfAnyCommunity`,
+  `hasLiveRoleInRequestCommunities`; arguments `(communityId, userId)`; a malformed id answers false, not a 500).
+  `db/inventoryDb.ts` `isActiveMember` delegates to it. The dead `user.role` branch and the legacy
+  `communityMemberships` alias are gone. Tests: `tests/regression/sprint-134-pr-k-live-role.test.ts`, root
+  `tests/integration/sprint-134-pr-k-live-admin-role.integration.test.ts`, and the static gate
+  `tests/regression/sprint-134-pr-k-claim-gate.test.ts`.
+- **BUG-071 — the requester-offer routes 403'd every requester who is not an admin somewhere.**
+  `requesterOffersRouter` (`GET /requests/:id/offers`, `PUT /requests/offers/:id/accept|decline`) was mounted after the
+  admin-actions mount, whose prefix-wide `requireAdmin` ran first. The admin chain now runs only on the routes
+  `adminActionsRouter` defines: `app.all(adminChainPaths(adminActionsRouter, '/requests'), ...)` reads them from the
+  router and throws at startup on any layer it could not cover (`router.use`, an array or RegExp path). A route added
+  there is gated automatically, nothing else under `/requests` falls through it, and an unmatched `/requests` path is a
+  plain 404. The mount order is unchanged.
+  `db/inventoryDb.ts` `isActiveAdmin` had no callers and is deleted.
+
 **Sprint 134 PR L — Dead interaction-feedback routes retired (BUG-068):**
 
 - **BUG-068 — `POST /matches/:matchId/feedback` always failed.** It selected `help_requests.community_id`, which does

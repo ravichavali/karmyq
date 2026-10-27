@@ -1,4 +1,4 @@
-import { query } from '../database/db';
+import type { LiveRole } from './liveRole';
 
 /**
  * Member-row visibility (BUG-062, Sprint 133).
@@ -9,19 +9,9 @@ import { query } from '../database/db';
  *   never clears the message, so it must be stripped from ACTIVE rows too.
  *
  * The role is always read from `communities.members` — the JWT `communities` claim is a login-time
- * snapshot and never decides visibility (CLAUDE.md *Authentication*).
+ * snapshot and never decides visibility (CLAUDE.md *Authentication*). The caller passes the role from
+ * ./liveRole `getLiveRole`.
  */
-export type LiveRole = 'admin' | 'moderator' | 'member' | null;
-
-export async function getLiveRole(communityId: string, userId: string | undefined): Promise<LiveRole> {
-  if (!userId) return null;
-  const result = await query(
-    `SELECT role FROM communities.members
-     WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
-    [communityId, userId]
-  );
-  return (result.rows[0]?.role as LiveRole) ?? null;
-}
 
 export function canSeeNonActiveMembers(role: LiveRole): boolean {
   return role === 'admin' || role === 'moderator';

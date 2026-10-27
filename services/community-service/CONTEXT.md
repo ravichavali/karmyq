@@ -5,6 +5,16 @@
 
 ## Recent Changes
 
+- **2026-10-22 (Sprint 134 PR K, BUG-069 fixed, ADR-102)**: the tags and location updates, the five fusion and four
+  split admin actions, and the six trust-question writes decided from the JWT `communities` claim, so a demoted or
+  removed admin kept admin powers until the token expired. They now read `communities.members` through
+  `src/utils/liveRole.ts` (`getLiveRole`, moved there from `utils/memberVisibility.ts`, plus `isLiveAdmin` and
+  `isLiveAdminOfAnyCommunity`; arguments `(communityId, userId)`; a malformed id answers null, an active row with a
+  NULL role is a member). `fusions.ts`/`splits.ts` lose their claim `isAdmin` and their duplicate `isMember`. Trust
+  questions keep "admin of any community", now live (that scope admits any community creator: BUG-073, open).
+  **BUG-072 fixed:** split `PUT .../assignments` and `POST .../execute` now 404 a split that is not the path community's
+  (they checked the path community's admin, then acted on any split). Tests: `tests/regression/sprint-134-pr-k-live-role.test.ts`
+  and the root integration/static-gate tests named in ADR-102.
 - **2026-10-21 (Sprint 134 PR A, BUG-063 fixed)**: all three export routes (`src/routes/export.ts`)
   500'd for everyone since they were written. They named a schema that does not exist (`community.*`;
   the live one is `communities`, with `members` not `memberships`) and columns the live schema lacks:

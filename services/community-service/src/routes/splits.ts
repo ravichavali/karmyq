@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import pool from '../database/db';
+import { getLiveRole, isLiveAdmin } from '../utils/liveRole';
 import {
   getProposal,
   getActiveSplitProposal,
@@ -16,25 +17,14 @@ import { publishEvent } from '../events/publisher';
 
 const router = Router();
 
-function isAdmin(req: any, communityId: string): boolean {
-  const memberships = req.user?.communities ?? [];
-  return memberships.some((m: any) => m.id === communityId && m.role === 'admin');
-}
-
-async function isMember(userId: string, communityId: string): Promise<boolean> {
-  const res = await pool.query(
-    `SELECT id FROM communities.members WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
-    [communityId, userId]
-  );
-  return res.rows.length > 0;
-}
+// Roles come from communities.members via ../utils/liveRole, never the JWT claim (BUG-069, ADR-102).
 
 // POST /communities/:communityId/splits — admin creates proposal + seeds member assignments
 router.post('/:communityId/splits', async (req: any, res: Response) => {
   const { communityId } = req.params;
   const userId = req.user?.userId;
 
-  if (!isAdmin(req, communityId)) {
+  if (!(await isLiveAdmin(communityId, userId))) {
     return res.status(403).json({ success: false, message: 'Admin only' });
   }
 
@@ -75,7 +65,7 @@ router.get('/:communityId/splits/:splitId', async (req: any, res: Response) => {
   const { communityId, splitId } = req.params;
   const userId = req.user?.userId;
 
-  if (!(await isMember(userId, communityId))) {
+  if ((await getLiveRole(communityId, userId)) === null) {
     return res.status(403).json({ success: false, message: 'Must be an active member' });
   }
 
@@ -123,7 +113,7 @@ router.get('/:communityId/splits/:splitId', async (req: any, res: Response) => {
 router.put('/:communityId/splits/:splitId/assignments', async (req: any, res: Response) => {
   const { communityId, splitId } = req.params;
 
-  if (!isAdmin(req, communityId)) {
+  if (!(await isLiveAdmin(communityId, req.user?.userId))) {
     return res.status(403).json({ success: false, message: 'Admin only' });
   }
 
@@ -133,6 +123,11 @@ router.put('/:communityId/splits/:splitId/assignments', async (req: any, res: Re
   }
 
   try {
+    // The gate checked :communityId, so the split must belong to it (as start-vote checks).
+    const proposal = await getProposal(splitId);
+    if (!proposal || proposal.community_id !== communityId) {
+      return res.status(404).json({ success: false, message: 'Proposal not found' });
+    }
     await updateAssignments(splitId, changes);
     const updated = await getAssignments(splitId);
     res.json({ success: true, data: updated });
@@ -145,7 +140,7 @@ router.put('/:communityId/splits/:splitId/assignments', async (req: any, res: Re
 router.post('/:communityId/splits/:splitId/start-vote', async (req: any, res: Response) => {
   const { communityId, splitId } = req.params;
 
-  if (!isAdmin(req, communityId)) {
+  if (!(await isLiveAdmin(communityId, req.user?.userId))) {
     return res.status(403).json({ success: false, message: 'Admin only' });
   }
 
@@ -182,7 +177,7 @@ router.post('/:communityId/splits/:splitId/vote', async (req: any, res: Response
   const { communityId, splitId } = req.params;
   const userId = req.user?.userId;
 
-  if (!(await isMember(userId, communityId))) {
+  if ((await getLiveRole(communityId, userId)) === null) {
     return res.status(403).json({ success: false, message: 'Must be an active member' });
   }
 
@@ -236,11 +231,15 @@ router.post('/:communityId/splits/:splitId/execute', async (req: any, res: Respo
   const { communityId, splitId } = req.params;
   const userId = req.user?.userId;
 
-  if (!isAdmin(req, communityId)) {
+  if (!(await isLiveAdmin(communityId, userId))) {
     return res.status(403).json({ success: false, message: 'Admin only' });
   }
 
   try {
+    const proposal = await getProposal(splitId);
+    if (!proposal || proposal.community_id !== communityId) {
+      return res.status(404).json({ success: false, message: 'Proposal not found' });
+    }
     const { childAId, childBId } = await executeSplit(splitId, userId, pool);
     res.json({ success: true, data: { child_community_a_id: childAId, child_community_b_id: childBId } });
   } catch (err: any) {

@@ -192,7 +192,9 @@ JWT payload: `{ userId, email, communities: Array<{id, name, role}> }`, header
 **⚠️ Authorization decisions MUST re-derive membership from a live lookup** — the JWT claim is a
 login-time snapshot (a removed member keeps the old claim until refresh; claim-only checks leak
 access). Claims are cheap role hints only; anything gating visibility or writes queries current
-membership.
+membership. Use the service's `liveRole` module (`getLiveRole`/`isLiveAdmin`, `(communityId, userId)`, always
+`await`ed; [ADR-102](docs/adr/ADR-102-live-membership-authorization.md)) — `tests/regression/sprint-134-pr-k-claim-gate.test.ts`
+fails on any claim read outside its reviewed allowlist.
 
 ### New service nginx routing
 Add `location ~ ^/api/{prefix}(/.*)?$` to `infrastructure/nginx/nginx.conf`; proxy_pass must

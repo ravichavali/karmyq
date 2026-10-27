@@ -1869,7 +1869,7 @@ by the Sprint 133 PR Q `/code-review`; the PR Q integration test publishes synth
 
 ---
 
-## BUG-069 · [2026-10-16] · open · **MEDIUM** (proposed)
+## BUG-069 · [2026-10-16] · fixed (Sprint 134 PR K, ADR-102) · **MEDIUM** (proposed)
 
 **Admin and moderator write checks trust the JWT `communities` claim, not live membership.** CLAUDE.md
 (*Authentication*) requires authorization decisions to re-derive membership from `communities.members`; the claim is a
@@ -1888,6 +1888,14 @@ planning inventory (the four request-service *read* gates of the same kind are f
   `grep -rn "\.communities" services/*/src` untruncated first; hint-only reads (defaults, event fan-out) stay.
 - **Owner:** unassigned; the maintainer sets severity (5 services, 1-hour window). **Deadline: 2026-10-30** (≤ 2-week
   SLA at the proposed MEDIUM).
+- **Fixed (Sprint 134 PR K, 2026-10-22; ADR-102).** The untruncated inventory found 136 `.communities` hits: 90 SQL
+  table references, 19 other objects, 27 claim reads. 21 claim reads were gates (12 sites, 31 routes, four services:
+  request, community, reputation, social-graph; the auth-service read is the `/verify` echo). Each service now has one
+  `liveRole` module, `(communityId, userId)`, and every gate awaits it. The six hint-only reads and the shared tenant
+  middleware's are allowlisted in `tests/regression/sprint-134-pr-k-claim-gate.test.ts`, which fails on any other claim
+  read, any un-awaited live-role call, and any service read of `req.communityRole`. Real SQL:
+  `tests/integration/sprint-134-pr-k-live-admin-role.integration.test.ts` (demoted admin, removed admin, live admin with
+  an empty claim, on all 31 routes). `social-graph database/trustEdgeDb.ts` was SQL only. Found on the way: BUG-071.
 
 ---
 
@@ -1913,5 +1921,70 @@ table that has it. `services/request-service/src/routes/feedback.ts:46` is BUG-0
   reads: link through `request_communities`, add a real-SQL test of the cron and the fallback, and delete the dead `FeedComposer`.
 - **Owner:** Claude (Sprint 134 PR L2; placement confirmed by the maintainer 2026-10-20). **Deadline: 2026-11-03**
   (≤ 2-week SLA).
+
+---
+
+## BUG-071 · [2026-10-22] · fixed (Sprint 134 PR K) · **MEDIUM** (proposed)
+
+**The requester-offer routes 403 every requester who is not a community admin somewhere.**
+`services/request-service/src/index.ts` mounts `requesterOffersRouter` (`GET /requests/:id/offers`,
+`PUT /requests/offers/:id/accept`, `PUT /requests/offers/:id/decline`) at `:162`, **after** the `/requests` admin-actions
+mount at `:150-157`. That mount runs `...adminAuth` (`verifyToken` + `requireAdmin`) as mount-level middleware for every
+`/requests` path that reaches it. Nothing earlier answers those three paths: `routes/requests.ts` has no `/:id/offers` or
+`/offers/:id/*` route and no `router.use`, and `dibsRouter`'s paths are `/dibs/*`. So `requireAdmin` returns
+`403 "Admin access required"` before `requesterOffersRouter` is reached. The frontend calls all three
+(`apps/frontend/src/lib/api/providerApi.ts:24,29,34`). Present since 2026-03-26: `b26e7b5d` added `requesterOffersRouter`
+after the admin mount that `bd63e084` added on 2026-03-23. Found 2026-10-22 by the Sprint 134 PR K inventory.
+
+- **Impact:** product, not security. An ordinary requester cannot view, accept or decline provider offers. The gate
+  over-denies; it exposes nothing.
+- **Fix:** mount `requesterOffersRouter` before the admin-actions mount, as `dibsRouter` already is (its comment documents
+  the same trap). Planned in Sprint 134 PR K, Task K2.
+- **Fixed (Sprint 134 PR K, 2026-10-22).** The admin chain now runs only on the routes `adminActionsRouter` defines
+  (`adminChainPaths`, read from the router, fails closed on a layer it cannot cover), so no other `/requests` route falls
+  through `requireAdmin`; the mount order is unchanged. Reproduced first against the real app
+  (`services/request-service/tests/regression/sprint-134-pr-k-live-role.test.ts`: all three routes 403 → 200/404); real SQL in the
+  PR K integration test.
+
+---
+
+## BUG-072 · [2026-10-22] · fixed (Sprint 134 PR K) · **MEDIUM** (proposed)
+
+**An admin of one community could rewrite another community's split assignments, and execute its approved split.**
+`PUT /communities/:communityId/splits/:splitId/assignments` and `POST .../execute`
+(`services/community-service/src/routes/splits.ts`) checked that the caller administers `:communityId`, then acted on
+`:splitId` without checking that the split belongs to that community. `start-vote` and `vote` already check
+`proposal.community_id !== communityId`. `executeSplit` only requires the caller to be an active **member** of the split's
+own community (`services/fissionService.ts`). So an admin of A who is merely a member of B could execute B's approved
+split through `/communities/A/...`, and any admin of A could rewrite B's assignments. Pre-existing; found 2026-10-22 by the
+Sprint 134 PR K `/code-review` (the gate lines changed in PR K, the missing ownership check did not).
+
+- **Fixed (Sprint 134 PR K, 2026-10-22).** Both handlers load the proposal after the gate and answer 404 when it is not
+  the path community's, as `start-vote` does. RED first in `services/community-service/tests/regression/sprint-134-pr-k-live-role.test.ts`
+  (assignments wrote with 200 and execute reached the executor); real SQL in
+  `tests/integration/sprint-134-pr-k-live-admin-role.integration.test.ts` (an approved C2 split through C's path → 404, unchanged).
+
+---
+
+## BUG-073 · [2026-10-22] · open, **deferred to a future-sprint feature** (maintainer, 2026-10-26) · **HIGH** (proposed)
+
+**Platform-wide admin surfaces admit anyone who creates a community.** `requireAdmin` (request-service `/admin/schemas`:
+the request UI schemas every community uses), the six trust-question writes (community-service
+`/communities/trust-questions`, a global table with no community column) and `POST /reputation/provider-trust/recalculate`
+(a whole-platform backfill) admit "an admin of any community". Any authenticated user can create a community, and
+`POST /communities` inserts the creator as `role = 'admin'` (`services/community-service/src/routes/communities.ts:595-597`).
+So in practice every user can edit global configuration. `auth.users` has no platform-role column, so there is no other
+"platform admin" to check. Pre-existing: the JWT-claim gates had the same hole, because the create response carries a
+refreshed token. PR K made these gates live and kept their scope; found 2026-10-22 by its `/code-review`.
+
+- **Maintainer decision (2026-10-26):** there are two roles, **community admin** and **platform admin**. The fix is a new
+  feature that adds the platform role, tabled for a future sprint (`docs/IDEAS.md` 2026-10-26 *architecture*). Its spec
+  chooses how a platform admin is designated (an `auth.users` role, an allowlist in config, or a designated platform
+  community) and whether `/admin/schemas` and trust questions become per-community.
+- **Not fixed in PR K:** it needs a schema and policy decision, not a gate change. ADR-102 records the scope as
+  inherited, not as intended.
+- **Owner:** Claude implements the feature in the sprint that schedules it. **Deadline:** the 2026-10-29 one-week HIGH
+  deadline is replaced by the maintainer's deferral; the gap stays open until the feature ships. No target sprint or
+  review date is set yet.
 
 ---

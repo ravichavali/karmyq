@@ -2,6 +2,9 @@
 
 **Date**: 2025-12-29
 **Status**: Accepted
+**Amended by**: [ADR-102](ADR-102-live-membership-authorization.md) (2026-10-22): authorization re-derives the role from
+live membership (`communities.members`); the `communities` claim is a hint only. The *Authorization Pattern* below and
+the "no database lookup per request" consequence no longer hold for authorization decisions.
 **Deciders**: Development Team
 **Related**: docs/MULTI_TENANT_GUIDE.md, ADR-003 (Multi-Tenant RLS)
 

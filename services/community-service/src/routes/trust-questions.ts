@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { query } from '../database/db';
+import { isLiveAdminOfAnyCommunity } from '../utils/liveRole';
 
 const router = Router();
 
@@ -45,9 +46,7 @@ router.post('/', async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
 
-    const memberships = user.communities ?? [];
-    const isAdmin = user.role === 'admin' || memberships.some((m: any) => m.role === 'admin');
-    if (!isAdmin) return res.status(403).json({ success: false, message: 'Admin access required' });
+    if (!(await isLiveAdminOfAnyCommunity(user.userId))) return res.status(403).json({ success: false, message: 'Admin access required' });
 
     const { slug, question_text, subtext, display_order } = req.body;
     if (!slug || !question_text || display_order === undefined) {
@@ -75,9 +74,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
 
-    const memberships = user.communities ?? [];
-    const isAdmin = user.role === 'admin' || memberships.some((m: any) => m.role === 'admin');
-    if (!isAdmin) return res.status(403).json({ success: false, message: 'Admin access required' });
+    if (!(await isLiveAdminOfAnyCommunity(user.userId))) return res.status(403).json({ success: false, message: 'Admin access required' });
 
     const { id } = req.params;
     const { question_text, subtext, display_order, active } = req.body;
@@ -111,9 +108,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
 
-    const memberships = user.communities ?? [];
-    const isAdmin = user.role === 'admin' || memberships.some((m: any) => m.role === 'admin');
-    if (!isAdmin) return res.status(403).json({ success: false, message: 'Admin access required' });
+    if (!(await isLiveAdminOfAnyCommunity(user.userId))) return res.status(403).json({ success: false, message: 'Admin access required' });
 
     const { id } = req.params;
     const result = await query(
@@ -137,9 +132,7 @@ router.post('/:id/choices', async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
 
-    const memberships = user.communities ?? [];
-    const isAdmin = user.role === 'admin' || memberships.some((m: any) => m.role === 'admin');
-    if (!isAdmin) return res.status(403).json({ success: false, message: 'Admin access required' });
+    if (!(await isLiveAdminOfAnyCommunity(user.userId))) return res.status(403).json({ success: false, message: 'Admin access required' });
 
     const { id: questionId } = req.params;
     const { value, label, description, config_delta, display_order } = req.body;
@@ -168,9 +161,7 @@ router.put('/:id/choices/:choiceId', async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
 
-    const memberships = user.communities ?? [];
-    const isAdmin = user.role === 'admin' || memberships.some((m: any) => m.role === 'admin');
-    if (!isAdmin) return res.status(403).json({ success: false, message: 'Admin access required' });
+    if (!(await isLiveAdminOfAnyCommunity(user.userId))) return res.status(403).json({ success: false, message: 'Admin access required' });
 
     const { choiceId } = req.params;
     const { label, description, config_delta, display_order } = req.body;
@@ -203,9 +194,7 @@ router.delete('/:id/choices/:choiceId', async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
 
-    const memberships = user.communities ?? [];
-    const isAdmin = user.role === 'admin' || memberships.some((m: any) => m.role === 'admin');
-    if (!isAdmin) return res.status(403).json({ success: false, message: 'Admin access required' });
+    if (!(await isLiveAdminOfAnyCommunity(user.userId))) return res.status(403).json({ success: false, message: 'Admin access required' });
 
     const { choiceId } = req.params;
     const result = await query(
