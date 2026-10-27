@@ -30,7 +30,8 @@ healthy, "Notify on failure" skipped (no rollback). **No CodeQL re-raise** (0 op
 post-deploy queue check **PASSED**: no worker and no jobs on either retired queue. See *PR L state*.
 **Now: PR K (BUG-069)** on `agent/claude/sprint-134-pr-k-live-admin-role` (see *PR K state*): `origin/master` `ff3f394e`
 merged in (`396e31cc`) and re-bumped to **v11.100.0** (`76ef8e8f`) on 2026-10-26; gates re-run; pushed and opened as **#319**
-(open, awaiting the maintainer's merge). **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
+(open, awaiting the maintainer's merge). **CI green on `4f04b4f6`, real SQL included (101/101); Codex review #2 there: no
+findings.** **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
 become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26); the 10-29 deadline no longer applies.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
 #309 merged `1746cdf2` (v11.92.0), CI/CD 39366367275 green.
@@ -81,7 +82,7 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 | — | **X** | **Security PR (overdue, blocks every push and CI):** remove the braces exemption (advisory withdrawn 2026-10-23); renew node-forge; fix the new highs in body-parser, undici and zod; make the audit validator accept npm's inconsistent severities. See *Security PR X findings* | exemptions **expired 2026-10-26 00:00Z** (10-25 17:00 PDT) | *Security PR X findings* below | **SHIPPED** `e15622bc` (#317, v11.98.0), CI/CD 40410093954 green |
 | 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | **SHIPPED** `ff3f394e` (#315, v11.99.0), CI/CD 40417261628 green; post-deploy queue check PASS. See *PR L state* |
 | 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers (incl. the reputation health route); **BUG-070** | BUG-070 **2026-11-03** | write at PR start | — |
-| 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **PR OPEN #319** (**v11.100.0**, see *PR K state*): `origin/master` `ff3f394e` merged in and re-bumped 2026-10-26 after #315. Awaiting the maintainer's merge; takes the next merge slot |
+| 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **PR OPEN #319** (**v11.100.0**, see *PR K state*): `origin/master` `ff3f394e` merged in and re-bumped 2026-10-26 after #315. CI green incl. real SQL; Codex review #2: no findings. Awaiting the maintainer's merge; takes the next merge slot |
 | 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | write at PR start | — |
 | 8 | **B** | PR B endorsement follow-ups (`docs/IDEAS.md` 2026-10-13) | — | write at PR start | — |
 | 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
@@ -359,6 +360,19 @@ reads, churn reverted; 5 ruled) then medium re-run (fail-closed `adminChainPaths
 
 **Codex review (2026-10-26, at `9d22380a`): no blocking findings**; 139 focused regression tests passed; real SQL unverified until CI (see *Security PR X findings*).
 
+**CI on `4f04b4f6` (2026-10-27 00:06Z): all checks green**, Deploy to Demo skipped (PR event). **Real SQL verified:** Integration Tests run
+40423497262 (job 121924948091, `refs/pull/319/merge` = head + `ff3f394e`, Postgres container healthy) passed PR K's suite
+**101/101, 0 skipped**: 31 demoted + 31 removed + 31 live-admin-with-empty-claim, plus 8 (inventory count, positive controls
+with side effects, 2 BUG-072, admin elsewhere, 2 malformed ids, BUG-071). Full integration run 275/275 across 18 suites.
+Counted from the log by Claude, independently of the review.
+
+**Codex review #2 (2026-10-26, at `4f04b4f6`, after the master merge): no findings.** It reproduced the merge proof (45/53, the
+same 8 exceptions), the 101-case count, the conflict resolutions (both sides kept, K before L), BUG-068..073 once each in order,
+and the version (master 11.99.0 → 11.100.0, three manifest occurrences). Regenerating the docs gave byte-identical pages for
+reputation, request and social-graph; `architecture` differs only in its embedded dependency-graph timestamp (the churn
+reverted in step 3 below). The claim gate and the dotenv gate passed locally, 27/27. It found nothing in L or X that adds a
+claim-based authorization decision. Claude re-checked the integration count and the merge proof (above): both match.
+
 **Updated from master after #315 (2026-10-26):**
 1. Merge commit `396e31cc` (parents `10129fb2` + `ff3f394e`, no rebase). Conflicts:
    - `services/reputation-service/CONTEXT.md`, `services/request-service/CONTEXT.md` and `docs/IDEAS.md`: kept both sides,
@@ -384,8 +398,9 @@ reads, churn reverted; 5 ruled) then medium re-run (fail-closed `adminChainPaths
    stamp in `architecture.json`, CRLF in `adr-010`). **`/simplify`, `/code-review` and `/security-review` were not re-run:**
    the merge changed nothing in PR K's code (proof above).
 
-**Next chat:** `gh pr checks 319` (the integration job is the real-SQL arbiter; integration tests are CI-only on this box).
-Handle any CI red. After the maintainer merges: the deploy's health verify and the CodeQL master check, then PR L2.
+**Next chat:** CI and review are done (above). Only the maintainer's merge is left. GitHub shows `BLOCKED` on `REVIEW_REQUIRED`
+alone, so an `--admin` merge needs explicit authorization each time. After the merge: the deploy's health verify and the
+CodeQL master check, then PR L2.
 BUG-073 is tabled (maintainer, 2026-10-26) as a future-sprint platform-admin feature; it is not PR L2's scope.
 **Human validation (after deploy):** demote a test admin to member in a second browser, then that admin's **Update tags**
 → refused; a requester who administers nothing accepts a provider offer → accepted.
@@ -537,7 +552,7 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | `fast-uri` GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr (moderate) + 2 low | **2026-11-06** | Published 2026-10-23; `>= 4.0.0 < 4.2.3`, fixed 4.2.3; lock 4.2.1 (override `>=4.2.1`). Not yet scheduled. Dependabot **#318** (`fast-uri` 4.2.1 → 4.2.3, opened 2026-10-26 22:10Z) is a **queued proposal**, not the lane holder. Its lock diff is +3/−81 lines, so inspect what it drops before using it |
 | ~~node-forge + braces ADR-059 exemptions~~ → **Security PR X** | ~~EXPIRED 2026-10-26 00:00Z~~ | **DONE**: #317 `e15622bc` (v11.98.0), live 2026-10-26 22:25Z (CI/CD 40410093954). The lapse blocked pushes and CI Security Audit from 10-26 00:00Z until the merge. body-parser/undici/zod highs fixed inside their SLA (body-parser due 10-30). BUG-059 closed |
 | ~~**PR L** (BUG-068)~~ | ~~2026-10-29~~ | **DONE**: #315 `ff3f394e` (v11.99.0), merged 2026-10-26 23:05:13Z (CI/CD 40417261628); post-deploy queue check PASS. The demo key cleanup is a separate, unscheduled operation (*PR L state*) |
-| **BUG-069** | **2026-10-30** | PR K **#319 open** (v11.100.0, pushed 2026-10-26 after #315; awaiting the maintainer's merge). **ADR-102**. The inventory showed it fits one PR, so no risk acceptance or split was needed |
+| **BUG-069** | **2026-10-30** | PR K **#319 open** (v11.100.0, pushed 2026-10-26 after #315; CI green incl. real SQL, Codex review #2 no findings; awaiting the maintainer's merge). **ADR-102**. The inventory showed it fits one PR, so no risk acceptance or split was needed |
 | BUG-073 (any community creator passes the "admin of any community" gates) | ~~2026-10-29~~ → **tabled** | Logged 2026-10-22 by PR K's `/code-review`, still **open**. **Maintainer, 2026-10-26:** separate community admin from platform admin, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26 *architecture*). No target sprint or review date set |
 | **BUG-070** (BUG-063 class in reputation health + dead `FeedComposer`) | **2026-11-03** | Logged 2026-10-20 (LOW, proposed); **in PR L2** (maintainer confirmed 2026-10-20) |
 | Demo stories | ~2026-12-18 | `demo-health.yml` watches the runway |
