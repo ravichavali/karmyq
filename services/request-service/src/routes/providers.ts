@@ -3,7 +3,8 @@ import { query } from '../database/db';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { publishEvent } from '../events/publisher';
 import { PROVIDER_SERVICE_TYPES, type CreateProviderProfileInput } from '@karmyq/shared/schemas/providers';
-import { getCommunityProviders, isActiveMember } from '../services/providerReachService';
+import { getCommunityProviders } from '../services/providerReachService';
+import { isActiveMember } from '../db/liveRole';
 
 const router = Router();
 
@@ -113,7 +114,7 @@ router.get('/community/:communityId', authMiddleware, async (req: AuthenticatedR
 
     // Membership is checked BEFORE the layer is queried, not filtered out of the result. A
     // non-member must learn nothing about the community's providers, including how many there are.
-    if (!(await isActiveMember(viewerId, communityId))) {
+    if (!(await isActiveMember(communityId, viewerId))) {
       return res.status(403).json({
         success: false,
         message: 'You must be an active member of this community to view its providers',

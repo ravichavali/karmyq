@@ -379,7 +379,31 @@
       },
       "apis": {
         "provides": [
-          "/requests",
+          {
+            "method": "GET",
+            "path": "/requests",
+            "description": "Viewer-scoped browse or JWT-equal own-request list. Sprint 134 PR V filters and pages candidate request rows before community aggregation, preserving community-scoped names/ids and authorized admin notes. Browse applies requestReadableSql; expired, directed and own live-match browse exclusions remain."
+          },
+          {
+            "method": "GET",
+            "path": "/requests/:id",
+            "description": "Canonical SQL requestReadableSql read boundary: requester, any-status responder, preferred provider or reachable audience, subject to directed audience. Missing and out-of-audience return the same 404. Reachability separately determines can_offer; readable historical participants do not automatically gain offer eligibility."
+          },
+          {
+            "method": "PUT",
+            "path": "/requests/:id",
+            "description": "JWT requester-only update; id and requester are bound on lookup and mutation. Foreign, missing and vanished rows return identical 404 without events."
+          },
+          {
+            "method": "DELETE",
+            "path": "/requests/:id",
+            "description": "JWT requester-only cancellation; ignores body user_id. Foreign, missing and vanished rows return identical 404 without events."
+          },
+          {
+            "method": "PUT",
+            "path": "/requests/:id/privacy",
+            "description": "JWT requester-only privacy settings. Ownership is checked before body validation; foreign, missing and vanished rows return identical 404 without events."
+          },
           {
             "method": "GET",
             "path": "/requests/:requestId/relationship-context",

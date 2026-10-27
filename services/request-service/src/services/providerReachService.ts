@@ -64,25 +64,6 @@ function clampInt(value: unknown, fallback: number, min: number, max: number): n
 }
 
 /**
- * Is this user an active member of this community, according to the LIVE table?
- *
- * Deliberately not derived from the JWT `communities` claim. That claim is a login-time snapshot:
- * a member removed an hour ago still carries it until their token refreshes, so a claim-only check
- * leaks the community's provider layer to someone who has been shown the door. Claims are role
- * hints; visibility decisions query the table.
- */
-export async function isActiveMember(userId: string, communityId: string): Promise<boolean> {
-  const result = await query(
-    `SELECT community_id
-     FROM communities.members
-     WHERE user_id = $1 AND community_id = $2 AND status = 'active'
-     LIMIT 1`,
-    [userId, communityId]
-  );
-  return result.rows.length > 0;
-}
-
-/**
  * The three-condition reach query.
  *
  * Exported so `tests/unit/providerReachService.test.ts` can assert its exact shape without a

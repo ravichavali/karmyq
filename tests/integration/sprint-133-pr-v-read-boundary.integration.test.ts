@@ -207,4 +207,72 @@ describe('Sprint 133 PR V request and offer read boundary (BUG-065, BUG-064)', (
     expect(list.body.data.offers.map((o: { id: string }) => o.id)).toContain(offerId);
     expect((await api(M, 'get', `/offers/${offerId}`)).status).toBe(200);
   });
+
+  it.each([
+    ['put', '', { title: 'Hijacked', user_id: R }],
+    ['delete', '', { user_id: R }],
+    ['put', '/privacy', { is_public: true, user_id: R }],
+    ['put', '/privacy', {}],
+  ] as const)('request owner write %s :id%s hides foreign ids and preserves the row', async (method, suffix, body) => {
+    const id = await insertAsk('community');
+    try {
+      const before = (await pool.query('SELECT * FROM requests.help_requests WHERE id=$1', [id])).rows[0];
+      const foreign = await api(X, method, `/requests/${id}${suffix}`).send(body);
+      const absent = await api(X, method, `/requests/${randomUUID()}${suffix}`).send(body);
+      expect(foreign.status).toBe(404);
+      expect(withoutMeta(foreign.body)).toEqual(withoutMeta(absent.body));
+      expect((await pool.query('SELECT * FROM requests.help_requests WHERE id=$1', [id])).rows[0]).toEqual(before);
+
+      const own = await api(R, method, `/requests/${id}${suffix}`).send(body);
+      expect(own.status).toBe(suffix === '/privacy' && Object.keys(body).length === 0 ? 400 : 200);
+      const after = (await pool.query('SELECT title,status,is_public FROM requests.help_requests WHERE id=$1', [id])).rows[0];
+      if (method === 'delete') expect(after.status).toBe('cancelled');
+      else if (suffix === '') expect(after.title).toBe('Hijacked');
+      else if ('is_public' in body) expect(after.is_public).toBe(true);
+    } finally {
+      await pool.query('DELETE FROM requests.help_requests WHERE id=$1', [id]);
+    }
+  });
+
+  it('pages multi-community asks before aggregation and preserves scoped notes and community names', async () => {
+    const ids: string[] = [];
+    try {
+      for (let n = 0; n < 3; n++) {
+        const id = await insertAsk('community'); ids.push(id);
+        await pool.query('INSERT INTO requests.request_communities(request_id,community_id) VALUES ($1,$2)', [id, OTHER]);
+        await pool.query("UPDATE requests.help_requests SET created_at=NOW()+($2::int * INTERVAL '1 day') WHERE id=$1", [id, n + 1]);
+      }
+      await pool.query("UPDATE communities.members SET role='admin' WHERE user_id=$1 AND community_id=$2", [R, C]);
+      await pool.query(`INSERT INTO requests.request_admin_notes(request_id,community_id,note,updated_by)
+        VALUES ($1,$2,'Visible C note',$3), ($1,$4,'Hidden OTHER note',$3)`, [ids[1], C, R, OTHER]);
+      const scoped = await api(R, 'get', `/requests?requester_id=${R}&community_id=${C}&include_admin_notes=true&limit=1&offset=1`);
+      expect(scoped.status).toBe(200);
+      expect(scoped.body.data.requests.map((r: { id: string }) => r.id)).toEqual([ids[1]]);
+      expect(scoped.body.data.requests[0]).toMatchObject({ community_ids: C, community_name: `Boundary ${C}`, admin_note: 'Visible C note' });
+      const all = await api(R, 'get', `/requests?requester_id=${R}&limit=2&offset=1`);
+      expect(all.status).toBe(200);
+      expect(all.body.data.requests.map((r: { id: string }) => r.id)).toEqual([ids[1], ids[0]]);
+      expect(all.body.data.requests[0].community_ids.split(',').sort()).toEqual([C, OTHER].sort());
+      expect(all.body.data.requests[0]).not.toHaveProperty('admin_note');
+      const sister = await api(S, 'get', `/requests?community_id=${C}&limit=2&offset=1`);
+      expect(sister.status).toBe(200);
+      expect(sister.body.data.requests.map((r: { id: string }) => r.id)).toEqual([ids[1], ids[0]]);
+      const outsider = await api(X, 'get', `/requests?community_id=${C}&limit=2`);
+      expect(outsider.status).toBe(200);
+      expect(outsider.body.data.requests.map((r: { id: string }) => r.id).sort())
+        .toEqual([asks.trust, asks.platform].sort());
+    } finally {
+      await pool.query('DELETE FROM requests.request_admin_notes WHERE request_id=ANY($1::uuid[])', [ids]);
+      await pool.query('DELETE FROM requests.help_requests WHERE id=ANY($1::uuid[])', [ids]);
+      await pool.query("UPDATE communities.members SET role='member' WHERE user_id=$1 AND community_id=$2", [R, C]);
+    }
+  });
+
+  it('has the non-unique request/responder index without a status filter', async () => {
+    const index = await pool.query(`SELECT indexdef FROM pg_indexes
+      WHERE schemaname='requests' AND tablename='matches' AND indexname='idx_matches_request_responder'`);
+    expect(index.rows).toHaveLength(1);
+    expect(index.rows[0].indexdef).toMatch(/USING btree \(request_id, responder_id\)$/);
+    expect(index.rows[0].indexdef).not.toMatch(/UNIQUE|WHERE/);
+  });
 });

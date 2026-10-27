@@ -31,6 +31,11 @@ export async function isLiveAdmin(communityId: unknown, userId: string | undefin
   return (await getLiveRole(communityId, userId)) === 'admin';
 }
 
+/** Active membership, regardless of role. Arguments match all live-role helpers: community first. */
+export async function isActiveMember(communityId: unknown, userId: string | undefined): Promise<boolean> {
+  return (await getLiveRole(communityId, userId)) !== null;
+}
+
 /** For platform-wide admin surfaces that admit an admin of any community (`requireAdmin`). */
 export async function isLiveAdminOfAnyCommunity(userId: string | undefined): Promise<boolean> {
   if (!userId) return false;

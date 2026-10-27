@@ -7,6 +7,21 @@
 
 ## Recent Changes
 
+- **2026-10-27 (Sprint 134 PR V)**: request update, cancellation and privacy writes look up and
+  mutate by request id **and verified JWT requester**. Foreign, absent and concurrently removed
+  rows return the same 404 before publishing events. `GET /requests/:id` now applies
+  `requestReadableSql` directly in SQL; reachability is consulted only to derive `can_offer` for
+  an open, unexpired non-owner without a live match. Historical responders and preferred providers
+  retain read access without gaining offer eligibility. `buildRequestsQuery` filters and pages a
+  candidate CTE before joining names/aggregating communities; a community filter still narrows the
+  returned community names/ids and notes. One `db/liveRole.isActiveMember(communityId, userId)` now
+  serves inventory, requests, feed and providers, including malformed-id rejection and active
+  membership with a null role. The reversed provider helper is removed. The composite match read
+  index is prepared in `20261027-001-request-match-read-index.sql`; schema regeneration awaits
+  separate demo-host authorization. Offer `is_public` policy awaits the maintainer; unchanged here.
+  Local route/query tests supplement the root real-SQL read-boundary, request-detail and provider
+  matrices (CI only on Windows). No query-speed improvement is claimed without measurements.
+
 - **2026-10-27 (Sprint 134 PR L2, BUG-070)**: `requests.interaction_feedback` is dropped after
   PR L retired its routes/event. `SocialKarmaFeedComposer` no longer reads the retired community-health
   averages; its existing total-match activity term is min(100, matches × 2). The maintainer's

@@ -38,7 +38,9 @@ merge-sha analyses raised nothing new, highest alert still #627). ADR-102 flippe
 passed 14/14 jobs, including deploy and health check; "Notify on failure" skipped (no rollback).
 0 open CodeQL alerts on master at this post-merge check. **BUG-070 fixed and deployed inside its 2026-11-03 date.**
 Human validation pending: reputation logs after the first 02:00 nightly run (*PR L2 state*).
-**Now: PR V**, planning on `agent/codex/sprint-134-pr-v-read-boundaries`, cut from `origin/master` `47c9a323`.
+**Now: PR V**, independent implementation on `agent/codex/sprint-134-pr-v-read-boundaries`, cut from
+`origin/master` `47c9a323`. Offer-flag decision and separate schema-operation authorization are pending;
+see *PR V state*. Dependency lane remains Claude's; checkpoint must be pushed with a clean tree.
 **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
 become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26); the 10-29 deadline no longer applies.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
@@ -56,9 +58,9 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 1. Read this handoff, then `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
 2. Find the next PR in *PR sequence* whose status is not SHIPPED. Reuse its branch if it exists; otherwise
    `git switch -c agent/claude/sprint-134-pr-<letter>-<slug> origin/master`. Never branch off a stale local master.
-3. Open that PR's plan (table below). PR L2 is shipped; its nightly human validation remains pending.
-   PR V is next: write its plan from the spec and IDEAS 2026-10-19, then execute. Ask the maintainer
-   about help_offers.is_public before planning that part; init.sql regeneration needs separate demo-host authorization.
+3. Open PR V's plan (table below) and *PR V state*. Independent changes are implemented; resolve
+   help_offers.is_public before planning that part, and obtain separate demo-host authorization for
+   init.sql regeneration. PR L2 is shipped; its nightly human validation remains pending.
 4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
    slash command; superpowers removed it as a deprecated stub.
 5. One fresh chat per PR (CLAUDE.md *Chat cadence*). Update this file at every PR open/merge.
@@ -92,12 +94,62 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 | 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | **SHIPPED** `ff3f394e` (#315, v11.99.0), CI/CD 40417261628 green; post-deploy queue check PASS. See *PR L state* |
 | 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers, numeric widths and nightly isolation; **BUG-070** | BUG-070 **2026-11-03** | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md) | **SHIPPED** #320 `47c9a323` (v11.101.0), CI/CD 40579675258 green; nightly human validation pending. |
 | 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **SHIPPED** `dd585016` (#319, v11.100.0), CI/CD 40441255956 green; real SQL 101/101. Human validation pending; see *PR K state* |
-| 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | write at PR start | — |
+| 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **IN PROGRESS**: independent changes implemented; offer decision + separate schema authorization pending; no PR yet. |
 | 8 | **B** | PR B endorsement follow-ups (`docs/IDEAS.md` 2026-10-13) | — | write at PR start | — |
 | 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
 | — | **Per-community health-quality weight (planned PR)** | Persist the weight in `communities.community_configs`; choose a quality signal source; requires an ADR number allocated by the maintainer | Not scheduled | Write after ADR allocation + signal decision | Separate planned PR, not part of L2 |
 
 B and C are the likeliest to spill into Sprint 135, which is expected. One merge at a time; wait for deploy + health before the next.
+
+## PR V state (Codex, 2026-10-27)
+
+Branch `agent/codex/sprint-134-pr-v-read-boundaries`, from `origin/master` `47c9a323`.
+First commit `1721dc5f` is the #320 post-merge record. Root version **11.102.0** is provisional;
+manifest/lock edits are only its three root version occurrences. Dependency lane stays Claude's,
+with a dependency PR due before **2026-11-01 17:00 PDT**. No merge/deploy requested or performed.
+
+Plan: [2026-10-27-sprint-134-pr-v-read-boundaries.md](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md).
+Implemented: identical foreign/absent 404 on request update/cancel/privacy (including guarded
+mutations and no events on vanished row), detail on requestReadableSql, one liveRole membership
+helper with community-first arguments, paged candidate CTE before aggregation. Existing directed
+inventory scan recognizes the canonical read helper, with alias/OR negative fixtures; six reviewed
+owner-write hashes were re-pinned to stronger id+JWT-owner SQL. Context/registry/guide and landing
+source-generated docs updated. Supporting simplify/correctness/security and migration review found
+no source blocker; the review's missing-predicate assertion gap was fixed with an exact-fragment check.
+Claude's independent post-PR review remains required.
+
+**Required maintainer input, asked asynchronously and still unanswered:**
+1. Retire or enforce `help_offers.is_public`? No offer change or offer-specific plan yet. If enforce,
+   specify who may read a non-public offer. Do not infer a policy from elapsed time.
+2. Authorize the isolated demo-host schema operation, or explicitly defer the index. Prepared
+   `20261027-001-request-match-read-index.sql` adds a guarded non-unique pair index; **init.sql is
+   intentionally not regenerated yet**. Proposed operation: original generator, migration reapply
+   twice, full-chain drift, fresh restore and byte-identical regeneration in a dedicated PostgreSQL 15
+   container/scratch directory; download output and remove only those scratch resources. No live
+   DB/volumes. No host operation has run. User explicitly requires separate authorization.
+
+**Validation checkpoint (implementation working tree over `1721dc5f`):** new workspace tdd suite failed before implementation, passed 17/17 and
+was promoted to regression. Focused provider/query tests passed 49/49; focused detail/retention/new
+suite passed 40 with 1 pre-existing DB skip; scanner/body-identity passed 12/12. Service tsc passed.
+Root strict compiler changed request-service/integration-path filter printed nothing; unrelated
+root diagnostics remain. Added real-SQL owner-write, multi-community page/notes and index assertions
+to the existing root matrix: **CI-only, not run locally**. Full `npm test` passed **27/27 tasks**
+(24 cached; request-service and root tests fresh). Request-service: **161 unit + 443 regression,
+1 existing DB skip**. Direct root tests with Git Bash/Unix utilities on PATH passed **101 unit +
+952 regression** (no Turbo replay). Earlier unconfigured/restricted invocations failed shell/network
+gates; the configured reruns supersede them. Exact strict compiler/grep command printed no matching
+diagnostics (grep exit 1); gotcha registry clean. Final focused suite (including the strengthened
+predicate-presence assertion) passed **17/17**. Staged feedback exited 0 with advisory reminders:
+context/registry/guide updates are present; generated schema is deliberately pending separate
+authorization; dependency graph is unchanged. Whitespace clean. Mandatory process review approved
+a clean WIP commit/push, explicitly **not completed-PR or merge readiness**. The checkpoint records
+the two unanswered inputs so Claude can take the shared tree without uncommitted WIP.
+The generated schema/index test cannot
+pass CI until the separately authorized schema operation or an explicit scope deferral.
+
+**Next action:** resolve the two inputs, finish the decision-dependent plan/task and schema artifact,
+then refresh gates/validation ledger, push clean and create the full-template PR. Stop at PR creation;
+Claude reviews. L2's first-02:00 reputation-log human validation remains pending separately.
 
 ## PR L2 state (Codex author/executor, 2026-10-27)
 

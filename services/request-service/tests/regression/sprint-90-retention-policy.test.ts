@@ -12,7 +12,7 @@ import express from 'express';
 import request from 'supertest';
 import { query } from '../../src/database/db';
 import requestsRouter, { resolveRetentionWindows } from '../../src/routes/requests';
-import * as inventoryDb from '../../src/db/inventoryDb';
+import * as liveRole from '../../src/db/liveRole';
 
 describe('Sprint 90: resolveRetentionWindows (pure)', () => {
   it('falls back to hardcoded windows when config is empty', () => {
@@ -62,7 +62,7 @@ describe('Sprint 90: GET /requests/retention-policy (route)', () => {
   // BUG-065: the gate reads live membership, so the lookup is stubbed here; even a stale claim for the
   // target community must not admit a caller whose live row is gone.
   it('rejects a non-member caller (community-scoped) with 403 — no DB needed', async () => {
-    const lookup = jest.spyOn(inventoryDb, 'isActiveMember').mockResolvedValue(false);
+    const lookup = jest.spyOn(liveRole, 'isActiveMember').mockResolvedValue(false);
     try {
       const staleClaim = [{ id: 'target-community', name: 'Target', role: 'member' }];
       const res = await request(appAs('u1', staleClaim)).get('/requests/retention-policy?communityId=target-community');

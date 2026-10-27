@@ -52,7 +52,7 @@ export function scanServices(repo: string): Surface[] {
 
 function guardAlias(expression: ts.Expression): string | undefined {
   if (ts.isCallExpression(expression) && ts.isIdentifier(expression.expression)
-    && ['notDirectedSql', 'directedAudienceSql', 'matchParticipantSql'].includes(expression.expression.text)) {
+    && ['notDirectedSql', 'directedAudienceSql', 'matchParticipantSql', 'requestReadableSql'].includes(expression.expression.text)) {
     const alias = expression.arguments[0];
     return alias && ts.isStringLiteral(alias) ? alias.text : undefined;
   }

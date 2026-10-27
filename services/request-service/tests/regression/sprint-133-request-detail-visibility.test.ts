@@ -1,9 +1,9 @@
 import express from 'express';
 import request from 'supertest';
 
-// BUG-056: GET /requests/:id must gate on own ∨ any-status match responder ∨ reachability, keep the
-// stricter directed-audience SQL predicate, and never return requester_email. `query` is mocked only
-// at the DB boundary, so the real route and the real getRequestReachability run against it.
+// BUG-056: SQL gates reads; getRequestReachability only determines whether an admitted viewer can
+// offer. Mocked rows here represent admitted SQL results. Real visibility is proven by the root
+// sprint-133 request-detail and read-boundary integration matrices.
 const mockQuery = jest.fn();
 jest.mock('../../src/database/db', () => ({
   __esModule: true,
@@ -51,7 +51,6 @@ function detailRow(s: Scenario) {
     is_directed: s.isDirected ?? false,
     visibility_scope: s.visibilityScope ?? 'community',
     requester_name: 'Owner',
-    viewer_any_match: s.anyMatch ?? false,
     viewer_match_id: s.activeMatch?.id ?? null,
     viewer_match_status: s.activeMatch?.status ?? null,
   };
@@ -97,17 +96,12 @@ describe('GET /requests/:id visibility gate (BUG-056)', () => {
     expect(sql).not.toMatch(/email/i);
   });
 
-  it('returns the same 404 as not-found for an unreachable non-directed request', async () => {
-    mockScenario({ isMember: false, visibilityScope: 'community' });
-    const gated = await request(app()).get(`/requests/${REQUEST_ID}`);
-
-    mockQuery.mockReset();
+  it('returns opaque 404 when SQL returns no readable request, without probing reachability', async () => {
     mockQuery.mockResolvedValue({ rowCount: 0, rows: [] });
     const missing = await request(app()).get(`/requests/${REQUEST_ID}`);
-
-    expect(gated.status).toBe(404);
     expect(missing.status).toBe(404);
-    expect(gated.body).toEqual(missing.body);
+    expect(missing.body).toEqual({ success: false, message: 'Request not found' });
+    expect(mockQuery).toHaveBeenCalledTimes(1);
   });
 
   it('returns 200 to the owner without consulting reachability', async () => {
@@ -154,10 +148,12 @@ describe('GET /requests/:id visibility gate (BUG-056)', () => {
     expect(res.body.data.viewer_relation).toBe('not_actionable');
   });
 
-  it('returns 404 for a closed request outside the viewer audience', async () => {
-    mockScenario({ isMember: false, status: 'completed' });
+  it('does not consult offer eligibility for a closed request SQL has admitted', async () => {
+    mockScenario({ anyMatch: true, isMember: false, status: 'completed' });
     const res = await request(app()).get(`/requests/${REQUEST_ID}`);
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(res.body.data.viewer_relation).toBe('not_actionable');
+    expect(mockQuery).toHaveBeenCalledTimes(1);
   });
 
   it('never returns requester_email or the internal match columns', async () => {
@@ -202,16 +198,9 @@ describe('GET /offers/:id email exposure (BUG-062)', () => {
 describe('GET /requests/:id preferred provider (code-review follow-up)', () => {
   it('returns 200 to the pre-selected provider even when unreachable', async () => {
     mockScenario({ isMember: false });
-    const base = mockQuery.getMockImplementation()!;
-    mockQuery.mockImplementation(async (sql: string, params: unknown[]) => {
-      const out: any = await base(sql, params);
-      if (!sql.includes('AS in_directed_audience')) {
-        out.rows[0].viewer_is_preferred_provider = /viewer_is_preferred_provider/.test(sql);
-      }
-      return out;
-    });
     const res = await request(app()).get(`/requests/${REQUEST_ID}`);
     expect(res.status).toBe(200);
+    expect(res.body.data.viewer_relation).toBe('not_actionable');
     expect(res.body.data).not.toHaveProperty('viewer_is_preferred_provider');
   });
 });

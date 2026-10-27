@@ -876,6 +876,12 @@ exception for that query. Small; fits any request/notification PR.
 
 Logged in the #306 description and the Sprint 133 handoff; captured here so they survive the handoff archive.
 
+**Sprint 134 PR V, 2026-10-27:** owner-write opacity, canonical detail SQL, one community-first
+live membership helper and list candidate pagination are implemented on the PR V branch; real-SQL
+proof remains CI-only. The pair index migration is prepared; generated-schema verification needs
+separate demo-host authorization. The offer flag question was asked at PR start and awaits a
+maintainer decision; that part has not been planned or changed.
+
 - **Owner-write 403/404 oracle.** Request owner-write routes still answer differently for "absent" and "not yours";
   make them uniform the way PR V did for offers (BUG-064).
 - **Detail route on `requestReadableSql`.** `GET /requests/:id` still combines the boundary in JS

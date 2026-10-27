@@ -1,8 +1,8 @@
 import { notDirectedSql, directedAudienceSql, matchParticipantSql } from '../db/directedAudience';
 import { Router, Request, Response } from 'express';
 import { query } from '../database/db';
-import { getRequestReachability } from '../db/eligibility';
-import { isActiveMember } from '../db/inventoryDb';
+import { getRequestReachability, requestReadableSql } from '../db/eligibility';
+import { isActiveMember } from '../db/liveRole';
 import { publishEvent } from '../events/publisher';
 import { buildRequestsQuery } from '../utils/queryBuilder';
 import {
@@ -1630,19 +1630,7 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
         STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids,
         viewer_match.id AS viewer_match_id,
-        viewer_match.status AS viewer_match_status,
-        -- BUG-056: a responder on ANY match (incl. completed/cancelled) keeps read access, even after
-        -- leaving the community. Lifecycle-gated actions still key off viewer_match (active only).
-        EXISTS (
-          SELECT 1 FROM requests.matches any_match
-          WHERE any_match.request_id = r.id AND any_match.responder_id = $2
-        ) AS viewer_any_match,
-        -- The pre-selected provider is notified with a link to this request (preferred_provider_selected),
-        -- so they can read it even when outside its communities.
-        EXISTS (
-          SELECT 1 FROM requests.provider_profiles preferred
-          WHERE preferred.id = r.preferred_provider_id AND preferred.user_id = $2
-        ) AS viewer_is_preferred_provider
+        viewer_match.status AS viewer_match_status
       FROM requests.help_requests r
       LEFT JOIN auth.users u ON r.requester_id = u.id
       LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
@@ -1656,7 +1644,7 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
         ORDER BY created_at DESC
         LIMIT 1
       ) viewer_match ON TRUE
-      WHERE r.id = $1 AND ${directedAudienceSql('r', '$2')}
+      WHERE r.id = $1 AND ${requestReadableSql('r', '$2')}
       GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.expired, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.scheduled_for, u.name, viewer_match.id, viewer_match.status`,
       [id, userId ?? null]
     );
@@ -1669,16 +1657,10 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
     const isOpenAndUnexpired = row.status === 'open' && row.expired === false;
     const isOwn = !!userId && row.requester_id === userId;
     const alreadyOffered = !!row.viewer_match_id;
-    // BUG-056 read gate: own ∨ any-status match responder ∨ pre-selected provider ∨ directed (the SQL
-    // already applied the stricter directed-audience predicate) ∨ within the request's visibility audience.
-    const readableWithoutReach = isOwn || !!row.viewer_any_match || !!row.viewer_is_preferred_provider
-      || !!row.is_directed;
-    // can_offer needs that same audience (shared boundary with POST /matches), so one reachability
-    // call serves both the gate and the offer decision.
+    // SQL already enforced visibility, including historical responders and the preferred provider.
+    // Reachability is a separate action gate: readable does not automatically mean can_offer.
     const offerCandidate = !isOwn && !alreadyOffered && isOpenAndUnexpired;
-    const reachable = (offerCandidate || !readableWithoutReach)
-      && (await getRequestReachability(id, userId ?? null)).reachable;
-    if (!readableWithoutReach && !reachable) return notFound();
+    const reachable = offerCandidate && (await getRequestReachability(id, userId ?? null)).reachable;
     const viewerRelation: 'own_request' | 'already_offered' | 'can_offer' | 'not_actionable' =
       isOwn ? 'own_request'
       : alreadyOffered ? 'already_offered'
@@ -1686,7 +1668,7 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
       : 'not_actionable';
 
     // Strip the raw lateral-join columns from the wire shape; expose them as a clean contract.
-    const { viewer_match_id, viewer_match_status, viewer_any_match, viewer_is_preferred_provider, ...request } = row;
+    const { viewer_match_id, viewer_match_status, ...request } = row;
     res.json({
       success: true,
       data: {
@@ -1983,21 +1965,14 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     // Check if user is the requester
     const requestCheck = await query(
-      `SELECT requester_id FROM requests.help_requests WHERE id = $1`,
-      [id]
+      `SELECT requester_id FROM requests.help_requests WHERE id = $1 AND requester_id = $2`,
+      [id, user_id]
     );
 
     if (requestCheck.rowCount === 0) {
       return res.status(404).json({
         success: false,
         message: 'Request not found',
-      });
-    }
-
-    if (requestCheck.rows[0].requester_id !== user_id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only the requester can update this request',
       });
     }
 
@@ -2024,15 +1999,19 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
 
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
-    values.push(id);
+    values.push(id, user_id);
 
     const result = await query(
       `UPDATE requests.help_requests
        SET ${updates.join(', ')}
-       WHERE id = $${paramCount}
+       WHERE id = $${paramCount} AND requester_id = $${paramCount + 1}
        RETURNING *`,
       values
     );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
 
     if (status === 'completed') {
       await publishEvent('request_completed', {
@@ -2064,8 +2043,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     // Check if user is the requester
     const requestCheck = await query(
-      `SELECT requester_id FROM requests.help_requests WHERE id = $1`,
-      [id]
+      `SELECT requester_id FROM requests.help_requests WHERE id = $1 AND requester_id = $2`,
+      [id, user_id]
     );
 
     if (requestCheck.rowCount === 0) {
@@ -2075,20 +2054,18 @@ router.delete('/:id', async (req: Request, res: Response) => {
       });
     }
 
-    if (requestCheck.rows[0].requester_id !== user_id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only the requester can cancel this request',
-      });
-    }
-
     // Cancel request
-    await query(
+    const result = await query(
       `UPDATE requests.help_requests
        SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
-       WHERE id = $1`,
-      [id]
+       WHERE id = $1 AND requester_id = $2
+       RETURNING id`,
+      [id, user_id]
     );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
 
     // Publish event
     await publishEvent('request_cancelled', {
@@ -2125,21 +2102,14 @@ router.put('/:id/privacy', async (req: Request, res: Response) => {
 
     // Check if user is the requester
     const requestCheck = await query(
-      `SELECT requester_id FROM requests.help_requests WHERE id = $1`,
-      [id]
+      `SELECT requester_id FROM requests.help_requests WHERE id = $1 AND requester_id = $2`,
+      [id, user_id]
     );
 
     if (requestCheck.rowCount === 0) {
       return res.status(404).json({
         success: false,
         message: 'Request not found',
-      });
-    }
-
-    if (requestCheck.rows[0].requester_id !== user_id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only the requester can update privacy settings',
       });
     }
 
@@ -2166,15 +2136,19 @@ router.put('/:id/privacy', async (req: Request, res: Response) => {
     }
 
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
-    values.push(id);
+    values.push(id, user_id);
 
     const result = await query(
       `UPDATE requests.help_requests
        SET ${updates.join(', ')}
-       WHERE id = $${paramCount}
+       WHERE id = $${paramCount} AND requester_id = $${paramCount + 1}
        RETURNING id, is_public, requester_visibility_consent`,
       values
     );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
 
     // Publish privacy settings updated event
     await publishEvent('privacy_settings_updated', {

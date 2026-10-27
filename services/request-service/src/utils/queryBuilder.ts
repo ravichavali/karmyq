@@ -45,7 +45,11 @@ export function buildRequestsQuery(filters: RequestsQueryFilters): RequestsQuery
   const adminNotesParam = includeAdminNotes ? bind(community_id) : null;
   const conditions: string[] = [];
   if (status) conditions.push(`r.status = ${bind(status)}`);
-  if (community_id) conditions.push(`rc.community_id = ${adminNotesParam ?? bind(community_id)}`);
+  const communityParam = community_id ? adminNotesParam ?? bind(community_id) : null;
+  if (communityParam) conditions.push(`EXISTS (
+        SELECT 1 FROM requests.request_communities page_community
+        WHERE page_community.request_id = r.id AND page_community.community_id = ${communityParam}
+      )`);
   // Only a JWT-equal requester selects the private list. All other uses remain browse, including
   // spoofed filters, and browse is gated by the read boundary below (BUG-065).
   const requesterParam = requester_id ? bind(requester_id) : null;
@@ -67,6 +71,14 @@ export function buildRequestsQuery(filters: RequestsQueryFilters): RequestsQuery
 
   const groupByExtra = includeAdminNotes ? ', ran.note' : '';
   const queryText = `
+      WITH candidate_requests AS (
+        SELECT r.* FROM requests.help_requests r
+        WHERE r.expired = FALSE
+          AND ${isPrivate ? directedAudienceSql('r', requesterParam!) : notDirectedSql('r')}
+          AND (${conditions.join('\n          AND ') || 'TRUE'})
+        ORDER BY r.created_at DESC
+        LIMIT ${bind(limit)} OFFSET ${bind(offset)}
+      )
       SELECT DISTINCT
         r.id, r.requester_id, r.title, r.description,
         r.category, r.urgency, r.status, r.created_at, r.updated_at,
@@ -76,17 +88,13 @@ export function buildRequestsQuery(filters: RequestsQueryFilters): RequestsQuery
         u.name as requester_name,
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
         STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids${includeAdminNotes ? ',\n        ran.note as admin_note' : ''}
-      FROM requests.help_requests r
+      FROM candidate_requests r
       LEFT JOIN auth.users u ON r.requester_id = u.id
-      LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
+      LEFT JOIN requests.request_communities rc ON r.id = rc.request_id${communityParam ? ` AND rc.community_id = ${communityParam}` : ''}
       LEFT JOIN communities.communities c ON rc.community_id = c.id${includeAdminNotes ? `
       LEFT JOIN requests.request_admin_notes ran ON ran.request_id = r.id AND ran.community_id = ${adminNotesParam}::uuid` : ''}
-      WHERE r.expired = FALSE
-        AND ${isPrivate ? directedAudienceSql('r', requesterParam!) : notDirectedSql('r')}
-        AND (${conditions.join('\n        AND ') || 'TRUE'})
       GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.scheduled_for, u.name${groupByExtra}
-      ORDER BY r.created_at DESC
-      LIMIT ${bind(limit)} OFFSET ${bind(offset)}`;
+      ORDER BY r.created_at DESC`;
 
   return { queryText, params };
 }
