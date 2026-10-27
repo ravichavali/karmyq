@@ -1863,7 +1863,8 @@ by the Sprint 133 PR Q `/code-review`; the PR Q integration test publishes synth
   `submitFeedback` action and `ApiClient.submitMatchFeedback`. The policy question above is moot: nothing publishes the
   event. Tests: `services/request-service/tests/regression/sprint-134-bug-068-feedback-retired.test.ts` (real app, both paths
   reach the 404 handler with no feedback SQL), the live 404 case in `tests/integration/sprint-132-security-authz.integration.test.ts`,
-  and the tightened `tests/regression/sprint-133-pr-q-event-routes.test.ts`. **Still open for PR L2:** the
+  and the tightened `tests/regression/sprint-133-pr-q-event-routes.test.ts`. **Dropped in PR L2 #320**
+  (`47c9a323`, v11.101.0, deployed 2026-10-27): the
   `requests.interaction_feedback` table, the four `trust_scores` columns and the three `community_health_metrics`
   averages, and the health endpoint's reads of them (with BUG-070).
 
@@ -1899,7 +1900,7 @@ planning inventory (the four request-service *read* gates of the same kind are f
 
 ---
 
-## BUG-070 · [2026-10-20] · fixed (Sprint 134 PR L2; deploy pending) · **LOW** (proposed)
+## BUG-070 · [2026-10-20] · fixed and deployed (Sprint 134 PR L2 #320, v11.101.0, 2026-10-27) · **LOW** (proposed)
 
 **The BUG-063 defect class outside the export router: queries read `help_requests.community_id`, which does not exist.**
 `requests.help_requests` has no `community_id` (a request's communities are in `requests.request_communities`;
@@ -1926,7 +1927,9 @@ table that has it. `services/request-service/src/routes/feedback.ts:46` is BUG-0
   `(1-w) * (2*activity + density) / 3 + w*quality`. Both strength surfaces can reach 100; private ratings
   remain separate. This weighting correction changes no migration/init.sql. Real SQL cron/fallback/upsert/growth and
   community-isolation tests: `tests/integration/sprint-134-pr-l2-health.integration.test.ts` — **CI-only on
-  Windows; Integration Tests is the arbiter, not local mocked SQL**. Deployment remains pending.
+  Windows; Integration Tests is the arbiter, not local mocked SQL**. Deployed via CI/CD 40579675258
+  after #320 merged `47c9a323` at 2026-10-27 20:37:13Z. Health passed; reputation logs after the
+  first 02:00 nightly run remain the human validation.
   **First-working-cron follow-up (maintainer, 2026-10-27):** isolate health/trust and milestone failures
   per community so later communities are still attempted. In the same migration, widen snapshot density
   to NUMERIC(20,4), both snapshot growth fields and cached trend percentage to NUMERIC(20,2).
