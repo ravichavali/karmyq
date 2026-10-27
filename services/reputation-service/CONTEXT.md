@@ -5,6 +5,32 @@
 
 ## Recent Changes
 
+- **2026-10-27 (Sprint 134 PR L2, BUG-070)**: the nightly 02:00 health calculator and
+  `GET /reputation/community-health/:communityId` fallback now scope completed matches through
+  `requests.request_communities`, replacing nonexistent `help_requests.community_id`. They share
+  `src/services/communityHealthMetrics.ts` (`readCurrentCommunityMetrics`, `calculateNetworkStrength`).
+  The current response and snapshots omit helpfulness/responsiveness/clarity averages. One migration
+  drops `requests.interaction_feedback`, those three snapshot columns, and the four retired
+  `trust_scores` interaction-feedback columns. Live private `feedback.feedback` and
+  `trust_scores.average_feedback` are preserved. Quality milestones are no longer generated.
+  Strength retains activity × 0.4 + quality × 0.4 + density × 0.2: quality is an optional internal
+  normalized score [0,100], default **0**, with no HTTP override or replacement rating source.
+  Snapshot, cache and fallback use the same calculation. Participant count retains the existing sum
+  of distinct requesters and distinct helpers (a person in both roles counts twice); density divides
+  by at least one cached member to avoid zero division. The aggregate membership/cohort guard stays.
+  Local regression: `tests/regression/sprint-134-pr-l2-health.test.ts`; real SQL cron/fallback:
+  root `tests/integration/sprint-134-pr-l2-health.integration.test.ts` (CI-only on Windows).
+  The nightly scheduler and optional startup run delegate to the same `manualCalculateHealthMetrics`
+  entry, which the real-SQL integration suite invokes without a timer or SQL mock.
+  Both all-community health and milestone loops catch/log failures per community and continue, like
+  `calculateAllCommunityTrustScores`; failure to enumerate active communities still rejects the job.
+  The same L2 migration widens snapshot density to `NUMERIC(20,4)` and snapshot match/participant
+  growth plus `communities.health_summary.trend_percentage` to `NUMERIC(20,2)`. All-time density can
+  exceed 10, and growth from a small prior snapshot can exceed 1000%; existing decimal scales stay.
+  Real-SQL cases cover density 12 with zero cached members, growth 1100%/2300%, the cached 1100%
+  trend and snapshots for every other fixture community. Local failure-isolation regressions:
+  `tests/regression/sprint-134-pr-l2-batch-isolation.test.ts`.
+
 - **2026-10-22 (Sprint 134 PR K, BUG-069 fixed, ADR-102)**: `GET`/`PUT /reputation/communities/:communityId/trust-evolution`,
   `GET /reputation/community/:communityId/evolution/history` and `/summary`, `PUT .../evolution/toggle` (community admin)
   and `POST /reputation/provider-trust/recalculate` (admin of any community) decided from the JWT `communities` claim.
@@ -19,9 +45,9 @@
   `karmyq-events-reputation` and no longer opens the legacy `karmyq-events` queue (drain check clean, 2026-10-20).
   It attaches only to `karmyq-completion-reputation` (`match_completed`) and `karmyq-community-evolution`. The
   `trust_scores` `avg_helpfulness`/`avg_responsiveness`/`avg_clarity`/`total_feedback_received` columns now have no
-  writer and no reader in service code; PR L2 drops them. The always-0 `community_health_metrics` averages (built from
+  writer and no reader in service code; PR L2 subsequently drops them. The always-0 `community_health_metrics` averages (built from
   a `requests.interaction_feedback` aggregate, read by `routes/health.ts`, `milestoneDetector.ts` and request-service's
-  feed composer) also stay until L2, with BUG-070.
+  feed composer) stayed until L2, which removes them and fixes BUG-070.
 - **2026-10-15 (Sprint 133 PR Q, ADR-101, BUG-060)**: `interaction_feedback_submitted` is consumed from
   **`karmyq-events-reputation`**, a queue no other service attaches to, via `startConsumerQueue` (the service refuses
   to start if its handlers differ from the routing table). The handler also stays on `karmyq-events` for one release
@@ -262,14 +288,7 @@ ALTER TABLE communities.community_configs
 **Social Karma v2.0 Schema Extensions:**
 
 ```sql
--- Add interaction quality metrics to trust_scores
-ALTER TABLE reputation.trust_scores
-ADD COLUMN avg_helpfulness NUMERIC(3,2) DEFAULT 0,
-ADD COLUMN avg_responsiveness NUMERIC(3,2) DEFAULT 0,
-ADD COLUMN avg_clarity NUMERIC(3,2) DEFAULT 0,
-ADD COLUMN total_feedback_received INTEGER DEFAULT 0;
-
--- reputation.community_health_metrics (NEW)
+-- reputation.community_health_metrics (retired feedback columns removed in Sprint 134 L2)
 CREATE TABLE reputation.community_health_metrics (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     community_id UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE,
@@ -283,17 +302,12 @@ CREATE TABLE reputation.community_health_metrics (
     total_active_helpers INTEGER DEFAULT 0,
     unique_participant_count INTEGER DEFAULT 0,
 
-    -- Interaction quality aggregates (community-wide averages)
-    avg_helpfulness NUMERIC(3,2) DEFAULT 0,
-    avg_responsiveness NUMERIC(3,2) DEFAULT 0,
-    avg_clarity NUMERIC(3,2) DEFAULT 0,
-
     -- Network density (connections per member)
-    network_density NUMERIC(5,4) DEFAULT 0,
+    network_density NUMERIC(20,4) DEFAULT 0,
 
     -- Growth metrics (vs previous period)
-    growth_rate_matches NUMERIC(5,2) DEFAULT 0,
-    growth_rate_participants NUMERIC(5,2) DEFAULT 0,
+    growth_rate_matches NUMERIC(20,2) DEFAULT 0,
+    growth_rate_participants NUMERIC(20,2) DEFAULT 0,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
@@ -602,15 +616,12 @@ Get community health metrics and trends.
   "success": true,
   "data": {
     "current": {
-      "total_matches_completed": 127,
-      "unique_participants": 45,
-      "total_active_requesters": 28,
-      "total_active_helpers": 35,
-      "avg_helpfulness": 4.6,
-      "avg_responsiveness": 4.8,
-      "avg_clarity": 4.5,
-      "network_density": 0.342,
-      "network_strength": 78.5
+      "total_matches_completed": 10,
+      "unique_participants": 4,
+      "total_active_requesters": 2,
+      "total_active_helpers": 2,
+      "network_density": 0.5,
+      "network_strength": 30
     },
     "trend": {
       "matches_growth": 15.2,
@@ -628,9 +639,9 @@ Get community health metrics and trends.
 **Network Strength Calculation:**
 ```
 network_strength = weighted_average(
-  activity_score * 0.4,      // matches per member
-  quality_score * 0.4,       // avg interaction ratings
-  density_score * 0.2        // connection diversity
+  activity_score * 0.4,      // min(100, matches / role-count participants * 20)
+  quality_score * 0.4,       // optional internal [0,100] score; current default 0
+  density_score * 0.2        // min(100, matches per cached member * 100)
 )
 ```
 
@@ -671,7 +682,7 @@ Get community milestone achievements.
 **Milestone Types:**
 - `10_matches`, `50_matches`, `100_matches`, `500_matches`, `1000_matches`
 - `10_participants`, `25_participants`, `50_participants`, `100_participants`
-- `avg_quality_4.5` - Average quality rating reaches 4.5+
+- Quality milestones are retired in Sprint 134 PR L2; existing historical milestone rows are retained.
 
 ### GET /reputation/trust/:userId/:communityId
 Enhanced trust score with interaction quality (UPDATED).
@@ -687,12 +698,6 @@ Enhanced trust score with interaction quality (UPDATED).
     "requests_completed": 8,
     "offers_accepted": 12,
     "average_feedback": 4.5,
-    "interaction_quality": {
-      "avg_helpfulness": 4.6,
-      "avg_responsiveness": 4.8,
-      "avg_clarity": 4.5,
-      "total_feedback_received": 12
-    },
     "last_updated": "2025-01-10T12:00:00Z"
   }
 }
@@ -700,7 +705,7 @@ Enhanced trust score with interaction quality (UPDATED).
 
 **Implementation:** `src/routes/reputation.ts:37` (UPDATED)
 
-**Note:** Now includes detailed interaction quality metrics from Social Karma v2.0 feedback system.
+**Note:** Retired interaction-quality fields are absent. Private ratings still feed personal trust via ADR-036/039.
 
 ---
 

@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { RouteParams } from '@karmyq/shared/middleware/auth';
 import { query } from '../database/db';
+import { readCurrentCommunityMetrics, calculateNetworkStrength } from '../services/communityHealthMetrics';
 import { computeNetworkCohesion } from '../services/networkCohesionService';
 import { checkAggregateAccess } from '../utils/disclosureAuth';
 
@@ -23,11 +24,6 @@ router.get('/community-health/:communityId', async (req: Request<RouteParams>, r
   try {
     const access = await checkAggregateAccess((req as any).user?.userId, communityId);
     if (!access.allowed) return denyAggregate(res);
-    // Parse period to days
-    let days = 7;
-    if (period === '30d') days = 30;
-    else if (period === '90d') days = 90;
-
     // Get latest snapshot
     const latestSnapshot = await query(
       `SELECT
@@ -36,9 +32,6 @@ router.get('/community-health/:communityId', async (req: Request<RouteParams>, r
         total_active_requesters,
         total_active_helpers,
         unique_participant_count,
-        avg_helpfulness,
-        avg_responsiveness,
-        avg_clarity,
         network_density,
         growth_rate_matches,
         growth_rate_participants
@@ -51,7 +44,7 @@ router.get('/community-health/:communityId', async (req: Request<RouteParams>, r
 
     if (latestSnapshot.rowCount === 0) {
       // No metrics yet - calculate current state
-      const currentMetrics = await calculateCurrentMetrics(communityId);
+      const currentMetrics = await readCurrentCommunityMetrics(communityId);
 
       return res.json({
         success: true,
@@ -74,9 +67,6 @@ router.get('/community-health/:communityId', async (req: Request<RouteParams>, r
     const networkStrength = calculateNetworkStrength(
       latest.total_matches_completed,
       latest.unique_participant_count,
-      latest.avg_helpfulness,
-      latest.avg_responsiveness,
-      latest.avg_clarity,
       latest.network_density
     );
 
@@ -92,9 +82,6 @@ router.get('/community-health/:communityId', async (req: Request<RouteParams>, r
           unique_participants: latest.unique_participant_count,
           total_active_requesters: latest.total_active_requesters,
           total_active_helpers: latest.total_active_helpers,
-          avg_helpfulness: parseFloat(latest.avg_helpfulness || 0),
-          avg_responsiveness: parseFloat(latest.avg_responsiveness || 0),
-          avg_clarity: parseFloat(latest.avg_clarity || 0),
           network_density: parseFloat(latest.network_density || 0),
           network_strength: networkStrength,
         },
@@ -155,121 +142,6 @@ router.get('/milestones/:communityId', async (req: Request<RouteParams>, res: Re
     });
   }
 });
-
-/**
- * Helper: Calculate current metrics for a community
- */
-async function calculateCurrentMetrics(communityId: string) {
-  // Get total completed matches
-  const matchesResult = await query(
-    `SELECT COUNT(*) as total
-     FROM requests.matches m
-     INNER JOIN requests.help_requests r ON m.request_id = r.id
-     WHERE r.community_id = $1 AND m.status = 'completed'`,
-    [communityId]
-  );
-
-  // Get unique participants
-  const participantsResult = await query(
-    `SELECT
-       COUNT(DISTINCT r.requester_id) as requesters,
-       COUNT(DISTINCT m.responder_id) as helpers
-     FROM requests.matches m
-     INNER JOIN requests.help_requests r ON m.request_id = r.id
-     WHERE r.community_id = $1 AND m.status = 'completed'`,
-    [communityId]
-  );
-
-  // Get average interaction quality
-  const qualityResult = await query(
-    `SELECT
-       AVG(f.helpfulness) as avg_helpfulness,
-       AVG(f.responsiveness) as avg_responsiveness,
-       AVG(f.clarity) as avg_clarity
-     FROM requests.interaction_feedback f
-     INNER JOIN requests.matches m ON f.match_id = m.id
-     INNER JOIN requests.help_requests r ON m.request_id = r.id
-     WHERE r.community_id = $1`,
-    [communityId]
-  );
-
-  const totalMatches = parseInt(matchesResult.rows[0].total || 0);
-  const totalRequesters = parseInt(participantsResult.rows[0].requesters || 0);
-  const totalHelpers = parseInt(participantsResult.rows[0].helpers || 0);
-  const uniqueParticipants = totalRequesters + totalHelpers;
-
-  const avgHelpfulness = parseFloat(qualityResult.rows[0]?.avg_helpfulness || 0);
-  const avgResponsiveness = parseFloat(qualityResult.rows[0]?.avg_responsiveness || 0);
-  const avgClarity = parseFloat(qualityResult.rows[0]?.avg_clarity || 0);
-
-  // Calculate network density (connections per member)
-  const communityResult = await query(
-    `SELECT current_members FROM communities.communities WHERE id = $1`,
-    [communityId]
-  );
-  const totalMembers = parseInt(communityResult.rows[0]?.current_members || 1);
-  const networkDensity = totalMatches / totalMembers;
-
-  const networkStrength = calculateNetworkStrength(
-    totalMatches,
-    uniqueParticipants,
-    avgHelpfulness,
-    avgResponsiveness,
-    avgClarity,
-    networkDensity
-  );
-
-  return {
-    total_matches_completed: totalMatches,
-    unique_participants: uniqueParticipants,
-    total_active_requesters: totalRequesters,
-    total_active_helpers: totalHelpers,
-    avg_helpfulness: avgHelpfulness,
-    avg_responsiveness: avgResponsiveness,
-    avg_clarity: avgClarity,
-    network_density: networkDensity,
-    network_strength: networkStrength,
-  };
-}
-
-/**
- * Helper: Calculate network strength score (0-100)
- *
- * Formula:
- * network_strength = weighted_average(
- *   activity_score * 0.4,
- *   quality_score * 0.4,
- *   density_score * 0.2
- * )
- */
-function calculateNetworkStrength(
-  totalMatches: number,
-  uniqueParticipants: number,
-  avgHelpfulness: number,
-  avgResponsiveness: number,
-  avgClarity: number,
-  networkDensity: number
-): number {
-  // Activity score: based on matches per participant (0-100)
-  const matchesPerParticipant = uniqueParticipants > 0 ? totalMatches / uniqueParticipants : 0;
-  const activityScore = Math.min(100, matchesPerParticipant * 20); // Cap at 100
-
-  // Quality score: average of interaction ratings normalized to 0-100
-  const avgQuality = (avgHelpfulness + avgResponsiveness + avgClarity) / 3;
-  const qualityScore = (avgQuality / 5) * 100; // Convert 1-5 to 0-100
-
-  // Density score: network density normalized to 0-100
-  const densityScore = Math.min(100, networkDensity * 100); // Cap at 100
-
-  // Weighted average
-  const networkStrength = (
-    activityScore * 0.4 +
-    qualityScore * 0.4 +
-    densityScore * 0.2
-  );
-
-  return parseFloat(networkStrength.toFixed(2));
-}
 
 /**
  * GET /reputation/network-metrics/:communityId

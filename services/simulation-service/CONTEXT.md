@@ -4,6 +4,10 @@
 **Status**: development
 **Criticality**: optional — used for demo data generation only
 
+Sprint 134 PR L2: `TABLE_POLICY` no longer classifies the dropped `requests.interaction_feedback`
+table. The live private `feedback.feedback` and `feedback.feedback_categories` policies remain reset.
+No demo reset or seed operation is authorized by this change.
+
 Sprint 134 PR L (BUG-068): the `submitFeedback` action is removed with its workflow, profile weights, type field,
 `FEEDBACK_COMMENTS` pool and `ApiClient.submitMatchFeedback`. It posted to request-service
 `POST /matches/:matchId/feedback`, which always failed (the client discarded the error) and is now retired, so the

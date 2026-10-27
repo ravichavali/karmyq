@@ -84,46 +84,10 @@
     "label": "SELECT COUNT(*) AS cnt"
   },
   {
-    "file": "services/reputation-service/src/routes/health.ts",
-    "hash": "d5f84c4ed32aafd475c6cdff3d0ad202588d1194f312305ad899b366f0d4d6a4",
-    "reason": "Cohort-gated non-identifying health aggregate; no request listing or title.",
-    "label": "SELECT COUNT(*) as total"
-  },
-  {
-    "file": "services/reputation-service/src/routes/health.ts",
-    "hash": "1daccc5130427f30c345d955a5670b89aff7ab5e98d4d4d6bb57925ece10f4c8",
-    "reason": "Cohort-gated aggregate participant breadth; no identities returned.",
-    "label": "COUNT(DISTINCT r.requester_id)"
-  },
-  {
-    "file": "services/reputation-service/src/routes/health.ts",
-    "hash": "497674fc6b41c1dff4be83144c109d85d6a7e8a4a7118d4725e4c960c6c80f7b",
-    "reason": "Cohort-gated aggregate feedback quality; no request content.",
-    "label": "AVG(f.helpfulness)"
-  },
-  {
     "file": "services/reputation-service/src/services/badgeService.ts",
     "hash": "2416e29d622073d3a8bc50c4c0ff22f4930d51ec88df064a0f01a447514c53a3",
     "reason": "Internal badge projection.",
     "label": "COUNT(*) FILTER"
-  },
-  {
-    "file": "services/reputation-service/src/services/healthMetricsService.ts",
-    "hash": "53f15c359fcc2a93ea5a9714cd34e11b3892f74bc6f86c3db295877cf8ed0568",
-    "reason": "Cohort-gated non-identifying health aggregate; no request listing or title.",
-    "label": "SELECT COUNT(*) as total"
-  },
-  {
-    "file": "services/reputation-service/src/services/healthMetricsService.ts",
-    "hash": "65ce0ad77e83146aebee6933ad39ddb2d09d18db39af2b1214632adf1a937b5d",
-    "reason": "Cohort-gated aggregate participant breadth; no identities returned.",
-    "label": "COUNT(DISTINCT r.requester_id)"
-  },
-  {
-    "file": "services/reputation-service/src/services/healthMetricsService.ts",
-    "hash": "457c22f11be279e7967755e6e34f7599638826eac347262c99036389d87b3841",
-    "reason": "Cohort-gated aggregate feedback quality; no request content.",
-    "label": "AVG(f.helpfulness)"
   },
   {
     "file": "services/reputation-service/src/services/networkCohesionService.ts",
@@ -330,12 +294,6 @@
     "label": "COALESCE(prior.interaction_count, 0)"
   },
   {
-    "file": "services/request-service/src/services/feed/feedComposer.ts",
-    "hash": "8f7e92ad917b5589bd07c56574eb6fc6ba8e60847c3b0ea278209bd909baf0c8",
-    "reason": "The only help_requests read is the nullable RIGHT relation of a LEFT JOIN. NOT-directed is in that join ON, preventing private request matches while preserving member counts. Real integration proves only-private community activity stats.",
-    "label": "as exchanges_week"
-  },
-  {
     "file": "services/notification-service/src/events/subscriber.ts",
     "hash": "6d28665b70129f380bdeec3a20759c98fd535a7e9cadea807ef30829aba876c4",
     "reason": "Dedicated directed delivery selects only open, unexpired canonical requests and live personal targets/active admins; no saved recipient/content is trusted. Missing/deleted/closed/expired requests produce no invitation and are acknowledged as terminal. Notification regressions and real delayed demotion/deletion/lifecycle tests cover this private output contract.",
@@ -352,5 +310,11 @@
     "hash": "5a999e0dd028041f7c9b89da9b018ab9c7f38e6a216948083a0c1ba44e54821e",
     "reason": "Sprint 133 PR B endorsement eligibility: the caller's own most recent completed match with the skill owner; reads only requester_id and match id, never request content.",
     "label": "eligible AS (completed match between caller and tag owner)"
+  },
+  {
+    "file": "services/reputation-service/src/services/communityHealthMetrics.ts",
+    "hash": "31325bb3cf1bb6fddf5ab5d90df242c0c1abf5bdb0f291bb7b6b41870a059cdb",
+    "reason": "Shared internal health projection and cohort-gated HTTP fallback. Counts distinct requesters/helpers in completed matches attributed through request_communities; returns no identities or request content. Preserves the prior health aggregate policy for directed exchanges. Real-SQL L2 integration covers community isolation and access denial.",
+    "label": "COUNT(DISTINCT r.requester_id)"
   }
 ]

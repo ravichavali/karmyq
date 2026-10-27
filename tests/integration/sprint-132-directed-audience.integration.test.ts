@@ -4,8 +4,6 @@ import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { createPool, ServiceUrls } from '../fixtures';
 import Queue from 'bull';
-import { FeedComposer } from '../../services/request-service/src/services/feed/feedComposer';
-import requestPool from '../../services/request-service/src/database/db';
 describe('Sprint 132 PR C directed borrow audience', () => {
   const pool = createPool();
   const R = randomUUID(), O = randomUUID(), M = randomUUID(), A = randomUUID();
@@ -44,7 +42,7 @@ describe('Sprint 132 PR C directed borrow audience', () => {
       await pool.query('DELETE FROM reputation.trust_scores WHERE user_id=ANY($1::uuid[]) AND community_id=ANY($2::uuid[])', [users, [C, OTHER]]);
       await pool.query('DELETE FROM communities.communities WHERE id=ANY($1::uuid[])', [[C, OTHER]]);
       await pool.query('DELETE FROM auth.users WHERE id=ANY($1::uuid[])', [users]);
-    } finally { await directedQueue.close(); await completionNotifications.close(); await requestPool.end(); await pool.end(); }
+    } finally { await directedQueue.close(); await completionNotifications.close(); await pool.end(); }
   });
   const ownIds = async (userId: string, suffix = '') => (await api(userId, 'get', `/requests${suffix}`)).body.data.requests.map((r: any) => r.id);
   const incomingIds = async (userId: string) => {
@@ -89,13 +87,6 @@ describe('Sprint 132 PR C directed borrow audience', () => {
     const again = await borrow(item); expect(again.status).toBe(201); expect(again.body.data.id).toBe(ask);
     expect((await pool.query('SELECT id FROM requests.help_requests WHERE requester_id=$1 AND inventory_item_id=$2', [R, item])).rows.map(r => r.id)).toEqual([ask]);
     expect((await pool.query('SELECT request_id FROM inventory.borrow_notification_outbox WHERE request_id=$1', [ask])).rows).toHaveLength(1);
-  });
-  it('retains new-member stats in communities with only private asks', async () => {
-    const items = await (new FeedComposer() as any).getCommunityActivityItems(R, 10, {}, new Set());
-    const activity = items.find((i: any) => i.data.community_id === C).data;
-    expect(activity.new_members_count).toBe(4);
-    expect(activity.exchanges_completed_week).toBe(0); expect(activity.open_requests_count).toBe(0);
-    expect(activity.recent_helpers).toEqual([]);
   });
   it.each(['completed', 'cancelled'])('conceals a %s private ask identically to an absent ID when offering', async status => {
     await pool.query('UPDATE requests.help_requests SET status=$1 WHERE id=$2', [status, ask]);

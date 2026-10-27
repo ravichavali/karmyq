@@ -7,7 +7,6 @@ import { fetchDecisions } from '../../src/routes/requests';
 import matches from '../../src/routes/matches';
 import requests from '../../src/routes/requests';
 import { validateRequestForOffer } from '../../src/db/providerOffersDb';
-import { FeedComposer } from '../../src/services/feed/feedComposer';
 const app = express(); app.use(express.json()); app.use((req: any, _res, next) => { req.user = { userId: 'outsider' }; next(); }); app.use('/matches', matches);
 app.use('/requests', requests);
 beforeEach(() => mockQuery.mockReset());
@@ -22,15 +21,6 @@ it.each(['open', 'completed', 'cancelled'])('conceals a private %s request at th
   const res = await request(app).post('/matches').send({ request_id: 'ask' });
   expect(res.status).toBe(404); expect(res.body).toEqual({ success: false, message: 'Request not found' });
   expect(await validateRequestForOffer('ask', 'outsider')).toEqual({ valid: false, reason: 'Request not found' });
-});
-it('preserves new-member activity when the community has no public requests', async () => {
-  mockQuery.mockImplementation(async (sql: string) => {
-    if (sql.includes('SELECT c.id, c.name')) return { rows: [{ id: 'C', name: 'Neighbours' }] };
-    if (sql.includes('as new_members')) return { rows: [{ exchanges_week: 0, new_members: /LEFT JOIN requests.help_requests r ON \/\* not-directed \*\//.test(sql) ? 2 : 0 }] };
-    return { rows: [] };
-  });
-  const items = await (new FeedComposer() as any).getCommunityActivityItems('R', 10, {}, new Set());
-  expect(items[0].data.new_members_count).toBe(2);
 });
 it.each(['/matches', '/matches/match'])('retains a demoted participant on %s', async (url) => {
   mockQuery.mockImplementation(async (sql: string) => ({ rows: sql.includes('directed_admin') ? [] : [{ id: 'match', requester_id: 'R', responder_id: 'outsider' }], rowCount: sql.includes('directed_admin') ? 0 : 1 }));

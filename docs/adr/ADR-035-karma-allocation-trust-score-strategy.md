@@ -79,7 +79,11 @@ Two new modules in `services/reputation-service/src/services/`:
 **Positive:**
 - Karma no longer inflates for users in many communities
 - Trust score formula is now isolated and independently evolvable
-- Feedback ratings (avg_helpfulness, avg_responsiveness, avg_clarity) now contribute to trust score
+- Private feedback ratings contribute to trust score through the ADR-036/039 rating path.
+  **Sprint 134 PR L2 correction:** the separate helpfulness/responsiveness/clarity columns and
+  `requests.interaction_feedback` were dead data and are dropped; they never supplied that signal.
+  Community-health strength keeps its 40/40/20 formula with an optional normalized quality-score
+  argument defaulting to zero. No private-rating source or API override is added.
 - Both algorithms are easy to unit test in isolation
 - Adding new signals (connections, recency) requires only changes to the strategy module
 

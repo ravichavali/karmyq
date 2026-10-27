@@ -19,11 +19,6 @@ const MILESTONES = {
     { value: 50, description: '50 unique members have participated in help exchanges' },
     { value: 100, description: '100 unique members have participated in help exchanges' },
   ],
-  quality: [
-    { value: 4.0, description: 'Community average quality rating reached 4.0!' },
-    { value: 4.5, description: 'Community average quality rating reached 4.5!' },
-    { value: 4.8, description: 'Community average quality rating reached 4.8!' },
-  ],
 };
 
 /**
@@ -37,10 +32,7 @@ export async function detectMilestones(communityId: string): Promise<void> {
     const metrics = await query(
       `SELECT
          total_matches_completed,
-         unique_participant_count,
-         avg_helpfulness,
-         avg_responsiveness,
-         avg_clarity
+         unique_participant_count
        FROM reputation.community_health_metrics
        WHERE community_id = $1
        ORDER BY snapshot_date DESC
@@ -56,9 +48,6 @@ export async function detectMilestones(communityId: string): Promise<void> {
     const {
       total_matches_completed,
       unique_participant_count,
-      avg_helpfulness,
-      avg_responsiveness,
-      avg_clarity,
     } = metrics.rows[0];
 
     // Check matches milestones
@@ -80,25 +69,6 @@ export async function detectMilestones(communityId: string): Promise<void> {
           communityId,
           `${milestone.value}_participants`,
           milestone.value,
-          milestone.description
-        );
-      }
-    }
-
-    // Check quality milestones
-    const avgQuality = (
-      parseFloat(avg_helpfulness || 0) +
-      parseFloat(avg_responsiveness || 0) +
-      parseFloat(avg_clarity || 0)
-    ) / 3;
-
-    for (const milestone of MILESTONES.quality) {
-      if (avgQuality >= milestone.value) {
-        const qualityValue = Math.floor(milestone.value * 10); // 4.5 -> 45
-        await recordMilestone(
-          communityId,
-          `avg_quality_${qualityValue}`,
-          qualityValue,
           milestone.description
         );
       }
@@ -183,7 +153,11 @@ export async function detectAllCommunityMilestones(): Promise<void> {
     console.log(`Found ${communities.rowCount} active communities`);
 
     for (const community of communities.rows) {
-      await detectMilestones(community.id);
+      try {
+        await detectMilestones(community.id);
+      } catch (error) {
+        console.error(`[milestones] Failed for ${community.id}:`, error);
+      }
     }
 
     console.log('Completed milestone detection for all communities');

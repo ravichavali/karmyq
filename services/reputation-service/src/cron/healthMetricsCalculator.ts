@@ -15,11 +15,7 @@ export function initHealthMetricsCalculator(): void {
     console.log(`Time: ${new Date().toISOString()}`);
 
     try {
-      // Step 1: Calculate health metrics for all communities
-      await calculateAllCommunityMetrics();
-
-      // Step 2: Detect milestone achievements
-      await detectAllCommunityMilestones();
+      await manualCalculateHealthMetrics();
 
       console.log('=== Daily Health Metrics Calculation Complete ===');
     } catch (error) {
@@ -35,8 +31,7 @@ export function initHealthMetricsCalculator(): void {
     console.log('Running health metrics calculation on startup (development mode)');
     setTimeout(async () => {
       try {
-        await calculateAllCommunityMetrics();
-        await detectAllCommunityMilestones();
+        await manualCalculateHealthMetrics();
         console.log('Startup health metrics calculation complete');
       } catch (error) {
         console.error('Error in startup health metrics calculation:', error);
