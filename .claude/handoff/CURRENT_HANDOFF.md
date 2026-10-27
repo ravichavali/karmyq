@@ -105,6 +105,15 @@ commit, commands, cache and limitations; earlier 27/27 results predate this weig
 **Next action: Claude checks #320's CI, especially Integration Tests, and runs cross-agent
 `/code-review` and `/security-review`.** The author does not watch CI, merge or deploy in this chat.
 
+**CI follow-up (maintainer reported failure, 2026-10-27):** head `4db4fa6f` passed local unit/regression
+but [Integration Tests failed](https://github.com/ravichavali/karmyq/actions/runs/40565448245/job/122407295038):
+18 suites / 274 cases passed; all nine L2 cases stopped in their shared setup with
+`inconsistent types deduced for parameter $3`. The status INSERT/comparison parameter in
+`tests/integration/sprint-134-pr-l2-health.integration.test.ts:34` now has explicit `varchar` casts,
+matching `requests.matches.status` in `infrastructure/postgres/init.sql:2487`. No production code,
+migration or schema changes. This corrects fixture setup; cron/fallback assertions did not execute
+on that CI head. The PR Validation ledger records current local verification and pending SQL proof.
+
 Plan: `docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md`.
 BUG-070 is included, due **2026-11-03**, fixed in code; merge/deploy pending. Root version
 **11.101.0** is provisional from origin/master `dd585016` (11.100.0); re-derive again at merge time.

@@ -31,7 +31,7 @@ describe('Sprint 134 L2 nightly health + HTTP fallback against migrated SQL (BUG
     for (const community of targets) await pool.query(
       'INSERT INTO requests.request_communities(request_id,community_id) VALUES ($1,$2)', [ask, community]);
     await pool.query(`INSERT INTO requests.matches(request_id,responder_id,status,completed_at)
-      VALUES ($1,$2,$3,CASE WHEN $3='completed' THEN NOW() ELSE NULL END)`, [ask, helper, status]);
+      VALUES ($1,$2,$3::varchar,CASE WHEN $3::varchar='completed' THEN NOW() ELSE NULL END)`, [ask, helper, status]);
   };
 
   beforeAll(async () => {
