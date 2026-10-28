@@ -44,6 +44,9 @@ Once both parties confirm:
 - The card moves to **Completed** and fades gradually over 30 days
 - Karma transfers from the requester's balance to the helper
 - Trust scores update for both parties
+- Each of you gets an **Exchange completed** notification. It opens the request, where you can rate the
+  exchange privately and vouch for skills you saw your partner use. Each of you sees only your own
+  partner there.
 
 ---
 

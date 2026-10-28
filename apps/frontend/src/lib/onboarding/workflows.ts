@@ -22,7 +22,7 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
     steps: [
       {
         title: 'A feed ordered by what fits you',
-        body: 'Dashboard Home shows the requests you can fill, ranked by your skills, trust path, and urgency. Add or remove your skills in Profile → About You → Skills; matching uses those same tags. Active co-members can find your shared skills in their community’s People tab. Turn sharing off in Profile to hide your skills from other members and search. After you complete an exchange with someone, you can vouch for their skills from their card in the Helping tab; vouches add to the trust you share and disappear if you withdraw them. The decisions you owe live one tap away in the Helping tab — Home stays focused on asks you can pick up.',
+        body: 'Dashboard Home shows the requests you can fill, ranked by your skills, trust path, and urgency. Add or remove your skills in Profile → About You → Skills; matching uses those same tags. Active co-members can find your shared skills in their community’s People tab. Turn sharing off in Profile to hide your skills from other members and search. After you complete an exchange with someone, you can vouch for their skills from the completed request page or their card in the Helping tab; vouches add to the trust you share and disappear if you withdraw them. The decisions you owe live one tap away in the Helping tab — Home stays focused on asks you can pick up.',
       },
       {
         title: 'Needs your response — in the Helping tab',

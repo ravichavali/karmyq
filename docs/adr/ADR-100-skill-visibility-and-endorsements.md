@@ -120,3 +120,36 @@ to skill discovery, rather than changing request matching or the profile editor.
 - Publishing on the shared `karmyq-events` queue: BUG-060 loses a share of those jobs.
 - A transactional outbox: closes the lost-enqueue gap but adds a relay; deferred while a backfill exists.
 - Vouching by any co-member: would let people vouch for skills they never saw used.
+
+## Amendment — Sprint 134 PR B: vouching from a completed exchange (2026-10-28)
+
+**Context.** Both participants of a completed exchange get the `match_completed` notification, which links to
+`/requests/:id`. That page exposed no completed partner, so the main way people return to a finished exchange
+led to a page with nothing to do. Vouching was reachable only from the Helping-tab TrustCard and the People tab.
+
+**Decision.**
+- **The completed request page is a vouch and rating surface.** `GET /requests/:id` returns `viewer_partners`:
+  for each completed match on the request where the viewer is the requester or that match's responder, the
+  other participant (`match_id`, `user_id`, `name`, `completed_at`, `rated_by_me`, `rating_community_id`),
+  newest first, at most 20. The page renders one block per entry, with the shared rating prompt and the
+  partner's vouchable skills.
+- **Exposure rule: read permission is not partner status.** The projection filters each exchange by
+  `status = 'completed'` AND the match-participant predicate, inside the same `requestReadableSql`-guarded
+  statement. A requester sees every completed helper; a helper sees only the requester, never another
+  helper. A rejected or cancelled helper, the preferred provider and a member who can read the ask get `[]`.
+- **Eligibility stays server-side.** The page lists only skills that `GET /auth/skills/users/:id` flags
+  `can_endorse` or `endorsed_by_me`, computed from the same `completedPairSql` and `skillVisibleToSql` as
+  `POST /auth/skills/endorsements`. The client adds no rule; a hidden partner, a failed load or no vouchable
+  skill renders nothing.
+- **Attribution is unchanged.** A vouch still records the pair's most recent completed match, which may
+  belong to another request. `POST /endorsements` takes no `match_id`.
+- **Ratings stay private (ADR-036).** The page knows only whether the viewer rated (`rated_by_me`); the
+  write is the existing `POST /reputation/feedback`, which validates participant, counterparty, completed
+  status and community.
+- **No new event or queue.** Only the `match_completed` copy changes ("Exchange completed", CTA "Rate &
+  vouch"). A "you were vouched for" notification remains a later item on its own dedicated queue (BUG-060).
+
+**Consequences.** One scalar subquery per detail read, bounded by the request's completed matches.
+Several completed matches can exist on one ask (BUG-074, separate fix): the panel rates per match and
+vouches once per distinct partner. Proven by `tests/integration/sprint-134-pr-b-viewer-partners.integration.test.ts`
+(the exposure matrix, the rating round trip and `can_endorse`/`POST` agreement, against real SQL in CI).
