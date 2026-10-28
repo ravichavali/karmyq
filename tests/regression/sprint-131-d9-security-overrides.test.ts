@@ -15,6 +15,12 @@ const lock = JSON.parse(read('package-lock.json'));
 const ownVersion = (override: string | Record<string, string>): string =>
   typeof override === 'string' ? override : override['.'];
 
+/** Every copy in the lock as [path, version], not just the hoisted one: a nested vulnerable copy would otherwise pass. */
+const lockedCopies = (name: string): [string, string][] =>
+  Object.entries(lock.packages as Record<string, { version: string }>)
+    .filter(([path]) => path.endsWith(`node_modules/${name}`))
+    .map(([path, node]) => [path, node.version]);
+
 describe('D9 security override pins', () => {
   it.each([
     ['brace-expansion', '5.0.12'],
@@ -25,26 +31,21 @@ describe('D9 security override pins', () => {
   ])('%s stays on a patched version in the manifest and lock', (name, floor, overridePath = [name]) => {
     const override = ownVersion(overridePath.reduce((o, key) => o[key], pkg.overrides));
     expect(semver.gte(override, floor)).toBe(true);
-    // Every copy in the lock, not just the hoisted one: a nested vulnerable copy would otherwise pass.
-    const copies = Object.entries(lock.packages as Record<string, { version: string }>)
-      .filter(([path]) => path.endsWith(`node_modules/${name}`))
-      .map(([path, node]) => [path, node.version]);
-    expect(copies).toEqual([[`node_modules/${name}`, override]]);
+    expect(lockedCopies(name)).toEqual([[`node_modules/${name}`, override]]);
   });
 
   // A ">=" override lets npm resolve anything at or above it, so both the floor and every locked copy must be
   // patched. The audit gate blocks only high and critical, so it would not catch a moderate (ip-address,
-  // fast-uri) sliding back.
+  // fast-uri) sliding back; node-forge is 1.4.2, not the advisory's 1.4.1, for 1.4.2's pem.decode fix.
   it.each([
     ['node-forge', '1.4.2'],
     ['ip-address', '10.7.4'],
     ['fast-uri', '4.2.3'],
   ])('%s floor override and every locked copy stay on a patched version', (name, patched) => {
     expect(semver.gte(semver.minVersion(pkg.overrides[name])!, patched)).toBe(true);
-    const copies = Object.entries(lock.packages as Record<string, { version: string }>)
-      .filter(([path]) => path.endsWith(`node_modules/${name}`));
+    const copies = lockedCopies(name);
     expect(copies).not.toEqual([]);
-    expect(copies.filter(([, node]) => semver.lt(node.version, patched))).toEqual([]);
+    expect(copies.filter(([, version]) => semver.lt(version, patched))).toEqual([]);
   });
 
   it('keeps the engine.io ws override alongside its own version', () => {
