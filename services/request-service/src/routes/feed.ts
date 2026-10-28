@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { RouteParams } from '@karmyq/shared/middleware/auth';
 import { query } from '../database/db';
-import { isActiveMember } from '../db/inventoryDb';
+import { isActiveMember } from '../db/liveRole';
 import { BasicFeedRanker } from '../services/feed/basicFeedRanker';
 import { SocialKarmaFeedComposer } from '../services/feed/socialKarmaFeedComposer';
 

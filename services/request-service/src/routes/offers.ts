@@ -287,12 +287,12 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
 /**
  * PUT /offers/:id/privacy
- * Update privacy settings for an offer (Social Karma v2.0)
+ * Update offerer visibility consent. The inert is_public setting is retired from this API.
  */
 router.put('/:id/privacy', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { is_public, offerer_visibility_consent } = req.body;
+    const { offerer_visibility_consent } = req.body;
     const user_id = (req as any).user?.userId;
 
     if (!user_id) {
@@ -315,11 +315,6 @@ router.put('/:id/privacy', async (req: Request, res: Response) => {
     const values: any[] = [];
     let paramCount = 1;
 
-    if (typeof is_public !== 'undefined') {
-      updates.push(`is_public = $${paramCount++}`);
-      values.push(is_public);
-    }
-
     if (typeof offerer_visibility_consent !== 'undefined') {
       updates.push(`offerer_visibility_consent = $${paramCount++}`);
       values.push(offerer_visibility_consent);
@@ -339,7 +334,7 @@ router.put('/:id/privacy', async (req: Request, res: Response) => {
       `UPDATE requests.help_offers
        SET ${updates.join(', ')}
        WHERE id = $${paramCount}
-       RETURNING id, is_public, offerer_visibility_consent`,
+       RETURNING id, offerer_visibility_consent`,
       values
     );
 
@@ -348,7 +343,6 @@ router.put('/:id/privacy', async (req: Request, res: Response) => {
       entity_type: 'offer',
       entity_id: id,
       user_id,
-      is_public,
       offerer_visibility_consent,
     });
 

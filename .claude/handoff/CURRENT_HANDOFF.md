@@ -12,7 +12,7 @@ healthy, no rollback, 0 open CodeQL alerts. **Exemption re-check done 2026-10-22
 **PR D #313 SHIPPED** 2026-10-22: admin-merged `866857ed` (v11.96.0) on the maintainer's authorization. CI/CD 39797190307 green
 (14/14 jobs, all 9 services healthy, no rollback). **No CodeQL re-raise:** #625/#626/#627 kept their numbers, their latest instance
 is on `refs/heads/master` and still dismissed (the lines did not shift between PR head and merge); 0 open alerts on master.
-**Expo drift closed:** scheduled run 39782668093 on master (`eea83267`, 12:57Z 2026-10-22) green, the first with the PR E fix; no open drift issue.
+**Historical Expo drift closure (2026-10-22):** scheduled run 39782668093 on master (`eea83267`, 12:57Z) green, the first with the PR E fix. This predates new issue **#316**, still open; see *Dated obligations*.
 **New critical, 2026-10-22 15:52Z:** `next` GHSA-2464-fhr4-w9xw (unauthenticated RCE, image optimizer) + GHSA-p3m5-59mp-jv5r
 (high DoS), `16.0.0–16.4.0`, published after #313's deploy. **PR N #314 SHIPPED** 2026-10-22: admin-merged `0321c415`
 (v11.97.0) on the maintainer's authorization after Codex review. CI/CD 39853173679 green: 14/14 jobs, the deploy built
@@ -33,9 +33,15 @@ Codex review #2 (no findings). CI/CD 40441255956 green: 14/14 jobs, "All critica
 all 9 services healthy, "Notify on failure" skipped (no rollback). **No CodeQL re-raise** (0 open alerts on master; the
 merge-sha analyses raised nothing new, highest alert still #627). ADR-102 flipped to Implemented. BUG-069 closed inside its
 10-30 date. Human validation pending (*PR K state*). See *PR K state*.
-**Now: PR L2 [#320](https://github.com/ravichavali/karmyq/pull/320) OPEN**, awaiting cross-agent review + maintainer merge,
-on `agent/claude/sprint-134-pr-l2-drop-feedback-schema` (from `origin/master` `dd585016`; initial implementation `7f0606d5`,
-v11.101.0). Codex is the author/executor; Claude reviews next. **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
+**PR L2 [#320](https://github.com/ravichavali/karmyq/pull/320) SHIPPED**: merged `47c9a323` (v11.101.0) at
+2026-10-27 20:37:13Z. [CI/CD 40579675258](https://github.com/ravichavali/karmyq/actions/runs/40579675258)
+passed 14/14 jobs, including deploy and health check; "Notify on failure" skipped (no rollback).
+0 open CodeQL alerts on master at this post-merge check. **BUG-070 fixed and deployed inside its 2026-11-03 date.**
+Human validation pending: reputation logs after the first 02:00 nightly run (*PR L2 state*).
+**Now: PR V**, independent implementation on `agent/codex/sprint-134-pr-v-read-boundaries`, cut from
+`origin/master` `47c9a323`. Review response: API-only offer-flag retirement, index and column drop
+deferred; no schema change or demo-host step. See *PR V state*. Dependency lane remains Claude's.
+**BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
 become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26); the 10-29 deadline no longer applies.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
 #309 merged `1746cdf2` (v11.92.0), CI/CD 39366367275 green.
@@ -52,8 +58,9 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 1. Read this handoff, then `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
 2. Find the next PR in *PR sequence* whose status is not SHIPPED. Reuse its branch if it exists; otherwise
    `git switch -c agent/claude/sprint-134-pr-<letter>-<slug> origin/master`. Never branch off a stale local master.
-3. Open that PR's plan (table below). PR L2 is in progress on its existing branch; see *PR L2 state*.
-   PRs V/B/C have no plan yet: write it first from the spec section, then execute.
+3. Open PR V's plan (table below) and *PR V state*. The final scope retires the inert offer flag from
+   the privacy API only and defers the index/column drop. No schema operation is needed. Review PR V
+   and its CI after PR creation; PR L2's nightly human validation remains pending separately.
 4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
    slash command; superpowers removed it as a deprecated stub.
 5. One fresh chat per PR (CLAUDE.md *Chat cadence*). Update this file at every PR open/merge.
@@ -66,9 +73,9 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 
 | Field | Value |
 |---|---|
-| **Current branch** | `agent/claude/sprint-134-pr-l2-drop-feedback-schema` (from `origin/master` `dd585016`) for PR L2; bootstrap record `a00ead82` plus Codex's L2 work. PR K merged as #319, PR L as #315, Security PR X as #317, PR N as #314, PR D as #313, PR E as #312 and PR A as #311. The planning branch `agent/claude/sprint-134-planning` merged as #310 and can be deleted. Later PRs start from origin/master after the preceding merge/deploy |
-| **Active editor** | Codex (PR L2 author/executor; handing back #320 for Claude's cross-agent review) |
-| **Shared resources** | dependency lane: **Claude** (maintainer-designated); each PR re-derives its version from `origin/master` at merge time |
+| **Current branch** | `agent/codex/sprint-134-pr-v-read-boundaries`, from `origin/master` `47c9a323` (#320, v11.101.0). First commit records L2's merge/deploy before PR V implementation. |
+| **Active editor** | Codex (PR V); stop at PR creation, then Claude reviews. |
+| **Shared resources** | dependency lane: **Claude** (maintainer-designated), dependency PR due before **2026-11-01 17:00 PDT**. No manifest/lock edits except version bump. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
 
 ## Spec and plans
 
@@ -85,27 +92,132 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 | — | **N** | `next` 16.3.8 → 16.4.2 (GHSA-2464-fhr4-w9xw critical RCE + GHSA-p3m5-59mp-jv5r high, published 2026-10-22 15:52Z); 10-node splice; v11.97.0 | critical: blocks every PR now | *PR N state* below | **SHIPPED** `0321c415` (#314, v11.97.0), CI/CD 39853173679 green |
 | — | **X** | **Security PR (overdue, blocks every push and CI):** remove the braces exemption (advisory withdrawn 2026-10-23); renew node-forge; fix the new highs in body-parser, undici and zod; make the audit validator accept npm's inconsistent severities. See *Security PR X findings* | exemptions **expired 2026-10-26 00:00Z** (10-25 17:00 PDT) | *Security PR X findings* below | **SHIPPED** `e15622bc` (#317, v11.98.0), CI/CD 40410093954 green |
 | 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | **SHIPPED** `ff3f394e` (#315, v11.99.0), CI/CD 40417261628 green; post-deploy queue check PASS. See *PR L state* |
-| 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers, numeric widths and nightly isolation; **BUG-070** | BUG-070 **2026-11-03** | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md) | **OPEN [#320](https://github.com/ravichavali/karmyq/pull/320), awaiting cross-agent review + maintainer merge** |
+| 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers, numeric widths and nightly isolation; **BUG-070** | BUG-070 **2026-11-03** | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md) | **SHIPPED** #320 `47c9a323` (v11.101.0), CI/CD 40579675258 green; nightly human validation pending. |
 | 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **SHIPPED** `dd585016` (#319, v11.100.0), CI/CD 40441255956 green; real SQL 101/101. Human validation pending; see *PR K state* |
-| 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | write at PR start | — |
+| 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **OPEN [#321](https://github.com/ravichavali/karmyq/pull/321)**: source review clean; two initial CI fixture/assertion bugs corrected. Latest CI evidence is in the PR Validation ledger; green integration required before merge. |
 | 8 | **B** | PR B endorsement follow-ups (`docs/IDEAS.md` 2026-10-13) | — | write at PR start | — |
 | 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
 | — | **Per-community health-quality weight (planned PR)** | Persist the weight in `communities.community_configs`; choose a quality signal source; requires an ADR number allocated by the maintainer | Not scheduled | Write after ADR allocation + signal decision | Separate planned PR, not part of L2 |
 
 B and C are the likeliest to spill into Sprint 135, which is expected. One merge at a time; wait for deploy + health before the next.
 
+## PR V state (Codex, 2026-10-27)
+
+**[PR #321](https://github.com/ravichavali/karmyq/pull/321) OPEN; awaiting final review and maintainer
+merge.** The PR review found no source defects and two test bugs in the first integration run.
+This follow-up corrects those tests and stale coverage wording. Require green integration before
+merge; the PR Validation ledger carries the latest run/commit evidence. No merge/deploy authorized.
+
+Branch `agent/codex/sprint-134-pr-v-read-boundaries`, from `origin/master` `47c9a323`.
+First commit `1721dc5f` is the #320 post-merge record. Root version **11.102.0** is provisional;
+manifest/lock edits are only its three root version occurrences. Dependency lane stays Claude's,
+with a dependency PR due before **2026-11-01 17:00 PDT**. No merge/deploy requested or performed.
+
+Plan: [2026-10-27-sprint-134-pr-v-read-boundaries.md](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md).
+Implemented: identical foreign/absent 404 on request update/cancel/privacy (including guarded
+mutations and no events on vanished row), detail on requestReadableSql, one liveRole membership
+helper with community-first arguments, paged candidate CTE before aggregation. Existing directed
+inventory scan recognizes the canonical read helper, with alias/OR negative fixtures; six reviewed
+owner-write hashes were re-pinned to stronger id+JWT-owner SQL. Context/registry/guide and landing
+source-generated docs updated. Supporting simplify/correctness/security and migration review found
+no source blocker; the review's missing-predicate assertion gap was fixed with an exact-fragment check.
+The external PR review found no source defects; Claude retains merge-readiness authority.
+
+**Scope resolved by the maintainer's checkpoint review (2026-10-27):** defer the pair index pending
+EXPLAIN on representative data; remove its migration and index assertion. Retire `help_offers.is_public`
+from `PUT /offers/:id/privacy` input/response/event; keep consent behavior and the inert column until
+a later schema PR. Flag-only owner body returns 400; mixed input updates consent only; foreign/absent
+remains 404 before validation. **No infrastructure diff against origin/master and no demo-host step.**
+Both deferred schema items are in IDEAS. No host operation or dependency edit beyond version occurred.
+
+**CI correction:** `.github/workflows/ci.yml:320` runs the migrated-schema drift proof before any
+integration test. The checkpoint's new migration with old init.sql would block **every database
+case**, not just the index assertion. Removing the migration restores a schema-consistent CI input;
+it did not itself establish a SQL pass. The first PR CI then passed schema drift and executed the
+SQL suites (evidence below). Local tests prove wiring/projections; durable allowlist reasons name
+the real-SQL coverage file rather than carrying a temporary CI status. Mocked detail tests no longer
+claim preferred-provider or historical-responder audience proof; the real-SQL matrix exercises it.
+
+**Validation checkpoint (implementation working tree over `1721dc5f`):** new workspace tdd suite failed before implementation, passed 17/17 and
+was promoted to regression. Focused provider/query tests passed 49/49; focused detail/retention/new
+suite passed 40 with 1 pre-existing DB skip; scanner/body-identity passed 12/12. Service tsc passed.
+Root strict compiler changed request-service/integration-path filter printed nothing; unrelated
+root diagnostics remain. Added real-SQL owner-write, multi-community page/notes and offer privacy assertions
+to the existing root matrix: **CI-only, not run locally**. Full `npm test` passed **27/27 tasks**
+(24 cached; request-service and root tests fresh). Request-service: **161 unit + 443 regression,
+1 existing DB skip**. Direct root tests with Git Bash/Unix utilities on PATH passed **101 unit +
+952 regression** (no Turbo replay). Earlier unconfigured/restricted invocations failed shell/network
+gates; the configured reruns supersede them. Exact strict compiler/grep command printed no matching
+diagnostics (grep exit 1); gotcha registry clean. Final focused suite (including the strengthened
+predicate-presence assertion) passed **17/17**. Staged feedback exited 0 with advisory reminders:
+context/registry/guide updates were present; the then-pending schema is now explicitly deferred;
+dependency graph is unchanged. Whitespace clean. Mandatory process review approved
+a clean WIP commit/push, explicitly **not completed-PR or merge readiness**. The checkpoint records
+the two unanswered inputs so Claude can take the shared tree without uncommitted WIP.
+Those results predate the final review response and are not final validation of its offer changes.
+New offer privacy tests failed 3/4 before implementation, then passed; targeted run with detail
+tests passed 23/23 before removal of the redundant provider projection test; the final targeted
+run passed **22/22**. Final review-response working tree over `b801152d`: `npx turbo run test --force`
+exited 0, **27/27 tasks, 0 Turbo-cached** (Jest cache retained); request-service **161 unit + 446
+regression, 1 existing DB skip**; root tests **101 unit + 952 regression**. Service tsc exit 0;
+strict changed-path filter empty (grep 1), gotcha13 clean, staged feedback exit 0 (advisory docs
+already updated), whitespace clean. Three separately delegated Codex equivalents of the named
+simplify/code-review/security-review gates completed: correctness/security clean; simplify's
+dead fixture/misleading test claims fixed. Native Claude slash runner was not invoked. Optional
+DELETE lookup and single-field UPDATE-builder cleanups are deferred. Exactly 13 root scratch logs
+removed; new logs are in TEMP. No source blocker from mandatory process review; full-suite
+condition then satisfied. Real SQL was pending at that pre-PR checkpoint; the first CI observation
+and fixture-only correction are recorded below. No merge readiness is inferred from local tests.
+
+**Committed-head recheck, `83c2713e`:** direct `npm test --workspace=services/request-service`
+passed **161 unit + 446 regression, 1 existing DB skip**; direct `npm test --workspace=tests` passed
+**101 unit + 952 regression**. No Turbo replay for either; Jest cache retained. Service run emitted
+a worker-teardown warning despite exit 0. Service tsc exit 0, exact root strict changed-path grep
+empty (grep 1), infrastructure diff against `origin/master` empty (exit 0). Latest master is still
+`47c9a323` / 11.101.0 at that check; PR V's 11.102.0 remains provisional at merge time. Initial PR
+head `4ee149a2` added only handoff/plan metadata after `83c2713e`. The later fixture-only follow-up
+does not change runtime code. The PR's Validation ledger carries commands/cache/limitations.
+
+**Initial integration run, `4ee149a2`:** [CI/CD 40606348153](https://github.com/ravichavali/karmyq/actions/runs/40606348153/job/122547850473)
+passed schema drift (no changes after replay), then **289/291 tests passed, 2 failed** (17/19 suites).
+Both failures were tests: the root identity test still expected403 for foreign cancellation; the
+pagination fixture made outsider X an OTHER member and shared the newest asks with OTHER. Root
+expectation now requires404, and pagination's second community/note/aggregate expectation use FAR,
+where X is not a member. The earlier CTE/admin-note/multi-community/sister assertions, audience
+matrix, all owner writes and offer privacy cases passed against PostgreSQL. A green CI run of the
+fixture correction is required; see the live PR Validation ledger rather than assuming its result.
+No runtime source/version/schema changes in this follow-up. Stable coverage wording and the
+claim-gate comment are corrected; generated service docs follow CONTEXT.
+
+**Fixture follow-up local validation (worktree over `4ee149a2`):** `npm test` exit 0, **27/27 tasks**
+(22 Turbo-cached; request/root test tasks executed). Strict root compiler changed-path filter is
+empty (grep 1), gotcha13 clean, staged feedback exit 0 and whitespace clean. Focused process and
+fixture correctness review found no blocker. No production source/version/schema diff relative
+to `4ee149a2`. Real-SQL symptom proof for the corrected assertions is the follow-up CI result in
+the PR Validation ledger; no local DB execution is claimed.
+
+**Next action (Claude):** inspect the PR's latest CI and validation ledger, then review the
+test/comment-only follow-up. Green integration is required before merge. L2's first-02:00
+reputation-log human validation remains pending separately.
+
 ## PR L2 state (Codex author/executor, 2026-10-27)
 
-**[PR #320](https://github.com/ravichavali/karmyq/pull/320) is open, awaiting cross-agent review +
-maintainer merge.** Initial implementation `7f0606d5` and documentation checkpoint `239c6c79` are
+**Post-merge: SHIPPED.** #320 merged `47c9a323` (v11.101.0) at **2026-10-27 20:37:13Z**.
+[CI/CD 40579675258](https://github.com/ravichavali/karmyq/actions/runs/40579675258) passed **14/14 jobs**;
+deploy and health check passed, "Notify on failure" skipped (no rollback), **0 open CodeQL alerts on master**.
+BUG-070 is fixed and deployed before **2026-11-03**. **Remaining human validation:** inspect reputation
+logs after the first **02:00 nightly run** for community trust recalculation, milestone batch and the
+feed's transition from empty scores to computed scores. Do not mark that validation complete from deploy health alone.
+The review/CI notes below describe the pre-merge history, not current PR state.
+
+**Pre-merge history:** Initial implementation `7f0606d5` and documentation checkpoint `239c6c79` were
 pushed. The maintainer's confirmed quality-weight follow-up supersedes their score expectations and
 changes code, tests, docs and two strict-null checks, with no migration/init.sql change. See the PR's
 [Validation ledger](https://github.com/ravichavali/karmyq/pull/320#validation) for the latest tested
 commit, commands, cache and limitations; earlier 27/27 results predate this weighting correction.
-**Next action: Claude confirms the asymmetric-weight test amendment and latest CI before
-recommending a maintainer merge.** CI passed at implementation head `cd81ea3b`; verify the latest
-head and re-derive the version from master at merge time. The maintainer relayed the cross-agent
-review below; no merge or deployment is authorized by this checkpoint.
+**Historical review checkpoint:** Claude was to confirm the asymmetric-weight test amendment and
+latest CI before recommending a merge. That checkpoint is superseded by the shipped record above.
+CI had passed at implementation head `cd81ea3b` before the later test amendment.
 
 **Review test amendment (2026-10-27):** CONFIRMED: the existing w=0.4 examples used activity,
 density and quality all equal to 50, so they did not distinguish weighting formulas. Both suites
@@ -114,9 +226,8 @@ is Strong. Existing rows remain. New cases started in each workspace's tests/tdd
 temporary ignored-weight mutation (66.67 reputation / 66.7 feed), then passed against the restored
 production bytes and were folded into the existing regression suites. Only tests and this handoff
 change; production code, migration and init.sql remain unchanged. See the PR Validation ledger for
-the exact tested/pushed head and cache details. Latest CI and review confirmation remain pending.
-After an authorized deployment, inspect the first 02:00 run: community trust recalculation,
-the milestone batch and the feed's transition from empty zero scores to computed scores.
+the exact tested/pushed head and cache details. Latest CI and review confirmation were pending at
+that checkpoint. The post-deploy first 02:00 run still needs human validation, as recorded above.
 
 **CI follow-up (maintainer reported failure, 2026-10-27):** head `4db4fa6f` passed local unit/regression
 but [Integration Tests failed](https://github.com/ravichavali/karmyq/actions/runs/40565448245/job/122407295038):
@@ -134,12 +245,12 @@ This proves the repaired fixture, fallback, nightly snapshot/cache, density 12, 
 all six community snapshots and same-day upsert against real PostgreSQL. Schema regeneration,
 security audit, code scanning, unit/regression, frontend, landing and Docker checks also passed.
 This follow-up changes only this handoff; the PR Validation ledger identifies the tested code head
-and later documentation checkpoint. Independent Claude reviews and maintainer merge remain pending.
+and later documentation checkpoint. Independent Claude reviews and maintainer merge were pending
+at that checkpoint; the shipped record above supersedes it.
 
 Plan: `docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md`.
-BUG-070 is included, due **2026-11-03**, fixed in code; merge/deploy pending. Root version
-**11.101.0** is provisional from origin/master `dd585016` (11.100.0); re-derive again at merge time.
-The latest live check shows #320 and Dependabot #318 open; dependency lane stays Claude's.
+BUG-070 was included, due **2026-11-03**, and is now deployed. Root version **11.101.0** shipped.
+Post-merge live check: only Dependabot #318 open; dependency lane stays Claude's.
 
 **Confirmed maintainer decision (2026-10-27):** the tunable parameter is the named quality weight w,
 clamped to [0,1], default 0. Both surfaces compute `(1-w)*(2*activity+density)/3+w*quality`.
@@ -169,7 +280,7 @@ the actual final commit. Tests started in workspace tests/tdd and are promoted t
 **CI Integration Tests is the real-SQL health-cron/fallback arbiter** on this Windows box; all nine
 cases passed at `cd81ea3b` in the linked CI run, and were not run locally. E2E seeds were
 schema-inspected, not executed by the L2 suite.
-Claude's independent review remains pending; the author's own passes do not replace it.
+At that checkpoint Claude's independent review was pending; the author's own passes do not replace it.
 
 ## PR A state (2026-10-21)
 
@@ -484,7 +595,7 @@ claim-based authorization decision. Claude re-checked the integration count and 
    stamp in `architecture.json`, CRLF in `adr-010`). **`/simplify`, `/code-review` and `/security-review` were not re-run:**
    the merge changed nothing in PR K's code (proof above).
 
-**Post-merge done** (2026-10-27, see the top of this section). Next is PR L2.
+**Post-merge done** (2026-10-27, see the top of this section). PR L2 has since shipped; next is PR V.
 BUG-073 is tabled (maintainer, 2026-10-26) as a future-sprint platform-admin feature; it is not PR L2's scope.
 **Human validation (after deploy):** demote a test admin to member in a second browser, then that admin's **Update tags**
 → refused; a requester who administers nothing accepts a provider offer → accepted.
@@ -638,7 +749,8 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | ~~**PR L** (BUG-068)~~ | ~~2026-10-29~~ | **DONE**: #315 `ff3f394e` (v11.99.0), merged 2026-10-26 23:05:13Z (CI/CD 40417261628); post-deploy queue check PASS. The demo key cleanup is a separate, unscheduled operation (*PR L state*) |
 | ~~**BUG-069**~~ | ~~2026-10-30~~ | **DONE**: #319 `dd585016` (v11.100.0), merged 2026-10-27 02:55:40Z (CI/CD 40441255956). **ADR-102** Implemented. No risk acceptance or split was needed |
 | BUG-073 (any community creator passes the "admin of any community" gates) | ~~2026-10-29~~ → **tabled** | Logged 2026-10-22 by PR K's `/code-review`, still **open**. **Maintainer, 2026-10-26:** separate community admin from platform admin, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26 *architecture*). No target sprint or review date set |
-| **BUG-070** (BUG-063 class in reputation health + dead `FeedComposer`) | **2026-11-03** | Logged 2026-10-20 (LOW, proposed); **in PR L2** (maintainer confirmed 2026-10-20) |
+| ~~**BUG-070** (BUG-063 class in reputation health + dead `FeedComposer`)~~ | ~~2026-11-03~~ | **DONE**: #320 `47c9a323` (v11.101.0), merged 2026-10-27 20:37:13Z; CI/CD 40579675258 deploy + health green. First 02:00 nightly human validation pending. |
+| **Expo drift #316** (`expo-notifications` 57.0.23 vs ~57.0.24) | Daily workflow failing; no advisory date | **OPEN**, awaiting maintainer decision; dependency lane Claude's. The 10-22 "Expo drift closed" record predates this issue. |
 | Demo stories | ~2026-12-18 | `demo-health.yml` watches the runway |
 
 ## Queue drain check (PR L precondition, read-only)

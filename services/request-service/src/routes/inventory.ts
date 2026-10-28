@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { sendSuccess, sendError } from '@karmyq/shared/utils/response';
 import * as inventory from '../db/inventoryDb';
+import { isActiveMember } from '../db/liveRole';
 import { publishEvent } from '../events/publisher';
 
 const router = Router();
@@ -124,7 +125,7 @@ router.get(
   '/community/:communityId',
   handler(async (req, res, userId) => {
     const id = validId(req.params.communityId);
-    if (!(await inventory.isActiveMember(id, userId)))
+    if (!(await isActiveMember(id, userId)))
       throw new inventory.InventoryError(403, 'FORBIDDEN', 'Active community membership required');
     sendSuccess(res, await inventory.listForCommunity(id, userId));
   })

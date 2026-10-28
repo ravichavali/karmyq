@@ -18,7 +18,8 @@
  */
 
 import { query } from '../../src/database/db';
-import { getCommunityProviders, isActiveMember } from '../../src/services/providerReachService';
+import { getCommunityProviders } from '../../src/services/providerReachService';
+import { isActiveMember } from '../../src/db/liveRole';
 
 const TAG = `s125-${Date.now()}`;
 
@@ -288,7 +289,7 @@ describe('isActiveMember against the live table', () => {
     const u = await mkUser('memu');
     await addMember(u, c);
 
-    await expect(isActiveMember(u, c)).resolves.toBe(true);
+    await expect(isActiveMember(c, u)).resolves.toBe(true);
 
     await query(
       `UPDATE communities.members SET status = 'removed' WHERE user_id = $1 AND community_id = $2`,
@@ -296,6 +297,6 @@ describe('isActiveMember against the live table', () => {
     );
 
     // The whole reason membership is re-derived rather than read from the JWT claim.
-    await expect(isActiveMember(u, c)).resolves.toBe(false);
+    await expect(isActiveMember(c, u)).resolves.toBe(false);
   });
 });

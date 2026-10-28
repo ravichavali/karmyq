@@ -1,5 +1,11 @@
 import path from 'path';
 import { ALLOWLIST, scanFile, scanServices, surfaceHash, unguarded } from '../helpers/directedSurfaceScan';
+it('recognizes the canonical readable boundary only for its guarded alias and query block', () => {
+  const safe = 'const sql = `SELECT r.id FROM requests.help_requests r WHERE ${requestReadableSql("r", "$1")}`;';
+  expect(unguarded(scanFile('safe.ts', safe))).toEqual([]);
+  expect(unguarded(scanFile('wrong.ts', safe.replace('requestReadableSql("r"', 'requestReadableSql("other"')))).toHaveLength(1);
+  expect(unguarded(scanFile('or.ts', safe.replace('}`;', '} OR TRUE`;')))).toHaveLength(1);
+});
 it('reports exact new unguarded file, including a second query in a file that already has a guard', () => {
   const source = 'const safe = `SELECT r.id FROM requests.help_requests r WHERE ${notDirectedSql("r")}`; const unsafe = `SELECT r.title FROM requests.help_requests r WHERE r.status=\'open\'`;';
   expect(unguarded(scanFile('services/example/src/list.ts', source)).map((h) => h.file)).toEqual(['services/example/src/list.ts']);

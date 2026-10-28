@@ -7,6 +7,26 @@
 
 ## Recent Changes
 
+- **2026-10-27 (Sprint 134 PR V)**: request update, cancellation and privacy writes look up and
+  mutate by request id **and verified JWT requester**. Foreign, absent and concurrently removed
+  rows return the same 404 before publishing events. `GET /requests/:id` now applies
+  `requestReadableSql` directly in SQL; reachability is consulted only to derive `can_offer` for
+  an open, unexpired non-owner without a live match. Historical responders and preferred providers
+  retain read access without gaining offer eligibility. `buildRequestsQuery` filters and pages a
+  candidate CTE before joining names/aggregating communities; a community filter still narrows the
+  returned community names/ids and notes. One `db/liveRole.isActiveMember(communityId, userId)` now
+  serves inventory, requests, feed and providers, including malformed-id rejection and active
+  membership with a null role. The reversed provider helper is removed. The composite match index
+  is deferred pending query-plan measurements on representative data. `PUT /offers/:id/privacy`
+  now accepts only `offerer_visibility_consent`: legacy `is_public`-only bodies return 400 for the
+  owner; mixed bodies update consent only. The response and privacy event omit `is_public`.
+  Foreign/missing offers still return the same 404 before body validation. Offer reads remain owner
+  or live community member. The inert column stays until a later schema PR; PR V has no migration
+  or init.sql change and needs no demo-host operation.
+  Local route/query tests supplement the root real-SQL read-boundary, request-detail and provider
+  matrices, which exercise the queries against PostgreSQL in CI. Real-SQL tests do not run locally
+  on Windows. No query-speed improvement is claimed.
+
 - **2026-10-27 (Sprint 134 PR L2, BUG-070)**: `requests.interaction_feedback` is dropped after
   PR L retired its routes/event. `SocialKarmaFeedComposer` no longer reads the retired community-health
   averages; its existing total-match activity term is min(100, matches × 2). The maintainer's

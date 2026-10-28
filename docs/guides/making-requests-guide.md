@@ -94,6 +94,9 @@ Membership is checked live. When someone leaves your community, they stop seeing
 once, even if they're still signed in. Anyone outside the audience who tries to open your request
 gets the same "not found" page as for a request that doesn't exist.
 
+Only you can edit, cancel, or change privacy settings on your request. Other callers receive the
+same "not found" response whether a request belongs to someone else or does not exist.
+
 ---
 
 ## Tips

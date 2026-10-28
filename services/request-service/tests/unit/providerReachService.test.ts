@@ -24,8 +24,8 @@ import { query } from '../../src/database/db';
 import {
   COMMUNITY_PROVIDER_QUERY,
   getCommunityProviders,
-  isActiveMember,
 } from '../../src/services/providerReachService';
+import { isActiveMember } from '../../src/db/liveRole';
 
 const mockQuery = query as jest.Mock;
 
@@ -38,18 +38,18 @@ describe('isActiveMember', () => {
   it('queries the live members table with both ids bound and status active', async () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ community_id: COMMUNITY }] });
 
-    await expect(isActiveMember(USER, COMMUNITY)).resolves.toBe(true);
+    await expect(isActiveMember(COMMUNITY, USER)).resolves.toBe(true);
 
     const [sql, params] = mockQuery.mock.calls[0];
     expect(String(sql)).toContain('communities.members');
     expect(String(sql)).toMatch(/status\s*=\s*'active'/);
-    expect(params).toEqual([USER, COMMUNITY]);
+    expect(params).toEqual([COMMUNITY, USER]);
   });
 
   it('returns false when no active membership row exists', async () => {
     mockQuery.mockResolvedValueOnce({ rows: [] });
 
-    await expect(isActiveMember(USER, COMMUNITY)).resolves.toBe(false);
+    await expect(isActiveMember(COMMUNITY, USER)).resolves.toBe(false);
   });
 
   it('does not treat a non-active membership as membership', async () => {
@@ -57,7 +57,7 @@ describe('isActiveMember', () => {
     // that moving the filter into JS (or dropping it) fails rather than passing on a helpful mock.
     mockQuery.mockResolvedValueOnce({ rows: [] });
 
-    await expect(isActiveMember(USER, COMMUNITY)).resolves.toBe(false);
+    await expect(isActiveMember(COMMUNITY, USER)).resolves.toBe(false);
     expect(String(mockQuery.mock.calls[0][0])).toMatch(/status\s*=\s*'active'/);
   });
 });

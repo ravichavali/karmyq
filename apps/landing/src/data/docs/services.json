@@ -353,7 +353,31 @@
       "owner": "core",
       "path": "services/request-service",
       "apis": [
-        "/requests",
+        {
+          "method": "GET",
+          "path": "/requests",
+          "description": "Viewer-scoped browse or JWT-equal own-request list. Sprint 134 PR V filters and pages candidate request rows before community aggregation, preserving community-scoped names/ids and authorized admin notes. Browse applies requestReadableSql; expired, directed and own live-match browse exclusions remain."
+        },
+        {
+          "method": "GET",
+          "path": "/requests/:id",
+          "description": "Canonical SQL requestReadableSql read boundary: requester, any-status responder, preferred provider or reachable audience, subject to directed audience. Missing and out-of-audience return the same 404. Reachability separately determines can_offer; readable historical participants do not automatically gain offer eligibility."
+        },
+        {
+          "method": "PUT",
+          "path": "/requests/:id",
+          "description": "JWT requester-only update; id and requester are bound on lookup and mutation. Foreign, missing and vanished rows return identical 404 without events."
+        },
+        {
+          "method": "DELETE",
+          "path": "/requests/:id",
+          "description": "JWT requester-only cancellation; ignores body user_id. Foreign, missing and vanished rows return identical 404 without events."
+        },
+        {
+          "method": "PUT",
+          "path": "/requests/:id/privacy",
+          "description": "JWT requester-only privacy settings. Ownership is checked before body validation; foreign, missing and vanished rows return identical 404 without events."
+        },
         {
           "method": "GET",
           "path": "/requests/:requestId/relationship-context",
@@ -435,6 +459,11 @@
           "description": "Sprint 90 / ADR-069: resolved retention windows (completed/expired/message, community->global->fallback via requests.retention_config) + the member's own held vs forgotten request counts. Backs the /about/memory transparency page. Read-only, no PII. Membership-gated on the JWT communities claim when ?communityId= is supplied (non-member -> 403). MUST be registered before /requests/:id (route-order)."
         },
         "/offers",
+        {
+          "method": "PUT",
+          "path": "/offers/:id/privacy",
+          "description": "Offer owner updates offerer_visibility_consent only. Sprint 134 PR V retires the inert is_public input/response/event field: legacy-only body returns 400; mixed body updates consent only. Ownership precedes body validation, so foreign/missing offers return identical 404. The inert DB column remains until a later schema PR; read audience remains owner or live community member."
+        },
         {
           "method": "POST",
           "path": "/matches",

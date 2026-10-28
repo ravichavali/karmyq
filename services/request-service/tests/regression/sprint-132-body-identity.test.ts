@@ -50,7 +50,7 @@ beforeEach(() => {
   mockQuery.mockImplementation(async (sql: string, params: unknown[] = []) => {
     const s = String(sql);
     if (/SELECT requester_id FROM requests\.help_requests/.test(s))
-      return { rows: [{ requester_id: OWNER }], rowCount: 1 };
+      return params[1] === OWNER ? { rows: [{ requester_id: OWNER }], rowCount: 1 } : { rows: [], rowCount: 0 };
     // The offer exists and belongs to OWNER. Owner writes look it up `WHERE id = $1 AND offerer_id = $2`
     // (BUG-064), so the row comes back only when the bound offerer is OWNER.
     if (/FROM requests\.help_offers WHERE id = \$1 AND offerer_id = \$2/.test(s))
@@ -65,7 +65,7 @@ beforeEach(() => {
 describe('BUG-061: DELETE /requests/:id cancels only as the JWT requester', () => {
   it('rejects a non-requester naming the requester in the body', async () => {
     const res = await request(await buildApp(ATTACKER)).delete(`/requests/${ID}`).send({ user_id: OWNER });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
     expect(writes()).toHaveLength(0);
   });
 
