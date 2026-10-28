@@ -3,7 +3,9 @@ import { skillsService, type MemberSkill } from '@/lib/api'
 
 const vouchLabel = (n: number) => `${n} ${n === 1 ? 'vouch' : 'vouches'}`
 
-export default function MemberSkills({ userId }: { userId: string }) {
+export default function MemberSkills({ userId, endorsableOnly = false, heading }: {
+  userId: string; endorsableOnly?: boolean; heading?: string
+}) {
   const [skills, setSkills] = useState<MemberSkill[]>([])
   const [loading, setLoading] = useState(true)
   const [busyTag, setBusyTag] = useState<string | null>(null)
@@ -49,11 +51,15 @@ export default function MemberSkills({ userId }: { userId: string }) {
     }
   }
 
-  if (loading) return <p className="text-sm text-text-muted" role="status">Loading skills…</p>
-  if (!skills.length) return <p className="text-sm text-text-muted">No shared skills to show.</p>
+  // Sprint 134 PR B: endorsableOnly filters on the server's ADR-100 flags alone; the client adds no
+  // eligibility rule. In that mode loading, empty and failed loads render nothing.
+  const shown = endorsableOnly ? skills.filter(s => s.can_endorse || s.endorsed_by_me) : skills
+  if (loading) return endorsableOnly ? null : <p className="text-sm text-text-muted" role="status">Loading skills…</p>
+  if (!shown.length) return endorsableOnly ? null : <p className="text-sm text-text-muted">No shared skills to show.</p>
   return <div>
+    {heading && <p className="mb-2 text-sm text-text">{heading}</p>}
     <ul className="flex flex-wrap gap-2" aria-label="Member skills">
-      {skills.map(skill => {
+      {shown.map(skill => {
         const count = skill.endorsement_count ?? 0
         const showButton = skill.endorsed_by_me || skill.can_endorse
         const action = skill.endorsed_by_me ? 'Withdraw vouch' : 'Vouch'
