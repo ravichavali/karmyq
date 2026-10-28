@@ -49,8 +49,9 @@ the maintainer at **2026-10-28 18:56:43Z** after Codex review (no blocking findi
 passed **14/14** including Deploy to Demo. The node-forge deadline is met: the exemption registry on master is empty, 0 open
 code-scanning alerts, 0 open Dependabot alerts. deepmerge #178 dismissed `tolerable_risk` (maintainer option a). See
 *Security follow-up state → Post-merge*.
-**Now:** **PR B (vouch from a completed exchange)** planning on `agent/claude/sprint-134-pr-b-vouch-from-request`, cut from
-`origin/master` `4ee38e82`. The first commit is the #322 post-merge record. Planning chat; execution in a later chat.
+**Now:** **PR B (vouch from a completed exchange) is PLANNED** on `agent/claude/sprint-134-pr-b-vouch-from-request`, cut
+from `origin/master` `4ee38e82`. The first commit is the #322 post-merge record, then BUG-074 and the spec + plan.
+**Execute it in a fresh chat** (*PR B plan* below). v11.104.0 is provisional.
 **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
 become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26); the 10-29 deadline no longer applies.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
@@ -69,11 +70,13 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 2. Find the next PR in *PR sequence* whose status is not SHIPPED. Reuse its branch if it exists; otherwise
    `git switch -c agent/claude/sprint-134-pr-<letter>-<slug> origin/master`. Never branch off a stale local master.
 3. PR V and the security follow-up (#322) are shipped; deploy/health are verified in *PR V state* and
-   *Security follow-up state → Post-merge*. **Next: PR B** (vouch from a completed exchange), ahead of
-   trust-history accuracy unless measured drift changes priority. Its planning branch is
-   `agent/claude/sprint-134-pr-b-vouch-from-request`. Re-check the `/language:actions` CodeQL analysis on the
-   first master push after #322 (*Post-merge* note). PR V human validation and PR L2's nightly reputation-log
-   validation are separate open checks.
+   *Security follow-up state → Post-merge*. **Next: execute PR B.** Reuse the existing branch
+   `agent/claude/sprint-134-pr-b-vouch-from-request` (`git switch` it; `git pull` if behind). Open the plan:
+   [`docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md`](../../docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md)
+   (spec: [`specs/2026-10-28-sprint-134-pr-b-vouch-from-request-design.md`](../../docs/superpowers/specs/2026-10-28-sprint-134-pr-b-vouch-from-request-design.md)).
+   PR B comes ahead of trust-history accuracy unless measured drift changes priority. Re-check the `/language:actions`
+   CodeQL analysis on the first master push after #322 (*Post-merge* note). PR V human validation and PR L2's nightly
+   reputation-log validation are separate open checks.
 4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
    slash command; superpowers removed it as a deprecated stub.
 5. One fresh chat per PR (CLAUDE.md *Chat cadence*). Update this file at every PR open/merge.
@@ -87,8 +90,104 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 | Field | Value |
 |---|---|
 | **Current branch** | `agent/claude/sprint-134-pr-b-vouch-from-request`, from `origin/master` `4ee38e82` (#322, v11.103.0). First commit: the #322 post-merge record. The old `agent/codex/sprint-134-pr-b-endorsement-followups` is **safe to delete** (maintainer's call): its two docs commits `4b0c6386`/`56357e50` are patch-identical (`git patch-id --stable`) to `ac08fbf4`/`0685c058`, both ancestors of #322's head `1ecf1a05`, whose tree equals master's `4ee38e82` tree. (`git cherry` shows them as missing only because #322 was squash-merged.) |
-| **Active editor** | **Claude** (PR B planning). Codex makes no concurrent edits on this branch. |
+| **Active editor** | **Claude** (PR B planned 2026-10-28; execution in the next fresh chat). Codex makes no concurrent edits on this branch. |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated); nothing dependency-dated is open after #322 except Expo drift #316 (awaiting a maintainer decision) and BUG-041's re-check by 2026-11-14. PR B is product work and edits no manifest or lockfile beyond the root version. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
+
+## PR B plan (Claude, planning chat 2026-10-28)
+
+**Goal:** a participant who opens a completed ask, usually from the completion notification, sees each partner from
+that exchange and can rate it and vouch for the partner's skills right there. Partner status and vouch eligibility
+come only from the server.
+
+**Why:** both participants get `match_completed` ("Match Completed — Leave a Rating", CTA "Rate Helper") linking to
+`/requests/:id`. That page shows only "This ask is completed." and has no rating or vouch control. `viewer_match` is
+`proposed`/`matched` only (`services/request-service/src/routes/requests.ts:1643`, re-verified at `4ee38e82`; the
+statement is on `requestReadableSql`, line 1647).
+
+**Maintainer decisions (2026-10-28):**
+- **Placement:** request page only, for both participants: the requester sees every completed helper; a helper sees
+  only the requester. No dashboard placement; **no dismiss or snooze**.
+- **Endpoint:** extend `GET /requests/:id` with `viewer_partners` (scalar subquery inside the guarded statement; `[]`
+  for everyone else). No separate participants-only endpoint.
+- **Rating:** on the same panel (reuse `RatingPrompt` + `submitExchangeRating`; server adds `rated_by_me` and
+  `rating_community_id`).
+- **Notification:** no new event or queue. Fix the existing `match_completed` copy ("Exchange completed" / "Rate &
+  vouch") in the template **and** `apps/frontend/src/components/NotificationItem.tsx:90`. The "you were vouched for"
+  notification stays a later dedicated-queue item (BUG-060).
+- **ADR:** an ADR-100 amendment, so no number is needed. **BUG-074** (cancel route has no status guard) is logged and
+  goes to a separate PR.
+- Defaults accepted without objection: one block per partner, newest first; vouch attribution unchanged (ADR-100 most
+  recent completed match).
+
+**Shape:** 13 tasks, no migration, no dependency change.
+- Request-service TDD (exact SQL fragments).
+- Root real-SQL matrix (CI-only), including the reputation rating round trip and auth `can_endorse`/`POST
+  /endorsements` agreement.
+- `viewer_partners` implementation.
+- Frontend TDD per the UI coverage table; `MemberSkills endorsableOnly`; `CompletedExchangePanel` + page wiring.
+- Notification copy.
+- Docs: profile, match-lifecycle, fulfilling-requests and managing-commitments guides; the `skill-endorsements`
+  concept; onboarding; the ADR-100 amendment; IDEAS.
+- CONTEXT + registry; the four gates; final verification; PR and stop.
+
+The spec carries the layout audit, the reference products (Airbnb, Upwork, Couchsurfing, TaskRabbit, LinkedIn) and
+the layout decision.
+
+**Critical implementation notes (verbatim from the plan header, a superset of the spec's):**
+
+1. **Partner status is per exchange, not per read.** The partner subquery filters `pm.status = 'completed'` AND
+   `matchParticipantSql('r', 'pm', '$2')` (`services/request-service/src/db/directedAudience.ts:20`). Partner is
+   `CASE WHEN r.requester_id = $2 THEN pm.responder_id ELSE r.requester_id END`. Never derive it from
+   `requestReadableSql`. That grants reads to historical helpers and the preferred provider, who are **not** partners.
+2. **Keep it inside the existing guarded statement.** Add `viewer_partners` as a scalar subquery in the SELECT list of
+   the detail query (`requests.ts:1615-1650`), so it needs no GROUP BY change: it references only grouped `r.id` and
+   `r.requester_id`. It reads `requests.matches`, `auth.users`, `feedback.feedback` and `requests.request_communities`,
+   not `requests.help_requests`, so the directed-surface scanner sees no new read. Run its gate:
+   `services/request-service/tests/regression/sprint-132-directed-audience-gate.test.ts`.
+3. **`$2` stays uuid-only.** Every new use of `$2` compares it with a uuid column. A text cast or a `$2 IS NULL` test
+   can raise "inconsistent types deduced for parameter $2" (the L2 CI failure). A NULL viewer already yields no rows
+   through `=`.
+4. **`rated_by_me` mirrors the dashboard's rate decision** (`requests.ts:1053-1056`). `feedback.feedback` has RLS
+   ENABLEd without FORCE and a `community_isolation` policy (init.sql:6691, 6697), as `requests.matches` does. Both run
+   behind the same `dbContextMiddleware` (`services/request-service/src/index.ts:128-135`). CI's real-SQL test is the
+   arbiter. The demo role's RLS bypass is **UNVERIFIED** (it would need a demo-host read).
+5. **No client eligibility.** The vouch row filters only on `can_endorse`/`endorsed_by_me` from
+   `GET /auth/skills/users/:userId` (`services/auth-service/src/routes/skills.ts:14-40`). That route uses the same
+   `completedPairSql` + `skillVisibleToSql` as `POST /endorsements` (`skills.ts:96-107`). A 404, an error or no
+   endorsable skill renders nothing.
+6. **Vouch attribution is unchanged (ADR-100):** the most recent completed match of the pair, possibly another request.
+   Do not add a `match_id` input to `POST /endorsements`.
+7. **The rating write is unchanged.** `POST /reputation/feedback` validates participant, counterparty, completed status
+   and community (`services/reputation-service/src/routes/reputation.ts:347-370`). The panel sends `{ match_id,
+   to_user_id: partner.user_id, community_id: rating_community_id, rating }` via `submitExchangeRating`
+   (`apps/frontend/src/utils/completion.ts`), which is best-effort. A null `rating_community_id` hides the prompt.
+8. **Ratings stay private (ADR-036).** Expose only whether the viewer rated.
+9. **Several completed matches exist (BUG-074)**, possibly the same partner twice. Rate per match; vouch once per
+   distinct partner (the newest entry). Do not fix BUG-074 here.
+10. **The existing page tests mock `@/lib/api` with `requestService` only**
+    (`apps/frontend/tests/tdd/sprint-101-request-detail-action.test.tsx:23-33`, plus the sprint-116/132 regression page
+    tests). The panel must not render, and must not call `skillsService`/`reputationService`, when `viewer_partners`
+    is absent or empty.
+11. **Frontend Jest clears nothing between tests**: `mockReset` in `beforeEach` (`sprint-133-vouch.test.tsx:19-21`).
+    The API client already unwraps the envelope (`res.data`).
+12. **No JWT claim reads** (`tests/regression/sprint-134-pr-k-claim-gate.test.ts`). Use `req.user.userId` only.
+13. **Real SQL is CI-only here.** CI's integration job starts auth, reputation, request and the rest
+    (`.github/workflows/ci.yml:306`). Follow `tests/integration/sprint-133-request-detail-visibility.integration.test.ts`
+    and `tests/integration/sprint-133-endorsement-trust.integration.test.ts`. Use explicit `::varchar` casts on
+    parameters compared with `requests.matches.status` (L2 lesson). Check every fixture column against `init.sql`
+    (`requests.provider_profiles` needs `user_id`, `service_type`, `display_name`: init.sql:2570-2580).
+14. **Version** re-derived at merge; root version occurrences only; no dependency change.
+15. **`npm test` regenerates `apps/landing/src/data/docs/`**: revert timestamp and HEAD-sha churn before committing.
+16. **The TDD promoter sweeps every green `tdd/` file repo-wide**: restore unrelated promotions to keep the PR scoped.
+    Run a single Jest file with `--runTestsByPath` or `--testPathPatterns` (plural, Jest 30).
+17. **Ask before**: any merge ("admin merge, yes/no?"), any demo-host operation, any CodeQL dismissal. PR B needs no
+    ADR number (ADR-100 amendment). It should not touch `apps/frontend/src/lib/api.ts`. If it does, expect the
+    `js/request-forgery` re-raise after merge.
+
+**Carry-forward relevant to PR B:**
+- BUG-074 (open, separate PR).
+- The CodeQL `/language:actions` "Unknown Error" on `4ee38e82`: re-check it on PR B's merge sha.
+- PR V's human checks (departed helper and preferred provider keep reads) are the read side of note 1.
 
 ## Security lane transfer — 2026-10-28
 
@@ -236,6 +335,8 @@ export), so the blocker is unchanged.
 ## Spec and plans
 
 - Spec: [`docs/superpowers/specs/2026-10-20-sprint-134-dated-obligations-design.md`](../../docs/superpowers/specs/2026-10-20-sprint-134-dated-obligations-design.md)
+- PR B spec: [`docs/superpowers/specs/2026-10-28-sprint-134-pr-b-vouch-from-request-design.md`](../../docs/superpowers/specs/2026-10-28-sprint-134-pr-b-vouch-from-request-design.md)
+- PR B plan: [`docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md`](../../docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md)
 
 ## PR sequence
 
@@ -252,7 +353,7 @@ export), so the blocker is unchanged.
 | 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **SHIPPED** `dd585016` (#319, v11.100.0), CI/CD 40441255956 green; real SQL 101/101. Human validation pending; see *PR K state* |
 | 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **SHIPPED** #321 `645d28fd` (v11.102.0), CI/CD 40631196261 green 14/14; 9 healthy; 0 open master CodeQL alerts. Human checks pending. |
 | — | **Security follow-up** | node-forge 1.4.2 + exemption removed; ip-address 10.7.4; fast-uri 4.2.3; deepmerge decision write-up | **2026-11-01 16:00 PST** | *Security follow-up state* | **SHIPPED** `4ee38e82` (#322, v11.103.0), merged 18:56:43Z; CI/CD 40749793316 green 14/14 incl. deploy; 0 open code-scanning / Dependabot alerts; deadline met. |
-| 8 | **B** | Vouch from a completed exchange (`docs/IDEAS.md` 2026-10-13 "Vouch from the request page") | — | planning on `agent/claude/sprint-134-pr-b-vouch-from-request` | **Planning.** Scope decided by the maintainer: easier vouching first. |
+| 8 | **B** | Vouch from a completed exchange (`docs/IDEAS.md` 2026-10-13 "Vouch from the request page") | — | [plan](../../docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md) | **PLANNED** 2026-10-28 on `agent/claude/sprint-134-pr-b-vouch-from-request` (v11.104.0 provisional). Execute in a fresh chat; see *PR B plan*. |
 | 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
 | — | **Per-community health-quality weight (planned PR)** | Persist the weight in `communities.community_configs`; choose a quality signal source; requires an ADR number allocated by the maintainer | Not scheduled | Write after ADR allocation + signal decision | Separate planned PR, not part of L2 |
 
@@ -943,6 +1044,7 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | `deepmerge` alert **#178** (low) | re-check at the next Expo SDK move or **2026-12-01** | **DISMISSED** `tolerable_risk` 2026-10-28 19:24:33Z (maintainer option a). Reach: Expo config tooling + Jest only, no fix exists (4.3.1 latest). Gate blocks high/critical only, so no exemption entry. |
 | `decode-uri-component` BUG-041 (alert #150, dismissed) | re-check by **2026-11-14** | 0.5.1 still ESM-only; blocker unchanged (*Security follow-up state*). |
 | CodeQL `/language:actions` "Unknown Error" on `4ee38e82` | next master push | GitHub-side (job log shows a complete upload). Re-check the Actions analysis for the PR B merge sha. |
+| **BUG-074** (`DELETE /matches/:id` cancels completed/rejected matches and reopens the request) | not scheduled | Logged 2026-10-28 during PR B planning; separate PR (maintainer). Severity not yet assessed; it changes completion/karma semantics, so plan it first. |
 | ~~node-forge + braces ADR-059 exemptions~~ → **Security PR X** | ~~EXPIRED 2026-10-26 00:00Z~~ | **DONE**: #317 `e15622bc` (v11.98.0), live 2026-10-26 22:25Z (CI/CD 40410093954). The lapse blocked pushes and CI Security Audit from 10-26 00:00Z until the merge. body-parser/undici/zod highs fixed inside their SLA (body-parser due 10-30). BUG-059 closed |
 | ~~**PR L** (BUG-068)~~ | ~~2026-10-29~~ | **DONE**: #315 `ff3f394e` (v11.99.0), merged 2026-10-26 23:05:13Z (CI/CD 40417261628); post-deploy queue check PASS. The demo key cleanup is a separate, unscheduled operation (*PR L state*) |
 | ~~**BUG-069**~~ | ~~2026-10-30~~ | **DONE**: #319 `dd585016` (v11.100.0), merged 2026-10-27 02:55:40Z (CI/CD 40441255956). **ADR-102** Implemented. No risk acceptance or split was needed |

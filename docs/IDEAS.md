@@ -857,6 +857,9 @@ exception for that query. Small; fits any request/notification PR.
 - **Vouch from the request page.** `/matches/:id` only redirects to `/requests/:id`, which exposes no
   completed partner, so PR B put vouching in the Helping-tab TrustCard and the People tab. A
   "vouch for <name>" prompt on a completed ask would need the partner id in `GET /requests/:id`.
+  **[2026-10-28] Planned as Sprint 134 PR B** (`docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md`):
+  `viewer_partners` on the detail read, exposed per exchange to its two participants only; rating and vouching on the
+  completed request page; `match_completed` copy fixed. The endorsement notification stays a later item.
 - **Remove the legacy `karmyq-events` handlers (ADR-101 follow-up).** After the PR Q deploy, nothing publishes to
   `karmyq-events`. Once a read-only check (ask first: shared demo server) shows `bull:karmyq-events:wait` and `:delayed`
   are empty, remove the legacy registrations in notification, reputation and social-graph (including the Sprint 132
