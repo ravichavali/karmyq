@@ -15,7 +15,7 @@
   and a reading member get `[]`. `rated_by_me` reads `feedback.feedback` by the viewer, as the dashboard's
   `rate` decision does; ratings stay private (ADR-036). The frontend request page renders a rate-and-vouch
   panel from it. No migration, event or dependency change. Mocked SQL-contract tests in
-  `tests/tdd/sprint-134-pr-b-viewer-partners.test.ts`; the exposure matrix runs against real SQL in the root
+  `tests/regression/sprint-134-pr-b-viewer-partners.test.ts`; the exposure matrix runs against real SQL in the root
   `tests/integration/sprint-134-pr-b-viewer-partners.integration.test.ts` (CI-only on Windows).
 
 - **2026-10-27 (Sprint 134 PR V)**: request update, cancellation and privacy writes look up and
