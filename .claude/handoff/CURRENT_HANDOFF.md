@@ -45,7 +45,7 @@ all **9 services healthy**, failure notification skipped (no rollback), **0 open
 master**. Merge-commit analyses completed without errors/warnings. Human checks remain pending.
 See *PR V state*.
 **Now:** **Security follow-up** on `agent/claude/sprint-134-security-followups` (Claude authors, Codex reviews;
-maintainer allocation 2026-10-28), v11.103.0, **PR open, awaiting Codex review and maintainer merge**. node-forge 1.4.2 is in with its exemption **deleted**, plus ip-address
+maintainer allocation 2026-10-28), v11.103.0, **PR [#322](https://github.com/ravichavali/karmyq/pull/322) open, awaiting Codex review and maintainer merge**. node-forge 1.4.2 is in with its exemption **deleted**, plus ip-address
 10.7.4 and fast-uri 4.2.3; the deepmerge #178 decision is prepared. The branch carries Codex's PR V post-merge record
 and the lane transfer (cherry-picked). See *Security follow-up state*. PR B (vouching) comes next, in a fresh chat.
 **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
@@ -221,7 +221,7 @@ export), so the blocker is unchanged.
 | 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers, numeric widths and nightly isolation; **BUG-070** | BUG-070 **2026-11-03** | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md) | **SHIPPED** #320 `47c9a323` (v11.101.0), CI/CD 40579675258 green; nightly human validation pending. |
 | 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **SHIPPED** `dd585016` (#319, v11.100.0), CI/CD 40441255956 green; real SQL 101/101. Human validation pending; see *PR K state* |
 | 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **SHIPPED** #321 `645d28fd` (v11.102.0), CI/CD 40631196261 green 14/14; 9 healthy; 0 open master CodeQL alerts. Human checks pending. |
-| — | **Security follow-up** | node-forge 1.4.2 + exemption removed; ip-address 10.7.4; fast-uri 4.2.3; deepmerge decision write-up | **2026-11-01 16:00 PST** | *Security follow-up state* | **PR OPEN, awaiting Codex review and maintainer merge** (`agent/claude/sprint-134-security-followups`, v11.103.0); all four gates run. Must merge AND deploy before the deadline. |
+| — | **Security follow-up** | node-forge 1.4.2 + exemption removed; ip-address 10.7.4; fast-uri 4.2.3; deepmerge decision write-up | **2026-11-01 16:00 PST** | *Security follow-up state* | **PR [#322](https://github.com/ravichavali/karmyq/pull/322) OPEN, awaiting Codex review and maintainer merge** (`agent/claude/sprint-134-security-followups`, v11.103.0); all four gates run. Must merge AND deploy before the deadline. |
 | 8 | **B** | PR B endorsement follow-ups (`docs/IDEAS.md` 2026-10-13) | — | write at PR start | Not started; branch holds V's post-merge record only. Scope with maintainer in a fresh chat. |
 | 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
 | — | **Per-community health-quality weight (planned PR)** | Persist the weight in `communities.community_configs`; choose a quality signal source; requires an ADR number allocated by the maintainer | Not scheduled | Write after ADR allocation + signal decision | Separate planned PR, not part of L2 |
