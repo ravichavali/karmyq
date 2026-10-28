@@ -7,6 +7,17 @@
 
 ## Recent Changes
 
+- **2026-10-28 (Sprint 134 PR B, ADR-100 amendment)**: `GET /requests/:id` returns `viewer_partners`, the
+  viewer's completed exchanges on the ask (`match_id`, `user_id`, `name`, `completed_at`, `rated_by_me`,
+  `rating_community_id`), newest first, capped at 20, `[]` for everyone else. It is a scalar subquery inside
+  the existing `requestReadableSql`-guarded statement, filtered per exchange by `status = 'completed'` AND
+  `matchParticipantSql`: read permission is not partner status, so a rejected helper, the preferred provider
+  and a reading member get `[]`. `rated_by_me` reads `feedback.feedback` by the viewer, as the dashboard's
+  `rate` decision does; ratings stay private (ADR-036). The frontend request page renders a rate-and-vouch
+  panel from it. No migration, event or dependency change. Mocked SQL-contract tests in
+  `tests/tdd/sprint-134-pr-b-viewer-partners.test.ts`; the exposure matrix runs against real SQL in the root
+  `tests/integration/sprint-134-pr-b-viewer-partners.integration.test.ts` (CI-only on Windows).
+
 - **2026-10-27 (Sprint 134 PR V)**: request update, cancellation and privacy writes look up and
   mutate by request id **and verified JWT requester**. Foreign, absent and concurrently removed
   rows return the same 404 before publishing events. `GET /requests/:id` now applies
@@ -848,6 +859,15 @@ Offer button that 403s on click).
   audience (SQL predicate), or reachable. Otherwise **404 with the
   same body as a missing id**. No `requester_email`; the internal `viewer_any_match`/`viewer_is_preferred_provider` columns are stripped.
 - `viewer_match`: `{ id, status }` when `already_offered`, else `null`.
+- `viewer_partners` (Sprint 134 PR B, ADR-100 amendment): always present, default `[]`. One entry per
+  **completed** match on this request in which the viewer is the requester or that match's responder:
+  `{ match_id, user_id, name, completed_at, rated_by_me, rating_community_id }`, ordered
+  `completed_at DESC NULLS LAST, match_id DESC`, at most 20. The partner is the responder when the viewer
+  is the requester, else the requester, so a helper never sees another helper. A rejected/cancelled
+  helper, the preferred provider and any reading member get `[]` (read permission is not partner status).
+  `rated_by_me` = the viewer has a `feedback.feedback` row for that match; `rating_community_id` =
+  `MIN(request community)`, the rate decision's rule (`null` hides the rating prompt). Several completed
+  matches can exist (BUG-074); the page rates per match and vouches once per partner.
 - `payload_type`: ADR-067 fine subtype from `category` (drives the detail page's payload renderer).
 - The detail query now selects `r.expired` and **no longer filters `expired = FALSE`** in the `WHERE`,
   so expired-open asks return for finite-state display (previously 404'd).
@@ -866,12 +886,12 @@ Offer button that 403s on click).
     "expired": false,
     "requester_id": "uuid",
     "requester_name": "Alice Smith",
-    "requester_email": "alice@example.com",
     "community_id": "uuid",
     "community_name": "Seattle Mutual Aid",
     "payload_type": "moving_help",
     "viewer_relation": "can_offer",
     "viewer_match": null,
+    "viewer_partners": [],
     "created_at": "2025-01-10T12:00:00Z"
   }
 }

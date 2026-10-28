@@ -421,6 +421,10 @@ The notification service listens to events from other services and creates appro
 **match_completed** - Help exchange completed
 - Notifies both requester and helper
 - Triggers karma notification (if listening)
+- Copy (Sprint 134 PR B): title "Exchange completed", body `Your exchange for "<title>" is complete. Rate it
+  and vouch for skills you saw.`, CTA "Rate & vouch" (also `NotificationItem.tsx`), linking to `/requests/:id`,
+  whose completed-exchange panel offers the private rating and the vouch. Already-stored notifications keep
+  their old text. No transport, channel or priority change.
 
 **request_created** - New request in community
 - Notifies all active community members (except requester) via `new_request`
@@ -480,10 +484,10 @@ export function generateNotification(type: NotificationType, data: any) {
     case 'match_completed':
       return {
         type: 'match_completed',
-        title: 'Help exchange completed!',
-        body: `You successfully completed "${data.request_title}"`,
+        title: 'Exchange completed',
+        body: `Your exchange for "${data.request_title}" is complete. Rate it and vouch for skills you saw.`,
         data,
-        action_url: `/matches/${data.match_id}`,
+        action_url: `/requests/${data.request_id}`,
       };
 
     // ... other templates

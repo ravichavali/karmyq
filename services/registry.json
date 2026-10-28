@@ -387,7 +387,7 @@
           {
             "method": "GET",
             "path": "/requests/:id",
-            "description": "Canonical SQL requestReadableSql read boundary: requester, any-status responder, preferred provider or reachable audience, subject to directed audience. Missing and out-of-audience return the same 404. Reachability separately determines can_offer; readable historical participants do not automatically gain offer eligibility."
+            "description": "Canonical SQL requestReadableSql read boundary: requester, any-status responder, preferred provider or reachable audience, subject to directed audience. Missing and out-of-audience return the same 404. Reachability separately determines can_offer; readable historical participants do not automatically gain offer eligibility. Sprint 134 PR B: viewer_partners lists completed exchanges only to their participants (completed + match participant per exchange; read permission is not partner status), [] for everyone else."
           },
           {
             "method": "PUT",
