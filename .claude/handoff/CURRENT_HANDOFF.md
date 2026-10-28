@@ -49,9 +49,13 @@ the maintainer at **2026-10-28 18:56:43Z** after Codex review (no blocking findi
 passed **14/14** including Deploy to Demo. The node-forge deadline is met: the exemption registry on master is empty, 0 open
 code-scanning alerts, 0 open Dependabot alerts. deepmerge #178 dismissed `tolerable_risk` (maintainer option a). See
 *Security follow-up state → Post-merge*.
-**Now:** **PR B (vouch from a completed exchange) is OPEN: Codex review #1 P2 fixed (`8e4801b1`), awaiting Codex re-review / maintainer merge**, [#323](https://github.com/ravichavali/karmyq/pull/323), on
-`agent/claude/sprint-134-pr-b-vouch-from-request` (base `origin/master` `4ee38e82`, unchanged at open), v11.104.0 re-derived
-at PR open. All four gates ran; the real-SQL integration matrix is **CI-only** (not run on this Windows box). See *PR B state*.
+**PR B [#323](https://github.com/ravichavali/karmyq/pull/323) SHIPPED** as `d8da50f0` (v11.104.0), merged at
+**2026-10-28 23:01:54Z** on the maintainer's admin authorization. [CI/CD 40784392749](https://github.com/ravichavali/karmyq/actions/runs/40784392749)
+passed **14/14** including Deploy to Demo; all 9 services healthy; "Notify on failure" skipped (no rollback); 0 open CodeQL
+alerts on master; the `/language:actions` "Unknown Error" carried from `4ee38e82` **cleared** on `d8da50f0`. The four PR B
+human checks stay open until the maintainer reports them. See *PR B state → Post-merge*.
+**Now:** **BUG-074 planning** (match cancel has no status guard) on `agent/claude/sprint-134-pr-bug-074-cancel-guard`, from
+`origin/master` `d8da50f0`. Planning chat 2026-10-28; execution is the next chat.
 **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
 become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26); the 10-29 deadline no longer applies.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
@@ -69,13 +73,10 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 1. Read this handoff, then `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
 2. Find the next PR in *PR sequence* whose status is not SHIPPED. Reuse its branch if it exists; otherwise
    `git switch -c agent/claude/sprint-134-pr-<letter>-<slug> origin/master`. Never branch off a stale local master.
-3. PR V and the security follow-up (#322) are shipped; deploy/health are verified in *PR V state* and
-   *Security follow-up state → Post-merge*. **PR B is open** (*PR B state*), awaiting Codex review and the maintainer's
-   merge. The next chat starts with `gh pr checks <n>`: the CI integration job is the first real-SQL run of
-   `tests/integration/sprint-134-pr-b-viewer-partners.integration.test.ts` and the arbiter of the `rated_by_me` RLS
-   question. After merge: deploy/health check, CodeQL master re-check **including the `/language:actions` "Unknown
-   Error" carried from `4ee38e82`**, the post-merge record, and the PR B human validation list. PR V human validation
-   and PR L2's nightly reputation-log validation are separate open checks. BUG-074 is the next small PR candidate.
+3. PR V, the security follow-up (#322) and **PR B (#323)** are shipped; deploy/health are verified in *PR V state*,
+   *Security follow-up state → Post-merge* and *PR B state → Post-merge*. **BUG-074 is being planned** on
+   `agent/claude/sprint-134-pr-bug-074-cancel-guard`. Open human checks, each reported by the maintainer: PR B's four
+   (check 1 is the only proof of demo RLS for `rated_by_me`), PR V's, and PR L2's nightly reputation log.
 4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
    slash command; superpowers removed it as a deprecated stub.
 5. One fresh chat per PR (CLAUDE.md *Chat cadence*). Update this file at every PR open/merge.
@@ -88,7 +89,7 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 
 | Field | Value |
 |---|---|
-| **Current branch** | `agent/claude/sprint-134-pr-b-vouch-from-request`, from `origin/master` `4ee38e82` (#322, v11.103.0). First commit: the #322 post-merge record. The old `agent/codex/sprint-134-pr-b-endorsement-followups` is **safe to delete** (maintainer's call): its two docs commits `4b0c6386`/`56357e50` are patch-identical (`git patch-id --stable`) to `ac08fbf4`/`0685c058`, both ancestors of #322's head `1ecf1a05`, whose tree equals master's `4ee38e82` tree. (`git cherry` shows them as missing only because #322 was squash-merged.) |
+| **Current branch** | `agent/claude/sprint-134-pr-bug-074-cancel-guard`, from `origin/master` `d8da50f0` (#323, v11.104.0). First commit: the #323 post-merge record. The merged `agent/claude/sprint-134-pr-b-vouch-from-request` is safe to delete (maintainer's call): its head `69f277d8` has the same tree as `d8da50f0` (`f37f5eda`). Previous: `agent/claude/sprint-134-pr-b-vouch-from-request`, from `origin/master` `4ee38e82` (#322, v11.103.0); its first commit was the #322 post-merge record. The old `agent/codex/sprint-134-pr-b-endorsement-followups` is **safe to delete** (maintainer's call): its two docs commits `4b0c6386`/`56357e50` are patch-identical (`git patch-id --stable`) to `ac08fbf4`/`0685c058`, both ancestors of #322's head `1ecf1a05`, whose tree equals master's `4ee38e82` tree. (`git cherry` shows them as missing only because #322 was squash-merged.) |
 | **Active editor** | **Claude** authored PR B (executed 2026-10-28); **Codex reviews** the open PR. No concurrent edits on this branch: review findings come back through the maintainer to the next Claude chat. |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated); nothing dependency-dated is open after #322 except Expo drift #316 (awaiting a maintainer decision) and BUG-041's re-check by 2026-11-14. PR B is product work and edits no manifest or lockfile beyond the root version. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
 
@@ -190,7 +191,26 @@ the layout decision.
 
 ## PR B state (Claude executor, 2026-10-28)
 
-**Status: OPEN; Codex review #1 P2 fixed in `8e4801b1`; awaiting Codex re-review / maintainer merge** ([#323](https://github.com/ravichavali/karmyq/pull/323)). Branch
+**Post-merge (2026-10-28, recorded on the BUG-074 branch; each fact re-read live): SHIPPED.**
+- #323 merged as **`d8da50f0`** (v11.104.0) at **23:01:54Z** by the maintainer on an explicit admin authorization; PR head
+  was `69f277d8`. All 21 PR checks green, including the Integration Tests job (PR deploy skipped as expected).
+- [CI/CD 40784392749](https://github.com/ravichavali/karmyq/actions/runs/40784392749) on `d8da50f0` (push, 23:01:57Z →
+  23:18:24Z): **14/14 jobs success**: Security Audit, Lint & Type Check, Code Scanning Gate, unit + regression, Integration
+  Tests, Build Landing Page, 7 image builds, **Deploy to Demo**. The deploy log shows `Next.js 16.4.2`, "All critical
+  services healthy." and "DEPLOYMENT SUCCESSFUL" (23:18:04Z). The health step reported auth, community, request,
+  reputation, notification, messaging, cleanup, geocoding and social-graph healthy (23:18:20Z). "Notify on failure"
+  **skipped**: no rollback.
+- **First real-SQL run on master:** the Integration Tests job passed 20 suites / 302 tests, including all 11 cases of
+  `tests/integration/sprint-134-pr-b-viewer-partners.integration.test.ts` (exposure matrix, the rating round trip
+  flipping only the rater's `rated_by_me`, the `FEEDBACK_ALREADY_SUBMITTED` repeat, and the vouch agreement both ways). That
+  settles `rated_by_me` under CI's roles. **Demo RLS is still UNVERIFIED**: human check 1 below is its only proof.
+- **CodeQL:** **0 open alerts** on `refs/heads/master`; highest alert number still **#627** (no new alert). Both
+  analyses for `d8da50f0` completed with no error and no warning: JS/TS **2049683075** (467 raw results) and Actions
+  **2049678160** (0 raw results). The `/language:actions` **"Unknown Error" on `4ee38e82` (analysis 2047990760) did not
+  recur**: closed. No dismissal was made or needed.
+- **Open:** the four human checks below (maintainer, karmyq.com). Nothing else is owed for PR B.
+
+**Pre-merge status (history): OPEN; Codex review #1 P2 fixed in `8e4801b1`; awaiting Codex re-review / maintainer merge** ([#323](https://github.com/ravichavali/karmyq/pull/323)). Branch
 `agent/claude/sprint-134-pr-b-vouch-from-request`, base `origin/master` `4ee38e82` (master had not moved at PR open, so no
 merge-in was needed). Version **11.104.0**, re-derived from `origin/master` (11.103.0) at PR open; re-check at merge.
 Executed inline with `superpowers:executing-plans`, all 13 tasks in plan order.
@@ -443,7 +463,7 @@ export), so the blocker is unchanged.
 | 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **SHIPPED** `dd585016` (#319, v11.100.0), CI/CD 40441255956 green; real SQL 101/101. Human validation pending; see *PR K state* |
 | 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **SHIPPED** #321 `645d28fd` (v11.102.0), CI/CD 40631196261 green 14/14; 9 healthy; 0 open master CodeQL alerts. Human checks pending. |
 | — | **Security follow-up** | node-forge 1.4.2 + exemption removed; ip-address 10.7.4; fast-uri 4.2.3; deepmerge decision write-up | **2026-11-01 16:00 PST** | *Security follow-up state* | **SHIPPED** `4ee38e82` (#322, v11.103.0), merged 18:56:43Z; CI/CD 40749793316 green 14/14 incl. deploy; 0 open code-scanning / Dependabot alerts; deadline met. |
-| 8 | **B** | Vouch from a completed exchange (`docs/IDEAS.md` 2026-10-13 "Vouch from the request page") | — | [plan](../../docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md) | **OPEN: Codex P2 fixed, awaiting re-review / maintainer merge** ([#323](https://github.com/ravichavali/karmyq/pull/323), v11.104.0) on `agent/claude/sprint-134-pr-b-vouch-from-request`; gates done; integration matrix CI-only. See *PR B state*. |
+| 8 | **B** | Vouch from a completed exchange (`docs/IDEAS.md` 2026-10-13 "Vouch from the request page") | — | [plan](../../docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md) | **SHIPPED** `d8da50f0` (#323, v11.104.0), merged 2026-10-28 23:01:54Z; CI/CD 40784392749 green 14/14 incl. deploy; real SQL 302/302; 0 open CodeQL alerts. Four human checks pending; see *PR B state*. |
 | 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
 | — | **Per-community health-quality weight (planned PR)** | Persist the weight in `communities.community_configs`; choose a quality signal source; requires an ADR number allocated by the maintainer | Not scheduled | Write after ADR allocation + signal decision | Separate planned PR, not part of L2 |
 
@@ -1133,8 +1153,8 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | ~~`fast-uri` GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr (moderate) + 2 low~~ | ~~2026-11-06~~ | **DONE**: #322 (4.2.1 → 4.2.3, floor `>=4.2.3`), deployed 2026-10-28. Dependabot **#318** (not used: it deletes 26 `libc` fields) auto-closed 18:59:10Z. |
 | `deepmerge` alert **#178** (low) | re-check at the next Expo SDK move or **2026-12-01** | **DISMISSED** `tolerable_risk` 2026-10-28 19:24:33Z (maintainer option a). Reach: Expo config tooling + Jest only, no fix exists (4.3.1 latest). Gate blocks high/critical only, so no exemption entry. |
 | `decode-uri-component` BUG-041 (alert #150, dismissed) | re-check by **2026-11-14** | 0.5.1 still ESM-only; blocker unchanged (*Security follow-up state*). |
-| CodeQL `/language:actions` "Unknown Error" on `4ee38e82` | next master push | GitHub-side (job log shows a complete upload). Re-check the Actions analysis for the PR B merge sha. |
-| **BUG-074** (`DELETE /matches/:id` cancels completed/rejected matches and reopens the request) | not scheduled | Logged 2026-10-28 during PR B planning; separate PR (maintainer). Severity not yet assessed; it changes completion/karma semantics, so plan it first. |
+| ~~CodeQL `/language:actions` "Unknown Error" on `4ee38e82`~~ | ~~next master push~~ | **CLOSED**: the Actions analysis 2049678160 for `d8da50f0` (#323) completed with no error. |
+| **BUG-074** (`DELETE /matches/:id` cancels completed/rejected matches and reopens the request) | no external date | **Planning 2026-10-28** on `agent/claude/sprint-134-pr-bug-074-cancel-guard`. |
 | ~~node-forge + braces ADR-059 exemptions~~ → **Security PR X** | ~~EXPIRED 2026-10-26 00:00Z~~ | **DONE**: #317 `e15622bc` (v11.98.0), live 2026-10-26 22:25Z (CI/CD 40410093954). The lapse blocked pushes and CI Security Audit from 10-26 00:00Z until the merge. body-parser/undici/zod highs fixed inside their SLA (body-parser due 10-30). BUG-059 closed |
 | ~~**PR L** (BUG-068)~~ | ~~2026-10-29~~ | **DONE**: #315 `ff3f394e` (v11.99.0), merged 2026-10-26 23:05:13Z (CI/CD 40417261628); post-deploy queue check PASS. The demo key cleanup is a separate, unscheduled operation (*PR L state*) |
 | ~~**BUG-069**~~ | ~~2026-10-30~~ | **DONE**: #319 `dd585016` (v11.100.0), merged 2026-10-27 02:55:40Z (CI/CD 40441255956). **ADR-102** Implemented. No risk acceptance or split was needed |
