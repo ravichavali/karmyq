@@ -42,7 +42,9 @@ describe('D9 security override pins', () => {
     ['ip-address', '10.7.4'],
     ['fast-uri', '4.2.3'],
   ])('%s floor override and every locked copy stay on a patched version', (name, patched) => {
-    expect(semver.gte(semver.minVersion(pkg.overrides[name])!, patched)).toBe(true);
+    // A renamed key (say, a "<name>@<x" selector) must fail here, not as a TypeError from semver.
+    expect(pkg.overrides).toHaveProperty([name]);
+    expect(semver.gte(semver.minVersion(ownVersion(pkg.overrides[name]))!, patched)).toBe(true);
     const copies = lockedCopies(name);
     expect(copies).not.toEqual([]);
     expect(copies.filter(([, version]) => semver.lt(version, patched))).toEqual([]);

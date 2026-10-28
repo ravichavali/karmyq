@@ -512,7 +512,9 @@ default) go through `ipKeyGenerator`, which builds `Address6` only after `node:n
 
 **Floors.** The overrides become `node-forge >=1.4.2`, `ip-address >=10.7.4` and `fast-uri >=4.2.3`. They stay bare
 floors; converting them to selectors is the open 2026-10-26 follow-up in `docs/IDEAS.md`. Raising them loosens no
-dependent's range. The gate reads only high and critical, so a moderate sliding back would pass it.
+dependent's range further, but one was already loose: since #156 (v11.30.1) the `fast-uri` floor has handed 4.x to
+`ajv` 8.20.0, which declares `^3.0.1` (dev only; 3.1.9 is also patched, see `docs/IDEAS.md` 2026-10-28). The gate
+reads only high and critical, so a moderate sliding back would pass it.
 `tests/regression/sprint-131-d9-security-overrides.test.ts` therefore holds each floor and every locked copy at or
 above its patched version.
 

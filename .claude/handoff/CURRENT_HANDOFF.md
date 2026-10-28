@@ -66,7 +66,9 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 2. Find the next PR in *PR sequence* whose status is not SHIPPED. Reuse its branch if it exists; otherwise
    `git switch -c agent/claude/sprint-134-pr-<letter>-<slug> origin/master`. Never branch off a stale local master.
 3. PR V is shipped; deploy/health are verified in *PR V state*. **The security follow-up is built**
-   (*Security follow-up state*); its next chat handles Codex review, CI and the post-merge record.
+   (*Security follow-up state*). Its authoring chat stops at PR creation; Codex reviews the open PR. The next
+   Claude chat answers Codex's findings and any CI red, and does the post-merge record after the maintainer merges.
+   **Binding deadline: merged AND deployed before 2026-11-01 16:00 PST**, not merely open.
    PR B vouching follows security, ahead of trust-history accuracy unless evidence changes priority.
    Write its plan in a fresh chat using the spec's PR B section and IDEAS 2026-10-13.
    PR V human validation and PR L2's nightly reputation-log validation are separate open checks.
@@ -84,7 +86,7 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 |---|---|
 | **Current branch** | `agent/claude/sprint-134-security-followups`, from `origin/master` `645d28fd` (#321, v11.102.0), **v11.103.0**. First two commits are Codex's PR V post-merge record and lane transfer, cherry-picked as `ac08fbf4` and `0685c058` (originals `4b0c6386` and `56357e50` on Codex's branch). `agent/codex/sprint-134-pr-b-endorsement-followups` holds only those two docs commits; PR B starts fresh from master after this merges. |
 | **Active editor** | **Claude** (security follow-up author); **Codex is the reviewer** and makes no concurrent edits. PR B is deferred. |
-| **Shared resources** | dependency lane: **Claude** (maintainer-designated), security PR due before **2026-11-01 16:00 PST (2026-11-02 00:00 UTC)**. Claude owns the scoped dependency edits below; Codex changes no manifest/lockfile in this handoff. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
+| **Shared resources** | dependency lane: **Claude** (maintainer-designated), security PR must be **merged and deployed** before **2026-11-01 16:00 PST (2026-11-02 00:00 UTC)**, when master's node-forge exemption expires and fails every push. Claude owns the scoped dependency edits below; Codex changes no manifest/lockfile in this handoff. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
 
 ## Security lane transfer — 2026-10-28
 
