@@ -19,9 +19,15 @@ exchange happened, so the vouch remains true.
 
 ## Where to Vouch
 
-Open the **Helping** tab and tap the name on a completed exchange. The card shows that person's
-skills, with a **Vouch** button beside each one you can vouch for. You can also vouch from a
-member's skills in your community's **People** tab.
+The quickest place is the completed request. The **Exchange completed** notification opens it, and
+it shows each person you completed that exchange with, a private rating, and their skills with a
+**Vouch** button beside each one you can vouch for. Only the two people in an exchange see each other
+there: the person who asked sees each helper they completed it with, and a helper sees only the person
+who asked. Other members who can read the request, a helper whose offer didn't go ahead, and a
+preferred provider see no one.
+
+You can also open the **Helping** tab and tap the name on a completed exchange; the card shows the
+same skills and buttons. Or vouch from a member's skills in your community's **People** tab.
 
 Each skill shows how many people currently vouch for it.
 

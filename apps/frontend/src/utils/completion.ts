@@ -32,15 +32,19 @@ export function extractCompletion(res: unknown): CompletionResult {
 /**
  * Submit an exchange rating (best-effort). No-op when the rating is skipped (null)
  * or the counterparty/community ids needed to attribute it are missing.
+ *
+ * Resolves `true` when the viewer's rating is on record (saved now, or FEEDBACK_ALREADY_SUBMITTED
+ * because it already was), else `false`. Other 409s, such as MATCH_NOT_COMPLETED, saved nothing.
+ * It never throws; callers that only fire and forget can ignore the result.
  */
 export async function submitExchangeRating(params: {
   matchId: string
   toUserId?: string | null
   communityId?: string | null
   rating: number | null
-}): Promise<void> {
+}): Promise<boolean> {
   const { matchId, toUserId, communityId, rating } = params
-  if (rating === null || !toUserId || !communityId) return
+  if (rating === null || !toUserId || !communityId) return false
   try {
     await reputationService.submitFeedback({
       match_id: matchId,
@@ -48,7 +52,10 @@ export async function submitExchangeRating(params: {
       community_id: communityId,
       rating,
     })
-  } catch {
+    return true
+  } catch (err) {
     // Feedback is best-effort — never block the UI on a rating write.
+    const res = (err as { response?: { status?: number; data?: { error?: unknown } } } | undefined)?.response
+    return res?.status === 409 && res.data?.error === 'FEEDBACK_ALREADY_SUBMITTED'
   }
 }

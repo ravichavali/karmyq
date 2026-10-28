@@ -34,10 +34,12 @@ Skill sharing does not remove vouches or change trust relationships.
 
 ## Vouching for skills
 
-After you complete an exchange with someone, you can **vouch** for their skills. Open the
-**Helping** tab, tap their name on the completed exchange, and choose **Vouch** next to a skill.
-You can also vouch from their skills in a community's **People** tab. You must share an active
-community with them, they must share their skills, and you can't vouch for yourself.
+After you complete an exchange with someone, you can **vouch** for their skills. The quickest way is
+the **Exchange completed** notification: it opens the request, which shows the person you exchanged
+with, a private rating, and their skills with **Vouch** beside each one you can vouch for. You can
+also open the **Helping** tab and tap their name on the completed exchange, or vouch from their skills
+in a community's **People** tab. You must share an active community with them, they must share their
+skills, and you can't vouch for yourself.
 
 Each skill shows how many people vouch for it. **Withdraw vouch** takes yours back at any time.
 Vouches add to the trust connection between the two of you, but only once per person: vouching for

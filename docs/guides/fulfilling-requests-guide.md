@@ -47,7 +47,7 @@ find it. Only you can change or withdraw your offer.
 
 ## Opening a Request
 
-A community's open-asks view (reached from its weekly pulse) lists every open ask across the community — including your own and ones you've already offered on, so the count is always reachable. Those cards don't offer inline; **opening a card is the action path**. Tapping one opens the request's **detail page**, which shows the ask and the single action available to you: **Offer to Help** (or **Offer service** for a service request) when you're eligible, **"waiting for the requester"** when you've already offered, **"This is your ask"** for your own, or a finite note when the ask is completed, cancelled, matched, or expired. Eligibility is decided server-side before the page renders, so you never tap an Offer button that fails.
+A community's open-asks view (reached from its weekly pulse) lists every open ask across the community — including your own and ones you've already offered on, so the count is always reachable. Those cards don't offer inline; **opening a card is the action path**. Tapping one opens the request's **detail page**, which shows the ask and the single action available to you: **Offer to Help** (or **Offer service** for a service request) when you're eligible, **"waiting for the requester"** when you've already offered, **"This is your ask"** for your own, or a finite note when the ask is completed, cancelled, matched, or expired. Eligibility is decided server-side before the page renders, so you never tap an Offer button that fails. If you took part in a completed exchange on the ask, the page also offers a private rating and a vouch for your partner's skills.
 
 ---
 
@@ -75,6 +75,9 @@ After the help is done:
 1. The requester marks it as **Fulfilled**
 2. Karma transfers from their balance to yours
 3. Your trust score is updated
+4. You both get an **Exchange completed** notification. It opens the request page, where you can rate
+   the exchange privately and vouch for skills you saw. Only the two people in an exchange see each
+   other there.
 
 ---
 

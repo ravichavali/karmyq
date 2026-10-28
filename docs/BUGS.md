@@ -2004,3 +2004,13 @@ refreshed token. PR K made these gates live and kept their scope; found 2026-10-
   review date is set yet.
 
 ---
+
+## BUG-074 · [2026-10-28] · open
+
+`DELETE /matches/:id` (request-service `services/request-service/src/routes/matches.ts:693-750`) has no match-status guard: a
+participant can cancel a **completed** or **rejected** match. The transaction sets the match to `cancelled` and unconditionally
+sets the request back to `open` (`matches.ts:740`), so a completed exchange can be undone after karma was awarded and a request
+can accumulate several completed matches. Found during Sprint 134 PR B planning. Fix in a separate PR, not PR B (PR B only
+tolerates several completed matches per request).
+
+---

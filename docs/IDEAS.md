@@ -857,6 +857,12 @@ exception for that query. Small; fits any request/notification PR.
 - **Vouch from the request page.** `/matches/:id` only redirects to `/requests/:id`, which exposes no
   completed partner, so PR B put vouching in the Helping-tab TrustCard and the People tab. A
   "vouch for <name>" prompt on a completed ask would need the partner id in `GET /requests/:id`.
+  **[2026-10-28] Planned as Sprint 134 PR B** (`docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md`):
+  `viewer_partners` on the detail read, exposed per exchange to its two participants only; rating and vouching on the
+  completed request page; `match_completed` copy fixed. The endorsement notification stays a later item.
+  **[2026-10-28] Done in Sprint 134 PR B** (v11.104.0): `viewer_partners` on `GET /requests/:id`,
+  the completed-exchange panel (rating + `MemberSkills endorsableOnly`) and the new notification copy; exposure rule
+  recorded as an ADR-100 amendment. Still open: the "you were vouched for" notification (dedicated queue, BUG-060).
 - **Remove the legacy `karmyq-events` handlers (ADR-101 follow-up).** After the PR Q deploy, nothing publishes to
   `karmyq-events`. Once a read-only check (ask first: shared demo server) shows `bull:karmyq-events:wait` and `:delayed`
   are empty, remove the legacy registrations in notification, reputation and social-graph (including the Sprint 132
@@ -1018,5 +1024,18 @@ Extends the 2026-10-26 *Dependency-gate follow-ups* entry. Both need an ADR-059 
   conversion can restore `ajv`'s range only with a per-major pair (`fast-uri@>=3 <3.1.9` → 3.1.9 and
   `fast-uri@>=4 <4.2.3` → 4.2.3), not a single `fast-uri@<4.2.3` selector. Trace npm's selector matching first, as
   the 2026-10-26 entry says.
+
+---
+
+## [2026-10-28] Notification CTA labels live in two places (Sprint 134 PR B `/simplify`, altitude review)
+
+- **The server's `ctaLabel` never reaches the client.** `generateNotification` sets `cta_label`
+  (`services/notification-service/src/templates/notificationTemplates.ts:332`), but the insert writes only
+  `(user_id, type, title, body, data, action_url)` (`services/notification-service/src/services/notificationService.ts:45-47`),
+  `notifications.notifications` has no `cta_label` column, and the frontend `Notification` type has none. So
+  `NotificationItem.getCtaLabel`'s hard-coded switch is the only label anyone sees, and every copy change is made twice
+  (PR B changed `match_completed` in both). The two lists already disagree: `join_request` is "Review Request" on the
+  server and "Review" on the client. Deeper fix: persist `cta_label` (migration + insert), return it, and have the client
+  read `notification.cta_label ?? getCtaLabel(type)`. Needs a migration and touches every type, so it is its own PR.
 
 ---

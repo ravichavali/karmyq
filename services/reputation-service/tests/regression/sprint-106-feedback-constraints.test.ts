@@ -139,6 +139,9 @@ describe('POST /reputation/feedback — BUG-013 participant + completed hardenin
     mockHasSubmittedFeedback.mockResolvedValue(true);
     const res = await request(buildApp()).post('/reputation/feedback').send(body());
     expect(res.status).toBe(409);
+    // Sprint 134 PR B review: the only 409 a client may read as "your rating is on record".
+    // MATCH_NOT_COMPLETED is also a 409, so the code, not the status, tells them apart.
+    expect(res.body).toEqual({ success: false, message: 'Feedback already submitted for this match', error: 'FEEDBACK_ALREADY_SUBMITTED' });
     expect(mockInsertFeedback).not.toHaveBeenCalled();
   });
 
@@ -157,6 +160,7 @@ describe('POST /reputation/feedback — BUG-013 participant + completed hardenin
     });
     const res = await request(buildApp()).post('/reputation/feedback').send(body());
     expect(res.status).toBe(409);
+    expect(res.body.error).toBe('MATCH_NOT_COMPLETED');
     expect(mockInsertFeedback).not.toHaveBeenCalled();
   });
 

@@ -5,6 +5,13 @@
 
 ## Recent Changes
 
+- **2026-10-28 (Sprint 134 PR B, Codex review)**: the duplicate-rating 409 on `POST /reputation/feedback` now carries
+  `error: 'FEEDBACK_ALREADY_SUBMITTED'` (ADR-074 string code; previously it had none). `MATCH_NOT_COMPLETED` is also a
+  409, so the request page's completed-exchange panel thanks the viewer only for this code; a match cancelled after the
+  page loaded no longer reads as "rating saved". Additive: status, message and every other response are unchanged.
+  Tests: `tests/regression/sprint-106-feedback-constraints.test.ts` pins both codes; the root
+  `tests/integration/sprint-134-pr-b-viewer-partners.integration.test.ts` posts a real repeat rating (CI-only).
+
 - **2026-10-27 (Sprint 134 PR L2, BUG-070)**: the nightly 02:00 health calculator and
   `GET /reputation/community-health/:communityId` fallback now scope completed matches through
   `requests.request_communities`, replacing nonexistent `help_requests.community_id`. They share
@@ -787,7 +794,10 @@ Submit a private quality rating after a completed interaction. Ratings are inter
 }
 ```
 - `rating`: integer 1–5
-- Prevents duplicate submission for the same match
+- Prevents duplicate submission for the same match: **409 `FEEDBACK_ALREADY_SUBMITTED`** (Sprint 134 PR B).
+- Errors: 404 `MATCH_NOT_FOUND`, 403 `NOT_A_PARTICIPANT`, 400 `INVALID_RATEE`, **409 `MATCH_NOT_COMPLETED`**,
+  400 `INVALID_COMMUNITY`. Two different 409s: only `FEEDBACK_ALREADY_SUBMITTED` means the caller's rating is on
+  record (the frontend's `submitExchangeRating` reads exactly that code); `MATCH_NOT_COMPLETED` saved nothing.
 
 **Response:**
 ```json

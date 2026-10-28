@@ -126,6 +126,8 @@ turn.
 - It is **durable** — it waits there until you rate (or skip), and it survives a reload. You do not lose
   the chance to rate just because you weren't the one who clicked the final *Mark Done*.
 - Once you've rated, the prompt clears for you; the other person's prompt is unaffected.
+- You can also rate from the request itself: the **Exchange completed** notification opens it, with the
+  same private rating and a **Vouch** for the skills you saw.
 
 Ratings are private trust signals used to compute reputation — they're never shown back as a public score.
 

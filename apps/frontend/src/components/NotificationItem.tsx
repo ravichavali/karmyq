@@ -87,7 +87,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       case 'match_accepted':
         return 'View Details'
       case 'match_completed':
-        return 'Rate Helper'
+        return 'Rate & vouch'
       case 'match_cancelled':
         return 'View Request'
       case 'new_request':
