@@ -1607,6 +1607,8 @@ router.get('/retention-policy', async (req: Request, res: Response) => {
 //   not_actionable — anything else (completed/cancelled/matched, expired-open, or out-of-audience)
 // Expired-open asks still return (so the detail page can render a finite state) but are
 // not_actionable, which is why the WHERE no longer filters `expired = FALSE`.
+// Sprint 134 PR B: `viewer_partners` lists the viewer's COMPLETED exchanges on this ask (match
+// participant per exchange), never everyone who can read it; everyone else gets [].
 router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { id } = req.params;
@@ -1630,7 +1632,26 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
         STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids,
         viewer_match.id AS viewer_match_id,
-        viewer_match.status AS viewer_match_status
+        viewer_match.status AS viewer_match_status,
+        (SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'match_id', p.id, 'user_id', p.partner_id, 'name', p.partner_name,
+            'completed_at', p.completed_at, 'rated_by_me', p.rated_by_me,
+            'rating_community_id', p.rating_community_id)
+            ORDER BY p.completed_at DESC NULLS LAST, p.id DESC), '[]'::jsonb)
+         FROM (
+           SELECT pm.id, pm.completed_at, partner.id AS partner_id, partner.name AS partner_name,
+             EXISTS (SELECT 1 FROM feedback.feedback pf
+                     WHERE pf.request_match_id = pm.id AND pf.from_user_id = $2) AS rated_by_me,
+             (SELECT MIN(prc.community_id::text) FROM requests.request_communities prc
+              WHERE prc.request_id = r.id) AS rating_community_id
+           FROM requests.matches pm
+           JOIN auth.users partner
+             ON partner.id = CASE WHEN r.requester_id = $2 THEN pm.responder_id ELSE r.requester_id END
+           WHERE pm.request_id = r.id AND pm.status = 'completed'
+             AND ${matchParticipantSql('r', 'pm', '$2')}
+           ORDER BY pm.completed_at DESC NULLS LAST, pm.id DESC
+           LIMIT 20
+         ) p) AS viewer_partners
       FROM requests.help_requests r
       LEFT JOIN auth.users u ON r.requester_id = u.id
       LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
@@ -1668,7 +1689,7 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
       : 'not_actionable';
 
     // Strip the raw lateral-join columns from the wire shape; expose them as a clean contract.
-    const { viewer_match_id, viewer_match_status, ...request } = row;
+    const { viewer_match_id, viewer_match_status, viewer_partners, ...request } = row;
     res.json({
       success: true,
       data: {
@@ -1678,6 +1699,7 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
         payload_type: categoryToPayloadType(row.category),
         viewer_relation: viewerRelation,
         viewer_match: viewer_match_id ? { id: viewer_match_id, status: viewer_match_status } : null,
+        viewer_partners: viewer_partners ?? [],
       },
     });
   } catch (error: any) {
