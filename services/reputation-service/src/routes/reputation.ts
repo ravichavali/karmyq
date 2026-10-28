@@ -372,7 +372,8 @@ router.post('/feedback', authMiddleware, async (req: AuthenticatedRequest, res: 
     // Prevent double-submission (per rater + match, so both parties can rate independently)
     const alreadySubmitted = await hasSubmittedFeedback(fromUserId, match_id);
     if (alreadySubmitted) {
-      return res.status(409).json({ success: false, message: 'Feedback already submitted for this match' });
+      // Distinct from MATCH_NOT_COMPLETED (also 409): clients read only this code as "rating on record".
+      return res.status(409).json({ success: false, message: 'Feedback already submitted for this match', error: 'FEEDBACK_ALREADY_SUBMITTED' });
     }
 
     // Store feedback

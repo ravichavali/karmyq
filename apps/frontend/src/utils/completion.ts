@@ -33,8 +33,9 @@ export function extractCompletion(res: unknown): CompletionResult {
  * Submit an exchange rating (best-effort). No-op when the rating is skipped (null)
  * or the counterparty/community ids needed to attribute it are missing.
  *
- * Resolves `true` when the viewer's rating is on record (saved now, or a 409 because it already
- * was), else `false`. It never throws; callers that only fire and forget can ignore the result.
+ * Resolves `true` when the viewer's rating is on record (saved now, or FEEDBACK_ALREADY_SUBMITTED
+ * because it already was), else `false`. Other 409s, such as MATCH_NOT_COMPLETED, saved nothing.
+ * It never throws; callers that only fire and forget can ignore the result.
  */
 export async function submitExchangeRating(params: {
   matchId: string
@@ -54,6 +55,7 @@ export async function submitExchangeRating(params: {
     return true
   } catch (err) {
     // Feedback is best-effort — never block the UI on a rating write.
-    return (err as { response?: { status?: number } } | undefined)?.response?.status === 409
+    const res = (err as { response?: { status?: number; data?: { error?: unknown } } } | undefined)?.response
+    return res?.status === 409 && res.data?.error === 'FEEDBACK_ALREADY_SUBMITTED'
   }
 }

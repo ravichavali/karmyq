@@ -281,7 +281,9 @@ describe('completed-exchange panel: the rating outcome is honest (code review)',
 
   it('thanks the viewer when the server says this exchange is already rated (409)', async () => {
     getUserSkills.mockResolvedValue({ data: [] })
-    submitFeedback.mockRejectedValue({ response: { status: 409 } })
+    submitFeedback.mockRejectedValue({ response: { status: 409, data: {
+      success: false, message: 'Feedback already submitted for this match', error: 'FEEDBACK_ALREADY_SUBMITTED',
+    } } })
     getRequest.mockResolvedValue({ data: detail({ viewer_partners: [partner()] }) })
     render(<RequestDetailPage />)
 
@@ -290,6 +292,22 @@ describe('completed-exchange panel: the rating outcome is honest (code review)',
 
     expect(await within(region).findByText('Thanks — ratings stay private.')).toBeInTheDocument()
     expect(within(region).queryByText("Your rating didn't save. Try again.")).toBeNull()
+  })
+
+  it('does not thank the viewer for the other 409: the match is no longer completed (Codex review)', async () => {
+    // The match was cancelled after the page loaded (BUG-074 path); nothing was saved.
+    getUserSkills.mockResolvedValue({ data: [] })
+    submitFeedback.mockRejectedValue({ response: { status: 409, data: {
+      success: false, message: 'Match is not completed yet', error: 'MATCH_NOT_COMPLETED',
+    } } })
+    getRequest.mockResolvedValue({ data: detail({ viewer_partners: [partner()] }) })
+    render(<RequestDetailPage />)
+
+    const region = await screen.findByRole('region', { name: 'Your completed exchange' })
+    fireEvent.click(within(region).getAllByRole('button', { name: '☆' })[3])
+
+    expect(await within(region).findByText("Your rating didn't save. Try again.")).toBeInTheDocument()
+    expect(within(region).queryByText('Thanks — ratings stay private.')).toBeNull()
   })
 
   it('sends one rating while the first is still saving', async () => {

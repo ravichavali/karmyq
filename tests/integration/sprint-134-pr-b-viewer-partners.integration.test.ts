@@ -139,6 +139,13 @@ describe('Sprint 134 PR B viewer_partners (vouch from a completed exchange)', ()
       const r = await detail(R);
       expect(r.body.data.viewer_partners.map((p: any) => [p.match_id, p.rated_by_me])).toEqual([[matchB, false], [matchA, false]]);
     });
+
+    it('answers a repeat rating with the one 409 code the panel reads as "on record"', async () => {
+      const again = await request(ServiceUrls.REPUTATION).post('/reputation/feedback').set('Authorization', bearer(A))
+        .send({ match_id: matchA, to_user_id: R, community_id: Cm, rating: 4 });
+      expect(again.status).toBe(409);
+      expect(again.body.error).toBe('FEEDBACK_ALREADY_SUBMITTED');
+    });
   });
 
   describe('vouch eligibility agrees with the listing', () => {
