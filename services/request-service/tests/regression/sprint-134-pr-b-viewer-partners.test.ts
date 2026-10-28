@@ -85,6 +85,14 @@ describe('GET /requests/:id viewer_partners SQL contract', () => {
     expect(segment).toContain('LIMIT 20');
   });
 
+  it('sends completed_at as an instant: the UTC wall-clock column gains an explicit zone', async () => {
+    // requests.matches.completed_at is `timestamp without time zone`; inside jsonb it would serialize
+    // with no zone, and a browser would parse it as local time (code review).
+    mockDetailRow({});
+    await request(app()).get(`/requests/${REQUEST_ID}`);
+    expect(partnerSegment(detailSql())).toContain("'completed_at', p.completed_at AT TIME ZONE 'UTC'");
+  });
+
   it('never derives partner status from read permission', async () => {
     mockDetailRow({});
     await request(app()).get(`/requests/${REQUEST_ID}`);

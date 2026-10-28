@@ -57,10 +57,12 @@ describe('Sprint 134 PR B viewer_partners (vouch from a completed exchange)', ()
       VALUES ($1,$2,'Hang a fan','Fixture','generic','generic','community','completed',$3)`, [Q, R, providerProfile]);
     await pool.query('INSERT INTO requests.request_communities(request_id,community_id) VALUES ($1,$2)', [Q, Cm]);
     // Literal statuses only: no parameter is compared with requests.matches.status here.
+    // Literal UTC wall-clock times (the column is `timestamp without time zone`), so the wire instants
+    // can be asserted exactly.
     matchA = (await pool.query(`INSERT INTO requests.matches(request_id,responder_id,status,completed_at)
-      VALUES ($1,$2,'completed',NOW() - INTERVAL '2 hours') RETURNING id`, [Q, A])).rows[0].id;
+      VALUES ($1,$2,'completed',TIMESTAMP '2026-10-01 10:00:00') RETURNING id`, [Q, A])).rows[0].id;
     matchB = (await pool.query(`INSERT INTO requests.matches(request_id,responder_id,status,completed_at)
-      VALUES ($1,$2,'completed',NOW() - INTERVAL '1 hour') RETURNING id`, [Q, B])).rows[0].id;
+      VALUES ($1,$2,'completed',TIMESTAMP '2026-10-01 11:00:00') RETURNING id`, [Q, B])).rows[0].id;
     await pool.query("INSERT INTO requests.matches(request_id,responder_id,status) VALUES ($1,$2,'rejected')", [Q, C]);
     await pool.query("INSERT INTO auth.user_tags(id,user_id,tag_type,tag_value) VALUES ($1,$2,'skill','S134 Carpentry')", [bSkill, B]);
   });
@@ -93,7 +95,11 @@ describe('Sprint 134 PR B viewer_partners (vouch from a completed exchange)', ()
       for (const p of res.body.data.viewer_partners) {
         expect(p.rated_by_me).toBe(false);
         expect(p.rating_community_id).toBe(Cm);
+        // An instant, not a zone-less wall-clock string a browser would read as local time.
+        expect(p.completed_at).toMatch(/(Z|[+-]\d\d:\d\d)$/);
       }
+      expect(res.body.data.viewer_partners.map((p: any) => Date.parse(p.completed_at)))
+        .toEqual([Date.parse('2026-10-01T11:00:00Z'), Date.parse('2026-10-01T10:00:00Z')]);
     });
 
     it('gives each completed helper only the requester, never the other helper', async () => {

@@ -263,3 +263,50 @@ describe('completion notification CTA', () => {
     expect(screen.queryByRole('button', { name: 'Rate Helper' })).toBeNull()
   })
 })
+
+describe('completed-exchange panel: the rating outcome is honest (code review)', () => {
+  it('does not thank the viewer when the rating write fails, and keeps the prompt to retry', async () => {
+    getUserSkills.mockResolvedValue({ data: [] })
+    submitFeedback.mockRejectedValue({ response: { status: 500 } })
+    getRequest.mockResolvedValue({ data: detail({ viewer_partners: [partner()] }) })
+    render(<RequestDetailPage />)
+
+    const region = await screen.findByRole('region', { name: 'Your completed exchange' })
+    fireEvent.click(within(region).getAllByRole('button', { name: '☆' })[3])
+
+    expect(await within(region).findByText("Your rating didn't save. Try again.")).toBeInTheDocument()
+    expect(within(region).queryByText('Thanks — ratings stay private.')).toBeNull()
+    expect(within(region).getByText('Rate this exchange:')).toBeInTheDocument()
+  })
+
+  it('thanks the viewer when the server says this exchange is already rated (409)', async () => {
+    getUserSkills.mockResolvedValue({ data: [] })
+    submitFeedback.mockRejectedValue({ response: { status: 409 } })
+    getRequest.mockResolvedValue({ data: detail({ viewer_partners: [partner()] }) })
+    render(<RequestDetailPage />)
+
+    const region = await screen.findByRole('region', { name: 'Your completed exchange' })
+    fireEvent.click(within(region).getAllByRole('button', { name: '☆' })[3])
+
+    expect(await within(region).findByText('Thanks — ratings stay private.')).toBeInTheDocument()
+    expect(within(region).queryByText("Your rating didn't save. Try again.")).toBeNull()
+  })
+
+  it('sends one rating while the first is still saving', async () => {
+    getUserSkills.mockResolvedValue({ data: [] })
+    let finish!: (v: unknown) => void
+    submitFeedback.mockReturnValue(new Promise(r => { finish = r }))
+    getRequest.mockResolvedValue({ data: detail({ viewer_partners: [partner()] }) })
+    render(<RequestDetailPage />)
+
+    const region = await screen.findByRole('region', { name: 'Your completed exchange' })
+    const stars = within(region).getAllByRole('button', { name: '☆' })
+    fireEvent.click(stars[3])
+    fireEvent.click(stars[4])
+
+    expect(submitFeedback).toHaveBeenCalledTimes(1)
+    expect(submitFeedback).toHaveBeenCalledWith(expect.objectContaining({ rating: 4 }))
+    await act(async () => { finish({ data: { score: 50 } }) })
+    expect(await within(region).findByText('Thanks — ratings stay private.')).toBeInTheDocument()
+  })
+})

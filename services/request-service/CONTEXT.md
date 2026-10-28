@@ -862,7 +862,8 @@ Offer button that 403s on click).
 - `viewer_partners` (Sprint 134 PR B, ADR-100 amendment): always present, default `[]`. One entry per
   **completed** match on this request in which the viewer is the requester or that match's responder:
   `{ match_id, user_id, name, completed_at, rated_by_me, rating_community_id }`, ordered
-  `completed_at DESC NULLS LAST, match_id DESC`, at most 20. The partner is the responder when the viewer
+  `completed_at DESC NULLS LAST, match_id DESC`, at most 20 (`completed_at` is sent as a UTC instant with an
+  offset; the column is `timestamp without time zone`). The partner is the responder when the viewer
   is the requester, else the requester, so a helper never sees another helper. A rejected/cancelled
   helper, the preferred provider and any reading member get `[]` (read permission is not partner status).
   `rated_by_me` = the viewer has a `feedback.feedback` row for that match; `rating_community_id` =

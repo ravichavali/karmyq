@@ -1635,7 +1635,7 @@ router.get('/:id', async (req: Request<RouteParams>, res: Response) => {
         viewer_match.status AS viewer_match_status,
         (SELECT COALESCE(jsonb_agg(jsonb_build_object(
             'match_id', p.id, 'user_id', p.partner_id, 'name', p.partner_name,
-            'completed_at', p.completed_at, 'rated_by_me', p.rated_by_me,
+            'completed_at', p.completed_at AT TIME ZONE 'UTC', 'rated_by_me', p.rated_by_me,
             'rating_community_id', p.rating_community_id)
             ORDER BY p.completed_at DESC NULLS LAST, p.id DESC), '[]'::jsonb)
          FROM (
