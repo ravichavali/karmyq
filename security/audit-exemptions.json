@@ -1,15 +1,4 @@
 {
   "$comment": "ADR-059 time-boxed audit exemptions. Read by scripts/audit-exemptions.js, which CI and tests/regression/sprint-75-security-gate.test.ts both call. Rules: exact package + GHSA id (no wildcards), high severity only (critical is never exemptible), every field required, expiry at most 7 days after creation (restored in Sprint 133, BUG-058 — see ADR-059 'Cap restored to 7 days'; the Sprint 125 30-day cap and its image-size monitor are retired), so every renewal forces a fresh upstream re-measurement. The gate FAILS on a malformed, expired, or unmatched entry — an exemption that no longer matches a live advisory means upstream shipped a fix and it must be deleted.",
-  "exemptions": [
-    {
-      "package": "node-forge",
-      "advisory": "GHSA-86w9-cpqp-85rv",
-      "severity": "high",
-      "rationale": "No fixed version exists: the advisory range is <=1.4.0 and 1.4.0 is the latest release; npm's only proposed fix is a backwards semver-major move to expo 54.0.38. Reach is apps/mobile -> expo -> @expo/cli and @expo/code-signing-certificates, developer tooling: no repo source imports node-forge, Expo code signing is not configured, and the service Dockerfiles copy only the root, shared and service manifests (the root declares no Expo package), so by construction it ships in no deployed image (not inspected in a built image). Unexempted, it blocked every PR and master deploy, including Sprint 132 PR A's caller-scope fix. Seven days, the ADR-059 cap: no monitor watches node-forge (BUG-058), so each renewal is a hand re-check.",
-      "decision": "Maintainer, 2026-10-26 (Sprint 134 PR X): renewed 7 days after a hand re-check found no upstream fix (node-forge 1.4.0 latest; GHSA-86w9-cpqp-85rv <=1.4.0, first_patched_version null, not withdrawn; latest @expo/cli 58.1.15 and @expo/code-signing-certificates 0.0.7 still depend on node-forge ^1.4.0). The previous window lapsed on 2026-10-26 before a renewal merged; the 2026-10-20 authorization was reconfirmed on 2026-10-26. Previously renewed 2026-10-19, 2026-10-17, 2026-10-14 and 2026-10-08; originally approved 2026-10-01. ADR-059 'Amendment (Sprint 134, 2026-10-26): Security PR X'",
-      "owner": "claude",
-      "created": "2026-10-26",
-      "expires": "2026-11-02"
-    }
-  ]
+  "exemptions": []
 }

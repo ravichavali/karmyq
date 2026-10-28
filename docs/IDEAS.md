@@ -1002,3 +1002,21 @@ designated platform community) and whether `/admin/schemas` and trust questions 
 check must read live state, not a JWT claim (ADR-102).
 
 ---
+
+## [2026-10-28] Dependency-gate follow-ups (Sprint 134 security follow-up `/simplify`, altitude review)
+
+Extends the 2026-10-26 *Dependency-gate follow-ups* entry. Both need an ADR-059 amendment, so neither went into the PR.
+
+- **Moderate regressions rest on hand-kept test rows.** `scripts/audit-exemptions.js` skips anything below high, so
+  `tests/regression/sprint-131-d9-security-overrides.test.ts` pins each floor this PR raised (node-forge, ip-address,
+  fast-uri). The older floors (`minimatch`, `qs`, `browserslist`) and every `pkg@<x` selector have no row, so the table
+  grows one PR at a time. The general fix is the per-advisory evaluation already proposed on 2026-10-26, with a live
+  accepted-moderates baseline (BUG-041's `decode-uri-component` would be its first entry). It must keep the two-week
+  SLA for newly published moderates rather than block every PR the day one publishes.
+- **`fast-uri` is overridden across `ajv`'s declared major.** `ajv` 8.20.0 declares `fast-uri ^3.0.1`, and the bare
+  `>=4.2.3` floor (`>=4.2.1` before it) hands it 4.x. The advisories also patched the 3.x line (3.1.9), so the selector
+  conversion can restore `ajv`'s range only with a per-major pair (`fast-uri@>=3 <3.1.9` → 3.1.9 and
+  `fast-uri@>=4 <4.2.3` → 4.2.3), not a single `fast-uri@<4.2.3` selector. Trace npm's selector matching first, as
+  the 2026-10-26 entry says.
+
+---

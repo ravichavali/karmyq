@@ -484,3 +484,44 @@ evaluator reads only high and critical entries, so that check stays. A string `v
 which is evaluated on its own, so a dependent ranked below it hides nothing.
 `tests/regression/sprint-128-audit-response-contract.test.ts` holds both sides: npm's shape is accepted and
 still blocks on `undici`, and a high advisory under a moderate package is still rejected.
+
+## Amendment (Sprint 134, 2026-10-28): node-forge fixed upstream, exemption removed
+
+**Status**: Accepted · **Decision**: maintainer, 2026-10-28, under the 2026-10-08 rule (delete an exemption once
+upstream ships a fix)
+
+`node-forge` 1.4.1 (2026-10-27) fixes the forgery behind GHSA-86w9-cpqp-85rv, and 1.4.2 (the same day) fixes a
+`pem.decode` regression that 1.4.1 introduced for `Buffer` input. The global advisory still reads `<= 1.4.0` with no
+patched version. The vendor's repository advisory GHSA-2g46-22mc-6gwp (CVE-2026-85393) describes the same defect
+(extra elements in the nested DigestAlgorithm) and names 1.4.1 as patched. The same change clears two moderates
+that are due inside their two-week SLA:
+
+| Package | Advisory | Range → fix | Lock | Reach |
+|---|---|---|---|---|
+| `node-forge` | GHSA-86w9-cpqp-85rv (high) | `<= 1.4.0`; vendor names 1.4.1 | 1.4.0 → 1.4.2 | `apps/mobile` → `expo` → `@expo/cli`, `@expo/code-signing-certificates` |
+| `ip-address` | GHSA-rxp7-6hxx-x8q5 (moderate) | `<= 10.7.3` → 10.7.4 | 10.7.2 → 10.7.4 | `express-rate-limit` 8.7.0 in every service image |
+| `fast-uri` | GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr (moderate); GHSA-xhq7-xmqj-769h, GHSA-333x-w4r6-6crp (low) | `< 4.2.3` → 4.2.3 | 4.2.1 → 4.2.3 | `ajv` (dev only) |
+
+**The lock change clears the gate, not the deletion.** The node-forge entry is deleted and the registry is empty
+again; the old lock over the same empty registry still blocks on GHSA-86w9-cpqp-85rv. The extra-DigestAlgorithm
+forgery is rejected under 1.4.2, and `@expo/code-signing-certificates`' own paths pass on it.
+
+**`ip-address` reach.** Both rate-limit keys (`packages/shared/middleware/rateLimit.ts` and cleanup-service's
+default) go through `ipKeyGenerator`, which builds `Address6` only after `node:net` `isIPv6` accepts the input.
+`isIPv6` rejects the advisory's trigger, so it never reached the parser there. 10.7.4 is the first patched version.
+
+**Floors.** The overrides become `node-forge >=1.4.2`, `ip-address >=10.7.4` and `fast-uri >=4.2.3`. They stay bare
+floors; converting them to selectors is the open 2026-10-26 follow-up in `docs/IDEAS.md`. Raising them loosens no
+dependent's range further, but one was already loose: since #156 (v11.30.1) the `fast-uri` floor has handed 4.x to
+`ajv` 8.20.0, which declares `^3.0.1` (dev only; 3.1.9 is also patched, see `docs/IDEAS.md` 2026-10-28). The gate
+reads only high and critical, so a moderate sliding back would pass it.
+`tests/regression/sprint-131-d9-security-overrides.test.ts` therefore holds each floor and every locked copy at or
+above its patched version.
+
+Dependabot #318 (fast-uri) was not used. Besides the bump, it deletes 26 `libc` fields from the `sharp` and `@img`
+platform binaries, which select the musl builds the Alpine images need.
+
+**Not changed:** `deepmerge` GHSA-gcqx-w48m-w2h4 is low with no fix (4.3.1 is the latest), so it is below this gate
+and gets no registry entry. `decode-uri-component`
+GHSA-vcc3-ghjq-m6fr (moderate) stays BUG-041: alert #150 was dismissed as tolerable risk on 2026-09-14, and 0.5.1
+(2026-10-23) is still ESM-only.
