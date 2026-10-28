@@ -2,8 +2,8 @@ import express from 'express';
 import request from 'supertest';
 
 // Sprint 133 PR V (BUG-065, BUG-064), extended in Sprint 134 PR V. These local cases pin SQL text and
-// parameter wiring only. The changed queries still need real-SQL execution in
-// tests/integration/sprint-133-pr-v-read-boundary.integration.test.ts (pending CI, unavailable locally).
+// parameter wiring only. Real-SQL coverage lives in
+// tests/integration/sprint-133-pr-v-read-boundary.integration.test.ts and runs against PostgreSQL in CI.
 // `query` is mocked only at the DB boundary.
 const mockQuery = jest.fn();
 jest.mock('../../src/database/db', () => ({

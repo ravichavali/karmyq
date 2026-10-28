@@ -94,7 +94,7 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 | 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | **SHIPPED** `ff3f394e` (#315, v11.99.0), CI/CD 40417261628 green; post-deploy queue check PASS. See *PR L state* |
 | 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers, numeric widths and nightly isolation; **BUG-070** | BUG-070 **2026-11-03** | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md) | **SHIPPED** #320 `47c9a323` (v11.101.0), CI/CD 40579675258 green; nightly human validation pending. |
 | 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **SHIPPED** `dd585016` (#319, v11.100.0), CI/CD 40441255956 green; real SQL 101/101. Human validation pending; see *PR K state* |
-| 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **AWAITING CLAUDE REVIEW**: implementation/gates complete; final session action opens the PR. Resolve live PR by branch; CI database proof pending. |
+| 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **OPEN [#321](https://github.com/ravichavali/karmyq/pull/321)**: source review clean; two initial CI fixture/assertion bugs corrected. Latest CI evidence is in the PR Validation ledger; green integration required before merge. |
 | 8 | **B** | PR B endorsement follow-ups (`docs/IDEAS.md` 2026-10-13) | — | write at PR start | — |
 | 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
 | — | **Per-community health-quality weight (planned PR)** | Persist the weight in `communities.community_configs`; choose a quality signal source; requires an ADR number allocated by the maintainer | Not scheduled | Write after ADR allocation + signal decision | Separate planned PR, not part of L2 |
@@ -103,10 +103,10 @@ B and C are the likeliest to spill into Sprint 135, which is expected. One merge
 
 ## PR V state (Codex, 2026-10-27)
 
-**Implementation complete; awaiting Claude review and maintainer merge.** The final action of this
-chat opens the full-template PR after a clean push. Use
-`gh pr view agent/codex/sprint-134-pr-v-read-boundaries` for the live PR/URL; do not infer CI results
-from this document. Stop at creation; no CI watch, merge or deploy in this chat.
+**[PR #321](https://github.com/ravichavali/karmyq/pull/321) OPEN; awaiting final review and maintainer
+merge.** The PR review found no source defects and two test bugs in the first integration run.
+This follow-up corrects those tests and stale coverage wording. Require green integration before
+merge; the PR Validation ledger carries the latest run/commit evidence. No merge/deploy authorized.
 
 Branch `agent/codex/sprint-134-pr-v-read-boundaries`, from `origin/master` `47c9a323`.
 First commit `1721dc5f` is the #320 post-merge record. Root version **11.102.0** is provisional;
@@ -121,7 +121,7 @@ inventory scan recognizes the canonical read helper, with alias/OR negative fixt
 owner-write hashes were re-pinned to stronger id+JWT-owner SQL. Context/registry/guide and landing
 source-generated docs updated. Supporting simplify/correctness/security and migration review found
 no source blocker; the review's missing-predicate assertion gap was fixed with an exact-fragment check.
-Claude's independent post-PR review remains required.
+The external PR review found no source defects; Claude retains merge-readiness authority.
 
 **Scope resolved by the maintainer's checkpoint review (2026-10-27):** defer the pair index pending
 EXPLAIN on representative data; remove its migration and index assertion. Retire `help_offers.is_public`
@@ -133,10 +133,10 @@ Both deferred schema items are in IDEAS. No host operation or dependency edit be
 **CI correction:** `.github/workflows/ci.yml:320` runs the migrated-schema drift proof before any
 integration test. The checkpoint's new migration with old init.sql would block **every database
 case**, not just the index assertion. Removing the migration restores a schema-consistent CI input;
-it does not establish a SQL pass. Local tests prove handler wiring/projections only. Updated allowlist
-reasons explicitly say the authored real-SQL matrix is pending CI. Mocked detail tests no longer
-claim preferred-provider or historical-responder audience proof; the real-SQL matrix provides that
-proof only when CI executes it.
+it did not itself establish a SQL pass. The first PR CI then passed schema drift and executed the
+SQL suites (evidence below). Local tests prove wiring/projections; durable allowlist reasons name
+the real-SQL coverage file rather than carrying a temporary CI status. Mocked detail tests no longer
+claim preferred-provider or historical-responder audience proof; the real-SQL matrix exercises it.
 
 **Validation checkpoint (implementation working tree over `1721dc5f`):** new workspace tdd suite failed before implementation, passed 17/17 and
 was promoted to regression. Focused provider/query tests passed 49/49; focused detail/retention/new
@@ -166,19 +166,39 @@ simplify/code-review/security-review gates completed: correctness/security clean
 dead fixture/misleading test claims fixed. Native Claude slash runner was not invoked. Optional
 DELETE lookup and single-field UPDATE-builder cleanups are deferred. Exactly 13 root scratch logs
 removed; new logs are in TEMP. No source blocker from mandatory process review; full-suite
-condition now satisfied. Real SQL remains **pending CI** and no merge readiness is claimed.
+condition then satisfied. Real SQL was pending at that pre-PR checkpoint; the first CI observation
+and fixture-only correction are recorded below. No merge readiness is inferred from local tests.
 
 **Committed-head recheck, `83c2713e`:** direct `npm test --workspace=services/request-service`
 passed **161 unit + 446 regression, 1 existing DB skip**; direct `npm test --workspace=tests` passed
 **101 unit + 952 regression**. No Turbo replay for either; Jest cache retained. Service run emitted
 a worker-teardown warning despite exit 0. Service tsc exit 0, exact root strict changed-path grep
 empty (grep 1), infrastructure diff against `origin/master` empty (exit 0). Latest master is still
-`47c9a323` / 11.101.0; PR V's 11.102.0 remains provisional at merge time. Only handoff/plan metadata
-changes after this tested commit. The PR's Validation ledger carries commands/cache/limitations.
+`47c9a323` / 11.101.0 at that check; PR V's 11.102.0 remains provisional at merge time. Initial PR
+head `4ee149a2` added only handoff/plan metadata after `83c2713e`. The later fixture-only follow-up
+does not change runtime code. The PR's Validation ledger carries commands/cache/limitations.
 
-**Next action (Claude):** resolve the PR from the branch, inspect its actual CI (especially schema
-proof followed by the entire database suite), and review. No SQL runtime proof is claimed before
-that CI run. L2's first-02:00 reputation-log human validation remains pending separately.
+**Initial integration run, `4ee149a2`:** [CI/CD 40606348153](https://github.com/ravichavali/karmyq/actions/runs/40606348153/job/122547850473)
+passed schema drift (no changes after replay), then **289/291 tests passed, 2 failed** (17/19 suites).
+Both failures were tests: the root identity test still expected403 for foreign cancellation; the
+pagination fixture made outsider X an OTHER member and shared the newest asks with OTHER. Root
+expectation now requires404, and pagination's second community/note/aggregate expectation use FAR,
+where X is not a member. The earlier CTE/admin-note/multi-community/sister assertions, audience
+matrix, all owner writes and offer privacy cases passed against PostgreSQL. A green CI run of the
+fixture correction is required; see the live PR Validation ledger rather than assuming its result.
+No runtime source/version/schema changes in this follow-up. Stable coverage wording and the
+claim-gate comment are corrected; generated service docs follow CONTEXT.
+
+**Fixture follow-up local validation (worktree over `4ee149a2`):** `npm test` exit 0, **27/27 tasks**
+(22 Turbo-cached; request/root test tasks executed). Strict root compiler changed-path filter is
+empty (grep 1), gotcha13 clean, staged feedback exit 0 and whitespace clean. Focused process and
+fixture correctness review found no blocker. No production source/version/schema diff relative
+to `4ee149a2`. Real-SQL symptom proof for the corrected assertions is the follow-up CI result in
+the PR Validation ledger; no local DB execution is claimed.
+
+**Next action (Claude):** inspect the PR's latest CI and validation ledger, then review the
+test/comment-only follow-up. Green integration is required before merge. L2's first-02:00
+reputation-log human validation remains pending separately.
 
 ## PR L2 state (Codex author/executor, 2026-10-27)
 

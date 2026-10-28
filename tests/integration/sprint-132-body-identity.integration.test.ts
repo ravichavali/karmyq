@@ -121,7 +121,7 @@ describe('Sprint 132 BUG-061: body-supplied identity is ignored (real services)'
       .delete(`/requests/${requestId}`)
       .set('Authorization', auth(X))
       .send({ user_id: A.id });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
     const row = (await pool.query('SELECT status FROM requests.help_requests WHERE id = $1', [requestId])).rows[0];
     expect(row.status).toBe('open');
   });

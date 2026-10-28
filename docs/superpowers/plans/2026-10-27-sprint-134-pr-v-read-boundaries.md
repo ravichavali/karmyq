@@ -126,3 +126,28 @@
 - Compiler after the final source edit: request-service tsc exit 0; exact root strict tsc/grep changed-path filter printed nothing (grep 1); unrelated root diagnostics remain. Gotcha registry clean (13 entries). No local database or demo-host operation ran.
 - Final review-response worktree over `b801152d`: forced full graph exit 0, **27/27 tasks, 0 Turbo replay** (Jest cache retained). Request **161 unit + 446 regression, 1 existing DB skip**; root **101 unit + 952 regression**. Final projection/privacy targeted suites **22/22**. Staged feedback exit 0 with docs/registry reminders already satisfied, whitespace clean. Process reviewer found no blocker; its full-suite condition is satisfied.
 - Committed-head recheck **83c2713e**: direct service tests exit 0 (**161 unit + 446 regression, 1 existing DB skip**; worker-teardown warning); direct root tests exit 0 (**101 unit + 952 regression**), both without Turbo replay/Jest cache retained. Service tsc0; strict changed-path grep empty/exit1; schema diff vs origin/master empty/exit0. Latest master47c9a323/11.101.0 verified before PR; final metadata checkpoint changes only this plan/handoff. Actual database tests still pending CI. PR creation remains the final session action, after the clean push.
+
+## PR #321 integration review follow-up
+
+**Observed CI at `4ee149a2`:** [40606348153](https://github.com/ravichavali/karmyq/actions/runs/40606348153/job/122547850473)
+passed schema drift (no changes after replay), then executed the database suites: **289 passed,
+2 failed, 291 total**, 17/19 suites passed. The two failures below concern test expectation/fixture
+construction, not runtime code. Local Windows DB execution is still unavailable; the correction's
+symptom proof is the next CI run, recorded in the PR Validation ledger.
+
+| Finding quoted from review | Verdict/evidence | Minimal correction |
+|---|---|---|
+| "still expects `403` for a foreign cancel" | CONFIRMED: CI expected403/received404; root identity test:124 | Expect404, retain DB row-still-open assertion and requester success case. Broader root/service search found tenant-isolation already accepts403/404. |
+| "link the second community to `FAR` instead of `OTHER`" | CONFIRMED: X joins OTHER at read-boundary suite:56; pagination fixture linked OTHER:242 | Change fixture share, hidden note community/label, and two-community expectation to FAR. X is outside C/FAR; P is not queried in this case. Keep the outsider's exact trust/platform IDs assertion. |
+| "Change them to the final wording in the fix commit" | CONFIRMED: six allowlist reasons and local suite/CONTEXT carried temporary CI status | Use durable coverage-location wording; remove checkpoint history from CONTEXT. Runtime coverage is linked to the actual CI observation in PR/handoff rather than promising unexecuted proof. |
+| "drop the parenthetical" | CONFIRMED: isActiveMember is a direct liveRole export, not a discovered wrapper | Remove the example only; gate behavior unchanged. |
+
+- No production source, version, dependency or schema change. Fixes are limited to tests/comments,
+  context/generated service docs and session records. No new tests that merely mirror fixtures.
+- Existing source simplify/correctness/security passes remain applicable because runtime code is
+  unchanged; this test/comment-only follow-up receives a focused correctness/process review.
+- Local follow-up worktree over `4ee149a2`: `npm test` exit 0, **27/27 tasks (22 Turbo-cached;
+  request/root tasks executed)**. Strict changed-path filter empty (grep1), gotcha13 clean,
+  staged feedback0 and whitespace clean. Focused fixture/process review found no blocker; no
+  runtime/version/schema diff. Corrected integration assertions require the new CI run; its
+  actual commit/run/outcome is recorded in the PR Validation ledger.

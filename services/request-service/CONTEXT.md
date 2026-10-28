@@ -22,10 +22,10 @@
   owner; mixed bodies update consent only. The response and privacy event omit `is_public`.
   Foreign/missing offers still return the same 404 before body validation. Offer reads remain owner
   or live community member. The inert column stays until a later schema PR; PR V has no migration
-  or init.sql change and needs no demo-host operation. CI's schema drift step runs before the whole
-  integration suite, so the checkpoint's unregenerated index had blocked every database test.
+  or init.sql change and needs no demo-host operation.
   Local route/query tests supplement the root real-SQL read-boundary, request-detail and provider
-  matrices (**pending CI**, not executed locally on Windows). No query-speed improvement is claimed.
+  matrices, which exercise the queries against PostgreSQL in CI. Real-SQL tests do not run locally
+  on Windows. No query-speed improvement is claimed.
 
 - **2026-10-27 (Sprint 134 PR L2, BUG-070)**: `requests.interaction_feedback` is dropped after
   PR L retired its routes/event. `SocialKarmaFeedComposer` no longer reads the retired community-health

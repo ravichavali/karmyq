@@ -239,12 +239,12 @@ describe('Sprint 133 PR V request and offer read boundary (BUG-065, BUG-064)', (
     try {
       for (let n = 0; n < 3; n++) {
         const id = await insertAsk('community'); ids.push(id);
-        await pool.query('INSERT INTO requests.request_communities(request_id,community_id) VALUES ($1,$2)', [id, OTHER]);
+        await pool.query('INSERT INTO requests.request_communities(request_id,community_id) VALUES ($1,$2)', [id, FAR]);
         await pool.query("UPDATE requests.help_requests SET created_at=NOW()+($2::int * INTERVAL '1 day') WHERE id=$1", [id, n + 1]);
       }
       await pool.query("UPDATE communities.members SET role='admin' WHERE user_id=$1 AND community_id=$2", [R, C]);
       await pool.query(`INSERT INTO requests.request_admin_notes(request_id,community_id,note,updated_by)
-        VALUES ($1,$2,'Visible C note',$3), ($1,$4,'Hidden OTHER note',$3)`, [ids[1], C, R, OTHER]);
+        VALUES ($1,$2,'Visible C note',$3), ($1,$4,'Hidden FAR note',$3)`, [ids[1], C, R, FAR]);
       const scoped = await api(R, 'get', `/requests?requester_id=${R}&community_id=${C}&include_admin_notes=true&limit=1&offset=1`);
       expect(scoped.status).toBe(200);
       expect(scoped.body.data.requests.map((r: { id: string }) => r.id)).toEqual([ids[1]]);
@@ -252,7 +252,7 @@ describe('Sprint 133 PR V request and offer read boundary (BUG-065, BUG-064)', (
       const all = await api(R, 'get', `/requests?requester_id=${R}&limit=2&offset=1`);
       expect(all.status).toBe(200);
       expect(all.body.data.requests.map((r: { id: string }) => r.id)).toEqual([ids[1], ids[0]]);
-      expect(all.body.data.requests[0].community_ids.split(',').sort()).toEqual([C, OTHER].sort());
+      expect(all.body.data.requests[0].community_ids.split(',').sort()).toEqual([C, FAR].sort());
       expect(all.body.data.requests[0]).not.toHaveProperty('admin_note');
       const sister = await api(S, 'get', `/requests?community_id=${C}&limit=2&offset=1`);
       expect(sister.status).toBe(200);
