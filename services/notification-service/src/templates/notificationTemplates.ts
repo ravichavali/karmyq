@@ -34,7 +34,7 @@ export interface NotificationTemplate {
   title: (data: any) => string;
   body: (data: any) => string;
   icon?: string;
-  ctaLabel: string; // Action button text (e.g., "View Offer", "Rate Helper")
+  ctaLabel: string; // Action button text (e.g., "View Offer", "Rate & vouch")
   actionUrl: (data: any) => string;
   channels: {
     in_app: boolean;
@@ -78,10 +78,11 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
   match_completed: {
     type: 'match_completed',
     priority: 'medium',
-    title: (data) => 'Match Completed — Leave a Rating',
-    body: (data) => `Your match for "${data.request_title}" has been completed. Rate your experience!`,
+    title: (data) => 'Exchange completed',
+    // Sprint 134 PR B: both participants get this; the request page offers a private rating and a vouch.
+    body: (data) => `Your exchange for "${data.request_title}" is complete. Rate it and vouch for skills you saw.`,
     icon: 'star',
-    ctaLabel: 'Rate Helper',
+    ctaLabel: 'Rate & vouch',
     actionUrl: (data) => `/requests/${data.request_id}`,
     channels: { in_app: true, push: true, email: false },
   },

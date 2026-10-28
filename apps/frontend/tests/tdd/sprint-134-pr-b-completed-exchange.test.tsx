@@ -36,6 +36,7 @@ jest.mock('@/lib/api', () => ({
 jest.mock('@/hooks/useTrustPath', () => ({ useTrustPath: () => ({ trustPath: null, loading: false, error: null }) }))
 
 import MemberSkills from '@/components/skills/MemberSkills'
+import NotificationItem from '@/components/NotificationItem'
 import RequestDetailPage from '@/pages/requests/[id]'
 
 const COMMUNITY = 'c0ffee00-0000-4000-8000-000000000001'
@@ -243,5 +244,22 @@ describe('completed-exchange panel: data fetch on mount', () => {
     expect(within(region).queryByText(/Vouch for a skill/)).toBeNull()
     expect(screen.queryByRole('alert')).toBeNull()
     expect(screen.queryByText(/Could not/)).toBeNull()
+  })
+})
+
+describe('completion notification CTA', () => {
+  it('invites either participant to rate and vouch, not to "Rate Helper"', () => {
+    render(<NotificationItem
+      notification={{
+        id: 'n1', user_id: 'user-b', type: 'match_completed', title: 'Exchange completed',
+        body: 'Your exchange for "Hang a ceiling fan" is complete. Rate it and vouch for skills you saw.',
+        data: { request_id: 'r1' }, read: false, action_url: '/requests/r1',
+        created_at: '2026-10-28T12:00:00Z', read_at: null,
+      }}
+      onMarkAsRead={() => undefined}
+      onDelete={() => undefined}
+    />)
+    expect(screen.getByRole('button', { name: 'Rate & vouch' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Rate Helper' })).toBeNull()
   })
 })

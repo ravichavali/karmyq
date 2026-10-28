@@ -100,6 +100,26 @@ describe('Notification Templates - Template Rendering', () => {
     });
   });
 
+  // Sprint 134 PR B: both participants get this; it links to the request page, which now offers a
+  // private rating and a vouch. "Rate Helper" was wrong for the helper, who rates the requester.
+  describe('match_completed Template', () => {
+    const template = notificationTemplates.match_completed;
+
+    it('names the close-out for either participant', () => {
+      expect(template.title({})).toBe('Exchange completed');
+      expect(template.body({ request_title: 'Hang a fan' }))
+        .toBe('Your exchange for "Hang a fan" is complete. Rate it and vouch for skills you saw.');
+      expect(template.ctaLabel).toBe('Rate & vouch');
+    });
+
+    it('still links to the request page with unchanged delivery', () => {
+      expect(template.actionUrl({ request_id: 'r1' })).toBe('/requests/r1');
+      expect(template.priority).toBe('medium');
+      expect(template.icon).toBe('star');
+      expect(template.channels).toEqual({ in_app: true, push: true, email: false });
+    });
+  });
+
   describe('karma_awarded Template', () => {
     const mockData = {
       points: 10,
