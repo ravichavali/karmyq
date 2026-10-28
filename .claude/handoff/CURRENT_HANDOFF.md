@@ -49,7 +49,7 @@ the maintainer at **2026-10-28 18:56:43Z** after Codex review (no blocking findi
 passed **14/14** including Deploy to Demo. The node-forge deadline is met: the exemption registry on master is empty, 0 open
 code-scanning alerts, 0 open Dependabot alerts. deepmerge #178 dismissed `tolerable_risk` (maintainer option a). See
 *Security follow-up state → Post-merge*.
-**Now:** **PR B (vouch from a completed exchange) is OPEN, awaiting Codex review / maintainer merge**, PR_LINK_TBD, on
+**Now:** **PR B (vouch from a completed exchange) is OPEN, awaiting Codex review / maintainer merge**, [#323](https://github.com/ravichavali/karmyq/pull/323), on
 `agent/claude/sprint-134-pr-b-vouch-from-request` (base `origin/master` `4ee38e82`, unchanged at open), v11.104.0 re-derived
 at PR open. All four gates ran; the real-SQL integration matrix is **CI-only** (not run on this Windows box). See *PR B state*.
 **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
@@ -190,7 +190,7 @@ the layout decision.
 
 ## PR B state (Claude executor, 2026-10-28)
 
-**Status: OPEN, awaiting Codex review / maintainer merge** (PR_LINK_TBD). Branch
+**Status: OPEN, awaiting Codex review / maintainer merge** ([#323](https://github.com/ravichavali/karmyq/pull/323)). Branch
 `agent/claude/sprint-134-pr-b-vouch-from-request`, base `origin/master` `4ee38e82` (master had not moved at PR open, so no
 merge-in was needed). Version **11.104.0**, re-derived from `origin/master` (11.103.0) at PR open; re-check at merge.
 Executed inline with `superpowers:executing-plans`, all 13 tasks in plan order.
@@ -433,7 +433,7 @@ export), so the blocker is unchanged.
 | 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **SHIPPED** `dd585016` (#319, v11.100.0), CI/CD 40441255956 green; real SQL 101/101. Human validation pending; see *PR K state* |
 | 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **SHIPPED** #321 `645d28fd` (v11.102.0), CI/CD 40631196261 green 14/14; 9 healthy; 0 open master CodeQL alerts. Human checks pending. |
 | — | **Security follow-up** | node-forge 1.4.2 + exemption removed; ip-address 10.7.4; fast-uri 4.2.3; deepmerge decision write-up | **2026-11-01 16:00 PST** | *Security follow-up state* | **SHIPPED** `4ee38e82` (#322, v11.103.0), merged 18:56:43Z; CI/CD 40749793316 green 14/14 incl. deploy; 0 open code-scanning / Dependabot alerts; deadline met. |
-| 8 | **B** | Vouch from a completed exchange (`docs/IDEAS.md` 2026-10-13 "Vouch from the request page") | — | [plan](../../docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md) | **OPEN, awaiting Codex review / maintainer merge** (PR_NUM_TBD, v11.104.0) on `agent/claude/sprint-134-pr-b-vouch-from-request`; gates done; integration matrix CI-only. See *PR B state*. |
+| 8 | **B** | Vouch from a completed exchange (`docs/IDEAS.md` 2026-10-13 "Vouch from the request page") | — | [plan](../../docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md) | **OPEN, awaiting Codex review / maintainer merge** ([#323](https://github.com/ravichavali/karmyq/pull/323), v11.104.0) on `agent/claude/sprint-134-pr-b-vouch-from-request`; gates done; integration matrix CI-only. See *PR B state*. |
 | 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
 | — | **Per-community health-quality weight (planned PR)** | Persist the weight in `communities.community_configs`; choose a quality signal source; requires an ADR number allocated by the maintainer | Not scheduled | Write after ADR allocation + signal decision | Separate planned PR, not part of L2 |
 
