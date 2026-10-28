@@ -860,7 +860,7 @@ exception for that query. Small; fits any request/notification PR.
   **[2026-10-28] Planned as Sprint 134 PR B** (`docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md`):
   `viewer_partners` on the detail read, exposed per exchange to its two participants only; rating and vouching on the
   completed request page; `match_completed` copy fixed. The endorsement notification stays a later item.
-  **[2026-10-28] Done in Sprint 134 PR B** (v11.104.0 provisional): `viewer_partners` on `GET /requests/:id`,
+  **[2026-10-28] Done in Sprint 134 PR B** (v11.104.0): `viewer_partners` on `GET /requests/:id`,
   the completed-exchange panel (rating + `MemberSkills endorsableOnly`) and the new notification copy; exposure rule
   recorded as an ADR-100 amendment. Still open: the "you were vouched for" notification (dedicated queue, BUG-060).
 - **Remove the legacy `karmyq-events` handlers (ADR-101 follow-up).** After the PR Q deploy, nothing publishes to
