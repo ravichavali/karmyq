@@ -24,11 +24,9 @@ export default function CompletedExchangePanel({ partners, viewerIsRequester }: 
   viewerIsRequester: boolean
 }) {
   const [closed, setClosed] = useState<Record<string, 'rated' | 'skipped'>>({})
-  // Rate per exchange; vouch once per person, on their newest entry (BUG-074 can leave one partner
-  // with two completed matches on the same ask).
-  const vouchOn = new Set(
-    partners.filter((p, i) => partners.findIndex(q => q.user_id === p.user_id) === i).map(p => p.match_id)
-  )
+  // Rate per exchange; vouch once per person, on their newest entry (the list is newest first;
+  // BUG-074 can leave one partner with two completed matches on the same ask).
+  const isNewestFor = (p: ViewerPartner) => partners.find(q => q.user_id === p.user_id) === p
 
   const rate = async (p: ViewerPartner, rating: number | null) => {
     await submitExchangeRating({ matchId: p.match_id, toUserId: p.user_id, communityId: p.rating_community_id, rating })
@@ -49,7 +47,7 @@ export default function CompletedExchangePanel({ partners, viewerIsRequester }: 
           {closed[p.match_id] === 'rated' && (
             <p className="text-xs text-text-muted">Thanks — ratings stay private.</p>
           )}
-          {vouchOn.has(p.match_id) && (
+          {isNewestFor(p) && (
             <MemberSkills userId={p.user_id} endorsableOnly heading={`Vouch for a skill you saw ${p.name} use:`} />
           )}
         </div>

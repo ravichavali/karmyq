@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { skillsService, type MemberSkill } from '@/lib/api'
 
 const vouchLabel = (n: number) => `${n} ${n === 1 ? 'vouch' : 'vouches'}`
+// ADR-100's server flags alone decide whether the viewer can act on a skill's vouch.
+const isVouchable = (s: MemberSkill) => !!(s.endorsed_by_me || s.can_endorse)
 
 export default function MemberSkills({ userId, endorsableOnly = false, heading }: {
   userId: string; endorsableOnly?: boolean; heading?: string
@@ -53,15 +55,16 @@ export default function MemberSkills({ userId, endorsableOnly = false, heading }
 
   // Sprint 134 PR B: endorsableOnly filters on the server's ADR-100 flags alone; the client adds no
   // eligibility rule. In that mode loading, empty and failed loads render nothing.
-  const shown = endorsableOnly ? skills.filter(s => s.can_endorse || s.endorsed_by_me) : skills
-  if (loading) return endorsableOnly ? null : <p className="text-sm text-text-muted" role="status">Loading skills…</p>
-  if (!shown.length) return endorsableOnly ? null : <p className="text-sm text-text-muted">No shared skills to show.</p>
+  const shown = endorsableOnly ? skills.filter(isVouchable) : skills
+  if (endorsableOnly && (loading || !shown.length)) return null
+  if (loading) return <p className="text-sm text-text-muted" role="status">Loading skills…</p>
+  if (!skills.length) return <p className="text-sm text-text-muted">No shared skills to show.</p>
   return <div>
     {heading && <p className="mb-2 text-sm text-text">{heading}</p>}
     <ul className="flex flex-wrap gap-2" aria-label="Member skills">
       {shown.map(skill => {
         const count = skill.endorsement_count ?? 0
-        const showButton = skill.endorsed_by_me || skill.can_endorse
+        const showButton = isVouchable(skill)
         const action = skill.endorsed_by_me ? 'Withdraw vouch' : 'Vouch'
         return <li key={skill.tag_id} className="flex items-center gap-2 rounded-full bg-primary-light px-3 py-1 text-sm text-primary-dark">
           <span>{skill.label}</span>

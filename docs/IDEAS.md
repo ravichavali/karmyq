@@ -1026,3 +1026,16 @@ Extends the 2026-10-26 *Dependency-gate follow-ups* entry. Both need an ADR-059 
   the 2026-10-26 entry says.
 
 ---
+
+## [2026-10-28] Notification CTA labels live in two places (Sprint 134 PR B `/simplify`, altitude review)
+
+- **The server's `ctaLabel` never reaches the client.** `generateNotification` sets `cta_label`
+  (`services/notification-service/src/templates/notificationTemplates.ts:332`), but the insert writes only
+  `(user_id, type, title, body, data, action_url)` (`services/notification-service/src/services/notificationService.ts:45-47`),
+  `notifications.notifications` has no `cta_label` column, and the frontend `Notification` type has none. So
+  `NotificationItem.getCtaLabel`'s hard-coded switch is the only label anyone sees, and every copy change is made twice
+  (PR B changed `match_completed` in both). The two lists already disagree: `join_request` is "Review Request" on the
+  server and "Review" on the client. Deeper fix: persist `cta_label` (migration + insert), return it, and have the client
+  read `notification.cta_label ?? getCtaLabel(type)`. Needs a migration and touches every type, so it is its own PR.
+
+---
