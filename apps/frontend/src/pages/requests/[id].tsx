@@ -6,6 +6,7 @@ import { requestService } from '@/lib/api'
 import RequestPayloadRenderer from '@/components/Feed/RequestPayloadRenderer'
 import RelationshipContextPanel from '@/components/relationships/RelationshipContextPanel'
 import EmptyState from '@/components/EmptyState'
+import CompletedExchangePanel, { type ViewerPartner } from '@/components/requests/CompletedExchangePanel'
 import { getOfferActionLabel, getOfferErrorFallback } from '@/lib/requestActionCopy'
 import { getRequestStatusDisplay, getRequestUrgencyDisplay } from '@/lib/requestDisplay'
 import type { PayloadType } from '@/types/unified-feed'
@@ -41,6 +42,8 @@ interface RequestDetail {
   is_directed?: boolean
   directed_to?: { kind: 'user' | 'community_admins'; id: string; name: string } | null
   viewer_match?: { id: string; status: string } | null
+  // Sprint 134 PR B: the viewer's completed exchanges on this ask; [] (or absent) for everyone else.
+  viewer_partners?: ViewerPartner[]
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -289,6 +292,13 @@ export default function RequestDetailPage() {
 
             {detail.viewer_relation === 'not_actionable' && (
               <p className="text-sm text-text-muted">{finiteStateCopy(detail.status, detail.expired)}</p>
+            )}
+
+            {detail.viewer_partners && detail.viewer_partners.length > 0 && (
+              <CompletedExchangePanel
+                partners={detail.viewer_partners}
+                viewerIsRequester={detail.viewer_relation === 'own_request'}
+              />
             )}
 
             {error && <p className="text-xs text-error mt-2">{error}</p>}
