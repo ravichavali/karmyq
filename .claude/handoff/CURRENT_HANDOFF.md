@@ -38,9 +38,15 @@ merge-sha analyses raised nothing new, highest alert still #627). ADR-102 flippe
 passed 14/14 jobs, including deploy and health check; "Notify on failure" skipped (no rollback).
 0 open CodeQL alerts on master at this post-merge check. **BUG-070 fixed and deployed inside its 2026-11-03 date.**
 Human validation pending: reputation logs after the first 02:00 nightly run (*PR L2 state*).
-**Now: PR V**, independent implementation on `agent/codex/sprint-134-pr-v-read-boundaries`, cut from
-`origin/master` `47c9a323`. Review response: API-only offer-flag retirement, index and column drop
-deferred; no schema change or demo-host step. See *PR V state*. Dependency lane remains Claude's.
+**PR V [#321](https://github.com/ravichavali/karmyq/pull/321) SHIPPED** as `645d28fd` (v11.102.0) at
+**2026-10-28 04:14:22Z** on the maintainer's explicit admin-merge authorization. Deploy run
+[40631196261](https://github.com/ravichavali/karmyq/actions/runs/40631196261) passed **14/14 jobs**;
+all **9 services healthy**, failure notification skipped (no rollback), **0 open CodeQL alerts on
+master**. Merge-commit analyses completed without errors/warnings. Human checks remain pending.
+See *PR V state*.
+**Now:** post-merge record on `agent/codex/sprint-134-pr-b-endorsement-followups`, cut from
+`origin/master` `645d28fd`. This branch contains the record first; PR B scope/plan belongs to a
+new chat. Dependency lane remains Claude's.
 **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
 become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26); the 10-29 deadline no longer applies.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
@@ -58,9 +64,10 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 1. Read this handoff, then `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
 2. Find the next PR in *PR sequence* whose status is not SHIPPED. Reuse its branch if it exists; otherwise
    `git switch -c agent/claude/sprint-134-pr-<letter>-<slug> origin/master`. Never branch off a stale local master.
-3. Open PR V's plan (table below) and *PR V state*. The final scope retires the inert offer flag from
-   the privacy API only and defers the index/column drop. No schema operation is needed. Review PR V
-   and its CI after PR creation; PR L2's nightly human validation remains pending separately.
+3. PR V is shipped; deploy/health are verified in *PR V state*. PR B is the next
+   product PR: start a fresh chat, choose its scope with the maintainer from the spec's PR B section
+   and IDEAS 2026-10-13, then write its plan. Claude's dependency deadline remains higher priority.
+   PR V human validation and PR L2's nightly reputation-log validation are separate open checks.
 4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
    slash command; superpowers removed it as a deprecated stub.
 5. One fresh chat per PR (CLAUDE.md *Chat cadence*). Update this file at every PR open/merge.
@@ -73,8 +80,8 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 
 | Field | Value |
 |---|---|
-| **Current branch** | `agent/codex/sprint-134-pr-v-read-boundaries`, from `origin/master` `47c9a323` (#320, v11.101.0). First commit records L2's merge/deploy before PR V implementation. |
-| **Active editor** | Codex (PR V); stop at PR creation, then Claude reviews. |
+| **Current branch** | `agent/codex/sprint-134-pr-b-endorsement-followups`, from `origin/master` `645d28fd` (#321, v11.102.0). First commit records PR V's merge/deploy; PR B implementation has not started. |
+| **Active editor** | Codex (post-merge record only); leave branch pushed/clean for the next handoff. New PR B planning needs a fresh chat and maintainer scope choice. |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated), dependency PR due before **2026-11-01 17:00 PDT**. No manifest/lock edits except version bump. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
 
 ## Spec and plans
@@ -94,8 +101,8 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 | 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | **SHIPPED** `ff3f394e` (#315, v11.99.0), CI/CD 40417261628 green; post-deploy queue check PASS. See *PR L state* |
 | 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers, numeric widths and nightly isolation; **BUG-070** | BUG-070 **2026-11-03** | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md) | **SHIPPED** #320 `47c9a323` (v11.101.0), CI/CD 40579675258 green; nightly human validation pending. |
 | 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **SHIPPED** `dd585016` (#319, v11.100.0), CI/CD 40441255956 green; real SQL 101/101. Human validation pending; see *PR K state* |
-| 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **OPEN [#321](https://github.com/ravichavali/karmyq/pull/321)**: source review clean; two initial CI fixture/assertion bugs corrected. Latest CI evidence is in the PR Validation ledger; green integration required before merge. |
-| 8 | **B** | PR B endorsement follow-ups (`docs/IDEAS.md` 2026-10-13) | — | write at PR start | — |
+| 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **SHIPPED** #321 `645d28fd` (v11.102.0), CI/CD 40631196261 green 14/14; 9 healthy; 0 open master CodeQL alerts. Human checks pending. |
+| 8 | **B** | PR B endorsement follow-ups (`docs/IDEAS.md` 2026-10-13) | — | write at PR start | Not started; branch holds V's post-merge record only. Scope with maintainer in a fresh chat. |
 | 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
 | — | **Per-community health-quality weight (planned PR)** | Persist the weight in `communities.community_configs`; choose a quality signal source; requires an ADR number allocated by the maintainer | Not scheduled | Write after ADR allocation + signal decision | Separate planned PR, not part of L2 |
 
@@ -103,10 +110,39 @@ B and C are the likeliest to spill into Sprint 135, which is expected. One merge
 
 ## PR V state (Codex, 2026-10-27)
 
-**[PR #321](https://github.com/ravichavali/karmyq/pull/321) OPEN; awaiting final review and maintainer
-merge.** The PR review found no source defects and two test bugs in the first integration run.
-This follow-up corrects those tests and stale coverage wording. Require green integration before
-merge; the PR Validation ledger carries the latest run/commit evidence. No merge/deploy authorized.
+**Post-merge, 2026-10-28 UTC:** #321 merged as **`645d28fd` (v11.102.0)** at **04:14:22Z**.
+The maintainer independently checked `a3686009`, accepted the existing Codex gate-equivalent
+passes plus the independent reviews, and explicitly approved an admin merge. Executed once as an
+admin squash with `--match-head-commit a3686009ce78b8ba96cc0a2b901cf38edd47c9ec`.
+All checks were green at that head; PR deployment was skipped. Master was `47c9a323` / 11.101.0,
+and its prior deploy had completed successfully.
+
+**Deploy verified:** [CI/CD 40631196261](https://github.com/ravichavali/karmyq/actions/runs/40631196261)
+completed successfully on `645d28fd`: **14/14 jobs**, "DEPLOYMENT SUCCESSFUL" at
+**2026-10-28 04:31:37Z**; the final health check passed at **04:31:53Z** for auth, community,
+request, reputation, notification, messaging, cleanup, geocoding and social-graph. Failure
+notification skipped (no rollback). Post-deploy public GET `https://karmyq.com/` returned
+**200, text/html**. This is automated deployment/health proof, not completion of the human checks.
+
+**Master CodeQL verified after deploy:** **0 open alerts** on `refs/heads/master`. Both analyses
+for merge SHA `645d28fd3218be463bf8f77ffe76dc8277d80b6b` completed with no error or warning:
+JS/TS analysis **2042197326** (467 raw results) and Actions analysis **2042193650** (0 raw results).
+Raw analysis results are separate from the open-alert query. No alerts were dismissed.
+
+**Human validation remains pending after automated health verification:**
+- Requester edit/cancel/privacy succeeds; foreign/missing IDs yield the same 404.
+- Departed helper and preferred provider retain reads; outsiders cannot read community-only or
+  directed asks. Check demo page contents, scoped community notes and offer consent behavior.
+- L2: inspect reputation logs after the first 02:00 nightly run. Deploy health does not prove it.
+
+**Next branch:** `agent/codex/sprint-134-pr-b-endorsement-followups` from `origin/master` `645d28fd`.
+The first commit is this post-merge record (handoff + PR V plan), with no runtime/dependency/version/schema change. No B
+implementation, ADR allocation or future version reservation is made. Claude retains the dependency
+lane and its PR due before **2026-11-01 17:00 PDT**. #318 remains a separate queued security PR
+(fast-uri, due 11-06); #321's authorization does not authorize its admin merge.
+
+The sections below are the **pre-merge implementation/validation history**. Current release state
+is the post-merge record above; the PR's Validation ledger links the green 291-case SQL run.
 
 Branch `agent/codex/sprint-134-pr-v-read-boundaries`, from `origin/master` `47c9a323`.
 First commit `1721dc5f` is the #320 post-merge record. Root version **11.102.0** is provisional;
@@ -196,9 +232,15 @@ fixture correctness review found no blocker. No production source/version/schema
 to `4ee149a2`. Real-SQL symptom proof for the corrected assertions is the follow-up CI result in
 the PR Validation ledger; no local DB execution is claimed.
 
-**Next action (Claude):** inspect the PR's latest CI and validation ledger, then review the
-test/comment-only follow-up. Green integration is required before merge. L2's first-02:00
-reputation-log human validation remains pending separately.
+**Record validation:** local `npm test` passed **27/27 tasks** (26 Turbo-cached; root tests executed,
+101 unit + 952 regression) on the record worktree over `645d28fd`; Jest cache retained. Final
+post-deploy edits only add verified release metadata. Staged feedback/whitespace/process review
+close before committing; normal pre-push hooks verify the pushed record. There is no master push.
+
+**Next action:** in a fresh chat scope PR B from
+`docs/superpowers/specs/2026-10-20-sprint-134-dated-obligations-design.md` PR B (`:249`) with the
+maintainer. Keep human checks open; dependency lane/deadline remains Claude's. The merge slot is
+free after the successful health verification, but #318 requires its separate review/authorization.
 
 ## PR L2 state (Codex author/executor, 2026-10-27)
 
@@ -595,7 +637,8 @@ claim-based authorization decision. Claude re-checked the integration count and 
    stamp in `architecture.json`, CRLF in `adr-010`). **`/simplify`, `/code-review` and `/security-review` were not re-run:**
    the merge changed nothing in PR K's code (proof above).
 
-**Post-merge done** (2026-10-27, see the top of this section). PR L2 has since shipped; next is PR V.
+**Post-merge done** (2026-10-27, see the top of this section). PR L2 shipped and PR V merged;
+see *PR V state* for deploy/health proof. Next product work is PR B, scoped in a fresh chat.
 BUG-073 is tabled (maintainer, 2026-10-26) as a future-sprint platform-admin feature; it is not PR L2's scope.
 **Human validation (after deploy):** demote a test admin to member in a second browser, then that admin's **Update tags**
 → refused; a requester who administers nothing accepts a provider offer → accepted.

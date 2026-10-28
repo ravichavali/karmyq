@@ -86,7 +86,7 @@
 - [x] Bump root version to 11.102.0 and both root lock entries only (re-derive before merge). Prove no other dependency diff.
 - [x] Run service tsc, `npx tsc --noEmit -p tests/tsconfig.json` captured to a log and filtered for changed paths (must print nothing); real SQL remains CI-only. Run root tests without Turbo replay, full test graph, staged feedback check and gotcha check.
 - [x] Run three separately delegated simplify/correctness/security equivalent passes, resolve findings, mandatory pre-commit process review, update handoff. Implementation committed as `83c2713e`; final metadata checkpoint/push follows with live hooks. Revert only generator timestamp churn and leave tree clean.
-- [ ] Create PR from the full repository template with validation ledger, CI-only limitations, no-schema-change evidence and remaining human validation. Stop immediately after PR creation; Claude reviews.
+- [x] Create PR from the full repository template with validation ledger, CI-only limitations, no-schema-change evidence and remaining human validation. PR #321 opened; independent review and fixture corrections completed. Post-merge work was later explicitly authorized by the maintainer.
 
 ## Human Validation (after later authorized deployment)
 
@@ -151,3 +151,22 @@ symptom proof is the next CI run, recorded in the PR Validation ledger.
   staged feedback0 and whitespace clean. Focused fixture/process review found no blocker; no
   runtime/version/schema diff. Corrected integration assertions require the new CI run; its
   actual commit/run/outcome is recorded in the PR Validation ledger.
+
+## Authorized merge record
+
+- Maintainer accepted the gate-equivalent/independent review evidence and explicitly approved the
+  admin merge of #321. Exact head `a3686009` was fully green; master remained `47c9a323` /11.101.0
+  with no deployment in flight. Admin squash merge matched the approved head and produced
+  `645d28fd` (v11.102.0) at **2026-10-28 04:14:22Z**.
+- [CI/CD 40631196261](https://github.com/ravichavali/karmyq/actions/runs/40631196261) passed **14/14
+  jobs** on `645d28fd`, deployment successful at **04:31:37Z**, final health check at **04:31:53Z**
+  (2026-10-28 UTC): all nine services healthy, failure notification skipped/no rollback. Public
+  homepage GET returned 200/text-html. Master has **0 open CodeQL alerts**; merge analyses
+  2042197326 (JS/TS, 467 raw results) and 2042193650 (Actions, 0) completed without errors/warnings.
+  No dismissal. Human acceptance checks above and L2's first-02:00 reputation-log check remain open.
+- First next-branch commit records this result on
+  `agent/codex/sprint-134-pr-b-endorsement-followups`, from `origin/master` `645d28fd`. PR B itself
+  is not started; scope/plan belongs to a fresh chat. No code/version/dependency/schema changes.
+- Record worktree local `npm test` passed 27/27 (26 Turbo-cached; root tests executed 101 unit/952 regression,
+  Jest cache retained). Final edits are verified release metadata; pre-commit feedback and review,
+  then normal pre-push hooks, complete the clean branch handoff.
