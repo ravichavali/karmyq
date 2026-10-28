@@ -44,10 +44,10 @@ Human validation pending: reputation logs after the first 02:00 nightly run (*PR
 all **9 services healthy**, failure notification skipped (no rollback), **0 open CodeQL alerts on
 master**. Merge-commit analyses completed without errors/warnings. Human checks remain pending.
 See *PR V state*.
-**Now:** post-merge record on `agent/codex/sprint-134-pr-b-endorsement-followups`, cut from
-`origin/master` `645d28fd`. This branch contains the record first; PR B implementation has not
-started. **Maintainer allocation, 2026-10-28: Claude authors the next security PR; Codex reviews.**
-Transfer the pushed, clean tree as described in *Security lane transfer* before starting PR B.
+**Now:** **Security follow-up** on `agent/claude/sprint-134-security-followups` (Claude authors, Codex reviews;
+maintainer allocation 2026-10-28), v11.103.0. node-forge 1.4.2 is in with its exemption **deleted**, plus ip-address
+10.7.4 and fast-uri 4.2.3; the deepmerge #178 decision is prepared. The branch carries Codex's PR V post-merge record
+and the lane transfer (cherry-picked). See *Security follow-up state*. PR B (vouching) comes next, in a fresh chat.
 **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
 become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26); the 10-29 deadline no longer applies.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
@@ -65,8 +65,8 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 1. Read this handoff, then `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
 2. Find the next PR in *PR sequence* whose status is not SHIPPED. Reuse its branch if it exists; otherwise
    `git switch -c agent/claude/sprint-134-pr-<letter>-<slug> origin/master`. Never branch off a stale local master.
-3. PR V is shipped; deploy/health are verified in *PR V state*. **Next: Claude's combined security
-   PR**, with Codex reviewing; follow *Security lane transfer* before switching the shared tree.
+3. PR V is shipped; deploy/health are verified in *PR V state*. **The security follow-up is built**
+   (*Security follow-up state*); its next chat handles Codex review, CI and the post-merge record.
    PR B vouching follows security, ahead of trust-history accuracy unless evidence changes priority.
    Write its plan in a fresh chat using the spec's PR B section and IDEAS 2026-10-13.
    PR V human validation and PR L2's nightly reputation-log validation are separate open checks.
@@ -82,8 +82,8 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 
 | Field | Value |
 |---|---|
-| **Current branch** | `agent/codex/sprint-134-pr-b-endorsement-followups`, from `origin/master` `645d28fd` (#321, v11.102.0). First commit records PR V's merge/deploy; PR B implementation has not started. |
-| **Active editor** | After Codex pushes this handoff and verifies a clean tree, **Claude** owns the next security implementation; **Codex is the reviewer** and makes no concurrent edits. PR B is deferred. |
+| **Current branch** | `agent/claude/sprint-134-security-followups`, from `origin/master` `645d28fd` (#321, v11.102.0), **v11.103.0**. First two commits are Codex's PR V post-merge record and lane transfer, cherry-picked as `ac08fbf4` and `0685c058` (originals `4b0c6386` and `56357e50` on Codex's branch). `agent/codex/sprint-134-pr-b-endorsement-followups` holds only those two docs commits; PR B starts fresh from master after this merges. |
+| **Active editor** | **Claude** (security follow-up author); **Codex is the reviewer** and makes no concurrent edits. PR B is deferred. |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated), security PR due before **2026-11-01 16:00 PST (2026-11-02 00:00 UTC)**. Claude owns the scoped dependency edits below; Codex changes no manifest/lockfile in this handoff. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
 
 ## Security lane transfer — 2026-10-28
@@ -132,6 +132,59 @@ completed-partner status. The current detail projection only returns proposed/ma
 (`services/request-service/src/routes/requests.ts:1633`); verify this again when planning.
 Trust-history replay accuracy remains separate; actual measured drift would change priority.
 
+## Security follow-up state (Claude, 2026-10-28)
+
+Branch `agent/claude/sprint-134-security-followups` from `origin/master` `645d28fd`, **v11.103.0** (re-derived from
+master's 11.102.0; re-check at merge time). Executed inline against *Approved implementation scope* above; the record is
+the ADR-059 amendment "node-forge fixed upstream, exemption removed".
+
+**What changed.** `security/audit-exemptions.json`: node-forge entry **deleted** (registry empty). Lock splice by a guarded
+script (each old node had to equal its old registry `dist`; old and new manifests had to agree on dependencies, engines,
+license, funding, bin, os/cpu/libc; no install scripts; key order unchanged; the guard was shown refusing a tampered
+lock): `node-forge` 1.4.0 → **1.4.2**, `ip-address` 10.7.2 → **10.7.4** (first patched; 10.7.5 adds only a Teredo flag fix
+plus test/dev-dependency changes), `fast-uri` 4.2.1 → **4.2.3**. Lock diff is exactly 11 lines (2 root version + 3×3
+node fields); no `libc` field touched. Overrides: `node-forge >=1.4.2`, `ip-address >=10.7.4`, `fast-uri >=4.2.3` (bare
+floors kept; selector conversion is IDEAS 2026-10-26; raising them loosens no dependent: `^1.3.3`, `^10.2.0`, and ajv's
+`^3.0.1` was already overridden). `sprint-131-d9-security-overrides.test.ts`: new floor rows (floor and every locked
+copy ≥ patched), red on the old floors, red again on the raised floors over the old lock, green after the splice.
+
+**Proof.** Gate (`node scripts/audit-exemptions.js`, `--package-lock-only`): new lock + empty registry → 0 high/critical,
+exit 0; **old lock + empty registry → BLOCKING node-forge GHSA-86w9-cpqp-85rv, exit 1** (the lock clears it, not the
+deletion; and since the endpoint answered with that finding in the same session, the empty registry rests on valid
+evidence, per the `adr-059-cannot-tell-no-answer-from-no-advisories` gotcha). Full audit: 18 findings (1 high, 5 moderate, 12 low) → 14 (0 high, 3 moderate, 11 low); what remains is
+deepmerge (low) and decode-uri-component (BUG-041). Strict `npx -y npm@11.19.0 ci` exit 0, lock sha unchanged; `npm ls
+--all` invalid/missing/UNMET multiset identical to the baseline (175 lines) and identical stderr; installed 1.4.2 /
+10.7.4 / 4.2.3, all `overridden`. node-forge run, not read: a DigestInfo with an extra DigestAlgorithm element verifies
+on 1.4.0 and is rejected on 1.4.2 (canonical accepted on both); vendor advisory GHSA-2g46-22mc-6gwp (CVE-2026-85393)
+names 1.4.1 patched for the same defect; `@expo/code-signing-certificates` 0.0.6 keygen / PEM / self-signed validate /
+sign+verify / CSR → dev cert all pass on 1.4.2, foreign issuer rejected. ip-address: `ipKeyGenerator`'s exact calls give
+identical keys on 10.7.2 and 10.7.4 for 12 samples; the trigger (repeated `%` before a newline) is quadratic on 10.7.2
+(244 ms at 20 kB) and flat on 10.7.4, but `node:net` `isIPv6` rejects it before `Address6`, so it was not reachable via
+`packages/shared/middleware/rateLimit.ts:130` or cleanup-service's default key.
+
+**#318 (Dependabot fast-uri) not used:** besides the bump it deletes 26 `libc` fields from `sharp`/`@img` platform
+binaries (the musl selection the Alpine images need). It should auto-close once master carries 4.2.3; if not, close it
+with a pointer to this PR.
+
+**deepmerge #178 — decision for the maintainer (target ~2026-11-11; not pre-approved, nothing dismissed):**
+GHSA-gcqx-w48m-w2h4, low, `>= 4.2.0 <= 4.3.1`, no patched version; 4.3.1 is the latest release (no newer line exists).
+Advisory published 2026-09-18, updated 2026-10-27 21:35Z; the alert opened on PR V's master push. Defect:
+`mergeObject()` lets a malicious *source* object poison the returned object's prototype. Reach, verified with `npm ls
+deepmerge --all`: one copy, 4.3.1, via `apps/mobile` → `expo` 57.0.31 → `@expo/config` 57.0.10 (merges developer-authored
+app config and plugin props, `build/Config.js:415,453`) and `tests` → `jest-cli` → `jest-config` (dev). No repo source
+imports it; no service depends on either chain. Untrusted input does not reach either merge (UNVERIFIED by bundle
+inspection that `@expo/config` stays out of the device bundle; it is Node-side tooling). Options:
+- **(a) Recommended: dismiss as `tolerable_risk`** with a comment and a re-check date, the alert #150 / BUG-041
+  precedent. Suggested re-check: the next Expo SDK move or 2026-12-01, whichever comes first.
+- (b) Leave it open until upstream ships a fix. Honest but lets the two-week SLA lapse with no action available.
+- (c) Replace or patch deepmerge (override to a fork). Not recommended: it changes Expo's and Jest's config merging
+  for a low with no untrusted input.
+ADR-059's gate reads only high and critical, so no registry entry is needed under any option.
+
+**Rulings for the maintainer:** none beyond the deepmerge choice. `decode-uri-component` GHSA-vcc3-ghjq-m6fr stays
+BUG-041 (dismissed #150; re-check by 2026-11-14): 0.5.1 (2026-10-23) is still ESM-only (`"type": "module"`, no `require`
+export), so the blocker is unchanged.
+
 ## Spec and plans
 
 - Spec: [`docs/superpowers/specs/2026-10-20-sprint-134-dated-obligations-design.md`](../../docs/superpowers/specs/2026-10-20-sprint-134-dated-obligations-design.md)
@@ -150,7 +203,7 @@ Trust-history replay accuracy remains separate; actual measured drift would chan
 | 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers, numeric widths and nightly isolation; **BUG-070** | BUG-070 **2026-11-03** | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md) | **SHIPPED** #320 `47c9a323` (v11.101.0), CI/CD 40579675258 green; nightly human validation pending. |
 | 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **SHIPPED** `dd585016` (#319, v11.100.0), CI/CD 40441255956 green; real SQL 101/101. Human validation pending; see *PR K state* |
 | 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **SHIPPED** #321 `645d28fd` (v11.102.0), CI/CD 40631196261 green 14/14; 9 healthy; 0 open master CodeQL alerts. Human checks pending. |
-| — | **Security follow-up** | node-forge 1.4.2 + verified exemption removal; ip-address 10.7.4+; fast-uri 4.2.3; deepmerge decision write-up | **2026-11-01 16:00 PST** | *Security lane transfer* above | **NEXT: Claude authors, Codex reviews** (maintainer allocation 2026-10-28). |
+| — | **Security follow-up** | node-forge 1.4.2 + exemption removed; ip-address 10.7.4; fast-uri 4.2.3; deepmerge decision write-up | **2026-11-01 16:00 PST** | *Security follow-up state* | **BUILT on `agent/claude/sprint-134-security-followups` (v11.103.0)**; Claude authors, Codex reviews. PR status is in *Security follow-up state*. |
 | 8 | **B** | PR B endorsement follow-ups (`docs/IDEAS.md` 2026-10-13) | — | write at PR start | Not started; branch holds V's post-merge record only. Scope with maintainer in a fresh chat. |
 | 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
 | — | **Per-community health-quality weight (planned PR)** | Persist the weight in `communities.community_configs`; choose a quality signal source; requires an ADR number allocated by the maintainer | Not scheduled | Write after ADR allocation + signal decision | Separate planned PR, not part of L2 |
@@ -184,7 +237,7 @@ Raw analysis results are separate from the open-alert query. No alerts were dism
   directed asks. Check demo page contents, scoped community notes and offer consent behavior.
 - L2: inspect reputation logs after the first 02:00 nightly run. Deploy health does not prove it.
 
-**Next branch:** `agent/codex/sprint-134-pr-b-endorsement-followups` from `origin/master` `645d28fd`.
+**Next branch (superseded 2026-10-28; see *Security follow-up state*):** `agent/codex/sprint-134-pr-b-endorsement-followups` from `origin/master` `645d28fd`.
 The first commit is this post-merge record (handoff + PR V plan), with no runtime/dependency/version/schema change. No B
 implementation, ADR allocation or future version reservation is made. Claude retains the dependency
 lane and its PR due before **2026-11-01 16:00 PST (2026-11-02 00:00 UTC)**. #318 is a queued
@@ -288,7 +341,7 @@ the PR Validation ledger; no local DB execution is claimed.
 post-deploy edits only add verified release metadata. Staged feedback/whitespace/process review
 close before committing; normal pre-push hooks verify the pushed record. There is no master push.
 
-**Next action:** transfer the clean, pushed tree to Claude for the combined security PR; Codex
+**Next action (done 2026-10-28; see *Security follow-up state*):** transfer the clean, pushed tree to Claude for the combined security PR; Codex
 reviews. Follow *Security lane transfer* above. PR B planning follows security in a fresh chat.
 Keep human checks open. The merge slot is free after successful health verification; no further
 merge is authorized by #321's approval.
@@ -836,10 +889,10 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | ~~follow-redirects GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c (high)~~ | ~~2026-10-27~~ | **DONE**: #310 `63a6cd26`, live 2026-10-21 00:00Z. Dependabot never raised alerts for them (the lock moved within hours); open alerts are only #168 node-forge and #169 braces (exempted) |
 | ~~BUG-063~~ | ~~2026-10-24~~ | **DONE**: #311 `bf524296` (v11.94.0), live 2026-10-21; no risk acceptance needed |
 | ~~`next` GHSA-2464-fhr4-w9xw (critical) + GHSA-p3m5-59mp-jv5r (high)~~ | ~~now~~ | **DONE**: #314 `0321c415` (v11.97.0), live 2026-10-22 21:14Z (CI/CD 39853173679) |
-| **node-forge ADR-059 exemption** | **2026-11-02 00:00 UTC (2026-11-01 16:00 PST)** | Renewed in PR X (2026-10-26). **Claude's next security PR:** patch lock 1.4.0 → 1.4.2 and remove exemption once updated-lock audit confirms GHSA-86w9-cpqp-85rv cleared. No renewal planned. Registry/ranges verified 2026-10-28; changelog alone is not fix proof. braces is gone (advisory withdrawn; BUG-059 closed). |
-| `ip-address` GHSA-rxp7-6hxx-x8q5 (moderate) | **2026-11-05** | Published 2026-10-22; `<= 10.7.3`, fixed 10.7.4; lock 10.7.2 (override `>=10.7.2`). **Scheduled in Claude's combined security PR.** |
-| `fast-uri` GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr (moderate) + 2 low | **2026-11-06** | Published 2026-10-23; `>= 4.0.0 < 4.2.3`, fixed 4.2.3; lock 4.2.1 (override `>=4.2.1`). **Scheduled in Claude's combined security PR.** Dependabot **#318** (`fast-uri` 4.2.1 → 4.2.3, opened 2026-10-26 22:10Z) is a **queued proposal**, not the lane holder. Its lock diff is +3/−81 lines; inspect its removals. |
-| `deepmerge` alert **#178** (low) | **~2026-11-11** written decision (maintainer target) | No fix and Expo/Jest tooling-only reach reported by maintainer 2026-10-28; Claude verifies reach/advisory and prepares decision in the security PR. Gate blocks high/critical, so no exemption entry needed for this low. Risk acceptance/dismissal needs a separate decision. |
+| **node-forge ADR-059 exemption** | ~~2026-11-02 00:00 UTC (2026-11-01 16:00 PST)~~ | **Fixed upstream; exemption DELETED** in the security follow-up (lock 1.4.0 → 1.4.2; vendor advisory GHSA-2g46-22mc-6gwp names 1.4.1 patched; gate blocks on the old lock with the empty registry and passes on the new one). **Must merge and deploy before 2026-11-01 16:00 PST**: until then master still carries the exemption, which expires then and fails every push. braces is gone (advisory withdrawn; BUG-059 closed). |
+| `ip-address` GHSA-rxp7-6hxx-x8q5 (moderate) | **2026-11-05** | Published 2026-10-22; `<= 10.7.3`, fixed 10.7.4. **Fixed in the security follow-up** (10.7.2 → 10.7.4, floor `>=10.7.4`); done when it deploys. |
+| `fast-uri` GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr (moderate) + 2 low | **2026-11-06** | Published 2026-10-23; `>= 4.0.0 < 4.2.3`, fixed 4.2.3. **Fixed in the security follow-up** (4.2.1 → 4.2.3, floor `>=4.2.3`). Dependabot **#318** not used: it also deletes 26 `libc` fields; close it if it does not auto-close after the merge. |
+| `deepmerge` alert **#178** (low) | **~2026-11-11** written decision (maintainer target) | **Decision prepared** (*Security follow-up state*): reach verified as Expo config tooling + Jest only, no fix exists; recommendation (a) dismiss as `tolerable_risk` with a re-check date. Not dismissed; needs the maintainer. Gate blocks high/critical only, so no exemption entry. |
 | ~~node-forge + braces ADR-059 exemptions~~ → **Security PR X** | ~~EXPIRED 2026-10-26 00:00Z~~ | **DONE**: #317 `e15622bc` (v11.98.0), live 2026-10-26 22:25Z (CI/CD 40410093954). The lapse blocked pushes and CI Security Audit from 10-26 00:00Z until the merge. body-parser/undici/zod highs fixed inside their SLA (body-parser due 10-30). BUG-059 closed |
 | ~~**PR L** (BUG-068)~~ | ~~2026-10-29~~ | **DONE**: #315 `ff3f394e` (v11.99.0), merged 2026-10-26 23:05:13Z (CI/CD 40417261628); post-deploy queue check PASS. The demo key cleanup is a separate, unscheduled operation (*PR L state*) |
 | ~~**BUG-069**~~ | ~~2026-10-30~~ | **DONE**: #319 `dd585016` (v11.100.0), merged 2026-10-27 02:55:40Z (CI/CD 40441255956). **ADR-102** Implemented. No risk acceptance or split was needed |

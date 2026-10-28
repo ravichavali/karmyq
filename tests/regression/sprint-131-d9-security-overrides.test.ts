@@ -2,7 +2,8 @@
  * Sprint 131 D9: security overrides published while the ioredis splice was in flight.
  * The live npm audit gate detects new advisories; these checks preserve the explicit
  * patched pins and the engine.io ws override across later lock edits. Sprint 134 PR X
- * raised the undici floor and added the @expo/cli zod pin.
+ * raised the undici floor and added the @expo/cli zod pin; the Sprint 134 security
+ * follow-up raised the node-forge, ip-address and fast-uri floors.
  */
 import semver from 'semver';
 import { read } from './helpers/workspaces';
@@ -29,6 +30,21 @@ describe('D9 security override pins', () => {
       .filter(([path]) => path.endsWith(`node_modules/${name}`))
       .map(([path, node]) => [path, node.version]);
     expect(copies).toEqual([[`node_modules/${name}`, override]]);
+  });
+
+  // A ">=" override lets npm resolve anything at or above it, so both the floor and every locked copy must be
+  // patched. The audit gate blocks only high and critical, so it would not catch a moderate (ip-address,
+  // fast-uri) sliding back.
+  it.each([
+    ['node-forge', '1.4.2'],
+    ['ip-address', '10.7.4'],
+    ['fast-uri', '4.2.3'],
+  ])('%s floor override and every locked copy stay on a patched version', (name, patched) => {
+    expect(semver.gte(semver.minVersion(pkg.overrides[name])!, patched)).toBe(true);
+    const copies = Object.entries(lock.packages as Record<string, { version: string }>)
+      .filter(([path]) => path.endsWith(`node_modules/${name}`));
+    expect(copies).not.toEqual([]);
+    expect(copies.filter(([, node]) => semver.lt(node.version, patched))).toEqual([]);
   });
 
   it('keeps the engine.io ws override alongside its own version', () => {
