@@ -1,6 +1,6 @@
 # Sprint 134 — Dated Obligations and Boundary Hardening — Handoff
 
-**Date**: 2026-10-27
+**Date**: 2026-10-28
 **Status**: IN PROGRESS. **PR F #310 SHIPPED** 2026-10-20: merged `63a6cd26` (v11.93.0) by the maintainer (the classifier refused
 Claude's `--admin` merge), deployed by CI/CD 39516935342 (all 15 jobs green, all 9 services healthy, no rollback, no CodeQL re-raise).
 **PR A #311 SHIPPED** 2026-10-21: admin-merged `bf524296` (v11.94.0) on the maintainer's authorization after Codex review;
@@ -45,8 +45,9 @@ all **9 services healthy**, failure notification skipped (no rollback), **0 open
 master**. Merge-commit analyses completed without errors/warnings. Human checks remain pending.
 See *PR V state*.
 **Now:** post-merge record on `agent/codex/sprint-134-pr-b-endorsement-followups`, cut from
-`origin/master` `645d28fd`. This branch contains the record first; PR B scope/plan belongs to a
-new chat. Dependency lane remains Claude's.
+`origin/master` `645d28fd`. This branch contains the record first; PR B implementation has not
+started. **Maintainer allocation, 2026-10-28: Claude authors the next security PR; Codex reviews.**
+Transfer the pushed, clean tree as described in *Security lane transfer* before starting PR B.
 **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
 become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26); the 10-29 deadline no longer applies.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
@@ -64,9 +65,10 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 1. Read this handoff, then `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
 2. Find the next PR in *PR sequence* whose status is not SHIPPED. Reuse its branch if it exists; otherwise
    `git switch -c agent/claude/sprint-134-pr-<letter>-<slug> origin/master`. Never branch off a stale local master.
-3. PR V is shipped; deploy/health are verified in *PR V state*. PR B is the next
-   product PR: start a fresh chat, choose its scope with the maintainer from the spec's PR B section
-   and IDEAS 2026-10-13, then write its plan. Claude's dependency deadline remains higher priority.
+3. PR V is shipped; deploy/health are verified in *PR V state*. **Next: Claude's combined security
+   PR**, with Codex reviewing; follow *Security lane transfer* before switching the shared tree.
+   PR B vouching follows security, ahead of trust-history accuracy unless evidence changes priority.
+   Write its plan in a fresh chat using the spec's PR B section and IDEAS 2026-10-13.
    PR V human validation and PR L2's nightly reputation-log validation are separate open checks.
 4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
    slash command; superpowers removed it as a deprecated stub.
@@ -81,8 +83,54 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 | Field | Value |
 |---|---|
 | **Current branch** | `agent/codex/sprint-134-pr-b-endorsement-followups`, from `origin/master` `645d28fd` (#321, v11.102.0). First commit records PR V's merge/deploy; PR B implementation has not started. |
-| **Active editor** | Codex (post-merge record only); leave branch pushed/clean for the next handoff. New PR B planning needs a fresh chat and maintainer scope choice. |
-| **Shared resources** | dependency lane: **Claude** (maintainer-designated), dependency PR due before **2026-11-01 17:00 PDT**. No manifest/lock edits except version bump. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
+| **Active editor** | After Codex pushes this handoff and verifies a clean tree, **Claude** owns the next security implementation; **Codex is the reviewer** and makes no concurrent edits. PR B is deferred. |
+| **Shared resources** | dependency lane: **Claude** (maintainer-designated), security PR due before **2026-11-01 16:00 PST (2026-11-02 00:00 UTC)**. Claude owns the scoped dependency edits below; Codex changes no manifest/lockfile in this handoff. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
+
+## Security lane transfer — 2026-10-28
+
+**Assignment:** the maintainer gives Claude the next implementation lane and Codex the review.
+One combined security PR, rather than separate dependency merges. No dependency work has started
+in this checkout. Claude may switch only after Codex's handoff is pushed and `git status` is clean.
+
+**First action:** fetch and reconcile master/open PRs, then cut
+`agent/claude/sprint-134-security-followups` from `origin/master`. Preserve the doc-only commits
+on `origin/agent/codex/sprint-134-pr-b-endorsement-followups` (starting with `4b0c6386`, PR V's
+post-merge record) by cherry-picking that branch's doc-only commits not already in master, in order.
+Inspect the range first; pause on cross-agent conflicts. This carries the release record and this
+allocation onto the security branch without a docs-only push to master. Claude then owns this
+handoff on its branch; do not start concurrent PR B edits in the shared tree.
+
+**Approved implementation scope:**
+- Move locked `node-forge` 1.4.0 to **1.4.2**. On 2026-10-28 the npm registry confirms 1.4.2
+  exists, and the locked `@expo/cli` and `@expo/code-signing-certificates` both accept `^1.3.3`.
+  The maintainer reports the 1.4.1 changelog fixes the signature forgery; that is a hypothesis
+  until audit of the updated lock proves GHSA-86w9-cpqp-85rv is cleared. GitHub's advisory still
+  reports `<= 1.4.0` with `first_patched_version: null` at this check.
+- **Remove the node-forge exemption once that audit proof passes.** Removing an obsolete
+  exemption is included in this scope; no separate sign-off or weekly renewal is planned.
+  If the advisory remains, report the blocker; do not silently renew or dismiss it.
+- Patch `ip-address` to **10.7.4 or later compatible fixed version**, and `fast-uri` to **4.2.3**.
+  Prefer surgical lock edits; inspect #318's +3/−81 lock diff rather than adopting its removals
+  without explanation. #318 remains a queued proposal; do not merge it as an additional deploy.
+- Write up **deepmerge alert #178** for a maintainer decision by approximately **2026-11-11**:
+  reported low severity, no fix, Expo/Jest tooling reach. Verify that reach and advisory state;
+  preparing the decision is in scope, accepting risk or dismissing the alert is not pre-approved.
+  Do not add a low finding to the high/critical exemption registry.
+
+Deadline: **Sunday 2026-11-01 16:00 PST = Monday 2026-11-02 00:00 UTC** (DST ends that morning).
+Use surgical manifest/lock splices, registry metadata/integrity and node-by-node diff checks,
+strict `npm ci`, audit and the required local/CI gates. No scratch lock regeneration,
+`npm install --workspace`, or unrelated dependency churn. Recheck the version against master.
+Expo drift #316 still awaits its separate maintainer decision. Stop at PR creation for Codex
+review; merging requires separate maintainer authorization. No demo-host operation is authorized.
+
+**Product queue after security:** PR B makes vouching easier. Its plan must cover completed
+matches (possibly several), expose partners only to the two participants of each exchange, and
+offer a vouch prompt only for skills visible to that viewer and eligible at the endpoint. Request
+read permission alone (including historical helper/preferred-provider access) does not establish
+completed-partner status. The current detail projection only returns proposed/matched matches
+(`services/request-service/src/routes/requests.ts:1633`); verify this again when planning.
+Trust-history replay accuracy remains separate; actual measured drift would change priority.
 
 ## Spec and plans
 
@@ -102,6 +150,7 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 | 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers, numeric widths and nightly isolation; **BUG-070** | BUG-070 **2026-11-03** | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md) | **SHIPPED** #320 `47c9a323` (v11.101.0), CI/CD 40579675258 green; nightly human validation pending. |
 | 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **SHIPPED** `dd585016` (#319, v11.100.0), CI/CD 40441255956 green; real SQL 101/101. Human validation pending; see *PR K state* |
 | 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **SHIPPED** #321 `645d28fd` (v11.102.0), CI/CD 40631196261 green 14/14; 9 healthy; 0 open master CodeQL alerts. Human checks pending. |
+| — | **Security follow-up** | node-forge 1.4.2 + verified exemption removal; ip-address 10.7.4+; fast-uri 4.2.3; deepmerge decision write-up | **2026-11-01 16:00 PST** | *Security lane transfer* above | **NEXT: Claude authors, Codex reviews** (maintainer allocation 2026-10-28). |
 | 8 | **B** | PR B endorsement follow-ups (`docs/IDEAS.md` 2026-10-13) | — | write at PR start | Not started; branch holds V's post-merge record only. Scope with maintainer in a fresh chat. |
 | 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
 | — | **Per-community health-quality weight (planned PR)** | Persist the weight in `communities.community_configs`; choose a quality signal source; requires an ADR number allocated by the maintainer | Not scheduled | Write after ADR allocation + signal decision | Separate planned PR, not part of L2 |
@@ -138,8 +187,9 @@ Raw analysis results are separate from the open-alert query. No alerts were dism
 **Next branch:** `agent/codex/sprint-134-pr-b-endorsement-followups` from `origin/master` `645d28fd`.
 The first commit is this post-merge record (handoff + PR V plan), with no runtime/dependency/version/schema change. No B
 implementation, ADR allocation or future version reservation is made. Claude retains the dependency
-lane and its PR due before **2026-11-01 17:00 PDT**. #318 remains a separate queued security PR
-(fast-uri, due 11-06); #321's authorization does not authorize its admin merge.
+lane and its PR due before **2026-11-01 16:00 PST (2026-11-02 00:00 UTC)**. #318 is a queued
+proposal (fast-uri, due 11-06); the maintainer now assigns its fix to Claude's combined security
+PR above. #321's authorization does not authorize any further admin merge.
 
 The sections below are the **pre-merge implementation/validation history**. Current release state
 is the post-merge record above; the PR's Validation ledger links the green 291-case SQL run.
@@ -147,7 +197,8 @@ is the post-merge record above; the PR's Validation ledger links the green 291-c
 Branch `agent/codex/sprint-134-pr-v-read-boundaries`, from `origin/master` `47c9a323`.
 First commit `1721dc5f` is the #320 post-merge record. Root version **11.102.0** is provisional;
 manifest/lock edits are only its three root version occurrences. Dependency lane stays Claude's,
-with a dependency PR due before **2026-11-01 17:00 PDT**. No merge/deploy requested or performed.
+with a dependency PR due before **2026-11-01 16:00 PST (2026-11-02 00:00 UTC)** (timezone corrected
+2026-10-28). No merge/deploy requested or performed at that implementation checkpoint.
 
 Plan: [2026-10-27-sprint-134-pr-v-read-boundaries.md](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md).
 Implemented: identical foreign/absent 404 on request update/cancel/privacy (including guarded
@@ -237,10 +288,10 @@ the PR Validation ledger; no local DB execution is claimed.
 post-deploy edits only add verified release metadata. Staged feedback/whitespace/process review
 close before committing; normal pre-push hooks verify the pushed record. There is no master push.
 
-**Next action:** in a fresh chat scope PR B from
-`docs/superpowers/specs/2026-10-20-sprint-134-dated-obligations-design.md` PR B (`:249`) with the
-maintainer. Keep human checks open; dependency lane/deadline remains Claude's. The merge slot is
-free after the successful health verification, but #318 requires its separate review/authorization.
+**Next action:** transfer the clean, pushed tree to Claude for the combined security PR; Codex
+reviews. Follow *Security lane transfer* above. PR B planning follows security in a fresh chat.
+Keep human checks open. The merge slot is free after successful health verification; no further
+merge is authorized by #321's approval.
 
 ## PR L2 state (Codex author/executor, 2026-10-27)
 
@@ -785,9 +836,10 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | ~~follow-redirects GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c (high)~~ | ~~2026-10-27~~ | **DONE**: #310 `63a6cd26`, live 2026-10-21 00:00Z. Dependabot never raised alerts for them (the lock moved within hours); open alerts are only #168 node-forge and #169 braces (exempted) |
 | ~~BUG-063~~ | ~~2026-10-24~~ | **DONE**: #311 `bf524296` (v11.94.0), live 2026-10-21; no risk acceptance needed |
 | ~~`next` GHSA-2464-fhr4-w9xw (critical) + GHSA-p3m5-59mp-jv5r (high)~~ | ~~now~~ | **DONE**: #314 `0321c415` (v11.97.0), live 2026-10-22 21:14Z (CI/CD 39853173679) |
-| **node-forge ADR-059 exemption** | **2026-11-02** (gate fails from 2026-11-01 17:00 PDT) | Renewed in PR X (2026-10-26). Re-check before then: remove it if fixed, else renew 7 days (each renewal needs authorization). braces is gone (advisory withdrawn; BUG-059 closed) |
-| `ip-address` GHSA-rxp7-6hxx-x8q5 (moderate) | **2026-11-05** | Published 2026-10-22; `<= 10.7.3`, fixed 10.7.4; lock 10.7.2 (override `>=10.7.2`). Not yet scheduled |
-| `fast-uri` GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr (moderate) + 2 low | **2026-11-06** | Published 2026-10-23; `>= 4.0.0 < 4.2.3`, fixed 4.2.3; lock 4.2.1 (override `>=4.2.1`). Not yet scheduled. Dependabot **#318** (`fast-uri` 4.2.1 → 4.2.3, opened 2026-10-26 22:10Z) is a **queued proposal**, not the lane holder. Its lock diff is +3/−81 lines, so inspect what it drops before using it |
+| **node-forge ADR-059 exemption** | **2026-11-02 00:00 UTC (2026-11-01 16:00 PST)** | Renewed in PR X (2026-10-26). **Claude's next security PR:** patch lock 1.4.0 → 1.4.2 and remove exemption once updated-lock audit confirms GHSA-86w9-cpqp-85rv cleared. No renewal planned. Registry/ranges verified 2026-10-28; changelog alone is not fix proof. braces is gone (advisory withdrawn; BUG-059 closed). |
+| `ip-address` GHSA-rxp7-6hxx-x8q5 (moderate) | **2026-11-05** | Published 2026-10-22; `<= 10.7.3`, fixed 10.7.4; lock 10.7.2 (override `>=10.7.2`). **Scheduled in Claude's combined security PR.** |
+| `fast-uri` GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr (moderate) + 2 low | **2026-11-06** | Published 2026-10-23; `>= 4.0.0 < 4.2.3`, fixed 4.2.3; lock 4.2.1 (override `>=4.2.1`). **Scheduled in Claude's combined security PR.** Dependabot **#318** (`fast-uri` 4.2.1 → 4.2.3, opened 2026-10-26 22:10Z) is a **queued proposal**, not the lane holder. Its lock diff is +3/−81 lines; inspect its removals. |
+| `deepmerge` alert **#178** (low) | **~2026-11-11** written decision (maintainer target) | No fix and Expo/Jest tooling-only reach reported by maintainer 2026-10-28; Claude verifies reach/advisory and prepares decision in the security PR. Gate blocks high/critical, so no exemption entry needed for this low. Risk acceptance/dismissal needs a separate decision. |
 | ~~node-forge + braces ADR-059 exemptions~~ → **Security PR X** | ~~EXPIRED 2026-10-26 00:00Z~~ | **DONE**: #317 `e15622bc` (v11.98.0), live 2026-10-26 22:25Z (CI/CD 40410093954). The lapse blocked pushes and CI Security Audit from 10-26 00:00Z until the merge. body-parser/undici/zod highs fixed inside their SLA (body-parser due 10-30). BUG-059 closed |
 | ~~**PR L** (BUG-068)~~ | ~~2026-10-29~~ | **DONE**: #315 `ff3f394e` (v11.99.0), merged 2026-10-26 23:05:13Z (CI/CD 40417261628); post-deploy queue check PASS. The demo key cleanup is a separate, unscheduled operation (*PR L state*) |
 | ~~**BUG-069**~~ | ~~2026-10-30~~ | **DONE**: #319 `dd585016` (v11.100.0), merged 2026-10-27 02:55:40Z (CI/CD 40441255956). **ADR-102** Implemented. No risk acceptance or split was needed |
