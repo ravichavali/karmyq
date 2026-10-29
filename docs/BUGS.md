@@ -2014,3 +2014,24 @@ can accumulate several completed matches. Found during Sprint 134 PR B planning.
 tolerates several completed matches per request).
 
 ---
+
+## BUG-075 · [2026-10-29] · open
+
+Request-status writers outside the cancel route have no status guard, so completed asks get reopened or re-matched.
+Evidence: read-only counts on the demo database, 2026-10-29 (maintainer-authorized, one read-only transaction, rolled
+back): **119** requests hold more than one completed match; **52** `open` and **2** `matched` requests hold a completed
+match; **0** cancelled matches carry `completed_at`, so BUG-074's cancel route is not the source. Candidate writers, from
+reading the code (which one produced the demo rows is UNVERIFIED):
+
+- The reject reopen, `UPDATE requests.help_requests SET status = 'open' WHERE id = $1 AND status != 'matched'`
+  (`services/request-service/src/routes/matches.ts:514`), reopens a `completed`, `cancelled` or `dibs_pending` request.
+- Accept sets the request to `matched` with no request-status check (`matches.ts:361-366`).
+- `POST /requests/:id/propose-match` (`services/request-service/src/routes/adminActions.ts`, about lines 95-150) has no
+  request-status check, so a proposal can land on a completed ask.
+- Dibs accept (`services/request-service/src/routes/dibs.ts:323-338`) inserts a `matched` match and never rejects the
+  sibling `proposed` matches, so a stale proposal can outlive the exchange.
+- Dibs decline and expire reopen the request unconditionally (`dibs.ts:420`, `dibs.ts:481`).
+
+Found during BUG-074 planning; not fixed in the BUG-074 PR.
+
+---

@@ -54,8 +54,10 @@ code-scanning alerts, 0 open Dependabot alerts. deepmerge #178 dismissed `tolera
 passed **14/14** including Deploy to Demo; all 9 services healthy; "Notify on failure" skipped (no rollback); 0 open CodeQL
 alerts on master; the `/language:actions` "Unknown Error" carried from `4ee38e82` **cleared** on `d8da50f0`. The four PR B
 human checks stay open until the maintainer reports them. See *PR B state → Post-merge*.
-**Now:** **BUG-074 planning** (match cancel has no status guard) on `agent/claude/sprint-134-pr-bug-074-cancel-guard`, from
-`origin/master` `d8da50f0`. Planning chat 2026-10-28; execution is the next chat.
+**Now:** **BUG-074 PLANNED, ready to execute** (match cancel and complete status guards) on
+`agent/claude/sprint-134-pr-bug-074-cancel-guard`, from `origin/master` `d8da50f0`. Spec + plan pushed by the planning chat
+(2026-10-28 → 2026-10-29); the maintainer answered all five design questions. **Execution is the next chat.** See
+*BUG-074 plan*. New: **BUG-075** (other request-status writers lack a guard; demo rows exist), logged, not scheduled.
 **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
 become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26); the 10-29 deadline no longer applies.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
@@ -74,10 +76,13 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 2. Find the next PR in *PR sequence* whose status is not SHIPPED. Reuse its branch if it exists; otherwise
    `git switch -c agent/claude/sprint-134-pr-<letter>-<slug> origin/master`. Never branch off a stale local master.
 3. PR V, the security follow-up (#322) and **PR B (#323)** are shipped; deploy/health are verified in *PR V state*,
-   *Security follow-up state → Post-merge* and *PR B state → Post-merge*. **BUG-074 is being planned** on
-   `agent/claude/sprint-134-pr-bug-074-cancel-guard`. Open human checks, each reported by the maintainer: PR B's four
-   (check 1 is the only proof of demo RLS for `rated_by_me`), PR V's, and PR L2's nightly reputation log.
-4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
+   *Security follow-up state → Post-merge* and *PR B state → Post-merge*. **BUG-074 is planned:** reuse the existing
+   branch `agent/claude/sprint-134-pr-bug-074-cancel-guard` (`git switch` it; merge `origin/master` in if master moved).
+   Open human checks, each reported by the maintainer: PR B's four (check 1 is the only proof of demo RLS for
+   `rated_by_me`), PR V's, and PR L2's nightly reputation log.
+4. Open the plan: [`docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md`](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md)
+   (spec: [`docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-074-cancel-guard-design.md`](../../docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-074-cancel-guard-design.md)).
+   Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
    slash command; superpowers removed it as a deprecated stub.
 5. One fresh chat per PR (CLAUDE.md *Chat cadence*). Update this file at every PR open/merge.
 6. **Stopping point = PR creation (maintainer, 2026-10-22, standing).** Run all gates, push this handoff on the PR branch marking
@@ -90,8 +95,79 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 | Field | Value |
 |---|---|
 | **Current branch** | `agent/claude/sprint-134-pr-bug-074-cancel-guard`, from `origin/master` `d8da50f0` (#323, v11.104.0). First commit: the #323 post-merge record. The merged `agent/claude/sprint-134-pr-b-vouch-from-request` is safe to delete (maintainer's call): its head `69f277d8` has the same tree as `d8da50f0` (`f37f5eda`). Previous: `agent/claude/sprint-134-pr-b-vouch-from-request`, from `origin/master` `4ee38e82` (#322, v11.103.0); its first commit was the #322 post-merge record. The old `agent/codex/sprint-134-pr-b-endorsement-followups` is **safe to delete** (maintainer's call): its two docs commits `4b0c6386`/`56357e50` are patch-identical (`git patch-id --stable`) to `ac08fbf4`/`0685c058`, both ancestors of #322's head `1ecf1a05`, whose tree equals master's `4ee38e82` tree. (`git cherry` shows them as missing only because #322 was squash-merged.) |
-| **Active editor** | **Claude** authored PR B (executed 2026-10-28); **Codex reviews** the open PR. No concurrent edits on this branch: review findings come back through the maintainer to the next Claude chat. |
+| **Active editor** | **Claude** planned BUG-074 (2026-10-29) and executes it in the next chat; **Codex reviews** the PR once open. No concurrent edits on this branch: review findings come back through the maintainer to the next Claude chat. (PR B: Claude authored, executed 2026-10-28, shipped.) |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated); nothing dependency-dated is open after #322 except Expo drift #316 (awaiting a maintainer decision) and BUG-041's re-check by 2026-11-14. PR B is product work and edits no manifest or lockfile beyond the root version. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
+
+## BUG-074 plan (Claude, planning chat 2026-10-28 → 2026-10-29)
+
+**Goal:** `DELETE /matches/:id` and `PUT /matches/:id/complete` change a match only while it is `matched`, refusing
+everything else with a 409 and an ADR-074 string code, with the guard enforced inside the writing statement.
+
+- **Spec:** [`docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-074-cancel-guard-design.md`](../../docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-074-cancel-guard-design.md)
+- **Plan:** [`docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md`](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md) (12 tasks)
+- **Branch:** `agent/claude/sprint-134-pr-bug-074-cancel-guard` (from `d8da50f0`). **Version:** 11.105.0, provisional.
+- **ADR:** none (maintainer agreed). **Migration:** none. **Dependency change:** none beyond the root version.
+
+**Maintainer decisions (2026-10-29), all as recommended:** (1) cancel `matched` only; (2) the request changes only while
+`matched` with no other `matched` match: `completed` if a completed match remains, else `open`; the offer is freed only
+while `matched`; (3) 409 `MATCH_NOT_CANCELLABLE`; (4) read-only demo counts authorized and run, repair separate;
+(5) the complete guard is in this PR: 409 `MATCH_NOT_COMPLETABLE`, the idempotent 200 kept on both paths.
+
+**Demo counts (maintainer-authorized, run once 2026-10-29 in `BEGIN TRANSACTION READ ONLY ... ROLLBACK`):** 119 requests
+with >1 completed match; **0** cancelled matches carrying `completed_at`; 52 `open` + 2 `matched` requests holding a
+completed match. The 0 shows the cancel route never undid a completion on demo (it has no caller). The non-zero rows
+come from other writers, logged as **BUG-075** (out of scope; which writer produced them is UNVERIFIED).
+
+**Key findings the plan rests on (verified, `file:line` in the spec):** no client calls cancel (`cancelMatch` is unused in
+web and mobile; no simulation or e2e caller); complete is offered only on `matched`; `match_cancelled` is unconsumed;
+complete locks match then request, accept/reject request then match, so cancel must take the match row first.
+
+**Human checks (after merge and deploy; the maintainer reports them):** (1) `DELETE /api/matches/<completed match id>`
+as a participant answers 409 `MATCH_NOT_CANCELLABLE` and the match stays completed; (2) a normal two-party mark-done
+still completes and awards karma.
+
+**Critical implementation notes (from the spec, verbatim):**
+
+1. **The guard lives in the write.** Cancel's match `UPDATE` carries `AND status = 'matched'`; complete's done_at
+   `UPDATE` carries `AND status = 'matched'`. A status check before the transaction may stay as a fast path but must
+   never be the only guard: under READ COMMITTED a completion that has not committed is invisible to it.
+2. **Lock order: match row first, then the request row.** In cancel, the guarded match `UPDATE` comes before
+   `SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE`. Complete already runs match then request
+   (`matches.ts:622-645`). Do not copy accept/reject's request-first order into cancel: it would deadlock with complete.
+3. **The reopen is its own statement, after the request lock**, and changes the request only when `r.status = 'matched'`
+   and no other match on it is `'matched'`: `'completed'` when another completed match exists, else `'open'`. It never
+   touches an `open`, `dibs_pending`, `completed` or `cancelled` request.
+4. **Free the offer only while it is `matched`:** `WHERE id = $1 AND status = 'matched'`. A withdrawn offer stays withdrawn.
+5. **Literal statuses only.** Never pass a status as a parameter compared with `requests.matches.status`; in test
+   fixtures, cast any status parameter (`$n::varchar`). The route's parameters stay `[id]` / `[request_id]` / `[offer_id]`.
+6. **Identity is `req.user!.userId` only** (ADR-064). No JWT `communities` claim read anywhere
+   (`tests/regression/sprint-134-pr-k-claim-gate.test.ts` fails on one). Non-participants keep the 404 from
+   `matchParticipantSql`.
+7. **Complete stays idempotent for an already-completed match on both paths:** the pre-read fast path (`:606-612`) and
+   the race path (guarded `UPDATE` hits 0 rows, re-read says `'completed'`). Neither stamps `completed_at` nor publishes
+   `match_completed` again (Sprint 126 / ADR-096 reasoning in the comment at `:592-605`). Any other status → 409
+   `MATCH_NOT_COMPLETABLE`.
+8. **Refuse with `rowCount === 0`**, as reject does (`:488`). The existing `two-phase-completion.test.ts` mocks return the
+   done_at `UPDATE` without `rowCount`, so `undefined` must pass through; every new refusal test sets `rowCount: 0`.
+9. **`match_cancelled` publishes only after a successful commit** and stays in `UNCONSUMED_EVENTS`. No routing, registry
+   event or queue change.
+10. **Directed-surface gate** (`tests/regression/sprint-132-directed-audience-gate.test.ts`): write the new lock as the
+    exact single-line literal `SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE` so the existing allowlist
+    hash `37124d9f…` covers it (matching is file + hash). The new reopen statement replaces the old cancel reopen, whose
+    entry (`2fe695cd…`, label `SET status = 'open'`) then goes stale: **the gate fails on a stale entry as well as on an
+    unlisted hit.** Replace that entry with the new statement's hash.
+11. **The real-SQL test is CI-only on Windows** (no local Docker). Its race cases prove the wait with
+    `pg_blocking_pids(<holder pid>)` over `pg_locks`, never a sleep, and release the holder client in `finally`.
+12. **Fixture columns are checked against `infrastructure/postgres/init.sql`:** `help_offers` needs `community_id`,
+    `offerer_id`, `title`, `description`, `category` (NOT NULL); `matches` needs `request_id`, `responder_id` (NOT NULL);
+    `help_requests` as in `tests/integration/sprint-134-pr-b-viewer-partners.integration.test.ts:55-57`.
+13. **Tests first:** request-service `tests/tdd/` (red), then the implementation; promote with
+    `node scripts/promote-tdd-tests.js` (`.npmrc` sets `ignore-scripts`) and restore any unrelated file it sweeps.
+14. **No migration, no dependency change.** The only lockfile edit is the root version: `package.json` and the two root
+    `"version"` lines in `package-lock.json`, as in `d8da50f0`.
+15. **Do not fix BUG-075 here,** even where a line sits next to the code being changed (the reject reopen at `:514`).
+
+**Planning commits on the branch:** `0286f97e` (#323 post-merge record), then the spec + plan + BUG-075 + this handoff.
 
 ## PR B plan (Claude, planning chat 2026-10-28)
 
@@ -447,6 +523,8 @@ export), so the blocker is unchanged.
 - Spec: [`docs/superpowers/specs/2026-10-20-sprint-134-dated-obligations-design.md`](../../docs/superpowers/specs/2026-10-20-sprint-134-dated-obligations-design.md)
 - PR B spec: [`docs/superpowers/specs/2026-10-28-sprint-134-pr-b-vouch-from-request-design.md`](../../docs/superpowers/specs/2026-10-28-sprint-134-pr-b-vouch-from-request-design.md)
 - PR B plan: [`docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md`](../../docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md)
+- BUG-074 spec: [`docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-074-cancel-guard-design.md`](../../docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-074-cancel-guard-design.md)
+- BUG-074 plan: [`docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md`](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md)
 
 ## PR sequence
 
@@ -464,7 +542,9 @@ export), so the blocker is unchanged.
 | 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **SHIPPED** #321 `645d28fd` (v11.102.0), CI/CD 40631196261 green 14/14; 9 healthy; 0 open master CodeQL alerts. Human checks pending. |
 | — | **Security follow-up** | node-forge 1.4.2 + exemption removed; ip-address 10.7.4; fast-uri 4.2.3; deepmerge decision write-up | **2026-11-01 16:00 PST** | *Security follow-up state* | **SHIPPED** `4ee38e82` (#322, v11.103.0), merged 18:56:43Z; CI/CD 40749793316 green 14/14 incl. deploy; 0 open code-scanning / Dependabot alerts; deadline met. |
 | 8 | **B** | Vouch from a completed exchange (`docs/IDEAS.md` 2026-10-13 "Vouch from the request page") | — | [plan](../../docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md) | **SHIPPED** `d8da50f0` (#323, v11.104.0), merged 2026-10-28 23:01:54Z; CI/CD 40784392749 green 14/14 incl. deploy; real SQL 302/302; 0 open CodeQL alerts. Four human checks pending; see *PR B state*. |
-| 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
+| 9 | **BUG-074** | Cancel and complete change a match only while it is `matched` (409 `MATCH_NOT_CANCELLABLE` / `MATCH_NOT_COMPLETABLE`); conditional request/offer updates; v11.105.0 provisional | — | [plan](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md) | **PLANNED** 2026-10-29 on `agent/claude/sprint-134-pr-bug-074-cancel-guard`; execution next chat. See *BUG-074 plan*. |
+| 10 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
+| — | **BUG-075** | Other request-status writers lack a status guard (reject reopen, accept, admin propose-match, dibs accept/decline/expire); demo rows exist | — | not written | Logged 2026-10-29, **not scheduled**; maintainer to decide scope and any demo repair. |
 | — | **Per-community health-quality weight (planned PR)** | Persist the weight in `communities.community_configs`; choose a quality signal source; requires an ADR number allocated by the maintainer | Not scheduled | Write after ADR allocation + signal decision | Separate planned PR, not part of L2 |
 
 B and C are the likeliest to spill into Sprint 135, which is expected. One merge at a time; wait for deploy + health before the next.
@@ -1154,7 +1234,8 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | `deepmerge` alert **#178** (low) | re-check at the next Expo SDK move or **2026-12-01** | **DISMISSED** `tolerable_risk` 2026-10-28 19:24:33Z (maintainer option a). Reach: Expo config tooling + Jest only, no fix exists (4.3.1 latest). Gate blocks high/critical only, so no exemption entry. |
 | `decode-uri-component` BUG-041 (alert #150, dismissed) | re-check by **2026-11-14** | 0.5.1 still ESM-only; blocker unchanged (*Security follow-up state*). |
 | ~~CodeQL `/language:actions` "Unknown Error" on `4ee38e82`~~ | ~~next master push~~ | **CLOSED**: the Actions analysis 2049678160 for `d8da50f0` (#323) completed with no error. |
-| **BUG-074** (`DELETE /matches/:id` cancels completed/rejected matches and reopens the request) | no external date | **Planning 2026-10-28** on `agent/claude/sprint-134-pr-bug-074-cancel-guard`. |
+| **BUG-074** (`DELETE /matches/:id` cancels completed/rejected matches and reopens the request) | no external date | **Planned 2026-10-29** (spec + plan pushed) on `agent/claude/sprint-134-pr-bug-074-cancel-guard`; execution next chat. |
+| **BUG-075** (reject reopen, accept, admin propose-match and dibs writers change request status without a guard) | no external date | **Open, not scheduled.** Demo evidence (read-only, 2026-10-29): 119 requests with >1 completed match; 52 `open` + 2 `matched` requests holding a completed match. Any repair is a separate, authorized demo operation. |
 | ~~node-forge + braces ADR-059 exemptions~~ → **Security PR X** | ~~EXPIRED 2026-10-26 00:00Z~~ | **DONE**: #317 `e15622bc` (v11.98.0), live 2026-10-26 22:25Z (CI/CD 40410093954). The lapse blocked pushes and CI Security Audit from 10-26 00:00Z until the merge. body-parser/undici/zod highs fixed inside their SLA (body-parser due 10-30). BUG-059 closed |
 | ~~**PR L** (BUG-068)~~ | ~~2026-10-29~~ | **DONE**: #315 `ff3f394e` (v11.99.0), merged 2026-10-26 23:05:13Z (CI/CD 40417261628); post-deploy queue check PASS. The demo key cleanup is a separate, unscheduled operation (*PR L state*) |
 | ~~**BUG-069**~~ | ~~2026-10-30~~ | **DONE**: #319 `dd585016` (v11.100.0), merged 2026-10-27 02:55:40Z (CI/CD 40441255956). **ADR-102** Implemented. No risk acceptance or split was needed |
