@@ -62,10 +62,13 @@ on master. It carried the `decode-uri-component` 0.5.1 override, so the HIGH GHS
 its 2026-11-05 SLA; 0 open Dependabot alerts. Accepted cost: mobile URL decoding is broken until mobile's own sprint
 (BUG-041, `docs/IDEAS.md` 2026-10-29). Both BUG-074 human checks reported done by the maintainer on 2026-10-29. See
 *BUG-074 state → Post-merge*.
-**Now:** **BUG-077 planning** (every reputation `match_completed` job fails on the `reputation.badges.name NOT NULL`
-insert, after karma) on `agent/claude/sprint-134-pr-bug-077-badge-insert`, from `origin/master` `ae9f8957`.
+**Now:** **BUG-077 PLANNED, ready to execute** (every reputation `match_completed` job fails on the
+`reputation.badges.name NOT NULL` insert, after karma; plus **BUG-079**, trust-evolution nudges computed on NUMERIC
+strings) on `agent/claude/sprint-134-pr-bug-077-badge-insert`, from `origin/master` `ae9f8957`. Spec, plan and this
+handoff pushed 2026-10-29. See *BUG-077 plan*.
 Open, not scheduled: **BUG-075** (other request-status writers lack a guard), **BUG-076** (pre-push TDD false pass),
-**BUG-078** (unguarded writers beside BUG-074's guards).
+**BUG-078** (unguarded writers beside BUG-074's guards), **BUG-080** (provider completion rate counts a status never
+written).
 **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
 become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26); the 10-29 deadline no longer applies.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
@@ -85,8 +88,8 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
    `git switch -c agent/claude/sprint-134-pr-<letter>-<slug> origin/master`. Never branch off a stale local master.
 3. PR V, the security follow-up (#322), PR B (#323) and **BUG-074 (#324)** are shipped; deploy/health are verified in
    *PR V state*, *Security follow-up state → Post-merge*, *PR B state → Post-merge* and *BUG-074 state → Post-merge*.
-   **BUG-077 is in planning** on `agent/claude/sprint-134-pr-bug-077-badge-insert`; the next chat executes its plan
-   (item 4).
+   **BUG-077 is planned** on `agent/claude/sprint-134-pr-bug-077-badge-insert`; the next chat executes its plan
+   (item 4) and stops at PR creation (item 6).
    **Human checks:** the maintainer reported the **UI checks done on 2026-10-29** (PR A's three exports, PR B's four
    (check 1 included, the demo RLS proof for `rated_by_me`), PR V's reads and requester actions, PR K's demotion and
    provider-offer acceptance, and BUG-074's two: the 409 on cancelling a completed match and a normal two-party
@@ -106,9 +109,11 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
      Also: the auth limiter (10 logins / 15 min / IP) cannot fit D8's three cases (about 5 auth calls each) in one window;
      the first probe tripped it (429). Next: fix the persona (check the account, or rotate the demo stories), then rerun D8
      across two windows. Each is a separate authorization.
-4. The BUG-077 spec and plan are being written in the planning chat (2026-10-29) and are not on the branch yet; until
-   they are, there is nothing to execute. When they land, this item names them. Execution uses
-   `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
+4. Reuse the branch `agent/claude/sprint-134-pr-bug-077-badge-insert` (pushed; `git fetch origin`, then
+   `git switch agent/claude/sprint-134-pr-bug-077-badge-insert`; never branch off a stale local master). Open the plan:
+   [`docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-077-badge-insert.md`](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-077-badge-insert.md)
+   (spec: [`docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-077-badge-insert-design.md`](../../docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-077-badge-insert-design.md)).
+   Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
    slash command; superpowers removed it as a deprecated stub.
 5. One fresh chat per PR (CLAUDE.md *Chat cadence*). Update this file at every PR open/merge.
 6. **Stopping point = PR creation (maintainer, 2026-10-22, standing).** Run all gates, push this handoff on the PR branch marking
@@ -123,6 +128,106 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 | **Current branch** | `agent/claude/sprint-134-pr-bug-077-badge-insert`, from `origin/master` `ae9f8957` (#324, v11.105.0). First commit: the #324 post-merge record. The merged `agent/claude/sprint-134-pr-bug-074-cancel-guard` is safe to delete (maintainer's call): its head `f2967d37` has the same tree as `ae9f8957` (`a3af2e1a`). Previous: `agent/claude/sprint-134-pr-bug-074-cancel-guard`, from `origin/master` `d8da50f0` (#323, v11.104.0); its first commit was the #323 post-merge record. The merged `agent/claude/sprint-134-pr-b-vouch-from-request` is safe to delete (maintainer's call): its head `69f277d8` has the same tree as `d8da50f0` (`f37f5eda`). Previous: `agent/claude/sprint-134-pr-b-vouch-from-request`, from `origin/master` `4ee38e82` (#322, v11.103.0); its first commit was the #322 post-merge record. The old `agent/codex/sprint-134-pr-b-endorsement-followups` is **safe to delete** (maintainer's call): its two docs commits `4b0c6386`/`56357e50` are patch-identical (`git patch-id --stable`) to `ac08fbf4`/`0685c058`, both ancestors of #322's head `1ecf1a05`, whose tree equals master's `4ee38e82` tree. (`git cherry` shows them as missing only because #322 was squash-merged.) |
 | **Active editor** | **Claude** plans BUG-077 (planning chat 2026-10-29); the next Claude chat executes it. No concurrent edits on this branch: review findings come back through the maintainer. (BUG-074: Claude planned and executed, Codex reviewed, shipped 2026-10-29.) |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated). The `decode-uri-component` 0.5.1 override shipped in #324 (`ae9f8957`); BUG-041 is resolved by it. Expo drift #316 still awaits a maintainer decision. The BUG-077 PR edits no manifest or lockfile entry beyond the root version. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
+
+## BUG-077 plan (Claude, planning chat 2026-10-29)
+
+**Goal:** a completed exchange's reputation job succeeds on its first attempt and runs every live side effect: the
+badge insert supplies `reputation.badges.name`, only a karma failure can fail the job, and trust evolution nudges
+compute on numbers.
+
+- **Spec:** [`docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-077-badge-insert-design.md`](../../docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-077-badge-insert-design.md)
+- **Plan:** [`docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-077-badge-insert.md`](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-077-badge-insert.md) (12 tasks, `no-deploy`: stop at PR creation)
+- **Branch:** `agent/claude/sprint-134-pr-bug-077-badge-insert` (from `ae9f8957`). **Version:** 11.106.0, provisional.
+- **ADR:** none (an ADR-016 amendment). **Migration:** none. **Dependency change:** none beyond the root version.
+
+**Maintainer decisions (2026-10-29), all as recommended:** (1) the badge insert supplies a display name from a typed
+`Record<BadgeType, string>` map; **no migration**; (2) badges and the provider completion-rate update are each isolated in
+their own try/catch (only a karma projection failure fails the job); (3) **going forward only**, no demo backfill (a
+helper's next completion catches up every threshold already crossed); (4) the trust-evolution NaN (NUMERIC read as a
+string, `trustEvolutionService.ts:132`) is fixed in this PR as **BUG-079**. Defaults taken without a question: no badge
+notification (none exists); `checkAndAwardBadges` reports only real inserts; provider completion rate logged as
+**BUG-080**, not fixed; the badges docs drift (CONTEXT, README, ARCHITECTURE) fixed in the PR.
+
+**Key findings the plan rests on (verified; `file:line` in the spec):**
+- The table is the initial commit's (`1dea32d1`, 2025-11-03); 024's DDL never ran.
+- Karma commits in its own transaction before the badge step.
+- `pg` 8.23 returns NUMERIC as a string (checked in `node_modules`), and `"0.60" + 0.01` is `"0.600.01"`.
+- Nothing else writes `reputation.badges`. No UI reads it, and no badge event exists.
+- A first-try Bull success reads `attemptsMade 0` (`lib/job.js:586`).
+- The log-rotation cause is **UNVERIFIED**: every query also logs its SQL text (`db.ts:40`).
+
+**Planning dry run (2026-10-29; temporary edits restored, nothing committed):**
+- **Red on `ae9f8957`:** the three tdd files are **8 red / 1 green** (the green one is the preservation case).
+- **Green with Tasks 4–6 applied verbatim:**
+  - the tdd files plus the Sprint 126/133 subscriber suites: **18/18** on 4 runs, one with `--no-cache`;
+  - reputation-service `npm test`: unit 5, regression 334 + 3 todo;
+  - the six root reputation and gate suites: **80/80**;
+  - reputation-service `tsc`: exit 0.
+- **The integration file type-checks;** `--listFilesOnly` shows it is really compiled.
+- **One unexplained first run** right after the edits reported a suite that failed to run, with no failed test. Its
+  output was not captured, and it did not reproduce. The plan now says to capture every run to a file.
+- **The real-SQL test was not run** (CI-only).
+
+**Human checks (after merge and deploy; each is a demo-host read needing its own authorization):** (1) demo schema
+parity: the reputation log shows no `violates not-null constraint` / `Failed to award karma for match` for new
+completions, and shows `🏅 Badge awarded`; (2) PR L2's nightly log over the first 02:00Z run after the deploy (also
+answers whether the window now holds a night). Everything else is test-covered (named in the spec's *Tests*).
+
+**Critical implementation notes (from the spec, verbatim):**
+
+1. **Read the schema, not the code.** `reputation.badges` is `id, user_id, name NOT NULL, description, icon_url,
+   earned_at, badge_type, community_id` (`init.sql:2093-2102`). Migration 024's DDL is not the table.
+2. **No migration and no `init.sql` edit.** The fix is in the insert. `init.sql` is generated; never hand-edit it.
+3. **Names are pinned by tests:** `first_helper` 'First help given', `milestone_10` 'Helped 10 times', `milestone_50`
+   'Helped 50 times', `milestone_100` 'Helped 100 times', `connector` 'Helped 10 different people'. `BADGE_NAMES` is a
+   `Record<BadgeType, string>`, so a new type without a name fails `tsc`.
+4. **Report only real inserts:** `if (result.rowCount === 0) continue;` before pushing to the returned list and
+   logging. `rowCount === 0`, not `!rowCount`: the root `tests/unit/reputation/prestige-badges.test.ts:63` mocks inserts
+   without `rowCount`, and those must still count.
+5. **Karma keeps its rethrow and runs first.** Only the projector may fail the job. Never move badges or the provider
+   update before karma, and never wrap karma in a catch that swallows.
+6. **Each side effect gets its own try/catch** inside the existing outer `try`. Do not restructure or re-indent the
+   trust-evolution block. Log prefix, the match id, then the error:
+   `console.error('[badges] badge check failed, skipping:', match_id, err)`.
+7. **BUG-079 is one coercion at the use site**: `Number(effectiveParams[parameter])` in `evaluateUserEvolution`. Do
+   not change the DB helpers or `getUserEffectiveParams`; that changes `GET /reputation/trust-config`'s wire format.
+8. **Mocks must return what pg returns.** The BUG-079 tdd file feeds NUMERIC values as strings (`'0.60'`, `'0.50'`).
+   Root `jest.config.js` has `resetMocks: true`, which wipes a module-scope `jest.fn(impl)`; use plain functions in
+   `jest.mock` factories, or set implementations in `beforeEach` (`sprint-126-subscriber-boundary.test.ts:19-20`).
+9. **The real-SQL test is CI-only on this Windows box** (no local Docker). It must type-check
+   (`npx tsc --noEmit -p tests/tsconfig.json`, no diagnostics naming the file). Missing infrastructure fails, never
+   skips.
+10. **Fixture facts, from `init.sql`:** no trigger creates `communities.community_configs`, so insert one row
+    (defaults give `community_evolution_enabled true`, `trust_depth_weight 0.60`). Opt the helper in over HTTP with
+    `PUT /reputation/trust-config/:userId/:communityId` `{ evolution_enabled: true }`. `help_requests.request_type` and
+    `visibility_scope` are enums: in an `INSERT ... SELECT` leave them to their defaults (a text literal in a SELECT
+    list will not assign to an enum). Cast status parameters (`$n::varchar`). `karma_records.community_id` has no ON
+    DELETE CASCADE (`init.sql:6145`): delete karma before the community.
+11. **Read the job, never sleep for it:** `getJob('completion-<match id>')` on `karmyq-completion-reputation`, poll its
+    state until `completed` or `attemptsMade > 0`, then assert `{ state: 'completed', attemptsMade: 0, failedReason:
+    null, stacktrace: [] }`. Close every Bull queue the test opens, remove the delayed `karmyq-community-evolution` job
+    (`jobId` = the community id, `trustEvolutionService.ts:151-158`), and end the reputation-service pool the direct case
+    imported (`sprint-126-standing-backfill.integration.test.ts:175-176`).
+12. **The injected badge failure is scoped and always dropped:** a `BEFORE INSERT` trigger on `reputation.badges`
+    raising only for that case's helper id, dropped in `finally` after the job is read (pattern:
+    `sprint-132-directed-audience.integration.test.ts:234-253`).
+13. **Tests first:** reputation-service `tests/tdd/` (red), then the code; promote with
+    `node scripts/promote-tdd-tests.js` (`.npmrc` sets `ignore-scripts`, so `npm test` never runs it) and restore every
+    unrelated file it sweeps (`services/reputation-service/tests/tdd/sprint-125-provider-reputation-auth.test.ts` is
+    already there).
+14. **No dependency or lockfile change** beyond the root version: `package.json` and the two root `"version"` lines in
+    `package-lock.json`.
+15. **No JWT claim reads, no new routes.** The claim gate (`tests/regression/sprint-134-pr-k-claim-gate.test.ts`) must
+    stay green; this PR touches no route.
+16. **Ask before** any merge ("admin merge, yes/no?"), any demo-host operation, any CodeQL dismissal. No ADR number is
+    needed (ADR-016 amendment).
+
+**Carry-forward:** BUG-080 (provider completion rate), BUG-075, BUG-076, BUG-078 stay unscheduled. After the merge,
+record the real-SQL file's first CI result with the post-merge record. The PR touches no `api.ts` lines, so no
+`js/request-forgery` re-raise is expected; still read the merge-sha analyses.
+
+**Planning commits on the branch:** `dd6237ca` (#324 post-merge record), then the spec + plan + BUG-079/080 + this
+handoff.
 
 ## BUG-074 plan (Claude, planning chat 2026-10-28 → 2026-10-29)
 
@@ -666,6 +771,8 @@ export), so the blocker is unchanged.
 - PR B plan: [`docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md`](../../docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md)
 - BUG-074 spec: [`docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-074-cancel-guard-design.md`](../../docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-074-cancel-guard-design.md)
 - BUG-074 plan: [`docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md`](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md)
+- BUG-077 spec: [`docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-077-badge-insert-design.md`](../../docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-077-badge-insert-design.md)
+- BUG-077 plan: [`docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-077-badge-insert.md`](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-077-badge-insert.md)
 
 ## PR sequence
 
@@ -684,7 +791,8 @@ export), so the blocker is unchanged.
 | — | **Security follow-up** | node-forge 1.4.2 + exemption removed; ip-address 10.7.4; fast-uri 4.2.3; deepmerge decision write-up | **2026-11-01 16:00 PST** | *Security follow-up state* | **SHIPPED** `4ee38e82` (#322, v11.103.0), merged 18:56:43Z; CI/CD 40749793316 green 14/14 incl. deploy; 0 open code-scanning / Dependabot alerts; deadline met. |
 | 8 | **B** | Vouch from a completed exchange (`docs/IDEAS.md` 2026-10-13 "Vouch from the request page") | — | [plan](../../docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md) | **SHIPPED** `d8da50f0` (#323, v11.104.0), merged 2026-10-28 23:01:54Z; CI/CD 40784392749 green 14/14 incl. deploy; real SQL 302/302; 0 open CodeQL alerts. Four human checks reported done by the maintainer 2026-10-29; see *PR B state*. |
 | 9 | **BUG-074** | Cancel and complete change a match only while it is `matched` (409 `MATCH_NOT_CANCELLABLE` / `MATCH_NOT_COMPLETABLE`); conditional request/offer updates; **carries the `decode-uri-component` 0.5.1 override** (`f6220d06`); v11.105.0 provisional | **2026-11-05** (the high SLA it carries) | [plan](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md) | **SHIPPED** `ae9f8957` (#324, v11.105.0), merged 2026-10-29 22:04:37Z; CI/CD 40963010356 green 14/14 incl. deploy; real SQL 323/323; 0 open CodeQL / Dependabot alerts; qr28 high fixed inside its SLA. Both human checks reported done by the maintainer 2026-10-29; see *BUG-074 state → Post-merge*. |
-| 10 | **BUG-077** | Reputation `match_completed` job fails on the `reputation.badges.name NOT NULL` insert after karma; trust evolution skipped, every job retried | proposed HIGH; no external date | being written (planning chat 2026-10-29) | **PLANNING** on `agent/claude/sprint-134-pr-bug-077-badge-insert` from `ae9f8957`. |
+| 10 | **BUG-077** (+ **BUG-079**) | Reputation `match_completed` job fails on the `reputation.badges.name NOT NULL` insert after karma (trust evolution skipped, every job retried); badge and provider-rate failures isolated; trust-evolution NaN fixed; v11.106.0 provisional | proposed HIGH; no external date | [plan](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-077-badge-insert.md) | **PLANNED** 2026-10-29 on `agent/claude/sprint-134-pr-bug-077-badge-insert` from `ae9f8957`; next chat executes. See *BUG-077 plan*. |
+| — | **BUG-080** | Provider completion rate counts the never-written match status `'accepted'` (reads 100%) | — | not written | Logged 2026-10-29 while planning BUG-077, **not scheduled**. |
 | — | **BUG-078** | Unguarded writers beside BUG-074's guards: reject/accept revive a withdrawn offer; complete's finalize writes the request `completed` unconditionally; a repeat mark re-stamps done_at | — | not written | Logged 2026-10-29 by BUG-074's `/code-review`, **not scheduled**; pairs with BUG-075. |
 | 11 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
 | — | **BUG-075** | Other request-status writers lack a status guard (reject reopen, accept, admin propose-match, dibs accept/decline/expire); demo rows exist, cause unconfirmed | — | not written | Logged 2026-10-29, **not scheduled**; maintainer to decide scope and any demo repair. |
@@ -1379,7 +1487,7 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | `deepmerge` alert **#178** (low) | re-check at the next Expo SDK move or **2026-12-01** | **DISMISSED** `tolerable_risk` 2026-10-28 19:24:33Z (maintainer option a). Reach: Expo config tooling + Jest only, no fix exists (4.3.1 latest). Gate blocks high/critical only, so no exemption entry. |
 | ~~`decode-uri-component` BUG-041 (alert #150, dismissed)~~ | ~~re-check by 2026-11-14~~ | **RESOLVED** by the 0.5.1 override on the BUG-074 branch (`f6220d06`); mobile URL decoding broken until the mobile sprint (maintainer-accepted). |
 | ~~**`decode-uri-component` GHSA-qr28-fpjm-wq7f (HIGH)**, DoS via quadratic replacement of percent-encoded runs; `<= 0.5.0`, patched 0.5.1~~ | ~~high SLA: 2026-11-05~~ (published 2026-10-29 16:41:28Z) | **DONE**: shipped in #324 `ae9f8957` (v11.105.0), deployed 2026-10-29 22:22Z by CI/CD 40963010356 (Security Audit green). Root override `"decode-uri-component": "0.5.1"`, one lock node. Dependabot never raised a qr28 alert; #150 (GHSA-vcc3, the BUG-041 medium) closed `fixed` at the merge. Accepted cost: `query-string@7.1.3` `parse()` throws (ESM-only 0.5.1); nothing here builds or ships the app. |
-| **BUG-077** (reputation `match_completed` job fails on the `reputation.badges.name NOT NULL` insert, after karma) | proposed HIGH; no external date | **PLANNING** (2026-10-29) on `agent/claude/sprint-134-pr-bug-077-badge-insert`. Demo log window: 497 completion attempts, 498 badge failures, 0 badges. Skips trust evolution, retries every job, and the log window it leaves misses the 02:00Z nightly. |
+| **BUG-077** (reputation `match_completed` job fails on the `reputation.badges.name NOT NULL` insert, after karma) + **BUG-079** (trust-evolution NaN) | proposed HIGH; no external date | **PLANNED** (2026-10-29) on `agent/claude/sprint-134-pr-bug-077-badge-insert`; the next chat executes. Demo log window: 497 completion attempts, 498 badge failures, 0 badges. Skips trust evolution, retries every job, and the log window it leaves misses the 02:00Z nightly. |
 | BUG-076 (pre-push TDD step false pass) | none | Open, not scheduled. |
 | ~~CodeQL `/language:actions` "Unknown Error" on `4ee38e82`~~ | ~~next master push~~ | **CLOSED**: the Actions analysis 2049678160 for `d8da50f0` (#323) completed with no error. |
 | ~~**BUG-074** (`DELETE /matches/:id` cancels completed/rejected matches and reopens the request)~~ | ~~rides the 2026-11-05 high SLA~~ | **DONE**: #324 `ae9f8957` (v11.105.0), merged 2026-10-29 22:04:37Z, deployed by CI/CD 40963010356 (14/14). Both human checks reported done 2026-10-29. |
