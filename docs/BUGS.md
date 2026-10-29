@@ -910,7 +910,7 @@ these checks did not change demo data.
 
 ---
 
-## BUG-041 · [2026-09-14] · open
+## BUG-041 · [2026-09-14] · resolved by override 2026-10-29 (Sprint 134 BUG-074 PR); mobile URL decoding broken until the mobile sprint
 
 **`decode-uri-component` alert #150 cannot be remediated by a dependency change.**
 GHSA-vcc3-ghjq-m6fr / CVE-2026-45822, medium: denial of service via exponential decoding of
@@ -927,6 +927,15 @@ Alert dismissed as `tolerable_risk` on 2026-09-14 by maintainer decision (Sprint
 
 Re-check trigger: expo-router drops `query-string@7`, or the SDK 58 migration — **re-check by
 2026-11-14** at the latest.
+
+**Resolution (2026-10-29, maintainer decision):** a second advisory, GHSA-qr28-fpjm-wq7f (**high**, DoS via
+quadratic replacement of percent-encoded runs, `<= 0.5.0`, patched 0.5.1, published 2026-10-29 16:41:28Z), failed
+both ADR-059 gates on every push. The maintainer chose the override over an exemption: root `overrides` pin
+`"decode-uri-component": "0.5.1"` (commit `f6220d06`, in the BUG-074 PR), which clears both advisories. The cost
+predicted above is real and accepted: `query-string@7.1.3`'s `parse()` now throws `decodeComponent is not a function`
+(reproduced in Node, even for `a=b`), so expo-router URL decoding breaks in the mobile app. Nothing in this repo
+builds or ships the app (no `eas.json`, no release workflow), and the maintainer scheduled mobile as its own sprint
+(`docs/IDEAS.md` 2026-10-29), which must replace or upgrade the `query-string@7` path before the app ships again.
 
 ---
 
@@ -2056,5 +2065,36 @@ The pre-push hook's TDD step reports "✓ TDD tests passed" without running a si
 Seen on the push of `9af57d4b` (2026-10-29). The TDD tier is report-only (CLAUDE.md, ADR-029), so nothing was blocked,
 but the hook prints a green message for a step that cannot run. Noticed in that push's output; the maintainer-relayed
 review of the BUG-074 plan traced the `tail` exit status.
+
+---
+
+## BUG-077 · [2026-10-29] · open · **HIGH** (proposed)
+
+**Every `match_completed` job in reputation-service fails on the badge insert, after karma is awarded.**
+`checkAndAwardBadges` inserts `INSERT INTO reputation.badges (user_id, badge_type) ... ON CONFLICT (user_id, badge_type)
+DO NOTHING` (`services/reputation-service/src/services/badgeService.ts:86`), but `reputation.badges.name` is
+`character varying(255) NOT NULL` (`infrastructure/postgres/init.sql`, `CREATE TABLE reputation.badges`). Migration 024
+(`024-prestige-badges.sql:12`) used `CREATE TABLE IF NOT EXISTS`. An older `badges` table with `name NOT NULL` already
+existed, so 024 only added `badge_type`, `community_id` and `earned_at`. The insert has therefore never succeeded.
+Because no badge row can exist, every helper qualifies for `first_helper` on every completion, so every job tries it.
+
+Evidence (demo, 2026-10-29, read-only `docker logs karmyq-reputation-service`, maintainer-authorized during the PR L2
+check): in the retained window, `Processing match_completed event` 497, `Karma awarded for match` 497,
+`Failed to award karma for match` 498, `violates not-null constraint` 498 (`23502`, column `name`, badge
+`first_helper`), `Badge awarded` 0.
+
+Effects:
+- The throw happens inside the handler's main `try` (`services/reputation-service/src/events/subscriber.ts:74`).
+  The trust-evolution block after it never runs (Sprint 30 signals), and the outer catch logs a misleading
+  "Failed to award karma" and rethrows, so Bull retries every completion job. Karma itself is idempotent (ADR-096).
+- Prestige badges (ADR-016, Sprint 14, 2026-03-04) have never been awarded.
+- The stack traces fill the container's `json-file` log (3 × 10 MB) within about two hours. That rotated away the
+  2026-10-29 02:00 nightly logs, so PR L2's human validation could not be done.
+- CI's real SQL runs init.sql with the same `NOT NULL`, but no test asserts a completion job's outcome. The mocked
+  unit tests (`tests/unit/reputation/prestige-badges.test.ts`) never meet the constraint.
+
+Fix direction (not decided): a migration that drops `NOT NULL` from `name` (or the insert supplies a display name);
+isolate badge failures like the trust-evolution block so they cannot fail the job; a real-SQL test that completes a
+match and asserts a badge row and a successful job. Found during the PR L2 log check; not fixed in the BUG-074 PR.
 
 ---

@@ -17,7 +17,10 @@ No schema, event, queue, dependency or client change.
 **Branch:** `agent/claude/sprint-134-pr-bug-074-cancel-guard` (exists, pushed, cut from `origin/master` `d8da50f0`).
 **Version:** 11.104.0 → 11.105.0, **provisional**: re-derive from `origin/master`'s `package.json` at merge time.
 **Rules (maintainer):** no demo-host operation, merge or CodeQL dismissal without explicit per-operation authorization;
-no dependency or lockfile change beyond the root version; push and leave the tree clean at every stopping point.
+no dependency or lockfile change beyond the root version and the `decode-uri-component` override already on the branch;
+push and leave the tree clean at every stopping point.
+**Deadline:** this PR carries the fix for `decode-uri-component` GHSA-qr28-fpjm-wq7f (**high**), so it must be merged and
+deployed by **2026-11-05** (spec, *Security Fix Carried by This PR*).
 
 ---
 
@@ -28,6 +31,13 @@ no dependency or lockfile change beyond the root version; push and leave the tre
 |------|---------------|
 | `services/request-service/tests/tdd/sprint-134-bug-074-match-status-guards.test.ts` | Mocked SQL contract: the guards' exact SQL, statement order, parameters, refusal codes, no event on refusal. Promoted to `tests/regression/` in Task 7. |
 | `tests/integration/sprint-134-bug-074-match-status-guards.integration.test.ts` | Real SQL over HTTP: the per-status matrix, request end states (including `open`, `dibs_pending`, `completed` and `cancelled` asks left as they are) and offer end states, complete refusals, and three race cases that separate a write guard from a pre-read check (cancel behind a completion, final mark behind a cancel, final mark behind a completion with a positive-control publication check). CI-only on Windows. |
+
+### Already on the branch (do not redo)
+| File | Change |
+|------|--------|
+| `package.json`, `package-lock.json` | `decode-uri-component` 0.5.1 override + one spliced lock node (`f6220d06`) |
+| `tests/regression/sprint-131-d9-security-overrides.test.ts` | Exact-pin row for `decode-uri-component` 0.5.1 |
+| `docs/BUGS.md`, `docs/IDEAS.md`, `apps/mobile/claude.md` | BUG-041 resolution, BUG-075/076/077, the mobile-sprint entry, the mobile warning |
 
 ### Existing files to modify
 | File | Change |
@@ -83,8 +93,9 @@ no dependency or lockfile change beyond the root version; push and leave the tre
     `help_requests` as in `tests/integration/sprint-134-pr-b-viewer-partners.integration.test.ts:55-57`.
 13. **Tests first:** request-service `tests/tdd/` (red), then the implementation; promote with
     `node scripts/promote-tdd-tests.js` (`.npmrc` sets `ignore-scripts`) and restore any unrelated file it sweeps.
-14. **No migration, no dependency change.** The only lockfile edit is the root version: `package.json` and the two root
-    `"version"` lines in `package-lock.json`, as in `d8da50f0`.
+14. **No migration. One dependency change, already on the branch:** the `decode-uri-component` 0.5.1 override
+    (`f6220d06`; maintainer decision 2026-10-29 to fix GHSA-qr28-fpjm-wq7f in this PR). Add no other. The version bump
+    edits only `package.json` and the two root `"version"` lines in `package-lock.json`, as in `d8da50f0`.
 15. **Do not fix BUG-075 here,** even where a line sits next to the code being changed (the reject reopen at `:514`).
 
 ---
@@ -1055,8 +1066,9 @@ log; a lone timeout in an unrelated workspace is the known parallel flake: re-ru
 - [ ] **Update `.claude/handoff/CURRENT_HANDOFF.md`** (BUG-074 state block: commits, gate results, PR number once
   open, the human checks below). Commit and push.
 - [ ] **Push and open the PR** with the repository PR template (`pr-contract.yml` checks the contract headers). Body:
-  the red evidence (Task 2 output, Task 3 reasoning), the demo counts, BUG-075 named as out of scope, the gates, and the
-  human checks:
+  the red evidence (Task 2 output, Task 3 reasoning), the demo counts, BUG-075 named as out of scope, the gates, the
+  carried security fix (`f6220d06`: GHSA-qr28-fpjm-wq7f, its proof, and the accepted mobile cost; due 2026-11-05), and
+  the human checks:
   1. On demo after deploy, as a participant: `DELETE /api/matches/<completed match id>` (nginx maps `/api/matches` to
      request-service `/matches`, `infrastructure/nginx/nginx.conf:184-187`) answers 409 `MATCH_NOT_CANCELLABLE` and the
      match stays completed.

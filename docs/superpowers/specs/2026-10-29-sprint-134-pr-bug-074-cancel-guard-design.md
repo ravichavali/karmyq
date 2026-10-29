@@ -188,10 +188,23 @@ stale mobile code is noted, not touched.
 
 ## Out of Scope
 
+- **BUG-077** (reputation badge insert fails every completion job; found 2026-10-29) and **BUG-076** (pre-push TDD step).
 - **BUG-075** (the other unguarded request-status writers and the 119 / 54 demo rows).
 - Any demo data repair.
 - A UI control for cancel; notification routing for `match_cancelled`.
 - The stale mobile `accepted`/`in_progress` checks.
+
+---
+
+## Security Fix Carried by This PR (maintainer, 2026-10-29)
+
+`decode-uri-component` GHSA-qr28-fpjm-wq7f (**high**, published 2026-10-29 16:41:28Z, SLA **2026-11-05**) failed both
+ADR-059 gates on every push. The maintainer chose an override in this PR over an exemption. Root `overrides` pin
+`"decode-uri-component": "0.5.1"` (`f6220d06`, already on the branch: one lock node, registry-parity fields, strict
+`npx npm@11.19.0 ci` exit 0, both audit gates 39/39, a new pin row in `tests/regression/sprint-131-d9-security-overrides.test.ts`
+that fails against the old lock). **Accepted cost:** 0.5.1 is ESM-only, so `query-string@7.1.3` (expo-router) throws
+`decodeComponent is not a function` and mobile URL decoding is broken until mobile's own sprint (BUG-041,
+`docs/IDEAS.md` 2026-10-29). **Consequence for this PR:** it must deploy by **2026-11-05** to meet the high SLA.
 
 ---
 
@@ -232,6 +245,7 @@ stale mobile code is noted, not touched.
     `help_requests` as in `tests/integration/sprint-134-pr-b-viewer-partners.integration.test.ts:55-57`.
 13. **Tests first:** request-service `tests/tdd/` (red), then the implementation; promote with
     `node scripts/promote-tdd-tests.js` (`.npmrc` sets `ignore-scripts`) and restore any unrelated file it sweeps.
-14. **No migration, no dependency change.** The only lockfile edit is the root version: `package.json` and the two root
-    `"version"` lines in `package-lock.json`, as in `d8da50f0`.
+14. **No migration. One dependency change, already on the branch:** the `decode-uri-component` 0.5.1 override
+    (`f6220d06`; maintainer decision 2026-10-29 to fix GHSA-qr28-fpjm-wq7f in this PR). Add no other. The version bump
+    edits only `package.json` and the two root `"version"` lines in `package-lock.json`, as in `d8da50f0`.
 15. **Do not fix BUG-075 here,** even where a line sits next to the code being changed (the reject reopen at `:514`).

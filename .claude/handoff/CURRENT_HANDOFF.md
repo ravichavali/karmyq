@@ -58,9 +58,10 @@ maintainer reported PR B's four human checks done on 2026-10-29. See *PR B state
 `agent/claude/sprint-134-pr-bug-074-cancel-guard`, from `origin/master` `d8da50f0`. Spec + plan pushed by the planning chat
 (2026-10-28 → 2026-10-29); the maintainer answered all five design questions. **Execution is the next chat.** See
 *BUG-074 plan*. New: **BUG-075** (other request-status writers lack a guard; demo rows exist), logged, not scheduled.
-**⚠️ Blocker (2026-10-29):** new HIGH advisory `decode-uri-component` GHSA-qr28-fpjm-wq7f (due **2026-11-05**) fails the
-ADR-059 gates on every push and CI run; it needs a separate security PR before BUG-074's PR can go green. See *Dated
-obligations*.
+**⚠️ Security fix rides this PR (maintainer, 2026-10-29):** HIGH advisory `decode-uri-component` GHSA-qr28-fpjm-wq7f is
+fixed on this branch by a 0.5.1 override (`f6220d06`), so **the BUG-074 PR must merge and deploy by 2026-11-05**. Accepted
+cost: mobile URL decoding is broken until mobile's own sprint (BUG-041, `docs/IDEAS.md` 2026-10-29). New **BUG-077**
+(proposed HIGH): every reputation `match_completed` job fails on the badge insert after karma. Not scheduled.
 **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
 become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26); the 10-29 deadline no longer applies.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
@@ -83,8 +84,17 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
    branch `agent/claude/sprint-134-pr-bug-074-cancel-guard` (`git switch` it; merge `origin/master` in if master moved).
    **Human checks:** the maintainer reported the **UI checks done on 2026-10-29** (PR A's three exports, PR B's four
    (check 1 included, the demo RLS proof for `rated_by_me`), PR V's reads and requester actions, PR K's demotion and
-   provider-offer acceptance); no failure reported. **Still open, both on the demo host:** PR L2's nightly reputation
-   log and PR D's D8 `verify:demo` run. Each needs the maintainer's per-operation authorization.
+   provider-offer acceptance); no failure reported. **Demo-host checks, run 2026-10-29 on the maintainer's authorization:**
+   - **PR L2 nightly log: INCONCLUSIVE, not failed.** The container log (json-file, 3 × 10 MB) kept only the last ~2 h; the
+     02:00Z and 03:30Z runs were rotated away by **BUG-077**'s stack traces. Re-check after BUG-077 is fixed, or read the log
+     within ~1 h of a 02:00Z run, or check the nightly's outputs in the DB (each a separate authorization).
+   - **PR D D8:** **BLOCKED, not failed.** All three cases (repo root, service dir, wrong ID) exit 1 with
+     `[verify:demo] failed: Request failed with status code 401` before the report prints, so the env-file checks never ran.
+     A per-persona login probe (status codes only, 19:18Z) found maria, helper and provider **200** and the **unrelated persona
+     (`DEMO_UNRELATED_EMAIL` in `.env.demo.rotation`) 401**: its account is missing or its password differs (UNVERIFIED which).
+     Also: the auth limiter (10 logins / 15 min / IP) cannot fit D8's three cases (about 5 auth calls each) in one window;
+     the first probe tripped it (429). Next: fix the persona (check the account, or rotate the demo stories), then rerun D8
+     across two windows. Each is a separate authorization.
 4. Open the plan: [`docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md`](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md)
    (spec: [`docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-074-cancel-guard-design.md`](../../docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-074-cancel-guard-design.md)).
    Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
@@ -101,7 +111,7 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 |---|---|
 | **Current branch** | `agent/claude/sprint-134-pr-bug-074-cancel-guard`, from `origin/master` `d8da50f0` (#323, v11.104.0). First commit: the #323 post-merge record. The merged `agent/claude/sprint-134-pr-b-vouch-from-request` is safe to delete (maintainer's call): its head `69f277d8` has the same tree as `d8da50f0` (`f37f5eda`). Previous: `agent/claude/sprint-134-pr-b-vouch-from-request`, from `origin/master` `4ee38e82` (#322, v11.103.0); its first commit was the #322 post-merge record. The old `agent/codex/sprint-134-pr-b-endorsement-followups` is **safe to delete** (maintainer's call): its two docs commits `4b0c6386`/`56357e50` are patch-identical (`git patch-id --stable`) to `ac08fbf4`/`0685c058`, both ancestors of #322's head `1ecf1a05`, whose tree equals master's `4ee38e82` tree. (`git cherry` shows them as missing only because #322 was squash-merged.) |
 | **Active editor** | **Claude** planned BUG-074 (2026-10-29) and executes it in the next chat; **Codex reviews** the PR once open. No concurrent edits on this branch: review findings come back through the maintainer to the next Claude chat. (PR B: Claude authored, executed 2026-10-28, shipped.) |
-| **Shared resources** | dependency lane: **Claude** (maintainer-designated); nothing dependency-dated is open after #322 except Expo drift #316 (awaiting a maintainer decision) and BUG-041's re-check by 2026-11-14. PR B is product work and edits no manifest or lockfile beyond the root version. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
+| **Shared resources** | dependency lane: **Claude** (maintainer-designated). The BUG-074 branch carries the `decode-uri-component` 0.5.1 override (`f6220d06`, GHSA-qr28-fpjm-wq7f, due 2026-11-05) on the maintainer's decision; BUG-041 is resolved by it. Expo drift #316 still awaits a maintainer decision. The BUG-074 PR edits no other manifest or lockfile entry beyond the root version. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
 
 ## BUG-074 plan (Claude, planning chat 2026-10-28 → 2026-10-29)
 
@@ -169,8 +179,9 @@ still completes and awards karma.
     `help_requests` as in `tests/integration/sprint-134-pr-b-viewer-partners.integration.test.ts:55-57`.
 13. **Tests first:** request-service `tests/tdd/` (red), then the implementation; promote with
     `node scripts/promote-tdd-tests.js` (`.npmrc` sets `ignore-scripts`) and restore any unrelated file it sweeps.
-14. **No migration, no dependency change.** The only lockfile edit is the root version: `package.json` and the two root
-    `"version"` lines in `package-lock.json`, as in `d8da50f0`.
+14. **No migration. One dependency change, already on the branch:** the `decode-uri-component` 0.5.1 override
+    (`f6220d06`; maintainer decision 2026-10-29 to fix GHSA-qr28-fpjm-wq7f in this PR). Add no other. The version bump
+    edits only `package.json` and the two root `"version"` lines in `package-lock.json`, as in `d8da50f0`.
 15. **Do not fix BUG-075 here,** even where a line sits next to the code being changed (the reject reopen at `:514`).
 
 **Plan review (2026-10-29, relayed by the maintainer; every finding verified before editing):** (1) Task 6's claim-gate
@@ -567,7 +578,7 @@ export), so the blocker is unchanged.
 | 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **SHIPPED** #321 `645d28fd` (v11.102.0), CI/CD 40631196261 green 14/14; 9 healthy; 0 open master CodeQL alerts. UI checks reported done by the maintainer 2026-10-29. |
 | — | **Security follow-up** | node-forge 1.4.2 + exemption removed; ip-address 10.7.4; fast-uri 4.2.3; deepmerge decision write-up | **2026-11-01 16:00 PST** | *Security follow-up state* | **SHIPPED** `4ee38e82` (#322, v11.103.0), merged 18:56:43Z; CI/CD 40749793316 green 14/14 incl. deploy; 0 open code-scanning / Dependabot alerts; deadline met. |
 | 8 | **B** | Vouch from a completed exchange (`docs/IDEAS.md` 2026-10-13 "Vouch from the request page") | — | [plan](../../docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md) | **SHIPPED** `d8da50f0` (#323, v11.104.0), merged 2026-10-28 23:01:54Z; CI/CD 40784392749 green 14/14 incl. deploy; real SQL 302/302; 0 open CodeQL alerts. Four human checks reported done by the maintainer 2026-10-29; see *PR B state*. |
-| 9 | **BUG-074** | Cancel and complete change a match only while it is `matched` (409 `MATCH_NOT_CANCELLABLE` / `MATCH_NOT_COMPLETABLE`); conditional request/offer updates; v11.105.0 provisional | — | [plan](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md) | **PLANNED** 2026-10-29 on `agent/claude/sprint-134-pr-bug-074-cancel-guard`; execution next chat. See *BUG-074 plan*. |
+| 9 | **BUG-074** | Cancel and complete change a match only while it is `matched` (409 `MATCH_NOT_CANCELLABLE` / `MATCH_NOT_COMPLETABLE`); conditional request/offer updates; **carries the `decode-uri-component` 0.5.1 override** (`f6220d06`); v11.105.0 provisional | **2026-11-05** (the high SLA it carries) | [plan](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md) | **PLANNED** 2026-10-29 on `agent/claude/sprint-134-pr-bug-074-cancel-guard`; execution next chat. See *BUG-074 plan*. |
 | 10 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
 | — | **BUG-075** | Other request-status writers lack a status guard (reject reopen, accept, admin propose-match, dibs accept/decline/expire); demo rows exist, cause unconfirmed | — | not written | Logged 2026-10-29, **not scheduled**; maintainer to decide scope and any demo repair. |
 | — | **Per-community health-quality weight (planned PR)** | Persist the weight in `communities.community_configs`; choose a quality signal source; requires an ADR number allocated by the maintainer | Not scheduled | Write after ADR allocation + signal decision | Separate planned PR, not part of L2 |
@@ -1259,8 +1270,10 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | ~~`ip-address` GHSA-rxp7-6hxx-x8q5 (moderate)~~ | ~~2026-11-05~~ | **DONE**: #322 (10.7.2 → 10.7.4, floor `>=10.7.4`), deployed 2026-10-28; 0 open Dependabot alerts. |
 | ~~`fast-uri` GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr (moderate) + 2 low~~ | ~~2026-11-06~~ | **DONE**: #322 (4.2.1 → 4.2.3, floor `>=4.2.3`), deployed 2026-10-28. Dependabot **#318** (not used: it deletes 26 `libc` fields) auto-closed 18:59:10Z. |
 | `deepmerge` alert **#178** (low) | re-check at the next Expo SDK move or **2026-12-01** | **DISMISSED** `tolerable_risk` 2026-10-28 19:24:33Z (maintainer option a). Reach: Expo config tooling + Jest only, no fix exists (4.3.1 latest). Gate blocks high/critical only, so no exemption entry. |
-| `decode-uri-component` BUG-041 (alert #150, dismissed) | re-check by **2026-11-14** | 0.5.1 still ESM-only; blocker unchanged (*Security follow-up state*). |
-| **`decode-uri-component` GHSA-qr28-fpjm-wq7f (HIGH)**, DoS via quadratic replacement of percent-encoded runs; `<= 0.5.0`, patched 0.5.1 | high SLA: **2026-11-05** (published 2026-10-29 16:41:28Z) | **OPEN, BLOCKS EVERY PUSH AND CI RUN** (ADR-059: `sprint-123-audit-exemption-gate` and `sprint-75-security-gate` red on a docs-only diff; first seen on this branch's 2026-10-29 push). Only path: `apps/mobile` → `expo-router@57.0.29` → `query-string@7.1.3` → `decode-uri-component@0.2.2`. The fix 0.5.1 is ESM-only (`"type": "module"`, default-only `exports`), the same blocker as BUG-041. Needs its own security PR from `origin/master` before BUG-074's PR can pass CI; the maintainer decides the route (override vs. time-boxed ADR-059 exemption). Not touched by the BUG-074 chat (no dependency changes there). |
+| ~~`decode-uri-component` BUG-041 (alert #150, dismissed)~~ | ~~re-check by 2026-11-14~~ | **RESOLVED** by the 0.5.1 override on the BUG-074 branch (`f6220d06`); mobile URL decoding broken until the mobile sprint (maintainer-accepted). |
+| **`decode-uri-component` GHSA-qr28-fpjm-wq7f (HIGH)**, DoS via quadratic replacement of percent-encoded runs; `<= 0.5.0`, patched 0.5.1 | high SLA: **2026-11-05** (published 2026-10-29 16:41:28Z) | **FIXED ON THE BUG-074 BRANCH** (`f6220d06`, maintainer decision 2026-10-29): root override `"decode-uri-component": "0.5.1"`, one spliced lock node; strict `npx npm@11.19.0 ci` exit 0; `npm ls` invalid list unchanged (3 pre-existing); both ADR-059 gates 39/39; pin row in `sprint-131-d9-security-overrides` (9/9, fails on the old lock). **Ships only when the BUG-074 PR deploys: merge by 2026-11-05.** Accepted cost: `query-string@7.1.3` `parse()` throws (ESM-only 0.5.1); nothing here builds or ships the app. |
+| **BUG-077** (reputation `match_completed` job fails on the `reputation.badges.name NOT NULL` insert, after karma) | proposed HIGH; no external date | **Open, not scheduled.** Demo log window: 497 completions, 498 badge failures, 0 badges. Skips trust evolution, retries every job, rotates logs away within ~2 h. |
+| BUG-076 (pre-push TDD step false pass) | none | Open, not scheduled. |
 | ~~CodeQL `/language:actions` "Unknown Error" on `4ee38e82`~~ | ~~next master push~~ | **CLOSED**: the Actions analysis 2049678160 for `d8da50f0` (#323) completed with no error. |
 | **BUG-074** (`DELETE /matches/:id` cancels completed/rejected matches and reopens the request) | no external date | **Planned 2026-10-29** (spec + plan pushed) on `agent/claude/sprint-134-pr-bug-074-cancel-guard`; execution next chat. |
 | **BUG-075** (reject reopen, accept, admin propose-match and dibs writers change request status without a guard) | no external date | **Open, not scheduled.** Demo evidence (read-only, 2026-10-29): 119 requests with >1 completed match; 52 `open` + 2 `matched` requests holding a completed match; no surviving completed-then-cancelled fingerprint found; **cause unconfirmed** (BUG-074's routes remain candidates). Any repair is a separate, authorized demo operation. |

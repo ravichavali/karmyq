@@ -1039,3 +1039,21 @@ Extends the 2026-10-26 *Dependency-gate follow-ups* entry. Both need an ADR-059 
   read `notification.cta_label ?? getCtaLabel(type)`. Needs a migration and touches every type, so it is its own PR.
 
 ---
+
+---
+
+## [2026-10-29] Mobile needs a sprint of its own (maintainer, during the BUG-074 PR)
+
+The maintainer: mobile "has to be a sprint all by itself as it wasn't maintained properly for a while." Known
+debt that sprint inherits, each verified 2026-10-29:
+
+- **URL decoding is broken by the decode-uri-component override.** The BUG-074 PR pins `decode-uri-component` 0.5.1
+  (GHSA-qr28-fpjm-wq7f, high), which is ESM-only. `query-string@7.1.3`, which expo-router 57.0.29 uses,
+  `require()`s it and calls the result, so `parse()` throws `decodeComponent is not a function` (reproduced in
+  Node). The sprint must take expo-router off `query-string@7`, or replace the path, before the app ships again
+  (BUG-041).
+- **Stale match statuses.** `apps/mobile/app/requests/[id].tsx` checks `accepted`/`in_progress`, which no route writes.
+- **Unused cancel call.** `cancelMatch` (`apps/mobile/services/api.ts:128`) has no caller.
+- **Expo SDK drift #316** (`expo-notifications`) is open, and `apps/mobile` type-check is red on master (not gated).
+- **Tests reach almost nothing.** The suite has 2 tests, and neither reaches `query-string`.
+- **Nothing builds or ships the app.** There is no `eas.json` and no build or release workflow in this repo.
