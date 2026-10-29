@@ -2082,7 +2082,7 @@ review of the BUG-074 plan traced the `tail` exit status.
 
 ---
 
-## BUG-077 · [2026-10-29] · open · **HIGH** (proposed)
+## BUG-077 · [2026-10-29] · fixed (Sprint 134 BUG-077 PR, v11.106.0) · **HIGH** (proposed)
 
 **Every `match_completed` job in reputation-service fails on the badge insert, after karma is awarded.**
 `checkAndAwardBadges` inserts `INSERT INTO reputation.badges (user_id, badge_type) ... ON CONFLICT (user_id, badge_type)
@@ -2119,6 +2119,16 @@ evidence above: each "Processing" line is one attempt, retries included; and eve
 (`services/reputation-service/src/database/db.ts:40`), so the log-rotation cause is **UNVERIFIED** until a post-deploy
 log read. Spec: `docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-077-badge-insert-design.md`.
 
+**Fix:** the insert supplies `name` from `BADGE_NAMES` (`Record<BadgeType, string>`, so a new type without a name fails
+`tsc`) and reports only rows it inserted (`rowCount === 0` is skipped). In the `match_completed` handler the provider
+completion-rate update and the badge check each catch and log their own failure (`[provider-trust]`, `[badges]`, with
+the match id), so only a karma projection failure fails the job. No migration, no backfill. Commits `dc6005ac` (insert)
+and `528351f1` (isolation). Tests: `services/reputation-service/tests/regression/sprint-134-bug-077-badge-insert.test.ts`
+and `sprint-134-bug-077-handler-isolation.test.ts` (5 of their 6 cases red before the fix; the sixth, the
+karma-failure preservation case, passes before and after), and the real-SQL file `tests/integration/sprint-134-bug-077-completion-side-effects.integration.test.ts`
+(the job completes on its first attempt; an injected badge failure still completes it; all five types written once;
+CI-only on Windows). The log-rotation cause stays **UNVERIFIED** until the post-deploy log read.
+
 ---
 
 ## BUG-078 · [2026-10-29] · open
@@ -2146,7 +2156,7 @@ writes guarded on the status the exchange left them in; an idempotent done mark.
 
 ---
 
-## BUG-079 · [2026-10-29] · open (fix planned in the BUG-077 PR)
+## BUG-079 · [2026-10-29] · fixed (Sprint 134 BUG-077 PR, v11.106.0)
 
 **Trust evolution never writes a nudge: it adds the delta to a NUMERIC value that pg returns as a string.**
 `evaluateUserEvolution` computes `round2(clamp(currentValue + delta, min, max))`
@@ -2167,6 +2177,12 @@ completion path, because the badge failure skipped the block. The unit tests moc
 Fix (maintainer, 2026-10-29): `Number()` at the use site in `evaluateUserEvolution`, so `GET /reputation/trust-config`
 keeps its wire format; tdd mocks return pg's strings; the BUG-077 real-SQL test asserts the exact log row
 (`depth_weight` 0.60 → 0.61).
+
+**Fixed:** `const currentValue = Number(effectiveParams[parameter])` (commit `ac0f1dd6`), which also covers
+`POST /reputation/feedback`'s inline evolution. Tests: `services/reputation-service/tests/regression/sprint-134-bug-079-evolution-numeric.test.ts`
+(red 3 of 3 before: `NaN` nudges and an upsert at the bound) and the BUG-077 real-SQL file's evolution log rows. The
+other NUMERIC arithmetic was checked: community evolution parses its values (`communityEvolutionDb.ts:44`, `:145`), and
+`computeTrustScore` only multiplies the weights (`trustScoreStrategy.ts:98`, `:103`), so neither concatenates.
 
 ---
 

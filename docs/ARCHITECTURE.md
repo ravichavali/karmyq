@@ -441,7 +441,7 @@ requests.matches (id, request_id, requester_id, responder_id, status, ...)
 -- Karma and trust
 reputation.karma_records (id, user_id, community_id, points, reason, ...)
 reputation.trust_scores (id, user_id, community_id, score, ...)
-reputation.badges (id, user_id, community_id, badge_type, awarded_at, ...)
+reputation.badges (id, user_id, badge_type, name, earned_at, ...)
 ```
 
 #### 5. notifications
