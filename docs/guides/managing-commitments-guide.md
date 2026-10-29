@@ -64,7 +64,7 @@ When a match appears in "Needs Your Response":
 3. The card moves to "In Progress" and the requester is notified
 4. Use the inline conversation to coordinate timing and logistics
 
-If you accept and then realize you can't follow through, cancel promptly so someone else can step in. Reliability is your most visible reputation signal.
+If you accept and then realize you can't follow through, tell the requester promptly in the inline conversation so they can find someone else. Reliability is your most visible reputation signal.
 
 ---
 

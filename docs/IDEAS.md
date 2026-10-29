@@ -1057,3 +1057,11 @@ debt that sprint inherits, each verified 2026-10-29:
 - **Expo SDK drift #316** (`expo-notifications`) is open, and `apps/mobile` type-check is red on master (not gated).
 - **Tests reach almost nothing.** The suite has 2 tests, and neither reaches `query-string`.
 - **Nothing builds or ships the app.** There is no `eas.json` and no build or release workflow in this repo.
+
+## [2026-10-29] Back out of an in-progress exchange from the UI (BUG-074 follow-up)
+
+`DELETE /matches/:id` now refuses everything but `matched`, but no client calls it (`cancelMatch` in
+`apps/frontend/src/lib/api.ts:655` and `apps/mobile/services/api.ts:128` is unused); the guide tells helpers to use the
+conversation. A control would also need `match_cancelled` routed to notification-service (it is in
+`UNCONSUMED_EVENTS`, `packages/shared/events/routes.ts:47`, and its template at
+`services/notification-service/src/templates/notificationTemplates.ts:90` is unreachable).

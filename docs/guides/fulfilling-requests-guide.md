@@ -62,7 +62,7 @@ A community's open-asks view (reached from its weekly pulse) lists every open as
 
 ## During the Help
 
-Coordinate via Karmyq messages or however you've agreed. Be on time. If something comes up and you can't follow through, let them know early and cancel the acceptance so someone else can step in.
+Coordinate via Karmyq messages or however you've agreed. Be on time. If something comes up and you can't follow through, tell them promptly in the inline conversation so they can find someone else.
 
 Your reliability is part of your reputation.
 
