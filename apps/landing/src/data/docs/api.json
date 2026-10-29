@@ -427,6 +427,11 @@
           "description": "Two-phase match completion. Each party calls this independently; the match"
         },
         {
+          "method": "DELETE",
+          "path": "/matches/:id",
+          "description": "Cancels an exchange in progress (Sprint 134 BUG-074)."
+        },
+        {
           "method": "GET",
           "path": "/requests/:id/offers",
           "description": "List pending provider offers on a specific help request. Requester only."

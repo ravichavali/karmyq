@@ -766,7 +766,8 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
         `SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE`,
         [match.request_id]
       );
-
+      // Its own statement after the lock, so its snapshot postdates the wait: a single UPDATE that waited on the
+      // row lock would re-check only the request row, while its EXISTS subqueries kept the pre-wait snapshot.
       await q(
         `UPDATE requests.help_requests r
          SET status = CASE

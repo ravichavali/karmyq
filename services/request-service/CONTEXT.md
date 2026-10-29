@@ -1714,7 +1714,7 @@ is `matched`: `completed` if another match on it is `completed`, else `open`. An
 **Events Published:** `match_cancelled`, after commit and only for a cancel that happened. It is in
 `UNCONSUMED_EVENTS` (`packages/shared/events/routes.ts`), so it is not enqueued and nobody is notified.
 
-**Implementation:** `src/routes/matches.ts` — `router.delete('/:id')` (guarded `UPDATE` at :755-760, 409 at :791-796);
+**Implementation:** `src/routes/matches.ts` — `router.delete('/:id')` (guarded `UPDATE` at :755-760, 409 at :792-797);
 the complete route's guard is at :623-630 and its 409 at :662-667.
 
 ### 3.3b Provider Offer Endpoints (Sprint 41)

@@ -469,7 +469,16 @@
           "path": "/matches",
           "description": "Create a member's offer to help (proposed match). Responder is the verified JWT identity (ADR-064; body responder_id ignored). Eligibility = the request's feed-VISIBILITY boundary (shared getRequestReachability helper, also used by GET /:id can_offer): member of a request community OR trust_network/platform scope OR sister-reachable. Out-of-audience (e.g. community-scoped ask the viewer can't see) -> 403 REQUEST_NOT_REACHABLE. Plus invariants: open+unexpired (400 REQUEST_NOT_OPEN), not own (400 OWN_REQUEST), no existing live offer (409 ALREADY_OFFERED). Admin-proposed matches use POST /requests/:id/propose-match instead."
         },
-        "/matches/:id/complete",
+        {
+          "method": "PUT",
+          "path": "/matches/:id/complete",
+          "description": "Two-phase completion; each participant records a done mark. Sprint 134 BUG-074: a mark is recorded only while the match is 'matched' (the done_at UPDATE carries AND status = 'matched'). An already-completed match stays an idempotent 200 ('Match already completed', no second stamp or match_completed) on the pre-read path and the race path; a proposed, rejected or cancelled match -> 409 MATCH_NOT_COMPLETABLE. Identity is the JWT (ADR-064). Publishes match_completed only when both have confirmed."
+        },
+        {
+          "method": "DELETE",
+          "path": "/matches/:id",
+          "description": "Sprint 134 BUG-074: participant (requester or responder) cancels an exchange in progress. Only a 'matched' match can be cancelled (guard in the UPDATE); proposed, completed, rejected or already-cancelled -> 409 MATCH_NOT_CANCELLABLE, no event; non-participant -> 404. The request changes only while 'matched' with no other 'matched' match (completed if another completed match remains, else open); the offer returns to active only while 'matched'. Lock order match then request. Publishes match_cancelled after commit, which is in UNCONSUMED_EVENTS (nobody is notified)."
+        },
         "/schemas",
         "/schemas/:type",
         "/admin/schemas",
