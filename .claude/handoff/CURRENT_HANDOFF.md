@@ -91,7 +91,11 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
    - **PR D D8:** **BLOCKED, not failed.** All three cases (repo root, service dir, wrong ID) exit 1 with
      `[verify:demo] failed: Request failed with status code 401` before the report prints, so the env-file checks never ran.
      A per-persona login probe (status codes only, 19:18Z) found maria, helper and provider **200** and the **unrelated persona
-     (`DEMO_UNRELATED_EMAIL` in `.env.demo.rotation`) 401**: its account is missing or its password differs (UNVERIFIED which).
+     (`DEMO_UNRELATED_EMAIL` in `.env.demo.rotation`) 401**. A read-only lookup (authorized, rolled back) found **no
+     account** for that address, `marcus.white9924@test.karmyq.com`, and no near match: it is a pre-reset simulation account.
+     Maria, helper and provider all date from the 2026-10-19 19:27:10.5 curated reset. The guide requires **Marcus Lee,
+     `marcus.lee@test.karmyq.com` (`person.outsider`), sharing zero communities with Maria** (`docs/guides/demo-data.md:253`).
+     Fix = edit that one line of the host's `.env.demo.rotation` (a host write).
      Also: the auth limiter (10 logins / 15 min / IP) cannot fit D8's three cases (about 5 auth calls each) in one window;
      the first probe tripped it (429). Next: fix the persona (check the account, or rotate the demo stories), then rerun D8
      across two windows. Each is a separate authorization.
