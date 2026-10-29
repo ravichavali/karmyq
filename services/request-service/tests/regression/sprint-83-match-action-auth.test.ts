@@ -149,9 +149,10 @@ describe('Sprint 83: Match-action authorization derives identity from JWT, not b
   it('cancel: lets a legitimate participant identified by JWT cancel → 200', async () => {
     mockQuery
       .mockResolvedValueOnce({ rowCount: 1, rows: [MATCHED_MATCH] })        // matchCheck
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                     // UPDATE status='cancelled'
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                     // UPDATE help_requests status='open'
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] });                    // UPDATE help_offers status='active'
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                     // guarded UPDATE status='cancelled' (rowCount 1: it was 'matched')
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                     // SELECT ... FROM help_requests FOR UPDATE (request lock)
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                     // conditional UPDATE help_requests (reopen/complete)
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] });                    // conditional UPDATE help_offers status='active'
 
     const app = await buildMatchesApp('helper-user');
     const res = await request(app)
