@@ -48,6 +48,8 @@ Once both parties confirm:
   exchange privately and vouch for skills you saw your partner use. Each of you sees only your own
   partner there.
 
+A completed exchange is final: it cannot be cancelled, reopened or marked done again.
+
 ---
 
 ## Withdrawing Before Acceptance

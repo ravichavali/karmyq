@@ -28,6 +28,10 @@ hand-rolled with `@expo/vector-icons`; state is the one Zustand store in `store/
 
 ## Recent changes
 
+- **Sprint 134 BUG-074 PR (2026-10-29): `decode-uri-component` is overridden to 0.5.1 at the root** (GHSA-qr28-fpjm-wq7f,
+  high). 0.5.1 is ESM-only. `query-string@7.1.3`, which expo-router 57.0.29 uses, `require()`s it, so `parse()` throws
+  `decodeComponent is not a function` and **expo-router URL decoding is broken**. The maintainer accepted this until mobile's
+  own sprint (`docs/IDEAS.md` 2026-10-29; BUG-041). Do not ship the app before that sprint fixes the `query-string@7` path.
 - **Sprint 134 PR E (#279):** nine SDK-managed packages move one patch to the live SDK 57 map
   (re-derived 2026-10-21: Expo 57.0.31, Router 57.0.29), with twenty hoisted nodes their
   manifests require: `expo@57.0.31`'s ten moved direct ranges (`@expo/cli` 57.0.32, `-config`,

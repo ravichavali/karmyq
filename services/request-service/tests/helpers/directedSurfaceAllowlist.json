@@ -187,9 +187,9 @@
   },
   {
     "file": "services/request-service/src/routes/matches.ts",
-    "hash": "2fe695cddf7b01971550505684f8ec77cf8dec8f7048e45e5bc4d054275fa12a",
+    "hash": "e267659f5d6769363b4408cd9198eaa01fa276a8e43f8c2f3091355e46f066aa",
     "reason": "Mutation after audience and participant validation.",
-    "label": "SET status = 'open'"
+    "label": "SET status = CASE"
   },
   {
     "file": "services/request-service/src/routes/providerOffers.ts",

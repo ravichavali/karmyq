@@ -13,6 +13,14 @@ import {
 
 const router = Router();
 
+// Sprint 126: re-completing a completed match is idempotent. Both the pre-read fast path and the race path
+// (the guarded UPDATE finds the row already completed) answer with this body.
+const ALREADY_COMPLETED = {
+  success: true,
+  data: { fully_completed: true, waiting_for: null },
+  message: 'Match already completed',
+} as const;
+
 // BUG-057: a match (and the request/emails it carries) is visible only to its participants, the
 // requester or the responder, which is the same definition the accept/reject/complete/delete handlers
 // use. Always bound to the JWT caller, never a client-supplied id. Services connect as the table owner,
@@ -604,28 +612,28 @@ router.put('/:id/complete', async (req: AuthenticatedRequest, res: Response) => 
     // Returning success rather than 409 keeps retrying clients working; the completion they asked
     // for is, after all, already true.
     if (match.status === 'completed') {
-      return res.json({
-        success: true,
-        data: { fully_completed: true, waiting_for: null },
-        message: 'Match already completed',
-      });
+      return res.json(ALREADY_COMPLETED);
     }
 
     const doneAtColumn = isRequester ? 'requester_done_at' : 'responder_done_at';
 
-    // Atomic completion: record this party's done_at and, when both parties have now
-    // confirmed, finalize the match + request together so completion can never leave
-    // the match 'completed' while the request lags (or vice versa).
-    const bothDone = await withTransaction(async (q) => {
+    // BUG-074: record a mark only while the match is 'matched'. The guard is in the UPDATE, not the read above:
+    // a cancel or a second final mark committing in between is invisible to that read, and the UPDATE re-checks
+    // its WHERE on the committed row. A row that turns out already completed keeps the idempotent answer.
+    const outcome = await withTransaction(async (q) => {
       // Use a RETURNING clause to get both done_at values in a single statement so we
       // can check if both parties have now confirmed.
       const updateResult = await q(
         `UPDATE requests.matches
          SET ${doneAtColumn} = CURRENT_TIMESTAMP
-         WHERE id = $1
+         WHERE id = $1 AND status = 'matched'
          RETURNING requester_done_at, responder_done_at`,
         [id]
       );
+      if (updateResult.rowCount === 0) {
+        const current = await q(`SELECT status FROM requests.matches WHERE id = $1`, [id]);
+        return current.rows[0]?.status === 'completed' ? 'already_completed' as const : 'not_completable' as const;
+      }
 
       const updated = updateResult.rows[0];
       const finished = updated.requester_done_at !== null && updated.responder_done_at !== null;
@@ -644,8 +652,20 @@ router.put('/:id/complete', async (req: AuthenticatedRequest, res: Response) => 
           [match.request_id]
         );
       }
-      return finished;
+      return finished ? 'completed' as const : 'recorded' as const;
     });
+
+    if (outcome === 'already_completed') {
+      return res.json(ALREADY_COMPLETED);
+    }
+    if (outcome === 'not_completable') {
+      return res.status(409).json({
+        success: false,
+        message: 'Only an exchange in progress can be marked done',
+        error: 'MATCH_NOT_COMPLETABLE',
+      });
+    }
+    const bothDone = outcome === 'completed';
 
     if (bothDone) {
       // Publish event once, only when fully complete (karma is awarded here). After
@@ -726,31 +746,57 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    // Atomic cancel: cancel the match → reopen the request → reopen the offer, all in
-    // one transaction so a mid-sequence failure can't split match/request/offer state.
-    await withTransaction(async (q) => {
-      await q(
+    // BUG-074: cancel only an exchange in progress. The guard is in the UPDATE, not in a status check made before
+    // the transaction: a completion committing in between would be invisible to that check, and the UPDATE
+    // re-checks its WHERE on the committed row. Lock order is match row, then request row, the same as complete,
+    // so a cancel and a completion cannot deadlock. The request changes only while it is still 'matched'
+    // and no other helper is matched on it; one that still holds a completed exchange becomes 'completed'.
+    const cancelled = await withTransaction(async (q) => {
+      const result = await q(
         `UPDATE requests.matches
          SET status = 'cancelled'
-         WHERE id = $1`,
+         WHERE id = $1 AND status = 'matched'`,
         [id]
       );
+      if (result.rowCount === 0) {
+        return false;
+      }
 
       await q(
-        `UPDATE requests.help_requests SET status = 'open' WHERE id = $1`,
+        `SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE`,
+        [match.request_id]
+      );
+      // Its own statement after the lock, so its snapshot postdates the wait: a single UPDATE that waited on the
+      // row lock would re-check only the request row, while its EXISTS subqueries kept the pre-wait snapshot.
+      await q(
+        `UPDATE requests.help_requests r
+         SET status = CASE
+           WHEN EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = r.id AND m.status = 'completed')
+           THEN 'completed' ELSE 'open' END
+         WHERE r.id = $1 AND r.status = 'matched'
+           AND NOT EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = r.id AND m.status = 'matched')`,
         [match.request_id]
       );
 
-      // Reopen offer if it exists
+      // Free the offer only while this exchange still holds it; a withdrawn offer stays withdrawn.
       if (match.offer_id) {
         await q(
-          `UPDATE requests.help_offers SET status = 'active' WHERE id = $1`,
+          `UPDATE requests.help_offers SET status = 'active' WHERE id = $1 AND status = 'matched'`,
           [match.offer_id]
         );
       }
+      return true;
     });
 
-    // Publish event
+    if (!cancelled) {
+      return res.status(409).json({
+        success: false,
+        message: 'Only an exchange in progress can be cancelled',
+        error: 'MATCH_NOT_CANCELLABLE',
+      });
+    }
+
+    // Publish event (after commit, only for a cancel that happened)
     await publishEvent('match_cancelled', {
       match_id: id,
       request_id: match.request_id,

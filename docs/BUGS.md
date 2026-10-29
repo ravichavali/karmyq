@@ -910,7 +910,7 @@ these checks did not change demo data.
 
 ---
 
-## BUG-041 · [2026-09-14] · open
+## BUG-041 · [2026-09-14] · resolved by override 2026-10-29 (Sprint 134 BUG-074 PR); mobile URL decoding broken until the mobile sprint
 
 **`decode-uri-component` alert #150 cannot be remediated by a dependency change.**
 GHSA-vcc3-ghjq-m6fr / CVE-2026-45822, medium: denial of service via exponential decoding of
@@ -927,6 +927,15 @@ Alert dismissed as `tolerable_risk` on 2026-09-14 by maintainer decision (Sprint
 
 Re-check trigger: expo-router drops `query-string@7`, or the SDK 58 migration — **re-check by
 2026-11-14** at the latest.
+
+**Resolution (2026-10-29, maintainer decision):** a second advisory, GHSA-qr28-fpjm-wq7f (**high**, DoS via
+quadratic replacement of percent-encoded runs, `<= 0.5.0`, patched 0.5.1, published 2026-10-29 16:41:28Z), failed
+both ADR-059 gates on every push. The maintainer chose the override over an exemption: root `overrides` pin
+`"decode-uri-component": "0.5.1"` (commit `f6220d06`, in the BUG-074 PR), which clears both advisories. The cost
+predicted above is real and accepted: `query-string@7.1.3`'s `parse()` now throws `decodeComponent is not a function`
+(reproduced in Node, even for `a=b`), so expo-router URL decoding breaks in the mobile app. Nothing in this repo
+builds or ships the app (no `eas.json`, no release workflow), and the maintainer scheduled mobile as its own sprint
+(`docs/IDEAS.md` 2026-10-29), which must replace or upgrade the `query-string@7` path before the app ships again.
 
 ---
 
@@ -2005,12 +2014,126 @@ refreshed token. PR K made these gates live and kept their scope; found 2026-10-
 
 ---
 
-## BUG-074 · [2026-10-28] · open
+## BUG-074 · [2026-10-28] · fixed (Sprint 134 BUG-074 PR, v11.105.0)
 
-`DELETE /matches/:id` (request-service `services/request-service/src/routes/matches.ts:693-750`) has no match-status guard: a
+`DELETE /matches/:id` (request-service `services/request-service/src/routes/matches.ts:693-772`, pre-fix, at `d8da50f0`) has no match-status guard: a
 participant can cancel a **completed** or **rejected** match. The transaction sets the match to `cancelled` and unconditionally
-sets the request back to `open` (`matches.ts:740`), so a completed exchange can be undone after karma was awarded and a request
+sets the request back to `open` (`matches.ts:740`, pre-fix), so a completed exchange can be undone after karma was awarded and a request
 can accumulate several completed matches. Found during Sprint 134 PR B planning. Fix in a separate PR, not PR B (PR B only
 tolerates several completed matches per request).
+
+**Fix:** both routes now change a match only while it is `matched`, with the guard in the write
+(`UPDATE ... WHERE id = $1 AND status = 'matched'`) rather than in a prior read. `DELETE /matches/:id` answers 409
+`MATCH_NOT_CANCELLABLE` for any other status, takes the match row lock before the request row (the same order as complete),
+and updates the request and offer only while they are still in the state this exchange put them in (request `matched`
+with no other `matched` match: `completed` if another completed match remains, else `open`; offer `matched`).
+`PUT /matches/:id/complete` records a mark only on a `matched` match, answers 409 `MATCH_NOT_COMPLETABLE` otherwise, and
+keeps the idempotent 200 for an already-completed match on both the fast path and the race path. Tests: a mocked-SQL
+contract (`services/request-service/tests/regression/sprint-134-bug-074-match-status-guards.test.ts`) and a real-SQL
+status matrix with race proofs (`tests/integration/sprint-134-bug-074-match-status-guards.integration.test.ts`, CI-only
+on Windows). Demo counts (read-only, 2026-10-29): 119 requests hold more than one completed match, 52 `open` and 2
+`matched` requests hold a completed match, and 0 cancelled matches carry `completed_at`. Limit: no surviving
+completed-then-cancelled fingerprint was found, and the cause of the non-zero rows is unconfirmed (no status history
+exists). Those rows are tracked under BUG-075; no data was repaired here.
+
+---
+
+## BUG-075 · [2026-10-29] · open
+
+Request-status writers outside the cancel route have no status guard, so completed asks get reopened or re-matched.
+Evidence: read-only counts on the demo database, 2026-10-29 (maintainer-authorized, one read-only transaction, rolled
+back): **119** requests hold more than one completed match; **52** `open` and **2** `matched` requests hold a completed
+match; **0** cancelled matches carry `completed_at`. **No surviving completed-then-cancelled fingerprint found; cause
+unconfirmed.** There is no status history, so the zero cannot exclude a completed → cancelled → completed sequence
+(BUG-074's complete route accepts a cancelled match and its re-completion overwrites the fingerprint) or a
+rejected → cancelled one. Candidate writers, from reading the code (which one produced the demo rows is unconfirmed):
+
+- BUG-074's own routes: `DELETE /matches/:id` (any status, unconditional reopen) and `PUT /matches/:id/complete`
+  (accepts a proposed, rejected or cancelled match), fixed in the BUG-074 PR.
+
+- The reject reopen, `UPDATE requests.help_requests SET status = 'open' WHERE id = $1 AND status != 'matched'`
+  (`services/request-service/src/routes/matches.ts:514`), reopens a `completed`, `cancelled` or `dibs_pending` request.
+- Accept sets the request to `matched` with no request-status check (`matches.ts:361-366`).
+- `POST /requests/:id/propose-match` (`services/request-service/src/routes/adminActions.ts`, about lines 95-150) has no
+  request-status check, so a proposal can land on a completed ask.
+- Dibs accept (`services/request-service/src/routes/dibs.ts:323-338`) inserts a `matched` match and never rejects the
+  sibling `proposed` matches, so a stale proposal can outlive the exchange.
+- Dibs decline and expire reopen the request unconditionally (`dibs.ts:420`, `dibs.ts:481`).
+
+Found during BUG-074 planning. The BUG-074 PR fixes only the first bullet; the other writers, and any repair of the demo
+rows, stay open here.
+
+---
+
+## BUG-076 · [2026-10-29] · open
+
+The pre-push hook's TDD step reports "✓ TDD tests passed" without running a single TDD test. Two defects together:
+
+- `.husky/pre-push:88` runs `if npm run test:tdd 2>&1 | tail -20; then`. The hook sets `set -e` but not
+  `pipefail`, so the `if` tests `tail`'s exit status, which is always 0. The "passed" branch is taken whatever
+  `test:tdd` returns.
+- The root `test:tdd` script is `turbo run test:tdd`, but `turbo.json` defines no `test:tdd` task (its tasks are `build`,
+  `dev`, `test`, `@karmyq/tests#test`, `lint`, `clean`). Turbo fails with "Could not find task `test:tdd` in project" and
+  `npm run test:tdd` exits 1 (reproduced 2026-10-29).
+
+Seen on the push of `9af57d4b` (2026-10-29). The TDD tier is report-only (CLAUDE.md, ADR-029), so nothing was blocked,
+but the hook prints a green message for a step that cannot run. Noticed in that push's output; the maintainer-relayed
+review of the BUG-074 plan traced the `tail` exit status.
+
+---
+
+## BUG-077 · [2026-10-29] · open · **HIGH** (proposed)
+
+**Every `match_completed` job in reputation-service fails on the badge insert, after karma is awarded.**
+`checkAndAwardBadges` inserts `INSERT INTO reputation.badges (user_id, badge_type) ... ON CONFLICT (user_id, badge_type)
+DO NOTHING` (`services/reputation-service/src/services/badgeService.ts:86`), but `reputation.badges.name` is
+`character varying(255) NOT NULL` (`infrastructure/postgres/init.sql`, `CREATE TABLE reputation.badges`). Migration 024
+(`024-prestige-badges.sql:12`) used `CREATE TABLE IF NOT EXISTS`. An older `badges` table with `name NOT NULL` already
+existed, so 024 only added `badge_type`, `community_id` and `earned_at`. The insert has therefore never succeeded.
+Because no badge row can exist, every helper qualifies for `first_helper` on every completion, so every job tries it.
+
+Evidence (demo, 2026-10-29, read-only `docker logs karmyq-reputation-service`, maintainer-authorized during the PR L2
+check): in the retained window, `Processing match_completed event` 497, `Karma awarded for match` 497,
+`Failed to award karma for match` 498, `violates not-null constraint` 498 (`23502`, column `name`, badge
+`first_helper`), `Badge awarded` 0.
+
+Effects:
+- The throw happens inside the handler's main `try` (`services/reputation-service/src/events/subscriber.ts:74`).
+  The trust-evolution block after it never runs (Sprint 30 signals), and the outer catch logs a misleading
+  "Failed to award karma" and rethrows, so Bull retries every completion job. Karma itself is idempotent (ADR-096).
+- Prestige badges (ADR-016, Sprint 14, 2026-03-04) have never been awarded.
+- The stack traces fill the container's `json-file` log (3 × 10 MB) within about two hours. That rotated away the
+  2026-10-29 02:00 nightly logs, so PR L2's human validation could not be done.
+- CI's real SQL runs init.sql with the same `NOT NULL`, but no test asserts a completion job's outcome. The mocked
+  unit tests (`tests/unit/reputation/prestige-badges.test.ts`) never meet the constraint.
+
+Fix direction (not decided): a migration that drops `NOT NULL` from `name` (or the insert supplies a display name);
+isolate badge failures like the trust-evolution block so they cannot fail the job; a real-SQL test that completes a
+match and asserts a badge row and a successful job. Found during the PR L2 log check; not fixed in the BUG-074 PR.
+
+---
+
+## BUG-078 · [2026-10-29] · open
+
+**Match-route writers beside BUG-074's guards still have no status guard** (siblings of BUG-075; found by `/code-review`
+on the BUG-074 PR and not fixed there, under the maintainer's BUG-075 scoping). Lines are at the BUG-074 branch head;
+that PR's `ALREADY_COMPLETED` hoist shifted `matches.ts` about 8 lines from BUG-075's `d8da50f0` citations.
+
+1. **Withdrawn offers revived (medium).** Reject frees the offer with
+   `UPDATE requests.help_offers SET status = 'active' WHERE id = $1` (`services/request-service/src/routes/matches.ts:506`),
+   and accept frees the sibling matches' offers the same way (`matches.ts:379-387`). A helper's withdrawn offer
+   becomes `active` again when the requester rejects its proposed match or accepts a sibling. Cancel now frees only a
+   `matched` offer.
+2. **Complete's finalize overwrites the request (medium).** `UPDATE requests.help_requests SET status = 'completed'
+   WHERE id = $1` (`matches.ts:651`; its text is pinned by directed-surface allowlist hash `b8396be5…`) runs
+   unconditionally. A request the requester cancelled flips to `completed` when a matched exchange on it completes,
+   and a request with a second helper still `matched` closes as `completed`. Cancel's reopen now applies the opposite
+   rule.
+3. **A repeat mark re-stamps its own done_at (low).** `SET ${doneAtColumn} = CURRENT_TIMESTAMP WHERE id = $1 AND
+   status = 'matched'` (`matches.ts:628-629`) has no `IS NULL` on the column, so a double click moves
+   `requester_done_at` / `responder_done_at` forward. Cosmetic today: `completed_at`, which replay reads, is untouched.
+
+Fix direction (not decided): one request-status reconcile used by every match-state writer (with BUG-075); offer
+writes guarded on the status the exchange left them in; an idempotent done mark.
 
 ---

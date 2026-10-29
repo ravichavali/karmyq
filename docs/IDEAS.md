@@ -1039,3 +1039,30 @@ Extends the 2026-10-26 *Dependency-gate follow-ups* entry. Both need an ADR-059 
   read `notification.cta_label ?? getCtaLabel(type)`. Needs a migration and touches every type, so it is its own PR.
 
 ---
+
+## [2026-10-29] Mobile needs a sprint of its own (maintainer, during the BUG-074 PR)
+
+The maintainer: mobile "has to be a sprint all by itself as it wasn't maintained properly for a while." Known
+debt that sprint inherits, each verified 2026-10-29:
+
+- **URL decoding is broken by the decode-uri-component override.** The BUG-074 PR pins `decode-uri-component` 0.5.1
+  (GHSA-qr28-fpjm-wq7f, high), which is ESM-only. `query-string@7.1.3`, which expo-router 57.0.29 uses,
+  `require()`s it and calls the result, so `parse()` throws `decodeComponent is not a function` (reproduced in
+  Node). The sprint must take expo-router off `query-string@7`, or replace the path, before the app ships again
+  (BUG-041).
+- **Stale match statuses.** `apps/mobile/app/requests/[id].tsx` checks `accepted`/`in_progress`, which no route writes.
+- **Unused cancel call.** `cancelMatch` (`apps/mobile/services/api.ts:128`) has no caller.
+- **Expo SDK drift #316** (`expo-notifications`) is open, and `apps/mobile` type-check is red on master (not gated).
+- **Tests reach almost nothing.** The suite has 2 tests, and neither reaches `query-string`.
+- **Nothing builds or ships the app.** There is no `eas.json` and no build or release workflow in this repo.
+---
+
+## [2026-10-29] Back out of an in-progress exchange from the UI (BUG-074 follow-up)
+
+`DELETE /matches/:id` now refuses everything but `matched`, but no client calls it (`cancelMatch` in
+`apps/frontend/src/lib/api.ts:655` and `apps/mobile/services/api.ts:128` is unused); the guide tells helpers to use the
+conversation. A control would also need `match_cancelled` routed to notification-service (it is in
+`UNCONSUMED_EVENTS`, `packages/shared/events/routes.ts:47`, and its template at
+`services/notification-service/src/templates/notificationTemplates.ts:90` is unreachable).
+
+---

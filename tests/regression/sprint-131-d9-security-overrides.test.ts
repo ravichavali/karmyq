@@ -3,7 +3,8 @@
  * The live npm audit gate detects new advisories; these checks preserve the explicit
  * patched pins and the engine.io ws override across later lock edits. Sprint 134 PR X
  * raised the undici floor and added the @expo/cli zod pin; the Sprint 134 security
- * follow-up raised the node-forge, ip-address and fast-uri floors.
+ * follow-up raised the node-forge, ip-address and fast-uri floors. Sprint 134 BUG-074's PR
+ * pinned decode-uri-component 0.5.1 (GHSA-qr28-fpjm-wq7f, high).
  */
 import semver from 'semver';
 import { read } from './helpers/workspaces';
@@ -26,6 +27,9 @@ describe('D9 security override pins', () => {
     ['brace-expansion', '5.0.12'],
     ['engine.io', '6.6.10'],
     ['undici', '7.30.1'],
+    // 0.5.1 is the only patched release and is ESM-only: query-string@7 (expo-router) require()s it and gets
+    // { default } instead of a function. Accepted until the mobile sprint; see docs/IDEAS.md 2026-10-29.
+    ['decode-uri-component', '0.5.1'],
     // @expo/cli declares zod ^3; its exact pin must track the root's zod, or npm nests a second copy.
     ['zod', '4.6.6', ['@expo/cli', 'zod']],
   ])('%s stays on a patched version in the manifest and lock', (name, floor, overridePath = [name]) => {

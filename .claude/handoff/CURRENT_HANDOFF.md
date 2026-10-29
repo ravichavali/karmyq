@@ -1,6 +1,6 @@
 # Sprint 134 — Dated Obligations and Boundary Hardening — Handoff
 
-**Date**: 2026-10-28
+**Date**: 2026-10-29
 **Status**: IN PROGRESS. **PR F #310 SHIPPED** 2026-10-20: merged `63a6cd26` (v11.93.0) by the maintainer (the classifier refused
 Claude's `--admin` merge), deployed by CI/CD 39516935342 (all 15 jobs green, all 9 services healthy, no rollback, no CodeQL re-raise).
 **PR A #311 SHIPPED** 2026-10-21: admin-merged `bf524296` (v11.94.0) on the maintainer's authorization after Codex review;
@@ -32,7 +32,7 @@ post-deploy queue check **PASSED**: no worker and no jobs on either retired queu
 Codex review #2 (no findings). CI/CD 40441255956 green: 14/14 jobs, "All critical services healthy", "DEPLOYMENT SUCCESSFUL",
 all 9 services healthy, "Notify on failure" skipped (no rollback). **No CodeQL re-raise** (0 open alerts on master; the
 merge-sha analyses raised nothing new, highest alert still #627). ADR-102 flipped to Implemented. BUG-069 closed inside its
-10-30 date. Human validation pending (*PR K state*). See *PR K state*.
+10-30 date. Human validation reported done by the maintainer 2026-10-29. See *PR K state*.
 **PR L2 [#320](https://github.com/ravichavali/karmyq/pull/320) SHIPPED**: merged `47c9a323` (v11.101.0) at
 2026-10-27 20:37:13Z. [CI/CD 40579675258](https://github.com/ravichavali/karmyq/actions/runs/40579675258)
 passed 14/14 jobs, including deploy and health check; "Notify on failure" skipped (no rollback).
@@ -42,16 +42,29 @@ Human validation pending: reputation logs after the first 02:00 nightly run (*PR
 **2026-10-28 04:14:22Z** on the maintainer's explicit admin-merge authorization. Deploy run
 [40631196261](https://github.com/ravichavali/karmyq/actions/runs/40631196261) passed **14/14 jobs**;
 all **9 services healthy**, failure notification skipped (no rollback), **0 open CodeQL alerts on
-master**. Merge-commit analyses completed without errors/warnings. Human checks remain pending.
+master**. Merge-commit analyses completed without errors/warnings. UI checks reported done by the maintainer 2026-10-29.
 See *PR V state*.
 **Security follow-up [#322](https://github.com/ravichavali/karmyq/pull/322) SHIPPED** as `4ee38e82` (v11.103.0), merged by
 the maintainer at **2026-10-28 18:56:43Z** after Codex review (no blocking findings). [CI/CD 40749793316](https://github.com/ravichavali/karmyq/actions/runs/40749793316)
 passed **14/14** including Deploy to Demo. The node-forge deadline is met: the exemption registry on master is empty, 0 open
 code-scanning alerts, 0 open Dependabot alerts. deepmerge #178 dismissed `tolerable_risk` (maintainer option a). See
 *Security follow-up state → Post-merge*.
-**Now:** **PR B (vouch from a completed exchange) is OPEN: Codex review #1 P2 fixed (`8e4801b1`), awaiting Codex re-review / maintainer merge**, [#323](https://github.com/ravichavali/karmyq/pull/323), on
-`agent/claude/sprint-134-pr-b-vouch-from-request` (base `origin/master` `4ee38e82`, unchanged at open), v11.104.0 re-derived
-at PR open. All four gates ran; the real-SQL integration matrix is **CI-only** (not run on this Windows box). See *PR B state*.
+**PR B [#323](https://github.com/ravichavali/karmyq/pull/323) SHIPPED** as `d8da50f0` (v11.104.0), merged at
+**2026-10-28 23:01:54Z** on the maintainer's admin authorization. [CI/CD 40784392749](https://github.com/ravichavali/karmyq/actions/runs/40784392749)
+passed **14/14** including Deploy to Demo; all 9 services healthy; "Notify on failure" skipped (no rollback); 0 open CodeQL
+alerts on master; the `/language:actions` "Unknown Error" carried from `4ee38e82` **cleared** on `d8da50f0`. The
+maintainer reported PR B's four human checks done on 2026-10-29. See *PR B state → Post-merge*.
+**Now:** **BUG-074 PR [#324](https://github.com/ravichavali/karmyq/pull/324) OPEN, awaiting Codex review and the
+maintainer's merge** (match cancel and complete status guards, v11.105.0 provisional) on
+`agent/claude/sprint-134-pr-bug-074-cancel-guard`, from `origin/master` `d8da50f0` (master had not moved at PR open).
+Executed 2026-10-29 with `superpowers:subagent-driven-development`; all 12 tasks and the four gates done; code head
+`84595394`. **CI's `test-integration` job is the real-SQL test's first run** (CI-only on Windows). See *BUG-074 state*.
+New: **BUG-075** (other request-status writers lack a guard; demo rows exist) and **BUG-078** (unguarded writers beside
+BUG-074's guards, found by its `/code-review`), both logged, not scheduled.
+**⚠️ Security fix rides this PR (maintainer, 2026-10-29):** HIGH advisory `decode-uri-component` GHSA-qr28-fpjm-wq7f is
+fixed on this branch by a 0.5.1 override (`f6220d06`), so **the BUG-074 PR must merge and deploy by 2026-11-05**. Accepted
+cost: mobile URL decoding is broken until mobile's own sprint (BUG-041, `docs/IDEAS.md` 2026-10-29). New **BUG-077**
+(proposed HIGH): every reputation `match_completed` job fails on the badge insert after karma. Not scheduled.
 **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
 become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26); the 10-29 deadline no longer applies.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
@@ -69,14 +82,32 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 1. Read this handoff, then `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
 2. Find the next PR in *PR sequence* whose status is not SHIPPED. Reuse its branch if it exists; otherwise
    `git switch -c agent/claude/sprint-134-pr-<letter>-<slug> origin/master`. Never branch off a stale local master.
-3. PR V and the security follow-up (#322) are shipped; deploy/health are verified in *PR V state* and
-   *Security follow-up state → Post-merge*. **PR B is open** (*PR B state*), awaiting Codex review and the maintainer's
-   merge. The next chat starts with `gh pr checks <n>`: the CI integration job is the first real-SQL run of
-   `tests/integration/sprint-134-pr-b-viewer-partners.integration.test.ts` and the arbiter of the `rated_by_me` RLS
-   question. After merge: deploy/health check, CodeQL master re-check **including the `/language:actions` "Unknown
-   Error" carried from `4ee38e82`**, the post-merge record, and the PR B human validation list. PR V human validation
-   and PR L2's nightly reputation-log validation are separate open checks. BUG-074 is the next small PR candidate.
-4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
+3. PR V, the security follow-up (#322) and **PR B (#323)** are shipped; deploy/health are verified in *PR V state*,
+   *Security follow-up state → Post-merge* and *PR B state → Post-merge*. **BUG-074 is executed and open as #324:**
+   the next chat starts with `gh pr checks 324` and `git log --oneline origin/master -3`, handles any CI red (the
+   real-SQL integration file runs there first; a lone red on its control poll or `afterAll` → rerun once before
+   debugging), relays Codex findings, and after the merge records the deploy, health and CodeQL on the merge sha on
+   the next branch. **Merge by 2026-11-05** (it carries the `decode-uri-component` high fix).
+   **Human checks:** the maintainer reported the **UI checks done on 2026-10-29** (PR A's three exports, PR B's four
+   (check 1 included, the demo RLS proof for `rated_by_me`), PR V's reads and requester actions, PR K's demotion and
+   provider-offer acceptance); no failure reported. **Demo-host checks, run 2026-10-29 on the maintainer's authorization:**
+   - **PR L2 nightly log: INCONCLUSIVE, not failed.** The container log (json-file, 3 × 10 MB) kept only the last ~2 h; the
+     02:00Z and 03:30Z runs were rotated away by **BUG-077**'s stack traces. Re-check after BUG-077 is fixed, or read the log
+     within ~1 h of a 02:00Z run, or check the nightly's outputs in the DB (each a separate authorization).
+   - **PR D D8:** **BLOCKED, not failed.** All three cases (repo root, service dir, wrong ID) exit 1 with
+     `[verify:demo] failed: Request failed with status code 401` before the report prints, so the env-file checks never ran.
+     A per-persona login probe (status codes only, 19:18Z) found maria, helper and provider **200** and the **unrelated persona
+     (`DEMO_UNRELATED_EMAIL` in `.env.demo.rotation`) 401**. A read-only lookup (authorized, rolled back) found **no
+     account** for that address, `marcus.white9924@test.karmyq.com`, and no near match: it is a pre-reset simulation account.
+     Maria, helper and provider all date from the 2026-10-19 19:27:10.5 curated reset. The guide requires **Marcus Lee,
+     `marcus.lee@test.karmyq.com` (`person.outsider`), sharing zero communities with Maria** (`docs/guides/demo-data.md:253`).
+     Fix = edit that one line of the host's `.env.demo.rotation` (a host write).
+     Also: the auth limiter (10 logins / 15 min / IP) cannot fit D8's three cases (about 5 auth calls each) in one window;
+     the first probe tripped it (429). Next: fix the persona (check the account, or rotate the demo stories), then rerun D8
+     across two windows. Each is a separate authorization.
+4. Open the plan: [`docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md`](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md)
+   (spec: [`docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-074-cancel-guard-design.md`](../../docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-074-cancel-guard-design.md)).
+   Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
    slash command; superpowers removed it as a deprecated stub.
 5. One fresh chat per PR (CLAUDE.md *Chat cadence*). Update this file at every PR open/merge.
 6. **Stopping point = PR creation (maintainer, 2026-10-22, standing).** Run all gates, push this handoff on the PR branch marking
@@ -88,9 +119,172 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 
 | Field | Value |
 |---|---|
-| **Current branch** | `agent/claude/sprint-134-pr-b-vouch-from-request`, from `origin/master` `4ee38e82` (#322, v11.103.0). First commit: the #322 post-merge record. The old `agent/codex/sprint-134-pr-b-endorsement-followups` is **safe to delete** (maintainer's call): its two docs commits `4b0c6386`/`56357e50` are patch-identical (`git patch-id --stable`) to `ac08fbf4`/`0685c058`, both ancestors of #322's head `1ecf1a05`, whose tree equals master's `4ee38e82` tree. (`git cherry` shows them as missing only because #322 was squash-merged.) |
-| **Active editor** | **Claude** authored PR B (executed 2026-10-28); **Codex reviews** the open PR. No concurrent edits on this branch: review findings come back through the maintainer to the next Claude chat. |
-| **Shared resources** | dependency lane: **Claude** (maintainer-designated); nothing dependency-dated is open after #322 except Expo drift #316 (awaiting a maintainer decision) and BUG-041's re-check by 2026-11-14. PR B is product work and edits no manifest or lockfile beyond the root version. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
+| **Current branch** | `agent/claude/sprint-134-pr-bug-074-cancel-guard`, from `origin/master` `d8da50f0` (#323, v11.104.0). First commit: the #323 post-merge record. The merged `agent/claude/sprint-134-pr-b-vouch-from-request` is safe to delete (maintainer's call): its head `69f277d8` has the same tree as `d8da50f0` (`f37f5eda`). Previous: `agent/claude/sprint-134-pr-b-vouch-from-request`, from `origin/master` `4ee38e82` (#322, v11.103.0); its first commit was the #322 post-merge record. The old `agent/codex/sprint-134-pr-b-endorsement-followups` is **safe to delete** (maintainer's call): its two docs commits `4b0c6386`/`56357e50` are patch-identical (`git patch-id --stable`) to `ac08fbf4`/`0685c058`, both ancestors of #322's head `1ecf1a05`, whose tree equals master's `4ee38e82` tree. (`git cherry` shows them as missing only because #322 was squash-merged.) |
+| **Active editor** | **Claude** planned BUG-074 and executed it (2026-10-29, PR #324 open); **Codex reviews** #324. No concurrent edits on this branch: review findings come back through the maintainer to the next Claude chat. (PR B: Claude authored, executed 2026-10-28, shipped.) |
+| **Shared resources** | dependency lane: **Claude** (maintainer-designated). The BUG-074 branch carries the `decode-uri-component` 0.5.1 override (`f6220d06`, GHSA-qr28-fpjm-wq7f, due 2026-11-05) on the maintainer's decision; BUG-041 is resolved by it. Expo drift #316 still awaits a maintainer decision. The BUG-074 PR edits no other manifest or lockfile entry beyond the root version. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
+
+## BUG-074 plan (Claude, planning chat 2026-10-28 → 2026-10-29)
+
+**Goal:** `DELETE /matches/:id` and `PUT /matches/:id/complete` change a match only while it is `matched`, refusing
+everything else with a 409 and an ADR-074 string code, with the guard enforced inside the writing statement.
+
+- **Spec:** [`docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-074-cancel-guard-design.md`](../../docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-074-cancel-guard-design.md)
+- **Plan:** [`docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md`](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md) (12 tasks)
+- **Branch:** `agent/claude/sprint-134-pr-bug-074-cancel-guard` (from `d8da50f0`). **Version:** 11.105.0, provisional.
+- **ADR:** none (maintainer agreed). **Migration:** none. **Dependency change:** none beyond the root version.
+
+**Maintainer decisions (2026-10-29), all as recommended:** (1) cancel `matched` only; (2) the request changes only while
+`matched` with no other `matched` match: `completed` if a completed match remains, else `open`; the offer is freed only
+while `matched`; (3) 409 `MATCH_NOT_CANCELLABLE`; (4) read-only demo counts authorized and run, repair separate;
+(5) the complete guard is in this PR: 409 `MATCH_NOT_COMPLETABLE`, the idempotent 200 kept on both paths.
+
+**Demo counts (maintainer-authorized, run once 2026-10-29 in `BEGIN TRANSACTION READ ONLY ... ROLLBACK`):** 119 requests
+with >1 completed match; **0** cancelled matches carrying `completed_at`; 52 `open` + 2 `matched` requests holding a
+completed match. **No surviving completed-then-cancelled fingerprint found; cause unconfirmed.** With no status
+history the 0 cannot exclude completed → cancelled → completed (BUG-074's complete route accepts a cancelled match),
+so BUG-074's routes stay candidates alongside the other unguarded writers in **BUG-075** (out of scope).
+
+**Key findings the plan rests on (verified, `file:line` in the spec):** no client calls cancel (`cancelMatch` is unused in
+web and mobile; no simulation or e2e caller); complete is offered only on `matched`; `match_cancelled` is unconsumed;
+complete locks match then request, accept/reject request then match, so cancel must take the match row first.
+
+**Human checks (after merge and deploy; the maintainer reports them):** (1) `DELETE /api/matches/<completed match id>`
+as a participant answers 409 `MATCH_NOT_CANCELLABLE` and the match stays completed; (2) a normal two-party mark-done
+still completes and awards karma.
+
+**Critical implementation notes (from the spec, verbatim):**
+
+1. **The guard lives in the write.** Cancel's match `UPDATE` carries `AND status = 'matched'`; complete's done_at
+   `UPDATE` carries `AND status = 'matched'`. A status check before the transaction may stay as a fast path but must
+   never be the only guard: under READ COMMITTED a completion that has not committed is invisible to it.
+2. **Lock order: match row first, then the request row.** In cancel, the guarded match `UPDATE` comes before
+   `SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE`. Complete already runs match then request
+   (`matches.ts:622-645`). Do not copy accept/reject's request-first order into cancel: it would deadlock with complete.
+3. **The reopen is its own statement, after the request lock**, and changes the request only when `r.status = 'matched'`
+   and no other match on it is `'matched'`: `'completed'` when another completed match exists, else `'open'`. It never
+   touches an `open`, `dibs_pending`, `completed` or `cancelled` request.
+4. **Free the offer only while it is `matched`:** `WHERE id = $1 AND status = 'matched'`. A withdrawn offer stays withdrawn.
+5. **Literal statuses only.** Never pass a status as a parameter compared with `requests.matches.status`; in test
+   fixtures, cast any status parameter (`$n::varchar`). The route's parameters stay `[id]` / `[request_id]` / `[offer_id]`.
+6. **Identity is `req.user!.userId` only** (ADR-064). No JWT `communities` claim read anywhere
+   (`tests/regression/sprint-134-pr-k-claim-gate.test.ts` fails on one). Non-participants keep the 404 from
+   `matchParticipantSql`.
+7. **Complete stays idempotent for an already-completed match on both paths:** the pre-read fast path (`:606-612`) and
+   the race path (guarded `UPDATE` hits 0 rows, re-read says `'completed'`). Neither stamps `completed_at` nor publishes
+   `match_completed` again (Sprint 126 / ADR-096 reasoning in the comment at `:592-605`). Any other status → 409
+   `MATCH_NOT_COMPLETABLE`.
+8. **Refuse with `rowCount === 0`**, as reject does (`:488`). The existing `two-phase-completion.test.ts` mocks return the
+   done_at `UPDATE` without `rowCount`, so `undefined` must pass through; every new refusal test sets `rowCount: 0`.
+9. **`match_cancelled` publishes only after a successful commit** and stays in `UNCONSUMED_EVENTS`. No routing, registry
+   event or queue change.
+10. **Directed-surface gate** (`tests/regression/sprint-132-directed-audience-gate.test.ts`): write the new lock as the
+    exact single-line literal `SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE` so the existing allowlist
+    hash `37124d9f…` covers it (matching is file + hash). The new reopen statement replaces the old cancel reopen, whose
+    entry (`2fe695cd…`, label `SET status = 'open'`) then goes stale: **the gate fails on a stale entry as well as on an
+    unlisted hit.** Replace that entry with the new statement's hash.
+11. **The real-SQL test is CI-only on Windows** (no local Docker). Its race cases prove the wait with
+    `pg_blocking_pids(<holder pid>)` over `pg_locks`, never a sleep, and release the holder client in `finally`.
+12. **Fixture columns are checked against `infrastructure/postgres/init.sql`:** `help_offers` needs `community_id`,
+    `offerer_id`, `title`, `description`, `category` (NOT NULL); `matches` needs `request_id`, `responder_id` (NOT NULL);
+    `help_requests` as in `tests/integration/sprint-134-pr-b-viewer-partners.integration.test.ts:55-57`.
+13. **Tests first:** request-service `tests/tdd/` (red), then the implementation; promote with
+    `node scripts/promote-tdd-tests.js` (`.npmrc` sets `ignore-scripts`) and restore any unrelated file it sweeps.
+14. **No migration. One dependency change, already on the branch:** the `decode-uri-component` 0.5.1 override
+    (`f6220d06`; maintainer decision 2026-10-29 to fix GHSA-qr28-fpjm-wq7f in this PR). Add no other. The version bump
+    edits only `package.json` and the two root `"version"` lines in `package-lock.json`, as in `d8da50f0`.
+15. **Do not fix BUG-075 here,** even where a line sits next to the code being changed (the reject reopen at `:514`).
+
+**Plan review (2026-10-29, relayed by the maintainer; every finding verified before editing):** (1) Task 6's claim-gate
+command ran under request-service and ENOENTs; the gate lives in root `tests` (reproduced; corrected command 17/17);
+(2) added a real-SQL completion-behind-a-completion race (idempotent 200, timestamps unchanged, no second publication,
+bounded by a positive-control completion); (3) the demo counts do not establish causation: now "no surviving
+completed-then-cancelled fingerprint found; cause unconfirmed" in the spec, here and BUG-075; (4) the request-state
+cases now cover `open`, `dibs_pending`, `completed` and `cancelled` asks. Also logged **BUG-076** (pre-push TDD step
+reports "passed" without running: no `pipefail`, and `turbo.json` has no `test:tdd` task); not scheduled.
+
+**Planning dry run (2026-10-29, temporary edits restored byte-for-byte; nothing committed):** the plan's tdd file is
+**8 red / 1 green** on `9af57d4b`. With Tasks 4–5's code applied verbatim and the allowlist re-pinned (new reopen hash
+`e267659f…`), the tdd file and the existing Sprint 83, two-phase and directed-surface suites pass **25/25**, the claim
+gate **17/17**, and request-service `tsc` is clean. The planned integration file type-checks (the `tests` tsconfig
+has 70 pre-existing errors in other files, mostly e2e). The dry run caught one plan bug, now fixed: the
+no-offer case matched `help_offers` in the participant read's `LEFT JOIN`. **The real-SQL test was not run** (no
+local Docker; CI-only).
+
+**Planning commits on the branch:** `0286f97e` (#323 post-merge record), `9af57d4b` (spec + plan + BUG-075 + this
+handoff), then the plan-review revision.
+
+## BUG-074 state (Claude executor, 2026-10-29)
+
+**Status: PR [#324](https://github.com/ravichavali/karmyq/pull/324) OPEN, awaiting Codex review and the maintainer's
+merge.** Base `origin/master` `d8da50f0` (unchanged at PR open, so no merge-in was needed). Version **11.105.0**, re-derived from
+master's 11.104.0 at PR open; re-check at merge. Executed with `superpowers:subagent-driven-development`: a fresh
+implementer per dispatch unit, then a spec + quality review of each unit, then a final whole-branch review.
+
+**Commits** (after the planning/security commits ending `f7822957`):
+- `9a655cd0` version → `3fe6c6e6` tdd contract (red) → `f14428e3` real-SQL integration test → `7b3d6557` cancel guard →
+  `68e3ff44` complete guard → `dd9a9876` sprint-83 + allowlist re-pin → `85e111b2` promotion
+- `b2739993` guides → `3a561eff` CONTEXT, registry and BUGS → `cf7e99a3` `/simplify` + landing regen → `a3b3ff70` BUG-078 →
+  `84595394` final-review minors.
+
+**Test evidence:**
+- **Contract test** (`services/request-service/tests/regression/sprint-134-bug-074-match-status-guards.test.ts`): red
+  **8 failed / 1 passed** on `3fe6c6e6` (the 404 case passed; the complete refusals hit 500s, not 409s, because the old route
+  reads `rows[0]` of an empty update), then 9/9 green.
+- **Real-SQL file** (`tests/integration/sprint-134-bug-074-match-status-guards.integration.test.ts`): **NOT RUN locally**;
+  CI's `test-integration` job is its first run. Fixture columns, CHECKs, FK cleanup order and timestamp types were checked
+  against init.sql. Every completion consumer runs at concurrency 1, so the positive control's ordering bound is
+  exact (no caveat needed).
+- **`afterAll` deletes matches first.** A BUG-077 Bull retry then cannot re-insert karma: the projector throws "Match not
+  found" (`standingProjector.ts:98`).
+- **On `84595394`:**
+  - request-service `tsc` exit 0;
+  - `npm test` exit 0 (Turbo 27/27; request-service 161 + 461, 1 existing skip; root 101 + 956);
+  - `npm test --workspace=tests`, run directly: 101 + 956;
+  - directed-surface gate 4/4 (reopen hash `e267659f…`, the same as the dry run);
+  - claim gate 17/17.
+- **Promoter:** promoted 6 files; the 5 unrelated ones were restored.
+
+**Gate dispositions:**
+- **`/simplify`** (4 angles): one fix (`cf7e99a3`), a comment saying why the reopen is its own statement after the lock.
+  Skipped:
+  - the outcome union;
+  - `sendError` reuse;
+  - folding the statements;
+  - test nits.
+  Follow-ups noted, not filed:
+  - one `reconcileRequestStatus` for every match-state writer (BUG-075 direction);
+  - derive the directed-surface allowlist from live statements instead of hand-pinned hashes.
+- **`/code-review` medium:** 9 findings, none a regression.
+  - Logged as **BUG-078**: offer revival on reject/accept, complete's unconditional request finalize, the done_at
+    re-stamp.
+  - Dismissed with reasons in the PR body: the mobile override, 404 vs 409, the fast path, the CASE branch, `whileHeld`,
+    `notDirectedSql`.
+- **`/security-review`:** no findings. A maintainer-relayed review agreed. Wording correction recorded: "the only *dynamic column*
+  interpolation is `${doneAtColumn}`"; the trusted `matchParticipantSql(...)` helper is also interpolated.
+- **SDD final review** (most capable model): ready to merge, 0 Critical/Important, no ruling disputed. Minors 1–4 fixed in
+  `84595394`. Parked: the spec's "no triggers" sentence (init.sql has BEFORE INSERT `expires_at` triggers on `help_offers`
+  and `help_requests`, which affect no UPDATE path), and two cosmetic nits.
+
+**Executor rulings** (all in the PR body):
+- Tasks were batched into 4 dispatch units.
+- The Haiku attribution on `9a655cd0` and `3fe6c6e6` was kept.
+- `fulfilling-requests-guide.md:65` was reworded too (the same nonexistent-control sentence).
+- Regenerated `api`, `services` and `services/request-service` landing JSONs are committed (PR B precedent).
+- BUG-078 was logged instead of fixing its three items or touching BUG-075.
+
+**Human checks (maintainer, demo, after merge + deploy):**
+1. As a participant, `DELETE /api/matches/<completed match id>` answers 409 `MATCH_NOT_CANCELLABLE`, and the match stays
+   completed.
+2. A normal two-party mark-done still completes and awards karma.
+
+**Carry-forward:**
+- **CodeQL:** the `ALREADY_COMPLETED` hoist shifted `matches.ts` by about 8 lines. Read the PR's check-run
+  annotations and, after the merge, the merge-sha analysis for `js/missing-rate-limiting` re-raises. Hand any alert to the
+  maintainer; never loop the dismissal API.
+- **Stale line citations:** BUG-075's `matches.ts` line cites (written against `d8da50f0`) are about 8 lines stale on
+  this branch.
+- **Pre-existing, unrelated:** `POST /matches` checks the offer, then writes, so two proposals could share one offer.
+  Seen by the final review; not logged.
 
 ## PR B plan (Claude, planning chat 2026-10-28)
 
@@ -190,7 +384,28 @@ the layout decision.
 
 ## PR B state (Claude executor, 2026-10-28)
 
-**Status: OPEN; Codex review #1 P2 fixed in `8e4801b1`; awaiting Codex re-review / maintainer merge** ([#323](https://github.com/ravichavali/karmyq/pull/323)). Branch
+**Post-merge (2026-10-28, recorded on the BUG-074 branch; each fact re-read live): SHIPPED.**
+- #323 merged as **`d8da50f0`** (v11.104.0) at **23:01:54Z** by the maintainer on an explicit admin authorization; PR head
+  was `69f277d8`. All 21 PR checks green, including the Integration Tests job (PR deploy skipped as expected).
+- [CI/CD 40784392749](https://github.com/ravichavali/karmyq/actions/runs/40784392749) on `d8da50f0` (push, 23:01:57Z →
+  23:18:24Z): **14/14 jobs success**: Security Audit, Lint & Type Check, Code Scanning Gate, unit + regression, Integration
+  Tests, Build Landing Page, 7 image builds, **Deploy to Demo**. The deploy log shows `Next.js 16.4.2`, "All critical
+  services healthy." and "DEPLOYMENT SUCCESSFUL" (23:18:04Z). The health step reported auth, community, request,
+  reputation, notification, messaging, cleanup, geocoding and social-graph healthy (23:18:20Z). "Notify on failure"
+  **skipped**: no rollback.
+- **First real-SQL run on master:** the Integration Tests job passed 20 suites / 302 tests, including all 11 cases of
+  `tests/integration/sprint-134-pr-b-viewer-partners.integration.test.ts` (exposure matrix, the rating round trip
+  flipping only the rater's `rated_by_me`, the `FEEDBACK_ALREADY_SUBMITTED` repeat, and the vouch agreement both ways). That
+  settles `rated_by_me` under CI's roles. Demo RLS rests on human check 1 below, which the maintainer reported done on
+  2026-10-29 (no failure reported).
+- **CodeQL:** **0 open alerts** on `refs/heads/master`; highest alert number still **#627** (no new alert). Both
+  analyses for `d8da50f0` completed with no error and no warning: JS/TS **2049683075** (467 raw results) and Actions
+  **2049678160** (0 raw results). The `/language:actions` **"Unknown Error" on `4ee38e82` (analysis 2047990760) did not
+  recur**: closed. No dismissal was made or needed.
+- **Human checks:** the four below were reported done by the maintainer on 2026-10-29 (karmyq.com; no failure
+  reported). Nothing else is owed for PR B.
+
+**Pre-merge status (history): OPEN; Codex review #1 P2 fixed in `8e4801b1`; awaiting Codex re-review / maintainer merge** ([#323](https://github.com/ravichavali/karmyq/pull/323)). Branch
 `agent/claude/sprint-134-pr-b-vouch-from-request`, base `origin/master` `4ee38e82` (master had not moved at PR open, so no
 merge-in was needed). Version **11.104.0**, re-derived from `origin/master` (11.103.0) at PR open; re-check at merge.
 Executed inline with `superpowers:executing-plans`, all 13 tasks in plan order.
@@ -427,24 +642,29 @@ export), so the blocker is unchanged.
 - Spec: [`docs/superpowers/specs/2026-10-20-sprint-134-dated-obligations-design.md`](../../docs/superpowers/specs/2026-10-20-sprint-134-dated-obligations-design.md)
 - PR B spec: [`docs/superpowers/specs/2026-10-28-sprint-134-pr-b-vouch-from-request-design.md`](../../docs/superpowers/specs/2026-10-28-sprint-134-pr-b-vouch-from-request-design.md)
 - PR B plan: [`docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md`](../../docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md)
+- BUG-074 spec: [`docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-074-cancel-guard-design.md`](../../docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-074-cancel-guard-design.md)
+- BUG-074 plan: [`docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md`](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md)
 
 ## PR sequence
 
 | # | PR | Scope | Due | Plan | Status |
 |---|---|---|---|---|---|
 | 0 | **F** | follow-redirects 1.16.0 → 1.16.1 (GHSA-q3jh-wrc6-jgq8 + GHSA-8r9p-f939-6h3c, high, published 2026-10-20); one-node splice; v11.93.0 | high SLA 10-27 | spec *PR F* | **SHIPPED** `63a6cd26` (#310), CI/CD 39516935342 green |
-| 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | **SHIPPED** `bf524296` (#311, v11.94.0), CI/CD 39666220132 green. Human validation (Task A12) pending: maintainer downloads all three exports on karmyq.com. See *PR A state* below |
+| 1 | **A** | BUG-063: repair every export query against the live schema | **2026-10-24** (target merge 10-22) | [`plans/2026-10-20-sprint-134-pr-a-bug-063-export.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-a-bug-063-export.md) | **SHIPPED** `bf524296` (#311, v11.94.0), CI/CD 39666220132 green. Human validation (Task A12, the three exports): reported done by the maintainer 2026-10-29. See *PR A state* below |
 | 2 | **E** | Expo SDK 57 patch (#279) + drift-workflow silent-failure fix | — | [`plans/2026-10-20-sprint-134-pr-e-expo-patch.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-e-expo-patch.md) | **SHIPPED** `eea83267` (#312, v11.95.0), CI/CD 39711848936 attempt 2 green. See *PR E state* |
 | 3 | **D** | `verify:demo` loads `DEMO_ENV_FILE`, else the repo-root `.env.demo` | — | [`plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-d-verify-demo-env.md) | **SHIPPED** `866857ed` (#313, v11.96.0), CI/CD 39797190307 green. Human validation (Task D8) pending; see *PR D state* |
 | — | **N** | `next` 16.3.8 → 16.4.2 (GHSA-2464-fhr4-w9xw critical RCE + GHSA-p3m5-59mp-jv5r high, published 2026-10-22 15:52Z); 10-node splice; v11.97.0 | critical: blocks every PR now | *PR N state* below | **SHIPPED** `0321c415` (#314, v11.97.0), CI/CD 39853173679 green |
 | — | **X** | **Security PR (overdue, blocks every push and CI):** remove the braces exemption (advisory withdrawn 2026-10-23); renew node-forge; fix the new highs in body-parser, undici and zod; make the audit validator accept npm's inconsistent severities. See *Security PR X findings* | exemptions **expired 2026-10-26 00:00Z** (10-25 17:00 PDT) | *Security PR X findings* below | **SHIPPED** `e15622bc` (#317, v11.98.0), CI/CD 40410093954 green |
 | 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | **SHIPPED** `ff3f394e` (#315, v11.99.0), CI/CD 40417261628 green; post-deploy queue check PASS. See *PR L state* |
 | 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers, numeric widths and nightly isolation; **BUG-070** | BUG-070 **2026-11-03** | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md) | **SHIPPED** #320 `47c9a323` (v11.101.0), CI/CD 40579675258 green; nightly human validation pending. |
-| 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **SHIPPED** `dd585016` (#319, v11.100.0), CI/CD 40441255956 green; real SQL 101/101. Human validation pending; see *PR K state* |
-| 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **SHIPPED** #321 `645d28fd` (v11.102.0), CI/CD 40631196261 green 14/14; 9 healthy; 0 open master CodeQL alerts. Human checks pending. |
+| 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **SHIPPED** `dd585016` (#319, v11.100.0), CI/CD 40441255956 green; real SQL 101/101. Human validation reported done by the maintainer 2026-10-29; see *PR K state* |
+| 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **SHIPPED** #321 `645d28fd` (v11.102.0), CI/CD 40631196261 green 14/14; 9 healthy; 0 open master CodeQL alerts. UI checks reported done by the maintainer 2026-10-29. |
 | — | **Security follow-up** | node-forge 1.4.2 + exemption removed; ip-address 10.7.4; fast-uri 4.2.3; deepmerge decision write-up | **2026-11-01 16:00 PST** | *Security follow-up state* | **SHIPPED** `4ee38e82` (#322, v11.103.0), merged 18:56:43Z; CI/CD 40749793316 green 14/14 incl. deploy; 0 open code-scanning / Dependabot alerts; deadline met. |
-| 8 | **B** | Vouch from a completed exchange (`docs/IDEAS.md` 2026-10-13 "Vouch from the request page") | — | [plan](../../docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md) | **OPEN: Codex P2 fixed, awaiting re-review / maintainer merge** ([#323](https://github.com/ravichavali/karmyq/pull/323), v11.104.0) on `agent/claude/sprint-134-pr-b-vouch-from-request`; gates done; integration matrix CI-only. See *PR B state*. |
-| 9 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
+| 8 | **B** | Vouch from a completed exchange (`docs/IDEAS.md` 2026-10-13 "Vouch from the request page") | — | [plan](../../docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md) | **SHIPPED** `d8da50f0` (#323, v11.104.0), merged 2026-10-28 23:01:54Z; CI/CD 40784392749 green 14/14 incl. deploy; real SQL 302/302; 0 open CodeQL alerts. Four human checks reported done by the maintainer 2026-10-29; see *PR B state*. |
+| 9 | **BUG-074** | Cancel and complete change a match only while it is `matched` (409 `MATCH_NOT_CANCELLABLE` / `MATCH_NOT_COMPLETABLE`); conditional request/offer updates; **carries the `decode-uri-component` 0.5.1 override** (`f6220d06`); v11.105.0 provisional | **2026-11-05** (the high SLA it carries) | [plan](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md) | **OPEN** [#324](https://github.com/ravichavali/karmyq/pull/324) 2026-10-29, code head `84595394`; awaiting Codex review + maintainer merge. See *BUG-074 state*. |
+| — | **BUG-078** | Unguarded writers beside BUG-074's guards: reject/accept revive a withdrawn offer; complete's finalize writes the request `completed` unconditionally; a repeat mark re-stamps done_at | — | not written | Logged 2026-10-29 by BUG-074's `/code-review`, **not scheduled**; pairs with BUG-075. |
+| 10 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
+| — | **BUG-075** | Other request-status writers lack a status guard (reject reopen, accept, admin propose-match, dibs accept/decline/expire); demo rows exist, cause unconfirmed | — | not written | Logged 2026-10-29, **not scheduled**; maintainer to decide scope and any demo repair. |
 | — | **Per-community health-quality weight (planned PR)** | Persist the weight in `communities.community_configs`; choose a quality signal source; requires an ADR number allocated by the maintainer | Not scheduled | Write after ADR allocation + signal decision | Separate planned PR, not part of L2 |
 
 B and C are the likeliest to spill into Sprint 135, which is expected. One merge at a time; wait for deploy + health before the next.
@@ -470,7 +690,8 @@ for merge SHA `645d28fd3218be463bf8f77ffe76dc8277d80b6b` completed with no error
 JS/TS analysis **2042197326** (467 raw results) and Actions analysis **2042193650** (0 raw results).
 Raw analysis results are separate from the open-alert query. No alerts were dismissed.
 
-**Human validation remains pending after automated health verification:**
+**Human validation after automated health verification** (the maintainer reported the first two UI checks done on
+2026-10-29, no failure reported; the L2 log check stays open):
 - Requester edit/cancel/privacy succeeds; foreign/missing IDs yield the same 404.
 - Departed helper and preferred provider retain reads; outsiders cannot read community-only or
   directed asks. Check demo page contents, scoped community notes and offer consent behavior.
@@ -984,7 +1205,8 @@ claim-based authorization decision. Claude re-checked the integration count and 
 see *PR V state* for deploy/health proof. Next product work is PR B, scoped in a fresh chat.
 BUG-073 is tabled (maintainer, 2026-10-26) as a future-sprint platform-admin feature; it is not PR L2's scope.
 **Human validation (after deploy):** demote a test admin to member in a second browser, then that admin's **Update tags**
-→ refused; a requester who administers nothing accepts a provider offer → accepted.
+→ refused; a requester who administers nothing accepts a provider offer → accepted. **Reported done by the maintainer
+2026-10-29** (no failure reported).
 
 ## PR X state (2026-10-26)
 
@@ -1132,9 +1354,14 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | ~~`ip-address` GHSA-rxp7-6hxx-x8q5 (moderate)~~ | ~~2026-11-05~~ | **DONE**: #322 (10.7.2 → 10.7.4, floor `>=10.7.4`), deployed 2026-10-28; 0 open Dependabot alerts. |
 | ~~`fast-uri` GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr (moderate) + 2 low~~ | ~~2026-11-06~~ | **DONE**: #322 (4.2.1 → 4.2.3, floor `>=4.2.3`), deployed 2026-10-28. Dependabot **#318** (not used: it deletes 26 `libc` fields) auto-closed 18:59:10Z. |
 | `deepmerge` alert **#178** (low) | re-check at the next Expo SDK move or **2026-12-01** | **DISMISSED** `tolerable_risk` 2026-10-28 19:24:33Z (maintainer option a). Reach: Expo config tooling + Jest only, no fix exists (4.3.1 latest). Gate blocks high/critical only, so no exemption entry. |
-| `decode-uri-component` BUG-041 (alert #150, dismissed) | re-check by **2026-11-14** | 0.5.1 still ESM-only; blocker unchanged (*Security follow-up state*). |
-| CodeQL `/language:actions` "Unknown Error" on `4ee38e82` | next master push | GitHub-side (job log shows a complete upload). Re-check the Actions analysis for the PR B merge sha. |
-| **BUG-074** (`DELETE /matches/:id` cancels completed/rejected matches and reopens the request) | not scheduled | Logged 2026-10-28 during PR B planning; separate PR (maintainer). Severity not yet assessed; it changes completion/karma semantics, so plan it first. |
+| ~~`decode-uri-component` BUG-041 (alert #150, dismissed)~~ | ~~re-check by 2026-11-14~~ | **RESOLVED** by the 0.5.1 override on the BUG-074 branch (`f6220d06`); mobile URL decoding broken until the mobile sprint (maintainer-accepted). |
+| **`decode-uri-component` GHSA-qr28-fpjm-wq7f (HIGH)**, DoS via quadratic replacement of percent-encoded runs; `<= 0.5.0`, patched 0.5.1 | high SLA: **2026-11-05** (published 2026-10-29 16:41:28Z) | **FIXED ON THE BUG-074 BRANCH** (`f6220d06`, maintainer decision 2026-10-29): root override `"decode-uri-component": "0.5.1"`, one spliced lock node; strict `npx npm@11.19.0 ci` exit 0; `npm ls` invalid list unchanged (3 pre-existing); both ADR-059 gates 39/39; pin row in `sprint-131-d9-security-overrides` (9/9, fails on the old lock). **Ships only when the BUG-074 PR deploys: merge by 2026-11-05.** Accepted cost: `query-string@7.1.3` `parse()` throws (ESM-only 0.5.1); nothing here builds or ships the app. |
+| **BUG-077** (reputation `match_completed` job fails on the `reputation.badges.name NOT NULL` insert, after karma) | proposed HIGH; no external date | **Open, not scheduled.** Demo log window: 497 completions, 498 badge failures, 0 badges. Skips trust evolution, retries every job, rotates logs away within ~2 h. |
+| BUG-076 (pre-push TDD step false pass) | none | Open, not scheduled. |
+| ~~CodeQL `/language:actions` "Unknown Error" on `4ee38e82`~~ | ~~next master push~~ | **CLOSED**: the Actions analysis 2049678160 for `d8da50f0` (#323) completed with no error. |
+| **BUG-074** (`DELETE /matches/:id` cancels completed/rejected matches and reopens the request) | rides the 2026-11-05 high SLA | **PR #324 OPEN** 2026-10-29 (code head `84595394`); merge + deploy by **2026-11-05**. |
+| **BUG-078** (reject/accept offer revival, complete's unconditional request finalize, done_at re-stamp) | no external date | **Open, not scheduled.** Found by BUG-074's `/code-review`; pre-existing; pairs with BUG-075. |
+| **BUG-075** (reject reopen, accept, admin propose-match and dibs writers change request status without a guard) | no external date | **Open, not scheduled.** Demo evidence (read-only, 2026-10-29): 119 requests with >1 completed match; 52 `open` + 2 `matched` requests holding a completed match; no surviving completed-then-cancelled fingerprint found; **cause unconfirmed** (BUG-074's routes remain candidates). Any repair is a separate, authorized demo operation. |
 | ~~node-forge + braces ADR-059 exemptions~~ → **Security PR X** | ~~EXPIRED 2026-10-26 00:00Z~~ | **DONE**: #317 `e15622bc` (v11.98.0), live 2026-10-26 22:25Z (CI/CD 40410093954). The lapse blocked pushes and CI Security Audit from 10-26 00:00Z until the merge. body-parser/undici/zod highs fixed inside their SLA (body-parser due 10-30). BUG-059 closed |
 | ~~**PR L** (BUG-068)~~ | ~~2026-10-29~~ | **DONE**: #315 `ff3f394e` (v11.99.0), merged 2026-10-26 23:05:13Z (CI/CD 40417261628); post-deploy queue check PASS. The demo key cleanup is a separate, unscheduled operation (*PR L state*) |
 | ~~**BUG-069**~~ | ~~2026-10-30~~ | **DONE**: #319 `dd585016` (v11.100.0), merged 2026-10-27 02:55:40Z (CI/CD 40441255956). **ADR-102** Implemented. No risk acceptance or split was needed |
