@@ -156,3 +156,15 @@ CREATE TABLE reputation.prestige_awards (
 - Potlatch systems (Pacific Northwest indigenous cultures)
 - Big Man systems (Melanesian cultures)
 - Gift economy research (Marcel Mauss, Lewis Hyde)
+
+## Amendment — Sprint 134 BUG-077: Phase 1 badges are written (2026-10-29)
+
+Phase 1 was marked implemented in Sprint 14, but no badge was ever written. Migration 024 created the table with
+`CREATE TABLE IF NOT EXISTS`, and an older `reputation.badges` (2025, with `name VARCHAR(255) NOT NULL`) already
+existed, so 024 only added `badge_type`, `community_id` and the `(user_id, badge_type)` key. The insert supplied no
+`name`, so it failed on every completion, and the failure also aborted the rest of the completion job (BUG-077).
+
+From Sprint 134 the insert supplies a display name for each Phase 1 type (`BADGE_NAMES` in
+`services/reputation-service/src/services/badgeService.ts`), and a badge failure no longer fails the job. There was no
+backfill: a helper's next completed exchange awards every badge whose threshold their history already crossed, dated
+at that award. No notification announces a badge, and no screen shows one yet.

@@ -77,8 +77,15 @@ Karma and trust are tracked separately in each community you belong to. Build re
 
 ## Trust Model Evolution
 
-Your trust model evolves automatically based on your interaction patterns. On your Trust Score page, you can see your current calibration — how your depth weight, breadth weight, and cross-community prior have evolved from community defaults.
+Your trust model can calibrate itself from your exchanges, one community at a time. It is off until you turn it on:
+in **Trust Evolution Settings** on your profile page, each community has an **Evolution On / Off** toggle. (A community
+admin can turn evolution off for the whole community, which disables the toggle.) Once it is on, completed exchanges
+nudge your parameters in small steps. For example, a third completed exchange with the same person raises your depth
+weight by 0.01. Each parameter changes at most once every 7 days, and every change is listed in your evolution
+history together with what caused it.
 
-**Global opt-out**: If you prefer your trust model to stay fixed, you can pause evolution globally from the Trust Score page. When paused, your parameters won't change regardless of per-community settings.
+**Global opt-out**: If you prefer your trust model to stay fixed, you can pause evolution globally in **Trust
+Evolution Settings** on your profile page. When paused, your parameters won't change regardless of per-community
+settings.
 
 **Effective parameters**: The badges shown in each community's evolution toggle reflect your current evolved values. These are read-only — they're computed from your history, not manually set.
