@@ -92,18 +92,21 @@ Run once on the demo database inside `BEGIN TRANSACTION READ ONLY ... ROLLBACK`:
 
 | Count | Result | Reading |
 |---|---|---|
-| Requests with more than one `completed` match | **119** | Not from BUG-074: see the next row. |
-| `cancelled` matches with `completed_at IS NOT NULL` (the completed-then-cancelled fingerprint) | **0** | The cancel route has never undone a completion on demo, consistent with it having no caller. |
-| Non-`completed` requests holding a `completed` match, by status | **52 `open`, 2 `matched`** | Not from BUG-074. |
+| Requests with more than one `completed` match | **119** | Cause unconfirmed. |
+| `cancelled` matches with `completed_at IS NOT NULL` (the completed-then-cancelled fingerprint) | **0** | **No surviving completed-then-cancelled fingerprint found; cause unconfirmed.** |
+| Non-`completed` requests holding a `completed` match, by status | **52 `open`, 2 `matched`** | Cause unconfirmed. |
 
-The non-zero rows come from other request-status writers that lack a status guard: the reject reopen
-`WHERE id = $1 AND status != 'matched'` (`matches.ts:514`) reopens a completed request; accept sets the request
-`matched` without checking it (`:361-366`); admin propose-match has no request-status check
-(`services/request-service/src/routes/adminActions.ts`); dibs accept never rejects sibling proposals
-(`services/request-service/src/routes/dibs.ts:323-338`); dibs decline and expire reopen unconditionally (`dibs.ts:420,481`).
-Which writer produced the demo rows is **UNVERIFIED**. Logged as **BUG-075** (`docs/BUGS.md`), **out of scope here.**
-A rejected-then-cancelled transition and a cancelled-then-completed one leave no trace (no status history), so the
-counts cannot see them.
+**What the counts do not show.** There is no status history, so the counts see only current state. The zero rules out
+a match that is *still* cancelled after completing; it does not rule out a completed → cancelled → completed history
+(BUG-074's complete route accepts a cancelled match, and its re-completion overwrites the fingerprint), nor a
+rejected → cancelled transition. BUG-074's routes therefore stay **candidates** for the 119 and 54 rows, alongside
+other request-status writers that lack a status guard: the reject reopen `WHERE id = $1 AND status != 'matched'`
+(`matches.ts:514`) reopens a completed request; accept sets the request `matched` without checking it (`:361-366`);
+admin propose-match has no request-status check (`services/request-service/src/routes/adminActions.ts`); dibs accept
+never rejects sibling proposals (`services/request-service/src/routes/dibs.ts:323-338`); dibs decline and expire reopen
+unconditionally (`dibs.ts:420,481`). That no current client calls `DELETE /matches/:id` is evidence about today's
+code, not about history. Which writer produced the demo rows is **unconfirmed**. Logged as **BUG-075**
+(`docs/BUGS.md`); its fix and any data repair are **out of scope here.**
 
 The 2 `matched` requests above have exactly the shape decision 2's `completed` branch handles: an ask with a completed
 exchange and a second helper still matched.

@@ -2020,8 +2020,13 @@ tolerates several completed matches per request).
 Request-status writers outside the cancel route have no status guard, so completed asks get reopened or re-matched.
 Evidence: read-only counts on the demo database, 2026-10-29 (maintainer-authorized, one read-only transaction, rolled
 back): **119** requests hold more than one completed match; **52** `open` and **2** `matched` requests hold a completed
-match; **0** cancelled matches carry `completed_at`, so BUG-074's cancel route is not the source. Candidate writers, from
-reading the code (which one produced the demo rows is UNVERIFIED):
+match; **0** cancelled matches carry `completed_at`. **No surviving completed-then-cancelled fingerprint found; cause
+unconfirmed.** There is no status history, so the zero cannot exclude a completed → cancelled → completed sequence
+(BUG-074's complete route accepts a cancelled match and its re-completion overwrites the fingerprint) or a
+rejected → cancelled one. Candidate writers, from reading the code (which one produced the demo rows is unconfirmed):
+
+- BUG-074's own routes: `DELETE /matches/:id` (any status, unconditional reopen) and `PUT /matches/:id/complete`
+  (accepts a proposed, rejected or cancelled match), fixed in the BUG-074 PR.
 
 - The reject reopen, `UPDATE requests.help_requests SET status = 'open' WHERE id = $1 AND status != 'matched'`
   (`services/request-service/src/routes/matches.ts:514`), reopens a `completed`, `cancelled` or `dibs_pending` request.
@@ -2032,6 +2037,24 @@ reading the code (which one produced the demo rows is UNVERIFIED):
   sibling `proposed` matches, so a stale proposal can outlive the exchange.
 - Dibs decline and expire reopen the request unconditionally (`dibs.ts:420`, `dibs.ts:481`).
 
-Found during BUG-074 planning; not fixed in the BUG-074 PR.
+Found during BUG-074 planning. The BUG-074 PR fixes only the first bullet; the other writers, and any repair of the demo
+rows, stay open here.
+
+---
+
+## BUG-076 · [2026-10-29] · open
+
+The pre-push hook's TDD step reports "✓ TDD tests passed" without running a single TDD test. Two defects together:
+
+- `.husky/pre-push:88` runs `if npm run test:tdd 2>&1 | tail -20; then`. The hook sets `set -e` but not
+  `pipefail`, so the `if` tests `tail`'s exit status, which is always 0. The "passed" branch is taken whatever
+  `test:tdd` returns.
+- The root `test:tdd` script is `turbo run test:tdd`, but `turbo.json` defines no `test:tdd` task (its tasks are `build`,
+  `dev`, `test`, `@karmyq/tests#test`, `lint`, `clean`). Turbo fails with "Could not find task `test:tdd` in project" and
+  `npm run test:tdd` exits 1 (reproduced 2026-10-29).
+
+Seen on the push of `9af57d4b` (2026-10-29). The TDD tier is report-only (CLAUDE.md, ADR-029), so nothing was blocked,
+but the hook prints a green message for a step that cannot run. Noticed in that push's output; the maintainer-relayed
+review of the BUG-074 plan traced the `tail` exit status.
 
 ---

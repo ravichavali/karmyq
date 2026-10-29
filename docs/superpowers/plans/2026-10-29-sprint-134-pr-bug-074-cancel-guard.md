@@ -27,7 +27,7 @@ no dependency or lockfile change beyond the root version; push and leave the tre
 | File | Responsibility |
 |------|---------------|
 | `services/request-service/tests/tdd/sprint-134-bug-074-match-status-guards.test.ts` | Mocked SQL contract: the guards' exact SQL, statement order, parameters, refusal codes, no event on refusal. Promoted to `tests/regression/` in Task 7. |
-| `tests/integration/sprint-134-bug-074-match-status-guards.integration.test.ts` | Real SQL over HTTP: the per-status matrix, request and offer end states, complete refusals, and two race cases that separate a write guard from a pre-read check. CI-only on Windows. |
+| `tests/integration/sprint-134-bug-074-match-status-guards.integration.test.ts` | Real SQL over HTTP: the per-status matrix, request end states (including `open`, `dibs_pending`, `completed` and `cancelled` asks left as they are) and offer end states, complete refusals, and three race cases that separate a write guard from a pre-read check (cancel behind a completion, final mark behind a cancel, final mark behind a completion with a positive-control publication check). CI-only on Windows. |
 
 ### Existing files to modify
 | File | Change |
@@ -225,7 +225,8 @@ describe('BUG-074: DELETE /matches/:id cancels only an exchange in progress', ()
 
     expect(res.status).toBe(200);
     expect(mockQuery).toHaveBeenCalledTimes(4);
-    expect(mockQuery.mock.calls.some((args: any[]) => /help_offers/.test(String(args[0])))).toBe(false);
+    // The participant read LEFT JOINs help_offers, so match the write, not the table name.
+    expect(mockQuery.mock.calls.some((args: any[]) => /UPDATE requests\.help_offers/.test(String(args[0])))).toBe(false);
   });
 
   it('refuses with 409 MATCH_NOT_CANCELLABLE when the guarded write changes no row: no further statement, no event', async () => {
@@ -327,7 +328,7 @@ npm exec --workspace=services/request-service -- jest --runTestsByPath tests/tdd
 
 Expected failures: the cancel SQL lacks the guard (and the old code's 4-statement sequence), the refusal answers 200, and
 the complete SQL lacks `AND status = 'matched'`. The 404 case passes already (it guards nothing new). Record the
-red output in the PR body.
+red output in the PR body. (Planning dry run on `9af57d4b`: **8 failed, 1 passed**, the 404 case.)
 
 Commit: `test(requests): BUG-074 match status guard contract (tdd, red)`.
 
@@ -351,10 +352,12 @@ poll fits.
  * a failure, never a skip.
  *
  * Proofs: (1) the cancel matrix: only 'matched' cancels, every other status is a 409 that writes nothing;
- * (2) the ask and offer end states after a cancel; (3) the complete refusals; (4) the guard is in the write:
- * while a second client holds an uncommitted completion (or cancel) on the row, the HTTP call waits on the
- * row lock and is refused after the commit. A check made only before the transaction reads the old committed
- * 'matched' row and then overwrites the commit, so both race cases fail against it.
+ * (2) the ask and offer end states after a cancel, including asks that are not 'matched' (left as they are);
+ * (3) the complete refusals; (4) the guard is in the write: while a second client holds an uncommitted
+ * completion (or cancel) on the row, the HTTP call waits on the row lock and, after the commit, is refused
+ * or (for a completion behind a completion) answered with the idempotent 200 without re-stamping or
+ * re-publishing. A check made only before the transaction reads the old committed 'matched' row and then
+ * overwrites the commit, so all three race cases fail against it.
  */
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
@@ -521,12 +524,16 @@ describe('Sprint 134 BUG-074 match status guards', () => {
       expect(await askStatus(q)).toBe('completed');
     });
 
-    it('leaves an ask the requester cancelled as cancelled', async () => {
-      const q = await ask('cancelled');
-      const m = await match(q, H, 'matched');
-      expect((await cancel(H, m)).status).toBe(200);
-      expect(await askStatus(q)).toBe('cancelled');
-    });
+    // Only a 'matched' ask changes. 'open' is a preservation check that cannot fail against the old code
+    // (which also writes 'open'); the other three each fail against it.
+    it.each(['open', 'dibs_pending', 'completed', 'cancelled'])(
+      'leaves a %s ask as it is when its matched exchange is cancelled', async (status) => {
+        const q = await ask(status);
+        const m = await match(q, H, 'matched');
+        expect((await cancel(H, m)).status).toBe(200);
+        expect((await matchRow(m)).status).toBe('cancelled');
+        expect(await askStatus(q)).toBe(status);
+      });
 
     it('leaves a withdrawn offer withdrawn', async () => {
       const q = await ask('matched');
@@ -599,9 +606,58 @@ describe('Sprint 134 BUG-074 match status guards', () => {
       expect(after.completed_at).toBeNull();
       expect(await askStatus(q)).toBe('matched');
     });
+
+    it('answers a final mark that waited on a concurrent completion with the idempotent 200: no re-stamp, no second publication', async () => {
+      const q = await ask('matched');
+      const m = await match(q, H, 'matched', { requesterDone: true });
+      const before = (await pool.query('SELECT requester_done_at::text AS r FROM requests.matches WHERE id = $1', [m])).rows[0].r;
+      // The holder completes the match with fixed literal times (the column is `timestamp without time zone`)
+      // and publishes nothing, so any match_completed effect for `m` below can only come from the HTTP call.
+      const res = await whileHeld(
+        "UPDATE requests.matches SET status = 'completed', responder_done_at = TIMESTAMP '2026-10-01 10:00:00', completed_at = TIMESTAMP '2026-10-01 10:00:00' WHERE id = $1",
+        m, () => complete(H, m));
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        success: true, data: { fully_completed: true, waiting_for: null }, message: 'Match already completed',
+      });
+      const after = (await pool.query(`SELECT status, requester_done_at::text AS r,
+          responder_done_at = TIMESTAMP '2026-10-01 10:00:00' AS done_kept,
+          completed_at = TIMESTAMP '2026-10-01 10:00:00' AS completed_kept
+        FROM requests.matches WHERE id = $1`, [m])).rows[0];
+      expect(after).toEqual({ status: 'completed', r: before, done_kept: true, completed_kept: true });
+
+      // Positive control: a genuine two-party completion published AFTER the race on the same transport.
+      // Once its effects land, a publication by the race call (enqueued earlier) would have landed too.
+      const cq = await ask('matched');
+      const cm = await match(cq, H2, 'matched');
+      expect((await complete(H2, cm)).status).toBe(200);
+      expect((await complete(R, cm)).body.data.fully_completed).toBe(true);
+      const count = async (sql: string, id: string) => Number((await pool.query(sql, [id])).rows[0].count);
+      const effectsOf = async (matchId: string, askId: string) => ({
+        karma: await count('SELECT COUNT(*) FROM reputation.karma_records WHERE related_entity_id = $1', matchId),
+        notified: await count("SELECT COUNT(*) FROM notifications.notifications WHERE type = 'match_completed' AND data->>'match_id' = $1", matchId),
+        feed: await count("SELECT COUNT(*) FROM requests.feed_events WHERE request_id = $1 AND event_type = 'match_completed'", askId),
+      });
+      let control = await effectsOf(cm, cq);
+      for (let retry = 0; retry < 40 && !(control.karma > 0 && control.notified > 0 && control.feed > 0); retry++) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        control = await effectsOf(cm, cq);
+      }
+      expect(control.karma).toBeGreaterThan(0);
+      expect(control.notified).toBeGreaterThan(0);
+      expect(control.feed).toBeGreaterThan(0);
+      expect(await effectsOf(m, q)).toEqual({ karma: 0, notified: 0, feed: 0 });
+    });
   });
 });
 ```
+
+The control bound is an ordering argument, not a sleep. The route issues its own `feed_events` insert
+(fire-and-forget, `matches.ts:661-667`) before it responds, so a race publication's insert is queued before the
+control even starts. Karma and notifications arrive through `karmyq-completion-dispatch`; the bound assumes each consumer
+takes an earlier job no later than a later one (Bull FIFO per queue). If the executor finds a consumer with concurrency
+above 1 there, record in the handoff that the bound is exact for `feed_events` and approximate for karma and
+notifications. If the control's effects never land, the test fails loudly; it cannot pass vacuously.
 
 - [ ] **Type-check it locally** (it cannot run on Windows: no local Docker; CI's `test-integration` job runs it)
 
@@ -613,9 +669,17 @@ grep -n "sprint-134-bug-074" "$SCRATCH/tests-tsc.log"; echo "grep exit=$? (1 = n
 `tests/tsconfig.json` includes `**/*.ts` with `types: ["jest","node"]`. If `tsc` reports errors only in other files,
 note them in the handoff (pre-existing) and do not fix them here.
 
+- [ ] **Cleanup after the control completion:** `afterAll` deletes karma, trust scores, trust edges, notifications and
+  feed events for the fixture users before the users and community go. If CI reports a foreign-key failure in
+  `afterAll`, add that table's delete (Sprint 132's cleanup in
+  `tests/integration/sprint-132-directed-audience.integration.test.ts` is the reference); never weaken an assertion.
+
 - [ ] **State the red evidence by reasoning, in the PR body:** against the current code every refusal case answers 200;
-  the reopen and offer cases show `open` / `active`; the cancel race returns 200 and leaves the match `cancelled`;
-  the complete race returns 200, completes the match and publishes `match_completed` (cleaned up by `afterAll`).
+  the reopen and offer cases show `open` / `active`; the `dibs_pending`, `completed` and `cancelled` preservation cases
+  show `open` (the `open` case passes on both, by design); the cancel race returns 200 and leaves the match
+  `cancelled`; the cancel-then-complete race returns 200, completes the match and publishes `match_completed`; the
+  completion-behind-a-completion race returns "Match completed successfully" instead of the idempotent body, re-stamps
+  `responder_done_at` and `completed_at`, and publishes a second `match_completed` (all cleaned up by `afterAll`).
 
 Commit: `test(integration): BUG-074 real-SQL status matrix and race proofs`.
 
@@ -817,7 +881,9 @@ npx tsx -e "import { scanServices, surfaceHash, unguarded } from './services/req
 ```
 
 (The `tsx -e` command was proven on `d8da50f0` during planning: 100 hits, 0 unguarded, and it located the old reopen
-at `matches.ts:740`.) In `directedSurfaceAllowlist.json`, replace the entry whose hash is
+at `matches.ts:740`. In the planning dry run with Tasks 4–5's code applied verbatim, it printed exactly one hit,
+`matches.ts:771 e267659f5d6769363b4408cd9198eaa01fa276a8e43f8c2f3091355e46f066aa`. The hash changes with any whitespace
+change to the statement, so use the hash you print, and treat a different value as a sign the statement text drifted.) In `directedSurfaceAllowlist.json`, replace the entry whose hash is
 `2fe695cddf7b01971550505684f8ec77cf8dec8f7048e45e5bc4d054275fa12a` with:
 
 ```json
@@ -836,8 +902,12 @@ text drifted from the single-line literal: fix the code, not the allowlist.
 - [ ] **Verify**
 
 ```bash
-npm exec --workspace=services/request-service -- jest --runTestsByPath tests/regression/sprint-132-directed-audience-gate.test.ts tests/regression/sprint-134-pr-k-claim-gate.test.ts
+npm exec --workspace=services/request-service -- jest --runTestsByPath tests/regression/sprint-132-directed-audience-gate.test.ts
+# The claim gate lives in the root tests workspace, not request-service (the combined command ENOENTs):
+npm exec --workspace=tests -- jest --runTestsByPath regression/sprint-134-pr-k-claim-gate.test.ts
 ```
+
+(Planning-review check, 2026-10-29: the claim-gate command passes 17/17 on `9af57d4b`.)
 
 Commit: `test(requests): align match regressions and re-pin the directed-surface allowlist (BUG-074)`.
 
@@ -928,8 +998,9 @@ Commit: `docs(guides): a completed exchange is final; no cancel control (BUG-074
   409 `MATCH_NOT_CANCELLABLE`, conditional request/offer end states, publishes unconsumed `match_cancelled`). Events
   unchanged.
 - [ ] **BUGS.md**: BUG-074 heading → `· fixed (Sprint 134 BUG-074 PR, v11.105.0)`; correct `matches.ts:693-750` to
-  `:693-772`; append a "**Fix:**" paragraph (both guards, the conditional updates, the race tests, the demo counts and
-  that BUG-075 carries the non-zero rows). Do not touch BUG-075.
+  `:693-772`; append a "**Fix:**" paragraph (both guards, the conditional updates, the race tests, and the demo counts
+  with their limit: no surviving completed-then-cancelled fingerprint found; cause unconfirmed; the non-zero rows are
+  tracked under BUG-075). Do not touch BUG-075.
 - [ ] **Verify**
 
 ```bash

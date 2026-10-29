@@ -115,8 +115,9 @@ while `matched`; (3) 409 `MATCH_NOT_CANCELLABLE`; (4) read-only demo counts auth
 
 **Demo counts (maintainer-authorized, run once 2026-10-29 in `BEGIN TRANSACTION READ ONLY ... ROLLBACK`):** 119 requests
 with >1 completed match; **0** cancelled matches carrying `completed_at`; 52 `open` + 2 `matched` requests holding a
-completed match. The 0 shows the cancel route never undid a completion on demo (it has no caller). The non-zero rows
-come from other writers, logged as **BUG-075** (out of scope; which writer produced them is UNVERIFIED).
+completed match. **No surviving completed-then-cancelled fingerprint found; cause unconfirmed.** With no status
+history the 0 cannot exclude completed → cancelled → completed (BUG-074's complete route accepts a cancelled match),
+so BUG-074's routes stay candidates alongside the other unguarded writers in **BUG-075** (out of scope).
 
 **Key findings the plan rests on (verified, `file:line` in the spec):** no client calls cancel (`cancelMatch` is unused in
 web and mobile; no simulation or e2e caller); complete is offered only on `matched`; `match_cancelled` is unconsumed;
@@ -167,7 +168,24 @@ still completes and awards karma.
     `"version"` lines in `package-lock.json`, as in `d8da50f0`.
 15. **Do not fix BUG-075 here,** even where a line sits next to the code being changed (the reject reopen at `:514`).
 
-**Planning commits on the branch:** `0286f97e` (#323 post-merge record), then the spec + plan + BUG-075 + this handoff.
+**Plan review (2026-10-29, relayed by the maintainer; every finding verified before editing):** (1) Task 6's claim-gate
+command ran under request-service and ENOENTs; the gate lives in root `tests` (reproduced; corrected command 17/17);
+(2) added a real-SQL completion-behind-a-completion race (idempotent 200, timestamps unchanged, no second publication,
+bounded by a positive-control completion); (3) the demo counts do not establish causation: now "no surviving
+completed-then-cancelled fingerprint found; cause unconfirmed" in the spec, here and BUG-075; (4) the request-state
+cases now cover `open`, `dibs_pending`, `completed` and `cancelled` asks. Also logged **BUG-076** (pre-push TDD step
+reports "passed" without running: no `pipefail`, and `turbo.json` has no `test:tdd` task); not scheduled.
+
+**Planning dry run (2026-10-29, temporary edits restored byte-for-byte; nothing committed):** the plan's tdd file is
+**8 red / 1 green** on `9af57d4b`. With Tasks 4–5's code applied verbatim and the allowlist re-pinned (new reopen hash
+`e267659f…`), the tdd file and the existing Sprint 83, two-phase and directed-surface suites pass **25/25**, the claim
+gate **17/17**, and request-service `tsc` is clean. The planned integration file type-checks (the `tests` tsconfig
+has 70 pre-existing errors in other files, mostly e2e). The dry run caught one plan bug, now fixed: the
+no-offer case matched `help_offers` in the participant read's `LEFT JOIN`. **The real-SQL test was not run** (no
+local Docker; CI-only).
+
+**Planning commits on the branch:** `0286f97e` (#323 post-merge record), `9af57d4b` (spec + plan + BUG-075 + this
+handoff), then the plan-review revision.
 
 ## PR B plan (Claude, planning chat 2026-10-28)
 
@@ -544,7 +562,7 @@ export), so the blocker is unchanged.
 | 8 | **B** | Vouch from a completed exchange (`docs/IDEAS.md` 2026-10-13 "Vouch from the request page") | — | [plan](../../docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md) | **SHIPPED** `d8da50f0` (#323, v11.104.0), merged 2026-10-28 23:01:54Z; CI/CD 40784392749 green 14/14 incl. deploy; real SQL 302/302; 0 open CodeQL alerts. Four human checks pending; see *PR B state*. |
 | 9 | **BUG-074** | Cancel and complete change a match only while it is `matched` (409 `MATCH_NOT_CANCELLABLE` / `MATCH_NOT_COMPLETABLE`); conditional request/offer updates; v11.105.0 provisional | — | [plan](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md) | **PLANNED** 2026-10-29 on `agent/claude/sprint-134-pr-bug-074-cancel-guard`; execution next chat. See *BUG-074 plan*. |
 | 10 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
-| — | **BUG-075** | Other request-status writers lack a status guard (reject reopen, accept, admin propose-match, dibs accept/decline/expire); demo rows exist | — | not written | Logged 2026-10-29, **not scheduled**; maintainer to decide scope and any demo repair. |
+| — | **BUG-075** | Other request-status writers lack a status guard (reject reopen, accept, admin propose-match, dibs accept/decline/expire); demo rows exist, cause unconfirmed | — | not written | Logged 2026-10-29, **not scheduled**; maintainer to decide scope and any demo repair. |
 | — | **Per-community health-quality weight (planned PR)** | Persist the weight in `communities.community_configs`; choose a quality signal source; requires an ADR number allocated by the maintainer | Not scheduled | Write after ADR allocation + signal decision | Separate planned PR, not part of L2 |
 
 B and C are the likeliest to spill into Sprint 135, which is expected. One merge at a time; wait for deploy + health before the next.
@@ -1235,7 +1253,7 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | `decode-uri-component` BUG-041 (alert #150, dismissed) | re-check by **2026-11-14** | 0.5.1 still ESM-only; blocker unchanged (*Security follow-up state*). |
 | ~~CodeQL `/language:actions` "Unknown Error" on `4ee38e82`~~ | ~~next master push~~ | **CLOSED**: the Actions analysis 2049678160 for `d8da50f0` (#323) completed with no error. |
 | **BUG-074** (`DELETE /matches/:id` cancels completed/rejected matches and reopens the request) | no external date | **Planned 2026-10-29** (spec + plan pushed) on `agent/claude/sprint-134-pr-bug-074-cancel-guard`; execution next chat. |
-| **BUG-075** (reject reopen, accept, admin propose-match and dibs writers change request status without a guard) | no external date | **Open, not scheduled.** Demo evidence (read-only, 2026-10-29): 119 requests with >1 completed match; 52 `open` + 2 `matched` requests holding a completed match. Any repair is a separate, authorized demo operation. |
+| **BUG-075** (reject reopen, accept, admin propose-match and dibs writers change request status without a guard) | no external date | **Open, not scheduled.** Demo evidence (read-only, 2026-10-29): 119 requests with >1 completed match; 52 `open` + 2 `matched` requests holding a completed match; no surviving completed-then-cancelled fingerprint found; **cause unconfirmed** (BUG-074's routes remain candidates). Any repair is a separate, authorized demo operation. |
 | ~~node-forge + braces ADR-059 exemptions~~ → **Security PR X** | ~~EXPIRED 2026-10-26 00:00Z~~ | **DONE**: #317 `e15622bc` (v11.98.0), live 2026-10-26 22:25Z (CI/CD 40410093954). The lapse blocked pushes and CI Security Audit from 10-26 00:00Z until the merge. body-parser/undici/zod highs fixed inside their SLA (body-parser due 10-30). BUG-059 closed |
 | ~~**PR L** (BUG-068)~~ | ~~2026-10-29~~ | **DONE**: #315 `ff3f394e` (v11.99.0), merged 2026-10-26 23:05:13Z (CI/CD 40417261628); post-deploy queue check PASS. The demo key cleanup is a separate, unscheduled operation (*PR L state*) |
 | ~~**BUG-069**~~ | ~~2026-10-30~~ | **DONE**: #319 `dd585016` (v11.100.0), merged 2026-10-27 02:55:40Z (CI/CD 40441255956). **ADR-102** Implemented. No risk acceptance or split was needed |
