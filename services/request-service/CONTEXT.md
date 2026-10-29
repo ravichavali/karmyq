@@ -7,6 +7,19 @@
 
 ## Recent Changes
 
+- **2026-10-29 (Sprint 134 BUG-074)**: `DELETE /matches/:id` and `PUT /matches/:id/complete` change a match only while
+  it is `matched`. Anything else answers 409 `MATCH_NOT_CANCELLABLE` / `MATCH_NOT_COMPLETABLE` (ADR-074 string
+  codes). The guard is in the write (`UPDATE ... WHERE id = $1 AND status = 'matched'`), not in a prior read, so a
+  completion or cancel that commits in between is seen by the row re-check. Cancel locks the match row first and the
+  request row second, the same order as complete, so the two cannot deadlock. Cancel then updates the request only
+  while it is still `matched` and no other match on it is `matched` (`completed` if another completed match remains,
+  else `open`), and frees the offer only while it is `matched`. Complete's race path (guarded `UPDATE` hits 0 rows,
+  re-read says `completed`) keeps the idempotent 200 `Match already completed`, as the pre-read fast path does.
+  Tests: the promoted mocked-SQL contract `tests/regression/sprint-134-bug-074-match-status-guards.test.ts` and the
+  real-SQL status matrix and race proofs in the root
+  `tests/integration/sprint-134-bug-074-match-status-guards.integration.test.ts` (CI-only on Windows). No migration,
+  event or dependency change from this fix; `match_cancelled` is still published and still unconsumed.
+
 - **2026-10-28 (Sprint 134 PR B, ADR-100 amendment)**: `GET /requests/:id` returns `viewer_partners`, the
   viewer's completed exchanges on the ask (`match_id`, `user_id`, `name`, `completed_at`, `rated_by_me`,
   `rating_community_id`), newest first, capped at 20, `[]` for everyone else. It is a scalar subquery inside
@@ -1644,12 +1657,7 @@ ignored — the responder is always the authenticated user.
 Two-phase match completion. Each party calls this independently; the match
 only becomes `completed` and karma fires when **both** parties have confirmed.
 
-**Request:**
-```json
-{
-  "user_id": "uuid"
-}
-```
+**Request:** no body. Identity comes from the JWT (ADR-064); a legacy `user_id` in the body is ignored.
 
 **Response:**
 ```json
@@ -1665,6 +1673,15 @@ only becomes `completed` and karma fires when **both** parties have confirmed.
 
 **Authorization:** Only requester or responder can complete
 
+**Other responses (Sprint 134 BUG-074):**
+- 200 `Match already completed` (`{ fully_completed: true, waiting_for: null }`) for a match that is already
+  `completed`, on the pre-read fast path and on the race path. Nothing is stamped or published again.
+- **409** `{ success: false, message: 'Only an exchange in progress can be marked done', error: 'MATCH_NOT_COMPLETABLE' }`
+  for a proposed, rejected or cancelled match.
+- 404 when the caller is not a participant or the match does not exist.
+
+A mark is recorded only on a `matched` match: the `done_at` `UPDATE` carries `AND status = 'matched'`.
+
 **Side Effects (first party only):** Sets `requester_done_at` or `responder_done_at` timestamp
 
 **Side Effects (both parties):** Sets `status = 'completed'`, updates request status, fires `match_completed` event
@@ -1674,6 +1691,31 @@ only becomes `completed` and karma fires when **both** parties have confirmed.
 **Implementation:** `src/routes/matches.ts`
 
 **Schema changes (migration 017):** Added `requester_done_at TIMESTAMP` and `responder_done_at TIMESTAMP` to `requests.matches`
+
+#### DELETE /matches/:id
+Cancels an exchange in progress (Sprint 134 BUG-074).
+
+**Request:** no body. Identity comes from the JWT (`req.user!.userId`, ADR-064).
+
+**Authorization:** Only the requester or the responder (`matchParticipantSql`).
+
+**Responses:**
+- 200 `{ success: true, message: 'Match cancelled successfully' }`
+- **409** `{ success: false, message: 'Only an exchange in progress can be cancelled', error: 'MATCH_NOT_CANCELLABLE' }`
+  for a proposed, completed, rejected or already-cancelled match. No state change, no event. A match one side has
+  already marked done is still `matched` and can be cancelled.
+- 404 when the caller is not a participant or the match does not exist.
+
+**End states:** the match becomes `cancelled`. The request changes only while it is `matched` and no other match on it
+is `matched`: `completed` if another match on it is `completed`, else `open`. An `open`, `dibs_pending`,
+`completed` or `cancelled` request is never touched. The linked offer returns to `active` only while it is
+`matched`; a withdrawn offer stays withdrawn. Lock order is match row, then request row.
+
+**Events Published:** `match_cancelled`, after commit and only for a cancel that happened. It is in
+`UNCONSUMED_EVENTS` (`packages/shared/events/routes.ts`), so it is not enqueued and nobody is notified.
+
+**Implementation:** `src/routes/matches.ts` — `router.delete('/:id')` (guarded `UPDATE` at :755-760, 409 at :791-796);
+the complete route's guard is at :623-630 and its 409 at :662-667.
 
 ### 3.3b Provider Offer Endpoints (Sprint 41)
 
@@ -2781,6 +2823,7 @@ router.get('/health', async (req, res) => {
 
 - **SECURITY (ADR-064)**: `PUT /matches/:id/accept`, `/reject`, `/complete` now authorize from the authenticated JWT identity (`req.user!.userId`), **not** `req.body.user_id`. Previously any logged-in user could act on another user's match by supplying a participant's id in the body (broken access control / IDOR). `complete` was the most damaging — a forged completion published `match_completed`, which awards karma. The guard *comparison* logic is unchanged; only the identity *source* moved from body to token. A leftover `body.user_id` from un-deployed clients is tolerated (ignored). Non-identity body input (`accept`'s `travel_time_minutes`) still comes from the body. Locked by `tests/regression/sprint-83-match-action-auth.test.ts`.
 - **KNOWN ISSUE**: `DELETE /matches/:id` (cancel) still reads `body.user_id` — same IDOR class, deferred to a follow-up (outside Sprint 83 scope). See ADR-064 follow-ups.
+  - **Resolved:** the route reads `req.user!.userId` (`src/routes/matches.ts`); confirmed during BUG-074 planning, 2026-10-29.
 
 **Version 10.2.0 - Sprint 73 (2026-05-29)**
 
@@ -2941,6 +2984,19 @@ CREATE TABLE auth.user_interests (
 - No breaking changes to existing API contracts
 
 ### 10.4 Recent Fixes
+
+**Sprint 134 BUG-074 — match cancel and complete status guards:**
+
+- **`DELETE /matches/:id` cancelled a match whatever its status, and `PUT /matches/:id/complete` recorded a mark
+  on any status but `completed`.** A participant could undo a completed exchange after its karma was awarded (the standing
+  backfill replays only `completed` matches, rating answered 409, vouch eligibility was lost), cancel a rejected match and
+  reopen an ask another helper was matched on, and revive an offer the helper had withdrawn. A cancelled match could be
+  completed by the other side's mark, and two simultaneous final marks both stamped `completed_at` and published
+  `match_completed`. Both routes now put the guard in the write (`AND status = 'matched'`) and answer 409
+  `MATCH_NOT_CANCELLABLE` / `MATCH_NOT_COMPLETABLE`; cancel updates the request and offer conditionally, and complete
+  keeps the idempotent 200 for an already-completed match. Existing demo rows are not repaired here (BUG-075).
+  Tests: `tests/regression/sprint-134-bug-074-match-status-guards.test.ts` and the root real-SQL
+  `tests/integration/sprint-134-bug-074-match-status-guards.integration.test.ts` (CI-only on Windows).
 
 **Sprint 134 PR K — Admin gates read the live role (ADR-102):**
 

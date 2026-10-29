@@ -2014,13 +2014,27 @@ refreshed token. PR K made these gates live and kept their scope; found 2026-10-
 
 ---
 
-## BUG-074 · [2026-10-28] · open
+## BUG-074 · [2026-10-28] · fixed (Sprint 134 BUG-074 PR, v11.105.0)
 
-`DELETE /matches/:id` (request-service `services/request-service/src/routes/matches.ts:693-750`) has no match-status guard: a
+`DELETE /matches/:id` (request-service `services/request-service/src/routes/matches.ts:693-772`) has no match-status guard: a
 participant can cancel a **completed** or **rejected** match. The transaction sets the match to `cancelled` and unconditionally
 sets the request back to `open` (`matches.ts:740`), so a completed exchange can be undone after karma was awarded and a request
 can accumulate several completed matches. Found during Sprint 134 PR B planning. Fix in a separate PR, not PR B (PR B only
 tolerates several completed matches per request).
+
+**Fix:** both routes now change a match only while it is `matched`, with the guard in the write
+(`UPDATE ... WHERE id = $1 AND status = 'matched'`) rather than in a prior read. `DELETE /matches/:id` answers 409
+`MATCH_NOT_CANCELLABLE` for any other status, takes the match row lock before the request row (the same order as complete),
+and updates the request and offer only while they are still in the state this exchange put them in (request `matched`
+with no other `matched` match: `completed` if another completed match remains, else `open`; offer `matched`).
+`PUT /matches/:id/complete` records a mark only on a `matched` match, answers 409 `MATCH_NOT_COMPLETABLE` otherwise, and
+keeps the idempotent 200 for an already-completed match on both the fast path and the race path. Tests: a mocked-SQL
+contract (`services/request-service/tests/regression/sprint-134-bug-074-match-status-guards.test.ts`) and a real-SQL
+status matrix with race proofs (`tests/integration/sprint-134-bug-074-match-status-guards.integration.test.ts`, CI-only
+on Windows). Demo counts (read-only, 2026-10-29): 119 requests hold more than one completed match, 52 `open` and 2
+`matched` requests hold a completed match, and 0 cancelled matches carry `completed_at`. Limit: no surviving
+completed-then-cancelled fingerprint was found, and the cause of the non-zero rows is unconfirmed (no status history
+exists). Those rows are tracked under BUG-075; no data was repaired here.
 
 ---
 
