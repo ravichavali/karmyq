@@ -2112,3 +2112,28 @@ isolate badge failures like the trust-evolution block so they cannot fail the jo
 match and asserts a badge row and a successful job. Found during the PR L2 log check; not fixed in the BUG-074 PR.
 
 ---
+
+## BUG-078 · [2026-10-29] · open
+
+**Match-route writers beside BUG-074's guards still have no status guard** (siblings of BUG-075; found by `/code-review`
+on the BUG-074 PR and not fixed there, under the maintainer's BUG-075 scoping). Lines are at the BUG-074 branch head;
+that PR's `ALREADY_COMPLETED` hoist shifted `matches.ts` about 8 lines from BUG-075's `d8da50f0` citations.
+
+1. **Withdrawn offers revived (medium).** Reject frees the offer with
+   `UPDATE requests.help_offers SET status = 'active' WHERE id = $1` (`services/request-service/src/routes/matches.ts:506`),
+   and accept frees the sibling matches' offers the same way (`matches.ts:379-387`). A helper's withdrawn offer
+   becomes `active` again when the requester rejects its proposed match or accepts a sibling. Cancel now frees only a
+   `matched` offer.
+2. **Complete's finalize overwrites the request (medium).** `UPDATE requests.help_requests SET status = 'completed'
+   WHERE id = $1` (`matches.ts:651`; its text is pinned by directed-surface allowlist hash `b8396be5…`) runs
+   unconditionally. A request the requester cancelled flips to `completed` when a matched exchange on it completes,
+   and a request with a second helper still `matched` closes as `completed`. Cancel's reopen now applies the opposite
+   rule.
+3. **A repeat mark re-stamps its own done_at (low).** `SET ${doneAtColumn} = CURRENT_TIMESTAMP WHERE id = $1 AND
+   status = 'matched'` (`matches.ts:628-629`) has no `IS NULL` on the column, so a double click moves
+   `requester_done_at` / `responder_done_at` forward. Cosmetic today: `completed_at`, which replay reads, is untouched.
+
+Fix direction (not decided): one request-status reconcile used by every match-state writer (with BUG-075); offer
+writes guarded on the status the exchange left them in; an idempotent done mark.
+
+---
