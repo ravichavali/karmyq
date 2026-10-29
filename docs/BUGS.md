@@ -2016,9 +2016,9 @@ refreshed token. PR K made these gates live and kept their scope; found 2026-10-
 
 ## BUG-074 · [2026-10-28] · fixed (Sprint 134 BUG-074 PR, v11.105.0)
 
-`DELETE /matches/:id` (request-service `services/request-service/src/routes/matches.ts:693-772`) has no match-status guard: a
+`DELETE /matches/:id` (request-service `services/request-service/src/routes/matches.ts:693-772`, pre-fix, at `d8da50f0`) has no match-status guard: a
 participant can cancel a **completed** or **rejected** match. The transaction sets the match to `cancelled` and unconditionally
-sets the request back to `open` (`matches.ts:740`), so a completed exchange can be undone after karma was awarded and a request
+sets the request back to `open` (`matches.ts:740`, pre-fix), so a completed exchange can be undone after karma was awarded and a request
 can accumulate several completed matches. Found during Sprint 134 PR B planning. Fix in a separate PR, not PR B (PR B only
 tolerates several completed matches per request).
 

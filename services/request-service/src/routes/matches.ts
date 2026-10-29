@@ -746,9 +746,9 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    // BUG-074: cancel only an exchange in progress. The guard is in the UPDATE, not in the read above: a
-    // completion committing in between is invisible to that read, and the UPDATE re-checks its WHERE on
-    // the row the completion committed. Lock order is match row, then request row, the same as complete,
+    // BUG-074: cancel only an exchange in progress. The guard is in the UPDATE, not in a status check made before
+    // the transaction: a completion committing in between would be invisible to that check, and the UPDATE
+    // re-checks its WHERE on the committed row. Lock order is match row, then request row, the same as complete,
     // so a cancel and a completion cannot deadlock. The request changes only while it is still 'matched'
     // and no other helper is matched on it; one that still holds a completed exchange becomes 'completed'.
     const cancelled = await withTransaction(async (q) => {

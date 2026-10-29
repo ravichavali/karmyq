@@ -104,13 +104,15 @@ describe('Sprint 134 BUG-074 match status guards', () => {
 
   afterAll(async () => {
     try {
+      // Matches first: a retried match_completed job (BUG-077 makes every one fail after karma, so Bull retries)
+      // needs the match row to re-award karma, and a re-inserted karma row would block the community delete.
       // A completion exists here only if a guard failed; clearing its effects lets a red run still clean up.
+      await pool.query('DELETE FROM requests.matches WHERE request_id = ANY($1::uuid[])', [asks]);
       await pool.query('DELETE FROM requests.feed_events WHERE request_id = ANY($1::uuid[])', [asks]);
       await pool.query('DELETE FROM notifications.notifications WHERE user_id = ANY($1::uuid[])', [users]);
       await pool.query('DELETE FROM reputation.karma_records WHERE user_id = ANY($1::uuid[])', [users]);
       await pool.query('DELETE FROM reputation.trust_scores WHERE user_id = ANY($1::uuid[])', [users]);
       await pool.query('DELETE FROM social_graph.trust_edges WHERE user_id_a = ANY($1::uuid[]) OR user_id_b = ANY($1::uuid[])', [users]);
-      await pool.query('DELETE FROM requests.matches WHERE request_id = ANY($1::uuid[])', [asks]);
       await pool.query('DELETE FROM requests.help_offers WHERE id = ANY($1::uuid[])', [offers]);
       await pool.query('DELETE FROM requests.request_communities WHERE request_id = ANY($1::uuid[])', [asks]);
       await pool.query('DELETE FROM requests.help_requests WHERE id = ANY($1::uuid[])', [asks]);
