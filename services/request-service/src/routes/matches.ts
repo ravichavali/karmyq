@@ -726,31 +726,56 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    // Atomic cancel: cancel the match → reopen the request → reopen the offer, all in
-    // one transaction so a mid-sequence failure can't split match/request/offer state.
-    await withTransaction(async (q) => {
-      await q(
+    // BUG-074: cancel only an exchange in progress. The guard is in the UPDATE, not in the read above: a
+    // completion committing in between is invisible to that read, and the UPDATE re-checks its WHERE on
+    // the row the completion committed. Lock order is match row, then request row, the same as complete,
+    // so a cancel and a completion cannot deadlock. The request changes only while it is still 'matched'
+    // and no other helper is matched on it; one that still holds a completed exchange becomes 'completed'.
+    const cancelled = await withTransaction(async (q) => {
+      const result = await q(
         `UPDATE requests.matches
          SET status = 'cancelled'
-         WHERE id = $1`,
+         WHERE id = $1 AND status = 'matched'`,
         [id]
       );
+      if (result.rowCount === 0) {
+        return false;
+      }
 
       await q(
-        `UPDATE requests.help_requests SET status = 'open' WHERE id = $1`,
+        `SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE`,
         [match.request_id]
       );
 
-      // Reopen offer if it exists
+      await q(
+        `UPDATE requests.help_requests r
+         SET status = CASE
+           WHEN EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = r.id AND m.status = 'completed')
+           THEN 'completed' ELSE 'open' END
+         WHERE r.id = $1 AND r.status = 'matched'
+           AND NOT EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = r.id AND m.status = 'matched')`,
+        [match.request_id]
+      );
+
+      // Free the offer only while this exchange still holds it; a withdrawn offer stays withdrawn.
       if (match.offer_id) {
         await q(
-          `UPDATE requests.help_offers SET status = 'active' WHERE id = $1`,
+          `UPDATE requests.help_offers SET status = 'active' WHERE id = $1 AND status = 'matched'`,
           [match.offer_id]
         );
       }
+      return true;
     });
 
-    // Publish event
+    if (!cancelled) {
+      return res.status(409).json({
+        success: false,
+        message: 'Only an exchange in progress can be cancelled',
+        error: 'MATCH_NOT_CANCELLABLE',
+      });
+    }
+
+    // Publish event (after commit, only for a cancel that happened)
     await publishEvent('match_cancelled', {
       match_id: id,
       request_id: match.request_id,
