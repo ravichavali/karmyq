@@ -86,8 +86,6 @@ export async function initEventSubscriber() {
         }
 
         // Sprint 30: Trust evolution signals — iterate per community
-        // Wrapped in its own outer try/catch so a failure here never causes Bull
-        // to retry the whole job (which would re-run karma awards already completed).
         try {
           // Query the same request_communities the karma service uses so evolution
           // is scoped to the correct community context for each match.
