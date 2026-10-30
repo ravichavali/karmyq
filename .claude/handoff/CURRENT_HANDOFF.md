@@ -65,7 +65,8 @@ its 2026-11-05 SLA; 0 open Dependabot alerts. Accepted cost: mobile URL decoding
 **Now:** **BUG-077 PR [#325](https://github.com/ravichavali/karmyq/pull/325) OPEN, awaiting Codex review and the maintainer's merge** (the badge insert supplies
 `reputation.badges.name`; only a karma failure fails a `match_completed` job; **BUG-079** trust-evolution NaN fixed;
 v11.106.0 provisional) on `agent/claude/sprint-134-pr-bug-077-badge-insert`, from `origin/master` `ae9f8957` (master
-had not moved at PR open). Executed 2026-10-29 with `superpowers:executing-plans` (inline); all 12 tasks, the four
+had not moved at PR open). **Review P1 fixed** (`9fa3e40c`: the isolation test was a script and failed CI with
+TS6200); **merge needs a green CI Integration run** on the fixed head (see *BUG-077 state → Review of #325*). Executed 2026-10-29 with `superpowers:executing-plans` (inline); all 12 tasks, the four
 gates and a fresh final review done. **CI's `test-integration` job is the real-SQL test's first run** (CI-only on
 Windows). See *BUG-077 state*.
 Open, not scheduled: **BUG-075** (other request-status writers lack a guard), **BUG-076** (pre-push TDD false pass),
@@ -282,6 +283,25 @@ with the `v11.106.0` in the BUG-077 and BUG-079 headers of `docs/BUGS.md`. Execu
 - **Final review** (fresh, Opus): **0 Critical / 0 Important, ready to merge**, no ruling disputed. Two of its minors
   were re-graded Important and fixed in `4be4a8ff`: the guide now names both evolution triggers, and BUG-081 now names
   request-service's feed as a reader. Four minors deferred (listed in the PR body).
+
+**Review of #325 (relayed by the maintainer, 2026-10-29; `ae9f8957..2f17f154`, including a retrospective plan/spec
+review and an independent runtime review; read-only, no GitHub review record):**
+- **One P1, fixed in `9fa3e40c`.** `sprint-134-bug-077-handler-isolation.test.ts` had no import or export, so
+  TypeScript compiled it as a script. Its top-level declarations became globals and collided with the script
+  `sprint-126-subscriber-boundary.test.ts` (TS6200, then TS2556/TS2345).
+  - [CI 40980871994](https://github.com/ravichavali/karmyq/actions/runs/40980871994) failed "Test Backend Services"
+    on it (1 suite failed, 24 passed). Integration, the landing build, images and deploy were **skipped**, so the
+    real-SQL file has still never run.
+  - **Why local was green:** a warm ts-jest cache. Turbo reported a cache miss, but ts-jest still reused its compile
+    output. It is also the planning dry run's unexplained first-run "suite failed to run".
+  - **Reproduced before the fix:** `npm run test:regression -- --no-cache --runInBand` in reputation-service gave 1
+    failed / 24 passed.
+  - **After `export {};`:** the same command passed 25/25 suites (343 + 3 todo); unit 5/5; `tsc` 0.
+- **No other production blocker and no plan redesign.** The review confirmed that the badge name, truthful insert
+  reporting, failure isolation and numeric coercion match the intended behavior, and found the executor rulings
+  reasonable.
+- **Merge condition (reviewer):** a successful CI Integration run on the fixed head before merging. Its result is
+  recorded below once CI finishes.
 
 **Executor rulings** (all in the PR body):
 - the final review ran before Task 12;
