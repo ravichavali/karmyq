@@ -5,6 +5,19 @@
 
 ## Recent Changes
 
+- **2026-10-29 (Sprint 134 BUG-077 + BUG-079)**: every `match_completed` job failed at the badge insert, after karma.
+  `reputation.badges.name` is `NOT NULL` (the 2025 table; migration 024's `CREATE TABLE IF NOT EXISTS` never ran),
+  and `checkAndAwardBadges` did not supply it, so no badge was ever awarded, the trust-evolution step after it never
+  ran, and Bull retried every job. The insert now supplies `name` from `BADGE_NAMES` (`Record<BadgeType, string>`)
+  and reports only rows it inserted. In the handler, the provider completion-rate update and the badge check each
+  catch and log their own failure (`[provider-trust]`, `[badges]`), so only a karma projection failure fails the job;
+  both are recomputed from history on the helper's next completion. **BUG-079:** `evaluateUserEvolution` added each
+  nudge to a NUMERIC value pg returns as a string (`"0.60" + 0.01` → NaN), so no nudge was ever written; it now
+  coerces with `Number()` (the `GET /reputation/trust-config` wire format is unchanged). No schema, endpoint, event or
+  queue change. No backfill: a helper's next completion awards every badge already earned (`earned_at` = the award).
+  Tests: `tests/regression/sprint-134-bug-077-badge-insert.test.ts`, `sprint-134-bug-077-handler-isolation.test.ts`,
+  `sprint-134-bug-079-evolution-numeric.test.ts`; root real SQL
+  `tests/integration/sprint-134-bug-077-completion-side-effects.integration.test.ts` (CI-only on Windows).
 - **2026-10-28 (Sprint 134 PR B, Codex review)**: the duplicate-rating 409 on `POST /reputation/feedback` now carries
   `error: 'FEEDBACK_ALREADY_SUBMITTED'` (ADR-074 string code; previously it had none). `MATCH_NOT_COMPLETED` is also a
   409, so the request page's completed-exchange panel thanks the viewer only for this code; a match cancelled after the
@@ -213,14 +226,18 @@ CREATE INDEX idx_karma_related_entity
   ON reputation.karma_records (related_entity_id)
   WHERE related_entity_id IS NOT NULL;
 
--- reputation.badges
+-- reputation.badges: the live shape (init.sql). The table predates migration 024, whose CREATE TABLE IF NOT EXISTS
+-- never ran; 024 only added badge_type, community_id and the unique key.
 CREATE TABLE reputation.badges (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    badge_type VARCHAR(100) NOT NULL,      -- 'First Help', 'Milestone 10', etc.
-    badge_name VARCHAR(255) NOT NULL,
-    description TEXT,
-    earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    name VARCHAR(255) NOT NULL,            -- display name: BADGE_NAMES in badgeService.ts (BUG-077)
+    description TEXT,                      -- unused
+    icon_url VARCHAR(255),                 -- unused
+    earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    badge_type TEXT,                       -- first_helper | milestone_10 | milestone_50 | milestone_100 | connector
+    community_id UUID REFERENCES communities.communities(id) ON DELETE SET NULL,  -- never set
+    UNIQUE (user_id, badge_type)
 );
 
 -- Indexes
@@ -1202,66 +1219,13 @@ async function updateTrustScoreWithFeedback(user_id: string, community_id: strin
 }
 ```
 
-### Implement Badge System
+### Badges (Phase 1, ADR-016)
 
-```typescript
-// src/services/badgeService.ts
-export async function checkAndAwardBadges(user_id: string, community_id: string) {
-  const karma = await getUserKarma(user_id, community_id);
-  const total_karma = parseInt(karma[0]?.total_karma || 0);
-
-  // Helper badge (10 helps)
-  const helperCount = await query(
-    `SELECT COUNT(*) as count FROM reputation.karma_records
-     WHERE user_id = $1 AND community_id = $2 AND reason = 'Provided help'`,
-    [user_id, community_id]
-  );
-
-  if (parseInt(helperCount.rows[0].count) === 10) {
-    await awardBadge({
-      user_id,
-      badge_type: 'helper',
-      badge_name: 'Community Helper',
-      description: 'Helped 10 people in the community',
-    });
-  }
-
-  // Karma milestones
-  if (total_karma >= 100) {
-    await awardBadge({
-      user_id,
-      badge_type: 'karma_milestone',
-      badge_name: 'Karma Master',
-      description: 'Earned 100+ karma points',
-    });
-  }
-}
-
-async function awardBadge(data: any) {
-  // Check if badge already awarded
-  const existing = await query(
-    `SELECT id FROM reputation.badges
-     WHERE user_id = $1 AND badge_type = $2`,
-    [data.user_id, data.badge_type]
-  );
-
-  if (existing.rowCount > 0) return;
-
-  // Award badge
-  await query(
-    `INSERT INTO reputation.badges
-     (user_id, badge_type, badge_name, description)
-     VALUES ($1, $2, $3, $4)`,
-    [data.user_id, data.badge_type, data.badge_name, data.description]
-  );
-
-  // Publish event
-  await publishEvent('badge_earned', {
-    user_id: data.user_id,
-    badge_type: data.badge_type,
-  });
-}
-```
+`src/services/badgeService.ts`: `checkAndAwardBadges(responderId)` runs after karma in the `match_completed` handler,
+compares the helper's whole completed history with each threshold, and inserts every newly earned type with its
+`BADGE_NAMES` display name (`ON CONFLICT (user_id, badge_type) DO NOTHING`). It returns only the types it inserted.
+To add a type: extend `BADGE_TYPES` (`tsc` then requires a `BADGE_NAMES` entry), add its threshold, and extend
+`tests/regression/sprint-134-bug-077-badge-insert.test.ts` and the root real-SQL file. No event announces an award.
 
 ## Security Considerations
 

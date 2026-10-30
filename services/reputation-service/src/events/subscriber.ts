@@ -67,15 +67,25 @@ export async function initEventSubscriber() {
 
         console.log('✅ Karma awarded for match:', match_id);
 
+        // Karma is committed and replays idempotently, so nothing below may fail the job: a rethrow made Bull re-run
+        // the whole job and skipped every later step (BUG-077). The completion rate and badges are recomputed from
+        // history on the helper's next completion, so a skipped run repairs itself.
+
         // Update provider completion_rate if responder is a registered provider
-        await updateProviderCompletionRate(responder_id);
+        try {
+          await updateProviderCompletionRate(responder_id);
+        } catch (providerErr) {
+          console.error('[provider-trust] completion rate update failed, skipping:', match_id, providerErr);
+        }
 
         // Check and award prestige badges to the helper
-        await checkAndAwardBadges(responder_id);
+        try {
+          await checkAndAwardBadges(responder_id);
+        } catch (badgeErr) {
+          console.error('[badges] badge check failed, skipping:', match_id, badgeErr);
+        }
 
         // Sprint 30: Trust evolution signals — iterate per community
-        // Wrapped in its own outer try/catch so a failure here never causes Bull
-        // to retry the whole job (which would re-run karma awards already completed).
         try {
           // Query the same request_communities the karma service uses so evolution
           // is scoped to the correct community context for each match.

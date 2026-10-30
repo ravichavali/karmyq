@@ -14,6 +14,18 @@ import { query } from '../database/db';
 export const BADGE_TYPES = ['first_helper', 'milestone_10', 'milestone_50', 'milestone_100', 'connector'] as const;
 export type BadgeType = typeof BADGE_TYPES[number];
 
+/**
+ * Display names for reputation.badges.name, which is NOT NULL: the table predates migration 024, whose
+ * CREATE TABLE IF NOT EXISTS never ran, and the insert without it never succeeded (BUG-077).
+ */
+export const BADGE_NAMES: Record<BadgeType, string> = {
+  first_helper: 'First help given',
+  milestone_10: 'Helped 10 times',
+  milestone_50: 'Helped 50 times',
+  milestone_100: 'Helped 100 times',
+  connector: 'Helped 10 different people',
+};
+
 interface BadgeRow {
   id: string;
   user_id: string;
@@ -81,15 +93,19 @@ export async function checkAndAwardBadges(responderId: string): Promise<BadgeTyp
   if (toAward.length === 0) return [];
 
   // Insert new badges (ON CONFLICT DO NOTHING for safety)
+  const awarded: BadgeType[] = [];
   for (const badge_type of toAward) {
-    await query(
-      `INSERT INTO reputation.badges (user_id, badge_type)
-       VALUES ($1, $2)
+    const result = await query(
+      `INSERT INTO reputation.badges (user_id, badge_type, name)
+       VALUES ($1, $2, $3)
        ON CONFLICT (user_id, badge_type) DO NOTHING`,
-      [responderId, badge_type]
+      [responderId, badge_type, BADGE_NAMES[badge_type]]
     );
+    // The unique key absorbed it: another run awarded this badge first.
+    if (result.rowCount === 0) continue;
+    awarded.push(badge_type);
     console.log(`🏅 Badge awarded: user=${responderId} badge=${badge_type}`);
   }
 
-  return toAward;
+  return awarded;
 }

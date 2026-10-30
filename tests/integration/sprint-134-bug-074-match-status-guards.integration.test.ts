@@ -104,8 +104,8 @@ describe('Sprint 134 BUG-074 match status guards', () => {
 
   afterAll(async () => {
     try {
-      // Matches first: a retried match_completed job (BUG-077 makes every one fail after karma, so Bull retries)
-      // needs the match row to re-award karma, and a re-inserted karma row would block the community delete.
+      // Matches first: a retried match_completed job needs the match row to re-award karma, and a re-inserted karma
+      // row would block the community delete.
       // A completion exists here only if a guard failed; clearing its effects lets a red run still clean up.
       await pool.query('DELETE FROM requests.matches WHERE request_id = ANY($1::uuid[])', [asks]);
       await pool.query('DELETE FROM requests.feed_events WHERE request_id = ANY($1::uuid[])', [asks]);

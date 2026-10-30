@@ -127,7 +127,8 @@ export async function evaluateUserEvolution(
     const eligible = await isEvolutionEligible(userId, communityId, parameter);
     if (!eligible) continue;
 
-    const currentValue = effectiveParams[parameter];
+    // pg returns NUMERIC columns as strings ("0.60"), and `+` would concatenate the nudge onto one (BUG-079).
+    const currentValue = Number(effectiveParams[parameter]);
     const { min, max } = BOUNDS[parameter];
     const newValue = round2(clamp(currentValue + delta, min, max));
 

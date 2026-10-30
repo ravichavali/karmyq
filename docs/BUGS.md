@@ -2082,7 +2082,7 @@ review of the BUG-074 plan traced the `tail` exit status.
 
 ---
 
-## BUG-077 · [2026-10-29] · open · **HIGH** (proposed)
+## BUG-077 · [2026-10-29] · fixed (Sprint 134 BUG-077 PR, v11.106.0) · **HIGH** (proposed)
 
 **Every `match_completed` job in reputation-service fails on the badge insert, after karma is awarded.**
 `checkAndAwardBadges` inserts `INSERT INTO reputation.badges (user_id, badge_type) ... ON CONFLICT (user_id, badge_type)
@@ -2111,6 +2111,24 @@ Fix direction (not decided): a migration that drops `NOT NULL` from `name` (or t
 isolate badge failures like the trust-evolution block so they cannot fail the job; a real-SQL test that completes a
 match and asserts a badge row and a successful job. Found during the PR L2 log check; not fixed in the BUG-074 PR.
 
+**Planned (maintainer decisions, 2026-10-29):** the insert supplies a name from a typed `BADGE_NAMES` map (no
+migration); badges and the provider completion-rate update each get their own try/catch; going forward only, no
+backfill; BUG-079 (trust evolution NaN) fixed in the same PR. Verified at planning: the table is the initial commit's
+(`1dea32d1`, 2025-11-03), `init.sql:2093-2102`; the unique key exists (`init.sql:3640-3641`). Two corrections to the
+evidence above: each "Processing" line is one attempt, retries included; and every reputation query also logs its SQL
+(`services/reputation-service/src/database/db.ts:40`), so the log-rotation cause is **UNVERIFIED** until a post-deploy
+log read. Spec: `docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-077-badge-insert-design.md`.
+
+**Fix:** the insert supplies `name` from `BADGE_NAMES` (`Record<BadgeType, string>`, so a new type without a name fails
+`tsc`) and reports only rows it inserted (`rowCount === 0` is skipped). In the `match_completed` handler the provider
+completion-rate update and the badge check each catch and log their own failure (`[provider-trust]`, `[badges]`, with
+the match id), so only a karma projection failure fails the job. No migration, no backfill. Commits `dc6005ac` (insert)
+and `528351f1` (isolation). Tests: `services/reputation-service/tests/regression/sprint-134-bug-077-badge-insert.test.ts`
+and `sprint-134-bug-077-handler-isolation.test.ts` (5 of their 6 cases red before the fix; the sixth, the
+karma-failure preservation case, passes before and after), and the real-SQL file `tests/integration/sprint-134-bug-077-completion-side-effects.integration.test.ts`
+(the job completes on its first attempt; an injected badge failure still completes it; all five types written once;
+CI-only on Windows). The log-rotation cause stays **UNVERIFIED** until the post-deploy log read.
+
 ---
 
 ## BUG-078 · [2026-10-29] · open
@@ -2135,5 +2153,81 @@ that PR's `ALREADY_COMPLETED` hoist shifted `matches.ts` about 8 lines from BUG-
 
 Fix direction (not decided): one request-status reconcile used by every match-state writer (with BUG-075); offer
 writes guarded on the status the exchange left them in; an idempotent done mark.
+
+---
+
+## BUG-079 · [2026-10-29] · fixed (Sprint 134 BUG-077 PR, v11.106.0)
+
+**Trust evolution never writes a nudge: it adds the delta to a NUMERIC value that pg returns as a string.**
+`evaluateUserEvolution` computes `round2(clamp(currentValue + delta, min, max))`
+(`services/reputation-service/src/services/trustEvolutionService.ts:130-132`). `currentValue` comes from
+`NUMERIC(3,2)` columns (`communities.community_configs.trust_depth_weight`, `reputation.user_trust_configs.*`), and
+the installed `pg` 8.23 / `pg-types` 2.2.0 registers no parser for NUMERIC (OID 1700), so it is the string `"0.60"`.
+`"0.60" + 0.01` is `"0.600.01"`; `clamp` turns it into `NaN`; the upsert is rejected (CHECK `chk_utc_depth` or
+`chk_utc_prior`; exact PostgreSQL error UNVERIFIED). The subscriber's inner catch logs it
+(`services/reputation-service/src/events/subscriber.ts:122-125`), and `POST /reputation/feedback`'s inline evolution
+meets the same function. Verified locally: `node -e` on the expression, and `pg-types` returning `typeof "string"` for
+OID 1700.
+
+Reach: only members who switched evolution on. Without a `reputation.user_trust_configs` row a member is not eligible
+(`trustEvolutionService.ts:105`), as `docs/concepts/trust-model-evolution.md` describes. BUG-077 hid it on the
+completion path, because the badge failure skipped the block. The unit tests mock numbers
+(`tests/unit/reputation/trustEvolutionService.test.ts:30`), which is why they pass.
+
+Fix (maintainer, 2026-10-29): `Number()` at the use site in `evaluateUserEvolution`, so `GET /reputation/trust-config`
+keeps its wire format; tdd mocks return pg's strings; the BUG-077 real-SQL test asserts the exact log row
+(`depth_weight` 0.60 → 0.61).
+
+**Fixed:** `const currentValue = Number(effectiveParams[parameter])` (commit `ac0f1dd6`), which also covers
+`POST /reputation/feedback`'s inline evolution. Tests: `services/reputation-service/tests/regression/sprint-134-bug-079-evolution-numeric.test.ts`
+(red 3 of 3 before: `NaN` nudges and an upsert at the bound) and the BUG-077 real-SQL file's evolution log rows. The
+other NUMERIC arithmetic was checked: community evolution parses its values (`communityEvolutionDb.ts:44`, `:145`), and
+`computeTrustScore` only multiplies the weights (`trustScoreStrategy.ts:98`, `:103`), so neither concatenates.
+
+---
+
+## BUG-080 · [2026-10-29] · open
+
+**Provider completion rate counts a match status the platform never writes, so it reads 100% for any provider with a
+completed exchange.** `updateProviderCompletionRate` and `backfillAllProviderTrustScores` count
+`COUNT(*) FILTER (WHERE status IN ('accepted', 'completed'))` as the denominator
+(`services/reputation-service/src/services/providerTrustService.ts:77`, `:125`). Accepting a match writes `'matched'`
+(`services/request-service/src/routes/matches.ts:360`); no live writer sets a match to `'accepted'`. The denominator
+therefore equals the completed count, the rate is 100.00 whenever a provider has completed anything (else 0), and a
+matched exchange that is later cancelled never lowers it. It feeds 30% of the provider trust score
+(`providerTrustService.ts:45`). No job or request fails. Whether the curated demo writes `'accepted'` match rows
+(`services/simulation-service/src/fixtures/curatedDemo/manifest.ts:266`) is UNVERIFIED.
+
+Fix direction (not decided): define the rate (completed over matched + completed + cancelled-after-match?) and use
+the statuses the routes write. Found while planning BUG-077; not fixed there.
+
+---
+
+## BUG-081 · [2026-10-29] · open · **LOW** (proposed, latent)
+
+**Two trust-config readers return NUMERIC columns as strings while their types say `number`.**
+`getCommunityTrustConfig` passes `trust_depth_weight` and `trust_breadth_weight` through raw
+(`services/reputation-service/src/database/trustConfigDb.ts:50-51`). In the same function, `trust_feedback_threshold`
+and `trust_carry_factor` are `parseFloat`ed (`:52-54`, `:58-60`). `getUserTrustConfig` returns `depth_weight`, `breadth_weight`
+and `cross_community_prior` raw (`trustEvolutionDb.ts:25-37`), but `UserTrustConfig` types them as numbers (`:4-11`).
+`pg` returns NUMERIC as a string. So `getUserEffectiveParams` returns `"0.60"`, which is then cached in Redis
+(`effectiveParamsCache.ts:63-65`) and returned by two routes: `GET /reputation/trust-config` and
+`GET /reputation/users/:userId/effective-params` (`routes/reputation.ts:594-604`).
+
+No failure today:
+- BUG-079 was the one site that added to these values. It now coerces at the use site.
+- `computeTrustScore` only multiplies them (`trustScoreStrategy.ts:98`, `:103`).
+- Both readers of the routes multiply by 100, which gives the same result for `"0.60"` and `0.6`:
+  - the profile page (`apps/frontend/src/pages/profile.tsx:85-87`);
+  - request-service's feed, which fetches `effective-params` (`services/request-service/src/routes/requests.ts:330-338`)
+    and rounds `cross_community_prior * 100` (`:650`, `:726`).
+
+The next `+` on any of them repeats BUG-079.
+
+Fix direction (not decided): parse at the helper boundary, as the sibling fields in the same function already are.
+That changes both routes' JSON from `"0.60"` to `0.6`. Redis entries cached before the deploy keep strings for up to
+their 4 h TTL. The BUG-077 spec kept the wire format (maintainer decision 4) and put this out of scope. Both readers
+multiply, so that change may cost less than the spec assumed. Raised by the BUG-077 PR's `/simplify` altitude pass and
+`/code-review`; not fixed there.
 
 ---

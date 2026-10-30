@@ -68,8 +68,8 @@ Score = min(100, karma / 10)
 - total_exchanges, updated_at
 
 ### reputation.badges
-- id, user_id, badge_type
-- awarded_at
+- id, user_id, badge_type, name
+- earned_at
 
 ## Events
 
