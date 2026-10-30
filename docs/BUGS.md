@@ -2208,22 +2208,26 @@ the statuses the routes write. Found while planning BUG-077; not fixed there.
 **Two trust-config readers return NUMERIC columns as strings while their types say `number`.**
 `getCommunityTrustConfig` passes `trust_depth_weight` and `trust_breadth_weight` through raw
 (`services/reputation-service/src/database/trustConfigDb.ts:50-51`). In the same function, `trust_feedback_threshold`
-and `trust_carry_factor` are `parseFloat`ed (`:52-59`). `getUserTrustConfig` returns `depth_weight`, `breadth_weight`
+and `trust_carry_factor` are `parseFloat`ed (`:52-54`, `:58-60`). `getUserTrustConfig` returns `depth_weight`, `breadth_weight`
 and `cross_community_prior` raw (`trustEvolutionDb.ts:25-37`), but `UserTrustConfig` types them as numbers (`:4-11`).
 `pg` returns NUMERIC as a string. So `getUserEffectiveParams` returns `"0.60"`, which is then cached in Redis
-(`effectiveParamsCache.ts:63-64`) and returned by `GET /reputation/trust-config`.
+(`effectiveParamsCache.ts:63-65`) and returned by two routes: `GET /reputation/trust-config` and
+`GET /reputation/users/:userId/effective-params` (`routes/reputation.ts:594-604`).
 
 No failure today:
 - BUG-079 was the one site that added to these values. It now coerces at the use site.
 - `computeTrustScore` only multiplies them (`trustScoreStrategy.ts:98`, `:103`).
-- The only client, `apps/frontend/src/pages/profile.tsx:85-87`, multiplies by 100, which gives the same result for
-  `"0.60"` and `0.6`.
+- Both readers of the routes multiply by 100, which gives the same result for `"0.60"` and `0.6`:
+  - the profile page (`apps/frontend/src/pages/profile.tsx:85-87`);
+  - request-service's feed, which fetches `effective-params` (`services/request-service/src/routes/requests.ts:330-338`)
+    and rounds `cross_community_prior * 100` (`:650`, `:726`).
 
 The next `+` on any of them repeats BUG-079.
 
 Fix direction (not decided): parse at the helper boundary, as the sibling fields in the same function already are.
-That changes the `GET /reputation/trust-config` JSON from `"0.60"` to `0.6`. The BUG-077 spec kept the wire format
-(maintainer decision 4) and put this out of scope. The only client multiplies, so that change may cost less than the
-spec assumed. Raised by the BUG-077 PR's `/simplify` altitude pass and `/code-review`; not fixed there.
+That changes both routes' JSON from `"0.60"` to `0.6`. Redis entries cached before the deploy keep strings for up to
+their 4 h TTL. The BUG-077 spec kept the wire format (maintainer decision 4) and put this out of scope. Both readers
+multiply, so that change may cost less than the spec assumed. Raised by the BUG-077 PR's `/simplify` altitude pass and
+`/code-review`; not fixed there.
 
 ---
