@@ -80,8 +80,8 @@ Karma and trust are tracked separately in each community you belong to. Build re
 Your trust model can calibrate itself from your exchanges, one community at a time. It is off until you turn it on:
 in **Trust Evolution Settings** on your profile page, each community has an **Evolution On / Off** toggle. (A community
 admin can turn evolution off for the whole community, which disables the toggle.) Once it is on, completed exchanges
-nudge your parameters in small steps. For example, a third completed exchange with the same person raises your depth
-weight by 0.01. Each parameter changes at most once every 7 days, and every change is listed in your evolution
+nudge your parameters in small steps. For example, when you help someone and it is at least your third completed
+exchange with them (counting exchanges in either direction), your depth weight rises by 0.01. Each parameter changes at most once every 7 days, and every change is listed in your evolution
 history together with what caused it.
 
 **Global opt-out**: If you prefer your trust model to stay fixed, you can pause evolution globally in **Trust

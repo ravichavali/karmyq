@@ -2202,3 +2202,28 @@ Fix direction (not decided): define the rate (completed over matched + completed
 the statuses the routes write. Found while planning BUG-077; not fixed there.
 
 ---
+
+## BUG-081 · [2026-10-29] · open · **LOW** (proposed, latent)
+
+**Two trust-config readers return NUMERIC columns as strings while their types say `number`.**
+`getCommunityTrustConfig` passes `trust_depth_weight` and `trust_breadth_weight` through raw
+(`services/reputation-service/src/database/trustConfigDb.ts:50-51`). In the same function, `trust_feedback_threshold`
+and `trust_carry_factor` are `parseFloat`ed (`:52-59`). `getUserTrustConfig` returns `depth_weight`, `breadth_weight`
+and `cross_community_prior` raw (`trustEvolutionDb.ts:25-37`), but `UserTrustConfig` types them as numbers (`:4-11`).
+`pg` returns NUMERIC as a string. So `getUserEffectiveParams` returns `"0.60"`, which is then cached in Redis
+(`effectiveParamsCache.ts:63-64`) and returned by `GET /reputation/trust-config`.
+
+No failure today:
+- BUG-079 was the one site that added to these values. It now coerces at the use site.
+- `computeTrustScore` only multiplies them (`trustScoreStrategy.ts:98`, `:103`).
+- The only client, `apps/frontend/src/pages/profile.tsx:85-87`, multiplies by 100, which gives the same result for
+  `"0.60"` and `0.6`.
+
+The next `+` on any of them repeats BUG-079.
+
+Fix direction (not decided): parse at the helper boundary, as the sibling fields in the same function already are.
+That changes the `GET /reputation/trust-config` JSON from `"0.60"` to `0.6`. The BUG-077 spec kept the wire format
+(maintainer decision 4) and put this out of scope. The only client multiplies, so that change may cost less than the
+spec assumed. Raised by the BUG-077 PR's `/simplify` altitude pass and `/code-review`; not fixed there.
+
+---
