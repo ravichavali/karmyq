@@ -62,13 +62,16 @@ on master. It carried the `decode-uri-component` 0.5.1 override, so the HIGH GHS
 its 2026-11-05 SLA; 0 open Dependabot alerts. Accepted cost: mobile URL decoding is broken until mobile's own sprint
 (BUG-041, `docs/IDEAS.md` 2026-10-29). Both BUG-074 human checks reported done by the maintainer on 2026-10-29. See
 *BUG-074 state → Post-merge*.
-**Now:** **BUG-077 PLANNED, ready to execute** (every reputation `match_completed` job fails on the
-`reputation.badges.name NOT NULL` insert, after karma; plus **BUG-079**, trust-evolution nudges computed on NUMERIC
-strings) on `agent/claude/sprint-134-pr-bug-077-badge-insert`, from `origin/master` `ae9f8957`. Spec, plan and this
-handoff pushed 2026-10-29. See *BUG-077 plan*.
+**Now:** **BUG-077 PR OPEN, awaiting Codex review and the maintainer's merge** (the badge insert supplies
+`reputation.badges.name`; only a karma failure fails a `match_completed` job; **BUG-079** trust-evolution NaN fixed;
+v11.106.0 provisional) on `agent/claude/sprint-134-pr-bug-077-badge-insert`, from `origin/master` `ae9f8957` (master
+had not moved at PR open). Executed 2026-10-29 with `superpowers:executing-plans` (inline); all 12 tasks, the four
+gates and a fresh final review done. **CI's `test-integration` job is the real-SQL test's first run** (CI-only on
+Windows). See *BUG-077 state*.
 Open, not scheduled: **BUG-075** (other request-status writers lack a guard), **BUG-076** (pre-push TDD false pass),
 **BUG-078** (unguarded writers beside BUG-074's guards), **BUG-080** (provider completion rate counts a status never
-written).
+written), **BUG-081** (new: trust-config readers return NUMERIC strings typed as `number`; latent, out of scope per
+the BUG-077 spec's decision 4).
 **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
 become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26); the 10-29 deadline no longer applies.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
@@ -88,8 +91,9 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
    `git switch -c agent/claude/sprint-134-pr-<letter>-<slug> origin/master`. Never branch off a stale local master.
 3. PR V, the security follow-up (#322), PR B (#323) and **BUG-074 (#324)** are shipped; deploy/health are verified in
    *PR V state*, *Security follow-up state → Post-merge*, *PR B state → Post-merge* and *BUG-074 state → Post-merge*.
-   **BUG-077 is planned** on `agent/claude/sprint-134-pr-bug-077-badge-insert`; the next chat executes its plan
-   (item 4) and stops at PR creation (item 6).
+   **The BUG-077 PR is open** (see *BUG-077 state*). The next chat starts with `gh pr checks <n>` and
+   `git log origin/master`: it handles any CI red (the real-SQL file runs for the first time there), and after the
+   merge it records the deploy, CodeQL on the merge sha, and the real-SQL file's first result.
    **Human checks:** the maintainer reported the **UI checks done on 2026-10-29** (PR A's three exports, PR B's four
    (check 1 included, the demo RLS proof for `rated_by_me`), PR V's reads and requester actions, PR K's demotion and
    provider-offer acceptance, and BUG-074's two: the 409 on cancelling a completed match and a normal two-party
@@ -109,12 +113,10 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
      Also: the auth limiter (10 logins / 15 min / IP) cannot fit D8's three cases (about 5 auth calls each) in one window;
      the first probe tripped it (429). Next: fix the persona (check the account, or rotate the demo stories), then rerun D8
      across two windows. Each is a separate authorization.
-4. Reuse the branch `agent/claude/sprint-134-pr-bug-077-badge-insert` (pushed; `git fetch origin`, then
-   `git switch agent/claude/sprint-134-pr-bug-077-badge-insert`; never branch off a stale local master). Open the plan:
-   [`docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-077-badge-insert.md`](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-077-badge-insert.md)
-   (spec: [`docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-077-badge-insert-design.md`](../../docs/superpowers/specs/2026-10-29-sprint-134-pr-bug-077-badge-insert-design.md)).
-   Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no `/execute-plan`
-   slash command; superpowers removed it as a deprecated stub.
+4. The BUG-077 plan is executed; its branch `agent/claude/sprint-134-pr-bug-077-badge-insert` carries the open PR.
+   For CI fixes or review follow-ups, `git fetch origin` and `git switch agent/claude/sprint-134-pr-bug-077-badge-insert`
+   (never branch off a stale local master). For the next PR, pick from *Open, not scheduled* with the maintainer and
+   plan it with `sprint-planning`. There is no `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 5. One fresh chat per PR (CLAUDE.md *Chat cadence*). Update this file at every PR open/merge.
 6. **Stopping point = PR creation (maintainer, 2026-10-22, standing).** Run all gates, push this handoff on the PR branch marking
    the PR "open, awaiting maintainer merge", open the PR, report the link, and **stop**. Don't watch CI, ask for a merge, or do
@@ -126,7 +128,7 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 | Field | Value |
 |---|---|
 | **Current branch** | `agent/claude/sprint-134-pr-bug-077-badge-insert`, from `origin/master` `ae9f8957` (#324, v11.105.0). First commit: the #324 post-merge record. The merged `agent/claude/sprint-134-pr-bug-074-cancel-guard` is safe to delete (maintainer's call): its head `f2967d37` has the same tree as `ae9f8957` (`a3af2e1a`). Previous: `agent/claude/sprint-134-pr-bug-074-cancel-guard`, from `origin/master` `d8da50f0` (#323, v11.104.0); its first commit was the #323 post-merge record. The merged `agent/claude/sprint-134-pr-b-vouch-from-request` is safe to delete (maintainer's call): its head `69f277d8` has the same tree as `d8da50f0` (`f37f5eda`). Previous: `agent/claude/sprint-134-pr-b-vouch-from-request`, from `origin/master` `4ee38e82` (#322, v11.103.0); its first commit was the #322 post-merge record. The old `agent/codex/sprint-134-pr-b-endorsement-followups` is **safe to delete** (maintainer's call): its two docs commits `4b0c6386`/`56357e50` are patch-identical (`git patch-id --stable`) to `ac08fbf4`/`0685c058`, both ancestors of #322's head `1ecf1a05`, whose tree equals master's `4ee38e82` tree. (`git cherry` shows them as missing only because #322 was squash-merged.) |
-| **Active editor** | **Claude** plans BUG-077 (planning chat 2026-10-29); the next Claude chat executes it. No concurrent edits on this branch: review findings come back through the maintainer. (BUG-074: Claude planned and executed, Codex reviewed, shipped 2026-10-29.) |
+| **Active editor** | **Claude** planned and executed BUG-077 (2026-10-29); the PR awaits Codex review. No concurrent edits on this branch: review findings come back through the maintainer. (BUG-074: Claude planned and executed, Codex reviewed, shipped 2026-10-29.) |
 | **Shared resources** | dependency lane: **Claude** (maintainer-designated). The `decode-uri-component` 0.5.1 override shipped in #324 (`ae9f8957`); BUG-041 is resolved by it. Expo drift #316 still awaits a maintainer decision. The BUG-077 PR edits no manifest or lockfile entry beyond the root version. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
 
 ## BUG-077 plan (Claude, planning chat 2026-10-29)
@@ -228,6 +230,76 @@ record the real-SQL file's first CI result with the post-merge record. The PR to
 
 **Planning commits on the branch:** `dd6237ca` (#324 post-merge record), then the spec + plan + BUG-079/080 + this
 handoff.
+
+## BUG-077 state (Claude executor, 2026-10-29)
+
+**PR OPEN, awaiting Codex review and the maintainer's merge.** Base `origin/master` `ae9f8957` (unchanged at PR open,
+so no merge-in). Version **11.106.0**, re-derived from master's 11.105.0 at PR open. **Re-derive at merge**, together
+with the `v11.106.0` in the BUG-077 and BUG-079 headers of `docs/BUGS.md`. Executed with `superpowers:executing-plans`
+(inline, one context), then a fresh final review of the whole branch on Opus.
+
+**Commits** (after the planning commits ending `ae1c3e1e`):
+- `87bcc734` version → `45bb1874` tdd contracts (red) → `0b58c02c` real-SQL integration test → `dc6005ac` badge
+  insert → `528351f1` handler isolation → `ac0f1dd6` BUG-079 `Number()` → `5e9d9d4f` promotion
+- `65ae25db` guide + ADR-016 amendment + landing → `a8974ca5` CONTEXT, README, ARCHITECTURE, registry, BUGS →
+  `8da41edf` `/simplify` → `b7af004a` `/code-review` fixes + BUG-081 → `4be4a8ff` final-review fixes.
+
+**Test evidence:**
+- **Contract tests** (`services/reputation-service/tests/regression/sprint-134-bug-077-badge-insert.test.ts`,
+  `sprint-134-bug-077-handler-isolation.test.ts`, `sprint-134-bug-079-evolution-numeric.test.ts`): red **8 failed /
+  1 passed** on `87bcc734`, the same as the dry run. Each red is on the defect: an INSERT without `name`, absorbed
+  inserts reported, "rejected instead of resolved", `NaN` nudges, an upsert at the bound. The one pass is the
+  karma-failure preservation case. Each file then went green: 3/3, 3/3 (12/12 with the Sprint 126/133 subscriber suites)
+  and 3/3. All three were byte-identical to the plan's code blocks, and stayed identical through the promotion.
+- **Real-SQL file** (`tests/integration/sprint-134-bug-077-completion-side-effects.integration.test.ts`): **NOT RUN
+  locally**; CI's `test-integration` job is its first run. It type-checks: it is compiled, and has none of the tests
+  project's 70 pre-existing diagnostics. Before writing it, the executor checked its fixture columns, CHECKs, FK
+  cascade order, triggers, the PUT trust-config gates, the complete response, and Bull 4.16.5's `failedReason` and
+  `stacktrace` read path. The final reviewer re-read it against `init.sql`, the services and Bull's Lua scripts, and
+  judged that every assertion holds on the fixed code.
+- **Promoter:** promoted 8 files; the 5 unrelated ones were restored after a byte comparison.
+- **On `b7af004a`:**
+  - reputation-service `tsc` exit 0;
+  - `npm test` exit 0 (Turbo 27/27; reputation-service a cache miss: unit 5, regression 343 + 3 todo);
+  - `npm test --workspace=tests` run directly: 101 + 956;
+  - claim and drift gates 58/58.
+  After that, `4be4a8ff` changed docs only; the license and drift gates were then 68/68.
+- **Grep for every instance of BUG-079** (CLAUDE.md bug rule 2): community evolution already parses its NUMERIC values
+  (`communityEvolutionDb.ts:44,145`), and `computeTrustScore` only multiplies them, so BUG-079 has one site.
+
+**Gate dispositions:**
+- **`/simplify`** (4 angles): one fix (`8da41edf`), a duplicate rationale comment. Skipped:
+  - narrowing the outer `try` to karma only (spec note 6 forbids restructuring the evolution block);
+  - the integration file's `process.env.X || default` lines (they match every sibling integration file);
+  - batching the fixture inserts (saves milliseconds, CI-only);
+  - parsing NUMERIC at the DB helper (out of scope per decision 4; logged as BUG-081).
+- **`/code-review` medium:** 8 findings, no handler correctness issue, so no escalation.
+  - Fixed: the guide example. Logged: BUG-081 (#1/#2).
+  - Dismissed: #3 badge and rate failures are only logged (decision 2); #4 `rowCount === 0` (spec note 4); #5
+    two pools on different databases (a false positive: `tests/integration/setup.ts:35-36` sets `DATABASE_URL` first).
+  - Two minors deferred.
+- **`/security-review`:** no findings at confidence 8 or above.
+- **Final review** (fresh, Opus): **0 Critical / 0 Important, ready to merge**, no ruling disputed. Two of its minors
+  were re-graded Important and fixed in `4be4a8ff`: the guide now names both evolution triggers, and BUG-081 now names
+  request-service's feed as a reader. Four minors deferred (listed in the PR body).
+
+**Executor rulings** (all in the PR body):
+- the final review ran before Task 12;
+- the review range was `ae1c3e1e..HEAD`;
+- `analyze:services` was skipped and the `generate-service-context` churn reverted (the registry edit is notes only);
+- the docs fixes were verified against source, since no test can go red on prose.
+
+**Human checks (maintainer, demo, after merge + deploy; each a demo-host read needing its own authorization):**
+1. **Demo schema parity:** the reputation log shows no `violates not-null constraint` and no `Failed to award karma for
+   match` for new completions, and does show `🏅 Badge awarded` lines.
+2. **PR L2's nightly log (still owed):** the reputation log covering the first 02:00Z run after the deploy. This also
+   settles whether the log window now holds a night (the rotation cause is UNVERIFIED).
+
+**Carry-forward:**
+- **First CI run of the real-SQL file.** Record its result with the post-merge record.
+- **CodeQL:** the PR touches no `api.ts` or route lines, so no re-raise is expected. Still read the merge-sha analyses.
+- **Out-of-scope note for the maintainer:** parsing NUMERIC at the DB helper (BUG-081) changes two routes' JSON from
+  `"0.60"` to `0.6`. Both readers multiply by 100, so the change is cheaper than the spec assumed.
 
 ## BUG-074 plan (Claude, planning chat 2026-10-28 → 2026-10-29)
 
