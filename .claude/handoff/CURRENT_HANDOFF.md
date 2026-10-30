@@ -66,9 +66,10 @@ its 2026-11-05 SLA; 0 open Dependabot alerts. Accepted cost: mobile URL decoding
 `reputation.badges.name`; only a karma failure fails a `match_completed` job; **BUG-079** trust-evolution NaN fixed;
 v11.106.0 provisional) on `agent/claude/sprint-134-pr-bug-077-badge-insert`, from `origin/master` `ae9f8957` (master
 had not moved at PR open). **Review P1 fixed** (`9fa3e40c`: the isolation test was a script and failed CI with
-TS6200); **merge needs a green CI Integration run** on the fixed head (see *BUG-077 state → Review of #325*). Executed 2026-10-29 with `superpowers:executing-plans` (inline); all 12 tasks, the four
-gates and a fresh final review done. **CI's `test-integration` job is the real-SQL test's first run** (CI-only on
-Windows). See *BUG-077 state*.
+TS6200). **CI is green on the fixed head `dfa5f10f`, including Integration; the real-SQL file passed 3/3 on its
+first run** (see *BUG-077 state → Review of #325*). Awaiting the maintainer's merge. Executed 2026-10-29 with
+`superpowers:executing-plans` (inline); all 12 tasks, the four gates and a fresh final review done. See *BUG-077
+state*.
 Open, not scheduled: **BUG-075** (other request-status writers lack a guard), **BUG-076** (pre-push TDD false pass),
 **BUG-078** (unguarded writers beside BUG-074's guards), **BUG-080** (provider completion rate counts a status never
 written), **BUG-081** (new: trust-config readers return NUMERIC strings typed as `number`; latent, out of scope per
@@ -253,7 +254,8 @@ with the `v11.106.0` in the BUG-077 and BUG-079 headers of `docs/BUGS.md`. Execu
   karma-failure preservation case. Each file then went green: 3/3, 3/3 (12/12 with the Sprint 126/133 subscriber suites)
   and 3/3. All three were byte-identical to the plan's code blocks, and stayed identical through the promotion.
 - **Real-SQL file** (`tests/integration/sprint-134-bug-077-completion-side-effects.integration.test.ts`): **NOT RUN
-  locally**; CI's `test-integration` job is its first run. It type-checks: it is compiled, and has none of the tests
+  locally** (no Docker on this box). Its first run was CI's, and it **passed 3/3** on `dfa5f10f` (*Review of #325*).
+  It type-checks: it is compiled, and has none of the tests
   project's 70 pre-existing diagnostics. Before writing it, the executor checked its fixture columns, CHECKs, FK
   cascade order, triggers, the PUT trust-config gates, the complete response, and Bull 4.16.5's `failedReason` and
   `stacktrace` read path. The final reviewer re-read it against `init.sql`, the services and Bull's Lua scripts, and
@@ -300,8 +302,16 @@ review and an independent runtime review; read-only, no GitHub review record):**
 - **No other production blocker and no plan redesign.** The review confirmed that the badge name, truthful insert
   reporting, failure isolation and numeric coercion match the intended behavior, and found the executor rulings
   reasonable.
-- **Merge condition (reviewer):** a successful CI Integration run on the fixed head before merging. Its result is
-  recorded below once CI finishes.
+- **Merge condition (reviewer):** a successful CI Integration run on the fixed head before merging. **Met:**
+  [CI/CD 40993744766](https://github.com/ravichavali/karmyq/actions/runs/40993744766) on `dfa5f10f` is **success**.
+  - Unit + Regression, Lint & Type Check, Security Audit, Code Scanning Gate, the landing build and all 7 image builds
+    passed. Deploy to Demo was skipped, as it always is on a PR. The Tests workflow 40993744778 also succeeded.
+  - `gh pr checks 325`: 20 pass, 1 skipping (the deploy).
+  - **Real SQL, first run: PASS 3/3** (`sprint-134-bug-077-completion-side-effects.integration.test.ts`):
+    - the job completes on its first attempt, with `first_helper` named and evolution 0.60 → 0.61;
+    - an injected badge failure does not fail the job;
+    - all five badge types are written once.
+  - The Integration job ran 22 suites / 326 tests (BUG-074's 323 plus these 3).
 
 **Executor rulings** (all in the PR body):
 - the final review ran before Task 12;
@@ -316,7 +326,8 @@ review and an independent runtime review; read-only, no GitHub review record):**
    settles whether the log window now holds a night (the rotation cause is UNVERIFIED).
 
 **Carry-forward:**
-- **First CI run of the real-SQL file.** Record its result with the post-merge record.
+- **The real-SQL file's first CI run passed 3/3** on `dfa5f10f` (above). For the post-merge record, read its result
+  in the merge-sha run as well.
 - **CodeQL:** the PR touches no `api.ts` or route lines, so no re-raise is expected. Still read the merge-sha analyses.
 - **Out-of-scope note for the maintainer:** parsing NUMERIC at the DB helper (BUG-081) changes two routes' JSON from
   `"0.60"` to `0.6`. Both readers multiply by 100, so the change is cheaper than the spec assumed.
