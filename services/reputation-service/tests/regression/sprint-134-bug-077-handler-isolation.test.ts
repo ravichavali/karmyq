@@ -4,6 +4,10 @@
  * whole job ten times and skipped every step after it. Badges and the provider completion rate are recomputed from
  * history on the helper's next completion, so each logs its own failure and the handler carries on.
  */
+// A module, not a script: without an import or export these declarations are globals and collide with
+// sprint-126-subscriber-boundary.test.ts's identically named ones (TS6200), which a warm ts-jest cache hides.
+export {};
+
 type Handler = (job: { data: unknown }) => Promise<unknown>;
 const handlers: Record<string, Handler> = {};
 
