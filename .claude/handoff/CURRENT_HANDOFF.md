@@ -62,7 +62,7 @@ on master. It carried the `decode-uri-component` 0.5.1 override, so the HIGH GHS
 its 2026-11-05 SLA; 0 open Dependabot alerts. Accepted cost: mobile URL decoding is broken until mobile's own sprint
 (BUG-041, `docs/IDEAS.md` 2026-10-29). Both BUG-074 human checks reported done by the maintainer on 2026-10-29. See
 *BUG-074 state → Post-merge*.
-**Now:** **BUG-077 PR OPEN, awaiting Codex review and the maintainer's merge** (the badge insert supplies
+**Now:** **BUG-077 PR [#325](https://github.com/ravichavali/karmyq/pull/325) OPEN, awaiting Codex review and the maintainer's merge** (the badge insert supplies
 `reputation.badges.name`; only a karma failure fails a `match_completed` job; **BUG-079** trust-evolution NaN fixed;
 v11.106.0 provisional) on `agent/claude/sprint-134-pr-bug-077-badge-insert`, from `origin/master` `ae9f8957` (master
 had not moved at PR open). Executed 2026-10-29 with `superpowers:executing-plans` (inline); all 12 tasks, the four
@@ -91,7 +91,7 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
    `git switch -c agent/claude/sprint-134-pr-<letter>-<slug> origin/master`. Never branch off a stale local master.
 3. PR V, the security follow-up (#322), PR B (#323) and **BUG-074 (#324)** are shipped; deploy/health are verified in
    *PR V state*, *Security follow-up state → Post-merge*, *PR B state → Post-merge* and *BUG-074 state → Post-merge*.
-   **The BUG-077 PR is open** (see *BUG-077 state*). The next chat starts with `gh pr checks <n>` and
+   **The BUG-077 PR [#325](https://github.com/ravichavali/karmyq/pull/325) is open** (see *BUG-077 state*). The next chat starts with `gh pr checks 325` and
    `git log origin/master`: it handles any CI red (the real-SQL file runs for the first time there), and after the
    merge it records the deploy, CodeQL on the merge sha, and the real-SQL file's first result.
    **Human checks:** the maintainer reported the **UI checks done on 2026-10-29** (PR A's three exports, PR B's four
@@ -233,7 +233,7 @@ handoff.
 
 ## BUG-077 state (Claude executor, 2026-10-29)
 
-**PR OPEN, awaiting Codex review and the maintainer's merge.** Base `origin/master` `ae9f8957` (unchanged at PR open,
+**PR [#325](https://github.com/ravichavali/karmyq/pull/325) OPEN, awaiting Codex review and the maintainer's merge.** Base `origin/master` `ae9f8957` (unchanged at PR open,
 so no merge-in). Version **11.106.0**, re-derived from master's 11.105.0 at PR open. **Re-derive at merge**, together
 with the `v11.106.0` in the BUG-077 and BUG-079 headers of `docs/BUGS.md`. Executed with `superpowers:executing-plans`
 (inline, one context), then a fresh final review of the whole branch on Opus.
