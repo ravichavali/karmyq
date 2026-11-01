@@ -1937,8 +1937,9 @@ table that has it. `services/request-service/src/routes/feedback.ts:46` is BUG-0
   remain separate. This weighting correction changes no migration/init.sql. Real SQL cron/fallback/upsert/growth and
   community-isolation tests: `tests/integration/sprint-134-pr-l2-health.integration.test.ts` — **CI-only on
   Windows; Integration Tests is the arbiter, not local mocked SQL**. Deployed via CI/CD 40579675258
-  after #320 merged `47c9a323` at 2026-10-27 20:37:13Z. Health passed; reputation logs after the
-  first 02:00 nightly run remain the human validation.
+  after #320 merged `47c9a323` at 2026-10-27 20:37:13Z. Health passed. The nightly human validation
+  passed on 2026-11-01 from the DB, because the reputation log rotates before the 02:00 run can be read:
+  the run covered all 23 communities that existed then, and snapshots exist for every night since 10-28.
   **First-working-cron follow-up (maintainer, 2026-10-27):** isolate health/trust and milestone failures
   per community so later communities are still attempted. In the same migration, widen snapshot density
   to NUMERIC(20,4), both snapshot growth fields and cached trend percentage to NUMERIC(20,2).
@@ -2082,7 +2083,7 @@ review of the BUG-074 plan traced the `tail` exit status.
 
 ---
 
-## BUG-077 · [2026-10-29] · fixed (Sprint 134 BUG-077 PR, v11.106.0) · **HIGH** (proposed)
+## BUG-077 · [2026-10-29] · fixed and deployed (Sprint 134 #325, v11.106.0, 2026-10-30) · **HIGH** (proposed)
 
 **Every `match_completed` job in reputation-service fails on the badge insert, after karma is awarded.**
 `checkAndAwardBadges` inserts `INSERT INTO reputation.badges (user_id, badge_type) ... ON CONFLICT (user_id, badge_type)
@@ -2156,7 +2157,7 @@ writes guarded on the status the exchange left them in; an idempotent done mark.
 
 ---
 
-## BUG-079 · [2026-10-29] · fixed (Sprint 134 BUG-077 PR, v11.106.0)
+## BUG-079 · [2026-10-29] · fixed and deployed (Sprint 134 #325, v11.106.0, 2026-10-30)
 
 **Trust evolution never writes a nudge: it adds the delta to a NUMERIC value that pg returns as a string.**
 `evaluateUserEvolution` computes `round2(clamp(currentValue + delta, min, max))`

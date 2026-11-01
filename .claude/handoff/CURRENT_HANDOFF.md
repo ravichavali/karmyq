@@ -1,6 +1,6 @@
 # Sprint 134 — Dated Obligations and Boundary Hardening — Handoff
 
-**Date**: 2026-10-29
+**Date**: 2026-11-01
 **Status**: IN PROGRESS. **PR F #310 SHIPPED** 2026-10-20: merged `63a6cd26` (v11.93.0) by the maintainer (the classifier refused
 Claude's `--admin` merge), deployed by CI/CD 39516935342 (all 15 jobs green, all 9 services healthy, no rollback, no CodeQL re-raise).
 **PR A #311 SHIPPED** 2026-10-21: admin-merged `bf524296` (v11.94.0) on the maintainer's authorization after Codex review;
@@ -37,7 +37,8 @@ merge-sha analyses raised nothing new, highest alert still #627). ADR-102 flippe
 2026-10-27 20:37:13Z. [CI/CD 40579675258](https://github.com/ravichavali/karmyq/actions/runs/40579675258)
 passed 14/14 jobs, including deploy and health check; "Notify on failure" skipped (no rollback).
 0 open CodeQL alerts on master at this post-merge check. **BUG-070 fixed and deployed inside its 2026-11-03 date.**
-Human validation pending: reputation logs after the first 02:00 nightly run (*PR L2 state*).
+**Nightly validation PASSED 2026-11-01**, from the nightly's DB outputs: the log rotates before the 02:00Z run can be
+read (*PR L2 state → Nightly validation*).
 **PR V [#321](https://github.com/ravichavali/karmyq/pull/321) SHIPPED** as `645d28fd` (v11.102.0) at
 **2026-10-28 04:14:22Z** on the maintainer's explicit admin-merge authorization. Deploy run
 [40631196261](https://github.com/ravichavali/karmyq/actions/runs/40631196261) passed **14/14 jobs**;
@@ -62,14 +63,14 @@ on master. It carried the `decode-uri-component` 0.5.1 override, so the HIGH GHS
 its 2026-11-05 SLA; 0 open Dependabot alerts. Accepted cost: mobile URL decoding is broken until mobile's own sprint
 (BUG-041, `docs/IDEAS.md` 2026-10-29). Both BUG-074 human checks reported done by the maintainer on 2026-10-29. See
 *BUG-074 state → Post-merge*.
-**Now:** **BUG-077 PR [#325](https://github.com/ravichavali/karmyq/pull/325) OPEN, awaiting Codex review and the maintainer's merge** (the badge insert supplies
-`reputation.badges.name`; only a karma failure fails a `match_completed` job; **BUG-079** trust-evolution NaN fixed;
-v11.106.0 provisional) on `agent/claude/sprint-134-pr-bug-077-badge-insert`, from `origin/master` `ae9f8957` (master
-had not moved at PR open). **Review P1 fixed** (`9fa3e40c`: the isolation test was a script and failed CI with
-TS6200). **CI is green on the fixed head `dfa5f10f`, including Integration; the real-SQL file passed 3/3 on its
-first run** (see *BUG-077 state → Review of #325*). Awaiting the maintainer's merge. Executed 2026-10-29 with
-`superpowers:executing-plans` (inline); all 12 tasks, the four gates and a fresh final review done. See *BUG-077
-state*.
+**BUG-077 PR [#325](https://github.com/ravichavali/karmyq/pull/325) SHIPPED** (+ **BUG-079**) as `965cdf2d` (v11.106.0),
+merged by the maintainer at **2026-10-30 03:32:43Z**. [CI/CD 40997981236](https://github.com/ravichavali/karmyq/actions/runs/40997981236)
+passed **14/14** including Deploy to Demo, health green, no rollback; the real-SQL file passed on the merge sha; 0 open
+CodeQL alerts (highest still #627) and 0 open Dependabot alerts. Demo check 1 (schema parity) **PASSED** 2026-10-31. See
+*BUG-077 state → Post-merge*.
+**Now (2026-11-01):** every dated obligation is met and PR L2's nightly validation passed. **The maintainer chose
+BUG-075 + BUG-078 next and closes Sprint 134**; the work continues as Sprint 135 on
+`agent/claude/sprint-135-pr-request-status-guards` from `origin/master` `965cdf2d`.
 Open, not scheduled: **BUG-075** (other request-status writers lack a guard), **BUG-076** (pre-push TDD false pass),
 **BUG-078** (unguarded writers beside BUG-074's guards), **BUG-080** (provider completion rate counts a status never
 written), **BUG-081** (new: trust-config readers return NUMERIC strings typed as `number`; latent, out of scope per
@@ -91,20 +92,17 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 1. Read this handoff, then `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
 2. Find the next PR in *PR sequence* whose status is not SHIPPED. Reuse its branch if it exists; otherwise
    `git switch -c agent/claude/sprint-134-pr-<letter>-<slug> origin/master`. Never branch off a stale local master.
-3. PR V, the security follow-up (#322), PR B (#323) and **BUG-074 (#324)** are shipped; deploy/health are verified in
-   *PR V state*, *Security follow-up state → Post-merge*, *PR B state → Post-merge* and *BUG-074 state → Post-merge*.
-   **The BUG-077 PR [#325](https://github.com/ravichavali/karmyq/pull/325) is open** (see *BUG-077 state*). The next chat starts with `gh pr checks 325` and
-   `git log origin/master`: it handles any CI red (the real-SQL file runs for the first time there), and after the
-   merge it records the deploy, CodeQL on the merge sha, and the real-SQL file's first result.
+3. PR V, the security follow-up (#322), PR B (#323), BUG-074 (#324) and **BUG-077 (#325)** are shipped; deploy/health
+   are verified in *PR V state*, *Security follow-up state → Post-merge*, *PR B state → Post-merge*, *BUG-074 state →
+   Post-merge* and *BUG-077 state → Post-merge*. No PR is open.
    **Human checks:** the maintainer reported the **UI checks done on 2026-10-29** (PR A's three exports, PR B's four
    (check 1 included, the demo RLS proof for `rated_by_me`), PR V's reads and requester actions, PR K's demotion and
    provider-offer acceptance, and BUG-074's two: the 409 on cancelling a completed match and a normal two-party
-   completion awarding karma); no failure reported. **Demo-host checks, run 2026-10-29 on the maintainer's authorization:**
-   - **PR L2 nightly log: INCONCLUSIVE, not failed.** The container log (json-file, 3 × 10 MB) kept only the last ~2 h; the
-     02:00Z and 03:30Z runs were rotated away, by **BUG-077**'s failing retries as far as the log shows. Re-check after
-     BUG-077 is fixed, or read the log within ~1 h of a 02:00Z run, or check the nightly's outputs in the DB (each a
-     separate authorization).
-   - **PR D D8:** **BLOCKED, not failed.** All three cases (repo root, service dir, wrong ID) exit 1 with
+   completion awarding karma); no failure reported. **Demo-host checks, each on the maintainer's authorization:**
+   - **BUG-077 schema parity (2026-10-31): PASS.** See *BUG-077 state → Post-merge*.
+   - **PR L2 nightly (2026-11-01): PASS, from the DB.** The log read was inconclusive on 10-29, 10-31 and 11-01; the DB
+     fallback then showed the 11-01 02:00Z run covered every community. See *PR L2 state → Nightly validation*.
+   - **PR D D8 (2026-10-29):** **BLOCKED, not failed.** All three cases (repo root, service dir, wrong ID) exit 1 with
      `[verify:demo] failed: Request failed with status code 401` before the report prints, so the env-file checks never ran.
      A per-persona login probe (status codes only, 19:18Z) found maria, helper and provider **200** and the **unrelated persona
      (`DEMO_UNRELATED_EMAIL` in `.env.demo.rotation`) 401**. A read-only lookup (authorized, rolled back) found **no
@@ -115,10 +113,9 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
      Also: the auth limiter (10 logins / 15 min / IP) cannot fit D8's three cases (about 5 auth calls each) in one window;
      the first probe tripped it (429). Next: fix the persona (check the account, or rotate the demo stories), then rerun D8
      across two windows. Each is a separate authorization.
-4. The BUG-077 plan is executed; its branch `agent/claude/sprint-134-pr-bug-077-badge-insert` carries the open PR.
-   For CI fixes or review follow-ups, `git fetch origin` and `git switch agent/claude/sprint-134-pr-bug-077-badge-insert`
-   (never branch off a stale local master). For the next PR, pick from *Open, not scheduled* with the maintainer and
-   plan it with `sprint-planning`. There is no `/execute-plan` slash command; superpowers removed it as a deprecated stub.
+4. BUG-077 is shipped. **Next (maintainer, 2026-11-01): BUG-075 + BUG-078**, planned with `sprint-planning` as Sprint
+   135 on `agent/claude/sprint-135-pr-request-status-guards` (from `origin/master` `965cdf2d`; never branch off a stale
+   local master). There is no `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 5. One fresh chat per PR (CLAUDE.md *Chat cadence*). Update this file at every PR open/merge.
 6. **Stopping point = PR creation (maintainer, 2026-10-22, standing).** Run all gates, push this handoff on the PR branch marking
    the PR "open, awaiting maintainer merge", open the PR, report the link, and **stop**. Don't watch CI, ask for a merge, or do
@@ -129,9 +126,9 @@ become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026
 
 | Field | Value |
 |---|---|
-| **Current branch** | `agent/claude/sprint-134-pr-bug-077-badge-insert`, from `origin/master` `ae9f8957` (#324, v11.105.0). First commit: the #324 post-merge record. The merged `agent/claude/sprint-134-pr-bug-074-cancel-guard` is safe to delete (maintainer's call): its head `f2967d37` has the same tree as `ae9f8957` (`a3af2e1a`). Previous: `agent/claude/sprint-134-pr-bug-074-cancel-guard`, from `origin/master` `d8da50f0` (#323, v11.104.0); its first commit was the #323 post-merge record. The merged `agent/claude/sprint-134-pr-b-vouch-from-request` is safe to delete (maintainer's call): its head `69f277d8` has the same tree as `d8da50f0` (`f37f5eda`). Previous: `agent/claude/sprint-134-pr-b-vouch-from-request`, from `origin/master` `4ee38e82` (#322, v11.103.0); its first commit was the #322 post-merge record. The old `agent/codex/sprint-134-pr-b-endorsement-followups` is **safe to delete** (maintainer's call): its two docs commits `4b0c6386`/`56357e50` are patch-identical (`git patch-id --stable`) to `ac08fbf4`/`0685c058`, both ancestors of #322's head `1ecf1a05`, whose tree equals master's `4ee38e82` tree. (`git cherry` shows them as missing only because #322 was squash-merged.) |
-| **Active editor** | **Claude** planned and executed BUG-077 (2026-10-29); the PR awaits Codex review. No concurrent edits on this branch: review findings come back through the maintainer. (BUG-074: Claude planned and executed, Codex reviewed, shipped 2026-10-29.) |
-| **Shared resources** | dependency lane: **Claude** (maintainer-designated). The `decode-uri-component` 0.5.1 override shipped in #324 (`ae9f8957`); BUG-041 is resolved by it. Expo drift #316 still awaits a maintainer decision. The BUG-077 PR edits no manifest or lockfile entry beyond the root version. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
+| **Current branch** | `agent/claude/sprint-135-pr-request-status-guards`, from `origin/master` `965cdf2d` (#325, v11.106.0). First commit: the #325 post-merge record and both demo check results. The merged `agent/claude/sprint-134-pr-bug-077-badge-insert` is safe to delete (maintainer's call): its head `afbaed7a` has the same tree as `965cdf2d` (`cc350727`). Previous: `agent/claude/sprint-134-pr-bug-077-badge-insert`, from `origin/master` `ae9f8957` (#324, v11.105.0); its first commit was the #324 post-merge record. The merged `agent/claude/sprint-134-pr-bug-074-cancel-guard` is safe to delete (maintainer's call): its head `f2967d37` has the same tree as `ae9f8957` (`a3af2e1a`). Previous: `agent/claude/sprint-134-pr-bug-074-cancel-guard`, from `origin/master` `d8da50f0` (#323, v11.104.0); its first commit was the #323 post-merge record. The merged `agent/claude/sprint-134-pr-b-vouch-from-request` is safe to delete (maintainer's call): its head `69f277d8` has the same tree as `d8da50f0` (`f37f5eda`). Previous: `agent/claude/sprint-134-pr-b-vouch-from-request`, from `origin/master` `4ee38e82` (#322, v11.103.0); its first commit was the #322 post-merge record. The old `agent/codex/sprint-134-pr-b-endorsement-followups` is **safe to delete** (maintainer's call): its two docs commits `4b0c6386`/`56357e50` are patch-identical (`git patch-id --stable`) to `ac08fbf4`/`0685c058`, both ancestors of #322's head `1ecf1a05`, whose tree equals master's `4ee38e82` tree. (`git cherry` shows them as missing only because #322 was squash-merged.) |
+| **Active editor** | **Claude** (2026-11-01): recorded #325's post-merge and the demo checks, then plans BUG-075 + BUG-078 as Sprint 135. No concurrent edits on this branch: review findings come back through the maintainer. (BUG-077 and BUG-074: Claude planned and executed, Codex reviewed, shipped 2026-10-30 and 2026-10-29.) |
+| **Shared resources** | dependency lane: **Claude** (maintainer-designated). The `decode-uri-component` 0.5.1 override shipped in #324 (`ae9f8957`); BUG-041 is resolved by it. Expo drift #316 still awaits a maintainer decision. #325 edited no manifest or lockfile entry beyond the root version. Push branch and leave tree clean at every stopping point. Each PR re-derives its version from `origin/master` at merge time. |
 
 ## BUG-077 plan (Claude, planning chat 2026-10-29)
 
@@ -235,7 +232,27 @@ handoff.
 
 ## BUG-077 state (Claude executor, 2026-10-29)
 
-**PR [#325](https://github.com/ravichavali/karmyq/pull/325) OPEN, awaiting Codex review and the maintainer's merge.** Base `origin/master` `ae9f8957` (unchanged at PR open,
+**Post-merge (recorded 2026-11-01 on the Sprint 135 branch; each fact re-read live with `gh`): SHIPPED.**
+- #325 merged as **`965cdf2d`** (v11.106.0) at **2026-10-30 03:32:43Z** by the maintainer; PR head `afbaed7a` (same tree,
+  `cc350727`).
+- [CI/CD 40997981236](https://github.com/ravichavali/karmyq/actions/runs/40997981236) on `965cdf2d`: **14/14 jobs
+  success**, including Deploy to Demo and the health check; no rollback.
+- **Real SQL on the merge sha:** the Integration job (123876348382) ran **22 suites / 326 tests, all passed**, with
+  `sprint-134-bug-077-completion-side-effects.integration.test.ts` PASS; the curated-reset step passed 2/2.
+- **CodeQL:** **0 open alerts** on `refs/heads/master`; highest alert number still **#627**. Both analyses for
+  `965cdf2d` completed with no error: JS/TS **2059617353** (467 raw results) and Actions **2059611022** (0 raw results).
+- **Dependabot: 0 open alerts.**
+- **Demo check 1, schema parity: PASS** (2026-10-31 20:56Z, read-only `docker logs` on the maintainer's authorization).
+  The log (json-file, 3 × 10 MB) held 07:15Z–20:56Z, about 13.7 h and 223k lines; before the fix it held about 2 h.
+  In that window:
+  - 418 `Processing match_completed` and 418 `Karma awarded`;
+  - 0 `Failed to award karma`, 0 `violates not-null`;
+  - 109 `🏅 Badge awarded`;
+  - 0 `[badges]`, `[provider-trust]` or `[trust-evolution]` errors.
+- **Demo check 2, PR L2's nightly:** inconclusive from the log on 10-31 and 11-01, then **PASS from the DB** on 11-01.
+  See *PR L2 state → Nightly validation*. Nothing else is owed for BUG-077.
+
+**Pre-merge status (history): PR [#325](https://github.com/ravichavali/karmyq/pull/325) OPEN, awaiting Codex review and the maintainer's merge.** Base `origin/master` `ae9f8957` (unchanged at PR open,
 so no merge-in). Version **11.106.0**, re-derived from master's 11.105.0 at PR open. **Re-derive at merge**, together
 with the `v11.106.0` in the BUG-077 and BUG-079 headers of `docs/BUGS.md`. Executed with `superpowers:executing-plans`
 (inline, one context), then a fresh final review of the whole branch on Opus.
@@ -321,9 +338,9 @@ review and an independent runtime review; read-only, no GitHub review record):**
 
 **Human checks (maintainer, demo, after merge + deploy; each a demo-host read needing its own authorization):**
 1. **Demo schema parity:** the reputation log shows no `violates not-null constraint` and no `Failed to award karma for
-   match` for new completions, and does show `🏅 Badge awarded` lines.
-2. **PR L2's nightly log (still owed):** the reputation log covering the first 02:00Z run after the deploy. This also
-   settles whether the log window now holds a night (the rotation cause is UNVERIFIED).
+   match` for new completions, and does show `🏅 Badge awarded` lines. **PASS 2026-10-31** (*Post-merge* above).
+2. **PR L2's nightly log:** the reputation log covering the first 02:00Z run after the deploy. **Done 2026-11-01:** by
+   05:15Z the log no longer held that run, so the DB outputs were read instead, and they PASS (*PR L2 state → Nightly validation*).
 
 **Carry-forward:**
 - **The real-SQL file's first CI run passed 3/3** on `dfa5f10f` (above). For the post-merge record, read its result
@@ -888,20 +905,20 @@ export), so the blocker is unchanged.
 | — | **N** | `next` 16.3.8 → 16.4.2 (GHSA-2464-fhr4-w9xw critical RCE + GHSA-p3m5-59mp-jv5r high, published 2026-10-22 15:52Z); 10-node splice; v11.97.0 | critical: blocks every PR now | *PR N state* below | **SHIPPED** `0321c415` (#314, v11.97.0), CI/CD 39853173679 green |
 | — | **X** | **Security PR (overdue, blocks every push and CI):** remove the braces exemption (advisory withdrawn 2026-10-23); renew node-forge; fix the new highs in body-parser, undici and zod; make the audit validator accept npm's inconsistent severities. See *Security PR X findings* | exemptions **expired 2026-10-26 00:00Z** (10-25 17:00 PDT) | *Security PR X findings* below | **SHIPPED** `e15622bc` (#317, v11.98.0), CI/CD 40410093954 green |
 | 4 | **L** | ADR-101 legacy handlers + BUG-068 code (no migration) | **2026-10-29** | [`plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md`](../../docs/superpowers/plans/2026-10-20-sprint-134-pr-l-legacy-handlers.md) | **SHIPPED** `ff3f394e` (#315, v11.99.0), CI/CD 40417261628 green; post-deploy queue check PASS. See *PR L state* |
-| 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers, numeric widths and nightly isolation; **BUG-070** | BUG-070 **2026-11-03** | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md) | **SHIPPED** #320 `47c9a323` (v11.101.0), CI/CD 40579675258 green; nightly human validation pending. |
+| 5 | **L2** | Migration: drop `interaction_feedback` + 7 dead average columns; update readers, numeric widths and nightly isolation; **BUG-070** | BUG-070 **2026-11-03** | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-l2-drop-feedback-schema.md) | **SHIPPED** #320 `47c9a323` (v11.101.0), CI/CD 40579675258 green; nightly validation **PASSED** 2026-11-01 from the DB (*PR L2 state → Nightly validation*). |
 | 6 | **K** | BUG-069: admin writes re-derive live role (**ADR-102**, allocated 2026-10-20) + BUG-071 (found by K's inventory) | **2026-10-30** | [`plans/2026-10-22-sprint-134-pr-k-live-admin-role.md`](../../docs/superpowers/plans/2026-10-22-sprint-134-pr-k-live-admin-role.md) | **SHIPPED** `dd585016` (#319, v11.100.0), CI/CD 40441255956 green; real SQL 101/101. Human validation reported done by the maintainer 2026-10-29; see *PR K state* |
 | 7 | **V** | PR V read-boundary follow-ups (`docs/IDEAS.md` 2026-10-19) | — | [plan](../../docs/superpowers/plans/2026-10-27-sprint-134-pr-v-read-boundaries.md) | **SHIPPED** #321 `645d28fd` (v11.102.0), CI/CD 40631196261 green 14/14; 9 healthy; 0 open master CodeQL alerts. UI checks reported done by the maintainer 2026-10-29. |
 | — | **Security follow-up** | node-forge 1.4.2 + exemption removed; ip-address 10.7.4; fast-uri 4.2.3; deepmerge decision write-up | **2026-11-01 16:00 PST** | *Security follow-up state* | **SHIPPED** `4ee38e82` (#322, v11.103.0), merged 18:56:43Z; CI/CD 40749793316 green 14/14 incl. deploy; 0 open code-scanning / Dependabot alerts; deadline met. |
 | 8 | **B** | Vouch from a completed exchange (`docs/IDEAS.md` 2026-10-13 "Vouch from the request page") | — | [plan](../../docs/superpowers/plans/2026-10-28-sprint-134-pr-b-vouch-from-request.md) | **SHIPPED** `d8da50f0` (#323, v11.104.0), merged 2026-10-28 23:01:54Z; CI/CD 40784392749 green 14/14 incl. deploy; real SQL 302/302; 0 open CodeQL alerts. Four human checks reported done by the maintainer 2026-10-29; see *PR B state*. |
 | 9 | **BUG-074** | Cancel and complete change a match only while it is `matched` (409 `MATCH_NOT_CANCELLABLE` / `MATCH_NOT_COMPLETABLE`); conditional request/offer updates; **carries the `decode-uri-component` 0.5.1 override** (`f6220d06`); v11.105.0 provisional | **2026-11-05** (the high SLA it carries) | [plan](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-074-cancel-guard.md) | **SHIPPED** `ae9f8957` (#324, v11.105.0), merged 2026-10-29 22:04:37Z; CI/CD 40963010356 green 14/14 incl. deploy; real SQL 323/323; 0 open CodeQL / Dependabot alerts; qr28 high fixed inside its SLA. Both human checks reported done by the maintainer 2026-10-29; see *BUG-074 state → Post-merge*. |
-| 10 | **BUG-077** (+ **BUG-079**) | Reputation `match_completed` job fails on the `reputation.badges.name NOT NULL` insert after karma (trust evolution skipped, every job retried); badge and provider-rate failures isolated; trust-evolution NaN fixed; v11.106.0 provisional | proposed HIGH; no external date | [plan](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-077-badge-insert.md) | **PLANNED** 2026-10-29 on `agent/claude/sprint-134-pr-bug-077-badge-insert` from `ae9f8957`; next chat executes. See *BUG-077 plan*. |
+| 10 | **BUG-077** (+ **BUG-079**) | Reputation `match_completed` job fails on the `reputation.badges.name NOT NULL` insert after karma (trust evolution skipped, every job retried); badge and provider-rate failures isolated; trust-evolution NaN fixed; v11.106.0 provisional | proposed HIGH; no external date | [plan](../../docs/superpowers/plans/2026-10-29-sprint-134-pr-bug-077-badge-insert.md) | **SHIPPED** `965cdf2d` (#325, v11.106.0), merged 2026-10-30 03:32:43Z; CI/CD 40997981236 green 14/14 incl. deploy; real SQL 326/326 on the merge sha; 0 open CodeQL / Dependabot alerts. Demo schema parity PASS 2026-10-31; see *BUG-077 state → Post-merge*. |
 | — | **BUG-080** | Provider completion rate counts the never-written match status `'accepted'` (reads 100%) | — | not written | Logged 2026-10-29 while planning BUG-077, **not scheduled**. |
 | — | **BUG-078** | Unguarded writers beside BUG-074's guards: reject/accept revive a withdrawn offer; complete's finalize writes the request `completed` unconditionally; a repeat mark re-stamps done_at | — | not written | Logged 2026-10-29 by BUG-074's `/code-review`, **not scheduled**; pairs with BUG-075. |
 | 11 | **C** | Scheduled exemption re-check evidence (treadmill a) | — | write at PR start | — |
 | — | **BUG-075** | Other request-status writers lack a status guard (reject reopen, accept, admin propose-match, dibs accept/decline/expire); demo rows exist, cause unconfirmed | — | not written | Logged 2026-10-29, **not scheduled**; maintainer to decide scope and any demo repair. |
 | — | **Per-community health-quality weight (planned PR)** | Persist the weight in `communities.community_configs`; choose a quality signal source; requires an ADR number allocated by the maintainer | Not scheduled | Write after ADR allocation + signal decision | Separate planned PR, not part of L2 |
 
-B and C are the likeliest to spill into Sprint 135, which is expected. One merge at a time; wait for deploy + health before the next.
+C and the unscheduled rows carry into Sprint 135; BUG-075 + BUG-078 go first (maintainer, 2026-11-01). One merge at a time; wait for deploy + health before the next.
 
 ## PR V state (Codex, 2026-10-27)
 
@@ -925,11 +942,11 @@ JS/TS analysis **2042197326** (467 raw results) and Actions analysis **204219365
 Raw analysis results are separate from the open-alert query. No alerts were dismissed.
 
 **Human validation after automated health verification** (the maintainer reported the first two UI checks done on
-2026-10-29, no failure reported; the L2 log check stays open):
+2026-10-29, no failure reported; the L2 check PASSED 2026-11-01 from the DB, see *PR L2 state → Nightly validation*):
 - Requester edit/cancel/privacy succeeds; foreign/missing IDs yield the same 404.
 - Departed helper and preferred provider retain reads; outsiders cannot read community-only or
   directed asks. Check demo page contents, scoped community notes and offer consent behavior.
-- L2: inspect reputation logs after the first 02:00 nightly run. Deploy health does not prove it.
+- L2: inspect reputation logs after the first 02:00 nightly run. Deploy health does not prove it. (Done 2026-11-01.)
 
 **Next branch (superseded 2026-10-28; see *Security follow-up state*):** `agent/codex/sprint-134-pr-b-endorsement-followups` from `origin/master` `645d28fd`.
 The first commit is this post-merge record (handoff + PR V plan), with no runtime/dependency/version/schema change. No B
@@ -1045,10 +1062,36 @@ merge is authorized by #321's approval.
 **Post-merge: SHIPPED.** #320 merged `47c9a323` (v11.101.0) at **2026-10-27 20:37:13Z**.
 [CI/CD 40579675258](https://github.com/ravichavali/karmyq/actions/runs/40579675258) passed **14/14 jobs**;
 deploy and health check passed, "Notify on failure" skipped (no rollback), **0 open CodeQL alerts on master**.
-BUG-070 is fixed and deployed before **2026-11-03**. **Remaining human validation:** inspect reputation
-logs after the first **02:00 nightly run** for community trust recalculation, milestone batch and the
-feed's transition from empty scores to computed scores. Do not mark that validation complete from deploy health alone.
+BUG-070 is fixed and deployed before **2026-11-03**. **The human validation** (community trust recalculation,
+milestone batch and the feed's transition from empty scores to computed scores after the 02:00 nightly run) **PASSED on
+2026-11-01, from the DB**; see *Nightly validation* below.
 The review/CI notes below describe the pre-merge history, not current PR state.
+
+**Nightly validation (Claude, 2026-11-01, each read on the maintainer's authorization): PASS, from the DB.**
+- **Log reads were inconclusive** (read-only `docker logs` on `karmyq-reputation-service`). On 10-29 and 10-31 the 02:00Z
+  and 03:30Z runs had rotated out. On 11-01 at 05:15Z the log held only **03:30:10Z–05:15:28Z**: it showed
+  `Trust-score refresh complete: 3876 evaluated, 0 failed` (03:30:22Z) and 0 hits for all six failure patterns, but no
+  02:00Z line.
+- **Why the log cannot hold the 02:00Z run:** the retained window starts inside the 03:30Z refresh. Each of its 3,876
+  pairs makes at least 6 `query()` calls (`karmaService.ts:22` onward), and each logs its full SQL text at reputation
+  `src/database/db.ts:40`. That is an inference from the source, not a measurement. With today's log settings, a log read
+  sees the 02:00Z run only between that run's end and 03:29Z. The 10-31 forecast (the lines last until about 15:30Z)
+  was wrong.
+- **DB fallback** (`karmyq_prod`, one `READ ONLY` transaction, rolled back, SQL over stdin; server time zone UTC; run
+  18:45Z, then one follow-up read):
+  - **Coverage:** 24 active communities, 23 with a 2026-11-01 snapshot, all created 02:00:00.05Z–02:00:00.88Z. The 24th
+    (`0cb98472…`) was created at **05:20:29Z**, after the run, so the run covered **23 of 23** communities that existed.
+  - **Community trust and cache:** 23 `community_trust_scores` and 23 `communities.health_summary` rows recalculated
+    inside 02:00–03:30Z, one per snapshot.
+  - **Milestone batch:** 21 `milestone_events` inside the run window. Per day since 10-19: none from 10-19 to 10-27,
+    then 58 (10-28), 32, 26, 14 and 21 (11-01), so the batch has written every night since the deploy.
+  - **Feed transition:** snapshot rows per date since 10-24: none for 10-24 to 10-27, then 17 (17 non-zero) on 10-28,
+    19 (18), 20 (20), 21 (20) and 23 (23) on 11-01. `GET /requests/feed/community-health` reads only the latest row
+    (`socialKarmaFeedComposer.ts:26-50`) and returns zeros, labelled "Building", when there is none. So its input moved
+    from no rows to computed rows at the first 02:00Z run after the deploy. `sprint-134-pr-l2-feed.test.ts` covers the
+    row-to-score mapping; no API or UI spot check was run.
+  - **Not provable from the DB:** the literal Starting/Complete lines, and a milestone failure for one community (it
+    would simply record nothing).
 
 **Pre-merge history:** Initial implementation `7f0606d5` and documentation checkpoint `239c6c79` were
 pushed. The maintainer's confirmed quality-weight follow-up supersedes their score expectations and
@@ -1067,7 +1110,7 @@ temporary ignored-weight mutation (66.67 reputation / 66.7 feed), then passed ag
 production bytes and were folded into the existing regression suites. Only tests and this handoff
 change; production code, migration and init.sql remain unchanged. See the PR Validation ledger for
 the exact tested/pushed head and cache details. Latest CI and review confirmation were pending at
-that checkpoint. The post-deploy first 02:00 run still needs human validation, as recorded above.
+that checkpoint. The post-deploy 02:00 run's human validation passed on 2026-11-01, as recorded above.
 
 **CI follow-up (maintainer reported failure, 2026-10-27):** head `4db4fa6f` passed local unit/regression
 but [Integration Tests failed](https://github.com/ravichavali/karmyq/actions/runs/40565448245/job/122407295038):
@@ -1590,7 +1633,7 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | `deepmerge` alert **#178** (low) | re-check at the next Expo SDK move or **2026-12-01** | **DISMISSED** `tolerable_risk` 2026-10-28 19:24:33Z (maintainer option a). Reach: Expo config tooling + Jest only, no fix exists (4.3.1 latest). Gate blocks high/critical only, so no exemption entry. |
 | ~~`decode-uri-component` BUG-041 (alert #150, dismissed)~~ | ~~re-check by 2026-11-14~~ | **RESOLVED** by the 0.5.1 override on the BUG-074 branch (`f6220d06`); mobile URL decoding broken until the mobile sprint (maintainer-accepted). |
 | ~~**`decode-uri-component` GHSA-qr28-fpjm-wq7f (HIGH)**, DoS via quadratic replacement of percent-encoded runs; `<= 0.5.0`, patched 0.5.1~~ | ~~high SLA: 2026-11-05~~ (published 2026-10-29 16:41:28Z) | **DONE**: shipped in #324 `ae9f8957` (v11.105.0), deployed 2026-10-29 22:22Z by CI/CD 40963010356 (Security Audit green). Root override `"decode-uri-component": "0.5.1"`, one lock node. Dependabot never raised a qr28 alert; #150 (GHSA-vcc3, the BUG-041 medium) closed `fixed` at the merge. Accepted cost: `query-string@7.1.3` `parse()` throws (ESM-only 0.5.1); nothing here builds or ships the app. |
-| **BUG-077** (reputation `match_completed` job fails on the `reputation.badges.name NOT NULL` insert, after karma) + **BUG-079** (trust-evolution NaN) | proposed HIGH; no external date | **PLANNED** (2026-10-29) on `agent/claude/sprint-134-pr-bug-077-badge-insert`; the next chat executes. Demo log window: 497 completion attempts, 498 badge failures, 0 badges. Skips trust evolution, retries every job, and the log window it leaves misses the 02:00Z nightly. |
+| ~~**BUG-077** (reputation `match_completed` job fails on the `reputation.badges.name NOT NULL` insert, after karma) + **BUG-079** (trust-evolution NaN)~~ | ~~proposed HIGH; no external date~~ | **DONE**: #325 `965cdf2d` (v11.106.0), merged 2026-10-30 03:32:43Z, deployed by CI/CD 40997981236 (14/14). Demo schema parity PASS 2026-10-31: 418 completions, 418 karma awards, 109 badges, 0 failures (*BUG-077 state → Post-merge*). |
 | BUG-076 (pre-push TDD step false pass) | none | Open, not scheduled. |
 | ~~CodeQL `/language:actions` "Unknown Error" on `4ee38e82`~~ | ~~next master push~~ | **CLOSED**: the Actions analysis 2049678160 for `d8da50f0` (#323) completed with no error. |
 | ~~**BUG-074** (`DELETE /matches/:id` cancels completed/rejected matches and reopens the request)~~ | ~~rides the 2026-11-05 high SLA~~ | **DONE**: #324 `ae9f8957` (v11.105.0), merged 2026-10-29 22:04:37Z, deployed by CI/CD 40963010356 (14/14). Both human checks reported done 2026-10-29. |
@@ -1600,7 +1643,7 @@ workflow conditions per step; PR L health.ts reads moved to L2; PR A RLS note co
 | ~~**PR L** (BUG-068)~~ | ~~2026-10-29~~ | **DONE**: #315 `ff3f394e` (v11.99.0), merged 2026-10-26 23:05:13Z (CI/CD 40417261628); post-deploy queue check PASS. The demo key cleanup is a separate, unscheduled operation (*PR L state*) |
 | ~~**BUG-069**~~ | ~~2026-10-30~~ | **DONE**: #319 `dd585016` (v11.100.0), merged 2026-10-27 02:55:40Z (CI/CD 40441255956). **ADR-102** Implemented. No risk acceptance or split was needed |
 | BUG-073 (any community creator passes the "admin of any community" gates) | ~~2026-10-29~~ → **tabled** | Logged 2026-10-22 by PR K's `/code-review`, still **open**. **Maintainer, 2026-10-26:** separate community admin from platform admin, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26 *architecture*). No target sprint or review date set |
-| ~~**BUG-070** (BUG-063 class in reputation health + dead `FeedComposer`)~~ | ~~2026-11-03~~ | **DONE**: #320 `47c9a323` (v11.101.0), merged 2026-10-27 20:37:13Z; CI/CD 40579675258 deploy + health green. First 02:00 nightly human validation pending: the 2026-10-29 log read was inconclusive (rotated away); re-check after BUG-077 deploys. |
+| ~~**BUG-070** (BUG-063 class in reputation health + dead `FeedComposer`)~~ | ~~2026-11-03~~ | **DONE**: #320 `47c9a323` (v11.101.0), merged 2026-10-27 20:37:13Z; CI/CD 40579675258 deploy + health green. Nightly human validation **PASSED** 2026-11-01 from the DB, after three inconclusive log reads (10-29, 10-31, 11-01); see *PR L2 state → Nightly validation*. |
 | **Expo drift #316** (`expo-notifications` 57.0.23 vs ~57.0.24) | Daily workflow failing; no advisory date | **OPEN**, awaiting maintainer decision; dependency lane Claude's. The 10-22 "Expo drift closed" record predates this issue. |
 | Demo stories | ~2026-12-18 | `demo-health.yml` watches the runway |
 
