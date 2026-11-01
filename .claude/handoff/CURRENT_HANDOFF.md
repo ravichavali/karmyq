@@ -137,6 +137,21 @@ stay at zero under the simulation's traffic.
 - No code changed in planning. The branch's only changes are docs: the #325 record (`a5138acd`), BUG-082 (`f707340e`),
   the Sprint 134 archive (`22c07c90`), and this spec, plan and handoff.
 
+## Dated obligations
+
+- **`follow-redirects` GHSA-mrwp-f3q8-3g9p (HIGH, CVE-2026-116689)** found 2026-11-01 by the root regression run.
+  - Published 2026-10-30 22:59:33Z. Range `>=1.16.0 <=1.16.1`; patched in 1.16.2 (on npm).
+  - The lock has one node, `node_modules/follow-redirects` 1.16.1, pulled in only by root `axios@1.20.0`. No override.
+  - Dependabot has not raised an alert yet (0 open, 2026-11-01).
+  - **It fails both ADR-059 gates** (`sprint-75-security-gate`, `sprint-123-audit-exemption-gate`), so it blocks the
+    pre-push hook and CI on every branch, this one included.
+  - **High SLA: about 2026-11-06 23:00Z.**
+  - Likely fix: a one-node splice to 1.16.2, as in PR F #310 (1.16.0 → 1.16.1), proven by strict `npm ci` and both
+    gates.
+  - Dependency lane: Claude (maintainer-designated). **Which PR carries the fix is the maintainer's decision.**
+  - **This planning branch is committed but not pushed:** the pre-push hook fails on the advisory, and bypassing it
+    needs the maintainer's say-so.
+
 ## Open, not scheduled (carried from Sprint 134)
 
 - **BUG-073** tabled (maintainer, 2026-10-26): community admin and platform admin become separate roles, as a future
