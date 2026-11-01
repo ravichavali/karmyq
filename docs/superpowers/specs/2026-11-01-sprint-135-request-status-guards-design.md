@@ -2,8 +2,9 @@
 
 **Date**: 2026-11-01
 **Status**: Approved (maintainer answered all four design questions on 2026-11-01)
-**Version**: v11.106.0 → v11.107.0 (**provisional**: re-derive from `origin/master` at merge time)
-**Sprint Branch**: `agent/claude/sprint-135-pr-request-status-guards` (cut from `origin/master` `965cdf2d`)
+**Version**: v11.107.0 → v11.108.0 (**provisional**: re-derive from `origin/master` at merge time)
+**Sprint Branch**: `agent/claude/sprint-135-pr-request-status-guards`, cut fresh from `origin/master` after the planning +
+security PR (`agent/claude/sprint-135-planning`, v11.107.0) merges. The code cited here is unchanged since `965cdf2d`.
 
 ---
 

@@ -15,9 +15,12 @@ write elsewhere.
 
 **Spec:** [`docs/superpowers/specs/2026-11-01-sprint-135-request-status-guards-design.md`](../specs/2026-11-01-sprint-135-request-status-guards-design.md)
 
-**Branch:** `agent/claude/sprint-135-pr-request-status-guards` (exists, cut from `origin/master` `965cdf2d`; it carries the
-#325 post-merge record, BUG-082, the Sprint 134 archive, and this plan).
-**Version:** 11.106.0 → 11.107.0, **provisional**: re-derive from `origin/master`'s `package.json` at merge time.
+**Branch:** `agent/claude/sprint-135-pr-request-status-guards`. **Cut it fresh from `origin/master` after the planning +
+security PR merges.** That PR, branch `agent/claude/sprint-135-planning` (v11.107.0), carries:
+- this spec, plan and handoff;
+- the #325 post-merge record, BUG-082 and the Sprint 134 archive;
+- the follow-redirects 1.16.2 fix.
+**Version:** 11.107.0 → 11.108.0, **provisional**: re-derive from `origin/master`'s `package.json` at merge time.
 **Rules (maintainer):**
 - No demo-host operation, merge or CodeQL dismissal without explicit per-operation authorization.
 - No dependency or lockfile change beyond the root version.
@@ -40,7 +43,7 @@ write elsewhere.
 ### Existing files to modify
 | File | Change |
 |------|--------|
-| `package.json`, `package-lock.json` | Root version 11.106.0 → 11.107.0 (three lines) |
+| `package.json`, `package-lock.json` | Root version 11.107.0 → 11.108.0 (three lines) |
 | `services/request-service/src/routes/matches.ts` | Accept, reject, complete, cancel use the helpers |
 | `services/request-service/src/routes/adminActions.ts` | Propose-match: lock, `open` only, duplicate check + insert in the transaction |
 | `services/request-service/src/routes/dibs.ts` | Create, accept, decline, expire use the helpers; drop the `pool` import and `updateDibsStatus` |
@@ -130,16 +133,17 @@ write elsewhere.
 ```bash
 uname -s                       # MINGW64_NT-* = the Windows box
 git fetch origin
-git switch agent/claude/sprint-135-pr-request-status-guards
 git status --short             # must be empty
-git log --oneline -1 origin/master
-git merge-base --is-ancestor 965cdf2d HEAD && echo "based on 965cdf2d or later"
+# The planning + security PR must be merged: the plan is on origin/master and the version is 11.107.0 (or later).
+MSYS_NO_PATHCONV=1 git cat-file -e origin/master:docs/superpowers/plans/2026-11-01-sprint-135-request-status-guards.md && echo "planning PR merged"
+MSYS_NO_PATHCONV=1 git show origin/master:package.json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log('master version', JSON.parse(s).version))"
+git switch -c agent/claude/sprint-135-pr-request-status-guards origin/master   # or `git switch` it, if a previous session cut it
 git config core.hooksPath      # must print .husky
 node scripts/gotcha-check.js --for services/request-service/src/db/requestStatus.ts services/request-service/src/routes/matches.ts services/request-service/src/routes/dibs.ts services/request-service/src/routes/adminActions.ts services/request-service/src/routes/requests.ts services/request-service/src/db/offersDb.ts services/request-service/tests/tdd/x.test.ts tests/integration/x.integration.test.ts docs/guides/x.md
 ```
 
-If `origin/master` has moved past `965cdf2d`, merge it in (merge commit, never rebase + force). Read every gotcha the
-check names.
+If the planning PR has not merged, stop: this plan builds on it. Read every gotcha the check names. The code this plan
+cites is unchanged since `965cdf2d`; that PR changed only the lockfile and docs.
 
 - [ ] **Bump the root version.** Use the Edit tool on three lines: `package.json` `"version"`, and in
   `package-lock.json` the top-level `"version"` and `packages[""].version`. Nothing else in either file changes.
@@ -149,10 +153,10 @@ check names.
 ```bash
 git diff --stat               # exactly package.json (1 line) and package-lock.json (2 lines)
 node -p "require('./package.json').version + ' ' + require('./package-lock.json').version + ' ' + require('./package-lock.json').packages[''].version"
-# expect: 11.107.0 11.107.0 11.107.0
+# expect: 11.108.0 11.108.0 11.108.0
 ```
 
-Commit: `chore: bump version to 11.107.0 (provisional, Sprint 135)`.
+Commit: `chore: bump version to 11.108.0 (provisional, Sprint 135)`.
 
 ---
 
@@ -2143,9 +2147,9 @@ Commit: `docs(guides): a request's status follows its exchanges (Sprint 135)`.
   - `PUT /requests/:id` and `DELETE /requests/:id`.
   - `request_completed` is already gone from `publishes` (Task 9).
 - [ ] **BUGS.md:**
-  - BUG-075 header: `fixed (Sprint 135, v11.107.0)`. Add a fix note naming the module and the ten writers. The 2026-10-29
+  - BUG-075 header: `fixed (Sprint 135, v11.108.0)`. Add a fix note naming the module and the ten writers. The 2026-10-29
     demo rows are not repaired (decision 4); a post-deploy recount is the check.
-  - BUG-078 header: `fixed (Sprint 135, v11.107.0)`, with one line per item.
+  - BUG-078 header: `fixed (Sprint 135, v11.108.0)`, with one line per item.
 - [ ] **Regenerate the dependency analysis** (an event left the registry)
 
 ```bash
@@ -2205,7 +2209,7 @@ git push -u origin agent/claude/sprint-135-pr-request-status-guards
 ```
 
   - Open the PR with the repository's template and the contract headers `pr-contract.yml` checks.
-  - Title: `fix(requests): every request-status writer is guarded and the status is derived (BUG-075, BUG-078, v11.107.0)`.
+  - Title: `fix(requests): every request-status writer is guarded and the status is derived (BUG-075, BUG-078, v11.108.0)`.
   - The body covers: the rule, the ten writers, the new codes, the allowlist re-pin, what is CI-only, the gate
     dispositions, and the post-deploy recount.
   - End it with the attribution line.

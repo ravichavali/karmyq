@@ -1,7 +1,8 @@
 # Sprint 135 — Request Status Guards (BUG-075 + BUG-078) — Handoff
 
 **Date**: 2026-11-01
-**Outcome**: planned (spec, plan and this handoff are on the branch); the next chat executes the plan
+**Outcome**: planned. The **planning + security PR** (this branch) is open, awaiting review and the maintainer's merge.
+After it merges, the next chat executes the plan from a fresh branch.
 
 > The handoff carries **state between sessions**. It is not a copy of the plan: it links the plan and names the next
 > unchecked task. It is branch-local, so it can reserve nothing; see `CLAUDE.md` → *Parallel Development* for how
@@ -22,12 +23,13 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-135-pr-request-status-guards` |
-| **Base** | `origin/master` at `965cdf2d` (#325, v11.106.0; fetched 2026-11-01). First commits: the #325 post-merge record (`a5138acd`), BUG-082 (`f707340e`), then this sprint's planning. |
-| **Active editor** | **Claude** planned it (2026-11-01). The executing chat becomes the active editor. |
+| **Branch (now)** | `agent/claude/sprint-135-planning`: the **planning + security PR** (v11.107.0). It carries the #325 post-merge record (`a5138acd`), BUG-082 (`f707340e`), the Sprint 134 archive (`22c07c90`), the Sprint 135 spec + plan + handoff, and the follow-redirects 1.16.2 fix (the PR F #310 pattern). It was cut from `origin/master` `965cdf2d` as `agent/claude/sprint-135-pr-request-status-guards` and renamed before its first push. |
+| **Branch (execution)** | `agent/claude/sprint-135-pr-request-status-guards`, cut **fresh from `origin/master` after the planning PR merges** (plan Task 1). Provisional v11.108.0. |
+| **Base** | `origin/master` at `965cdf2d` (#325, v11.106.0; fetched 2026-11-01). |
+| **Active editor** | **Claude** planned it and built the security fix (2026-11-01). The executing chat becomes the active editor. |
 | **Reviewer role** | Codex (non-author), relayed by the maintainer. |
 | **Owned paths** | `services/request-service/**`, the root `tests/integration/` file this sprint adds, `docs/guides/`, `docs/BUGS.md`, this handoff, the spec and plan. |
-| **Shared resources needed** | Version bump (re-derive from `origin/master` at merge). Merge slot. One read-only demo recount after deploy (its own authorization). Dependency lane: **Claude** (maintainer-designated); this PR changes no manifest or lockfile entry beyond the root version. No ADR number (one service). |
+| **Shared resources needed** | Version bump (re-derive from `origin/master` at merge). Merge slot. One read-only demo recount after deploy (its own authorization). Dependency lane: **Claude** (maintainer-designated). The planning PR changes one lock node (follow-redirects) plus the root version; the execution PR changes no manifest or lockfile entry beyond the root version. No ADR number (one service). |
 | **Merged branches safe to delete** (maintainer's call) | `agent/claude/sprint-134-pr-bug-077-badge-insert`: head `afbaed7a`, same tree as `965cdf2d` (`cc350727`). Older Sprint 134 branches: see the archived handoff's Ownership row. |
 
 ## Decisions (maintainer, 2026-11-01)
@@ -57,14 +59,16 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
 
 1. Read this handoff, then confirm live state before trusting it:
    `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
-2. Reuse the existing branch: `git switch agent/claude/sprint-135-pr-request-status-guards`. Never branch off a stale
-   local master; unpushed local-master commits leak in via the squash-merge. If `origin/master` moved past `965cdf2d`,
-   merge it in (merge commit, never rebase + force).
-3. Open the plan linked above.
+2. **If the planning + security PR is still open,** handle its CI or review first, on `agent/claude/sprint-135-planning`.
+   After it merges, record its post-merge facts (deploy, CodeQL on the merge sha, Dependabot) as the first commit of the
+   execution branch.
+3. **Once it has merged,** cut `git switch -c agent/claude/sprint-135-pr-request-status-guards origin/master` (plan
+   Task 1). Never branch off a stale local master; unpushed local-master commits leak in via the squash-merge. Then open
+   the plan linked above.
 4. Invoke `superpowers:subagent-driven-development` (or `superpowers:executing-plans`) directly.
    There is no `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 
-**Next unchecked task**: Task 1, branch check and provisional version bump (11.106.0 → 11.107.0, `package.json` and two
+**Next unchecked task**: Task 1, branch check and provisional version bump (11.107.0 → 11.108.0, `package.json` and two
 lines of `package-lock.json`).
 
 **Stopping point = PR creation** (maintainer, standing): run all gates, push this handoff marking the PR "open, awaiting
@@ -134,8 +138,9 @@ stay at zero under the simulation's traffic.
 - The status-write inventory was produced with the repo's own scanner
   (`services/request-service/tests/helpers/directedSurfaceScan.ts`), run through Node 24 type stripping. It found 14
   statements (11 status writes, 3 dynamic `SET`s). The gate's parser passed all nine negative fixtures in a dry run.
-- No code changed in planning. The branch's only changes are docs: the #325 record (`a5138acd`), BUG-082 (`f707340e`),
-  the Sprint 134 archive (`22c07c90`), and this spec, plan and handoff.
+- No application code changed in planning. Besides docs (the #325 record `a5138acd`, BUG-082 `f707340e`, the Sprint 134
+  archive `22c07c90`, and this spec, plan and handoff), the branch changes only the root version and one lock node
+  (follow-redirects 1.16.2; *Dated obligations*).
 
 ## Dated obligations
 
@@ -146,11 +151,18 @@ stay at zero under the simulation's traffic.
   - **It fails both ADR-059 gates** (`sprint-75-security-gate`, `sprint-123-audit-exemption-gate`), so it blocks the
     pre-push hook and CI on every branch, this one included.
   - **High SLA: about 2026-11-06 23:00Z.**
-  - Likely fix: a one-node splice to 1.16.2, as in PR F #310 (1.16.0 → 1.16.1), proven by strict `npm ci` and both
-    gates.
-  - Dependency lane: Claude (maintainer-designated). **Which PR carries the fix is the maintainer's decision.**
-  - **This planning branch is committed but not pushed:** the pre-push hook fails on the advisory, and bypassing it
-    needs the maintainer's say-so.
+  - **Maintainer, 2026-11-01:** fix it in a small PR, bundled with the planning docs; no bypass push.
+  - **FIXED on this branch (v11.107.0).** An in-place splice of one node: `node_modules/follow-redirects` `version`,
+    `resolved`, `integrity`. Every other lock field is identical between 1.16.1 and 1.16.2 (`npm view`), and axios's
+    declared `^1.16.0` admits 1.16.2, so no manifest changes and no override.
+  - **Proof (2026-11-01):**
+    - node-level diff: 2 of 1878 nodes changed (root `version`; follow-redirects), key and field order identical;
+    - strict `npx npm@11.19.0 ci` exit 0, with 1.16.2 on disk;
+    - `npm ls --all` problems identical to the pre-change baseline (179 lines, mostly unmet platform-specific optional
+      deps);
+    - `node scripts/audit-exemptions.js` exit 0, "0 high/critical";
+    - no other tracked lockfile holds follow-redirects.
+  - **Due on merge:** confirm the deploy, read the merge-sha CodeQL analyses, and confirm 0 open Dependabot alerts.
 
 ## Open, not scheduled (carried from Sprint 134)
 
