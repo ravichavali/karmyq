@@ -1,8 +1,8 @@
 # Sprint 135 — Request Status Guards (BUG-075 + BUG-078) — Handoff
 
 **Date**: 2026-11-01
-**Outcome**: planned. The **planning + security PR [#326](https://github.com/ravichavali/karmyq/pull/326)** (this branch)
-is open, awaiting review and the maintainer's merge. After it merges, the next chat executes the plan from a fresh branch.
+**Outcome**: executing. The planning + security PR [#326](https://github.com/ravichavali/karmyq/pull/326) **merged** as
+`20d930ce` (v11.107.0) and deployed green (*#326 post-merge record* below). This branch executes the plan.
 
 > The handoff carries **state between sessions**. It is not a copy of the plan: it links the plan and names the next
 > unchecked task. It is branch-local, so it can reserve nothing; see `CLAUDE.md` → *Parallel Development* for how
@@ -23,13 +23,13 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
 
 | Field | Value |
 |---|---|
-| **Branch (now)** | `agent/claude/sprint-135-planning`: the **planning + security PR** (v11.107.0). It carries the #325 post-merge record (`a5138acd`), BUG-082 (`f707340e`), the Sprint 134 archive (`22c07c90`), the Sprint 135 spec + plan + handoff, and the follow-redirects 1.16.2 fix (the PR F #310 pattern). It was cut from `origin/master` `965cdf2d` as `agent/claude/sprint-135-pr-request-status-guards` and renamed before its first push. |
-| **Branch (execution)** | `agent/claude/sprint-135-pr-request-status-guards`, cut **fresh from `origin/master` after the planning PR merges** (plan Task 1). Provisional v11.108.0. |
-| **Base** | `origin/master` at `965cdf2d` (#325, v11.106.0; fetched 2026-11-01). |
-| **Active editor** | **Claude** planned it and built the security fix (2026-11-01). The executing chat becomes the active editor. |
+| **Branch (now)** | `agent/claude/sprint-135-pr-request-status-guards`, the **execution branch**, cut fresh from `origin/master` `20d930ce` on 2026-11-01. Provisional v11.108.0. Its first commit is this post-merge record. |
+| **Branch (planning, merged)** | `agent/claude/sprint-135-planning`, head `5a3589ef`, squash-merged as `20d930ce` (#326). Safe to delete (maintainer's call). |
+| **Base** | `origin/master` at `20d930ce` (#326, v11.107.0; fetched 2026-11-01). |
+| **Active editor** | **Claude** (the executing chat, 2026-11-01). |
 | **Reviewer role** | Codex (non-author), relayed by the maintainer. |
 | **Owned paths** | `services/request-service/**`, `services/cleanup-service/src/jobs/expireDibs.ts` + its new test + its CONTEXT.md, the root `tests/integration/` file this sprint adds, `docs/guides/`, `docs/BUGS.md`, `claude.md` + `AGENTS.md` (the process policy only), this handoff, the spec and plan. |
-| **Shared resources needed** | Version bump (re-derive from `origin/master` at merge). Merge slot. One read-only demo recount after deploy (its own authorization). Dependency lane: **Claude** (maintainer-designated). The planning PR changes one lock node (follow-redirects) plus the root version; the execution PR changes no manifest or lockfile entry beyond the root version. No ADR number (one service). |
+| **Shared resources needed** | Version bump (re-derive from `origin/master` at merge). Merge slot. One read-only demo recount after deploy (its own authorization). Dependency lane: **Claude** (maintainer-designated). The planning PR changed one lock node (follow-redirects) plus the root version. The execution PR changes the root version **and, by the maintainer's decision of 2026-11-01, the glob/minimatch fix** (*Dated obligations*), a recorded scope expansion. No ADR number (one service). |
 | **Merged branches safe to delete** (maintainer's call) | `agent/claude/sprint-134-pr-bug-077-badge-insert`: head `afbaed7a`, same tree as `965cdf2d` (`cc350727`). Older Sprint 134 branches: see the archived handoff's Ownership row. |
 
 ## Decisions (maintainer, 2026-11-01)
@@ -71,29 +71,30 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
 - **Demo rows: no repair.** After deploy, one read-only recount shows no new inconsistent rows appear under the
   simulation's traffic. Any repair is a separate authorized operation, or the curated reset (demo stories runway
   ~2026-12-18) clears them.
+- **glob + minimatch alerts: bundle into this PR** (maintainer, 2026-11-01, asked in the execution chat). Two medium
+  alerts opened on #326's merge push (*Dated obligations*). The fix lands after the plan's Task 13 and before the
+  Task 14 gates, so every gate covers it. It is the PR's fourth recorded scope expansion. If the new majors break jest,
+  eslint or Expo, it is backed out and reported rather than delaying the PR.
 
 ## Links
 
 - **Spec**: [`docs/superpowers/specs/2026-11-01-sprint-135-request-status-guards-design.md`](../../docs/superpowers/specs/2026-11-01-sprint-135-request-status-guards-design.md)
 - **Plan**: [`docs/superpowers/plans/2026-11-01-sprint-135-request-status-guards.md`](../../docs/superpowers/plans/2026-11-01-sprint-135-request-status-guards.md) (16 tasks)
-- **PR**: planning + security [#326](https://github.com/ravichavali/karmyq/pull/326), open (opened 2026-11-01). The
-  execution PR comes after it merges.
+- **PR**: planning + security [#326](https://github.com/ravichavali/karmyq/pull/326), merged `20d930ce`. The execution
+  PR is not open yet.
 
 ## Quick Start
 
 1. Read this handoff, then confirm live state before trusting it:
    `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
-2. **If the planning + security PR is still open,** handle its CI or review first, on `agent/claude/sprint-135-planning`.
-   After it merges, record its post-merge facts (deploy, CodeQL on the merge sha, Dependabot) as the first commit of the
-   execution branch.
-3. **Once it has merged,** cut `git switch -c agent/claude/sprint-135-pr-request-status-guards origin/master` (plan
-   Task 1). Never branch off a stale local master; unpushed local-master commits leak in via the squash-merge. Then open
-   the plan linked above.
-4. Invoke `superpowers:subagent-driven-development` (or `superpowers:executing-plans`) directly.
+2. `git switch agent/claude/sprint-135-pr-request-status-guards`. If it is not on origin, the executing chat has not
+   pushed yet. Its SDD ledger (`.superpowers/sdd/2026-11-01-sprint-135-request-status-guards/progress.md`, git-ignored,
+   on the Windows box only) names the completed tasks; `git log` is the record.
+3. Invoke `superpowers:subagent-driven-development` (or `superpowers:executing-plans`) directly.
    There is no `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 
-**Next unchecked task**: Task 1, branch check and provisional version bump (11.107.0 → 11.108.0, `package.json` and two
-lines of `package-lock.json`).
+**Next unchecked task**: Task 1, provisional version bump (11.107.0 → 11.108.0, `package.json` and two lines of
+`package-lock.json`).
 
 **Stopping point = PR creation** (maintainer, standing): run all gates, push this handoff marking the PR "open, awaiting
 maintainer merge", open the PR, report the link and stop. The next chat starts with `gh pr checks <n>`.
@@ -226,7 +227,43 @@ stay at zero under the simulation's traffic.
     - `/security-review`: no HIGH or MEDIUM.
     - A relayed independent check (2026-11-01) agreed. It corrected two wordings, applied here: "adds no attack surface"
       became "no runtime dependencies or install scripts", and the `npm ci` result is attributed to the author's run.
-  - **Due on merge:** confirm the deploy, read the merge-sha CodeQL analyses, and confirm 0 open Dependabot alerts.
+  - **CLOSED by #326** (*#326 post-merge record* below). The high SLA (~11-06) is met.
+
+### #326 post-merge record (verified live 2026-11-01, ~21:25Z)
+
+- **Merged** 2026-11-01T20:59:46Z as `20d930ce` (v11.107.0), from head `5a3589ef`.
+- **CI/CD 41349664849: success**, 14/14 jobs, 20:59:49Z → 21:19:54Z. Deploy to Demo logged "DEPLOYMENT SUCCESSFUL"
+  (rollback point `20d930ce`, not used), and the health verify passed **all 9 services** (auth, community, request,
+  reputation, notification, messaging, cleanup, geocoding, social-graph). `Tests` 41349664854: success.
+- **CodeQL on `20d930ce`**: `/language:javascript-typescript` (467 results, 21:02:05Z) and `/language:actions` (0,
+  21:00:21Z), both with an **empty `error`**. The `4ee38e82` "Unknown Error" quirk did not recur. **0 open
+  code-scanning alerts** on master.
+- **Dependabot: 2 open alerts, not 0.** Both opened at 20:59:52Z on the merge push (next entry). Dependabot's own update
+  runs for them failed (41349676330 minimatch, 41349678067 glob): the fixes cross a major, and the config is
+  security-only. No follow-redirects alert was ever raised for GHSA-mrwp; the only follow-redirects alert is #87
+  (GHSA-r4q5, fixed 2026-05-11).
+
+### glob + minimatch (MEDIUM; maintainer: bundle into this PR, 2026-11-01)
+
+- **#179 `glob` GHSA-3g3m-2fjr-6pw4** "AbortSignal cancellation bypass allows post-timeout filesystem traversal".
+  Range `>= 9.0.0, <= 14.0.1`, patched **14.0.2**. No backport: the newest 10.x is 10.5.0 and the newest 9.x is 9.3.5.
+- **#180 `minimatch` GHSA-g3hv-75wg-m249** "potential denial of service via globparts amplification". Range `< 11.0.1`,
+  patched **11.0.1**. No backport.
+- Both were published 2026-10-30 ~23:09Z. **Medium SLA (≤ 2 weeks): ~2026-11-13.** ADR-059 gates high+ only, so
+  neither blocks a push.
+- **Lock nodes (verified at `20d930ce`):**
+  - `glob` 13.0.6 hoisted (Expo `@expo/cli`, `config`, `config-plugins`, `fingerprint`, `metro-config` `^13.0.0`;
+    jest `@jest/reporters`, `jest-config`, `jest-runtime` `^13.0.6`);
+  - nested `test-exclude/node_modules/glob` 10.5.0 (`^10.4.1`);
+  - nested `babel-plugin-module-resolver/node_modules/glob` 9.3.5 (`^9.3.3`).
+  - `minimatch`: one node, 10.2.5, forced by the root override `"minimatch": ">=9.0.5"` for every consumer (eslint
+    `^3.1.x`, typescript-estree, nodemon, `@expo/fingerprint`, glob).
+- **Exposure:** no source file imports either package (repo grep, 2026-11-01). They are reached only through tooling
+  (jest, eslint, nodemon, Expo CLI) on patterns we write.
+- **What the fix needs:** glob 14.x needs `minimatch ^11.0.2`, `path-scurry ^3.0.0` and `minipass ^7.1.3`. minimatch
+  11.x needs `brace-expansion ^5.0.12` (already pinned) and a new `@isaacs/nonrecursive-glob-match`. Both engines are
+  `18 || 20 || >=22`. New lock nodes are needed, so it is an in-place splice with overrides, proven by strict
+  `npx npm@11.19.0 ci`, `npm ls --all` parity, the full suite and lint.
 
 ## Open, not scheduled (carried from Sprint 134)
 
