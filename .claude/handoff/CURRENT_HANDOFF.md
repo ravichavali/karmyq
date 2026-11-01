@@ -74,7 +74,8 @@ BUG-075 + BUG-078 next and closes Sprint 134**; the work continues as Sprint 135
 Open, not scheduled: **BUG-075** (other request-status writers lack a guard), **BUG-076** (pre-push TDD false pass),
 **BUG-078** (unguarded writers beside BUG-074's guards), **BUG-080** (provider completion rate counts a status never
 written), **BUG-081** (new: trust-config readers return NUMERIC strings typed as `number`; latent, out of scope per
-the BUG-077 spec's decision 4).
+the BUG-077 spec's decision 4), **BUG-082** (new 2026-11-01: the per-query SQL log in five services floods the log;
+the reputation log loses the 02:00Z nightly by 03:30Z).
 **BUG-073 tabled (maintainer, 2026-10-26):** community admin and platform admin
 become separate roles, as a new feature in a future sprint (`docs/IDEAS.md` 2026-10-26); the 10-29 deadline no longer applies.
 **Previous**: Sprint 133 COMPLETE (archived: [`archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md`](archive/2026-10-19-sprint-133-skills-depth-COMPLETE-v11.92.0.md));
@@ -1076,7 +1077,7 @@ The review/CI notes below describe the pre-merge history, not current PR state.
   pairs makes at least 6 `query()` calls (`karmaService.ts:22` onward), and each logs its full SQL text at reputation
   `src/database/db.ts:40`. That is an inference from the source, not a measurement. With today's log settings, a log read
   sees the 02:00Z run only between that run's end and 03:29Z. The 10-31 forecast (the lines last until about 15:30Z)
-  was wrong.
+  was wrong. Logged as **BUG-082** (maintainer, 2026-11-01), not scheduled.
 - **DB fallback** (`karmyq_prod`, one `READ ONLY` transaction, rolled back, SQL over stdin; server time zone UTC; run
   18:45Z, then one follow-up read):
   - **Coverage:** 24 active communities, 23 with a 2026-11-01 snapshot, all created 02:00:00.05Z–02:00:00.88Z. The 24th

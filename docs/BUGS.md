@@ -2232,3 +2232,17 @@ multiply, so that change may cost less than the spec assumed. Raised by the BUG-
 `/code-review`; not fixed there.
 
 ---
+
+## BUG-082 · [2026-11-01] · open
+
+**The per-query SQL log floods service logs.** `console.log('Executed query', { text, duration, rows })` runs on every
+query at `services/reputation-service/src/database/db.ts:40`. The same line is in the `db.ts` of auth-service,
+community-service, notification-service and request-service; cleanup-service has it at `logger.debug`.
+
+On the demo, the reputation container's `json-file` log (3 × 10 MB) held only 03:30:10Z–05:15:28Z on 2026-11-01. The
+03:30Z trust-score refresh covers 3,876 pairs with at least 6 logged queries each (`karmaService.ts:22` onward), and it
+pushes the 02:00Z nightly run out of the log. So the nightly can't be checked from the log after 03:30Z; PR L2's
+validation had to fall back to a DB read. The line logs SQL text, not parameters, so the cost is volume, not a leak.
+Maintainer approved logging it 2026-11-01. Not scheduled.
+
+---
