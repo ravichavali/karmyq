@@ -70,10 +70,14 @@ is a decision, not a derivation, is the requester's `cancelled`, and it has its 
   accept that commits between the job's `SELECT` and its `UPDATE` is overwritten with `expired`, and a `dibs_expired`
   event goes out for a live exchange. Decision 1's "already guarded, stay as they are" rested on the planning chat's
   wrong claim. The fix is one guard (`AND status = 'pending'`; skip the rest when it misses), so it is **in scope**.
-  The maintainer can veto it.
+  **Kept (2026-11-01):** it belongs with the status-consistency work.
 - **The requester cancel expires the ask's pending dibs** instead of leaving it pending. It takes the dibs row lock
   first (the dibs routes' and cleanup's order), so this is lock-order-safe. The invitation then leaves the provider's
   pending list at once. No event: a `dibs_expired` notification would misstate why it ended.
+
+**Process policy rides in this PR (maintainer, 2026-11-01).** This is a recorded scope expansion. `CLAUDE.md` gains
+*Bundle by default*, and permission for small, well-understood fixes to plan and execute in one chat; `AGENTS.md` points
+to both. The exact text is in the plan, Task 13.
 
 ---
 
@@ -233,6 +237,8 @@ open asks, and no screen sends a status edit or a request cancel.
 - `services/registry.json`: objects for the changed endpoints; `request_completed` removed from request-service
   `publishes`.
 - `docs/BUGS.md`: BUG-075 and BUG-078 → fixed.
+- `services/cleanup-service/CONTEXT.md`: the guarded dibs expiry.
+- `CLAUDE.md` (tracked as `claude.md`) and `AGENTS.md`: the process policy above.
 - **No ADR** (decision 2).
 
 ---

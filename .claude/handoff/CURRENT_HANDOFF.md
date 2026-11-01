@@ -28,7 +28,7 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
 | **Base** | `origin/master` at `965cdf2d` (#325, v11.106.0; fetched 2026-11-01). |
 | **Active editor** | **Claude** planned it and built the security fix (2026-11-01). The executing chat becomes the active editor. |
 | **Reviewer role** | Codex (non-author), relayed by the maintainer. |
-| **Owned paths** | `services/request-service/**`, `services/cleanup-service/src/jobs/expireDibs.ts` + its new test + its CONTEXT.md, the root `tests/integration/` file this sprint adds, `docs/guides/`, `docs/BUGS.md`, this handoff, the spec and plan. |
+| **Owned paths** | `services/request-service/**`, `services/cleanup-service/src/jobs/expireDibs.ts` + its new test + its CONTEXT.md, the root `tests/integration/` file this sprint adds, `docs/guides/`, `docs/BUGS.md`, `claude.md` + `AGENTS.md` (the process policy only), this handoff, the spec and plan. |
 | **Shared resources needed** | Version bump (re-derive from `origin/master` at merge). Merge slot. One read-only demo recount after deploy (its own authorization). Dependency lane: **Claude** (maintainer-designated). The planning PR changes one lock node (follow-redirects) plus the root version; the execution PR changes no manifest or lockfile entry beyond the root version. No ADR number (one service). |
 | **Merged branches safe to delete** (maintainer's call) | `agent/claude/sprint-134-pr-bug-077-badge-insert`: head `afbaed7a`, same tree as `965cdf2d` (`cc350727`). Older Sprint 134 branches: see the archived handoff's Ownership row. |
 
@@ -39,7 +39,16 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
   `PUT /requests/:id` (status from the body) and `DELETE /requests/:id` (requester cancel). A gate test fails on any
   request-status write outside the reviewed list. cleanup-service's expiry jobs were presented as already guarded. The
   planning review found the dibs job's **dibs** write unguarded (`expireDibs.ts:37-42`), so it gains one guard. That is a
-  correction to a claim, not a new decision; the maintainer can veto it (spec *Decisions → Corrections*).
+  correction to a claim, not a new decision. **Kept (2026-11-01):** it belongs with the status-consistency work.
+- **Process policy (maintainer, 2026-11-01), codified in this sprint's execution PR** (plan Task 13; exact text there) as
+  a recorded scope expansion:
+  - `CLAUDE.md` gains **Bundle by default**. A security fix may get its own PR only when nothing else merges inside its
+    SLA, or when it blocks every push now; that PR may include ready, reviewed work that won't delay the fix. Bundling
+    into an existing PR respects its agreed scope and branch ownership, and any scope expansion is recorded explicitly.
+  - `CLAUDE.md` *Chat cadence* allows **one-chat planning + execution** for small, well-understood fixes with clear
+    acceptance criteria and no unresolved design decision. Tests, review gates and the handoff still apply; larger or
+    uncertain work keeps separate chats.
+  - `AGENTS.md` points to both rather than restating them.
 - **Planning review (2026-11-01, `/code-review` medium; 9 findings, 6 fixed, 1 partly):**
   - preconditions read the **derived** status;
   - dibs accept judges expiry with the wall clock, and answers 410 on an expiry during a lock wait;
@@ -178,8 +187,12 @@ stay at zero under the simulation's traffic.
     86,400,000 ms.
   - It was the only tight comparison of this kind; `Date.now() - N * 24 * 60 * 60 * 1000` appears elsewhere only as
     fixture timestamps.
-- **Process (maintainer, 2026-11-01):** small PRs are costing dev time; bundle better. A written rule was proposed for
-  CLAUDE.md and awaits the maintainer's wording. If agreed, it rides in the Sprint 135 execution PR.
+- **Process (maintainer, 2026-11-01):** small PRs are costing dev time; bundle better. The rule is decided (see
+  *Decisions*) and goes into `CLAUDE.md` / `AGENTS.md` in the Sprint 135 execution PR.
+- **#326 review scope.** The `/code-review` and `/security-review` runs and the relayed independent check covered the
+  branch through `3829d65d` (lockfile + docs). `e76a8790` (the DST test fix) and the later handoff and plan commits came
+  after them, so **the final review must cover `965cdf2d...` the PR head**, including `e76a8790`. The PR body names the
+  final head.
 
 ## Dated obligations
 
