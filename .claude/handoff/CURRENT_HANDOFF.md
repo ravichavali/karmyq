@@ -1,8 +1,8 @@
 # Sprint 135 — Request Status Guards (BUG-075 + BUG-078) — Handoff
 
 **Date**: 2026-11-01
-**Outcome**: planned. The **planning + security PR** (this branch) is open, awaiting review and the maintainer's merge.
-After it merges, the next chat executes the plan from a fresh branch.
+**Outcome**: planned. The **planning + security PR [#326](https://github.com/ravichavali/karmyq/pull/326)** (this branch)
+is open, awaiting review and the maintainer's merge. After it merges, the next chat executes the plan from a fresh branch.
 
 > The handoff carries **state between sessions**. It is not a copy of the plan: it links the plan and names the next
 > unchecked task. It is branch-local, so it can reserve nothing; see `CLAUDE.md` → *Parallel Development* for how
@@ -64,7 +64,8 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
 
 - **Spec**: [`docs/superpowers/specs/2026-11-01-sprint-135-request-status-guards-design.md`](../../docs/superpowers/specs/2026-11-01-sprint-135-request-status-guards-design.md)
 - **Plan**: [`docs/superpowers/plans/2026-11-01-sprint-135-request-status-guards.md`](../../docs/superpowers/plans/2026-11-01-sprint-135-request-status-guards.md) (16 tasks)
-- **PR**: none yet
+- **PR**: planning + security [#326](https://github.com/ravichavali/karmyq/pull/326), open (opened 2026-11-01). The
+  execution PR comes after it merges.
 
 ## Quick Start
 
@@ -170,6 +171,15 @@ stay at zero under the simulation's traffic.
 - No application code changed in planning. Besides docs (the #325 record `a5138acd`, BUG-082 `f707340e`, the Sprint 134
   archive `22c07c90`, and this spec, plan and handoff), the branch changes only the root version and one lock node
   (follow-redirects 1.16.2; *Dated obligations*).
+- **Also in #326: a DST test fix** (`e76a8790`). `services/cleanup-service/tests/unit/reputationDecayJob.test.ts`
+  compared the job's calendar-day cutoff (`setDate(-90)`) with a fixed 90 × 24 h. It has failed on the Windows box
+  (America/Los_Angeles) since DST ended on 2026-11-01, which blocked the pre-push hook; CI runs in UTC and never saw it.
+  - Proof: before, 1 failed in LA and green under `TZ=UTC`; after, green in both. An injected 91-day job fails by
+    86,400,000 ms.
+  - It was the only tight comparison of this kind; `Date.now() - N * 24 * 60 * 60 * 1000` appears elsewhere only as
+    fixture timestamps.
+- **Process (maintainer, 2026-11-01):** small PRs are costing dev time; bundle better. A written rule was proposed for
+  CLAUDE.md and awaits the maintainer's wording. If agreed, it rides in the Sprint 135 execution PR.
 
 ## Dated obligations
 
