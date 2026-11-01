@@ -28,7 +28,7 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
 | **Base** | `origin/master` at `965cdf2d` (#325, v11.106.0; fetched 2026-11-01). |
 | **Active editor** | **Claude** planned it and built the security fix (2026-11-01). The executing chat becomes the active editor. |
 | **Reviewer role** | Codex (non-author), relayed by the maintainer. |
-| **Owned paths** | `services/request-service/**`, the root `tests/integration/` file this sprint adds, `docs/guides/`, `docs/BUGS.md`, this handoff, the spec and plan. |
+| **Owned paths** | `services/request-service/**`, `services/cleanup-service/src/jobs/expireDibs.ts` + its new test + its CONTEXT.md, the root `tests/integration/` file this sprint adds, `docs/guides/`, `docs/BUGS.md`, this handoff, the spec and plan. |
 | **Shared resources needed** | Version bump (re-derive from `origin/master` at merge). Merge slot. One read-only demo recount after deploy (its own authorization). Dependency lane: **Claude** (maintainer-designated). The planning PR changes one lock node (follow-redirects) plus the root version; the execution PR changes no manifest or lockfile entry beyond the root version. No ADR number (one service). |
 | **Merged branches safe to delete** (maintainer's call) | `agent/claude/sprint-134-pr-bug-077-badge-insert`: head `afbaed7a`, same tree as `965cdf2d` (`cc350727`). Older Sprint 134 branches: see the archived handoff's Ownership row. |
 
@@ -37,7 +37,18 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
 - **Scope: all ten request-status writers** in request-service: match accept, reject, complete (finalize and the repeat
   done mark), admin propose-match, dibs create, dibs accept, dibs decline and the test-only expire, provider-offer accept,
   `PUT /requests/:id` (status from the body) and `DELETE /requests/:id` (requester cancel). A gate test fails on any
-  request-status write outside the reviewed list. cleanup-service's expiry jobs are already guarded and stay as they are.
+  request-status write outside the reviewed list. cleanup-service's expiry jobs were presented as already guarded. The
+  planning review found the dibs job's **dibs** write unguarded (`expireDibs.ts:37-42`), so it gains one guard. That is a
+  correction to a claim, not a new decision; the maintainer can veto it (spec *Decisions → Corrections*).
+- **Planning review (2026-11-01, `/code-review` medium; 9 findings, 6 fixed, 1 partly):**
+  - preconditions read the **derived** status;
+  - dibs accept judges expiry with the wall clock, and answers 410 on an expiry during a lock wait;
+  - the requester cancel binds `requester_id` and expires the ask's pending dibs (dibs-first lock);
+  - the 400 for a status edit comes after the ownership check;
+  - the gate also catches a status pushed into a dynamic `SET` builder.
+  Dismissed with reasons (spec critical notes 4 and 12):
+  - the redundant re-lock / no-op rewrite;
+  - the `notDirectedSql` loss on the dibs paths (dibs rows exist only for non-directed requests).
 - **Approach: guarded writes plus one shared reconcile.** Each writer changes its own row with a conditional `UPDATE`
   (BUG-074 style; 409 when the guard misses). One shared helper then derives the request status under the request row
   lock: `cancelled` stays `cancelled`; otherwise `matched` > `completed` > `dibs_pending` > `open`. Cancel's existing
@@ -84,50 +95,68 @@ stay at zero under the simulation's traffic.
    status in the `WHERE` (`AND status = 'proposed'`, `'matched'`, `'pending'`). Request preconditions are read with
    `lockRequest` inside the transaction. A status read before the transaction may stay as a fast path, but it is never
    the guard.
-2. **Only `src/db/requestStatus.ts` writes a request status.** `reconcileRequestStatus` and `markRequestCancelled` are
+2. **Preconditions read the DERIVED status.** `lockRequest` takes the row lock (`SELECT id … FOR UPDATE`), then derives
+   the status from the request's matches and dibs in its own statement. It returns what `reconcileRequestStatus` would
+   write, so an old row whose stored status disagrees with its rows is judged by its rows.
+3. **Only `src/db/requestStatus.ts` writes a request status.** `reconcileRequestStatus` and `markRequestCancelled` are
    its two writers. The gate (`sprint-135-request-status-gate.test.ts`) allows exactly these, plus cleanup's
    `expireDibs.ts`, and three reviewed dynamic `SET` builders (`memoryRetentionJob.ts`, `PUT /requests/:id`,
-   `PUT /requests/:id/privacy`). Every other request-status write fails it.
-3. **Reconcile = lock, then a fresh `UPDATE`,** called after the writer's own row changes, as the transaction's last
+   `PUT /requests/:id/privacy`). It also fails if a reviewed builder's source pushes a `status =` assignment.
+4. **Reconcile = lock, then a fresh `UPDATE`,** called after the writer's own row changes, as the transaction's last
    request write. It never derives `cancelled` away. It writes `status` only (as the match routes do today): no
-   `updated_at`, so the memory-retention window, which reads `updated_at`, does not move.
-4. **Lock order** (the spec's *Locking* table): request-first writers touch only `proposed` matches, and match-first writers only
-   `matched` ones. The dibs routes take the dibs row (`SELECT id FROM requests.dibs WHERE id = $1 FOR UPDATE`, or the
-   guarded dibs `UPDATE`) before the request. Never lock the request and then a dibs row.
-5. **Decide before the first write.** `withTransaction` commits whatever ran when the callback returns. A refusal must be
-   returned before the transaction's first write, so dibs accept locks the dibs row with `SELECT ... FOR UPDATE`, checks
-   the request, and only then runs its guarded `UPDATE`. The requester cancel runs the guarded `markRequestCancelled`
-   before `closeProposals`.
-6. **Free an offer only while it is `matched`:** `closeProposals` and reject use `AND status = 'matched'`. A withdrawn
+   `updated_at`, so the memory-retention window, which reads `updated_at`, does not move. The lock is one module
+   constant used by both helpers, so it is one allowlisted literal.
+5. **Lock order** (the spec's *Locking* table): request-first writers touch only `proposed` matches, and match-first
+   writers only `matched` ones. The dibs writers take the dibs row before the request:
+   - dibs accept: `SELECT status, expires_at > clock_timestamp() AS live FROM requests.dibs WHERE id = $1 FOR UPDATE`;
+   - decline and expire: the guarded dibs `UPDATE`;
+   - the requester cancel: `SELECT id FROM requests.dibs WHERE request_id = $1 AND status = 'pending' FOR UPDATE`.
+   Never lock the request and then an existing dibs row.
+6. **Decide before the first write.** `withTransaction` commits whatever ran when the callback returns. A refusal must be
+   returned before the transaction's first write. So dibs accept reads the dibs row's status and liveness under its
+   lock, checks the request, and only then runs its guarded `UPDATE`. The requester cancel refuses on the derived
+   status before `markRequestCancelled`, `closeProposals` and the dibs expiry.
+7. **Expiry uses the wall clock.** Dibs accept judges liveness with `clock_timestamp()`, not `NOW()` (the transaction
+   start), because it may have waited on locks. An invitation that expired meanwhile answers 410 `DIBS_EXPIRED`.
+8. **Free an offer only while it is `matched`:** `closeProposals` and reject use `AND status = 'matched'`. A withdrawn
    offer stays withdrawn.
-7. **Literal statuses only.** Never pass a status as a parameter compared with `requests.matches.status`; test fixtures
+9. **Literal statuses only.** Never pass a status as a parameter compared with `requests.matches.status`; test fixtures
    cast (`$n::varchar`).
-8. **Response contract.** The new codes are `REQUEST_NOT_OPEN`, `REQUEST_NOT_CANCELLABLE`,
-   `REQUEST_HAS_ACTIVE_EXCHANGE` (409) and `STATUS_NOT_EDITABLE` (400). The existing `ALREADY_MATCHED`,
-   `MATCH_NOT_PROPOSED`, `INVALID_STATE`, `NOT_FOUND` and their messages stay as they are. Every message reads well
-   alone.
-9. **Directed-surface gate** (`sprint-132-directed-audience-gate.test.ts`). It fails on an unlisted `help_requests`
-   literal **and** on a stale allowlist entry.
-   - Stale after this sprint: the `matches.ts` entries `37124d9f…` (lock, two entries), `1aaaaca2…`
-     (`SET status = 'matched'`), `e8fc886f…` (reopen), `b8396be5…` (finalize) and `e267659f…` (cancel `CASE`); the
-     `offersDb.ts` entry `d5225b81…`; and the `requests.ts` entry for the request cancel's `UPDATE`.
-   - New: the three `help_requests` statements in `requestStatus.ts`.
-   - The gate prints file:line; compute each hash with `surfaceHash` and never hand-type one.
-10. **Event.** `PUT /requests/:id` no longer publishes `request_completed`; remove it from request-service `publishes` in
-    `services/registry.json`. Do not touch `packages/shared`.
-11. **BUG-074's real-SQL file** (`tests/integration/sprint-134-bug-074-match-status-guards.integration.test.ts:183-190`):
+10. **Response contract.** The new codes are `REQUEST_NOT_OPEN`, `REQUEST_NOT_CANCELLABLE`,
+    `REQUEST_HAS_ACTIVE_EXCHANGE` (409) and `STATUS_NOT_EDITABLE` (400). The existing `ALREADY_MATCHED`,
+    `MATCH_NOT_PROPOSED`, `INVALID_STATE`, `DIBS_EXPIRED`, `NOT_FOUND` and their messages stay as they are. Every
+    message reads well alone. `STATUS_NOT_EDITABLE` comes after the ownership lookup, so a foreign id answers 404 like
+    an absent one.
+11. **Ownership stays in the write.** `markRequestCancelled(q, requestId, requesterId)` binds `r.requester_id = $2`, as
+    today's cancel `UPDATE` does.
+12. **Directed-surface gate** (`sprint-132-directed-audience-gate.test.ts`). It fails on an unlisted `help_requests`
+    literal **and** on a stale allowlist entry.
+    - Stale after this sprint: the `matches.ts` entries `37124d9f…` (lock, two entries), `1aaaaca2…`
+      (`SET status = 'matched'`), `e8fc886f…` (reopen), `b8396be5…` (finalize) and `e267659f…` (cancel `CASE`); the
+      `offersDb.ts` entry `d5225b81…`; and the `requests.ts` entry `9dde4b05…` for the request cancel's `UPDATE`.
+    - New: the four `help_requests` statements in `requestStatus.ts` (the lock, which keeps hash `37124d9f…`; the
+      derive `SELECT`; the reconcile `UPDATE`; the cancel `UPDATE`).
+    - The gate prints file:line; compute each hash with `surfaceHash` and never hand-type one.
+    - The dibs paths' old `notDirectedSql` filter is not lost. A dibs row exists only for a non-directed request: the
+      only creator is behind `notDirectedSql` (`dibs.ts:139`), and nothing writes `is_directed` after creation.
+13. **Event.** `PUT /requests/:id` no longer publishes `request_completed`; remove it from request-service `publishes` in
+    `services/registry.json`. Do not touch `packages/shared`. The requester cancel publishes no `match_rejected`
+    (unconsumed, `packages/shared/events/routes.ts:48`) and no `dibs_expired`.
+14. **cleanup-service's `expireDibs.ts`** gains `AND status = 'pending'` on its dibs `UPDATE`. When that misses (the
+    provider accepted or declined first), it rolls back and skips the request write and the event.
+15. **BUG-074's real-SQL file** (`tests/integration/sprint-134-bug-074-match-status-guards.integration.test.ts:183-190`):
     the `dibs_pending` and `completed` cases of "leaves a %s ask as it is" gain their backing rows: a pending dibs and a
     completed match by H2. The assertion `askStatus(q) === status` stays.
-12. **Identity is `req.user!.userId` only** (ADR-064). No JWT `communities` claim is read
+16. **Identity is `req.user!.userId` only** (ADR-064). No JWT `communities` claim is read
     (`tests/regression/sprint-134-pr-k-claim-gate.test.ts`).
-13. **The real-SQL test is CI-only on Windows.** Its races prove the wait with `pg_blocking_pids` over `pg_locks`, never
+17. **The real-SQL test is CI-only on Windows.** Its races prove the wait with `pg_blocking_pids` over `pg_locks`, never
     a sleep. Each HTTP completion waits for its `karmyq-completion-reputation` job before teardown, so no karma row lands
     after the community is gone. It does not call the test-only expire route.
-14. **Tests first** in `services/request-service/tests/tdd/` (red), then the implementation. Promote with
-    `node scripts/promote-tdd-tests.js` and restore any unrelated file it sweeps.
-15. **No migration, no dependency change.** The version bump edits only `package.json` and the two root `"version"`
+18. **Tests first** in each changed workspace's `tests/tdd/` (request-service, cleanup-service), red, then the
+    implementation. Promote with `node scripts/promote-tdd-tests.js` and restore any unrelated file it sweeps.
+19. **No migration, no dependency change.** The version bump edits only `package.json` and the two root `"version"`
     lines in `package-lock.json`.
-16. **Delete what becomes dead:**
+20. **Delete what becomes dead:**
     - `updateDibsStatus` (`src/db/dibsDb.ts:406-420`; its only caller was the expire route);
     - the `pool` import in `dibs.ts`;
     - the remaining-proposals count in reject.
