@@ -1937,8 +1937,9 @@ table that has it. `services/request-service/src/routes/feedback.ts:46` is BUG-0
   remain separate. This weighting correction changes no migration/init.sql. Real SQL cron/fallback/upsert/growth and
   community-isolation tests: `tests/integration/sprint-134-pr-l2-health.integration.test.ts` — **CI-only on
   Windows; Integration Tests is the arbiter, not local mocked SQL**. Deployed via CI/CD 40579675258
-  after #320 merged `47c9a323` at 2026-10-27 20:37:13Z. Health passed; reputation logs after the
-  first 02:00 nightly run remain the human validation.
+  after #320 merged `47c9a323` at 2026-10-27 20:37:13Z. Health passed. The nightly human validation
+  passed on 2026-11-01 from the DB, because the reputation log rotates before the 02:00 run can be read:
+  the run covered all 23 communities that existed then, and snapshots exist for every night since 10-28.
   **First-working-cron follow-up (maintainer, 2026-10-27):** isolate health/trust and milestone failures
   per community so later communities are still attempted. In the same migration, widen snapshot density
   to NUMERIC(20,4), both snapshot growth fields and cached trend percentage to NUMERIC(20,2).
@@ -2082,7 +2083,7 @@ review of the BUG-074 plan traced the `tail` exit status.
 
 ---
 
-## BUG-077 · [2026-10-29] · fixed (Sprint 134 BUG-077 PR, v11.106.0) · **HIGH** (proposed)
+## BUG-077 · [2026-10-29] · fixed and deployed (Sprint 134 #325, v11.106.0, 2026-10-30) · **HIGH** (proposed)
 
 **Every `match_completed` job in reputation-service fails on the badge insert, after karma is awarded.**
 `checkAndAwardBadges` inserts `INSERT INTO reputation.badges (user_id, badge_type) ... ON CONFLICT (user_id, badge_type)
@@ -2156,7 +2157,7 @@ writes guarded on the status the exchange left them in; an idempotent done mark.
 
 ---
 
-## BUG-079 · [2026-10-29] · fixed (Sprint 134 BUG-077 PR, v11.106.0)
+## BUG-079 · [2026-10-29] · fixed and deployed (Sprint 134 #325, v11.106.0, 2026-10-30)
 
 **Trust evolution never writes a nudge: it adds the delta to a NUMERIC value that pg returns as a string.**
 `evaluateUserEvolution` computes `round2(clamp(currentValue + delta, min, max))`
@@ -2229,5 +2230,19 @@ That changes both routes' JSON from `"0.60"` to `0.6`. Redis entries cached befo
 their 4 h TTL. The BUG-077 spec kept the wire format (maintainer decision 4) and put this out of scope. Both readers
 multiply, so that change may cost less than the spec assumed. Raised by the BUG-077 PR's `/simplify` altitude pass and
 `/code-review`; not fixed there.
+
+---
+
+## BUG-082 · [2026-11-01] · open
+
+**The per-query SQL log floods service logs.** `console.log('Executed query', { text, duration, rows })` runs on every
+query at `services/reputation-service/src/database/db.ts:40`. The same line is in the `db.ts` of auth-service,
+community-service, notification-service and request-service; cleanup-service has it at `logger.debug`.
+
+On the demo, the reputation container's `json-file` log (3 × 10 MB) held only 03:30:10Z–05:15:28Z on 2026-11-01. The
+03:30Z trust-score refresh covers 3,876 pairs with at least 6 logged queries each (`karmaService.ts:22` onward), and it
+pushes the 02:00Z nightly run out of the log. So the nightly can't be checked from the log after 03:30Z; PR L2's
+validation had to fall back to a DB read. The line logs SQL text, not parameters, so the cost is volume, not a leak.
+Maintainer approved logging it 2026-11-01. Not scheduled.
 
 ---

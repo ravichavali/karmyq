@@ -90,8 +90,11 @@ describe('cleanupActivityLogs', () => {
 
     const [, params] = mockQuery.mock.calls[0] as [string, string[]];
     const cutoff = new Date(params[0]).getTime();
-    const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    // 90 calendar days, counted as the job counts them (setDate). A fixed 90 × 24 h is an hour off whenever the window
+    // spans a daylight-saving change on a machine whose zone has one; CI runs in UTC and never sees it.
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
     // Within a minute of 90 days ago — the retention window itself is unchanged.
-    expect(Math.abs(cutoff - ninetyDaysAgo)).toBeLessThan(60_000);
+    expect(Math.abs(cutoff - ninetyDaysAgo.getTime())).toBeLessThan(60_000);
   });
 });
