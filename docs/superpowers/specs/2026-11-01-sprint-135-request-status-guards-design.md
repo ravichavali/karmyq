@@ -76,8 +76,9 @@ is a decision, not a derivation, is the requester's `cancelled`, and it has its 
   pending list at once. No event: a `dibs_expired` notification would misstate why it ended.
 
 **Process policy rides in this PR (maintainer, 2026-11-01).** This is a recorded scope expansion. `CLAUDE.md` gains
-*Bundle by default*, and permission for small, well-understood fixes to plan and execute in one chat; `AGENTS.md` points
-to both. The exact text is in the plan, Task 13.
+*Bundle by default*; permission for small, well-understood fixes to plan and execute in one chat; and a rule that every
+chat ends with a ready-to-paste next-chat prompt. `AGENTS.md` points to all three. The exact text is in the plan,
+Task 13.
 
 ---
 

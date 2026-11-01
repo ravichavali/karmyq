@@ -48,7 +48,10 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
   - `CLAUDE.md` *Chat cadence* allows **one-chat planning + execution** for small, well-understood fixes with clear
     acceptance criteria and no unresolved design decision. Tests, review gates and the handoff still apply; larger or
     uncertain work keeps separate chats.
-  - `AGENTS.md` points to both rather than restating them.
+  - `CLAUDE.md` *Session Workflow* requires **every chat to end with a next-chat prompt**: a ready-to-paste prompt
+    (branch or PR, first command, the handoff's next step, any pending authorization) that agrees with this handoff's
+    Quick Start.
+  - `AGENTS.md` points to all three rather than restating them.
 - **Planning review (2026-11-01, `/code-review` medium; 9 findings, 6 fixed, 1 partly):**
   - preconditions read the **derived** status;
   - dibs accept judges expiry with the wall clock, and answers 410 on an expiry during a lock wait;

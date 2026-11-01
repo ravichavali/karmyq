@@ -2417,9 +2417,18 @@ work keeps separate planning and execution chats.
   - the PR body says what was bundled, and why any separate PR could not wait.
 ```
 
+  - In `CLAUDE.md` → **Session Workflow**, append:
+
+```markdown
+**End every chat with a next-chat prompt.** The chat's final message closes with a ready-to-paste prompt for the next
+chat: the branch or PR to pick up, the first command or check, what the handoff names as next, and any authorization
+still pending. It must agree with `CURRENT_HANDOFF.md`'s Quick Start; if the two differ, fix the handoff first.
+```
+
   - In `AGENTS.md` → *STEP 1*, after the cadence line (`… (cadence table in `CLAUDE.md`).`), add:
-    `PR bundling and one-chat planning for small fixes: see `CLAUDE.md` → *Chat cadence* and → *Merge, Deploy &
-    Security-Gate Discipline* → *Bundle by default*. They are not restated here.`
+    `PR bundling, one-chat planning for small fixes, and the closing next-chat prompt: see `CLAUDE.md` → *Chat
+    cadence*, → *Merge, Deploy & Security-Gate Discipline* → *Bundle by default*, and → *Session Workflow*. They are not
+    restated here.`
   - Stage `claude.md` (lowercase is the tracked name; `git add CLAUDE.md` stages nothing on Windows) and `AGENTS.md`.
     Then run the drift gate: `npm exec --workspace=tests -- jest --runTestsByPath regression/doc-context-drift-gate.test.ts`.
 - [ ] **Regenerate the dependency analysis** (an event left the registry)
@@ -2489,4 +2498,6 @@ git push -u origin agent/claude/sprint-135-pr-request-status-guards
     - the `CLAUDE.md` / `AGENTS.md` process policy;
     - the #326 post-merge record (first commit).
   - End it with the attribution line.
-- [ ] **Stop.** Report the PR link. Don't watch CI, ask for a merge, or do post-merge work in this chat.
+- [ ] **Stop.** Report the PR link, and end the message with the next-chat prompt (the new *Session Workflow* rule). It
+  starts with `gh pr checks <n>` and records the post-merge facts. Don't watch CI, ask for a merge, or do post-merge
+  work in this chat.
