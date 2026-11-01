@@ -184,13 +184,22 @@ stay at zero under the simulation's traffic.
   - **FIXED on this branch (v11.107.0).** An in-place splice of one node: `node_modules/follow-redirects` `version`,
     `resolved`, `integrity`. Every other lock field is identical between 1.16.1 and 1.16.2 (`npm view`), and axios's
     declared `^1.16.0` admits 1.16.2, so no manifest changes and no override.
-  - **Proof (2026-11-01):**
+  - **Proof: the author's validation on `0f7bba16`, 2026-11-01, not independently rerun.**
     - node-level diff: 2 of 1878 nodes changed (root `version`; follow-redirects), key and field order identical;
     - strict `npx npm@11.19.0 ci` exit 0, with 1.16.2 on disk;
     - `npm ls --all` problems identical to the pre-change baseline (179 lines, mostly unmet platform-specific optional
       deps);
     - `node scripts/audit-exemptions.js` exit 0, "0 high/critical";
     - no other tracked lockfile holds follow-redirects.
+  - **What the lock change adds:** no runtime dependencies and no install scripts. `resolved` is the canonical registry
+    URL, and `integrity` matches the published tarball (`npm view`). CI's strict `npm ci` is the independent check.
+  - **Gates on this PR (2026-11-01):**
+    - `/simplify`: clean, inline; there is no source code.
+    - `/code-review` medium: 9 findings, all on the Sprint 135 plan's design. 6 fixed, 1 partly, 2 dismissed with reasons
+      (`3829d65d`; see *Decisions*).
+    - `/security-review`: no HIGH or MEDIUM.
+    - A relayed independent check (2026-11-01) agreed. It corrected two wordings, applied here: "adds no attack surface"
+      became "no runtime dependencies or install scripts", and the `npm ci` result is attributed to the author's run.
   - **Due on merge:** confirm the deploy, read the merge-sha CodeQL analyses, and confirm 0 open Dependabot alerts.
 
 ## Open, not scheduled (carried from Sprint 134)
