@@ -66,10 +66,10 @@ describe('BUG-074: DELETE /matches/:id cancels only an exchange in progress', ()
     expect(paramsOf(1)).toEqual(['match-1']);
     expect(sqlOf(2)).toBe('SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE');
     expect(paramsOf(2)).toEqual(['req-1']);
+    // Sprint 135: statement 2 is the reconcile's lock, statement 3 the reconcile UPDATE that derives the status.
     expect(sqlOf(3)).toContain(
-      "SET status = CASE WHEN EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = r.id AND m.status = 'completed') THEN 'completed' ELSE 'open' END");
-    expect(sqlOf(3)).toContain(
-      "WHERE r.id = $1 AND r.status = 'matched' AND NOT EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = r.id AND m.status = 'matched')");
+      "SET status = CASE WHEN EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = r.id AND m.status = 'matched') THEN 'matched'");
+    expect(sqlOf(3)).toContain("WHERE r.id = $1 AND r.status <> 'cancelled'");
     expect(paramsOf(3)).toEqual(['req-1']);
     expect(sqlOf(4)).toBe("UPDATE requests.help_offers SET status = 'active' WHERE id = $1 AND status = 'matched'");
     expect(paramsOf(4)).toEqual(['offer-1']);
@@ -136,7 +136,7 @@ describe('BUG-074: PUT /matches/:id/complete records a mark only on an exchange 
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual({ fully_completed: false, waiting_for: 'helper' });
     expect(sqlOf(1)).toBe(
-      "UPDATE requests.matches SET requester_done_at = CURRENT_TIMESTAMP WHERE id = $1 AND status = 'matched' RETURNING requester_done_at, responder_done_at");
+      "UPDATE requests.matches SET requester_done_at = COALESCE(requester_done_at, CURRENT_TIMESTAMP) WHERE id = $1 AND status = 'matched' RETURNING requester_done_at, responder_done_at");
     expect(paramsOf(1)).toEqual(['match-1']);
   });
 

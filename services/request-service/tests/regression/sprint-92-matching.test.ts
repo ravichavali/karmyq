@@ -101,11 +101,12 @@ describe('Sprint 92 BUG-008: rejecting/accepting a match frees the linked offer(
   it('reject: restores the linked help_offer to active so the helper re-enters the pool', async () => {
     mockQuery
       .mockResolvedValueOnce({ rowCount: 1, rows: [PROPOSED_MATCH] }) // matchCheck (must expose offer_id)
-      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })// SELECT request FOR UPDATE
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })// lockRequest: SELECT request FOR UPDATE
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ status: 'open' }] }) // lockRequest: derived status
       .mockResolvedValueOnce({ rowCount: 1, rows: [] })               // conditional UPDATE matches status='rejected'
       .mockResolvedValueOnce({ rowCount: 1, rows: [] })               // UPDATE help_offers status='active'
-      .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] }) // remaining proposed = 0 → reopen
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] });              // UPDATE help_requests status='open'
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })// reconcile: request row lock
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] });              // reconcile: derive help_requests.status
 
     const app = await buildMatchesApp('helper-user');
     const res = await request(app).put('/matches/match-1/reject').send({});
@@ -120,11 +121,13 @@ describe('Sprint 92 BUG-008: rejecting/accepting a match frees the linked offer(
     mockQuery
       .mockResolvedValueOnce({ rowCount: 1, rows: [PROPOSED_MATCH] })                       // matchCheck
       .mockResolvedValueOnce({ rowCount: 1, rows: [{ request_type: 'generic', payload: null }] }) // requestData
-      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })                      // SELECT request FOR UPDATE (lock)
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })                      // lockRequest: SELECT request FOR UPDATE (lock)
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ status: 'open' }] })                   // lockRequest: derived status
       .mockResolvedValueOnce({ rowCount: 1, rows: [] })                                     // UPDATE matches accept (conditional, rowCount 1)
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                                     // UPDATE help_requests matched
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                                     // UPDATE sibling help_offers active
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                                     // UPDATE sibling matches rejected
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                                     // closeProposals: UPDATE sibling help_offers active
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                                     // closeProposals: UPDATE sibling matches rejected
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })                      // reconcile: request row lock
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                                     // reconcile: derive help_requests.status ('matched')
       .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'match-1', request_type: 'generic', payload: null, request_title: 'X' }] }); // enriched
 
     const app = await buildMatchesApp('requester-user');
@@ -141,7 +144,8 @@ describe('Sprint 92 BUG-008: rejecting/accepting a match frees the linked offer(
   it('reject: returns 409 and mutates nothing when the match already left proposed (raced an accept)', async () => {
     mockQuery
       .mockResolvedValueOnce({ rowCount: 1, rows: [PROPOSED_MATCH] }) // matchCheck (stale read: accept landed after)
-      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })// SELECT request FOR UPDATE
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })// lockRequest: SELECT request FOR UPDATE
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ status: 'open' }] }) // lockRequest: derived status
       .mockResolvedValueOnce({ rowCount: 0, rows: [] });              // conditional reject matched 0 rows → conflict
 
     const app = await buildMatchesApp('helper-user');
@@ -161,7 +165,8 @@ describe('Sprint 92 BUG-008: rejecting/accepting a match frees the linked offer(
     mockQuery
       .mockResolvedValueOnce({ rowCount: 1, rows: [PROPOSED_MATCH] })                       // matchCheck
       .mockResolvedValueOnce({ rowCount: 1, rows: [{ request_type: 'generic', payload: null }] }) // requestData
-      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })                      // SELECT request FOR UPDATE
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })                      // lockRequest: SELECT request FOR UPDATE
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ status: 'open' }] })                   // lockRequest: derived status
       .mockResolvedValueOnce({ rowCount: 0, rows: [] });                                    // conditional accept matched 0 rows → conflict
 
     const app = await buildMatchesApp('requester-user');
@@ -172,7 +177,8 @@ describe('Sprint 92 BUG-008: rejecting/accepting a match frees the linked offer(
     // Must NOT have transitioned the request or published an accept.
     expect(mockPublishEvent).not.toHaveBeenCalled();
     const requestMatched = mockQuery.mock.calls.find(([sql]: [string]) =>
-      typeof sql === 'string' && /help_requests/i.test(sql) && /status\s*=\s*'matched'/i.test(sql)
+      // Sprint 135: lockRequest's derive SELECT also names help_requests and 'matched'; the transition is a WRITE.
+      typeof sql === 'string' && /UPDATE\s+requests\.help_requests/i.test(sql) && /status\s*=\s*'matched'/i.test(sql)
     );
     expect(requestMatched).toBeUndefined();
   });
@@ -201,7 +207,11 @@ describe('Sprint 92 BUG-007: neighbor first-ask submit validates via the mutual-
       .mockResolvedValueOnce({ rowCount: 0, rows: [] })                                   // getDibsByRequestId → none
       .mockResolvedValueOnce({ rowCount: 1, rows: [{ community_id: 'c1' }] })             // request_communities
       .mockResolvedValueOnce({ rows: [{ providerId: 'n1', providerUserId: 'neighbor-user', displayName: 'N', trustScore: 55, priorInteractions: 1, trustGraphConnection: 'direct' }] }) // mutual-aid candidates
-      .mockResolvedValueOnce({ rows: [{ id: 'dibs-1', request_id: 'req-1', requester_id: 'requester-user', provider_user_id: 'neighbor-user', status: 'pending', expires_at: future }] }); // createDibs
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })                    // lockRequest: SELECT request FOR UPDATE
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ status: 'open' }] })                 // lockRequest: derived status
+      .mockResolvedValueOnce({ rows: [{ id: 'dibs-1', request_id: 'req-1', requester_id: 'requester-user', provider_user_id: 'neighbor-user', status: 'pending', expires_at: future }] }) // createDibs
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })                    // reconcile: request row lock
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] });                                  // reconcile: derive help_requests.status ('dibs_pending')
 
     const app = await buildDibsApp();
     const res = await request(app)

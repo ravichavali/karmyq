@@ -107,6 +107,7 @@ describe('Sprint 134 BUG-074 match status guards', () => {
       // Matches first: a retried match_completed job needs the match row to re-award karma, and a re-inserted karma
       // row would block the community delete.
       // A completion exists here only if a guard failed; clearing its effects lets a red run still clean up.
+      await pool.query('DELETE FROM requests.dibs WHERE request_id = ANY($1::uuid[])', [asks]);
       await pool.query('DELETE FROM requests.matches WHERE request_id = ANY($1::uuid[])', [asks]);
       await pool.query('DELETE FROM requests.feed_events WHERE request_id = ANY($1::uuid[])', [asks]);
       await pool.query('DELETE FROM notifications.notifications WHERE user_id = ANY($1::uuid[])', [users]);
@@ -178,16 +179,25 @@ describe('Sprint 134 BUG-074 match status guards', () => {
       expect(await askStatus(q)).toBe('completed');
     });
 
-    // Only a 'matched' ask changes. 'open' is a preservation check that cannot fail against the old code
-    // (which also writes 'open'); the other three each fail against it.
-    it.each(['open', 'dibs_pending', 'completed', 'cancelled'])(
-      'leaves a %s ask as it is when its matched exchange is cancelled', async (status) => {
-        const q = await ask(status);
-        const m = await match(q, H, 'matched');
-        expect((await cancel(H, m)).status).toBe(200);
-        expect((await matchRow(m)).status).toBe('cancelled');
-        expect(await askStatus(q)).toBe(status);
-      });
+    // Only a 'matched' ask changes. 'open' is a preservation check. The others carry the rows their status implies,
+    // since Sprint 135 derives the status from them: a pending dibs, a completed exchange.
+    // The backing arrows carry explicit return types (TS7024: an implicit-any return in a contextually typed tuple).
+    it.each([
+      ['open', async (_q: string): Promise<void> => undefined],
+      ['dibs_pending', async (q: string): Promise<void> => {
+        await pool.query(`INSERT INTO requests.dibs (request_id,requester_id,provider_user_id,expires_at)
+          VALUES ($1,$2,$3,NOW() + INTERVAL '1 day')`, [q, R, H2]);
+      }],
+      ['completed', async (q: string): Promise<void> => { await match(q, H2, 'completed'); }],
+      ['cancelled', async (_q: string): Promise<void> => undefined],
+    ] as const)('leaves a %s ask as it is when its matched exchange is cancelled', async (status, backing) => {
+      const q = await ask(status);
+      await backing(q);
+      const m = await match(q, H, 'matched');
+      expect((await cancel(H, m)).status).toBe(200);
+      expect((await matchRow(m)).status).toBe('cancelled');
+      expect(await askStatus(q)).toBe(status);
+    });
 
     it('leaves a withdrawn offer withdrawn', async () => {
       const q = await ask('matched');
