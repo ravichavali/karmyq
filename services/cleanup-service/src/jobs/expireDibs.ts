@@ -33,13 +33,18 @@ export async function expireDibs(): Promise<number> {
         // Begin transaction for atomic updates
         await client.query('BEGIN');
 
-        // Update dibs status to expired
-        await client.query(
+        // Expire the dibs only while it is still pending. A provider who accepted or declined it after the SELECT
+        // above has already decided; overwriting that with 'expired' would contradict a live exchange (Sprint 135).
+        const expired = await client.query(
           `UPDATE requests.dibs
            SET status = 'expired', updated_at = NOW()
-           WHERE id = $1`,
+           WHERE id = $1 AND status = 'pending'`,
           [dibs.id]
         );
+        if (expired.rowCount === 0) {
+          await client.query('ROLLBACK');
+          continue;
+        }
 
         // Reset request status back to open for public broadcast (with guard to prevent race condition)
         await client.query(
