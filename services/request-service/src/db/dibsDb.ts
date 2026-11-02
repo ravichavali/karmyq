@@ -400,23 +400,6 @@ export async function getDibsByRequestId(requestId: string): Promise<Dibs | null
 }
 
 /**
- * Update the status of a dibs record.
- * Optionally accepts an explicit updatedAt (useful for expiry jobs).
- */
-export async function updateDibsStatus(
-  dibsId: string,
-  status: 'accepted' | 'declined' | 'expired',
-  updatedAt?: Date
-): Promise<void> {
-  await query(
-    `UPDATE requests.dibs
-     SET status = $2, updated_at = $3
-     WHERE id = $1`,
-    [dibsId, status, updatedAt ?? new Date()]
-  );
-}
-
-/**
  * Return all pending dibs records whose expiry has passed.
  * Used by the cleanup-service expireDibs job.
  */
