@@ -683,7 +683,6 @@
           "privacy_settings_updated",
           "provider_went_on_duty",
           "request_cancelled",
-          "request_completed",
           "request_created"
         ],
         "subscribes": []
