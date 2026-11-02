@@ -18,6 +18,9 @@ read this file.
 
 Then summarize (sprint, branch, blockers, recommended first action) BEFORE coding. New sprint =
 fresh chat; same-PR follow-ups stay in the current one (cadence table in `CLAUDE.md`).
+PR bundling, one-chat planning for small fixes, and the closing next-chat prompt: see `CLAUDE.md` → *Chat
+cadence*, → *Merge, Deploy & Security-Gate Discipline* → *Bundle by default*, and → *Session Workflow*. They are not
+restated here.
 
 ## STEP 2 — The skill system
 

@@ -392,12 +392,12 @@
           {
             "method": "PUT",
             "path": "/requests/:id",
-            "description": "JWT requester-only update; id and requester are bound on lookup and mutation. Foreign, missing and vanished rows return identical 404 without events."
+            "description": "JWT requester-only update; id and requester are bound on lookup and mutation. Foreign, missing and vanished rows return identical 404 without events. Sprint 135 BUG-075: a body status is refused after the ownership lookup with 400 STATUS_NOT_EDITABLE (a status changes through its exchanges); request_completed is no longer published."
           },
           {
             "method": "DELETE",
             "path": "/requests/:id",
-            "description": "JWT requester-only cancellation; ignores body user_id. Foreign, missing and vanished rows return identical 404 without events."
+            "description": "JWT requester-only cancellation; ignores body user_id. Foreign, missing and vanished rows return identical 404 without events. Sprint 135 BUG-075: decided on the derived status under the request lock; 'completed' or 'cancelled' -> 409 REQUEST_NOT_CANCELLABLE ('Only an open request can be cancelled'), 'matched' -> 409 REQUEST_HAS_ACTIVE_EXCHANGE; otherwise markRequestCancelled (bound to the JWT requester) closes proposals and expires a pending dibs on the ask (no event)."
           },
           {
             "method": "PUT",
@@ -497,13 +497,23 @@
           },
           {
             "method": "PUT",
+            "path": "/matches/:id/accept",
+            "description": "Sprint 135 BUG-075: the request must derive 'open' under the request lock (src/db/requestStatus.ts lockRequest); 'matched' or a lost race -> 409 ALREADY_MATCHED, 'dibs_pending', 'completed' or 'cancelled' -> 409 REQUEST_NOT_OPEN ('This request is no longer open'). Accepts only a still-proposed match, closes the other proposals (closeProposals frees an offer only while it is 'matched'), and derives the request status (reconcileRequestStatus). One transaction, no write on a refusal."
+          },
+          {
+            "method": "PUT",
+            "path": "/matches/:id/reject",
+            "description": "Sprint 135 BUG-075/BUG-078: rejects only a proposed match (409 MATCH_NOT_PROPOSED otherwise); frees the linked offer only while it is 'matched' (a withdrawn offer stays withdrawn); derives the request status instead of reopening it, so a completed, cancelled or dibs_pending request stays so."
+          },
+          {
+            "method": "PUT",
             "path": "/matches/:id/complete",
-            "description": "Two-phase completion; each participant records a done mark. Sprint 134 BUG-074: a mark is recorded only while the match is 'matched' (the done_at UPDATE carries AND status = 'matched'). An already-completed match stays an idempotent 200 ('Match already completed', no second stamp or match_completed) on the pre-read path and the race path; a proposed, rejected or cancelled match -> 409 MATCH_NOT_COMPLETABLE. Identity is the JWT (ADR-064). Publishes match_completed only when both have confirmed."
+            "description": "Two-phase completion; each participant records a done mark. Sprint 134 BUG-074: a mark is recorded only while the match is 'matched' (the done_at UPDATE carries AND status = 'matched'). An already-completed match stays an idempotent 200 ('Match already completed', no second stamp or match_completed) on the pre-read path and the race path; a proposed, rejected or cancelled match -> 409 MATCH_NOT_COMPLETABLE. Identity is the JWT (ADR-064). Sprint 135 BUG-078: done_at uses COALESCE, so a repeat mark keeps the first time; finalizing derives the request status (a cancelled request stays cancelled, one with another matched exchange stays matched). Publishes match_completed only when both have confirmed."
           },
           {
             "method": "DELETE",
             "path": "/matches/:id",
-            "description": "Sprint 134 BUG-074: participant (requester or responder) cancels an exchange in progress. Only a 'matched' match can be cancelled (guard in the UPDATE); proposed, completed, rejected or already-cancelled -> 409 MATCH_NOT_CANCELLABLE, no event; non-participant -> 404. The request changes only while 'matched' with no other 'matched' match (completed if another completed match remains, else open); the offer returns to active only while 'matched'. Lock order match then request. Publishes match_cancelled after commit, which is in UNCONSUMED_EVENTS (nobody is notified)."
+            "description": "Sprint 134 BUG-074: participant (requester or responder) cancels an exchange in progress. Only a 'matched' match can be cancelled (guard in the UPDATE); proposed, completed, rejected or already-cancelled -> 409 MATCH_NOT_CANCELLABLE, no event; non-participant -> 404. The request changes only while 'matched' with no other 'matched' match (completed if another completed match remains, else open); the offer returns to active only while 'matched'. Lock order match then request. Sprint 135: the request status is derived by reconcileRequestStatus. Publishes match_cancelled after commit, which is in UNCONSUMED_EVENTS (nobody is notified)."
           },
           "/schemas",
           "/schemas/:type",
@@ -549,7 +559,7 @@
           {
             "method": "POST",
             "path": "/requests/:id/propose-match",
-            "description": "Admin proposes a specific community member as a helper (creates proposed match with admin_proposed=TRUE on requests.matches)"
+            "description": "Admin proposes a specific community member as a helper (creates proposed match with admin_proposed=TRUE on requests.matches). Sprint 135 BUG-075: the request must derive 'open' under the request lock, with the duplicate check and insert in the same transaction; otherwise 409 REQUEST_NOT_OPEN ('This request is no longer open')."
           },
           {
             "method": "PATCH",
@@ -564,7 +574,7 @@
           {
             "method": "PUT",
             "path": "/requests/offers/:id/accept",
-            "description": "Accept a pending provider offer and create a match"
+            "description": "Accept a pending provider offer and create a match. Sprint 135 BUG-075: one transaction; the request must derive 'open' under the request lock, otherwise 409 REQUEST_NOT_OPEN ('This request is no longer open'); the offer UPDATE is guarded on 'pending' (404 on a lost race); closes other proposals and derives the request status."
           },
           {
             "method": "PUT",
@@ -594,17 +604,17 @@
           {
             "method": "POST",
             "path": "/requests/:id/dibs",
-            "description": "Send dibs to a specific provider or community member \u2014 works for all request types (scheduled and ASAP)"
+            "description": "Send dibs to a specific provider or community member \u2014 works for all request types (scheduled and ASAP). Sprint 135 BUG-075: the request must derive 'open' under the request lock (also on a race), otherwise 409 REQUEST_NOT_OPEN ('Request is not available for dibs'); the request status is derived to dibs_pending."
           },
           {
             "method": "PUT",
             "path": "/requests/dibs/:id/accept",
-            "description": "Provider accepts dibs \u2014 creates matches record and sets request status to matched"
+            "description": "Provider accepts dibs \u2014 creates matches record and derives the request status (matched). Sprint 135 BUG-075: locks the dibs row, then the request; the request must derive 'dibs_pending', otherwise 409 REQUEST_NOT_OPEN ('This request is no longer waiting on your dibs'); the dibs UPDATE is guarded on 'pending' (409 INVALID_STATE 'Dibs is no longer pending' on a race); 410 DIBS_EXPIRED also when it expires during a lock wait; closes stale proposals."
           },
           {
             "method": "PUT",
             "path": "/requests/dibs/:id/decline",
-            "description": "Provider declines dibs \u2014 request reverts to open"
+            "description": "Provider declines dibs \u2014 the request status is derived (open unless something else holds it). Sprint 135 BUG-075: the dibs UPDATE is guarded on 'pending' (409 INVALID_STATE 'Dibs is no longer pending' on a race); a completed, cancelled or matched request is not reopened."
           },
           {
             "method": "GET",

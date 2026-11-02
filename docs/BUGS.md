@@ -2039,7 +2039,7 @@ exists). Those rows are tracked under BUG-075; no data was repaired here.
 
 ---
 
-## BUG-075 · [2026-10-29] · open
+## BUG-075 · [2026-10-29] · fixed (Sprint 135, v11.108.0)
 
 Request-status writers outside the cancel route have no status guard, so completed asks get reopened or re-matched.
 Evidence: read-only counts on the demo database, 2026-10-29 (maintainer-authorized, one read-only transaction, rolled
@@ -2063,6 +2063,21 @@ rejected → cancelled one. Candidate writers, from reading the code (which one 
 
 Found during BUG-074 planning. The BUG-074 PR fixes only the first bullet; the other writers, and any repair of the demo
 rows, stay open here.
+
+**Fix (Sprint 135, v11.108.0):** `services/request-service/src/db/requestStatus.ts` is now the only module that writes a
+request's status (`reconcileRequestStatus`, `markRequestCancelled`; `lockRequest` gives preconditions the derived
+status), plus cleanup-service's `expireDibs.ts`, whose dibs write is now guarded on `pending`. The ten writers guard
+their rows and derive the status instead of overwriting it: `PUT /matches/:id/accept`, `/reject`, `/complete`,
+`POST /requests/:id/propose-match`, `POST /requests/:id/dibs`, `PUT /requests/dibs/:id/accept` and `/decline` (and
+the test-only `/expire`), `PUT /requests/offers/:id/accept` (now one transaction), `PUT /requests/:id` (a body status
+is refused) and `DELETE /requests/:id` (refuses completed or cancelled asks and asks with an exchange in progress;
+BUG-074's `DELETE /matches/:id` derives through the same helper). New codes: 409 `REQUEST_NOT_OPEN`,
+`REQUEST_NOT_CANCELLABLE`, `REQUEST_HAS_ACTIVE_EXCHANGE`; 400 `STATUS_NOT_EDITABLE`. `request_completed`, whose only
+publisher was the status edit, is no longer published. A gate test fails on a request-status write outside the reviewed
+list. The 2026-10-29 demo rows are **not repaired** (maintainer decision 4); a post-deploy recount of the 119 / 52 / 2
+figures is the check. Tests: `services/request-service/tests/regression/sprint-135-request-status-{helper,gate,writers}.test.ts`,
+`services/cleanup-service/tests/regression/sprint-135-expire-dibs-guard.test.ts` and the real-SQL root
+`tests/integration/sprint-135-request-status-guards.integration.test.ts` (CI-only on Windows). No migration.
 
 ---
 
@@ -2132,7 +2147,7 @@ CI-only on Windows). The log-rotation cause stays **UNVERIFIED** until the post-
 
 ---
 
-## BUG-078 · [2026-10-29] · open
+## BUG-078 · [2026-10-29] · fixed (Sprint 135, v11.108.0)
 
 **Match-route writers beside BUG-074's guards still have no status guard** (siblings of BUG-075; found by `/code-review`
 on the BUG-074 PR and not fixed there, under the maintainer's BUG-075 scoping). Lines are at the BUG-074 branch head;
@@ -2154,6 +2169,13 @@ that PR's `ALREADY_COMPLETED` hoist shifted `matches.ts` about 8 lines from BUG-
 
 Fix direction (not decided): one request-status reconcile used by every match-state writer (with BUG-075); offer
 writes guarded on the status the exchange left them in; an idempotent done mark.
+
+**Fix (Sprint 135, v11.108.0), one line per item:**
+1. Withdrawn offers revived: reject and `closeProposals` free an offer only `WHERE status = 'matched'`, so a withdrawn
+   offer stays withdrawn.
+2. Complete's finalize overwrote the request: it now calls `reconcileRequestStatus`, so a cancelled request stays
+   cancelled and one with another matched exchange stays matched.
+3. A repeat mark re-stamped its `done_at`: the stamp is `COALESCE(done_at, CURRENT_TIMESTAMP)`, so the first time is kept.
 
 ---
 
