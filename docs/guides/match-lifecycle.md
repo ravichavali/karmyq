@@ -56,9 +56,11 @@ A completed exchange is final: it cannot be cancelled, reopened or marked done a
 
 If you've offered to help (the match is still "Proposed") and circumstances change:
 
-**As the helper:** Click **Withdraw Offer** on the card. Your offer is removed and the request goes back to open status.
+**As the helper:** Click **Withdraw Offer** on the card. Your offer is removed, and the request goes back to open status only if nothing else holds it.
 
-**As the requester:** Click **Decline** on the proposed match. The card is removed and the request reopens for other helpers.
+**As the requester:** Click **Decline** on the proposed match. The card is removed, and the request reopens for other helpers only if nothing else holds it.
+
+A completed or cancelled request stays that way when a proposal is withdrawn or declined, and an offer you withdrew is never brought back.
 
 Withdrawal is only possible before acceptance. Once a match is In Progress, reach out via the inline conversation.
 
@@ -77,6 +79,17 @@ Karma transfers only when **both parties confirm done**. This prevents either pa
 | Helper marked done | "Waiting for requester to confirm" |
 | Requester confirmed done | "Waiting for helper to confirm" |
 | Both confirmed | Exchange moves to Completed |
+
+---
+
+## What the request's status follows
+
+A request's status is worked out from its exchanges, not set by hand:
+
+- **Matched** while an exchange is in progress.
+- **Completed** once one of its exchanges completes.
+- **Cancelled** stays cancelled. A late "mark done" on a cancelled request completes the exchange, but not the request.
+- A request that is no longer open refuses new matches. You will see "This request is no longer open".
 
 ---
 

@@ -97,6 +97,8 @@ gets the same "not found" page as for a request that doesn't exist.
 Only you can edit, cancel, or change privacy settings on your request. Other callers receive the
 same "not found" response whether a request belongs to someone else or does not exist.
 
+You can cancel an open request. A request with an exchange in progress, or a completed one, cannot be cancelled. Editing a request never changes its status.
+
 ---
 
 ## Tips
