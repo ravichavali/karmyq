@@ -284,7 +284,7 @@ router.get('/dibs/pending-for-provider', authMiddleware, async (req: Authenticat
 // ── PUT /requests/dibs/:id/accept ─────────────────────────────────────────────
 //
 // Provider accepts a pending dibs invitation.
-// Creates a match and sets request status to 'matched'.
+// Creates a match, closes any stale proposals, and derives the request status ('matched', src/db/requestStatus.ts).
 
 router.put('/dibs/:id/accept', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   const { id: dibsId } = req.params;
@@ -397,7 +397,7 @@ router.put('/dibs/:id/accept', authMiddleware, async (req: AuthenticatedRequest,
 // ── PUT /requests/dibs/:id/decline ────────────────────────────────────────────
 //
 // Provider declines a pending dibs invitation.
-// Resets request status to 'open'.
+// The request's status is then derived (src/db/requestStatus.ts): it reopens only if nothing else holds it.
 
 router.put('/dibs/:id/decline', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   const { id: dibsId } = req.params;
