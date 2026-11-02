@@ -1,4 +1,5 @@
-import { query } from '../database/db';
+import { query, withTransaction } from '../database/db';
+import { closeProposals, lockRequest, reconcileRequestStatus } from './requestStatus';
 
 /**
  * Get all provider.offers for a given request.
@@ -27,8 +28,9 @@ export async function getOffersForRequest(requestId: string, requesterUserId: st
 /**
  * Accept a pending provider offer.
  * The authenticated user must own the underlying help request.
- * Returns null if the offer is not found or not pending.
+ * Returns null if the offer is not found or not pending, including one accepted or withdrawn concurrently.
  * Returns 'FORBIDDEN' if the offer exists but the caller does not own the request.
+ * Returns 'REQUEST_NOT_OPEN' if the request is no longer open (BUG-075).
  * On success, also inserts a requests.matches record to bridge into existing match tracking.
  */
 export async function acceptOffer(offerId: string, requesterUserId: string) {
@@ -44,30 +46,29 @@ export async function acceptOffer(offerId: string, requesterUserId: string) {
   if (!offer) return null;
   if (offer.requester_user_id !== requesterUserId) return 'FORBIDDEN' as const;
 
-  await query(
-    `UPDATE provider.offers SET status = 'accepted', updated_at = NOW() WHERE id = $1`,
-    [offerId]
-  );
+  // One transaction: a mid-sequence failure can no longer leave an accepted offer without its match (BUG-075).
+  return withTransaction(async (q) => {
+    // Only an open request can be matched; the lock serializes this accept against every other request writer.
+    if ((await lockRequest(q, offer.request_id)) !== 'open') return 'REQUEST_NOT_OPEN' as const;
 
-  // Bridge into existing match tracking
-  await query(
-    `INSERT INTO requests.matches (request_id, responder_id, status)
-     VALUES ($1, $2, 'matched')`,
-    [offer.request_id, offer.provider_user_id]
-  );
+    const accepted = await q(
+      `UPDATE provider.offers SET status = 'accepted', updated_at = NOW() WHERE id = $1 AND status = 'pending'`,
+      [offerId]
+    );
+    if (accepted.rowCount === 0) return null;
 
-  // Close the request and reject any other proposed matches — mirrors the dibs/match accept path
-  await query(
-    `UPDATE requests.help_requests SET status = 'matched', updated_at = NOW() WHERE id = $1`,
-    [offer.request_id]
-  );
-  await query(
-    `UPDATE requests.matches SET status = 'rejected', updated_at = NOW()
-     WHERE request_id = $1 AND status = 'proposed'`,
-    [offer.request_id]
-  );
+    // Bridge into existing match tracking
+    await q(
+      `INSERT INTO requests.matches (request_id, responder_id, status)
+       VALUES ($1, $2, 'matched')`,
+      [offer.request_id, offer.provider_user_id]
+    );
 
-  return offer;
+    // Close the other proposals and derive the request — mirrors the dibs/match accept path
+    await closeProposals(q, offer.request_id);
+    await reconcileRequestStatus(q, offer.request_id);
+    return offer;
+  });
 }
 
 /**
