@@ -2305,7 +2305,7 @@ Service health check.
 | Event Name | Queue | Payload | When Emitted |
 |------------|-------|---------|--------------|
 | `request.created` | `karmyq-events` | `{ request_id, requester_id, community_id, category }` | After successful request creation |
-| `request.completed` | `karmyq-events` | `{ request_id, requester_id, community_id }` | When request status changed to 'completed' |
+| `request.completed` | `karmyq-events` | `{ request_id, requester_id, community_id }` | No longer published (Sprint 135: its only publisher was the removed `PUT /requests/:id` status edit); still listed in `UNCONSUMED_EVENTS` |
 | `request.cancelled` | `karmyq-events` | `{ request_id, requester_id, community_id }` | When request is cancelled |
 | `offer.created` | `karmyq-events` | `{ offer_id, offerer_id, community_id, category }` | After successful offer creation |
 | `match.created` | `karmyq-events` | `{ match_id, request_id, offer_id, responder_id }` | When request and responder are matched |

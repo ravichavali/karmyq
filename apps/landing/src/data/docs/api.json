@@ -423,6 +423,16 @@
         },
         {
           "method": "PUT",
+          "path": "/matches/:id/accept",
+          "description": "Accepts a proposed match (Sprint 135, BUG-075). Participant authorization is unchanged (JWT identity, ADR-064)."
+        },
+        {
+          "method": "PUT",
+          "path": "/matches/:id/reject",
+          "description": "Rejects or withdraws a proposed match; both participants may (Sprint 62). Sprint 135 (BUG-075, BUG-078): the request lock"
+        },
+        {
+          "method": "PUT",
           "path": "/matches/:id/complete",
           "description": "Two-phase match completion. Each party calls this independently; the match"
         },
@@ -474,12 +484,12 @@
         {
           "method": "PUT",
           "path": "/requests/dibs/:id/accept",
-          "description": "Provider accepts dibs. Creates a `requests.matches` record directly and sets request status to `matched`."
+          "description": "Provider accepts dibs. Creates a `requests.matches` record directly and derives the request status (`matched`)."
         },
         {
           "method": "PUT",
           "path": "/requests/dibs/:id/decline",
-          "description": "Provider declines dibs. Reverts request status to `open` for public broadcast."
+          "description": "Provider declines dibs. Derives the request status (`open` for public broadcast unless something else holds it; a"
         },
         {
           "method": "GET",
@@ -489,7 +499,7 @@
         {
           "method": "POST",
           "path": "/requests/dibs/:id/expire",
-          "description": "TEST-ONLY: Force-expire a dibs record regardless of `expires_at`. Sets status to `expired` and reverts request to `open`."
+          "description": "TEST-ONLY: Force-expire a dibs record regardless of `expires_at`. Sets status to `expired` (guarded on `pending`, as decline)"
         },
         {
           "method": "GET",
