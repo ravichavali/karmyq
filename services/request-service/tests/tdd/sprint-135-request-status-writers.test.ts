@@ -179,6 +179,8 @@ describe('DELETE /matches/:id (BUG-074 cancel, now through the shared helper)', 
     const offer = sqls().indexOf("UPDATE requests.help_offers SET status = 'active' WHERE id = $1 AND status = 'matched'");
     expect(cancel).toBeGreaterThan(-1);
     expect(cancel).toBeLessThan(at(LOCK));
+    expect(at(RECONCILE)).toBeGreaterThan(-1);
+    expect(offer).toBeGreaterThan(-1);
     expect(at(RECONCILE)).toBeLessThan(offer);
     expect(sqls().filter((s) => OWN_STATUS_WRITE.test(s))).toEqual([]);
   });
@@ -198,8 +200,9 @@ describe('POST /requests/:id/propose-match (BUG-075)', () => {
     const res = await propose();
     expect(res.status).toBe(201);
     expect(res.body).toEqual({ success: true, data: { matchId: 'match-new' } });
-    expect(at(LOCK)).toBeLessThan(at(DUPLICATE_CHECK));
-    expect(at(DUPLICATE_CHECK)).toBeLessThan(at(/^INSERT INTO requests\.matches/));
+    const order = [LOCK, DUPLICATE_CHECK, /^INSERT INTO requests\.matches/].map(at);
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((x, y) => x - y)).toEqual(order);
   });
 
   it.each(['dibs_pending', 'matched', 'completed', 'cancelled'])('refuses a %s request with 409 REQUEST_NOT_OPEN and inserts nothing', async (status) => {
@@ -228,8 +231,9 @@ describe('POST /requests/:id/dibs (BUG-075)', () => {
     reply(DERIVE, rows([{ status: 'open' }]));
     const res = await send();
     expect(res.status).toBe(201);
-    expect(at(LOCK)).toBeLessThan(at(/^INSERT INTO requests\.dibs/));
-    expect(at(/^INSERT INTO requests\.dibs/)).toBeLessThan(at(RECONCILE));
+    const order = [LOCK, /^INSERT INTO requests\.dibs/, RECONCILE].map(at);
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((x, y) => x - y)).toEqual(order);
     expect(sqls().filter((s) => OWN_STATUS_WRITE.test(s))).toEqual([]);
   });
 
