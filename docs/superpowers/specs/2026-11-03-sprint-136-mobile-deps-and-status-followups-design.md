@@ -100,15 +100,21 @@ imports through `@/` proves that the mapper, and not the plugin, does the work.
 - Root `package.json` `overrides` drops the scoped `"babel-plugin-module-resolver": { "glob": { ".": "^9.3.3",
   "minimatch": "10.2.5" } }`, added by #327 (`99815d73`). The global `"minimatch": ">=11.0.1"` and `"glob": ">=14.0.2"`
   stay.
-- Lock nodes that lose their only dependent (planning inventory; **the executor recomputes the set by reachability**):
+- Lock nodes that lose their only dependent. **The executor recomputes the set by reachability** (note 3). A walker run
+  per note 3 on 2026-11-03, after the plan review, gives exactly these:
   - `babel-plugin-module-resolver` 5.0.3;
   - its nested `glob` 9.3.5, `lru-cache` 10.4.3, `minimatch` 10.2.5, `minipass` 4.2.8, `path-scurry` 1.11.1 and
     `path-scurry/node_modules/minipass` 7.1.3;
   - `find-babel-config` 2.1.2, `reselect` 4.1.8 and `pkg-up` 3.1.0;
+  - `fs.realpath` 1.0.0, whose only dependent is the nested `glob` 9.3.5 (the first inventory missed it);
   - `pkg-up`'s nested `find-up`, `locate-path`, `p-limit`, `p-locate` and `path-exists`.
 
-  That is 15 nodes. Every one is `dev: true`, and `find-babel-config`, `pkg-up` and `reselect` have no other dependent.
-  `resolve` and `json5` keep other dependents.
+  That is 16 nodes. Every one is `dev: true`, and `find-babel-config`, `pkg-up`, `reselect` and `fs.realpath` have no
+  other dependent. `resolve` and `json5` keep other dependents.
+- **Three orphans already exist** in the unchanged lock: nested nodes whose parent node is not in the lock, so nothing
+  resolves to them. They are `apps/frontend/node_modules/eslint-config-next/node_modules/globals` 16.4.0, the same path
+  under `apps/landing`, and `apps/mobile/node_modules/@expo/cli/node_modules/ws` 8.21.1 (`eslint-config-next` and
+  `@expo/cli` are hoisted to the root). They predate this sprint, which leaves them alone.
 - No node is added and no version moves. So this is a pure removal: an in-place splice, proven by strict
   `npx -y npm@11.19.0 ci` and `npm ls --all` parity.
 
@@ -195,6 +201,12 @@ not the label.
   - The four commitment writers, and `POST /matches` (E), call it. Each already maps any non-`'open'` result to its
     409 `REQUEST_NOT_OPEN` branch (match accept: `'matched'` → `ALREADY_MATCHED`, everything else → not open), so no
     caller gains a branch.
+  - **Response codes** (verified 2026-11-03, after the plan review):
+    - The four writers have no expiry fast path, so both expiry arms reach the lock and get the existing 409
+      `REQUEST_NOT_OPEN`.
+    - `POST /matches` keeps its fast path (E). Its reachability read sees only the `expired` flag
+      (`eligibility.ts:93`). A flagged ask therefore still gets the fast path's **400** `REQUEST_NOT_OPEN`
+      (`matches.ts:168-173`). Only an unflagged ask past `expires_at` reaches the lock, which answers **409**.
 - **Unchanged:**
   - `reconcileRequestStatus` and the stored status (an expired ask stays `open` in the column);
   - dibs accept, which has its own invitation expiry (`expires_at > clock_timestamp()`) and acts on an ask the sweep
@@ -283,7 +295,7 @@ No schema change and no migration.
 
 | Method | Path | Change |
 |---|---|---|
-| POST | `/matches` (`matches.ts:146`) | Runs under the request lock. A race with a close, or an ask past expiry, answers 409 `REQUEST_NOT_OPEN`. The duplicate check is exact. The offer is held only while `active` (400 `OFFER_NOT_ACTIVE`). |
+| POST | `/matches` (`matches.ts:146`) | Runs under the request lock. A race with a close, or an ask past `expires_at` that the sweep has not flagged yet, answers 409 `REQUEST_NOT_OPEN`. A flagged ask keeps the fast path's 400. The duplicate check is exact. The offer is held only while `active` (400 `OFFER_NOT_ACTIVE`). |
 | POST | `/requests/:id/propose-match` (admin; `adminActions.ts:95`, mounted at `/requests`, `index.ts:159`) | An ask past expiry → 409 `REQUEST_NOT_OPEN` |
 | PUT | `/matches/:id/accept` (`matches.ts:281`; the requester accepts a proposal) | Same |
 | POST | `/requests/:id/dibs` (`dibs.ts:126`, mounted at `/requests`, `index.ts:143`) | Same |
@@ -345,9 +357,13 @@ branch, which merges `origin/master` in afterwards (a merge commit, never a reba
    strict `npx -y npm@11.19.0 ci` (exit 0), `npm ls --all` problem-line parity against the pre-change baseline, and a
    node-level diff naming exactly the nodes removed or changed. Run `npm ci` from an uppercase `C:\` cwd on Windows
    (`apps/mobile/claude.md`, Sprint 134 PR E).
-3. **Compute the orphan set by reachability, not from the spec's list.** After removing the edge, walk from the root and
-   every workspace over `dependencies`, `optionalDependencies` and `peerDependencies`, resolving like npm (nearest
-   `node_modules` up the path). Remove exactly the unreached nodes, and print the list.
+3. **Compute the orphan set by reachability, not from the spec's list.** Walk from the root, every workspace and every
+   workspace's link node over `dependencies`, `optionalDependencies` and `peerDependencies`. Add `devDependencies` on the
+   root and workspace nodes only: npm installs no other package's dev dependencies, and no other lock node lists any
+   (0 of 1,861). Resolve like npm (nearest `node_modules` up the path), and follow `link: true` nodes to their `resolved`
+   path. Without the dev edges the unchanged lock shows 765 orphans, the plugin among them (Codex plan review). With
+   them it shows exactly the three pre-existing orphans named in spec A. Remove exactly the nodes orphaned after the edit
+   and not before, and print the list.
 4. **Prove A on the artifact.** Compare the export's module set before and after, which must be identical, as in
    planning. Run a negative control too: with `"experiments": { "tsconfigPaths": false }` in `app.json` and no plugin,
    the export must fail to resolve an `@/` import. Then restore `app.json` from a byte copy. Use `--clear` on every
@@ -360,8 +376,10 @@ branch, which merges `origin/master` in afterwards (a merge commit, never a reba
    then waits on the request lock.
 7. **Decide before the first write** (Sprint 135 note 6). In POST /matches, the guarded offer `UPDATE` is the first
    write. Its miss returns a refusal before anything is written.
-8. **Keep the derivation `CASE` byte-identical.** BUG-085 adds a column to the derive `SELECT`, not an arm to the
-   `CASE`. `reconcileRequestStatus` does not change.
+8. **Keep the derivation `CASE` byte-identical to today's `lockRequest`** (`requestStatus.ts:39-44`). BUG-085 adds a
+   column to the derive `SELECT`, not an arm to the `CASE`. `reconcileRequestStatus` does not change. The two `CASE`s
+   differ by design, so tests compare arms, not whole `CASE`s. The lock's starts with `WHEN r.status = 'cancelled' THEN
+   'cancelled'`. Reconcile has no such arm: its `WHERE ... r.status <> 'cancelled'` keeps a cancelled ask cancelled.
 9. **`clock_timestamp()` in `past_expiry`.** Use `r.expired IS TRUE` (the column is nullable). `expires_at` is
    `timestamp without time zone`, compared like the existing `r.expires_at > NOW()`.
 10. **Re-pin hashes with `surfaceHash`** for the derive `SELECT` (`requestStatus.ts`) and the retention `UPDATE`
@@ -372,8 +390,10 @@ branch, which merges `origin/master` in afterwards (a merge commit, never a reba
 13. **Identity is `req.user!.userId`** (ADR-064). No JWT `communities` claim is read
     (`tests/regression/sprint-134-pr-k-claim-gate.test.ts`).
 14. **Real-SQL tests live in root `tests/integration/`** and are CI-only on Windows (no local Docker). Races prove the
-    wait with `pg_blocking_pids` over `pg_locks`, never a sleep. Root integration tests already import service source
-    directly (`sprint-126-standing-schema`, `sprint-133-endorsement-trust`), so F's case imports
+    wait with `pg_blocking_pids` over `pg_locks`, never a sleep. When two calls wait on one row, the second can queue
+    behind the first on PostgreSQL's tuple lock, and `pg_blocking_pids` then names the first waiter, not the holder.
+    So a waiter counts when the holder blocks it directly, or blocks a pid that blocks it. Root integration tests already
+    import service source directly (`sprint-126-standing-schema`, `sprint-133-endorsement-trust`), so F's case imports
     `forgetExchangeContent`.
 15. **Tests first** in each changed workspace's `tests/tdd/` (apps/mobile, reputation-service, request-service,
     cleanup-service), red, then the implementation. Promote with targeted `git mv`, not the promoter, which sweeps every

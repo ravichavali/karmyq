@@ -77,9 +77,13 @@ off switch.
    strict `npx -y npm@11.19.0 ci` (exit 0), `npm ls --all` problem-line parity against the pre-change baseline, and a
    node-level diff naming exactly the nodes removed or changed. Run `npm ci` from an uppercase `C:\` cwd on Windows
    (`apps/mobile/claude.md`, Sprint 134 PR E).
-3. **Compute the orphan set by reachability, not from the spec's list.** After removing the edge, walk from the root and
-   every workspace over `dependencies`, `optionalDependencies` and `peerDependencies`, resolving like npm (nearest
-   `node_modules` up the path). Remove exactly the unreached nodes, and print the list.
+3. **Compute the orphan set by reachability, not from the spec's list.** Walk from the root, every workspace and every
+   workspace's link node over `dependencies`, `optionalDependencies` and `peerDependencies`. Add `devDependencies` on the
+   root and workspace nodes only: npm installs no other package's dev dependencies, and no other lock node lists any
+   (0 of 1,861). Resolve like npm (nearest `node_modules` up the path), and follow `link: true` nodes to their `resolved`
+   path. Without the dev edges the unchanged lock shows 765 orphans, the plugin among them (Codex plan review). With
+   them it shows exactly the three pre-existing orphans named in spec A. Remove exactly the nodes orphaned after the edit
+   and not before, and print the list.
 4. **Prove A on the artifact.** Compare the export's module set before and after, which must be identical, as in
    planning. Run a negative control too: with `"experiments": { "tsconfigPaths": false }` in `app.json` and no plugin,
    the export must fail to resolve an `@/` import. Then restore `app.json` from a byte copy. Use `--clear` on every
@@ -92,8 +96,10 @@ off switch.
    then waits on the request lock.
 7. **Decide before the first write** (Sprint 135 note 6). In POST /matches, the guarded offer `UPDATE` is the first
    write. Its miss returns a refusal before anything is written.
-8. **Keep the derivation `CASE` byte-identical.** BUG-085 adds a column to the derive `SELECT`, not an arm to the
-   `CASE`. `reconcileRequestStatus` does not change.
+8. **Keep the derivation `CASE` byte-identical to today's `lockRequest`** (`requestStatus.ts:39-44`). BUG-085 adds a
+   column to the derive `SELECT`, not an arm to the `CASE`. `reconcileRequestStatus` does not change. The two `CASE`s
+   differ by design, so tests compare arms, not whole `CASE`s. The lock's starts with `WHEN r.status = 'cancelled' THEN
+   'cancelled'`. Reconcile has no such arm: its `WHERE ... r.status <> 'cancelled'` keeps a cancelled ask cancelled.
 9. **`clock_timestamp()` in `past_expiry`.** Use `r.expired IS TRUE` (the column is nullable). `expires_at` is
    `timestamp without time zone`, compared like the existing `r.expires_at > NOW()`.
 10. **Re-pin hashes with `surfaceHash`** for the derive `SELECT` (`requestStatus.ts`) and the retention `UPDATE`
@@ -104,8 +110,10 @@ off switch.
 13. **Identity is `req.user!.userId`** (ADR-064). No JWT `communities` claim is read
     (`tests/regression/sprint-134-pr-k-claim-gate.test.ts`).
 14. **Real-SQL tests live in root `tests/integration/`** and are CI-only on Windows (no local Docker). Races prove the
-    wait with `pg_blocking_pids` over `pg_locks`, never a sleep. Root integration tests already import service source
-    directly (`sprint-126-standing-schema`, `sprint-133-endorsement-trust`), so F's case imports
+    wait with `pg_blocking_pids` over `pg_locks`, never a sleep. When two calls wait on one row, the second can queue
+    behind the first on PostgreSQL's tuple lock, and `pg_blocking_pids` then names the first waiter, not the holder.
+    So a waiter counts when the holder blocks it directly, or blocks a pid that blocks it. Root integration tests already
+    import service source directly (`sprint-126-standing-schema`, `sprint-133-endorsement-trust`), so F's case imports
     `forgetExchangeContent`.
 15. **Tests first** in each changed workspace's `tests/tdd/` (apps/mobile, reputation-service, request-service,
     cleanup-service), red, then the implementation. Promote with targeted `git mv`, not the promoter, which sweeps every
@@ -236,21 +244,25 @@ cd apps/mobile && npx jest --no-cache   # all mobile suites PASS
 - [ ] **Lock splice.**
   1. Delete `packages["apps/mobile"].devDependencies["babel-plugin-module-resolver"]`.
   2. Run a scratchpad reachability walker over the lock, written per note 3:
-     - start from `packages[""]` and every workspace node;
-     - follow `dependencies`, `optionalDependencies` and `peerDependencies`; skip an unresolved peer only when
-       `peerDependenciesMeta[name].optional`;
+     - start from `packages[""]`, every workspace node, and every workspace's link node (`node_modules/<name>`,
+       `link: true`, `resolved` = a workspace path);
+     - follow `dependencies`, `optionalDependencies` and `peerDependencies` on every node, and `devDependencies` on the
+       root and workspace nodes; skip an unresolved peer only when `peerDependenciesMeta[name].optional`;
      - resolve each name like npm: `<from>/node_modules/<name>`, then each ancestor's `node_modules`, then the root;
      - follow `link: true` nodes to their `resolved` path.
   3. **Prove the walker before trusting it.**
-     - It reports **zero** orphans on `lock.base.json`.
+     - On `lock.base.json` it reports **exactly the three pre-existing orphans** named in spec A, and nothing else.
+       Planning ran both edge sets on 2026-11-03: without the dev edges it reports 765, the plugin among them, and
+       without the link roots it adds the 14 workspace link nodes.
      - Run it again on a copy with one known edge removed (for example a single leaf's only dependent edge). It must
        report that leaf. Two instances, not one (memory: *Gates that assert weaker than they claim*).
-  4. Run it on the edited lock and delete exactly the nodes it reports. Compare the list with the spec's 15-node
-     inventory, and explain any difference before deleting.
+  4. Run it on the edited lock. The **removal set** is the edited lock's orphans minus the baseline's. Compare it with
+     the spec's 16-node inventory and explain any difference, then delete exactly that set. The three baseline orphans
+     stay.
   5. Check whether the lock holds `overrides` anywhere (`grep -n '"overrides"' package-lock.json`); edit only if it
      does.
 
-- [ ] **Node-level diff** against `lock.base.json`: removed = exactly the walker's list; changed = root `version` ×2
+- [ ] **Node-level diff** against `lock.base.json`: removed = exactly the removal set; changed = root `version` ×2
   (Task 1) and the `apps/mobile` node. Nothing else. Key order is preserved.
 
 - [ ] **Proofs** (record each result for the PR body):
@@ -412,7 +424,15 @@ git commit -m "fix(reputation): crons honour SCHEDULED_JOBS_DISABLED; the CI tes
   takes an offer lock before the request lock. If one does, stop and re-plan E.
 - [ ] **Mocked-SQL contract** (exact SQL, order, params):
   - `lockRequestForCommitment` issues `LOCK_REQUEST`, then the derive `SELECT`.
-    - Its `CASE` text is **byte-identical** to `reconcileRequestStatus`'s `CASE` (extract both from source and compare).
+    - Its `CASE` is today's `lockRequest` `CASE`, unchanged (note 8). A whole-`CASE` comparison with
+      `reconcileRequestStatus` cannot pass, because the two differ by design. Compare arms instead:
+      1. Extract both `CASE`s from source.
+      2. Split each into arms: one `WHEN ... THEN ...` per line, trimmed.
+      3. Assert the lock's first arm is exactly `WHEN r.status = 'cancelled' THEN 'cancelled'`.
+      4. Assert its other arms equal reconcile's arms exactly and in order, and that both end `ELSE 'open' END`.
+      Prove the assertion can fail: an extra arm in the lock's `CASE` must turn it red. Planning ran both checks on
+      2026-11-03: on today's source the whole-`CASE` comparison is false and the arm comparison is true; on a scratch
+      copy with an injected `expired` arm, the arm comparison is false.
     - It selects `past_expiry` with `r.expired IS TRUE OR (r.expires_at IS NOT NULL AND r.expires_at <=
       clock_timestamp())`.
     - It returns `'expired'` for (`open`, true) and `'open'` for (`open`, false). For each of `matched`, `completed`,
@@ -433,8 +453,14 @@ git commit -m "fix(reputation): crons honour SCHEDULED_JOBS_DISABLED; the CI tes
     - the fast-path pre-reads keep today's responses (the 400 `REQUEST_NOT_OPEN` on a closed or flag-expired ask).
 - [ ] **Real-SQL integration** (CI-only on Windows; missing infrastructure is a failure, never a skip):
   - **Expired refusals.** For each of the five writers, two expired asks: one with `expired = TRUE`, and one with
-    `expired = FALSE` and `expires_at` in the past (the second arm). Each answers 409 `REQUEST_NOT_OPEN` and writes
-    nothing: compare the ask's matches, dibs and offers rows before and after.
+    `expired = FALSE` and `expires_at` in the past (the second arm). Each is refused with `REQUEST_NOT_OPEN` and writes
+    nothing: compare the ask's matches, dibs and offers rows before and after. The status codes (verified 2026-11-03,
+    spec D):
+    - **409** for both asks on admin propose-match, match accept, dibs create and provider-offer accept. None of them
+      has an expiry fast path, so both asks reach the lock.
+    - **400** on `POST /matches` for the `expired = TRUE` ask: its unchanged fast path (`matches.ts:168-173`).
+    - **409** on `POST /matches` for the `expires_at` ask. The fast path cannot see it, because reachability reads only
+      the flag (`eligibility.ts:93`), so the lock refuses it. This case fails against `b9682c34`, which accepts it.
     - Positive control: the same writer succeeds on an unexpired twin.
     - Requester cancel and match reject on an expired ask still succeed.
   - **POST /matches race.**
@@ -444,9 +470,22 @@ git commit -m "fix(reputation): crons honour SCHEDULED_JOBS_DISABLED; the CI tes
     4. POST answers 409 `REQUEST_NOT_OPEN`; no `proposed` match exists for that responder, and the offer is still
        `active`.
     - It must fail against `b9682c34`'s POST /matches, which strands the proposal. State that in the header.
-  - **Offer guard race.** Two concurrent `POST /matches` by the same helper with the same `offer_id` on two different
-    open asks. Exactly one succeeds, the other answers 400 `OFFER_NOT_ACTIVE`, and the offer is held by exactly one
-    proposal.
+  - **Offer guard race.** The same helper sends `POST /matches` with the same `offer_id` on two different open asks.
+    That is legal, since `requests.help_offers` has no `request_id`. Unsynchronized, the second call can reach the fast
+    path after the first commits and be refused there, and the test would then pass without the guard (Codex plan
+    review). Synchronize it:
+    1. A holder client opens a transaction and runs `SELECT id FROM requests.help_offers WHERE id = $1 FOR UPDATE`.
+       `findOwnOffer` is a plain `SELECT` (`helpOffersDb.ts:8`), so both calls still pass the fast path.
+    2. Start both calls. Wait until **two** distinct backends are blocked: a waiter counts when `pg_blocking_pids` names
+       the holder, or names a pid that the holder blocks (note 14). Poll `pg_locks` with a deadline, as `whileHeld`
+       does. The poll proves the wait; a fixed sleep never stands in for it. `whileHeld` waits for one waiter, so give
+       it a count or write this barrier inline.
+    3. Commit the holder without changing the row.
+    4. Exactly one call answers 201 and the other 400 `OFFER_NOT_ACTIVE`. The offer is `matched`, and exactly one
+       `proposed` match references it.
+    - It must fail against `b9682c34`, and the header says so. There, both calls wait on the held row at the match
+      `INSERT`'s foreign-key check (`matches_offer_id_fkey`), then both write: two 201s, and two proposals hold the
+      offer.
 
 ```bash
 cd services/request-service && npx jest tests/tdd/sprint-136-request-followups.test.ts --no-cache   # FAIL (red)
