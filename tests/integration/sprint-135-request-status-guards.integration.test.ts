@@ -100,6 +100,7 @@ describe('Sprint 135 request status guards', () => {
       const { pid } = (await holder.query('SELECT pg_backend_pid() AS pid')).rows[0];
       await holder.query(holderSql, [rowId]);
       const inFlight = pending();
+      inFlight.catch(() => undefined); // if expect(waiting) throws below, a late rejection must not outlive the test
       let waiting = false;
       for (const deadline = Date.now() + 10_000; !waiting && Date.now() < deadline;) {
         const blocked = await pool.query(

@@ -2066,10 +2066,9 @@ rows, stay open here.
 
 **Fix (Sprint 135, v11.108.0):** `services/request-service/src/db/requestStatus.ts` is now the only module that writes a
 request's status (`reconcileRequestStatus`, `markRequestCancelled`; `lockRequest` gives preconditions the derived
-status), plus cleanup-service's `expireDibs.ts`, whose dibs write is now guarded on `pending`. The ten writers guard
+status), plus cleanup-service's `expireDibs.ts`, whose dibs write is now guarded on `pending`. The ten writers (plus the test-only `/expire`) guard
 their rows and derive the status instead of overwriting it: `PUT /matches/:id/accept`, `/reject`, `/complete`,
-`POST /requests/:id/propose-match`, `POST /requests/:id/dibs`, `PUT /requests/dibs/:id/accept` and `/decline` (and
-the test-only `/expire`), `PUT /requests/offers/:id/accept` (now one transaction), `PUT /requests/:id` (a body status
+`POST /requests/:id/propose-match`, `POST /requests/:id/dibs`, `PUT /requests/dibs/:id/accept` and `/decline`, `PUT /requests/offers/:id/accept` (now one transaction), `PUT /requests/:id` (a body status
 is refused) and `DELETE /requests/:id` (refuses completed or cancelled asks and asks with an exchange in progress;
 BUG-074's `DELETE /matches/:id` derives through the same helper). New codes: 409 `REQUEST_NOT_OPEN`,
 `REQUEST_NOT_CANCELLABLE`, `REQUEST_HAS_ACTIVE_EXCHANGE`; 400 `STATUS_NOT_EDITABLE`. `request_completed`, whose only

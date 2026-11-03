@@ -73,7 +73,7 @@ export async function reconcileRequestStatus(q: TxQuery, requestId: string): Pro
 /**
  * The requester's cancel, guarded in the write: the caller's own request, not already cancelled, with no exchange in
  * progress or completed (its derived status is open or dibs_pending). Returns whether it cancelled. The caller holds the
- * request lock.
+ * request lock. Call it after lockRequest in the same transaction.
  */
 export async function markRequestCancelled(q: TxQuery, requestId: string, requesterId: string): Promise<boolean> {
   const result = await q(

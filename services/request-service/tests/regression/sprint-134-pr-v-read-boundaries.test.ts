@@ -96,6 +96,7 @@ describe('request owner-write opacity', () => {
     expect(sql).toMatch(bound);
     expect(params.slice(-2)).toEqual([ID, VIEWER]);
     if (returning) expect(sql).toMatch(/RETURNING/);
+    else expect(sql).not.toMatch(/RETURNING/);
     expect(publishEvent).toHaveBeenCalledTimes(events);
   });
 
