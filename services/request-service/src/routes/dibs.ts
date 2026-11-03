@@ -340,13 +340,14 @@ router.put('/dibs/:id/accept', authMiddleware, async (req: AuthenticatedRequest,
       if ((await lockRequest(q, dibs.request_id)) !== 'dibs_pending') {
         return 'request_not_waiting' as const;
       }
-      // The write keeps its guard, though the row lock above already decides it.
+      // Liveness again, in the write: lockRequest above may have waited past expires_at. The dibs row lock is still
+      // held, so the status is still 'pending', and a miss here can only mean the invitation expired during that wait.
       const accepted = await q(
-        `UPDATE requests.dibs SET status = 'accepted', updated_at = NOW() WHERE id = $1 AND status = 'pending'`,
+        `UPDATE requests.dibs SET status = 'accepted', updated_at = NOW() WHERE id = $1 AND status = 'pending' AND expires_at > clock_timestamp()`,
         [dibsId]
       );
       if (accepted.rowCount === 0) {
-        return 'dibs_not_pending' as const;
+        return 'dibs_expired' as const;
       }
 
       // Create a match record

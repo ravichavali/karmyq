@@ -2034,11 +2034,13 @@ Send dibs to a specific provider or community member. Valid for all request type
 Provider accepts dibs. Creates a `requests.matches` record directly and derives the request status (`matched`).
 
 **Sprint 135 (BUG-075):** the dibs row is locked first (its status and liveness, `expires_at > clock_timestamp()`), then
-the request. The request must derive `dibs_pending`; the dibs `UPDATE` is guarded on `pending`; stale `proposed` matches
-are closed (`closeProposals`) before the request is derived. Refusals, none of which write or publish:
+the request. The request must derive `dibs_pending`; the dibs `UPDATE` is guarded on `pending` **and** on
+`expires_at > clock_timestamp()`, because the wait for the request lock can cross the deadline (PR #327 review). Stale
+`proposed` matches are closed (`closeProposals`) before the request is derived. Refusals, none of which write or publish:
 - **409** `REQUEST_NOT_OPEN` ("This request is no longer waiting on your dibs")
 - **409** `INVALID_STATE` ("Dibs is no longer pending"; the pre-read says "Dibs is already <status>")
-- **410** `DIBS_EXPIRED` ("This dibs invitation has expired"), also when it expires during a lock wait
+- **410** `DIBS_EXPIRED` ("This dibs invitation has expired"), also when it expires while waiting on the dibs lock or on
+  the request lock
 
 **Authentication:** Required (JWT token — must be the dibs provider)
 

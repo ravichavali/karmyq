@@ -249,7 +249,7 @@ describe('POST /requests/:id/dibs (BUG-075)', () => {
 
 describe('PUT /requests/dibs/:id/accept (BUG-075)', () => {
   const DIBS_LOCK = /^SELECT status, expires_at > clock_timestamp\(\) AS live FROM requests\.dibs WHERE id = \$1 FOR UPDATE$/;
-  const DIBS_ACCEPT = "UPDATE requests.dibs SET status = 'accepted', updated_at = NOW() WHERE id = $1 AND status = 'pending'";
+  const DIBS_ACCEPT = "UPDATE requests.dibs SET status = 'accepted', updated_at = NOW() WHERE id = $1 AND status = 'pending' AND expires_at > clock_timestamp()";
   beforeEach(() => {
     reply(/^SELECT \* FROM requests\.dibs WHERE id = \$1$/, rows([{ id: 'dibs-1', request_id: 'req-1', provider_user_id: 'helper',
       status: 'pending', expires_at: new Date(Date.now() + 3_600_000).toISOString() }]));
@@ -295,6 +295,21 @@ describe('PUT /requests/dibs/:id/accept (BUG-075)', () => {
     expect(res.status).toBe(410);
     expect(res.body).toEqual({ success: false, message: 'This dibs invitation has expired', error: 'DIBS_EXPIRED' });
     expect(writes()).toEqual([]);
+  });
+
+  // PR #327 review: the request lock can be waited on past expires_at, after the dibs row was judged live. The guarded
+  // write re-checks liveness, and its miss (the dibs row lock is held, so the status is still pending) is that expiry.
+  it('refuses an invitation that expired while this call waited on the REQUEST lock: 410, no match, no event', async () => {
+    liveDibs();
+    reply(DERIVE, rows([{ status: 'dibs_pending' }]));
+    reply(/^UPDATE requests\.dibs SET status = 'accepted'/, rows([], 0));
+    const res = await accept();
+    expect(res.status).toBe(410);
+    expect(res.body).toEqual({ success: false, message: 'This dibs invitation has expired', error: 'DIBS_EXPIRED' });
+    expect(writes()).toEqual([DIBS_ACCEPT]);
+    expect(at(LOCK)).toBeLessThan(at(DIBS_ACCEPT));
+    expect(at(LOCK)).toBeGreaterThan(-1);
+    expect(mockPublishEvent).not.toHaveBeenCalled();
   });
 });
 

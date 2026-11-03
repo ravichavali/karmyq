@@ -583,7 +583,7 @@
         {
           "method": "PUT",
           "path": "/requests/dibs/:id/accept",
-          "description": "Provider accepts dibs — creates matches record and derives the request status (matched). Sprint 135 BUG-075: locks the dibs row, then the request; the request must derive 'dibs_pending', otherwise 409 REQUEST_NOT_OPEN ('This request is no longer waiting on your dibs'); the dibs UPDATE is guarded on 'pending' (409 INVALID_STATE 'Dibs is no longer pending' on a race); 410 DIBS_EXPIRED also when it expires during a lock wait; closes stale proposals."
+          "description": "Provider accepts dibs — creates matches record and derives the request status (matched). Sprint 135 BUG-075: locks the dibs row, then the request; the request must derive 'dibs_pending', otherwise 409 REQUEST_NOT_OPEN ('This request is no longer waiting on your dibs'); the dibs UPDATE is guarded on 'pending' (409 INVALID_STATE 'Dibs is no longer pending' on a race) and on expires_at > clock_timestamp(); 410 DIBS_EXPIRED also when it expires while waiting on the dibs or the request lock; closes stale proposals."
         },
         {
           "method": "PUT",
