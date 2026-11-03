@@ -7,7 +7,7 @@
  * - a refusal writes nothing;
  * - a success leaves the ask in its derived status (a completed or cancelled ask stays so; a withdrawn offer stays
  *   withdrawn);
- * - four races show the guard is under the lock, not in a read before it. While a second client holds an uncommitted
+ * - five races show the guard is under the lock, not in a read before it. While a second client holds an uncommitted
  *   change, the HTTP call waits on that lock (pg_blocking_pids, never a sleep) and is refused after the commit.
  * Every case except the named positive controls fails against the pre-Sprint-135 code.
  */
@@ -19,11 +19,12 @@ import { createPool, ServiceUrls } from '../fixtures';
 
 describe('Sprint 135 request status guards', () => {
   const pool = createPool();
-  // R requester; H, H2, H3 helpers; A community admin; P provider. All active members of Cm.
-  const R = randomUUID(), H = randomUUID(), H2 = randomUUID(), H3 = randomUUID(), A = randomUUID(), P = randomUUID();
-  const users = [R, H, H2, H3, A, P];
+  // R requester; H, H2, H3 helpers; A community admin; P, P2 providers. All active members of Cm.
+  const R = randomUUID(), H = randomUUID(), H2 = randomUUID(), H3 = randomUUID(), A = randomUUID(), P = randomUUID(), P2 = randomUUID();
+  const users = [R, H, H2, H3, A, P, P2];
   const Cm = randomUUID();
-  let providerProfile = '';
+  // One provider profile per provider: uq_provider_offers_active allows one live offer per provider and request.
+  const providerProfiles = new Map<string, string>();
   const asks: string[] = [];
   const offers: string[] = [];
   const completions: string[] = [];
@@ -77,10 +78,19 @@ describe('Sprint 135 request status guards', () => {
       VALUES ($1,$2,$3,NOW() + INTERVAL '1 day') RETURNING id`, [requestId, R, provider]);
     return rows[0].id;
   }
-  async function providerOffer(requestId: string): Promise<string> {
+  async function providerOffer(requestId: string, provider = P): Promise<string> {
     const { rows } = await pool.query(`INSERT INTO provider.offers (provider_id,provider_user_id,request_id,price,note)
-      VALUES ($1,$2,$3,10,'Sprint 135 provider offer') RETURNING id`, [providerProfile, P, requestId]);
+      VALUES ($1,$2,$3,10,'Sprint 135 provider offer') RETURNING id`, [providerProfiles.get(provider), provider, requestId]);
     return rows[0].id;
+  }
+  // The rows a stored status implies. Sprint 135 derives the status from them, so a refusal case needs them: without
+  // them the ask derives 'open'. 'cancelled' is the requester's decision and needs none.
+  async function askWith(status: string): Promise<string> {
+    const q = await ask(status);
+    if (status === 'dibs_pending') await dibs(q, H2);
+    if (status === 'matched') await match(q, H2, 'matched');
+    if (status === 'completed') await match(q, H2, 'completed');
+    return q;
   }
   const one = async (sql: string, id: string) => (await pool.query(sql, [id])).rows[0];
   const askStatus = async (id: string) => (await one('SELECT status FROM requests.help_requests WHERE id = $1', id)).status;
@@ -92,8 +102,10 @@ describe('Sprint 135 request status guards', () => {
     'SELECT responder_id, status, admin_proposed FROM requests.matches WHERE request_id = $1', [requestId])).rows;
 
   // Holds `holderSql` on one row in an open transaction, starts `pending`, proves it waits on that row's lock
-  // (pg_blocking_pids, not a sleep), then commits and returns the call's response.
-  async function whileHeld(holderSql: string, rowId: string, pending: () => Promise<request.Response>) {
+  // (pg_blocking_pids, not a sleep), keeps holding until `holdUntil` is true if given (a database-clock condition), then
+  // commits and returns the call's response.
+  async function whileHeld(holderSql: string, rowId: string, pending: () => Promise<request.Response>,
+    holdUntil?: () => Promise<boolean>) {
     const holder = await pool.connect();
     try {
       await holder.query('BEGIN');
@@ -109,6 +121,14 @@ describe('Sprint 135 request status guards', () => {
         if (!waiting) await new Promise((resolve) => setTimeout(resolve, 50));
       }
       expect(waiting).toBe(true);
+      if (holdUntil) {
+        let reached = false;
+        for (const deadline = Date.now() + 10_000; !reached && Date.now() < deadline;) {
+          reached = await holdUntil();
+          if (!reached) await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        expect(reached).toBe(true);
+      }
       await holder.query('COMMIT');
       return await inFlight;
     } catch (err) {
@@ -149,8 +169,10 @@ describe('Sprint 135 request status guards', () => {
       await pool.query(`INSERT INTO communities.members(user_id,community_id,role,status) VALUES ($1,$2,$3::varchar,'active')`,
         [id, Cm, id === A ? 'admin' : 'member']);
     }
-    providerProfile = (await pool.query(`INSERT INTO requests.provider_profiles (user_id,service_type,display_name)
-      VALUES ($1,'generic','Sprint 135 provider') RETURNING id`, [P])).rows[0].id;
+    for (const provider of [P, P2]) {
+      providerProfiles.set(provider, (await pool.query(`INSERT INTO requests.provider_profiles (user_id,service_type,display_name)
+        VALUES ($1,'generic','Sprint 135 provider') RETURNING id`, [provider])).rows[0].id);
+    }
     // One completed exchange between R and H makes H an eligible mutual-aid dibs nominee.
     await match(await ask('completed'), H, 'completed');
   });
@@ -197,7 +219,7 @@ describe('Sprint 135 request status guards', () => {
     });
 
     it.each(['dibs_pending', 'completed', 'cancelled'])('refuses a %s ask with 409 REQUEST_NOT_OPEN and writes nothing', async (status) => {
-      const q = await ask(status);
+      const q = await askWith(status);
       const m = await match(q, H, 'proposed');
       const res = await accept(m);
       expect(res.status).toBe(409);
@@ -305,11 +327,13 @@ describe('Sprint 135 request status guards', () => {
     });
 
     it.each(['dibs_pending', 'matched', 'completed', 'cancelled'])('refuses a %s ask with 409 REQUEST_NOT_OPEN and inserts nothing', async (status) => {
-      const q = await ask(status);
+      const q = await askWith(status);
+      const before = await matchesOn(q);
       const res = await propose(q);
       expect(res.status).toBe(409);
       expect(res.body).toEqual({ success: false, message: 'This request is no longer open', error: 'REQUEST_NOT_OPEN' });
-      expect(await matchesOn(q)).toEqual([]);
+      expect(await matchesOn(q)).toEqual(before);
+      expect(await askStatus(q)).toBe(status);
     });
 
     it('refuses a proposal that waited on a concurrent match of the ask', async () => {
@@ -385,6 +409,23 @@ describe('Sprint 135 request status guards', () => {
       expect(await matchesOn(q)).toEqual([]);
     });
 
+    // PR #327 review: accept judges the dibs live under its row lock, then waits on the request lock. A wait that
+    // crosses expires_at must not accept, so the guarded write re-checks liveness on the wall clock.
+    it('a dibs accept that waited on the request lock past the invitation expiry answers 410 and writes nothing', async () => {
+      const q = await ask('dibs_pending');
+      const d = (await pool.query(`INSERT INTO requests.dibs (request_id,requester_id,provider_user_id,expires_at)
+        VALUES ($1,$2,$3,clock_timestamp() + INTERVAL '2 seconds') RETURNING id`, [q, R, H])).rows[0].id;
+      const expired = async () =>
+        (await pool.query('SELECT expires_at < clock_timestamp() AS past FROM requests.dibs WHERE id = $1', [d])).rows[0].past;
+      // The wait proof shows the accept got past its liveness check (it only reaches the request lock while live).
+      const res = await whileHeld('SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE', q, () => acceptDibs(d), expired);
+      expect(res.status).toBe(410);
+      expect(res.body).toEqual({ success: false, message: 'This dibs invitation has expired', error: 'DIBS_EXPIRED' });
+      expect(await dibsStatus(d)).toBe('pending');
+      expect(await matchesOn(q)).toEqual([]);
+      expect(await askStatus(q)).toBe('dibs_pending');
+    });
+
     // Positive control.
     it('a dibs decline reopens an ask that waited only on it', async () => {
       const q = await ask('dibs_pending');
@@ -419,19 +460,20 @@ describe('Sprint 135 request status guards', () => {
     });
 
     it.each(['dibs_pending', 'matched', 'completed', 'cancelled'])('refuses a %s ask with 409 REQUEST_NOT_OPEN and writes nothing', async (status) => {
-      const q = await ask(status);
+      const q = await askWith(status);
       const po = await providerOffer(q);
+      const before = await matchesOn(q);
       const res = await acceptProviderOffer(po);
       expect(res.status).toBe(409);
       expect(res.body).toEqual({ success: false, message: 'This request is no longer open', error: 'REQUEST_NOT_OPEN' });
       expect(await providerOfferStatus(po)).toBe('pending');
-      expect(await matchesOn(q)).toEqual([]);
+      expect(await matchesOn(q)).toEqual(before);
       expect(await askStatus(q)).toBe(status);
     });
 
     it('a second provider offer on the same ask is refused once the first is accepted', async () => {
       const q = await ask('open');
-      const first = await providerOffer(q), second = await providerOffer(q);
+      const first = await providerOffer(q, P), second = await providerOffer(q, P2);
       expect((await acceptProviderOffer(first)).status).toBe(200);
       const res = await acceptProviderOffer(second);
       expect(res.status).toBe(409);
@@ -481,7 +523,7 @@ describe('Sprint 135 request status guards', () => {
     });
 
     it.each(['completed', 'cancelled'])('a %s ask cannot be cancelled', async (status) => {
-      const q = await ask(status);
+      const q = await askWith(status);
       const res = await cancelAsk(q);
       expect(res.status).toBe(409);
       expect(res.body).toEqual({ success: false, message: 'Only an open request can be cancelled', error: 'REQUEST_NOT_CANCELLABLE' });
