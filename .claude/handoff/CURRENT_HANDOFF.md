@@ -158,8 +158,32 @@ waits. A skipped dibs stays `pending` on the cancelled ask, and its accept answe
   subtree, and **alerts #179 and #180 stay open after merge.**
 - `npm ls` shows a few extra "invalid" lines: arborist's override-scope conflict check. Every edge satisfies its range,
   and no CI step runs `npm ls`. Not a defect.
-- Process note: the implementer ran code from the downloaded minimatch 11 tarball in a scratch sandbox. It was the same
-  registry package `npm ci` installs, but it broke the untrusted-download rule; reported here.
+- **Process breach:** the implementer ran code from the downloaded minimatch 11 tarball in a scratch sandbox, which
+  breaks the untrusted-download rule. The review of 2026-11-02 rejected the claim that "same package" makes the added
+  risk negligible, and it stands as a breach. Future dependency briefs forbid executing downloaded code: behavioural
+  checks run on the integrity-verified install.
+
+## PR #327 review round 1 (2026-11-02)
+
+CI run 41571898963 (head `fad885e5`): **Integration Tests failed, 11 failures across 2 suites** (356 passed). The
+independent review relayed by the maintainer requested changes. Each finding was verified against the repo:
+- **P1 (confirmed):** nine Sprint 135 refusal cases set a stored status with no backing rows, so the derived status is
+  `open`. Fix: backing rows (a pending dibs, a matched or a completed exchange by H2); where a case expected no matches,
+  it now compares the ask's rows before and after.
+- **P2 (confirmed):** dibs accept checked liveness on the dibs row, then waited on the request lock, so a wait past
+  `expires_at` still accepted. Fix: the guarded UPDATE also requires `expires_at > clock_timestamp()`. Under the dibs
+  row lock, a miss can only mean expiry, which answers 410. A real-SQL race test holds the request lock until the
+  invitation expires.
+- **P2 (confirmed):** the second-provider case inserted two offers for the same `(provider_user_id, request_id)`, which
+  `uq_provider_offers_active` forbids. Fix: a second provider, P2.
+- **11th failure, Sprint 126 "dry run is provably read-only": cause proven, not this PR.**
+  - reputation-service's daily `trustScoreRefresh` cron (`'30 3 * * *'`, `trustScoreRefresh.ts:59`) fired inside the
+    CI test container while that test ran (03:29:56–03:30:03Z).
+  - The container log reads "Trust-score refresh complete: 9 evaluated, 0 failed". 9 is exactly the suite's seeded
+    memberships.
+  - The rows that appeared are those 9 pairs with score 0.
+  - Any CI run that spans 03:30 container time fails this way. Logged as BUG-087 (fix direction: keep crons off in the
+    test compose). Fixing it would touch reputation-service and the test infrastructure, outside this PR's agreed scope.
 
 ## Open after this PR (maintainer decisions)
 
@@ -168,6 +192,8 @@ waits. A skipped dibs stays `pending` on the cancelled ask, and its accept answe
     AbortSignal, no untrusted patterns. Or (b) replace babel-plugin-module-resolver (Expo's tsconfig paths) in a mobile
     sprint.
   - A dismissal needs your explicit yes.
+- **BUG-087** (logged 2026-11-02): the Sprint 126 dry-run integration test collides with reputation's 03:30 cron in
+  the CI stack. The fix touches reputation-service plus `tests/docker-compose.test.yml`, outside this PR's scope.
 - **BUG-083..086** (logged 2026-11-01, not scheduled):
   - 083: completed-request retention runs from the last edit, not from completion;
   - 084: POST /matches pre-read race strands an offer;
