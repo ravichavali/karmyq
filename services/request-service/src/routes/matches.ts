@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { query, withTransaction } from '../database/db';
+import { closeProposals, lockRequest, reconcileRequestStatus } from '../db/requestStatus';
 import { getRequestReachability } from '../db/eligibility';
 import { findOwnOffer } from '../db/helpOffersDb';
 import { matchParticipantSql } from '../db/directedAudience';
@@ -342,16 +343,18 @@ router.put('/:id/accept', async (req: AuthenticatedRequest, res: Response) => {
       scheduled_at = req_payload.payload.departure_time;
     }
 
-    // Atomic accept: match → request → free sibling offers → reject siblings, all in
-    // one transaction so a mid-sequence failure can't split match/request/offer state.
+    // Atomic accept: lock the request → accept the match → close the other proposals → derive the request, all in one
+    // transaction, so a mid-sequence failure can't split match/request/offer state.
     const result = await withTransaction(async (q) => {
-      // Serialize concurrent accepts on the SAME request by locking the request row
-      // first. Without this, two sibling proposed matches could both read 'proposed'
-      // and both commit as 'matched'. The lock makes the two accepts run one-at-a-time.
-      await q(
-        `SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE`,
-        [match.request_id]
-      );
+      // The request row lock serializes concurrent accepts on the same request, and the status it returns is current.
+      // BUG-075: only an open request can be matched. A sibling accept that committed first leaves it 'matched'.
+      const requestStatus = await lockRequest(q, match.request_id);
+      if (requestStatus === 'matched') {
+        return { conflict: 'matched' as const };
+      }
+      if (requestStatus !== 'open') {
+        return { conflict: 'not_open' as const };
+      }
 
       // Accept THIS match only if it is still proposed. The row-count guard turns a
       // lost race (the sibling won and rejected this match) into a clean 409.
@@ -362,37 +365,13 @@ router.put('/:id/accept', async (req: AuthenticatedRequest, res: Response) => {
         [id, scheduled_at, travel_time_minutes]
       );
       if (accepted.rowCount === 0) {
-        return { conflict: true as const };
+        return { conflict: 'matched' as const };
       }
 
-      // Update request status to matched
-      await q(
-        `UPDATE requests.help_requests
-         SET status = 'matched'
-         WHERE id = $1`,
-        [match.request_id]
-      );
-
-      // Free the offers of the sibling matches we're about to reject so those
-      // helpers re-enter the active pool (BUG-008). Run BEFORE the reject UPDATE so
-      // the subquery still sees the siblings as 'proposed'.
-      await q(
-        `UPDATE requests.help_offers
-         SET status = 'active'
-         WHERE id IN (
-           SELECT offer_id FROM requests.matches
-           WHERE request_id = $1 AND id != $2 AND status = 'proposed' AND offer_id IS NOT NULL
-         )`,
-        [match.request_id, id]
-      );
-
-      // Reject all other proposed matches for this request
-      await q(
-        `UPDATE requests.matches
-         SET status = 'rejected'
-         WHERE request_id = $1 AND id != $2 AND status = 'proposed'`,
-        [match.request_id, id]
-      );
+      // Reject the other proposals and free their offers (BUG-008) only while each proposal still holds its offer
+      // (BUG-078), then derive the request: 'matched'.
+      await closeProposals(q, match.request_id);
+      await reconcileRequestStatus(q, match.request_id);
 
       // Fetch enriched match data for response (includes payload for frontend fulfillment panel)
       const enriched = await q(
@@ -405,13 +384,18 @@ router.put('/:id/accept', async (req: AuthenticatedRequest, res: Response) => {
       return { enriched };
     });
 
-    // Lost the race: a sibling match was accepted first (this one is now rejected).
     if ('conflict' in result) {
-      return res.status(409).json({
-        success: false,
-        message: 'This request was just matched with someone else',
-        error: 'ALREADY_MATCHED',
-      });
+      return result.conflict === 'matched'
+        ? res.status(409).json({
+            success: false,
+            message: 'This request was just matched with someone else',
+            error: 'ALREADY_MATCHED',
+          })
+        : res.status(409).json({
+            success: false,
+            message: 'This request is no longer open',
+            error: 'REQUEST_NOT_OPEN',
+          });
     }
 
     // Publish event
@@ -474,20 +458,15 @@ router.put('/:id/reject', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    // Atomic reject: mark rejected → free the linked offer → reopen the request when
-    // no proposed matches remain, all in one transaction so a mid-sequence failure
-    // can't strand the offer or split match/request state.
+    // Atomic reject: mark rejected → free the linked offer → derive the request, all in one transaction, so a
+    // mid-sequence failure can't strand the offer or split match/request state.
     const rejected = await withTransaction(async (q) => {
-      // Serialize against a concurrent accept on the same request (accept locks the
-      // same row), so reject can never run between accept's read and commit.
-      await q(
-        `SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE`,
-        [match.request_id]
-      );
+      // Serialize against a concurrent accept on the same request (accept takes the same lock first), so reject can
+      // never run between accept's read and commit.
+      await lockRequest(q, match.request_id);
 
       // Reject only while still proposed. Without the status guard a reject racing an
-      // accept could flip an accepted (or completed) match back to 'rejected' and
-      // reopen a request that is already matched.
+      // accept could flip an accepted (or completed) match back to 'rejected'.
       const result = await q(
         `UPDATE requests.matches
          SET status = 'rejected'
@@ -498,31 +477,17 @@ router.put('/:id/reject', async (req: AuthenticatedRequest, res: Response) => {
         return false;
       }
 
-      // Free the linked offer back to the active pool so the helper re-enters
-      // matching (mirrors the cancel path). Without this the offer is stranded in
-      // 'matched' forever and the helper silently disappears from /offers (BUG-008).
+      // Free the linked offer back to the active pool so the helper re-enters matching (BUG-008), but only while
+      // this proposal still holds it: an offer the helper withdrew stays withdrawn (BUG-078).
       if (match.offer_id) {
         await q(
-          `UPDATE requests.help_offers SET status = 'active' WHERE id = $1`,
+          `UPDATE requests.help_offers SET status = 'active' WHERE id = $1 AND status = 'matched'`,
           [match.offer_id]
         );
       }
 
-      // Check if there are any remaining proposed matches
-      const remainingMatches = await q(
-        `SELECT COUNT(*) as count FROM requests.matches
-         WHERE request_id = $1 AND status = 'proposed'`,
-        [match.request_id]
-      );
-
-      // If no more proposed matches, reopen the request — but never reopen one that a
-      // concurrent accept just transitioned to 'matched'.
-      if (remainingMatches.rows[0].count === '0') {
-        await q(
-          `UPDATE requests.help_requests SET status = 'open' WHERE id = $1 AND status != 'matched'`,
-          [match.request_id]
-        );
-      }
+      // BUG-075: derive the request instead of reopening it. A completed, cancelled or dibs_pending request stays so.
+      await reconcileRequestStatus(q, match.request_id);
       return true;
     });
 
@@ -621,11 +586,12 @@ router.put('/:id/complete', async (req: AuthenticatedRequest, res: Response) => 
     // a cancel or a second final mark committing in between is invisible to that read, and the UPDATE re-checks
     // its WHERE on the committed row. A row that turns out already completed keeps the idempotent answer.
     const outcome = await withTransaction(async (q) => {
+      // BUG-078: COALESCE keeps the first mark's time, so a repeat mark (a double click) does not move it.
       // Use a RETURNING clause to get both done_at values in a single statement so we
       // can check if both parties have now confirmed.
       const updateResult = await q(
         `UPDATE requests.matches
-         SET ${doneAtColumn} = CURRENT_TIMESTAMP
+         SET ${doneAtColumn} = COALESCE(${doneAtColumn}, CURRENT_TIMESTAMP)
          WHERE id = $1 AND status = 'matched'
          RETURNING requester_done_at, responder_done_at`,
         [id]
@@ -647,10 +613,9 @@ router.put('/:id/complete', async (req: AuthenticatedRequest, res: Response) => 
           [id]
         );
 
-        await q(
-          `UPDATE requests.help_requests SET status = 'completed' WHERE id = $1`,
-          [match.request_id]
-        );
+        // BUG-078: derive the request, never overwrite it: a cancelled request stays cancelled, and one with a second
+        // helper still matched stays matched. Match row first, then the request row, the same order as cancel.
+        await reconcileRequestStatus(q, match.request_id);
       }
       return finished ? 'completed' as const : 'recorded' as const;
     });
@@ -749,8 +714,7 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
     // BUG-074: cancel only an exchange in progress. The guard is in the UPDATE, not in a status check made before
     // the transaction: a completion committing in between would be invisible to that check, and the UPDATE
     // re-checks its WHERE on the committed row. Lock order is match row, then request row, the same as complete,
-    // so a cancel and a completion cannot deadlock. The request changes only while it is still 'matched'
-    // and no other helper is matched on it; one that still holds a completed exchange becomes 'completed'.
+    // so a cancel and a completion cannot deadlock. The request's status is then derived from its rows (src/db/requestStatus.ts).
     const cancelled = await withTransaction(async (q) => {
       const result = await q(
         `UPDATE requests.matches
@@ -762,21 +726,10 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
         return false;
       }
 
-      await q(
-        `SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE`,
-        [match.request_id]
-      );
-      // Its own statement after the lock, so its snapshot postdates the wait: a single UPDATE that waited on the
-      // row lock would re-check only the request row, while its EXISTS subqueries kept the pre-wait snapshot.
-      await q(
-        `UPDATE requests.help_requests r
-         SET status = CASE
-           WHEN EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = r.id AND m.status = 'completed')
-           THEN 'completed' ELSE 'open' END
-         WHERE r.id = $1 AND r.status = 'matched'
-           AND NOT EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = r.id AND m.status = 'matched')`,
-        [match.request_id]
-      );
+      // Derive the request: it changes only if no other helper is still matched on it, to 'completed' if a completed
+      // exchange remains and 'open' otherwise (BUG-074); a cancelled request stays cancelled. Match row first, then the
+      // request row (inside reconcile), the same order as complete.
+      await reconcileRequestStatus(q, match.request_id);
 
       // Free the offer only while this exchange still holds it; a withdrawn offer stays withdrawn.
       if (match.offer_id) {

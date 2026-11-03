@@ -78,6 +78,8 @@ You can only send dibs to one provider per request. There is no retry: once a te
 - The match appears in your Helping tab immediately.
 - Karma works the same as any other match.
 
+While your dibs invitation is pending, the request is not open to other offers. If you cancel the request in the meantime, the provider can no longer accept.
+
 **If the provider declines:**
 - Your request is immediately broadcast to the public feed.
 - Any eligible provider in your communities can now respond.

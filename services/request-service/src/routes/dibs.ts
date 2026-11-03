@@ -2,13 +2,12 @@ import { notDirectedSql } from '../db/directedAudience';
 import { Router, Response } from 'express';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { query, withTransaction } from '../database/db';
-import pool from '../database/db';
 import { publishEvent } from '../events/publisher';
+import { closeProposals, lockRequest, reconcileRequestStatus } from '../db/requestStatus';
 import {
   createDibs,
   getDibsById,
   getDibsByRequestId,
-  updateDibsStatus,
   getPendingDibsForProvider,
   getEligibleCandidates,
   getMutualAidCandidates,
@@ -228,17 +227,23 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
 
     // Dibs insert + request status transition commit or roll back together. The insert
     // must run on the SAME transaction client (passed as `q`) — on the pool it would
-    // survive a rollback of the status update, leaving an orphaned dibs row.
+    // survive a rollback, leaving an orphaned dibs row. BUG-075: the request must still be open when the dibs is
+    // written; the status check above is a fast path only.
     const dibsRecord = await withTransaction(async (q) => {
+      if ((await lockRequest(q, requestId)) !== 'open') {
+        return null;
+      }
       const created = await createDibs(requestId, userId, providerUserId, expiresAt, q);
-
-      await q(
-        `UPDATE requests.help_requests r SET status = 'dibs_pending' WHERE ${notDirectedSql('r')} AND id = $1`,
-        [requestId]
-      );
-
+      await reconcileRequestStatus(q, requestId);
       return created;
     });
+    if (!dibsRecord) {
+      return res.status(409).json({
+        success: false,
+        message: 'Request is not available for dibs',
+        error: 'REQUEST_NOT_OPEN',
+      });
+    }
 
     // Publish event (best-effort — Redis outage must not fail the dibs creation)
     try {
@@ -279,7 +284,7 @@ router.get('/dibs/pending-for-provider', authMiddleware, async (req: Authenticat
 // ── PUT /requests/dibs/:id/accept ─────────────────────────────────────────────
 //
 // Provider accepts a pending dibs invitation.
-// Creates a match and sets request status to 'matched'.
+// Creates a match, closes any stale proposals, and derives the request status ('matched', src/db/requestStatus.ts).
 
 router.put('/dibs/:id/accept', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   const { id: dibsId } = req.params;
@@ -315,35 +320,60 @@ router.put('/dibs/:id/accept', authMiddleware, async (req: AuthenticatedRequest,
       });
     }
 
-    // Wrap accept writes in a transaction
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-
-      await client.query(
-        `UPDATE requests.dibs SET status = 'accepted', updated_at = NOW() WHERE id = $1`,
+    // Lock order: the dibs row, then the request row, the same order as cleanup-service's expiry job, so the two
+    // cannot deadlock. Every refusal is decided before the first write.
+    const outcome = await withTransaction(async (q) => {
+      // The row as it is after any wait for its lock. Liveness uses the wall clock (clock_timestamp), not NOW(), which
+      // is this transaction's start and could predate an expiry that passed while it waited.
+      const locked = await q(
+        `SELECT status, expires_at > clock_timestamp() AS live FROM requests.dibs WHERE id = $1 FOR UPDATE`,
         [dibsId]
       );
+      const row = locked.rows[0];
+      if (!row || row.status !== 'pending') {
+        return 'dibs_not_pending' as const;
+      }
+      if (!row.live) {
+        return 'dibs_expired' as const;
+      }
+      // BUG-075: accept only while the request is still waiting on this dibs (not cancelled, matched or reopened).
+      if ((await lockRequest(q, dibs.request_id)) !== 'dibs_pending') {
+        return 'request_not_waiting' as const;
+      }
+      // Liveness again, in the write: lockRequest above may have waited past expires_at. The dibs row lock is still
+      // held, so the status is still 'pending', and a miss here can only mean the invitation expired during that wait.
+      const accepted = await q(
+        `UPDATE requests.dibs SET status = 'accepted', updated_at = NOW() WHERE id = $1 AND status = 'pending' AND expires_at > clock_timestamp()`,
+        [dibsId]
+      );
+      if (accepted.rowCount === 0) {
+        return 'dibs_expired' as const;
+      }
 
       // Create a match record
-      await client.query(
+      await q(
         `INSERT INTO requests.matches (request_id, responder_id, status)
          VALUES ($1, $2, 'matched')`,
         [dibs.request_id, dibs.provider_user_id]
       );
+      // BUG-075: no stale proposal may outlive the exchange. Then derive the request: 'matched'.
+      await closeProposals(q, dibs.request_id);
+      await reconcileRequestStatus(q, dibs.request_id);
+      return 'accepted' as const;
+    });
 
-      // Update request status
-      await client.query(
-        `UPDATE requests.help_requests r SET status = 'matched' WHERE ${notDirectedSql('r')} AND id = $1`,
-        [dibs.request_id]
-      );
-
-      await client.query('COMMIT');
-    } catch (txErr) {
-      await client.query('ROLLBACK');
-      throw txErr;
-    } finally {
-      client.release();
+    if (outcome === 'request_not_waiting') {
+      return res.status(409).json({
+        success: false,
+        message: 'This request is no longer waiting on your dibs',
+        error: 'REQUEST_NOT_OPEN',
+      });
+    }
+    if (outcome === 'dibs_not_pending') {
+      return res.status(409).json({ success: false, message: 'Dibs is no longer pending', error: 'INVALID_STATE' });
+    }
+    if (outcome === 'dibs_expired') {
+      return res.status(410).json({ success: false, message: 'This dibs invitation has expired', error: 'DIBS_EXPIRED' });
     }
 
     // Publish event (best-effort)
@@ -368,7 +398,7 @@ router.put('/dibs/:id/accept', authMiddleware, async (req: AuthenticatedRequest,
 // ── PUT /requests/dibs/:id/decline ────────────────────────────────────────────
 //
 // Provider declines a pending dibs invitation.
-// Resets request status to 'open'.
+// The request's status is then derived (src/db/requestStatus.ts): it reopens only if nothing else holds it.
 
 router.put('/dibs/:id/decline', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   const { id: dibsId } = req.params;
@@ -405,28 +435,21 @@ router.put('/dibs/:id/decline', authMiddleware, async (req: AuthenticatedRequest
       });
     }
 
-    // Wrap decline writes in a transaction
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-
-      await client.query(
-        `UPDATE requests.dibs SET status = 'declined', updated_at = NOW() WHERE id = $1`,
+    const declined = await withTransaction(async (q) => {
+      // The guarded dibs UPDATE locks the dibs row before reconcile locks the request (cleanup's order).
+      const result = await q(
+        `UPDATE requests.dibs SET status = 'declined', updated_at = NOW() WHERE id = $1 AND status = 'pending'`,
         [dibsId]
       );
-
-      // Reopen the request
-      await client.query(
-        `UPDATE requests.help_requests r SET status = 'open' WHERE ${notDirectedSql('r')} AND id = $1`,
-        [dibs.request_id]
-      );
-
-      await client.query('COMMIT');
-    } catch (txErr) {
-      await client.query('ROLLBACK');
-      throw txErr;
-    } finally {
-      client.release();
+      if (result.rowCount === 0) {
+        return false;
+      }
+      // BUG-075: derive the request instead of reopening it; a cancelled or matched request stays so.
+      await reconcileRequestStatus(q, dibs.request_id);
+      return true;
+    });
+    if (!declined) {
+      return res.status(409).json({ success: false, message: 'Dibs is no longer pending', error: 'INVALID_STATE' });
     }
 
     // Publish event (best-effort)
@@ -475,12 +498,20 @@ router.post('/dibs/:id/expire', authMiddleware, async (req: AuthenticatedRequest
       });
     }
 
-    await updateDibsStatus(dibsId, 'expired');
-
-    await query(
-      `UPDATE requests.help_requests r SET status = 'open' WHERE ${notDirectedSql('r')} AND id = $1`,
-      [dibs.request_id]
-    );
+    const expired = await withTransaction(async (q) => {
+      const result = await q(
+        `UPDATE requests.dibs SET status = 'expired', updated_at = NOW() WHERE id = $1 AND status = 'pending'`,
+        [dibsId]
+      );
+      if (result.rowCount === 0) {
+        return false;
+      }
+      await reconcileRequestStatus(q, dibs.request_id);
+      return true;
+    });
+    if (!expired) {
+      return res.status(409).json({ success: false, message: 'Dibs is no longer pending', error: 'INVALID_STATE' });
+    }
 
     // Publish event (best-effort)
     try {

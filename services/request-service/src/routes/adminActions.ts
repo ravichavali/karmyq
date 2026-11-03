@@ -1,7 +1,8 @@
 import { notDirectedSql } from '../db/directedAudience';
 import { Router, Request, Response } from 'express';
 import { RouteParams } from '@karmyq/shared/middleware/auth';
-import { query } from '../database/db';
+import { query, withTransaction } from '../database/db';
+import { lockRequest } from '../db/requestStatus';
 import { hasLiveRoleInRequestCommunities } from '../db/liveRole';
 import { publishEvent } from '../events/publisher';
 
@@ -131,23 +132,35 @@ router.post('/:id/propose-match', async (req: Request<RouteParams>, res: Respons
       return res.status(400).json({ success: false, message: 'Proposed user is not a member of this request\'s community' });
     }
 
-    // Prevent duplicate proposed matches for the same user
-    const existingMatch = await query(
-      `SELECT id FROM requests.matches WHERE request_id = $1 AND responder_id = $2 AND status = 'proposed'`,
-      [id, user_id]
-    );
-    if (existingMatch.rows.length > 0) {
-      return res.status(409).json({ success: false, message: 'A proposed match already exists for this user' });
+    // BUG-075: propose only on an open request. The lock makes the status current and serializes the duplicate check
+    // and the insert against an accept, a dibs and a cancel on the same request.
+    const outcome = await withTransaction(async (q) => {
+      if ((await lockRequest(q, id)) !== 'open') {
+        return { conflict: 'not_open' as const };
+      }
+      // Prevent duplicate proposed matches for the same user
+      const existingMatch = await q(
+        `SELECT id FROM requests.matches WHERE request_id = $1 AND responder_id = $2 AND status = 'proposed'`,
+        [id, user_id]
+      );
+      if (existingMatch.rows.length > 0) {
+        return { conflict: 'duplicate' as const };
+      }
+      const result = await q(
+        `INSERT INTO requests.matches (request_id, responder_id, status, admin_proposed)
+         VALUES ($1, $2, 'proposed', TRUE)
+         RETURNING *`,
+        [id, user_id]
+      );
+      return { match: result.rows[0] };
+    });
+    if ('conflict' in outcome) {
+      return outcome.conflict === 'duplicate'
+        ? res.status(409).json({ success: false, message: 'A proposed match already exists for this user' })
+        : res.status(409).json({ success: false, message: 'This request is no longer open', error: 'REQUEST_NOT_OPEN' });
     }
 
-    const result = await query(
-      `INSERT INTO requests.matches (request_id, responder_id, status, admin_proposed)
-       VALUES ($1, $2, 'proposed', TRUE)
-       RETURNING *`,
-      [id, user_id]
-    );
-
-    const match = result.rows[0];
+    const match = outcome.match;
 
     // Optionally publish event — don't break if queue unavailable
     try {

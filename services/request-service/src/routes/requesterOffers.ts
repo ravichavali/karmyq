@@ -37,6 +37,13 @@ router.put('/offers/:id/accept', authMiddleware, async (req: AuthenticatedReques
         error: 'FORBIDDEN',
       });
     }
+    if (offer === 'REQUEST_NOT_OPEN') {
+      return res.status(409).json({
+        success: false,
+        message: 'This request is no longer open',
+        error: 'REQUEST_NOT_OPEN',
+      });
+    }
     if (!offer) {
       return res.status(404).json({
         success: false,

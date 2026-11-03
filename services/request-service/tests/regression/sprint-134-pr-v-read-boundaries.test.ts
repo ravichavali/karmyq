@@ -46,10 +46,29 @@ function app(caller: string | null = VIEWER) {
 beforeEach(() => { mockQuery.mockReset(); jest.mocked(publishEvent).mockClear(); });
 
 const writes = [
-  { method: 'put', suffix: '', body: { title: 'Updated', status: 'completed', user_id: OWNER } },
-  { method: 'delete', suffix: '', body: { user_id: OWNER } },
-  { method: 'put', suffix: '/privacy', body: { is_public: true, user_id: OWNER } },
+  // Sprint 135 (BUG-075): the PUT body no longer carries `status`; an edit cannot set it (400 STATUS_NOT_EDITABLE,
+  // asserted below). It was only setup here for the ownership-binding behaviour these cases test.
+  // `bound` is the ownership predicate the mutation must carry; `returning` is whether it reads its row back. The
+  // owner cancel is a guarded UPDATE whose rowCount decides the 404 (vanished row), so it has no RETURNING.
+  // `events` is how many events an owner write publishes: the PUT used to publish request_completed for a
+  // status: 'completed' edit, and that path is gone, so a plain edit publishes none.
+  { method: 'put', suffix: '', body: { title: 'Updated', user_id: OWNER }, bound: /AND requester_id = \$\d+/, returning: true, events: 0 },
+  { method: 'delete', suffix: '', body: { user_id: OWNER }, bound: /AND r\.requester_id = \$2/, returning: false, events: 1 },
+  { method: 'put', suffix: '/privacy', body: { is_public: true, user_id: OWNER }, bound: /AND requester_id = \$\d+/, returning: true, events: 1 },
 ] as const;
+
+// Owner replies keyed by statement, so the delete's multi-statement transaction needs no positional script.
+// `vanish` makes the owner mutation (the PUT UPDATE ... RETURNING, or the cancel UPDATE) change no row.
+function ownerReplies(vanish: boolean) {
+  mockQuery.mockImplementation(async (sql: string) => {
+    const s = String(sql);
+    if (/^\s*SELECT requester_id FROM requests\.help_requests/.test(s)) return { rowCount: 1, rows: [{ requester_id: VIEWER }] };
+    if (/SELECT CASE\s+WHEN r\.status = 'cancelled'/.test(s)) return { rowCount: 1, rows: [{ status: 'open' }] };
+    if (/^\s*UPDATE requests\.help_requests/.test(s)) return vanish ? { rowCount: 0, rows: [] } : { rowCount: 1, rows: [{ id: ID }] };
+    return { rowCount: 1, rows: [{ id: ID }] };
+  });
+}
+const mutationCall = () => mockQuery.mock.calls.find(([sql]) => /^\s*UPDATE requests\.help_requests/.test(String(sql)))!;
 
 describe('request owner-write opacity', () => {
   it.each(writes)('$method :id$suffix hides foreign ids and ignores forged body identity', async ({ method, suffix, body }) => {
@@ -69,23 +88,36 @@ describe('request owner-write opacity', () => {
     expect(foreign.body).toEqual(missing.body);
   });
 
-  it.each(writes)('$method :id$suffix binds ownership again on mutation and permits owner', async ({ method, suffix, body }) => {
-    mockQuery.mockResolvedValueOnce({ rowCount: 1, rows: [{ requester_id: VIEWER }] })
-      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: ID }] });
+  it.each(writes)('$method :id$suffix binds ownership again on mutation and permits owner', async ({ method, suffix, body, bound, returning, events }) => {
+    ownerReplies(false);
     const res = await request(app())[method](`/requests/${ID}${suffix}`).send(body);
     expect(res.status).toBe(200);
-    const [sql, params] = mockQuery.mock.calls[1];
-    expect(sql).toMatch(/AND requester_id = \$\d+/);
+    const [sql, params] = mutationCall();
+    expect(sql).toMatch(bound);
     expect(params.slice(-2)).toEqual([ID, VIEWER]);
-    expect(sql).toMatch(/RETURNING/);
-    expect(publishEvent).toHaveBeenCalledTimes(1);
+    if (returning) expect(sql).toMatch(/RETURNING/);
+    else expect(sql).not.toMatch(/RETURNING/);
+    expect(publishEvent).toHaveBeenCalledTimes(events);
   });
 
   it.each(writes)('$method :id$suffix publishes nothing if the row vanishes before mutation', async ({ method, suffix, body }) => {
-    mockQuery.mockResolvedValueOnce({ rowCount: 1, rows: [{ requester_id: VIEWER }] })
-      .mockResolvedValueOnce({ rowCount: 0, rows: [] });
+    ownerReplies(true);
     const res = await request(app())[method](`/requests/${ID}${suffix}`).send(body);
     expect(res.status).toBe(404);
+    expect(publishEvent).not.toHaveBeenCalled();
+  });
+
+  it('put :id refuses a body that sets status: 400 STATUS_NOT_EDITABLE after the ownership lookup, no write, no event', async () => {
+    ownerReplies(false);
+    const res = await request(app()).put(`/requests/${ID}`).send({ title: 'Updated', status: 'completed' });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({
+      success: false,
+      message: "A request's status changes through its exchanges, not an edit",
+      error: 'STATUS_NOT_EDITABLE',
+    });
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockQuery.mock.calls[0][1]).toEqual([ID, VIEWER]);
     expect(publishEvent).not.toHaveBeenCalled();
   });
 

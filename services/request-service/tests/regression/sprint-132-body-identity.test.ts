@@ -58,6 +58,8 @@ beforeEach(() => {
     if (/FROM communities\.members/.test(s))
       return params[1] === OWNER ? { rows: [{ id: 'm1' }], rowCount: 1 } : { rows: [], rowCount: 0 };
     if (/offer_ttl_days/.test(s)) return { rows: [], rowCount: 0 };
+    // Sprint 135: lockRequest's derived-status read. Without a status it returns null and the cancel answers 404.
+    if (/SELECT CASE\s+WHEN r\.status = 'cancelled'/.test(s)) return { rows: [{ status: 'open' }], rowCount: 1 };
     return { rows: [{ id: ID }], rowCount: 1 };
   });
 });
@@ -72,7 +74,14 @@ describe('BUG-061: DELETE /requests/:id cancels only as the JWT requester', () =
   it('lets the requester cancel with no body user_id', async () => {
     const res = await request(await buildApp(OWNER)).delete(`/requests/${ID}`);
     expect(res.status).toBe(200);
-    expect(writes()).toHaveLength(1);
+    // Sprint 135: the cancel is the guarded request write, closeProposals' two (offers, then matches) and the dibs expiry.
+    const sqls = writes().map(([sql]) => String(sql).replace(/\s+/g, ' ').trim());
+    expect(sqls).toHaveLength(4);
+    expect(sqls[0]).toContain("UPDATE requests.help_requests r SET status = 'cancelled'");
+    expect(writes()[0][1]).toEqual([ID, OWNER]);
+    expect(sqls[1]).toContain("UPDATE requests.help_offers SET status = 'active'");
+    expect(sqls[2]).toContain("UPDATE requests.matches SET status = 'rejected'");
+    expect(sqls[3]).toContain("UPDATE requests.dibs SET status = 'expired'");
   });
 });
 

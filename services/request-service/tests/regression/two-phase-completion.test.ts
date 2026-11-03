@@ -110,7 +110,8 @@ describe('PUT /matches/:id/complete — two-phase completion', () => {
         rows: [{ requester_done_at: new Date(), responder_done_at: new Date() }],
       })
       .mockResolvedValueOnce({ rows: [] })                                   // UPDATE status='completed'
-      .mockResolvedValueOnce({ rows: [] })                                   // UPDATE help_requests status='completed'
+      .mockResolvedValueOnce({ rows: [] })                                   // reconcile: request row lock
+      .mockResolvedValueOnce({ rows: [] })                                   // reconcile: derive help_requests.status
       .mockResolvedValueOnce({ rows: [] });                                   // feed_events INSERT (fire-and-forget)
 
     const app = await buildApp('helper-user');
@@ -121,6 +122,14 @@ describe('PUT /matches/:id/complete — two-phase completion', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.fully_completed).toBe(true);
     expect(res.body.data.waiting_for).toBeNull();
+
+    // Sprint 135: the request status is derived (lock, then reconcile), never overwritten with 'completed'.
+    const sql = (n: number) => String(mockQuery.mock.calls[n][0]).replace(/\s+/g, ' ').trim();
+    expect(sql(1)).toContain('responder_done_at = COALESCE(responder_done_at, CURRENT_TIMESTAMP)');
+    expect(sql(2)).toContain("UPDATE requests.matches SET status = 'completed'");
+    expect(sql(3)).toBe('SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE');
+    expect(sql(4)).toContain('UPDATE requests.help_requests r SET status = CASE');
+    expect(sql(4)).toContain("WHERE r.id = $1 AND r.status <> 'cancelled'");
 
     // Must have published the karma event exactly once
     expect(mockPublishEvent).toHaveBeenCalledTimes(1);

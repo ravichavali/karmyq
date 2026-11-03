@@ -160,7 +160,7 @@ Click the ⚡ Boost button on any open request in Stewardship → Steward reques
 
 ### Suggest a Helper (Propose a Match)
 
-Click **Propose a Match** on any open request. Select a community member from the picker. They'll see "Suggested by your community admin" in their Helping tab and can Accept or Decline the suggestion. You're surfacing the opportunity — the decision stays with them.
+Click **Propose a Match** on any open request. Select a community member from the picker. They'll see "Suggested by your community admin" in their Helping tab and can Accept or Decline the suggestion. You're surfacing the opportunity — the decision stays with them. If the request stops being open before you propose, you see "This request is no longer open".
 
 ### When to Use Each
 

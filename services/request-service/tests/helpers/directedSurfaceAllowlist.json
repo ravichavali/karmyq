@@ -133,12 +133,6 @@
   },
   {
     "file": "services/request-service/src/db/offersDb.ts",
-    "hash": "d5225b8128e900c57c127a85b57ac4df493b9ecccdb5defcbbdd3d2d0c57a3c3",
-    "reason": "Mutation after requester authorization.",
-    "label": "UPDATE requests.help_requests SET status = 'matched'"
-  },
-  {
-    "file": "services/request-service/src/db/offersDb.ts",
     "hash": "af9c9a33ac98406db17d0c6340379b40a16ff33a78465b4d39923f8a0bf720d7",
     "reason": "Single-offer lifecycle lookup; requester authorization precedes returned content.",
     "label": "SELECT o.*, hr.requester_id as requester_user_id"
@@ -154,42 +148,6 @@
     "hash": "22836db62d4355602ad6e3056cd42c356ca037b754bdc86e75815125b6e3331b",
     "reason": "Scheduling lookup after audience-guarded participant acceptance.",
     "label": "SELECT request_type, payload FROM requests.help_requests WHERE id = $1"
-  },
-  {
-    "file": "services/request-service/src/routes/matches.ts",
-    "hash": "37124d9f2e06b7288bff3cb329dfa34f6ac4d8f0034b49aba06a1f02a4de487e",
-    "reason": "Lifecycle lock after audience-guarded participation.",
-    "label": "SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE"
-  },
-  {
-    "file": "services/request-service/src/routes/matches.ts",
-    "hash": "1aaaaca20484aa7929b0d2fd795ff3361f931638951a6f346ffe8da9df43c05c",
-    "reason": "Mutation after audience and participant validation.",
-    "label": "SET status = 'matched'"
-  },
-  {
-    "file": "services/request-service/src/routes/matches.ts",
-    "hash": "37124d9f2e06b7288bff3cb329dfa34f6ac4d8f0034b49aba06a1f02a4de487e",
-    "reason": "Lifecycle lock after audience-guarded participation.",
-    "label": "SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE"
-  },
-  {
-    "file": "services/request-service/src/routes/matches.ts",
-    "hash": "e8fc886f1c6245614449e5fc3e8d1ff86500013d5f28fd50c1a3cdd98cf7a1ac",
-    "reason": "Mutation after audience and participant validation.",
-    "label": "SET status = 'open'"
-  },
-  {
-    "file": "services/request-service/src/routes/matches.ts",
-    "hash": "b8396be5f62390cde5ff758618b95e1d3210b09abfbc1ad915e063982ac93709",
-    "reason": "Mutation after audience and participant validation.",
-    "label": "SET status = 'completed'"
-  },
-  {
-    "file": "services/request-service/src/routes/matches.ts",
-    "hash": "e267659f5d6769363b4408cd9198eaa01fa276a8e43f8c2f3091355e46f066aa",
-    "reason": "Mutation after audience and participant validation.",
-    "label": "SET status = CASE"
   },
   {
     "file": "services/request-service/src/routes/providerOffers.ts",
@@ -232,12 +190,6 @@
     "hash": "b3f4816c6afea96601681d923cf597babe3b44900ddedb78fb9b22b8169403af",
     "reason": "Owner identity lookup; ownership checked before mutation. Sprint 134 PR V: lookup/mutation binds both request id and verified JWT requester; absent/foreign/vanished rows return 404 before events. Local route tests cover wiring; tests/integration/sprint-133-pr-v-read-boundary.integration.test.ts exercises owner-write behavior against PostgreSQL in CI.",
     "label": "SELECT requester_id FROM requests.help_requests WHERE id = $1 AND requester_id = $2"
-  },
-  {
-    "file": "services/request-service/src/routes/requests.ts",
-    "hash": "9dde4b0525a2e36b0fcf74a463c727eb7867026eda5e7021476cee437a36805d",
-    "reason": "Requester-only cancellation. Sprint 134 PR V: lookup/mutation binds both request id and verified JWT requester; absent/foreign/vanished rows return 404 before events. Local route tests cover wiring; tests/integration/sprint-133-pr-v-read-boundary.integration.test.ts exercises owner-write behavior against PostgreSQL in CI.",
-    "label": "SET status = 'cancelled'"
   },
   {
     "file": "services/request-service/src/routes/requests.ts",
@@ -316,5 +268,29 @@
     "hash": "31325bb3cf1bb6fddf5ab5d90df242c0c1abf5bdb0f291bb7b6b41870a059cdb",
     "reason": "Shared internal health projection and cohort-gated HTTP fallback. Counts distinct requesters/helpers in completed matches attributed through request_communities; returns no identities or request content. Preserves the prior health aggregate policy for directed exchanges. Real-SQL L2 integration covers community isolation and access denial.",
     "label": "COUNT(DISTINCT r.requester_id)"
+  },
+  {
+    "file": "services/request-service/src/db/requestStatus.ts",
+    "hash": "37124d9f2e06b7288bff3cb329dfa34f6ac4d8f0034b49aba06a1f02a4de487e",
+    "reason": "Lifecycle lock inside an already-authorized writer's transaction (Sprint 135); returns nothing to the client.",
+    "label": "SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE"
+  },
+  {
+    "file": "services/request-service/src/db/requestStatus.ts",
+    "hash": "be2fd329a6ad6416d027a209ad36003d2a1d804a0740c2a1e0a187b42c6561a2",
+    "reason": "Derived lifecycle status read under the lock for an already-authorized writer's precondition (Sprint 135); never returned to the client.",
+    "label": "SELECT CASE WHEN r.status = 'cancelled'"
+  },
+  {
+    "file": "services/request-service/src/db/requestStatus.ts",
+    "hash": "af6e7ddd457071a00754fa25400ef20ae7f6416b2c053f108f7dfc06927de84f",
+    "reason": "Derived status write after the calling writer's audience and participant checks (Sprint 135). The dibs callers reach only non-directed requests: dibs rows are created behind notDirectedSql (dibs.ts) and is_directed is never rewritten.",
+    "label": "UPDATE requests.help_requests r SET status = CASE"
+  },
+  {
+    "file": "services/request-service/src/db/requestStatus.ts",
+    "hash": "e2b3e5381e4ecbc4ec714e83e6d0c6f32c692323b85a59085b40b43b673ec5b1",
+    "reason": "Requester-only cancellation: binds the id and the verified JWT requester in the write (Sprint 135).",
+    "label": "UPDATE requests.help_requests r SET status = 'cancelled'"
   }
 ]

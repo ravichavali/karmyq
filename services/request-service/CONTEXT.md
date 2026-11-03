@@ -7,6 +7,26 @@
 
 ## Recent Changes
 
+- **2026-11-01 (Sprint 135, BUG-075 + BUG-078)**: a request's status follows its rows, and `src/db/requestStatus.ts` is
+  the only module that writes it (`reconcileRequestStatus`, `markRequestCancelled`), plus cleanup-service's
+  `expireDibs.ts` request write. The derived status is `cancelled` if cancelled, else `matched` (a `matched` match),
+  else `completed` (a `completed` match), else `dibs_pending` (a `pending` dibs), else `open`. `lockRequest` locks
+  the request row and returns that derived status, which every precondition reads. The ten writers (plus the test-only `/expire`) now guard their
+  rows and derive instead of overwrite: `PUT /matches/:id/accept`, `/reject`, `/complete`,
+  `POST /requests/:id/propose-match`, `POST /requests/:id/dibs`, `PUT /requests/dibs/:id/accept` and `/decline`,
+  `PUT /requests/offers/:id/accept` (now one transaction), `PUT /requests/:id` and
+  `DELETE /requests/:id`. BUG-074's already-guarded `DELETE /matches/:id` now shares the helper. New codes: 409 `REQUEST_NOT_OPEN` (a request that is not open refuses a new match, dibs or
+  provider-offer accept), 409 `REQUEST_NOT_CANCELLABLE` and `REQUEST_HAS_ACTIVE_EXCHANGE` (cancel), 400
+  `STATUS_NOT_EDITABLE` (an edit cannot set a status). `closeProposals` frees a proposal's offer only while it is
+  `matched`, so a withdrawn offer stays withdrawn (BUG-078). `done_at` keeps its first stamp (`COALESCE`). A late
+  "mark done" on a cancelled request completes the exchange and leaves the request cancelled. `request_completed` is no
+  longer published (its only publisher was the status edit; it is still in `UNCONSUMED_EVENTS`). Tests: the promoted
+  contract files `tests/regression/sprint-135-request-status-{helper,gate,writers}.test.ts` (the gate fails on a
+  request-status write outside the reviewed list), cleanup-service's
+  `tests/regression/sprint-135-expire-dibs-guard.test.ts`, and the real-SQL root
+  `tests/integration/sprint-135-request-status-guards.integration.test.ts` (CI-only on Windows). No migration,
+  schema or dependency change from this fix. The 2026-10-29 demo rows are not repaired here.
+
 - **2026-10-29 (Sprint 134 BUG-074)**: `DELETE /matches/:id` and `PUT /matches/:id/complete` change a match only while
   it is `matched`. Anything else answers 409 `MATCH_NOT_CANCELLABLE` / `MATCH_NOT_COMPLETABLE` (ADR-074 string
   codes). The guard is in the write (`UPDATE ... WHERE id = $1 AND status = 'matched'`), not in a prior read, so a
@@ -394,6 +414,15 @@ CREATE INDEX idx_help_requests_community_id ON requests.help_requests(community_
 CREATE INDEX idx_help_requests_status ON requests.help_requests(status);
 CREATE INDEX idx_help_requests_category ON requests.help_requests(category);
 ```
+
+**Request status (Sprint 135, BUG-075).** `help_requests.status` (`open`, `dibs_pending`, `matched`, `completed`,
+`cancelled`; `chk_help_requests_status`) is derived from the request's rows, not set by hand: `cancelled` stays
+cancelled; otherwise `matched` while a match is `matched`, `completed` once a match is `completed`, `dibs_pending`
+while a dibs is `pending`, else `open`. Only `src/db/requestStatus.ts` writes it (`reconcileRequestStatus`, called
+by every writer after its own row changes, in the same transaction and under the request lock; `markRequestCancelled`
+for the requester's decision), plus cleanup-service's `expireDibs.ts`, which reopens a request only while it is
+`dibs_pending`. `lockRequest` returns the derived status for preconditions. Gate:
+`tests/regression/sprint-135-request-status-gate.test.ts`.
 
 **requests.request_admin_notes** - Community-scoped admin triage notes (Sprint 25)
 ```sql
@@ -1048,24 +1077,40 @@ Update help request (requester only).
   "user_id": "uuid",
   "title": "Updated title",
   "description": "Updated description",
-  "urgency": "low",
-  "status": "completed"
+  "urgency": "low"
 }
 ```
 
 **Authorization:** Only the original requester can update
 
-**Events Published:** `request.completed` (when status changed to 'completed')
+**Refusal (Sprint 135, BUG-075):** a body `status` is refused with **400** `STATUS_NOT_EDITABLE` ("A request's status
+changes through its exchanges, not an edit"). It is checked after the ownership lookup, so a foreign or absent id still
+answers 404. Nothing is written or published on a refusal.
 
-**Implementation:** `src/routes/requests.ts:235`
+**Events Published:** none from the status. `request_completed` is no longer published (Sprint 135).
+
+**Implementation:** `src/routes/requests.ts:1975`
 
 #### DELETE /requests/:id
 Cancel help request (requester only). The caller is the JWT user; no body. A body `user_id` is
 ignored (BUG-061). Non-requester → 403; no JWT identity → 401.
 
-**Events Published:** `request.cancelled`
+**Sprint 135 (BUG-075):** the cancel is decided on the request's derived status under the request lock (a pending dibs
+on the ask is locked first). Only an `open` or `dibs_pending` request cancels:
+- **409** `REQUEST_NOT_CANCELLABLE` ("Only an open request can be cancelled") for a `completed` or `cancelled` request;
+- **409** `REQUEST_HAS_ACTIVE_EXCHANGE` ("This request has an exchange in progress, so it cannot be cancelled") for a
+  `matched` one.
 
-**Implementation:** `src/routes/requests.ts:316`
+A cancel that happens is `markRequestCancelled` (bound to the JWT requester), then `closeProposals` (every open proposal
+is rejected, its offer freed only while `matched`), then the ask's pending dibs is **expired** in the same transaction,
+with no event: it leaves the provider's pending list, and an accept or decline then answers 409 `INVALID_STATE`. The expiry is `FOR UPDATE SKIP LOCKED`, so a dibs another transaction holds is skipped
+(the request lock is already held, so it must not wait): it stays `pending` on the cancelled ask, its accept then
+refuses 409 `REQUEST_NOT_OPEN`, and cleanup-service expires it at `expires_at`. Every
+refusal is decided before the first write.
+
+**Events Published:** `request_cancelled` (only for a cancel that happened)
+
+**Implementation:** `src/routes/requests.ts:2056`
 
 #### PUT /requests/:id/privacy
 Update privacy settings for a request (Social Karma v2.0).
@@ -1505,8 +1550,11 @@ Admin proposes a specific community member as a helper (Sprint 36). Creates a re
 **Errors:**
 - `403` — Caller is not an admin of the community
 - `404` — Request or user not found
+- `409` `REQUEST_NOT_OPEN` ("This request is no longer open") — Sprint 135 (BUG-075): the request must derive `open`
+  under the request lock; the duplicate check and the insert run in the same transaction. A proposed match that already
+  exists for the user is a 409 without a code, as before.
 
-**Implementation:** `src/routes/adminActions.ts`
+**Implementation:** `src/routes/adminActions.ts:95`
 
 #### PATCH /requests/:id/urgent
 Toggle request urgency between `urgent` and `medium` (Sprint 36). Admin only.
@@ -1653,6 +1701,31 @@ ignored — the responder is always the authenticated user.
 
 **Implementation:** `src/routes/matches.ts` — `router.post('/')`.
 
+#### PUT /matches/:id/accept
+Accepts a proposed match (Sprint 135, BUG-075). Participant authorization is unchanged (JWT identity, ADR-064).
+
+**One transaction:** `lockRequest`, then the guarded `UPDATE ... WHERE status = 'proposed'`, then `closeProposals` (the
+other proposals are rejected and their offers freed only while `matched`, BUG-078), then `reconcileRequestStatus`
+(the request becomes `matched`).
+
+**Responses (new):**
+- **409** `REQUEST_NOT_OPEN` ("This request is no longer open") when the request derives `dibs_pending`, `completed` or
+  `cancelled`.
+- 409 `ALREADY_MATCHED` ("This request was just matched with someone else") when it derives `matched`, or the match left
+  `proposed` first. Unchanged.
+
+A refusal writes and publishes nothing.
+
+**Implementation:** `src/routes/matches.ts:281`
+
+#### PUT /matches/:id/reject
+Rejects or withdraws a proposed match; both participants may (Sprint 62). Sprint 135 (BUG-075, BUG-078): the request lock
+is taken first, the `UPDATE` carries `AND status = 'proposed'` (409 `MATCH_NOT_PROPOSED` otherwise, unchanged), the
+linked offer returns to `active` only while it is `matched` (a withdrawn offer stays withdrawn), and the request is
+derived by `reconcileRequestStatus` instead of reopened. A `completed`, `cancelled` or `dibs_pending` request stays so.
+
+**Implementation:** `src/routes/matches.ts:427`
+
 #### PUT /matches/:id/complete
 Two-phase match completion. Each party calls this independently; the match
 only becomes `completed` and karma fires when **both** parties have confirmed.
@@ -1680,15 +1753,19 @@ only becomes `completed` and karma fires when **both** parties have confirmed.
   for a proposed, rejected or cancelled match.
 - 404 when the caller is not a participant or the match does not exist.
 
-A mark is recorded only on a `matched` match: the `done_at` `UPDATE` carries `AND status = 'matched'`.
+A mark is recorded only on a `matched` match: the `done_at` `UPDATE` carries `AND status = 'matched'`. Sprint 135
+(BUG-078): the stamp is `COALESCE(done_at, CURRENT_TIMESTAMP)`, so a repeat mark keeps the first time and answers the same
+200 "waiting".
 
 **Side Effects (first party only):** Sets `requester_done_at` or `responder_done_at` timestamp
 
-**Side Effects (both parties):** Sets `status = 'completed'`, updates request status, fires `match_completed` event
+**Side Effects (both parties):** Sets `status = 'completed'`, derives the request status with
+`reconcileRequestStatus` (a `cancelled` request stays cancelled; one with another `matched` exchange stays `matched`),
+fires `match_completed` event
 
 **Events Published:** `match_completed` (only when both parties have confirmed)
 
-**Implementation:** `src/routes/matches.ts`
+**Implementation:** `src/routes/matches.ts:525`
 
 **Schema changes (migration 017):** Added `requester_done_at TIMESTAMP` and `responder_done_at TIMESTAMP` to `requests.matches`
 
@@ -1706,16 +1783,16 @@ Cancels an exchange in progress (Sprint 134 BUG-074).
   already marked done is still `matched` and can be cancelled.
 - 404 when the caller is not a participant or the match does not exist.
 
-**End states:** the match becomes `cancelled`. The request changes only while it is `matched` and no other match on it
-is `matched`: `completed` if another match on it is `completed`, else `open`. An `open`, `dibs_pending`,
-`completed` or `cancelled` request is never touched. The linked offer returns to `active` only while it is
+**End states:** the match becomes `cancelled`. Sprint 135: the request status is derived by `reconcileRequestStatus`
+(`matched` while another match is `matched`, `completed` if one is `completed`, `dibs_pending` while a dibs waits,
+else `open`); a `cancelled` request stays cancelled. The linked offer returns to `active` only while it is
 `matched`; a withdrawn offer stays withdrawn. Lock order is match row, then request row.
 
 **Events Published:** `match_cancelled`, after commit and only for a cancel that happened. It is in
 `UNCONSUMED_EVENTS` (`packages/shared/events/routes.ts`), so it is not enqueued and nobody is notified.
 
-**Implementation:** `src/routes/matches.ts` — `router.delete('/:id')` (guarded `UPDATE` at :755-760, 409 at :792-797);
-the complete route's guard is at :623-630 and its 409 at :662-667.
+**Implementation:** `src/routes/matches.ts:678` — `router.delete('/:id')`; the complete route is at :525 and the accept and
+reject routes at :281 and :427.
 
 ### 3.3b Provider Offer Endpoints (Sprint 41)
 
@@ -1762,9 +1839,14 @@ Accept a pending provider offer. Creates a match between the requester and the p
 }
 ```
 
+**Sprint 135 (BUG-075):** `acceptOffer` (`src/db/offersDb.ts`) now runs in **one transaction**: `lockRequest`, then the
+offer `UPDATE ... WHERE status = 'pending'`, the match insert, `closeProposals` and `reconcileRequestStatus`. A request
+that is not `open` answers **409** `REQUEST_NOT_OPEN` ("This request is no longer open"); an offer that is no longer
+pending (a lost race) answers 404 `NOT_FOUND`. A refusal writes nothing.
+
 **Events Published:** `offer_accepted`
 
-**Implementation:** `src/routes/providerOffers.ts`
+**Implementation:** `src/routes/requesterOffers.ts:30`, `src/db/offersDb.ts`
 
 #### PUT /requests/offers/:id/decline
 Decline a pending provider offer.
@@ -1865,7 +1947,11 @@ Dibs is a private first-refusal window for any request type. All requests (sched
 - Scheduled: `expires_at = created_at + 0.20 × (scheduled_for − created_at)`
 - ASAP / non-scheduled: `expires_at = created_at + 24h`
 
-**Status flow:** `open` → `dibs_pending` → `matched` (accept) | `open` (decline/expire)
+**Status flow (Sprint 135, BUG-075):** `open` → `dibs_pending` → `matched` (accept) | derived again (decline/expire: `open`
+unless something else holds the request). The request status is always derived by `reconcileRequestStatus`; every dibs
+write is guarded on the dibs still being `pending`. While a dibs is pending the ask is not `open`, so it refuses other
+offers (409 `REQUEST_NOT_OPEN`). Cancelling the ask expires the pending dibs, and the provider's later accept or decline
+answers 409 `INVALID_STATE`.
 
 #### GET /requests/:id/dibs-candidate
 Returns the top-scored dibs candidate for any request. Accepts optional `?type=` query param — `type=service` uses provider-profile candidates; any other value (or missing) uses mutual-aid candidates.
@@ -1937,13 +2023,24 @@ Send dibs to a specific provider or community member. Valid for all request type
 - `400 ASAP_NOT_ELIGIBLE` — Request has no `scheduled_for`
 - `403 NO_PRIOR_INTERACTION` — Provider has no prior interaction with requester
 - `409 DIBS_ALREADY_SENT` — A pending dibs record already exists for this request
+- `409 REQUEST_NOT_OPEN` ("Request is not available for dibs") — the request is not `open`; also on a race, because the
+  lock re-reads the derived status in the transaction (Sprint 135)
 
 **Events Published:** `dibs_submitted`
 
 **Implementation:** `src/routes/dibs.ts`
 
 #### PUT /requests/dibs/:id/accept
-Provider accepts dibs. Creates a `requests.matches` record directly and sets request status to `matched`.
+Provider accepts dibs. Creates a `requests.matches` record directly and derives the request status (`matched`).
+
+**Sprint 135 (BUG-075):** the dibs row is locked first (its status and liveness, `expires_at > clock_timestamp()`), then
+the request. The request must derive `dibs_pending`; the dibs `UPDATE` is guarded on `pending` **and** on
+`expires_at > clock_timestamp()`, because the wait for the request lock can cross the deadline (PR #327 review). Stale
+`proposed` matches are closed (`closeProposals`) before the request is derived. Refusals, none of which write or publish:
+- **409** `REQUEST_NOT_OPEN` ("This request is no longer waiting on your dibs")
+- **409** `INVALID_STATE` ("Dibs is no longer pending"; the pre-read says "Dibs is already <status>")
+- **410** `DIBS_EXPIRED` ("This dibs invitation has expired"), also when it expires while waiting on the dibs lock or on
+  the request lock
 
 **Authentication:** Required (JWT token — must be the dibs provider)
 
@@ -1963,7 +2060,9 @@ Provider accepts dibs. Creates a `requests.matches` record directly and sets req
 **Implementation:** `src/routes/dibs.ts`
 
 #### PUT /requests/dibs/:id/decline
-Provider declines dibs. Reverts request status to `open` for public broadcast.
+Provider declines dibs. Derives the request status (`open` for public broadcast unless something else holds it; a
+`completed`, `cancelled` or `matched` request is not reopened). Sprint 135: the dibs `UPDATE` is guarded on `pending`;
+a lost race answers **409** `INVALID_STATE` ("Dibs is no longer pending").
 
 **Authentication:** Required (JWT token — must be the dibs provider)
 
@@ -2006,7 +2105,8 @@ Returns the authenticated provider's pending dibs records (status = `pending`).
 **Implementation:** `src/routes/dibs.ts`
 
 #### POST /requests/dibs/:id/expire
-TEST-ONLY: Force-expire a dibs record regardless of `expires_at`. Sets status to `expired` and reverts request to `open`.
+TEST-ONLY: Force-expire a dibs record regardless of `expires_at`. Sets status to `expired` (guarded on `pending`, as decline)
+and derives the request status.
 
 **Authentication:** Required (JWT token)
 
@@ -2209,7 +2309,7 @@ Service health check.
 | Event Name | Queue | Payload | When Emitted |
 |------------|-------|---------|--------------|
 | `request.created` | `karmyq-events` | `{ request_id, requester_id, community_id, category }` | After successful request creation |
-| `request.completed` | `karmyq-events` | `{ request_id, requester_id, community_id }` | When request status changed to 'completed' |
+| `request.completed` | `karmyq-events` | `{ request_id, requester_id, community_id }` | No longer published (Sprint 135: its only publisher was the removed `PUT /requests/:id` status edit); still listed in `UNCONSUMED_EVENTS` |
 | `request.cancelled` | `karmyq-events` | `{ request_id, requester_id, community_id }` | When request is cancelled |
 | `offer.created` | `karmyq-events` | `{ offer_id, offerer_id, community_id, category }` | After successful offer creation |
 | `match.created` | `karmyq-events` | `{ match_id, request_id, offer_id, responder_id }` | When request and responder are matched |
@@ -2984,6 +3084,26 @@ CREATE TABLE auth.user_interests (
 - No breaking changes to existing API contracts
 
 ### 10.4 Recent Fixes
+
+**Sprint 135 BUG-075 + BUG-078 — request status guards:**
+
+- **Request-status writers outside BUG-074's routes had no status guard, so completed asks were reopened or re-matched.**
+  Accept set `matched` on any status, reject and dibs decline/expire reopened a `completed`, `cancelled` or
+  `dibs_pending` ask, propose-match and the dibs and provider-offer accepts matched whatever the status, `PUT
+  /requests/:id` wrote a body `status`, and `DELETE /requests/:id` cancelled a completed ask or left a matched
+  exchange on a cancelled one. Now `src/db/requestStatus.ts` is the only writer: each route changes its own row with a
+  guarded statement, then derives the request status under the request lock (`lockRequest` for preconditions,
+  `reconcileRequestStatus` after the write). New refusals: 409 `REQUEST_NOT_OPEN`, `REQUEST_NOT_CANCELLABLE`,
+  `REQUEST_HAS_ACTIVE_EXCHANGE`, 400 `STATUS_NOT_EDITABLE`. Provider-offer accept is one transaction. cleanup-service's
+  dibs expiry writes only a still-pending dibs.
+- **BUG-078 (1):** reject and accept freed a withdrawn offer back to `active`; `closeProposals` and reject now free an
+  offer only while it is `matched`. **(2):** complete's finalize overwrote the request with `completed` (a cancelled
+  request flipped, a request with a second matched helper closed); it now derives. **(3):** a repeat mark moved
+  `done_at`; it now keeps the first stamp (`COALESCE`).
+- Existing demo rows (119 requests with more than one completed match, 2026-10-29) are not repaired; a post-deploy recount
+  is the check. Tests: `tests/regression/sprint-135-request-status-{helper,gate,writers}.test.ts`, cleanup-service's
+  `sprint-135-expire-dibs-guard.test.ts`, and the real-SQL root
+  `tests/integration/sprint-135-request-status-guards.integration.test.ts` (CI-only on Windows).
 
 **Sprint 134 BUG-074 — match cancel and complete status guards:**
 

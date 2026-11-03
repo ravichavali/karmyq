@@ -51,10 +51,11 @@ describe('Sprint 85: decision-band Withdraw Offer (PUT /matches/:id/reject)', ()
   it('lets the responder withdraw their only offer AND reopens the request', async () => {
     mockQuery
       .mockResolvedValueOnce({ rowCount: 1, rows: [PROPOSED_MATCH] }) // matchCheck
-      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })// SELECT request FOR UPDATE (race serialization)
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })// lockRequest: SELECT request FOR UPDATE (race serialization)
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ status: 'open' }] }) // lockRequest: derived status
       .mockResolvedValueOnce({ rowCount: 1, rows: [] })              // conditional UPDATE matches SET status='rejected'
-      .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })// no remaining proposed → reopen
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] });             // UPDATE help_requests SET status='open'
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })// reconcile: request row lock
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] });             // reconcile: derive help_requests.status (no proposal left → open)
 
     const app = await buildMatchesApp('helper-user'); // the RESPONDER
     const res = await request(app).put('/matches/match-1/reject').send();
@@ -68,12 +69,16 @@ describe('Sprint 85: decision-band Withdraw Offer (PUT /matches/:id/reject)', ()
     );
     expect(rejectCall).toBeDefined();
 
-    // ...and because no proposed matches remained, the request was REOPENED to 'open'.
-    const reopenCall = mockQuery.mock.calls.find(
-      ([sql]) => /UPDATE\s+requests\.help_requests\s+SET\s+status\s*=\s*'open'/i.test(sql),
+    // ...and the request's status was re-derived from its rows (Sprint 135, BUG-075): with no proposal, exchange or
+    // dibs left the derivation yields 'open', so the request returns to the feed. The reconcile replaces the old
+    // unconditional `SET status = 'open'` write.
+    const reconcileCall = mockQuery.mock.calls.find(
+      ([sql]) => /UPDATE\s+requests\.help_requests\s+r\s+SET\s+status\s*=\s*CASE/i.test(sql),
     );
-    expect(reopenCall).toBeDefined();
-    expect(reopenCall![1]).toEqual(['req-1']);
+    expect(reconcileCall).toBeDefined();
+    expect(reconcileCall![0]).toMatch(/ELSE\s+'open'\s+END/);
+    expect(reconcileCall![0]).toMatch(/r\.status\s*<>\s*'cancelled'/);
+    expect(reconcileCall![1]).toEqual(['req-1']);
 
     expect(mockPublishEvent).toHaveBeenCalledWith(
       'match_rejected',
@@ -81,21 +86,30 @@ describe('Sprint 85: decision-band Withdraw Offer (PUT /matches/:id/reject)', ()
     );
   });
 
-  it('does NOT reopen the request when other proposed offers remain', async () => {
+  it('reject never writes a literal request status: it derives the request, so other proposed offers keep it open', async () => {
     mockQuery
       .mockResolvedValueOnce({ rowCount: 1, rows: [PROPOSED_MATCH] }) // matchCheck
-      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })// SELECT request FOR UPDATE (race serialization)
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })// lockRequest: SELECT request FOR UPDATE (race serialization)
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ status: 'open' }] }) // lockRequest: derived status
       .mockResolvedValueOnce({ rowCount: 1, rows: [] })              // conditional UPDATE matches SET status='rejected'
-      .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '2' }] });// other proposed remain → no reopen
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })// reconcile: request row lock
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] });             // reconcile: derive (other proposals remain, still open)
 
     const app = await buildMatchesApp('helper-user');
     const res = await request(app).put('/matches/match-1/reject').send();
 
     expect(res.status).toBe(200);
-    const reopenCall = mockQuery.mock.calls.find(
-      ([sql]) => /UPDATE\s+requests\.help_requests\s+SET\s+status\s*=\s*'open'/i.test(sql),
+    // Sprint 135: no statement writes a literal 'open'; the status is derived (the old row-count branch is gone).
+    const requestWrites = mockQuery.mock.calls
+      .map(([sql]) => String(sql).replace(/\s+/g, ' '))
+      .filter((sql) => /UPDATE\s+requests\.help_requests/i.test(sql));
+    // Exactly one request write, and it is the derive-only reconcile (SET status = CASE), never a literal status.
+    expect(requestWrites).toHaveLength(1);
+    expect(requestWrites[0]).toMatch(/SET status = CASE/);
+    const literalOpenWrite = mockQuery.mock.calls.find(
+      ([sql]) => /UPDATE\s+requests\.help_requests/i.test(sql) && /THEN\s+'matched'/i.test(sql) === false,
     );
-    expect(reopenCall).toBeUndefined();
+    expect(literalOpenWrite).toBeUndefined();
   });
 
   it('refuses a non-participant (neither requester nor responder)', async () => {

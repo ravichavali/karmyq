@@ -1,6 +1,7 @@
 import { notDirectedSql, directedAudienceSql, matchParticipantSql } from '../db/directedAudience';
 import { Router, Request, Response } from 'express';
-import { query } from '../database/db';
+import { query, withTransaction } from '../database/db';
+import { closeProposals, lockRequest, markRequestCancelled } from '../db/requestStatus';
 import { getRequestReachability, requestReadableSql } from '../db/eligibility';
 import { isActiveMember } from '../db/liveRole';
 import { publishEvent } from '../events/publisher';
@@ -1998,6 +1999,15 @@ router.put('/:id', async (req: Request, res: Response) => {
       });
     }
 
+    // BUG-075: a request's status follows its exchanges (src/db/requestStatus.ts); an edit cannot set it.
+    if (status !== undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "A request's status changes through its exchanges, not an edit",
+        error: 'STATUS_NOT_EDITABLE',
+      });
+    }
+
     // Build update query
     const updates: string[] = [];
     const values: any[] = [];
@@ -2010,10 +2020,6 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (description !== undefined) {
       updates.push(`description = $${paramCount++}`);
       values.push(description);
-    }
-    if (status !== undefined) {
-      updates.push(`status = $${paramCount++}`);
-      values.push(status);
     }
     if (urgency !== undefined) {
       updates.push(`urgency = $${paramCount++}`);
@@ -2035,13 +2041,6 @@ router.put('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Request not found' });
     }
 
-    if (status === 'completed') {
-      await publishEvent('request_completed', {
-        request_id: id,
-        requester_id: user_id,
-      });
-    }
-
     res.json({
       success: true,
       data: result.rows[0],
@@ -2056,7 +2055,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 // DELETE /requests/:id - Cancel request
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
     // SECURITY (BUG-061, ADR-064): the caller comes from the verified JWT, never the body.
     const user_id = (req as any).user?.userId;
     if (!user_id) {
@@ -2076,17 +2075,46 @@ router.delete('/:id', async (req: Request, res: Response) => {
       });
     }
 
-    // Cancel request
-    const result = await query(
-      `UPDATE requests.help_requests
-       SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
-       WHERE id = $1 AND requester_id = $2
-       RETURNING id`,
-      [id, user_id]
-    );
+    // Sprint 135 (BUG-075): only a request whose derived status is open or dibs_pending can be cancelled. Its proposals
+    // and its pending dibs die with it. Every refusal is decided before the first write.
+    const outcome = await withTransaction(async (q) => {
+      // Lock order: a pending dibs on the request first, then the request: the dibs routes' and cleanup's order.
+      await q(`SELECT id FROM requests.dibs WHERE request_id = $1 AND status = 'pending' FOR UPDATE`, [id]);
+      const status = await lockRequest(q, id);
+      if (status === null) return 'not_found' as const;
+      if (status === 'completed' || status === 'cancelled') return 'not_cancellable' as const;
+      if (status === 'matched') return 'active_exchange' as const;
+      // Guarded in the write and bound to the JWT requester; the lookup above already proved ownership.
+      if (!(await markRequestCancelled(q, id, user_id))) return 'not_found' as const;
+      await closeProposals(q, id);
+      // The provider's invitation ends with the request, so it leaves their pending list now. No event: a
+      // dibs_expired notification would misstate why it ended. SKIP LOCKED: this holds the request lock, so it must
+      // never wait on a dibs row (a concurrent accept holds that row and waits on this lock). A skipped dibs stays
+      // pending on a cancelled request: its accept answers 409 REQUEST_NOT_OPEN, and cleanup expires it at expires_at.
+      await q(
+        `UPDATE requests.dibs SET status = 'expired', updated_at = NOW()
+         WHERE id IN (SELECT id FROM requests.dibs WHERE request_id = $1 AND status = 'pending' FOR UPDATE SKIP LOCKED)`,
+        [id]
+      );
+      return 'cancelled' as const;
+    });
 
-    if (result.rowCount === 0) {
+    if (outcome === 'not_found') {
       return res.status(404).json({ success: false, message: 'Request not found' });
+    }
+    if (outcome === 'not_cancellable') {
+      return res.status(409).json({
+        success: false,
+        message: 'Only an open request can be cancelled',
+        error: 'REQUEST_NOT_CANCELLABLE',
+      });
+    }
+    if (outcome === 'active_exchange') {
+      return res.status(409).json({
+        success: false,
+        message: 'This request has an exchange in progress, so it cannot be cancelled',
+        error: 'REQUEST_HAS_ACTIVE_EXCHANGE',
+      });
     }
 
     // Publish event

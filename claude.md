@@ -32,6 +32,9 @@ same chat. For a long multi-PR sprint: per-PR plan files and a fresh chat per PR
 one sprint = one chat per agent branch, orchestrated through handoff/PR state. **Two machines on
 two sprints = one lane file per sprint** (see *Parallel Development*); a chat never reads or
 writes the other lane's handoff.
+**Small fixes may plan and execute in one chat**: small, well-understood fixes with clear acceptance criteria and no
+unresolved design decision. Tests, the four review gates and the handoff requirements still apply. Larger or uncertain
+work keeps separate planning and execution chats.
 
 ---
 
@@ -351,6 +354,16 @@ package names/versions, env-var loading order.
   squash-merge). Update a diverged PR branch with a merge commit, not rebase+force.
 - **Planning commits (spec/plan/handoff) stay on the feature branch**; **no docs-only master
   pushes** — a post-merge docs push triggers a second deploy → services restart → demo 502s.
+- **Bundle by default.** Every PR costs a chat, a review round, CI, a merge slot and a deploy. Before opening one, put
+  the work on the in-flight PR, or on the next product PR when that one can merge in time:
+  - a dependency or security fix goes in as that PR's first commit when it will merge inside the fix's SLA. It gets its
+    own PR only when nothing will, or when it blocks every push now; that PR may then include ready, reviewed work
+    that won't delay the security fix;
+  - post-merge records, bug logs, plans and handoffs go in with the next PR;
+  - small bugs in one area ship as one PR;
+  - bundling into an existing PR respects its agreed scope and branch ownership; record any scope expansion explicitly,
+    in the PR body and the handoff;
+  - the PR body says what was bundled, and why any separate PR could not wait.
 - **CodeQL:** recurring alerts here are documented false positives (e.g. `js/request-forgery` on
   `apps/frontend/src/lib/api.ts`) — surface to the user for dismissal; never loop the dismissal
   API (rate-limited; UI bulk-dismiss for >~50). The gate can false-block the fix-shipping push
@@ -473,6 +486,10 @@ handoff is the only thing that travels between chats). Trigger phrases: "next sp
 end, re-read `CURRENT_HANDOFF.md` end-to-end against real state (`gh pr list`, `git log`, current
 branch). A handoff saying "PR N NEXT / start from master" while PR N is already open or merged is
 a **blocking defect**, not a nice-to-have — fix it before reporting the work complete.
+
+**End every chat with a next-chat prompt.** The chat's final message closes with a ready-to-paste prompt for the next
+chat: the branch or PR to pick up, the first command or check, what the handoff names as next, and any authorization
+still pending. It must agree with `CURRENT_HANDOFF.md`'s Quick Start; if the two differ, fix the handoff first.
 
 ---
 

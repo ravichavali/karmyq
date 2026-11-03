@@ -2039,7 +2039,7 @@ exists). Those rows are tracked under BUG-075; no data was repaired here.
 
 ---
 
-## BUG-075 · [2026-10-29] · open
+## BUG-075 · [2026-10-29] · fixed (Sprint 135, v11.108.0)
 
 Request-status writers outside the cancel route have no status guard, so completed asks get reopened or re-matched.
 Evidence: read-only counts on the demo database, 2026-10-29 (maintainer-authorized, one read-only transaction, rolled
@@ -2063,6 +2063,20 @@ rejected → cancelled one. Candidate writers, from reading the code (which one 
 
 Found during BUG-074 planning. The BUG-074 PR fixes only the first bullet; the other writers, and any repair of the demo
 rows, stay open here.
+
+**Fix (Sprint 135, v11.108.0):** `services/request-service/src/db/requestStatus.ts` is now the only module that writes a
+request's status (`reconcileRequestStatus`, `markRequestCancelled`; `lockRequest` gives preconditions the derived
+status), plus cleanup-service's `expireDibs.ts`, whose dibs write is now guarded on `pending`. The ten writers (plus the test-only `/expire`) guard
+their rows and derive the status instead of overwriting it: `PUT /matches/:id/accept`, `/reject`, `/complete`,
+`POST /requests/:id/propose-match`, `POST /requests/:id/dibs`, `PUT /requests/dibs/:id/accept` and `/decline`, `PUT /requests/offers/:id/accept` (now one transaction), `PUT /requests/:id` (a body status
+is refused) and `DELETE /requests/:id` (refuses completed or cancelled asks and asks with an exchange in progress;
+BUG-074's `DELETE /matches/:id` derives through the same helper). New codes: 409 `REQUEST_NOT_OPEN`,
+`REQUEST_NOT_CANCELLABLE`, `REQUEST_HAS_ACTIVE_EXCHANGE`; 400 `STATUS_NOT_EDITABLE`. `request_completed`, whose only
+publisher was the status edit, is no longer published. A gate test fails on a request-status write outside the reviewed
+list. The 2026-10-29 demo rows are **not repaired** (maintainer decision 4); a post-deploy recount of the 119 / 52 / 2
+figures is the check. Tests: `services/request-service/tests/regression/sprint-135-request-status-{helper,gate,writers}.test.ts`,
+`services/cleanup-service/tests/regression/sprint-135-expire-dibs-guard.test.ts` and the real-SQL root
+`tests/integration/sprint-135-request-status-guards.integration.test.ts` (CI-only on Windows). No migration.
 
 ---
 
@@ -2132,7 +2146,7 @@ CI-only on Windows). The log-rotation cause stays **UNVERIFIED** until the post-
 
 ---
 
-## BUG-078 · [2026-10-29] · open
+## BUG-078 · [2026-10-29] · fixed (Sprint 135, v11.108.0)
 
 **Match-route writers beside BUG-074's guards still have no status guard** (siblings of BUG-075; found by `/code-review`
 on the BUG-074 PR and not fixed there, under the maintainer's BUG-075 scoping). Lines are at the BUG-074 branch head;
@@ -2154,6 +2168,13 @@ that PR's `ALREADY_COMPLETED` hoist shifted `matches.ts` about 8 lines from BUG-
 
 Fix direction (not decided): one request-status reconcile used by every match-state writer (with BUG-075); offer
 writes guarded on the status the exchange left them in; an idempotent done mark.
+
+**Fix (Sprint 135, v11.108.0), one line per item:**
+1. Withdrawn offers revived: reject and `closeProposals` free an offer only `WHERE status = 'matched'`, so a withdrawn
+   offer stays withdrawn.
+2. Complete's finalize overwrote the request: it now calls `reconcileRequestStatus`, so a cancelled request stays
+   cancelled and one with another matched exchange stays matched.
+3. A repeat mark re-stamped its `done_at`: the stamp is `COALESCE(done_at, CURRENT_TIMESTAMP)`, so the first time is kept.
 
 ---
 
@@ -2244,5 +2265,83 @@ On the demo, the reputation container's `json-file` log (3 × 10 MB) held only 0
 pushes the 02:00Z nightly run out of the log. So the nightly can't be checked from the log after 03:30Z; PR L2's
 validation had to fall back to a DB read. The line logs SQL text, not parameters, so the cost is volume, not a leak.
 Maintainer approved logging it 2026-11-01. Not scheduled.
+
+---
+
+## BUG-083 · [2026-11-01] · open
+
+**Completed-request retention runs from the last edit, not from completion.** `memoryRetentionJob.ts:108` forgets a
+completed request when `h.updated_at < NOW() - window`. Completion has never stamped `help_requests.updated_at`: at
+`20d930ce` the match finalize was `SET status = 'completed' WHERE id = $1` (`matches.ts:651`). So a request created more
+than a window ago is forgotten on the run right after it completes. Provider-offer accept used to stamp
+`updated_at = NOW()` on the request (`offersDb.ts:61` at `20d930ce`); Sprint 135 removed that stamp too.
+
+Not fixed in Sprint 135: `reconcileRequestStatus` is status-only by spec decision (critical note 4), and retention
+belongs to cleanup-service. Fix direction (not decided): retention reads the newest `matches.completed_at`, or completion
+stamps a request-level time. Found by the Sprint 135 final review.
+
+---
+
+## BUG-084 · [2026-11-01] · open
+
+**A `POST /matches` proposal can land on an ask that just closed and hold the helper's offer.** The route reads the
+request's reachability before any transaction (`services/request-service/src/routes/matches.ts:158`), then inserts the
+proposal (`:234`) and marks the help_offer `matched` without taking the request lock. A cancel, dibs accept or match
+accept that commits in between has already run `closeProposals`, so the new proposal stays `proposed` and its offer stays
+`matched` until the helper rejects it.
+
+Not fixed in Sprint 135: the spec put `POST /matches` out of scope. Fix direction (not decided): take `lockRequest`
+inside a transaction around the insert and refuse unless the derived status is `open`. Found by the Sprint 135 final
+review.
+
+---
+
+## BUG-085 · [2026-11-01] · open
+
+**The derived `open` ignores `help_requests.expired`.** `expirationJob.ts:20-21` sets `expired = TRUE` and leaves the
+status `open`. `POST /matches` refuses an expired ask (`matches.ts:168`, `reachability.expired`). Admin propose-match
+(`adminActions.ts:138`), match accept on an older proposal (`matches.ts:351`) and provider-offer accept go through
+`lockRequest`, which never reads `expired` (`services/request-service/src/db/requestStatus.ts`), so they still proceed.
+
+This predates Sprint 135; before it, those paths had no status check at all. Not fixed there because deriving or
+refusing on `expired` changes the status rule, which is a maintainer decision. Fix direction (not decided): derive or
+refuse on `expired` in `lockRequest`. Found by the Sprint 135 final review.
+
+---
+
+## BUG-086 · [2026-11-01] · open
+
+**Clients still declare a status field that `PUT /requests/:id` now refuses.** `updateRequest` at
+`apps/frontend/src/lib/api.ts:583` and `apps/mobile/services/api.ts:95` still has `status?: string`. Sprint 135 refuses a
+body `status` with 400 `STATUS_NOT_EDITABLE` (`services/request-service/src/routes/requests.ts:2003`). Neither client
+calls `updateRequest` today (spec, Callers), so nothing breaks.
+
+Not changed in Sprint 135: editing `apps/frontend/src/lib/api.ts` has re-raised a CodeQL `js/request-forgery` alert that
+blocked a deploy before, so it belongs in a frontend PR. Fix direction (not decided): drop `status` from both
+signatures. Found by the Sprint 135 final review.
+
+---
+
+## BUG-087 · [2026-11-02] · open
+
+**The Sprint 126 dry-run integration test fails when reputation's 03:30 trust-score refresh overlaps its fingerprint
+window.** reputation-service
+schedules `refreshAllTrustScores` at `'30 3 * * *'` (`services/reputation-service/src/cron/trustScoreRefresh.ts:59`). It upserts a
+trust score for every active membership, and the CI test stack (`tests/docker-compose.test.yml`) runs that cron live.
+`tests/integration/sprint-126-standing-backfill.integration.test.ts:204-212` fingerprints `reputation.trust_scores` before
+and after a dry run and asserts they are equal.
+
+Evidence (PR #327 CI run 41571898963, 2026-11-03):
+- the test ran 03:29:56–03:30:03Z;
+- the reputation-service container logged "Trust-score refresh complete: 9 evaluated, 0 failed";
+- the rows that appeared are exactly the suite's 9 seeded memberships, each at score 0.
+
+The cron's 9 upserts account for the whole diff, and the karma and activity fingerprints did not change. The PR it
+failed on touches neither reputation-service nor the backfill. A run fails this way only when the refresh commits between
+the test's two fingerprints. Spanning 03:30 is necessary but not sufficient.
+
+Fix direction (not decided): keep the crons off in the test stack, for example an env flag that reputation-service's
+`index.ts:130-133` honours, set in `tests/docker-compose.test.yml`. That touches reputation-service and the test
+infrastructure, outside Sprint 135's scope. Found while answering the PR #327 review.
 
 ---
