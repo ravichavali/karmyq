@@ -2039,7 +2039,7 @@ exists). Those rows are tracked under BUG-075; no data was repaired here.
 
 ---
 
-## BUG-075 · [2026-10-29] · fixed (Sprint 135, v11.108.0)
+## BUG-075 · [2026-10-29] · fixed and deployed (Sprint 135 #327, v11.108.0, 2026-11-03)
 
 Request-status writers outside the cancel route have no status guard, so completed asks get reopened or re-matched.
 Evidence: read-only counts on the demo database, 2026-10-29 (maintainer-authorized, one read-only transaction, rolled
@@ -2077,6 +2077,18 @@ list. The 2026-10-29 demo rows are **not repaired** (maintainer decision 4); a p
 figures is the check. Tests: `services/request-service/tests/regression/sprint-135-request-status-{helper,gate,writers}.test.ts`,
 `services/cleanup-service/tests/regression/sprint-135-expire-dibs-guard.test.ts` and the real-SQL root
 `tests/integration/sprint-135-request-status-guards.integration.test.ts` (CI-only on Windows). No migration.
+
+**Post-deploy recount (2026-11-03 ~19:46Z, maintainer-authorized, read-only transaction, rolled back):** 0 new
+inconsistent rows after the deploy (`DEPLOYMENT SUCCESSFUL` 05:19:42Z). In the ~14.5 h since, the simulation created
+455 requests, 2,271 matches, 419 completions and 25 dibs. Requests, and matches, created after the deploy:
+- 0 with more than one completed match;
+- 0 non-completed requests holding a completed match;
+- 0 cancelled matches with `completed_at`.
+
+No completion after the deploy, whatever the match's age, landed on a request that already held a completed match. The
+all-time counts grew before the deploy, from 119 to **136** and from 52 open + 2 matched to **58 open** + 0 matched. A
+by-day breakdown shows every second completion falls between 2026-10-19 and 2026-11-03 05:19Z, and every open-with-
+completed row last completed by 2026-11-02. These old rows stay unrepaired (decision 4).
 
 ---
 
@@ -2146,7 +2158,7 @@ CI-only on Windows). The log-rotation cause stays **UNVERIFIED** until the post-
 
 ---
 
-## BUG-078 · [2026-10-29] · fixed (Sprint 135, v11.108.0)
+## BUG-078 · [2026-10-29] · fixed and deployed (Sprint 135 #327, v11.108.0, 2026-11-03)
 
 **Match-route writers beside BUG-074's guards still have no status guard** (siblings of BUG-075; found by `/code-review`
 on the BUG-074 PR and not fixed there, under the maintainer's BUG-075 scoping). Lines are at the BUG-074 branch head;

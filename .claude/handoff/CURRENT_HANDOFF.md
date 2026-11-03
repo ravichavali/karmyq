@@ -6,8 +6,9 @@
 health verify passed, master has 0 open code-scanning alerts, and Dependabot shows one open alert, #180
 (*#327 post-merge record*). All 16 plan tasks are done, plus the bundled glob/minimatch fix, and all four gates ran
 (*Execution record*). The planning + security PR [#326](https://github.com/ravichavali/karmyq/pull/326) merged as
-`20d930ce` (v11.107.0). **The sprint is not closed yet:** the post-deploy demo recount (its own authorization) and the
-maintainer's close remain. Archive this handoff when the maintainer closes the sprint.
+`20d930ce` (v11.107.0). **The post-deploy demo recount PASSED** (2026-11-03, authorized): there are 0 new inconsistent
+rows after the deploy (*Human check after deploy*). Every Sprint 135 check is done. The maintainer has set Sprint 136's
+scope (*Decisions (maintainer, 2026-11-03)*). Its planning chat archives this handoff and writes the Sprint 136 one.
 
 > The handoff carries **state between sessions**. It is not a copy of the plan: it links the plan and names the next
 > unchecked task. It is branch-local, so it can reserve nothing; see `CLAUDE.md` → *Parallel Development* for how
@@ -28,7 +29,7 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
 
 | Field | Value |
 |---|---|
-| **Branch (now)** | `agent/claude/sprint-136-planning`, the **next branch**, cut fresh from `origin/master` `b9682c34` on 2026-11-03. Its first commit is the #327 post-merge record. The next sprint's scope is not chosen yet; the branch name is only a default. No PR. |
+| **Branch (now)** | `agent/claude/sprint-136-planning`, the **next branch**, cut fresh from `origin/master` `b9682c34` on 2026-11-03. Its first commit is the #327 post-merge record; the next adds the recount and the maintainer's 2026-11-03 decisions. It is Sprint 136's planning branch. No PR. |
 | **Branch (execution, merged)** | `agent/claude/sprint-135-pr-request-status-guards`, head `7bfc65ac`, squash-merged as `b9682c34` (#327). The merge tree is identical to the head (`git diff 7bfc65ac b9682c34` is empty). Safe to delete (maintainer's call). |
 | **Branch (planning, merged)** | `agent/claude/sprint-135-planning`, head `5a3589ef`, squash-merged as `20d930ce` (#326). Safe to delete (maintainer's call). |
 | **Base** | `origin/master` at `b9682c34` (#327, v11.108.0; fetched 2026-11-03). The next PR's version bump is re-derived from `origin/master` at merge. |
@@ -82,6 +83,20 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
   Task 14 gates, so every gate covers it. It is the PR's fourth recorded scope expansion. If the new majors break jest,
   eslint or Expo, it is backed out and reported rather than delaying the PR.
 
+## Decisions (maintainer, 2026-11-03, post-merge chat)
+
+1. **Demo recount: yes.** It ran and passed (*Human check after deploy*).
+2. **#180 / #179: replace babel-plugin-module-resolver** (option b). Nothing is dismissed. Removing the plugin removes
+   its dev-only glob 9.3.5 + minimatch 10.2.5 subtree, which fixes #180 and also #179, now auto-dismissed but unfixed.
+   **SLA ~2026-11-13** (medium, ≤ 2 weeks from 2026-10-30), so this is the time-bound part of Sprint 136.
+3. **Sprint 136 scope: the bugs and Expo drift** go in the next sprint. These are BUG-087, BUG-083..086 and Expo drift #316
+   (*Open after this PR*), along with the plugin replacement. *Recorded reading (Claude's, so planning should confirm
+   it):* one sprint holds all three. The plugin replacement is the first, SLA-bound piece, and under *Bundle by default*
+   it lands as the first commit of whichever Sprint 136 PR merges by ~11-13. The plugin and the Expo drift are both
+   `apps/mobile` dependency work, and both are earned: #180 is an advisory, and the maintainer chose #316. Planning
+   decides the PR split, since the bugs span request-service (083-085), the frontend `api.ts` (086, CodeQL re-raise
+   risk) and reputation-service + `tests/docker-compose.test.yml` (087).
+
 ## Links
 
 - **Spec**: [`docs/superpowers/specs/2026-11-01-sprint-135-request-status-guards-design.md`](../../docs/superpowers/specs/2026-11-01-sprint-135-request-status-guards-design.md)
@@ -94,26 +109,35 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
 1. Read this handoff, then confirm live state before trusting it:
    `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`. On 2026-11-03, master was `b9682c34` and no
    PRs were open.
-2. **Sprint 135 is shipped** (*#327 post-merge record*). Nothing on this branch needs code work. The branch holds the
-   post-merge record. It becomes the next sprint's planning branch, or the record moves to whichever PR goes next
-   (*Bundle by default*; no docs-only master push).
-3. **The next step is the maintainer's** (*Open after this PR*):
-   - authorize the **demo recount** (below), or not;
-   - decide **#180** (minimatch) by its SLA, ~2026-11-13. #179 (glob) was auto-dismissed by GitHub at the merge;
-   - choose the next sprint (BUG-087, BUG-083..086, Expo drift #316, or other work), then plan it in a fresh chat with
-     the `sprint-planning` skill.
-4. When the maintainer closes Sprint 135, archive this handoff to
-   `archive/<date>-sprint-135-request-status-guards-COMPLETE-v11.108.0.md`, as was done for Sprint 134.
+2. **Sprint 135 is complete** (*#327 post-merge record*; recount passed). This branch carries its post-merge record into
+   Sprint 136's planning PR (*Bundle by default*; no docs-only master push).
+3. **Plan Sprint 136 in a fresh chat** with the `sprint-planning` skill, on this branch. The scope is under *Decisions
+   (maintainer, 2026-11-03)*. Planning:
+   - archives this handoff to `archive/2026-11-03-sprint-135-request-status-guards-COMPLETE-v11.108.0.md`, as was done
+     for Sprint 134, and writes the Sprint 136 handoff;
+   - confirms the scope reading (one sprint; plugin first);
+   - finds what replaces babel-plugin-module-resolver in `apps/mobile`. The 2026-11-01 note says Expo's tsconfig
+     `paths`; verify that against the installed Expo and Metro, not a changelog;
+   - sets the PR split so the plugin fix merges by **~2026-11-13**.
+4. The dependency lane is **Claude's**, and both dependency items are earned (#180 is an advisory; #316 was chosen by the
+   maintainer). The dependency briefs forbid executing downloaded code.
 
-**Next unchecked task**: none for Claude without a maintainer decision. The decisions are listed under *Open after this
-PR*.
+**Next unchecked task**: Sprint 136 planning (fresh chat).
 
-**Human check after deploy** (the only thing tests cannot prove; its own authorization, **not yet run**): one read-only
-demo recount of the 2026-10-29 counts. Those were 119 requests with more than one `completed` match, 52 `open` and 2
-`matched` requests holding a `completed` match, and 0 `cancelled` matches with `completed_at` (spec *Demo data*). Run the
-same counts again, restricted to rows created after the deploy finished at **2026-11-03T05:19:42Z**. The post-deploy
-counts must stay at zero under the simulation's traffic. The DB user is `karmyq_prod`, and the maintainer authorizes the
-run.
+**Human check after deploy: PASSED** (2026-11-03 ~19:46Z, maintainer-authorized; two read-only transactions, both rolled
+back, run as `karmyq_prod`; TimeZone UTC). The cutoff is the deploy's `DEPLOYMENT SUCCESSFUL` at **2026-11-03T05:19:42Z**.
+The simulation created **455 requests, 2,271 matches, 419 completions and 25 dibs** after it.
+
+| Count | 2026-10-29 | All rows now | Requests created after deploy | Matches created after deploy |
+|---|---|---|---|---|
+| Requests with > 1 `completed` match | 119 | 136 | **0** | **0** |
+| Non-completed requests holding a `completed` match | 52 open, 2 matched | 58 open, 0 matched | **0** | **0** |
+| `cancelled` matches with `completed_at` | 0 | 0 | — | **0** |
+
+No completion after the deploy, whatever the match's age, landed on a request already holding a completed match (0). All
+of the all-time growth predates the deploy. By day, every second completion falls between 2026-10-19 and 2026-11-03
+before 05:19Z (16 days, sum 136). Every open-with-completed row last completed by 2026-11-02 (sum 58). The old rows stay
+unrepaired (decision 4). The 2 `matched` rows of 10-29 are no longer `matched`; why was not traced. Recorded in BUG-075.
 
 ## Execution record (2026-11-01 → 11-02, executing chat)
 
@@ -229,21 +253,25 @@ wording to be corrected (done in the following docs commit).
   - Expo SDK drift 41660226241 (15:05Z): failure. It reports the same drift as every run since at least 2026-10-29
     (`expo-notifications` 57.0.23 vs `~57.0.24`, `jest` 30.5.1 vs `~29.7.0`, `@types/jest` 30.0.0 vs 29.5.14). That is
     #316, not this merge; its 2026-11-02 run on `20d930ce` printed the same three lines.
-- **Not yet done:** the post-deploy demo recount (*Quick Start*; its own authorization).
+- **Demo recount: PASSED** later the same day (*Quick Start* → *Human check after deploy*).
 
-## Open after this PR (maintainer decisions)
+## Open after this PR → Sprint 136 scope (maintainer, 2026-11-03)
 
-- **#180 residual (medium, SLA ~2026-11-13); #179 is already auto-dismissed** (*#327 post-merge record*):
-  - (a) dismiss #180 as `tolerable_risk`, and accept #179's auto-dismissal. Reason: dev-only, the mobile Babel alias
-    resolver only, static root `./`, no AbortSignal, no untrusted patterns. Or (b) replace babel-plugin-module-resolver
-    (Expo's tsconfig paths) in a mobile sprint. That fixes both, and #179 then shows as fixed rather than dismissed.
-  - A dismissal needs your explicit yes. **#179 being auto-dismissed does not fix it:** glob 9.3.5 is still in the lock.
-    An auto-dismissed alert can reopen if the dependency's scope changes.
-- **Demo recount** (read-only, its own authorization): see *Quick Start* → *Human check after deploy*.
+All decided (*Decisions (maintainer, 2026-11-03)*); these are the items planning picks up.
+
+- **#180 residual (medium, SLA ~2026-11-13); #179 auto-dismissed, not fixed** (*#327 post-merge record*). **Decided:
+  replace babel-plugin-module-resolver** (option b); no dismissal. Its subtree is dev-only: the mobile Babel alias
+  resolver, static root `./`, no AbortSignal and no untrusted patterns, so the exposure until then is low. glob 9.3.5 is
+  still in the lock, and an auto-dismissed alert can reopen if the dependency's scope changes.
+- **Expo SDK drift #316**: the daily job fails on `expo-notifications` 57.0.23 vs `~57.0.24`, `jest` 30.5.1 vs `~29.7.0`
+  and `@types/jest` 30.0.0 vs 29.5.14 (*#327 post-merge record*). `apps/mobile/package.json` itself declares
+  `expo-notifications ~57.0.23`, `jest ^30.5.1`, `@types/jest ^30.0.0` and `babel-plugin-module-resolver ^5.0.2`
+  (used at `apps/mobile/babel.config.js:7`). Planning decides whether the jest pair is a registered divergence or a real
+  downgrade.
 - **BUG-087** (logged 2026-11-02): the Sprint 126 dry-run integration test fails when reputation's 03:30 trust-score
   refresh overlaps its fingerprint window in the CI stack. The fix touches reputation-service plus
-  `tests/docker-compose.test.yml`, outside this PR's scope.
-- **BUG-083..086** (logged 2026-11-01, not scheduled):
+  `tests/docker-compose.test.yml`.
+- **BUG-083..086** (logged 2026-11-01):
   - 083: completed-request retention runs from the last edit, not from completion;
   - 084: POST /matches pre-read race strands an offer;
   - 085: the derived `open` ignores `expired`;
