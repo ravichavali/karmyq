@@ -1,10 +1,13 @@
 # Sprint 135 — Request Status Guards (BUG-075 + BUG-078) — Handoff
 
-**Date**: 2026-11-01
-**Outcome**: **PR open, awaiting review and the maintainer's merge.** The execution PR is opened from this branch
-(`gh pr view agent/claude/sprint-135-pr-request-status-guards`), v11.108.0. All 16 plan tasks are done, plus the bundled
-glob/minimatch fix, and all four gates have run (*Execution record*). The planning + security PR
-[#326](https://github.com/ravichavali/karmyq/pull/326) merged as `20d930ce` (v11.107.0) and deployed green.
+**Date**: 2026-11-03
+**Outcome**: **SHIPPED: merged and deployed green.** The execution PR
+[#327](https://github.com/ravichavali/karmyq/pull/327) merged on 2026-11-03 as `b9682c34` (v11.108.0). Its deploy and
+health verify passed, master has 0 open code-scanning alerts, and Dependabot shows one open alert, #180
+(*#327 post-merge record*). All 16 plan tasks are done, plus the bundled glob/minimatch fix, and all four gates ran
+(*Execution record*). The planning + security PR [#326](https://github.com/ravichavali/karmyq/pull/326) merged as
+`20d930ce` (v11.107.0). **The sprint is not closed yet:** the post-deploy demo recount (its own authorization) and the
+maintainer's close remain. Archive this handoff when the maintainer closes the sprint.
 
 > The handoff carries **state between sessions**. It is not a copy of the plan: it links the plan and names the next
 > unchecked task. It is branch-local, so it can reserve nothing; see `CLAUDE.md` → *Parallel Development* for how
@@ -25,10 +28,11 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
 
 | Field | Value |
 |---|---|
-| **Branch (now)** | `agent/claude/sprint-135-pr-request-status-guards`, the **execution branch**, cut fresh from `origin/master` `20d930ce` on 2026-11-01. v11.108.0 (re-derive at merge). Its first commit is the #326 post-merge record. PR open. |
+| **Branch (now)** | `agent/claude/sprint-136-planning`, the **next branch**, cut fresh from `origin/master` `b9682c34` on 2026-11-03. Its first commit is the #327 post-merge record. The next sprint's scope is not chosen yet; the branch name is only a default. No PR. |
+| **Branch (execution, merged)** | `agent/claude/sprint-135-pr-request-status-guards`, head `7bfc65ac`, squash-merged as `b9682c34` (#327). The merge tree is identical to the head (`git diff 7bfc65ac b9682c34` is empty). Safe to delete (maintainer's call). |
 | **Branch (planning, merged)** | `agent/claude/sprint-135-planning`, head `5a3589ef`, squash-merged as `20d930ce` (#326). Safe to delete (maintainer's call). |
-| **Base** | `origin/master` at `20d930ce` (#326, v11.107.0; fetched 2026-11-01). |
-| **Active editor** | **Claude** (the executing chat, 2026-11-01). |
+| **Base** | `origin/master` at `b9682c34` (#327, v11.108.0; fetched 2026-11-03). The next PR's version bump is re-derived from `origin/master` at merge. |
+| **Active editor** | **Claude** (the post-merge chat, 2026-11-03). |
 | **Reviewer role** | Codex (non-author), relayed by the maintainer. |
 | **Owned paths** | `services/request-service/**`, `services/cleanup-service/src/jobs/expireDibs.ts` + its new test + its CONTEXT.md, the root `tests/integration/` file this sprint adds, `docs/guides/`, `docs/BUGS.md`, `claude.md` + `AGENTS.md` (the process policy only), this handoff, the spec and plan. |
 | **Shared resources needed** | Version bump (re-derive from `origin/master` at merge). Merge slot. One read-only demo recount after deploy (its own authorization). Dependency lane: **Claude** (maintainer-designated). The planning PR changed one lock node (follow-redirects) plus the root version. The execution PR changes the root version **and, by the maintainer's decision of 2026-11-01, the glob/minimatch fix** (*Dated obligations*), a recorded scope expansion. No ADR number (one service). |
@@ -82,32 +86,34 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
 
 - **Spec**: [`docs/superpowers/specs/2026-11-01-sprint-135-request-status-guards-design.md`](../../docs/superpowers/specs/2026-11-01-sprint-135-request-status-guards-design.md)
 - **Plan**: [`docs/superpowers/plans/2026-11-01-sprint-135-request-status-guards.md`](../../docs/superpowers/plans/2026-11-01-sprint-135-request-status-guards.md) (16 tasks)
-- **PR**: execution PR open from this branch (`gh pr view agent/claude/sprint-135-pr-request-status-guards`).
+- **PR**: execution [#327](https://github.com/ravichavali/karmyq/pull/327) merged `b9682c34` (2026-11-03).
   Planning + security [#326](https://github.com/ravichavali/karmyq/pull/326) merged `20d930ce`.
 
 ## Quick Start
 
 1. Read this handoff, then confirm live state before trusting it:
-   `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
-2. `gh pr checks agent/claude/sprint-135-pr-request-status-guards`. At `7a251553` the PR is **all green**: CI run
-   41576808610, with Integration Tests at 23 suites and 368 tests. That run includes the Sprint 135 real-SQL file:
-   - the corrected refusal cases and the two-provider case;
-   - the dibs-expiry race (410, 2,008 ms).
-   The independent review has **no remaining code findings** (round 2, 2026-11-02). The file is CI-only on Windows.
-3. **If the PR is still open:** only CI red on a later push, or new review findings, need work on this branch: fix, push,
-   stop. A red integration case means a real behaviour gap, or a fixture that disagrees with `init.sql`. Read it; never
-   weaken the assertion. The expiry race allows a 2-second window: a CI stall can fail it, but cannot make it pass falsely.
-4. **Once it merges:** record the post-merge facts (deploy + health, merge-sha CodeQL, Dependabot) as the first commit
-   of the next branch, cut from `origin/master`. No docs-only master push.
+   `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`. On 2026-11-03, master was `b9682c34` and no
+   PRs were open.
+2. **Sprint 135 is shipped** (*#327 post-merge record*). Nothing on this branch needs code work. The branch holds the
+   post-merge record. It becomes the next sprint's planning branch, or the record moves to whichever PR goes next
+   (*Bundle by default*; no docs-only master push).
+3. **The next step is the maintainer's** (*Open after this PR*):
+   - authorize the **demo recount** (below), or not;
+   - decide **#180** (minimatch) by its SLA, ~2026-11-13. #179 (glob) was auto-dismissed by GitHub at the merge;
+   - choose the next sprint (BUG-087, BUG-083..086, Expo drift #316, or other work), then plan it in a fresh chat with
+     the `sprint-planning` skill.
+4. When the maintainer closes Sprint 135, archive this handoff to
+   `archive/<date>-sprint-135-request-status-guards-COMPLETE-v11.108.0.md`, as was done for Sprint 134.
 
-**Next unchecked task**: none on this branch: the PR's CI and review. The open maintainer decisions are under *Open after
-this PR*.
+**Next unchecked task**: none for Claude without a maintainer decision. The decisions are listed under *Open after this
+PR*.
 
-**Stopping point = PR creation** (maintainer, standing). This chat stopped there.
-
-**Human check after deploy** (the only thing tests cannot prove; its own authorization): one read-only demo recount of
-the 2026-10-29 counts, plus the same counts restricted to rows created after the deploy. The post-deploy counts must
-stay at zero under the simulation's traffic.
+**Human check after deploy** (the only thing tests cannot prove; its own authorization, **not yet run**): one read-only
+demo recount of the 2026-10-29 counts. Those were 119 requests with more than one `completed` match, 52 `open` and 2
+`matched` requests holding a `completed` match, and 0 `cancelled` matches with `completed_at` (spec *Demo data*). Run the
+same counts again, restricted to rows created after the deploy finished at **2026-11-03T05:19:42Z**. The post-deploy
+counts must stay at zero under the simulation's traffic. The DB user is `karmyq_prod`, and the maintainer authorizes the
+run.
 
 ## Execution record (2026-11-01 → 11-02, executing chat)
 
@@ -158,7 +164,8 @@ waits. A skipped dibs stays `pending` on the cancelled ask, and its accept answe
   `expo config` and `@expo/fingerprint` are identical to the baseline. `npm audit`: 46 findings → 14.
 - **Residual, forced:** module-resolver 5.0.3 (latest) needs glob 9's `default` export. glob 9 combined with minimatch 11
   silently returns `[]` for every magic pattern (reproduced). So glob 9.3.5 + minimatch 10.2.5 stay on that dev-only
-  subtree, and **alerts #179 and #180 stay open after merge.**
+  subtree. Both alerts were expected to stay open after merge. In fact #180 stayed open and #179 was auto-dismissed
+  (*#327 post-merge record*).
 - `npm ls` shows a few extra "invalid" lines: arborist's override-scope conflict check. Every edge satisfies its range,
   and no CI step runs `npm ls`. Not a defect.
 - **Process breach:** the implementer ran code from the downloaded minimatch 11 tarball in a scratch sandbox, which
@@ -194,13 +201,45 @@ regression, security gates, the landing build, and seven Docker builds. Sprint 1
 round 2 (2026-11-02) has no remaining code findings. It asked only for this handoff, the PR ledger and BUG-087's timing
 wording to be corrected (done in the following docs commit).
 
+## #327 post-merge record (verified live 2026-11-03, ~15:20Z)
+
+- **Merged** 2026-11-03T05:02:29Z by the maintainer as `b9682c34` (v11.108.0), from head `7bfc65ac`. The trees are
+  identical. PR head CI was all green at `7bfc65ac` (run 41578991447).
+- **CI/CD 41581543057: success**, 14/14 jobs, 05:02:32Z → 05:20:01Z. Integration Tests: 23 suites / 368 tests passed on
+  the merge. Deploy to Demo ran 05:13:04Z → 05:20:00Z and logged "All critical services healthy" and "DEPLOYMENT
+  SUCCESSFUL" at 05:19:42Z (rollback point `b9682c34`, not used). The health verify passed **all 9 services** (auth,
+  community, request, reputation, notification, messaging, cleanup, geocoding, social-graph). `Tests` 41581543064:
+  success, 3/3 jobs.
+- **CodeQL on `b9682c34`** (filtered by `commit_sha`): `/language:javascript-typescript` (467 results, 05:04:44Z) and
+  `/language:actions` (0, 05:03:07Z), both with an **empty `error`** and an empty `warning`. **0 open code-scanning
+  alerts** on master.
+- **Dependabot: 1 open alert.**
+  - **#180** `minimatch` GHSA-g3hv-75wg-m249: open, scope `development`, CWE-405.
+  - **#179** `glob` GHSA-3g3m-2fjr-6pw4: **`auto_dismissed`** at 05:02:36Z, 7 seconds after the merge push. Scope
+    `development`, CWE-400. `dismissed_by` and `fixed_at` are both null, so no person dismissed it and GitHub does not
+    count it as fixed.
+  - **Why only #179 (UNVERIFIED):** the vulnerable hoisted nodes at `20d930ce` (`glob` 13.0.6, `minimatch` 10.2.5) were
+    not dev-flagged. On master the only vulnerable nodes are the residual
+    `babel-plugin-module-resolver/node_modules/{glob 9.3.5, minimatch 10.2.5}`, both `dev: true`. That fits GitHub's
+    auto-triage for development-scoped dependencies, which also auto-dismissed #21 (`diff`, 2026-02-21). The rule
+    itself cannot be read from the API, so the mechanism, and why #180 was not dismissed, are unverified.
+  - Dependabot's own minimatch update run 41581558768 failed at 05:04Z, as its runs on #326's push did.
+- **Scheduled runs on master, 2026-11-03:**
+  - Demo health 41653820392 (14:27Z): success.
+  - Expo SDK drift 41660226241 (15:05Z): failure. It reports the same drift as every run since at least 2026-10-29
+    (`expo-notifications` 57.0.23 vs `~57.0.24`, `jest` 30.5.1 vs `~29.7.0`, `@types/jest` 30.0.0 vs 29.5.14). That is
+    #316, not this merge; its 2026-11-02 run on `20d930ce` printed the same three lines.
+- **Not yet done:** the post-deploy demo recount (*Quick Start*; its own authorization).
+
 ## Open after this PR (maintainer decisions)
 
-- **#179 / #180 residual (medium, SLA ~2026-11-13):**
-  - (a) dismiss both as `tolerable_risk`. Reason: dev-only, the mobile Babel alias resolver only, static root `./`, no
-    AbortSignal, no untrusted patterns. Or (b) replace babel-plugin-module-resolver (Expo's tsconfig paths) in a mobile
-    sprint.
-  - A dismissal needs your explicit yes.
+- **#180 residual (medium, SLA ~2026-11-13); #179 is already auto-dismissed** (*#327 post-merge record*):
+  - (a) dismiss #180 as `tolerable_risk`, and accept #179's auto-dismissal. Reason: dev-only, the mobile Babel alias
+    resolver only, static root `./`, no AbortSignal, no untrusted patterns. Or (b) replace babel-plugin-module-resolver
+    (Expo's tsconfig paths) in a mobile sprint. That fixes both, and #179 then shows as fixed rather than dismissed.
+  - A dismissal needs your explicit yes. **#179 being auto-dismissed does not fix it:** glob 9.3.5 is still in the lock.
+    An auto-dismissed alert can reopen if the dependency's scope changes.
+- **Demo recount** (read-only, its own authorization): see *Quick Start* → *Human check after deploy*.
 - **BUG-087** (logged 2026-11-02): the Sprint 126 dry-run integration test fails when reputation's 03:30 trust-score
   refresh overlaps its fingerprint window in the CI stack. The fix touches reputation-service plus
   `tests/docker-compose.test.yml`, outside this PR's scope.
@@ -316,7 +355,7 @@ wording to be corrected (done in the following docs commit).
     pre-push hook and CI on every branch, this one included.
   - **High SLA: about 2026-11-06 23:00Z.**
   - **Maintainer, 2026-11-01:** fix it in a small PR, bundled with the planning docs; no bypass push.
-  - **FIXED on this branch (v11.107.0).** An in-place splice of one node: `node_modules/follow-redirects` `version`,
+  - **FIXED on the planning branch (v11.107.0).** An in-place splice of one node: `node_modules/follow-redirects` `version`,
     `resolved`, `integrity`. Every other lock field is identical between 1.16.1 and 1.16.2 (`npm view`), and axios's
     declared `^1.16.0` admits 1.16.2, so no manifest changes and no override.
   - **Proof: the author's validation on `0f7bba16`, 2026-11-01, not independently rerun.**
@@ -372,8 +411,10 @@ wording to be corrected (done in the following docs commit).
   11.x needs `brace-expansion ^5.0.12` (already pinned) and a new `@isaacs/nonrecursive-glob-match`. Both engines are
   `18 || 20 || >=22`. New lock nodes are needed, so it is an in-place splice with overrides, proven by strict
   `npx npm@11.19.0 ci`, `npm ls --all` parity, the full suite and lint.
-- **FIXED on this branch (`99815d73`), except a forced residual:** module-resolver's dev-only glob 9.3.5 + minimatch
-  10.2.5 (*Execution record*). Both alerts stay open after merge, pending the maintainer's decision (*Open after this PR*).
+- **FIXED by #327 (`99815d73`, merged in `b9682c34`), except a forced residual:** module-resolver's dev-only glob 9.3.5
+  and minimatch 10.2.5 (*Execution record*). On master the lock now holds hoisted `glob` 14.0.3 and `minimatch` 11.0.3,
+  plus the two dev-flagged residual nodes. After the merge, #180 is open and #179 is auto-dismissed. Neither is fixed;
+  both wait on the maintainer's decision (*#327 post-merge record*, *Open after this PR*).
 
 ## Open, not scheduled (carried from Sprint 134)
 
