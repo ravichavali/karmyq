@@ -2267,3 +2267,57 @@ validation had to fall back to a DB read. The line logs SQL text, not parameters
 Maintainer approved logging it 2026-11-01. Not scheduled.
 
 ---
+
+## BUG-083 · [2026-11-01] · open
+
+**Completed-request retention runs from the last edit, not from completion.** `memoryRetentionJob.ts:108` forgets a
+completed request when `h.updated_at < NOW() - window`. Completion has never stamped `help_requests.updated_at`: at
+`20d930ce` the match finalize was `SET status = 'completed' WHERE id = $1` (`matches.ts:651`). So a request created more
+than a window ago is forgotten on the run right after it completes. Provider-offer accept used to stamp
+`updated_at = NOW()` on the request (`offersDb.ts:61` at `20d930ce`); Sprint 135 removed that stamp too.
+
+Not fixed in Sprint 135: `reconcileRequestStatus` is status-only by spec decision (critical note 4), and retention
+belongs to cleanup-service. Fix direction (not decided): retention reads the newest `matches.completed_at`, or completion
+stamps a request-level time. Found by the Sprint 135 final review.
+
+---
+
+## BUG-084 · [2026-11-01] · open
+
+**A `POST /matches` proposal can land on an ask that just closed and hold the helper's offer.** The route reads the
+request's reachability before any transaction (`services/request-service/src/routes/matches.ts:158`), then inserts the
+proposal (`:234`) and marks the help_offer `matched` without taking the request lock. A cancel, dibs accept or match
+accept that commits in between has already run `closeProposals`, so the new proposal stays `proposed` and its offer stays
+`matched` until the helper rejects it.
+
+Not fixed in Sprint 135: the spec put `POST /matches` out of scope. Fix direction (not decided): take `lockRequest`
+inside a transaction around the insert and refuse unless the derived status is `open`. Found by the Sprint 135 final
+review.
+
+---
+
+## BUG-085 · [2026-11-01] · open
+
+**The derived `open` ignores `help_requests.expired`.** `expirationJob.ts:20-21` sets `expired = TRUE` and leaves the
+status `open`. `POST /matches` refuses an expired ask (`matches.ts:168`, `reachability.expired`). Admin propose-match
+(`adminActions.ts:138`), match accept on an older proposal (`matches.ts:351`) and provider-offer accept go through
+`lockRequest`, which never reads `expired` (`services/request-service/src/db/requestStatus.ts`), so they still proceed.
+
+This predates Sprint 135; before it, those paths had no status check at all. Not fixed there because deriving or
+refusing on `expired` changes the status rule, which is a maintainer decision. Fix direction (not decided): derive or
+refuse on `expired` in `lockRequest`. Found by the Sprint 135 final review.
+
+---
+
+## BUG-086 · [2026-11-01] · open
+
+**Clients still declare a status field that `PUT /requests/:id` now refuses.** `updateRequest` at
+`apps/frontend/src/lib/api.ts:583` and `apps/mobile/services/api.ts:95` still has `status?: string`. Sprint 135 refuses a
+body `status` with 400 `STATUS_NOT_EDITABLE` (`services/request-service/src/routes/requests.ts:2003`). Neither client
+calls `updateRequest` today (spec, Callers), so nothing breaks.
+
+Not changed in Sprint 135: editing `apps/frontend/src/lib/api.ts` has re-raised a CodeQL `js/request-forgery` alert that
+blocked a deploy before, so it belongs in a frontend PR. Fix direction (not decided): drop `status` from both
+signatures. Found by the Sprint 135 final review.
+
+---
