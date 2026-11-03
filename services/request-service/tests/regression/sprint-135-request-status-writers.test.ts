@@ -406,7 +406,7 @@ describe('PUT /requests/:id (BUG-075)', () => {
 
 describe('DELETE /requests/:id (BUG-075)', () => {
   const DIBS_CANCEL_LOCK = /^SELECT id FROM requests\.dibs WHERE request_id = \$1 AND status = 'pending' FOR UPDATE$/;
-  const DIBS_EXPIRE_ON_CANCEL = "UPDATE requests.dibs SET status = 'expired', updated_at = NOW() WHERE request_id = $1 AND status = 'pending'";
+  const DIBS_EXPIRE_ON_CANCEL = "UPDATE requests.dibs SET status = 'expired', updated_at = NOW() WHERE id IN (SELECT id FROM requests.dibs WHERE request_id = $1 AND status = 'pending' FOR UPDATE SKIP LOCKED)";
   beforeEach(() => {
     reply(/^SELECT requester_id FROM requests\.help_requests WHERE id = \$1 AND requester_id = \$2$/, rows([{ requester_id: 'requester' }]));
   });
@@ -423,6 +423,27 @@ describe('DELETE /requests/:id (BUG-075)', () => {
     expect(statements().find((s) => CANCEL_REQUEST.test(s.sql))?.params).toEqual(['req-1', 'requester']);
     expect(mockPublishEvent).toHaveBeenCalledTimes(1);
     expect(mockPublishEvent).toHaveBeenCalledWith('request_cancelled', { request_id: 'req-1', requester_id: 'requester' });
+  });
+
+  it('expires the dibs with FOR UPDATE SKIP LOCKED, so holding the request lock it never waits on a dibs row', async () => {
+    reply(DERIVE, rows([{ status: 'dibs_pending' }]));
+    await cancel();
+    const expiry = sqls().find((s) => /^UPDATE requests\.dibs SET status = 'expired'/.test(s));
+    expect(expiry).toContain('FOR UPDATE SKIP LOCKED');
+    expect(expiry).toBe(DIBS_EXPIRE_ON_CANCEL);
+  });
+
+  it('answers 404 with no event and no proposal or dibs write when the guarded cancel changes no row (a cancel race)', async () => {
+    reply(DERIVE, rows([{ status: 'open' }]));
+    reply(CANCEL_REQUEST, rows([], 0));
+    const res = await cancel();
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ success: false, message: 'Request not found' });
+    expect(mockPublishEvent).not.toHaveBeenCalled();
+    expect(at(CANCEL_REQUEST)).toBeGreaterThanOrEqual(0);
+    expect(at(CLOSE_OFFERS)).toBe(-1);
+    expect(at(CLOSE_MATCHES)).toBe(-1);
+    expect(at(/^UPDATE requests\.dibs\b/)).toBe(-1);
   });
 
   it.each(['completed', 'cancelled'])('refuses a %s request with 409 REQUEST_NOT_CANCELLABLE and writes nothing', async (status) => {

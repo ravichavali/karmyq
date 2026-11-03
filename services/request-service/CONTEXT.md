@@ -11,11 +11,11 @@
   the only module that writes it (`reconcileRequestStatus`, `markRequestCancelled`), plus cleanup-service's
   `expireDibs.ts` request write. The derived status is `cancelled` if cancelled, else `matched` (a `matched` match),
   else `completed` (a `completed` match), else `dibs_pending` (a `pending` dibs), else `open`. `lockRequest` locks
-  the request row and returns that derived status, which every precondition reads. The ten writers now guard their
-  rows and derive instead of overwrite: `PUT /matches/:id/accept`, `/reject`, `/complete`, `DELETE /matches/:id`,
-  `POST /requests/:id/propose-match`, `POST /requests/:id/dibs`, `PUT /requests/dibs/:id/accept` and `/decline`
-  (and the test-only `/expire`), `PUT /requests/offers/:id/accept` (now one transaction), `PUT /requests/:id` and
-  `DELETE /requests/:id`. New codes: 409 `REQUEST_NOT_OPEN` (a request that is not open refuses a new match, dibs or
+  the request row and returns that derived status, which every precondition reads. The ten writers (plus the test-only `/expire`) now guard their
+  rows and derive instead of overwrite: `PUT /matches/:id/accept`, `/reject`, `/complete`,
+  `POST /requests/:id/propose-match`, `POST /requests/:id/dibs`, `PUT /requests/dibs/:id/accept` and `/decline`,
+  `PUT /requests/offers/:id/accept` (now one transaction), `PUT /requests/:id` and
+  `DELETE /requests/:id`. BUG-074's already-guarded `DELETE /matches/:id` now shares the helper. New codes: 409 `REQUEST_NOT_OPEN` (a request that is not open refuses a new match, dibs or
   provider-offer accept), 409 `REQUEST_NOT_CANCELLABLE` and `REQUEST_HAS_ACTIVE_EXCHANGE` (cancel), 400
   `STATUS_NOT_EDITABLE` (an edit cannot set a status). `closeProposals` frees a proposal's offer only while it is
   `matched`, so a withdrawn offer stays withdrawn (BUG-078). `done_at` keeps its first stamp (`COALESCE`). A late
@@ -1103,7 +1103,9 @@ on the ask is locked first). Only an `open` or `dibs_pending` request cancels:
 
 A cancel that happens is `markRequestCancelled` (bound to the JWT requester), then `closeProposals` (every open proposal
 is rejected, its offer freed only while `matched`), then the ask's pending dibs is **expired** in the same transaction,
-with no event: it leaves the provider's pending list, and an accept or decline then answers 409 `INVALID_STATE`. Every
+with no event: it leaves the provider's pending list, and an accept or decline then answers 409 `INVALID_STATE`. The expiry is `FOR UPDATE SKIP LOCKED`, so a dibs another transaction holds is skipped
+(the request lock is already held, so it must not wait): it stays `pending` on the cancelled ask, its accept then
+refuses 409 `REQUEST_NOT_OPEN`, and cleanup-service expires it at `expires_at`. Every
 refusal is decided before the first write.
 
 **Events Published:** `request_cancelled` (only for a cancel that happened)

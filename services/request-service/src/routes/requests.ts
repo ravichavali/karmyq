@@ -2088,9 +2088,12 @@ router.delete('/:id', async (req: Request, res: Response) => {
       if (!(await markRequestCancelled(q, id, user_id))) return 'not_found' as const;
       await closeProposals(q, id);
       // The provider's invitation ends with the request, so it leaves their pending list now. No event: a
-      // dibs_expired notification would misstate why it ended.
+      // dibs_expired notification would misstate why it ended. SKIP LOCKED: this holds the request lock, so it must
+      // never wait on a dibs row (a concurrent accept holds that row and waits on this lock). A skipped dibs stays
+      // pending on a cancelled request: its accept answers 409 REQUEST_NOT_OPEN, and cleanup expires it at expires_at.
       await q(
-        `UPDATE requests.dibs SET status = 'expired', updated_at = NOW() WHERE request_id = $1 AND status = 'pending'`,
+        `UPDATE requests.dibs SET status = 'expired', updated_at = NOW()
+         WHERE id IN (SELECT id FROM requests.dibs WHERE request_id = $1 AND status = 'pending' FOR UPDATE SKIP LOCKED)`,
         [id]
       );
       return 'cancelled' as const;
