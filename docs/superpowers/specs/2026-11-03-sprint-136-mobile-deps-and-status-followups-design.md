@@ -160,8 +160,11 @@ not the label.
   - each `init*` function in those files returns before scheduling when the flag is set.
   A unit test proves the third point by mocking `node-cron`. Negative fixtures prove the gate fails on a compose service
   without the flag, and on a cron file that skips it.
-- Callers that run the work directly (`refreshAllTrustScores`, `manualCalculateHealthMetrics`) are unaffected. The
-  integration tests that need the work call it themselves.
+- Callers that run the work directly (`refreshAllTrustScores`, `manualCalculateHealthMetrics`) are unaffected. No test
+  depends on a cron firing, since they fire only at 02:00 and 03:30. The tests that need the work import it and call it:
+  - `tests/integration/sprint-134-pr-l2-health.integration.test.ts`;
+  - reputation-service's `sprint-126-trust-score-refresh` and `sprint-134-pr-l2-batch-isolation` regressions.
+  `sprint-131-node-cron-v4` exercises the `init*` functions, so check it in Task 12 (grep, 2026-11-03).
 
 ## D. BUG-085: an expired ask takes no new commitment
 
