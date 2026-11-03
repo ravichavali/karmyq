@@ -1,8 +1,10 @@
 # Sprint 135 — Request Status Guards (BUG-075 + BUG-078) — Handoff
 
 **Date**: 2026-11-01
-**Outcome**: executing. The planning + security PR [#326](https://github.com/ravichavali/karmyq/pull/326) **merged** as
-`20d930ce` (v11.107.0) and deployed green (*#326 post-merge record* below). This branch executes the plan.
+**Outcome**: **PR open, awaiting review and the maintainer's merge.** The execution PR is opened from this branch
+(`gh pr view agent/claude/sprint-135-pr-request-status-guards`), v11.108.0. All 16 plan tasks are done, plus the bundled
+glob/minimatch fix, and all four gates have run (*Execution record*). The planning + security PR
+[#326](https://github.com/ravichavali/karmyq/pull/326) merged as `20d930ce` (v11.107.0) and deployed green.
 
 > The handoff carries **state between sessions**. It is not a copy of the plan: it links the plan and names the next
 > unchecked task. It is branch-local, so it can reserve nothing; see `CLAUDE.md` → *Parallel Development* for how
@@ -23,7 +25,7 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
 
 | Field | Value |
 |---|---|
-| **Branch (now)** | `agent/claude/sprint-135-pr-request-status-guards`, the **execution branch**, cut fresh from `origin/master` `20d930ce` on 2026-11-01. Provisional v11.108.0. Its first commit is this post-merge record. |
+| **Branch (now)** | `agent/claude/sprint-135-pr-request-status-guards`, the **execution branch**, cut fresh from `origin/master` `20d930ce` on 2026-11-01. v11.108.0 (re-derive at merge). Its first commit is the #326 post-merge record. PR open. |
 | **Branch (planning, merged)** | `agent/claude/sprint-135-planning`, head `5a3589ef`, squash-merged as `20d930ce` (#326). Safe to delete (maintainer's call). |
 | **Base** | `origin/master` at `20d930ce` (#326, v11.107.0; fetched 2026-11-01). |
 | **Active editor** | **Claude** (the executing chat, 2026-11-01). |
@@ -80,28 +82,98 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
 
 - **Spec**: [`docs/superpowers/specs/2026-11-01-sprint-135-request-status-guards-design.md`](../../docs/superpowers/specs/2026-11-01-sprint-135-request-status-guards-design.md)
 - **Plan**: [`docs/superpowers/plans/2026-11-01-sprint-135-request-status-guards.md`](../../docs/superpowers/plans/2026-11-01-sprint-135-request-status-guards.md) (16 tasks)
-- **PR**: planning + security [#326](https://github.com/ravichavali/karmyq/pull/326), merged `20d930ce`. The execution
-  PR is not open yet.
+- **PR**: execution PR open from this branch (`gh pr view agent/claude/sprint-135-pr-request-status-guards`).
+  Planning + security [#326](https://github.com/ravichavali/karmyq/pull/326) merged `20d930ce`.
 
 ## Quick Start
 
 1. Read this handoff, then confirm live state before trusting it:
    `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
-2. `git switch agent/claude/sprint-135-pr-request-status-guards`. If it is not on origin, the executing chat has not
-   pushed yet. Its SDD ledger (`.superpowers/sdd/2026-11-01-sprint-135-request-status-guards/progress.md`, git-ignored,
-   on the Windows box only) names the completed tasks; `git log` is the record.
-3. Invoke `superpowers:subagent-driven-development` (or `superpowers:executing-plans`) directly.
-   There is no `/execute-plan` slash command; superpowers removed it as a deprecated stub.
+2. `gh pr checks agent/claude/sprint-135-pr-request-status-guards`. Look first at **Integration Tests**: the Sprint 135
+   real-SQL file (`tests/integration/sprint-135-request-status-guards.integration.test.ts`) has never run. It is CI-only
+   on Windows, and its first result is in this PR's CI.
+3. **If the PR is still open:** fix CI red or review findings on this branch, push, and stop. A red integration case
+   means a real behaviour gap, or a fixture that disagrees with `init.sql`. Read it; never weaken the assertion.
+4. **Once it merges:** record the post-merge facts (deploy + health, merge-sha CodeQL, Dependabot) as the first commit
+   of the next branch, cut from `origin/master`. No docs-only master push.
 
-**Next unchecked task**: Task 1, provisional version bump (11.107.0 → 11.108.0, `package.json` and two lines of
-`package-lock.json`).
+**Next unchecked task**: none on this branch: the PR's CI and review. The open maintainer decisions are under *Open after
+this PR*.
 
-**Stopping point = PR creation** (maintainer, standing): run all gates, push this handoff marking the PR "open, awaiting
-maintainer merge", open the PR, report the link and stop. The next chat starts with `gh pr checks <n>`.
+**Stopping point = PR creation** (maintainer, standing). This chat stopped there.
 
 **Human check after deploy** (the only thing tests cannot prove; its own authorization): one read-only demo recount of
 the 2026-10-29 counts, plus the same counts restricted to rows created after the deploy. The post-deploy counts must
 stay at zero under the simulation's traffic.
+
+## Execution record (2026-11-01 → 11-02, executing chat)
+
+Executed with `superpowers:subagent-driven-development`: a fresh implementer per task (or batch), a task review after
+each, and fix rounds where needed. Commit range `20d930ce..HEAD`.
+
+| Plan task | Commits | Review |
+|---|---|---|
+| #326 post-merge record | `7a0b9db3` | — |
+| T1 version 11.108.0 | `c734cea8` | controller, inline |
+| T2–T4 red tests (helper, gate, writers, real-SQL) | `9e692358`, `a568d774`, `ea969d6a`, `ed830862` | 1 fix round (presence assertions) |
+| T5 `requestStatus.ts` | `dc0d7cab` | clean |
+| T6 match routes | `daae0f40` | clean |
+| T7 propose-match + provider-offer accept | `f6bbc6ab` | clean |
+| T8 dibs routes + cleanup dibs guard | `067cffc2`, `ae9be5ca` | clean |
+| T9 request edit/cancel + registry event | `8523dd08` | clean |
+| T10 regressions, allowlist re-pin, BUG-074 fixtures | `69d02820` | clean (no assertion weakened; 4 new + 8 stale allowlist entries, exactly as planned) |
+| T11 promote to regression | `4e31729a` | controller (targeted `git mv` of the 4 files; the promoter would sweep every green tdd file) |
+| T12–T13 guides, CONTEXT, registry, BUGS, CLAUDE.md/AGENTS.md policy | `e7f88983`, `22a3689c`, `ba77cea7` | 1 fix round (stale `request_completed` event row; derived landing JSON) |
+| **T13b glob/minimatch fix** (bundled) | `99815d73` | clean |
+| T14 `/simplify` | `ce8e67c2` | 1 fix (stale dibs route header comments); 13 suggestions skipped with reasons |
+| T14 `/code-review high` (the final whole-branch review) | `3d608f9c`, `8a25d55c`, `e39058fe` | 10 findings: 1 fixed in code (below), 6 cheap test/doc follow-ups, 4 logged as BUG-083..086, the rest kept per spec; scoped re-review clean |
+| T14 `/security-review` | — | **No findings** at High/Medium. Checked: authorization order of all ten writers vs `20d930ce`, parameter binding, directed audience on the dibs paths, ADR-102 |
+
+**The one review fix in code (`3d608f9c`):** the requester cancel could take the request lock and then wait on a dibs row
+created in a gap, a deadlock against a dibs accept. Its dibs expiry now selects `FOR UPDATE SKIP LOCKED`, so it never
+waits. A skipped dibs stays `pending` on the cancelled ask, and its accept answers 409.
+
+**Kept as spec'd, despite review suggestions:**
+- reconcile writes status only (BUG-083 records the retention-clock consequence);
+- cancelling a cancelled ask answers 409 (decision 3);
+- the dibs-create fast path reads the stored status;
+- the derivation literal appears twice (the gate and allowlist pin both).
+
+**Test evidence (Windows box; the real-SQL file is CI-only):**
+- request-service regression: 59 suites, 521 passed, 1 skipped; tsc 0. cleanup-service: regression green; tsc 0.
+- Root `npm test --workspace=tests`: 101 passed. Drift + license gates: 68 passed. ADR-059 audit gate: 0 high/critical.
+- Mutation proofs: removing `SKIP LOCKED` fails 2 writer tests. Each glob/minimatch floor-gate case fails under its
+  fault injection (9 injections).
+- Full `npm test`: see the PR body (run at the end of this chat).
+
+**glob + minimatch (`99815d73`):**
+- Overrides: `minimatch >=11.0.1`, `glob >=14.0.2`. A scoped `babel-plugin-module-resolver: { glob: { ".": "^9.3.3",
+  minimatch: "10.2.5" } }` keeps that one dev subtree as it was.
+- The lock is spliced in place: 3 nodes changed, 2 added, 19 orphans removed (glob 10's chain). `libc` count 26 → 26.
+  npm 11.19.0's own re-resolve is a fixed point (identical sha256). Strict `npx -y npm@11.19.0 ci` exits 0.
+- Proofs: `npm test --force` 27/27; lint parity with the baseline; mobile jest and the Babel alias transform pass;
+  `expo config` and `@expo/fingerprint` are identical to the baseline. `npm audit`: 46 findings → 14.
+- **Residual, forced:** module-resolver 5.0.3 (latest) needs glob 9's `default` export. glob 9 combined with minimatch 11
+  silently returns `[]` for every magic pattern (reproduced). So glob 9.3.5 + minimatch 10.2.5 stay on that dev-only
+  subtree, and **alerts #179 and #180 stay open after merge.**
+- `npm ls` shows a few extra "invalid" lines: arborist's override-scope conflict check. Every edge satisfies its range,
+  and no CI step runs `npm ls`. Not a defect.
+- Process note: the implementer ran code from the downloaded minimatch 11 tarball in a scratch sandbox. It was the same
+  registry package `npm ci` installs, but it broke the untrusted-download rule; reported here.
+
+## Open after this PR (maintainer decisions)
+
+- **#179 / #180 residual (medium, SLA ~2026-11-13):**
+  - (a) dismiss both as `tolerable_risk`. Reason: dev-only, the mobile Babel alias resolver only, static root `./`, no
+    AbortSignal, no untrusted patterns. Or (b) replace babel-plugin-module-resolver (Expo's tsconfig paths) in a mobile
+    sprint.
+  - A dismissal needs your explicit yes.
+- **BUG-083..086** (logged 2026-11-01, not scheduled):
+  - 083: completed-request retention runs from the last edit, not from completion;
+  - 084: POST /matches pre-read race strands an offer;
+  - 085: the derived `open` ignores `expired`;
+  - 086: clients still declare `status` on `updateRequest`. An `api.ts` edit risks a CodeQL re-raise, so it belongs in a
+    frontend PR.
 
 ## Critical implementation notes (from the spec, verbatim)
 
@@ -264,6 +336,8 @@ stay at zero under the simulation's traffic.
   11.x needs `brace-expansion ^5.0.12` (already pinned) and a new `@isaacs/nonrecursive-glob-match`. Both engines are
   `18 || 20 || >=22`. New lock nodes are needed, so it is an in-place splice with overrides, proven by strict
   `npx npm@11.19.0 ci`, `npm ls --all` parity, the full suite and lint.
+- **FIXED on this branch (`99815d73`), except a forced residual:** module-resolver's dev-only glob 9.3.5 + minimatch
+  10.2.5 (*Execution record*). Both alerts stay open after merge, pending the maintainer's decision (*Open after this PR*).
 
 ## Open, not scheduled (carried from Sprint 134)
 
