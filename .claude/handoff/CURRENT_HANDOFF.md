@@ -89,11 +89,14 @@ matches and dibs, so a completed or cancelled ask can no longer be reopened, re-
 
 1. Read this handoff, then confirm live state before trusting it:
    `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
-2. `gh pr checks agent/claude/sprint-135-pr-request-status-guards`. Look first at **Integration Tests**: the Sprint 135
-   real-SQL file (`tests/integration/sprint-135-request-status-guards.integration.test.ts`) has never run. It is CI-only
-   on Windows, and its first result is in this PR's CI.
-3. **If the PR is still open:** fix CI red or review findings on this branch, push, and stop. A red integration case
-   means a real behaviour gap, or a fixture that disagrees with `init.sql`. Read it; never weaken the assertion.
+2. `gh pr checks agent/claude/sprint-135-pr-request-status-guards`. At `7a251553` the PR is **all green**: CI run
+   41576808610, with Integration Tests at 23 suites and 368 tests. That run includes the Sprint 135 real-SQL file:
+   - the corrected refusal cases and the two-provider case;
+   - the dibs-expiry race (410, 2,008 ms).
+   The independent review has **no remaining code findings** (round 2, 2026-11-02). The file is CI-only on Windows.
+3. **If the PR is still open:** only CI red on a later push, or new review findings, need work on this branch: fix, push,
+   stop. A red integration case means a real behaviour gap, or a fixture that disagrees with `init.sql`. Read it; never
+   weaken the assertion. The expiry race allows a 2-second window: a CI stall can fail it, but cannot make it pass falsely.
 4. **Once it merges:** record the post-merge facts (deploy + health, merge-sha CodeQL, Dependabot) as the first commit
    of the next branch, cut from `origin/master`. No docs-only master push.
 
@@ -182,8 +185,14 @@ independent review relayed by the maintainer requested changes. Each finding was
   - The container log reads "Trust-score refresh complete: 9 evaluated, 0 failed". 9 is exactly the suite's seeded
     memberships.
   - The rows that appeared are those 9 pairs with score 0.
-  - Any CI run that spans 03:30 container time fails this way. Logged as BUG-087 (fix direction: keep crons off in the
-    test compose). Fixing it would touch reputation-service and the test infrastructure, outside this PR's agreed scope.
+  - A run fails this way when the refresh lands between the test's two fingerprints. Spanning 03:30 is necessary but
+    not sufficient. Logged as BUG-087 (fix direction: keep crons off in the test compose). Fixing it would touch
+    reputation-service and the test infrastructure, outside this PR's agreed scope.
+
+**Round 1 result:** CI run 41576808610 on `7a251553` is all green: Integration Tests 23 suites / 368 tests, unit and
+regression, security gates, the landing build, and seven Docker builds. Sprint 126 passed in that run. The review's
+round 2 (2026-11-02) has no remaining code findings. It asked only for this handoff, the PR ledger and BUG-087's timing
+wording to be corrected (done in the following docs commit).
 
 ## Open after this PR (maintainer decisions)
 
@@ -192,8 +201,9 @@ independent review relayed by the maintainer requested changes. Each finding was
     AbortSignal, no untrusted patterns. Or (b) replace babel-plugin-module-resolver (Expo's tsconfig paths) in a mobile
     sprint.
   - A dismissal needs your explicit yes.
-- **BUG-087** (logged 2026-11-02): the Sprint 126 dry-run integration test collides with reputation's 03:30 cron in
-  the CI stack. The fix touches reputation-service plus `tests/docker-compose.test.yml`, outside this PR's scope.
+- **BUG-087** (logged 2026-11-02): the Sprint 126 dry-run integration test fails when reputation's 03:30 trust-score
+  refresh overlaps its fingerprint window in the CI stack. The fix touches reputation-service plus
+  `tests/docker-compose.test.yml`, outside this PR's scope.
 - **BUG-083..086** (logged 2026-11-01, not scheduled):
   - 083: completed-request retention runs from the last edit, not from completion;
   - 084: POST /matches pre-read race strands an offer;

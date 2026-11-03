@@ -2324,7 +2324,8 @@ signatures. Found by the Sprint 135 final review.
 
 ## BUG-087 · [2026-11-02] · open
 
-**The Sprint 126 dry-run integration test fails whenever CI runs across 03:30 container time.** reputation-service
+**The Sprint 126 dry-run integration test fails when reputation's 03:30 trust-score refresh overlaps its fingerprint
+window.** reputation-service
 schedules `refreshAllTrustScores` at `'30 3 * * *'` (`services/reputation-service/src/cron/trustScoreRefresh.ts:59`). It upserts a
 trust score for every active membership, and the CI test stack (`tests/docker-compose.test.yml`) runs that cron live.
 `tests/integration/sprint-126-standing-backfill.integration.test.ts:204-212` fingerprints `reputation.trust_scores` before
@@ -2336,7 +2337,8 @@ Evidence (PR #327 CI run 41571898963, 2026-11-03):
 - the rows that appeared are exactly the suite's 9 seeded memberships, each at score 0.
 
 The cron's 9 upserts account for the whole diff, and the karma and activity fingerprints did not change. The PR it
-failed on touches neither reputation-service nor the backfill, and any run that spans 03:30 fails the same way.
+failed on touches neither reputation-service nor the backfill. A run fails this way only when the refresh commits between
+the test's two fingerprints. Spanning 03:30 is necessary but not sufficient.
 
 Fix direction (not decided): keep the crons off in the test stack, for example an env flag that reputation-service's
 `index.ts:130-133` honours, set in `tests/docker-compose.test.yml`. That touches reputation-service and the test
