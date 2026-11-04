@@ -37,7 +37,7 @@
   },
   {
     "file": "services/cleanup-service/src/jobs/memoryRetentionJob.ts",
-    "hash": "3968255d8bca72dc048c57aae2437efb488186d037fdb37d801efbb316046be0",
+    "hash": "a46fd9d9e7168037a76c9c0237e75adac349ec872be08f5ffb6ff403b02fb742",
     "reason": "Internal content erasure.",
     "label": "forgotten_requests AS"
   },

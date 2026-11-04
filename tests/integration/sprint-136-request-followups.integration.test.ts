@@ -14,14 +14,21 @@
  * - The offer guard race. Two POST /matches with the same offer on two open asks both wait on a held offer row. After the
  *   holder commits, exactly one wins and the other answers 400 OFFER_NOT_ACTIVE. Against b9682c34 it fails: both wait at
  *   the match INSERT's foreign-key check (matches_offer_id_fkey), then both write, so two proposals hold one offer.
- * The b9682c34 claims are reasoned from PostgreSQL's row-lock conflict table, not run (no local PostgreSQL on the
- * planning box); CI runs this file against the fixed code.
+ * - The retention clock (BUG-083). cleanup-service's forgetExchangeContent, run directly, keeps an old ask that
+ *   completed yesterday (fails against b9682c34, which ages from updated_at), forgets one that completed more than a
+ *   window ago together with its conversation, ages from the newest completion (MAX, not MIN), and falls back to
+ *   updated_at when no completion is stamped.
+ * The b9682c34 claims for the two races are reasoned from PostgreSQL's row-lock conflict table, not run (no local
+ * PostgreSQL on the Windows box); CI runs this file against the fixed code.
  */
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import Queue from 'bull';
 import { randomUUID } from 'crypto';
 import { createPool, ServiceUrls } from '../fixtures';
+// BUG-083's cases run cleanup-service's job directly, as sprint-133-endorsement-trust runs social-graph's reconcile.
+import cleanupPool from '../../services/cleanup-service/src/database/db';
+import { forgetExchangeContent, resolveRetentionWindows } from '../../services/cleanup-service/src/jobs/memoryRetentionJob';
 
 describe('Sprint 136 request follow-ups', () => {
   const pool = createPool();
@@ -156,6 +163,10 @@ describe('Sprint 136 request follow-ups', () => {
   afterAll(async () => {
     try {
       await (await communityEvolution.getJob(Cm))?.remove().catch(() => undefined);
+      await pool.query(`DELETE FROM messaging.messages WHERE conversation_id IN (SELECT c.id FROM messaging.conversations c
+        JOIN requests.matches m ON m.id = c.request_match_id WHERE m.request_id = ANY($1::uuid[]))`, [asks]);
+      await pool.query(`DELETE FROM messaging.conversations WHERE request_match_id IN
+        (SELECT id FROM requests.matches WHERE request_id = ANY($1::uuid[]))`, [asks]);
       await pool.query('DELETE FROM requests.dibs WHERE request_id = ANY($1::uuid[])', [asks]);
       await pool.query('DELETE FROM provider.offers WHERE request_id = ANY($1::uuid[])', [asks]);
       await pool.query('DELETE FROM requests.matches WHERE request_id = ANY($1::uuid[])', [asks]);
@@ -174,6 +185,7 @@ describe('Sprint 136 request follow-ups', () => {
       await pool.query('DELETE FROM auth.users WHERE id = ANY($1::uuid[])', [users]);
     } finally {
       await communityEvolution.close();
+      await cleanupPool.end();
       await pool.end();
     }
   }, 90_000);
@@ -328,6 +340,74 @@ describe('Sprint 136 request follow-ups', () => {
       expect(res.status).toBe(409);
       expect(res.body.error).toBe('ALREADY_OFFERED');
       expect((await footprint(q)).matches).toHaveLength(1);
+    });
+  });
+
+  // BUG-083: completion never stamps help_requests.updated_at, so the completed branch ages from the newest completed
+  // match's completed_at, falling back to updated_at. W is the global window the job resolves (Cm has no override).
+  describe('memory retention ages a completed ask from its completion (BUG-083)', () => {
+    let W = 0;
+    beforeAll(async () => {
+      const cfg = await pool.query(`SELECT community_id, completed_request_window_days, expired_request_window_days,
+        message_window_days FROM requests.retention_config`);
+      W = resolveRetentionWindows(cfg.rows).completedRequestWindowDays;
+      expect(W).toBeGreaterThan(5);
+    });
+
+    /** A completed ask created, and last updated, `days` ago. */
+    async function completedAsk(days: number): Promise<string> {
+      const id = randomUUID();
+      await pool.query(`INSERT INTO requests.help_requests
+        (id,requester_id,title,description,category,request_type,visibility_scope,status,created_at,updated_at)
+        VALUES ($1,$2,'Sprint 136 retention ask','Fixture','generic','generic','community','completed',
+                NOW() - make_interval(days => $3::int), NOW() - make_interval(days => $3::int))`, [id, R, days]);
+      await pool.query('INSERT INTO requests.request_communities(request_id,community_id) VALUES ($1,$2)', [id, Cm]);
+      asks.push(id);
+      return id;
+    }
+    /** A completed match on it, completed `days` ago (null: no completion stamp). */
+    async function completedMatch(requestId: string, days: number | null): Promise<string> {
+      const { rows } = await pool.query(`INSERT INTO requests.matches (request_id,responder_id,status,completed_at)
+        VALUES ($1,$2,'completed',CASE WHEN $3::int IS NULL THEN NULL ELSE NOW() - make_interval(days => $3::int) END)
+        RETURNING id`, [requestId, H, days]);
+      return rows[0].id;
+    }
+    const forgotten = async (id: string) =>
+      (await one('SELECT title, content_forgotten_at IS NOT NULL AS forgotten FROM requests.help_requests WHERE id = $1', id));
+
+    // Fails against b9682c34, which ages from updated_at and forgets it on this run.
+    it('keeps an old ask that completed yesterday', async () => {
+      const q = await completedAsk(W + 30);
+      await completedMatch(q, 1);
+      await forgetExchangeContent();
+      expect(await forgotten(q)).toEqual({ title: 'Sprint 136 retention ask', forgotten: false });
+    });
+
+    it('forgets an ask that completed more than a window ago, and its conversation with it', async () => {
+      const q = await completedAsk(W + 30);
+      const m = await completedMatch(q, W + 5);
+      const conversation = (await pool.query('INSERT INTO messaging.conversations (request_match_id) VALUES ($1) RETURNING id', [m])).rows[0].id;
+      const message = (await pool.query(`INSERT INTO messaging.messages (sender_id,conversation_id,content)
+        VALUES ($1,$2,'Sprint 136 message') RETURNING id`, [H, conversation])).rows[0].id;
+      await forgetExchangeContent();
+      expect(await forgotten(q)).toEqual({ title: '[forgotten]', forgotten: true });
+      expect(await one('SELECT content, forgotten_at IS NOT NULL AS forgotten FROM messaging.messages WHERE id = $1', message))
+        .toEqual({ content: '[forgotten]', forgotten: true });
+    });
+
+    it('falls back to updated_at for a completed ask whose completed match carries no completion stamp', async () => {
+      const q = await completedAsk(W + 5);
+      await completedMatch(q, null);
+      await forgetExchangeContent();
+      expect(await forgotten(q)).toEqual({ title: '[forgotten]', forgotten: true });
+    });
+
+    it('ages from the NEWEST completion: one completed a window ago and one yesterday keep the ask', async () => {
+      const q = await completedAsk(W + 30);
+      await completedMatch(q, W + 5);
+      await completedMatch(q, 1);
+      await forgetExchangeContent();
+      expect(await forgotten(q)).toEqual({ title: 'Sprint 136 retention ask', forgotten: false });
     });
   });
 });
