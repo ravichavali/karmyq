@@ -1,9 +1,10 @@
 # Sprint 136 — Mobile Dependency Fixes + Request-Status Follow-ups — Handoff
 
 **Date**: 2026-11-03
-**Outcome so far**: **PLANNED, and the plan review is addressed. Ready to execute.** The maintainer confirmed the scope
-on 2026-11-03 (*Decisions*), and the spec and plan are written. Codex's plan review returned four findings. All four
-were verified against the repo and fixed in the spec and plan (*Plan review*). No code has changed.
+**Outcome so far**: **EXECUTED; PR open, awaiting CI, review and the maintainer's merge.** Plan Tasks 1–15 are done
+(Claude, inline via superpowers:executing-plans, 2026-11-03), all four gates have run, and the PR is open from this
+branch (*Execution record*, *Gate results*). Nothing is merged or deployed. Two questions wait on the maintainer
+(*Open questions*).
 
 > The handoff carries **state between sessions**. It is not a copy of the plan: it links the plan and names the next
 > unchecked task. It is branch-local, so it can reserve nothing; see `CLAUDE.md` → *Parallel Development* for how
@@ -23,9 +24,9 @@ Archived: [`archive/2026-11-03-sprint-135-request-status-guards-COMPLETE-v11.108
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-136-planning`, cut from `origin/master` `b9682c34` on 2026-11-03 and pushed (tracks `origin/agent/claude/sprint-136-planning`). **Execution continues on it, and the one PR opens from it.** No PR yet. |
-| **Base** | `origin/master` at `b9682c34` (#327, v11.108.0; fetched 2026-11-03; no open PRs). The version bump is re-derived from `origin/master` at merge. |
-| **Active editor** | Claude (the planning chat, then the plan-review response, both 2026-11-03). The next chat is the executor. |
+| **Branch** | `agent/claude/sprint-136-planning`, cut from `origin/master` `b9682c34` on 2026-11-03 and pushed (tracks `origin/agent/claude/sprint-136-planning`). The one PR is open from it: **PR_NUMBER_PENDING**. |
+| **Base** | `origin/master` at `b9682c34` (#327, v11.108.0; re-fetched 2026-11-03 before the PR; no other open PRs). The version bump (11.109.0) is re-derived from `origin/master` at merge. |
+| **Active editor** | Claude (planning, plan-review response, then execution, all 2026-11-03). The next chat is the post-merge chat (plan Task 17). |
 | **Reviewer role** | Codex (non-author), relayed by the maintainer. |
 | **Owned paths** | `apps/mobile/{babel.config.js,jest.config.js,package.json,services/api.ts,tests/**,claude.md}`, root `package.json` (version + the one override) and `package-lock.json`, `services/reputation-service/src/cron/**`, `services/request-service/src/{db/requestStatus.ts,db/offersDb.ts,routes/matches.ts,routes/adminActions.ts,routes/dibs.ts}` + its tests and allowlist, `services/cleanup-service/src/jobs/memoryRetentionJob.ts` + its tests, `apps/frontend/src/lib/api.ts` (one line) + one type fixture, `tests/docker-compose.test.yml`, the new root regression and integration files, `docs/guides/` (4 guides), three service CONTEXT.md files, `tests/claude.md`, `docs/BUGS.md`, `docs/IDEAS.md` (one dated correction), this handoff, the spec and plan. |
 | **Shared resources needed** | Version bump (re-derive at merge). Merge slot. **Dependency lane: Claude** (maintainer-designated). This PR removes the module-resolver subtree and splices one node (`expo-notifications`). **No ADR number** (none needed; decision 5). No demo-host operation. |
@@ -76,27 +77,77 @@ Not run: the review-response skill's "re-run the gate that found it", since the 
 revision is optional and the maintainer's call. The scratchpad walker and the `CASE` check are throwaway, and the
 executor writes its own walker per Task 3.
 
+## Execution record (2026-11-03)
+
+| Task | Commit(s) | Result |
+|---|---|---|
+| 1 version | `aa4ecd09` | 11.109.0 (provisional). Baselines in the executor's scratchpad. |
+| 2 alias test | `f233b529` | Green with the plugin, red without it (`Cannot find module '@/config/api'`), green with `moduleNameMapper`. |
+| 3 A: plugin removal | `027b70e6` | Walker: 16 dev nodes = spec inventory; self-checks on 2 dropped edges. Strict `npm ci` 0; `npm ls` parity; audit 14 → 11 (3 moderates gone); export 1,406 modules identical; negative control fails on `@/store/auth`. |
+| 4 B: expo-notifications | `651bf838` | One-node splice; drift gate 0 against the live map (2 registered, no BLOCKING). |
+| 4 fallout | `9e9e2654` | First push refused: `sprint-131-d9-security-overrides` pinned the module-resolver exemption. Updated to "no exempt copy" (red on base lock, green now). **Part of the cherry-pickable dependency set.** |
+| 5–6 BUG-087 | `82d8f6ef` | `SCHEDULED_JOBS_DISABLED`; unit 14/14; root gate 9/9 with mutation-based negative fixtures. |
+| 7–9 BUG-085/084 | `66a5f158`, `92a9de66` | `lockRequestForCommitment`; POST /matches under the lock; mocked contract 41/41; derive SELECT re-pinned via `surfaceHash`. Lock-order read: no `help_offers` writer holds an offer lock then waits on the request. |
+| 10 BUG-083 | `65c6faa4` | Retention ages from `MAX(completed_at)`; retention UPDATE re-pinned. |
+| 11 BUG-086 | `419a5bb0` | Both fixtures proven by injection. `next build` type-checks the unimported frontend fixture; mobile via `ci.yml:75`, frontend via `test.yml:106`, both required checks. |
+| 12 promotion | `91abdd80` | All changed workspaces green; frontend `tests/tdd` red is pre-existing WIP. |
+| 13 docs | `3b8b2338` | Guides ×4, CONTEXT ×3, local context ×2, IDEAS correction (appended at end), BUGS-083..087 fixed. |
+| 14 `/simplify` | `548a8659`, `cff6a30b` | 4 parallel reviewers. Jest alias map now built from tsconfig `paths` (`@/shared/*` was wrong under jest); shared `REQUEST_NOT_OPEN` body; gate via `tracked()`; test duplication removed; type fixtures put `@ts-expect-error` on the property. |
+| 14 `/code-review high` | `5bbc7493` | 10 findings, each verified (review-response). Fixed: gate bypasses, registry descriptions, two stale comments. Logged: **BUG-088, BUG-089, BUG-090**. False positive: 400-vs-409 split (spec D). |
+| 14 scoped re-review | `54e5ef5d` | The gate still enumerated call shapes; now it checks every value use of a node-cron binding (AST). Mutation-proven: 7 mutants, each reds its fixtures. Registry 404 + one comment fixed. |
+| 14 `/security-review` | — | 0 findings at confidence ≥ 7. POST /matches auth order identical to master; `offerer_id` bound; flag fails open; no new dependency; all SQL parameterised. |
+| 15 final verification | — | See *Gate results*. |
+
+The integration file `tests/integration/sprint-136-request-followups.integration.test.ts` is **CI-only** (no local
+PostgreSQL on Windows): it has type-checked but never run. **Its first real run is the PR's CI**, so a red
+*Integration Tests* job there is new evidence, not a regression; read it before anything else.
+
+## Gate results (final, 2026-11-03, on `54e5ef5d`)
+
+- Strict `npx -y npm@11.19.0 ci`: exit 0.
+- `npm test`: exit 0; Turbo 27/27 (15 cached; the root `tests` workspace ran fresh, 399 s).
+- `tsc --noEmit`: exit 0 in mobile, request-service, cleanup-service and reputation-service; frontend exit 0 on
+  `548a8659` (unchanged since).
+- `origin/master` is still `b9682c34`; no other PR was open when the PR was opened.
+- **Not run:** the real-SQL integration file (CI only).
+
+## Open questions for the maintainer
+
+1. **Retention clock edge (code-review #9).** Spec F's `COALESCE(MAX(completed_at), updated_at)` ages a completed ask
+   from its completion even if the requester edited it later (`PUT /requests/:id` still allows that edit and bumps
+   `updated_at`). `GREATEST(...)` would keep a post-completion edit a full window. The PR implements the decided
+   COALESCE. Change it?
+2. **BUG-088 direction.** Refusing accept on an expired ask (decision 3) leaves its proposals and their held offers in
+   place until the helper withdraws or the requester cancels. Should the expiration sweep close them?
+
 ## Links
 
 - **Spec**: [`docs/superpowers/specs/2026-11-03-sprint-136-mobile-deps-and-status-followups-design.md`](../../docs/superpowers/specs/2026-11-03-sprint-136-mobile-deps-and-status-followups-design.md)
 - **Plan**: [`docs/superpowers/plans/2026-11-03-sprint-136-mobile-deps-and-status-followups.md`](../../docs/superpowers/plans/2026-11-03-sprint-136-mobile-deps-and-status-followups.md) (17 tasks; Task 17 is the post-merge chat)
-- **PR**: none yet.
+- **PR**: PR_NUMBER_PENDING.
 
-## Quick Start
+## Quick Start (the post-merge chat, plan Task 17)
 
-1. Read this handoff, then confirm live state before trusting it:
-   `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`. On 2026-11-03, master was `b9682c34` and no
-   PRs were open. If master moved, merge it into this branch (a merge commit, never a rebase).
-2. Reuse this branch: `git switch agent/claude/sprint-136-planning`, then `git pull`. Do not cut a new branch, since the
-   one PR carries the planning commits.
-3. Open the plan: `docs/superpowers/plans/2026-11-03-sprint-136-mobile-deps-and-status-followups.md`.
-4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no
-   `/execute-plan` slash command; superpowers removed it as a deprecated stub.
-5. Executing the plan hands the executor the **dependency lane** (memory: *Execute-plan transfers the lane*). The
-   dependency briefs **forbid executing downloaded code**: behavioral checks run on the lock-verified install.
-6. **Push after Task 4** (the dependency set), and watch the date: the fallback trigger is **2026-11-09**.
+1. Confirm live state before trusting this file: `git fetch origin`, `gh pr list`, `gh pr view PR_NUMBER_PENDING`,
+   `git log --oneline origin/master -3`. If the PR is still open, read its CI first, especially the never-before-run
+   **Integration Tests** job (`tests/integration/sprint-136-request-followups.integration.test.ts`).
+2. If CI is red, fix forward on this branch (`agent/claude/sprint-136-planning`; merge `origin/master` in with a merge
+   commit if it moved, never a rebase). The pre-push hook runs the suite.
+3. **Merging needs the maintainer's explicit authorization.** One merge at a time; confirm no deploy is in flight
+   (`gh run list`). Re-derive the version (11.109.0 provisional) from `origin/master` at merge.
+4. **Fallback date 2026-11-09:** if the PR is not mergeable by then, take plan Task 16's fallback. Cut
+   `agent/claude/sprint-136-pr-mobile-deps` from `origin/master` and cherry-pick `f233b529`, `027b70e6`, `651bf838` and
+   **`9e9e2654`** (the D9-gate fix; without it that branch's suite is red), with its own version bump. #180's SLA is
+   ~2026-11-13.
+5. After the merge, the post-merge record (plan Task 17) rides in the next PR, never a docs-only master push. Record:
+   - Dependabot #180 and #179;
+   - master's open code-scanning alerts and the merge-sha analysis (an `api.ts` re-raise is surfaced, not dismissed);
+   - the next scheduled Expo drift run (#316 should auto-close);
+   - the next CI *Integration Tests* log (reputation's "not scheduled" lines).
+6. The two *Open questions* above wait on the maintainer; BUG-088..090 are logged, not scheduled.
 
-**Next unchecked task**: plan **Task 1** (branch check, baselines, provisional version 11.109.0).
+**Next unchecked task**: CI on PR_NUMBER_PENDING, then the maintainer's **merge authorization** (plan Task 17). Plan
+Tasks 1–16 are done.
 
 ## Dated obligations
 
@@ -205,6 +256,10 @@ executor writes its own walker per Task 3.
       `b9682c34`" claim rests on it.
 
 ## Open, not scheduled (carried from Sprint 135)
+
+- **New in Sprint 136 (from `/code-review`, logged 2026-11-03):** BUG-088 (an expired ask's proposals keep their help
+  offers held), BUG-089 (`PUT /offers/:id` writes any status; an expired help offer can back a proposal), BUG-090
+  (`POST /requests/offers` has no request lock or `expires_at` check).
 
 - **BUG-073** tabled (maintainer, 2026-10-26): community admin and platform admin become separate roles, as a future
   feature (`docs/IDEAS.md` 2026-10-26).
