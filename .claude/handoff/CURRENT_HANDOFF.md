@@ -1,11 +1,11 @@
 # Sprint 137 — Exchange Integrity — Handoff
 
 **Date**: 2026-11-04
-**Outcome so far**: **Planned and plan-reviewed (Codex review and re-review); ready to execute.**
+**Outcome so far**: **Planned and plan-reviewed (three Codex passes); ready to execute.**
 - Scope and decisions 1–3 were agreed with the maintainer on 2026-11-04.
 - The spec, plan, BUG-088/090 corrections and the new BUG-091 entry are committed on this branch.
-- A Codex plan review found three issues, and its re-review one more. All four are confirmed and resolved in the spec
-  and plan (see *Plan review*).
+- Codex's plan review found three issues, and two re-reviews found one each. All five are confirmed and resolved in the
+  spec and plan (see *Plan review*).
 - No code has changed yet, and no PR is open.
 
 > The handoff carries **state between sessions**. It is not a copy of the plan: it links the plan and names the next
@@ -46,8 +46,9 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
 5. Merges, ADR numbers, demo-host operations and dismissals each need explicit authorization. Stop at PR creation.
 
 **Next unchecked task**: Plan Task 1 (branch check, baselines, v11.110.0 bump) in a new Claude chat, per this Quick
-Start. The plan has been reviewed twice by Codex. R1's fix (a narrowed claim and two gate assertions) is mechanical, so
-no third plan review is planned. The PR's `/code-review` will cover the implementation.
+Start. Codex has reviewed the plan three times (`6d478a36`, `17f41af6`, `fcec0e28`). R2's fix (a stricter parse rule and
+its negative fixtures) is mechanical, so no further plan review is planned. The PR's `/code-review` will cover the
+implementation.
 
 ---
 
@@ -99,6 +100,8 @@ the spec and plan:
 | 2 (P2) | The B4 gate cannot tell reject's release from cancel's | CONFIRMED | `matches.ts:493` and `:746` are byte-identical | Both now call `releaseOffer`. A negative fixture puts two identical writers in one file. |
 | 3 (P2) | Task 7's red commit fails required checks | CONFIRMED | cleanup's `"test": "jest"` (`package.json:12`) and `tests/tdd` in `jest.config.js:10` | Task 7 runs red locally and is committed with Task 8. Logged **BUG-092** (simulation-service has the same drift). |
 | R1 (P1, re-review of `17f41af6`) | B5's writer invariant was stated repo-wide, and it is false repo-wide | CONFIRMED (the wording; the race argument stands) | The archived seeder (`scripts/archive/seeding/generate-realistic-data.ts:904`, `:923`) and integration fixtures (`sprint-136-request-followups.integration.test.ts:81`, `sprint-134-bug-074-match-status-guards.integration.test.ts:55`) insert offer-backed matches; under `services/*/src` only `matches.ts:247-248` does | The claim is narrowed to runtime writers in `services/*/src`, and setup-time writers are accounted for (spec B5, *Writers outside the argument*). B4 now **gates** the invariant: one `matched` setter and one offer-backed insert, each with negative fixtures (plan Task 2). |
+
+| R2 (P2, review of `17f41af6..fcec0e28`) | The gate parsed the column list from the literal's "first `(`", so a CTE or comment could let an offer-backed insert slip past it | CONFIRMED | Plan Task 2 said "between the first `(` and its matching `)`" | The parser anchors at each `INSERT INTO (requests.)?matches` (optional `AS alias`) and balances from the next `(`. Three more gaps found while verifying are also closed: no column list, an interpolated list, and several inserts in one literal. Each has a negative fixture. All five current `services/*/src` inserts name their columns, so nothing existing is flagged. |
 
 **Re-review (Codex, 2026-11-04, `6d478a36..17f41af6`):** no findings on the `closeProposals` exclusion across its four
 callers, on reject and cancel updating their match row before `releaseOffer`, on D2 as one statement, or on the Task 7/8

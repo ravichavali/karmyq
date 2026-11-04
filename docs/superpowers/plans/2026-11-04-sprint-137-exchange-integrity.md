@@ -227,14 +227,30 @@ git commit -am "chore: v11.110.0 (Sprint 137)"
   - **One `matched` setter.** Among the reviewed `help_offers` status writes, exactly one assigns `status =
     'matched'`, and it is the `POST /matches` hold (`matches.ts`, label containing `AND status = 'active'`).
   - **One offer-backed insert.** Scan `requests.matches` literals (scanner table parameter
-    `/\b(?:requests\.)?matches\b/i`) for `INSERT INTO (requests.)?matches (...)`. Exactly one has a column list naming
-    `offer_id`: `POST /matches`'s in `matches.ts`. Parse the column list between the first `(` and its matching `)`;
-    a mention of `offer_id` in a later `SELECT` or `RETURNING` must not count.
+    `/\b(?:requests\.)?matches\b/i`). Exactly one insert is offer-backed: `POST /matches`'s in `matches.ts`. The rule
+    **fails closed** (Codex review of `fcec0e28`):
+    - **Anchor every occurrence.** Find each `INSERT INTO (requests.)?matches` in the literal, not just the first; a
+      CTE can hold several inserts.
+    - **Take the column list from the anchor.** Skip whitespace and an optional `AS <alias>` after the table name. The
+      next character must be `(`; balance parentheses from that `(`. **Never** use the literal's first `(`: a leading
+      CTE (`WITH x AS (…) INSERT …`) or a comment would supply the wrong one.
+    - **An insert is offer-backed** when its column list names `offer_id`, when it has **no column list** (`VALUES` or
+      `SELECT` straight after the table writes `offer_id` by position), or when the list contains `${` (built at run
+      time).
+    - A mention of `offer_id` after the list, in `VALUES`, a `SELECT` or `RETURNING`, does not count.
 
-  Negative fixtures:
-  - a second `SET status = 'matched'` writer fails the first assertion;
-  - a second `INSERT INTO requests.matches (request_id, offer_id, …)` fails the second;
-  - an insert whose column list lacks `offer_id`, but whose `RETURNING` names it, does not count.
+    All five inserts in `services/*/src` on 2026-11-04 name their columns, and only `matches.ts:247-248` names
+    `offer_id`. So the strict rule flags nothing today.
+
+  Negative fixtures (each must fail the second assertion, unless stated otherwise):
+  - a second `SET status = 'matched'` writer fails the **first** assertion;
+  - a second `INSERT INTO requests.matches (request_id, offer_id, …)`;
+  - the same insert behind a CTE: `WITH x AS (SELECT 1) INSERT INTO requests.matches (request_id, offer_id) …`;
+  - the same insert with an alias: `INSERT INTO requests.matches AS m (request_id, offer_id) …`;
+  - an insert with no column list: `INSERT INTO requests.matches VALUES (…)` and `… SELECT …`;
+  - an interpolated list: `INSERT INTO requests.matches (${cols}) …`;
+  - one literal holding an offer-less insert and then an offer-backed one;
+  - **does not fail:** an insert whose column list lacks `offer_id` but whose `RETURNING` names it.
 
   The scope is `services/*/src` on purpose. Seeds, `scripts/archive/` and test fixtures write at setup, never
   alongside a release (spec B5, *Writers outside the argument*).

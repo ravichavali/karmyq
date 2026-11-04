@@ -220,7 +220,9 @@ proves that an extra identical writer cannot hide behind a reviewed one.
   re-review, 2026-11-04: the first draft of this paragraph claimed the runtime invariant repo-wide.)
 - **The runtime invariant is gated, not just stated.** B4 also asserts, over `services/*/src`, two things:
   - the only `help_offers` status write that sets `matched` is the hold;
-  - the only `INSERT INTO requests.matches` whose column list names `offer_id` is `POST /matches`'s.
+  - the only offer-backed `INSERT INTO requests.matches` is `POST /matches`'s. The check fails closed: an insert with
+    no column list, or with one built at run time, counts as offer-backed, and the column list is parsed from the `(`
+    right after the table name, never from the literal's first `(` (plan Task 2).
 
   Each assertion has a negative fixture: a second `matched` setter fails it, and so does a second offer-backed insert.
   So a writer that breaks the argument fails the build instead of passing review unnoticed.
