@@ -24,7 +24,7 @@ Archived: [`archive/2026-11-03-sprint-135-request-status-guards-COMPLETE-v11.108
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-136-planning`, cut from `origin/master` `b9682c34` on 2026-11-03 and pushed (tracks `origin/agent/claude/sprint-136-planning`). The one PR is open from it: **PR_NUMBER_PENDING**. |
+| **Branch** | `agent/claude/sprint-136-planning`, cut from `origin/master` `b9682c34` on 2026-11-03 and pushed (tracks `origin/agent/claude/sprint-136-planning`). The one PR is open from it: **[#328](https://github.com/ravichavali/karmyq/pull/328)**. |
 | **Base** | `origin/master` at `b9682c34` (#327, v11.108.0; re-fetched 2026-11-03 before the PR; no other open PRs). The version bump (11.109.0) is re-derived from `origin/master` at merge. |
 | **Active editor** | Claude (planning, plan-review response, then execution, all 2026-11-03). The next chat is the post-merge chat (plan Task 17). |
 | **Reviewer role** | Codex (non-author), relayed by the maintainer. |
@@ -124,11 +124,11 @@ PostgreSQL on Windows): it has type-checked but never run. **Its first real run 
 
 - **Spec**: [`docs/superpowers/specs/2026-11-03-sprint-136-mobile-deps-and-status-followups-design.md`](../../docs/superpowers/specs/2026-11-03-sprint-136-mobile-deps-and-status-followups-design.md)
 - **Plan**: [`docs/superpowers/plans/2026-11-03-sprint-136-mobile-deps-and-status-followups.md`](../../docs/superpowers/plans/2026-11-03-sprint-136-mobile-deps-and-status-followups.md) (17 tasks; Task 17 is the post-merge chat)
-- **PR**: PR_NUMBER_PENDING.
+- **PR**: [#328](https://github.com/ravichavali/karmyq/pull/328).
 
 ## Quick Start (the post-merge chat, plan Task 17)
 
-1. Confirm live state before trusting this file: `git fetch origin`, `gh pr list`, `gh pr view PR_NUMBER_PENDING`,
+1. Confirm live state before trusting this file: `git fetch origin`, `gh pr list`, `gh pr view 328`,
    `git log --oneline origin/master -3`. If the PR is still open, read its CI first, especially the never-before-run
    **Integration Tests** job (`tests/integration/sprint-136-request-followups.integration.test.ts`).
 2. If CI is red, fix forward on this branch (`agent/claude/sprint-136-planning`; merge `origin/master` in with a merge
@@ -146,7 +146,7 @@ PostgreSQL on Windows): it has type-checked but never run. **Its first real run 
    - the next CI *Integration Tests* log (reputation's "not scheduled" lines).
 6. The two *Open questions* above wait on the maintainer; BUG-088..090 are logged, not scheduled.
 
-**Next unchecked task**: CI on PR_NUMBER_PENDING, then the maintainer's **merge authorization** (plan Task 17). Plan
+**Next unchecked task**: CI on #328, then the maintainer's **merge authorization** (plan Task 17). Plan
 Tasks 1–16 are done.
 
 ## Dated obligations
