@@ -13,12 +13,15 @@ const sqlOf = (n: number) => flat(String(q.mock.calls[n][0]));
 const paramsOf = (n: number) => q.mock.calls[n][1];
 
 const LOCK = 'SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE';
+// Sprint 136 (BUG-085) adds the past_expiry column after the CASE; the CASE itself is unchanged.
 const DERIVE =
   "SELECT CASE WHEN r.status = 'cancelled' THEN 'cancelled' " +
   "WHEN EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = r.id AND m.status = 'matched') THEN 'matched' " +
   "WHEN EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = r.id AND m.status = 'completed') THEN 'completed' " +
   "WHEN EXISTS (SELECT 1 FROM requests.dibs d WHERE d.request_id = r.id AND d.status = 'pending') THEN 'dibs_pending' " +
-  "ELSE 'open' END AS status FROM requests.help_requests r WHERE r.id = $1";
+  "ELSE 'open' END AS status, " +
+  '(r.expired IS TRUE OR (r.expires_at IS NOT NULL AND r.expires_at <= clock_timestamp())) AS past_expiry ' +
+  'FROM requests.help_requests r WHERE r.id = $1';
 const RECONCILE =
   'UPDATE requests.help_requests r SET status = CASE ' +
   "WHEN EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = r.id AND m.status = 'matched') THEN 'matched' " +

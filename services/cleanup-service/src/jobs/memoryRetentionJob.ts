@@ -90,6 +90,9 @@ export async function forgetExchangeContent(): Promise<{
   //    UPDATE forgets the aged ones; the second forgets every message whose conversation links
   //    (request → match → conversation → messages) to a just-forgotten request; the SELECT returns both
   //    counts without a second round-trip.
+  //    BUG-083: a completed request ages from its newest completed match's completed_at, not its last
+  //    edit. Completion never stamps help_requests.updated_at, so updated_at alone forgot an old ask the
+  //    run after it completed. updated_at stays as the fallback for a completion with no completed_at.
   const completed = await query(
     `WITH req_window AS (
        ${reqWindowCte('completed_request_window_days', '$1')}
@@ -105,7 +108,9 @@ export async function forgetExchangeContent(): Promise<{
               content_forgotten_at = NOW()
          FROM req_window rw
         WHERE h.id = rw.request_id
-          AND h.updated_at < NOW() - make_interval(days => rw.window_days::int)
+          AND COALESCE((SELECT MAX(m.completed_at) FROM requests.matches m
+                         WHERE m.request_id = h.id AND m.status = 'completed'), h.updated_at)
+              < NOW() - make_interval(days => rw.window_days::int)
        RETURNING h.id
      ),
      cascaded_messages AS (

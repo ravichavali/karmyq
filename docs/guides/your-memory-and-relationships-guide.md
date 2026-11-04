@@ -44,8 +44,9 @@ Empty rows are hidden — if you have no fading bonds, you won't see an awkward 
 
 Curious what the platform keeps versus lets go? The
 [What Karmyq Remembers](/about/memory) page lays it out in plain language: completed-request text is
-anonymized after about six months, unanswered expired requests are deleted after a month, and messages
-are forgotten with their exchange. What's **always kept** is the aggregate — that you helped, your
+anonymized about six months after the exchange **completed** (not after the request was last edited, so
+an old request you only just finished keeps its words for the full window), unanswered expired requests
+are deleted after a month, and messages are forgotten with their exchange. What's **always kept** is the aggregate — that you helped, your
 karma, and your trust. Forgetting the words never changes the numbers.
 
 ## Frequently asked

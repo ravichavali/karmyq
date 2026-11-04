@@ -28,6 +28,17 @@ hand-rolled with `@expo/vector-icons`; state is the one Zustand store in `store/
 
 ## Recent changes
 
+- **Sprint 136 (2026-11-03): `babel-plugin-module-resolver` is gone** (Dependabot #180/#179: its nested glob 9.3.5 and
+  minimatch 10.2.5). The `@/` aliases now resolve through **Metro's tsconfig paths** (`@expo/cli` 57.0.32
+  `instantiateMetro.js:291`, `isTsconfigPathsEnabled` defaults on; `tsconfig.json` `@/*` → `./*`), and in jest through
+  `jest.config.js` `moduleNameMapper`, which is **built from the same tsconfig `paths`**, longest prefix first, so
+  `@/shared/*` reaches `packages/shared` under tsc, Metro and jest alike. Add an alias in `tsconfig.json` only. Proven by
+  `tests/regression/sprint-136-alias-resolution.test.ts`. `babel.config.js` is presets only. Do not set
+  `experiments.tsconfigPaths: false` in `app.json`: the export then fails on the first `@/` import (the negative control
+  run for this change). The Android export's module set was identical before and after (1,406 modules). Lock: 16 dev
+  nodes removed, plus the scoped root override. Also **`expo-notifications` 57.0.24** (Expo drift #316; one-node splice).
+  Mobile `tsc --noEmit` is green and gated by CI's **Lint & Type Check** (`ci.yml:75`); `tests/types/` holds
+  compile-time fixtures it runs (BUG-086: `updateRequest` no longer offers `status`).
 - **Sprint 134 BUG-074 PR (2026-10-29): `decode-uri-component` is overridden to 0.5.1 at the root** (GHSA-qr28-fpjm-wq7f,
   high). 0.5.1 is ESM-only. `query-string@7.1.3`, which expo-router 57.0.29 uses, `require()`s it, so `parse()` throws
   `decodeComponent is not a function` and **expo-router URL decoding is broken**. The maintainer accepted this until mobile's

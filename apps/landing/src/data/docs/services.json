@@ -467,12 +467,12 @@
         {
           "method": "POST",
           "path": "/matches",
-          "description": "Create a member's offer to help (proposed match). Responder is the verified JWT identity (ADR-064; body responder_id ignored). Eligibility = the request's feed-VISIBILITY boundary (shared getRequestReachability helper, also used by GET /:id can_offer): member of a request community OR trust_network/platform scope OR sister-reachable. Out-of-audience (e.g. community-scoped ask the viewer can't see) -> 403 REQUEST_NOT_REACHABLE. Plus invariants: open+unexpired (400 REQUEST_NOT_OPEN), not own (400 OWN_REQUEST), no existing live offer (409 ALREADY_OFFERED). Admin-proposed matches use POST /requests/:id/propose-match instead."
+          "description": "Create a member's offer to help (proposed match). Responder is the verified JWT identity (ADR-064; body responder_id ignored). Eligibility = the request's feed-VISIBILITY boundary (shared getRequestReachability helper, also used by GET /:id can_offer): member of a request community OR trust_network/platform scope OR sister-reachable. Out-of-audience (e.g. community-scoped ask the viewer can't see) -> 403 REQUEST_NOT_REACHABLE. Plus invariants: open+unexpired (400 REQUEST_NOT_OPEN), not own (400 OWN_REQUEST), no existing live offer (409 ALREADY_OFFERED), if offer_id, the caller's own offer (404 Offer not found, the same for a foreign or missing one) and active (400 OFFER_NOT_ACTIVE). Admin-proposed matches use POST /requests/:id/propose-match instead. Sprint 136 BUG-084/085: those checks are a fast path; the write is one transaction under the request lock: lockRequestForCommitment (closed, or past expiry incl. expires_at not yet swept -> 409 REQUEST_NOT_OPEN), the duplicate check again (409 ALREADY_OFFERED), the offer held only while active and the responder's (400 OFFER_NOT_ACTIVE), then the insert; match_created after the commit."
         },
         {
           "method": "PUT",
           "path": "/matches/:id/accept",
-          "description": "Sprint 135 BUG-075: the request must derive 'open' under the request lock (src/db/requestStatus.ts lockRequest); 'matched' or a lost race -> 409 ALREADY_MATCHED, 'dibs_pending', 'completed' or 'cancelled' -> 409 REQUEST_NOT_OPEN ('This request is no longer open'). Accepts only a still-proposed match, closes the other proposals (closeProposals frees an offer only while it is 'matched'), and derives the request status (reconcileRequestStatus). One transaction, no write on a refusal."
+          "description": "Sprint 135 BUG-075: the request must derive 'open' under the request lock (src/db/requestStatus.ts lockRequest); 'matched' or a lost race -> 409 ALREADY_MATCHED, 'dibs_pending', 'completed' or 'cancelled' -> 409 REQUEST_NOT_OPEN ('This request is no longer open'). Accepts only a still-proposed match, closes the other proposals (closeProposals frees an offer only while it is 'matched'), and derives the request status (reconcileRequestStatus). One transaction, no write on a refusal. Sprint 136 BUG-085: an ask past its expiry (expired flag, or expires_at passed before the sweep) is refused the same way (lockRequestForCommitment)."
         },
         {
           "method": "PUT",
@@ -533,7 +533,7 @@
         {
           "method": "POST",
           "path": "/requests/:id/propose-match",
-          "description": "Admin proposes a specific community member as a helper (creates proposed match with admin_proposed=TRUE on requests.matches). Sprint 135 BUG-075: the request must derive 'open' under the request lock, with the duplicate check and insert in the same transaction; otherwise 409 REQUEST_NOT_OPEN ('This request is no longer open')."
+          "description": "Admin proposes a specific community member as a helper (creates proposed match with admin_proposed=TRUE on requests.matches). Sprint 135 BUG-075: the request must derive 'open' under the request lock, with the duplicate check and insert in the same transaction; otherwise 409 REQUEST_NOT_OPEN ('This request is no longer open'). Sprint 136 BUG-085: an ask past its expiry (expired flag, or expires_at passed before the sweep) is refused the same way (lockRequestForCommitment)."
         },
         {
           "method": "PATCH",
@@ -548,7 +548,7 @@
         {
           "method": "PUT",
           "path": "/requests/offers/:id/accept",
-          "description": "Accept a pending provider offer and create a match. Sprint 135 BUG-075: one transaction; the request must derive 'open' under the request lock, otherwise 409 REQUEST_NOT_OPEN ('This request is no longer open'); the offer UPDATE is guarded on 'pending' (404 on a lost race); closes other proposals and derives the request status."
+          "description": "Accept a pending provider offer and create a match. Sprint 135 BUG-075: one transaction; the request must derive 'open' under the request lock, otherwise 409 REQUEST_NOT_OPEN ('This request is no longer open'); the offer UPDATE is guarded on 'pending' (404 on a lost race); closes other proposals and derives the request status. Sprint 136 BUG-085: an ask past its expiry (expired flag, or expires_at passed before the sweep) is refused the same way (lockRequestForCommitment)."
         },
         {
           "method": "PUT",
@@ -578,7 +578,7 @@
         {
           "method": "POST",
           "path": "/requests/:id/dibs",
-          "description": "Send dibs to a specific provider or community member — works for all request types (scheduled and ASAP). Sprint 135 BUG-075: the request must derive 'open' under the request lock (also on a race), otherwise 409 REQUEST_NOT_OPEN ('Request is not available for dibs'); the request status is derived to dibs_pending."
+          "description": "Send dibs to a specific provider or community member — works for all request types (scheduled and ASAP). Sprint 135 BUG-075: the request must derive 'open' under the request lock (also on a race), otherwise 409 REQUEST_NOT_OPEN ('Request is not available for dibs'); the request status is derived to dibs_pending. Sprint 136 BUG-085: an ask past its expiry (expired flag, or expires_at passed before the sweep) is refused the same way (lockRequestForCommitment)."
         },
         {
           "method": "PUT",

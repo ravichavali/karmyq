@@ -92,7 +92,7 @@ export const api = {
     data: {
       title?: string;
       description?: string;
-      status?: string;
+      // No status: the server derives it (Sprint 135), and PUT answers 400 STATUS_NOT_EDITABLE.
       urgency?: string;
       user_id: string;
     },

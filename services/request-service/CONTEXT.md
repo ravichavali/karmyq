@@ -7,6 +7,17 @@
 
 ## Recent Changes
 
+- **2026-11-03 (Sprint 136, BUG-085 + BUG-084)**: an expired ask takes no new commitment, and `POST /matches` writes
+  under the request lock. An ask is **past expiry** when `expired IS TRUE` (the sweep's flag) or `expires_at <=
+  clock_timestamp()` (the hour before the sweep runs). `lockRequestForCommitment` (`src/db/requestStatus.ts`) reads
+  such an open ask as `'expired'`; admin propose-match, match accept, dibs create, provider-offer accept and
+  `POST /matches` call it and refuse with `REQUEST_NOT_OPEN` (409 at the lock; `POST /matches` keeps its 400 fast path
+  for a flagged ask). Cancel, reject and dibs accept still call `lockRequest`, so an expired ask can be closed. The
+  stored status does not change. `POST /matches` now runs lock → duplicate check (exact, 409 `ALREADY_OFFERED`) →
+  guarded offer hold (`... AND offerer_id = $2 AND status = 'active'`; a miss is 400 `OFFER_NOT_ACTIVE`, the new
+  `error` code on both of its offer refusals) → insert, in one transaction; `match_created` publishes after the
+  commit. Tests: `tests/regression/sprint-136-request-followups.test.ts`, root
+  `tests/integration/sprint-136-request-followups.integration.test.ts`. No migration, event or dependency change.
 - **2026-11-01 (Sprint 135, BUG-075 + BUG-078)**: a request's status follows its rows, and `src/db/requestStatus.ts` is
   the only module that writes it (`reconcileRequestStatus`, `markRequestCancelled`), plus cleanup-service's
   `expireDibs.ts` request write. The derived status is `cancelled` if cancelled, else `matched` (a `matched` match),
@@ -423,6 +434,13 @@ by every writer after its own row changes, in the same transaction and under the
 for the requester's decision), plus cleanup-service's `expireDibs.ts`, which reopens a request only while it is
 `dibs_pending`. `lockRequest` returns the derived status for preconditions. Gate:
 `tests/regression/sprint-135-request-status-gate.test.ts`.
+
+**Expiry (Sprint 136, BUG-085).** An open ask past its expiry (`expired IS TRUE`, or `expires_at <=
+clock_timestamp()` before the sweep flags it) takes no new commitment. The writers that start one (propose-match,
+match accept, dibs create, provider-offer accept, `POST /matches`) read `lockRequestForCommitment`, which returns
+`'expired'` for such an ask and the derived status otherwise; they answer `REQUEST_NOT_OPEN`. Cancel, reject and dibs
+accept read `lockRequest`, which ignores expiry. Both share one derive statement: the Sprint 135 `CASE`, unchanged,
+plus a `past_expiry` column. `help_requests.status` stays `open` on an expired ask.
 
 **requests.request_admin_notes** - Community-scoped admin triage notes (Sprint 25)
 ```sql
@@ -1694,8 +1712,15 @@ ignored — the responder is always the authenticated user.
   blocks offering on a community-private ask by direct id while allowing cross-community offers on
   trust-network / platform / sister asks.
 - One live offer per responder per request (no existing `proposed`/`matched` match) → else
-  `409 ALREADY_OFFERED` (best-effort; `matches` has no unique `(request_id, responder_id)`)
-- Linked offer (if `offer_id` provided) must exist, be `active`, and belong to the responder
+  `409 ALREADY_OFFERED` (`matches` has no unique `(request_id, responder_id)`; checked again, exactly, under the lock)
+- Linked offer (if `offer_id` provided) must exist and belong to the responder (`404 Offer not found`), and be
+  `active` → else `400 OFFER_NOT_ACTIVE`
+
+**Write (Sprint 136, BUG-084).** The checks above are a fast path. The write is one transaction:
+`lockRequestForCommitment` (closed or past expiry since the read → `409 REQUEST_NOT_OPEN`), the duplicate check again
+(`409 ALREADY_OFFERED`), the guarded offer hold `UPDATE requests.help_offers SET status = 'matched' WHERE id = $1 AND
+offerer_id = $2 AND status = 'active'` (a miss → `400 OFFER_NOT_ACTIVE`, before anything is written), then the
+`proposed` insert. Lock order request → offer; no `help_offers` writer holds an offer lock and then waits on the request.
 
 **Events Published:** `match.created`
 
@@ -3084,6 +3109,17 @@ CREATE TABLE auth.user_interests (
 - No breaking changes to existing API contracts
 
 ### 10.4 Recent Fixes
+
+**Sprint 136 BUG-085 + BUG-084 — expired asks and `POST /matches`:**
+
+- **BUG-085: an expired ask still took new commitments.** The sweep sets `expired = TRUE` and leaves the status `open`,
+  and `lockRequest` never read `expired`, so propose-match, match accept, dibs create and provider-offer accept
+  proceeded on an expired ask. They now read `lockRequestForCommitment` and refuse it (409 `REQUEST_NOT_OPEN`), as
+  `POST /matches` always did for a flagged ask. Cancel, reject and dibs accept still work on it.
+- **BUG-084: a `POST /matches` proposal could land on an ask that had just closed and hold the helper's offer.** The
+  route read reachability, then inserted on the pool and set the offer `matched` with no guard, so a cancel or accept
+  committing in between left a stranded proposal. It now writes under the request lock, re-checks the duplicate
+  there, and holds the offer only while it is still `active`.
 
 **Sprint 135 BUG-075 + BUG-078 — request status guards:**
 

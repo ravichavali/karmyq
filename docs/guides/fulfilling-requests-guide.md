@@ -58,6 +58,10 @@ A community's open-asks view (reached from its weekly pulse) lists every open as
 3. Click **Offer to Help** if you can help
 4. Your offer goes to the requester to accept; track it in the **Helping** tab
 
+**Expired requests take no new offers.** Once a request passes its expiration date, you can't offer on it, and an offer you made earlier can no longer be accepted. You can still withdraw that offer, which frees your standing offer for another request.
+
+**An offer you're already using elsewhere can't be used twice.** If you attach the same standing offer to two requests at once, only the first goes through. The second is refused as "Offer is not active".
+
 ---
 
 ## During the Help

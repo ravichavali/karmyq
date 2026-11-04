@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { query } from '../database/db';
 import { updateTrustScore } from '../services/karmaService';
+import { scheduledJobsDisabled } from './scheduledJobs';
 
 /**
  * Daily canonical trust-score refresh (Sprint 126 / ADR-096, ADR-037, ADR-039).
@@ -56,6 +57,10 @@ export async function refreshAllTrustScores(): Promise<{ evaluated: number; fail
 }
 
 export function initTrustScoreRefresh(): void {
+  if (scheduledJobsDisabled()) {
+    console.log('⏸️  Canonical trust-score refresh not scheduled (SCHEDULED_JOBS_DISABLED=true)');
+    return;
+  }
   cron.schedule('30 3 * * *', async () => {
     console.log('=== Starting daily canonical trust-score refresh ===');
     try {

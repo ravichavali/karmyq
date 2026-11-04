@@ -3,7 +3,7 @@ import { Router, Response } from 'express';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { query, withTransaction } from '../database/db';
 import { publishEvent } from '../events/publisher';
-import { closeProposals, lockRequest, reconcileRequestStatus } from '../db/requestStatus';
+import { closeProposals, lockRequest, lockRequestForCommitment, reconcileRequestStatus } from '../db/requestStatus';
 import {
   createDibs,
   getDibsById,
@@ -227,10 +227,10 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
 
     // Dibs insert + request status transition commit or roll back together. The insert
     // must run on the SAME transaction client (passed as `q`) — on the pool it would
-    // survive a rollback, leaving an orphaned dibs row. BUG-075: the request must still be open when the dibs is
+    // survive a rollback, leaving an orphaned dibs row. BUG-075, BUG-085: the request must still be open, and not past its expiry, when the dibs is
     // written; the status check above is a fast path only.
     const dibsRecord = await withTransaction(async (q) => {
-      if ((await lockRequest(q, requestId)) !== 'open') {
+      if ((await lockRequestForCommitment(q, requestId)) !== 'open') {
         return null;
       }
       const created = await createDibs(requestId, userId, providerUserId, expiresAt, q);

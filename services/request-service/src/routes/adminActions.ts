@@ -2,7 +2,7 @@ import { notDirectedSql } from '../db/directedAudience';
 import { Router, Request, Response } from 'express';
 import { RouteParams } from '@karmyq/shared/middleware/auth';
 import { query, withTransaction } from '../database/db';
-import { lockRequest } from '../db/requestStatus';
+import { lockRequestForCommitment } from '../db/requestStatus';
 import { hasLiveRoleInRequestCommunities } from '../db/liveRole';
 import { publishEvent } from '../events/publisher';
 
@@ -132,10 +132,10 @@ router.post('/:id/propose-match', async (req: Request<RouteParams>, res: Respons
       return res.status(400).json({ success: false, message: 'Proposed user is not a member of this request\'s community' });
     }
 
-    // BUG-075: propose only on an open request. The lock makes the status current and serializes the duplicate check
+    // BUG-075, BUG-085: propose only on an open request that is not past its expiry. The lock makes the status current and serializes the duplicate check
     // and the insert against an accept, a dibs and a cancel on the same request.
     const outcome = await withTransaction(async (q) => {
-      if ((await lockRequest(q, id)) !== 'open') {
+      if ((await lockRequestForCommitment(q, id)) !== 'open') {
         return { conflict: 'not_open' as const };
       }
       // Prevent duplicate proposed matches for the same user

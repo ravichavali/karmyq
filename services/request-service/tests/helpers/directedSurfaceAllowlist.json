@@ -37,7 +37,7 @@
   },
   {
     "file": "services/cleanup-service/src/jobs/memoryRetentionJob.ts",
-    "hash": "3968255d8bca72dc048c57aae2437efb488186d037fdb37d801efbb316046be0",
+    "hash": "a46fd9d9e7168037a76c9c0237e75adac349ec872be08f5ffb6ff403b02fb742",
     "reason": "Internal content erasure.",
     "label": "forgotten_requests AS"
   },
@@ -277,8 +277,8 @@
   },
   {
     "file": "services/request-service/src/db/requestStatus.ts",
-    "hash": "be2fd329a6ad6416d027a209ad36003d2a1d804a0740c2a1e0a187b42c6561a2",
-    "reason": "Derived lifecycle status read under the lock for an already-authorized writer's precondition (Sprint 135); never returned to the client.",
+    "hash": "a8b594d5da2f460cdb7ea68784d95ee469bb6f4d523030c9999971a4c0954d58",
+    "reason": "Derived lifecycle status and past-expiry flag read under the lock for an already-authorized writer's precondition (Sprint 135; expiry Sprint 136, BUG-085); never returned to the client.",
     "label": "SELECT CASE WHEN r.status = 'cancelled'"
   },
   {

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { query, withTransaction } from '../database/db';
-import { closeProposals, lockRequest, reconcileRequestStatus } from '../db/requestStatus';
+import { closeProposals, lockRequest, lockRequestForCommitment, reconcileRequestStatus } from '../db/requestStatus';
 import { getRequestReachability } from '../db/eligibility';
 import { findOwnOffer } from '../db/helpOffersDb';
 import { matchParticipantSql } from '../db/directedAudience';
@@ -21,6 +21,21 @@ const ALREADY_COMPLETED = {
   data: { fully_completed: true, waiting_for: null },
   message: 'Match already completed',
 } as const;
+
+// POST /matches: one live offer per responder per request. Read on the pool as a fast path, then again under the request
+// lock, where it is exact (BUG-084).
+const LIVE_OFFER_BY_RESPONDER = `SELECT 1 FROM requests.matches
+        WHERE request_id = $1 AND responder_id = $2 AND status IN ('proposed', 'matched')
+        LIMIT 1`;
+const ALREADY_OFFERED = {
+  success: false,
+  message: 'You have already offered to help on this request',
+  error: 'ALREADY_OFFERED',
+} as const;
+// ADR-074: the error code is additive; the message is the one the fast path always sent.
+const OFFER_NOT_ACTIVE = { success: false, message: 'Offer is not active', error: 'OFFER_NOT_ACTIVE' } as const;
+// The fast path's 400 and the lock's 409 send the same body.
+const REQUEST_NOT_OPEN = { success: false, message: 'Request is not open', error: 'REQUEST_NOT_OPEN' } as const;
 
 // BUG-057: a match (and the request/emails it carries) is visible only to its participants, the
 // requester or the responder, which is the same definition the accept/reject/complete/delete handlers
@@ -166,11 +181,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Request must be open and unexpired (expired-open asks are not actionable).
     if (reachability.status !== 'open' || reachability.expired === true) {
-      return res.status(400).json({
-        success: false,
-        message: 'Request is not open',
-        error: 'REQUEST_NOT_OPEN',
-      });
+      return res.status(400).json(REQUEST_NOT_OPEN);
     }
 
     // Self-match guard: a requester cannot offer on their own request.
@@ -193,20 +204,11 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    // Duplicate guard: one live offer per responder per request (matches has no unique
-    // (request_id, responder_id), so enforce it here — best-effort against a racing double-submit).
-    const dupeCheck = await query(
-      `SELECT 1 FROM requests.matches
-        WHERE request_id = $1 AND responder_id = $2 AND status IN ('proposed', 'matched')
-        LIMIT 1`,
-      [request_id, responder_id]
-    );
+    // Duplicate guard, fast path: one live offer per responder per request (matches has no unique
+    // (request_id, responder_id)). The exact check runs again under the request lock below.
+    const dupeCheck = await query(LIVE_OFFER_BY_RESPONDER, [request_id, responder_id]);
     if (dupeCheck.rowCount! > 0) {
-      return res.status(409).json({
-        success: false,
-        message: 'You have already offered to help on this request',
-        error: 'ALREADY_OFFERED',
-      });
+      return res.status(409).json(ALREADY_OFFERED);
     }
 
     // Verify the offer is the responder's own (if provided) and active. A foreign offer answers
@@ -222,36 +224,43 @@ router.post('/', async (req: Request, res: Response) => {
       }
 
       if (offerCheck.rows[0].status !== 'active') {
-        return res.status(400).json({
-          success: false,
-          message: 'Offer is not active',
-        });
+        return res.status(400).json(OFFER_NOT_ACTIVE);
       }
     }
 
-    // Create match
-    const matchResult = await query(
-      `INSERT INTO requests.matches
-        (request_id, offer_id, responder_id, status)
-      VALUES ($1, $2, $3, 'proposed')
-      RETURNING *`,
-      [request_id, offer_id ?? null, responder_id]
-    );
-
-    const match = matchResult.rows[0];
-
-    // Don't update request status here - only update when match is accepted
-    // (Request stays 'open' until someone accepts an offer)
-
-    // Update offer status if provided
-    if (offer_id) {
-      await query(
-        `UPDATE requests.help_offers SET status = 'matched' WHERE id = $1`,
-        [offer_id]
+    // BUG-084: the proposal is written under the request lock, so an ask that closed (or expired, BUG-085) since the
+    // reads above is refused, the duplicate check is exact, and the offer is held only while it is still active. Every
+    // refusal comes before the first write: the guarded offer UPDATE is that write, and its miss returns before anything
+    // is written. A proposed match does not change the derived status, so nothing is reconciled.
+    const outcome = await withTransaction(async (q) => {
+      if ((await lockRequestForCommitment(q, request_id)) !== 'open') return { conflict: 'not_open' as const };
+      const dupe = await q(LIVE_OFFER_BY_RESPONDER, [request_id, responder_id]);
+      if (dupe.rowCount > 0) return { conflict: 'already_offered' as const };
+      if (offer_id) {
+        const held = await q(
+          `UPDATE requests.help_offers SET status = 'matched' WHERE id = $1 AND offerer_id = $2 AND status = 'active'`,
+          [offer_id, responder_id]
+        );
+        if (held.rowCount === 0) return { conflict: 'offer_not_active' as const };
+      }
+      const inserted = await q(
+        `INSERT INTO requests.matches
+          (request_id, offer_id, responder_id, status)
+        VALUES ($1, $2, $3, 'proposed')
+        RETURNING *`,
+        [request_id, offer_id ?? null, responder_id]
       );
-    }
+      return { match: inserted.rows[0] };
+    });
 
-    // Publish event
+    if ('conflict' in outcome) {
+      if (outcome.conflict === 'offer_not_active') return res.status(400).json(OFFER_NOT_ACTIVE);
+      if (outcome.conflict === 'already_offered') return res.status(409).json(ALREADY_OFFERED);
+      return res.status(409).json(REQUEST_NOT_OPEN);
+    }
+    const match = outcome.match;
+
+    // Publish event (after the commit)
     await publishEvent('match_created', {
       match_id: match.id,
       request_id,
@@ -347,8 +356,8 @@ router.put('/:id/accept', async (req: AuthenticatedRequest, res: Response) => {
     // transaction, so a mid-sequence failure can't split match/request/offer state.
     const result = await withTransaction(async (q) => {
       // The request row lock serializes concurrent accepts on the same request, and the status it returns is current.
-      // BUG-075: only an open request can be matched. A sibling accept that committed first leaves it 'matched'.
-      const requestStatus = await lockRequest(q, match.request_id);
+      // BUG-075, BUG-085: only an open request that is not past its expiry can be matched. A sibling accept that committed first leaves it 'matched'.
+      const requestStatus = await lockRequestForCommitment(q, match.request_id);
       if (requestStatus === 'matched') {
         return { conflict: 'matched' as const };
       }

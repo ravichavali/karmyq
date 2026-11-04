@@ -1066,3 +1066,14 @@ conversation. A control would also need `match_cancelled` routed to notification
 `services/notification-service/src/templates/notificationTemplates.ts:90` is unreachable).
 
 ---
+
+## [2026-11-03] Correction to "Mobile needs a sprint of its own" (2026-10-29): type-check is green and gated
+
+The 2026-10-29 entry says `apps/mobile` type-check "is red on master (not gated)". On 2026-11-03 it is green
+(`npx tsc --noEmit` in `apps/mobile` exits 0), and CI runs it in **Lint & Type Check** (`.github/workflows/ci.yml:75`),
+a required check on `master`. Sprint 136 also cleared that entry's Expo drift line (#316: `expo-notifications`
+57.0.24) and removed `babel-plugin-module-resolver` (Metro resolves the `@/` aliases from tsconfig paths). The rest of
+that debt list stands: BUG-041 / `query-string@7`, stale mobile match statuses, the unused `cancelMatch`, no build
+pipeline.
+
+---
