@@ -1,13 +1,13 @@
 # Sprint 137 — Exchange Integrity — Handoff
 
 **Date**: 2026-11-04
-**Outcome so far**: **Execution started; Task 1 verified and reviewed. Continue with Task 2.**
+**Outcome so far**: **Tasks 1–2 verified and reviewed. Continue with Task 3's request-service contracts.**
 - Scope and decisions 1–3 were agreed with the maintainer on 2026-11-04.
 - The spec, plan, BUG-088/090 corrections and the new BUG-091 entry are committed on this branch.
 - Codex's plan review found three issues, and two re-reviews found one each. All five are confirmed and resolved in the
   spec and plan (see *Plan review*).
-- No application code has changed yet, and no PR is open. Task 1 sets the three root version fields to provisional
-  v11.110.0 in the commit carrying this execution record.
+- No application code has changed yet, and no PR is open. Task 1 (`0499e524`) sets the three root version fields to
+  provisional v11.110.0. Task 2 extends the scanner and adds the offer-status gate in the nonblocking tdd tier.
 
 > The handoff carries **state between sessions**. It is not a copy of the plan: it links the plan and names the next
 > unchecked task. It is branch-local, so it can reserve nothing; see `CLAUDE.md` → *Parallel Development* for how
@@ -46,7 +46,7 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
    `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 5. Merges, ADR numbers, demo-host operations and dismissals each need explicit authorization. Stop at PR creation.
 
-**Next unchecked task**: Plan Task 2 (scanner parameter and offer-status gate). Execution is in this Codex chat,
+**Next unchecked task**: Plan Task 3 (request-service mocked-SQL contracts, assertion-red). Execution is in this Codex chat,
 using sequential implementers and independent reviewers. Codex has reviewed
 the plan three times (`6d478a36`, `17f41af6`, `fcec0e28`). R2's fix (a stricter parse rule and
 its negative fixtures) is mechanical, so no further plan review is planned. The PR's `/code-review` will cover the
@@ -199,6 +199,15 @@ with Task 8.
   source was changed to address these host errors. The three root version fields are included with this record.
 - Decisions 4–10 remain in force, including D2. Cleanup's red test remains uncommitted until Task 8. No merge,
   ADR number, demo-host operation or dismissal was performed or authorized.
+- Task 2: default scanner parity is **92 identical file/line/SQL records**; the two existing gates remain green.
+  The new offer-status gate has **36 passing negative fixtures across the status gates** and exactly two intended
+  live assertion failures: the current inline releases and the future `releaseOffer`/D1/D2 writers. They become green
+  in Tasks 5 and 8. Independent review found parenthesized dynamic SET and nested-subquery blind spots; both were
+  reproduced red and fixed. The equivalent existing request-status gate received the same minimal correction and
+  fixtures. No runtime source changed. Re-review approved both fixes.
+  Full `npm test` passed on `0499e524` plus Task 2's staged test changes (27/27 tasks; 24 cached; root 42 regression
+  suites / 982 tests). Only this handoff changed afterward; staged feedback and whitespace checks are repeated before
+  commit. Continue with Task 3 after the commit carrying this record.
 
 ## Dated obligations
 

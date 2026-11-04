@@ -21,11 +21,11 @@ const UPDATE_SET = /\bUPDATE\s+(?:requests\.)?help_requests\b(?:\s+(?:AS\s+)?\w+
 function setClauses(sql: string): string[] {
   return [...sql.matchAll(UPDATE_SET)].map((m) => {
     let rest = sql.slice((m.index ?? 0) + m[0].length);
-    // Empty every parenthesized group, innermost first, so a subquery's own WHERE, FROM or status can neither end the
-    // SET clause early nor fake a status assignment.
+    // Collapse groups completely, innermost first: nested calls must not leave a subquery's WHERE/FROM visible.
+    // Preserve interpolation markers so a parenthesized dynamic SET still requires review.
     for (let prev = ''; prev !== rest;) {
       prev = rest;
-      rest = rest.replace(/\([^()]*\)/g, '()');
+      rest = rest.replace(/\([^()]*\)/g, (fragment) => fragment.includes('${') ? '${dynamic}' : ' ');
     }
     return rest.split(/\b(?:WHERE|RETURNING|FROM)\b/i)[0];
   });
@@ -87,18 +87,25 @@ describe('Sprint 135: request-status writes', () => {
     it('a subquery neither hides a later status assignment nor ends the scan of a literal', () => {
       expect(kinds("q(`UPDATE requests.help_requests SET title = (SELECT x FROM y), status = 'open' WHERE id = $1`)"))
         .toEqual(['status']);
+      expect(kinds("q(`UPDATE requests.help_requests SET title = (SELECT COALESCE(x, y) FROM z WHERE id = $1), status = 'matched' WHERE id = $2`)"))
+        .toEqual(['status']);
       expect(kinds("q(`WITH a AS (UPDATE requests.help_requests SET title = $2 WHERE id = $1 RETURNING id) UPDATE requests.help_requests SET status = 'open' WHERE id = $1`)"))
         .toEqual(['status']);
     });
 
     it('flags a SET built at run time', () => {
       expect(kinds('q(`UPDATE requests.help_requests SET ${sets.join(", ")} WHERE id = $1`)')).toEqual(['dynamic']);
+      expect(kinds('q(`UPDATE requests.help_requests SET (${columns}) = ROW($1) WHERE id = $2`)')).toEqual(['dynamic']);
+      expect(kinds('q(`UPDATE requests.help_requests SET title = (SELECT ${column} FROM source WHERE status = $1) WHERE id = $2`)'))
+        .toEqual(['dynamic']);
     });
 
     it('does not flag other columns, a status in the WHERE, or a status inside a subquery', () => {
       expect(kinds("q(`UPDATE requests.help_requests r SET urgency = $1 WHERE id = $2 AND ${notDirectedSql('r')}`)")).toEqual([]);
       expect(kinds("q(`UPDATE requests.help_requests SET expired = TRUE WHERE status = 'open'`)")).toEqual([]);
       expect(kinds("q(`UPDATE requests.help_requests SET title = (SELECT m.status FROM requests.matches m WHERE m.status = 'x') WHERE id = $1`)"))
+        .toEqual([]);
+      expect(kinds("q(`UPDATE requests.help_requests SET title = (SELECT COALESCE(m.status, 'x') FROM requests.matches m WHERE m.status = 'matched') WHERE id = $1`)"))
         .toEqual([]);
     });
 
