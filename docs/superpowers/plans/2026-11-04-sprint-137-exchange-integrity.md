@@ -8,12 +8,15 @@ releases what it held, an offer's status follows its exchanges, a provider offer
 a completed or cancelled ask can't be edited.
 
 **Architecture:**
-- cleanup-service's hourly `markExpiredData` gains `releaseExpiredHolds`, which runs one transaction per expired ask and
-  one per stranded offer (the `expireDibs` pattern).
+- cleanup-service's hourly `markExpiredData` gains `releaseExpiredHolds`. It runs one transaction per expired ask (the
+  `expireDibs` pattern), then one guarded statement that frees stranded offers.
 - In request-service, three routes move their check and write under the locks Sprints 135 and 136 built: `PUT
   /requests/:id` under `lockRequest`; `POST /providers/offers` under `lockRequestForCommitment`; and `POST /matches`'s
   offer hold, which also requires an unexpired offer.
 - `PUT /offers/:id` refuses a body status, and a gate pins every help-offer status writer.
+- Every offer release follows one rule: free an offer only while no other live or completed match holds it. Match
+  reject and cancel share a `releaseOffer` helper, and `closeProposals` gets the same guard. Before this sprint, BUG-089
+  let one offer back more than one match.
 
 **Tech Stack:** the canonical stack in `CLAUDE.md` → *System Architecture*.
 
@@ -43,7 +46,7 @@ carries:
 | `services/request-service/tests/tdd/sprint-137-exchange-integrity.test.ts` | Mocked-SQL contract for A, B1, B2, C |
 | `services/request-service/tests/tdd/sprint-137-offer-status-gate.test.ts` | B4: every help-offer status writer is reviewed; negative fixtures |
 | `services/cleanup-service/tests/tdd/sprint-137-release-expired-holds.test.ts` | D: statement order per transaction, skip, isolation, counts |
-| `tests/integration/sprint-137-exchange-integrity.integration.test.ts` | Real-SQL proofs and races for A–D (CI-only) |
+| `tests/integration/sprint-137-exchange-integrity.integration.test.ts` | Real-SQL proofs and races for A–D and the shared-offer release rule (CI-only) |
 
 ### Existing files to modify
 | File | Change |
@@ -53,7 +56,8 @@ carries:
 | `services/request-service/src/routes/requests.ts` | A: `PUT /:id` under `lockRequest`, `409 REQUEST_CLOSED`, `content_forgotten_at IS NULL` |
 | `services/request-service/src/routes/offers.ts` | B1: body `status` → `400 STATUS_NOT_EDITABLE` |
 | `services/request-service/src/db/helpOffersDb.ts` | B2: `findOwnOffer` also selects `expired` |
-| `services/request-service/src/routes/matches.ts` | B2: fast path refuses an expired offer; the hold requires an unexpired offer |
+| `services/request-service/src/routes/matches.ts` | B2: fast path refuses an expired offer; the hold requires an unexpired offer. B5: reject and cancel call `releaseOffer` |
+| `services/request-service/src/db/requestStatus.ts` | B5: new `releaseOffer`; `closeProposals`' offer `UPDATE` gains the shared-offer guard |
 | `services/request-service/src/routes/providerOffers.ts` | C: lock → duplicate check → insert in one transaction; `409 REQUEST_NOT_OPEN` |
 | `services/request-service/src/db/providerOffersDb.ts` | C: `createProviderOffer(q, …)` |
 | `services/request-service/tests/helpers/directedSurfaceScan.ts` | B4: optional table pattern on `scanFile` / `scanServices` (default unchanged) |
@@ -71,12 +75,13 @@ carries:
 
 ## ⚠️ Critical Implementation Notes (read before Task 2)
 
-1. **Lock, then check, in separate statements** (A, C, D1, D2). A statement that waited on a row lock keeps its
-   subqueries' snapshot from before the wait (`requestStatus.ts:38-44`). Take the lock in its own statement, and decide
-   in the next one.
+1. **Lock, then check, in separate statements** for the request lock (A, C, D1). A statement that waited on a row lock
+   keeps its subqueries' snapshot from before the wait (`requestStatus.ts:38-44`). Take the lock in its own statement,
+   and decide in the next one. **Offer releases are single guarded statements** (`releaseOffer`, `closeProposals`, D1's
+   offer `UPDATE`, D2). B5 explains why that is exact: no writer adds a hold to a `matched` offer.
 2. **Lock order.**
    - D1 is request → offers → matches, the same as accept's `closeProposals`.
-   - D2 is the offer row only.
+   - D2 takes only the offer rows it updates.
    - C is request-first and inserts one row.
    - A is the request lock only.
 
@@ -100,9 +105,13 @@ carries:
    D2's statements do not name `help_requests` and need no entry.
 6. **D writes no `help_requests` row.** No `updated_at` stamp, so the hard-delete clock (gotcha) and the request-status
    gate are untouched.
-7. **The copied `closeProposals` SQL** keeps two properties: the offer is freed "only while `matched`" (a withdrawn
-   offer stays withdrawn), and offers are updated first, so the subquery still sees the proposals. A comment in each
-   copy names the other. The integration test's withdrawn-offer case proves the behaviour, not the text.
+7. **The copied `closeProposals` SQL** (D1) is text for text the guarded statement in B5. It keeps three properties:
+   - an offer is freed only while `matched`, so a withdrawn offer stays withdrawn;
+   - no other match must still hold it (decision 10);
+   - offers are updated first, so the subquery still sees the proposals.
+
+   A comment in each copy names the other. The integration tests' withdrawn-offer and shared-offer cases prove the
+   behaviour, not the text.
 8. **SQL hygiene.**
    - Use literal statuses only.
    - `expired` is nullable, so write `IS TRUE` / `IS NOT TRUE` in request-service.
@@ -118,6 +127,10 @@ carries:
       cases call `markExpiredData()`.
 11. **Tests first** in `services/request-service/tests/tdd/` and `services/cleanup-service/tests/tdd/`. Run them red,
     then implement. Promote with a targeted `git mv`, not the promoter, which sweeps every green tdd file repo-wide.
+    **Cleanup-service's `test` script is bare `jest`, and its config includes `tests/tdd`** (`package.json:12`,
+    `jest.config.js:10`; BUG-092). So a red cleanup tdd file fails `npm test` and the pre-push hook. Run it red
+    locally, and commit it only together with the implementation that turns it green. Request-service's `test` is
+    `test:unit && test:regression`, so its red tdd files may be committed alone.
 12. **`markExpiredData`'s unit test pins four calls** (`tests/unit/expirationJob.test.ts:19-33`). Update it to the new
     contract: the four flags, then the release. Do not weaken it.
 13. **`npm test` regenerates landing docs.** Revert the timestamp and HEAD-sha churn before committing.
@@ -184,7 +197,10 @@ git commit -am "chore: v11.110.0 (Sprint 137)"
 > - it updates every existing unit or regression test that pinned the old behaviour, and only where the new behaviour is
 >   the spec's.
 >
-> Only the new `tests/tdd/` files may be red between tasks, because that tier never blocks.
+> Only **request-service's** new `tests/tdd/` files may be red between tasks: its `test` script is
+> `test:unit && test:regression`, so the tdd tier there does not block. **Cleanup-service's does block.** Its `test` is
+> bare `jest`, and `jest.config.js:10` adds `tests/tdd` (BUG-092). So Task 7's file is run red locally and committed
+> only with Task 8, once it is green (Codex finding 3).
 
 - [ ] **Write the gate,** modelled on `tests/regression/sprint-135-request-status-gate.test.ts`.
   - Scan with `/\b(?:requests\.)?help_offers\b/i`.
@@ -194,11 +210,25 @@ git commit -am "chore: v11.110.0 (Sprint 137)"
     file and kind, and a `why`.
   - Two assertions: every live write is reviewed exactly once, and every reviewed entry exists exactly once (identity,
     not a count).
-  - Negative fixtures: a literal status write with and without an alias, on one line or many; a dynamic `SET`; a
-    subquery's `status =` that must not count. Each must be flagged (or not) as stated.
+  - Negative fixtures:
+    - a literal status write with and without an alias, on one line or many;
+    - a dynamic `SET`;
+    - a subquery's `status =` that must not count;
+    - **two byte-identical release statements in one file** (Codex finding 2). With one reviewed entry for that file,
+      the gate must fail, because the entry matches two statements.
 
-- [ ] **Run it.** Before D exists, the "every reviewed entry exists exactly once" case is **red** on the two
-  `expirationJob.ts` entries. Everything else is green, including the negative fixtures. Record which cases are red.
+    Each fixture must be flagged, or not, exactly as stated.
+  - Identity is file + kind + label substring, so two identical statements in one file cannot both be reviewed.
+    Today's identical pair is reject's and cancel's offer release (`matches.ts:493`, `:746`, byte-identical). B5
+    replaces both with `releaseOffer`, so the reviewed list carries one `releaseOffer` entry and no `matches.ts`
+    release entry.
+
+- [ ] **Run it.** Before B5 and D exist, the identity cases are **red**:
+  - the live `matches.ts` releases match no entry;
+  - the `releaseOffer` entry and the two `expirationJob.ts` entries match nothing.
+
+  Everything else is green, including the negative fixtures. Record which cases are red. This file sits in
+  request-service's tdd tier, which its `test` script excludes, so committing it red blocks nothing.
 
 ```bash
 npm exec --workspace=services/request-service -- jest --runTestsByPath tests/tdd/sprint-137-offer-status-gate.test.ts --no-cache
@@ -231,6 +261,12 @@ Copy the mocking harness from `tests/regression/sprint-136-request-followups.tes
   - `findOwnOffer` returns `{ status: 'active', expired: true }` → 400 `OFFER_NOT_ACTIVE`, with no `tx` statement;
   - the hold SQL contains `expired IS NOT TRUE` and `expires_at > clock_timestamp()`;
   - a hold miss → 400 `OFFER_NOT_ACTIVE`, and no `INSERT INTO requests.matches` was issued.
+- [ ] **B5 (release rule):**
+  - in match reject and match cancel, the offer release is `releaseOffer`'s exact statement with `[offer_id]`, issued in
+    `tx` **after** the match row's own `UPDATE`;
+  - no inline `UPDATE requests.help_offers SET status = 'active' WHERE id = $1 AND status = 'matched'` remains;
+  - `closeProposals`' offer `UPDATE` (driven through match accept) contains
+    `AND NOT (m.request_id = $1 AND m.status = 'proposed')` and still runs before the matches `UPDATE`.
 - [ ] **C (`POST /providers/offers`):**
   - `lockRequestForCommitment`'s statements run in `tx` before the duplicate check, and the duplicate check before the
     insert;
@@ -243,7 +279,7 @@ Copy the mocking harness from `tests/regression/sprint-136-request-followups.tes
 npm exec --workspace=services/request-service -- jest --runTestsByPath tests/tdd/sprint-137-exchange-integrity.test.ts --no-cache
 ```
 
-Expected: A, B1, B2 and C's new cases are red. A test file that cannot compile is not "red"; fix it until each case
+Expected: A, B1, B2, B5 and C's new cases are red. A test file that cannot compile is not "red"; fix it until each case
 fails on its assertion.
 
 - [ ] Commit: `test: Sprint 137 request-service contract (red)`.
@@ -337,11 +373,30 @@ git diff --numstat apps/frontend/src/lib/api.ts   # 1	1	apps/frontend/src/lib/ap
 (cd apps/frontend && npx tsc --noEmit); echo "exit=$?"
 ```
 
-- [ ] **Fallout.** `sprint-136-request-followups.test.ts` asserts the old hold SQL. Update it to the new statement and
-  keep its exactness. Mocks of `findOwnOffer` that return only `status` stay valid, because `expired` is then
-  `undefined`, not `true`. Also grep for any test that writes an offer `status` through `PUT /offers/:id`.
-- [ ] B1 and B2's cases are green, and the request-service unit and regression tiers are green.
-- [ ] Commit: `fix(offers): an offer's status follows its exchanges, and an expired offer is not held (BUG-089)`.
+- [ ] **B5.** In `src/db/requestStatus.ts`:
+  - add `releaseOffer(q: TxQuery, offerId: string): Promise<void>`, which runs spec B5's first statement. Its doc
+    comment states the rule, the invariant that makes one statement exact (only the hold sets `matched`, and only from
+    `active`; only `POST /matches` inserts an offer-backed match), and that the caller must update its own match row
+    first;
+  - replace `closeProposals`' offer `UPDATE` with spec B5's second statement. Keep offers first, then matches. Extend
+    the doc comment: a shared offer stays `matched` while another match holds it (BUG-089's rows).
+
+  In `matches.ts`, reject (~:493) and cancel (~:746) call `await releaseOffer(q, match.offer_id)` inside their existing
+  `if (match.offer_id)`, in place of the inline statement. Import `releaseOffer` alongside the existing
+  `requestStatus` imports. Re-read both routes first: the match row's `UPDATE` must precede the call (reject ~:480,
+  cancel ~:729).
+- [ ] **Fallout.**
+  - `sprint-136-request-followups.test.ts` asserts the old hold SQL. Update it to the new statement and keep its
+    exactness.
+  - Sprint 135's `sprint-135-request-status-writers.test.ts` and `sprint-135-request-status-helper.test.ts` (and any
+    test that pins the inline release or `closeProposals`' text) update to the new statements, still exactly.
+  - Mocks of `findOwnOffer` that return only `status` stay valid, because `expired` is then `undefined`, not `true`.
+  - Grep for any test that writes an offer `status` through `PUT /offers/:id`.
+- [ ] B1, B2 and B5's cases are green, and the request-service unit and regression tiers are green. Task 2's gate now
+  finds the `releaseOffer` entry and no `matches.ts` release; only its two `expirationJob.ts` entries stay red until
+  Task 8.
+- [ ] Commit: `fix(offers): an offer's status follows its exchanges, an expired offer is not held, and a shared offer is
+  released only by its last match (BUG-089)`.
 
 ## Task 6: C — a provider offer is written under the request lock (BUG-090)
 
@@ -374,7 +429,7 @@ const offer = outcome.offer;
 - [ ] C's cases are green, and the request-service unit and regression tiers are green.
 - [ ] Commit: `fix(providers): a provider offer is written under the request lock (BUG-090)`.
 
-## Task 7: D unit tests (red)
+## Task 7: D unit tests (red, run locally only; committed with Task 8)
 
 **Files:**
 - Create: `services/cleanup-service/tests/tdd/sprint-137-release-expired-holds.test.ts`
@@ -385,30 +440,33 @@ const offer = outcome.offer;
 - [ ] **D1:**
   - for two candidate asks, each gets `BEGIN`, then the lock `SELECT ... FOR UPDATE` with `[id]`, then the
     `help_offers` free, then the `matches` reject, then `COMMIT`, then `release()`, in that order;
-  - the free's SQL contains `status = 'matched'` and `status = 'proposed' AND offer_id IS NOT NULL`;
+  - the free's SQL contains `o.status = 'matched'`, `status = 'proposed' AND offer_id IS NOT NULL` and the shared-offer
+    guard `AND NOT (m.request_id = $1 AND m.status = 'proposed')`;
   - nothing in D1 issues an `UPDATE requests.help_requests`.
 - [ ] **Skip:** the lock re-check returns zero rows → `ROLLBACK`, no `UPDATE`, `release()`, and the next candidate still
   runs.
 - [ ] **Isolation:** the first ask's offer `UPDATE` throws → `ROLLBACK` and an `error` log naming the id; the second
   ask still commits.
-- [ ] **D2:** each stranded candidate gets `BEGIN`, then `SELECT id FROM requests.help_offers WHERE id = $1 FOR UPDATE`
-  as its **own** statement, then the guarded `UPDATE` (with its `NOT EXISTS ... IN ('proposed', 'matched',
-  'completed')`), then `COMMIT`.
-- [ ] **Counts:** `releaseExpiredHolds()` returns `{ asksReleased, proposalsClosed, strandedOffersFreed }`, summed from
-  the committed transactions' row counts only. A skipped or failed transaction adds nothing. Assert exact values.
+- [ ] **D2:** after D1's loop, exactly one autocommit `UPDATE requests.help_offers` through `query` (not a client), with
+  `o.status = 'matched'` and `NOT EXISTS ... IN ('proposed', 'matched', 'completed')`. It runs even when D1 had no
+  candidates.
+- [ ] **Counts:** `releaseExpiredHolds()` returns `{ asksReleased, proposalsClosed, strandedOffersFreed }`.
+  `proposalsClosed` sums the committed transactions' row counts only; a skipped or failed transaction adds nothing.
+  `strandedOffersFreed` is D2's `rowCount`. Assert exact values.
 ```bash
 npm exec --workspace=services/cleanup-service -- jest --runTestsByPath tests/tdd/sprint-137-release-expired-holds.test.ts --no-cache
 ```
 
-Expected: red, and every failure is an assertion. The blocking `tests/unit/expirationJob.test.ts` is updated in Task 8,
-with the implementation, so it is never committed red.
-
-- [ ] Commit: `test(cleanup): releaseExpiredHolds contract (red)`.
+Expected: red, and every failure is an assertion. **Do not commit.** Cleanup-service's `test` runs this tier
+(BUG-092), so a red commit fails `npm test` and the pre-push hook. Keep a byte copy in the scratchpad until Task 8
+commits it. The blocking `tests/unit/expirationJob.test.ts` is also updated in Task 8.
 
 ## Task 8: D — the sweep releases what an expired ask held (BUG-088)
 
 **Files:**
-- Modify: `services/cleanup-service/src/jobs/expirationJob.ts`
+- Modify: `services/cleanup-service/src/jobs/expirationJob.ts`, `services/cleanup-service/tests/unit/expirationJob.test.ts`,
+  `services/request-service/tests/helpers/directedSurfaceAllowlist.json`
+- Commit with it: `services/cleanup-service/tests/tdd/sprint-137-release-expired-holds.test.ts` (Task 7)
 
 - [ ] Re-read note 2's lock-order checklist against `matches.ts` (cancel ~:700-760, complete ~:560-600). Record the
   answer in the function's doc comment.
@@ -420,13 +478,14 @@ import pool, { query } from '../database/db';
 /**
  * BUG-088 (Sprint 137): release what an expired ask held.
  * D1. Each flagged open ask with a proposal, in its own transaction: lock the ask, free each offer a proposal holds
- *     (only while 'matched', so a withdrawn offer stays withdrawn), then reject the proposals. A copy of request-service's
- *     closeProposals (src/db/requestStatus.ts); keep the two in step. Writes no help_requests row, so the hard-delete
- *     clock and the derived status are unchanged (proposals don't count in the derivation).
- * D2. Each offer still 'matched' that no proposed, matched or completed match references (a past hard delete cascaded
- *     its proposal away), in its own transaction: lock the offer in its own statement, then free it only if that
- *     still holds. A single UPDATE that waited on the row would keep its NOT EXISTS snapshot from before the wait.
- * Lock order: D1 request → offers → matches, as accept's closeProposals; D2 the offer row only.
+ *     (only while 'matched', so a withdrawn offer stays withdrawn, and only when no other match still holds it, since
+ *     BUG-089 let one offer back several), then reject the proposals. Text for text request-service's closeProposals
+ *     (src/db/requestStatus.ts); keep the two in step. Writes no help_requests row, so the hard-delete clock and the
+ *     derived status are unchanged (proposals don't count in the derivation).
+ * D2. One statement frees every offer still 'matched' that no proposed, matched or completed match references (a past
+ *     hard delete cascaded its proposal away). One statement is exact: only POST /matches's hold sets 'matched', and
+ *     only from 'active', so no hold appears on a 'matched' offer while this runs (spec B5).
+ * Lock order: D1 request → offers → matches, as accept's closeProposals; D2 only the offer rows it updates.
  */
 export async function releaseExpiredHolds(): Promise<{ asksReleased: number; proposalsClosed: number; strandedOffersFreed: number }> {
   let asksReleased = 0, proposalsClosed = 0, strandedOffersFreed = 0;
@@ -443,11 +502,15 @@ export async function releaseExpiredHolds(): Promise<{ asksReleased: number; pro
       const locked = await client.query(
         `SELECT id FROM requests.help_requests WHERE id = $1 AND expired = TRUE AND status = 'open' FOR UPDATE`, [id]);
       if (locked.rowCount === 0) { await client.query('ROLLBACK'); continue; }
+      // Spec B5's guarded closeProposals statement, text for text.
       await client.query(
-        `UPDATE requests.help_offers SET status = 'active', updated_at = CURRENT_TIMESTAMP
-          WHERE status = 'matched' AND id IN (
-            SELECT offer_id FROM requests.matches
-             WHERE request_id = $1 AND status = 'proposed' AND offer_id IS NOT NULL)`, [id]);
+        `UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP
+          WHERE o.status = 'matched'
+            AND o.id IN (SELECT offer_id FROM requests.matches
+                          WHERE request_id = $1 AND status = 'proposed' AND offer_id IS NOT NULL)
+            AND NOT EXISTS (SELECT 1 FROM requests.matches m
+                             WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed')
+                               AND NOT (m.request_id = $1 AND m.status = 'proposed'))`, [id]);
       const closed = await client.query(
         `UPDATE requests.matches SET status = 'rejected', updated_at = CURRENT_TIMESTAMP
           WHERE request_id = $1 AND status = 'proposed'`, [id]);
@@ -462,15 +525,19 @@ export async function releaseExpiredHolds(): Promise<{ asksReleased: number; pro
     }
   }
 
-  // D2: the same shape over stranded offers (lock statement, then the guarded UPDATE).
-  // ...
+  const stranded = await query(
+    `UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP
+      WHERE o.status = 'matched'
+        AND NOT EXISTS (SELECT 1 FROM requests.matches m
+                         WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed'))`
+  );
+  strandedOffersFreed = stranded.rowCount ?? 0;
 
   logger.info('Released expired holds', { asksReleased, proposalsClosed, strandedOffersFreed });
   return { asksReleased, proposalsClosed, strandedOffersFreed };
 }
 ```
 
-  Write D2 in the same shape. Its candidate read and guarded `UPDATE` are in the spec, D2; it adds the freed `rowCount`.
   `markExpiredData` calls `await releaseExpiredHolds();` after the notifications flag and before its final log line.
   Confirm cleanup-service's `db.ts` default export is the `Pool` (`expireDibs.ts` imports it that way).
 
@@ -483,7 +550,8 @@ export async function releaseExpiredHolds(): Promise<{ asksReleased: number; pro
 - [ ] Task 7's tests are green. Task 2's gate is now fully green, because both `expirationJob.ts` entries exist exactly
   once. The cleanup-service and request-service unit and regression tiers are green.
 - [ ] `(cd services/cleanup-service && npx tsc --noEmit)`, then `npm run lint --workspace=services/cleanup-service`.
-- [ ] Commit: `fix(cleanup): the expiration sweep releases what an expired ask held (BUG-088)`.
+- [ ] Commit (with Task 7's test file): `fix(cleanup): the expiration sweep releases what an expired ask held
+  (BUG-088)`.
 
 ## Task 9: Integration proofs (CI-only)
 
@@ -493,19 +561,20 @@ export async function releaseExpiredHolds(): Promise<{ asksReleased: number; pro
 - [ ] Start from `tests/integration/sprint-136-request-followups.integration.test.ts`: its users, community, provider
   profile, `bearer()`, cleanup in `afterAll`, the direct import of cleanup-service source, and its `pg_blocking_pids`
   helper. The header lists every proof and says which "fails before" claims are reasoned, not run.
-- [ ] Write the spec's *Tests → integration cases*: D1, the D1 race, D2 (including the held-row race), B, C (including
-  the cancel race), and A. Specifics:
-  - **D2 race:**
-    1. Commit a stranded offer (`matched`, no match row).
-    2. A second client runs `BEGIN; UPDATE requests.help_offers SET status = 'matched' WHERE id = $1;` plus an `INSERT`
-       of a `proposed` match that references it, and does not commit.
-    3. Start `markExpiredData()`. Wait until the second client's pid blocks it (directly or transitively).
-    4. `COMMIT` the second client, then await the sweep.
-
-    The offer must still be `matched`.
+- [ ] Write the spec's *Tests → integration cases*: D1, the D1 race, shared offers, D2, B, C (including the cancel
+  race), and A. Specifics:
+  - **Shared offers (Codex finding 1):**
+    - Insert the fixtures directly with SQL: one `matched` offer referenced by two matches on two asks. After B1, no
+      route can build this state.
+    - Prove each release path leaves the offer `matched` while the other reference is live: D1 (via
+      `markExpiredData()`), match reject, match cancel, and `closeProposals` via match accept.
+    - Then end the last reference and prove the offer is freed: by that path, or by D2 on the next sweep.
+    - Run each of D1's three variants (the other reference `proposed`, `matched`, `completed`).
   - **D1 release and `updated_at`:** for an ask flagged before the run, read `updated_at` before and after. It must be
     equal.
   - Use fresh `randomUUID()` ids. Cast fixture statuses `$n::varchar`.
+  - **No D2 race case.** The earlier draft's race simulated a writer that re-holds a `matched` offer, and none exists
+    (spec B5). Its premise is covered by B's cases, where a non-`active` offer cannot be held.
 - [ ] `npx tsc --noEmit -p tests` (or the workspace's type check) compiles the file. It runs in CI's Integration Tests
   job.
 - [ ] Commit: `test(integration): Sprint 137 exchange-integrity proofs`.
@@ -540,7 +609,7 @@ export async function releaseExpiredHolds(): Promise<{ asksReleased: number; pro
 - [ ] **`services/cleanup-service/CONTEXT.md`:** the expiration job's `releaseExpiredHolds`: D1, D2, the counts it logs,
   and that it runs from the hourly cron and `POST /jobs/mark-expired`.
 - [ ] **`docs/BUGS.md`:** BUG-088..091 → `fixed (Sprint 137, v11.110.0)`, each with its commit and covering tests.
-  BUG-089 names the B4 gate.
+  BUG-089 names the B4 gate and the B5 release rule. BUG-092 stays open.
 - [ ] Check `apps/frontend/src/lib/onboarding/workflows.ts` for any text that tells a user to edit an offer's status or
   a completed request. Expected: none (no UI changes).
 - [ ] Run `npm run feedback:check` **before** committing (note 15).
@@ -561,7 +630,8 @@ export async function releaseExpiredHolds(): Promise<{ asksReleased: number; pro
   - every refusal order is unchanged where the spec says so (404 before 400 on `PUT /offers/:id` and `PUT
     /requests/:id`);
   - `offerer_id` stays bound in the hold;
-  - D2 cannot free an offer that a live or completed match holds;
+  - D2 cannot free an offer that a live or completed match holds, and no release frees a shared offer while another
+    match holds it (B5);
   - no new route, dependency or claim read.
 
   Verify: no High or Medium finding is left unresolved.
@@ -590,7 +660,9 @@ git status --short                               # clean except reverted landing
   - It states that **the first deployed sweep changes demo data** (D1's backlog of proposals on already-flagged asks,
     D2's stranded holds), with the counts in the cleanup-service log.
   - It lists the proofs: the mocked contracts, the offer-status gate with its negative fixtures, the scanner-default
-    parity, and the integration races.
+    parity, the shared-offer fixtures, and the integration races.
+  - It records the Codex plan review: three findings, all resolved, and the separate-offer-lock suggestion declined
+    with its evidence (handoff → *Plan review*).
   - It ends with the attribution line.
 - [ ] **Stop.** Do not watch CI or merge in this chat (memory: *Stop after PR creation*). End with the next-chat prompt.
 

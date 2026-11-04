@@ -1,9 +1,10 @@
 # Sprint 137 — Exchange Integrity — Handoff
 
 **Date**: 2026-11-04
-**Outcome so far**: **Planned; not started.**
+**Outcome so far**: **Planned and plan-reviewed; not started.**
 - Scope and decisions 1–3 were agreed with the maintainer on 2026-11-04.
 - The spec, plan, BUG-088/090 corrections and the new BUG-091 entry are committed on this branch.
+- A Codex plan review found three issues; all three are confirmed and resolved in the spec and plan (see *Plan review*).
 - No code has changed yet, and no PR is open.
 
 > The handoff carries **state between sessions**. It is not a copy of the plan: it links the plan and names the next
@@ -43,7 +44,10 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
    `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 5. Merges, ADR numbers, demo-host operations and dismissals each need explicit authorization. Stop at PR creation.
 
-**Next unchecked task**: Plan Task 1 (branch check, baselines, v11.110.0 bump).
+**Next unchecked task**: **Codex re-reviews the plan-review delta** (the commit after `6d478a36`), scoped to decision 10
+/ spec B5, D2's single statement, the declined separate-offer-lock suggestion, and the Task 7/8 sequencing. Codex reviews
+only; Claude integrates any findings. Then Plan Task 1 (branch check, baselines, v11.110.0 bump) in a new Claude chat,
+per this Quick Start.
 
 ---
 
@@ -71,24 +75,39 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
 
 **Planner (2026-11-04), each open to the maintainer's veto before execution.** Spec → *Decisions* has the reasons.
 4. The sweep runs in cleanup-service after `markExpiredData` flags asks, one transaction per ask (`expireDibs` pattern).
-5. The same sweep frees **stranded holds**: offers left `matched` after the hard delete cascaded their proposals away
-   (`matches_request_id_fkey ON DELETE CASCADE`). This changes demo data on the first deployed run. **Drop it (D2) if
-   the maintainer prefers.**
+5. The same sweep frees **stranded holds** with one guarded statement: offers left `matched` after the hard delete
+   cascaded their proposals away (`matches_request_id_fkey ON DELETE CASCADE`). This changes demo data on the first
+   deployed run. **Drop it (D2) if the maintainer prefers.**
 6. No notification on an expiry close (`match_rejected` is unconsumed today).
 7. BUG-089: a body `status` on `PUT /offers/:id` → `400 STATUS_NOT_EDITABLE`. The hold requires an unexpired offer, and a
    gate pins every help-offer status writer.
 8. BUG-090: `POST /providers/offers` (BUG-090's entry wrongly said `/requests/offers`) re-checks and inserts under
    `lockRequestForCommitment` → `409 REQUEST_NOT_OPEN`.
 9. No ADR, no migration, no new event or endpoint.
+10. **One release rule for every offer free** (from the Codex review). An offer is freed only while no other proposed,
+    matched or completed match holds it. This covers `closeProposals`, match reject and cancel (now sharing a new
+    `releaseOffer` helper), D1 and D2. Spec B5 has the details.
+
+## Plan review (Codex, 2026-11-04)
+
+The review was read-only, and its working tree was clean. Each finding was verified against the repo and resolved in
+the spec and plan:
+
+| # | Finding | Verdict | Evidence | Resolution |
+|---|---|---|---|---|
+| 1 (P1) | D1 frees an offer another ask still holds | CONFIRMED, and wider | BUG-089 (`docs/BUGS.md:2424-2426`) lets one offer back several matches. The same unguarded free is in `closeProposals` (`requestStatus.ts:128`), reject (`matches.ts:493`) and cancel (`:746`) | Decision 10 / spec B5: one guarded release rule everywhere, plus shared-offer integration fixtures. Codex also suggested a **separate offer lock**; it is **not adopted**. The only writer that sets `matched` is the hold, from `active` (`matches.ts:241`), and only `POST /matches` inserts an offer-backed match (`:247`), so a single guarded statement is exact. The spec's D2 per-offer lock rested on the same impossible race and was simplified to one statement. |
+| 2 (P2) | The B4 gate cannot tell reject's release from cancel's | CONFIRMED | `matches.ts:493` and `:746` are byte-identical | Both now call `releaseOffer`. A negative fixture puts two identical writers in one file. |
+| 3 (P2) | Task 7's red commit fails required checks | CONFIRMED | cleanup's `"test": "jest"` (`package.json:12`) and `tests/tdd` in `jest.config.js:10` | Task 7 runs red locally and is committed with Task 8. Logged **BUG-092** (simulation-service has the same drift). |
 
 ## Critical implementation notes (copied verbatim from the spec)
 
-1. **Lock, then check, in separate statements** (A, C, D1, D2). A statement that waited on a row lock keeps its
-   subqueries' snapshot from before the wait (`requestStatus.ts:38-44`). Take the lock in its own statement, and decide
-   in the next one.
+1. **Lock, then check, in separate statements** for the request lock (A, C, D1). A statement that waited on a row lock
+   keeps its subqueries' snapshot from before the wait (`requestStatus.ts:38-44`). Take the lock in its own statement,
+   and decide in the next one. **Offer releases are single guarded statements** (`releaseOffer`, `closeProposals`, D1's
+   offer `UPDATE`, D2). B5 explains why that is exact: no writer adds a hold to a `matched` offer.
 2. **Lock order.**
    - D1 is request → offers → matches, the same as accept's `closeProposals`.
-   - D2 is the offer row only.
+   - D2 takes only the offer rows it updates.
    - C is request-first and inserts one row.
    - A is the request lock only.
 
@@ -112,9 +131,13 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
    D2's statements do not name `help_requests` and need no entry.
 6. **D writes no `help_requests` row.** No `updated_at` stamp, so the hard-delete clock (gotcha) and the request-status
    gate are untouched.
-7. **The copied `closeProposals` SQL** keeps two properties: the offer is freed "only while `matched`" (a withdrawn
-   offer stays withdrawn), and offers are updated first, so the subquery still sees the proposals. A comment in each
-   copy names the other. The integration test's withdrawn-offer case proves the behaviour, not the text.
+7. **The copied `closeProposals` SQL** (D1) is text for text the guarded statement in B5. It keeps three properties:
+   - an offer is freed only while `matched`, so a withdrawn offer stays withdrawn;
+   - no other match must still hold it (decision 10);
+   - offers are updated first, so the subquery still sees the proposals.
+
+   A comment in each copy names the other. The integration tests' withdrawn-offer and shared-offer cases prove the
+   behaviour, not the text.
 8. **SQL hygiene.**
    - Use literal statuses only.
    - `expired` is nullable, so write `IS TRUE` / `IS NOT TRUE` in request-service.
@@ -130,6 +153,10 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
       cases call `markExpiredData()`.
 11. **Tests first** in `services/request-service/tests/tdd/` and `services/cleanup-service/tests/tdd/`. Run them red,
     then implement. Promote with a targeted `git mv`, not the promoter, which sweeps every green tdd file repo-wide.
+    **Cleanup-service's `test` script is bare `jest`, and its config includes `tests/tdd`** (`package.json:12`,
+    `jest.config.js:10`; BUG-092). So a red cleanup tdd file fails `npm test` and the pre-push hook. Run it red
+    locally, and commit it only together with the implementation that turns it green. Request-service's `test` is
+    `test:unit && test:regression`, so its red tdd files may be committed alone.
 12. **`markExpiredData`'s unit test pins four calls** (`tests/unit/expirationJob.test.ts:19-33`). Update it to the new
     contract: the four flags, then the release. Do not weaken it.
 13. **`npm test` regenerates landing docs.** Revert the timestamp and HEAD-sha churn before committing.
@@ -140,8 +167,9 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
     count, but diffs don't predict re-raises. Surface a re-raise to the maintainer; never loop the dismissal API.
 
 **Plan-only rule (Tasks 4–8):** each `src/` change re-pins its own directed-surface hashes and updates the unit and
-regression tests it breaks **in the same commit**. Only the new `tests/tdd/` files may be red between tasks, because
-pre-push blocks on the other tiers.
+regression tests it breaks **in the same commit**. Only request-service's new `tests/tdd/` files may be red between
+tasks. Cleanup-service's `test` script runs its tdd tier (BUG-092), so its tdd file is committed only once it is green,
+with Task 8.
 
 ## Dated obligations
 
@@ -165,6 +193,8 @@ pre-push blocks on the other tiers.
   Spec → *Out of scope*.
 - **BUG-073** tabled (maintainer, 2026-10-26): community admin and platform admin become separate roles, as a future
   feature (`docs/IDEAS.md` 2026-10-26).
+- **BUG-092** (cleanup-service and simulation-service run their tdd tier in their blocking `test`; Sprint 137 only
+  sequences around it).
 - **BUG-076** (pre-push TDD false pass), **BUG-080** (provider completion rate counts a status never written),
   **BUG-081** (trust-config readers return NUMERIC strings typed as `number`; latent), **BUG-082** (the per-query SQL
   log in five services floods the log; the reputation log loses the 02:00Z nightly by 03:30Z).

@@ -2465,3 +2465,21 @@ Sprint 136 code-review #9). GREATEST would not close it. **Decided (maintainer, 
 `PUT /requests/:id` refuses a completed or cancelled ask.
 
 ---
+
+## BUG-092 · [2026-11-04] · open
+
+**Cleanup-service and simulation-service run their tdd tier in their blocking `test`.** ADR-029 and `tests/claude.md`
+say the `tdd/` tier reports only. But `services/cleanup-service/package.json:12` is `"test": "jest"`, and its
+`jest.config.js:8-12` adds `**/tests/tdd/**/*.test.ts` to `testMatch`. `services/simulation-service` is the same
+(`"test": "jest --passWithNoTests"`, with a config that matches `tests/tdd`). Every other service's `test` is
+`npm run test:unit && npm run test:regression`.
+
+Root `npm test` runs each workspace's `test` through Turbo, and so does the pre-push hook. So a red tdd file in either
+workspace blocks the push, and a test-first commit there cannot land red. Cleanup's config line dates from Sprint 54
+(`d8674302`).
+
+Found by the Codex review of the Sprint 137 plan (finding 3). Sprint 137 sequences around it: the cleanup tdd file is
+committed with its implementation. Fix direction (not decided): give both workspaces the tiered `test` script the
+others use.
+
+---

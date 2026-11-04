@@ -1,8 +1,9 @@
 # Sprint 137: Exchange Integrity — Design Spec
 
 **Date**: 2026-11-04
-**Status**: Approved (maintainer, 2026-11-04: scope and decisions 1–3). Planner decisions 4–9 stand unless the
-maintainer vetoes one before execution starts.
+**Status**: Approved (maintainer, 2026-11-04: scope and decisions 1–3). Planner decisions 4–10 stand unless the
+maintainer vetoes one before execution starts. Revised 2026-11-04 after the Codex plan review (decision 10, B5, D2,
+notes 1, 2, 7 and 11).
 **Version**: v11.109.0 → v11.110.0 (provisional; re-derive from `origin/master` at merge)
 **Sprint Branch**: `agent/claude/sprint-137-planning` (planning and execution; one PR)
 
@@ -77,7 +78,7 @@ The mobile sprint (`docs/IDEAS.md`, 2026-10-29), and a control to back out of an
    - The two `closeProposals` statements are copied, not imported, because one service cannot import another's
      source. The integration tests prove the copy behaves the same way.
 5. **The same sweep frees stranded holds.** A stranded hold is an offer that is `matched` while no `proposed`, `matched`
-   or `completed` match references it. Each one is freed in its own transaction, under the offer's row lock.
+   or `completed` match references it. One guarded statement frees them all (B5 explains why one statement is exact).
    - This repairs holds that past cascades already stranded, and it is a safety net from now on.
    - It changes demo data on the first run after deploy, and the run logs the count. If the maintainer prefers, drop
      D2 and keep D1.
@@ -94,6 +95,11 @@ The mobile sprint (`docs/IDEAS.md`, 2026-10-29), and a control to back out of an
 8. **BUG-090: `POST /providers/offers` re-checks and inserts under `lockRequestForCommitment`.** It answers
    `409 REQUEST_NOT_OPEN` at the lock. The fast-path answers do not change.
 9. **No ADR, no migration, no new event, no new endpoint.** No ADR number is needed.
+10. **One release rule for every offer free** (Codex plan review, 2026-11-04). Before this sprint, BUG-089 let one offer
+    back matches on more than one ask, and those rows survive the deploy. So no writer may free an offer while another
+    `proposed`, `matched` or `completed` match still references it. The rule covers `closeProposals`, match reject,
+    match cancel, D1 and D2. Reject and cancel share one helper, `releaseOffer`; their two release statements are
+    byte-identical today, which also lets B4 tell its writers apart (B5).
 
 ---
 
@@ -155,9 +161,8 @@ The reviewed writers, each re-read at execution:
 | File | Statement | Why |
 |---|---|---|
 | `request-service/src/db/requestStatus.ts` | `closeProposals` offer free | under the request lock; frees only while `matched` |
-| `request-service/src/routes/matches.ts` | POST /matches hold | `active` → `matched`, unexpired, under the request lock |
-| `request-service/src/routes/matches.ts` | match reject free | only while `matched` |
-| `request-service/src/routes/matches.ts` | match cancel free | only while `matched` |
+| `request-service/src/routes/matches.ts` | POST /matches hold | `active` → `matched`, unexpired, under the request lock; **the only writer that sets `matched`** (B5's invariant) |
+| `request-service/src/db/requestStatus.ts` | `releaseOffer` (reject, cancel) | only while `matched` and no other match holds it (B5) |
 | `request-service/src/routes/offers.ts` | PUT /offers/:id (dynamic) | title and description; a body status is refused (B1) |
 | `request-service/src/routes/offers.ts` | DELETE /offers/:id | the owner's withdraw |
 | `request-service/src/routes/offers.ts` | PUT /offers/:id/privacy (dynamic) | privacy fields only |
@@ -165,7 +170,46 @@ The reviewed writers, each re-read at execution:
 | `cleanup-service/src/jobs/expirationJob.ts` | D2 stranded free | no live or completed match holds it |
 
 The scan, not this table, is the arbiter. Review any other statement it finds one at a time, and never add an entry
-blindly.
+blindly. One negative fixture puts two byte-identical release statements in one file. The gate must fail on it, which
+proves that an extra identical writer cannot hide behind a reviewed one.
+
+**B5. One release rule** (decision 10). An offer is freed only while it is `matched` **and** no `proposed`, `matched` or
+`completed` match still references it, apart from the proposals the same statement is closing.
+- **`releaseOffer(q, offerId)`**, a new helper in `src/db/requestStatus.ts`:
+
+  ```sql
+  UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP
+   WHERE o.id = $1 AND o.status = 'matched'
+     AND NOT EXISTS (SELECT 1 FROM requests.matches m
+                      WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed'))
+  ```
+
+  Match reject (`matches.ts:493`) and match cancel (`matches.ts:746`) call it in place of their identical inline
+  statements. Both already update their own match row first (reject at ~:480, cancel at ~:729), so that row no longer
+  counts as a hold. Today neither stamps the offer's `updated_at`; the helper does, as `closeProposals` does.
+- **`closeProposals`** keeps its shape (offers first, then matches), and its offer `UPDATE` gains the guard. The guard
+  excludes this request's proposals, because the next statement closes them:
+
+  ```sql
+  UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP
+   WHERE o.status = 'matched'
+     AND o.id IN (SELECT offer_id FROM requests.matches
+                   WHERE request_id = $1 AND status = 'proposed' AND offer_id IS NOT NULL)
+     AND NOT EXISTS (SELECT 1 FROM requests.matches m
+                      WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed')
+                        AND NOT (m.request_id = $1 AND m.status = 'proposed'))
+  ```
+
+- **Why one statement is exact, with no separate offer lock.** A guarded `UPDATE` could free a live hold only if its
+  subquery's snapshot missed one: a match that started to reference a `matched` offer after the statement began.
+  - After B1, exactly one writer sets an offer to `matched`: the hold, and only from `active` (`matches.ts:241`).
+  - Only `POST /matches` inserts a match that carries an `offer_id` (`matches.ts:247`). The other inserts carry none:
+    `offersDb.ts:62`, `adminActions.ts:150`, `dibs.ts:355`, and the simulation baseline writer.
+  - So a `matched` offer gains no new hold while a release runs. A stale snapshot can only still see a hold that has
+    since ended, and that errs toward keeping the offer `matched`. D2 frees it on the next run.
+  - B4's reviewed entry for the hold states this invariant, so a new writer that breaks it must be reviewed against it.
+- **Codex suggested a separate offer lock.** It would protect only against a writer that does not exist, and B4 makes
+  adding one a reviewed change.
 
 ## C. BUG-090: a provider offer is written under the request lock
 
@@ -192,8 +236,8 @@ Lock order: this route is request-first and inserts one `provider.offers` row. T
 A new exported function in `services/cleanup-service/src/jobs/expirationJob.ts`:
 `releaseExpiredHolds(): Promise<{ asksReleased: number; proposalsClosed: number; strandedOffersFreed: number }>`.
 `markExpiredData` calls it after its four flag statements, so the hourly cron and `POST /jobs/mark-expired` both run it.
-The flag statements do not change. The run logs all three counts at `info`. A per-ask or per-offer failure logs the id
-at `error`, rolls back that one transaction and continues, as `expireDibs` does.
+The flag statements do not change. The run logs all three counts at `info`. A per-ask failure logs the id at `error`,
+rolls back that one transaction and continues, as `expireDibs` does.
 
 **D1. Close an expired ask's proposals.** Candidates:
 
@@ -208,14 +252,20 @@ Each candidate gets its own transaction on a pool client:
 ```sql
 SELECT id FROM requests.help_requests WHERE id = $1 AND expired = TRUE AND status = 'open' FOR UPDATE
 -- zero rows: ROLLBACK and skip (cancelled, or matched, since the candidate read)
-UPDATE requests.help_offers SET status = 'active', updated_at = CURRENT_TIMESTAMP
- WHERE status = 'matched' AND id IN (
-   SELECT offer_id FROM requests.matches
-    WHERE request_id = $1 AND status = 'proposed' AND offer_id IS NOT NULL)
+UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP
+ WHERE o.status = 'matched'
+   AND o.id IN (SELECT offer_id FROM requests.matches
+                 WHERE request_id = $1 AND status = 'proposed' AND offer_id IS NOT NULL)
+   AND NOT EXISTS (SELECT 1 FROM requests.matches m
+                    WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed')
+                      AND NOT (m.request_id = $1 AND m.status = 'proposed'))
 UPDATE requests.matches SET status = 'rejected', updated_at = CURRENT_TIMESTAMP
  WHERE request_id = $1 AND status = 'proposed'
 -- COMMIT
 ```
+
+The offer `UPDATE` is `closeProposals`' guarded statement (B5), text for text. An offer that also backs a live or
+completed match on another ask stays `matched` (decision 10).
 
 - The candidates include asks flagged before this sprint shipped. So the first run also clears that backlog, before the
   7-day hard delete can strand any more offers.
@@ -224,37 +274,26 @@ UPDATE requests.matches SET status = 'rejected', updated_at = CURRENT_TIMESTAMP
 - D1 writes no `help_requests` row. So the hard-delete clock does not move (gotcha
   `demo-story-rows-are-deleted-on-a-cleanup-timer`), and `sprint-135-request-status-gate` is unaffected.
 
-**D2. Free stranded holds.** Candidates:
+**D2. Free stranded holds.** One autocommit statement, after D1's loop:
 
 ```sql
-SELECT o.id FROM requests.help_offers o
+UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP
  WHERE o.status = 'matched'
    AND NOT EXISTS (SELECT 1 FROM requests.matches m
                     WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed'))
 ```
 
-Each candidate gets its own transaction:
-
-```sql
-SELECT id FROM requests.help_offers WHERE id = $1 FOR UPDATE
-UPDATE requests.help_offers SET status = 'active', updated_at = CURRENT_TIMESTAMP
- WHERE id = $1 AND status = 'matched'
-   AND NOT EXISTS (SELECT 1 FROM requests.matches m
-                    WHERE m.offer_id = $1 AND m.status IN ('proposed', 'matched', 'completed'))
--- COMMIT
-```
-
-- **The lock is its own statement.** A single `UPDATE` that waited on the row would re-check only that row, while its
-  `NOT EXISTS` kept the snapshot from before the wait. Suppose a `POST /matches` was holding the row: that `UPDATE`
-  would miss the match it committed and free a live hold. `requestStatus.ts:38-44` documents the same hazard. After a
-  separate lock statement, the `UPDATE` takes its snapshot after the wait (READ COMMITTED).
+- **One statement is exact** for the reason in B5: no writer adds a hold to a `matched` offer, so its snapshot can only
+  err toward keeping one. An earlier draft of this spec ran a per-offer transaction with a separate lock, "in case a
+  `POST /matches` was holding the row". That case cannot occur: the hold only matches an `active` row, so it never
+  locks a `matched` candidate.
 - **`completed` counts as a hold.** Completion never frees the offer. The only offer writers are the hold
-  (`matches.ts:241`), reject (`:493`), cancel (`:746`) and `closeProposals`, so an offer that backed a completed
+  (`matches.ts:241`), `releaseOffer` (reject, cancel) and `closeProposals`, so an offer that backed a completed
   exchange stays `matched` today. This sprint keeps that behaviour (see *Out of scope*).
-- **Lock order.** D2 locks one offer row and never waits on a request lock. `POST /matches` locks the request, then the
-  offer, so the two cannot form a cycle. D1 locks the request, then offers, then matches: the same order as accept's
-  `closeProposals`. Match cancel and complete never wait on a proposed row: their `UPDATE ... AND status = 'matched'`
-  does not qualify a proposed row, so it takes no lock on it.
+- **Lock order.** D2 takes only the row locks of the offers it updates, and it never waits on a request lock. D1 locks
+  the request, then offers, then matches: the same order as accept's `closeProposals`. Match cancel and complete never
+  wait on a proposed row: their `UPDATE ... AND status = 'matched'` does not qualify a proposed row, so it takes no lock
+  on it.
 
 ---
 
@@ -270,6 +309,8 @@ No change. There are no migrations, and `init.sql` is untouched.
 | PUT | `/offers/:id` | refuses a body `status` | `400 STATUS_NOT_EDITABLE` |
 | POST | `/matches` | an expired offer is not active (fast path and hold) | existing `400 OFFER_NOT_ACTIVE` |
 | POST | `/providers/offers` | re-check and insert under the request lock | `409 REQUEST_NOT_OPEN` |
+| PUT / DELETE | `/matches/:id/reject`, `/matches/:id` | the offer is freed through `releaseOffer`; one another match still holds stays `matched` (B5) | unchanged |
+| — | match accept, provider-offer accept, dibs accept, requester cancel | `closeProposals` (`matches.ts:382`, `offersDb.ts:68`, `dibs.ts:360`, `requests.ts:2089`) gains the same guard (B5) | unchanged |
 
 **Job:** cleanup-service `markExpiredData` now also runs `releaseExpiredHolds`, from both the hourly cron and the
 `POST /jobs/mark-expired` admin trigger.
@@ -286,9 +327,9 @@ The tests come first, red, in each changed workspace's `tests/tdd/`. Real-SQL pr
 
 | File | Proves |
 |---|---|
-| `services/request-service/tests/tdd/sprint-137-exchange-integrity.test.ts` | Mocked-SQL contract, in the pattern of `sprint-136-request-followups.test.ts`: A's 409s come before any write, and the `UPDATE` carries `content_forgotten_at IS NULL`; B1's 400 comes after the 404 and writes nothing; B2's fast path and hold SQL; C's lock → duplicate check → insert inside the transaction, its refusals write nothing, and the event follows the commit |
-| `services/request-service/tests/tdd/sprint-137-offer-status-gate.test.ts` | B4, with negative fixtures, and the scanner default unchanged |
-| `services/cleanup-service/tests/tdd/sprint-137-release-expired-holds.test.ts` | D's statement order per transaction (lock, offers, matches, commit); rollback-and-skip when the re-check under the lock finds nothing; one failure is isolated; D2's lock statement comes before its `UPDATE`; the counts |
+| `services/request-service/tests/tdd/sprint-137-exchange-integrity.test.ts` | Mocked-SQL contract, in the pattern of `sprint-136-request-followups.test.ts`: A's 409s come before any write, and the `UPDATE` carries `content_forgotten_at IS NULL`; B1's 400 comes after the 404 and writes nothing; B2's fast path and hold SQL; B5's `releaseOffer` runs after the match row's own `UPDATE` in reject and cancel, and `closeProposals` carries the guard; C's lock → duplicate check → insert inside the transaction, its refusals write nothing, and the event follows the commit |
+| `services/request-service/tests/tdd/sprint-137-offer-status-gate.test.ts` | B4, with negative fixtures (including two byte-identical writers in one file), and the scanner default unchanged |
+| `services/cleanup-service/tests/tdd/sprint-137-release-expired-holds.test.ts` | D1's statement order per transaction (lock, guarded offers, matches, commit); rollback-and-skip when the re-check under the lock finds nothing; one failure is isolated; D2 is one statement after the loop; the counts. **Never committed red:** cleanup-service's `test` script runs its tdd tier (BUG-092), so this file lands green, in the same commit as D. |
 | `tests/integration/sprint-137-exchange-integrity.integration.test.ts` | Real PostgreSQL, CI-only on Windows (see below) |
 
 The integration cases:
@@ -301,11 +342,16 @@ The integration cases:
   - an already-flagged ask's `updated_at` is unchanged by the release.
 - **D1 race.** The requester's uncommitted cancel holds the ask. The sweep waits on it, shown by `pg_blocking_pids`
   (never a sleep). After the commit the sweep skips the ask, which writes nothing more.
+- **Shared offers (decision 10).** These fixtures are inserted directly: after B1 no route can create one offer
+  referenced by two live matches.
+  - An offer referenced by a proposal on an expired ask and by a live proposal on an open ask: D1 rejects the expired
+    ask's proposal, and the offer stays `matched`. Repeat with the other reference `matched`, then `completed`.
+  - The same shared offer under match reject, match cancel, and `closeProposals` (through match accept): the offer
+    stays `matched` while the other reference is live. Once the last reference ends, the offer is freed.
 - **D2.**
   - A stranded `matched` offer with no match row is freed.
-  - An offer backing a `completed` match stays `matched`.
-  - An offer that a second client holds and is matching (`UPDATE ... 'matched'` plus a match `INSERT`, uncommitted)
-    makes the sweep wait. After the commit the offer stays `matched`.
+  - A `matched` offer whose only matches are `rejected` or `cancelled` is freed.
+  - An offer backing a `completed` match stays `matched`, and so does one backing a `proposed` or `matched` match.
 - **B.**
   - `PUT /offers/:id` with `status` → 400, and the row is unchanged.
   - `POST /matches` with a flagged offer → 400, writing nothing.
@@ -345,7 +391,8 @@ The integration cases:
   - Known Issues → Recent Fixes for BUG-088..091.
 - **`services/cleanup-service/CONTEXT.md`:** the expiration job's `releaseExpiredHolds` (D1, D2, the counts).
 - **`docs/BUGS.md`:** BUG-088, 089, 090 and 091 → `fixed`, each with its commit and covering test. BUG-089's entry
-  should say how B4 locks it.
+  should say how B4 and B5 lock it: the gate, and the shared-offer release rule for rows created before the fix.
+  BUG-092 stays open.
 - **`services/registry.json`:** no change (no endpoint, event or dependency). `feedback:check` confirms.
 - **No ADR.**
 
@@ -370,12 +417,13 @@ counts appear in the cleanup-service log.
 
 ## Critical Implementation Notes
 
-1. **Lock, then check, in separate statements** (A, C, D1, D2). A statement that waited on a row lock keeps its
-   subqueries' snapshot from before the wait (`requestStatus.ts:38-44`). Take the lock in its own statement, and decide
-   in the next one.
+1. **Lock, then check, in separate statements** for the request lock (A, C, D1). A statement that waited on a row lock
+   keeps its subqueries' snapshot from before the wait (`requestStatus.ts:38-44`). Take the lock in its own statement,
+   and decide in the next one. **Offer releases are single guarded statements** (`releaseOffer`, `closeProposals`, D1's
+   offer `UPDATE`, D2). B5 explains why that is exact: no writer adds a hold to a `matched` offer.
 2. **Lock order.**
    - D1 is request → offers → matches, the same as accept's `closeProposals`.
-   - D2 is the offer row only.
+   - D2 takes only the offer rows it updates.
    - C is request-first and inserts one row.
    - A is the request lock only.
 
@@ -399,9 +447,13 @@ counts appear in the cleanup-service log.
    D2's statements do not name `help_requests` and need no entry.
 6. **D writes no `help_requests` row.** No `updated_at` stamp, so the hard-delete clock (gotcha) and the request-status
    gate are untouched.
-7. **The copied `closeProposals` SQL** keeps two properties: the offer is freed "only while `matched`" (a withdrawn
-   offer stays withdrawn), and offers are updated first, so the subquery still sees the proposals. A comment in each
-   copy names the other. The integration test's withdrawn-offer case proves the behaviour, not the text.
+7. **The copied `closeProposals` SQL** (D1) is text for text the guarded statement in B5. It keeps three properties:
+   - an offer is freed only while `matched`, so a withdrawn offer stays withdrawn;
+   - no other match must still hold it (decision 10);
+   - offers are updated first, so the subquery still sees the proposals.
+
+   A comment in each copy names the other. The integration tests' withdrawn-offer and shared-offer cases prove the
+   behaviour, not the text.
 8. **SQL hygiene.**
    - Use literal statuses only.
    - `expired` is nullable, so write `IS TRUE` / `IS NOT TRUE` in request-service.
@@ -417,6 +469,10 @@ counts appear in the cleanup-service log.
       cases call `markExpiredData()`.
 11. **Tests first** in `services/request-service/tests/tdd/` and `services/cleanup-service/tests/tdd/`. Run them red,
     then implement. Promote with a targeted `git mv`, not the promoter, which sweeps every green tdd file repo-wide.
+    **Cleanup-service's `test` script is bare `jest`, and its config includes `tests/tdd`** (`package.json:12`,
+    `jest.config.js:10`; BUG-092). So a red cleanup tdd file fails `npm test` and the pre-push hook. Run it red
+    locally, and commit it only together with the implementation that turns it green. Request-service's `test` is
+    `test:unit && test:regression`, so its red tdd files may be committed alone.
 12. **`markExpiredData`'s unit test pins four calls** (`tests/unit/expirationJob.test.ts:19-33`). Update it to the new
     contract: the four flags, then the release. Do not weaken it.
 13. **`npm test` regenerates landing docs.** Revert the timestamp and HEAD-sha churn before committing.
@@ -435,5 +491,7 @@ counts appear in the cleanup-service log.
 - **An offer that backed a completed exchange stays `matched`,** so a standing offer is one-shot today. That is existing
   behaviour and is not changed here; whether offers should be reusable is a product question.
 - **Notifying a helper of any rejection** (`match_rejected` is unconsumed). That belongs to the back-out-control idea.
+- **BUG-092** (cleanup-service and simulation-service run their tdd tier in their blocking `test`). It is logged, not
+  fixed. This sprint only sequences around it (note 11).
 - The mobile sprint; BUG-073, 076, 080, 081, 082; the per-community health-quality weight; `deepmerge` #178 (re-check by
   2026-12-01).
