@@ -21,7 +21,7 @@
  * accept, dibs create, provider-offer accept, POST /matches) read lockRequestForCommitment, which reports such an ask as
  * 'expired', so each refuses it as not open. Cancel and reject read lockRequest, so an expired ask can still be
  * closed. Dibs accept reads lockRequest too, by decision (spec D): the invitation carries its own expiry, which the
- * accept checks under the dibs row lock, and the sweep never flags a dibs_pending ask. The stored status does not
+ * accept checks under the dibs row lock (the sweep flags only asks stored as 'open'). The stored status does not
  * change: an expired ask stays 'open' in the column.
  *
  * tests/regression/sprint-135-request-status-gate.test.ts fails on a request-status write anywhere else.
