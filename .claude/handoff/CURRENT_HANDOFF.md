@@ -1,12 +1,13 @@
 # Sprint 137 — Exchange Integrity — Handoff
 
 **Date**: 2026-11-04
-**Outcome so far**: **Planned and plan-reviewed (three Codex passes); ready to execute.**
+**Outcome so far**: **Execution started; Task 1 verified and reviewed. Continue with Task 2.**
 - Scope and decisions 1–3 were agreed with the maintainer on 2026-11-04.
 - The spec, plan, BUG-088/090 corrections and the new BUG-091 entry are committed on this branch.
 - Codex's plan review found three issues, and two re-reviews found one each. All five are confirmed and resolved in the
   spec and plan (see *Plan review*).
-- No code has changed yet, and no PR is open.
+- No application code has changed yet, and no PR is open. Task 1 sets the three root version fields to provisional
+  v11.110.0 in the commit carrying this execution record.
 
 > The handoff carries **state between sessions**. It is not a copy of the plan: it links the plan and names the next
 > unchecked task. It is branch-local, so it can reserve nothing; see `CLAUDE.md` → *Parallel Development* for how
@@ -45,8 +46,9 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
    `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 5. Merges, ADR numbers, demo-host operations and dismissals each need explicit authorization. Stop at PR creation.
 
-**Next unchecked task**: Plan Task 1 (branch check, baselines, v11.110.0 bump) in a new Claude chat, per this Quick
-Start. Codex has reviewed the plan three times (`6d478a36`, `17f41af6`, `fcec0e28`). R2's fix (a stricter parse rule and
+**Next unchecked task**: Plan Task 2 (scanner parameter and offer-status gate). Execution is in this Codex chat,
+using sequential implementers and independent reviewers. Codex has reviewed
+the plan three times (`6d478a36`, `17f41af6`, `fcec0e28`). R2's fix (a stricter parse rule and
 its negative fixtures) is mechanical, so no further plan review is planned. The PR's `/code-review` will cover the
 implementation.
 
@@ -58,7 +60,7 @@ implementation.
 |---|---|
 | **Branch** | `agent/claude/sprint-137-planning`, cut from `origin/master` `f19ca413` on 2026-11-04. It carries the Sprint 136 archive, the #328 post-merge record, and the Sprint 137 spec, plan, handoff and BUGS entries. **No PR is open from it.** Execution continues here, and the one PR opens from it. |
 | **Base** | `origin/master` at `f19ca413` (#328, v11.109.0). No open PRs on 2026-11-04. The version (provisional 11.110.0) is re-derived from `origin/master` at merge. |
-| **Active editor** | Claude (the Sprint 137 planning chat, 2026-11-04). |
+| **Active editor** | Codex executing the approved plan, with one subagent editor at a time (2026-11-04). |
 | **Shared resources** | **Dependency lane: Claude** (maintainer-designated); this sprint adds no dependency. Nothing dependency-dated except #178 (below). **No ADR number needed.** No demo-host operation pending. |
 | **Merged branches safe to delete** (maintainer's call) | `agent/claude/sprint-136-planning` (head `170d39fe`; same tree as `f19ca413`), `agent/claude/sprint-135-pr-request-status-guards` (`7bfc65ac`), `agent/claude/sprint-135-planning` (`5a3589ef`), `agent/claude/sprint-134-pr-bug-077-badge-insert` (`afbaed7a`). |
 
@@ -179,6 +181,24 @@ sequencing. Its one finding is R1 above.
 regression tests it breaks **in the same commit**. Only request-service's new `tests/tdd/` files may be red between
 tasks. Cleanup-service's `test` script runs its tdd tier (BUG-092), so its tdd file is committed only once it is green,
 with Task 8.
+
+## Execution record (2026-11-04)
+
+- Bootstrap reconciled at planning head `c3357160`: fetched origin, no open PRs, `origin/master` remains `f19ca413`,
+  #316 is CLOSED. Drift run `41890283148` (manual, post-merge) passed. The next expected scheduled run
+  (2026-11-05 07:15Z) was not present yet. The latest failed scheduled run `41857550328` reports
+  `expo-notifications@57.0.23` versus `~57.0.24`, the pre-#328 pin; its gate output was read before execution.
+- Task 1: request-service unit + regression, cleanup-service, and the two scanner baseline gates passed on
+  `c3357160`. Only the three root version fields changed to `11.110.0`; staged feedback and whitespace checks passed.
+  Spec/quality review approved that diff. Full `npm test` passed on the version-change tree based at `c3357160`
+  (27/27 Turbo tasks; 26 cached, root tests executed: 42 regression suites / 982 tests). Only this handoff changed
+  afterward. Independent spec/quality and final process review passed; Task 1 is ready for Task 2.
+- Full-suite host issue: sandbox Bash access was denied; an elevated retry selected
+  `C:/WINDOWS/system32/bash.exe` (WSL with no installed distribution), and `tr`/`basename` were absent from PATH.
+  A test-process-only PATH using the installed Git Bash `bin` and `usr/bin` passed the full suite. No test or runtime
+  source was changed to address these host errors. The three root version fields are included with this record.
+- Decisions 4–10 remain in force, including D2. Cleanup's red test remains uncommitted until Task 8. No merge,
+  ADR number, demo-host operation or dismissal was performed or authorized.
 
 ## Dated obligations
 
