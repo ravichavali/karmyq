@@ -202,14 +202,30 @@ proves that an extra identical writer cannot hide behind a reviewed one.
 
 - **Why one statement is exact, with no separate offer lock.** A guarded `UPDATE` could free a live hold only if its
   subquery's snapshot missed one: a match that started to reference a `matched` offer after the statement began.
-  - After B1, exactly one writer sets an offer to `matched`: the hold, and only from `active` (`matches.ts:241`).
-  - Only `POST /matches` inserts a match that carries an `offer_id` (`matches.ts:247`). The other inserts carry none:
-    `offersDb.ts:62`, `adminActions.ts:150`, `dibs.ts:355`, and the simulation baseline writer.
+  The argument covers the **deployed services' runtime writers**: the SQL in `services/*/src`, which is what can run
+  concurrently with a release.
+  - After B1, exactly one runtime writer sets an offer to `matched`: the hold, and only from `active`
+    (`matches.ts:241`).
+  - Exactly one runtime insert creates a match that carries an `offer_id`: `POST /matches` (`matches.ts:247-248`). The
+    other `services/*/src` inserts carry none: `offersDb.ts:62`, `adminActions.ts:150`, `dibs.ts:355`, and the
+    simulation baseline writer (`baselineWriter.ts:185`).
   - So a `matched` offer gains no new hold while a release runs. A stale snapshot can only still see a hold that has
     since ended, and that errs toward keeping the offer `matched`. D2 frees it on the next run.
-  - B4's reviewed entry for the hold states this invariant, so a new writer that breaks it must be reviewed against it.
-- **Codex suggested a separate offer lock.** It would protect only against a writer that does not exist, and B4 makes
-  adding one a reviewed change.
+- **Writers outside the argument.** Some SQL does insert offer-backed matches directly: the archived seeder
+  (`scripts/archive/seeding/generate-realistic-data.ts:904`, `:923`) and integration fixtures (for example
+  `tests/integration/sprint-136-request-followups.integration.test.ts:81` and
+  `sprint-134-bug-074-match-status-guards.integration.test.ts:55`). They run at setup, before any release, never
+  alongside one in a deployed service, so they do not touch the race. They can create shared-offer states, and B5's
+  guard and D2 exist to handle exactly those. Sprint 137's own shared-offer fixtures are this kind of writer. (Codex
+  re-review, 2026-11-04: the first draft of this paragraph claimed the runtime invariant repo-wide.)
+- **The runtime invariant is gated, not just stated.** B4 also asserts, over `services/*/src`, two things:
+  - the only `help_offers` status write that sets `matched` is the hold;
+  - the only `INSERT INTO requests.matches` whose column list names `offer_id` is `POST /matches`'s.
+
+  Each assertion has a negative fixture: a second `matched` setter fails it, and so does a second offer-backed insert.
+  So a writer that breaks the argument fails the build instead of passing review unnoticed.
+- **Codex suggested a separate offer lock.** It would protect only against a runtime writer that does not exist, and
+  B4 fails the build if one is added.
 
 ## C. BUG-090: a provider offer is written under the request lock
 
@@ -283,7 +299,7 @@ UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMEST
                     WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed'))
 ```
 
-- **One statement is exact** for the reason in B5: no writer adds a hold to a `matched` offer, so its snapshot can only
+- **One statement is exact** for the reason in B5: no runtime writer adds a hold to a `matched` offer, so its snapshot can only
   err toward keeping one. An earlier draft of this spec ran a per-offer transaction with a separate lock, "in case a
   `POST /matches` was holding the row". That case cannot occur: the hold only matches an `active` row, so it never
   locks a `matched` candidate.
@@ -420,7 +436,8 @@ counts appear in the cleanup-service log.
 1. **Lock, then check, in separate statements** for the request lock (A, C, D1). A statement that waited on a row lock
    keeps its subqueries' snapshot from before the wait (`requestStatus.ts:38-44`). Take the lock in its own statement,
    and decide in the next one. **Offer releases are single guarded statements** (`releaseOffer`, `closeProposals`, D1's
-   offer `UPDATE`, D2). B5 explains why that is exact: no writer adds a hold to a `matched` offer.
+   offer `UPDATE`, D2). B5 explains why that is exact: no runtime writer in `services/*/src` adds a hold to a
+   `matched` offer, and B4 gates that.
 2. **Lock order.**
    - D1 is request → offers → matches, the same as accept's `closeProposals`.
    - D2 takes only the offer rows it updates.

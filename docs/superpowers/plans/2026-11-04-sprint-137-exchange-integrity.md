@@ -78,7 +78,8 @@ carries:
 1. **Lock, then check, in separate statements** for the request lock (A, C, D1). A statement that waited on a row lock
    keeps its subqueries' snapshot from before the wait (`requestStatus.ts:38-44`). Take the lock in its own statement,
    and decide in the next one. **Offer releases are single guarded statements** (`releaseOffer`, `closeProposals`, D1's
-   offer `UPDATE`, D2). B5 explains why that is exact: no writer adds a hold to a `matched` offer.
+   offer `UPDATE`, D2). B5 explains why that is exact: no runtime writer in `services/*/src` adds a hold to a
+   `matched` offer, and B4 gates that.
 2. **Lock order.**
    - D1 is request → offers → matches, the same as accept's `closeProposals`.
    - D2 takes only the offer rows it updates.
@@ -222,6 +223,21 @@ git commit -am "chore: v11.110.0 (Sprint 137)"
     Today's identical pair is reject's and cancel's offer release (`matches.ts:493`, `:746`, byte-identical). B5
     replaces both with `releaseOffer`, so the reviewed list carries one `releaseOffer` entry and no `matches.ts`
     release entry.
+- [ ] **B5's runtime invariant, gated** (Codex re-review). Add two assertions over the live `services/*/src` scan:
+  - **One `matched` setter.** Among the reviewed `help_offers` status writes, exactly one assigns `status =
+    'matched'`, and it is the `POST /matches` hold (`matches.ts`, label containing `AND status = 'active'`).
+  - **One offer-backed insert.** Scan `requests.matches` literals (scanner table parameter
+    `/\b(?:requests\.)?matches\b/i`) for `INSERT INTO (requests.)?matches (...)`. Exactly one has a column list naming
+    `offer_id`: `POST /matches`'s in `matches.ts`. Parse the column list between the first `(` and its matching `)`;
+    a mention of `offer_id` in a later `SELECT` or `RETURNING` must not count.
+
+  Negative fixtures:
+  - a second `SET status = 'matched'` writer fails the first assertion;
+  - a second `INSERT INTO requests.matches (request_id, offer_id, …)` fails the second;
+  - an insert whose column list lacks `offer_id`, but whose `RETURNING` names it, does not count.
+
+  The scope is `services/*/src` on purpose. Seeds, `scripts/archive/` and test fixtures write at setup, never
+  alongside a release (spec B5, *Writers outside the argument*).
 
 - [ ] **Run it.** Before B5 and D exist, the identity cases are **red**:
   - the live `matches.ts` releases match no entry;
@@ -376,7 +392,8 @@ git diff --numstat apps/frontend/src/lib/api.ts   # 1	1	apps/frontend/src/lib/ap
 - [ ] **B5.** In `src/db/requestStatus.ts`:
   - add `releaseOffer(q: TxQuery, offerId: string): Promise<void>`, which runs spec B5's first statement. Its doc
     comment states the rule, the invariant that makes one statement exact (only the hold sets `matched`, and only from
-    `active`; only `POST /matches` inserts an offer-backed match), and that the caller must update its own match row
+    `active`; among `services/*/src`, only `POST /matches` inserts an offer-backed match; B4 gates both), and that
+    the caller must update its own match row
     first;
   - replace `closeProposals`' offer `UPDATE` with spec B5's second statement. Keep offers first, then matches. Extend
     the doc comment: a shared offer stays `matched` while another match holds it (BUG-089's rows).
@@ -573,8 +590,9 @@ export async function releaseExpiredHolds(): Promise<{ asksReleased: number; pro
   - **D1 release and `updated_at`:** for an ask flagged before the run, read `updated_at` before and after. It must be
     equal.
   - Use fresh `randomUUID()` ids. Cast fixture statuses `$n::varchar`.
-  - **No D2 race case.** The earlier draft's race simulated a writer that re-holds a `matched` offer, and none exists
-    (spec B5). Its premise is covered by B's cases, where a non-`active` offer cannot be held.
+  - **No D2 race case.** The earlier draft's race simulated a runtime writer that re-holds a `matched` offer, and none
+    exists in `services/*/src` (spec B5; B4 gates it). Its premise is covered by B's cases, where a non-`active` offer
+    cannot be held.
 - [ ] `npx tsc --noEmit -p tests` (or the workspace's type check) compiles the file. It runs in CI's Integration Tests
   job.
 - [ ] Commit: `test(integration): Sprint 137 exchange-integrity proofs`.
