@@ -9,8 +9,8 @@ const moduleNameMapper = Object.fromEntries(
   Object.entries(compilerOptions.paths)
     .sort(([a], [b]) => b.length - a.length)
     .map(([alias, [target]]) => [
-      `^${alias.replace("*", "(.*)")}$`,
-      `<rootDir>/${target.replace("*", "$1")}`,
+      `^${alias.replace(/\*/g, "(.*)")}$`,
+      `<rootDir>/${target.replace(/\*/g, "$1")}`,
     ]),
 );
 
