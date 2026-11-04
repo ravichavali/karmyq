@@ -17,6 +17,14 @@ Changes below.
 
 ## Recent Changes
 
+- **2026-11-03 (Sprint 136, BUG-083)**: memory retention ages a completed request from its **completion**, not its last
+  edit. The completed branch of `forgetExchangeContent` compares `COALESCE((SELECT MAX(m.completed_at) FROM
+  requests.matches m WHERE m.request_id = h.id AND m.status = 'completed'), h.updated_at)` with the window. Completion
+  never stamps `help_requests.updated_at`, so the old `updated_at` clock forgot an old ask on the run right after it
+  completed. `updated_at` stays as the fallback for a completed ask with no stamped completion. The expired/unmatched
+  branch, `req_window` and the message cascade are unchanged. No migration; content forgotten early is not restored.
+  Tests: `tests/regression/sprint-136-retention-clock.test.ts` (shape) and the BUG-083 cases of root
+  `tests/integration/sprint-136-request-followups.integration.test.ts` (real SQL).
 - **2026-11-01 (Sprint 135, BUG-075)**: the Expire Dibs job writes the dibs only while it is still pending
   (`UPDATE requests.dibs ... WHERE id = $1 AND status = 'pending'`). A dibs the provider accepted or declined after the
   job's `SELECT` is left alone: the transaction rolls back, with no request write and no `dibs_expired` event. The
@@ -74,7 +82,8 @@ Changes below.
 `src/jobs/memoryRetentionJob.ts`. Three statements per run, each idempotent via partial-index predicates:
 
 1. **Exchange Unit cascade** — one data-modifying CTE: `UPDATE requests.help_requests` (completed, aged
-   past `completed_request_window_days`, `content_forgotten_at IS NULL`) → sentinel + stamp
+   past `completed_request_window_days` from its newest completed match's `completed_at`, falling back to
+   `updated_at` — Sprint 136, BUG-083; `content_forgotten_at IS NULL`) → sentinel + stamp
    `content_forgotten_at`; the second CTE forgets every `messaging.messages.content` whose conversation
    links (request → match → conversation, `conversations.request_match_id`) to a just-forgotten request.
    Atomic — request text and its messages forget together or not at all.

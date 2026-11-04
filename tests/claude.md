@@ -71,6 +71,13 @@ The isolated compose request-service disables rate limiting, like the other test
 so the inventory audience cases can exercise real JWT and live membership checks without
 exhausting an IP quota. Production rate limiting remains enabled.
 
+The stack runs **no wall-clock cron** (Sprint 136, BUG-087): `reputation-service-test` sets
+`SCHEDULED_JOBS_DISABLED: "true"`, so the 02:00 health metrics and the 03:30 trust-score refresh never
+fire mid-test. `regression/sprint-136-test-stack-crons-gate.test.ts` fails if any stack service whose
+`src/` calls `cron.schedule(` drops the flag or schedules without checking it. A test that needs that
+work calls the job directly (`refreshAllTrustScores`, `manualCalculateHealthMetrics`), as the Sprint 134
+health and Sprint 126 refresh tests do.
+
 ```bash
 npm run test:integration:setup     # docker compose -f docker-compose.test.yml up -d
 npm run test:integration

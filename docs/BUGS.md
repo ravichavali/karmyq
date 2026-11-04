@@ -2280,7 +2280,7 @@ Maintainer approved logging it 2026-11-01. Not scheduled.
 
 ---
 
-## BUG-083 · [2026-11-01] · open
+## BUG-083 · [2026-11-01] · fixed (Sprint 136, v11.109.0)
 
 **Completed-request retention runs from the last edit, not from completion.** `memoryRetentionJob.ts:108` forgets a
 completed request when `h.updated_at < NOW() - window`. Completion has never stamped `help_requests.updated_at`: at
@@ -2292,9 +2292,16 @@ Not fixed in Sprint 135: `reconcileRequestStatus` is status-only by spec decisio
 belongs to cleanup-service. Fix direction (not decided): retention reads the newest `matches.completed_at`, or completion
 stamps a request-level time. Found by the Sprint 135 final review.
 
+**Fix (Sprint 136, v11.109.0, `65c6faa4`):** the completed branch of `forgetExchangeContent` ages from
+`COALESCE((SELECT MAX(m.completed_at) FROM requests.matches m WHERE m.request_id = h.id AND m.status = 'completed'),
+h.updated_at)`. cleanup-service only, no migration, and no repair: content already forgotten cannot be restored.
+Tests: `services/cleanup-service/tests/regression/sprint-136-retention-clock.test.ts` (shape) and the BUG-083 cases of
+`tests/integration/sprint-136-request-followups.integration.test.ts` (real SQL: an old ask that completed yesterday is kept;
+MAX, not MIN; the `updated_at` fallback).
+
 ---
 
-## BUG-084 · [2026-11-01] · open
+## BUG-084 · [2026-11-01] · fixed (Sprint 136, v11.109.0)
 
 **A `POST /matches` proposal can land on an ask that just closed and hold the helper's offer.** The route reads the
 request's reachability before any transaction (`services/request-service/src/routes/matches.ts:158`), then inserts the
@@ -2306,9 +2313,17 @@ Not fixed in Sprint 135: the spec put `POST /matches` out of scope. Fix directio
 inside a transaction around the insert and refuse unless the derived status is `open`. Found by the Sprint 135 final
 review.
 
+**Fix (Sprint 136, v11.109.0, `92a9de66`):** after its unchanged fast path, `POST /matches` writes in one transaction:
+`lockRequestForCommitment` (not open → 409 `REQUEST_NOT_OPEN`), the duplicate check again under the lock (409
+`ALREADY_OFFERED`), the guarded offer hold `... WHERE id = $1 AND offerer_id = $2 AND status = 'active'` (miss → 400
+`OFFER_NOT_ACTIVE`, before anything is written), then the insert. `match_created` publishes after the commit. Tests:
+`services/request-service/tests/regression/sprint-136-request-followups.test.ts` (mocked SQL order) and the BUG-084
+races in `tests/integration/sprint-136-request-followups.integration.test.ts` (a POST that waited on a cancel answers
+409; two POSTs sharing one offer: exactly one wins).
+
 ---
 
-## BUG-085 · [2026-11-01] · open
+## BUG-085 · [2026-11-01] · fixed (Sprint 136, v11.109.0)
 
 **The derived `open` ignores `help_requests.expired`.** `expirationJob.ts:20-21` sets `expired = TRUE` and leaves the
 status `open`. `POST /matches` refuses an expired ask (`matches.ts:168`, `reachability.expired`). Admin propose-match
@@ -2319,9 +2334,16 @@ This predates Sprint 135; before it, those paths had no status check at all. Not
 refusing on `expired` changes the status rule, which is a maintainer decision. Fix direction (not decided): derive or
 refuse on `expired` in `lockRequest`. Found by the Sprint 135 final review.
 
+**Fix (Sprint 136, v11.109.0, `92a9de66`; maintainer decision 2026-11-03: refuse, as `POST /matches` already did):**
+`lockRequestForCommitment` (`src/db/requestStatus.ts`) reads an open ask as `'expired'` when `expired IS TRUE` or
+`expires_at <= clock_timestamp()`. Admin propose-match, match accept, dibs create, provider-offer accept and `POST
+/matches` refuse it with `REQUEST_NOT_OPEN`: 409 at the lock, except `POST /matches`'s unchanged 400 fast path for an
+ask the sweep has flagged. Cancel, reject and dibs accept still read `lockRequest`, so an expired ask can be closed.
+The status vocabulary does not change. Tests: the two Sprint 136 request-followups files named under BUG-084.
+
 ---
 
-## BUG-086 · [2026-11-01] · open
+## BUG-086 · [2026-11-01] · fixed (Sprint 136, v11.109.0)
 
 **Clients still declare a status field that `PUT /requests/:id` now refuses.** `updateRequest` at
 `apps/frontend/src/lib/api.ts:583` and `apps/mobile/services/api.ts:95` still has `status?: string`. Sprint 135 refuses a
@@ -2332,9 +2354,15 @@ Not changed in Sprint 135: editing `apps/frontend/src/lib/api.ts` has re-raised 
 blocked a deploy before, so it belongs in a frontend PR. Fix direction (not decided): drop `status` from both
 signatures. Found by the Sprint 135 final review.
 
+**Fix (Sprint 136, v11.109.0, `419a5bb0`):** both `updateRequest` signatures drop `status`. Each `status?: string;` line
+became one comment line, so `api.ts`'s later line numbers do not move. Compile-time fixtures under `@ts-expect-error`:
+`apps/mobile/tests/types/update-request.typecheck.ts` (CI `Lint & Type Check`, `ci.yml:75`) and
+`apps/frontend/src/lib/update-request.typecheck.ts` (`next build` type-checks it, proven by injection; CI `Test Frontend`,
+`test.yml:106`). Both checks are required on `master`.
+
 ---
 
-## BUG-087 · [2026-11-02] · open
+## BUG-087 · [2026-11-02] · fixed (Sprint 136, v11.109.0)
 
 **The Sprint 126 dry-run integration test fails when reputation's 03:30 trust-score refresh overlaps its fingerprint
 window.** reputation-service
@@ -2355,5 +2383,12 @@ the test's two fingerprints. Spanning 03:30 is necessary but not sufficient.
 Fix direction (not decided): keep the crons off in the test stack, for example an env flag that reputation-service's
 `index.ts:130-133` honours, set in `tests/docker-compose.test.yml`. That touches reputation-service and the test
 infrastructure, outside Sprint 135's scope. Found while answering the PR #327 review.
+
+**Fix (Sprint 136, v11.109.0, `82d8f6ef`):** `initTrustScoreRefresh` and `initHealthMetricsCalculator` return before
+scheduling anything, the `RUN_METRICS_ON_STARTUP` run included, when `SCHEDULED_JOBS_DISABLED` is exactly `"true"`
+(`src/cron/scheduledJobs.ts`). Absent or any other value keeps the jobs on. `tests/docker-compose.test.yml` sets it on
+`reputation-service-test`. Tests: `services/reputation-service/tests/regression/sprint-136-scheduled-jobs-flag.test.ts`
+and the root gate `tests/regression/sprint-136-test-stack-crons-gate.test.ts` (every stack service with a
+`cron.schedule(` sets the flag and returns on it; negative fixtures).
 
 ---

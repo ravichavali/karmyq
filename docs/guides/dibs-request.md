@@ -88,6 +88,8 @@ While your dibs invitation is pending, the request is not open to other offers. 
 - Same as decline — your request automatically goes public when the dibs window closes.
 - You do not need to do anything.
 
+**If the request itself has expired:** you can't send a new dibs for it. A dibs you already sent can still be accepted until its own window closes.
+
 ---
 
 ## Where to Find Dibs Activity

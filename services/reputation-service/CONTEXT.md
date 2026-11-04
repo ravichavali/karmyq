@@ -5,6 +5,14 @@
 
 ## Recent Changes
 
+- **2026-11-03 (Sprint 136, BUG-087)**: the two wall-clock crons (`initHealthMetricsCalculator`, 02:00, and
+  `initTrustScoreRefresh`, 03:30) schedule nothing when `SCHEDULED_JOBS_DISABLED` is exactly `"true"`
+  (`src/cron/scheduledJobs.ts`); the health-metrics `RUN_METRICS_ON_STARTUP` run is skipped too, and each logs one
+  "not scheduled" line. Absent or any other value keeps them on, so **production leaves it unset**. The CI test stack
+  (`tests/docker-compose.test.yml`) sets it on `reputation-service-test`, because the 03:30 refresh once landed inside
+  a Sprint 126 integration test's fingerprint window. Callers that run the work directly (`refreshAllTrustScores`,
+  `manualCalculateHealthMetrics`) are unaffected. Tests: `tests/regression/sprint-136-scheduled-jobs-flag.test.ts`, root
+  gate `tests/regression/sprint-136-test-stack-crons-gate.test.ts`. No endpoint, event or dependency change.
 - **2026-10-29 (Sprint 134 BUG-077 + BUG-079)**: every `match_completed` job failed at the badge insert, after karma.
   `reputation.badges.name` is `NOT NULL` (the 2025 table; migration 024's `CREATE TABLE IF NOT EXISTS` never ran),
   and `checkAndAwardBadges` did not supply it, so no badge was ever awarded, the trust-evolution step after it never
@@ -1031,6 +1039,11 @@ REDIS_URL=redis://localhost:6379
 
 # Logging
 LOG_LEVEL=info                   # debug, info, warn, error
+
+# Scheduled jobs (Sprint 136, BUG-087)
+# SCHEDULED_JOBS_DISABLED=true   # test stack only: no 02:00 / 03:30 cron, no startup run. Leave UNSET in production;
+#                                # only the exact string "true" disables.
+# RUN_METRICS_ON_STARTUP=true    # development: run the health metrics 5 s after start (ignored when disabled)
 ```
 
 ## Key Files
