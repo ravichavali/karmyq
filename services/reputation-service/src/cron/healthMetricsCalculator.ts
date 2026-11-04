@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { calculateAllCommunityMetrics } from '../services/healthMetricsService';
 import { detectAllCommunityMilestones } from '../services/milestoneDetector';
+import { scheduledJobsDisabled } from './scheduledJobs';
 
 /**
  * Daily Health Metrics Calculator
@@ -9,6 +10,12 @@ import { detectAllCommunityMilestones } from '../services/milestoneDetector';
  * Runs daily at 2:00 AM to calculate health metrics for all communities
  */
 export function initHealthMetricsCalculator(): void {
+  // BUG-087: the CI test stack turns this off, the startup run included.
+  if (scheduledJobsDisabled()) {
+    console.log('⏸️  Health metrics calculator not scheduled (SCHEDULED_JOBS_DISABLED=true)');
+    return;
+  }
+
   // Run daily at 2:00 AM
   cron.schedule('0 2 * * *', async () => {
     console.log('=== Starting Daily Health Metrics Calculation ===');

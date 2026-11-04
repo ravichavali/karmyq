@@ -151,6 +151,8 @@ services:
       AUTH_SERVICE_URL: http://auth-service-test:3001
       JWT_SECRET: test_jwt_secret_change_me
       RATE_LIMIT_DISABLED: "true"
+      # BUG-087: no wall-clock cron in the test stack (sprint-136-test-stack-crons-gate).
+      SCHEDULED_JOBS_DISABLED: "true"
     ports:
       - "3004:3004"
     networks:
