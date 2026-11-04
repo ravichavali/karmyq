@@ -2392,3 +2392,48 @@ and the root gate `tests/regression/sprint-136-test-stack-crons-gate.test.ts` (e
 `cron.schedule(` sets the flag and returns on it; negative fixtures).
 
 ---
+
+## BUG-088 · [2026-11-03] · open
+
+**An expired ask keeps its open proposals, and their help offers stay held.** Sprint 136 (BUG-085) refuses a match
+accept on an ask past its expiry (`lockRequestForCommitment`, `services/request-service/src/routes/matches.ts`), as the
+maintainer decided. The proposal stays `proposed` and its help offer stays `matched`: nothing closes proposals on
+expiry. `services/cleanup-service/src/jobs/expirationJob.ts` only sets `expired = TRUE`, and its hard delete skips any
+ask with a match. Until the helper withdraws (match reject frees the offer) or the requester cancels (`closeProposals`),
+that offer cannot back another request: `POST /matches` answers 400 `OFFER_NOT_ACTIVE`.
+
+Before Sprint 136 the same proposal could still be accepted, so this is the cost of the decided refusal, not a
+regression in the rule. The exits are documented in `docs/guides/fulfilling-requests-guide.md`. Fix direction (not
+decided; maintainer): the expiration sweep closes an expired ask's proposals and frees their offers, or the helper's view
+says the ask expired. Found by `/code-review` on the Sprint 136 PR.
+
+---
+
+## BUG-089 · [2026-11-03] · open
+
+**A help offer's state is not guarded: its owner can write any status, and an expired offer can back a proposal.**
+- `PUT /offers/:id` (`services/request-service/src/routes/offers.ts`, the `updateOffer` route) writes a body `status`
+  as-is. The owner can set a `matched` offer, held by a live proposal, back to `active`, then attach it to a second
+  proposal. That defeats the guarded hold Sprint 136 added to `POST /matches` (BUG-084), which is `status = 'active'`.
+- `POST /matches` checks the offer's `status` only, on the fast path (`findOwnOffer`) and in the guarded hold. The
+  expiration job sets `help_offers.expired = TRUE` and leaves the status `active`, so an expired offer can still be
+  attached to a new proposal. This predates Sprint 136; the old route had no hold check at all.
+
+Fix direction (not decided): an offer's status changes only through its exchanges (as `STATUS_NOT_EDITABLE` does for
+requests), and the hold also requires `expired IS NOT TRUE`. Found by `/code-review` on the Sprint 136 PR.
+
+---
+
+## BUG-090 · [2026-11-03] · open
+
+**`POST /requests/offers` (provider offer) can land on an ask that just closed or expired.** `validateRequestForOffer`
+(`services/request-service/src/db/providerOffersDb.ts`) reads the request's `status` and `expired` flag on the pool, then
+`createProviderOffer` inserts a pending `provider.offers` row, with no request lock and no `expires_at` check. A cancel
+committing in between, or an ask past `expires_at` before the sweep runs, gets a pending provider offer, and the
+requester is notified (`offer_submitted`). The offer can never be accepted: provider-offer accept refuses a closed or
+expired ask (Sprint 135 / Sprint 136). This is the provider-offer sibling of BUG-084, outside Sprint 136's scope.
+
+Fix direction (not decided): validate and insert under `lockRequestForCommitment`, as `POST /matches` now does. Found by
+`/code-review` on the Sprint 136 PR.
+
+---

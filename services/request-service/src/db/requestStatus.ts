@@ -19,8 +19,10 @@
  * Sprint 136 (BUG-085): an open ask past its expiry takes no new commitment. It is past expiry when the sweep flagged it
  * (expired) or its expires_at has passed and the sweep has not run yet. The writers that start a commitment (propose,
  * accept, dibs create, provider-offer accept, POST /matches) read lockRequestForCommitment, which reports such an ask as
- * 'expired', so each refuses it as not open. Cancel, reject and dibs accept read lockRequest, so an expired ask can
- * still be closed. The stored status does not change: an expired ask stays 'open' in the column.
+ * 'expired', so each refuses it as not open. Cancel and reject read lockRequest, so an expired ask can still be
+ * closed. Dibs accept reads lockRequest too, by decision (spec D): the invitation carries its own expiry, which the
+ * accept checks under the dibs row lock, and the sweep never flags a dibs_pending ask. The stored status does not
+ * change: an expired ask stays 'open' in the column.
  *
  * tests/regression/sprint-135-request-status-gate.test.ts fails on a request-status write anywhere else.
  */
@@ -83,7 +85,8 @@ async function lockAndDerive(q: TxQuery, requestId: string): Promise<{ status: R
  *
  * The UPDATE is its own statement after the lock. A single UPDATE that waited on the row lock would re-check only the
  * request row, while its EXISTS subqueries kept the snapshot from before the wait (the BUG-074 cancel note). It writes
- * status only, as the match routes always have: updated_at stays put, so the memory-retention window does not move.
+ * status only, as the match routes always have: updated_at stays put, as the time of the last edit. Memory retention
+ * ages a completed ask from its newest completed match, with updated_at only as the fallback (BUG-083).
  * Re-taking a lock this transaction already holds is immediate, so callers need not track whether they hold it.
  */
 export async function reconcileRequestStatus(q: TxQuery, requestId: string): Promise<void> {

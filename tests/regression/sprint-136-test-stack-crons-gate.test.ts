@@ -2,16 +2,19 @@
  * Sprint 136 (BUG-087): the CI test stack (tests/docker-compose.test.yml) runs no wall-clock cron, so no scheduled job
  * fires in the middle of an integration run and races a test's rows.
  *
- * For every compose service built from services/<name>/Dockerfile whose src/ calls `cron.schedule(`:
+ * For every compose service built from services/<name>/Dockerfile whose src/ uses node-cron:
  * - the compose service sets SCHEDULED_JOBS_DISABLED: "true";
- * - every such file imports scheduledJobsDisabled;
- * - every `cron.schedule(` sits in a function that first returns on `if (scheduledJobsDisabled())`.
+ * - every such file imports scheduledJobsDisabled, and imports node-cron with an import declaration;
+ * - every call to node-cron's `schedule` (`cron.schedule(`, a namespace import, or a named `schedule` import, aliased or
+ *   not) sits in a function, arrow function or method whose FIRST statement is `if (scheduledJobsDisabled()) { return }`.
+ *   This is read from the TypeScript AST, not from text, so a cron cannot borrow the guard of the function before it.
  * The unit test services/reputation-service/tests/.../sprint-136-scheduled-jobs-flag proves the return really schedules
  * nothing, and that only the exact string "true" disables (a production cron never turns off by accident).
  *
  * The check is a pure function over { compose, files }, so the negative fixtures below exercise the same code the live
  * assertion does. The fixtures are built by mutating the live compose and source, so they cannot drift from reality.
  */
+import ts from 'typescript';
 import { parse as parseYaml } from 'yaml';
 import { read, tracked } from './helpers/workspaces';
 
@@ -23,10 +26,12 @@ type ComposeService = { build?: { dockerfile?: string }; environment?: Record<st
 type Compose = { services?: Record<string, ComposeService> };
 
 const SERVICE_DOCKERFILE = /^(?:\.\/)?services\/([^/]+)\/Dockerfile$/;
-const CRON_CALL = 'cron.schedule(';
+/** A file uses node-cron when the module name appears as a string literal (an import or a require). */
+const USES_NODE_CRON = /['"]node-cron['"]/;
 const IMPORTS_FLAG = /import\s*\{[^}]*\bscheduledJobsDisabled\b[^}]*\}\s*from\s*['"][^'"]*scheduledJobs['"]/;
+/** The guard's text, used only by the fixture that deletes it from live source. */
 const EARLY_RETURN = /if\s*\(\s*scheduledJobsDisabled\(\)\s*\)\s*\{[^}]*\breturn\b[^}]*\}/;
-const FUNCTION_START = /\bfunction\s+\w+\s*\(/g;
+const GUARD = 'if (scheduledJobsDisabled()) { ... return; }';
 
 function environmentOf(svc: ComposeService): Record<string, string> {
   const env = svc.environment;
@@ -40,23 +45,69 @@ function environmentOf(svc: ComposeService): Record<string, string> {
   return Object.fromEntries(Object.entries(env).map(([k, v]) => [k, String(v)]));
 }
 
-/** The source text from the start of the function enclosing `index` up to `index`. */
-function enclosingFunctionPrefix(source: string, index: number): string {
-  let start = 0;
-  for (const m of source.matchAll(FUNCTION_START)) {
-    if (m.index! >= index) break;
-    start = m.index!;
-  }
-  return source.slice(start, index);
+/** True when the function's first statement is `if (scheduledJobsDisabled()) { ... return ... }` (or a bare return). */
+function returnsFirstWhenDisabled(fn: ts.SignatureDeclaration): boolean {
+  const body = (fn as ts.FunctionLikeDeclaration).body;
+  if (!body || !ts.isBlock(body)) return false;
+  const first = body.statements[0];
+  if (!first || !ts.isIfStatement(first)) return false;
+  const cond = first.expression;
+  const checksFlag = ts.isCallExpression(cond) && ts.isIdentifier(cond.expression)
+    && cond.expression.text === 'scheduledJobsDisabled' && cond.arguments.length === 0;
+  const then = first.thenStatement;
+  const returns = ts.isReturnStatement(then) || (ts.isBlock(then) && then.statements.some(ts.isReturnStatement));
+  return checksFlag && returns;
 }
 
-/** Every compose service whose own source schedules a cron, with the files that do. */
+/** Every call to node-cron's schedule that is not the work of a guarded function, plus unreadable node-cron use. */
+function unguardedSchedules(file: SourceFile): string[] {
+  const sf = ts.createSourceFile(file.path, file.source, ts.ScriptTarget.Latest, true);
+  const namespaces = new Set<string>(); // `import cron from` / `import * as cron from` → cron.schedule(
+  const direct = new Set<string>(); // `import { schedule }` / `import { schedule as every }` → schedule( / every(
+  let declared = false;
+  for (const st of sf.statements) {
+    if (!ts.isImportDeclaration(st) || !ts.isStringLiteral(st.moduleSpecifier) || st.moduleSpecifier.text !== 'node-cron') continue;
+    declared = true;
+    const clause = st.importClause;
+    if (clause?.name) namespaces.add(clause.name.text);
+    const bindings = clause?.namedBindings;
+    if (bindings && ts.isNamespaceImport(bindings)) namespaces.add(bindings.name.text);
+    if (bindings && ts.isNamedImports(bindings)) {
+      for (const el of bindings.elements) if ((el.propertyName ?? el.name).text === 'schedule') direct.add(el.name.text);
+    }
+  }
+  if (!declared) return [`${file.path}: uses node-cron without an import declaration the gate can read`];
+
+  const out: string[] = [];
+  const isSchedule = (call: ts.CallExpression) => {
+    const callee = call.expression;
+    if (ts.isPropertyAccessExpression(callee)) {
+      return callee.name.text === 'schedule' && ts.isIdentifier(callee.expression) && namespaces.has(callee.expression.text);
+    }
+    return ts.isIdentifier(callee) && direct.has(callee.text);
+  };
+  const visit = (node: ts.Node) => {
+    if (ts.isCallExpression(node) && isSchedule(node)) {
+      let fn: ts.Node | undefined = node.parent;
+      while (fn && !ts.isFunctionLike(fn)) fn = fn.parent;
+      if (!fn || !returnsFirstWhenDisabled(fn)) {
+        const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+        out.push(`${file.path}:${line}: ${node.expression.getText(sf)}( is not in a function whose first statement is ${GUARD}`);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return out;
+}
+
+/** Every compose service whose own source uses node-cron, with the files that do. */
 function cronServices(compose: Compose, filesFor: (service: string) => SourceFile[]) {
   const found: { composeKey: string; svc: ComposeService; files: SourceFile[] }[] = [];
   for (const [composeKey, svc] of Object.entries(compose.services ?? {})) {
     const m = SERVICE_DOCKERFILE.exec(svc.build?.dockerfile ?? '');
     if (!m) continue;
-    const files = filesFor(m[1]).filter((f) => f.source.includes(CRON_CALL));
+    const files = filesFor(m[1]).filter((f) => USES_NODE_CRON.test(f.source));
     if (files.length) found.push({ composeKey, svc, files });
   }
   return found;
@@ -71,12 +122,7 @@ function evaluateTestStackCrons(compose: Compose, filesFor: (service: string) =>
     }
     for (const file of files) {
       if (!IMPORTS_FLAG.test(file.source)) violations.push(`${file.path}: does not import scheduledJobsDisabled`);
-      for (let at = file.source.indexOf(CRON_CALL); at >= 0; at = file.source.indexOf(CRON_CALL, at + 1)) {
-        if (!EARLY_RETURN.test(enclosingFunctionPrefix(file.source, at))) {
-          const line = file.source.slice(0, at).split('\n').length;
-          violations.push(`${file.path}:${line}: cron.schedule( is not preceded in its function by if (scheduledJobsDisabled()) { ... return; }`);
-        }
-      }
+      violations.push(...unguardedSchedules(file));
     }
   }
   return violations;
@@ -141,7 +187,7 @@ describe('Sprint 136 gate: the CI test stack runs no wall-clock cron (BUG-087)',
         f.path.endsWith('trustScoreRefresh.ts') ? { ...f, source: f.source.replace(EARLY_RETURN, '') } : f);
       const violations = evaluateTestStackCrons(liveCompose(), unguarded);
       expect(violations).toHaveLength(1);
-      expect(violations[0]).toMatch(/^services\/reputation-service\/src\/cron\/trustScoreRefresh\.ts:\d+: cron\.schedule\( is not preceded/);
+      expect(violations[0]).toMatch(/^services\/reputation-service\/src\/cron\/trustScoreRefresh\.ts:\d+: cron\.schedule\( is not in a function/);
     });
 
     it('fails on a cron file that does not import the flag', () => {
@@ -158,7 +204,48 @@ describe('Sprint 136 gate: the CI test stack runs no wall-clock cron (BUG-087)',
         : f);
       const violations = evaluateTestStackCrons(liveCompose(), extra);
       expect(violations).toHaveLength(1);
-      expect(violations[0]).toMatch(/trustScoreRefresh\.ts:\d+: cron\.schedule\( is not preceded/);
+      expect(violations[0]).toMatch(/trustScoreRefresh\.ts:\d+: cron\.schedule\( is not in a function/);
+    });
+
+    // /code-review: a text scan for `function name(` let a cron in an arrow function or a method borrow the guard of the
+    // named function before it, and a named `schedule` import was not seen at all.
+    const appended = (extraSource: string) => (service: string) => liveFiles(service).map((f) =>
+      f.path.endsWith('trustScoreRefresh.ts') ? { ...f, source: `${f.source}\n${extraSource}` } : f);
+    const withFile = (path: string, source: string) => (service: string) =>
+      service === 'reputation-service' ? [...liveFiles(service), { path, source }] : liveFiles(service);
+
+    it('fails on an unguarded cron in an arrow function after a guarded function', () => {
+      const violations = evaluateTestStackCrons(liveCompose(),
+        appended("export const initArrow = (): void => {\n  cron.schedule('0 5 * * *', () => undefined);\n};\n"));
+      expect(violations).toHaveLength(1);
+      expect(violations[0]).toMatch(/trustScoreRefresh\.ts:\d+: cron\.schedule\( is not in a function/);
+    });
+
+    it('fails on an unguarded cron in a class method after a guarded function', () => {
+      const violations = evaluateTestStackCrons(liveCompose(),
+        appended("export class Jobs {\n  start(): void {\n    cron.schedule('0 6 * * *', () => undefined);\n  }\n}\n"));
+      expect(violations).toHaveLength(1);
+      expect(violations[0]).toMatch(/trustScoreRefresh\.ts:\d+: cron\.schedule\( is not in a function/);
+    });
+
+    it('fails on a named schedule import (import { schedule } from node-cron)', () => {
+      const path = 'services/reputation-service/src/cron/extra.ts';
+      const violations = evaluateTestStackCrons(liveCompose(), withFile(path,
+        "import { schedule as every } from 'node-cron';\nexport function initExtra(): void {\n  every('0 7 * * *', () => undefined);\n}\n"));
+      expect(violations).toEqual([
+        `${path}: does not import scheduledJobsDisabled`,
+        `${path}:3: every( is not in a function whose first statement is if (scheduledJobsDisabled()) { ... return; }`,
+      ]);
+    });
+
+    it('fails on node-cron reached by require, which the gate cannot read', () => {
+      const path = 'services/reputation-service/src/cron/legacy.ts';
+      const violations = evaluateTestStackCrons(liveCompose(), withFile(path,
+        "const cron = require('node-cron');\nexport function initLegacy(): void {\n  cron.schedule('0 8 * * *', () => undefined);\n}\n"));
+      expect(violations).toEqual([
+        `${path}: does not import scheduledJobsDisabled`,
+        `${path}: uses node-cron without an import declaration the gate can read`,
+      ]);
     });
 
     it('does not require the flag of a stack service with no cron', () => {
