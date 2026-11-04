@@ -32,9 +32,9 @@ import { forgetExchangeContent, resolveRetentionWindows } from '../../services/c
 
 describe('Sprint 136 request follow-ups', () => {
   const pool = createPool();
-  // R requester; H, H2 helpers; A community admin; P provider. All active members of Cm.
-  const R = randomUUID(), H = randomUUID(), H2 = randomUUID(), A = randomUUID(), P = randomUUID();
-  const users = [R, H, H2, A, P];
+  // R requester; H helper; A community admin; P provider. All active members of Cm.
+  const R = randomUUID(), H = randomUUID(), A = randomUUID(), P = randomUUID();
+  const users = [R, H, A, P];
   const Cm = randomUUID();
   let providerProfile = '';
   const asks: string[] = [];
@@ -46,7 +46,7 @@ describe('Sprint 136 request follow-ups', () => {
   // `.then` starts the request, so a race case can hold it in flight.
   const call = (method: 'put' | 'post' | 'delete', path: string, as: string, body: object = {}) =>
     request(ServiceUrls.REQUEST)[method](path).set('Authorization', bearer(as)).send(body).then((res) => res);
-  const offerHelp = (q: string, offerId?: string, as = H) => call('post', '/matches', as, offerId ? { request_id: q, offer_id: offerId } : { request_id: q });
+  const offerHelp = (q: string, offerId?: string) => call('post', '/matches', H, offerId ? { request_id: q, offer_id: offerId } : { request_id: q });
   const accept = (m: string) => call('put', `/matches/${m}/accept`, R);
   const reject = (m: string) => call('put', `/matches/${m}/reject`, H);
   const propose = (q: string) => call('post', `/requests/${q}/propose-match`, A, { user_id: H });
@@ -114,10 +114,11 @@ describe('Sprint 136 request follow-ups', () => {
   }
 
   /**
-   * Holds `holderSql` on one row in an open transaction, starts every pending call, proves `expectWaiters` of them wait
+   * Holds `holderSql` on one row in an open transaction, starts every pending call, proves every one of them waits
    * on that row (pg_locks, polled against a deadline, never a fixed sleep), then commits and returns the responses.
    */
-  async function whileHeld(holderSql: string, rowId: string, pending: Array<() => Promise<request.Response>>, expectWaiters = pending.length) {
+  async function whileHeld(holderSql: string, rowId: string, pending: Array<() => Promise<request.Response>>) {
+    const expectWaiters = pending.length;
     const holder = await pool.connect();
     try {
       await holder.query('BEGIN');

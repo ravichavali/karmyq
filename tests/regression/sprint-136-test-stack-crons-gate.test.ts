@@ -12,17 +12,15 @@
  * The check is a pure function over { compose, files }, so the negative fixtures below exercise the same code the live
  * assertion does. The fixtures are built by mutating the live compose and source, so they cannot drift from reality.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
-import { join } from 'path';
 import { parse as parseYaml } from 'yaml';
-import { ROOT, read } from './helpers/workspaces';
+import { read, tracked } from './helpers/workspaces';
 
-export interface SourceFile {
+interface SourceFile {
   path: string;
   source: string;
 }
 type ComposeService = { build?: { dockerfile?: string }; environment?: Record<string, unknown> | string[] };
-export type Compose = { services?: Record<string, ComposeService> };
+type Compose = { services?: Record<string, ComposeService> };
 
 const SERVICE_DOCKERFILE = /^(?:\.\/)?services\/([^/]+)\/Dockerfile$/;
 const CRON_CALL = 'cron.schedule(';
@@ -53,22 +51,21 @@ function enclosingFunctionPrefix(source: string, index: number): string {
 }
 
 /** Every compose service whose own source schedules a cron, with the files that do. */
-export function cronServices(compose: Compose, filesFor: (service: string) => SourceFile[]) {
-  const found: { composeKey: string; service: string; files: SourceFile[] }[] = [];
+function cronServices(compose: Compose, filesFor: (service: string) => SourceFile[]) {
+  const found: { composeKey: string; svc: ComposeService; files: SourceFile[] }[] = [];
   for (const [composeKey, svc] of Object.entries(compose.services ?? {})) {
     const m = SERVICE_DOCKERFILE.exec(svc.build?.dockerfile ?? '');
     if (!m) continue;
     const files = filesFor(m[1]).filter((f) => f.source.includes(CRON_CALL));
-    if (files.length) found.push({ composeKey, service: m[1], files });
+    if (files.length) found.push({ composeKey, svc, files });
   }
   return found;
 }
 
 /** The violations; an empty list means the test stack runs no wall-clock cron. */
-export function evaluateTestStackCrons(compose: Compose, filesFor: (service: string) => SourceFile[]): string[] {
+function evaluateTestStackCrons(compose: Compose, filesFor: (service: string) => SourceFile[]): string[] {
   const violations: string[] = [];
-  for (const { composeKey, files } of cronServices(compose, filesFor)) {
-    const svc = compose.services![composeKey];
+  for (const { composeKey, svc, files } of cronServices(compose, filesFor)) {
     if (environmentOf(svc).SCHEDULED_JOBS_DISABLED !== 'true') {
       violations.push(`${composeKey}: its source schedules crons, so it must set SCHEDULED_JOBS_DISABLED: "true"`);
     }
@@ -85,20 +82,17 @@ export function evaluateTestStackCrons(compose: Compose, filesFor: (service: str
   return violations;
 }
 
-function tsFilesUnder(dir: string, rel: string): SourceFile[] {
-  if (!existsSync(dir)) return [];
-  const out: SourceFile[] = [];
-  for (const name of readdirSync(dir)) {
-    const abs = join(dir, name);
-    const relPath = `${rel}/${name}`;
-    if (statSync(abs).isDirectory()) out.push(...tsFilesUnder(abs, relPath));
-    else if (name.endsWith('.ts')) out.push({ path: relPath, source: readFileSync(abs, 'utf8') });
+// The tracked source (git is the arbiter, as for the other root gates), read once per service; the compose file is
+// parsed once and each caller gets its own copy, so a fixture's mutation never leaks into another case.
+const sourceCache = new Map<string, SourceFile[]>();
+const liveFiles = (service: string): SourceFile[] => {
+  if (!sourceCache.has(service)) {
+    sourceCache.set(service, tracked(`:(glob)services/${service}/src/**/*.ts`).map((path) => ({ path, source: read(path) })));
   }
-  return out;
-}
-
-const liveFiles = (service: string) => tsFilesUnder(join(ROOT, 'services', service, 'src'), `services/${service}/src`);
-const liveCompose = (): Compose => parseYaml(read('tests/docker-compose.test.yml'));
+  return sourceCache.get(service)!;
+};
+const COMPOSE: Compose = parseYaml(read('tests/docker-compose.test.yml'));
+const liveCompose = (): Compose => structuredClone(COMPOSE);
 
 describe('Sprint 136 gate: the CI test stack runs no wall-clock cron (BUG-087)', () => {
   it('the live compose and source pass', () => {

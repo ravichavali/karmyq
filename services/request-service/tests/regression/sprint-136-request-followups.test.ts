@@ -13,7 +13,7 @@
  * offer row lock and then waits on the request lock, so the new order cannot deadlock against them.
  */
 const mockQuery = jest.fn();
-// Which client issued each statement: the pool (false) or the transaction (true), and when the transaction ended.
+// Which client issued each statement ('pool' or 'tx'), when the transaction committed, and when an event published.
 const mockTrace: Array<'pool' | 'tx' | 'commit' | 'publish'> = [];
 jest.mock('../../src/database/db', () => ({
   __esModule: true,
@@ -74,11 +74,11 @@ const override = (re: RegExp, r: Replier) => { replies.unshift([re, r]); };
 
 const statements = () => mockQuery.mock.calls.map(([sql, params]) => ({ sql: flat(sql), params }));
 const sqls = () => statements().map((s) => s.sql);
-const matches = (p: RegExp | string) => (s: string) => (typeof p === 'string' ? s === p : p.test(s));
-const at = (p: RegExp | string) => sqls().findIndex(matches(p));
+const sqlMatches = (p: RegExp | string) => (s: string) => (typeof p === 'string' ? s === p : p.test(s));
+const at = (p: RegExp | string) => sqls().findIndex(sqlMatches(p));
 const lastAt = (p: RegExp | string) => {
   const s = sqls();
-  for (let i = s.length - 1; i >= 0; i--) if (matches(p)(s[i])) return i;
+  for (let i = s.length - 1; i >= 0; i--) if (sqlMatches(p)(s[i])) return i;
   return -1;
 };
 const writes = () => sqls().filter((s) => /^(UPDATE|INSERT|DELETE)\b/i.test(s));
@@ -86,17 +86,12 @@ const writes = () => sqls().filter((s) => /^(UPDATE|INSERT|DELETE)\b/i.test(s));
 const clientOf = (i: number) => mockTrace.filter((t) => t === 'pool' || t === 'tx')[i];
 
 const LOCK = 'SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE';
-const CASE_ARMS =
-  "WHEN r.status = 'cancelled' THEN 'cancelled' " +
-  "WHEN EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = r.id AND m.status = 'matched') THEN 'matched' " +
-  "WHEN EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = r.id AND m.status = 'completed') THEN 'completed' " +
-  "WHEN EXISTS (SELECT 1 FROM requests.dibs d WHERE d.request_id = r.id AND d.status = 'pending') THEN 'dibs_pending' ";
-const DERIVE_WITH_EXPIRY =
-  `SELECT CASE ${CASE_ARMS}ELSE 'open' END AS status, ` +
+/** The derive statement (sprint-135-request-status-helper pins it whole, the CASE included). */
+const DERIVE = /^SELECT CASE WHEN r\.status = 'cancelled'/;
+/** BUG-085's column, right after the unchanged CASE. */
+const PAST_EXPIRY_TAIL = "ELSE 'open' END AS status, " +
   '(r.expired IS TRUE OR (r.expires_at IS NOT NULL AND r.expires_at <= clock_timestamp())) AS past_expiry ' +
   'FROM requests.help_requests r WHERE r.id = $1';
-/** The derive statement, with or without the expiry column. */
-const DERIVE = /^SELECT CASE WHEN r\.status = 'cancelled'/;
 const derived = (status: string, pastExpiry: boolean) => reply(DERIVE, rows([{ status, past_expiry: pastExpiry }]));
 
 const PARTICIPANT_READ = /FROM requests\.matches m LEFT JOIN requests\.help_requests r/;
@@ -147,7 +142,8 @@ describe('lockRequestForCommitment (BUG-085)', () => {
     expect(q).toHaveBeenCalledTimes(2);
     expect(flat(q.mock.calls[0][0])).toBe(LOCK);
     expect(q.mock.calls[0][1]).toEqual(['req-1']);
-    expect(flat(q.mock.calls[1][0])).toBe(DERIVE_WITH_EXPIRY);
+    expect(flat(q.mock.calls[1][0])).toMatch(DERIVE);
+    expect(flat(q.mock.calls[1][0]).endsWith(PAST_EXPIRY_TAIL)).toBe(true);
     expect(q.mock.calls[1][1]).toEqual(['req-1']);
   });
 
@@ -173,11 +169,13 @@ describe('lockRequestForCommitment (BUG-085)', () => {
 });
 
 describe('lockRequest still ignores the expiry (cancel, reject and dibs accept close an expired ask)', () => {
-  it("returns 'open' for an open ask past its expiry, from the same statement", async () => {
-    const q = jest.fn().mockResolvedValueOnce(rows([{ id: 'req-1' }]))
+  it("returns 'open' for an open ask past its expiry, from the same two statements as lockRequestForCommitment", async () => {
+    const seeded = () => jest.fn().mockResolvedValueOnce(rows([{ id: 'req-1' }]))
       .mockResolvedValueOnce(rows([{ status: 'open', past_expiry: true }]));
-    await expect(lockRequest(q, 'req-1')).resolves.toBe('open');
-    expect(flat(q.mock.calls[1][0])).toBe(DERIVE_WITH_EXPIRY);
+    const plain = seeded(), commitment = seeded();
+    await expect(lockRequest(plain, 'req-1')).resolves.toBe('open');
+    await expect(lockRequestForCommitment(commitment, 'req-1')).resolves.toBe('expired');
+    expect(plain.mock.calls).toEqual(commitment.mock.calls);
   });
 });
 

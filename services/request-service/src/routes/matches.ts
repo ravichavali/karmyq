@@ -34,6 +34,8 @@ const ALREADY_OFFERED = {
 } as const;
 // ADR-074: the error code is additive; the message is the one the fast path always sent.
 const OFFER_NOT_ACTIVE = { success: false, message: 'Offer is not active', error: 'OFFER_NOT_ACTIVE' } as const;
+// The fast path's 400 and the lock's 409 send the same body.
+const REQUEST_NOT_OPEN = { success: false, message: 'Request is not open', error: 'REQUEST_NOT_OPEN' } as const;
 
 // BUG-057: a match (and the request/emails it carries) is visible only to its participants, the
 // requester or the responder, which is the same definition the accept/reject/complete/delete handlers
@@ -179,11 +181,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Request must be open and unexpired (expired-open asks are not actionable).
     if (reachability.status !== 'open' || reachability.expired === true) {
-      return res.status(400).json({
-        success: false,
-        message: 'Request is not open',
-        error: 'REQUEST_NOT_OPEN',
-      });
+      return res.status(400).json(REQUEST_NOT_OPEN);
     }
 
     // Self-match guard: a requester cannot offer on their own request.
@@ -258,7 +256,7 @@ router.post('/', async (req: Request, res: Response) => {
     if ('conflict' in outcome) {
       if (outcome.conflict === 'offer_not_active') return res.status(400).json(OFFER_NOT_ACTIVE);
       if (outcome.conflict === 'already_offered') return res.status(409).json(ALREADY_OFFERED);
-      return res.status(409).json({ success: false, message: 'Request is not open', error: 'REQUEST_NOT_OPEN' });
+      return res.status(409).json(REQUEST_NOT_OPEN);
     }
     const match = outcome.match;
 
