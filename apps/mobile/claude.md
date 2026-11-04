@@ -31,7 +31,8 @@ hand-rolled with `@expo/vector-icons`; state is the one Zustand store in `store/
 - **Sprint 136 (2026-11-03): `babel-plugin-module-resolver` is gone** (Dependabot #180/#179: its nested glob 9.3.5 and
   minimatch 10.2.5). The `@/` aliases now resolve through **Metro's tsconfig paths** (`@expo/cli` 57.0.32
   `instantiateMetro.js:291`, `isTsconfigPathsEnabled` defaults on; `tsconfig.json` `@/*` → `./*`), and in jest through
-  `jest.config.js` `moduleNameMapper` (`^@/(.*)$` → `<rootDir>/$1`), proven by
+  `jest.config.js` `moduleNameMapper`, which is **built from the same tsconfig `paths`**, longest prefix first, so
+  `@/shared/*` reaches `packages/shared` under tsc, Metro and jest alike. Add an alias in `tsconfig.json` only. Proven by
   `tests/regression/sprint-136-alias-resolution.test.ts`. `babel.config.js` is presets only. Do not set
   `experiments.tsconfigPaths: false` in `app.json`: the export then fails on the first `@/` import (the negative control
   run for this change). The Android export's module set was identical before and after (1,406 modules). Lock: 16 dev
