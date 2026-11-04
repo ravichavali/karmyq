@@ -61,23 +61,26 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import express from 'express';
 import request from 'supertest';
-import * as requestStatus from '../../src/db/requestStatus';
-
-// Read through the namespace: before the export exists, each case fails on its own instead of the suite not compiling.
-const lockRequestForCommitment = (q: any, id: string): Promise<string | null> =>
-  (requestStatus as any).lockRequestForCommitment(q, id);
+import { lockRequest, lockRequestForCommitment } from '../../src/db/requestStatus';
 
 type Reply = { rowCount: number; rows: any[] };
 const rows = (r: any[] = [], rowCount = r.length): Reply => ({ rowCount, rows: r });
 const flat = (sql: unknown) => String(sql).replace(/\s+/g, ' ').trim();
-let replies: Array<[RegExp, Reply]> = [];
-const reply = (re: RegExp, r: Reply) => { replies.push([re, r]); };
+type Replier = Reply | (() => Reply);
+let replies: Array<[RegExp, Replier]> = [];
+const reply = (re: RegExp, r: Replier) => { replies.push([re, r]); };
 /** Replies match first-registered-first, so a case that overrides a beforeEach reply puts its own in front. */
-const override = (re: RegExp, r: Reply) => { replies.unshift([re, r]); };
+const override = (re: RegExp, r: Replier) => { replies.unshift([re, r]); };
 
 const statements = () => mockQuery.mock.calls.map(([sql, params]) => ({ sql: flat(sql), params }));
 const sqls = () => statements().map((s) => s.sql);
-const at = (p: RegExp | string) => sqls().findIndex((s) => (typeof p === 'string' ? s === p : p.test(s)));
+const matches = (p: RegExp | string) => (s: string) => (typeof p === 'string' ? s === p : p.test(s));
+const at = (p: RegExp | string) => sqls().findIndex(matches(p));
+const lastAt = (p: RegExp | string) => {
+  const s = sqls();
+  for (let i = s.length - 1; i >= 0; i--) if (matches(p)(s[i])) return i;
+  return -1;
+};
 const writes = () => sqls().filter((s) => /^(UPDATE|INSERT|DELETE)\b/i.test(s));
 /** Which client issued the statement at index i (statements only; commit and publish markers skipped). */
 const clientOf = (i: number) => mockTrace.filter((t) => t === 'pool' || t === 'tx')[i];
@@ -127,7 +130,8 @@ beforeEach(() => {
   mockQuery.mockImplementation(async (sql: unknown) => {
     const text = flat(sql);
     const hit = replies.find(([re]) => re.test(text));
-    return hit ? hit[1] : rows([], 1);
+    if (!hit) return rows([], 1);
+    return typeof hit[1] === 'function' ? hit[1]() : hit[1];
   });
   mockPublishEvent.mockReset();
   mockPublishEvent.mockResolvedValue(undefined);
@@ -172,7 +176,7 @@ describe('lockRequest still ignores the expiry (cancel, reject and dibs accept c
   it("returns 'open' for an open ask past its expiry, from the same statement", async () => {
     const q = jest.fn().mockResolvedValueOnce(rows([{ id: 'req-1' }]))
       .mockResolvedValueOnce(rows([{ status: 'open', past_expiry: true }]));
-    await expect(requestStatus.lockRequest(q, 'req-1')).resolves.toBe('open');
+    await expect(lockRequest(q, 'req-1')).resolves.toBe('open');
     expect(flat(q.mock.calls[1][0])).toBe(DERIVE_WITH_EXPIRY);
   });
 });
@@ -358,11 +362,14 @@ describe('POST /matches runs under the request lock (BUG-084, BUG-085)', () => {
     derived('open', false);
     const res = await offer();
     expect(res.status).toBe(201);
-    const order = [LOCK, DERIVE, DUPE, HOLD_OFFER, INSERT].map(at);
+    const order = [at(LOCK), at(DERIVE), lastAt(DUPE), at(HOLD_OFFER), at(INSERT)];
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((x, y) => x - y)).toEqual(order);
     expect(order.map(clientOf)).toEqual(['tx', 'tx', 'tx', 'tx', 'tx']);
-    expect(statements()[at(DUPE)].params).toEqual(['req-1', 'helper']);
+    expect(statements()[lastAt(DUPE)].params).toEqual(['req-1', 'helper']);
+    // The pool read stays as the fast path, before the lock.
+    expect(at(DUPE)).toBeLessThan(at(LOCK));
+    expect(clientOf(at(DUPE))).toBe('pool');
     expect(statements()[at(HOLD_OFFER)].params).toEqual(['offer-1', 'helper']);
     expect(statements()[at(INSERT)].params).toEqual(['req-1', 'offer-1', 'helper']);
     // No other write to the offer: the old unguarded UPDATE is gone.
@@ -402,15 +409,27 @@ describe('POST /matches runs under the request lock (BUG-084, BUG-085)', () => {
     expect(mockPublishEvent).not.toHaveBeenCalled();
   });
 
-  it('the duplicate check runs under the lock: a hit answers 409 ALREADY_OFFERED, writing nothing', async () => {
+  it('the duplicate check runs again under the lock: a proposal that landed since the fast path answers 409 ALREADY_OFFERED, writing nothing', async () => {
     derived('open', false);
-    override(/^SELECT 1 FROM requests\.matches WHERE request_id = \$1 AND responder_id = \$2/, rows([{ '?column?': 1 }]));
+    // The fast path's pool read misses; the read under the lock sees the racing double-submit.
+    let reads = 0;
+    override(/^SELECT 1 FROM requests\.matches WHERE request_id = \$1 AND responder_id = \$2/,
+      () => (++reads === 1 ? rows([], 0) : rows([{ '?column?': 1 }])));
     const res = await offer();
     expect(res.status).toBe(409);
     expect(res.body).toEqual({ success: false, message: 'You have already offered to help on this request', error: 'ALREADY_OFFERED' });
-    expect(at(LOCK)).toBeGreaterThan(-1);
-    expect(at(DUPE)).toBeGreaterThan(at(LOCK));
-    expect(clientOf(at(DUPE))).toBe('tx');
+    expect(reads).toBe(2);
+    expect(lastAt(DUPE)).toBeGreaterThan(at(LOCK));
+    expect(clientOf(lastAt(DUPE))).toBe('tx');
+    expect(writes()).toEqual([]);
+  });
+
+  it('a duplicate the fast path sees answers 409 ALREADY_OFFERED without taking the lock', async () => {
+    override(/^SELECT 1 FROM requests\.matches WHERE request_id = \$1 AND responder_id = \$2/, rows([{ '?column?': 1 }]));
+    const res = await offer();
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('ALREADY_OFFERED');
+    expect(at(LOCK)).toBe(-1);
     expect(writes()).toEqual([]);
   });
 

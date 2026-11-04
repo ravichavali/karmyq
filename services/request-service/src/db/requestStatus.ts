@@ -16,10 +16,18 @@
  * - the dibs routes lock the dibs row before the request, as cleanup-service's expiry job does.
  * Never lock a request and then a dibs row.
  *
+ * Sprint 136 (BUG-085): an open ask past its expiry takes no new commitment. It is past expiry when the sweep flagged it
+ * (expired) or its expires_at has passed and the sweep has not run yet. The writers that start a commitment (propose,
+ * accept, dibs create, provider-offer accept, POST /matches) read lockRequestForCommitment, which reports such an ask as
+ * 'expired', so each refuses it as not open. Cancel, reject and dibs accept read lockRequest, so an expired ask can
+ * still be closed. The stored status does not change: an expired ask stays 'open' in the column.
+ *
  * tests/regression/sprint-135-request-status-gate.test.ts fails on a request-status write anywhere else.
  */
 export type TxQuery = (text: string, params?: any[]) => Promise<any>;
 export type RequestStatus = 'open' | 'dibs_pending' | 'matched' | 'completed' | 'cancelled';
+/** What a commitment writer reads: the derived status, or 'expired' for an open ask past its expiry (BUG-085). */
+export type CommitmentStatus = RequestStatus | 'expired';
 
 /** The request row lock. One literal for both helpers, so the directed-surface allowlist has one entry for it. */
 const LOCK_REQUEST = 'SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE';
@@ -34,6 +42,26 @@ const LOCK_REQUEST = 'SELECT id FROM requests.help_requests WHERE id = $1 FOR UP
  * transaction holds the request lock.
  */
 export async function lockRequest(q: TxQuery, requestId: string): Promise<RequestStatus | null> {
+  return (await lockAndDerive(q, requestId))?.status ?? null;
+}
+
+/**
+ * lockRequest for the writers that start a commitment (propose, accept, dibs create, provider-offer accept, POST
+ * /matches): an open ask past its expiry reads 'expired', so each refuses it as not open, as POST /matches's fast path
+ * always has for a flagged ask (BUG-085). Every other derived status is returned unchanged.
+ */
+export async function lockRequestForCommitment(q: TxQuery, requestId: string): Promise<CommitmentStatus | null> {
+  const locked = await lockAndDerive(q, requestId);
+  if (!locked) return null;
+  return locked.status === 'open' && locked.pastExpiry ? 'expired' : locked.status;
+}
+
+/**
+ * The lock, then the derived status and whether the ask is past its expiry, in one statement after it. The expiry uses
+ * clock_timestamp(), not NOW(): the statement runs after a lock wait, and NOW() is the transaction's start. `expired` is
+ * nullable, hence IS TRUE; expires_at is a timestamp without time zone, compared as the feed compares it.
+ */
+async function lockAndDerive(q: TxQuery, requestId: string): Promise<{ status: RequestStatus; pastExpiry: boolean } | null> {
   await q(LOCK_REQUEST, [requestId]);
   const result = await q(
     `SELECT CASE
@@ -41,11 +69,13 @@ export async function lockRequest(q: TxQuery, requestId: string): Promise<Reques
        WHEN EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = r.id AND m.status = 'matched') THEN 'matched'
        WHEN EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = r.id AND m.status = 'completed') THEN 'completed'
        WHEN EXISTS (SELECT 1 FROM requests.dibs d WHERE d.request_id = r.id AND d.status = 'pending') THEN 'dibs_pending'
-       ELSE 'open' END AS status
+       ELSE 'open' END AS status,
+       (r.expired IS TRUE OR (r.expires_at IS NOT NULL AND r.expires_at <= clock_timestamp())) AS past_expiry
      FROM requests.help_requests r WHERE r.id = $1`,
     [requestId]
   );
-  return result.rows[0]?.status ?? null;
+  const row = result.rows[0];
+  return row ? { status: row.status, pastExpiry: row.past_expiry === true } : null;
 }
 
 /**

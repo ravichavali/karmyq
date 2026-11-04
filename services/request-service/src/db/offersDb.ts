@@ -1,5 +1,5 @@
 import { query, withTransaction } from '../database/db';
-import { closeProposals, lockRequest, reconcileRequestStatus } from './requestStatus';
+import { closeProposals, lockRequestForCommitment, reconcileRequestStatus } from './requestStatus';
 
 /**
  * Get all provider.offers for a given request.
@@ -48,8 +48,8 @@ export async function acceptOffer(offerId: string, requesterUserId: string) {
 
   // One transaction: a mid-sequence failure can no longer leave an accepted offer without its match (BUG-075).
   return withTransaction(async (q) => {
-    // Only an open request can be matched; the lock serializes this accept against every other request writer.
-    if ((await lockRequest(q, offer.request_id)) !== 'open') return 'REQUEST_NOT_OPEN' as const;
+    // Only an open request that is not past its expiry can be matched (BUG-075, BUG-085); the lock serializes this accept against every other request writer.
+    if ((await lockRequestForCommitment(q, offer.request_id)) !== 'open') return 'REQUEST_NOT_OPEN' as const;
 
     const accepted = await q(
       `UPDATE provider.offers SET status = 'accepted', updated_at = NOW() WHERE id = $1 AND status = 'pending'`,
