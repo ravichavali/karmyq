@@ -2407,6 +2407,15 @@ regression in the rule. The exits are documented in `docs/guides/fulfilling-requ
 decided; maintainer): the expiration sweep closes an expired ask's proposals and frees their offers, or the helper's view
 says the ask expired. Found by `/code-review` on the Sprint 136 PR.
 
+**Correction (2026-11-04, Sprint 137 planning): the hold can outlive the ask.** "Its hard delete skips any ask with a
+match" is wrong for `hardDeleteExpiredData`. That job deletes every flagged ask 7 days after flagging
+(`expirationJob.ts:85`, no match filter), and `matches_request_id_fkey` is `ON DELETE CASCADE` (`init.sql:6348`). So the
+proposals go with the ask, while their help offers, which no foreign key touches, stay `matched` with no match left
+to free them. The skip quoted above is the retention job's expired-and-unmatched delete
+(`memoryRetentionJob.ts:143`), a different path. **Decided (maintainer, 2026-11-04):** the expiration sweep closes an
+expired ask's proposals and frees their offers. Scheduled for Sprint 137
+(`docs/superpowers/specs/2026-11-04-sprint-137-exchange-integrity-design.md`).
+
 ---
 
 ## BUG-089 · [2026-11-03] · open
@@ -2435,5 +2444,24 @@ expired ask (Sprint 135 / Sprint 136). This is the provider-offer sibling of BUG
 
 Fix direction (not decided): validate and insert under `lockRequestForCommitment`, as `POST /matches` now does. Found by
 `/code-review` on the Sprint 136 PR.
+
+**Correction (2026-11-04, Sprint 137 planning):** the route is **`POST /providers/offers`**. `providerOffersRouter`
+defines `router.post('/offers')` (`src/routes/providerOffers.ts:18`) and is mounted on `/providers` (`src/index.ts:84`).
+No `POST /requests/offers` exists. Scheduled for Sprint 137.
+
+---
+
+## BUG-091 · [2026-11-04] · open (scheduled Sprint 137)
+
+**An edit after forgetting writes content that is never forgotten.** `PUT /requests/:id`
+(`services/request-service/src/routes/requests.ts:1975`) lets the requester edit the title, description and urgency of
+an ask in any status. It checks neither `status` nor `content_forgotten_at`. The retention job forgets a completed ask
+once and selects only `content_forgotten_at IS NULL` (`services/cleanup-service/src/jobs/memoryRetentionJob.ts:99`).
+So text written over the sentinel after forgetting is kept forever. No web or mobile screen calls this edit
+(`updateRequest` has no caller in `apps/frontend/src` or `apps/mobile`); it is reachable through the API only.
+
+Found while planning Sprint 137, when weighing the maintainer's open question on the retention clock (COALESCE vs GREATEST,
+Sprint 136 code-review #9). GREATEST would not close it. **Decided (maintainer, 2026-11-04):** keep COALESCE, and
+`PUT /requests/:id` refuses a completed or cancelled ask.
 
 ---
