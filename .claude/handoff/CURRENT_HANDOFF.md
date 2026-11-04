@@ -1,7 +1,7 @@
 # Sprint 136 — Mobile Dependency Fixes + Request-Status Follow-ups — Handoff
 
-**Date**: 2026-11-03
-**Outcome so far**: **EXECUTED; PR open, awaiting CI, review and the maintainer's merge.** Plan Tasks 1–15 are done
+**Date**: 2026-11-04
+**Outcome so far**: **EXECUTED; PR open, awaiting the post-fix CI run, review and the maintainer's merge.** Plan Tasks 1–15 are done
 (Claude, inline via superpowers:executing-plans, 2026-11-03), all four gates have run, and the PR is open from this
 branch (*Execution record*, *Gate results*). Nothing is merged or deployed. Two questions wait on the maintainer
 (*Open questions*).
@@ -111,6 +111,16 @@ PostgreSQL on Windows): it has type-checked but never run. **Its first real run 
 - `origin/master` is still `b9682c34`; no other PR was open when the PR was opened.
 - **Not run:** the real-SQL integration file (CI only).
 
+## Post-PR fix-forward (2026-11-04)
+
+The first PR CI run established new evidence: the previously unrun PostgreSQL-backed **Integration Tests** job passed,
+including `tests/integration/sprint-136-request-followups.integration.test.ts`. The same run found two new CodeQL
+`js/incomplete-sanitization` alerts in `apps/mobile/jest.config.js`: both alias-map `replace("*", ...)` calls replaced
+only the first wildcard. The fix changes both calls to global regular-expression replacements; the existing
+`sprint-136-alias-resolution` regression remains green, mobile type-check remains green, and the full pre-push suite
+completed before the fix was pushed. The fix is pushed to PR #328; its replacement CI run is currently queued. No docs
+or behavior contract changed, so `apps/mobile/claude.md` remains accurate.
+
 ## Open questions for the maintainer
 
 1. **Retention clock edge (code-review #9).** Spec F's `COALESCE(MAX(completed_at), updated_at)` ages a completed ask
@@ -130,7 +140,8 @@ PostgreSQL on Windows): it has type-checked but never run. **Its first real run 
 
 1. Confirm live state before trusting this file: `git fetch origin`, `gh pr list`, `gh pr view 328`,
    `git log --oneline origin/master -3`. If the PR is still open, read its CI first, especially the never-before-run
-   **Integration Tests** job (`tests/integration/sprint-136-request-followups.integration.test.ts`).
+   **Integration Tests** job (`tests/integration/sprint-136-request-followups.integration.test.ts`) and the post-fix
+   CodeQL / Code Scanning Gate results.
 2. If CI is red, fix forward on this branch (`agent/claude/sprint-136-planning`; merge `origin/master` in with a merge
    commit if it moved, never a rebase). The pre-push hook runs the suite.
 3. **Merging needs the maintainer's explicit authorization.** One merge at a time; confirm no deploy is in flight
