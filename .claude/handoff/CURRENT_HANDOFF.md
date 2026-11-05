@@ -1,13 +1,14 @@
 # Sprint 137 — Exchange Integrity — Handoff
 
 **Date**: 2026-11-04
-**Outcome so far**: **Tasks 1–2 verified and reviewed. Continue with Task 3's request-service contracts.**
+**Outcome so far**: **Tasks 1–3 executed and reviewed. Next: Task 4's closed-ask edit guard.**
 - Scope and decisions 1–3 were agreed with the maintainer on 2026-11-04.
 - The spec, plan, BUG-088/090 corrections and the new BUG-091 entry are committed on this branch.
 - Codex's plan review found three issues, and two re-reviews found one each. All five are confirmed and resolved in the
   spec and plan (see *Plan review*).
 - No application code has changed yet, and no PR is open. Task 1 (`0499e524`) sets the three root version fields to
-  provisional v11.110.0. Task 2 extends the scanner and adds the offer-status gate in the nonblocking tdd tier.
+  provisional v11.110.0. Task 2 (`2e7a0c1f`) extends the scanner and adds the offer-status gate in the nonblocking
+  tdd tier. Task 3 adds the compiling, assertion-red request-service contracts for A/B/C.
 
 > The handoff carries **state between sessions**. It is not a copy of the plan: it links the plan and names the next
 > unchecked task. It is branch-local, so it can reserve nothing; see `CLAUDE.md` → *Parallel Development* for how
@@ -46,7 +47,7 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
    `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 5. Merges, ADR numbers, demo-host operations and dismissals each need explicit authorization. Stop at PR creation.
 
-**Next unchecked task**: Plan Task 3 (request-service mocked-SQL contracts, assertion-red). Execution is in this Codex chat,
+**Next unchecked task**: Plan Task 4 (closed/forgotten-ask edit guard, its hash and existing test fallout). Execution is in this Codex chat,
 using sequential implementers and independent reviewers. Codex has reviewed
 the plan three times (`6d478a36`, `17f41af6`, `fcec0e28`). R2's fix (a stricter parse rule and
 its negative fixtures) is mechanical, so no further plan review is planned. The PR's `/code-review` will cover the
@@ -192,7 +193,7 @@ with Task 8.
   `c3357160`. Only the three root version fields changed to `11.110.0`; staged feedback and whitespace checks passed.
   Spec/quality review approved that diff. Full `npm test` passed on the version-change tree based at `c3357160`
   (27/27 Turbo tasks; 26 cached, root tests executed: 42 regression suites / 982 tests). Only this handoff changed
-  afterward. Independent spec/quality and final process review passed; Task 1 is ready for Task 2.
+  between that pass and Task 1's commit. Independent spec/quality and final process review passed.
 - Full-suite host issue: sandbox Bash access was denied; an elevated retry selected
   `C:/WINDOWS/system32/bash.exe` (WSL with no installed distribution), and `tr`/`basename` were absent from PATH.
   A test-process-only PATH using the installed Git Bash `bin` and `usr/bin` passed the full suite. No test or runtime
@@ -206,8 +207,14 @@ with Task 8.
   reproduced red and fixed. The equivalent existing request-status gate received the same minimal correction and
   fixtures. No runtime source changed. Re-review approved both fixes.
   Full `npm test` passed on `0499e524` plus Task 2's staged test changes (27/27 tasks; 24 cached; root 42 regression
-  suites / 982 tests). Only this handoff changed afterward; staged feedback and whitespace checks are repeated before
-  commit. Continue with Task 3 after the commit carrying this record.
+  suites / 982 tests). Only this handoff changed between that pass and Task 2's commit `2e7a0c1f`; staged feedback
+  and whitespace checks passed. The following record carries Task 3's progress.
+- Task 3: 22 real-route/helper contracts compile cold: **17 expected assertion failures, five existing controls
+  passed**. A, B1/B2/B5 and C each have a red proof; only the SQL/auth/ownership/transport boundary is mocked.
+  Independent spec/quality review approved the contracts. The request blocking tiers passed (71 suites; 724 tests
+  passed, one skipped); full `npm test` passed on `2e7a0c1f` plus the staged contract (27/27 tasks; 24 cached;
+  root 42 regression suites / 982 tests). Only this handoff changed afterward. These red tests are intentionally in
+  request-service's nonblocking tdd tier and turn green through Tasks 4–6.
 
 ## Dated obligations
 
