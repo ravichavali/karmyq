@@ -1,16 +1,18 @@
 # Sprint 137 — Exchange Integrity — Handoff
 
 **Date**: 2026-11-05
-**Outcome so far**: **EXECUTED; PR open, awaiting its CI run, review and the maintainer's merge.** Plan Tasks 1–14
-are done; all four gates ran (*Execution record*). Find the PR with `gh pr view agent/claude/sprint-137-planning`.
-Nothing is merged or deployed. CI's Integration Tests job is the **first real run** of Task 9's 38 PostgreSQL proofs.
+**Outcome so far**: **EXECUTED; PR #330 open, CI green on `ab3e3679`, Codex's PR review addressed; awaiting CI on the
+review-fix head and the maintainer's merge.** Plan Tasks 1–14 are done; all four gates ran (*Execution record*).
+CI run `42104657533` on `ab3e3679` passed every check, including **Integration Tests** — the first real run of Task 9's
+PostgreSQL proofs: `sprint-137-exchange-integrity.integration.test.ts` PASS (job total 25 suites / 432 tests). Codex
+reviewed the PR and found two issues, both fixed on this branch (*Execution record*). Nothing is merged or deployed.
 - Scope and decisions 1–3 were agreed with the maintainer on 2026-11-04.
 - The spec, plan, BUG-088/090 corrections and the new BUG-091 entry are committed on this branch.
 - Codex's plan review found three issues, and two re-reviews found one each. All five are confirmed and resolved in the
   spec and plan (see *Plan review*).
 - A's closed/forgotten-request edit guard, B's offer integrity guards, C's locked provider-offer submit and D's
-  expired-hold release are implemented with mocked-SQL proofs; the real-PostgreSQL proofs are written (Task 9) and
-  first run in CI on the PR. Task 1 (`0499e524`) sets the three root version fields to
+  expired-hold release are implemented with mocked-SQL proofs, and the real-PostgreSQL proofs (Task 9) passed in the
+  PR's CI on `ab3e3679`. Task 1 (`0499e524`) sets the three root version fields to
   provisional v11.110.0. Task 2 (`2e7a0c1f`) extends the scanner and adds the offer-status gate in the nonblocking
   tdd tier. Task 3 (`3a8a2542`) adds the compiling, assertion-red request-service contracts for A/B/C.
 
@@ -38,11 +40,10 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
 
 1. Read this handoff. Then confirm live state:
    - `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
-   - `gh pr view agent/claude/sprint-137-planning --json number,state,mergeable` and `gh pr checks <number>`. Read the
-     **Integration Tests** job first: it is the first execution of
-     `tests/integration/sprint-137-exchange-integrity.integration.test.ts` (no PostgreSQL on the Windows box). If it
-     is red, fix forward on this branch (never weaken a case; the I1 barrier mechanism is in the file header). Also
-     read the PR's CodeQL check-run annotations; `apps/frontend/src/lib/api.ts` changed by one line (numstat `1 1`).
+   - `gh pr view 330 --json state,mergeable,headRefOid` and `gh pr checks 330`. CI was green on `ab3e3679`
+     (including Integration Tests); confirm it is green again on the **current** head, which carries the Codex
+     review fixes. If Integration Tests is red, fix forward on this branch (never weaken a case; the I1 barrier
+     mechanism is in the file header). CodeQL passed on `ab3e3679`; re-read its annotations on the new head.
    - `gh issue view 329`. The first post-#328 scheduled drift run (2026-11-05 15:26Z; the cron says 07:15Z but runs
      have started ~15:00–17:00Z) failed on a **new** Expo patch train and filed #329 — not a regression of #328's
      pin; #316 stays closed. It gates no PR. Whether to take it is the maintainer's call (see *Open*).
@@ -55,9 +56,10 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
 5. Merges, ADR numbers, demo-host operations and dismissals each need explicit authorization. Stop at PR creation.
 
 **Next unchecked task**: Plan Task 15 — merge + deploy, **only with the maintainer's explicit authorization**, one
-merge at a time, after confirming no deploy is in flight and CI (incl. Integration Tests) is green. Re-derive the
-version from `origin/master`'s `package.json` at merge time (provisional 11.110.0; master was 11.109.0 at PR time).
-A cross-agent (Codex) review of the PR is the expected step before the merge ask. The post-merge record rides in the
+merge at a time, after confirming no deploy is in flight and CI (incl. Integration Tests) is green on the current
+head. Re-derive the version from `origin/master`'s `package.json` at merge time (provisional 11.110.0; master was
+11.109.0 at PR time). The cross-agent (Codex) PR review is done and its two findings are fixed; a Codex re-review of
+the fix commit is the maintainer's call. The post-merge record rides in the
 next PR (plan Task 15 lists it: CI/CD + health, the first hourly `Released expired holds` log line — a demo-host read,
 ask first — code-scanning on master and the merge-sha analysis, #178 by 2026-12-01).
 Execution moved from the Codex chat to a Claude Code chat on 2026-11-05 mid-Task 6, using the same SDD ledger
@@ -360,8 +362,23 @@ with Task 8.
 - Task 13 on `19d6a4b7` (tree = the tested staged set): full `npm test` exit 0 (27/27 tasks, 21 cached;
   request-service 161 + 620/1 skipped, cleanup-service 60/7 skipped, frontend 426, root 101 + 987); drift gate
   41/41 run directly; `tsc --noEmit` request, cleanup, frontend all 0; `api.ts` numstat `1 1`; tree clean after
-  reverting landing timestamp/HEAD-sha churn. Integration proofs: CI only.
-- Task 14: this handoff, then push and the PR (stop at creation).
+  reverting landing timestamp/HEAD-sha churn. Integration proofs: CI only (they passed on `ab3e3679`; see below).
+- Task 14: pushed `c3357160..ab3e3679` (pre-push hook ran the suite, 27/27) and opened **PR #330**.
+- CI on `ab3e3679` (run `42104657533`, 2026-11-05): every check passed — Lint & Type Check, Backend Unit +
+  Regression, Frontend, Docker builds, Security Audit, CodeQL + Code Scanning Gate, pr-contract, and **Integration
+  Tests** (5m25s; `integration/sprint-137-exchange-integrity.integration.test.ts` PASS; 25 suites / 432 tests). Deploy
+  skipped (PR). The PostgreSQL mechanism claims Task 9 labelled reasoned are now exercised by a passing run.
+- Codex PR review (relayed by the maintainer, 2026-11-05), both CONFIRMED and fixed:
+  1. *Strengthen the release SQL parity gate against changes inside D2's NOT EXISTS.* The gate's hold-set regex
+     stopped at the status list, so a predicate added later inside D2's (or `releaseOffer`'s) `NOT EXISTS` was never
+     compared — three new negative cases returned `[]` on the old comparator. The gate now compares D2 with
+     `releaseOffer` as whole statements (only the per-offer scope removed) and checks `closeProposals`' balanced
+     `NOT EXISTS` is `releaseOffer`'s plus exactly the same-request exclusion; 8/8 pass.
+  2. *Correct cleanup-service's connection-failure documentation.* CONTEXT said a D1 failure "does not stop the other
+     asks", but `pool.connect()` sits outside the per-ask `try` (`expirationJob.ts:101-102`): a failed checkout stops
+     the run, so later asks and D2 wait for the next hour. CONTEXT now says so, and a new contract case pins it (red
+     against a mutant that swallows the checkout failure; restored by byte copy, sha-verified). No production code
+     changed. The cleanup CONTEXT paragraph earlier flagged as unreviewed has now had Codex's review.
 
 ## Dated obligations
 

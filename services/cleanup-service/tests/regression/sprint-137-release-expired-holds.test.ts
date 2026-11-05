@@ -289,6 +289,27 @@ describe('releaseExpiredHolds - D1 per-ask transaction', () => {
     expect(errorLogText()).toContain('ask-1');
     expect(result).toEqual({ asksReleased: 1, proposalsClosed: 3, strandedOffersFreed: 1 });
   });
+
+  // Pins cleanup-service CONTEXT.md's "Failure" bullet: the connection checkout is outside per-ask isolation.
+  it('a connection checkout failure stops the run: it propagates, the committed ask stays, later asks and D2 never run', async () => {
+    candidates = ['ask-1', 'ask-2', 'ask-3'];
+    d2Count = 7;
+    let checkouts = 0;
+    (pool.connect as unknown as jest.Mock).mockImplementation(async () => {
+      checkouts += 1;
+      if (checkouts === 2) throw new Error('boom-connect');
+      return makeClient();
+    });
+
+    await expect(run()).rejects.toThrow('boom-connect');
+
+    expect(sequenceFor('ask-1')).toEqual(FULL);
+    expect(clientFor('ask-2')).toBe(-1);
+    expect(clientFor('ask-3')).toBe(-1);
+    expect(checkouts).toBe(2);
+    const d2Writes = events.filter((e) => e.kind === 'sql' && e.via === 'query' && e.sql.startsWith('UPDATE requests.help_offers'));
+    expect(d2Writes).toHaveLength(0);
+  });
 });
 
 // ---- D2 ---------------------------------------------------------------------------------------

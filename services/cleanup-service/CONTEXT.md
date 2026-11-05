@@ -228,17 +228,22 @@ Daily Job (2 AM)
   transaction: lock the ask (`FOR UPDATE`, re-checking it is still expired and open), free the offers its proposals hold,
   then reject those proposals. An offer is freed only while `matched` (a withdrawn offer stays withdrawn) and only when
   no other proposed, matched or completed match references it (shared-offer guard); the SQL is kept text for text with
-  request-service `closeProposals`. A failure rolls that ask back, is logged and does not stop the other asks.
+  request-service `closeProposals`. A failure **inside** an ask's transaction (its lock, free, reject or `COMMIT`) rolls
+  that ask back, is logged with its id, and does not stop the other asks. Getting the connection is not inside that
+  isolation: if `pool.connect()` fails, the run stops there (see **Failure**).
 - **D2 (stranded offers):** one guarded statement frees `matched` offers that no proposed, matched or **completed**
   match references (for example after a hard delete cascaded the proposal away).
 - Both frees also compare the target row's CTID with a scalar snapshot scan, so an offer changed concurrently
   (including a release/re-hold cycle) is left for a later run.
 - **Logs and returns:** `asksReleased`, `proposalsClosed`, `strandedOffersFreed`.
-- **Failure:** if the release step itself fails (the candidate read or D2), `markExpiredData` logs "Failed to release
-  expired holds; expiry flags already committed" and rethrows, so the job (and `POST /jobs/mark-expired`) still
-  reports failure while the operator can see the four flags landed.
-- A parity gate (`tests/regression/sprint-137-release-sql-parity.test.ts`, root) fails if D1's or D2's guard drifts
-  from request-service's `closeProposals` / `releaseOffer`.
+- **Failure:** if the release step itself fails — the candidate read, a connection checkout (`pool.connect()`) for any
+  ask, or D2 — `releaseExpiredHolds` stops: asks already committed stay committed, the remaining asks and D2 do not
+  run, and `markExpiredData` logs "Failed to release expired holds; expiry flags already committed" and rethrows, so
+  the job (and `POST /jobs/mark-expired`) reports failure while the operator can see the four flags landed. The next
+  hourly run picks up whatever was left.
+- A parity gate (`tests/regression/sprint-137-release-sql-parity.test.ts`, root) fails if D1 drifts from
+  `closeProposals`, or D2 from request-service's `releaseOffer` (whole statements, including everything inside their
+  `NOT EXISTS`).
 
 ### 2. Reputation Decay Flow — this service no longer participates
 
