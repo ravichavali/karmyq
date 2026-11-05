@@ -1,13 +1,14 @@
 # Sprint 137 — Exchange Integrity — Handoff
 
 **Date**: 2026-11-05
-**Outcome so far**: **Tasks 1–8 executed and reviewed. Next: Task 9's CI-only integration proofs.**
+**Outcome so far**: **Tasks 1–9 executed and reviewed. Next: Task 10's full-suite sweep and targeted promotion.**
 - Scope and decisions 1–3 were agreed with the maintainer on 2026-11-04.
 - The spec, plan, BUG-088/090 corrections and the new BUG-091 entry are committed on this branch.
 - Codex's plan review found three issues, and two re-reviews found one each. All five are confirmed and resolved in the
   spec and plan (see *Plan review*).
 - A's closed/forgotten-request edit guard, B's offer integrity guards, C's locked provider-offer submit and D's
-  expired-hold release are implemented (mocked-SQL proofs; real-PostgreSQL proofs are Task 9, CI-only). No PR is open. Task 1 (`0499e524`) sets the three root version fields to
+  expired-hold release are implemented with mocked-SQL proofs; the real-PostgreSQL proofs are written (Task 9) and
+  first run in CI on the PR. No PR is open. Task 1 (`0499e524`) sets the three root version fields to
   provisional v11.110.0. Task 2 (`2e7a0c1f`) extends the scanner and adds the offer-status gate in the nonblocking
   tdd tier. Task 3 (`3a8a2542`) adds the compiling, assertion-red request-service contracts for A/B/C.
 
@@ -46,7 +47,8 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
    `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 5. Merges, ADR numbers, demo-host operations and dismissals each need explicit authorization. Stop at PR creation.
 
-**Next unchecked task**: Plan Task 9 (root `tests/integration/` real-SQL proofs and races; CI-only, compile locally).
+**Next unchecked task**: Plan Task 10 (each changed workspace's full suite; targeted `git mv` promotion of the three
+Sprint 137 tdd files).
 Execution moved from the Codex chat to a Claude Code chat on 2026-11-05 mid-Task 6, using the same SDD ledger
 (`.superpowers/sdd/2026-11-04-sprint-137-exchange-integrity/progress.md`), sequential implementers and independent
 reviewers. Codex has reviewed
@@ -292,6 +294,17 @@ with Task 8.
   staged Tasks 7+8 (27/27 tasks; 22 cached; cleanup 59 pass / 7 skipped; root 42 suites / 982 tests). Independent
   review (spec + quality) approved; seven minors deferred to the final review, including an unescaped regex in the
   unit test (`expirationJob.test.ts:38-39`) and CONTEXT wording for Task 11.
+- Task 9: `tests/integration/sprint-137-exchange-integrity.integration.test.ts`, 38 real-SQL tests, **not run on
+  this host** (no PostgreSQL); they run in CI's Integration Tests job on the PR. Coverage: D1 (incl. unchanged
+  `updated_at`), the D1 race, 12 shared-offer cases (D1, match reject, match cancel, `closeProposals` via accept ×
+  the other reference proposed / matched / completed), D2, both I1 snapshot-barrier cases, B, C (incl. its race) and
+  A. The I1 barrier pins D2 to a recorded cleanup-pool backend pid (pg-pool 3.14.0 reuses idle clients LIFO,
+  `index.js:158/:427`) and pauses only that pid's D2 statement with a fixture statement trigger on an advisory lock;
+  waits are proven with `pg_blocking_pids`; a missed pin fails the test. PostgreSQL's snapshot-before-trigger and
+  recheck behaviour is labelled REASONED in the header. The file alone type-checks (exit 0); `tsc -p tests` keeps its
+  70 pre-existing errors (e2e/tdd), byte-identical to before. Root `tests` workspace passed on the staged file
+  (unit 101/101, regression 42 suites / 982). Independent review approved; four minors deferred (incl. a CI-hang
+  exposure only if request-service itself hangs mid-race, shared with Sprint 136's helpers).
 
 ## Dated obligations
 
