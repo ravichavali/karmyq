@@ -1,7 +1,8 @@
 import { Router, Response } from 'express';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
-import { query } from '../database/db';
+import { query, withTransaction } from '../database/db';
 import { publishEvent } from '../events/publisher';
+import { lockRequestForCommitment } from '../db/requestStatus';
 import {
   createProviderOffer,
   getMyProviderOffers,
@@ -43,13 +44,23 @@ router.post('/offers', authMiddleware, async (req: AuthenticatedRequest, res: Re
       return res.status(404).json({ success: false, message: validation.reason!, error: 'REQUEST_NOT_FOUND' });
     }
 
-    const offer = await createProviderOffer(
-      userId,
-      providerId,
-      request_id,
-      price != null ? Number(price) : null,
-      note ?? null
-    );
+    // BUG-090: re-check and insert under the request lock, as POST /matches does (BUG-084), so an ask that closed or
+    // expired since the fast path is refused. Request-first, like provider-offer accept (offersDb.ts acceptOffer).
+    const outcome = await withTransaction(async (q) => {
+      if ((await lockRequestForCommitment(q, request_id)) !== 'open') return { notOpen: true as const };
+      return { offer: await createProviderOffer(
+        q,
+        userId,
+        providerId,
+        request_id,
+        price != null ? Number(price) : null,
+        note ?? null
+      ) };
+    });
+    if ('notOpen' in outcome) {
+      return res.status(409).json({ success: false, message: 'This request is no longer open', error: 'REQUEST_NOT_OPEN' });
+    }
+    const offer = outcome.offer;
 
     // Notify the requester via event queue
     const reqResult = await query(

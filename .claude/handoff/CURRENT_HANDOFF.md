@@ -1,12 +1,13 @@
 # Sprint 137 — Exchange Integrity — Handoff
 
 **Date**: 2026-11-05
-**Outcome so far**: **Tasks 1–5 executed and reviewed. Next: Task 6's provider-offer transaction.**
+**Outcome so far**: **Tasks 1–6 executed and reviewed. Next: Task 7's cleanup red contracts (committed with Task 8).**
 - Scope and decisions 1–3 were agreed with the maintainer on 2026-11-04.
 - The spec, plan, BUG-088/090 corrections and the new BUG-091 entry are committed on this branch.
 - Codex's plan review found three issues, and two re-reviews found one each. All five are confirmed and resolved in the
   spec and plan (see *Plan review*).
-- A's closed/forgotten-request edit guard and B's offer integrity guards are implemented; C and D remain pending. No PR is open. Task 1 (`0499e524`) sets the three root version fields to
+- A's closed/forgotten-request edit guard, B's offer integrity guards and C's locked provider-offer submit are
+  implemented; D remains pending. No PR is open. Task 1 (`0499e524`) sets the three root version fields to
   provisional v11.110.0. Task 2 (`2e7a0c1f`) extends the scanner and adds the offer-status gate in the nonblocking
   tdd tier. Task 3 (`3a8a2542`) adds the compiling, assertion-red request-service contracts for A/B/C.
 
@@ -47,8 +48,10 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
    `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 5. Merges, ADR numbers, demo-host operations and dismissals each need explicit authorization. Stop at PR creation.
 
-**Next unchecked task**: Plan Task 6 (provider-offer check and insert under the request lock). Execution is in this Codex chat,
-using sequential implementers and independent reviewers. Codex has reviewed
+**Next unchecked task**: Plan Task 7 (cleanup-service D contracts, red, run locally only; committed with Task 8).
+Execution moved from the Codex chat to a Claude Code chat on 2026-11-05 mid-Task 6, using the same SDD ledger
+(`.superpowers/sdd/2026-11-04-sprint-137-exchange-integrity/progress.md`), sequential implementers and independent
+reviewers. Codex has reviewed
 the plan three times (`6d478a36`, `17f41af6`, `fcec0e28`). R2's fix (a stricter parse rule and
 its negative fixtures) is mechanical, so no further plan review is planned. The PR's `/code-review` will cover the
 implementation.
@@ -61,7 +64,7 @@ implementation.
 |---|---|
 | **Branch** | `agent/claude/sprint-137-planning`, cut from `origin/master` `f19ca413` on 2026-11-04. It carries the Sprint 136 archive, the #328 post-merge record, and the Sprint 137 spec, plan, handoff and BUGS entries. **No PR is open from it.** Execution continues here, and the one PR opens from it. |
 | **Base** | `origin/master` at `f19ca413` (#328, v11.109.0). No open PRs on 2026-11-04. The version (provisional 11.110.0) is re-derived from `origin/master` at merge. |
-| **Active editor** | Codex executing the approved plan, with one subagent editor at a time (2026-11-04–05). |
+| **Active editor** | Claude Code executing the approved plan from Task 6's review onward (2026-11-05), with one subagent editor at a time. Codex executed Tasks 1–5 and implemented Task 6 (2026-11-04–05); its chat is stopped. |
 | **Shared resources** | **Dependency lane: Claude** (maintainer-designated); this sprint adds no dependency. Nothing dependency-dated except #178 (below). **No ADR number needed.** No demo-host operation pending. |
 | **Merged branches safe to delete** (maintainer's call) | `agent/claude/sprint-136-planning` (head `170d39fe`; same tree as `f19ca413`), `agent/claude/sprint-135-pr-request-status-guards` (`7bfc65ac`), `agent/claude/sprint-135-planning` (`5a3589ef`), `agent/claude/sprint-134-pr-bug-077-badge-insert` (`afbaed7a`). |
 
@@ -259,6 +262,21 @@ with Task 8.
   (27/27 tasks; 24 cached; root 42 regression suites / 982 tests). Only the one-line spec correction and handoff
   metadata changed afterward. C's five contracts and the two future cleanup writer identities remain intentionally
   red in tdd. No PostgreSQL execution is claimed; those proofs remain Task 9/CI.
+- Controller handover (2026-11-05): Codex's chat stopped while its Task 6 full-suite call was in flight. Claude Code
+  verified the tree before resuming: exactly Task 6's four staged files, staged diff byte-identical to the packaged
+  review diff, sources unmodified since before the suite started, Codex idle. Live: `origin/master` still `f19ca413`,
+  no PR open, #316 CLOSED; at 15:22Z no 2026-11-05 scheduled drift run is listed yet (scheduled runs have landed
+  ~15:00–17:00Z, not 07:15Z), so scheduled success is still not claimed.
+- Task 6: C implemented. `POST /providers/offers` keeps its profile and fast-path answers, then one transaction locks
+  the request (`lockRequestForCommitment`), refuses anything but open with `409 REQUEST_NOT_OPEN` before any write,
+  and runs the unchanged duplicate check and insert on the transaction client; the requester lookup and
+  `offer_submitted` stay after commit. Proof: five assertion failures RED on `fa27e0c0`; GREEN 37 focused tests (all
+  22 Task 3 contracts, the Sprint 116 regression with its transaction mock, both scanner gates with no hash change);
+  request typecheck clean. Full `npm test` on `fa27e0c0` plus the staged change: 27/27 Turbo tasks, 24 cached, root
+  42 regression suites / 982 tests (the tool call that ran it was cut off, so its exit code was read from the Turbo
+  summary, not captured). Independent spec/quality review approved; three minors deferred to the final review (a
+  request deleted after the fast path answers 409 rather than 404, per the plan's `!== 'open'`; formatting; the
+  pre-existing ts-jest TS151002 warning). Only this handoff changed afterward.
 
 ## Dated obligations
 

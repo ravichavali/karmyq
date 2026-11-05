@@ -7,6 +7,11 @@
 
 ## Recent Changes
 
+- **2026-11-04 (Sprint 137, BUG-090)**: `POST /providers/offers` keeps its provider-profile and reachability fast paths,
+  then locks and re-checks the request with `lockRequestForCommitment` before checking duplicates and inserting on the
+  same transaction client. An ask that closed or expired since the fast path returns `409 REQUEST_NOT_OPEN` without an
+  insert; duplicates keep `409 DUPLICATE_OFFER`. The requester lookup and `offer_submitted` run after commit. No
+  migration, event or dependency change.
 - **2026-11-04 (Sprint 137, BUG-089)**: `PUT /offers/:id` refuses a body status with `400 STATUS_NOT_EDITABLE`
   after its ownership 404. Offer status follows exchanges; `POST /matches` refuses flagged-expired offers and holds
   only active offers with `expired IS NOT TRUE` and no passed `expires_at`, checked with `clock_timestamp()` in the

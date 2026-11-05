@@ -4,6 +4,7 @@ import request from 'supertest';
 
 jest.mock('../../src/database/db', () => ({
   query: jest.fn(),
+  withTransaction: jest.fn(),
 }));
 
 jest.mock('../../src/db/providerOffersDb', () => ({
@@ -17,7 +18,7 @@ jest.mock('../../src/events/publisher', () => ({
   publishEvent: jest.fn(),
 }));
 
-import { query } from '../../src/database/db';
+import { query, withTransaction } from '../../src/database/db';
 import { createProviderOffer, validateRequestForOffer } from '../../src/db/providerOffersDb';
 import { publishEvent } from '../../src/events/publisher';
 
@@ -27,6 +28,7 @@ const REQUESTER = '22222222-2222-2222-2222-222222222222';
 const REQUEST = '33333333-3333-3333-3333-333333333333';
 
 const mockQuery = query as jest.MockedFunction<typeof query>;
+const mockWithTransaction = withTransaction as jest.MockedFunction<typeof withTransaction>;
 const mockCreateProviderOffer = createProviderOffer as jest.MockedFunction<typeof createProviderOffer>;
 const mockValidateRequest = validateRequestForOffer as jest.MockedFunction<typeof validateRequestForOffer>;
 const mockPublishEvent = publishEvent as jest.MockedFunction<typeof publishEvent>;
@@ -46,6 +48,7 @@ describe('Sprint 116 provider-offer requester notification lookup', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    mockWithTransaction.mockImplementation(async (fn) => fn(mockQuery));
     mockValidateRequest.mockResolvedValue({ valid: true });
     mockCreateProviderOffer.mockResolvedValue({
       id: 'offer-1',
@@ -61,6 +64,12 @@ describe('Sprint 116 provider-offer requester notification lookup', () => {
       const statement = String(sql);
       if (statement.includes('requests.provider_profiles')) {
         return { rows: [{ id: 'profile-1' }], rowCount: 1 } as any;
+      }
+      if (statement.includes('FOR UPDATE')) {
+        return { rows: [{ id: REQUEST }], rowCount: 1 } as any;
+      }
+      if (statement.includes('SELECT CASE')) {
+        return { rows: [{ status: 'open', past_expiry: false }], rowCount: 1 } as any;
       }
       if (statement.includes('SELECT user_id FROM requests.help_requests')) {
         throw new Error('column "user_id" does not exist');
