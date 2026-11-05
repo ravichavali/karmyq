@@ -56,7 +56,7 @@ For example: _"I need a lift to the airport on Friday morning — 7am, NW6 area.
 
 **Set a date if it matters.** If you need help this weekend, set the expiration before then so your request doesn't linger after it's irrelevant.
 
-**Once a request expires, it takes no new commitments.** Nobody can offer on it, send it a dibs, or have an earlier offer accepted, and an admin can't suggest a helper for it. You can still cancel it. If you still need the help, post a new request.
+**Once a request expires, it takes no new commitments.** Nobody can offer on it, send it a dibs, or have an earlier offer accepted, and an admin can't suggest a helper for it. You can still cancel it. Offers still waiting on an expired request are closed for you within about an hour. If you still need the help, post a new request.
 
 ---
 
@@ -99,7 +99,7 @@ gets the same "not found" page as for a request that doesn't exist.
 Only you can edit, cancel, or change privacy settings on your request. Other callers receive the
 same "not found" response whether a request belongs to someone else or does not exist.
 
-You can cancel an open request. A request with an exchange in progress, or a completed one, cannot be cancelled. Editing a request never changes its status.
+You can cancel an open request. A request with an exchange in progress, or a completed one, cannot be cancelled. Editing a request never changes its status, and a completed or cancelled request can't be edited at all.
 
 ---
 

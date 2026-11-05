@@ -60,7 +60,7 @@ If you've offered to help (the match is still "Proposed") and circumstances chan
 
 **As the requester:** Click **Decline** on the proposed match. The card is removed, and the request reopens for other helpers only if nothing else holds it.
 
-A completed or cancelled request stays that way when a proposal is withdrawn or declined, and an offer you withdrew is never brought back.
+A completed or cancelled request stays that way when a proposal is withdrawn or declined, and an offer you withdrew is never brought back. A proposal is also closed when its request expires, and the helper's standing offer is freed.
 
 Withdrawal is only possible before acceptance. Once a match is In Progress, reach out via the inline conversation.
 

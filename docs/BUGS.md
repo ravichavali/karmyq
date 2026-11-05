@@ -2393,7 +2393,7 @@ and the root gate `tests/regression/sprint-136-test-stack-crons-gate.test.ts` (e
 
 ---
 
-## BUG-088 · [2026-11-03] · open
+## BUG-088 · [2026-11-03] · fixed (Sprint 137, v11.110.0)
 
 **An expired ask keeps its open proposals, and their help offers stay held.** Sprint 136 (BUG-085) refuses a match
 accept on an ask past its expiry (`lockRequestForCommitment`, `services/request-service/src/routes/matches.ts`), as the
@@ -2416,9 +2416,19 @@ to free them. The skip quoted above is the retention job's expired-and-unmatched
 expired ask's proposals and frees their offers. Scheduled for Sprint 137
 (`docs/superpowers/specs/2026-11-04-sprint-137-exchange-integrity-design.md`).
 
+**Fix (Sprint 137, v11.110.0, `920d1241`):** `markExpiredData` ends with `releaseExpiredHolds()` (hourly cron and `POST
+/jobs/mark-expired`). D1, per flagged-expired open ask with a proposal and in its own transaction: lock the ask, free the
+offers its proposals hold (only while `matched`, and only when no other proposed, matched or completed match holds
+them), then reject the proposals. D2, one guarded statement: free `matched` offers that no proposed, matched or
+completed match references (the hard-delete cascade case above). It logs `asksReleased`, `proposalsClosed` and
+`strandedOffersFreed` and writes no `help_requests` row. Tests:
+`services/cleanup-service/tests/regression/sprint-137-release-expired-holds.test.ts`,
+`services/cleanup-service/tests/unit/expirationJob.test.ts` and
+`tests/integration/sprint-137-exchange-integrity.integration.test.ts` (real SQL, CI only).
+
 ---
 
-## BUG-089 · [2026-11-03] · open
+## BUG-089 · [2026-11-03] · fixed (Sprint 137, v11.110.0)
 
 **A help offer's state is not guarded: its owner can write any status, and an expired offer can back a proposal.**
 - `PUT /offers/:id` (`services/request-service/src/routes/offers.ts`, the `updateOffer` route) writes a body `status`
@@ -2431,9 +2441,22 @@ expired ask's proposals and frees their offers. Scheduled for Sprint 137
 Fix direction (not decided): an offer's status changes only through its exchanges (as `STATUS_NOT_EDITABLE` does for
 requests), and the hold also requires `expired IS NOT TRUE`. Found by `/code-review` on the Sprint 136 PR.
 
+**Fix (Sprint 137, v11.110.0, `fa27e0c0`):** `PUT /offers/:id` refuses a body `status` with 400 `STATUS_NOT_EDITABLE` (after
+its ownership 404). `POST /matches` refuses a flagged-expired offer on the fast path and holds only `status = 'active'
+AND expired IS NOT TRUE AND (expires_at IS NULL OR expires_at > clock_timestamp())`, a miss answering the existing 400
+`OFFER_NOT_ACTIVE`. Match reject and cancel free the offer through `releaseOffer`, and `closeProposals` frees only
+offers no other proposed, matched or completed match holds, each guarded by an I1 snapshot-version predicate.
+- **B4, the gate:** `services/request-service/tests/regression/sprint-137-offer-status-gate.test.ts` scans the runtime
+  services and pins every `help_offers` status writer to a reviewed list, so a new status write fails the build until
+  it is reviewed.
+- **B5, the shared-offer release rule:** rows created before the fix can already back several matches (the old edit
+  and the missing expiry arm both allowed it), so every release leaves an offer `matched` while any other proposed,
+  matched or completed match references it. `sprint-137-exchange-integrity.test.ts` (B1, B2, B5) covers the routes;
+  `tests/integration/sprint-137-exchange-integrity.integration.test.ts` runs the SQL for real (CI only).
+
 ---
 
-## BUG-090 · [2026-11-03] · open
+## BUG-090 · [2026-11-03] · fixed (Sprint 137, v11.110.0)
 
 **`POST /requests/offers` (provider offer) can land on an ask that just closed or expired.** `validateRequestForOffer`
 (`services/request-service/src/db/providerOffersDb.ts`) reads the request's `status` and `expired` flag on the pool, then
@@ -2449,9 +2472,15 @@ Fix direction (not decided): validate and insert under `lockRequestForCommitment
 defines `router.post('/offers')` (`src/routes/providerOffers.ts:18`) and is mounted on `/providers` (`src/index.ts:84`).
 No `POST /requests/offers` exists. Scheduled for Sprint 137.
 
+**Fix (Sprint 137, v11.110.0, `b1a57dd3`):** `POST /providers/offers` keeps its fast paths, then in one transaction runs
+`lockRequestForCommitment` (an ask that closed or expired meanwhile answers 409 `REQUEST_NOT_OPEN`, with no insert), the
+duplicate check and the insert on the same client. The requester lookup and `offer_submitted` run after commit. Tests:
+`services/request-service/tests/regression/sprint-137-exchange-integrity.test.ts` (section C) and the integration file
+above.
+
 ---
 
-## BUG-091 · [2026-11-04] · open (scheduled Sprint 137)
+## BUG-091 · [2026-11-04] · fixed (Sprint 137, v11.110.0)
 
 **An edit after forgetting writes content that is never forgotten.** `PUT /requests/:id`
 (`services/request-service/src/routes/requests.ts:1975`) lets the requester edit the title, description and urgency of
@@ -2463,6 +2492,12 @@ So text written over the sentinel after forgetting is kept forever. No web or mo
 Found while planning Sprint 137, when weighing the maintainer's open question on the retention clock (COALESCE vs GREATEST,
 Sprint 136 code-review #9). GREATEST would not close it. **Decided (maintainer, 2026-11-04):** keep COALESCE, and
 `PUT /requests/:id` refuses a completed or cancelled ask.
+
+**Fix (Sprint 137, v11.110.0, `edcdc4d6`):** `PUT /requests/:id` keeps its ownership 404 and body-status 400, then locks the
+ask (`lockRequest`) and refuses a completed or cancelled one with 409 `REQUEST_CLOSED`; the `UPDATE` also requires
+`content_forgotten_at IS NULL`, and a zero-row result returns the same 409, so nothing is written over a forgotten ask's
+sentinel. Tests: `services/request-service/tests/regression/sprint-137-exchange-integrity.test.ts` (section A) and the
+integration file `tests/integration/sprint-137-exchange-integrity.integration.test.ts`.
 
 ---
 

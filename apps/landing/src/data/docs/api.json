@@ -403,6 +403,16 @@
         },
         {
           "method": "PUT",
+          "path": "/offers/:id",
+          "description": "Edit an offer's `title` and `description` (offerer only; the offerer is the JWT caller). A foreign or missing id"
+        },
+        {
+          "method": "DELETE",
+          "path": "/offers/:id",
+          "description": "Withdraw an offer (offerer only; foreign or missing id → `404 Offer not found`). Sets `status = 'withdrawn'` and"
+        },
+        {
+          "method": "PUT",
           "path": "/offers/:id/privacy",
           "description": "Update privacy settings for an offer (Social Karma v2.0)."
         },

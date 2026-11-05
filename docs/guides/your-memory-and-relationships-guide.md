@@ -47,7 +47,7 @@ Curious what the platform keeps versus lets go? The
 anonymized about six months after the exchange **completed** (not after the request was last edited, so
 an old request you only just finished keeps its words for the full window), unanswered expired requests
 are deleted after a month, and messages are forgotten with their exchange. What's **always kept** is the aggregate — that you helped, your
-karma, and your trust. Forgetting the words never changes the numbers.
+karma, and your trust. Forgetting the words never changes the numbers. A completed request can't be edited, so nothing written after it completes can escape being forgotten.
 
 ## Frequently asked
 

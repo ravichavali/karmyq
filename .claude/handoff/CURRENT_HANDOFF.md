@@ -1,7 +1,8 @@
 # Sprint 137 — Exchange Integrity — Handoff
 
 **Date**: 2026-11-05
-**Outcome so far**: **Tasks 1–10 executed and reviewed. Next: Task 11's docs (guides, landing, CONTEXT, BUGS).**
+**Outcome so far**: **Tasks 1–11 executed and reviewed. Next: Task 12's SDLC gates (`/simplify`, `/code-review high`,
+`/security-review`).**
 - Scope and decisions 1–3 were agreed with the maintainer on 2026-11-04.
 - The spec, plan, BUG-088/090 corrections and the new BUG-091 entry are committed on this branch.
 - Codex's plan review found three issues, and two re-reviews found one each. All five are confirmed and resolved in the
@@ -47,7 +48,8 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
    `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 5. Merges, ADR numbers, demo-host operations and dismissals each need explicit authorization. Stop at PR creation.
 
-**Next unchecked task**: Plan Task 11 (five guides, landing regeneration, request/cleanup CONTEXT, BUGS.md).
+**Next unchecked task**: Plan Task 12 (`/simplify` once, `/code-review high`, `/security-review` on
+`origin/master...HEAD`).
 Execution moved from the Codex chat to a Claude Code chat on 2026-11-05 mid-Task 6, using the same SDD ledger
 (`.superpowers/sdd/2026-11-04-sprint-137-exchange-integrity/progress.md`), sequential implementers and independent
 reviewers. Codex has reviewed
@@ -309,6 +311,15 @@ with Task 8.
   root tests 982). The three Sprint 137 tdd files moved to `tests/regression/` by targeted `git mv` (pure renames;
   the promoter was not run). The directed-surface gate is green, so the allowlist holds no stale hash. The only live
   reference to an old path, `services/cleanup-service/CONTEXT.md`, now points at `tests/regression/`.
+- Task 11: the five guides carry the spec's user-facing changes in plain language (no bug numbers). Request-service
+  CONTEXT gains `PUT /requests/:id`'s `409 REQUEST_CLOSED`, new `PUT /offers/:id` and `DELETE /offers/:id` entries,
+  `POST /matches`' expiry arms, `POST /providers/offers`' lock and `409 REQUEST_NOT_OPEN`, and Recent Fixes for
+  BUG-088..091. Cleanup-service CONTEXT describes `releaseExpiredHolds` (D2 treats a proposed, matched or completed
+  match as a hold). BUGS.md marks BUG-088..091 fixed with commits and covering tests; BUG-092 stays open. Landing was
+  regenerated with `npm run generate-docs --workspace=apps/landing` (a landing `build` skips its prebuild under
+  `ignore-scripts`); eight regenerated pages committed, pure churn reverted. Onboarding workflows needed no change;
+  registry unchanged. Root `tests` workspace passed. Independent review checked every behavioural claim against the
+  code and approved; two minors deferred.
 
 ## Dated obligations
 

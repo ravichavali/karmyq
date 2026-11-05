@@ -20,7 +20,7 @@ Changes below.
 - **2026-11-05 (Sprint 137, BUG-088)**: `markExpiredData` now ends by calling `releaseExpiredHolds()` (hourly cron and
   `POST /jobs/mark-expired`). D1: per flagged open ask with a proposal, in its own transaction, lock the ask, free the
   offers its proposals hold (guarded; text for text with request-service `closeProposals`), reject the proposals.
-  D2: one statement frees 'matched' offers no live match references. Logs `asksReleased`, `proposalsClosed`,
+  D2: one statement frees 'matched' offers that no proposed, matched or completed match references. Logs `asksReleased`, `proposalsClosed`,
   `strandedOffersFreed`. Writes no `help_requests` row. Tests: `tests/regression/sprint-137-release-expired-holds.test.ts`.
 
 - **2026-11-03 (Sprint 136, BUG-083)**: memory retention ages a completed request from its **completion**, not its last
@@ -209,6 +209,7 @@ LOG_LEVEL=info  # debug, info, warn, error
 Hourly Job
 ├─ Query items where expires_at <= NOW() AND expired = FALSE
 ├─ Set expired = TRUE (soft delete)
+├─ releaseExpiredHolds() (below)
 └─ Log count of expired items
 
 Daily Job (2 AM)
@@ -216,6 +217,23 @@ Daily Job (2 AM)
 ├─ DELETE permanently (hard delete)
 └─ Log count of deleted items
 ```
+
+#### releaseExpiredHolds (Sprint 137, BUG-088)
+
+`markExpiredData` ends by calling `releaseExpiredHolds()` (`src/jobs/expirationJob.ts`). It runs from the hourly cron
+(`0 * * * *`) and from `POST /jobs/mark-expired`, which both call `markExpiredData`. It writes no
+`help_requests` row, so the hard-delete clock and the derived request status are unchanged.
+
+- **D1 (per ask):** for each flagged-expired (`expired = TRUE`) `open` ask that still has a `proposed` match, in its own
+  transaction: lock the ask (`FOR UPDATE`, re-checking it is still expired and open), free the offers its proposals hold,
+  then reject those proposals. An offer is freed only while `matched` (a withdrawn offer stays withdrawn) and only when
+  no other proposed, matched or completed match references it (shared-offer guard); the SQL is kept text for text with
+  request-service `closeProposals`. A failure rolls that ask back, is logged and does not stop the other asks.
+- **D2 (stranded offers):** one guarded statement frees `matched` offers that no proposed, matched or **completed**
+  match references (for example after a hard delete cascaded the proposal away).
+- Both frees also compare the target row's CTID with a scalar snapshot scan, so an offer changed concurrently
+  (including a release/re-hold cycle) is left for a later run.
+- **Logs and returns:** `asksReleased`, `proposalsClosed`, `strandedOffersFreed`.
 
 ### 2. Reputation Decay Flow — this service no longer participates
 

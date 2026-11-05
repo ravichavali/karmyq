@@ -1124,6 +1124,12 @@ Update help request (requester only).
 changes through its exchanges, not an edit"). It is checked after the ownership lookup, so a foreign or absent id still
 answers 404. Nothing is written or published on a refusal.
 
+**Refusal (Sprint 137, BUG-091):** after those two checks the edit runs in one transaction under the request lock
+(`lockRequest`). A completed or cancelled ask answers **409** `REQUEST_CLOSED` ("A completed or cancelled request can't
+be edited") before any write; a request that vanished under the lock answers 404. The `UPDATE` also requires
+`content_forgotten_at IS NULL`, and a zero-row result returns the same 409, so nothing is written over a forgotten
+ask's sentinel. Open, matched and dibs-pending asks stay editable.
+
 **Events Published:** none from the status. `request_completed` is no longer published (Sprint 135).
 
 **Implementation:** `src/routes/requests.ts:1975`
@@ -1666,6 +1672,21 @@ Create new help offer. The offerer is the JWT caller; a body `offerer_id` is ign
 
 **Implementation:** `src/routes/offers.ts:99`
 
+#### PUT /offers/:id
+Edit an offer's `title` and `description` (offerer only; the offerer is the JWT caller). A foreign or missing id
+answers `404 Offer not found` first. A body `status` is then refused with **400** `STATUS_NOT_EDITABLE` ("An offer's
+status changes through its exchanges, not an edit", Sprint 137, BUG-089): offer status moves only through
+`DELETE /offers/:id` (withdraw) and the exchange paths in `src/routes/matches.ts` / `src/db/requestStatus.ts`. Nothing is
+written on a refusal.
+
+**Implementation:** `src/routes/offers.ts` `router.put('/:id')`
+
+#### DELETE /offers/:id
+Withdraw an offer (offerer only; foreign or missing id → `404 Offer not found`). Sets `status = 'withdrawn'` and
+publishes `offer_withdrawn`. A withdrawn offer is never brought back by a later release.
+
+**Implementation:** `src/routes/offers.ts` `router.delete('/:id')`
+
 #### PUT /offers/:id/privacy
 Update privacy settings for an offer (Social Karma v2.0).
 
@@ -1733,12 +1754,13 @@ ignored — the responder is always the authenticated user.
 - One live offer per responder per request (no existing `proposed`/`matched` match) → else
   `409 ALREADY_OFFERED` (`matches` has no unique `(request_id, responder_id)`; checked again, exactly, under the lock)
 - Linked offer (if `offer_id` provided) must exist and belong to the responder (`404 Offer not found`), and be
-  `active` → else `400 OFFER_NOT_ACTIVE`
+  `active` and not flagged `expired` → else `400 OFFER_NOT_ACTIVE`
 
 **Write (Sprint 136, BUG-084).** The checks above are a fast path. The write is one transaction:
 `lockRequestForCommitment` (closed or past expiry since the read → `409 REQUEST_NOT_OPEN`), the duplicate check again
 (`409 ALREADY_OFFERED`), the guarded offer hold `UPDATE requests.help_offers SET status = 'matched' WHERE id = $1 AND
-offerer_id = $2 AND status = 'active'` (a miss → `400 OFFER_NOT_ACTIVE`, before anything is written), then the
+offerer_id = $2 AND status = 'active' AND expired IS NOT TRUE AND (expires_at IS NULL OR expires_at >
+clock_timestamp())` (Sprint 137, BUG-089: the two expiry arms; a miss → `400 OFFER_NOT_ACTIVE`, before anything is written), then the
 `proposed` insert. Lock order request → offer; no `help_offers` writer holds an offer lock and then waits on the request.
 
 **Events Published:** `match.created`
@@ -1931,6 +1953,11 @@ Submit a provider offer on an open help request.
   "message": "Offer submitted"
 }
 ```
+
+**Request lock (Sprint 137, BUG-090):** after the provider-profile and reachability fast paths, the route runs one
+transaction: `lockRequestForCommitment` (an ask that closed or expired since the fast path → **409**
+`REQUEST_NOT_OPEN`, "This request is no longer open", with no insert), then the duplicate check (`409 DUPLICATE_OFFER`)
+and the insert on the same transaction client. The requester lookup and `offer_submitted` run after commit.
 
 **Events Published:** `offer_submitted`
 
@@ -3128,6 +3155,20 @@ CREATE TABLE auth.user_interests (
 - No breaking changes to existing API contracts
 
 ### 10.4 Recent Fixes
+
+**Sprint 137 BUG-088..091 — exchange integrity:**
+
+- **BUG-091: a completed or cancelled ask could be edited, including a forgotten one.** `PUT /requests/:id` wrote
+  without the lock or a status check. It now locks, refuses with 409 `REQUEST_CLOSED`, and requires
+  `content_forgotten_at IS NULL`.
+- **BUG-089: an offer's status was editable, and expired standing offers could be held.** `PUT /offers/:id` accepted a
+  body status (now 400 `STATUS_NOT_EDITABLE`); `POST /matches` held offers regardless of expiry (now refused); match
+  reject/cancel left the offer `matched` (now freed through `releaseOffer`, which keeps shared and withdrawn offers).
+  `sprint-137-offer-status-gate.test.ts` pins every help-offer status writer.
+- **BUG-090: `POST /providers/offers` inserted without the request lock**, so an offer could land on an ask that had
+  just closed. It now locks and re-checks in one transaction (409 `REQUEST_NOT_OPEN`).
+- **BUG-088:** the expiry sweep left proposals and held offers behind; fixed in cleanup-service (see its CONTEXT.md,
+  `releaseExpiredHolds`).
 
 **Sprint 136 BUG-085 + BUG-084 — expired asks and `POST /matches`:**
 
