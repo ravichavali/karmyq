@@ -1,13 +1,13 @@
 # Sprint 137 — Exchange Integrity — Handoff
 
 **Date**: 2026-11-05
-**Outcome so far**: **Tasks 1–6 executed and reviewed. Next: Task 7's cleanup red contracts (committed with Task 8).**
+**Outcome so far**: **Tasks 1–8 executed and reviewed. Next: Task 9's CI-only integration proofs.**
 - Scope and decisions 1–3 were agreed with the maintainer on 2026-11-04.
 - The spec, plan, BUG-088/090 corrections and the new BUG-091 entry are committed on this branch.
 - Codex's plan review found three issues, and two re-reviews found one each. All five are confirmed and resolved in the
   spec and plan (see *Plan review*).
-- A's closed/forgotten-request edit guard, B's offer integrity guards and C's locked provider-offer submit are
-  implemented; D remains pending. No PR is open. Task 1 (`0499e524`) sets the three root version fields to
+- A's closed/forgotten-request edit guard, B's offer integrity guards, C's locked provider-offer submit and D's
+  expired-hold release are implemented (mocked-SQL proofs; real-PostgreSQL proofs are Task 9, CI-only). No PR is open. Task 1 (`0499e524`) sets the three root version fields to
   provisional v11.110.0. Task 2 (`2e7a0c1f`) extends the scanner and adds the offer-status gate in the nonblocking
   tdd tier. Task 3 (`3a8a2542`) adds the compiling, assertion-red request-service contracts for A/B/C.
 
@@ -35,11 +35,9 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
 
 1. Read this handoff. Then confirm live state:
    - `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
-   - `gh run list --workflow expo-sdk-drift.yml --limit 3`. The first **scheduled** run after #328 (2026-11-05 07:15Z)
-     should be green, and #316 should stay closed. If it failed, read its gate output first.
-   - Note: the only scheduled run since #328 merged, at 2026-11-04 15:25Z, ran on `b9682c34`, **before** the merge
-     (17:54Z). It failed on exactly the `expo-notifications@57.0.23` pin #328 fixed. The post-merge manual run on
-     `f19ca413` was green.
+   - `gh issue view 329`. The first post-#328 scheduled drift run (2026-11-05 15:26Z; the cron says 07:15Z but runs
+     have started ~15:00–17:00Z) failed on a **new** Expo patch train and filed #329 — not a regression of #328's
+     pin; #316 stays closed. It gates no PR. Whether to take it is the maintainer's call (see *Open*).
 2. Reuse the existing task branch: `git switch agent/claude/sprint-137-planning`. It is already cut from
    `origin/master` `f19ca413`. If master moved, merge it in with a merge commit, never a rebase. Never branch off a
    stale local master; unpushed local-master commits leak in via the squash-merge.
@@ -48,7 +46,7 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
    `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 5. Merges, ADR numbers, demo-host operations and dismissals each need explicit authorization. Stop at PR creation.
 
-**Next unchecked task**: Plan Task 7 (cleanup-service D contracts, red, run locally only; committed with Task 8).
+**Next unchecked task**: Plan Task 9 (root `tests/integration/` real-SQL proofs and races; CI-only, compile locally).
 Execution moved from the Codex chat to a Claude Code chat on 2026-11-05 mid-Task 6, using the same SDD ledger
 (`.superpowers/sdd/2026-11-04-sprint-137-exchange-integrity/progress.md`), sequential implementers and independent
 reviewers. Codex has reviewed
@@ -277,6 +275,23 @@ with Task 8.
   summary, not captured). Independent spec/quality review approved; three minors deferred to the final review (a
   request deleted after the fast path answers 409 rather than 404, per the plan's `!== 'open'`; formatting; the
   pre-existing ts-jest TS151002 warning). Only this handoff changed afterward.
+- Live 2026-11-05 15:27Z: the first post-#328 scheduled drift run (`42055042687`) **failed** and filed **#329**: a new
+  Expo patch train (`expo` 57.0.31 → ~57.0.32, `expo-notifications` 57.0.24 → ~57.0.25, and six siblings); the
+  `jest`/`@types/jest` registered divergences cleared. #316 stays closed. The workflow is schedule-only by design
+  (`.github/workflows/expo-sdk-drift.yml:13-20`), so it gates no PR; not fixed in this sprint (see *Open*).
+- Task 7 (`b1a57dd3` base; committed with Task 8): 12 cleanup contracts for `releaseExpiredHolds`, red on assertions
+  only (the function is read off a dynamic import and asserted to exist first, because ts-jest type-checks). Review
+  found one test asserting text the correct D1 free contains; fixed and re-reviewed. A COMMIT-failure case proves
+  `proposalsClosed` counts committed transactions only.
+- Task 8: `releaseExpiredHolds` (D1 per-ask transaction, D2 one guarded autocommit statement) runs from
+  `markExpiredData` after the four flags; the unit test pins the four flags then the release (exact counts). D1's
+  offer free is byte-identical to `closeProposals`' guarded UPDATE, each naming the other. Two allowlist entries
+  (candidate read, lock read) hashed with `surfaceHash`. Proof: Task 7's 12 RED → GREEN; a three-mutation proof
+  (count before COMMIT, D2 via a client, drop the CTID predicate) turned each red and was restored by byte copy;
+  offer-status gate now fully green (34/34); cleanup tsc + lint clean. Full `npm test` exit 0 on `b1a57dd3` plus the
+  staged Tasks 7+8 (27/27 tasks; 22 cached; cleanup 59 pass / 7 skipped; root 42 suites / 982 tests). Independent
+  review (spec + quality) approved; seven minors deferred to the final review, including an unescaped regex in the
+  unit test (`expirationJob.test.ts:38-39`) and CONTEXT wording for Task 11.
 
 ## Dated obligations
 
@@ -285,6 +300,10 @@ with Task 8.
 
 ## Open, not scheduled
 
+- **#329 Expo SDK drift (opened 2026-11-05, maintainer's call).** The live version map moved one patch on eight
+  `apps/mobile` packages (`expo` ~57.0.32, `expo-notifications` ~57.0.25, …), and the `jest`/`@types/jest`
+  registrations cleared. It gates no PR (schedule-only workflow). Dependency work needs a maintainer-recognised reason
+  (advisory or feature need); the dependency lane is Claude's. Not in Sprint 137's scope.
 - **From Sprint 136:**
   - **BUG-087 has no runtime log proof in CI.** The Integration Tests job prints container logs only on failure
     (`.github/workflows/ci.yml:363-367`), so reputation's two "not scheduled" lines never appear on a green run. The

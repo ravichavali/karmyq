@@ -17,6 +17,12 @@ Changes below.
 
 ## Recent Changes
 
+- **2026-11-05 (Sprint 137, BUG-088)**: `markExpiredData` now ends by calling `releaseExpiredHolds()` (hourly cron and
+  `POST /jobs/mark-expired`). D1: per flagged open ask with a proposal, in its own transaction, lock the ask, free the
+  offers its proposals hold (guarded; text for text with request-service `closeProposals`), reject the proposals.
+  D2: one statement frees 'matched' offers no live match references. Logs `asksReleased`, `proposalsClosed`,
+  `strandedOffersFreed`. Writes no `help_requests` row. Tests: `tests/tdd/sprint-137-release-expired-holds.test.ts`.
+
 - **2026-11-03 (Sprint 136, BUG-083)**: memory retention ages a completed request from its **completion**, not its last
   edit. The completed branch of `forgetExchangeContent` compares `COALESCE((SELECT MAX(m.completed_at) FROM
   requests.matches m WHERE m.request_id = h.id AND m.status = 'completed'), h.updated_at)` with the window. Completion

@@ -13,6 +13,18 @@
   },
   {
     "file": "services/cleanup-service/src/jobs/expirationJob.ts",
+    "hash": "412502ceafb73c0ff5140f0fd28df5df5112a5ebeaa9bcfabd4396d59ae33cd3",
+    "reason": "Internal expiry mutation, no audience-facing output.",
+    "label": "SELECT expired open asks with a proposal"
+  },
+  {
+    "file": "services/cleanup-service/src/jobs/expirationJob.ts",
+    "hash": "dfcd9505da4537b78ff1f7cfb170885d89709dbb6025ac18b3a5f68950f9511d",
+    "reason": "Internal expiry mutation, no audience-facing output.",
+    "label": "SELECT id ... FOR UPDATE (expired ask lock)"
+  },
+  {
+    "file": "services/cleanup-service/src/jobs/expirationJob.ts",
     "hash": "2ebf30b506ec28269fbb1ec85228c6bed8da5ef46cc13754d5205f2c0b975fec",
     "reason": "Internal hard retention deletion.",
     "label": "DELETE FROM requests.help_requests"

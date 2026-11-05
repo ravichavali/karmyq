@@ -1,4 +1,4 @@
-import { query } from '../database/db';
+import pool, { query } from '../database/db';
 import { logger } from '../utils/logger';
 
 /**
@@ -58,11 +58,83 @@ export async function markExpiredData(): Promise<void> {
     logger.info(`Marked ${notifications.rowCount} notifications as expired`);
     totalExpired += notifications.rowCount || 0;
 
+    await releaseExpiredHolds();
+
     logger.info(`Expiration job completed: ${totalExpired} items marked as expired`);
   } catch (error) {
     logger.error('Error in expiration job', { error });
     throw error;
   }
+}
+
+/**
+ * BUG-088 (Sprint 137): release what an expired ask held.
+ * D1. Each flagged open ask with a proposal, in its own transaction: lock the ask, free each offer a proposal holds
+ *     (only while 'matched', so a withdrawn offer stays withdrawn, and only when no other match still holds it, since
+ *     BUG-089 let one offer back several), then reject the proposals. Text for text request-service's closeProposals
+ *     (src/db/requestStatus.ts); keep the two in step. Writes no help_requests row, so the hard-delete clock and the
+ *     derived status are unchanged (proposals don't count in the derivation).
+ * D2. One statement frees offers still 'matched' that no proposed, matched or completed match references (a past
+ *     hard delete cascaded the proposal away). Both frees compare the target CTID to a distinct scalar snapshot scan:
+ *     an intervening release/re-hold or metadata version change defers release (spec B5, I1). CTID is statement-local,
+ *     never persisted identity. B4's gated active-to-matched hold invariant alone does not exclude the re-hold cycle.
+ * Lock order: D1 request → offers → matches, as accept's closeProposals; D2 only the offer rows it updates.
+ * Checked 2026-11-05 against matches.ts: complete (`UPDATE ... WHERE id = $1 AND status = 'matched'`) and cancel
+ * (same guard) lock only a 'matched' row, never a 'proposed' one, so D1's proposed-row update waits on neither. Cancel
+ * takes match, then request, then the offer last, and no help_offers writer holds an offer lock and then waits on the
+ * request lock (Sprint 136's request-followups header lists the writers), so D1's request-then-offer order cannot
+ * deadlock against them.
+ */
+export async function releaseExpiredHolds(): Promise<{ asksReleased: number; proposalsClosed: number; strandedOffersFreed: number }> {
+  let asksReleased = 0, proposalsClosed = 0;
+
+  const asks = await query(
+    `SELECT h.id FROM requests.help_requests h
+      WHERE h.expired = TRUE AND h.status = 'open'
+        AND EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = h.id AND m.status = 'proposed')`
+  );
+  for (const { id } of asks.rows) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const locked = await client.query(
+        `SELECT id FROM requests.help_requests WHERE id = $1 AND expired = TRUE AND status = 'open' FOR UPDATE`, [id]);
+      if (locked.rowCount === 0) { await client.query('ROLLBACK'); continue; }
+      // Keep this SQL text for text with request-service/src/db/requestStatus.ts's closeProposals offer release.
+      await client.query(
+        `UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP
+     WHERE o.status = 'matched'
+       AND o.id IN (SELECT offer_id FROM requests.matches
+                     WHERE request_id = $1 AND status = 'proposed' AND offer_id IS NOT NULL)
+       AND NOT EXISTS (SELECT 1 FROM requests.matches m
+                        WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed')
+                          AND NOT (m.request_id = $1 AND m.status = 'proposed'))
+       AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)`, [id]);
+      const closed = await client.query(
+        `UPDATE requests.matches SET status = 'rejected', updated_at = CURRENT_TIMESTAMP
+          WHERE request_id = $1 AND status = 'proposed'`, [id]);
+      await client.query('COMMIT');
+      asksReleased++;
+      proposalsClosed += closed.rowCount ?? 0;
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      logger.error('Failed to release an expired ask', { request_id: id, error });
+    } finally {
+      client.release();
+    }
+  }
+
+  const stranded = await query(
+    `UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP
+      WHERE o.status = 'matched'
+        AND NOT EXISTS (SELECT 1 FROM requests.matches m
+                         WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed'))
+        AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)`
+  );
+  const strandedOffersFreed = stranded.rowCount ?? 0;
+
+  logger.info('Released expired holds', { asksReleased, proposalsClosed, strandedOffersFreed });
+  return { asksReleased, proposalsClosed, strandedOffersFreed };
 }
 
 /**
