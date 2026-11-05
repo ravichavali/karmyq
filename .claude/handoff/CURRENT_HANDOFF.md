@@ -1,7 +1,7 @@
 # Sprint 137 — Exchange Integrity — Handoff
 
 **Date**: 2026-11-05
-**Outcome so far**: **Tasks 1–9 executed and reviewed. Next: Task 10's full-suite sweep and targeted promotion.**
+**Outcome so far**: **Tasks 1–10 executed and reviewed. Next: Task 11's docs (guides, landing, CONTEXT, BUGS).**
 - Scope and decisions 1–3 were agreed with the maintainer on 2026-11-04.
 - The spec, plan, BUG-088/090 corrections and the new BUG-091 entry are committed on this branch.
 - Codex's plan review found three issues, and two re-reviews found one each. All five are confirmed and resolved in the
@@ -47,8 +47,7 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
    `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 5. Merges, ADR numbers, demo-host operations and dismissals each need explicit authorization. Stop at PR creation.
 
-**Next unchecked task**: Plan Task 10 (each changed workspace's full suite; targeted `git mv` promotion of the three
-Sprint 137 tdd files).
+**Next unchecked task**: Plan Task 11 (five guides, landing regeneration, request/cleanup CONTEXT, BUGS.md).
 Execution moved from the Codex chat to a Claude Code chat on 2026-11-05 mid-Task 6, using the same SDD ledger
 (`.superpowers/sdd/2026-11-04-sprint-137-exchange-integrity/progress.md`), sequential implementers and independent
 reviewers. Codex has reviewed
@@ -305,6 +304,11 @@ with Task 8.
   70 pre-existing errors (e2e/tdd), byte-identical to before. Root `tests` workspace passed on the staged file
   (unit 101/101, regression 42 suites / 982). Independent review approved; four minors deferred (incl. a CI-hang
   exposure only if request-service itself hangs mid-race, shared with Sprint 136's helpers).
+- Task 10: every changed workspace's full suite passed before and after promotion (request-service 563 → 619 passed
+  plus one skipped, the two promoted files now blocking; cleanup-service 59 passed / 7 skipped; apps/frontend 426;
+  root tests 982). The three Sprint 137 tdd files moved to `tests/regression/` by targeted `git mv` (pure renames;
+  the promoter was not run). The directed-surface gate is green, so the allowlist holds no stale hash. The only live
+  reference to an old path, `services/cleanup-service/CONTEXT.md`, now points at `tests/regression/`.
 
 ## Dated obligations
 
