@@ -181,7 +181,7 @@
   },
   {
     "file": "services/request-service/src/routes/requests.ts",
-    "hash": "772fee74dd92f44a12ab23522f8b2e77d8bbdbd0e0e290db8df90151485bd4f0",
+    "hash": "3d6306ec18c5796a5fd74c6bfd11fd8675554a65011918ac38dfd0c6c6452b34",
     "reason": "Fixed field owner-only update; directed routing fields cannot be edited. Sprint 134 PR V: lookup/mutation binds both request id and verified JWT requester; absent/foreign/vanished rows return 404 before events. Local route tests cover wiring; tests/integration/sprint-133-pr-v-read-boundary.integration.test.ts exercises owner-write behavior against PostgreSQL in CI.",
     "label": "${updates.join(', ')}"
   },

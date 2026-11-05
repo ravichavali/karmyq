@@ -7,6 +7,11 @@
 
 ## Recent Changes
 
+- **2026-11-04 (Sprint 137, BUG-091)**: `PUT /requests/:id` keeps its ownership 404 and body-status 400 checks first,
+  then locks the request and reads its derived status in one transaction. A completed or cancelled ask returns
+  `409 REQUEST_CLOSED` before any write; a missing request under the lock returns 404. The edit also requires
+  `content_forgotten_at IS NULL`, with a zero-row edit returning the same 409 to preserve forgotten content. Open,
+  matched and dibs-pending asks remain editable. No migration, event or dependency change.
 - **2026-11-03 (Sprint 136, BUG-085 + BUG-084)**: an expired ask takes no new commitment, and `POST /matches` writes
   under the request lock. An ask is **past expiry** when `expired IS TRUE` (the sweep's flag) or `expires_at <=
   clock_timestamp()` (the hour before the sweep runs). `lockRequestForCommitment` (`src/db/requestStatus.ts`) reads

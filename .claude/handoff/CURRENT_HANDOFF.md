@@ -1,14 +1,14 @@
 # Sprint 137 — Exchange Integrity — Handoff
 
-**Date**: 2026-11-04
-**Outcome so far**: **Tasks 1–3 executed and reviewed. Next: Task 4's closed-ask edit guard.**
+**Date**: 2026-11-05
+**Outcome so far**: **Tasks 1–4 executed and reviewed. Next: Task 5's offer integrity guards and release helper.**
 - Scope and decisions 1–3 were agreed with the maintainer on 2026-11-04.
 - The spec, plan, BUG-088/090 corrections and the new BUG-091 entry are committed on this branch.
 - Codex's plan review found three issues, and two re-reviews found one each. All five are confirmed and resolved in the
   spec and plan (see *Plan review*).
-- No application code has changed yet, and no PR is open. Task 1 (`0499e524`) sets the three root version fields to
+- A's closed/forgotten-request edit guard is implemented; B, C and D remain pending. No PR is open. Task 1 (`0499e524`) sets the three root version fields to
   provisional v11.110.0. Task 2 (`2e7a0c1f`) extends the scanner and adds the offer-status gate in the nonblocking
-  tdd tier. Task 3 adds the compiling, assertion-red request-service contracts for A/B/C.
+  tdd tier. Task 3 (`3a8a2542`) adds the compiling, assertion-red request-service contracts for A/B/C.
 
 > The handoff carries **state between sessions**. It is not a copy of the plan: it links the plan and names the next
 > unchecked task. It is branch-local, so it can reserve nothing; see `CLAUDE.md` → *Parallel Development* for how
@@ -47,7 +47,7 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
    `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 5. Merges, ADR numbers, demo-host operations and dismissals each need explicit authorization. Stop at PR creation.
 
-**Next unchecked task**: Plan Task 4 (closed/forgotten-ask edit guard, its hash and existing test fallout). Execution is in this Codex chat,
+**Next unchecked task**: Plan Task 5 (offer status refusal, expiry hold, guarded release helper and shared-offer rule). Execution is in this Codex chat,
 using sequential implementers and independent reviewers. Codex has reviewed
 the plan three times (`6d478a36`, `17f41af6`, `fcec0e28`). R2's fix (a stricter parse rule and
 its negative fixtures) is mechanical, so no further plan review is planned. The PR's `/code-review` will cover the
@@ -61,7 +61,7 @@ implementation.
 |---|---|
 | **Branch** | `agent/claude/sprint-137-planning`, cut from `origin/master` `f19ca413` on 2026-11-04. It carries the Sprint 136 archive, the #328 post-merge record, and the Sprint 137 spec, plan, handoff and BUGS entries. **No PR is open from it.** Execution continues here, and the one PR opens from it. |
 | **Base** | `origin/master` at `f19ca413` (#328, v11.109.0). No open PRs on 2026-11-04. The version (provisional 11.110.0) is re-derived from `origin/master` at merge. |
-| **Active editor** | Codex executing the approved plan, with one subagent editor at a time (2026-11-04). |
+| **Active editor** | Codex executing the approved plan, with one subagent editor at a time (2026-11-04–05). |
 | **Shared resources** | **Dependency lane: Claude** (maintainer-designated); this sprint adds no dependency. Nothing dependency-dated except #178 (below). **No ADR number needed.** No demo-host operation pending. |
 | **Merged branches safe to delete** (maintainer's call) | `agent/claude/sprint-136-planning` (head `170d39fe`; same tree as `f19ca413`), `agent/claude/sprint-135-pr-request-status-guards` (`7bfc65ac`), `agent/claude/sprint-135-planning` (`5a3589ef`), `agent/claude/sprint-134-pr-bug-077-badge-insert` (`afbaed7a`). |
 
@@ -183,7 +183,7 @@ regression tests it breaks **in the same commit**. Only request-service's new `t
 tasks. Cleanup-service's `test` script runs its tdd tier (BUG-092), so its tdd file is committed only once it is green,
 with Task 8.
 
-## Execution record (2026-11-04)
+## Execution record (2026-11-04–05)
 
 - Bootstrap reconciled at planning head `c3357160`: fetched origin, no open PRs, `origin/master` remains `f19ca413`,
   #316 is CLOSED. Drift run `41890283148` (manual, post-merge) passed. The next expected scheduled run
@@ -215,6 +215,16 @@ with Task 8.
   passed, one skipped); full `npm test` passed on `2e7a0c1f` plus the staged contract (27/27 tasks; 24 cached;
   root 42 regression suites / 982 tests). Only this handoff changed afterward. These red tests are intentionally in
   request-service's nonblocking tdd tier and turn green through Tasks 4–6.
+- Task 4: ownership 404 and body-status 400 remain before the transaction; derived completed/cancelled states and
+  forgotten-content writes refuse with `409 REQUEST_CLOSED` (`services/request-service/src/routes/requests.ts:2036`).
+  The request lock and status read remain separate. Only the changed edit UPDATE's hash was recomputed; privacy's
+  hash is unchanged. Both named regression files and a brief service-context note are in the same commit.
+  A's eight contracts and 74 focused regression/gate tests passed cold. Independent spec/quality review approved;
+  full `npm test` passed on `3a8a2542` plus Task 4's staged changes (27/27 tasks; 24 cached; root 42 regression
+  suites / 982 tests). Only this handoff changed before the Task 4 commit. B/C remain intentionally red in tdd.
+- Live recheck on resumed 2026-11-05: fetch succeeded, `origin/master` is still `f19ca413`, no PR is open, and #316 is
+  still CLOSED. The latest-three drift query still returns manual success `41890283148` and the pre-merge scheduled
+  failures; the expected November 5 scheduled result is **not listed yet**, so scheduled success is not claimed.
 
 ## Dated obligations
 

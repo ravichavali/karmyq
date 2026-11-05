@@ -401,11 +401,12 @@ describe('PUT /requests/:id (BUG-075)', () => {
   });
 
   it('edits the other fields with no status assignment and no request_completed event', async () => {
+    reply(DERIVE, rows([{ status: 'open' }]));
     reply(/^UPDATE requests\.help_requests SET/, rows([{ id: 'req-1', title: 'T' }]));
     const res = await request(await app()).put('/requests/req-1').set('x-test-user', 'requester').send({ title: 'T' });
     expect(res.status).toBe(200);
     const update = statements().find((s) => /^UPDATE requests\.help_requests SET/.test(s.sql));
-    expect(update?.sql).toBe('UPDATE requests.help_requests SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND requester_id = $3 RETURNING *');
+    expect(update?.sql).toBe('UPDATE requests.help_requests SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND requester_id = $3 AND content_forgotten_at IS NULL RETURNING *');
     expect(update?.params).toEqual(['T', 'req-1', 'requester']);
     expect(mockPublishEvent).not.toHaveBeenCalledWith('request_completed', expect.anything());
   });
