@@ -1,15 +1,16 @@
 # Sprint 137 — Exchange Integrity — Handoff
 
 **Date**: 2026-11-05
-**Outcome so far**: **Tasks 1–11 executed and reviewed. Next: Task 12's SDLC gates (`/simplify`, `/code-review high`,
-`/security-review`).**
+**Outcome so far**: **EXECUTED; PR open, awaiting its CI run, review and the maintainer's merge.** Plan Tasks 1–14
+are done; all four gates ran (*Execution record*). Find the PR with `gh pr view agent/claude/sprint-137-planning`.
+Nothing is merged or deployed. CI's Integration Tests job is the **first real run** of Task 9's 38 PostgreSQL proofs.
 - Scope and decisions 1–3 were agreed with the maintainer on 2026-11-04.
 - The spec, plan, BUG-088/090 corrections and the new BUG-091 entry are committed on this branch.
 - Codex's plan review found three issues, and two re-reviews found one each. All five are confirmed and resolved in the
   spec and plan (see *Plan review*).
 - A's closed/forgotten-request edit guard, B's offer integrity guards, C's locked provider-offer submit and D's
   expired-hold release are implemented with mocked-SQL proofs; the real-PostgreSQL proofs are written (Task 9) and
-  first run in CI on the PR. No PR is open. Task 1 (`0499e524`) sets the three root version fields to
+  first run in CI on the PR. Task 1 (`0499e524`) sets the three root version fields to
   provisional v11.110.0. Task 2 (`2e7a0c1f`) extends the scanner and adds the offer-status gate in the nonblocking
   tdd tier. Task 3 (`3a8a2542`) adds the compiling, assertion-red request-service contracts for A/B/C.
 
@@ -37,6 +38,11 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
 
 1. Read this handoff. Then confirm live state:
    - `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`.
+   - `gh pr view agent/claude/sprint-137-planning --json number,state,mergeable` and `gh pr checks <number>`. Read the
+     **Integration Tests** job first: it is the first execution of
+     `tests/integration/sprint-137-exchange-integrity.integration.test.ts` (no PostgreSQL on the Windows box). If it
+     is red, fix forward on this branch (never weaken a case; the I1 barrier mechanism is in the file header). Also
+     read the PR's CodeQL check-run annotations; `apps/frontend/src/lib/api.ts` changed by one line (numstat `1 1`).
    - `gh issue view 329`. The first post-#328 scheduled drift run (2026-11-05 15:26Z; the cron says 07:15Z but runs
      have started ~15:00–17:00Z) failed on a **new** Expo patch train and filed #329 — not a regression of #328's
      pin; #316 stays closed. It gates no PR. Whether to take it is the maintainer's call (see *Open*).
@@ -48,8 +54,12 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
    `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 5. Merges, ADR numbers, demo-host operations and dismissals each need explicit authorization. Stop at PR creation.
 
-**Next unchecked task**: Plan Task 12 (`/simplify` once, `/code-review high`, `/security-review` on
-`origin/master...HEAD`).
+**Next unchecked task**: Plan Task 15 — merge + deploy, **only with the maintainer's explicit authorization**, one
+merge at a time, after confirming no deploy is in flight and CI (incl. Integration Tests) is green. Re-derive the
+version from `origin/master`'s `package.json` at merge time (provisional 11.110.0; master was 11.109.0 at PR time).
+A cross-agent (Codex) review of the PR is the expected step before the merge ask. The post-merge record rides in the
+next PR (plan Task 15 lists it: CI/CD + health, the first hourly `Released expired holds` log line — a demo-host read,
+ask first — code-scanning on master and the merge-sha analysis, #178 by 2026-12-01).
 Execution moved from the Codex chat to a Claude Code chat on 2026-11-05 mid-Task 6, using the same SDD ledger
 (`.superpowers/sdd/2026-11-04-sprint-137-exchange-integrity/progress.md`), sequential implementers and independent
 reviewers. Codex has reviewed
@@ -63,7 +73,7 @@ implementation.
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-137-planning`, cut from `origin/master` `f19ca413` on 2026-11-04. It carries the Sprint 136 archive, the #328 post-merge record, and the Sprint 137 spec, plan, handoff and BUGS entries. **No PR is open from it.** Execution continues here, and the one PR opens from it. |
+| **Branch** | `agent/claude/sprint-137-planning`, cut from `origin/master` `f19ca413` on 2026-11-04. It carries the Sprint 136 archive, the #328 post-merge record, and the Sprint 137 spec, plan, handoff and BUGS entries, and all of Sprint 137's execution. **The one PR is open from it** (2026-11-05; `gh pr view agent/claude/sprint-137-planning`). Fix-forward commits for CI land here. |
 | **Base** | `origin/master` at `f19ca413` (#328, v11.109.0). No open PRs on 2026-11-04. The version (provisional 11.110.0) is re-derived from `origin/master` at merge. |
 | **Active editor** | Claude Code executing the approved plan from Task 6's review onward (2026-11-05), with one subagent editor at a time. Codex executed Tasks 1–5 and implemented Task 6 (2026-11-04–05); its chat is stopped. |
 | **Shared resources** | **Dependency lane: Claude** (maintainer-designated); this sprint adds no dependency. Nothing dependency-dated except #178 (below). **No ADR number needed.** No demo-host operation pending. |
@@ -340,6 +350,18 @@ with Task 8.
   freed after its `expires_at` reads `expired = FALSE` for up to an hour; the hold path still refuses it) and
   **BUG-095** (`matches.offer_id` unindexed; needs a migration). Suites: request-service 161 + 620 (1 skipped),
   cleanup-service 60 (7 skipped), root 101 + 987.
+- Task 12 `/security-review` (branch diff): **no findings** at confidence ≥ 0.8 and MEDIUM+. The plan's six checks
+  pass: 404 before 400/409 on `PUT /offers/:id` and `PUT /requests/:id`; `offerer_id` stays bound in the hold
+  (`matches.ts:241-246`); no release frees an offer a live or completed match holds; no new route, dependency or
+  claim read; the provider-offer 404/409 follow the reachability fast path; every interpolated SQL piece is a
+  constant. Pre-existing items noted, not in scope: per-reason 404 messages in `validateRequestForOffer`, 500 bodies
+  echoing `err.message`, no reachability re-check under the provider-offer lock.
+- The whole-branch `/code-review high` served as the SDD final review (its fixes were re-reviewed clean).
+- Task 13 on `19d6a4b7` (tree = the tested staged set): full `npm test` exit 0 (27/27 tasks, 21 cached;
+  request-service 161 + 620/1 skipped, cleanup-service 60/7 skipped, frontend 426, root 101 + 987); drift gate
+  41/41 run directly; `tsc --noEmit` request, cleanup, frontend all 0; `api.ts` numstat `1 1`; tree clean after
+  reverting landing timestamp/HEAD-sha churn. Integration proofs: CI only.
+- Task 14: this handoff, then push and the PR (stop at creation).
 
 ## Dated obligations
 
