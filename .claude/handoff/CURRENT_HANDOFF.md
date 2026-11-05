@@ -1,12 +1,12 @@
 # Sprint 137 — Exchange Integrity — Handoff
 
 **Date**: 2026-11-05
-**Outcome so far**: **Tasks 1–4 executed and reviewed. Next: Task 5's offer integrity guards and release helper.**
+**Outcome so far**: **Tasks 1–5 executed and reviewed. Next: Task 6's provider-offer transaction.**
 - Scope and decisions 1–3 were agreed with the maintainer on 2026-11-04.
 - The spec, plan, BUG-088/090 corrections and the new BUG-091 entry are committed on this branch.
 - Codex's plan review found three issues, and two re-reviews found one each. All five are confirmed and resolved in the
   spec and plan (see *Plan review*).
-- A's closed/forgotten-request edit guard is implemented; B, C and D remain pending. No PR is open. Task 1 (`0499e524`) sets the three root version fields to
+- A's closed/forgotten-request edit guard and B's offer integrity guards are implemented; C and D remain pending. No PR is open. Task 1 (`0499e524`) sets the three root version fields to
   provisional v11.110.0. Task 2 (`2e7a0c1f`) extends the scanner and adds the offer-status gate in the nonblocking
   tdd tier. Task 3 (`3a8a2542`) adds the compiling, assertion-red request-service contracts for A/B/C.
 
@@ -47,7 +47,7 @@ Archived: [`archive/2026-11-04-sprint-136-mobile-deps-and-status-followups-COMPL
    `/execute-plan` slash command; superpowers removed it as a deprecated stub.
 5. Merges, ADR numbers, demo-host operations and dismissals each need explicit authorization. Stop at PR creation.
 
-**Next unchecked task**: Plan Task 5 (offer status refusal, expiry hold, guarded release helper and shared-offer rule). Execution is in this Codex chat,
+**Next unchecked task**: Plan Task 6 (provider-offer check and insert under the request lock). Execution is in this Codex chat,
 using sequential implementers and independent reviewers. Codex has reviewed
 the plan three times (`6d478a36`, `17f41af6`, `fcec0e28`). R2's fix (a stricter parse rule and
 its negative fixtures) is mechanical, so no further plan review is planned. The PR's `/code-review` will cover the
@@ -110,13 +110,37 @@ the spec and plan:
 callers, on reject and cancel updating their match row before `releaseOffer`, on D2 as one statement, or on the Task 7/8
 sequencing. Its one finding is R1 above.
 
+## Implementation review (2026-11-05)
+
+**I1 — CONFIRMED; Task 5 helpers/spec/plan corrected, full suite green, runtime re-review approved. Cleanup/tests follow in Tasks 8–9.** The plan's original single-statement proof missed a
+`matched → active → matched` cycle. Two overlapping D2 sweeps can select the same stranded offer; the first frees
+it, a real `POST /matches` re-holds it, and the delayed sweep can follow the latest tuple while its match subquery
+still has the old snapshot. Both the manual trigger and cron can run the job (`services/cleanup-service/src/index.ts:179`,
+`:309`). PostgreSQL's [Read Committed semantics](https://www.postgresql.org/docs/15/transaction-iso.html#XACT-READ-COMMITTED)
+and the independent PostgreSQL 15 source review confirm the mechanism; no database reproduction is claimed yet.
+
+The correction preserves decisions 4–10: each of the four offer frees additionally compares its current target's
+`ctid` to a **distinct scalar self-scan under the statement snapshot**. A changed version is left for the next sweep.
+The reviewed predicate is `o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)`.
+This is a statement-local version check, never a persisted identity, and adds no lock, schema, endpoint, event or
+dependency. Concurrent metadata edits can conservatively defer a release. Task 5 updates its helpers, exact contracts,
+spec and plan; Tasks 7–8 carry the identical predicate into cleanup. Task 9 adds deterministic CI snapshot-barrier
+proofs for conservative deferral and a real new hold. This strengthens the earlier Plan review row 1/R1 argument;
+the original no-new-hold-on-matched invariant alone does not exclude the cycle. Both request-service helpers now
+append the reviewed predicate after `NOT EXISTS`, and independent SQL contracts were tightened RED first. The spec
+and plan require Task 7's exact cleanup predicate expectations and Task 8's text-for-text D1 copy. Task 9's fixture-only,
+waiter-session-gated `BEFORE UPDATE STATEMENT` trigger pauses the shipped D2 statement on an advisory lock after
+snapshot acquisition; `pg_blocking_pids` proves the wait. One case commits metadata then checks deferred/next-sweep
+release; the other runs a first D2 and real `POST /matches` re-hold before resuming delayed D2. No sleeps, production
+test hooks or local database execution. PostgreSQL primary-source links and scoped proof are in spec B5.
+
 ## Critical implementation notes (copied verbatim from the spec)
 
 1. **Lock, then check, in separate statements** for the request lock (A, C, D1). A statement that waited on a row lock
    keeps its subqueries' snapshot from before the wait (`requestStatus.ts:38-44`). Take the lock in its own statement,
    and decide in the next one. **Offer releases are single guarded statements** (`releaseOffer`, `closeProposals`, D1's
-   offer `UPDATE`, D2). B5 explains why that is exact: no runtime writer in `services/*/src` adds a hold to a
-   `matched` offer, and B4 gates that.
+   offer `UPDATE`, D2). Each needs B5's `NOT EXISTS` **and** distinct scalar snapshot CTID check. The gated runtime
+   hold invariant alone misses a matched → active → matched cycle (I1); a concurrent version change defers release.
 2. **Lock order.**
    - D1 is request → offers → matches, the same as accept's `closeProposals`.
    - D2 takes only the offer rows it updates.
@@ -143,9 +167,10 @@ sequencing. Its one finding is R1 above.
    D2's statements do not name `help_requests` and need no entry.
 6. **D writes no `help_requests` row.** No `updated_at` stamp, so the hard-delete clock (gotcha) and the request-status
    gate are untouched.
-7. **The copied `closeProposals` SQL** (D1) is text for text the guarded statement in B5. It keeps three properties:
+7. **The copied `closeProposals` SQL** (D1) is text for text the guarded statement in B5. It keeps four properties:
    - an offer is freed only while `matched`, so a withdrawn offer stays withdrawn;
    - no other match must still hold it (decision 10);
+   - the target version equals its distinct scalar snapshot self-scan (I1); never persist CTID or add `FOR UPDATE`;
    - offers are updated first, so the subquery still sees the proposals.
 
    A comment in each copy names the other. The integration tests' withdrawn-offer and shared-offer cases prove the
@@ -225,6 +250,15 @@ with Task 8.
 - Live recheck on resumed 2026-11-05: fetch succeeded, `origin/master` is still `f19ca413`, no PR is open, and #316 is
   still CLOSED. The latest-three drift query still returns manual success `41890283148` and the pre-merge scheduled
   failures; the expected November 5 scheduled result is **not listed yet**, so scheduled success is not claimed.
+- Task 5: B1/B2/B3/B5 implemented with exact existing-test fallout and a brief context note. The frontend type edit
+  remains one line added/removed. Original B proof: six assertion failures/three controls; focused A+B and fallout:
+  125 passed. Both typechecks passed. I1 tightened three B5 SQL assertions RED before the statement-local CTID guard;
+  all 71 request blocking suites pass (724 tests, one skipped). The amended spec and plan carry identical D1 SQL and
+  new snapshot-barrier CI cases; the initially missed spec D1 example was corrected and all six executable examples
+  were compared with the intended SQL. Post-fix full `npm test` passed on `edcdc4d6` plus Task 5's staged code
+  (27/27 tasks; 24 cached; root 42 regression suites / 982 tests). Only the one-line spec correction and handoff
+  metadata changed afterward. C's five contracts and the two future cleanup writer identities remain intentionally
+  red in tdd. No PostgreSQL execution is claimed; those proofs remain Task 9/CI.
 
 ## Dated obligations
 

@@ -78,8 +78,8 @@ carries:
 1. **Lock, then check, in separate statements** for the request lock (A, C, D1). A statement that waited on a row lock
    keeps its subqueries' snapshot from before the wait (`requestStatus.ts:38-44`). Take the lock in its own statement,
    and decide in the next one. **Offer releases are single guarded statements** (`releaseOffer`, `closeProposals`, D1's
-   offer `UPDATE`, D2). B5 explains why that is exact: no runtime writer in `services/*/src` adds a hold to a
-   `matched` offer, and B4 gates that.
+   offer `UPDATE`, D2). Each needs B5's `NOT EXISTS` **and** distinct scalar snapshot CTID check. The gated runtime
+   hold invariant alone misses a matched → active → matched cycle (I1); a concurrent version change defers release.
 2. **Lock order.**
    - D1 is request → offers → matches, the same as accept's `closeProposals`.
    - D2 takes only the offer rows it updates.
@@ -106,9 +106,10 @@ carries:
    D2's statements do not name `help_requests` and need no entry.
 6. **D writes no `help_requests` row.** No `updated_at` stamp, so the hard-delete clock (gotcha) and the request-status
    gate are untouched.
-7. **The copied `closeProposals` SQL** (D1) is text for text the guarded statement in B5. It keeps three properties:
+7. **The copied `closeProposals` SQL** (D1) is text for text the guarded statement in B5. It keeps four properties:
    - an offer is freed only while `matched`, so a withdrawn offer stays withdrawn;
    - no other match must still hold it (decision 10);
+   - the target version equals its distinct scalar snapshot self-scan (I1); never persist CTID or add `FOR UPDATE`;
    - offers are updated first, so the subquery still sees the proposals.
 
    A comment in each copy names the other. The integration tests' withdrawn-offer and shared-offer cases prove the
@@ -298,7 +299,10 @@ Copy the mocking harness from `tests/regression/sprint-136-request-followups.tes
     `tx` **after** the match row's own `UPDATE`;
   - no inline `UPDATE requests.help_offers SET status = 'active' WHERE id = $1 AND status = 'matched'` remains;
   - `closeProposals`' offer `UPDATE` (driven through match accept) contains
-    `AND NOT (m.request_id = $1 AND m.status = 'proposed')` and still runs before the matches `UPDATE`.
+    `AND NOT (m.request_id = $1 AND m.status = 'proposed')` and still runs before the matches `UPDATE`;
+  - both independent expected releases require
+    `AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)`
+    after `NOT EXISTS` (I1). Tighten these contracts RED before updating production SQL.
 - [ ] **C (`POST /providers/offers`):**
   - `lockRequestForCommitment`'s statements run in `tx` before the duplicate check, and the duplicate check before the
     insert;
@@ -407,12 +411,12 @@ git diff --numstat apps/frontend/src/lib/api.ts   # 1	1	apps/frontend/src/lib/ap
 
 - [ ] **B5.** In `src/db/requestStatus.ts`:
   - add `releaseOffer(q: TxQuery, offerId: string): Promise<void>`, which runs spec B5's first statement. Its doc
-    comment states the rule, the invariant that makes one statement exact (only the hold sets `matched`, and only from
-    `active`; among `services/*/src`, only `POST /matches` inserts an offer-backed match; B4 gates both), and that
-    the caller must update its own match row
-    first;
-  - replace `closeProposals`' offer `UPDATE` with spec B5's second statement. Keep offers first, then matches. Extend
-    the doc comment: a shared offer stays `matched` while another match holds it (BUG-089's rows).
+    comment states the rule, B4's runtime invariant (only the hold sets `matched`, only from `active`; among
+    `services/*/src`, only `POST /matches` inserts an offer-backed match), and I1's separate scalar snapshot CTID
+    check. The invariant alone misses overlapping release/re-hold cycles. The caller updates its own match row first;
+  - replace `closeProposals`' offer `UPDATE` with spec B5's second statement, including version equality after
+    `NOT EXISTS`. Keep offers first, then matches. A shared offer stays `matched` while another match holds it;
+    a changed version is conservatively deferred to a later D2. CTID is statement-local, never persisted identity.
 
   In `matches.ts`, reject (~:493) and cancel (~:746) call `await releaseOffer(q, match.offer_id)` inside their existing
   `if (match.offer_id)`, in place of the inline statement. Import `releaseOffer` alongside the existing
@@ -474,15 +478,16 @@ const offer = outcome.offer;
   - for two candidate asks, each gets `BEGIN`, then the lock `SELECT ... FOR UPDATE` with `[id]`, then the
     `help_offers` free, then the `matches` reject, then `COMMIT`, then `release()`, in that order;
   - the free's SQL contains `o.status = 'matched'`, `status = 'proposed' AND offer_id IS NOT NULL` and the shared-offer
-    guard `AND NOT (m.request_id = $1 AND m.status = 'proposed')`;
+    guard `AND NOT (m.request_id = $1 AND m.status = 'proposed')`, followed by the exact I1 version predicate
+    `AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)`;
   - nothing in D1 issues an `UPDATE requests.help_requests`.
 - [ ] **Skip:** the lock re-check returns zero rows → `ROLLBACK`, no `UPDATE`, `release()`, and the next candidate still
   runs.
 - [ ] **Isolation:** the first ask's offer `UPDATE` throws → `ROLLBACK` and an `error` log naming the id; the second
   ask still commits.
 - [ ] **D2:** after D1's loop, exactly one autocommit `UPDATE requests.help_offers` through `query` (not a client), with
-  `o.status = 'matched'` and `NOT EXISTS ... IN ('proposed', 'matched', 'completed')`. It runs even when D1 had no
-  candidates.
+  `o.status = 'matched'` and `NOT EXISTS ... IN ('proposed', 'matched', 'completed')`, followed by that same distinct
+  scalar CTID predicate (I1), with no `FOR UPDATE`. It runs even when D1 had no candidates.
 - [ ] **Counts:** `releaseExpiredHolds()` returns `{ asksReleased, proposalsClosed, strandedOffersFreed }`.
   `proposalsClosed` sums the committed transactions' row counts only; a skipped or failed transaction adds nothing.
   `strandedOffersFreed` is D2's `rowCount`. Assert exact values.
@@ -515,9 +520,10 @@ import pool, { query } from '../database/db';
  *     BUG-089 let one offer back several), then reject the proposals. Text for text request-service's closeProposals
  *     (src/db/requestStatus.ts); keep the two in step. Writes no help_requests row, so the hard-delete clock and the
  *     derived status are unchanged (proposals don't count in the derivation).
- * D2. One statement frees every offer still 'matched' that no proposed, matched or completed match references (a past
- *     hard delete cascaded its proposal away). One statement is exact: only POST /matches's hold sets 'matched', and
- *     only from 'active', so no hold appears on a 'matched' offer while this runs (spec B5).
+ * D2. One statement frees offers still 'matched' that no proposed, matched or completed match references (a past
+ *     hard delete cascaded the proposal away). Both frees compare the target CTID to a distinct scalar snapshot scan:
+ *     an intervening release/re-hold or metadata version change defers release (spec B5, I1). CTID is statement-local,
+ *     never persisted identity. B4's gated active-to-matched hold invariant alone does not exclude the re-hold cycle.
  * Lock order: D1 request → offers → matches, as accept's closeProposals; D2 only the offer rows it updates.
  */
 export async function releaseExpiredHolds(): Promise<{ asksReleased: number; proposalsClosed: number; strandedOffersFreed: number }> {
@@ -535,15 +541,16 @@ export async function releaseExpiredHolds(): Promise<{ asksReleased: number; pro
       const locked = await client.query(
         `SELECT id FROM requests.help_requests WHERE id = $1 AND expired = TRUE AND status = 'open' FOR UPDATE`, [id]);
       if (locked.rowCount === 0) { await client.query('ROLLBACK'); continue; }
-      // Spec B5's guarded closeProposals statement, text for text.
+      // Keep this SQL text for text with request-service/src/db/requestStatus.ts's closeProposals offer release.
       await client.query(
         `UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP
-          WHERE o.status = 'matched'
-            AND o.id IN (SELECT offer_id FROM requests.matches
-                          WHERE request_id = $1 AND status = 'proposed' AND offer_id IS NOT NULL)
-            AND NOT EXISTS (SELECT 1 FROM requests.matches m
-                             WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed')
-                               AND NOT (m.request_id = $1 AND m.status = 'proposed'))`, [id]);
+     WHERE o.status = 'matched'
+       AND o.id IN (SELECT offer_id FROM requests.matches
+                     WHERE request_id = $1 AND status = 'proposed' AND offer_id IS NOT NULL)
+       AND NOT EXISTS (SELECT 1 FROM requests.matches m
+                        WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed')
+                          AND NOT (m.request_id = $1 AND m.status = 'proposed'))
+       AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)`, [id]);
       const closed = await client.query(
         `UPDATE requests.matches SET status = 'rejected', updated_at = CURRENT_TIMESTAMP
           WHERE request_id = $1 AND status = 'proposed'`, [id]);
@@ -562,7 +569,8 @@ export async function releaseExpiredHolds(): Promise<{ asksReleased: number; pro
     `UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP
       WHERE o.status = 'matched'
         AND NOT EXISTS (SELECT 1 FROM requests.matches m
-                         WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed'))`
+                         WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed'))
+        AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)`
   );
   strandedOffersFreed = stranded.rowCount ?? 0;
 
@@ -606,9 +614,17 @@ export async function releaseExpiredHolds(): Promise<{ asksReleased: number; pro
   - **D1 release and `updated_at`:** for an ask flagged before the run, read `updated_at` before and after. It must be
     equal.
   - Use fresh `randomUUID()` ids. Cast fixture statuses `$n::varchar`.
-  - **No D2 race case.** The earlier draft's race simulated a runtime writer that re-holds a `matched` offer, and none
-    exists in `services/*/src` (spec B5; B4 gates it). Its premise is covered by B's cases, where a non-`active` offer
-    cannot be held.
+  - **I1 D2 snapshot-barrier cases (CI-only):** exercise the shipped D2 statement, never a copied lookalike. A
+    fixture-only `BEFORE UPDATE STATEMENT` trigger gated to the waiter session pauses after snapshot acquisition,
+    before row updates, on an advisory lock held by the coordinator. Prove the wait with `pg_blocking_pids`; no
+    sleeps or production test hooks. Other sessions bypass only the fixture barrier. Always remove the fixture
+    trigger/function and release locks in `finally`.
+    - Commit an unrelated metadata row-version change to a stranded matched offer while D2 is paused. Resume:
+      version equality skips it; the next fresh sweep frees it.
+    - Pause delayed D2 on a stranded unexpired offer. Run a first D2 that frees it, then real `POST /matches` that
+      re-holds it from active and commits a new proposal. Resume delayed D2: it skips the changed version and leaves
+      the new hold and proposal intact. This uses only permitted runtime writers and catches the original I1 defect.
+    - These cases verify the source-reviewed PostgreSQL 15 mechanism; no local DB run is claimed on this host.
 - [ ] `npx tsc --noEmit -p tests` (or the workspace's type check) compiles the file. It runs in CI's Integration Tests
   job.
 - [ ] Commit: `test(integration): Sprint 137 exchange-integrity proofs`.

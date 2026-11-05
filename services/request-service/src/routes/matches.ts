@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { query, withTransaction } from '../database/db';
-import { closeProposals, lockRequest, lockRequestForCommitment, reconcileRequestStatus } from '../db/requestStatus';
+import { closeProposals, lockRequest, lockRequestForCommitment, reconcileRequestStatus, releaseOffer } from '../db/requestStatus';
 import { getRequestReachability } from '../db/eligibility';
 import { findOwnOffer } from '../db/helpOffersDb';
 import { matchParticipantSql } from '../db/directedAudience';
@@ -223,13 +223,14 @@ router.post('/', async (req: Request, res: Response) => {
         });
       }
 
-      if (offerCheck.rows[0].status !== 'active') {
+      if (offerCheck.rows[0].status !== 'active' || offerCheck.rows[0].expired === true) {
         return res.status(400).json(OFFER_NOT_ACTIVE);
       }
     }
 
     // BUG-084: the proposal is written under the request lock, so an ask that closed (or expired, BUG-085) since the
-    // reads above is refused, the duplicate check is exact, and the offer is held only while it is still active. Every
+    // reads above is refused, the duplicate check is exact, and the offer is held only while still active and unexpired
+    // (BUG-089). The sweep flags only active offers, so the clock arm covers an offer that passes expiry while held. Every
     // refusal comes before the first write: the guarded offer UPDATE is that write, and its miss returns before anything
     // is written. A proposed match does not change the derived status, so nothing is reconciled.
     const outcome = await withTransaction(async (q) => {
@@ -238,7 +239,9 @@ router.post('/', async (req: Request, res: Response) => {
       if (dupe.rowCount > 0) return { conflict: 'already_offered' as const };
       if (offer_id) {
         const held = await q(
-          `UPDATE requests.help_offers SET status = 'matched' WHERE id = $1 AND offerer_id = $2 AND status = 'active'`,
+          `UPDATE requests.help_offers SET status = 'matched'
+           WHERE id = $1 AND offerer_id = $2 AND status = 'active'
+             AND expired IS NOT TRUE AND (expires_at IS NULL OR expires_at > clock_timestamp())`,
           [offer_id, responder_id]
         );
         if (held.rowCount === 0) return { conflict: 'offer_not_active' as const };
@@ -486,13 +489,9 @@ router.put('/:id/reject', async (req: AuthenticatedRequest, res: Response) => {
         return false;
       }
 
-      // Free the linked offer back to the active pool so the helper re-enters matching (BUG-008), but only while
-      // this proposal still holds it: an offer the helper withdrew stays withdrawn (BUG-078).
+      // Free the linked offer only when no other match holds it (BUG-089); a withdrawn offer stays withdrawn (BUG-078).
       if (match.offer_id) {
-        await q(
-          `UPDATE requests.help_offers SET status = 'active' WHERE id = $1 AND status = 'matched'`,
-          [match.offer_id]
-        );
+        await releaseOffer(q, match.offer_id);
       }
 
       // BUG-075: derive the request instead of reopening it. A completed, cancelled or dibs_pending request stays so.
@@ -740,12 +739,9 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
       // request row (inside reconcile), the same order as complete.
       await reconcileRequestStatus(q, match.request_id);
 
-      // Free the offer only while this exchange still holds it; a withdrawn offer stays withdrawn.
+      // Free the offer only when no other match holds it (BUG-089); a withdrawn offer stays withdrawn.
       if (match.offer_id) {
-        await q(
-          `UPDATE requests.help_offers SET status = 'active' WHERE id = $1 AND status = 'matched'`,
-          [match.offer_id]
-        );
+        await releaseOffer(q, match.offer_id);
       }
       return true;
     });

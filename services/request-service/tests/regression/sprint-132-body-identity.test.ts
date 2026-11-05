@@ -79,7 +79,7 @@ describe('BUG-061: DELETE /requests/:id cancels only as the JWT requester', () =
     expect(sqls).toHaveLength(4);
     expect(sqls[0]).toContain("UPDATE requests.help_requests r SET status = 'cancelled'");
     expect(writes()[0][1]).toEqual([ID, OWNER]);
-    expect(sqls[1]).toContain("UPDATE requests.help_offers SET status = 'active'");
+    expect(sqls[1]).toContain("UPDATE requests.help_offers o SET status = 'active'");
     expect(sqls[2]).toContain("UPDATE requests.matches SET status = 'rejected'");
     expect(sqls[3]).toContain("UPDATE requests.dibs SET status = 'expired'");
   });

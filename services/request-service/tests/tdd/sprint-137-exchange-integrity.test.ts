@@ -72,7 +72,8 @@ const OFFER_NOT_ACTIVE = { success: false, message: 'Offer is not active', error
 // Independent literal from spec B5; no import of the not-yet-implemented helper or expected SQL from production.
 const RELEASE = "UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP " +
   "WHERE o.id = $1 AND o.status = 'matched' AND NOT EXISTS (SELECT 1 FROM requests.matches m " +
-  "WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed'))";
+  "WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed')) " +
+  "AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)";
 const INLINE_RELEASE = "UPDATE requests.help_offers SET status = 'active' WHERE id = $1 AND status = 'matched'";
 
 async function app() {
@@ -278,6 +279,9 @@ describe('B5: every release preserves another match\'s hold', () => {
     expect(statements()[freeIndex].params).toEqual(['req-1']);
     expect(statements()[freeIndex].sql).toContain("m.status IN ('proposed', 'matched', 'completed')");
     expect(statements()[freeIndex].sql).toContain("AND NOT (m.request_id = $1 AND m.status = 'proposed')");
+    // A new hold after a matched -> active -> matched cycle must not pass a stale release snapshot (I1).
+    expect(statements()[freeIndex].sql).toContain(
+      'AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)');
   });
 });
 

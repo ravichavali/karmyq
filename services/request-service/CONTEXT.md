@@ -7,6 +7,15 @@
 
 ## Recent Changes
 
+- **2026-11-04 (Sprint 137, BUG-089)**: `PUT /offers/:id` refuses a body status with `400 STATUS_NOT_EDITABLE`
+  after its ownership 404. Offer status follows exchanges; `POST /matches` refuses flagged-expired offers and holds
+  only active offers with `expired IS NOT TRUE` and no passed `expires_at`, checked with `clock_timestamp()` in the
+  guarded write. Reject and cancel call `releaseOffer` after updating their own match; it and `closeProposals` free
+  only matched offers with no remaining proposed, matched or completed hold (excluding proposals being closed).
+  Shared offers stay held and withdrawn offers stay withdrawn. Each release also compares the target CTID with a
+  distinct scalar self-scan under the statement snapshot: a concurrent version change, including a release/re-hold
+  cycle, defers freeing to a later sweep. CTID is statement-local, never persisted identity (spec B5, I1). No migration,
+  event or dependency change.
 - **2026-11-04 (Sprint 137, BUG-091)**: `PUT /requests/:id` keeps its ownership 404 and body-status 400 checks first,
   then locks the request and reads its derived status in one transaction. A completed or cancelled ask returns
   `409 REQUEST_CLOSED` before any write; a missing request under the lock returns 404. The edit also requires

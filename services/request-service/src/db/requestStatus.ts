@@ -120,17 +120,41 @@ export async function markRequestCancelled(q: TxQuery, requestId: string, reques
 }
 
 /**
+ * Free a matched offer only when no proposed, matched or completed match still holds it (BUG-089). The caller must
+ * update its own match row first. Among runtime writers in services/<service>/src, only POST /matches sets matched
+ * (from active) and inserts an offer-backed match; B4 gates both. Overlapping releases can still permit a matched ->
+ * active -> matched cycle. Compare the target's statement-local CTID to a distinct scalar snapshot self-scan, so EPQ
+ * cannot free a newer version whose hold the old snapshot misses. Even metadata changes defer release to a later D2.
+ * CTID is never persisted or used as logical identity; see spec B5's PostgreSQL 15 source reasoning and CI cases.
+ */
+export async function releaseOffer(q: TxQuery, offerId: string): Promise<void> {
+  await q(
+    `UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP
+     WHERE o.id = $1 AND o.status = 'matched'
+       AND NOT EXISTS (SELECT 1 FROM requests.matches m
+                        WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed'))
+       AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)`,
+    [offerId]
+  );
+}
+
+/**
  * Reject every proposal still open on the request, and free each one's offer only while the proposal holds it: a
- * withdrawn offer stays withdrawn (BUG-008, BUG-078). Offers first, so the subquery still sees the proposals.
+ * withdrawn offer stays withdrawn (BUG-008, BUG-078), and a shared offer stays matched while another match holds it
+ * (BUG-089). Offers first, so the subquery still sees the proposals. The statement-local version check defers a
+ * concurrently changed offer, including a re-held one, to a later sweep (spec B5, I1).
  */
 export async function closeProposals(q: TxQuery, requestId: string): Promise<void> {
   await q(
-    `UPDATE requests.help_offers
-     SET status = 'active', updated_at = CURRENT_TIMESTAMP
-     WHERE status = 'matched' AND id IN (
-       SELECT offer_id FROM requests.matches
-       WHERE request_id = $1 AND status = 'proposed' AND offer_id IS NOT NULL
-     )`,
+    // Keep this SQL text for text with cleanup-service/src/jobs/expirationJob.ts's expired-proposal offer release.
+    `UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP
+     WHERE o.status = 'matched'
+       AND o.id IN (SELECT offer_id FROM requests.matches
+                     WHERE request_id = $1 AND status = 'proposed' AND offer_id IS NOT NULL)
+       AND NOT EXISTS (SELECT 1 FROM requests.matches m
+                        WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed')
+                          AND NOT (m.request_id = $1 AND m.status = 'proposed'))
+       AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)`,
     [requestId]
   );
   await q(

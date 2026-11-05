@@ -174,7 +174,8 @@ blindly. One negative fixture puts two byte-identical release statements in one 
 proves that an extra identical writer cannot hide behind a reviewed one.
 
 **B5. One release rule** (decision 10). An offer is freed only while it is `matched` **and** no `proposed`, `matched` or
-`completed` match still references it, apart from the proposals the same statement is closing.
+`completed` match still references it, apart from the proposals the same statement is closing, **and** its target
+row version still equals the version visible to the statement snapshot (I1).
 - **`releaseOffer(q, offerId)`**, a new helper in `src/db/requestStatus.ts`:
 
   ```sql
@@ -182,6 +183,7 @@ proves that an extra identical writer cannot hide behind a reviewed one.
    WHERE o.id = $1 AND o.status = 'matched'
      AND NOT EXISTS (SELECT 1 FROM requests.matches m
                       WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed'))
+     AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)
   ```
 
   Match reject (`matches.ts:493`) and match cancel (`matches.ts:746`) call it in place of their identical inline
@@ -198,19 +200,38 @@ proves that an extra identical writer cannot hide behind a reviewed one.
      AND NOT EXISTS (SELECT 1 FROM requests.matches m
                       WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed')
                         AND NOT (m.request_id = $1 AND m.status = 'proposed'))
+     AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)
   ```
 
-- **Why one statement is exact, with no separate offer lock.** A guarded `UPDATE` could free a live hold only if its
-  subquery's snapshot missed one: a match that started to reference a `matched` offer after the statement began.
-  The argument covers the **deployed services' runtime writers**: the SQL in `services/*/src`, which is what can run
-  concurrently with a release.
+- **Why one statement needs both guards (I1).** The runtime invariant covers SQL in `services/*/src`:
   - After B1, exactly one runtime writer sets an offer to `matched`: the hold, and only from `active`
     (`matches.ts:241`).
   - Exactly one runtime insert creates a match that carries an `offer_id`: `POST /matches` (`matches.ts:247-248`). The
     other `services/*/src` inserts carry none: `offersDb.ts:62`, `adminActions.ts:150`, `dibs.ts:355`, and the
     simulation baseline writer (`baselineWriter.ts:185`).
-  - So a `matched` offer gains no new hold while a release runs. A stale snapshot can only still see a hold that has
-    since ended, and that errs toward keeping the offer `matched`. D2 frees it on the next run.
+  - This alone is insufficient: two overlapping D2 statements can see a stranded `matched` offer; one frees it,
+    real `POST /matches` re-holds it from `active` and commits, then the delayed release reaches the newer `matched`
+    version while its match subquery misses the new hold. Cron and manual expiration can overlap
+    (`services/cleanup-service/src/index.ts:179`, `:309`).
+  - The added scalar self-scan compares the target's `ctid` to the snapshot-visible version for the same logical `id`.
+    A version change makes equality fail, including a matched → active → matched cycle. An unrelated metadata update
+    can also defer release; a later uncontended D2 frees a genuinely stranded offer. Never persist CTID, add `FOR
+    UPDATE` to this scan, or collapse `visible_offer` into the target alias.
+- **PostgreSQL 15 source reasoning; real-SQL verification remains CI-only.** The ordinary, nonpartitioned offer
+  table has a primary key on `id` (`infrastructure/postgres/init.sql:2363`, `:3767`). PostgreSQL's
+  [Read Committed rules](https://www.postgresql.org/docs/15/transaction-iso.html#XACT-READ-COMMITTED) allow an updater
+  to recheck a newer target while other reads keep the statement snapshot. In the executor,
+  [EPQ shares that snapshot](https://github.com/postgres/postgres/blob/REL_15_STABLE/src/backend/executor/execMain.c#L2730)
+  and [substitutes by scan identity](https://github.com/postgres/postgres/blob/REL_15_STABLE/src/backend/executor/execScan.c#L72),
+  so the distinct `visible_offer` scan retains snapshot visibility. The
+  [scalar subplan](https://github.com/postgres/postgres/blob/REL_15_STABLE/src/backend/optimizer/plan/subselect.c#L372)
+  is [rescanned with its correlation parameters](https://github.com/postgres/postgres/blob/REL_15_STABLE/src/backend/executor/nodeSubplan.c#L215);
+  [join pull-up handles ANY/EXISTS](https://github.com/postgres/postgres/blob/REL_15_STABLE/src/backend/optimizer/prep/prepjointree.c#L460),
+  not this scalar equality. CTID identifies a
+  [row version that changes on update](https://www.postgresql.org/docs/15/ddl-system-columns.html), not logical identity.
+  Thus the source-derived argument rejects a newer target version even when status returns to `matched`. Do not
+  generalize unchanged to inherited/partitioned tables. The planned snapshot-barrier cases below must verify this
+  reasoning against the shipped SQL in CI; no local database execution is claimed.
 - **Writers outside the argument.** Some SQL does insert offer-backed matches directly: the archived seeder
   (`scripts/archive/seeding/generate-realistic-data.ts:904`, `:923`) and integration fixtures (for example
   `tests/integration/sprint-136-request-followups.integration.test.ts:81` and
@@ -226,8 +247,8 @@ proves that an extra identical writer cannot hide behind a reviewed one.
 
   Each assertion has a negative fixture: a second `matched` setter fails it, and so does a second offer-backed insert.
   So a writer that breaks the argument fails the build instead of passing review unnoticed.
-- **Codex suggested a separate offer lock.** It would protect only against a runtime writer that does not exist, and
-  B4 fails the build if one is added.
+- **No separate offer lock.** The controller's I1 correction keeps decisions 4–10: every free uses the match guard
+  plus statement-local version equality, with no extra lock, schema, endpoint, event or dependency.
 
 ## C. BUG-090: a provider offer is written under the request lock
 
@@ -277,6 +298,7 @@ UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMEST
    AND NOT EXISTS (SELECT 1 FROM requests.matches m
                     WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed')
                       AND NOT (m.request_id = $1 AND m.status = 'proposed'))
+   AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)
 UPDATE requests.matches SET status = 'rejected', updated_at = CURRENT_TIMESTAMP
  WHERE request_id = $1 AND status = 'proposed'
 -- COMMIT
@@ -299,12 +321,13 @@ UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMEST
  WHERE o.status = 'matched'
    AND NOT EXISTS (SELECT 1 FROM requests.matches m
                     WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed'))
+   AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)
 ```
 
-- **One statement is exact** for the reason in B5: no runtime writer adds a hold to a `matched` offer, so its snapshot can only
-  err toward keeping one. An earlier draft of this spec ran a per-offer transaction with a separate lock, "in case a
-  `POST /matches` was holding the row". That case cannot occur: the hold only matches an `active` row, so it never
-  locks a `matched` candidate.
+- **One guarded statement, with version equality (B5, I1).** A delayed sweep must skip an offer changed after its
+  snapshot, including one another sweep freed and real `POST /matches` re-held. The distinct scalar self-scan adds no
+  row lock. Metadata contention can conservatively leave a stranded offer for the next sweep. Keep the version
+  predicate after `NOT EXISTS` so B4's reviewed D2 identity stays stable.
 - **`completed` counts as a hold.** Completion never frees the offer. The only offer writers are the hold
   (`matches.ts:241`), `releaseOffer` (reject, cancel) and `closeProposals`, so an offer that backed a completed
   exchange stays `matched` today. This sprint keeps that behaviour (see *Out of scope*).
@@ -370,6 +393,15 @@ The integration cases:
   - A stranded `matched` offer with no match row is freed.
   - A `matched` offer whose only matches are `rejected` or `cancelled` is freed.
   - An offer backing a `completed` match stays `matched`, and so does one backing a `proposed` or `matched` match.
+  - **I1 snapshot barriers (CI-only).** Pause the actual shipped D2 statement after snapshot acquisition and before
+    row updates with a fixture-only `BEFORE UPDATE STATEMENT` trigger gated to the waiter session. The coordinator
+    holds an advisory lock requested by that trigger; prove the wait with `pg_blocking_pids`, never sleeps. Leave
+    production code untouched, and clean up the trigger/function and locks in `finally`.
+    - While D2 is paused, commit a metadata change to its otherwise stranded offer. Resume: the changed version is
+      skipped. A fresh sweep then frees it.
+    - While the delayed D2 is paused, let a first D2 free the stranded unexpired offer. Use real `POST /matches` to
+      re-hold it from active and commit its proposal. Resume the delayed D2: it skips the newer version, preserving
+      the offer as matched and the new proposal. Both non-waiter updates bypass only the session-gated fixture barrier.
 - **B.**
   - `PUT /offers/:id` with `status` → 400, and the row is unchanged.
   - `POST /matches` with a flagged offer → 400, writing nothing.
@@ -438,8 +470,8 @@ counts appear in the cleanup-service log.
 1. **Lock, then check, in separate statements** for the request lock (A, C, D1). A statement that waited on a row lock
    keeps its subqueries' snapshot from before the wait (`requestStatus.ts:38-44`). Take the lock in its own statement,
    and decide in the next one. **Offer releases are single guarded statements** (`releaseOffer`, `closeProposals`, D1's
-   offer `UPDATE`, D2). B5 explains why that is exact: no runtime writer in `services/*/src` adds a hold to a
-   `matched` offer, and B4 gates that.
+   offer `UPDATE`, D2). Each needs B5's `NOT EXISTS` **and** distinct scalar snapshot CTID check. The gated runtime
+   hold invariant alone misses a matched → active → matched cycle (I1); a concurrent version change defers release.
 2. **Lock order.**
    - D1 is request → offers → matches, the same as accept's `closeProposals`.
    - D2 takes only the offer rows it updates.
@@ -466,9 +498,10 @@ counts appear in the cleanup-service log.
    D2's statements do not name `help_requests` and need no entry.
 6. **D writes no `help_requests` row.** No `updated_at` stamp, so the hard-delete clock (gotcha) and the request-status
    gate are untouched.
-7. **The copied `closeProposals` SQL** (D1) is text for text the guarded statement in B5. It keeps three properties:
+7. **The copied `closeProposals` SQL** (D1) is text for text the guarded statement in B5. It keeps four properties:
    - an offer is freed only while `matched`, so a withdrawn offer stays withdrawn;
    - no other match must still hold it (decision 10);
+   - the target version equals its distinct scalar snapshot self-scan (I1); never persist CTID or add `FOR UPDATE`;
    - offers are updated first, so the subquery still sees the proposals.
 
    A comment in each copy names the other. The integration tests' withdrawn-offer and shared-offer cases prove the

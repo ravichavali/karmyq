@@ -615,7 +615,7 @@ export const requestService = {
   updateOffer: (id: string, data: {
     title?: string;
     description?: string;
-    status?: string;
+    // No status: an offer's status follows its exchanges (BUG-089).
     user_id: string;
   }) =>
     requestApi.put(`/offers/${id}`, data),
