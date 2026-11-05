@@ -2029,15 +2029,11 @@ router.put('/:id', async (req: Request<RouteParams>, res: Response) => {
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
     values.push(id, user_id);
 
-    const REQUEST_CLOSED = {
-      success: false, message: "A completed or cancelled request can't be edited", error: 'REQUEST_CLOSED',
-    } as const;
-
     // BUG-091: a closed ask is not edited, so nothing is written over a forgotten ask's sentinel (memoryRetentionJob.ts).
     const outcome = await withTransaction(async (q) => {
-      const status = await lockRequest(q, id);
-      if (status === null) return { missing: true as const };
-      if (status === 'completed' || status === 'cancelled') return { closed: true as const };
+      const current = await lockRequest(q, id);
+      if (current === null) return { missing: true as const };
+      if (current === 'completed' || current === 'cancelled') return { closed: true as const };
       const result = await q(
         `UPDATE requests.help_requests
          SET ${updates.join(', ')}
@@ -2051,7 +2047,11 @@ router.put('/:id', async (req: Request<RouteParams>, res: Response) => {
     if ('missing' in outcome) {
       return res.status(404).json({ success: false, message: 'Request not found' });
     }
-    if ('closed' in outcome) return res.status(409).json(REQUEST_CLOSED);
+    if ('closed' in outcome) {
+      return res.status(409).json({
+        success: false, message: "A completed or cancelled request can't be edited", error: 'REQUEST_CLOSED',
+      });
+    }
 
     res.json({
       success: true,

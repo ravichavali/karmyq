@@ -320,6 +320,15 @@ with Task 8.
   `ignore-scripts`); eight regenerated pages committed, pure churn reverted. Onboarding workflows needed no change;
   registry unchanged. Root `tests` workspace passed. Independent review checked every behavioural claim against the
   code and approved; two minors deferred.
+- Task 12 `/simplify` (one pass, branch diff): four reviewers (reuse, simplification, efficiency, altitude). Applied
+  five behaviour-preserving cleanups — `PUT /requests/:id` no longer shadows the body `status`; the provider-offer
+  transaction returns the offer or `null`; a D2 comment names `releaseOffer`; one `expectInOrder` helper in the
+  exchange contract; the release contract's two skip cases merged with `it.each` (assertions equal or stronger). No
+  SQL text or HTTP answer changed, so no CONTEXT.md or registry update applies (`feedback:check`'s route TODOs fire
+  on any `/routes/` diff); per-file test counts identical before and after; scoped re-review clean. Skipped
+  with reasons (ledger): the matches index (migration), shared integration helpers (Sprint 134–136 files can't run
+  here), the gate-parser merge (the parsers differ), the `holdOffer` consolidation (see *Open*), and comment trims
+  that carry plan-mandated cross-references.
 
 ## Dated obligations
 
@@ -328,6 +337,17 @@ with Task 8.
 
 ## Open, not scheduled
 
+- **From Sprint 137's `/simplify` (deferred, not bugs):**
+  - `requests.matches` has no `offer_id` index (`infrastructure/postgres/init.sql:4975-4993`), so every guarded offer
+    release's `NOT EXISTS (… m.offer_id = o.id …)` and the hourly D2 sweep scan `matches`. Fine at demo scale; a
+    partial index `ON requests.matches(offer_id) WHERE offer_id IS NOT NULL` needs a migration, which this sprint
+    ruled out.
+  - Offer-state altitude: the hold UPDATE sits inline in `matches.ts` `POST /matches` while releases live in
+    `requestStatus.ts`. A `holdOffer` beside `releaseOffer` would put every offer-status write in one file and could
+    collapse the offer-status gate to "no `help_offers` status write outside `requestStatus.ts`". It reworks reviewed
+    concurrency code, so it was not done late in the sprint.
+  - The two status gates' SET-clause parsers differ (Sprint 137's bounds each `UPDATE` at the next one and splits on
+    `;`; Sprint 135's does not), so they were not merged into one helper.
 - **#329 Expo SDK drift (opened 2026-11-05, maintainer's call).** The live version map moved one patch on eight
   `apps/mobile` packages (`expo` ~57.0.32, `expo-notifications` ~57.0.25, …), and the `jest`/`@types/jest`
   registrations cleared. It gates no PR (schedule-only workflow). Dependency work needs a maintainer-recognised reason

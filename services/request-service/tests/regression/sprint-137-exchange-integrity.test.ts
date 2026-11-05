@@ -54,6 +54,11 @@ const override = (re: RegExp, r: Replier) => { replies.unshift([re, r]); };
 const statements = () => mockQuery.mock.calls.map(([sql, params]) => ({ sql: flat(sql), params }));
 const sqls = () => statements().map((s) => s.sql);
 const at = (pattern: RegExp | string) => sqls().findIndex((sql) => typeof pattern === 'string' ? sql === pattern : pattern.test(sql));
+/** Every index was found and they are strictly increasing. */
+const expectInOrder = (...indices: number[]) => {
+  expect(indices.every((i) => i >= 0)).toBe(true);
+  indices.slice(1).forEach((index, n) => expect(indices[n]).toBeLessThan(index));
+};
 const clientOf = (i: number) => mockTrace.filter((t) => t === 'pool' || t === 'tx')[i];
 const writes = () => sqls().filter((sql) => /^(UPDATE|INSERT|DELETE)\b/i.test(sql));
 const LOCK = 'SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE';
@@ -137,9 +142,7 @@ describe('A: PUT /requests/:id protects closed and forgotten content', () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual({ id: 'req-1', title: 'Updated title' });
     const order = [at(LOCK), at(DERIVE), at(EDIT_REQUEST)];
-    expect(order.every((i) => i >= 0)).toBe(true);
-    expect(order[0]).toBeLessThan(order[1]);
-    expect(order[1]).toBeLessThan(order[2]);
+    expectInOrder(...order);
     expect(order.map(clientOf)).toEqual(['tx', 'tx', 'tx']);
     expect(statements()[order[2]].sql).toContain('content_forgotten_at IS NULL');
     expect(statements()[order[2]].params).toEqual(['Updated title', 'req-1', 'requester']);
@@ -229,8 +232,7 @@ describe('B2: POST /matches refuses expired standing offers', () => {
     expect(hold.sql).toContain('(expires_at IS NULL OR expires_at > clock_timestamp())');
     expect(hold.params).toEqual(['offer-1', 'helper']);
     expect(clientOf(at(HOLD))).toBe('tx');
-    expect(at(HOLD)).toBeGreaterThan(at(DERIVE));
-    expect(at(INSERT)).toBeGreaterThan(at(HOLD));
+    expectInOrder(at(DERIVE), at(HOLD), at(INSERT));
   });
 
   it('inserts no match when the guarded hold misses', async () => {
@@ -305,10 +307,7 @@ describe('C: POST /providers/offers makes its decision under the request lock', 
     expect(res.status).toBe(201);
     expect(res.body.data).toEqual(PROVIDER_OFFER);
     const order = [at(LOCK), at(DERIVE), at(DUPLICATE), at(INSERT)];
-    expect(order.every((i) => i >= 0)).toBe(true);
-    expect(order[0]).toBeLessThan(order[1]);
-    expect(order[1]).toBeLessThan(order[2]);
-    expect(order[2]).toBeLessThan(order[3]);
+    expectInOrder(...order);
     expect(order.map(clientOf)).toEqual(['tx', 'tx', 'tx', 'tx']);
     expect(statements()[at(LOCK)].params).toEqual(['req-1']);
     expect(statements()[at(DUPLICATE)].params).toEqual(['provider', 'req-1']);

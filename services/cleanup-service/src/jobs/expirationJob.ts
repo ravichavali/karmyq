@@ -124,6 +124,7 @@ export async function releaseExpiredHolds(): Promise<{ asksReleased: number; pro
     }
   }
 
+  // Keep this predicate in step with request-service/src/db/requestStatus.ts's releaseOffer (D2 mirrors it).
   const stranded = await query(
     `UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP
       WHERE o.status = 'matched'

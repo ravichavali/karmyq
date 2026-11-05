@@ -237,34 +237,28 @@ describe('releaseExpiredHolds - D1 per-ask transaction', () => {
     expect(requestUpdates.length).toBe(0);
   });
 
-  it('skips an ask whose lock re-check returns no row: ROLLBACK, no UPDATE, release(), next ask still runs', async () => {
-    candidates = ['ask-1', 'ask-2'];
-    lockEmpty = new Set(['ask-1']);
-    rejectedByAsk = { 'ask-1': 4, 'ask-2': 6 };
-    d2Count = 2;
+  it.each([
+    { skipped: 'ask-1', kept: 'ask-2', rejected: { 'ask-1': 4, 'ask-2': 6 }, d2: 2,
+      expected: { asksReleased: 1, proposalsClosed: 6, strandedOffersFreed: 2 } },
+    { skipped: 'ask-2', kept: 'ask-1', rejected: { 'ask-1': 4, 'ask-2': 6 }, d2: 0,
+      expected: { asksReleased: 1, proposalsClosed: 4, strandedOffersFreed: 0 } },
+  ])('skips $skipped when its lock re-check returns no row: ROLLBACK, no UPDATE, release(), the other ask still runs',
+    async ({ skipped, kept, rejected, d2, expected }) => {
+      candidates = ['ask-1', 'ask-2'];
+      lockEmpty = new Set([skipped]);
+      rejectedByAsk = rejected;
+      d2Count = d2;
 
-    const result = await run();
+      const result = await run();
 
-    expect(sequenceFor('ask-1')).toEqual(['BEGIN', 'LOCK', 'ROLLBACK', 'RELEASE']);
-    expect(sequenceFor('ask-2')).toEqual(FULL);
-    const updatesOnSkipped = clientEvents(clientFor('ask-1')).filter(
-      (e) => e.kind === 'sql' && /^UPDATE/i.test(e.sql)
-    );
-    expect(updatesOnSkipped.length).toBe(0);
-    expect(result).toEqual({ asksReleased: 1, proposalsClosed: 6, strandedOffersFreed: 2 });
-  });
-
-  it('skips the SECOND ask just as well (order does not matter)', async () => {
-    candidates = ['ask-1', 'ask-2'];
-    lockEmpty = new Set(['ask-2']);
-    rejectedByAsk = { 'ask-1': 4, 'ask-2': 6 };
-
-    const result = await run();
-
-    expect(sequenceFor('ask-1')).toEqual(FULL);
-    expect(sequenceFor('ask-2')).toEqual(['BEGIN', 'LOCK', 'ROLLBACK', 'RELEASE']);
-    expect(result).toEqual({ asksReleased: 1, proposalsClosed: 4, strandedOffersFreed: 0 });
-  });
+      expect(sequenceFor(skipped)).toEqual(['BEGIN', 'LOCK', 'ROLLBACK', 'RELEASE']);
+      expect(sequenceFor(kept)).toEqual(FULL);
+      const updatesOnSkipped = clientEvents(clientFor(skipped)).filter(
+        (e) => e.kind === 'sql' && /^UPDATE/i.test(e.sql)
+      );
+      expect(updatesOnSkipped.length).toBe(0);
+      expect(result).toEqual(expected);
+    });
 
   it('isolates a failure: the first ask offer UPDATE throws -> ROLLBACK + error log naming it; second still commits', async () => {
     candidates = ['ask-1', 'ask-2'];
@@ -293,9 +287,7 @@ describe('releaseExpiredHolds - D1 per-ask transaction', () => {
     expect(sequenceFor('ask-1')).toEqual(['BEGIN', 'LOCK', 'FREE', 'REJECT', 'COMMIT', 'ROLLBACK', 'RELEASE']);
     expect(sequenceFor('ask-2')).toEqual(FULL);
     expect(errorLogText()).toContain('ask-1');
-    expect(result.proposalsClosed).toBe(3);
-    expect(result.asksReleased).toBe(1);
-    expect(result.strandedOffersFreed).toBe(1);
+    expect(result).toEqual({ asksReleased: 1, proposalsClosed: 3, strandedOffersFreed: 1 });
   });
 });
 
@@ -371,8 +363,6 @@ describe('releaseExpiredHolds - D2 stranded matched offers', () => {
 
     const result = await run();
 
-    expect(result.strandedOffersFreed).toBe(11);
-    expect(result.proposalsClosed).toBe(2);
-    expect(result.asksReleased).toBe(1);
+    expect(result).toEqual({ asksReleased: 1, proposalsClosed: 2, strandedOffersFreed: 11 });
   });
 });
