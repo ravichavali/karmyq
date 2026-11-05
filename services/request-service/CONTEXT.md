@@ -1673,17 +1673,20 @@ Create new help offer. The offerer is the JWT caller; a body `offerer_id` is ign
 **Implementation:** `src/routes/offers.ts:99`
 
 #### PUT /offers/:id
-Edit an offer's `title` and `description` (offerer only; the offerer is the JWT caller). A foreign or missing id
-answers `404 Offer not found` first. A body `status` is then refused with **400** `STATUS_NOT_EDITABLE` ("An offer's
-status changes through its exchanges, not an edit", Sprint 137, BUG-089): offer status moves only through
+Edit an offer's `title` and `description` (offerer only; a body `status` is refused with `400 STATUS_NOT_EDITABLE`, Sprint 137, BUG-089).
+
+The offerer is the JWT caller. A foreign or missing id answers `404 Offer not found` first. A body `status` is then
+refused with **400** `STATUS_NOT_EDITABLE` ("An offer's status changes through its exchanges, not an edit"): offer
+status moves only through
 `DELETE /offers/:id` (withdraw) and the exchange paths in `src/routes/matches.ts` / `src/db/requestStatus.ts`. Nothing is
 written on a refusal.
 
 **Implementation:** `src/routes/offers.ts` `router.put('/:id')`
 
 #### DELETE /offers/:id
-Withdraw an offer (offerer only; foreign or missing id → `404 Offer not found`). Sets `status = 'withdrawn'` and
-publishes `offer_withdrawn`. A withdrawn offer is never brought back by a later release.
+Withdraw an offer (offerer only; foreign or missing id → `404 Offer not found`), setting `status = 'withdrawn'` and publishing `offer_withdrawn`.
+
+A withdrawn offer is never brought back by a later release.
 
 **Implementation:** `src/routes/offers.ts` `router.delete('/:id')`
 
@@ -1956,7 +1959,8 @@ Submit a provider offer on an open help request.
 
 **Request lock (Sprint 137, BUG-090):** after the provider-profile and reachability fast paths, the route runs one
 transaction: `lockRequestForCommitment` (an ask that closed or expired since the fast path → **409**
-`REQUEST_NOT_OPEN`, "This request is no longer open", with no insert), then the duplicate check (`409 DUPLICATE_OFFER`)
+`REQUEST_NOT_OPEN`, "This request is no longer open", with no insert; one deleted since the fast path → **404**
+`REQUEST_NOT_FOUND`, "Request not found", with no insert), then the duplicate check (`409 DUPLICATE_OFFER`)
 and the insert on the same transaction client. The requester lookup and `offer_submitted` run after commit.
 
 **Events Published:** `offer_submitted`

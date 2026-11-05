@@ -58,7 +58,12 @@ export async function markExpiredData(): Promise<void> {
     logger.info(`Marked ${notifications.rowCount} notifications as expired`);
     totalExpired += notifications.rowCount || 0;
 
-    await releaseExpiredHolds();
+    try {
+      await releaseExpiredHolds();
+    } catch (releaseError) {
+      logger.error('Failed to release expired holds; expiry flags already committed', { error: releaseError });
+      throw releaseError;
+    }
 
     logger.info(`Expiration job completed: ${totalExpired} items marked as expired`);
   } catch (error) {

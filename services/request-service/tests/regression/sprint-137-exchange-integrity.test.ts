@@ -328,6 +328,19 @@ describe('C: POST /providers/offers makes its decision under the request lock', 
     expect(mockTrace).not.toContain('publish');
   });
 
+  it('answers 404 REQUEST_NOT_FOUND when the request was deleted since the fast path, without inserting or publishing', async () => {
+    reply(DERIVE, rows([], 0));
+    const res = await offer();
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ success: false, message: 'Request not found', error: 'REQUEST_NOT_FOUND' });
+    expect(at(LOCK)).toBeGreaterThan(-1);
+    expect(at(DERIVE)).toBeGreaterThan(at(LOCK));
+    expect(at(DUPLICATE)).toBe(-1);
+    expect(at(INSERT)).toBe(-1);
+    expect(writes()).toEqual([]);
+    expect(mockTrace).not.toContain('publish');
+  });
+
   it('answers DUPLICATE_OFFER for the duplicate read under the lock, without inserting', async () => {
     derived('open');
     override(DUPLICATE, rows([{ id: 'existing-offer' }]));

@@ -234,6 +234,11 @@ Daily Job (2 AM)
 - Both frees also compare the target row's CTID with a scalar snapshot scan, so an offer changed concurrently
   (including a release/re-hold cycle) is left for a later run.
 - **Logs and returns:** `asksReleased`, `proposalsClosed`, `strandedOffersFreed`.
+- **Failure:** if the release step itself fails (the candidate read or D2), `markExpiredData` logs "Failed to release
+  expired holds; expiry flags already committed" and rethrows, so the job (and `POST /jobs/mark-expired`) still
+  reports failure while the operator can see the four flags landed.
+- A parity gate (`tests/regression/sprint-137-release-sql-parity.test.ts`, root) fails if D1's or D2's guard drifts
+  from request-service's `closeProposals` / `releaseOffer`.
 
 ### 2. Reputation Decay Flow — this service no longer participates
 

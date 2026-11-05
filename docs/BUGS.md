@@ -2518,3 +2518,37 @@ committed with its implementation. Fix direction (not decided): give both worksp
 others use.
 
 ---
+
+## BUG-093 · [2026-11-05] · open
+
+**One-shot standing offer.** An offer that backed a completed exchange stays `matched` forever. Every release path
+(`releaseOffer`, `closeProposals`, the cleanup sweep) counts a `completed` match as a hold, and Sprint 137's B1
+(`PUT /offers/:id` refuses a body status, the BUG-089 fix) removed the body-status reactivation that previously let the
+offerer reuse it. Recovery today: withdraw it and post a new offer.
+
+Found by Sprint 137's `/code-review`. Deferred because reopening body-status edits would reopen BUG-089, and whether an
+offer should be reusable after a completed exchange is a product question (Sprint 137 spec, *Out of scope*).
+
+---
+
+## BUG-094 · [2026-11-05] · open
+
+**A freed-after-expiry offer shows unexpired for up to an hour.** `markExpiredData` flags expired offers (only
+`status = 'active'`) before `releaseExpiredHolds` frees matched offers back to `active`, so an offer whose `expires_at`
+has passed is freed with `expired = FALSE` until the next hourly run. `POST /matches`' clock check still refuses it, so
+there is no integrity effect, but surfaces reading the `expired` column show it as live meanwhile.
+
+Found by Sprint 137's `/code-review`. Deferred as cosmetic and self-healing within the hour. Fix direction: reorder the
+flag and release steps.
+
+---
+
+## BUG-095 · [2026-11-05] · open
+
+**`requests.matches.offer_id` is unindexed** (`infrastructure/postgres/init.sql:4975-4993` lists the matches indexes).
+Every guarded offer release (`NOT EXISTS ... m.offer_id = o.id`) and the hourly D2 sweep scan `matches`.
+
+Found by Sprint 137's `/code-review`. Deferred as fine at demo scale; a partial index
+`ON requests.matches(offer_id) WHERE offer_id IS NOT NULL` needs a migration.
+
+---

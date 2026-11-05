@@ -11,6 +11,7 @@ jest.mock('../../src/utils/logger', () => ({
 }));
 
 import pool, { query } from '../../src/database/db';
+import { logger } from '../../src/utils/logger';
 const mockQuery = query as jest.MockedFunction<typeof query>;
 const mockConnect = pool.connect as unknown as jest.Mock;
 
@@ -35,8 +36,8 @@ describe('markExpiredData', () => {
     expect(sqlCalls[2]).toContain('messaging.messages');
     expect(sqlCalls[3]).toContain('notifications.notifications');
     // The release runs after all four flags: the candidate read, then the stranded-offer free.
-    expect(sqlCalls[4]).toMatch(/^s*SELECT h.id FROM requests.help_requests h/);
-    expect(sqlCalls[5]).toMatch(/^s*UPDATE requests.help_offers o SET status = 'active'/);
+    expect(sqlCalls[4]).toMatch(/^\s*SELECT h\.id FROM requests\.help_requests h/);
+    expect(sqlCalls[5]).toMatch(/^\s*UPDATE requests\.help_offers o SET status = 'active'/);
   });
 
   it('completes without throwing when rows are expired', async () => {
@@ -52,6 +53,25 @@ describe('markExpiredData', () => {
   it('handles zero expired rows without error', async () => {
     mockQuery.mockResolvedValue({ rows: [], rowCount: 0 } as any);
     await expect(markExpiredData()).resolves.not.toThrow();
+  });
+
+  it('logs a distinct error and still rejects when the release step fails after the flags committed', async () => {
+    const boom = new Error('candidate read failed');
+    mockQuery
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)
+      .mockRejectedValueOnce(boom);
+    await expect(markExpiredData()).rejects.toBe(boom);
+    // The four flag UPDATEs ran first, then the failing candidate read; nothing after it.
+    const sqlCalls = mockQuery.mock.calls.map((c) => c[0] as string);
+    expect(sqlCalls).toHaveLength(5);
+    expect(sqlCalls[0]).toContain('requests.help_requests');
+    expect(sqlCalls[3]).toContain('notifications.notifications');
+    expect(sqlCalls[4]).toMatch(/^\s*SELECT h\.id FROM requests\.help_requests h/);
+    expect(logger.error).toHaveBeenCalledWith(
+      'Failed to release expired holds; expiry flags already committed', { error: boom });
   });
 
   it('throws when the database query fails', async () => {

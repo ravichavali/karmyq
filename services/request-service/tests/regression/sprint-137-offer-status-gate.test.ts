@@ -1,7 +1,7 @@
 /**
  * Sprint 137 (BUG-088/089): review runtime help-offer status writers and gate B5's release invariant.
  * Setup-time seeders/fixtures are outside service src directories and cannot run alongside a deployed release.
- * This gate stays in tdd until releaseOffer and the expiration writers exist (Tasks 5 and 8).
+ * releaseOffer and the expiration writers exist, so this gate runs in regression.
  */
 import path from 'path';
 import { scanFile, scanServices, Surface } from '../helpers/directedSurfaceScan';

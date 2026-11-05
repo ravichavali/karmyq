@@ -329,6 +329,17 @@ with Task 8.
   with reasons (ledger): the matches index (migration), shared integration helpers (Sprint 134–136 files can't run
   here), the gate-parser merge (the parsers differ), the `holdOffer` consolidation (see *Open*), and comment trims
   that carry plan-mandated cross-references.
+- Task 12 `/code-review high` (branch diff, 46 files): nine findings. Fixed six: the unit test's unescaped regexes;
+  a new root parity gate (`tests/regression/sprint-137-release-sql-parity.test.ts`) that fails if cleanup's D1/D2 SQL
+  drifts from `closeProposals`/`releaseOffer`, with negative cases; a distinct log (then rethrow) when the release
+  step fails after the expiry flags committed; a request deleted after the provider-offer fast path now answers
+  `404 REQUEST_NOT_FOUND` (other non-open states keep 409); one-line CONTEXT descriptions so the landing API page
+  stops truncating `PUT`/`DELETE /offers/:id`; a stale "stays in tdd" header. The two new behaviour tests were each
+  shown red against the old code. Deferred as **BUG-093** (a standing offer is one-shot after a completed exchange —
+  B1 removed the body-status reactivation; recovery is withdraw + new offer; product question), **BUG-094** (an offer
+  freed after its `expires_at` reads `expired = FALSE` for up to an hour; the hold path still refuses it) and
+  **BUG-095** (`matches.offer_id` unindexed; needs a migration). Suites: request-service 161 + 620 (1 skipped),
+  cleanup-service 60 (7 skipped), root 101 + 987.
 
 ## Dated obligations
 
@@ -338,10 +349,9 @@ with Task 8.
 ## Open, not scheduled
 
 - **From Sprint 137's `/simplify` (deferred, not bugs):**
-  - `requests.matches` has no `offer_id` index (`infrastructure/postgres/init.sql:4975-4993`), so every guarded offer
-    release's `NOT EXISTS (… m.offer_id = o.id …)` and the hourly D2 sweep scan `matches`. Fine at demo scale; a
-    partial index `ON requests.matches(offer_id) WHERE offer_id IS NOT NULL` needs a migration, which this sprint
-    ruled out.
+  - **BUG-093/094/095** (logged from `/code-review`, all open): the one-shot standing offer is the product question
+    to decide first — it is the same question as "an offer that backed a completed exchange stays `matched`" below,
+    now sharper because B1 removed the body-status reactivation.
   - Offer-state altitude: the hold UPDATE sits inline in `matches.ts` `POST /matches` while releases live in
     `requestStatus.ts`. A `holdOffer` beside `releaseOffer` would put every offer-status write in one file and could
     collapse the offer-status gate to "no `help_offers` status write outside `requestStatus.ts`". It reworks reviewed

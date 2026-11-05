@@ -46,8 +46,11 @@ router.post('/offers', authMiddleware, async (req: AuthenticatedRequest, res: Re
 
     // BUG-090: re-check and insert under the request lock, as POST /matches does (BUG-084), so an ask that closed or
     // expired since the fast path is refused. Request-first, like provider-offer accept (offersDb.ts acceptOffer).
+    let vanished = false;
     const offer = await withTransaction(async (q) => {
-      if ((await lockRequestForCommitment(q, request_id)) !== 'open') return null;
+      const status = await lockRequestForCommitment(q, request_id);
+      if (status === null) { vanished = true; return null; } // deleted since the fast path
+      if (status !== 'open') return null;
       return createProviderOffer(
         q,
         userId,
@@ -57,6 +60,9 @@ router.post('/offers', authMiddleware, async (req: AuthenticatedRequest, res: Re
         note ?? null
       );
     });
+    if (vanished) {
+      return res.status(404).json({ success: false, message: 'Request not found', error: 'REQUEST_NOT_FOUND' });
+    }
     if (!offer) {
       return res.status(409).json({ success: false, message: 'This request is no longer open', error: 'REQUEST_NOT_OPEN' });
     }
