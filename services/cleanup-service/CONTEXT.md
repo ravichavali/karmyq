@@ -17,6 +17,12 @@ Changes below.
 
 ## Recent Changes
 
+- **2026-11-05 (Sprint 137, BUG-088)**: `markExpiredData` now ends by calling `releaseExpiredHolds()` (hourly cron and
+  `POST /jobs/mark-expired`). D1: per flagged open ask with a proposal, in its own transaction, lock the ask, free the
+  offers its proposals hold (guarded; text for text with request-service `closeProposals`), reject the proposals.
+  D2: one statement frees 'matched' offers that no proposed, matched or completed match references. Logs `asksReleased`, `proposalsClosed`,
+  `strandedOffersFreed`. Writes no `help_requests` row. Tests: `tests/regression/sprint-137-release-expired-holds.test.ts`.
+
 - **2026-11-03 (Sprint 136, BUG-083)**: memory retention ages a completed request from its **completion**, not its last
   edit. The completed branch of `forgetExchangeContent` compares `COALESCE((SELECT MAX(m.completed_at) FROM
   requests.matches m WHERE m.request_id = h.id AND m.status = 'completed'), h.updated_at)` with the window. Completion
@@ -203,6 +209,7 @@ LOG_LEVEL=info  # debug, info, warn, error
 Hourly Job
 ├─ Query items where expires_at <= NOW() AND expired = FALSE
 ├─ Set expired = TRUE (soft delete)
+├─ releaseExpiredHolds() (below)
 └─ Log count of expired items
 
 Daily Job (2 AM)
@@ -210,6 +217,33 @@ Daily Job (2 AM)
 ├─ DELETE permanently (hard delete)
 └─ Log count of deleted items
 ```
+
+#### releaseExpiredHolds (Sprint 137, BUG-088)
+
+`markExpiredData` ends by calling `releaseExpiredHolds()` (`src/jobs/expirationJob.ts`). It runs from the hourly cron
+(`0 * * * *`) and from `POST /jobs/mark-expired`, which both call `markExpiredData`. It writes no
+`help_requests` row, so the hard-delete clock and the derived request status are unchanged.
+
+- **D1 (per ask):** for each flagged-expired (`expired = TRUE`) `open` ask that still has a `proposed` match, in its own
+  transaction: lock the ask (`FOR UPDATE`, re-checking it is still expired and open), free the offers its proposals hold,
+  then reject those proposals. An offer is freed only while `matched` (a withdrawn offer stays withdrawn) and only when
+  no other proposed, matched or completed match references it (shared-offer guard); the SQL is kept text for text with
+  request-service `closeProposals`. A failure **inside** an ask's transaction (its lock, free, reject or `COMMIT`) rolls
+  that ask back, is logged with its id, and does not stop the other asks. Getting the connection is not inside that
+  isolation: if `pool.connect()` fails, the run stops there (see **Failure**).
+- **D2 (stranded offers):** one guarded statement frees `matched` offers that no proposed, matched or **completed**
+  match references (for example after a hard delete cascaded the proposal away).
+- Both frees also compare the target row's CTID with a scalar snapshot scan, so an offer changed concurrently
+  (including a release/re-hold cycle) is left for a later run.
+- **Logs and returns:** `asksReleased`, `proposalsClosed`, `strandedOffersFreed`.
+- **Failure:** if the release step itself fails — the candidate read, a connection checkout (`pool.connect()`) for any
+  ask, or D2 — `releaseExpiredHolds` stops: asks already committed stay committed, the remaining asks and D2 do not
+  run, and `markExpiredData` logs "Failed to release expired holds; expiry flags already committed" and rethrows, so
+  the job (and `POST /jobs/mark-expired`) reports failure while the operator can see the four flags landed. The next
+  hourly run picks up whatever was left.
+- A parity gate (`tests/regression/sprint-137-release-sql-parity.test.ts`, root) fails if D1 drifts from
+  `closeProposals`, or D2 from request-service's `releaseOffer` (whole statements, including everything inside their
+  `NOT EXISTS`).
 
 ### 2. Reputation Decay Flow — this service no longer participates
 

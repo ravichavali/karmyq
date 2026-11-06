@@ -1972,7 +1972,7 @@ router.post('/', async (req: Request, res: Response) => {
 
 // PUT /requests/:id - Update request
 // SECURITY: user_id comes from verified JWT token, not from request body
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', async (req: Request<RouteParams>, res: Response) => {
   try {
     const { id } = req.params;
     const { title, description, status, urgency } = req.body;
@@ -2029,21 +2029,33 @@ router.put('/:id', async (req: Request, res: Response) => {
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
     values.push(id, user_id);
 
-    const result = await query(
-      `UPDATE requests.help_requests
-       SET ${updates.join(', ')}
-       WHERE id = $${paramCount} AND requester_id = $${paramCount + 1}
-       RETURNING *`,
-      values
-    );
+    // BUG-091: a closed ask is not edited, so nothing is written over a forgotten ask's sentinel (memoryRetentionJob.ts).
+    const outcome = await withTransaction(async (q) => {
+      const current = await lockRequest(q, id);
+      if (current === null) return { missing: true as const };
+      if (current === 'completed' || current === 'cancelled') return { closed: true as const };
+      const result = await q(
+        `UPDATE requests.help_requests
+         SET ${updates.join(', ')}
+         WHERE id = $${paramCount} AND requester_id = $${paramCount + 1} AND content_forgotten_at IS NULL
+         RETURNING *`,
+        values
+      );
+      return result.rowCount === 0 ? { closed: true as const } : { row: result.rows[0] };
+    });
 
-    if (result.rowCount === 0) {
+    if ('missing' in outcome) {
       return res.status(404).json({ success: false, message: 'Request not found' });
+    }
+    if ('closed' in outcome) {
+      return res.status(409).json({
+        success: false, message: "A completed or cancelled request can't be edited", error: 'REQUEST_CLOSED',
+      });
     }
 
     res.json({
       success: true,
-      data: result.rows[0],
+      data: outcome.row,
       message: 'Request updated successfully',
     });
   } catch (error: any) {

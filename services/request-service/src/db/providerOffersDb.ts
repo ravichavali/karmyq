@@ -1,5 +1,6 @@
 import { query } from '../database/db';
 import { getRequestReachability } from './eligibility';
+import { TxQuery } from './requestStatus';
 
 /**
  * Validate that a request exists in at least one of the provider's communities and is still open.
@@ -44,6 +45,7 @@ export async function getDefaultPrice(providerId: string): Promise<number | null
  * Throws with code 'DUPLICATE_OFFER' if an active offer already exists.
  */
 export async function createProviderOffer(
+  q: TxQuery,
   providerUserId: string,
   providerId: string,
   requestId: string,
@@ -51,7 +53,7 @@ export async function createProviderOffer(
   note: string | null
 ) {
   // Application-level duplicate check for a meaningful 409 response
-  const existing = await query(
+  const existing = await q(
     `SELECT id FROM provider.offers
      WHERE provider_user_id = $1 AND request_id = $2
        AND status IN ('pending', 'accepted')`,
@@ -61,7 +63,7 @@ export async function createProviderOffer(
     throw Object.assign(new Error('Offer already exists for this request'), { code: 'DUPLICATE_OFFER' });
   }
 
-  const result = await query(
+  const result = await q(
     `INSERT INTO provider.offers (provider_id, provider_user_id, request_id, price, note)
      VALUES ($1, $2, $3, $4, $5) RETURNING *`,
     [providerId, providerUserId, requestId, price, note]

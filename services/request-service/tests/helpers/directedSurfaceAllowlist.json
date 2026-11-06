@@ -13,6 +13,18 @@
   },
   {
     "file": "services/cleanup-service/src/jobs/expirationJob.ts",
+    "hash": "412502ceafb73c0ff5140f0fd28df5df5112a5ebeaa9bcfabd4396d59ae33cd3",
+    "reason": "Internal expiry mutation, no audience-facing output.",
+    "label": "SELECT expired open asks with a proposal"
+  },
+  {
+    "file": "services/cleanup-service/src/jobs/expirationJob.ts",
+    "hash": "dfcd9505da4537b78ff1f7cfb170885d89709dbb6025ac18b3a5f68950f9511d",
+    "reason": "Internal expiry mutation, no audience-facing output.",
+    "label": "SELECT id ... FOR UPDATE (expired ask lock)"
+  },
+  {
+    "file": "services/cleanup-service/src/jobs/expirationJob.ts",
     "hash": "2ebf30b506ec28269fbb1ec85228c6bed8da5ef46cc13754d5205f2c0b975fec",
     "reason": "Internal hard retention deletion.",
     "label": "DELETE FROM requests.help_requests"
@@ -181,7 +193,7 @@
   },
   {
     "file": "services/request-service/src/routes/requests.ts",
-    "hash": "772fee74dd92f44a12ab23522f8b2e77d8bbdbd0e0e290db8df90151485bd4f0",
+    "hash": "3d6306ec18c5796a5fd74c6bfd11fd8675554a65011918ac38dfd0c6c6452b34",
     "reason": "Fixed field owner-only update; directed routing fields cannot be edited. Sprint 134 PR V: lookup/mutation binds both request id and verified JWT requester; absent/foreign/vanished rows return 404 before events. Local route tests cover wiring; tests/integration/sprint-133-pr-v-read-boundary.integration.test.ts exercises owner-write behavior against PostgreSQL in CI.",
     "label": "${updates.join(', ')}"
   },

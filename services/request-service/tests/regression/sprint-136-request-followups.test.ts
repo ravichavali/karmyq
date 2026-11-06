@@ -342,7 +342,8 @@ describe('an expired ask can still be closed: reject, requester cancel and dibs 
 describe('POST /matches runs under the request lock (BUG-084, BUG-085)', () => {
   const OPEN_REACH = { exists: true, requesterId: 'requester', status: 'open', expired: false, visibilityScope: 'community', reachable: true, isDirected: false };
   const DUPE = "SELECT 1 FROM requests.matches WHERE request_id = $1 AND responder_id = $2 AND status IN ('proposed', 'matched') LIMIT 1";
-  const HOLD_OFFER = "UPDATE requests.help_offers SET status = 'matched' WHERE id = $1 AND offerer_id = $2 AND status = 'active'";
+  const HOLD_OFFER = "UPDATE requests.help_offers SET status = 'matched' WHERE id = $1 AND offerer_id = $2 AND status = 'active' " +
+    "AND expired IS NOT TRUE AND (expires_at IS NULL OR expires_at > clock_timestamp())";
   const INSERT = "INSERT INTO requests.matches (request_id, offer_id, responder_id, status) VALUES ($1, $2, $3, 'proposed') RETURNING *";
   const NOT_OPEN_FAST = { success: false, message: 'Request is not open', error: 'REQUEST_NOT_OPEN' };
 
@@ -433,7 +434,7 @@ describe('POST /matches runs under the request lock (BUG-084, BUG-085)', () => {
 
   it('an offer that stopped being active since the read answers 400 OFFER_NOT_ACTIVE and inserts no proposal', async () => {
     derived('open', false);
-    reply(/^UPDATE requests\.help_offers SET status = 'matched' WHERE id = \$1 AND offerer_id = \$2 AND status = 'active'$/, rows([], 0));
+    reply(/^UPDATE requests\.help_offers SET status = 'matched' WHERE id = \$1 AND offerer_id = \$2 AND status = 'active' AND expired IS NOT TRUE AND \(expires_at IS NULL OR expires_at > clock_timestamp\(\)\)$/, rows([], 0));
     const res = await offer();
     expect(res.status).toBe(400);
     expect(res.body).toEqual({ success: false, message: 'Offer is not active', error: 'OFFER_NOT_ACTIVE' });

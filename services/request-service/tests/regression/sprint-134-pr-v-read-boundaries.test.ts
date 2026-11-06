@@ -58,12 +58,13 @@ const writes = [
 ] as const;
 
 // Owner replies keyed by statement, so the delete's multi-statement transaction needs no positional script.
-// `vanish` makes the owner mutation (the PUT UPDATE ... RETURNING, or the cancel UPDATE) change no row.
-function ownerReplies(vanish: boolean) {
+// `vanish` makes the mutation miss. For the edit, a vanished request is detected by the status read under its lock;
+// zero rows from its guarded UPDATE instead mean forgotten content (409 REQUEST_CLOSED, Sprint 137).
+function ownerReplies(vanish: boolean, vanishBeforeLock = false) {
   mockQuery.mockImplementation(async (sql: string) => {
     const s = String(sql);
     if (/^\s*SELECT requester_id FROM requests\.help_requests/.test(s)) return { rowCount: 1, rows: [{ requester_id: VIEWER }] };
-    if (/SELECT CASE\s+WHEN r\.status = 'cancelled'/.test(s)) return { rowCount: 1, rows: [{ status: 'open' }] };
+    if (/SELECT CASE\s+WHEN r\.status = 'cancelled'/.test(s)) return vanishBeforeLock ? { rowCount: 0, rows: [] } : { rowCount: 1, rows: [{ status: 'open' }] };
     if (/^\s*UPDATE requests\.help_requests/.test(s)) return vanish ? { rowCount: 0, rows: [] } : { rowCount: 1, rows: [{ id: ID }] };
     return { rowCount: 1, rows: [{ id: ID }] };
   });
@@ -101,7 +102,7 @@ describe('request owner-write opacity', () => {
   });
 
   it.each(writes)('$method :id$suffix publishes nothing if the row vanishes before mutation', async ({ method, suffix, body }) => {
-    ownerReplies(true);
+    ownerReplies(true, method === 'put' && suffix === '');
     const res = await request(app())[method](`/requests/${ID}${suffix}`).send(body);
     expect(res.status).toBe(404);
     expect(publishEvent).not.toHaveBeenCalled();

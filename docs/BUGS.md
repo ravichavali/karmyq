@@ -2393,7 +2393,7 @@ and the root gate `tests/regression/sprint-136-test-stack-crons-gate.test.ts` (e
 
 ---
 
-## BUG-088 · [2026-11-03] · open
+## BUG-088 · [2026-11-03] · fixed (Sprint 137, v11.110.0)
 
 **An expired ask keeps its open proposals, and their help offers stay held.** Sprint 136 (BUG-085) refuses a match
 accept on an ask past its expiry (`lockRequestForCommitment`, `services/request-service/src/routes/matches.ts`), as the
@@ -2407,9 +2407,28 @@ regression in the rule. The exits are documented in `docs/guides/fulfilling-requ
 decided; maintainer): the expiration sweep closes an expired ask's proposals and frees their offers, or the helper's view
 says the ask expired. Found by `/code-review` on the Sprint 136 PR.
 
+**Correction (2026-11-04, Sprint 137 planning): the hold can outlive the ask.** "Its hard delete skips any ask with a
+match" is wrong for `hardDeleteExpiredData`. That job deletes every flagged ask 7 days after flagging
+(`expirationJob.ts:85`, no match filter), and `matches_request_id_fkey` is `ON DELETE CASCADE` (`init.sql:6348`). So the
+proposals go with the ask, while their help offers, which no foreign key touches, stay `matched` with no match left
+to free them. The skip quoted above is the retention job's expired-and-unmatched delete
+(`memoryRetentionJob.ts:143`), a different path. **Decided (maintainer, 2026-11-04):** the expiration sweep closes an
+expired ask's proposals and frees their offers. Scheduled for Sprint 137
+(`docs/superpowers/specs/2026-11-04-sprint-137-exchange-integrity-design.md`).
+
+**Fix (Sprint 137, v11.110.0, `920d1241`):** `markExpiredData` ends with `releaseExpiredHolds()` (hourly cron and `POST
+/jobs/mark-expired`). D1, per flagged-expired open ask with a proposal and in its own transaction: lock the ask, free the
+offers its proposals hold (only while `matched`, and only when no other proposed, matched or completed match holds
+them), then reject the proposals. D2, one guarded statement: free `matched` offers that no proposed, matched or
+completed match references (the hard-delete cascade case above). It logs `asksReleased`, `proposalsClosed` and
+`strandedOffersFreed` and writes no `help_requests` row. Tests:
+`services/cleanup-service/tests/regression/sprint-137-release-expired-holds.test.ts`,
+`services/cleanup-service/tests/unit/expirationJob.test.ts` and
+`tests/integration/sprint-137-exchange-integrity.integration.test.ts` (real SQL, CI only).
+
 ---
 
-## BUG-089 · [2026-11-03] · open
+## BUG-089 · [2026-11-03] · fixed (Sprint 137, v11.110.0)
 
 **A help offer's state is not guarded: its owner can write any status, and an expired offer can back a proposal.**
 - `PUT /offers/:id` (`services/request-service/src/routes/offers.ts`, the `updateOffer` route) writes a body `status`
@@ -2422,9 +2441,22 @@ says the ask expired. Found by `/code-review` on the Sprint 136 PR.
 Fix direction (not decided): an offer's status changes only through its exchanges (as `STATUS_NOT_EDITABLE` does for
 requests), and the hold also requires `expired IS NOT TRUE`. Found by `/code-review` on the Sprint 136 PR.
 
+**Fix (Sprint 137, v11.110.0, `fa27e0c0`):** `PUT /offers/:id` refuses a body `status` with 400 `STATUS_NOT_EDITABLE` (after
+its ownership 404). `POST /matches` refuses a flagged-expired offer on the fast path and holds only `status = 'active'
+AND expired IS NOT TRUE AND (expires_at IS NULL OR expires_at > clock_timestamp())`, a miss answering the existing 400
+`OFFER_NOT_ACTIVE`. Match reject and cancel free the offer through `releaseOffer`, and `closeProposals` frees only
+offers no other proposed, matched or completed match holds, each guarded by an I1 snapshot-version predicate.
+- **B4, the gate:** `services/request-service/tests/regression/sprint-137-offer-status-gate.test.ts` scans the runtime
+  services and pins every `help_offers` status writer to a reviewed list, so a new status write fails the build until
+  it is reviewed.
+- **B5, the shared-offer release rule:** rows created before the fix can already back several matches (the old edit
+  and the missing expiry arm both allowed it), so every release leaves an offer `matched` while any other proposed,
+  matched or completed match references it. `sprint-137-exchange-integrity.test.ts` (B1, B2, B5) covers the routes;
+  `tests/integration/sprint-137-exchange-integrity.integration.test.ts` runs the SQL for real (CI only).
+
 ---
 
-## BUG-090 · [2026-11-03] · open
+## BUG-090 · [2026-11-03] · fixed (Sprint 137, v11.110.0)
 
 **`POST /requests/offers` (provider offer) can land on an ask that just closed or expired.** `validateRequestForOffer`
 (`services/request-service/src/db/providerOffersDb.ts`) reads the request's `status` and `expired` flag on the pool, then
@@ -2435,5 +2467,88 @@ expired ask (Sprint 135 / Sprint 136). This is the provider-offer sibling of BUG
 
 Fix direction (not decided): validate and insert under `lockRequestForCommitment`, as `POST /matches` now does. Found by
 `/code-review` on the Sprint 136 PR.
+
+**Correction (2026-11-04, Sprint 137 planning):** the route is **`POST /providers/offers`**. `providerOffersRouter`
+defines `router.post('/offers')` (`src/routes/providerOffers.ts:18`) and is mounted on `/providers` (`src/index.ts:84`).
+No `POST /requests/offers` exists. Scheduled for Sprint 137.
+
+**Fix (Sprint 137, v11.110.0, `b1a57dd3`):** `POST /providers/offers` keeps its fast paths, then in one transaction runs
+`lockRequestForCommitment` (an ask that closed or expired meanwhile answers 409 `REQUEST_NOT_OPEN`, with no insert), the
+duplicate check and the insert on the same client. The requester lookup and `offer_submitted` run after commit. Tests:
+`services/request-service/tests/regression/sprint-137-exchange-integrity.test.ts` (section C) and the integration file
+above.
+
+---
+
+## BUG-091 · [2026-11-04] · fixed (Sprint 137, v11.110.0)
+
+**An edit after forgetting writes content that is never forgotten.** `PUT /requests/:id`
+(`services/request-service/src/routes/requests.ts:1975`) lets the requester edit the title, description and urgency of
+an ask in any status. It checks neither `status` nor `content_forgotten_at`. The retention job forgets a completed ask
+once and selects only `content_forgotten_at IS NULL` (`services/cleanup-service/src/jobs/memoryRetentionJob.ts:99`).
+So text written over the sentinel after forgetting is kept forever. No web or mobile screen calls this edit
+(`updateRequest` has no caller in `apps/frontend/src` or `apps/mobile`); it is reachable through the API only.
+
+Found while planning Sprint 137, when weighing the maintainer's open question on the retention clock (COALESCE vs GREATEST,
+Sprint 136 code-review #9). GREATEST would not close it. **Decided (maintainer, 2026-11-04):** keep COALESCE, and
+`PUT /requests/:id` refuses a completed or cancelled ask.
+
+**Fix (Sprint 137, v11.110.0, `edcdc4d6`):** `PUT /requests/:id` keeps its ownership 404 and body-status 400, then locks the
+ask (`lockRequest`) and refuses a completed or cancelled one with 409 `REQUEST_CLOSED`; the `UPDATE` also requires
+`content_forgotten_at IS NULL`, and a zero-row result returns the same 409, so nothing is written over a forgotten ask's
+sentinel. Tests: `services/request-service/tests/regression/sprint-137-exchange-integrity.test.ts` (section A) and the
+integration file `tests/integration/sprint-137-exchange-integrity.integration.test.ts`.
+
+---
+
+## BUG-092 · [2026-11-04] · open
+
+**Cleanup-service and simulation-service run their tdd tier in their blocking `test`.** ADR-029 and `tests/claude.md`
+say the `tdd/` tier reports only. But `services/cleanup-service/package.json:12` is `"test": "jest"`, and its
+`jest.config.js:8-12` adds `**/tests/tdd/**/*.test.ts` to `testMatch`. `services/simulation-service` is the same
+(`"test": "jest --passWithNoTests"`, with a config that matches `tests/tdd`). Every other service's `test` is
+`npm run test:unit && npm run test:regression`.
+
+Root `npm test` runs each workspace's `test` through Turbo, and so does the pre-push hook. So a red tdd file in either
+workspace blocks the push, and a test-first commit there cannot land red. Cleanup's config line dates from Sprint 54
+(`d8674302`).
+
+Found by the Codex review of the Sprint 137 plan (finding 3). Sprint 137 sequences around it: the cleanup tdd file is
+committed with its implementation. Fix direction (not decided): give both workspaces the tiered `test` script the
+others use.
+
+---
+
+## BUG-093 · [2026-11-05] · open
+
+**One-shot standing offer.** An offer that backed a completed exchange stays `matched` forever. Every release path
+(`releaseOffer`, `closeProposals`, the cleanup sweep) counts a `completed` match as a hold, and Sprint 137's B1
+(`PUT /offers/:id` refuses a body status, the BUG-089 fix) removed the body-status reactivation that previously let the
+offerer reuse it. Recovery today: withdraw it and post a new offer.
+
+Found by Sprint 137's `/code-review`. Deferred because reopening body-status edits would reopen BUG-089, and whether an
+offer should be reusable after a completed exchange is a product question (Sprint 137 spec, *Out of scope*).
+
+---
+
+## BUG-094 · [2026-11-05] · open
+
+**A freed-after-expiry offer shows unexpired for up to an hour.** `markExpiredData` flags expired offers (only
+`status = 'active'`) before `releaseExpiredHolds` frees matched offers back to `active`, so an offer whose `expires_at`
+has passed is freed with `expired = FALSE` until the next hourly run. `POST /matches`' clock check still refuses it, so
+there is no integrity effect, but surfaces reading the `expired` column show it as live meanwhile.
+
+Found by Sprint 137's `/code-review`. Deferred as cosmetic and self-healing within the hour. Fix direction: reorder the
+flag and release steps.
+
+---
+
+## BUG-095 · [2026-11-05] · open
+
+**`requests.matches.offer_id` is unindexed** (`infrastructure/postgres/init.sql:4975-4993` lists the matches indexes).
+Every guarded offer release (`NOT EXISTS ... m.offer_id = o.id`) and the hourly D2 sweep scan `matches`.
+
+Found by Sprint 137's `/code-review`. Deferred as fine at demo scale; a partial index
+`ON requests.matches(offer_id) WHERE offer_id IS NOT NULL` needs a migration.
 
 ---

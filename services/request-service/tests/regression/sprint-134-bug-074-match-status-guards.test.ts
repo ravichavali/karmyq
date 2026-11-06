@@ -71,7 +71,11 @@ describe('BUG-074: DELETE /matches/:id cancels only an exchange in progress', ()
       "SET status = CASE WHEN EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = r.id AND m.status = 'matched') THEN 'matched'");
     expect(sqlOf(3)).toContain("WHERE r.id = $1 AND r.status <> 'cancelled'");
     expect(paramsOf(3)).toEqual(['req-1']);
-    expect(sqlOf(4)).toBe("UPDATE requests.help_offers SET status = 'active' WHERE id = $1 AND status = 'matched'");
+    expect(sqlOf(4)).toBe(
+      "UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP " +
+      "WHERE o.id = $1 AND o.status = 'matched' AND NOT EXISTS (SELECT 1 FROM requests.matches m " +
+      "WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed')) " +
+      "AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)");
     expect(paramsOf(4)).toEqual(['offer-1']);
     expect(mockPublishEvent).toHaveBeenCalledTimes(1);
     expect(mockPublishEvent).toHaveBeenCalledWith('match_cancelled', { match_id: 'match-1', request_id: 'req-1', offer_id: 'offer-1' });

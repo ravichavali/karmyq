@@ -195,6 +195,15 @@ router.put('/:id', async (req: Request, res: Response) => {
       });
     }
 
+    // BUG-089: an offer's status changes through its exchanges (matches.ts, requestStatus.ts), never an edit.
+    if (status !== undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "An offer's status changes through its exchanges, not an edit",
+        error: 'STATUS_NOT_EDITABLE',
+      });
+    }
+
     // Build update query
     const updates: string[] = [];
     const values: any[] = [];
@@ -208,11 +217,6 @@ router.put('/:id', async (req: Request, res: Response) => {
       updates.push(`description = $${paramCount++}`);
       values.push(description);
     }
-    if (status !== undefined) {
-      updates.push(`status = $${paramCount++}`);
-      values.push(status);
-    }
-
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
     values.push(id);
 

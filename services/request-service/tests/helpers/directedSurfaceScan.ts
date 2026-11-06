@@ -21,13 +21,13 @@ const exceptions = JSON.parse(fs.readFileSync(exceptionFile(), 'utf8')) as {
 export const ALLOWLIST = exceptions;
 export const surfaceHash = (sql: string) => createHash('sha256').update(sql.trim()).digest('hex');
 export const isAllowlisted = (hit: Surface) => ALLOWLIST.some(a => a.file === hit.file && a.hash === surfaceHash(hit.sql) && a.reason.trim());
-export function scanFile(file: string, source: string): Surface[] {
+export function scanFile(file: string, source: string, table: RegExp = /\b(?:requests\.)?help_requests\b/i): Surface[] {
   const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
   const hits: Surface[] = [];
   const walk = (node: ts.Node) => {
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateExpression(node)) {
       const sql = ts.isTemplateExpression(node) ? node.getText(ast) : node.text;
-      if (/\b(?:SELECT|INSERT|UPDATE|DELETE|WITH)\b/i.test(sql) && /\b(?:requests\.)?help_requests\b/i.test(sql))
+      if (/\b(?:SELECT|INSERT|UPDATE|DELETE|WITH)\b/i.test(sql) && table.test(sql))
         hits.push({ file, line: ast.getLineAndCharacterOfPosition(node.getStart(ast)).line + 1, sql });
       // Template interpolations are expressions, not independent SQL literals; still inspect
       // interpolations for nested string literals containing a separate SQL query.
@@ -36,7 +36,7 @@ export function scanFile(file: string, source: string): Surface[] {
   };
   walk(ast); return hits;
 }
-export function scanServices(repo: string): Surface[] {
+export function scanServices(repo: string, table: RegExp = /\b(?:requests\.)?help_requests\b/i): Surface[] {
   const files: string[] = [];
   const walk = (dir: string) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -47,7 +47,7 @@ export function scanServices(repo: string): Surface[] {
   };
   for (const service of fs.readdirSync(path.join(repo, 'services')))
     if (fs.existsSync(path.join(repo, 'services', service, 'src'))) walk(path.join(repo, 'services', service, 'src'));
-  return files.flatMap((file) => scanFile(path.relative(repo, file).replace(/\\/g, '/'), fs.readFileSync(file, 'utf8')));
+  return files.flatMap((file) => scanFile(path.relative(repo, file).replace(/\\/g, '/'), fs.readFileSync(file, 'utf8'), table));
 }
 
 function guardAlias(expression: ts.Expression): string | undefined {

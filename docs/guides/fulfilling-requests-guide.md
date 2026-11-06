@@ -58,7 +58,7 @@ A community's open-asks view (reached from its weekly pulse) lists every open as
 3. Click **Offer to Help** if you can help
 4. Your offer goes to the requester to accept; track it in the **Helping** tab
 
-**Expired requests take no new offers.** Once a request passes its expiration date, you can't offer on it, and an offer you made earlier can no longer be accepted. You can still withdraw that offer, which frees your standing offer for another request.
+**Expired requests take no new offers.** Once a request passes its expiration date, you can't offer on it, and an offer you made earlier can no longer be accepted. An offer still waiting on an expired request is closed for you within about an hour, and the standing offer it held is free again. You can also withdraw it yourself sooner. An expired standing offer can't back a new offer either, and an offer's status changes only when you withdraw it or through the exchange itself.
 
 **An offer you're already using elsewhere can't be used twice.** If you attach the same standing offer to two requests at once, only the first goes through. The second is refused as "Offer is not active".
 

@@ -105,7 +105,7 @@ From the Helping tab → Offers Received:
 - Tap **Accept** to accept an offer. A match is created and the commitment appears in your Helping tab. The provider is notified immediately.
 - Tap **Decline** to decline. The provider is notified and can offer on other requests.
 
-You can receive multiple offers on the same request and accept the one that works best for you. Once you accept one offer, the request moves to matched status.
+You can receive multiple offers on the same request and accept the one that works best for you. Once you accept one offer, the request moves to matched status. A provider can't offer on a request that has already closed or expired.
 
 ## Offering on Service Asks
 

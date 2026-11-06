@@ -403,6 +403,16 @@
         },
         {
           "method": "PUT",
+          "path": "/offers/:id",
+          "description": "Edit an offer's `title` and `description` (offerer only; a body `status` is refused with `400 STATUS_NOT_EDITABLE`, Sprint 137, BUG-089)."
+        },
+        {
+          "method": "DELETE",
+          "path": "/offers/:id",
+          "description": "Withdraw an offer (offerer only; foreign or missing id → `404 Offer not found`), setting `status = 'withdrawn'` and publishing `offer_withdrawn`."
+        },
+        {
+          "method": "PUT",
           "path": "/offers/:id/privacy",
           "description": "Update privacy settings for an offer (Social Karma v2.0)."
         },

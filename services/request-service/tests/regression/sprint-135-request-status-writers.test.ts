@@ -51,7 +51,17 @@ const LOCK = /^SELECT id FROM requests\.help_requests WHERE id = \$1 FOR UPDATE$
 const DERIVE = /^SELECT CASE WHEN r\.status = 'cancelled'/;
 const RECONCILE = /^UPDATE requests\.help_requests r SET status = CASE /;
 const CANCEL_REQUEST = /^UPDATE requests\.help_requests r SET status = 'cancelled'/;
-const CLOSE_OFFERS = /^UPDATE requests\.help_offers SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE status = 'matched' AND id IN/;
+const CLOSE_OFFERS = "UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP " +
+  "WHERE o.status = 'matched' AND o.id IN (SELECT offer_id FROM requests.matches " +
+  "WHERE request_id = $1 AND status = 'proposed' AND offer_id IS NOT NULL) " +
+  "AND NOT EXISTS (SELECT 1 FROM requests.matches m " +
+  "WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed') " +
+  "AND NOT (m.request_id = $1 AND m.status = 'proposed')) " +
+  "AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)";
+const RELEASE_OFFER = "UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP " +
+  "WHERE o.id = $1 AND o.status = 'matched' AND NOT EXISTS (SELECT 1 FROM requests.matches m " +
+  "WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed')) " +
+  "AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)";
 const CLOSE_MATCHES = /^UPDATE requests\.matches SET status = 'rejected', updated_at = CURRENT_TIMESTAMP WHERE request_id = \$1 AND status = 'proposed'$/;
 /** A request-status write that is not the shared helper's: what every writer used to do. */
 const OWN_STATUS_WRITE = /^UPDATE requests\.help_requests\b(?!.*SET status = CASE)(?!.*SET status = 'cancelled').*\bSET\b.*\bstatus = /;
@@ -136,7 +146,7 @@ describe('PUT /matches/:id/reject (BUG-075, BUG-078 #1)', () => {
     reply(DERIVE, rows([{ status: 'completed' }]));
     const res = await request(await app()).put('/matches/match-1/reject').set('x-test-user', 'helper').send({});
     expect(res.status).toBe(200);
-    const offer = statements().find((s) => s.sql === "UPDATE requests.help_offers SET status = 'active' WHERE id = $1 AND status = 'matched'");
+    const offer = statements().find((s) => s.sql === RELEASE_OFFER);
     expect(offer?.params).toEqual(['offer-1']);
     expect(sqls().pop()).toMatch(RECONCILE);
     expect(sqls().filter((s) => OWN_STATUS_WRITE.test(s) || /COUNT\(\*\)/.test(s))).toEqual([]);
@@ -176,7 +186,7 @@ describe('DELETE /matches/:id (BUG-074 cancel, now through the shared helper)', 
     const res = await request(await app()).delete('/matches/match-1').set('x-test-user', 'helper');
     expect(res.status).toBe(200);
     const cancel = sqls().indexOf("UPDATE requests.matches SET status = 'cancelled' WHERE id = $1 AND status = 'matched'");
-    const offer = sqls().indexOf("UPDATE requests.help_offers SET status = 'active' WHERE id = $1 AND status = 'matched'");
+    const offer = sqls().indexOf(RELEASE_OFFER);
     expect(cancel).toBeGreaterThan(-1);
     expect(cancel).toBeLessThan(at(LOCK));
     expect(at(RECONCILE)).toBeGreaterThan(-1);
@@ -401,11 +411,12 @@ describe('PUT /requests/:id (BUG-075)', () => {
   });
 
   it('edits the other fields with no status assignment and no request_completed event', async () => {
+    reply(DERIVE, rows([{ status: 'open' }]));
     reply(/^UPDATE requests\.help_requests SET/, rows([{ id: 'req-1', title: 'T' }]));
     const res = await request(await app()).put('/requests/req-1').set('x-test-user', 'requester').send({ title: 'T' });
     expect(res.status).toBe(200);
     const update = statements().find((s) => /^UPDATE requests\.help_requests SET/.test(s.sql));
-    expect(update?.sql).toBe('UPDATE requests.help_requests SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND requester_id = $3 RETURNING *');
+    expect(update?.sql).toBe('UPDATE requests.help_requests SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND requester_id = $3 AND content_forgotten_at IS NULL RETURNING *');
     expect(update?.params).toEqual(['T', 'req-1', 'requester']);
     expect(mockPublishEvent).not.toHaveBeenCalledWith('request_completed', expect.anything());
   });
