@@ -2541,6 +2541,11 @@ there is no integrity effect, but surfaces reading the `expired` column show it 
 Found by Sprint 137's `/code-review`. Deferred as cosmetic and self-healing within the hour. Fix direction: reorder the
 flag and release steps.
 
+**Correction (Sprint 138 planning, 2026-11-06):** no listing reads `expired` today. `GET /offers` filters on status
+only (`services/request-service/src/routes/offers.ts:39`; that is BUG-096), so the visible effect is on `POST /matches`'
+fast path and on the hard-delete clock, which starts up to an hour late. The Sprint 138 fix is in every release
+statement (each sets `expired` when `expires_at` has passed), not a reorder.
+
 ---
 
 ## BUG-095 · [2026-11-05] · open
@@ -2550,5 +2555,19 @@ Every guarded offer release (`NOT EXISTS ... m.offer_id = o.id`) and the hourly 
 
 Found by Sprint 137's `/code-review`. Deferred as fine at demo scale; a partial index
 `ON requests.matches(offer_id) WHERE offer_id IS NOT NULL` needs a migration.
+
+---
+
+## BUG-096 · [2026-11-06] · open
+
+**The offers list shows expired offers.** `GET /offers` (`services/request-service/src/routes/offers.ts:25-73`, the
+`/offers` page via `apps/frontend/src/pages/offers/index.tsx:43`) filters on `o.status = $1` and the visibility
+boundary only. It never checks `expired` or `expires_at`, so an offer the hourly job has flagged expired is still
+listed as active. Every offer created through the API gets an `expires_at` from the community's `offer_ttl_days`
+(default 60, `offers.ts:137-143`).
+
+Found while planning Sprint 138: reusable offers free history retroactively, and freed offers past their 60 days would
+reappear on the `/offers` page. Fix (Sprint 138, maintainer 2026-11-06): the list adds
+`o.expired IS NOT TRUE AND (o.expires_at IS NULL OR o.expires_at > NOW())`. `GET /offers/:id` is unchanged.
 
 ---
