@@ -112,6 +112,7 @@ describe('PUT /matches/:id/complete — two-phase completion', () => {
       .mockResolvedValueOnce({ rows: [] })                                   // UPDATE status='completed'
       .mockResolvedValueOnce({ rows: [] })                                   // reconcile: request row lock
       .mockResolvedValueOnce({ rows: [] })                                   // reconcile: derive help_requests.status
+      .mockResolvedValueOnce({ rows: [] })                                   // BUG-093: releaseOffer (BASE_MATCH.offer_id)
       .mockResolvedValueOnce({ rows: [] });                                   // feed_events INSERT (fire-and-forget)
 
     const app = await buildApp('helper-user');
@@ -130,6 +131,9 @@ describe('PUT /matches/:id/complete — two-phase completion', () => {
     expect(sql(3)).toBe('SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE');
     expect(sql(4)).toContain('UPDATE requests.help_requests r SET status = CASE');
     expect(sql(4)).toContain("WHERE r.id = $1 AND r.status <> 'cancelled'");
+    // BUG-093 (Sprint 138): the finished exchange frees its standing offer, after the reconcile.
+    expect(sql(5)).toContain("UPDATE requests.help_offers o SET status = 'active'");
+    expect(mockQuery.mock.calls[5][1]).toEqual(['offer-1']);
 
     // Must have published the karma event exactly once
     expect(mockPublishEvent).toHaveBeenCalledTimes(1);

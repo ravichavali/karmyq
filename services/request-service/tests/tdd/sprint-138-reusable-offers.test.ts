@@ -154,7 +154,9 @@ describe('A: PUT /matches/:id/complete releases the offer', () => {
   it('the idempotent already-completed answer inside the transaction issues no help_offers update', async () => {
     override(DONE_MARK, rows([], 0));
     reply(STATUS_READ, rows([{ status: 'completed' }]));
-    expect((await complete()).status).toBe(200);
+    const res = await complete();
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe('Match already completed');
     expect(mockTrace).toContain('tx');
     expect(OFFER_UPDATES()).toEqual([]);
   });

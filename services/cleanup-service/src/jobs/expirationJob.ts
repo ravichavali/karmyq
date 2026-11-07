@@ -87,7 +87,7 @@ export async function markExpiredData(): Promise<void> {
  * Lock order: D1 request → offers → matches, as accept's closeProposals; D2 only the offer rows it updates.
  * Checked 2026-11-05 against matches.ts: complete (`UPDATE ... WHERE id = $1 AND status = 'matched'`) and cancel
  * (same guard) lock only a 'matched' row, never a 'proposed' one, so D1's proposed-row update waits on neither. Cancel
- * takes match, then request, then the offer last, and no help_offers writer holds an offer lock and then waits on the
+ * and complete take match, then request, then the offer last, and no help_offers writer holds an offer lock and then waits on the
  * request lock (Sprint 136's request-followups header lists the writers), so D1's request-then-offer order cannot
  * deadlock against them.
  */
