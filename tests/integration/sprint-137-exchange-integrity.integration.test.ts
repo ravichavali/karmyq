@@ -15,15 +15,14 @@
  * - Shared offers (decision 10, Codex finding 1). The fixtures are inserted with SQL, since after B1 no route can build
  *   them: one matched offer backs two matches on two asks. Each release path ends its own reference: D1 (via
  *   markExpiredData), match reject, match cancel, and closeProposals (via match accept). Each leaves the offer
- *   unwritten while the other reference is proposed, matched or completed. Then the last reference ends and the
- *   offer is freed:
+ *   unwritten while the other reference is proposed or matched. Then the last reference ends and the offer is freed:
  *   - a proposal, ended by the path under test (match cancel cannot end a proposal, so reject, which shares its
  *     releaseOffer);
- *   - a matched exchange, ended by match cancel;
- *   - a completed exchange, which never ends at runtime: the offer stays matched through another sweep. Only once a
- *     fixture delete cascades the completed match away does the next sweep's D2 free it.
- * - D2. A matched offer with no match row is freed, and so is one whose only matches are rejected or cancelled. An
- *   offer backing a completed, proposed or matched match is not written.
+ *   - a matched exchange, ended by match cancel.
+ *   A completed exchange holds nothing (BUG-093, Sprint 138): with the other reference completed, the path under test
+ *   ends the last live reference, so it frees the offer at once.
+ * - D2. A matched offer with no match row is freed, and so is one whose only matches are rejected or cancelled, or
+ *   (BUG-093, Sprint 138) completed. An offer backing a proposed or matched match is not written.
  * - I1 snapshot barriers (CI-only). The shipped D2 statement, run by releaseExpiredHolds(), is paused after its
  *   statement snapshot is taken and before any row is updated. Two cases:
  *   1. While it is paused, the owner's PUT /offers/:id title edit commits a new version of its stranded offer. Resumed,
@@ -98,6 +97,8 @@
  *     block, so it never waits, and the wait proof fails.
  * - A: PUT edited an ask in any status (200, and the forgotten sentinel overwritten).
  * - Positive controls pass before too: the twins, the kept offers, the open and matched edits, and the unexpired hold.
+ * - The completed cases flipped in Sprint 138 (BUG-093) fail against v11.110.0, where a completed match held its offer:
+ *   the offer stays matched.
  */
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
@@ -442,7 +443,7 @@ describe('Sprint 137 exchange integrity', () => {
   });
 
   describe('a shared offer is freed only by its last reference (decision 10)', () => {
-    type Other = 'proposed' | 'matched' | 'completed';
+    type Other = 'proposed' | 'matched';
     interface ReleasePath {
       /** Makes the first reference to `o` and ends it through this path; returns it and the status it must reach. */
       releaseFirst: (o: string) => Promise<{ first: string; status: string }>;
@@ -497,7 +498,7 @@ describe('Sprint 137 exchange integrity', () => {
     ];
 
     describe.each<[string, ReleasePath]>(releasePaths)('%s', (_name, path) => {
-      it.each<Other>(['proposed', 'matched', 'completed'])(
+      it.each<Other>(['proposed', 'matched'])(
         'leaves the offer matched while its other reference is %s, and the end of the last reference frees it', async (other) => {
           // Fixture-only state (BUG-089 legacy rows): one matched offer backing two matches on two asks.
           const o = await offer(H, 'matched');
@@ -513,20 +514,25 @@ describe('Sprint 137 exchange integrity', () => {
           if (other === 'proposed') {
             await path.endProposal(q2, m2);
             expect(await matchStatus(m2)).toBe('rejected');
-          } else if (other === 'matched') {
+          } else {
             expect(answer(await cancelMatch(m2))).toEqual({ status: 200, body: CANCELLED });
             expect(await matchStatus(m2)).toBe('cancelled');
-          } else {
-            // A completed exchange is final: another sweep (D1 and D2) leaves the offer as it was.
-            await markExpiredData();
-            expect(await offerRow(o)).toEqual(held);
-            // Only a cascade removes a completed match. Once it is gone, the next sweep's D2 frees the offer.
-            await pool.query('DELETE FROM requests.help_requests WHERE id = $1', [q2]);
-            expect(await matchesOn(q2)).toEqual([]);
-            await markExpiredData();
           }
           expect(await offerStatus(o)).toBe('active');
         });
+
+      // BUG-093 (Sprint 138): a completed match no longer holds its offer. Sprint 137 expected the offer to stay matched
+      // here until a cascade removed the completed match; now the path under test ends the last live reference.
+      it('frees the offer at once when its other reference is completed', async () => {
+        const o = await offer(H, 'matched');
+        const q2 = await ask('future', 'completed');
+        const m2 = await match(q2, H, 'completed', o);
+
+        const { first, status } = await path.releaseFirst(o);
+        expect(await matchStatus(first)).toBe(status);
+        expect(await offerStatus(o)).toBe('active');
+        expect(await matchesOn(q2)).toEqual([{ id: m2, responder_id: H, status: 'completed', offer_id: o }]);
+      });
     });
   });
 
@@ -545,12 +551,23 @@ describe('Sprint 137 exchange integrity', () => {
       expect(await offerStatus(o)).toBe('active');
     });
 
-    it.each(['completed', 'proposed', 'matched'])('does not write an offer that backs a %s match', async (status) => {
+    // BUG-093 (Sprint 138): 'completed' moved out of this list; a completed match no longer holds (the case below).
+    it.each(['proposed', 'matched'])('does not write an offer that backs a %s match', async (status) => {
       const o = await offer(H, 'matched');
       await match(await ask('future', status === 'proposed' ? 'open' : status), H, status, o);
       const held = await offerRow(o);
       await markExpiredData();
       expect(await offerRow(o)).toEqual(held);
+    });
+
+    // BUG-093 (Sprint 138): Sprint 137 left this offer unwritten; a completed match now holds nothing, so D2 frees it.
+    it('frees a matched offer whose only match is completed', async () => {
+      const o = await offer(H, 'matched');
+      const q = await ask('future', 'completed');
+      const m = await match(q, H, 'completed', o);
+      await markExpiredData();
+      expect(await offerStatus(o)).toBe('active');
+      expect(await matchesOn(q)).toEqual([{ id: m, responder_id: H, status: 'completed', offer_id: o }]);
     });
 
     describe('I1: a delayed D2 frees only the offer version its snapshot saw (CI-only snapshot barrier)', () => {
