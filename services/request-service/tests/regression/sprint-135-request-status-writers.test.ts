@@ -175,6 +175,11 @@ describe('PUT /matches/:id/complete (BUG-078 #2, #3)', () => {
     expect(finalize).toBeGreaterThan(-1);
     expect(finalize).toBeLessThan(at(LOCK));
     expect(at(LOCK)).toBeLessThan(at(RECONCILE));
+    // BUG-093 (Sprint 138): the finished exchange frees its offer after the reconcile.
+    const offer = sqls().indexOf(RELEASE_OFFER);
+    expect(offer).toBeGreaterThan(-1);
+    expect(at(RECONCILE)).toBeLessThan(offer);
+    expect(statements()[offer].params).toEqual(['offer-1']);
     expect(sqls().filter((s) => OWN_STATUS_WRITE.test(s))).toEqual([]);
     expect(mockPublishEvent).toHaveBeenCalledWith('match_completed', expect.objectContaining({ match_id: 'match-1' }));
   });
