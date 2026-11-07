@@ -48,7 +48,7 @@ Once both parties confirm:
   exchange privately and vouch for skills you saw your partner use. Each of you sees only your own
   partner there.
 
-A completed exchange is final: it cannot be cancelled, reopened or marked done again.
+A completed exchange is final: it cannot be cancelled, reopened or marked done again. If the helper used a standing offer, it is available again for the next ask, unless they withdrew it, it has expired, or another exchange is still using it.
 
 ---
 

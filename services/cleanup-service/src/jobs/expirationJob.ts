@@ -79,16 +79,18 @@ export async function markExpiredData(): Promise<void> {
  *     BUG-089 let one offer back several), then reject the proposals. Text for text request-service's closeProposals
  *     (src/db/requestStatus.ts); keep the two in step. Writes no help_requests row, so the hard-delete clock and the
  *     derived status are unchanged (proposals don't count in the derivation).
- * D2. One statement frees offers still 'matched' that no proposed, matched or completed match references (a past
- *     hard delete cascaded the proposal away). Both frees compare the target CTID to a distinct scalar snapshot scan:
- *     an intervening release/re-hold or metadata version change defers release (spec B5, I1). CTID is statement-local,
- *     never persisted identity. B4's gated active-to-matched hold invariant alone does not exclude the re-hold cycle.
+ * D2. One statement frees offers still 'matched' that no proposed or matched match references (a past
+ *     hard delete cascaded the proposal away; a completed match holds nothing, BUG-093). Every free also flags the
+ *     offer expired once its expires_at has passed (BUG-094). Both frees compare the target CTID to a distinct
+ *     scalar snapshot scan: an intervening release/re-hold or metadata version change defers release (spec B5, I1).
+ *     CTID is statement-local, never persisted identity. B4's gated active-to-matched hold invariant alone does not
+ *     exclude the re-hold cycle.
  * Lock order: D1 request → offers → matches, as accept's closeProposals; D2 only the offer rows it updates.
  * Checked 2026-11-05 against matches.ts: complete (`UPDATE ... WHERE id = $1 AND status = 'matched'`) and cancel
  * (same guard) lock only a 'matched' row, never a 'proposed' one, so D1's proposed-row update waits on neither. Cancel
- * takes match, then request, then the offer last, and no help_offers writer holds an offer lock and then waits on the
- * request lock (Sprint 136's request-followups header lists the writers), so D1's request-then-offer order cannot
- * deadlock against them.
+ * and complete take match, then request, then the offer last, and no help_offers writer holds an offer lock and then
+ * waits on the request lock (Sprint 136's request-followups header lists the writers), so D1's request-then-offer
+ * order cannot deadlock against them.
  */
 export async function releaseExpiredHolds(): Promise<{ asksReleased: number; proposalsClosed: number; strandedOffersFreed: number }> {
   let asksReleased = 0, proposalsClosed = 0;
@@ -107,12 +109,12 @@ export async function releaseExpiredHolds(): Promise<{ asksReleased: number; pro
       if (locked.rowCount === 0) { await client.query('ROLLBACK'); continue; }
       // Keep this SQL text for text with request-service/src/db/requestStatus.ts's closeProposals offer release.
       await client.query(
-        `UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP
+        `UPDATE requests.help_offers o SET status = 'active', expired = (o.expired IS TRUE OR (o.expires_at IS NOT NULL AND o.expires_at <= clock_timestamp())), updated_at = CURRENT_TIMESTAMP
      WHERE o.status = 'matched'
        AND o.id IN (SELECT offer_id FROM requests.matches
                      WHERE request_id = $1 AND status = 'proposed' AND offer_id IS NOT NULL)
        AND NOT EXISTS (SELECT 1 FROM requests.matches m
-                        WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed')
+                        WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched')
                           AND NOT (m.request_id = $1 AND m.status = 'proposed'))
        AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)`, [id]);
       const closed = await client.query(
@@ -131,10 +133,10 @@ export async function releaseExpiredHolds(): Promise<{ asksReleased: number; pro
 
   // Keep this predicate in step with request-service/src/db/requestStatus.ts's releaseOffer (D2 mirrors it).
   const stranded = await query(
-    `UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP
+    `UPDATE requests.help_offers o SET status = 'active', expired = (o.expired IS TRUE OR (o.expires_at IS NOT NULL AND o.expires_at <= clock_timestamp())), updated_at = CURRENT_TIMESTAMP
       WHERE o.status = 'matched'
         AND NOT EXISTS (SELECT 1 FROM requests.matches m
-                         WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed'))
+                         WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched'))
         AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)`
   );
   const strandedOffersFreed = stranded.rowCount ?? 0;

@@ -22,6 +22,10 @@ describe('Sprint 120 generated init.sql drift gate', () => {
       'migration ledger backfill',
       /INSERT INTO public\.schema_migrations\s*\(migration_name\)\s*VALUES/i,
     ],
+    [
+      'BUG-095 matches.offer_id partial index',
+      /CREATE INDEX idx_matches_offer_id ON requests\.matches USING btree \(offer_id\) WHERE \(offer_id IS NOT NULL\);/,
+    ],
   ])('contains the %s', (_description, sentinel) => {
     expect((sentinel as RegExp).test(initSql)).toBe(true);
   });

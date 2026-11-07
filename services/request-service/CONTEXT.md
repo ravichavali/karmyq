@@ -7,6 +7,19 @@
 
 ## Recent Changes
 
+- **2026-11-06 (Sprint 138, BUG-093..096)**: a standing offer is reusable. **BUG-093:** the final done mark in
+  `PUT /matches/:id/complete` (both participants done) calls `releaseOffer` after the request is reconciled (lock order
+  match, request, offer, as cancel), freeing the offer the match used unless another proposed or matched exchange
+  still uses it; a first mark frees nothing and a withdrawn offer stays withdrawn. The release rule in all four copies
+  (`releaseOffer`, `closeProposals`, cleanup D1 and D2) is now: an offer is held only by a `proposed` or `matched`
+  match, so a completed match no longer holds it (retroactive: the first deployed cleanup sweep frees offers stuck
+  behind past completions). **BUG-094:** every release sets `expired = TRUE` in the same statement when the offer's
+  `expires_at` has passed (no listing read `expired` before; the effect was on `POST /matches`' fast path and the
+  hard-delete clock). **BUG-096:** `GET /offers` hides expired offers (flagged, or `expires_at` passed) for every
+  status filter; `GET /offers/:id` is unchanged. **BUG-095:** partial index `idx_matches_offer_id` on
+  `requests.matches(offer_id) WHERE offer_id IS NOT NULL` (migration `20261106-matches-offer-id-index.sql`) backs the
+  release guards. A freed offer past its expiry follows the existing 7-day hard-delete clock; its completed matches
+  keep their rows with `offer_id = NULL` (FK `ON DELETE SET NULL`). No event or dependency change.
 - **2026-11-04 (Sprint 137, BUG-090)**: `POST /providers/offers` keeps its provider-profile and reachability fast paths,
   then locks and re-checks the request with `lockRequestForCommitment` before checking duplicates and inserting on the
   same transaction client. An ask that closed or expired since the fast path returns `409 REQUEST_NOT_OPEN` without an
@@ -16,7 +29,8 @@
   after its ownership 404. Offer status follows exchanges; `POST /matches` refuses flagged-expired offers and holds
   only active offers with `expired IS NOT TRUE` and no passed `expires_at`, checked with `clock_timestamp()` in the
   guarded write. Reject and cancel call `releaseOffer` after updating their own match; it and `closeProposals` free
-  only matched offers with no remaining proposed, matched or completed hold (excluding proposals being closed).
+  only matched offers with no remaining proposed or matched hold (excluding proposals being closed; a completed match
+  stopped holding in Sprint 138, BUG-093).
   Shared offers stay held and withdrawn offers stay withdrawn. Each release also compares the target CTID with a
   distinct scalar self-scan under the statement snapshot: a concurrent version change, including a release/re-hold
   cycle, defers freeing to a later sweep. CTID is statement-local, never persisted identity (spec B5, I1). No migration,
@@ -1647,6 +1661,9 @@ Get the help offers the caller may read (their own, or their live communities' o
 **Query Parameters:** `community_id` (narrows within the boundary, never widens it), `status` (default
 `active`), `type`, `limit`, `offset`.
 
+**Expired offers are not listed (Sprint 138, BUG-096):** for every `status` filter, an offer flagged `expired` or past its
+`expires_at` is hidden. `GET /offers/:id` still returns it.
+
 **Implementation:** `src/routes/offers.ts` `router.get('/')`
 
 #### GET /offers/:id
@@ -1830,7 +1847,10 @@ A mark is recorded only on a `matched` match: the `done_at` `UPDATE` carries `AN
 
 **Side Effects (both parties):** Sets `status = 'completed'`, derives the request status with
 `reconcileRequestStatus` (a `cancelled` request stays cancelled; one with another `matched` exchange stays `matched`),
-fires `match_completed` event
+then calls `releaseOffer` (Sprint 138, BUG-093; after the request is reconciled, lock
+order match, request, offer): the standing offer the match used is freed (`matched` to `active`, flagged `expired` if
+its `expires_at` has passed) unless another `proposed` or `matched` exchange still uses it; a withdrawn offer stays
+withdrawn. All of this runs in one transaction; after it commits, `match_completed` is published.
 
 **Events Published:** `match_completed` (only when both parties have confirmed)
 
