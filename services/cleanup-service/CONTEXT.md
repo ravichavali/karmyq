@@ -17,6 +17,11 @@ Changes below.
 
 ## Recent Changes
 
+- **2026-11-06 (Sprint 138, BUG-093/094)**: `releaseExpiredHolds` D1 and D2 now treat an offer as held only by a
+  `proposed` or `matched` match (a completed match no longer holds it), and both set `expired = TRUE` in the same
+  statement when the offer's `expires_at` has passed. D2's first run after deploy is retroactive: it frees offers stuck
+  behind past completions (see `strandedOffersFreed`). Kept text for text with request-service `releaseOffer` /
+  `closeProposals` (parity gate). Tests: `tests/regression/sprint-137-release-expired-holds.test.ts`.
 - **2026-11-05 (Sprint 137, BUG-088)**: `markExpiredData` now ends by calling `releaseExpiredHolds()` (hourly cron and
   `POST /jobs/mark-expired`). D1: per flagged open ask with a proposal, in its own transaction, lock the ask, free the
   offers its proposals hold (guarded; text for text with request-service `closeProposals`), reject the proposals.
@@ -227,12 +232,16 @@ Daily Job (2 AM)
 - **D1 (per ask):** for each flagged-expired (`expired = TRUE`) `open` ask that still has a `proposed` match, in its own
   transaction: lock the ask (`FOR UPDATE`, re-checking it is still expired and open), free the offers its proposals hold,
   then reject those proposals. An offer is freed only while `matched` (a withdrawn offer stays withdrawn) and only when
-  no other proposed, matched or completed match references it (shared-offer guard); the SQL is kept text for text with
+  no other proposed or matched match references it (shared-offer guard; a completed match no longer holds, Sprint 138); the SQL is kept text for text with
   request-service `closeProposals`. A failure **inside** an ask's transaction (its lock, free, reject or `COMMIT`) rolls
   that ask back, is logged with its id, and does not stop the other asks. Getting the connection is not inside that
   isolation: if `pool.connect()` fails, the run stops there (see **Failure**).
-- **D2 (stranded offers):** one guarded statement frees `matched` offers that no proposed, matched or **completed**
-  match references (for example after a hard delete cascaded the proposal away).
+- **D2 (stranded offers):** one guarded statement frees `matched` offers that no `proposed` or `matched` match
+  references (for example after a hard delete cascaded the proposal away, or because the exchange completed). Its first
+  run after the Sprint 138 deploy frees history: every offer stuck behind a past completion, counted in
+  `strandedOffersFreed`.
+- **Expiry flag on free (D1 and D2):** a freed offer whose `expires_at` has passed is also set `expired = TRUE` in the
+  same statement, so it follows the 7-day hard-delete clock.
 - Both frees also compare the target row's CTID with a scalar snapshot scan, so an offer changed concurrently
   (including a release/re-hold cycle) is left for a later run.
 - **Logs and returns:** `asksReleased`, `proposalsClosed`, `strandedOffersFreed`.

@@ -37,7 +37,7 @@ you at once.
 ## Standing Offers
 
 A standing offer says "I can help with this" before anyone asks: a skill you have or a tool you're
-happy to lend. Post one from the **Help Offers** page (`/offers`) and pick the community it's for.
+happy to lend. Post one from the **Help Offers** page (`/offers`) and pick the community it's for. A standing offer stays available after an exchange it backed completes, until you withdraw it or it expires.
 
 Members of that community see it, and so do you. Nobody outside the community can see it. If you
 leave the community, you still see your own offer, but its members are the only other people who can
@@ -58,9 +58,9 @@ A community's open-asks view (reached from its weekly pulse) lists every open as
 3. Click **Offer to Help** if you can help
 4. Your offer goes to the requester to accept; track it in the **Helping** tab
 
-**Expired requests take no new offers.** Once a request passes its expiration date, you can't offer on it, and an offer you made earlier can no longer be accepted. An offer still waiting on an expired request is closed for you within about an hour, and the standing offer it held is free again. You can also withdraw it yourself sooner. An expired standing offer can't back a new offer either, and an offer's status changes only when you withdraw it or through the exchange itself.
+**Expired requests take no new offers.** Once a request passes its expiration date, you can't offer on it, and an offer you made earlier can no longer be accepted. An offer still waiting on an expired request is closed for you within about an hour, and the standing offer it held is free again. You can also withdraw it yourself sooner. An expired standing offer can't back a new offer either, and a completed exchange frees the standing offer for the next ask. An expired standing offer also leaves your offers list.
 
-**An offer you're already using elsewhere can't be used twice.** If you attach the same standing offer to two requests at once, only the first goes through. The second is refused as "Offer is not active".
+**An offer you're already using elsewhere can't be used twice.** If you attach the same standing offer to two requests at once, only the first goes through. The second is refused as "Offer is not active". That holds only while an exchange is in progress: once it completes, the offer is free to use again.
 
 ---
 
