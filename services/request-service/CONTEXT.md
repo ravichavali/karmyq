@@ -1847,10 +1847,10 @@ A mark is recorded only on a `matched` match: the `done_at` `UPDATE` carries `AN
 
 **Side Effects (both parties):** Sets `status = 'completed'`, derives the request status with
 `reconcileRequestStatus` (a `cancelled` request stays cancelled; one with another `matched` exchange stays `matched`),
-fires `match_completed` event. It then calls `releaseOffer` (Sprint 138, BUG-093; after the request is reconciled, lock
+then calls `releaseOffer` (Sprint 138, BUG-093; after the request is reconciled, lock
 order match, request, offer): the standing offer the match used is freed (`matched` to `active`, flagged `expired` if
 its `expires_at` has passed) unless another `proposed` or `matched` exchange still uses it; a withdrawn offer stays
-withdrawn.
+withdrawn. All of this runs in one transaction; after it commits, `match_completed` is published.
 
 **Events Published:** `match_completed` (only when both parties have confirmed)
 
