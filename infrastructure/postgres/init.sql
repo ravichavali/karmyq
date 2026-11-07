@@ -4969,6 +4969,12 @@ CREATE INDEX idx_help_requests_scheduled_for ON requests.help_requests USING btr
 CREATE INDEX idx_help_requests_type ON requests.help_requests USING btree (request_type);
 
 --
+-- Name: idx_matches_offer_id; Type: INDEX; Schema: requests; Owner: -
+--
+
+CREATE INDEX idx_matches_offer_id ON requests.matches USING btree (offer_id) WHERE (offer_id IS NOT NULL);
+
+--
 -- Name: idx_matches_partial_completion; Type: INDEX; Schema: requests; Owner: -
 --
 
@@ -7016,5 +7022,6 @@ INSERT INTO public.schema_migrations (migration_name) VALUES
   ('20261004-directed-requests.sql'),
   ('20261008-skill-visibility.sql'),
   ('20261013-skill-endorsements.sql'),
-  ('20261027-drop-interaction-feedback.sql')
+  ('20261027-drop-interaction-feedback.sql'),
+  ('20261106-matches-offer-id-index.sql')
 ON CONFLICT (migration_name) DO NOTHING;
