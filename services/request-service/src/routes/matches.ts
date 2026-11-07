@@ -625,8 +625,8 @@ router.put('/:id/complete', async (req: AuthenticatedRequest, res: Response) => 
         // helper still matched stays matched. Match row first, then the request row, the same order as cancel.
         await reconcileRequestStatus(q, match.request_id);
 
-        // BUG-093 (Sprint 138): a standing offer is reusable. The match is completed and no longer holds its offer, so free
-        // it unless another proposed or matched exchange still does. Match → request → offer, the same order as cancel.
+        // BUG-093 (Sprint 138): a standing offer is reusable. The match is completed and no longer holds its offer,
+        // so free it unless another proposed or matched exchange still does. Match → request → offer, as cancel.
         if (match.offer_id) await releaseOffer(q, match.offer_id);
       }
       return finished ? 'completed' as const : 'recorded' as const;

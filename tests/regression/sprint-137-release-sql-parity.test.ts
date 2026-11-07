@@ -5,7 +5,8 @@
  * D1 must equal closeProposals' offer UPDATE text for text, and D2 must equal releaseOffer with only its per-offer
  * scope (`o.id = $1 AND`) removed — whole statements, so nothing inside D2's NOT EXISTS can drift unseen. closeProposals'
  * full NOT EXISTS must be releaseOffer's plus exactly the same-request proposal exclusion. All four share the hold-set
- * and CTID version predicates, and the SET clause (status, expired flag, updated_at; BUG-093/094, Sprint 138). Nothing else ties the copies together, so this reads the sources as text. Every
+ * and CTID version predicates, and the SET clause (status, expired flag, updated_at; BUG-093/094, Sprint 138).
+ * Nothing else ties the copies together, so this reads the sources as text. Every
  * extraction asserts exactly one match and throws otherwise, and the comparator is proven able to fail on mutated copies.
  */
 import { readFileSync } from 'fs';
