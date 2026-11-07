@@ -187,17 +187,25 @@ describe('A/B: the release SQL', () => {
 describe('C: GET /offers hides expired standing offers', () => {
   const list = async (qs = '') => request(await app()).get(`/offers${qs}`).set('x-test-user', 'viewer');
 
-  it.each([['', 'active'], ['?status=withdrawn', 'withdrawn']])('filters flagged and elapsed offers (%s)', async (qs, status) => {
+  const listCall = async (qs: string) => {
     reply(/FROM requests\.help_offers o/, rows([]));
     expect((await list(qs)).status).toBe(200);
     const call = statements().find((s) => /FROM requests\.help_offers o/.test(s.sql));
     expect(call).toBeDefined();
-    const { sql, params } = call!;
-    expect(sql).toContain('o.expired IS NOT TRUE');
-    expect(sql).toContain('(o.expires_at IS NULL OR o.expires_at > NOW())');
+    return call!;
+  };
+
+  it.each([['', 'active'], ['?status=withdrawn', 'withdrawn']])('keeps the readable boundary and [status, viewerId] leading params (%s)', async (qs, status) => {
+    const { sql, params } = await listCall(qs);
     // The readable boundary is unchanged.
     expect(sql).toContain('o.offerer_id = $2 OR EXISTS ( SELECT 1 FROM communities.members cm');
     expect(sql).toContain("cm.user_id = $2 AND cm.status = 'active'");
     expect(params.slice(0, 2)).toEqual([status, 'viewer']);
+  });
+
+  it.each([[''], ['?status=withdrawn']])('filters flagged and elapsed offers (%s)', async (qs) => {
+    const { sql } = await listCall(qs);
+    expect(sql).toContain('o.expired IS NOT TRUE');
+    expect(sql).toContain('(o.expires_at IS NULL OR o.expires_at > NOW())');
   });
 });
