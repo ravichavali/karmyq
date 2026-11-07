@@ -5,7 +5,7 @@
  * D1 must equal closeProposals' offer UPDATE text for text, and D2 must equal releaseOffer with only its per-offer
  * scope (`o.id = $1 AND`) removed — whole statements, so nothing inside D2's NOT EXISTS can drift unseen. closeProposals'
  * full NOT EXISTS must be releaseOffer's plus exactly the same-request proposal exclusion. All four share the hold-set
- * and CTID version predicates. Nothing else ties the copies together, so this reads the sources as text. Every
+ * and CTID version predicates, and the SET clause (status, expired flag, updated_at; BUG-093/094, Sprint 138). Nothing else ties the copies together, so this reads the sources as text. Every
  * extraction asserts exactly one match and throws otherwise, and the comparator is proven able to fail on mutated copies.
  */
 import { readFileSync } from 'fs';
@@ -55,6 +55,7 @@ function notExists(label: string, sql: string): string {
 }
 
 const PER_OFFER_SCOPE = 'WHERE o.id = $1 AND ';
+const SET_CLAUSE = /SET .*? WHERE /g;
 const SAME_REQUEST_EXCLUSION = " AND NOT (m.request_id = $1 AND m.status = 'proposed')";
 
 /** Every mismatch between the copies in the two sources; an empty list means in step. Throws if a statement is missing. */
@@ -84,6 +85,12 @@ export function parityProblems(requestSrc: string, cleanupSrc: string): string[]
       if (only(`${name} ${what}`, sql, re) !== reference) problems.push(`${name} ${what} differs from releaseOffer`);
     }
   }
+  // Sprint 138: the SET clause (statement text from SET up to WHERE) is one rule, so all four must carry releaseOffer's.
+  const setOf = (name: string, sql: string): string => only(`${name} SET clause`, sql, SET_CLAUSE);
+  const setReference = setOf('releaseOffer', releaseOffer);
+  for (const [name, sql] of copies) {
+    if (setOf(name, sql) !== setReference) problems.push(`${name} SET clause differs from releaseOffer`);
+  }
   return problems;
 }
 
@@ -95,15 +102,22 @@ describe('Sprint 137 release SQL parity (request-service <-> cleanup-service)', 
     expect(parityProblems(requestSrc, cleanupSrc)).toEqual([]);
   });
 
-  it('the shared hold set still counts completed matches (guards the reference itself)', () => {
+  it("the shared hold set is proposed and matched only; a completed match holds nothing (BUG-093, Sprint 138; guards the reference itself)", () => {
     const releaseOffer = statement('releaseOffer', requestSrc, 'o.id = $1');
-    expect(only('hold set', releaseOffer, HOLD_SET)).toContain("m.status IN ('proposed', 'matched', 'completed')");
+    const hold = only('hold set', releaseOffer, HOLD_SET);
+    expect(hold).toContain("m.status IN ('proposed', 'matched')");
+    expect(hold).not.toContain("'completed'");
   });
 
   it('the comparator can fail: a hold-set drift in either file is reported', () => {
-    const dropped = (s: string) => s.replace(/m\.status IN \('proposed', 'matched', 'completed'\)/, "m.status IN ('proposed', 'matched')");
-    expect(parityProblems(requestSrc, dropped(cleanupSrc)).length).toBeGreaterThan(0);
-    expect(parityProblems(dropped(requestSrc), cleanupSrc).length).toBeGreaterThan(0);
+    // Re-adding 'completed' to the hold set of one file at a time: each must be reported.
+    const readded = (s: string): string => {
+      const out = s.replace(/m\.status IN \('proposed', 'matched'\)/, "m.status IN ('proposed', 'matched', 'completed')");
+      expect(out).not.toBe(s);
+      return out;
+    };
+    expect(parityProblems(requestSrc, readded(cleanupSrc)).length).toBeGreaterThan(0);
+    expect(parityProblems(readded(requestSrc), cleanupSrc).length).toBeGreaterThan(0);
   });
 
   it('the comparator can fail: a drifted D1 body or CTID predicate is reported', () => {
@@ -118,9 +132,9 @@ describe('Sprint 137 release SQL parity (request-service <-> cleanup-service)', 
 
   // A predicate added inside a NOT EXISTS after its status list (Codex review of #330). Anchored on the hold-set
   // tail, which occurs once per file (requestStatus.ts's derive has a different `('matched', 'completed'))`).
-  const HOLD_TAIL = "'proposed', 'matched', 'completed'))";
+  const HOLD_TAIL = "'proposed', 'matched'))";
   const widened = (s: string): string => {
-    const out = s.replace(HOLD_TAIL, "'proposed', 'matched', 'completed') AND m.request_id IS NOT NULL)");
+    const out = s.replace(HOLD_TAIL, "'proposed', 'matched') AND m.request_id IS NOT NULL)");
     expect(out).not.toBe(s);
     return out;
   };
@@ -142,6 +156,24 @@ describe('Sprint 137 release SQL parity (request-service <-> cleanup-service)', 
     };
     // D1 still equals closeProposals, so only the shape check against releaseOffer can catch this.
     expect(parityProblems(drift(requestSrc), drift(cleanupSrc))).toEqual([CLOSE_DRIFT]);
+  });
+
+  it('the comparator can fail: the SET clause drifting in closeProposals and D1 together is reported by the SET check alone', () => {
+    const expiry = 'expired = (o.expired IS TRUE OR (o.expires_at IS NOT NULL AND o.expires_at <= clock_timestamp())), ';
+    // Drop the expiry flag from the statement carrying the same-request exclusion (closeProposals in one file, D1 in the other).
+    const drift = (s: string): string => {
+      const at = s.indexOf('o.id IN (SELECT offer_id');
+      const head = s.lastIndexOf(expiry, at);
+      expect(head).toBeGreaterThan(-1);
+      const out = s.slice(0, head) + s.slice(head + expiry.length);
+      expect(out).not.toBe(s);
+      return out;
+    };
+    // D1 still equals closeProposals and every other check is green, so only the SET check can catch this.
+    expect(parityProblems(drift(requestSrc), drift(cleanupSrc))).toEqual([
+      'closeProposals SET clause differs from releaseOffer',
+      'D1 SET clause differs from releaseOffer',
+    ]);
   });
 
   it('fails loudly instead of passing vacuously when a statement cannot be found', () => {

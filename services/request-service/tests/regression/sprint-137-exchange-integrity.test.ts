@@ -75,9 +75,9 @@ const OPEN_REACH = { exists: true, requesterId: 'requester', status: 'open', exp
 const CLOSED = { success: false, message: "A completed or cancelled request can't be edited", error: 'REQUEST_CLOSED' };
 const OFFER_NOT_ACTIVE = { success: false, message: 'Offer is not active', error: 'OFFER_NOT_ACTIVE' };
 // Independent literal from spec B5; no import of the not-yet-implemented helper or expected SQL from production.
-const RELEASE = "UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP " +
+const RELEASE = "UPDATE requests.help_offers o SET status = 'active', expired = (o.expired IS TRUE OR (o.expires_at IS NOT NULL AND o.expires_at <= clock_timestamp())), updated_at = CURRENT_TIMESTAMP " +
   "WHERE o.id = $1 AND o.status = 'matched' AND NOT EXISTS (SELECT 1 FROM requests.matches m " +
-  "WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed')) " +
+  "WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched')) " +
   "AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)";
 const INLINE_RELEASE = "UPDATE requests.help_offers SET status = 'active' WHERE id = $1 AND status = 'matched'";
 
@@ -279,7 +279,7 @@ describe('B5: every release preserves another match\'s hold', () => {
     expect(closeIndex).toBeGreaterThan(freeIndex);
     expect([clientOf(freeIndex), clientOf(closeIndex)]).toEqual(['tx', 'tx']);
     expect(statements()[freeIndex].params).toEqual(['req-1']);
-    expect(statements()[freeIndex].sql).toContain("m.status IN ('proposed', 'matched', 'completed')");
+    expect(statements()[freeIndex].sql).toContain("m.status IN ('proposed', 'matched')");
     expect(statements()[freeIndex].sql).toContain("AND NOT (m.request_id = $1 AND m.status = 'proposed')");
     // A new hold after a matched -> active -> matched cycle must not pass a stale release snapshot (I1).
     expect(statements()[freeIndex].sql).toContain(

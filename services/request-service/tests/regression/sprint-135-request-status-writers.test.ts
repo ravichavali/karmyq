@@ -51,16 +51,16 @@ const LOCK = /^SELECT id FROM requests\.help_requests WHERE id = \$1 FOR UPDATE$
 const DERIVE = /^SELECT CASE WHEN r\.status = 'cancelled'/;
 const RECONCILE = /^UPDATE requests\.help_requests r SET status = CASE /;
 const CANCEL_REQUEST = /^UPDATE requests\.help_requests r SET status = 'cancelled'/;
-const CLOSE_OFFERS = "UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP " +
+const CLOSE_OFFERS = "UPDATE requests.help_offers o SET status = 'active', expired = (o.expired IS TRUE OR (o.expires_at IS NOT NULL AND o.expires_at <= clock_timestamp())), updated_at = CURRENT_TIMESTAMP " +
   "WHERE o.status = 'matched' AND o.id IN (SELECT offer_id FROM requests.matches " +
   "WHERE request_id = $1 AND status = 'proposed' AND offer_id IS NOT NULL) " +
   "AND NOT EXISTS (SELECT 1 FROM requests.matches m " +
-  "WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed') " +
+  "WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched') " +
   "AND NOT (m.request_id = $1 AND m.status = 'proposed')) " +
   "AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)";
-const RELEASE_OFFER = "UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP " +
+const RELEASE_OFFER = "UPDATE requests.help_offers o SET status = 'active', expired = (o.expired IS TRUE OR (o.expires_at IS NOT NULL AND o.expires_at <= clock_timestamp())), updated_at = CURRENT_TIMESTAMP " +
   "WHERE o.id = $1 AND o.status = 'matched' AND NOT EXISTS (SELECT 1 FROM requests.matches m " +
-  "WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed')) " +
+  "WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched')) " +
   "AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)";
 const CLOSE_MATCHES = /^UPDATE requests\.matches SET status = 'rejected', updated_at = CURRENT_TIMESTAMP WHERE request_id = \$1 AND status = 'proposed'$/;
 /** A request-status write that is not the shared helper's: what every writer used to do. */
