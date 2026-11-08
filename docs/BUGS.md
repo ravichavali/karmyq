@@ -2597,3 +2597,15 @@ every status filter. Tests: `services/request-service/tests/regression/sprint-13
 `tests/integration/sprint-138-reusable-offers.integration.test.ts`.
 
 ---
+
+## BUG-097 · [2026-11-08] · open
+
+**The offers list's expiry filter also hides in-use and owner-only views.** F1 from Sprint 138's `/code-review` (PR
+#331); the maintainer kept it as shipped on 2026-11-08, with this follow-up. `GET /offers`
+(`services/request-service/src/routes/offers.ts:41-42`) applies its expiry filter
+(`o.expired IS NOT TRUE AND (o.expires_at IS NULL OR o.expires_at > NOW())`) to every status filter. So
+`?status=matched` hides an offer whose `expires_at` passed while its exchange is still in progress (the hourly flag only
+touches `active` offers, so the clock arm alone hides it), and an owner no longer sees their own expired active offer in
+the list. Possible fix: scope the expiry arms to `status = 'active'`. Low severity, UX.
+
+---

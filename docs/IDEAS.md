@@ -1077,3 +1077,11 @@ that debt list stands: BUG-041 / `query-string@7`, stale mobile match statuses, 
 pipeline.
 
 ---
+
+## [2026-11-08] framing
+
+Evolve the platform into something that can also be used as a communication channel. This runs against the initial
+plan, so it needs an adversarial discussion about why. The idea is to mimic how relationships form: give people the
+tools they need as they grow their networks of trust.
+
+---
