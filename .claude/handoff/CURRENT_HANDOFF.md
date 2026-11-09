@@ -1,17 +1,21 @@
 # Sprint 138 — Reusable Standing Offers — Handoff
 
 **Date**: 2026-11-06
-**Outcome so far**: **EXECUTED; PR #331 open, CI green, awaiting the Codex cross-agent review; the admin merge is
-authorized once its conditions hold (2026-11-08).** Plan Tasks 1–12 are done and all four gates ran (*Execution
-record*). Nothing is merged or deployed.
+**Outcome so far**: **REVIEWED; the admin squash-merge of #331 (authorized 2026-11-08) is run right after this
+handoff commit lands.** Plan Tasks 1–12 are done, all four gates ran (*Execution record*), and the Codex cross-agent
+review is complete. When you read this, `gh pr view 331 --json state,mergeCommit` and the CI/CD run on the merge sha are
+the truth: this file cannot record its own merge.
 - **PR CI on `634e0799` (2026-11-07): every check green.** Integration Tests ran both
   `sprint-138-reusable-offers` and `sprint-137-exchange-integrity` (PASS; job 26 suites / 442 tests), and the PR-mode
   "Committed init.sql must match the regeneration byte-for-byte" step passed. The Tests workflow's *Test Docker Build*
   failed on attempt 1 in "Start services": Docker Hub's token endpoint answered `502 Bad Gateway` pulling
   `grafana/promtail:3.3.2`, an external outage. Attempt 2 passed.
-- **Codex review: pending.** The maintainer is running Codex on #331 and will paste its findings. Each one is verified
-  against the code with the `review-response` skill, and the confirmed ones are fixed on this branch. The only review on
-  the PR so far is the graphify bot: no issues; its one advisory (`CREATE INDEX` without `CONCURRENTLY`) is decision P4.
+- **PR CI on `f392a4c7` (2026-11-09): every check green on the first attempt** (CI/CD run `42514361851` incl.
+  Integration Tests; Tests `42514361812` incl. Test Docker Build; `init.sql` `42514361860`; CodeQL `42514358369`).
+- **Codex review (2026-11-09, head `f392a4c7`): no new actionable findings.** Codex reviewed the offer-release SQL, the
+  completion path, the expiry filter, the cleanup sweep and the index migration; it did not run tests. F1 is already
+  decided (BUG-097). Nothing to verify or fix under `review-response`. The graphify bot also found no issues; its one
+  advisory (`CREATE INDEX` without `CONCURRENTLY`) is decision P4.
 
 > The handoff carries **state between sessions**. It is not a copy of the plan: it links the plan and names the next
 > unchecked task. It is branch-local, so it can reserve nothing; see `CLAUDE.md` → *Parallel Development* for how
@@ -35,11 +39,16 @@ completions are freed by the next sweep, a freed offer past its expiry is flagge
 
 1. Read this handoff. Confirm live state: `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`,
    `gh pr checks <PR>` for the PR from `agent/claude/sprint-138-planning`.
-2. **Next unchecked task: Plan Task 13 — merge + deploy.** First, the Codex findings the maintainer pastes go through
-   `review-response` (verify each, fix the confirmed ones, push). Then: green checks on the final head, a fresh
-   deploy-queue check (no CI/CD run in flight on master) and a version check (`origin/master`'s `package.json` is still
-   11.110.0, or re-bump). **The maintainer authorized (2026-11-08) `gh pr merge 331 --squash --admin` once all of these
-   hold.** Branch protection requires an approving review, and the PR author's account can't approve its own PR.
+2. **Plan Task 13 — merge + deploy.** The review is done (no findings). **The maintainer authorized (2026-11-08)
+   `gh pr merge 331 --squash --admin`** once checks are green on the final head and a fresh deploy-queue check (no
+   CI/CD run in flight on master) and version check (`origin/master`'s `package.json` is still 11.110.0, or re-bump)
+   pass; the executing chat runs it right after this commit. Branch protection requires an approving review, and the PR
+   author's account can't approve its own PR.
+   - **If #331 is still OPEN:** re-run those checks, then merge (the authorization covers #331 only).
+   - **If #331 is MERGED:** confirm the CI/CD run on the merge sha passed Deploy to Demo and health verification with
+     no rollback, then read the open master code-scanning alerts and the merge-sha analyses. The post-merge record and
+     the archive of this handoff ride the next sprint's branch (cut from `origin/master`; no docs-only master push).
+     The demo-host reads under *Proofs* each still need their own authorization.
 3. If PR CI is red: a lone `feed-dibs` privacy timestamp failure is the known flake (rerun); an Integration Tests
    failure in `sprint-138-reusable-offers` or `sprint-137-exchange-integrity` is real work on this branch — fix on the
    branch, never `--no-verify`. If `origin/master` moved, merge it in with a merge commit (never rebase) and re-derive
@@ -92,9 +101,10 @@ The artifact differs from master's file by exactly the index block and the ledge
 - Pre-push hook ran on both pushes (`872d0b1b`, `fcee13e7`): root regression 991 then 992 passed.
 - **Observed in PR CI (`634e0799`, run `42347554412`):** the real-SQL proofs (Task 7) PASS and the PR-mode `init.sql`
   byte compare passed (run `42347554415`).
-- **Fresh checks (2026-11-08):** no workflow run in flight; master's last CI/CD (`42137735346`, `17e453f8`) succeeded;
-  `origin/master` is 11.110.0, so 11.111.0 stands; 0 open code-scanning alerts on master. Re-check all three just
-  before merging.
+- **Fresh checks (2026-11-08, repeated 2026-11-09):** no workflow run in flight; master's last CI/CD (`42137735346`,
+  `17e453f8`) succeeded; `origin/master` is 11.110.0, so 11.111.0 stands; 0 open code-scanning alerts on master; #331
+  is the only open PR. Re-check all of them just before merging. (Master's scheduled *Expo SDK drift* run fails daily:
+  that is the #329 drift watcher, not a deploy.)
 - **After deploy (demo-host reads; each needs authorization):** the first hourly `Released expired holds` line's
   `strandedOffersFreed` (the retroactive free, decision 3) and `[OK] 20261106-matches-offer-id-index.sql` in the deploy log.
 
@@ -107,7 +117,7 @@ statement; `GET /offers` hides expired offers; #329 stays open; one authorized d
 **Maintainer (2026-11-08):**
 1. **F1: keep as shipped.** `GET /offers` keeps the expiry filter on every status filter; the follow-up is logged as
    **BUG-097** (scope the expiry arms to `status = 'active'`).
-2. **Codex review:** the maintainer runs Codex on #331 and pastes the findings here.
+2. **Codex review:** the maintainer ran Codex on #331 (head `f392a4c7`, 2026-11-09): no new actionable findings.
 3. **Merge authorized:** admin squash-merge of #331 once the review has no open findings, checks are green on the final
    head, and the deploy queue and version are re-checked just before merging. Demo-host operations still need their own
    authorization.
