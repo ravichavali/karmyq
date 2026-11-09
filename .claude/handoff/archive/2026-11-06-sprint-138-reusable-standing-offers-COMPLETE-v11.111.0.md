@@ -1,0 +1,207 @@
+# Sprint 138 — Reusable Standing Offers — Handoff — COMPLETE (v11.111.0)
+
+**Date**: 2026-11-06 (archived after the merge, 2026-11-09)
+**Outcome**: **COMPLETE — merged and deployed.** PR #331 was admin squash-merged (authorized by the maintainer on
+2026-11-08) on 2026-11-09 at 19:05:16Z as `74c5a8e5` (v11.111.0). The *Post-merge record* below is the verified
+outcome. The sections after it are the execution-time handoff as it stood at merge.
+
+## Post-merge record (verified 2026-11-09, ~19:25Z)
+
+- **Merge:** `74c5a8e5` from PR head `96ce19d2`; the master tree is identical to that head (`git diff` empty). Just
+  before merging: every workflow on `96ce19d2` was green on attempt 1, no run was in flight anywhere, `origin/master`
+  `package.json` was 11.110.0 (so the provisional 11.111.0 stood), and #331 was the only open PR. Review: Codex found
+  no new actionable findings on `f392a4c7`; the later commits are the handoff and two empty CI retriggers.
+- **GitHub Actions outage before the merge (2026-11-09, githubstatus.com "Incident with Actions", ~18:12Z → ~18:45Z):**
+  CI/CD `42671021685` on `fee16382` concluded failure with every created job green; its Build Landing Page job was
+  never created, and the run could not be retried. Every run on `2c252b57` lost jobs too, and its dynamic CodeQL run
+  could not be retried. The empty commit `96ce19d2` gave every workflow one clean head after recovery.
+  **Lesson:** a `gh pr checks` summary that shows only passes can hide a run whose job was never created. Check the run
+  conclusion and its job count (`actions/runs/<id>/jobs`), not only the check list.
+- **CI/CD Pipeline `42679957353` on `74c5a8e5`: success** (19:05:19Z → 19:22:21Z). All 14 jobs passed: Lint & Type
+  Check, Backend Unit + Regression, Integration Tests, Security Audit, Code Scanning Gate (ADR-060), Build Landing Page,
+  seven Docker image builds, and **Deploy to Demo**. Deploy log: `[OK] 20261106-matches-offer-id-index.sql applied
+  successfully`; health check: all 9 services healthy (auth, community, request, reputation, notification, messaging,
+  cleanup, geocoding, social-graph); `DEPLOYMENT SUCCESSFUL`; the failure-notify step skipped, so there was no rollback.
+  The `Tests` and `CodeQL` runs on `74c5a8e5` also succeeded.
+- **Code scanning:** 0 open alerts on master. The merge-sha analyses (`/language:javascript-typescript`,
+  `/language:actions`) carry no warning or error. **Dependabot:** 0 open alerts.
+- **Not yet observed — needs the maintainer's authorization (demo-host read):** the first hourly `markExpiredData` after
+  the 19:22Z deploy (cron `0 * * * *`, so 20:00Z on 2026-11-09 onward) logs `Released expired holds { asksReleased,
+  proposalsClosed, strandedOffersFreed }`. Its `strandedOffersFreed` is decision 3's retroactive free of the offers held
+  by past completions. Reading it is `docker logs` on the demo host.
+- **Dated:** `deepmerge` #178 re-check by 2026-12-01. **Open:** #329 Expo drift (maintainer's call), BUG-097 (F1's
+  follow-up), and F3, F4, F8, F9 below.
+
+---
+
+- **PR CI on `634e0799` (2026-11-07): every check green.** Integration Tests ran both
+  `sprint-138-reusable-offers` and `sprint-137-exchange-integrity` (PASS; job 26 suites / 442 tests), and the PR-mode
+  "Committed init.sql must match the regeneration byte-for-byte" step passed. The Tests workflow's *Test Docker Build*
+  failed on attempt 1 in "Start services": Docker Hub's token endpoint answered `502 Bad Gateway` pulling
+  `grafana/promtail:3.3.2`, an external outage. Attempt 2 passed.
+- **PR CI on `f392a4c7` (2026-11-09): every check green on the first attempt** (CI/CD run `42514361851` incl.
+  Integration Tests; Tests `42514361812` incl. Test Docker Build; `init.sql` `42514361860`; CodeQL `42514358369`).
+- **Codex review (2026-11-09, head `f392a4c7`): no new actionable findings.** Codex reviewed the offer-release SQL, the
+  completion path, the expiry filter, the cleanup sweep and the index migration; it did not run tests. F1 is already
+  decided (BUG-097). Nothing to verify or fix under `review-response`. The graphify bot also found no issues; its one
+  advisory (`CREATE INDEX` without `CONCURRENTLY`) is decision P4.
+
+> The handoff carries **state between sessions**. It is not a copy of the plan: it links the plan and names the next
+> unchecked task. It is branch-local, so it can reserve nothing; see `CLAUDE.md` → *Parallel Development* for how
+> contended resources are actually allocated. Git and PR state (`gh pr list`, `git log origin/master`) outrank anything
+> written here. No parallel lanes are active.
+
+**Sprint goal:** a standing help offer is reusable: completing an exchange frees its offer, offers stuck behind past
+completions are freed by the next sweep, a freed offer past its expiry is flagged at once, expired offers leave the
+`/offers` list, and offer releases are indexed (BUG-093, 094, 095, 096; one PR; v11.110.0 → v11.111.0 provisional).
+
+**Spec:** [`docs/superpowers/specs/2026-11-06-sprint-138-reusable-standing-offers-design.md`](../../docs/superpowers/specs/2026-11-06-sprint-138-reusable-standing-offers-design.md)
+**Plan:** [`docs/superpowers/plans/2026-11-06-sprint-138-reusable-standing-offers.md`](../../docs/superpowers/plans/2026-11-06-sprint-138-reusable-standing-offers.md)
+(Tasks 1–12 ticked.)
+
+**Previous**: Sprint 137 COMPLETE (merged `17e453f8`, v11.110.0). Archived:
+[`archive/2026-11-05-sprint-137-exchange-integrity-COMPLETE-v11.110.0.md`](archive/2026-11-05-sprint-137-exchange-integrity-COMPLETE-v11.110.0.md).
+
+---
+
+## Quick Start
+
+1. Read this handoff. Confirm live state: `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`,
+   `gh pr checks <PR>` for the PR from `agent/claude/sprint-138-planning`.
+2. **Plan Task 13 — merge + deploy.** The review is done (no findings). **The maintainer authorized (2026-11-08)
+   `gh pr merge 331 --squash --admin`** once checks are green on the final head and a fresh deploy-queue check (no
+   CI/CD run in flight on master) and version check (`origin/master`'s `package.json` is still 11.110.0, or re-bump)
+   pass; the executing chat runs it right after this commit. Branch protection requires an approving review, and the PR
+   author's account can't approve its own PR.
+   - **If #331 is still OPEN:** re-run those checks, then merge (the authorization covers #331 only).
+   - **If #331 is MERGED:** confirm the CI/CD run on the merge sha passed Deploy to Demo and health verification with
+     no rollback, then read the open master code-scanning alerts and the merge-sha analyses. The post-merge record and
+     the archive of this handoff ride the next sprint's branch (cut from `origin/master`; no docs-only master push).
+     The demo-host reads under *Proofs* each still need their own authorization.
+3. If PR CI is red: a lone `feed-dibs` privacy timestamp failure is the known flake (rerun); an Integration Tests
+   failure in `sprint-138-reusable-offers` or `sprint-137-exchange-integrity` is real work on this branch — fix on the
+   branch, never `--no-verify`. If `origin/master` moved, merge it in with a merge commit (never rebase) and re-derive
+   the version from `origin/master`'s `package.json`.
+4. Merges, ADR numbers, demo-host operations, dismissals and dependency work each need explicit authorization.
+
+---
+
+## Ownership and base
+
+| Field | Value |
+|---|---|
+| **Branch** | `agent/claude/sprint-138-planning`, cut from `origin/master` `17e453f8`. Carries the Sprint 137 archive and #330 post-merge record, the Sprint 138 spec, plan and handoff, the BUG-094 correction + BUG-096 entry, and the execution commits below. The one PR opens from it. |
+| **Base** | `origin/master` `17e453f8` (#330, v11.110.0). The version (provisional 11.111.0) is re-derived from `origin/master` at merge. |
+| **Active editor** | Claude (Sprint 138 execution chat, 2026-11-06), via subagent-driven development. |
+| **Shared resources** | **Dependency lane: Claude** (maintainer-designated); this sprint adds no dependency. Dated: #178 only. **No ADR.** No demo-host operation was used: `init.sql` was regenerated by the repo's own workflow (ruling R1). |
+| **Merged branches safe to delete** (maintainer's call) | `agent/claude/sprint-137-planning` (head `49ebd68a`), `agent/claude/sprint-136-planning` (`170d39fe`), `agent/claude/sprint-135-pr-request-status-guards` (`7bfc65ac`), `agent/claude/sprint-135-planning` (`5a3589ef`), `agent/claude/sprint-134-pr-bug-077-badge-insert` (`afbaed7a`); older `agent/claude/sprint-134-*` heads. |
+
+## Execution record (2026-11-06)
+
+Each task: implementer subagent → task review (spec + quality) → fix round if needed. Baselines before Task 1: request-
+service unit 161 + regression 620 (1 skip), cleanup 61 (7 skip), parity 8/8, three request gates 48/48 — all exit 0.
+
+| Task | Commits | Review |
+|---|---|---|
+| 1 Version 11.111.0 (three root fields) | `fd0aa416` | clean |
+| 2 Red contract tests (request-service tdd) | `47afb25d` | clean; 3 minors (2 carried into Tasks 4–5 and fixed there) |
+| 3 One release rule in four copies + parity gate (BUG-093 rule, BUG-094) | `2c096f7a` | clean; offer-status gate proven to fail on an injected writer, then green |
+| 6a Migration `20261106-matches-offer-id-index.sql` (BUG-095) | `872d0b1b` | migration-validator: no Critical; byte-for-byte spec D |
+| 4 Completion frees its offer (BUG-093) | `139ef92d`, fix `d29194cb` | 1 fix round (sprint-135 writer test now pins the release after reconcile; two-phase pins the exact literal) |
+| 6b `init.sql` regenerated + drift-gate case | `49d71e4e` | clean; committed blob `9e09b97f` = workflow artifact; drift gate red before promotion, green after |
+| 5 `GET /offers` hides expired offers (BUG-096) | `d1f413eb` | clean |
+| 7 Integration proofs (CI-only) + Sprint 137 flips | `d6eb6b2b` | clean (opus review against routes, `init.sql` constraints, visibility, cleanup) |
+| 8 Promote by `git mv` | `a0fadd63` | clean; request-service regression 63 suites / 636 passed |
+| 9 Docs (guides, CONTEXT ×2, BUGS, registry sentence, landing) | `fcee13e7` | clean |
+| 10 `/simplify` | `1c130663` (comment wraps only) | — |
+| 10 `/code-review high` (whole-branch final review) | fixes `1c97a609` | 9 findings: 2 fixed (CONTEXT side-effect order; guide availability wording), 1 = this handoff, 6 parked with rulings (below) |
+| 10 `/security-review` | — | no findings; the plan's four checks pass |
+| 11 Final verification | — | see *Proofs* |
+
+**`init.sql` regeneration (ruling R1).** The repo's `.github/workflows/regenerate-init-sql.yml` was run by
+`workflow_dispatch` on this branch at `872d0b1b` (run `42343088624`: regenerated twice deterministically, booted a fresh
+database, recorded every migration, replayed with no drift). On dispatch it seeds from the branch's committed
+`init.sql`, which was byte-identical to `origin/master`'s (blob `3adf75f4` on both) — the same seed the PR gate uses.
+The artifact differs from master's file by exactly the index block and the ledger row. No hand edit, no demo host.
+
+## Proofs
+
+- Final `npm test` (full), both service `tsc --noEmit`, the parity / drift / doc-context gates: see the PR body.
+- Pre-push hook ran on both pushes (`872d0b1b`, `fcee13e7`): root regression 991 then 992 passed.
+- **Observed in PR CI (`634e0799`, run `42347554412`):** the real-SQL proofs (Task 7) PASS and the PR-mode `init.sql`
+  byte compare passed (run `42347554415`).
+- **Fresh checks (2026-11-08, repeated 2026-11-09):** no workflow run in flight; master's last CI/CD (`42137735346`,
+  `17e453f8`) succeeded; `origin/master` is 11.110.0, so 11.111.0 stands; 0 open code-scanning alerts on master; #331
+  is the only open PR. Re-check all of them just before merging. (Master's scheduled *Expo SDK drift* run fails daily:
+  that is the #329 drift watcher, not a deploy.)
+- **After deploy (demo-host reads; each needs authorization):** the first hourly `Released expired holds` line's
+  `strandedOffersFreed` (the retroactive free, decision 3) and `[OK] 20261106-matches-offer-id-index.sql` in the deploy log.
+
+## Decisions
+
+**Maintainer (2026-11-06):** scope BUG-093/094/095 + BUG-096 in one PR; standing offers reusable after a completed
+exchange, every offer, history freed retroactively by the first sweep after deploy; BUG-094 fixed in every release
+statement; `GET /offers` hides expired offers; #329 stays open; one authorized demo-host read (done in planning).
+
+**Maintainer (2026-11-08):**
+1. **F1: keep as shipped.** `GET /offers` keeps the expiry filter on every status filter; the follow-up is logged as
+   **BUG-097** (scope the expiry arms to `status = 'active'`).
+2. **Codex review:** the maintainer ran Codex on #331 (head `f392a4c7`, 2026-11-09): no new actionable findings.
+3. **Merge authorized:** admin squash-merge of #331 once the review has no open findings, checks are green on the final
+   head, and the deploy queue and version are re-checked just before merging. Demo-host operations still need their own
+   authorization.
+4. Captured idea (`docs/IDEAS.md`, 2026-11-08, framing): evolve the platform toward a communication channel that grows
+   with people's networks of trust; it needs an adversarial discussion first. Bundled into #331 (append-only file).
+
+**Execution rulings (each open to the maintainer's veto):**
+- **R1** `init.sql` regenerated by the repo's workflow (`workflow_dispatch`) instead of the Mac or a demo-host
+  container; seed proven identical to the PR gate's. If wrong: redo on the Mac.
+- **R3** the offer-status gate's D2 `why` text also changed (it stated the old rule); labels unchanged.
+- **R6** every commit carries the session's attribution line (one subagent commit names Haiku; squash-merge drops them).
+- **R8** `services/registry.json`: one Sprint 138 sentence appended to `PUT /matches/:id/complete` (the spec said "no
+  change", but CLAUDE.md's feedback loop routes endpoint behaviour to the registry). `/offers` is a bare entry; unchanged.
+- Task 6 ran as 6a (migration) → workflow → 6b (`init.sql`), with Tasks 4–5 in between (R4, R7).
+
+**Final-review findings parked (for the maintainer to weigh; none blocks merge in the reviewer's or controller's view):**
+- **F1** `GET /offers`' expiry filter applies to every status (spec C, decision 6), so `?status=matched` also hides an
+  offer whose `expires_at` passed during a live exchange, and an owner no longer sees their own expired active offer in
+  the list. **Decided 2026-11-08: keep as shipped; follow-up BUG-097.**
+- **F2** (spec's accepted consequence) the first deployed sweep frees history; freed offers past expiry are flagged and
+  hard-deleted 7 days later, and their completed matches keep their rows with `offer_id = NULL`.
+- **F3** `GET /offers/:id` still answers `status: 'active'` for an expired offer (spec *Out of scope*; the hourly flag
+  already produced that row shape).
+- **F4** two final marks committing concurrently on a legacy shared offer can both skip the release; the next hourly D2
+  frees it (same designed deferral Sprint 137 accepted for reject/cancel; B4 prevents new shared offers).
+- **F8** the release rule is four hand-kept SQL copies held together by a text-parity gate (altitude).
+- **F9** the "offer is unexpired" predicate is hand-written in the hold, the list and the releases.
+
+## Dated obligations
+
+- **`deepmerge` #178** (dismissed `tolerable_risk`): re-check at the next Expo SDK move or by **2026-12-01**. #329 is an
+  Expo patch move, not an SDK move.
+- Nothing else is dated.
+
+## Open, not scheduled
+
+- **#329 Expo SDK drift** (opened 2026-11-05): left open by the maintainer (no advisory or feature need).
+- **From Sprint 138's final review:** BUG-097 (F1's follow-up), F3, F4, F8, F9 above.
+- **From Sprint 137's `/simplify` (deferred):** a `holdOffer` beside `releaseOffer` (every offer-status write in one
+  file); the two status gates' SET-clause parsers differ; shared integration-test helpers are copied across the Sprint
+  134–138 integration files; product questions (an expired open ask stays editable and an edit restarts the hard
+  delete's 7 days; pending provider offers on an expired ask stay pending).
+- **BUG-092** (cleanup-service and simulation-service run their tdd tier in their blocking `test`).
+- **From Sprint 136:** BUG-087 has no runtime log proof in CI; #180's alert was withdrawn (HTTP 410; no action).
+- **BUG-073** tabled (community admin vs platform admin as separate roles; `docs/IDEAS.md` 2026-10-26).
+- **BUG-076**, **BUG-080**, **BUG-081**, **BUG-082** (see `docs/BUGS.md`).
+- **The mobile sprint** (`docs/IDEAS.md` 2026-10-29). Do not ship the app before it.
+- **Back out of an in-progress exchange from the UI** (`docs/IDEAS.md` 2026-10-29).
+- **PR C** (scheduled exemption re-check evidence): the exemption registry on master is empty.
+- **PR D's D8** is blocked on the host persona (`DEMO_UNRELATED_EMAIL`); fixing it is a host write.
+- **Per-community health-quality weight**: needs an ADR number and a quality-signal decision.
+- **Sprint 135 recount note:** the 2 `matched` rows of 2026-10-29 are no longer `matched` (BUG-075).
+
+## Standing rules
+
+See `CLAUDE.md` and the Sprint 137 archive's *Standing rules*. In short: branch off `origin/master`; never force-push
+or direct-push master; one merge at a time; no docs-only master push; ask before any demo-host operation, merge, ADR
+number, dismissal or dependency work; stop after PR creation.
