@@ -45,7 +45,7 @@ const REVIEWED: Reviewed[] = [
     why: 'POST /matches hold: active to matched, unexpired, under the request lock; the only matched setter' },
   { file: 'services/request-service/src/db/requestStatus.ts', kind: 'status',
     label: "o.id = $1 AND o.status = 'matched'",
-    why: 'releaseOffer: reject/cancel release only while matched and no proposed, matched or completed match holds it' },
+    why: 'releaseOffer: reject/cancel/complete release only while matched and no proposed or matched match holds it (BUG-093)' },
   { file: 'services/request-service/src/routes/offers.ts', kind: 'dynamic', label: 'RETURNING *',
     why: 'PUT /offers/:id: title and description only; body status is refused by B1' },
   { file: 'services/request-service/src/routes/offers.ts', kind: 'status', label: "SET status = 'withdrawn'",
@@ -57,7 +57,7 @@ const REVIEWED: Reviewed[] = [
     why: "D1: free an expired ask's proposals only while matched and no other match holds the offer" },
   { file: 'services/cleanup-service/src/jobs/expirationJob.ts', kind: 'status',
     label: "WHERE o.status = 'matched' AND NOT EXISTS",
-    why: 'D2: free a stranded offer only while no proposed, matched or completed match holds it' },
+    why: 'D2: free a stranded offer only while no proposed or matched match holds it (BUG-093)' },
 ];
 
 const matchesReview = (write: Write, reviewed: Reviewed) =>

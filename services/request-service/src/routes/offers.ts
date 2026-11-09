@@ -38,6 +38,8 @@ router.get('/', async (req: Request, res: Response) => {
       LEFT JOIN communities.communities c ON o.community_id = c.id
       WHERE o.status = $1
         AND ${offerReadableSql('o', '$2')}
+        AND o.expired IS NOT TRUE
+        AND (o.expires_at IS NULL OR o.expires_at > NOW())
     `;
 
     // A community_id filter narrows within the boundary; it never widens it.

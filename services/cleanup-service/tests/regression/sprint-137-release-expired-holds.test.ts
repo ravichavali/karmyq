@@ -326,10 +326,10 @@ describe('releaseExpiredHolds - D2 stranded matched offers', () => {
     const sql = d2[0].sql;
     expect(sql).toContain("o.status = 'matched'");
     expect(sql).toContain('NOT EXISTS');
-    expect(sql).toContain("IN ('proposed', 'matched', 'completed')");
+    expect(sql).toContain("IN ('proposed', 'matched')");
     expect(sql).toContain(I1);
-    expect(sql.indexOf(I1)).toBeGreaterThan(sql.indexOf("IN ('proposed', 'matched', 'completed')"));
-    expect(sql.indexOf("IN ('proposed', 'matched', 'completed')")).toBeGreaterThan(sql.indexOf('NOT EXISTS'));
+    expect(sql.indexOf(I1)).toBeGreaterThan(sql.indexOf("IN ('proposed', 'matched')"));
+    expect(sql.indexOf("IN ('proposed', 'matched')")).toBeGreaterThan(sql.indexOf('NOT EXISTS'));
     expect(sql).not.toMatch(/FOR UPDATE/i);
 
     // No client ever ran the D2 statement: client-side frees are D1's (one per ask) and carry no D2 predicate.

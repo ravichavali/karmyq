@@ -97,11 +97,11 @@ describe('closeProposals', () => {
     await closeProposals(q, 'req-1');
     expect(q).toHaveBeenCalledTimes(2);
     expect(sqlOf(0)).toBe(
-      "UPDATE requests.help_offers o SET status = 'active', updated_at = CURRENT_TIMESTAMP " +
+      "UPDATE requests.help_offers o SET status = 'active', expired = (o.expired IS TRUE OR (o.expires_at IS NOT NULL AND o.expires_at <= clock_timestamp())), updated_at = CURRENT_TIMESTAMP " +
       "WHERE o.status = 'matched' AND o.id IN (SELECT offer_id FROM requests.matches " +
       "WHERE request_id = $1 AND status = 'proposed' AND offer_id IS NOT NULL) " +
       "AND NOT EXISTS (SELECT 1 FROM requests.matches m " +
-      "WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched', 'completed') " +
+      "WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched') " +
       "AND NOT (m.request_id = $1 AND m.status = 'proposed')) " +
       "AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)");
     expect(paramsOf(0)).toEqual(['req-1']);

@@ -112,6 +112,7 @@ describe('PUT /matches/:id/complete — two-phase completion', () => {
       .mockResolvedValueOnce({ rows: [] })                                   // UPDATE status='completed'
       .mockResolvedValueOnce({ rows: [] })                                   // reconcile: request row lock
       .mockResolvedValueOnce({ rows: [] })                                   // reconcile: derive help_requests.status
+      .mockResolvedValueOnce({ rows: [] })                                   // BUG-093: releaseOffer (BASE_MATCH.offer_id)
       .mockResolvedValueOnce({ rows: [] });                                   // feed_events INSERT (fire-and-forget)
 
     const app = await buildApp('helper-user');
@@ -130,6 +131,14 @@ describe('PUT /matches/:id/complete — two-phase completion', () => {
     expect(sql(3)).toBe('SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE');
     expect(sql(4)).toContain('UPDATE requests.help_requests r SET status = CASE');
     expect(sql(4)).toContain("WHERE r.id = $1 AND r.status <> 'cancelled'");
+    // BUG-093 (Sprint 138): the finished exchange frees its standing offer, after the reconcile.
+    expect(sql(5)).toBe(
+      "UPDATE requests.help_offers o SET status = 'active', expired = (o.expired IS TRUE OR (o.expires_at IS NOT NULL AND o.expires_at <= clock_timestamp())), updated_at = CURRENT_TIMESTAMP " +
+      "WHERE o.id = $1 AND o.status = 'matched' AND NOT EXISTS (SELECT 1 FROM requests.matches m " +
+      "WHERE m.offer_id = o.id AND m.status IN ('proposed', 'matched')) " +
+      "AND o.ctid = (SELECT visible_offer.ctid FROM requests.help_offers visible_offer WHERE visible_offer.id = o.id)"
+    );
+    expect(mockQuery.mock.calls[5][1]).toEqual(['offer-1']);
 
     // Must have published the karma event exactly once
     expect(mockPublishEvent).toHaveBeenCalledTimes(1);
