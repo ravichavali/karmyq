@@ -46,9 +46,15 @@ export async function getCommunityTrustConfig(community_id: string): Promise<Com
   if (result.rowCount === 0) return TRUST_CONFIG_DEFAULTS;
 
   const row = result.rows[0];
+  // BUG-081 (Sprint 139): pg returns NUMERIC as a string ("0.60"). Convert at this boundary; a NULL
+  // takes the default, and a real community weight of 0 stays 0 (a null check, never a truthy one).
   return {
-    depth_weight: row.trust_depth_weight ?? TRUST_CONFIG_DEFAULTS.depth_weight,
-    breadth_weight: row.trust_breadth_weight ?? TRUST_CONFIG_DEFAULTS.breadth_weight,
+    depth_weight: row.trust_depth_weight != null
+      ? Number(row.trust_depth_weight)
+      : TRUST_CONFIG_DEFAULTS.depth_weight,
+    breadth_weight: row.trust_breadth_weight != null
+      ? Number(row.trust_breadth_weight)
+      : TRUST_CONFIG_DEFAULTS.breadth_weight,
     feedback_threshold: row.trust_feedback_threshold != null
       ? parseFloat(row.trust_feedback_threshold)
       : TRUST_CONFIG_DEFAULTS.feedback_threshold,

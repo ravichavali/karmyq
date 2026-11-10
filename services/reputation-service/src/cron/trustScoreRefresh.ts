@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { query } from '../database/db';
 import { updateTrustScore } from '../services/karmaService';
+import { refreshAllProviderTrustScores } from '../services/providerTrustService';
 import { scheduledJobsDisabled } from './scheduledJobs';
 
 /**
@@ -56,21 +57,36 @@ export async function refreshAllTrustScores(): Promise<{ evaluated: number; fail
   return { evaluated, failed };
 }
 
+/**
+ * The 03:30 job: the personal membership sweep, then the provider-metrics sweep (Sprint 139,
+ * BUG-080 / approved decision 7). Two independent phases: a personal failure does not suppress
+ * providers, and a provider failure neither escapes the scheduler nor undoes personal work. Each
+ * phase logs its own totals or error. A failed night is retried by the next one; there is no
+ * guaranteed freshness bound while failures persist.
+ */
+export async function runDailyTrustScoreRefresh(): Promise<void> {
+  console.log('=== Starting daily canonical trust-score refresh ===');
+  try {
+    const { evaluated, failed } = await refreshAllTrustScores();
+    console.log(`=== Trust-score refresh complete: ${evaluated} evaluated, ${failed} failed ===`);
+  } catch (error) {
+    console.error('=== Error in daily trust-score refresh ===', error);
+  }
+
+  try {
+    const { evaluated, failed } = await refreshAllProviderTrustScores();
+    console.log(`=== Provider trust refresh complete: ${evaluated} evaluated, ${failed} failed ===`);
+  } catch (error) {
+    console.error('=== Error in daily provider trust refresh ===', error);
+  }
+}
+
 export function initTrustScoreRefresh(): void {
   if (scheduledJobsDisabled()) {
     console.log('⏸️  Canonical trust-score refresh not scheduled (SCHEDULED_JOBS_DISABLED=true)');
     return;
   }
-  cron.schedule('30 3 * * *', async () => {
-    console.log('=== Starting daily canonical trust-score refresh ===');
-    try {
-      const { evaluated, failed } = await refreshAllTrustScores();
-      console.log(`=== Trust-score refresh complete: ${evaluated} evaluated, ${failed} failed ===`);
-    } catch (error) {
-      console.error('=== Error in daily trust-score refresh ===');
-      console.error(error);
-    }
-  });
+  cron.schedule('30 3 * * *', runDailyTrustScoreRefresh);
 
-  console.log('✅ Canonical trust-score refresh initialized (runs daily at 3:30 AM)');
+  console.log('✅ Canonical trust-score refresh initialized (runs daily at 3:30 AM, personal + provider phases)');
 }

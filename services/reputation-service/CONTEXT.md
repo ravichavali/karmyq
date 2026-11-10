@@ -5,6 +5,35 @@
 
 ## Recent Changes
 
+- **2026-11-09 (Sprint 139, BUG-081)**: trust weights are numbers at the DB and cache boundaries. pg returns NUMERIC
+  as strings; `getCommunityTrustConfig` (depth/breadth: NULL → default, a community `0` stays `0`),
+  `getUserTrustConfig` (overrides → number or NULL = inherit; prior → number) and `getCommunityEvolutionConfig`
+  (prior → number; a missing row is still `{ false, 0.5 }`) convert with null checks. `getCachedEffectiveParams`
+  normalizes every hit through an internal `normalizeCachedEffectiveParams`: finite numbers, or strings matching
+  exactly `^-?\d+(\.\d+)?$` (no trimming: padded, exponent, hex, leading `+`, `.6` and `1.` are rejected); anything
+  else falls back to the DB and `setex` replaces it. A legacy string entry is returned converted, its TTL untouched:
+  no flush, no key change. BUG-079's use-site conversion stays. Wire effect: `GET /reputation/trust-config/...`,
+  `GET /reputation/users/:userId/effective-params` and `GET /reputation/communities/:communityId/trust-evolution` send
+  numbers; every known consumer multiplies them (`* 100`), so displayed values are unchanged. Test:
+  `tests/regression/sprint-139-trust-numeric.test.ts`.
+- **2026-11-09 (Sprint 139, BUG-080)**: provider `completion_rate` is **completed / (completed + cancelled)** over the
+  responder's `requests.matches`, rounded to two decimals, 0 with no terminal outcome. Ongoing (proposed, matched)
+  and other statuses (rejected, declined, legacy `accepted`) are ignored; a cancellation counts whoever cancelled (no
+  fault is recorded, so it is an outcome ratio). It used to divide by `status IN ('accepted', 'completed')`; no live
+  route writes `accepted` (only the curated demo fixture does), so one completion read 100%. One internal `readProviderCompletionRate(userId)` and
+  `refreshProviderTrustScore(providerId, userId)` serve every path: `updateProviderCompletionRate` (on
+  `match_completed`, immediate), `backfillAllProviderTrustScores` (manual admin endpoint, still fail-fast and
+  count-returning) and the new `refreshAllProviderTrustScores()` (nightly; every active profile, sequential,
+  per-profile failures logged and counted as `{ evaluated, failed }`, an enumeration failure rejects). The 03:30
+  job's callback is now `runDailyTrustScoreRefresh()` (`src/cron/trustScoreRefresh.ts`): the personal membership
+  phase, then the provider phase, each in its own try/catch with its own log line. Still one
+  `cron.schedule('30 3 * * *')`, behind `SCHEDULED_JOBS_DISABLED`, no startup run. **Freshness:** a completion
+  refreshes at once; a cancellation is reflected by the next SUCCESSFUL nightly run (a failing night is retried the
+  next night; there is no bound while it keeps failing). No demo backfill was run; the first successful 03:30 run
+  after deploy refreshes historical rates. The 60/30/10 formula, response rate and review recompute are unchanged.
+  Tests: `tests/regression/sprint-139-provider-completion.test.ts`,
+  `tests/regression/sprint-139-provider-nightly-refresh.test.ts`; root
+  `tests/integration/sprint-139-trust-correctness.integration.test.ts`.
 - **2026-11-03 (Sprint 136, BUG-087)**: the two wall-clock crons (`initHealthMetricsCalculator`, 02:00, and
   `initTrustScoreRefresh`, 03:30) schedule nothing when `SCHEDULED_JOBS_DISABLED` is exactly `"true"`
   (`src/cron/scheduledJobs.ts`); the health-metrics `RUN_METRICS_ON_STARTUP` run is skipped too, and each logs one
@@ -854,27 +883,26 @@ Service health check.
 ## Trust Evolution API Endpoints (Sprint 30 — ADR-046)
 
 ### GET /reputation/trust-config/:userId/:communityId
-Get user trust config and effective parameters (merged community defaults + per-user overrides).
+Get user trust config and effective parameters (merged community defaults + per-user overrides). Auth: self + live
+active membership; any other caller gets the same `404 REPUTATION_NOT_FOUND` (ADR-082).
 
-**Response:**
+**Response** (every weight is a JSON **number** since Sprint 139, BUG-081; a NULL override means "inherit" and stays
+`null`; `user_config` is `null` when the member has no row):
 ```json
 {
   "success": true,
   "data": {
-    "user_id": "uuid",
-    "community_id": "uuid",
-    "evolution_enabled": true,
-    "effective_params": {
-      "depth_weight": 0.62,
-      "breadth_weight": 0.38,
-      "cross_community_prior": 0.15
+    "user_config": {
+      "user_id": "uuid", "community_id": "uuid",
+      "depth_weight": 0.62, "breadth_weight": null, "cross_community_prior": 0.5, "evolution_enabled": true
     },
-    "source": "user_override | community_default"
+    "effective_params": { "depth_weight": 0.62, "breadth_weight": 0.4, "cross_community_prior": 0.5 },
+    "community_evolution_enabled": true
   }
 }
 ```
 
-**Implementation:** `src/routes/reputation.ts` | `src/database/trustConfigDb.ts`
+**Implementation:** `src/routes/reputation.ts` | `src/database/trustEvolutionDb.ts` | `src/database/trustConfigDb.ts`
 
 ---
 
@@ -927,14 +955,14 @@ Return the immutable evolution log for a user — every parameter adjustment wit
 ### GET /reputation/communities/:communityId/trust-evolution
 Get community-level evolution status (admin only). Returns whether evolution is enabled and the community cross_community_prior.
 
-**Response:**
+**Response** (`cross_community_prior` is a JSON number since Sprint 139, BUG-081; no config row → `false` / `0.5`):
 ```json
 {
   "success": true,
   "data": {
-    "community_id": "uuid",
     "community_evolution_enabled": true,
-    "cross_community_prior": 0.15
+    "cross_community_prior": 0.15,
+    "opted_in_rate": { "opted_in": 1, "total": 2 }
   }
 }
 ```
@@ -1018,7 +1046,7 @@ for why that path had been throwing `42703` on every match since Sprint 62.
 - `provider_review_received` - After a provider review is saved and trust score recalculated (Sprint 37); consumed by notification-service to alert the provider
 
 ### Events Consumed
-- `match_completed` - Award karma when help exchange completed; also recalculates `completion_rate` on `reputation.provider_trust_scores` if responder has an active provider profile (cross-schema: `requests.provider_profiles`)
+- `match_completed` - Award karma when help exchange completed; also recalculates `completion_rate` (completed / (completed + cancelled), Sprint 139) on `reputation.provider_trust_scores` for each of the responder's active provider profiles (cross-schema: `requests.provider_profiles`); cancellations are picked up by the 03:30 provider phase
 
 ### External Dependencies
 - PostgreSQL (reputation schema)
@@ -1425,7 +1453,9 @@ Admin — enable/disable community evolution engine. Body: `{ "enabled": boolean
 ## Fractal Feed API Endpoints (Sprint 32 — ADR-046 complete)
 
 ### GET /reputation/users/:userId/effective-params?communityId=
-Returns blended trust params from Redis cache (4h TTL), falls back to DB on cache miss. Auth: self only.
+Returns blended trust params from Redis cache (4h TTL), falls back to DB on cache miss. Auth: self + live active
+membership. Sprint 139 (BUG-081): all three are numbers on every path; a cache hit is normalized on read (an entry
+holding decimal strings from before the fix is converted; any other shape is a miss and is replaced from the DB).
 
 | Field | Type | Description |
 |-------|------|-------------|
