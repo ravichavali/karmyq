@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-09
 
-**Status:** Review corrections incorporated; decisions 1 and 7 and full design approval pending
+**Status:** Approved — review corrections and decisions 1 and 7 accepted by the maintainer on 2026-11-09
 
 **Version:** v11.111.0 → v11.112.0, provisional; re-derive from origin/master at merge time
 
@@ -17,14 +17,15 @@ to existing features, not a new product surface.
 
 The maintainer selected options 4 and 5 from the handoff, covering all six bugs. For BUG-080, the maintainer
 explicitly chose **completed / (completed + cancelled), excluding ongoing matches**. The detailed choices
-below are planner recommendations for review, not additional decisions attributed to the maintainer.
+below include the maintainer-approved bundle and nightly-refresh decisions, plus implementation details
+settled by the planner within that scope.
 
 ### Core Principle: Represent the outcome honestly
 
 Visibility should reflect the viewer's relationship to an offer; trust values and test messages should mean
 what their types and labels promise.
 
-## Decisions required before Task 1 (maintainer review)
+## Approved review decisions (2026-11-09)
 
 1. **Offers page and expiry display:** source tracing confirms the list page assigns `response.data.data`
    (`apps/frontend/src/pages/offers/index.tsx:43`–44), but the interceptor unwraps the envelope
@@ -32,17 +33,18 @@ what their types and labels promise.
    (`services/request-service/src/routes/offers.ts:69`–73). The page would need `response.data.offers`;
    its later `.length` is not safe after the current assignment. This was traced from source, not observed
    in a browser. The list also omits expiry fields, so an expired active owner offer would still display
-   Active. **Recommendation: bundle the page repair, additive `expired` / `expires_at` fields, expiry-aware
-   card labels and data-on-mount tests.** Alternative: defer/log the page defect and remove guide claims about
-   visible offer-list behavior. The no-shape-change/no-frontend constraints below are not silently relaxed:
-   resolve this decision and update both documents before execution. No new bug ID is allocated in planning.
-7. **Completion refresh:** the approved denominator does not approve refresh timing. Completion-only refresh
-   permits a provider who cancels and never completes again to keep a favourable stale rate indefinitely.
-   Either explicitly accept that limitation for this sprint or choose and specify a refresh policy with its
-   tests and scope before Task 1. **Recommendation: settle the refresh policy rather than imply current
-   cancellation reliability.** Do not add consumers, cron work or synchronous cross-service calls by inference.
+   Active. **Approved: bundle the page repair, additive `expired` / `expires_at` fields, expiry-aware card
+   labels and data-on-mount tests.** The original no-frontend/no-response-extension constraints are relaxed
+   only for this repair. No new bug ID is allocated in planning.
+7. **Completion refresh — approved:** extend reputation-service's existing 03:30 scheduled job with an
+   independent provider-metrics phase. Completions still refresh immediately. Cancellations are reflected
+   by the next successful nightly provider refresh, including for providers who never complete again.
+   No new timer, event consumer or synchronous cross-service call. Scheduler timezone and the existing
+   SCHEDULED_JOBS_DISABLED guard stay unchanged. Failures are observable and retried next night; this is
+   not a guaranteed 24-hour freshness bound during outages.
 
-Questions have been presented to the maintainer; neither answer nor full design approval is assumed.
+The maintainer explicitly agreed to both recommendations in this planning chat. Implementation remains
+next-chat work; this chat updates and commits only the three planning documents.
 
 ## Verified baseline
 
@@ -58,6 +60,7 @@ planning commit. This is a dated observation, not a reservation of a merge slot 
 | Cleanup and simulation default tests include WIP | `services/cleanup-service/package.json:12`, `jest.config.js:8`; `services/simulation-service/package.json:16`, `jest.config.js:5` |
 | Both provider recalculation paths count accepted + completed | `services/reputation-service/src/services/providerTrustService.ts:65`–99 and :113–151 |
 | Provider metric refresh is completion-driven or explicit backfill | `services/reputation-service/src/events/subscriber.ts:74`–79; `src/routes/providerReviews.ts:126`–142 |
+| Existing 03:30 job refreshes personal membership trust only | `services/reputation-service/src/cron/trustScoreRefresh.ts:30`–76; this sprint adds its independent provider phase |
 | Community depth/breadth and user overrides pass through raw NUMERIC values | `services/reputation-service/src/database/trustConfigDb.ts:50`–51; `src/database/trustEvolutionDb.ts:25`–36 |
 | Redis returns unchecked JSON for four hours | `services/reputation-service/src/services/effectiveParamsCache.ts:11`, :49–70 |
 | Five db wrappers log every successful query unconditionally | auth/community/request `src/database/db.ts:26`, notification :19, reputation :40 |
@@ -72,7 +75,8 @@ outcome or repair demo data as part of this sprint.
 
 One branch, one bundled PR. No dependency additions, upgrades, override changes or lockfile resolution;
 script-only manifest edits and the three root version fields are permitted by the plan. No schema changes,
-new queue/consumer, new endpoint, frontend/mobile feature, background backfill, or demo-host operation.
+new queue/consumer, new endpoint, mobile feature or demo-host operation. The approved frontend repair and
+provider-metrics phase of the existing nightly job are the two deliberate scope additions.
 Do not work on #329 or dismiss alerts. Re-check #178 at the next Expo SDK move or by **2026-12-01**.
 
 The mobile sprint, exchange-cancellation UI, communication-channel discussion, Sprint 138's F3/F4/F8/F9,
@@ -91,7 +95,7 @@ AND (
 )
 ```
 
-This is the planner's proposed interpretation of the bug's two symptoms:
+This is the approved treatment of the bug's two symptoms:
 
 | Viewer / requested status | Flagged or elapsed expiry | Expected list result |
 |---|---|---|
@@ -104,7 +108,22 @@ This is the planner's proposed interpretation of the bug's two symptoms:
 The outer audience predicate is mandatory: the non-active branch must never bypass it. Visibility is
 not eligibility. All existing expiry checks on creating/accepting/holding a match remain; an expired
 offer visible to its owner cannot be used for a new commitment. No new owner-list flag is needed.
-Do not change single-offer status labeling (parked F3), response shape or retention.
+Do not change single-offer status labeling (parked F3) or retention. Extend the list SELECT additively with
+`o.expires_at, o.expired`; retain the success envelope, `offers` array, count/total and all existing fields.
+
+### Offers page repair and expiry display
+
+In `apps/frontend/src/pages/offers/index.tsx`, read `response.data.offers` after the existing interceptor;
+do not change that shared interceptor or teach it a new special case. Extend the local HelpOffer interface
+with `expires_at: string | null` and `expired: boolean | null`. Use the server flag or elapsed timestamp to
+derive an expiry display hint. For active expired offers, use the existing Expired display token instead of
+Active. For non-active expired offers, retain the lifecycle status (e.g. Matched) and add “Offer expired”;
+an ongoing commitment must never appear cancelled/completed merely because its offer expired.
+
+Keep the array state valid on failed or malformed loads. Render a visible “Unable to load offers” alert
+and Retry action rather than crashing or claiming an empty successful list; retry uses the same filters.
+Initial mount and filter changes use the actual unwrapped `{ offers, count, total }` shape. Existing
+pagination/filter defaults and auth remain. Expiry display does not grant eligibility for new commitments.
 
 ## B. BUG-076 and BUG-092 — truthful, nonblocking WIP reporting
 
@@ -173,19 +192,39 @@ ratio rather than a blame score. Keep the current responder-wide scope: all acti
 owned by that responder receive the same history-derived rate. Do not introduce service-type filtering.
 
 Introduce one internal helper in `providerTrustService.ts`,
-`readProviderCompletionRate(userId: string): Promise<number>`, shared by the completion update and full
-backfill paths. Rename misleading local `accepted` counts to `terminal_matches`. Keep existing public
+`readProviderCompletionRate(userId: string): Promise<number>`, shared by completion, manual and nightly
+refresh paths. Rename misleading local `accepted` counts to `terminal_matches`. Keep existing public
 exports, the 60/30/10 overall score formula, response-rate behavior and review semantics.
 
 Examples: no terminal matches → 0; one completed and any number of ongoing → 100; two completed and
 one cancelled → 66.67; only cancelled → 0. A fixture with 5-star reviews, response rate 0 and rate 66.67
 must persist trust score 80 through the real implementation, not a test-only duplicate formula.
 
-**Proposed refresh contract — requires decision 7:** metric updates still happen on the responder's next completion or the existing
-admin backfill endpoint. Reviews recompute the score using the stored metric. Cancellation alone does
-not trigger a refresh, and deploy does not rewrite existing scores. This limitation has not been accepted by
-the maintainer; settle decision 7 before implementation and revise this contract if needed. Backfill execution
-against the demo requires separate explicit authorization; do not invoke it during this sprint's execution.
+### Approved refresh contract and failure isolation
+
+Completion still calls `updateProviderCompletionRate`; the manual admin endpoint still uses fail-fast
+`backfillAllProviderTrustScores(): Promise<number>`. Reviews continue recomputing overall score from stored
+metrics. Cancellation has no new immediate side effect, but the next successful nightly phase repairs it.
+
+In `providerTrustService.ts`, share one internal
+`refreshProviderTrustScore(providerId: string, userId: string): Promise<void>` between those existing paths
+and a new exported `refreshAllProviderTrustScores(): Promise<{ evaluated: number; failed: number }>`.
+It recomputes rate then overall score using the existing calculators, preserving reviews and response rate.
+The nightly function enumerates all active provider profiles (not just users with active memberships),
+handles profiles sequentially, catches/logs failures per profile, increments exact success/failure counts
+and continues. Failure to enumerate providers rejects the provider phase; do not report zero successful
+work as a healthy sweep. Keep the manual endpoint's existing fail-fast/count behavior unchanged.
+
+In `src/cron/trustScoreRefresh.ts`, export `runDailyTrustScoreRefresh(): Promise<void>` as the scheduled
+callback. It runs the existing personal-membership phase and new provider phase in separate try/catch
+blocks, logging each phase's totals or top-level error. A personal enumeration failure must not suppress
+provider work; provider errors must not retroactively fail successful personal work or escape the scheduler.
+Keep `refreshAllTrustScores`' existing signature/meaning. `initTrustScoreRefresh` still schedules once at
+`30 3 * * *`, guarded by the existing disabled flag; no startup backfill or extra timer.
+
+Deploy itself performs no manual repair. The first successful scheduled run after deploy naturally refreshes
+active providers, including historical stale metrics. Running the existing admin backfill on the demo still
+requires separate explicit authorization and is not part of this sprint's execution.
 
 ## D. BUG-081 — numeric values at the database and cache boundaries
 
@@ -217,11 +256,11 @@ No key migration, cache flush or host command.
 
 | Method / path | Change | Authorization / response envelope |
 |---|---|---|
-| GET `/offers` | Viewer/status-specific expiry behavior above | Existing owner/current-member audience, same fields |
+| GET `/offers` | Viewer/status-specific expiry; additive `expired` and `expires_at` fields | Existing owner/current-member audience and success envelope |
 | GET `/reputation/trust-config/:userId/:communityId` | Numeric user overrides and effective parameters; nullable overrides remain NULL | Existing self + live membership, same envelope |
 | GET `/reputation/users/:userId/effective-params?communityId=` | Three numeric values on cold and warm/legacy cache paths | Existing self + live membership, same envelope |
 | GET `/reputation/communities/:communityId/trust-evolution` | Sibling cross-community prior is numeric | Existing route access remains unchanged |
-| Existing provider-score reads / backfill | Correct rate after existing refresh triggers | Existing route authorization remains unchanged |
+| Existing provider-score reads / backfill | Correct rate on completion/manual refresh and the next successful nightly phase | Existing route authorization remains unchanged |
 
 Inspect the full route and every caller before coding; this table specifies behavior, not permission to
 weaken disclosure guards. Existing consumers multiply these values (`docs/BUGS.md:2251`–2257); the wire
@@ -247,16 +286,19 @@ metric decision amends ADR-042; tier behavior clarifies ADR-029/088. No new ADR 
 
 ## Data Model and Frontend Changes
 
-No DDL or migration. Existing `reputation.provider_trust_scores` values change only when existing refresh
-entry points run. No frontend/mobile source or onboarding workflow changes; existing HTTP clients retain
-their response shapes and authorization. No generated SQL or generated docs are authored by hand.
+No DDL or migration. Existing `reputation.provider_trust_scores` values update on completion, manual refresh
+or the new phase of the existing nightly job. Frontend scope is the existing offers page/type/error/expiry
+repair plus a short relevant onboarding explanation; mobile stays unchanged. The list response extension
+is additive. No generated SQL or generated docs are authored by hand.
 
 ## User Guide & Doc Updates
 
 - `docs/guides/fulfilling-requests-guide.md`: correct “expired standing offer leaves your list”; distinguish
-  owner visibility, ongoing commitments and refusal of new holds.
+  owner visibility, visible Expired/Offer expired labels, ongoing commitments and refusal of new holds.
 - `docs/guides/using-service-providers-guide.md`: Reviews and Trust explains terminal-outcome denominator,
-  zero history, non-fault cancellation treatment and refresh lag without implying response-rate tracking.
+  zero history, non-fault cancellation treatment and next-successful-nightly refresh without implying response-rate tracking.
+- `apps/frontend/src/lib/onboarding/workflows.ts`: append a concise standing-offer visibility/expiry step to
+  existing `WORKFLOWS.requests` (currently three steps at :87–104); no new workflow or modal.
 - `docs/guides/testing-guide.md`: cleanup/simulation are tiered; TDD reports use real exit status and do
   not block; remove their obsolete bare-Jest endorsement. Preserve other workspaces' descriptions.
 - `docs/concepts/observability.md`: debug query logging and unchanged operational errors; derive service
@@ -265,7 +307,7 @@ their response shapes and authorization. No generated SQL or generated docs are 
   `ADR-088-test-tier-truthfulness.md`: dated amendments, keeping existing decision history.
 - `scripts/git-hooks/README.md` and `scripts/claude.md`: source/installed hook path, explicit hook install
   after edits, actual TDD reporting; correct the adjacent obsolete automatic-install statements.
-- CONTEXT notes in auth, community, notification, request, reputation, cleanup and simulation; registry
+- CONTEXT notes in auth, community, notification, request, reputation, cleanup, simulation and frontend; registry
   descriptions for offers and trust numeric/metric contracts. No invented event or dependency edges.
 - `docs/BUGS.md`: mark the six bugs fixed only during execution after proofs exist, not in this planning chat.
 - Regenerate landing docs from source; no new page/navigation group is required for these existing pages.
@@ -275,11 +317,12 @@ their response shapes and authorization. No generated SQL or generated docs are 
 
 | Area | Required evidence |
 |---|---|
-| Offers | Real SQL/HTTP audience + status + expiry matrix, including owner's expired active offers, current-member expired matched offers, former/pending/outsider denial, and NULL/future/equal/past expiry; same expired visible offer still rejected by hold path |
+| Offers | Real SQL/HTTP audience/status/expiry matrix and additive fields; frontend mount uses unwrapped offers, empty/error/retry works, expired active is Expired and expired matched retains Matched + Offer expired; expired visible offer still rejected by hold path |
 | TDD hook | Real installed hook with pass, failing WIP, missing-task/build and failing required tier; bounded tail plus retained unique log and true exit status; required failures remain blocking |
 | TDD selection | Both services' real Jest discovery includes every blocking file, excludes WIP/integration by default, and explicit TDD discovers WIP; synthetic red WIP does not fail default test, red blocking file does |
 | Turbo | Real dry-run includes build prerequisites; temporary clean-output run resolves shared imports; later WIP tasks still run after a task/build failure with aggregate nonzero |
 | Completion | Real SQL status mixture and public completion/backfill entry points agree; responder isolation, multiple profiles, inactive exclusion, zero denominator, 2/3 rounding and resulting score 80 |
+| Nightly | Existing scheduled callback and direct invocation reach provider metrics even if personal enumeration fails; per-profile isolation and exact counts; provider enumeration error logged, inactive profiles skipped, disabled guard/single cadence preserved; cancellation-only history repaired without another completion |
 | Numeric | Direct readers (pg-like string rows), NULL/no-row and community-only zero behavior, legal user-override fixtures, strict decimal legacy/malformed cache, Redis outages and unchanged route denials |
 | Logging | Each changed wrapper with a mocked pg executor but real logger: quiet at default/info, structured debug record, same SQL/params/result and same thrown error; reputation transaction query uses the transaction client |
 
@@ -292,14 +335,14 @@ is supplied. Do not use the demo to fill that gap.
 ## Critical Implementation Notes
 
 1. Reuse `agent/claude/sprint-139-planning`; one editor, no worktrees, rebase, force-push or master push.
-2. Planning/review chats change documents only. Resolve review decisions 1 and 7 and obtain full design approval before implementation in the next chat.
-3. Preserve offer audience outside the expiry OR; owner visibility never grants permission to hold an expired offer.
-4. Completion rate is completed / (completed + cancelled), rounded to two decimals; ongoing and legacy accepted rows are excluded. The proposed completion-only refresh still needs decision 7; no demo backfill is authorized.
+2. The maintainer approved the page/expiry bundle and nightly provider refresh on 2026-11-09. This chat changes documents only; Task 1 starts in the next chat.
+3. Preserve the outer offer audience; add list expiry fields, read response.data.offers and show honest expiry labels. Owner visibility never permits an expired hold.
+4. Completion rate is completed / (completed + cancelled), rounded to two decimals. Refresh on completion and the next successful existing 03:30 job; isolate both phases and profile failures. No manual demo backfill.
 5. Normalize DB/cache numbers with strict decimal-string validation; preserve NULL inheritance and community zero, use legal user overrides, and retain disclosure guards.
 6. Fix the source pre-push hook, then reinstall it. Capture true TDD exit status in a unique retained temp log; show its last 20 lines and path. WIP failures never block required-green pushes.
 7. Register uncached Turbo TDD execution with build prerequisites; prove clean-output imports, discovery and failure propagation against real tools.
 8. SQL success logging moves to existing debug loggers in all five affected services; transactions, errors and parameters are unchanged. Amend existing ADRs; allocate no new number.
-9. New service tests begin in their own tdd tier; root invariant gates are the exception. Preserve simulation's 17-test protection suite in regression; reconcile promoter moves and landing churn after every full test run.
+9. New service/frontend tests begin in their own tdd tier; root gates are the exception. Preserve simulation's 17-test suite, explicitly promote frontend TSX, and reconcile promotions/landing churn after full runs.
 10. No dependency work, merges, dismissals or demo-host operations without separate explicit authorization. #329 stays open; #178 is due by 2026-12-01.
 11. Regenerate landing docs from source and remove only generated metadata noise. Re-derive the version from origin/master at merge time.
 12. Execution runs testing, /simplify, /code-review and /security-review, updates the handoff, pushes one PR and stops at PR creation.

@@ -6,7 +6,8 @@
 **Goal:** Fix BUG-097, BUG-076, BUG-092, BUG-080, BUG-081 and BUG-082 in one bundled PR.
 
 **Architecture:** Correct existing SQL predicates, database/cache value conversion and test orchestration in place.
-Use existing loggers and amend existing ADRs; introduce no schema, endpoint, event consumer or dependency.
+Repair the existing offers page with additive expiry fields, and add a provider phase to the existing nightly job.
+Use existing loggers and amend existing ADRs; introduce no schema, endpoint, event consumer, timer or dependency.
 
 **Tech Stack:** the canonical stack in `CLAUDE.md` → *System Architecture*; do not copy version floors here.
 
@@ -16,10 +17,10 @@ Use existing loggers and amend existing ADRs; introduce no schema, endpoint, eve
 documentation commit `377efa5a`. No PR was open at planning. Provisional execution version v11.112.0;
 re-derive at merge time. Planning does not bump it.
 
-**Approval boundary:** scope and completion-rate denominator are agreed. The complete design/plan still needs
-maintainer decisions **1 and 7** from the spec's decision section, followed by full design approval before
-implementation. Page repair/expiry response fields and refresh policy are not authorized by silence; amend
-the corresponding tasks before Task 1 once selected. Execute in the next chat; stop after opening one PR. Task 15 is a
+**Approval boundary:** the maintainer reviewed the design/plan and explicitly approved both remaining decisions:
+bundle the offers-page repair/additive expiry fields, and refresh providers in the existing nightly job.
+The denominator remains completed / (completed + cancelled). Execution is next-chat work; this chat updates
+and commits only planning documents. Stop after opening one PR. Task 15 is a
 separate, unauthorized future operation. Do not infer authorization from this checklist.
 
 ## Global Constraints
@@ -27,8 +28,9 @@ separate, unauthorized future operation. Do not infer authorization from this ch
 - One editor, existing branch, no worktrees, no rebase/force-push or direct master push.
 - No dependency work, new ADR number, dismissal, merge or demo-host operation without a separate explicit ask.
 - #329 stays open. Re-check #178 at the next Expo SDK move or by 2026-12-01.
-- No runtime backfill or automatic refresh trigger is added. Existing provider scores repair on next completion
-  or a separately authorized use of the existing admin backfill.
+- No manual runtime backfill or host operation is authorized. Provider scores refresh on completion and the
+  next successful provider phase of the existing 03:30 job; existing admin backfill remains separately authorized.
+- Preserve scheduler timezone, single timer and SCHEDULED_JOBS_DISABLED behavior; no startup sweep.
 - Source docs are authored; landing docs are regenerated. Keep substantive output, remove metadata-only churn.
 - Amend ADR-015/042/029/088 rather than allocating an ADR number.
 
@@ -42,7 +44,9 @@ separate, unauthorized future operation. Do not infer authorization from this ch
 | `tests/regression/sprint-139-prepush-tdd-report.test.ts` | Installed source hook pass/failure/nonblocking contracts |
 | `services/request-service/tests/tdd/sprint-139-offer-visibility.test.ts` | Offer query/HTTP contract; becomes regression |
 | `services/reputation-service/tests/tdd/sprint-139-provider-completion.test.ts` | Both metric entry points and real score behavior; becomes regression |
+| `services/reputation-service/tests/tdd/sprint-139-provider-nightly-refresh.test.ts` | Per-profile isolation, independent scheduled phases/cadence/disabled guard; becomes regression |
 | `services/reputation-service/tests/tdd/sprint-139-trust-numeric.test.ts` | Readers, cache and numeric API contracts; becomes regression |
+| `apps/frontend/tests/tdd/sprint-139-offers-page.test.tsx` | Mount payload, empty/error/retry/filter behavior and expiry labels; explicitly becomes regression |
 | `services/{auth,community,request,reputation,notification}-service/tests/tdd/sprint-139-query-logging.test.ts` | Five files: actual wrapper/logger behavior; become regression |
 | `tests/integration/sprint-139-offer-visibility.integration.test.ts` | Real audience/status/expiry and hold refusal |
 | `tests/integration/sprint-139-trust-correctness.integration.test.ts` | Real SQL rates, numeric reads and protected HTTP contracts |
@@ -58,8 +62,11 @@ and notification-service; they do not create a shared runtime helper.
 | `services/simulation-service/tests/tdd/sprint-134-demo-env-file.test.ts` → same workspace `tests/regression/` | Preserve all 17 currently blocking tests when WIP stops blocking |
 | `turbo.json`, root `package.json` | Register uncached `test:tdd` with build prerequisites; continue all WIP reports |
 | `scripts/git-hooks/pre-push` | Capture npm output/status in a unique retained temp log; show tail and path |
-| `services/request-service/src/routes/offers.ts` | Viewer/status-scoped expiry only |
-| `services/reputation-service/src/services/providerTrustService.ts` | One shared completion-rate reader, both callers |
+| `services/request-service/src/routes/offers.ts` | Viewer/status-scoped expiry plus additive expired/expires_at list fields |
+| `apps/frontend/src/pages/offers/index.tsx` | Correct unwrapped payload, expiry-aware display, load error/retry |
+| `apps/frontend/src/lib/onboarding/workflows.ts`, `apps/frontend/CONTEXT.md` | Existing requests onboarding step and page behavior docs |
+| `services/reputation-service/src/services/providerTrustService.ts` | Shared rate/per-profile refresh helper, completion/manual callers and isolated nightly batch |
+| `services/reputation-service/src/cron/trustScoreRefresh.ts` | Independent personal/provider phases on the existing schedule |
 | `services/reputation-service/src/database/trustConfigDb.ts`, `trustEvolutionDb.ts` | Numeric conversion, NULL/default preservation |
 | `services/reputation-service/src/services/effectiveParamsCache.ts` | Legacy cache normalization and invalid-cache fallback |
 | `services/{auth,community,request,reputation,notification}-service/src/database/db.ts` | Five debug logging replacements |
@@ -67,6 +74,7 @@ and notification-service; they do not create a shared runtime helper.
 | `tests/integration/sprint-138-reusable-offers.integration.test.ts` | Existing non-owner expiry coverage stays unchanged; run as a control |
 | `services/reputation-service/tests/regression/providerTrustScore.test.ts` | Adjust aggregate aliases/mocks; preserve real implementation coverage |
 | `tests/unit/reputation/provider-completion-rate.test.ts` | Update actual subscriber-export caller's terminal-count mocks and descriptions with the source change |
+| `services/reputation-service/tests/regression/sprint-126-trust-score-refresh.test.ts`, `sprint-136-scheduled-jobs-flag.test.ts` | Preserve personal refresh and disabled/single-schedule contracts; adapt callback mocks for new provider phase |
 | `tests/regression/sprint-122-tier-parity.test.ts` | Update obsolete comments about cleanup/simulation; retain coverage assertions |
 | Seven affected services' `CONTEXT.md` (auth/community/request/reputation/notification/cleanup/simulation) | Per-service notes with source commits |
 | `services/registry.json` | Existing offer/trust contract descriptions; no new edges |
@@ -81,19 +89,19 @@ and notification-service; they do not create a shared runtime helper.
 2. The Sprint 138 service test would remain falsely green because the expiry fragments still occur inside the new OR: Task 5 rewrites its grouping assertions; the integration test already uses non-owner R and stays correct.
 3. A numeric conversion can erase NULL inheritance or zero, or return stale string cache data: Task 7 covers each path explicitly.
 4. A WIP failure can cancel other reports or accidentally block a push: Task 3 runs multi-workspace fixtures and the installed hook with controlled exits.
-5. Fixing only one provider path or duplicating the formula in tests gives false confidence: Task 6/9 call both real public entry points and assert persisted rate and score.
+5. Fixing only one provider path or duplicating the formula in tests gives false confidence: Task 6/9 call completion/manual/nightly paths and assert persisted rate/score, phase isolation and cancellation-history repair.
 
 ## ⚠️ Critical Implementation Notes (read before Task 2)
 
 1. Reuse `agent/claude/sprint-139-planning`; one editor, no worktrees, rebase, force-push or master push.
-2. Planning/review chats change documents only. Resolve review decisions 1 and 7 and obtain full design approval before implementation in the next chat.
-3. Preserve offer audience outside the expiry OR; owner visibility never grants permission to hold an expired offer.
-4. Completion rate is completed / (completed + cancelled), rounded to two decimals; ongoing and legacy accepted rows are excluded. The proposed completion-only refresh still needs decision 7; no demo backfill is authorized.
+2. The maintainer approved the page/expiry bundle and nightly provider refresh on 2026-11-09. This chat changes documents only; Task 1 starts in the next chat.
+3. Preserve the outer offer audience; add list expiry fields, read response.data.offers and show honest expiry labels. Owner visibility never permits an expired hold.
+4. Completion rate is completed / (completed + cancelled), rounded to two decimals. Refresh on completion and the next successful existing 03:30 job; isolate both phases and profile failures. No manual demo backfill.
 5. Normalize DB/cache numbers with strict decimal-string validation; preserve NULL inheritance and community zero, use legal user overrides, and retain disclosure guards.
 6. Fix the source pre-push hook, then reinstall it. Capture true TDD exit status in a unique retained temp log; show its last 20 lines and path. WIP failures never block required-green pushes.
 7. Register uncached Turbo TDD execution with build prerequisites; prove clean-output imports, discovery and failure propagation against real tools.
 8. SQL success logging moves to existing debug loggers in all five affected services; transactions, errors and parameters are unchanged. Amend existing ADRs; allocate no new number.
-9. New service tests begin in their own tdd tier; root invariant gates are the exception. Preserve simulation's 17-test protection suite in regression; reconcile promoter moves and landing churn after every full test run.
+9. New service/frontend tests begin in their own tdd tier; root gates are the exception. Preserve simulation's 17-test suite, explicitly promote frontend TSX, and reconcile promotions/landing churn after full runs.
 10. No dependency work, merges, dismissals or demo-host operations without separate explicit authorization. #329 stays open; #178 is due by 2026-12-01.
 11. Regenerate landing docs from source and remove only generated metadata noise. Re-derive the version from origin/master at merge time.
 12. Execution runs testing, /simplify, /code-review and /security-review, updates the handoff, pushes one PR and stops at PR creation.
@@ -136,6 +144,8 @@ no runtime interface.
 - [ ] Read every changed service's `.claude/README.md` and relevant CONTEXT sections, plus applicable gotchas
   via `node scripts/gotcha-check.js --for <owned paths>`. Verify each file in this map still exists; search
   for an existing Sprint 139 test before creating it.
+- [ ] Read `apps/frontend/claude.md`, frontend CONTEXT and `apps/claude.md` before the approved page,
+  tests/onboarding and generated landing-doc updates. Use the existing API unwrap and display tokens.
 - [ ] Baseline `npm test`; record failures with raw exit codes. Real PostgreSQL is CI-only on Windows;
   do not open an SSH tunnel or operate on the demo. Check the installed hook path with `git config --get core.hooksPath`.
 - [ ] Write the tier gate using the existing workspace-discovery helper and Jest CLI execution pattern in
@@ -226,14 +236,26 @@ Expected: gates exit 0; root TDD actually discovers/runs tasks and accurately re
 
 ## Task 4: Red service contracts before source changes
 
-**Files:** The eight new service test files in File Map (three behavior suites and five query-logging suites).
+**Files:** The ten new service/frontend test files in File Map (four service behavior suites, five logging
+suites and one frontend TSX suite). Frontend tests also begin in that app's tdd tier.
 
 **Interfaces:** Tests consume existing exports/routes; no new runtime interface is required yet. Task 6's
 new rate reader and Task 7's cache normalizer remain internal helpers.
 
 - [ ] Write offer route tests with SQL/parameter capture using the Sprint 138 harness. Distinct owner/member/
   outsider identities must exercise the audience + expiry grouping. Exact expected predicate is spec A;
+  also assert additive expired/expires_at fields are selected without removing old fields/envelope.
   SQL capture proves query construction, not query execution. Task 9 supplies execution evidence.
+- [ ] Write frontend mount tests rendering the real offers page with mocked requestService I/O and shell
+  components. Return `{ data: { offers: [fixture], count: 1, total: 1 } }`; require its title to render after
+  loading. Cover empty list, rejected/malformed load without crash, visible error and successful Retry using
+  the same filters. Fix Date.now: active expired by flag or elapsed clock displays Expired; active future/NULL
+  expiry remains Active; expired matched shows Matched and Offer expired, never Cancelled/Completed.
+- [ ] Write nightly tests first: 3 active profiles with one failure yield `{ evaluated: 2, failed: 1 }`,
+  all attempted sequentially; inactive profiles excluded; empty enumeration returns zero counts; failed
+  enumeration rejects and logs at phase boundary. Capture the real init function's sole 03:30 callback:
+  invoke it to prove both phases, personal enumeration failure still runs providers, provider failure is
+  logged and does not escape, and SCHEDULED_JOBS_DISABLED=true schedules neither phase. No extra timer.
 - [ ] Write provider tests calling `updateProviderCompletionRate`, `backfillAllProviderTrustScores` and real
   `recalculateProviderTrustScore`, mocking only DB I/O. Assert terminal status selection, per-responder
   params, 66.67 and resulting score 80, no-profile/zero outcomes and active profile filtering. Do not copy
@@ -246,7 +268,9 @@ new rate reader and Task 7's cache normalizer remain internal helpers.
   unchanged SQL/parameter references, result identity, unchanged rejection identity. Reputation also covers
   query inside withTransaction using the checked-out client, never the pool.
 - [ ] Run each new suite explicitly `--runInBand --no-cache`; record meaningful red assertions before any
-  source edit. Existing resetMocks means mock implementations are installed in beforeEach. Use `export {}`
+  source edit. For new nightly exports, inspect the module namespace and assert the missing export at runtime
+  first; do not mistake a TypeScript missing-import error for the intended red proof. Existing resetMocks
+  means mock implementations are installed in beforeEach. Use `export {}`
   if a test otherwise becomes a TS global script. Keep all new service tests in their own tdd directory.
 - [ ] Commit service WIP tests only after pre-commit-check confirms unit/regression remain green; the TDD
   tier now reports only. Follow the after-every-full-run policy; root posttest can promote passing files.
@@ -263,13 +287,19 @@ Expected: spec-related failures; no false red due to missing tools/imports/DB.
 
 ## Task 5: Scope expiry by status and ownership (BUG-097)
 
-**Files:** `services/request-service/src/routes/offers.ts`, its CONTEXT; new offer suite;
-existing Sprint 138 service list assertions. Existing root integration coverage is a control, not a rewrite.
+**Files:** `services/request-service/src/routes/offers.ts`, its CONTEXT; offers page and frontend CONTEXT;
+new offer and frontend suites; existing Sprint 138 service assertions. Existing integration remains a control.
 
-**Interfaces:** GET `/offers` keeps its params/defaults and envelope; adds only spec A's visibility predicate.
+**Interfaces:** GET `/offers` keeps params/defaults/envelope; adds spec A's predicate and nullable
+`expires_at: string | null`, `expired: boolean | null` fields in list items. Frontend reads response.data.offers.
 
 - [ ] Apply spec A's exact SQL to the list route, keeping the existing audience clause as an outer AND.
-  Keep binding `$2` as viewer id, and retain limit/offset/type/community parameter numbering.
+  Keep binding `$2` as viewer id, retain limit/offset/type/community numbering, and select the two expiry
+  columns additively. Do not modify single-offer response behavior or the shared client interceptor.
+- [ ] Repair the page's payload assignment and local HelpOffer type. Derive expiry from flag or timestamp;
+  active expired uses the existing Expired display token. Other expired statuses keep their primary label
+  and add Offer expired. Keep an array after bad loads; show Unable to load offers plus Retry. Do not add
+  a new endpoint, view, dependency or eligibility bypass. Keep existing filters/defaults.
 - [ ] Rewrite the Sprint 138 service test's misleading “filters flagged and elapsed offers” cases at
   `sprint-138-reusable-offers.test.ts:206`–210. Checking only `toContain` for the two expiry fragments is
   insufficient: both fragments survive within the new OR. Assert the normalized complete WHERE grouping,
@@ -282,24 +312,37 @@ existing Sprint 138 service list assertions. Existing root integration coverage 
 - [ ] Assert status filter remains effective, `expired = NULL` and `expires_at = NULL` work, owner branch
   cannot expose someone else's offer, membership removal denies, and all optional params still bind correctly.
 - [ ] Verify new and Sprint 138 suites green; run existing offer-audience regression coverage located by
-  searching `offerReadableSql`, BUG-064 and `/offers`. Document read-only visibility change and commit.
+  searching `offerReadableSql`, BUG-064 and `/offers`. Run frontend mount/error/status tests; document
+  API/page changes in both CONTEXT files and commit. Task 10 carries user guide/onboarding text.
 
 ```bash
 npm exec --workspace=services/request-service -- jest --runTestsByPath tests/tdd/sprint-139-offer-visibility.test.ts tests/regression/sprint-138-reusable-offers.test.ts --runInBand --no-cache
+npm exec --workspace=apps/frontend -- jest --runTestsByPath tests/tdd/sprint-139-offers-page.test.tsx --runInBand --no-cache
 ```
 
 ## Task 6: Share the terminal-outcome rate calculation (BUG-080)
 
 **Files:** `services/reputation-service/src/services/providerTrustService.ts`, its CONTEXT; new completion
-suite; existing service `tests/regression/providerTrustScore.test.ts` and root
-`tests/unit/reputation/provider-completion-rate.test.ts`.
+and nightly suites; existing service `tests/regression/providerTrustScore.test.ts` and root
+`tests/unit/reputation/provider-completion-rate.test.ts`; cron file and existing Sprint 126/136 cron tests.
 
 **Interfaces:** Add internal `readProviderCompletionRate(userId: string): Promise<number>`; public signatures
 `updateProviderCompletionRate(userId: string): Promise<void>` and `backfillAllProviderTrustScores(): Promise<number>` stay.
+Add internal `refreshProviderTrustScore(providerId: string, userId: string): Promise<void>`, public
+`refreshAllProviderTrustScores(): Promise<{ evaluated: number; failed: number }>`, and cron export
+`runDailyTrustScoreRefresh(): Promise<void>`. Existing `refreshAllTrustScores` signature/meaning stays personal-only.
 
 - [ ] Implement one SQL aggregate for completed and terminal matches by responder id; return spec C's rate.
-  Both public paths call it. Keep active-profile selection, parameterized user scope, score formula and
-  existing error/isolation behavior. Do not call one public loop from another or create recursive recalculation.
+  All refresh paths reach it through the shared per-profile helper. Keep active-profile selection,
+  parameterized user scope, score formula and existing completion/manual error behavior. Do not call one
+  public loop from another or create recursive recalculation. Manual backfill remains fail-fast/count-returning.
+- [ ] Implement nightly enumeration of all active provider profiles, including owners without active community
+  memberships. Sequentially refresh each via the same helper; catch/log per-profile errors, count only fully
+  successful refreshes as evaluated, and continue. Reject enumeration failures. No alternate metric formula.
+- [ ] Add `runDailyTrustScoreRefresh` with independent try/catch blocks for existing personal sweep then new
+  provider sweep, logging each phase's counts/errors. Replace only the existing scheduler callback with it;
+  preserve `30 3 * * *`, timezone, one schedule call and disabled guard. No startup run. Test captured callback
+  and direct invocation, both phase-order/failure cases, and unchanged personal-return signature.
 - [ ] Update misleading comments/aggregate aliases and old mocks using `accepted_matches`. Preserve the
   existing `recalculateProviderTrustScore` contract, including stored completion/response metrics on review.
   Root `tests/unit/reputation/provider-completion-rate.test.ts` also imports the real subscriber export
@@ -308,11 +351,13 @@ suite; existing service `tests/regression/providerTrustScore.test.ts` and root
 - [ ] Make tests prove no terminal → 0, completed-only → 100, cancelled-only → 0, 2/3 → 66.67, irrelevant
   statuses ignored, inactive profiles excluded and all active profiles updated. A different responder's
   history cannot contribute. Final upsert must store score 80 for the spec's 5-star fixture.
-- [ ] Run new + existing actual-module tests green, note refresh lag and no automatic repair in CONTEXT,
-  then pre-commit-check and commit. No HTTP backfill or host commands.
+- [ ] Run new + existing actual-module tests green, document next-successful-nightly lag and error reporting
+  in CONTEXT, then pre-commit-check and commit. No manual HTTP backfill or host commands. Update cron test
+  callback mocks in the same commit; preserve all personal-sweep and disabled-flag assertions.
 
 ```bash
 npm exec --workspace=services/reputation-service -- jest --runTestsByPath tests/tdd/sprint-139-provider-completion.test.ts tests/regression/providerTrustScore.test.ts --runInBand --no-cache
+npm exec --workspace=services/reputation-service -- jest --runTestsByPath tests/tdd/sprint-139-provider-nightly-refresh.test.ts tests/regression/sprint-126-trust-score-refresh.test.ts tests/regression/sprint-136-scheduled-jobs-flag.test.ts --runInBand --no-cache
 npm exec --workspace=tests -- jest --runTestsByPath unit/reputation/provider-completion-rate.test.ts --runInBand --no-cache
 ```
 
@@ -391,6 +436,12 @@ No new shared helper or production API. Read `tests/claude.md` and existing Spri
   scan may temporarily write other fixture scores; the rollback must restore all writes, including those
   unrelated scores. Never assert global update count or leave other tests' scores changed. Assert the
   sentinel is the only swallowed error and verify fixture scores outside the transaction afterward.
+- [ ] Prove the nightly path repairs cancellation-only changes without a new completion: establish H's
+  stored rate 100 after one completed match; commit one matched→cancelled fixture transition, then run the
+  real `refreshAllProviderTrustScores` inside the rollback-isolated reputation transaction and assert H's
+  rate 50 and recomputed score there. Include another active provider and an inactive control. No global
+  count assertion or manual demo operation. The unit scheduler callback test proves this same function is
+  reached nightly; do not run the global personal phase against unrelated integration fixtures/caches.
 - [ ] Add only-cancelled/no-terminal/no-profile cases and direct NUMERIC reader `typeof` assertions; exercise
   numeric HTTP routes with self/current membership and denial controls. Legacy cache-hit behavior stays
   covered by Task 7's deterministic transport tests; do not flush shared Redis.
@@ -412,11 +463,13 @@ pass. Without a DB this command must fail, not skip. CI runs integration via `.g
 
 **Files:** `docs/guides/fulfilling-requests-guide.md`, `using-service-providers-guide.md`, `testing-guide.md`;
 `docs/concepts/observability.md`; ADR-015, ADR-042, ADR-029, ADR-088; `scripts/git-hooks/README.md`,
-`scripts/claude.md`; generated landing output.
+`scripts/claude.md`; `apps/frontend/src/lib/onboarding/workflows.ts`; generated landing output.
 
 - [ ] Apply the spec's exact documentation list. Explain owner versus neighbour discovery, expired hold
-  refusal, terminal denominator and refresh lag, truthful WIP status and debug logging. Do not promise
-  cancellation refresh, fault attribution or a now-active response-rate tracker.
+  refusal and expiry labels, terminal denominator and next-successful-nightly refresh, truthful WIP status
+  and debug logging. Do not promise immediate cancellation refresh, a strict 24-hour bound through failures,
+  fault attribution or a now-active response-rate tracker. Add the short standing-offer step to existing
+  WORKFLOWS.requests; update affected onboarding expectations without creating a new workflow.
 - [ ] Amend ADR-042's denominator and existing trigger description; ADR-015 documents default/info versus
   debug success logging across five services. ADR-029/088 clarify the repaired reporting/tier behavior.
   Keep existing numbers and indexes; add no new decision file.
@@ -434,14 +487,17 @@ npm exec --workspace=tests -- jest --runTestsByPath regression/doc-context-drift
 
 ## Task 11: Consolidate context, registry and blocking regression coverage
 
-**Files:** Seven service CONTEXT files, `services/registry.json`, `docs/BUGS.md`; move the eight new service
-tests from tdd to the same workspace's regression directory, preserving basenames.
+**Files:** Seven service CONTEXT files plus frontend CONTEXT, `services/registry.json`, `docs/BUGS.md`;
+verify/move all ten new service/frontend suites from tdd to their own workspace's regression directory,
+preserving basenames.
 
 - [ ] Check every changed service has a contemporaneous CONTEXT note and correct Known Issues/Recent Fixes
   entries; amend earlier notes as needed. Registry edits describe the changed list and trust contracts only.
 - [ ] Verify every green Sprint 139 test and simulation's protection suite is in its blocking regression
   tier. Some may already have moved via root posttest; individually promote any remaining green files
   when lifecycle scripts were disabled. Follow the full-run snapshot policy to undo unrelated moves.
+  The promoter only considers `.test.ts`, so explicitly move the green frontend `.test.tsx` suite; do not
+  assume that file was automatically promoted. Verify all ten new service/frontend suites are blocking.
   Confirm old paths are gone and grep whole repo for orphaned references, including this plan's execution
   ledger. Plan paths remain historical instructions; handoff next steps point to current paths.
 - [ ] Update the six BUGS entries as fixed on branch, with exact tests and pending deploy status; do not claim
@@ -479,7 +535,8 @@ git diff --check
 **Files:** All changed workspaces; root version fields; regenerated docs.
 
 - [ ] Run `tsc --noEmit` in all five logging services plus cleanup and simulation. Use configured workspace
-  commands, not a root tsconfig that omits services. No dependency installation is authorized to repair an environment.
+  commands, not a root tsconfig that omits services. Also type-check frontend for the page/type/onboarding
+  change. No dependency installation is authorized to repair an environment.
 - [ ] Run `npm test` and root `npm test --workspace=tests`; record raw failing suite/exit status if any.
   Run real integration on an available disposable stack or leave the CI evidence explicitly pending.
 - [ ] Verify exact root version change and lockfile diff: only root version fields, no dependency graph change.
@@ -495,6 +552,7 @@ npm exec --workspace=services/community-service -- tsc --noEmit
 npm exec --workspace=services/notification-service -- tsc --noEmit
 npm exec --workspace=services/cleanup-service -- tsc --noEmit
 npm exec --workspace=services/simulation-service -- tsc --noEmit
+npm exec --workspace=apps/frontend -- tsc --noEmit
 npm test
 npm test --workspace=tests
 npm run feedback:check
@@ -530,11 +588,12 @@ git diff --check
 
 - Scope: maintainer selected all six bugs; terminal-outcome denominator explicitly selected in chat.
 - Builder check: fresh read-only reviewer reported “nothing important left”; no verified contradiction found.
-- Full design approval: **pending decisions 1 and 7**. The maintainer reviewed the documents and requested
-  these corrections; do not interpret that as accepting the page/response or refresh-policy choices.
-- Planning verification blocker **resolved**: full host `npm test` exited 0 (preserved `S139_FULL_TEST_EXIT=0`),
+- Full design approved: after reviewing the documents/corrections, the maintainer explicitly agreed to
+  bundle the offers page/expiry repair and extend the existing nightly job for provider metrics (2026-11-09).
+  Details are now reflected in Tasks 4–6, 9–11 and 13. This does not authorize implementation in this chat.
+- Latest planning verification: full host `npm test` exited 0 (preserved `S139_DECISIONS_TEST_EXIT=0`),
   27/27 Turbo tasks succeeded (26 cached), root regression 43/43 suites and 992/992 tests passed. Code HEAD
-  `377efa5a` plus planning documents; subsequent changes only update these Markdown docs. Snapshot comparison
+  `491658f1` plus planning documents; subsequent changes only update these Markdown docs. Snapshot comparison
   across 387 TDD/promotion-target/landing paths found no changes to restore. Feedback/whitespace checks pass.
 - This planning-review chat changes only spec, plan and handoff and stops after their commit. No Task 1 work.
 
@@ -542,13 +601,13 @@ git diff --check
 
 | # | Finding (quoted) | Verdict / evidence | Planning correction and proof boundary |
 |---|---|---|---|
-| 1 | “The only web page that uses `GET /offers` looks broken, so the BUG-097 fix would change nothing anyone can see.” | CONFIRMED source mismatch: `apps/frontend/src/pages/offers/index.tsx:43`–44; `src/lib/api.ts:81`–91; payload at `services/request-service/src/routes/offers.ts:69`–73 | Bundle/defer decision pending; browser symptom not re-run. No frontend/API expansion assumed. |
+| 1 | “The only web page that uses `GET /offers` looks broken, so the BUG-097 fix would change nothing anyone can see.” | CONFIRMED source mismatch: `apps/frontend/src/pages/offers/index.tsx:43`–44; `src/lib/api.ts:81`–91; payload at `services/request-service/src/routes/offers.ts:69`–73 | Bundling explicitly approved; Tasks 4/5 cover response fields, page mount and honest expiry labels. Browser symptom proof belongs to execution. |
 | 2 | “The BUG-092 fix silently stops one passing test from blocking pushes.” | CONFIRMED: simulation `tests/tdd/sprint-134-demo-env-file.test.ts`, default includes tdd | Task 2 explicitly moves the 17-test protection suite and proves blocking discovery. Move belongs to execution. |
 | 3 | “Root `npm test` already promotes every passing tdd file.” | PARTIAL: `package.json:17`, promoter :99–115 register a broad lifecycle; local ignore-scripts=true suppressed it in this host pass | Snapshot/reconcile after every full run; named unrelated exclusions; Task 11 verifies actual promotions. |
 | 4 | “The plan gets a Sprint 138 test wrong, and misses a test that becomes falsely green.” | CONFIRMED: root integration :322 uses non-owner R; service regression :206–210 checks fragments only | Preserve integration control; rewrite grouping assertions with negative mutation proof in Task 5. |
 | 5 | “`test:tdd` should depend on `build`, like `test` does.” | CONFIRMED: shared `package.json:14`–17 exports dist; reputation mapper :36 is bare-package-only | Build prerequisite and clean-output/failing-build fixtures in Task 3. |
 | 6 | “Removing `\| tail -20` floods every push.” | CONFIRMED unbounded-output design; reviewer's measured volume not re-measured here | Retained unique temp log + last 20 lines/path; true exit status and bounded-output tests in Task 3. |
-| 7 | “Completion rates would only ever be stale in the provider's favour.” | CONFIRMED cancellation-only indefinite staleness: reputation `src/events/subscriber.ts:74`–79; request `src/routes/matches.ts:731`–734 | Explicit acceptance or alternative refresh policy required; denominator approval does not approve lag. |
+| 7 | “Completion rates would only ever be stale in the provider's favour.” | CONFIRMED cancellation-only indefinite staleness: reputation `src/events/subscriber.ts:74`–79; request `src/routes/matches.ts:731`–734 | Existing nightly-job extension explicitly approved; Tasks 4/6/9 pin provider refresh, phase isolation and cancellation-history repair. |
 | 8 | “Define what counts as a valid numeric string in the cache.” | CONFIRMED ambiguity in previous spec wording | Exact decimal regex/no trimming and negative lexical cases in spec D / Task 7. |
 | 9 | “Say why the spec doesn't use the existing logger helper.” | CONFIRMED: shared `utils/logger.ts:194`–200 truncates SQL/emits two records and no automatic row count | Spec E records why a single debug call preserves the intended metadata. |
 | 10 | “A zero user override can't happen.” | CONFIRMED: `infrastructure/postgres/init.sql:2275`–2286 | Community-only zero; legal user overrides/NULL in Task 7/9 fixtures. |
