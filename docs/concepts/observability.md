@@ -2,7 +2,11 @@
 
 ## Overview
 
-Karmyq ships structured JSON logs from all 11 services to Loki (via Promtail), visualized in Grafana. Every request gets a `requestId`; every error response includes an `X-Request-Id` header users can reference.
+Karmyq ships structured JSON logs from every service in [`services/registry.json`](../../services/registry.json) to Loki (via Promtail), visualized in Grafana. Every request gets a `requestId`; every error response includes an `X-Request-Id` header users can reference.
+
+## Log Levels and Routine Database Queries
+
+The database wrappers (`src/database/db.ts`) in auth, community, request, reputation, notification and cleanup log through the shared logger (`createLogger` in `packages/shared/utils/logger.ts`), which emits a record only at or above `LOG_LEVEL` — `info` unless set. (Much other service code still writes with `console.*`, which `LOG_LEVEL` does not filter.) A successful SQL query is **routine**: those wrappers log it at `debug` as `Executed query` with the SQL text, duration and row count (never the parameter values), so it is silent by default and appears only with `LOG_LEVEL=debug`. Until Sprint 139 five services printed one such line for every query whatever the level, which buried the lines that matter (BUG-082). Failures are not routine and are unaffected: a failing query still rejects with its original error, which the request handler logs at `error`, and connection and rollback failures are still logged as errors.
 
 ## Error Types
 

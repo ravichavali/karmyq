@@ -7,6 +7,17 @@
 
 ## Recent Changes
 
+- **2026-11-09 (Sprint 139, BUG-097)**: `GET /offers` scopes expiry by status and ownership:
+  `AND (o.status <> 'active' OR o.offerer_id = $2 OR (o.expired IS NOT TRUE AND (o.expires_at IS NULL OR
+  o.expires_at > NOW())))`, inside the unchanged readable boundary. An owner sees their own expired offer; matched /
+  withdrawn history keeps expired rows; other members still never see an expired active offer. List items gain
+  `expires_at` and `expired`. Holds still refuse an expired offer. Tests:
+  `tests/regression/sprint-139-offer-visibility.test.ts` (SQL/params), the rewritten Sprint 138 C case (whole WHERE
+  grouping, mutation-proven), and root `tests/integration/sprint-139-offer-visibility.integration.test.ts` (real SQL).
+- **2026-11-09 (Sprint 139, BUG-082)**: `src/database/db.ts` logs a successful query with the shared
+  `createLogger('request-service')` at **debug** (`Executed query`, `{ text, duration, rows }`, never params) instead
+  of an unconditional `console.log`. Silent at the default `info`; `LOG_LEVEL=debug` opts in. Errors and
+  `withTransaction` are unchanged. Policy: ADR-015 (amended). Test: `tests/regression/sprint-139-query-logging.test.ts`.
 - **2026-11-06 (Sprint 138, BUG-093..096)**: a standing offer is reusable. **BUG-093:** the final done mark in
   `PUT /matches/:id/complete` (both participants done) calls `releaseOffer` after the request is reconciled (lock order
   match, request, offer, as cancel), freeing the offer the match used unless another proposed or matched exchange
@@ -1661,8 +1672,13 @@ Get the help offers the caller may read (their own, or their live communities' o
 **Query Parameters:** `community_id` (narrows within the boundary, never widens it), `status` (default
 `active`), `type`, `limit`, `offset`.
 
-**Expired offers are not listed (Sprint 138, BUG-096):** for every `status` filter, an offer flagged `expired` or past its
-`expires_at` is hidden. `GET /offers/:id` still returns it.
+**Expiry hides an ACTIVE offer from other members only (Sprint 139, BUG-097; narrows Sprint 138's BUG-096):** a
+flagged or elapsed offer is left out of the list only when it is `active` AND the caller is not its offerer. Its owner
+still sees it, and a non-active offer (`matched`, `withdrawn`, ...) stays in that status's history whatever its expiry.
+The readable boundary stays an outer `AND`, so neither bypass widens who can read a row. Visibility is not
+eligibility: holding the offer for a new match still refuses an expired one. Each list item also carries
+`expires_at` (`string | null`) and `expired` (`boolean | null`), additively; the `{ offers, count, total }` envelope
+is unchanged. `GET /offers/:id` is unchanged (it still answers `status: 'active'` for an expired offer — Sprint 138 F3).
 
 **Implementation:** `src/routes/offers.ts` `router.get('/')`
 

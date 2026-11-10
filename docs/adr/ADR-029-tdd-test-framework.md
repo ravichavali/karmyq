@@ -77,10 +77,10 @@ The pre-push hook (`scripts/git-hooks/pre-push`) enforces:
    - Message: "Unit + regression tests failed. Fix failing tests or use --no-verify to skip"
 
 3. **TDD Tests** (informational):
-   - Runs: `npm run test:tdd`
+   - Runs: `npm run test:tdd` (`turbo run test:tdd --continue=always`; every workspace's WIP tier, uncached, after its build)
    - **NEVER blocks push** ✅ (tests are work-in-progress)
-   - Reports pass/fail for awareness
-   - Suggests promotion to regression if all pass
+   - Reports npm's real exit status, the last 20 lines and the path of a kept log (Sprint 139 — see Implementation History)
+   - Suggests promotion to regression only when that status is 0
 
 ### Auto-Promotion Script
 
@@ -352,6 +352,18 @@ The framework has been validated by successful pushes with all unit + regression
 ---
 
 ## Implementation History
+
+**2026-11-09 (Sprint 139, BUG-076 + BUG-092)**: the "reports only, never blocks" tier now does both halves of
+that promise. **Reports truthfully (BUG-076):** the hook ran `npm run test:tdd 2>&1 | tail -20` inside an `if`, so
+it tested tail's status and printed "✓ TDD tests passed" even though the root script named a Turbo task that did not
+exist and ran nothing. `turbo.json` now defines `test:tdd` (`cache: false`, `outputs: []`, `dependsOn: ["build"]`),
+the root script adds `--continue=always`, and the hook keeps npm's output in a unique retained `mktemp` log, preserves
+its status, then shows the last 20 lines, the path and the status; a failed, missing or unbuildable tier is a warning.
+**Never blocks (BUG-092):** `cleanup-service` and `simulation-service` ran a bare `jest` as their default `test`,
+which also collected `tests/tdd/` (and, for cleanup, `tests/integration/`), so a red WIP test there blocked a push.
+Both now use tiered scripts. Gates: `tests/regression/sprint-139-prepush-tdd-report.test.ts` (real installed hook,
+real push into a temp bare repo) and `tests/regression/sprint-139-tdd-boundaries.test.ts` (real Jest selection, real
+Turbo graph, a clean-output temp monorepo). See also ADR-088's Sprint 139 amendment.
 
 **2026-08-04 (Sprint 122 PR 4)**: jest 29 → 30 across all 14 jest-bearing workspaces. The
 `@karmyq/tests` scoping flag was renamed by jest 30 — `--testPathPattern` → **`--testPathPatterns`**

@@ -725,7 +725,7 @@
         {
           "method": "GET",
           "path": "/reputation/trust-config/:userId/:communityId",
-          "description": "Get user trust config and effective parameters (merged community defaults + per-user overrides)."
+          "description": "Get user trust config and effective parameters (merged community defaults + per-user overrides). Auth: self + live"
         },
         {
           "method": "PUT",
@@ -765,7 +765,7 @@
         {
           "method": "GET",
           "path": "/reputation/users/:userId/effective-params?communityId=",
-          "description": "Returns blended trust params from Redis cache (4h TTL), falls back to DB on cache miss. Auth: self only."
+          "description": "Returns blended trust params from Redis cache (4h TTL), falls back to DB on cache miss. Auth: self + live active"
         },
         {
           "method": "GET",

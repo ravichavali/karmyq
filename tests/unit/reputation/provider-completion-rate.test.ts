@@ -61,10 +61,10 @@ describe('updateProviderCompletionRate', () => {
     expect(upsert).toBeUndefined();
   });
 
-  it('calculates 75% completion_rate (3 completed / 4 accepted) and upserts', async () => {
+  it('calculates 75% completion_rate (3 completed / 4 terminal = completed + cancelled) and upserts', async () => {
     mockQuery
       .mockResolvedValueOnce({ rows: [{ id: 'p-uuid-1' }], rowCount: 1 } as any)   // profile lookup
-      .mockResolvedValueOnce({ rows: [{ accepted_matches: '4', completed_matches: '3' }], rowCount: 1 } as any)  // match stats
+      .mockResolvedValueOnce({ rows: [{ terminal_matches: '4', completed_matches: '3' }], rowCount: 1 } as any)  // match stats
       .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any);  // completion_rate upsert
 
     addRecalculateMocks(); // 3 more queries for recalculateProviderTrustScore
@@ -79,10 +79,10 @@ describe('updateProviderCompletionRate', () => {
     expect(completionUpsert![1]).toEqual(['p-uuid-1', 75]);
   });
 
-  it('sets completion_rate to 0 when accepted_matches is 0 (avoids division by zero)', async () => {
+  it('sets completion_rate to 0 when terminal_matches is 0 (avoids division by zero)', async () => {
     mockQuery
       .mockResolvedValueOnce({ rows: [{ id: 'p-uuid-2' }], rowCount: 1 } as any)
-      .mockResolvedValueOnce({ rows: [{ accepted_matches: '0', completed_matches: '0' }], rowCount: 1 } as any)
+      .mockResolvedValueOnce({ rows: [{ terminal_matches: '0', completed_matches: '0' }], rowCount: 1 } as any)
       .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any);
 
     addRecalculateMocks();
@@ -99,7 +99,7 @@ describe('updateProviderCompletionRate', () => {
       // profiles
       .mockResolvedValueOnce({ rows: [{ id: 'p1' }, { id: 'p2' }], rowCount: 2 } as any)
       // stats for p1
-      .mockResolvedValueOnce({ rows: [{ accepted_matches: '2', completed_matches: '2' }], rowCount: 1 } as any)
+      .mockResolvedValueOnce({ rows: [{ terminal_matches: '2', completed_matches: '2' }], rowCount: 1 } as any)
       // completion_rate upsert for p1
       .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any);
 
@@ -107,7 +107,7 @@ describe('updateProviderCompletionRate', () => {
 
     mockQuery
       // stats for p2
-      .mockResolvedValueOnce({ rows: [{ accepted_matches: '1', completed_matches: '0' }], rowCount: 1 } as any)
+      .mockResolvedValueOnce({ rows: [{ terminal_matches: '1', completed_matches: '0' }], rowCount: 1 } as any)
       // completion_rate upsert for p2
       .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any);
 

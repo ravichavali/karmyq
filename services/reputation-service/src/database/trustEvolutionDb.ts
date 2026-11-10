@@ -33,7 +33,18 @@ export async function getUserTrustConfig(
      WHERE user_id = $1 AND community_id = $2`,
     [userId, communityId]
   );
-  return result.rows[0] ?? null;
+  const row = result.rows[0];
+  if (!row) return null;
+  // BUG-081 (Sprint 139): NUMERIC arrives as a string. A NULL override means "inherit the
+  // community's", so it stays NULL; the prior is NOT NULL in the schema.
+  return {
+    user_id: row.user_id,
+    community_id: row.community_id,
+    depth_weight: row.depth_weight != null ? Number(row.depth_weight) : null,
+    breadth_weight: row.breadth_weight != null ? Number(row.breadth_weight) : null,
+    cross_community_prior: Number(row.cross_community_prior),
+    evolution_enabled: row.evolution_enabled,
+  };
 }
 
 export async function upsertUserTrustConfig(
@@ -107,7 +118,13 @@ export async function getCommunityEvolutionConfig(
      WHERE community_id = $1`,
     [communityId]
   );
-  return result.rows[0] ?? { community_evolution_enabled: false, cross_community_prior: 0.50 };
+  const row = result.rows[0];
+  if (!row) return { community_evolution_enabled: false, cross_community_prior: 0.50 };
+  // BUG-081 (Sprint 139): the prior is NUMERIC (NOT NULL), so it arrives as a string.
+  return {
+    community_evolution_enabled: row.community_evolution_enabled,
+    cross_community_prior: Number(row.cross_community_prior),
+  };
 }
 
 export async function updateCommunityEvolutionConfig(

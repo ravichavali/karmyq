@@ -47,17 +47,21 @@ export async function getCommunityTrustConfig(community_id: string): Promise<Com
 
   const row = result.rows[0];
   return {
-    depth_weight: row.trust_depth_weight ?? TRUST_CONFIG_DEFAULTS.depth_weight,
-    breadth_weight: row.trust_breadth_weight ?? TRUST_CONFIG_DEFAULTS.breadth_weight,
-    feedback_threshold: row.trust_feedback_threshold != null
-      ? parseFloat(row.trust_feedback_threshold)
-      : TRUST_CONFIG_DEFAULTS.feedback_threshold,
+    depth_weight: numericOr(row.trust_depth_weight, TRUST_CONFIG_DEFAULTS.depth_weight),
+    breadth_weight: numericOr(row.trust_breadth_weight, TRUST_CONFIG_DEFAULTS.breadth_weight),
+    feedback_threshold: numericOr(row.trust_feedback_threshold, TRUST_CONFIG_DEFAULTS.feedback_threshold),
     min_interactions_for_bonus: row.min_interactions_for_trust ?? TRUST_CONFIG_DEFAULTS.min_interactions_for_bonus,
     negative_allowed: row.trust_negative_allowed ?? TRUST_CONFIG_DEFAULTS.negative_allowed,
     carry_enabled: row.trust_carry_enabled ?? TRUST_CONFIG_DEFAULTS.carry_enabled,
-    carry_factor: row.trust_carry_factor != null
-      ? parseFloat(row.trust_carry_factor)
-      : TRUST_CONFIG_DEFAULTS.carry_factor,
+    carry_factor: numericOr(row.trust_carry_factor, TRUST_CONFIG_DEFAULTS.carry_factor),
     carry_cap: row.trust_carry_cap ?? TRUST_CONFIG_DEFAULTS.carry_cap,
   };
+}
+
+/**
+ * BUG-081 (Sprint 139): pg returns NUMERIC as a string ("0.60"), so convert at this boundary. A
+ * NULL takes the default, and a real community weight of 0 stays 0 (a null check, never a truthy one).
+ */
+function numericOr(value: unknown, fallback: number): number {
+  return value != null ? Number(value) : fallback;
 }

@@ -27,10 +27,15 @@ router.get('/', async (req: Request, res: Response) => {
     const { community_id, status = 'active', type, limit = 50, offset = 0 } = req.query;
     const viewerId = (req as any).user?.userId ?? null;
 
+    // BUG-097 (Sprint 139): expiry hides an ACTIVE offer from other members only. Its owner still
+    // sees it, and a non-active offer (matched, withdrawn, ...) stays in the history it belongs to.
+    // The readable audience above stays an outer AND, so neither bypass widens who can see a row.
+    // Visibility is not eligibility: holding an offer still refuses an expired one (matches.ts).
     let queryText = `
       SELECT
         o.id, o.community_id, o.offerer_id, o.title, o.description,
         o.category, o.status, o.created_at, o.updated_at,
+        o.expires_at, o.expired,
         u.name as helper_name,
         c.name as community_name
       FROM requests.help_offers o
@@ -38,8 +43,11 @@ router.get('/', async (req: Request, res: Response) => {
       LEFT JOIN communities.communities c ON o.community_id = c.id
       WHERE o.status = $1
         AND ${offerReadableSql('o', '$2')}
-        AND o.expired IS NOT TRUE
-        AND (o.expires_at IS NULL OR o.expires_at > NOW())
+        AND (
+          o.status <> 'active'
+          OR o.offerer_id = $2
+          OR (o.expired IS NOT TRUE AND (o.expires_at IS NULL OR o.expires_at > NOW()))
+        )
     `;
 
     // A community_id filter narrows within the boundary; it never widens it.

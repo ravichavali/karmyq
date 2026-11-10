@@ -7,7 +7,11 @@
  * Called by:
  * - providerReviews route: when a new review is submitted
  * - event subscriber: when a match_completed event fires (updates completion_rate)
- * - backfill endpoint: one-time recalculation for existing providers
+ * - backfill endpoint: manual, fail-fast recalculation for every active provider
+ * - the 03:30 job (cron/trustScoreRefresh.ts): nightly sweep, so a cancellation — which triggers no
+ *   refresh of its own — is reflected by the next successful run (Sprint 139)
+ *
+ * completion_rate = completed / (completed + cancelled) over the responder's matches (BUG-080).
  */
 
 import { query } from '../database/db';
@@ -58,8 +62,60 @@ export async function recalculateProviderTrustScore(providerId: string): Promise
 }
 
 /**
- * Update completion_rate for all provider profiles belonging to a user,
- * then trigger a full trust score recalculation for each.
+ * Completion rate from a responder's match history (ADR-042, amended Sprint 139 / BUG-080):
+ * completed / (completed + cancelled), as a percentage rounded to two decimals, 0 with no terminal
+ * outcome yet. Ongoing (proposed, matched) and every other status (rejected, declined, legacy
+ * 'accepted') are ignored. A cancellation counts whoever cancelled: the data records no fault, so
+ * this is an outcome ratio, not a blame score. The scope is the responder, so every active profile
+ * a user owns gets the same rate.
+ */
+async function readProviderCompletionRate(userId: string): Promise<number> {
+  const statsResult = await query(
+    `SELECT
+       COUNT(*) FILTER (WHERE status = 'completed') AS completed_matches,
+       COUNT(*) FILTER (WHERE status IN ('completed', 'cancelled')) AS terminal_matches
+     FROM requests.matches
+     WHERE responder_id = $1`,
+    [userId]
+  );
+
+  const completed = parseInt(statsResult.rows[0]?.completed_matches) || 0;
+  const terminalMatches = parseInt(statsResult.rows[0]?.terminal_matches) || 0;
+  return terminalMatches > 0
+    ? parseFloat(((completed / terminalMatches) * 100).toFixed(2))
+    : 0;
+}
+
+/**
+ * Refresh one provider profile: store its owner's completion rate, then recompute the trust score
+ * through the one authoritative formula. Shared by every refresh path (completion, manual
+ * backfill, nightly sweep). Returns the stored completion rate.
+ */
+async function refreshProviderTrustScore(providerId: string, userId: string): Promise<number> {
+  const completion_rate = await readProviderCompletionRate(userId);
+
+  // Upsert completion_rate only (avg_stars and response_rate are managed separately)
+  await query(
+    `INSERT INTO reputation.provider_trust_scores (provider_id, completion_rate, last_calculated)
+     VALUES ($1, $2, CURRENT_TIMESTAMP)
+     ON CONFLICT (provider_id) DO UPDATE SET
+       completion_rate = $2,
+       last_calculated = CURRENT_TIMESTAMP`,
+    [providerId, completion_rate]
+  );
+
+  await recalculateProviderTrustScore(providerId);
+  return completion_rate;
+}
+
+/** Every active provider profile and its owner. Not filtered by community membership. */
+const ACTIVE_PROVIDERS_SQL = `SELECT pp.id, pp.user_id
+     FROM requests.provider_profiles pp
+     WHERE pp.is_active = TRUE
+     ORDER BY pp.id`;
+
+/**
+ * Refresh every active provider profile belonging to a user.
  * Called after match_completed events.
  */
 export async function updateProviderCompletionRate(userId: string): Promise<void> {
@@ -71,84 +127,53 @@ export async function updateProviderCompletionRate(userId: string): Promise<void
   if (profileResult.rowCount === 0) return; // user is not a registered provider
 
   for (const { id: provider_id } of profileResult.rows) {
-    // Count accepted and completed matches where this user was the responder
-    const statsResult = await query(
-      `SELECT
-         COUNT(*) FILTER (WHERE status IN ('accepted', 'completed')) AS accepted_matches,
-         COUNT(*) FILTER (WHERE status = 'completed') AS completed_matches
-       FROM requests.matches
-       WHERE responder_id = $1`,
-      [userId]
-    );
-
-    const { accepted_matches, completed_matches } = statsResult.rows[0];
-    const accepted = parseInt(accepted_matches) || 0;
-    const completed = parseInt(completed_matches) || 0;
-    const completion_rate = accepted > 0
-      ? parseFloat(((completed / accepted) * 100).toFixed(2))
-      : 0;
-
-    // Upsert completion_rate only (avg_stars and response_rate are managed separately)
-    await query(
-      `INSERT INTO reputation.provider_trust_scores (provider_id, completion_rate, last_calculated)
-       VALUES ($1, $2, CURRENT_TIMESTAMP)
-       ON CONFLICT (provider_id) DO UPDATE SET
-         completion_rate = $2,
-         last_calculated = CURRENT_TIMESTAMP`,
-      [provider_id, completion_rate]
-    );
-
-    // Recompute trust_score using the single authoritative formula
-    await recalculateProviderTrustScore(provider_id);
-
+    const completion_rate = await refreshProviderTrustScore(provider_id, userId);
     console.log(`✅ Provider trust score updated: provider=${provider_id} completion_rate=${completion_rate}%`);
   }
 }
 
 /**
- * Backfill trust scores for all active providers from historical data.
- * Intended for one-time use after deploying this service or fixing the formula.
- * Returns the count of providers updated.
+ * Backfill trust scores for all active providers from historical data (the manual admin endpoint).
+ * Fail-fast: the first provider that fails rejects the whole call. Returns the count updated.
  */
 export async function backfillAllProviderTrustScores(): Promise<number> {
-  const providers = await query(
-    `SELECT pp.id, pp.user_id
-     FROM requests.provider_profiles pp
-     WHERE pp.is_active = TRUE`
-  );
+  const providers = await query(ACTIVE_PROVIDERS_SQL);
 
   let updated = 0;
   for (const { id: provider_id, user_id } of providers.rows) {
-    // Recalculate completion_rate from historical match data
-    const statsResult = await query(
-      `SELECT
-         COUNT(*) FILTER (WHERE status IN ('accepted', 'completed')) AS accepted_matches,
-         COUNT(*) FILTER (WHERE status = 'completed') AS completed_matches
-       FROM requests.matches
-       WHERE responder_id = $1`,
-      [user_id]
-    );
-
-    const { accepted_matches, completed_matches } = statsResult.rows[0];
-    const accepted = parseInt(accepted_matches) || 0;
-    const completed = parseInt(completed_matches) || 0;
-    const completion_rate = accepted > 0
-      ? parseFloat(((completed / accepted) * 100).toFixed(2))
-      : 0;
-
-    // Ensure a trust score row exists and has correct completion_rate
-    await query(
-      `INSERT INTO reputation.provider_trust_scores (provider_id, completion_rate, last_calculated)
-       VALUES ($1, $2, CURRENT_TIMESTAMP)
-       ON CONFLICT (provider_id) DO UPDATE SET
-         completion_rate = $2,
-         last_calculated = CURRENT_TIMESTAMP`,
-      [provider_id, completion_rate]
-    );
-
-    await recalculateProviderTrustScore(provider_id);
+    await refreshProviderTrustScore(provider_id, user_id);
     updated++;
   }
 
   return updated;
+}
+
+/**
+ * The nightly provider sweep (Sprint 139, approved decision 7), run by the existing 03:30 job.
+ *
+ * Completion refreshes a provider at once; a cancellation triggers nothing, so without this a
+ * provider who cancels and never completes again would keep a stale, too-high rate forever. Walks
+ * every active profile one at a time; a failing profile is logged and counted and the sweep goes
+ * on. Failing to ENUMERATE rejects, so zero work is never reported as a healthy sweep.
+ */
+export async function refreshAllProviderTrustScores(): Promise<{ evaluated: number; failed: number }> {
+  const providers = await query(ACTIVE_PROVIDERS_SQL);
+
+  let evaluated = 0;
+  let failed = 0;
+  for (const { id: provider_id, user_id } of providers.rows) {
+    try {
+      await refreshProviderTrustScore(provider_id, user_id);
+      evaluated += 1;
+    } catch (error) {
+      failed += 1;
+      console.error('Provider trust refresh failed for profile', {
+        provider_id,
+        user_id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return { evaluated, failed };
 }

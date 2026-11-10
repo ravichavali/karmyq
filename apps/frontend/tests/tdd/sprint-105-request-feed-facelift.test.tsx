@@ -157,9 +157,12 @@ describe('Sprint 105 request feed/detail/offers/match facelift', () => {
   })
 
   it('renders offers with warm cards and humanized status labels', async () => {
+    // Sprint 139: the shape the API client really returns once its interceptor has unwrapped the
+    // envelope — { offers, count, total }. This used to mock { data: [...] }, which only "worked"
+    // because the page read response.data.data (the BUG-097 page defect).
     ;(requestService.getOffers as jest.Mock).mockResolvedValue({
       data: {
-        data: [
+        offers: [
           {
             id: 'offer-1',
             title: 'Can drive to appointments',
@@ -169,8 +172,12 @@ describe('Sprint 105 request feed/detail/offers/match facelift', () => {
             helper_name: 'Sam',
             category: 'transportation',
             created_at: '2026-06-17T12:00:00Z',
+            expires_at: null,
+            expired: false,
           },
         ],
+        count: 1,
+        total: 1,
       },
     })
 

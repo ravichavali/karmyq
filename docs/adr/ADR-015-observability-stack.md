@@ -130,3 +130,17 @@ const requestDuration = new prometheus.Histogram({
 - Prometheus: http://localhost:9090
 - Loki docs: https://grafana.com/docs/loki/
 - Prometheus docs: https://prometheus.io/docs/
+
+## Amendment — Sprint 139 BUG-082: routine query success logs at debug (2026-11-09)
+
+Five services' database wrappers (auth, community, request, reputation, notification — `src/database/db.ts`) printed
+`console.log('Executed query', { text, duration, rows })` for every successful query, whatever the configured level.
+On the demo host that volume pushed useful lines out of the shipped logs.
+
+**Decision:** a successful query is routine, so it is logged through the shared structured logger
+(`createLogger('<service>')` from `@karmyq/shared/utils/logger`) at **debug**: silent at the default `info`, one JSON
+record with the SQL text, duration and row count under `LOG_LEVEL=debug`. Parameter values are never logged. The
+shared helper `logger.query()` is not used: it truncates SQL at 100 characters, emits two records when given a
+duration and omits the row count. A failing query still rejects with its original error, which the route handler
+logs; the wrappers' connection-failure and rollback-failure logs are unchanged, as is transaction behaviour. cleanup-service already followed this policy. No new environment variable, transport or
+dependency. Gate: each service's `tests/regression/sprint-139-query-logging.test.ts` (real logger, faked pg).

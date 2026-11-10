@@ -46,7 +46,7 @@ jest.mock('node:child_process', () => {
   };
 });
 
-/** services/simulation-service/tests/tdd → the repo root. */
+/** services/simulation-service/tests/regression → the repo root. */
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
 
 const STORY = {

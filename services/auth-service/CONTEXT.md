@@ -923,6 +923,13 @@ src/
 
 ## Recent Changes
 
+### Sprint 139: routine SQL success logs at debug (2026-11-09) — BUG-082
+- `src/database/db.ts` `query()` logged `console.log('Executed query', ...)` for every successful query, which
+  crowded useful lines out of the demo host's logs. It now uses the shared `createLogger('auth-service')` at
+  **debug**: silent at the default `info`, one structured `Executed query` record with `{ text, duration, rows }`
+  (never the parameter values) under `LOG_LEVEL=debug`. Connection, failure and transaction behaviour unchanged.
+  Policy: ADR-015 (amended). Test: `tests/regression/sprint-139-query-logging.test.ts`.
+
 ### Sprint 129: the demo failure is now legible (2026-09-13) — BUG-039
 - **FIXED (BUG-039)**: `karmyq.com/demo` returned `503 DEMO_UNAVAILABLE` from ~2026-09-09 to
   2026-09-12. Root cause was **not** in this service: `cleanup-service` had hard-deleted all four

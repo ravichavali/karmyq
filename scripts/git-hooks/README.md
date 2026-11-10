@@ -4,12 +4,13 @@ This directory contains the source git hooks for the karmyq project.
 
 ## Installation
 
-Hooks are automatically installed when you run `npm install` via the postinstall script.
-
-To manually install/update hooks:
+Hooks are **not** installed automatically: `.npmrc` sets `ignore-scripts=true` (ADR-061), so no npm lifecycle
+script runs on `npm install` / `npm ci`. Install them once after cloning, and again after editing a hook here:
 ```bash
 npm run hooks:install
 ```
+The installer writes to the directory git actually reads: `git config --get core.hooksPath` when that is set
+(for example `.husky` on a machine where husky once ran), otherwise `.git/hooks`.
 
 ## Available Hooks
 
@@ -39,6 +40,11 @@ npm run hooks:install
 4. Always runs unit + regression tests through `scripts/prepush-test-runner.js` (blocking): Turbo
    and Jest parallelism are capped, and a task whose only failures are Jest timeouts is retried
    once, serially. Any other failure blocks. See `scripts/claude.md`.
+5. Runs `npm run test:tdd` (the WIP tier, `turbo run test:tdd --continue=always`) for reporting only. Its output
+   goes to a unique log under `${TMPDIR:-/tmp}` (`karmyq-prepush-tdd.XXXXXX`), which is kept; the hook prints the
+   last 20 lines, the log's path and npm's real exit status. "TDD tests passed" appears only when that status is 0.
+   A failed, missing or unbuildable WIP tier is a warning and never blocks a push whose required checks passed
+   (Sprint 139, BUG-076: the old `| tail -20` reported tail's status, so every WIP run "passed").
 
 **Environment Variables**:
 - `SKIP_PREPUSH=1`: Skip all pre-push checks
@@ -54,17 +60,18 @@ npm run hooks:install
 
 ### Source of Truth
 - Hooks in this directory (`scripts/git-hooks/`) are the source of truth
-- Changes here are copied/symlinked to `.git/hooks/` during installation
+- Changes here are copied/symlinked into the active hooks directory (`core.hooksPath`, else `.git/hooks/`) by
+  `npm run hooks:install`
 
 ### Platform Differences
-- **Unix/Linux/Mac**: Hooks are symlinked from `.git/hooks/` to `scripts/git-hooks/`
+- **Unix/Linux/Mac**: Hooks are symlinked from the active hooks directory to `scripts/git-hooks/`
 - **Windows/Git Bash**: Hooks are copied (symlinks may not work reliably)
 
 ### Updating Hooks
 After modifying hooks in this directory:
 1. Run `npm run hooks:install` to update active hooks
 2. Commit changes to `scripts/git-hooks/`
-3. Other developers will get updated hooks on their next `npm install`
+3. Other developers must run `npm run hooks:install` themselves; `npm install` does not (see Installation)
 
 ## Troubleshooting
 
@@ -73,8 +80,9 @@ After modifying hooks in this directory:
 # Reinstall hooks
 npm run hooks:install
 
-# Verify hooks are installed
-ls -la .git/hooks/
+# Verify hooks are installed where git reads them
+HOOKS_DIR=$(git config --get core.hooksPath); [ -z "$HOOKS_DIR" ] && HOOKS_DIR=.git/hooks
+ls -la "$HOOKS_DIR"
 ```
 
 ### Pre-push tests failing
@@ -98,6 +106,6 @@ npm run hooks:install
 ## Best Practices
 
 1. **Don't bypass hooks routinely** - They're there for a reason
-2. **Update hook logic here** - Not directly in `.git/hooks/`
+2. **Update hook logic here** - Not directly in the installed copies
 3. **Test hook changes** - Make a test commit/push after modifying
 4. **Document changes** - Update this README when adding/modifying hooks

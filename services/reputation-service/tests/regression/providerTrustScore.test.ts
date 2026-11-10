@@ -162,8 +162,8 @@ describe('updateProviderCompletionRate', () => {
   it('updates completion_rate and triggers recalculation', async () => {
     // query 1: provider profile lookup → found
     mockQuery.mockResolvedValueOnce({ rows: [{ id: providerId }], rowCount: 1 } as any);
-    // query 2: match stats → 8 accepted, 6 completed = 75%
-    mockQuery.mockResolvedValueOnce({ rows: [{ accepted_matches: '8', completed_matches: '6' }], rowCount: 1 } as any);
+    // query 2: match stats → 8 terminal (completed + cancelled), 6 completed = 75%
+    mockQuery.mockResolvedValueOnce({ rows: [{ terminal_matches: '8', completed_matches: '6' }], rowCount: 1 } as any);
     // query 3: upsert completion_rate
     mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 } as any);
     // recalculateProviderTrustScore queries:
@@ -186,7 +186,7 @@ describe('updateProviderCompletionRate', () => {
 
   it('sets completion_rate to 0 when provider has no matches', async () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ id: providerId }], rowCount: 1 } as any);
-    mockQuery.mockResolvedValueOnce({ rows: [{ accepted_matches: '0', completed_matches: '0' }], rowCount: 1 } as any);
+    mockQuery.mockResolvedValueOnce({ rows: [{ terminal_matches: '0', completed_matches: '0' }], rowCount: 1 } as any);
     mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 } as any);
     // recalculate queries
     mockQuery.mockResolvedValueOnce({ rows: [{ avg_stars: null, total_reviews: '0' }], rowCount: 1 } as any);
@@ -212,14 +212,14 @@ describe('backfillAllProviderTrustScores', () => {
     } as any);
 
     // Provider 1
-    mockQuery.mockResolvedValueOnce({ rows: [{ accepted_matches: '5', completed_matches: '4' }], rowCount: 1 } as any);
+    mockQuery.mockResolvedValueOnce({ rows: [{ terminal_matches: '5', completed_matches: '4' }], rowCount: 1 } as any);
     mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 } as any); // upsert completion_rate
     mockQuery.mockResolvedValueOnce({ rows: [{ avg_stars: '4', total_reviews: '2' }], rowCount: 1 } as any);
     mockQuery.mockResolvedValueOnce({ rows: [{ completion_rate: '80', response_rate: '0' }], rowCount: 1 } as any);
     mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 } as any); // upsert trust_score
 
     // Provider 2
-    mockQuery.mockResolvedValueOnce({ rows: [{ accepted_matches: '0', completed_matches: '0' }], rowCount: 1 } as any);
+    mockQuery.mockResolvedValueOnce({ rows: [{ terminal_matches: '0', completed_matches: '0' }], rowCount: 1 } as any);
     mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 } as any);
     mockQuery.mockResolvedValueOnce({ rows: [{ avg_stars: null, total_reviews: '0' }], rowCount: 1 } as any);
     mockQuery.mockResolvedValueOnce({ rows: [{ completion_rate: '0', response_rate: '0' }], rowCount: 1 } as any);

@@ -1,54 +1,12 @@
 import { execFileSync } from 'child_process';
 import { cpSync, existsSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { join, resolve } from 'path';
+import { join } from 'path';
 
-import { ROOT, read } from './helpers/workspaces';
+import { ROOT, posixShell, read } from './helpers/workspaces';
 
-/**
- * A POSIX shell that actually exists on this machine.
- *
- * `sh` is on PATH under Git Bash, Linux and macOS — but NOT from PowerShell, where Git for
- * Windows puts sh.exe in `<git>/usr/bin` while only `<git>/cmd` is on PATH. The functional cases
- * below are the only ones that prove anything, so resolving the shell must never degrade into
- * skipping them: if nothing here works we throw, and the suite goes red rather than quiet.
- */
-const SHELL: string = (() => {
-  const candidates = ['sh'];
-
-  if (process.platform === 'win32') {
-    try {
-      // .../mingw64/libexec/git-core -> the Git for Windows install root
-      const gitRoot = resolve(
-        execFileSync('git', ['--exec-path'], { encoding: 'utf8' }).trim(),
-        '..',
-        '..',
-        '..'
-      );
-      candidates.push(join(gitRoot, 'usr', 'bin', 'sh.exe'), join(gitRoot, 'bin', 'sh.exe'));
-    } catch {
-      // git not on PATH is handled by the candidates below and, failing those, the throw.
-    }
-    candidates.push(
-      'C:\\Program Files\\Git\\usr\\bin\\sh.exe',
-      'C:\\Program Files (x86)\\Git\\usr\\bin\\sh.exe'
-    );
-  }
-
-  for (const candidate of candidates) {
-    try {
-      execFileSync(candidate, ['-c', 'exit 0'], { stdio: 'ignore' });
-      return candidate;
-    } catch {
-      // try the next candidate
-    }
-  }
-
-  throw new Error(
-    `No POSIX shell found. Tried: ${candidates.join(', ')}. ` +
-      'Install Git for Windows or run from a shell where `sh` resolves — these cases must not be skipped.'
-  );
-})();
+/** Resolved once; see posixShell() in helpers/workspaces.ts for why this must never degrade to skipping. */
+const SHELL: string = posixShell();
 
 /**
  * Sprint 123 — the git hooks were inert, and nothing said so.

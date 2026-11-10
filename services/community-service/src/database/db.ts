@@ -1,4 +1,10 @@
 import { Pool } from 'pg';
+import { createLogger } from '@karmyq/shared/utils/logger';
+
+// Created on first use, not at import: index.ts imports this module before dotenv.config() runs, and the
+// shared logger reads LOG_LEVEL when it is constructed, so a LOG_LEVEL from .env would otherwise never apply.
+let logger: ReturnType<typeof createLogger> | undefined;
+const queryLogger = () => (logger ??= createLogger('community-service'));
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -23,7 +29,9 @@ export async function query(text: string, params?: any[]) {
   const start = Date.now();
   const res = await pool.query(text, params);
   const duration = Date.now() - start;
-  console.log('Executed query', { text, duration, rows: res.rowCount });
+  // BUG-082 (Sprint 139): routine success is debug-level — silent at the default info, opt in with
+  // LOG_LEVEL=debug. Same SQL text, duration and row count; never the parameter values.
+  queryLogger().debug('Executed query', { text, duration, rows: res.rowCount });
   return res;
 }
 

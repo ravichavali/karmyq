@@ -5,6 +5,10 @@
 
 ## Recent Changes
 
+- **2026-11-09 (Sprint 139, BUG-082)**: `src/database/db.ts` logs a successful query with the shared
+  `createLogger('community-service')` at **debug** (`Executed query`, `{ text, duration, rows }`, never params) instead
+  of an unconditional `console.log`. Silent at the default `info`; `LOG_LEVEL=debug` opts in. Errors, connection logs
+  and `withTransaction` are unchanged. Policy: ADR-015 (amended). Test: `tests/regression/sprint-139-query-logging.test.ts`.
 - **2026-10-22 (Sprint 134 PR K, BUG-069 fixed, ADR-102)**: the tags and location updates, the five fusion and four
   split admin actions, and the six trust-question writes decided from the JWT `communities` claim, so a demoted or
   removed admin kept admin powers until the token expired. They now read `communities.members` through

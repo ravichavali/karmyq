@@ -27,13 +27,21 @@ Most workspaces (services and apps) keep their tests under `tests/` in one of fo
 Both are covered: the tier-coverage gate resolves either shape, and a separate assertion catches
 any workspace that has test files but runs none of them, which is what reaches `packages/shared`.
 
-Some workspaces (`cleanup-service`, `simulation-service`, `apps/landing`, `apps/mobile`) run a
-single bare `jest` invocation instead of tiered `test:unit` / `test:regression` / `test:tdd`
-scripts. That invocation covers every tier directory in one pass — it is a legitimate second
-layout, not a shortcut. A regression gate
+Besides `packages/shared` (above), two workspaces (`apps/landing`, `apps/mobile`) still run a single bare `jest` invocation instead
+of tiered `test:unit` / `test:regression` / `test:tdd` scripts. A regression gate
 (`tests/regression/sprint-122-tier-parity.test.ts`) checks both layouts the same way: whatever
 the workspace's `test` script resolves to must actually cover the test files present on disk for
-every tier that has files.
+every tier that has files. That gate proves coverage only; it does not prove that the WIP tier
+stays OUT of the blocking run — a bare `jest` also collects `tests/tdd/`, so a red WIP test there
+blocks a push.
+
+`cleanup-service` and `simulation-service` used that bare layout until Sprint 139 (BUG-092), and
+for exactly that reason a red WIP test blocked pushes; cleanup's also ran `tests/integration/`.
+Both are now tiered: `test` = `test:unit && test:regression`, plus `test:tdd`.
+`tests/regression/sprint-139-tdd-boundaries.test.ts` proves the default selects exactly unit +
+regression (and that a red WIP test fails only an explicit `test:tdd` run), and pins
+simulation's `sprint-134-demo-env-file` suite, which was blocking only through the old sweep and
+moved to `tests/regression/`.
 
 ## What blocks a push, what only reports
 
@@ -42,8 +50,13 @@ every tier that has files.
   workflow step.
 - **`npm run test:integration` — BLOCKS if a database is reachable, otherwise skipped.** The
   pre-push hook checks for `DATABASE_URL`/a live Postgres before running it.
-- **`npm run test:tdd` — NEVER blocks.** It's informational. Tests here are expected to fail; the
-  hook reports pass/fail and suggests promotion when everything's green.
+- **`npm run test:tdd` — NEVER blocks.** It's informational. Tests here are expected to fail. It is
+  `turbo run test:tdd --continue=always`: every workspace's WIP tier runs (uncached, after its
+  build), one red workspace doesn't hide the others, and the command exits nonzero if any failed.
+  The pre-push hook writes its output to a kept log under `${TMPDIR:-/tmp}`, prints the last 20
+  lines, the log's path and the real exit status, and says "TDD tests passed" only when that
+  status is 0 (Sprint 139, BUG-076: it used to report tail's status, so every run "passed").
+  Expect a nonzero status while WIP suites are red; that's a warning, not a blocked push.
 - **`npm run feedback:check` — NEVER blocks.** It's an advisory to-do list for the diff (see
   CLAUDE.md's Pre-Merge Checklist), not a test run.
 
@@ -127,8 +140,11 @@ individually checks whether it passes:
   future change that breaks it blocks the push.
 - **Fails → left in `tests/tdd/`.** No action needed; it stays informational.
 
-Root `package.json` runs the promoter as a `posttest` hook, so it runs automatically after
-`npm test` at the root. You can also run it directly: `npm run test:promote-tdd`.
+Root `package.json` wires the promoter as a `posttest` hook, but `.npmrc` sets `ignore-scripts=true`
+(ADR-061), so npm runs no pre- or post-script and `npm test` does **not** promote anything. Run it
+directly with `node scripts/promote-tdd-tests.js` — and review what it moves: it promotes **every**
+green `tests/tdd/` file in `services/*` and `apps/*`, not just yours, and only `.test.ts` files
+(move a green `.test.tsx` by hand).
 
 **Known gap (as of Sprint 122 PR 2):** the promoter's file matcher (`findTestFiles()`) only
 recognizes `*.test.ts`. `apps/frontend/tests/tdd/` is mostly `.test.tsx` files (component tests),

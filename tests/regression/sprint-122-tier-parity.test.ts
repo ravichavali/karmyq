@@ -1,8 +1,8 @@
 import { execFileSync } from 'child_process';
-import { existsSync, readFileSync, readdirSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join, relative, sep } from 'path';
 
-import { ROOT, allWorkspaces, read } from './helpers/workspaces';
+import { JEST_BIN, ROOT, TEST_FILE_RE, allWorkspaces, jestInvocations, read, testFilesUnder } from './helpers/workspaces';
 
 /**
  * Sprint 122 PR 2 — tier coverage (ADR-088).
@@ -20,7 +20,11 @@ import { ROOT, allWorkspaces, read } from './helpers/workspaces';
  *
  * Two layouts are both legitimate and both must pass:
  *   - tiered scripts:  "test": "npm run test:unit && npm run test:regression"
- *   - bare jest:       "test": "jest"   (cleanup, simulation, landing, mobile)
+ *   - bare jest:       "test": "jest"   (landing, mobile)
+ *
+ * Cleanup and simulation moved from bare jest to tiered scripts in Sprint 139 (BUG-092): their bare
+ * jest also collected tests/tdd/, so a red WIP test blocked a push. That EXCLUSION — the half this
+ * gate deliberately tolerates — is proven by sprint-139-tdd-boundaries.test.ts.
  */
 const TIERS = ['unit', 'regression'] as const;
 
@@ -36,52 +40,14 @@ function tierDir(wsDir: string, tier: string): string | null {
   return null;
 }
 
-/** Build output contains copies of test files; never count them as sources. */
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', 'coverage', '.next', '.expo', '.turbo']);
-
-function testFilesUnder(dir: string): string[] {
-  const found: string[] = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (!SKIP_DIRS.has(entry.name)) found.push(...testFilesUnder(full));
-    } else if (/\.(test|spec)\.[jt]sx?$/.test(entry.name)) {
-      found.push(full);
-    }
-  }
-  return found;
-}
-
 /** The subset of workspaces that actually keep a unit/ or regression/ tier. */
 function workspacesWithTiers(): Array<{ ws: string; dir: string }> {
   return allWorkspaces().filter(({ dir }) => TIERS.some((t) => tierDir(dir, t)));
 }
 
 /**
- * Expand a workspace's `test` script into the jest argument strings it runs.
- * Handles `npm run X && npm run Y` one level deep, which is the only
- * composition shape this repo uses.
- */
-function jestInvocations(pkg: { scripts?: Record<string, string> }): string[][] {
-  const scripts = pkg.scripts || {};
-  const top = scripts.test;
-  if (!top) return [];
-
-  const args: string[][] = [];
-  for (const part of top.split('&&').map((s) => s.trim())) {
-    const viaNpm = part.match(/^npm run (\S+)/);
-    const resolved = viaNpm ? scripts[viaNpm[1]] : part;
-    if (!resolved) throw new Error(`test script references missing script: ${part}`);
-    const jest = resolved.match(/^jest\b\s*(.*)$/);
-    // Split into argv here so the invocation never becomes a shell string.
-    // Every test script in this repo uses plain whitespace-separated flags.
-    if (jest) args.push(jest[1].split(/\s+/).filter(Boolean));
-  }
-  return args;
-}
-
-/**
- * Ask jest itself which files a given invocation would run.
+ * Ask jest itself which files a given invocation would run. The `test` script is expanded into
+ * jest argv by the shared `jestInvocations` helper (also used by the Sprint 139 tier-boundary gate).
  *
  * Memoized: the coverage cases and the "silently runs none" sweep ask the same
  * (workspace, args) questions, and each miss costs an `npx jest` spawn — around
@@ -89,16 +55,6 @@ function jestInvocations(pkg: { scripts?: Record<string, string> }): string[][] 
  * caching within the process is free of correctness cost.
  */
 const listedCache = new Map<string, string[]>();
-
-/**
- * Jest's CLI entry, run directly under `node`. Deliberately NOT `npx jest` in a
- * template string: CodeQL flagged that as js/command-line-injection (critical,
- * alert #571) because the args are read out of a workspace's package.json and
- * interpolated into a shell command. Passing argv to execFileSync means no
- * shell is involved at all. `npx.cmd` is not an option either — Node 24 on
- * Windows refuses to spawn a .cmd without a shell (the CVE-2024-27980 fix).
- */
-const JEST_BIN = join(ROOT, 'node_modules', 'jest', 'bin', 'jest.js');
 
 function listed(wsDir: string, jestArgs: string[]): string[] {
   const key = `${wsDir} ${jestArgs.join(' ')}`;
@@ -113,7 +69,7 @@ function listed(wsDir: string, jestArgs: string[]): string[] {
   const files = out
     .split('\n')
     .map((l) => l.trim())
-    .filter((l) => /\.(test|spec)\.[jt]sx?$/.test(l));
+    .filter((l) => TEST_FILE_RE.test(l));
 
   listedCache.set(key, files);
   return files;

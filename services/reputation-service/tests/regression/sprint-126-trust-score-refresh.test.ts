@@ -108,6 +108,8 @@ describe('initTrustScoreRefresh', () => {
     expect(expression).toBe('30 3 * * *');
 
     mockQuery.mockResolvedValueOnce({ rows: [{ user_id: 'u1', community_id: 'c1' }] });
+    // Sprint 139: the same callback then runs the provider phase; no active providers here.
+    mockQuery.mockResolvedValueOnce({ rows: [] });
     await handler();
     expect(mockUpdateTrustScore).toHaveBeenCalledWith('u1', 'c1');
   });

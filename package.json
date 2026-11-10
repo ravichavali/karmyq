@@ -1,6 +1,6 @@
 {
   "name": "karmyq",
-  "version": "11.111.0",
+  "version": "11.112.0",
   "license": "AGPL-3.0-or-later",
   "private": true,
   "description": "Community Mutual Aid Platform - Privacy-First Community Health Platform",
@@ -17,7 +17,7 @@
     "posttest": "node scripts/promote-tdd-tests.js",
     "test:unit": "turbo run test:unit",
     "test:regression": "turbo run test:regression",
-    "test:tdd": "turbo run test:tdd",
+    "test:tdd": "turbo run test:tdd --continue=always",
     "test:integration": "cd tests && npm run test:integration",
     "test:watch": "cd tests && npm run test:watch",
     "test:coverage": "cd tests && npm run test:coverage",

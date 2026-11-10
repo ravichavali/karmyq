@@ -85,10 +85,27 @@ fi
 echo ""
 echo "🧪 Running TDD tests (work in progress)..."
 echo -e "${BLUE}ℹ️  These tests can fail - they're in development${NC}"
-if npm run test:tdd 2>&1 | tail -20; then
-  echo -e "${GREEN}✓ TDD tests passed - consider promoting to regression!${NC}"
+# BUG-076: `npm run test:tdd 2>&1 | tail -20` tested TAIL's exit status, so a failed or missing TDD
+# run printed success. npm's output goes to a unique log under the temp directory, its status is
+# kept, and only then is the tail shown. The log is retained for inspection. Nothing in this step
+# can block the push: log or display failures are warnings, and a success needs npm to exit 0.
+if tdd_log=$(mktemp "${TMPDIR:-/tmp}/karmyq-prepush-tdd.XXXXXX"); then
+  if npm run test:tdd > "$tdd_log" 2>&1; then
+    tdd_status=0
+  else
+    tdd_status=$?
+  fi
+  echo "   Last 20 lines of the TDD run:"
+  tail -n 20 "$tdd_log" || echo -e "${YELLOW}⚠️  Could not display the TDD log${NC}"
+  # %s, not echo -e: a Windows TMPDIR can contain backslashes, which echo -e would interpret.
+  printf '%bℹ️  Full TDD log: %s (exit status %s)%b\n' "$BLUE" "$tdd_log" "$tdd_status" "$NC"
+  if [ "$tdd_status" -eq 0 ]; then
+    echo -e "${GREEN}✓ TDD tests passed - consider promoting to regression!${NC}"
+  else
+    echo -e "${YELLOW}⚠️  TDD tests failed or did not run (exit status $tdd_status; this is OK, they're in development)${NC}"
+  fi
 else
-  echo -e "${YELLOW}⚠️  TDD tests failed (this is OK, they're in development)${NC}"
+  echo -e "${YELLOW}⚠️  Could not create a temporary log for the TDD run; TDD tests were not reported${NC}"
 fi
 
 echo ""

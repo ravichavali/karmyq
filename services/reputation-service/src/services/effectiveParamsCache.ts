@@ -50,15 +50,49 @@ function cacheKey(userId: string, communityId: string): string {
   return `trust_params:${userId}:${communityId}`;
 }
 
+type EffectiveParams = Awaited<ReturnType<typeof getUserEffectiveParams>>;
+
+/** Exactly a decimal number: no padding, exponent, hex, leading "+", ".6" or "1.". */
+const DECIMAL_STRING = /^-?\d+(\.\d+)?$/;
+
+function cachedNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string' && DECIMAL_STRING.test(value)) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+/**
+ * BUG-081 (Sprint 139): a cache hit is normalized on read. Entries written before the reader fix hold
+ * NUMERIC strings ("0.60") and live for up to four hours, so a valid string is converted rather than
+ * trusted or flushed. Anything else (wrong shape, a missing/NULL/non-numeric field, a non-finite
+ * number) is a miss: the caller falls back to the DB and replaces the entry. Only the three contract
+ * fields are returned.
+ */
+function normalizeCachedEffectiveParams(value: unknown): EffectiveParams | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  const depth_weight = cachedNumber(v.depth_weight);
+  const breadth_weight = cachedNumber(v.breadth_weight);
+  const cross_community_prior = cachedNumber(v.cross_community_prior);
+  if (depth_weight === null || breadth_weight === null || cross_community_prior === null) return null;
+  return { depth_weight, breadth_weight, cross_community_prior };
+}
+
 export async function getCachedEffectiveParams(
   userId: string,
   communityId: string
-): Promise<{ depth_weight: number; breadth_weight: number; cross_community_prior: number }> {
+): Promise<EffectiveParams> {
   try {
     const cached = await getRedis().get(cacheKey(userId, communityId));
-    if (cached) return JSON.parse(cached);
+    if (cached) {
+      const hit = normalizeCachedEffectiveParams(JSON.parse(cached));
+      if (hit) return hit;
+    }
   } catch {
-    // Redis unavailable — fall through to DB
+    // Redis unavailable, or an entry that is not JSON — fall through to DB
   }
   const params = await getUserEffectiveParams(userId, communityId);
   try {
