@@ -2092,7 +2092,7 @@ completed row last completed by 2026-11-02. These old rows stay unrepaired (deci
 
 ---
 
-## BUG-076 · [2026-10-29] · open
+## BUG-076 · [2026-10-29] · fixed on branch (Sprint 139, v11.112.0 provisional; not yet deployed)
 
 The pre-push hook's TDD step reports "✓ TDD tests passed" without running a single TDD test. Two defects together:
 
@@ -2106,6 +2106,15 @@ The pre-push hook's TDD step reports "✓ TDD tests passed" without running a si
 Seen on the push of `9af57d4b` (2026-10-29). The TDD tier is report-only (CLAUDE.md, ADR-029), so nothing was blocked,
 but the hook prints a green message for a step that cannot run. Noticed in that push's output; the maintainer-relayed
 review of the BUG-074 plan traced the `tail` exit status.
+
+**Fix (Sprint 139, on branch `agent/claude/sprint-139-planning`, commit `2464bcad`; not yet deployed or merged):**
+`turbo.json` defines `test:tdd` (`cache: false`, `outputs: []`, `dependsOn: ["build"]`); the root script is
+`turbo run test:tdd --continue=always`; `scripts/git-hooks/pre-push` writes npm's output to a unique retained `mktemp`
+log under `${TMPDIR:-/tmp}`, keeps npm's status, then prints the last 20 lines, the log path and that status. Success
+needs status 0; a failed, missing or unbuildable tier is a warning, never a block. Tests:
+`tests/regression/sprint-139-prepush-tdd-report.test.ts` (real installer, real hook, real push into a temp bare repo),
+`tests/regression/sprint-139-tdd-boundaries.test.ts` (real Turbo graph and a clean-output temp monorepo). A real root
+`npm run test:tdd` now runs 23 tasks and exits 1 on pre-existing WIP reds (reported, not fixed).
 
 ---
 
@@ -2220,7 +2229,7 @@ other NUMERIC arithmetic was checked: community evolution parses its values (`co
 
 ---
 
-## BUG-080 · [2026-10-29] · open
+## BUG-080 · [2026-10-29] · fixed on branch (Sprint 139, v11.112.0 provisional; not yet deployed)
 
 **Provider completion rate counts a match status the platform never writes, so it reads 100% for any provider with a
 completed exchange.** `updateProviderCompletionRate` and `backfillAllProviderTrustScores` count
@@ -2235,9 +2244,19 @@ matched exchange that is later cancelled never lowers it. It feeds 30% of the pr
 Fix direction (not decided): define the rate (completed over matched + completed + cancelled-after-match?) and use
 the statuses the routes write. Found while planning BUG-077; not fixed there.
 
+**Fix (Sprint 139, on branch, commit `ef31e57a`; not yet deployed):** the maintainer chose completed / (completed +
+cancelled), ongoing excluded (2026-11-09; ADR-042 amended). One internal `readProviderCompletionRate` serves the
+`match_completed` refresh, the fail-fast manual backfill and a new provider phase of the existing 03:30 job
+(`refreshAllProviderTrustScores`, per-profile isolation; `runDailyTrustScoreRefresh` keeps the two phases
+independent). A cancellation is reflected by the next successful nightly run. **No demo backfill was run**; the first
+successful 03:30 run after deploy refreshes historical rates. Tests:
+`services/reputation-service/tests/regression/sprint-139-provider-completion.test.ts`,
+`.../sprint-139-provider-nightly-refresh.test.ts`; root `tests/integration/sprint-139-trust-correctness.integration.test.ts`
+(CI-only: no PostgreSQL on the Windows box).
+
 ---
 
-## BUG-081 · [2026-10-29] · open · **LOW** (proposed, latent)
+## BUG-081 · [2026-10-29] · fixed on branch (Sprint 139, v11.112.0 provisional; not yet deployed) · **LOW** (proposed, latent)
 
 **Two trust-config readers return NUMERIC columns as strings while their types say `number`.**
 `getCommunityTrustConfig` passes `trust_depth_weight` and `trust_breadth_weight` through raw
@@ -2264,9 +2283,17 @@ their 4 h TTL. The BUG-077 spec kept the wire format (maintainer decision 4) and
 multiply, so that change may cost less than the spec assumed. Raised by the BUG-077 PR's `/simplify` altitude pass and
 `/code-review`; not fixed there.
 
+**Fix (Sprint 139, on branch, commit `ef31e57a`; not yet deployed):** `getCommunityTrustConfig` (depth/breadth: NULL →
+default, a community `0` stays `0`), `getUserTrustConfig` (overrides → number or NULL = inherit; prior → number) and
+`getCommunityEvolutionConfig` (prior → number) convert with null checks; `getCachedEffectiveParams` normalizes every hit
+(finite numbers, or strings matching exactly `^-?\d+(\.\d+)?$`; anything else is a miss, read from the DB and replaced),
+so a legacy string entry needs no flush. No global NUMERIC type parser. BUG-079's use-site conversion stays. Tests:
+`services/reputation-service/tests/regression/sprint-139-trust-numeric.test.ts`; root
+`tests/integration/sprint-139-trust-correctness.integration.test.ts` (CI-only).
+
 ---
 
-## BUG-082 · [2026-11-01] · open
+## BUG-082 · [2026-11-01] · fixed on branch (Sprint 139, v11.112.0 provisional; not yet deployed)
 
 **The per-query SQL log floods service logs.** `console.log('Executed query', { text, duration, rows })` runs on every
 query at `services/reputation-service/src/database/db.ts:40`. The same line is in the `db.ts` of auth-service,
@@ -2277,6 +2304,12 @@ On the demo, the reputation container's `json-file` log (3 × 10 MB) held only 0
 pushes the 02:00Z nightly run out of the log. So the nightly can't be checked from the log after 03:30Z; PR L2's
 validation had to fall back to a DB read. The line logs SQL text, not parameters, so the cost is volume, not a leak.
 Maintainer approved logging it 2026-11-01. Not scheduled.
+
+**Fix (Sprint 139, on branch, commit `cf038909`; not yet deployed):** the five wrappers (auth, community, request, reputation,
+notification `src/database/db.ts`) log success through the shared `createLogger('<service>')` at **debug** — silent at
+the default `info`, one structured `Executed query` record with `{ text, duration, rows }` (never params) under
+`LOG_LEVEL=debug`. A repo-wide search found no other equivalent; cleanup already did this. ADR-015 amended. Tests: each
+service's `tests/regression/sprint-139-query-logging.test.ts` (real logger, faked pg).
 
 ---
 
@@ -2501,7 +2534,7 @@ integration file `tests/integration/sprint-137-exchange-integrity.integration.te
 
 ---
 
-## BUG-092 · [2026-11-04] · open
+## BUG-092 · [2026-11-04] · fixed on branch (Sprint 139, v11.112.0 provisional; not yet deployed)
 
 **Cleanup-service and simulation-service run their tdd tier in their blocking `test`.** ADR-029 and `tests/claude.md`
 say the `tdd/` tier reports only. But `services/cleanup-service/package.json:12` is `"test": "jest"`, and its
@@ -2516,6 +2549,13 @@ workspace blocks the push, and a test-first commit there cannot land red. Cleanu
 Found by the Codex review of the Sprint 137 plan (finding 3). Sprint 137 sequences around it: the cleanup tdd file is
 committed with its implementation. Fix direction (not decided): give both workspaces the tiered `test` script the
 others use.
+
+**Fix (Sprint 139, on branch, commit `96966f6a`; not yet deployed):** both workspaces now use tiered scripts (`test` =
+`test:unit && test:regression`, plus `test:tdd`) with explicit unit/regression/tdd `testMatch`; cleanup no longer
+inherits the root patterns that also pulled in `tests/integration/`. Simulation's passing 17-test
+`sprint-134-demo-env-file` suite, blocking only through the old sweep, moved to `tests/regression/`. Gate:
+`tests/regression/sprint-139-tdd-boundaries.test.ts` (real `--listTests`, temp marker copies, the promoted suite pinned by
+name). `apps/landing` keeps the bare layout; its `tests/tdd/` is empty today.
 
 ---
 
@@ -2598,7 +2638,7 @@ every status filter. Tests: `services/request-service/tests/regression/sprint-13
 
 ---
 
-## BUG-097 · [2026-11-08] · open
+## BUG-097 · [2026-11-08] · fixed on branch (Sprint 139, v11.112.0 provisional; not yet deployed)
 
 **The offers list's expiry filter also hides in-use and owner-only views.** F1 from Sprint 138's `/code-review` (PR
 #331); the maintainer kept it as shipped on 2026-11-08, with this follow-up. `GET /offers`
@@ -2607,5 +2647,40 @@ every status filter. Tests: `services/request-service/tests/regression/sprint-13
 `?status=matched` hides an offer whose `expires_at` passed while its exchange is still in progress (the hourly flag only
 touches `active` offers, so the clock arm alone hides it), and an owner no longer sees their own expired active offer in
 the list. Possible fix: scope the expiry arms to `status = 'active'`. Low severity, UX.
+
+**Fix (Sprint 139, on branch, commit `559b2364`; not yet deployed):** `GET /offers` uses
+`AND (o.status <> 'active' OR o.offerer_id = $2 OR (unflagged AND unexpired))` inside the unchanged readable boundary, and
+list items gain `expires_at` / `expired`. The `/offers` page, which read `response.data.data` after the API client had
+already unwrapped the envelope (so it set `undefined` and crashed), reads `response.data.offers`, shows a load error with
+Retry, and labels an expired active offer **Expired** and an expired matched one **Matched** + **Offer expired**. The
+same `.data.data` defect was fixed on `/offers/new` and `/matches/[id]` (scope expansion; see BUG-098 for the
+unverified rest). Holds still refuse an expired offer. Tests:
+`services/request-service/tests/regression/sprint-139-offer-visibility.test.ts`, the rewritten Sprint 138 C case,
+`apps/frontend/tests/regression/sprint-139-offers-page.test.tsx` and `.../sprint-139-unwrapped-payloads.test.tsx`; root
+`tests/integration/sprint-139-offer-visibility.integration.test.ts` (CI-only).
+
+---
+
+## BUG-098 · [2026-11-10] · open
+
+**Several frontend reads still assume a double-wrapped response.** The API client's response interceptor
+(`apps/frontend/src/lib/api.ts:81-91`) unwraps the `{ success, data }` envelope, so `response.data` IS the payload.
+Sprint 139 found three pages reading `response.data.data` instead (the offers list, `/offers/new`, `/matches/[id]`) —
+each set `undefined` and crashed or showed a false "not found" — and fixed them. The same pattern remains, unverified,
+in `src/contexts/MessagingContext.tsx:200,224,228,299`, `src/pages/settings/preferences.tsx:118,127,136,194,204`,
+`src/pages/invite/[code].tsx:50`, `src/pages/admin/trust-questions/index.tsx:44`, `src/components/InlineChat.tsx:61`,
+`src/components/FloatingChat.tsx:53` and `src/hooks/useMessaging.ts:178`. Each is a defect only if its endpoint answers
+through `sendSuccess` (an envelope with both `success` and `data`); a service that sends a bare body is not unwrapped,
+so trace each endpoint's payload before changing it. Found by Sprint 139's Task 5 process review (grep-all-instances).
+
+---
+
+## BUG-099 · [2026-11-10] · open
+
+**The offers page's "All" status filter shows only active offers.** `apps/frontend/src/pages/offers/index.tsx`'s Status
+`<select>` has an "All" option with `value=""`, which sends no `status` parameter, and `GET /offers` defaults a missing
+status to `active` (`services/request-service/src/routes/offers.ts:27`). So "All" never lists matched or withdrawn
+offers. Pre-existing; found by Sprint 139's Task 5 process review. Fix direction (not decided): give the route an
+explicit "all statuses" value, or drop the option.
 
 ---
