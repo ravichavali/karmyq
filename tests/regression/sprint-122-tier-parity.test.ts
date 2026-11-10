@@ -2,7 +2,7 @@ import { execFileSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { join, relative, sep } from 'path';
 
-import { JEST_BIN, ROOT, allWorkspaces, jestInvocations, read, testFilesUnder } from './helpers/workspaces';
+import { JEST_BIN, ROOT, TEST_FILE_RE, allWorkspaces, jestInvocations, read, testFilesUnder } from './helpers/workspaces';
 
 /**
  * Sprint 122 PR 2 — tier coverage (ADR-088).
@@ -69,7 +69,7 @@ function listed(wsDir: string, jestArgs: string[]): string[] {
   const files = out
     .split('\n')
     .map((l) => l.trim())
-    .filter((l) => /\.(test|spec)\.[jt]sx?$/.test(l));
+    .filter((l) => TEST_FILE_RE.test(l));
 
   listedCache.set(key, files);
   return files;

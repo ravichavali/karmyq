@@ -1,9 +1,8 @@
 import { execFileSync, spawnSync } from 'child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
+import { cpSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 
-import { ROOT, posixShell } from './helpers/workspaces';
+import { ROOT, posixShell, scratchDirs } from './helpers/workspaces';
 
 /**
  * Sprint 139 — BUG-076: the pre-push hook's TDD report must tell the truth.
@@ -21,17 +20,10 @@ import { ROOT, posixShell } from './helpers/workspaces';
  * and exits with a chosen code. Nothing contacts a network remote or pushes this checkout.
  */
 
-const tempDirs: string[] = [];
-const scratch = (prefix: string): string => {
-  // Realpathed: on macOS tmpdir() is /var/... -> /private/var/..., and a path the hook prints must
-  // compare equal to the one this test handed it.
-  const d = realpathSync.native(mkdtempSync(join(tmpdir(), prefix)));
-  tempDirs.push(d);
-  return d;
-};
-afterAll(() => {
-  for (const d of tempDirs) rmSync(d, { recursive: true, force: true });
-});
+// Realpathed temp dirs: a path the hook prints must compare equal to the one this test handed it.
+const dirs = scratchDirs();
+const scratch = dirs.make;
+afterAll(dirs.cleanup);
 
 /** A path every tool in the chain agrees on: forward slashes, Windows drive letter kept. */
 const fwd = (p: string) => p.replace(/\\/g, '/');
@@ -93,12 +85,14 @@ function push({ required = 0, tdd = 0, logDir, failingTail = false }: Scenario):
     join(work, 'scripts', 'prepush-test-runner.js'),
     `console.log('stub required checks: exit ${required}');\nprocess.exit(${required});\n`,
   );
-  const body = [
-    `for (let i = 1; i <= ${LINES}; i++) console.log('tdd-line-' + String(i).padStart(3, '0'));`,
-    `console.log('FINAL-DIAGNOSTIC exit=${tdd}');`,
-    `process.exit(${tdd === 'missing' ? 0 : tdd});`,
-  ].join('\n');
-  writeFileSync(join(work, 'fake-tdd.js'), body);
+  if (tdd !== 'missing') {
+    const body = [
+      `for (let i = 1; i <= ${LINES}; i++) console.log('tdd-line-' + String(i).padStart(3, '0'));`,
+      `console.log('FINAL-DIAGNOSTIC exit=${tdd}');`,
+      `process.exit(${tdd});`,
+    ].join('\n');
+    writeFileSync(join(work, 'fake-tdd.js'), body);
+  }
   git('add', '.');
   git('commit', '-q', '-m', 'fixture');
 
@@ -129,6 +123,10 @@ function push({ required = 0, tdd = 0, logDir, failingTail = false }: Scenario):
   return { status: r.status, output, remoteHasMain, logPath: m ? nativePath(m[1]) : undefined, reportedStatus: m ? Number(m[2]) : undefined };
 }
 
+/** Required green, TDD red (status 3): two cases read this one push. */
+let redTddPush: Push | undefined;
+const redTdd = () => (redTddPush ??= push({ required: 0, tdd: 3 }));
+
 describe('pre-push reports the TDD tier truthfully (BUG-076)', () => {
   it('required green + TDD green: push succeeds and says the TDD tier passed', () => {
     const r = push({ required: 0, tdd: 0 });
@@ -140,7 +138,7 @@ describe('pre-push reports the TDD tier truthfully (BUG-076)', () => {
   }, 120_000);
 
   it('required green + TDD red: push still succeeds, warns, and never claims the TDD tier passed', () => {
-    const r = push({ required: 0, tdd: 3 });
+    const r = redTdd();
     expect({ status: r.status, remote: r.remoteHasMain, reported: r.reportedStatus }).toEqual({ status: 0, remote: true, reported: 3 });
     expect(r.output).toMatch(WARNING);
     expect(r.output).not.toMatch(SUCCESS);
@@ -167,7 +165,7 @@ describe('pre-push reports the TDD tier truthfully (BUG-076)', () => {
 
 describe('the TDD log: bounded display, complete retained file, unique path', () => {
   it('shows only the log\'s last 20 lines, and the retained log holds every line', () => {
-    const r = push({ required: 0, tdd: 3 });
+    const r = redTdd();
     expect(r.logPath).toBeDefined();
     const log = readFileSync(r.logPath as string, 'utf8');
     const logLines = log.split(/\r?\n/).filter((l) => l.length > 0);

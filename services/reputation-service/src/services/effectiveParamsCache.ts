@@ -50,7 +50,7 @@ function cacheKey(userId: string, communityId: string): string {
   return `trust_params:${userId}:${communityId}`;
 }
 
-type EffectiveParams = { depth_weight: number; breadth_weight: number; cross_community_prior: number };
+type EffectiveParams = Awaited<ReturnType<typeof getUserEffectiveParams>>;
 
 /** Exactly a decimal number: no padding, exponent, hex, leading "+", ".6" or "1.". */
 const DECIMAL_STRING = /^-?\d+(\.\d+)?$/;

@@ -1,9 +1,8 @@
 import { spawn } from 'child_process';
-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'fs';
 import { join, relative, sep } from 'path';
 
-import { JEST_BIN, ROOT, allWorkspaces, jestInvocations, testFilesUnder } from './helpers/workspaces';
+import { JEST_BIN, ROOT, TEST_FILE_RE, allWorkspaces, jestInvocations, scratchDirs, testFilesUnder } from './helpers/workspaces';
 
 /**
  * Sprint 139 — BUG-092: the WIP tier must not block, in the two services whose default `test`
@@ -38,16 +37,19 @@ function strictInvocations(dir: string, script: string): string[][] {
   return invocations;
 }
 
-type Run = { code: number | null; out: string };
-function runJest(cwd: string, args: string[]): Promise<Run> {
+type Run = { code: number | null; out: string; stdout: string };
+/** Run a Node CLI (jest, turbo) by its bin path, never through a shell; keep merged and stdout-only output. */
+function runNode(bin: string, cwd: string, args: string[], env: NodeJS.ProcessEnv = process.env): Promise<Run> {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [JEST_BIN, ...args], { cwd, env: process.env });
+    const child = spawn(process.execPath, [bin, ...args], { cwd, env });
     let out = '';
-    child.stdout.on('data', (d) => (out += d));
+    let stdout = '';
+    child.stdout.on('data', (d) => { out += d; stdout += d; });
     child.stderr.on('data', (d) => (out += d));
-    child.on('close', (code) => resolve({ code, out }));
+    child.on('close', (code) => resolve({ code, out, stdout }));
   });
 }
+const runJest = (cwd: string, args: string[]) => runNode(JEST_BIN, cwd, args);
 
 /** Jest's own answer to "which files would this script run", repo-relative to `base`. */
 async function listedBy(dir: string, script: string, base: string): Promise<string[]> {
@@ -59,7 +61,7 @@ async function listedBy(dir: string, script: string, base: string): Promise<stri
       ...out
         .split(/\r?\n/)
         .map((l) => l.trim())
-        .filter((l) => /\.(test|spec)\.[jt]sx?$/.test(l))
+        .filter((l) => TEST_FILE_RE.test(l))
         .map((l) => rel(base, l)),
     );
   }
@@ -72,19 +74,17 @@ async function runScript(dir: string, script: string): Promise<Run> {
   for (const args of strictInvocations(dir, script)) {
     const r = await runJest(dir, args);
     out += r.out;
-    if (r.code !== 0) return { code: r.code, out };
+    if (r.code !== 0) return { code: r.code, out, stdout: '' };
   }
-  return { code: 0, out };
+  return { code: 0, out, stdout: '' };
 }
 
 // ---------------------------------------------------------------------------------------------
 // Temporary workspace copies
 // ---------------------------------------------------------------------------------------------
 
-const tempDirs: string[] = [];
-afterAll(() => {
-  for (const d of tempDirs) rmSync(d, { recursive: true, force: true });
-});
+const scratch = scratchDirs();
+afterAll(scratch.cleanup);
 
 /**
  * A throwaway copy of the workspace's real package.json + jest config (and the root jest config
@@ -93,10 +93,7 @@ afterAll(() => {
  * a substring `--testPathPatterns` cannot match the temp path itself.
  */
 function tempWorkspace(ws: string, failing: Tier[] = []): string {
-  // Realpathed because Jest realpaths rootDir (jest-config normalize) and prints --listTests from
-  // there: on macOS tmpdir() is /var/... -> /private/var/..., and on Windows TEMP may be an 8.3 path.
-  const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'karmyq-s139-boundary-')));
-  tempDirs.push(root);
+  const root = scratch.make('karmyq-s139-boundary-'); // realpathed: Jest prints --listTests from the real rootDir
   copyFileSync(join(ROOT, 'jest.config.js'), join(root, 'jest.config.js'));
   mkdirSync(join(root, 'scripts'));
   copyFileSync(join(ROOT, 'scripts', 'jest-worker-cap.js'), join(root, 'scripts', 'jest-worker-cap.js'));
@@ -173,8 +170,8 @@ describe.each(SERVICES)('%s: the default test script selects exactly the blockin
     const r = await runScript(copy, 'test');
     expect(r.code).not.toBe(0);
     expect(ran(copy)).toContain(tier);
-    expect(ran(copy)).not.toEqual(expect.arrayContaining(['tdd']));
-    expect(ran(copy)).not.toEqual(expect.arrayContaining(['integration']));
+    expect(ran(copy)).not.toContain('tdd');
+    expect(ran(copy)).not.toContain('integration');
   }, 120_000);
 });
 
@@ -221,16 +218,7 @@ function rootTddArgs(): string[] {
   return argv.slice(1);
 }
 
-function runTurbo(cwd: string, args: string[]): Promise<Run & { stdout: string }> {
-  return new Promise((resolve) => {
-    const child = spawn(process.execPath, [TURBO_BIN, ...args], { cwd, env: TURBO_ENV });
-    let out = '';
-    let stdout = '';
-    child.stdout.on('data', (d) => { out += d; stdout += d; });
-    child.stderr.on('data', (d) => (out += d));
-    child.on('close', (code) => resolve({ code, out, stdout }));
-  });
-}
+const runTurbo = (cwd: string, args: string[]) => runNode(TURBO_BIN, cwd, args, TURBO_ENV);
 
 type DryTask = {
   taskId: string;
@@ -253,11 +241,10 @@ describe('root test:tdd: turbo discovers every WIP task, uncached, after its bui
   it('every workspace with a test:tdd script is a real, uncached task that depends on its own build', async () => {
     const tasks = await dryRun(ROOT, 'test:tdd');
     const byId = new Map(tasks.map((t) => [t.taskId, t]));
-    const expected = allWorkspaces()
+    const tddPkgs = allWorkspaces()
       .map(({ dir }) => readPkg(dir))
-      .filter((pkg) => pkg.scripts?.['test:tdd'])
-      .map((pkg) => pkg.name as string)
-      .sort();
+      .filter((pkg) => pkg.scripts?.['test:tdd']);
+    const expected = tddPkgs.map((pkg) => pkg.name as string).sort();
     expect(expected).toEqual(expect.arrayContaining(['@karmyq/cleanup-service', '@karmyq/simulation-service']));
 
     const tdd = tasks.filter((t) => t.taskId.endsWith('#test:tdd') && t.command !== '<NONEXISTENT>');
@@ -273,10 +260,7 @@ describe('root test:tdd: turbo discovers every WIP task, uncached, after its bui
     }
     // The build prerequisite reaches the shared package, whose dist/ the logger subpath resolves to,
     // for every WIP task whose workspace declares @karmyq/shared.
-    const consumers = allWorkspaces()
-      .map(({ dir }) => readPkg(dir))
-      .filter((pkg) => pkg.scripts?.['test:tdd'] && pkg.dependencies?.['@karmyq/shared'])
-      .map((pkg) => pkg.name as string);
+    const consumers = tddPkgs.filter((pkg) => pkg.dependencies?.['@karmyq/shared']).map((pkg) => pkg.name as string);
     expect(consumers).toEqual(expect.arrayContaining(['@karmyq/cleanup-service', '@karmyq/simulation-service']));
     for (const name of consumers) {
       expect({ build: `${name}#build`, deps: byId.get(`${name}#build`)?.dependencies }).toEqual({
@@ -289,12 +273,11 @@ describe('root test:tdd: turbo discovers every WIP task, uncached, after its bui
 
 /**
  * A throwaway monorepo driven by the LIVE turbo.json and the LIVE root test:tdd argv: a real copy
- * of packages/shared with NO dist/ (clean outputs), and two consumers. `fail` makes a consumer's
+ * of packages/shared with NO dist/ (clean outputs), and three consumers. `failTdd` makes a consumer's
  * test:tdd fail after writing its marker; `failBuild` makes its build fail.
  */
 function tempMonorepo(opts: { failTdd?: string[]; failBuild?: string[] } = {}): string {
-  const root = mkdtempSync(join(tmpdir(), 'karmyq-s139-turbo-'));
-  tempDirs.push(root);
+  const root = scratch.make('karmyq-s139-turbo-');
   copyFileSync(join(ROOT, 'turbo.json'), join(root, 'turbo.json'));
   const rootPkg = readPkg(ROOT);
   writeFileSync(
@@ -312,7 +295,7 @@ function tempMonorepo(opts: { failTdd?: string[]; failBuild?: string[] } = {}): 
     symlinkSync(join(ROOT, 'packages', 'shared', 'node_modules'), join(shared, 'node_modules'), 'junction');
   }
 
-  for (const name of ['svc-a', 'svc-b']) {
+  for (const name of ['svc-a', 'svc-b', 'svc-c']) {
     const dir = join(root, 'services', name);
     mkdirSync(join(dir, 'node_modules', '@karmyq'), { recursive: true });
     symlinkSync(shared, join(dir, 'node_modules', '@karmyq', 'shared'), 'junction');
@@ -339,34 +322,39 @@ function tempMonorepo(opts: { failTdd?: string[]; failBuild?: string[] } = {}): 
 const count = (f: string) => (existsSync(f) ? readFileSync(f, 'utf8').length : 0);
 
 describe('root test:tdd in a clean-output monorepo (live turbo.json, live argv)', () => {
+  // One fixture (one cold shared build per push): svc-a's WIP task fails, svc-b passes, svc-c's BUILD fails.
+  const svc = (name: string, file: string) => join(root, 'services', name, file);
+  let root: string;
+  let first: Run;
+  beforeAll(async () => {
+    root = tempMonorepo({ failTdd: ['svc-a'], failBuild: ['svc-c'] });
+    expect(existsSync(join(root, 'packages', 'shared', 'dist'))).toBe(false); // clean outputs
+    first = await runTurbo(root, rootTddArgs());
+  }, 240_000);
+
   it('the graph builds shared before each consumer\'s WIP task', async () => {
-    const tasks = await dryRun(tempMonorepo(), 'test:tdd');
+    const tasks = await dryRun(root, 'test:tdd');
     const deps = Object.fromEntries(tasks.map((t) => [t.taskId, t.dependencies]));
     expect(deps['svc-a#test:tdd']).toEqual(['svc-a#build']);
     expect(deps['svc-a#build']).toEqual(['@karmyq/shared#build']);
   }, 180_000);
 
-  it('a failing WIP task does not stop the others; shared is built from nothing; the aggregate is nonzero; a rerun runs again', async () => {
-    const root = tempMonorepo({ failTdd: ['svc-a'] });
-    expect(existsSync(join(root, 'packages', 'shared', 'dist'))).toBe(false);
-
-    const first = await runTurbo(root, rootTddArgs());
+  it('shared is built from nothing, a failing WIP task does not stop the others, and the aggregate is nonzero', () => {
     expect(first.code).not.toBe(0);
     expect(existsSync(join(root, 'packages', 'shared', 'dist', 'utils', 'logger.js'))).toBe(true);
-    expect(count(join(root, 'services', 'svc-a', 'ran-tdd'))).toBe(1);
-    expect(count(join(root, 'services', 'svc-b', 'ran-tdd'))).toBe(1); // resolved the real logger and passed
+    expect(count(svc('svc-a', 'ran-tdd'))).toBe(1);
+    expect(count(svc('svc-b', 'ran-tdd'))).toBe(1); // resolved the real logger and passed
+  });
 
+  it('a failing build is reported as a build failure while the other WIP reports still run', () => {
+    expect(first.out).toMatch(/svc-c#build/);
+    expect(count(svc('svc-b', 'ran-tdd'))).toBe(1);
+  });
+
+  it('a rerun executes the WIP tasks again (uncached), and stays nonzero', async () => {
     const second = await runTurbo(root, rootTddArgs());
     expect(second.code).not.toBe(0);
-    expect(count(join(root, 'services', 'svc-a', 'ran-tdd'))).toBe(2); // uncached: executed again
-    expect(count(join(root, 'services', 'svc-b', 'ran-tdd'))).toBe(2);
-  }, 240_000);
-
-  it('a failing build is reported as a build failure, other WIP reports still run, and the aggregate is nonzero', async () => {
-    const root = tempMonorepo({ failBuild: ['svc-a'] });
-    const r = await runTurbo(root, rootTddArgs());
-    expect(r.code).not.toBe(0);
-    expect(r.out).toMatch(/svc-a#build/);
-    expect(count(join(root, 'services', 'svc-b', 'ran-tdd'))).toBe(1);
+    expect(count(svc('svc-a', 'ran-tdd'))).toBe(2);
+    expect(count(svc('svc-b', 'ran-tdd'))).toBe(2);
   }, 240_000);
 });

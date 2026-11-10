@@ -1,5 +1,6 @@
 import { execFileSync } from 'child_process';
-import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync } from 'fs';
+import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 
 /**
@@ -100,6 +101,29 @@ export function posixShell(): string {
   );
 }
 
+/** A Jest test file name, as every gate here recognises one. */
+export const TEST_FILE_RE = /\.(test|spec)\.[jt]sx?$/;
+
+/**
+ * Throwaway temp directories for a test file: `make(prefix)` creates one, `cleanup()` (call it from
+ * `afterAll`) removes them all. Realpathed, because Jest realpaths `rootDir` and git/mktemp report
+ * real paths: on macOS `tmpdir()` is `/var/...` -> `/private/var/...`, and on Windows TEMP can be an
+ * 8.3 short path, so an un-realpathed dir never compares equal to what a tool prints.
+ */
+export function scratchDirs(): { make: (prefix: string) => string; cleanup: () => void } {
+  const made: string[] = [];
+  return {
+    make: (prefix) => {
+      const d = realpathSync.native(mkdtempSync(join(tmpdir(), prefix)));
+      made.push(d);
+      return d;
+    },
+    cleanup: () => {
+      for (const d of made.splice(0)) rmSync(d, { recursive: true, force: true });
+    },
+  };
+}
+
 /** Build output contains copies of test files; never count them as sources. */
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', 'coverage', '.next', '.expo', '.turbo']);
 
@@ -111,7 +135,7 @@ export function testFilesUnder(dir: string): string[] {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
       if (!SKIP_DIRS.has(entry.name)) found.push(...testFilesUnder(full));
-    } else if (/\.(test|spec)\.[jt]sx?$/.test(entry.name)) {
+    } else if (TEST_FILE_RE.test(entry.name)) {
       found.push(full);
     }
   }

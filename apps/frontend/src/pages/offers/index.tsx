@@ -24,9 +24,9 @@ interface HelpOffer {
 }
 
 /** Past its expiry: flagged by the hourly sweep, or its clock has run out before the sweep. */
-function isOfferExpired(offer: Pick<HelpOffer, 'expired' | 'expires_at'>, now = Date.now()): boolean {
+function isOfferExpired(offer: Pick<HelpOffer, 'expired' | 'expires_at'>): boolean {
   if (offer.expired === true) return true
-  return offer.expires_at != null && Date.parse(offer.expires_at) <= now
+  return offer.expires_at != null && Date.parse(offer.expires_at) <= Date.now()
 }
 
 export default function OffersPage() {
