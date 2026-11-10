@@ -1,6 +1,6 @@
 import { execFileSync } from 'child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 
 /**
  * Workspace enumeration shared by the repo-wide gates in tests/regression/.
@@ -57,6 +57,47 @@ export function tracked(...pathspecs: string[]): string[] {
 export function allServicePaths(): string[] {
   const registry = JSON.parse(read('services/registry.json'));
   return Object.values(registry.services as Record<string, { path: string }>).map((s) => s.path);
+}
+
+/**
+ * A POSIX shell that actually exists on this machine (memoized).
+ *
+ * `sh` is on PATH under Git Bash, Linux and macOS — but NOT from PowerShell, where Git for
+ * Windows puts sh.exe in `<git>/usr/bin` while only `<git>/cmd` is on PATH. The functional hook
+ * cases are the only ones that prove anything, so resolving the shell must never degrade into
+ * skipping them: if nothing here works we throw, and the suite goes red rather than quiet.
+ * Used by the Sprint 123 installer gate and the Sprint 139 pre-push report gate.
+ */
+let shellCache: string | undefined;
+export function posixShell(): string {
+  if (shellCache) return shellCache;
+  const candidates = ['sh'];
+
+  if (process.platform === 'win32') {
+    try {
+      // .../mingw64/libexec/git-core -> the Git for Windows install root
+      const gitRoot = resolve(execFileSync('git', ['--exec-path'], { encoding: 'utf8' }).trim(), '..', '..', '..');
+      candidates.push(join(gitRoot, 'usr', 'bin', 'sh.exe'), join(gitRoot, 'bin', 'sh.exe'));
+    } catch {
+      // git not on PATH is handled by the candidates below and, failing those, the throw.
+    }
+    candidates.push('C:\\Program Files\\Git\\usr\\bin\\sh.exe', 'C:\\Program Files (x86)\\Git\\usr\\bin\\sh.exe');
+  }
+
+  for (const candidate of candidates) {
+    try {
+      execFileSync(candidate, ['-c', 'exit 0'], { stdio: 'ignore' });
+      shellCache = candidate;
+      return candidate;
+    } catch {
+      // try the next candidate
+    }
+  }
+
+  throw new Error(
+    `No POSIX shell found. Tried: ${candidates.join(', ')}. ` +
+      'Install Git for Windows or run from a shell where `sh` resolves — these cases must not be skipped.'
+  );
 }
 
 /** Build output contains copies of test files; never count them as sources. */

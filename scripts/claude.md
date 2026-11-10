@@ -89,12 +89,23 @@ covered by `tests/regression/dependency-guard-hook.test.ts`.
   `pre-push` runs unit + regression through `prepush-test-runner.js` (blocking), integration if a
   DB is reachable, and `test:tdd` for reporting only. `SKIP_PREPUSH=1` skips it; `--no-verify`
   for emergencies only.
-  ⚠️ Two things the hook does NOT do, whatever older docs say: it does not run the TDD promoter
-  (`npm test`'s `posttest` never runs under `.npmrc`'s `ignore-scripts=true`; verified with npm
-  10.8.2), and its `test:tdd` step runs nothing (turbo: "Could not find task `test:tdd`"), yet
-  prints "✓ TDD tests passed" because `| tail -20` masks the exit code. BUG-053.
-  Neither is the answer to a slow or flaky push: tune the caps below instead, and never read "open
-  the PR" as permission to skip the hook.
+  ⚠️ The hook does NOT run the TDD promoter, whatever older docs say (`npm test`'s `posttest`
+  never runs under `.npmrc`'s `ignore-scripts=true`; verified with npm 10.8.2).
+  **The `test:tdd` step reports the truth since Sprint 139 (BUG-076).** It used to run nothing
+  (turbo: "Could not find task `test:tdd`") and still print "✓ TDD tests passed", because
+  `| tail -20` tested tail's exit status (BUG-053). Now `turbo.json` defines `test:tdd`
+  (`cache: false`, `outputs: []`, `dependsOn: ["build"]`, so a clean checkout builds shared first),
+  the root script is `turbo run test:tdd --continue=always` (one red workspace does not hide the
+  others' reports; the aggregate is still nonzero), and the hook writes npm's output to a unique,
+  retained `mktemp` log under `${TMPDIR:-/tmp}`, keeps npm's exit status, then prints the last 20
+  lines, the log path and that status. Success needs status 0; anything else is a warning, never a
+  block. Gates: `tests/regression/sprint-139-prepush-tdd-report.test.ts` (real installed hook, real
+  push into a temp bare repo) and `sprint-139-tdd-boundaries.test.ts` (real Turbo graph + a
+  clean-output temp monorepo). After editing a hook, re-run `npm run hooks:install`: on Windows the
+  installed hook is a copy, so git keeps running the old one until you do (on macOS/Linux it is a
+  symlink to the source).
+  None of this is the answer to a slow or flaky push: tune the caps below instead, and never read
+  "open the PR" as permission to skip the hook.
   **Test parallelism is capped for every `npm test`**, the hook, CI and your shell alike.
   Uncapped, every workspace ran at once with cores-1 Jest workers each, and on the 8-core, 7.6 GB
   Windows box ordinary tests hit their Jest timeouts and passed standalone. Two caps:
