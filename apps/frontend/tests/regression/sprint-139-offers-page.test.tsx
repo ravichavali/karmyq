@@ -13,7 +13,7 @@
  *     offer with a future or NULL expiry stays "Active"; a non-active expired offer keeps its own
  *     status ("Matched") and adds "Offer expired" — never "Cancelled" or "Completed".
  */
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 const mockGetOffers = jest.fn()
 jest.mock('@/lib/api', () => ({
@@ -91,6 +91,74 @@ describe('offers page: loading the unwrapped { offers, count, total } payload', 
     fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'matched' } })
     expect(await screen.findByText('Matched drill')).toBeInTheDocument()
     expect(mockGetOffers).toHaveBeenLastCalledWith({ limit: 50, status: 'matched' })
+  })
+})
+
+/** A promise the test settles by hand, so responses can arrive in any order. */
+function deferred<T>() {
+  let resolve!: (v: T) => void
+  let reject!: (e: unknown) => void
+  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej })
+  return { promise, resolve, reject }
+}
+
+describe('offers page: only the latest request may update the list (PR #332 review)', () => {
+  // Mount asks for status=active (A); the user then switches to status=matched (B). B is the request the screen
+  // must reflect, whichever order the two responses arrive in.
+  async function mountThenSwitch() {
+    const a = deferred<unknown>()
+    const b = deferred<unknown>()
+    mockGetOffers.mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise)
+    render(<OffersPage />)
+    await waitFor(() => expect(mockGetOffers).toHaveBeenCalledTimes(1))
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'matched' } })
+    await waitFor(() => expect(mockGetOffers).toHaveBeenCalledTimes(2))
+    expect(mockGetOffers.mock.calls[1][0]).toEqual({ limit: 50, status: 'matched' })
+    return { a, b }
+  }
+  // Settle a stale request INSIDE act(), so every state update it triggers is committed before the assertions run;
+  // outside act() the update may still be queued and a negative assertion passes vacuously.
+  const late = (settleIt: () => void) =>
+    act(async () => {
+      settleIt()
+      await new Promise((r) => setTimeout(r, 0))
+    })
+
+  it('an older success arriving after the newer one does not replace the selected filter\'s offers', async () => {
+    const { a, b } = await mountThenSwitch()
+    b.resolve(page([offer({ id: 'm1', title: 'Matched drill', status: 'matched' })]))
+    expect(await screen.findByText('Matched drill')).toBeInTheDocument()
+    await late(() => a.resolve(page([offer({ id: 'a1', title: 'Stale active ladder' })])))
+    expect(screen.getByText('Matched drill')).toBeInTheDocument()
+    expect(screen.queryByText('Stale active ladder')).not.toBeInTheDocument()
+  })
+
+  it('an older failure arriving after the newer success does not raise the error alert', async () => {
+    const { a, b } = await mountThenSwitch()
+    b.resolve(page([offer({ id: 'm1', title: 'Matched drill', status: 'matched' })]))
+    expect(await screen.findByText('Matched drill')).toBeInTheDocument()
+    await late(() => a.reject(new Error('stale network failure')))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByText('Matched drill')).toBeInTheDocument()
+  })
+
+  it('an older success arriving after the newer failure does not hide the error', async () => {
+    const { a, b } = await mountThenSwitch()
+    b.reject(new Error('current network failure'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load offers')
+    await late(() => a.resolve(page([offer({ id: 'a1', title: 'Stale active ladder' })])))
+    expect(screen.getByRole('alert')).toHaveTextContent('Unable to load offers')
+    expect(screen.queryByText('Stale active ladder')).not.toBeInTheDocument()
+  })
+
+  it('an older response arriving while the newer one is pending neither ends the loading state nor shows its offers', async () => {
+    const { a, b } = await mountThenSwitch()
+    await late(() => a.resolve(page([offer({ id: 'a1', title: 'Stale active ladder' })])))
+    expect(screen.getByText('Loading offers...')).toBeInTheDocument()
+    expect(screen.queryByText('Stale active ladder')).not.toBeInTheDocument()
+    b.resolve(page([offer({ id: 'm1', title: 'Matched drill', status: 'matched' })]))
+    expect(await screen.findByText('Matched drill')).toBeInTheDocument()
+    expect(screen.queryByText('Loading offers...')).not.toBeInTheDocument()
   })
 })
 

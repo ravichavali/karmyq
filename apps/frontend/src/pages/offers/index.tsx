@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
 import { requestService } from '../../lib/api'
@@ -33,6 +33,7 @@ export default function OffersPage() {
   const [offers, setOffers] = useState<HelpOffer[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
+  const latestRequest = useRef(0)
   const [filter, setFilter] = useState({
     status: 'active',
     category: '',
@@ -43,6 +44,10 @@ export default function OffersPage() {
   }, [filter])
 
   const fetchOffers = async () => {
+    // Only the most recent load may touch the list: a filter change while an older request is in flight must not
+    // let that older response (or its failure, or its `finally`) overwrite what the current filter shows.
+    const requestId = ++latestRequest.current
+    const isStale = () => requestId !== latestRequest.current
     try {
       setLoading(true)
       const params: any = { limit: 50 }
@@ -53,16 +58,18 @@ export default function OffersPage() {
       // The API client's interceptor already unwrapped the envelope: response.data is
       // { offers, count, total }. Anything else is a failed load, not an empty list.
       const response = await requestService.getOffers(params)
+      if (isStale()) return
       const list = response?.data?.offers
       if (!Array.isArray(list)) throw new Error('Unexpected offers response')
       setOffers(list)
       setLoadError(false)
     } catch (error) {
+      if (isStale()) return
       console.error('Error fetching offers', { error: error instanceof Error ? error.message : String(error) })
       setOffers([])
       setLoadError(true)
     } finally {
-      setLoading(false)
+      if (!isStale()) setLoading(false)
     }
   }
 

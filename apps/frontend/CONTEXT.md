@@ -14,7 +14,9 @@ Next.js 16 web application (Pages Router) consuming all Karmyq backend services.
 (`src/lib/api.ts`) already unwraps the `{ success, data }` envelope, so `response.data` is
 `{ offers, count, total }`; the page set `undefined` and crashed on `.length`. It now reads `response.data.offers`,
 treats anything that is not an array as a failed load, and shows an `Unable to load offers` alert with **Retry**
-(same filters) instead of a crash or a fake empty list. The interceptor is unchanged.
+(same filters) instead of a crash or a fake empty list. The interceptor is unchanged. Only the **latest** load may update
+the list (a request counter in a ref): an older response, failure or `finally` that arrives after a filter change is
+ignored, so a slow earlier filter can never overwrite the current one (PR #332 review).
 
 The list now carries `expires_at` / `expired` (request-service, Sprint 139). A card derives expiry from the flag or an
 elapsed `expires_at` (`Date.now()`): an expired **active** offer shows the existing `Expired` status token instead of
