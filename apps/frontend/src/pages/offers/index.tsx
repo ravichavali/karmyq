@@ -18,11 +18,21 @@ interface HelpOffer {
   status: string
   created_at: string
   updated_at: string
+  // Sprint 139 (BUG-097): an owner's expired offer stays in their list, so the card must say so.
+  expires_at: string | null
+  expired: boolean | null
+}
+
+/** Past its expiry: flagged by the hourly sweep, or its clock has run out before the sweep. */
+function isOfferExpired(offer: Pick<HelpOffer, 'expired' | 'expires_at'>, now = Date.now()): boolean {
+  if (offer.expired === true) return true
+  return offer.expires_at != null && Date.parse(offer.expires_at) <= now
 }
 
 export default function OffersPage() {
   const [offers, setOffers] = useState<HelpOffer[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [filter, setFilter] = useState({
     status: 'active',
     category: '',
@@ -40,10 +50,17 @@ export default function OffersPage() {
       if (filter.status) params.status = filter.status
       if (filter.category) params.type = filter.category
 
+      // The API client's interceptor already unwrapped the envelope: response.data is
+      // { offers, count, total }. Anything else is a failed load, not an empty list.
       const response = await requestService.getOffers(params)
-      setOffers(response.data.data)
+      const list = response?.data?.offers
+      if (!Array.isArray(list)) throw new Error('Unexpected offers response')
+      setOffers(list)
+      setLoadError(false)
     } catch (error) {
       console.error('Error fetching offers', { error: error instanceof Error ? error.message : String(error) })
+      setOffers([])
+      setLoadError(true)
     } finally {
       setLoading(false)
     }
@@ -112,6 +129,13 @@ export default function OffersPage() {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
             <p className="text-text-muted mt-4">Loading offers...</p>
           </div>
+        ) : loadError ? (
+          <div role="alert" className="kq-card flex items-center justify-between gap-3 border-error bg-error-light text-error">
+            <span>Unable to load offers</span>
+            <button type="button" className="btn-ghost px-2 py-1 text-xs" onClick={() => fetchOffers()}>
+              Retry
+            </button>
+          </div>
         ) : offers.length === 0 ? (
           <EmptyState
             icon="🙌"
@@ -134,7 +158,11 @@ export default function OffersPage() {
 }
 
 function OfferCard({ offer }: { offer: HelpOffer }) {
-  const statusDisplay = getRequestStatusDisplay(offer.status)
+  const expired = isOfferExpired(offer)
+  // An expired ACTIVE offer can no longer be taken up, so it reads "Expired". Any other status keeps
+  // its own label (an ongoing match must never look cancelled or completed) plus an expiry note.
+  const statusDisplay = getRequestStatusDisplay(expired && offer.status === 'active' ? 'expired' : offer.status)
+  const expiryNote = expired && offer.status !== 'active'
 
   return (
     <div className="kq-card">
@@ -143,12 +171,17 @@ function OfferCard({ offer }: { offer: HelpOffer }) {
           <h3 className="text-xl font-semibold text-text mb-2">{offer.title}</h3>
           <p className="text-text-muted line-clamp-2">{offer.description}</p>
         </div>
-        <span
-          aria-label={`Status: ${statusDisplay.label}`}
-          className={`kq-pill border ml-4 ${statusDisplay.className}`}
-        >
-          {statusDisplay.label}
-        </span>
+        <div className="flex flex-col items-end gap-1 ml-4">
+          <span
+            aria-label={`Status: ${statusDisplay.label}`}
+            className={`kq-pill border ${statusDisplay.className}`}
+          >
+            {statusDisplay.label}
+          </span>
+          {expiryNote && (
+            <span className={`kq-pill border ${getRequestStatusDisplay('expired').className}`}>Offer expired</span>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-6 text-sm text-text-subtle">

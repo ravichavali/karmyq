@@ -203,9 +203,17 @@ describe('C: GET /offers hides expired standing offers', () => {
     expect(params.slice(0, 2)).toEqual([status, 'viewer']);
   });
 
-  it.each([[''], ['?status=withdrawn']])('filters flagged and elapsed offers (%s)', async (qs) => {
+  // Sprint 139 (BUG-097) narrowed C: expiry hides an ACTIVE offer from other members only. The two
+  // expiry fragments still occur inside the new OR, so `toContain` on them would stay green whatever
+  // the grouping is; assert the whole WHERE clause instead (status AND audience AND scoped expiry).
+  const tight = (s: string) => s.replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+  const EXPECTED_WHERE = "WHERE o.status = $1 AND (o.offerer_id = $2 OR EXISTS (SELECT 1 FROM communities.members cm " +
+    "WHERE cm.community_id = o.community_id AND cm.user_id = $2 AND cm.status = 'active')) AND " +
+    "(o.status <> 'active' OR o.offerer_id = $2 OR (o.expired IS NOT TRUE AND (o.expires_at IS NULL OR o.expires_at > NOW())))";
+
+  it.each([[''], ['?status=withdrawn']])('hides a flagged or elapsed offer only when it is active and not the viewer\'s own; non-active statuses bypass expiry (%s)', async (qs) => {
     const { sql } = await listCall(qs);
-    expect(sql).toContain('o.expired IS NOT TRUE');
-    expect(sql).toContain('(o.expires_at IS NULL OR o.expires_at > NOW())');
+    const where = tight(sql).slice(tight(sql).indexOf('WHERE '), tight(sql).indexOf(' ORDER BY '));
+    expect(where).toBe(EXPECTED_WHERE);
   });
 });

@@ -41,8 +41,11 @@ export default function NewOfferPage() {
 
   const fetchCommunities = async () => {
     try {
+      // The API client's interceptor already unwrapped the envelope: response.data is
+      // { communities, count, total } (Sprint 139, the BUG-097 page defect).
       const response = await communityService.getCommunities({ limit: 100 })
-      setCommunities(response.data.data)
+      const list = response?.data?.communities
+      setCommunities(Array.isArray(list) ? list : [])
     } catch (error) {
       console.error('Error fetching communities', { error: error instanceof Error ? error.message : String(error) })
     }

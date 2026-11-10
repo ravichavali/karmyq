@@ -8,6 +8,31 @@ Next.js 16 web application (Pages Router) consuming all Karmyq backend services.
 
 ---
 
+## Sprint 139 — offers page repair and honest expiry (2026-11-09, BUG-097)
+
+`src/pages/offers/index.tsx` read `response.data.data`, but the API client's response interceptor
+(`src/lib/api.ts`) already unwraps the `{ success, data }` envelope, so `response.data` is
+`{ offers, count, total }`; the page set `undefined` and crashed on `.length`. It now reads `response.data.offers`,
+treats anything that is not an array as a failed load, and shows an `Unable to load offers` alert with **Retry**
+(same filters) instead of a crash or a fake empty list. The interceptor is unchanged.
+
+The list now carries `expires_at` / `expired` (request-service, Sprint 139). A card derives expiry from the flag or an
+elapsed `expires_at` (`Date.now()`): an expired **active** offer shows the existing `Expired` status token instead of
+`Active`; any other status keeps its own label (e.g. `Matched`) and adds an `Offer expired` pill — an ongoing
+commitment never reads cancelled or completed because its offer expired. Display only: it grants no eligibility.
+Tests: `tests/regression/sprint-139-offers-page.test.tsx`; `tests/tdd/sprint-105-request-feed-facelift.test.tsx`'s
+offers mock now uses the real unwrapped shape (it mocked the defect's shape).
+
+**Same defect, two more confirmed pages (scope expansion, recorded in the PR):** `src/pages/offers/new.tsx` read
+`response.data.data` from `GET /communities` (payload `{ communities, count, total }`) and crashed rendering the
+community picker; `src/pages/matches/[id].tsx` read `response.data.data` from `GET /matches/:id` (payload: the match
+row) and showed "Match not found" for every match. Both now read the unwrapped payload; a malformed one leaves an empty
+picker / the not-found state, never a crash or a redirect to `/requests/undefined`. Test:
+`tests/regression/sprint-139-unwrapped-payloads.test.tsx`. Other `.data.data` reads remain unverified (logged in
+`docs/BUGS.md`); each needs its endpoint's payload traced before it is changed.
+
+---
+
 ## Sprint 132 PR A — one skills editor
 
 `/profile` uses `ProfileTagsSection` as the only skills editor. It reads and writes

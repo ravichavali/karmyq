@@ -14,11 +14,14 @@ export default function MatchRedirectPage() {
 
       try {
         // Fetch the match to get the request_id
+        // The API client's interceptor already unwrapped the envelope: response.data IS the match
+        // (Sprint 139, the BUG-097 page defect).
         const response = await requestService.getMatch(id)
-        const match = response.data.data
+        const requestId = response?.data?.request_id
+        if (!requestId) throw new Error('Match has no request')
 
         // Redirect to the request detail page
-        router.replace(`/requests/${match.request_id}`)
+        router.replace(`/requests/${requestId}`)
       } catch (err: any) {
         console.error('Error fetching match', { error: err instanceof Error ? err.message : String(err) })
         setError('Match not found')
