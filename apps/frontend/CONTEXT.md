@@ -24,8 +24,9 @@ Tests: `tests/regression/sprint-139-offers-page.test.tsx`; `tests/tdd/sprint-105
 offers mock now uses the real unwrapped shape (it mocked the defect's shape).
 
 **Same defect, two more confirmed pages (scope expansion, recorded in the PR):** `src/pages/offers/new.tsx` read
-`response.data.data` from `GET /communities` (payload `{ communities, count, total }`) and crashed rendering the
-community picker; `src/pages/matches/[id].tsx` read `response.data.data` from `GET /matches/:id` (payload: the match
+`response.data.data` (payload `{ communities, count, total }`) and crashed rendering the community picker — and it
+asked `GET /communities`, the platform-wide discover list, so once unwrapped it offered communities `POST /offers`
+refuses; it now asks `getMyCommunities(user.id)` (`GET /communities/my/communities`, active memberships only); `src/pages/matches/[id].tsx` read `response.data.data` from `GET /matches/:id` (payload: the match
 row) and showed "Match not found" for every match. Both now read the unwrapped payload; a malformed one leaves an empty
 picker / the not-found state, never a crash or a redirect to `/requests/undefined`. Test:
 `tests/regression/sprint-139-unwrapped-payloads.test.tsx`. Other `.data.data` reads remain unverified (logged in

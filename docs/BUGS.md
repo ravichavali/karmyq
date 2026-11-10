@@ -2690,3 +2690,16 @@ offers. Pre-existing; found by Sprint 139's Task 5 process review. Fix direction
 explicit "all statuses" value, or drop the option.
 
 ---
+
+## BUG-100 · [2026-11-10] · open · **security (proposed severity: MEDIUM)**
+
+**`GET /communities/my/communities` trusts a query-string `user_id`.** The route
+(`services/community-service/src/routes/communities.ts:266-288`) reads `user_id` from `req.query` and lists that
+user's active communities; it never compares it with the authenticated caller (`req.user.userId`). So any signed-in
+user can list another user's community memberships by changing the id — the claim-vs-identity class ADR-064 and ADR-082
+close elsewhere ("the authenticated identity always comes from the verified JWT"). Pre-existing: about ten frontend call
+sites already pass the caller's own id; Sprint 139's `/offers/new` picker adds one more of the same shape and does not
+widen it. Found by Sprint 139's `/security-review`. Fix direction (not decided): derive the user from the JWT and ignore
+or reject a mismatching `user_id`, with a cross-user denial test like the reputation boundary suite's.
+
+---
