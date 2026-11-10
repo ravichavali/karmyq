@@ -5,6 +5,11 @@
 
 ## Recent Changes
 
+- **2026-11-09 (Sprint 139, BUG-082)**: `src/database/db.ts` logs a successful query with the shared
+  `createLogger('reputation-service')` at **debug** (`Executed query`, `{ text, duration, rows }`, never params)
+  instead of an unconditional `console.log`. Silent at the default `info`; `LOG_LEVEL=debug` opts in. The
+  AsyncLocalStorage executor (a `query()` inside `withTransaction` runs on the transaction's client), the rollback
+  log and errors are unchanged. Policy: ADR-015 (amended). Test: `tests/regression/sprint-139-query-logging.test.ts`.
 - **2026-11-09 (Sprint 139, BUG-081)**: trust weights are numbers at the DB and cache boundaries. pg returns NUMERIC
   as strings; `getCommunityTrustConfig` (depth/breadth: NULL → default, a community `0` stays `0`),
   `getUserTrustConfig` (overrides → number or NULL = inherit; prior → number) and `getCommunityEvolutionConfig`

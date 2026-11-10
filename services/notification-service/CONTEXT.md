@@ -1058,6 +1058,11 @@ No endpoint, payload, event or schema change. Not covered: the SDK's own retry o
 
 ## Recent Fixes
 
+- **2026-11-09 (Sprint 139, BUG-082)**: `src/database/db.ts` logs a successful query with the shared
+  `createLogger('notification-service')` at **debug** (`Executed query`, `{ text, duration, rows }`, never params)
+  instead of an unconditional `console.log`. Silent at the default `info`; `LOG_LEVEL=debug` opts in. The idle-client
+  error handler and `getClient()` are unchanged. Policy: ADR-015 (amended). Test:
+  `tests/regression/sprint-139-query-logging.test.ts`.
 - **2026-10-05 (Sprint 132 PR C review)**: delayed private-ask jobs recheck that the ask is open
   and unexpired before selecting recipients. Cancelled/completed/expired asks are acknowledged
   without sending a stale borrow invitation; real delayed-job integration covers all three cases.

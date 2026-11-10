@@ -14,6 +14,10 @@
   `expires_at` and `expired`. Holds still refuse an expired offer. Tests:
   `tests/regression/sprint-139-offer-visibility.test.ts` (SQL/params), the rewritten Sprint 138 C case (whole WHERE
   grouping, mutation-proven), and root `tests/integration/sprint-139-offer-visibility.integration.test.ts` (real SQL).
+- **2026-11-09 (Sprint 139, BUG-082)**: `src/database/db.ts` logs a successful query with the shared
+  `createLogger('request-service')` at **debug** (`Executed query`, `{ text, duration, rows }`, never params) instead
+  of an unconditional `console.log`. Silent at the default `info`; `LOG_LEVEL=debug` opts in. Errors and
+  `withTransaction` are unchanged. Policy: ADR-015 (amended). Test: `tests/regression/sprint-139-query-logging.test.ts`.
 - **2026-11-06 (Sprint 138, BUG-093..096)**: a standing offer is reusable. **BUG-093:** the final done mark in
   `PUT /matches/:id/complete` (both participants done) calls `releaseOffer` after the request is reconciled (lock order
   match, request, offer, as cancel), freeing the offer the match used unless another proposed or matched exchange
