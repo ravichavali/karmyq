@@ -87,6 +87,13 @@ describe(`${SERVICE} db.query success logging`, () => {
     expect(lines[0]).not.toContain('secret-param-value');
   });
 
+  it('honours a LOG_LEVEL set after the module was imported (index.ts imports db before dotenv.config())', async () => {
+    const db = loadDb(undefined);
+    process.env.LOG_LEVEL = 'debug'; // what dotenv.config() does, after the imports have run
+    await db.query(SQL, PARAMS);
+    expect(queryLines()).toHaveLength(1);
+  });
+
   it('passes the same SQL and params through and returns the same result object', async () => {
     const db = loadDb('debug');
     await expect(db.query(SQL, PARAMS)).resolves.toBe(result);

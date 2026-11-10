@@ -17,9 +17,13 @@ const mockRouter = { query: {} as Record<string, unknown>, pathname: '/', push: 
 jest.mock('next/router', () => ({ useRouter: () => mockRouter }))
 
 const mockGetCommunities = jest.fn()
+const mockGetMyCommunities = jest.fn()
 const mockGetMatch = jest.fn()
 jest.mock('@/lib/api', () => ({
-  communityService: { getCommunities: (...a: unknown[]) => mockGetCommunities(...a) },
+  communityService: {
+    getCommunities: (...a: unknown[]) => mockGetCommunities(...a),
+    getMyCommunities: (...a: unknown[]) => mockGetMyCommunities(...a),
+  },
   requestService: {
     getMatch: (...a: unknown[]) => mockGetMatch(...a),
     createOffer: jest.fn(),
@@ -36,6 +40,7 @@ import MatchRedirectPage from '@/pages/matches/[id]'
 beforeEach(() => {
   // The frontend jest config clears nothing between tests; reset explicitly.
   mockGetCommunities.mockReset()
+  mockGetMyCommunities.mockReset()
   mockGetMatch.mockReset()
   mockReplace.mockReset()
   mockPush.mockReset()
@@ -49,20 +54,23 @@ afterEach(() => {
 })
 
 describe('/offers/new reads the unwrapped { communities, count, total }', () => {
-  it('lists the caller\'s communities in the picker', async () => {
-    mockGetCommunities.mockResolvedValue({
+  // Code review (Sprint 139): the picker offers the caller's OWN active communities — POST /offers refuses any
+  // other — never GET /communities, which is the platform-wide discover list.
+  it('lists the caller\'s own communities in the picker, never the platform-wide list', async () => {
+    mockGetMyCommunities.mockResolvedValue({
       data: { communities: [{ id: 'c1', name: 'Maplewood' }, { id: 'c2', name: 'Riverside' }], count: 2, total: 2 },
     })
     render(<NewOfferPage />)
     expect(await screen.findByRole('option', { name: 'Maplewood' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Riverside' })).toBeInTheDocument()
-    expect(mockGetCommunities).toHaveBeenCalledWith({ limit: 100 })
+    expect(mockGetMyCommunities).toHaveBeenCalledWith('u1')
+    expect(mockGetCommunities).not.toHaveBeenCalled()
   })
 
   it('a malformed payload leaves an empty picker instead of crashing the page', async () => {
-    mockGetCommunities.mockResolvedValue({ data: { count: 0 } })
+    mockGetMyCommunities.mockResolvedValue({ data: { count: 0 } })
     render(<NewOfferPage />)
-    await waitFor(() => expect(mockGetCommunities).toHaveBeenCalled())
+    await waitFor(() => expect(mockGetMyCommunities).toHaveBeenCalled())
     await new Promise((r) => setTimeout(r, 0)) // let the rejected/odd payload land
     const picker = document.getElementById('community') as HTMLSelectElement
     expect(picker).not.toBeNull()

@@ -2672,6 +2672,9 @@ in `src/contexts/MessagingContext.tsx:200,224,228,299`, `src/pages/settings/pref
 `src/components/FloatingChat.tsx:53` and `src/hooks/useMessaging.ts:178`. Each is a defect only if its endpoint answers
 through `sendSuccess` (an envelope with both `success` and `data`); a service that sends a bare body is not unwrapped,
 so trace each endpoint's payload before changing it. Found by Sprint 139's Task 5 process review (grep-all-instances).
+Sprint 139's `/code-review` confirmed one: `GET /communities/trust-questions` answers through `sendSuccess`, so
+`admin/trust-questions` reads `res.data.data.questions` on `{ questions }`, throws, and always shows "Failed to load
+questions".
 Fix direction (not decided; from Sprint 139's `/simplify` altitude pass): type the `api.ts` service wrappers with their
 unwrapped payloads so `tsc` rejects a double unwrap, or add a regression gate on `.data.data` — either fixes the class
 without touching the interceptor.
