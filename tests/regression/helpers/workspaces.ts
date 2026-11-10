@@ -58,3 +58,54 @@ export function allServicePaths(): string[] {
   const registry = JSON.parse(read('services/registry.json'));
   return Object.values(registry.services as Record<string, { path: string }>).map((s) => s.path);
 }
+
+/** Build output contains copies of test files; never count them as sources. */
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', 'coverage', '.next', '.expo', '.turbo']);
+
+/** Every `*.test|spec.[jt]sx?` file under `dir` (absolute paths), skipping build output. */
+export function testFilesUnder(dir: string): string[] {
+  if (!existsSync(dir)) return [];
+  const found: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (!SKIP_DIRS.has(entry.name)) found.push(...testFilesUnder(full));
+    } else if (/\.(test|spec)\.[jt]sx?$/.test(entry.name)) {
+      found.push(full);
+    }
+  }
+  return found;
+}
+
+/**
+ * Jest's CLI entry, run directly under `node`. Deliberately NOT `npx jest` in a template string:
+ * CodeQL flagged that as js/command-line-injection (critical, alert #571) because the args are read
+ * out of a workspace's package.json and interpolated into a shell command. Passing argv to
+ * execFileSync/spawn means no shell is involved at all. `npx.cmd` is not an option either — Node 24
+ * on Windows refuses to spawn a .cmd without a shell (the CVE-2024-27980 fix).
+ */
+export const JEST_BIN = join(ROOT, 'node_modules', 'jest', 'bin', 'jest.js');
+
+/**
+ * Expand a workspace script (default `test`) into the jest argv lists it runs, in order.
+ * Handles `npm run X && npm run Y` one level deep, which is the only composition shape this repo
+ * uses. A part that is not jest is skipped, so callers that need every part to be jest compare the
+ * result's length with the number of `&&` parts.
+ */
+export function jestInvocations(pkg: { scripts?: Record<string, string> }, script = 'test'): string[][] {
+  const scripts = pkg.scripts || {};
+  const top = scripts[script];
+  if (!top) return [];
+
+  const args: string[][] = [];
+  for (const part of top.split('&&').map((s) => s.trim())) {
+    const viaNpm = part.match(/^npm run (\S+)/);
+    const resolved = viaNpm ? scripts[viaNpm[1]] : part;
+    if (!resolved) throw new Error(`${script} script references missing script: ${part}`);
+    const jest = resolved.match(/^jest\b\s*(.*)$/);
+    // Split into argv here so the invocation never becomes a shell string.
+    // Every test script in this repo uses plain whitespace-separated flags.
+    if (jest) args.push(jest[1].split(/\s+/).filter(Boolean));
+  }
+  return args;
+}

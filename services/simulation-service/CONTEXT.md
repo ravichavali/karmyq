@@ -210,6 +210,13 @@ Ride providers include `ride_details` (vehicle_type, max_passengers, advance_boo
 
 ## Recent Changes
 
+### Sprint 139 (2026-11-09) - test tiers (BUG-092)
+`npm test` is now `test:unit && test:regression` (blocking); the new `test:tdd` runs `tests/tdd/` and only reports.
+It used to be `jest --passWithNoTests`, which also ran `tests/tdd/`, so a red WIP test blocked a push. The one suite
+that was blocking only through that sweep, `sprint-134-demo-env-file.test.ts` (17 tests, blocking since #313), moved
+to `tests/regression/` in the same change. No runtime change. Gate (pins that suite by name):
+`tests/regression/sprint-139-tdd-boundaries.test.ts` (root).
+
 ### Sprint 134 PR D (2026-10-22) - `verify:demo` reads the demo env file
 `src/scripts/demoEnvFile.ts`: `resolveDemoEnvPath` resolves `DEMO_ENV_FILE` (unset or empty → `.env.demo`)
 against the **repo root**, as `scripts/demo/*.sh` do (under `npm --workspace`, `cwd` is this workspace, so the

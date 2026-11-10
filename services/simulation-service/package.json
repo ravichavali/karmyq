@@ -13,7 +13,10 @@
     "reset:demo": "ts-node src/scripts/resetDemoData.ts",
     "verify:demo": "ts-node src/scripts/verifyDemoData.ts",
     "rotate:demo-stories": "ts-node src/scripts/rotateMariaStories.ts",
-    "test": "jest --passWithNoTests"
+    "test": "npm run test:unit && npm run test:regression",
+    "test:unit": "jest --testPathPatterns=tests/unit/ --passWithNoTests",
+    "test:regression": "jest --testPathPatterns=tests/regression/ --passWithNoTests",
+    "test:tdd": "jest --testPathPatterns=tests/tdd/ --passWithNoTests"
   },
   "dependencies": {
     "@karmyq/shared": "*",

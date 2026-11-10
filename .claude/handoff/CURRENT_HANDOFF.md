@@ -41,8 +41,10 @@ scanning 0 open). Archived:
 5. Merges, ADR numbers, demo-host operations, dismissals and dependency work each need explicit authorization.
    #329 stays open; #178 re-check by **2026-12-01**. No demo backfill or optional expired-holds log read is authorized.
 
-**Next unchecked task**: **Task 1 — preflight and first failing tier-boundary proof**, in the next chat.
-This chat stops after the planning-document commit. No implementation task, version bump or PR creation.
+**Next unchecked task**: execution chat (Claude, 2026-11-09) is in progress — see `git log` on this branch for the
+tasks already committed (each commit names its plan Task numbers) and resume at the first task without one. Tasks 1–2
+(BUG-092 tier gate + cleanup/simulation scripts, version bump to 11.112.0) are committed. The executor's ledger lives
+in the git-ignored `.superpowers/sdd/2026-11-09-sprint-139-correctness/progress.md` on the Windows box only.
 
 ## Sprint goal and decisions
 

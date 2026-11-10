@@ -17,6 +17,11 @@ Changes below.
 
 ## Recent Changes
 
+- **2026-11-09 (Sprint 139, BUG-092)**: test tiers. `npm test` is now `test:unit && test:regression` (blocking); the
+  new `test:tdd` runs `tests/tdd/` and only reports. It used to be a bare `jest`, which also ran `tests/tdd/` and,
+  through the spread root `testMatch`, `tests/integration/`, so a red WIP test blocked a push. `jest.config.js` now
+  lists unit/regression/tdd explicitly and no longer inherits the root patterns. No runtime change. Gate:
+  `tests/regression/sprint-139-tdd-boundaries.test.ts` (root).
 - **2026-11-06 (Sprint 138, BUG-093/094)**: `releaseExpiredHolds` D1 and D2 now treat an offer as held only by a
   `proposed` or `matched` match (a completed match no longer holds it), and both set `expired = TRUE` in the same
   statement when the offer's `expires_at` has passed. D2's first run after deploy is retroactive: it frees offers stuck
