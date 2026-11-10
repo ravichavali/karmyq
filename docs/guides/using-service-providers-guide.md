@@ -69,8 +69,12 @@ After interacting with a provider, you can leave a star rating and short review 
 
 Provider trust scores are calculated from:
 - **Stars (60%)** — average rating across all reviews
-- **Completion rate (30%)** — did they finish jobs they started?
-- **Response rate (10%)** — do they reply to inquiries promptly?
+- **Completion rate (30%)** — of the exchanges that have *ended*, the share that ended completed
+- **Response rate (10%)** — reserved for how promptly they reply; Karmyq does not measure it yet, so today it adds nothing to the score
+
+**How the completion rate is counted.** Only finished exchanges count: completed ones, and cancelled ones. Exchanges still in progress don't count either way, so a provider with one completed job and three underway reads 100%. A cancellation counts whoever cancelled, because Karmyq doesn't record why an exchange was called off — it is an outcome ratio, not a judgement of fault. A provider with no finished exchanges yet reads 0%. If you offer more than one kind of service, every one of your provider profiles shows the same rate, because it comes from your whole history as a helper.
+
+**When it updates.** A completed exchange updates the rate straight away. A cancellation is picked up by the nightly refresh, so a rate can take until the next successful nightly run to reflect it (longer if that run fails and has to be retried the following night).
 
 This is separate from the personal trust score used in mutual aid. A great provider does not need to have helped anyone move furniture.
 

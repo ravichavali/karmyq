@@ -31,7 +31,8 @@ provider_trust_score =
 
 Where:
 - `avg_stars_normalized` = `((avg_stars - 1) / 4) * 100` — maps 1–5 stars to 0–100
-- `completion_rate` = completed matches / total matches accepted (0–100)
+- `completion_rate` = completed matches / total matches accepted (0–100) — **amended Sprint 139:** completed /
+  (completed + cancelled); see *Amendment — Sprint 139* below
 - `response_rate` = responded within 24h / total inquiries (0–100)
 
 Score is an integer 0–100, cached in `reputation.provider_trust_scores`.
@@ -64,7 +65,7 @@ Completion rate is weighted heavily (30%) because a provider who accepts matches
 
 ## Score Update Triggers
 
-Score is recalculated on two events:
+Score is recalculated on two events (and, since Sprint 139, by a nightly sweep — see the amendment):
 1. **Review submitted** — `POST /reputation/provider-reviews` calls `recalculateProviderTrustScore()` immediately after storing the review
 2. **Match completed** — `match_completed` event triggers `updateProviderCompletionRate()` in the reputation-service event subscriber, which updates `completion_rate` then calls `recalculateProviderTrustScore()`
 
@@ -104,3 +105,32 @@ One-time recalculation for all existing providers is available at:
 - `recalculateProviderTrustScore`: reads from `provider_reviews` + `provider_trust_scores`, writes updated row
 - `updateProviderCompletionRate`: called on `match_completed` event, updates completion_rate then calls recalculate
 - Simulation submits provider reviews after the requester marks a match done (`complete-match-workflow.ts`)
+
+## Amendment — Sprint 139 BUG-080: the completion-rate denominator, and a nightly refresh (2026-11-09)
+
+**The denominator was wrong.** Both recalculation paths computed completed / `status IN ('accepted', 'completed')`.
+The live match lifecycle is proposed → matched → completed | cancelled; no route writes `accepted` (only the curated
+demo fixture does), so the denominator equalled the numerator and a provider with one completion read 100% whatever
+else happened. A cancellation never lowered the rate.
+
+**Decision (maintainer, 2026-11-09):** `completion_rate` = completed / (completed + cancelled) over the responder's
+matches, as a percentage rounded to two decimals; 0 when there is no terminal outcome yet. Ongoing matches (proposed,
+matched) are excluded, as are rejected, declined, legacy `accepted` and any other status. A cancellation counts
+regardless of who cancelled: the data records no fault, so this is an outcome ratio, not a blame score. The scope stays
+the responder, so every active profile a user owns carries the same rate. The 60/30/10 formula, response rate and the
+review recompute are unchanged.
+
+**Refresh triggers.** A cancellation fires no provider refresh, so a provider who cancels and never completes again
+would keep a stale rate forever. The existing 03:30 reputation job (`cron/trustScoreRefresh.ts`, Sprint 126 / ADR-096)
+now runs a provider phase after its personal phase, as two independent try/catch blocks:
+`refreshAllProviderTrustScores()` walks every active provider profile sequentially, logs and counts a per-profile
+failure, and rejects if the profiles cannot be enumerated. So:
+
+1. **Review submitted** — immediate recompute (unchanged).
+2. **Match completed** — immediate rate refresh + recompute (unchanged path, new denominator).
+3. **Nightly, 03:30** — every active provider's rate and score. A cancellation is reflected by the next *successful*
+   run; a failed night is retried the next night, so there is no guaranteed freshness bound during an outage.
+
+The manual admin backfill keeps its fail-fast, count-returning contract. One internal helper computes the rate for all
+three paths (`services/reputation-service/src/services/providerTrustService.ts`). No migration; deploy runs no
+backfill — the first successful nightly run after deploy refreshes historical rates.

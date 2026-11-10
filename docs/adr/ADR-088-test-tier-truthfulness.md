@@ -202,6 +202,21 @@ making the re-decision explicit and reviewable instead of silently passing throu
   filter) and **BUG-034** (`services/messaging-service` has zero test coverage; the future "every
   Critical service has tests" gate is pending its coverage).
 
+## Amendment — Sprint 139 BUG-092: coverage is half the invariant (2026-11-09)
+
+This ADR's tier-coverage gate proves every blocking file RUNS, and deliberately tolerates extra files — which is how
+the bare-`jest` layout passed it. But a bare `jest` also selects `tests/tdd/`, so in `cleanup-service` and
+`simulation-service` a red WIP test failed the default `test` and blocked a push, contrary to ADR-029 (cleanup's also
+ran `tests/integration/`, through the spread root `testMatch`). The bare layout is legitimate only where a workspace
+has no WIP tier to exclude.
+
+Both services now use tiered scripts (`test` = `test:unit && test:regression`, plus `test:tdd`) and list their tier
+patterns explicitly. The exclusion half is a separate gate, `tests/regression/sprint-139-tdd-boundaries.test.ts`: the
+default selection is exactly the unit + regression files (real `--listTests`), a red tdd marker fails only an explicit
+`test:tdd` run while red unit/regression markers still fail the default, and simulation's
+`sprint-134-demo-env-file` suite — blocking until now only because of the sweep — moved to `tests/regression/` and is
+pinned by name. `apps/landing` and `apps/mobile` keep the bare layout; landing's `tests/tdd/` is empty today.
+
 ## References
 
 - [ADR-029: TDD Test Framework](ADR-029-tdd-test-framework.md) — amended by this ADR, not superseded

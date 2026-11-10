@@ -100,6 +100,10 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
         title: 'Trust and matching',
         body: 'The platform uses your trust relationships to surface the most relevant helpers. Higher trust means faster, more reliable matches.',
       },
+      {
+        title: 'Standing offers and expiry',
+        body: 'A standing offer on the Help Offers page says what you can help with before anyone asks. When it expires, your neighbours stop seeing it, but you still do for about a week, until the daily cleanup removes it: it reads Expired, or keeps its status with an "Offer expired" note if an exchange is under way. An expired offer can\'t be attached to a new request.',
+      },
     ],
   },
   activities: {
