@@ -158,4 +158,4 @@ describe('ActiveTab — unified layout', () => {
 
 // Note: the "BrowseFeed — post-offer confirmation" suite was removed in Sprint 86 with the
 // BrowseFeed retirement. The canonical RequestCard's post-offer confirmation + optimistic removal
-// are covered by tests/tdd/sprint-85-unified-feed.test.tsx.
+// are covered by tests/regression/sprint-85-unified-feed.test.tsx.

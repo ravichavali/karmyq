@@ -45,6 +45,9 @@ describe('Completion rate display', () => {
 });
 
 // ─── Component tests ──────────────────────────────────────────────────────────
+// The mocks stand in for the API client AFTER its response interceptor (src/lib/api.ts), which already replaced
+// `response.data` with the envelope's `data`. Sprint 140 removed a stale second `data` layer (the BUG-098 class,
+// with the stale side here in the test: TrustCard and ProfileTagsSection read `res.data` once, correctly).
 
 jest.mock('../../src/lib/api', () => ({
   // Sprint 133 PR B: TrustCard renders the partner's skills (MemberSkills).
@@ -78,19 +81,20 @@ describe('TrustCard', () => {
     expect(document.querySelector('.animate-pulse')).toBeTruthy();
   });
 
-  it('renders trust tier badge after data loads', async () => {
+  // Sprint 112 (ADR-082) stopped disclosing another member's karma and karma-derived tier on the trust card; the
+  // original Sprint 38 expectation that "Trusted" renders now contradicts the intended contract. The fixture still
+  // carries karma/trust_tier so this proves the card ignores them even if a response included them.
+  it('renders the member and their connection after data loads, never a karma tier (ADR-082)', async () => {
     (socialGraphApi.get as any).mockResolvedValue({
       data: {
-        data: {
-          targetUser: { id: 'user-123', name: 'Alice', karma: 50, trust_tier: 'Trusted' },
-          trustPath: [
-            { id: 'me', name: 'You' },
-            { id: 'user-123', name: 'Alice', karma: 50 },
-          ],
-          invitationPath: null,
-          degrees: 1,
-          path_type: 'exchange',
-        },
+        targetUser: { id: 'user-123', name: 'Alice', karma: 50, trust_tier: 'Trusted' },
+        trustPath: [
+          { id: 'me', name: 'You' },
+          { id: 'user-123', name: 'Alice', karma: 50 },
+        ],
+        invitationPath: null,
+        degrees: 1,
+        path_type: 'exchange',
       },
     });
 
@@ -99,20 +103,20 @@ describe('TrustCard', () => {
     await waitFor(() => {
       // Header name appears as a heading
       expect(screen.getByRole('heading', { name: 'Alice' })).toBeTruthy();
-      expect(screen.getByText('Trusted')).toBeTruthy();
     });
+    expect(screen.getByText('Directly connected')).toBeTruthy();
+    expect(screen.queryByText('Trusted')).toBeNull();
+    expect(screen.queryByText(/\b50\b/)).toBeNull();
   });
 
   it('shows "No direct connection" when trustPath has 0 or 1 node', async () => {
     (socialGraphApi.get as any).mockResolvedValue({
       data: {
-        data: {
-          targetUser: { id: 'user-456', name: 'Bob', karma: 5, trust_tier: 'Emerging' },
-          trustPath: [],
-          invitationPath: null,
-          degrees: null,
-          path_type: null,
-        },
+        targetUser: { id: 'user-456', name: 'Bob', karma: 5, trust_tier: 'Emerging' },
+        trustPath: [],
+        invitationPath: null,
+        degrees: null,
+        path_type: null,
       },
     });
 
@@ -136,13 +140,11 @@ describe('TrustCard', () => {
   it('calls onClose when backdrop is clicked', async () => {
     (socialGraphApi.get as any).mockResolvedValue({
       data: {
-        data: {
-          targetUser: { id: 'user-123', name: 'Alice', karma: 50, trust_tier: 'Trusted' },
-          trustPath: [],
-          invitationPath: null,
-          degrees: null,
-          path_type: null,
-        },
+        targetUser: { id: 'user-123', name: 'Alice', karma: 50, trust_tier: 'Trusted' },
+        trustPath: [],
+        invitationPath: null,
+        degrees: null,
+        path_type: null,
       },
     });
 
@@ -161,10 +163,10 @@ describe('ProfileTagsSection', () => {
     jest.clearAllMocks();
     (api.get as any).mockImplementation((url: unknown) => {
       if (url === '/auth/profile/tags') {
-        return Promise.resolve({ data: { data: { skills: [], interests: [], needs: [] } } });
+        return Promise.resolve({ data: { skills: [], interests: [], needs: [] } });
       }
       // suggestions
-      return Promise.resolve({ data: { data: ['Carpentry', 'Cooking', 'Driving'] } });
+      return Promise.resolve({ data: ['Carpentry', 'Cooking', 'Driving'] });
     });
   });
 
@@ -183,15 +185,13 @@ describe('ProfileTagsSection', () => {
       if (url === '/auth/profile/tags') {
         return Promise.resolve({
           data: {
-            data: {
-              skills: [{ id: 'tag-1', tag_value: 'Carpentry' }],
-              interests: [],
-              needs: [],
-            },
+            skills: [{ id: 'tag-1', tag_value: 'Carpentry' }],
+            interests: [],
+            needs: [],
           },
         });
       }
-      return Promise.resolve({ data: { data: [] } });
+      return Promise.resolve({ data: [] });
     });
     (api.delete as any).mockResolvedValue({ data: { success: true } });
 

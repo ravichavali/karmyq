@@ -10,7 +10,9 @@ jest.mock('@/lib/api', () => ({
   },
 }))
 
-jest.mock('@/components/TrustGraph', () => ({
+// Sprint 111 replaced TrustGraph with BelongingGraph, which is what TrustGraphTab renders now (Sprint 140 repair:
+// the old mock named a module that no longer exists, so the suite could not load).
+jest.mock('@/components/BelongingGraph', () => ({
   __esModule: true,
   default: () => <div data-testid="trust-graph" />,
 }))

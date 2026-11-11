@@ -2,6 +2,9 @@
  * Unit tests for useTrustQuestions hook (Sprint 45)
  *
  * Tests loading, success, and error states returned by the hook.
+ *
+ * Sprint 140 (BUG-098): the mocks resolve with what the API client's interceptor returns, `{ data: { questions } }`
+ * (the envelope is already unwrapped). The old `{ data: { data: ... } }` mock was the stale side; the hook was right.
  */
 
 import { renderHook, waitFor } from '@testing-library/react'
@@ -43,7 +46,7 @@ describe('useTrustQuestions', () => {
 
   it('sets questions and loading=false on success', async () => {
     trustQuestionsService.list.mockResolvedValue({
-      data: { data: { questions: MOCK_QUESTIONS } },
+      data: { questions: MOCK_QUESTIONS },
     })
 
     const { result } = renderHook(() => useTrustQuestions())
@@ -77,7 +80,7 @@ describe('useTrustQuestions', () => {
 
   it('calls trustQuestionsService.list exactly once on mount', async () => {
     trustQuestionsService.list.mockResolvedValue({
-      data: { data: { questions: [] } },
+      data: { questions: [] },
     })
 
     const { result } = renderHook(() => useTrustQuestions())
