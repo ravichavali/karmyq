@@ -118,7 +118,7 @@ Growth (new user registration) runs on a standalone `setInterval` every 3 minute
 | `join-activity-workflow.ts` | Join open activities in communities | ACTIVE_HELPER, SOCIAL_USER, COMMUNITY_BUILDER |
 | `vote-on-governance-workflow.ts` | Vote on active split/fusion proposals | ACTIVE_HELPER, COMMUNITY_BUILDER, SOCIAL_USER |
 | `dibs-workflow.ts` | Requester calls dibs on a prior provider; provider accepts/declines | REQUESTER, ACTIVE_HELPER |
-| `governance-nominate-workflow.ts` | Nominate high-trust members for moderator; ratify pending nominations | COMMUNITY_BUILDER, ACTIVE_HELPER, SOCIAL_USER |
+| `governance-nominate-workflow.ts` | Nominate high-trust members for moderator; ratify pending nominations | **Disabled since Sprint 140** — weight 0 in every profile (see Recent Changes) |
 
 ---
 
@@ -209,6 +209,19 @@ Ride providers include `ride_details` (vehicle_type, max_passengers, advance_boo
 ---
 
 ## Recent Changes
+
+### Sprint 140 (2026-11-10) - nominate/ratify disabled (BUG-100 containment)
+
+`nominateMember` and `ratifyNomination` have **weight 0 in every profile** (`src/profiles/index.ts`;
+`avgPerSession` values are kept for a future reactivation). Both workflows call `client.getCommunities()`
+without a user id. Until BUG-100 was fixed that request was answered 400, the workflows caught it and found
+no community, so simulated nominations and ratifications never ran. The fix makes
+`GET /communities/my/communities` use the JWT identity, which would have switched both workflows on at the
+next pm2 restart (every deploy restarts the simulation). The ratification-quorum question is still open,
+so reactivating either action is a **separate maintainer/product decision**. The workflows and the
+production governance routes are unchanged. `selectWorkflow` admits only truthy weights, and
+`tests/regression/sprint-140-governance-actions-disabled.test.ts` proves every profile is at 0 and that a
+full sweep of the selector never returns either action.
 
 ### Sprint 139 (2026-11-09) - test tiers (BUG-092)
 `npm test` is now `test:unit && test:regression` (blocking); the new `test:tdd` runs `tests/tdd/` and only reports.

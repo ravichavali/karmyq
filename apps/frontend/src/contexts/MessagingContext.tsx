@@ -196,8 +196,9 @@ export const MessagingProvider: React.FC<MessagingProviderProps> = ({ children }
     setError(null)
 
     try {
+      // The API client's interceptor already unwrapped the envelope: response.data IS the array (BUG-098).
       const response = await messagingService.getConversations()
-      setConversations(response.data.data)
+      setConversations(response.data)
     } catch (err: any) {
       console.error('Failed to fetch conversations', { error: err instanceof Error ? err.message : String(err) })
       setError(err.message || 'Failed to fetch conversations')
@@ -221,11 +222,11 @@ export const MessagingProvider: React.FC<MessagingProviderProps> = ({ children }
 
       // Fetch conversation details (userId from JWT)
       const convResponse = await messagingService.getConversation(conversationId)
-      const conversation = convResponse.data.data
+      const conversation = convResponse.data
 
       // Fetch messages (userId from JWT)
       const messagesResponse = await messagingService.getMessages(conversationId, { limit: 50 })
-      const messagesList = messagesResponse.data.data
+      const messagesList = messagesResponse.data
 
       setCurrentConversation(conversation)
       setMessages(messagesList)
@@ -296,7 +297,7 @@ export const MessagingProvider: React.FC<MessagingProviderProps> = ({ children }
   const createConversation = useCallback(async (matchId: string, participantIds: string[]) => {
     try {
       const response = await messagingService.createConversation(matchId, participantIds)
-      const conversation = response.data.data
+      const conversation = response.data
 
       // Add to conversations list
       setConversations((prev) => [conversation, ...prev])

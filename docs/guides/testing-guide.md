@@ -153,6 +153,23 @@ itself now reaches `apps/frontend`. This is a deliberate, logged limitation — 
 would move a large batch of tests into the blocking regression tier in one change, which needs its
 own review. See `docs/BUGS.md` and ADR-088's Consequences section.
 
+**Promote deliberately, one exact file at a time (Sprint 140).** Run the suite directly, watch it pass, then
+`git mv` that exact file into the workspace's `tests/regression/` (root `tests/` included — the promoter
+never walks it). Don't run the promoter as a shortcut: it sweeps every green `.test.ts` under every
+`services/*` and `apps/*` workspace, not just yours.
+Sprint 140 PR A repaired and promoted **eleven** WIP suites this way: eight frontend suites, request-service
+`sprint-125-provider-reach-gate`, and root `sprint-36-commitment-depth` and `preferredProviderNotification`.
+Each was repaired to the *current* contract (a later deliberate change, cited in the test, made the old
+expectation stale), never to whatever the code happened to output.
+
+**Twenty WIP suites are still red, on purpose.** They need infrastructure or a rewrite-versus-retire decision,
+so they stay visible in `tests/tdd/` for a separately planned PR B instead of being moved somewhere that never
+runs. Moving a test into a tier CI does not execute is retirement by another name: today **required CI runs
+only root `tests/integration/`**, and the service `tests/integration/` directories are not part of it.
+`tests/tdd/sprint-117-demo-reset.integration.test.ts` deliberately stays at its exact path: CI invokes that
+file directly and **last**, because it wipes and rebuilds the database. On a Windows box without PostgreSQL
+`npm run test:tdd` therefore still exits nonzero; read *which* suites fail rather than the exit code.
+
 ## Two known flakes — not bugs, don't debug them
 
 - **Windows Turbo timeout on the shared rate-limiter test.** Under Turbo on Windows,

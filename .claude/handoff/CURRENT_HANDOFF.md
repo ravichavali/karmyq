@@ -1,136 +1,158 @@
-# Sprint 139 — Correctness Bundle — Handoff (PR #332 reviewed; finding fixed; awaiting merge authorization)
+# Sprint 140 — PR A open, CI verified green; awaiting the maintainer's review and merge authorization
 
-**Date**: 2026-11-10
-**Outcome so far**: **Execution of plan Tasks 1–14 is done and [PR #332](https://github.com/ravichavali/karmyq/pull/332)
-is open from `agent/claude/sprint-139-planning`; its independent review's one finding is fixed; nothing is merged or
-deployed.** All six selected bugs are fixed on the branch — BUG-097, BUG-076, BUG-092, BUG-080,
-BUG-081, BUG-082 — plus a recorded scope expansion (the same `response.data.data` page defect on `/offers/new` and
-`/matches/[id]`). All four SDLC gates ran. Three new bugs were logged, not fixed: BUG-098, BUG-099 and **BUG-100
-(security, pre-existing, proposed MEDIUM)**. **Task 15 (merge + deploy) is NOT authorized.** The sprint is not complete
-until the PR is merged and its deploy verified.
+**Date**: 2026-11-11
+**State**: **PR A Tasks 1–12 are done on `agent/claude/sprint-140-planning`. PR A is open as [#334](https://github.com/ravichavali/karmyq/pull/334), and its CI
+was verified complete and green on `7f1fca5b`, including both new root integration suites (observed 2026-11-11, below).**
+Not merged, not deployed. The merge is blocked only by branch protection's one required approving review (no human review
+yet). PR B (twenty suites) is decision-gated and unplanned.
 
-> The handoff carries **state between sessions**. It is branch-local, so it can reserve nothing; see `CLAUDE.md` →
-> *Parallel Development*. Git and PR state (`gh pr list`, `git log origin/master`) outrank anything written here. No
-> parallel lanes are active.
+**Design**: [`docs/superpowers/specs/2026-11-10-sprint-140-security-and-wip-cleanup-design.md`](../../docs/superpowers/specs/2026-11-10-sprint-140-security-and-wip-cleanup-design.md)
 
-**Previous**: Sprint 138 COMPLETE (merged `74c5a8e5`, v11.111.0). Archived:
-[`archive/2026-11-06-sprint-138-reusable-standing-offers-COMPLETE-v11.111.0.md`](archive/2026-11-06-sprint-138-reusable-standing-offers-COMPLETE-v11.111.0.md).
+**PR A execution plan**: [`docs/superpowers/plans/2026-11-10-sprint-140-security-and-wip-cleanup.md`](../../docs/superpowers/plans/2026-11-10-sprint-140-security-and-wip-cleanup.md)
+
+> Git and PR state outrank this handoff. No parallel lanes were active. Sprint 139's post-merge record:
+> [`archive/2026-11-09-sprint-139-correctness-bundle-COMPLETE-v11.112.0.md`](archive/2026-11-09-sprint-139-correctness-bundle-COMPLETE-v11.112.0.md).
 
 ---
 
-## Quick Start
+## Quick Start (next chat)
 
-1. Read `CLAUDE.md` and this handoff. Confirm live state: `git fetch origin`,
-   `gh pr list --head agent/claude/sprint-139-planning`, `git log --oneline origin/master -3`, `gh issue view 329`.
-   On 2026-11-10 origin/master was still `74c5a8e5` (v11.111.0) and no other PR was open.
-2. The independent review is done and its one finding is fixed (below). The approved
-   [spec](../../docs/superpowers/specs/2026-11-09-sprint-139-correctness-design.md) and
-   [plan](../../docs/superpowers/plans/2026-11-09-sprint-139-correctness.md) govern Task 15. The PR body carries the
-   full `## Validation` ledger, the acceptance-row red→green map and the dispositions of every gate finding.
-3. Before any merge-readiness claim, check **every CI run's conclusion and its created job count** for the CURRENT PR
-   head, not only the checks list (Sprint 138 lesson). The two Sprint 139 integration suites first ran in CI on
-   `07b79e35` (green); they have never run locally (no PostgreSQL on the Windows box).
-4. Merge, version re-derivation, deploy, demo-host operations, dismissals, dependency work and ADR numbers each need
-   explicit maintainer authorization. #329 stays open; **#178 re-check by 2026-12-01**.
+1. Read `CLAUDE.md` and this handoff. `git fetch origin`; `gh pr list`; `git log --oneline origin/master -3`.
+2. Re-check PR A ([#334](https://github.com/ravichavali/karmyq/pull/334)) on its **current head**. The verified run is on `7f1fca5b`; the
+   handoff-only commit after it re-triggers every workflow (no path filters in `ci.yml`, `test.yml` or `pr-contract.yml`).
+   Confirm that run's conclusion and created-job count: CI/CD 14 (7 jobs + 7-image matrix, `Deploy to Demo` skipped),
+   Tests 3, PR Contract 1. Do not rely on `gh pr checks` alone.
+3. If the maintainer relays review findings, handle them with the `review-response` skill (verify each against the repo
+   before fixing). Fix forward on the same branch (merge commit if `origin/master` moved; never rebase/force-push), re-run
+   the gates, and update this handoff.
+4. Report merge readiness and stop. **Merge, deploy, demo-host operations, alert dismissals, closing #333 and PR B each
+   need separate explicit authorization**; none is granted. #333 must not be merged.
 
-**Independent review — DONE (2026-11-10, relayed by the maintainer, review only).** On head `07b79e35` every Actions
-run succeeded with its jobs created — CI/CD Pipeline [42860023401](https://github.com/ravichavali/karmyq/actions/runs/42860023401)
-(14 jobs, deploy skipped), Tests 42860023006 (3), PR Contract 42860023107 (1), CodeQL 42860013879 (2) — and the
-Integration Tests job ran **both Sprint 139 integration suites green** (28 suites / 469 tests). One finding, **P2: an
-older `GET /offers` response could overwrite the current filter's results** (a slow earlier filter, its failure, or its
-`finally` landing after a newer request). **Fixed** on this branch with a latest-request guard in
-`apps/frontend/src/pages/offers/index.tsx` and four out-of-order tests in
-`apps/frontend/tests/regression/sprint-139-offers-page.test.tsx` (red 4/4 → green) in `f57e8524`.
+**Next unchecked task**: plan Task 14 (merge and deploy). It starts only on explicit merge authorization, after the
+required approving review. node-forge must reach master by **2026-11-24**.
 
-**Next unchecked task**: confirm CI on the new PR head (every run's conclusion and created job count), then the
-maintainer decides whether to authorize the plan's **Task 15** (merge + deploy, via the `deploy`/`ship` skills).
-Re-derive the version from `origin/master` at merge time (provisional 11.112.0). **Deploy runs no provider backfill:**
-existing provider rates stay on the old formula until that provider's next completion or the first successful 03:30 run
-after deploy.
+## What PR A contains (commits on the branch, oldest first)
+
+| Commit | Content |
+|---|---|
+| `0086633c` | node-forge `>=1.4.3` override + single lock entry; D9 security-floor regression pins 1.4.3 (Dependabot #181–#184) |
+| `cf7775a7` | BUG-100: `GET /communities/my/communities` uses the JWT id only; simulation nominate/ratify weight 0 in every profile |
+| `da0ab0bd` | BUG-099: offers `status=all` via `($1::text IS NULL OR o.status = $1)`; page sends `all` |
+| `641d81ee` | BUG-098: five frontend consumers read the intercepted response once; three raw-client controls pinned |
+| `6ff00c29` | Eight frontend WIP suites repaired to current contracts and promoted (exact `git mv`) |
+| `a4c57477` | Request `sprint-125-provider-reach-gate`: two bind-order expectations; promoted |
+| `b6b01e93` | Root `sprint-36-commitment-depth` + `preferredProviderNotification` repaired; promoted |
+| `47400aba` | ADR-103 (maintainer-allocated, Proposed), guides, BUGS.md, landing docs, onboarding copy, v11.113.0 |
+| `1c047974` | SDLC gate fixes (response-boundary test, q2 assertion, CONTEXT line, /simplify cleanups) and this handoff |
+| `7f1fca5b` | Handoff only: records PR #334 (the CI-verified head) |
+
+## SDLC gates (all four ran on the branch diff)
+
+- **Testing:** see *Evidence*. Required tiers green; TDD tier exit 1 with exactly the twenty PR-B suites.
+- **/simplify** (one calibrated pass, 4 angles): four cleanups applied; reuse/altitude follow-ups recorded below.
+- **/code-review high** (fresh forked reviewer, 10 findings, re-graded): three fixed — new
+  `apps/frontend/tests/regression/sprint-140-response-boundary.test.ts` drives the **real** `api.ts` clients through stub
+  adapters with raw envelopes (RED by mutation: interceptor disabled → 3/6 fail; invite moved to an intercepted client →
+  its control fails; `api.ts` restored byte-identical), the q2-alone request-approval assertion, and the community
+  CONTEXT line that leaked a mid-sentence wrap into landing `api.json`. Three minors deferred (below); rest ruled.
+- **/security-review:** no high-confidence findings (identity, SQL predicate, frontend reads, simulation, node-forge
+  provenance all verified against source and the registry).
+
+## Evidence (local, Windows host)
+
+- node-forge: regression RED→GREEN; `npx -y npm@11.19.0 ci` exit 0; full `npm ls --all` differs from baseline only in
+  the two node-forge lines (pre-existing ELSPROBLEMS identical; run `npm ls` from an uppercase `C:` cwd — a lowercase
+  `c:` cwd makes Arborist crash on the workspace junctions); `npm run audit` exit 0; low audit: only the 6 deepmerge lows
+  (#178 chain), no node-forge. Lock delta vs master: node-forge entry + two root version fields; zero `libc` lines.
+- Required tiers green: request, frontend, community, simulation, root (`npm test --workspace=…` each exit 0); `tsc
+  --noEmit` clean for community, request, simulation, frontend.
+- Final `npm run test:tdd`: exit 1 with **exactly the twenty PR-B suites** (103 failed tests; baseline 31 suites/148).
+  Frontend TDD 428/428. None of the eleven repaired suites and no new failure.
+- Root integration (two new suites): locally, discovered by `npm run test:integration` (30 suites) and failed only on
+  `ECONNREFUSED :5433` (no local Postgres). Pre-fix RED is reasoned in each file header, not observed.
+
+## Evidence (CI, head `7f1fca5b`, observed 2026-11-11)
+
+- CI/CD run [43079861784](https://github.com/ravichavali/karmyq/actions/runs/43079861784): 14/14 jobs created, which matches `ci.yml`'s 7 jobs plus the
+  7-service image matrix. Every job succeeded except `Deploy to Demo`, which was skipped as expected (`ci.yml:413`:
+  push to master only). Tests run 43079861867: 3/3 success. PR Contract run 43079861822: 1/1 success.
+- The `Integration Tests` job log (job 130731558214) shows `sprint-140-offer-status-all` passing 6/6 and
+  `sprint-140-community-membership-identity` passing 6/6. The tier totals were 30/30 suites and 481/481 tests, with 0
+  skipped or todo.
+- The Sprint 117 exact-path step ran after the integration tier and passed 2/2. Only artifact upload and cleanup follow it.
+- Code scanning: 0 open alerts on `refs/pull/334/merge` and 0 on master. `origin/master` is still `8aabc50c` (v11.112.0), an
+  ancestor of the branch, so v11.113.0 is still correct and no merge commit is needed.
+- Branch protection requires 1 approving review, and `enforce_admins` is false. The only review so far is an advisory
+  `graphify-labs[bot]` COMMENTED review on `7f1fca5b`: "no issues found", partial coverage, coupling-hotspot notes only.
+  It is not a human review and needs no response.
+- Commits after the verified head: one handoff-only commit (this update). The PR body's `## Validation` ledger carries the
+  same evidence.
+
+## PR B boundary — twenty suites remain visible
+
+Request (8) `sprint-101-actionability-state`, `sprint-107-offered-awaiting-truth`, `sprint-89-community-pulse`,
+`sprint-100-pulse-truth`, `sprint-85-unified-feed`, `sprint-97-community-pulse`, `sprint-108-admin-proposed-decision`,
+`admin-schemas-api`; community (2) `sprint-100-split-reexecute`, `sprint-67-governance`; social-graph (4)
+`sprint-66-trust-graph-visualization`, `sprint-67-ego-network`, `sprint-68-halflife`, `sprint-100-connection-reconcile`;
+root (6) `sprint-42-dibs`, `rateCards`, `sprint-43-feed-ranking`, `preSelectProvider`, `trust-evolution-flow`,
+`sprint-117-demo-reset.integration.test` (stays at its exact path; CI runs it last).
+
+Before PR B implementation the maintainer must approve (1) a required-CI execution design for any service integration
+tier and (2) a per-suite repair/rewrite/retire ledger. Retirement needs separate written approval plus replacement
+coverage. Plan it in a fresh chat on a fresh branch from then-current `origin/master`.
 
 ## Ownership and base
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-139-planning`, cut from `origin/master` `74c5a8e5` (v11.111.0); carries the Sprint 138 archive, Sprint 139 planning and execution |
-| **Base** | `origin/master` `74c5a8e5` — unchanged on 2026-11-10. If master moves, merge it in with a merge commit (authorized), never a rebase |
-| **Active editor** | Claude (execution chat, 2026-11-09/10) — branch owner |
-| **Reviewer** | An independent non-author agent: **review only, no pushes to this branch** |
-| **Owned paths** | The plan's File Map, plus `apps/frontend/src/pages/offers/new.tsx` and `src/pages/matches/[id].tsx` (recorded scope expansion) |
-| **Shared resources** | **Dependency lane: Claude** (maintainer-designated); no dependency work done. **No ADR number allocated** (four existing ADRs amended). #178 dated (below) |
-| **Merged branches safe to delete** (maintainer's call) | `agent/claude/sprint-138-planning` (`96ce19d2`, same tree as `74c5a8e5`), `agent/claude/sprint-137-planning` (`49ebd68a`), `agent/claude/sprint-136-planning` (`170d39fe`), `agent/claude/sprint-135-pr-request-status-guards` (`7bfc65ac`), `agent/claude/sprint-135-planning` (`5a3589ef`), `agent/claude/sprint-134-pr-bug-077-badge-insert` (`afbaed7a`); older `agent/claude/sprint-134-*` heads remain on origin |
+| **PR A branch** | `agent/claude/sprint-140-planning` |
+| **Base** | `origin/master` `8aabc50c` (#332, v11.112.0), unchanged at Task 10 and at the CI verification (2026-11-11) |
+| **Version** | v11.113.0 (re-derive from `origin/master` at merge time) |
+| **ADR** | **ADR-103**, allocated by the maintainer 2026-11-10; status Proposed until deployed |
+| **Dependency lane** | **Claude**, node-forge 1.4.3 only — done on this branch. #333 inspected read-only, not merged/closed/pushed |
 
-## What was built (plan Tasks 1–12; Task 13 was verification only, Task 14 is this handoff + the PR)
+## Authorization boundaries
 
-| Commit | Plan task | What |
-|---|---|---|
-| `96966f6a` | 1–2 | BUG-092: cleanup/simulation tiered `test` scripts + explicit `testMatch`; simulation's 17-test demo-env-file suite tdd → regression; new gate `tests/regression/sprint-139-tdd-boundaries.test.ts`; version → 11.112.0 (3 root fields only) |
-| `2464bcad` | 3 | BUG-076: `turbo.json` `test:tdd` (uncached, `dependsOn: ["build"]`); root `--continue=always`; hook keeps npm's status in a retained `mktemp` log; gate `tests/regression/sprint-139-prepush-tdd-report.test.ts`; hooks re-installed |
-| `f88f1b86` | 4 | Ten red WIP suites written and run red before any source change |
-| `559b2364` | 5 | BUG-097: `GET /offers` predicate per spec A + `expires_at`/`expired`; offers page repair + labels; **scope expansion** `/offers/new`, `/matches/[id]`; Sprint 138 C case rewritten (mutation-proven) |
-| `ef31e57a` | 6–7 | BUG-080 terminal-outcome rate + `refreshAllProviderTrustScores` + `runDailyTrustScoreRefresh`; BUG-081 numeric readers + strict cache normalization |
-| `cf038909` | 8 | BUG-082: five `db.ts` wrappers log success at debug |
-| `941bb733` | 9 | Root integration suites (CI-only) |
-| `f8850490` | 11 | 11 suites promoted individually (`git mv`, not the repo-wide promoter); BUGS entries; registry notes |
-| `3b1642fb` | 10 | Guides, observability concept, onboarding step, ADR-015/029/042/088 amendments, regenerated landing docs |
-| `d7dab27f` | 12 | `/simplify` fixes |
-| `e989293d` | 12 | `/code-review` fixes: picker uses `getMyCommunities(currentUser.id)`; query loggers created lazily (honour a `.env` `LOG_LEVEL`) |
-| `ed7073e9` | 12 | `/security-review` result; BUG-100 logged |
-| `07b79e35` | 14 | Handoff (the PR was opened on this head; the independent review ran on it) |
-| `f57e8524` | review | Independent-review P2 fix: only the latest `GET /offers` request may update the offers list |
-
-Committed after it: this handoff update only (docs). **Tested commit: `f57e8524`** — full `npm test` exit 0 (27/27 Turbo
-tasks; 24 cached, as only the frontend changed since `ed7073e9`, where the full uncached run and the type-checks in all
-eight changed workspaces also passed; lockfile diff = the three root version fields). Detail and limits: the PR's
-`## Validation` ledger. A real root `npm run test:tdd` now actually runs (23 tasks) and exits 1 on
-**pre-existing** WIP reds in request, community, social-graph, tests and frontend — reported as a warning, not fixed.
-
-## Decisions taken during execution (rulings; each recorded with its cost if wrong)
-
-- `refreshProviderTrustScore` returns the stored rate (`Promise<number>`, plan said `void`) so the completion path
-  keeps logging it; internal only.
-- Tasks 6–7 and 8–9 shared a process review; 6–7 share one commit (same CONTEXT file).
-- Hook gate: Windows `TMPDIR` is rewritten by MSYS to `/tmp/...`, so the test translates with `cygpath`; the
-  failing-`tail` fixture uses a `BASH_ENV` function (Git for Windows' `cmd/git.exe` prepends its own `usr/bin`).
-- Integration NULL-expiry fixture is `UPDATE`d to NULL after insert: `requests.set_offer_expires_at()` (BEFORE INSERT)
-  defaults a NULL `expires_at` to `created_at + 60 days`.
-- `/code-review` was used as the plan's whole-branch final review (no separate reviewer dispatch).
-- Not fixed, by spec or scope: members see expired *non-active* offers (spec A approves); per-profile repeated rate
-  read; shared query wrapper / `logger.query()` repair (spec E); BUG-079 coercion kept (spec D); retained TDD logs
-  accumulate (spec requires retention; deferred minor).
-
-## Open questions for the maintainer
-
-1. **BUG-100 (security, pre-existing):** `GET /communities/my/communities` trusts a query-string `user_id`, so a
-   signed-in user can list another user's memberships. Schedule a fix? (Not widened by this PR.)
-2. **BUG-098:** sweep the remaining `response.data.data` reads (`admin/trust-questions` is confirmed broken)?
-   **BUG-099:** the offers "All" filter shows active offers only.
-3. **Now-visible WIP reds** (five workspaces): the hook will warn on every push until they are fixed or promoted.
-4. Unscheduled product candidates unchanged: the mobile sprint, backing out of an in-progress exchange, the 2026-11-08
-   communication-channel framing idea (adversarial discussion first).
-5. **#329 — Expo patch train?** Still open; dependency work needs an advisory or a feature need.
+- **Not authorized:** merge, deploy, demo-host reads/writes, alert dismissals, closing/merging/pushing #333, other
+  dependency work, PR-B implementation, obsolete-test retirement.
+- Branch audits do not close GitHub alerts: re-query #181–#184 only after a patched master, never dismiss instead.
+- Deploy restarts the simulation: verify the deployed artifact carries the zero weights before claiming containment.
 
 ## Dated obligations
 
-- **`deepmerge` #178** (dismissed `tolerable_risk`): re-check at the next Expo SDK move or by **2026-12-01**.
-- Nothing else is dated.
+- **node-forge #181–#184:** patched on this branch; must reach master by **2026-11-24** (SLA).
+- **`deepmerge` alert #178** (dismissed `tolerable_risk`, state verified 2026-11-11): re-check at the next Expo SDK move
+  or by **2026-12-01**. (Not to be confused with the closed Dependabot *PR* #178.)
+- **#329 Expo SDK drift:** stays open, out of scope.
 
-## Carry-forward work
+## Carry-forward (new this sprint)
 
-- **From Sprint 138's final review:** F2 (accepted consequence), F3 (`GET /offers/:id` still answers `status: 'active'`
-  for an expired offer), F4, F8, F9 — unchanged by this sprint (see the Sprint 138 archive).
-- **Logged follow-ups from this sprint's gates (spec-forbidden or out of scope):** a pg NUMERIC type parser; a
-  versioned effective-params cache key; a shared timed-query wrapper / `logger.query()` repair; a `match_cancelled`
-  consumer instead of the nightly sweep; one offer-past-expiry SQL fragment (`NOW()` vs `clock_timestamp()`); typed API
-  wrappers or a `.data.data` gate (BUG-098); the three-way hook push-harness test refactor.
-- **Earlier carry-forward unchanged:** Sprint 137 `/simplify` deferrals; BUG-087 runtime log proof; BUG-073 tabled;
-  PR C exemption re-check (registry empty); PR D's D8 (host persona); per-community health-quality weight (needs an
-  ADR number); the Sprint 135 recount note.
-- No demo backfill, demo-host read or optional expired-holds log read was run or authorized.
+- `node scripts/generate-service-context.js` rewrites all ten `services/*/.claude/README.md` with pre-existing drift
+  (e.g. auth's dependent count, `bull-queue`, dates). Not caused or fixed by PR A; reverted locally.
+- Frontend callers still send the now-ignored `user_id` to `/communities/my/communities` (harmless; optional cleanup).
+- BUG-098's class-wide fix (typed `api.ts` wrappers or a `.data.data` gate) remains a spec-forbidden follow-up.
+- Sprint 101's request-detail withdraw test (`apps/frontend/tests/tdd/sprint-101-request-detail-action.test.tsx`) is green
+  in TDD but unpromoted; it is the replacement coverage cited by the sprint-39 S108 conversion.
+- `GET /schemas/:type` reads `req.query.user_id` for its A/B bucket (`services/request-service/src/routes/schemas.ts:46`)
+  — same client-asserted-identity pattern as BUG-100, lower impact (bucket choice only). Not in PR A scope; candidate bug.
+- `tests/fixtures/index.ts:223,270` (`UserFactory`) signs JWTs with `communityMemberships` — the wrong field per CLAUDE.md;
+  any test relying on it sees no memberships. Fix before PR B leans on the factory.
+- Simulation nominate/ratify: the durable fix is workflow-level (pass a real user id, behind an enable flag) once the
+  ratification-quorum decision lands; weight 0 is containment only (ADR-103).
+- Reuse follow-ups from /simplify (all outside PR A's diff): shared frontend Layout mock/`beforeEach`, shared request SQL
+  `norm`/AUDIENCE/EXPIRY test helpers, community db-mock boilerplate, integration bearer helpers, a shared status-filter
+  parser.
+- Deferred minors from /code-review: preferences add-interest `isNew:false` is a silent no-op when local state is stale;
+  sprint-38-trust-profile's pre-existing "Trust tier computation"/"Completion rate display" cases test local copies, not
+  production code (now in the blocking tier); `MessagingContext` `setConversations(response.data)` has no array fallback.
+  From the final process review of `sprint-140-response-boundary.test.ts`:
+  - the token-refresh control is a source pin (it could be driven through a stub 401 adapter);
+  - only the first `serve()` call's URLs are asserted;
+  - `global.fetch` is never restored (harmless, since each Jest file gets its own environment).
+- Earlier carry-forward (Sprint 138/139 items, BUG-087/073, PR C/D items, per-community health weight) is unchanged —
+  see the Sprint 139 archive.
 
 ## Standing rules
 
-See `CLAUDE.md` and the Sprint 138 archive's *Standing rules*. Branch off `origin/master`; never force-push or
-direct-push master; one merge at a time; no docs-only master push; ask before any demo-host operation, merge, ADR
-number, dismissal or dependency work; stop after PR creation. Check each CI run's conclusion and job count, not only
-`gh pr checks`.
+See `CLAUDE.md` and the Sprint 138 archive's *Standing rules*. One editor on the shared Windows tree; clean handoffs;
+no docs-only master push. Deliberate promotions use exact `git mv`, never a direct broad promoter run.

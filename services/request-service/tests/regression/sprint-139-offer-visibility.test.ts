@@ -43,8 +43,11 @@ const AUDIENCE =
 const EXPIRY =
   "(o.status <> 'active' OR o.offerer_id = $2 OR (o.expired IS NOT TRUE AND (o.expires_at IS NULL OR o.expires_at > NOW())))";
 
-/** The complete WHERE clause up to the first optional filter or ORDER BY. */
-const EXPECTED_WHERE = `WHERE o.status = $1 AND ${AUDIENCE} AND ${EXPIRY}`;
+/**
+ * The complete WHERE clause up to the first optional filter or ORDER BY. Sprint 140 (BUG-099) made the status
+ * predicate null-aware so `status=all` can bind NULL; every status this file asks for still binds a value.
+ */
+const EXPECTED_WHERE = `WHERE ($1::text IS NULL OR o.status = $1) AND ${AUDIENCE} AND ${EXPIRY}`;
 
 async function app() {
   const { default: offers } = await import('../../src/routes/offers');

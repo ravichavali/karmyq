@@ -99,7 +99,10 @@ describe('UnifiedFeed', () => {
     render(<UnifiedFeed />)
     await screen.findByText('Plumbing help')
 
-    const offerButtons = screen.getAllByRole('button', { name: /offer to help/i })
+    // Sprint 103 made the label type-aware (src/lib/requestActionCopy.ts): these fixtures are `service` asks, so the
+    // button reads "Offer service" (other types keep "Offer to Help"). Sprint 140 caught the query up.
+    const offerButtons = screen.getAllByRole('button', { name: /^offer service$/i })
+    expect(offerButtons).toHaveLength(2)
     fireEvent.click(offerButtons[0])
 
     await waitFor(() => expect(createMatch).toHaveBeenCalledWith({ request_id: 'r1', responder_id: 'me' }))

@@ -1,0 +1,105 @@
+# ADR-103: Listings Trust the Authenticated Caller, "All" Is an Explicit Status, and a Security Fix Must Not Switch On Dormant Simulation
+
+**Date**: 2026-11-10
+**Status**: Proposed (Sprint 140 PR A; becomes Implemented when deployed)
+**Sprint**: 140 — PR A (BUG-100, BUG-099; BUG-098 is frontend-only and recorded for completeness)
+**Deciders**: Maintainer (scope, the zero-weight choice, and this ADR number, allocated 2026-11-10); Claude (implementation)
+**Related**: [ADR-064](ADR-064-authorize-from-authenticated-identity.md) (identity from the verified JWT, never the body),
+[ADR-102](ADR-102-live-membership-authorization.md) (authorization re-derives membership live),
+[ADR-055](ADR-055-trust-governance-architecture.md) (governance nomination and ratification),
+[ADR-074](ADR-074-canonical-error-response-contract.md) (response envelope), BUG-097 (Sprint 139 offer expiry scoping)
+
+## Context
+
+Sprint 140 PR A changes three services at once, which `CLAUDE.md` says needs an ADR.
+
+1. **community-service — BUG-100.** `GET /communities/my/communities` required a `user_id` query parameter and bound
+   it into the membership SQL. The router sits behind `authMiddleware`, but the handler never compared the parameter
+   with the caller. So any signed-in user could list any other user's communities and roles by passing that user's
+   id. ADR-064 already said identity comes from the verified JWT. This route was missed because the identity was in
+   the query string, not the body.
+2. **request-service — BUG-099.** On the offers page, "All" had an empty option value. The page therefore sent no
+   status, and `GET /offers` defaults an omitted status to `active`, so "All" showed only active offers. The route's
+   SQL also opened with `WHERE o.status = $1`, with the viewer at `$2` and optional filters numbered from `$3`.
+   Sprint 139 (BUG-097) had just pinned that exact clause and its audience and expiry conjunctions.
+3. **simulation-service — a side effect of fixing BUG-100.** The governance nominate and ratify workflows call
+   `getCommunities()` without a user id. The old route answered that call 400. The workflows caught the error and
+   found no community, so simulated nominations and ratifications never actually ran. Fixing BUG-100 removes that
+   accidental kill switch. Every deploy restarts the simulation under pm2, so the next deploy would have started
+   simulated nominations and ratifications on the demo. How ratification quorum should work in practice
+   ([ADR-055](ADR-055-trust-governance-architecture.md) sets the design) is an open maintainer question, and the
+   Sprint 140 spec defers it.
+
+## Decision
+
+### 1. A "my" listing derives its subject from the JWT and ignores any client-supplied identity
+
+`GET /communities/my/communities` uses `req.user.userId` and nothing else.
+
+- A legacy `user_id` parameter is **ignored**, whether it is omitted, the caller's own id or someone else's id.
+  It is neither validated nor compared, and a mismatch is not answered 403.
+- A token without a user id is answered **401 before any query runs**.
+- The SQL, the active-membership and active-community filters, the ordering and the
+  `{ communities, count, total }` envelope do not change.
+
+Ignoring the parameter, rather than rejecting a mismatch, keeps every existing caller working: web, simulation, and
+any old client still send their own id. It also means the parameter has no remaining authority anyone could rely on.
+
+### 2. "All" is the explicit value `all`, implemented as a null-aware status predicate
+
+The offers page sends `status=all`. In `GET /offers`, exactly `all` binds `NULL` behind:
+
+```sql
+WHERE ($1::text IS NULL OR o.status = $1)
+  AND <readable audience on $2>
+  AND <Sprint 139 owner/status/expiry OR on $2>
+```
+
+- `$1` stays the status and `$2` the viewer for every request. `community_id`, `type`, `limit` and `offset` keep
+  their numbering from `$3`. No SQL fragment is dropped and no parameter is renumbered.
+- An omitted status still means `active`, so simulation, mobile and every other client are unchanged. Every other
+  value, including unknown values and `ALL`, keeps plain equality.
+- The audience and expiry predicates remain mandatory outer `AND`s. `all` cannot show an outsider's row or another
+  member's expired active offer, and it does not change whether an offer may be held (visibility is not eligibility).
+
+### 3. Containment: a security fix must not activate dormant behaviour without its own decision
+
+In every simulation profile, `nominateMember` and `ratifyNomination` now have **weight 0**. The `avgPerSession`
+values stay, so the actions can be switched back on later. `selectWorkflow` only admits truthy weights, so neither
+action can be selected. The workflows and the production governance routes are unchanged. Reactivating either
+action needs a separate maintainer and product decision, taken after the ratification-quorum question is settled.
+
+The general rule is this. When a correctness or security fix also removes a failure that some other component
+depended on, without anyone intending that, find every caller the fix affects and contain any newly enabled
+behaviour in the same PR. Do not let it ship as a silent side effect.
+
+## Consequences
+
+- **Privacy:** listing another user's memberships is closed. The real two-user test is
+  `tests/integration/sprint-140-community-membership-identity.integration.test.ts`. The route-level test is
+  `services/community-service/tests/regression/sprint-140-my-communities-identity.test.ts`.
+- **Offers:** "All" now lists active, matched and withdrawn offers together, under the unchanged audience and expiry
+  rules. Two existing SQL-pinning regressions (Sprint 138 and 139) now expect the null-aware predicate. The proofs are
+  `services/request-service/tests/regression/sprint-140-offer-status-all.test.ts` and
+  `tests/integration/sprint-140-offer-status-all.integration.test.ts`.
+- **Simulation:** after deploy, the demo keeps not producing simulated nominations or ratifications, which is what
+  it already did by accident. `services/simulation-service/tests/regression/sprint-140-governance-actions-disabled.test.ts`
+  sweeps the real selector. Whether the deployed artifact carries zero weights must be checked at deploy time.
+- **Callers:** the frontend still sends `user_id`. It is now harmless, and removing it from `api.ts` is optional
+  cleanup, not required.
+- **Not covered here:** BUG-098 (frontend reads that unwrapped the response twice) involves no architectural decision.
+  It is fixed in the same PR and recorded in `docs/BUGS.md`.
+
+## Alternatives Considered
+
+- **Answer 403 when `user_id` differs from the caller.** Rejected. It keeps a meaningless parameter "load-bearing",
+  breaks no attack the ignore rule does not already break, and would fail clients that pass a stale id.
+- **Remove the `user_id` parameter from every client in the same PR.** Deferred. The server fix is complete without
+  it, and the client cleanup touches many surfaces for no security gain.
+- **Implement "All" by omitting the status fragment and renumbering the parameters.** Rejected. It changes `$2`, the
+  viewer that the audience and expiry predicates key on. Sprint 139 had just pinned those, so the renumbering would
+  risk exactly the regression they guard against.
+- **Implement "All" by fetching each status from the client and merging the results.** Rejected. It triples the
+  requests and duplicates pagination logic.
+- **Delete or environment-gate the nominate/ratify workflows.** Rejected for now. Zero weights are the smallest
+  reversible change. They keep the code ready for the quorum decision and need no new configuration.

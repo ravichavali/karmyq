@@ -98,8 +98,11 @@ export const COMMUNITY_BUILDER: UserProfile = {
     joinActivity: { weight: 0.10, avgPerSession: 0.5 },
     voteOnGovernance: { weight: 0.12, avgPerSession: 0.4 },
     callDibs: { weight: 0.05, avgPerSession: 0.1 },
-    nominateMember: { weight: 0.02, avgPerSession: 0.05 },
-    ratifyNomination: { weight: 0.05, avgPerSession: 0.1 },
+    // Sprint 140: disabled (weight 0) pending the ratification-quorum decision. Before BUG-100's
+    // fix the workflows' id-less community lookup 400'd, so they never ran; the fix would switch
+    // them on at the next pm2 restart. Reactivation is a separate maintainer/product decision.
+    nominateMember: { weight: 0, avgPerSession: 0.05 },
+    ratifyNomination: { weight: 0, avgPerSession: 0.1 },
     // S108: stewards suggest members as helpers, generating admin_proposed matches for the demo.
     adminProposeHelper: { weight: 0.15, avgPerSession: 0.4 },
   },
@@ -119,7 +122,7 @@ export const SOCIAL_USER: UserProfile = {
     registerAsProvider: { weight: 0.02, avgPerSession: 0.01 },
     joinActivity: { weight: 0.20, avgPerSession: 1 },
     voteOnGovernance: { weight: 0.10, avgPerSession: 0.3 },
-    ratifyNomination: { weight: 0.03, avgPerSession: 0.05 },
+    ratifyNomination: { weight: 0, avgPerSession: 0.05 }, // Sprint 140: disabled, see COMMUNITY_BUILDER
   },
   sessionDuration: { min: 15, max: 45, unit: 'minutes' },
   responseTime: { min: 2, max: 15, unit: 'minutes' }

@@ -95,6 +95,16 @@ requests, and the message someone wrote when asking to join, are visible to admi
 can approve them) and to the person who asked, including after the request is approved. Karmyq checks your role when you open the page, so a
 member who was just promoted or demoted sees the right view straight away.
 
+**Your "my communities" list is yours alone.** It always shows *your* memberships and roles, taken from
+your sign-in, and nobody — admins included — can load another person's list. (Before Sprint 140, a signed-in
+user could load another member's list, roles included, by naming them; that is closed.) Other surfaces still
+show what they always did: for example, the relationship context shows the names of the communities the people
+around you belong to, without their roles.
+
+**Trust questions.** If you are an admin of any community, the **Admin → Trust Questions** page lists the
+questionnaire's questions and their choices. Before Sprint 140 it showed an error instead of the questions;
+that is fixed.
+
 ---
 
 ## Community Trust Score

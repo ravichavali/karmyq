@@ -10,7 +10,9 @@ All accounts with `@test.karmyq.com` email addresses are synthetic. Their activi
 
 ## How Activity Is Generated
 
-The simulation engine runs 10 concurrent workers, each independently acting as a simulated community member. Workers create help requests, offer assistance, complete matches, call dibs on requests, and participate in community governance — all through the same APIs a real user would call. They do not currently submit interaction feedback, which is why quality signals read as neutral (see **Social Karma** below).
+The simulation engine runs 10 concurrent workers, each independently acting as a simulated community member. Workers create help requests, offer assistance, complete matches, call dibs on requests, and vote on community governance proposals — all through the same APIs a real user would call. They do not currently submit interaction feedback, which is why quality signals read as neutral (see **Social Karma** below).
+
+Simulated members do **not** nominate or ratify moderators. Those two actions are switched off (weight 0) in every simulated profile since Sprint 140, pending a decision about how ratification quorum should work ([ADR-103](../adr/ADR-103-authenticated-listings-and-simulation-containment.md)). Before then they were nominally on but never actually ran. Real members can still nominate and ratify; only the simulation leaves them alone.
 
 This means the trust graph, karma scores, and match history you see are the result of real platform behavior, not seeded test data.
 

@@ -1,6 +1,6 @@
 {
   "name": "karmyq",
-  "version": "11.112.0",
+  "version": "11.113.0",
   "license": "AGPL-3.0-or-later",
   "private": true,
   "description": "Community Mutual Aid Platform - Privacy-First Community Health Platform",
@@ -72,7 +72,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "@xmldom/xmldom": "^0.8.15",
-    "node-forge": ">=1.4.2",
+    "node-forge": ">=1.4.3",
     "fast-uri": ">=4.2.3",
     "qs": ">=6.16.1",
     "ip-address": ">=10.7.4",

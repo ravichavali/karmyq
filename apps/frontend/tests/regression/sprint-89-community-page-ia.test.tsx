@@ -126,6 +126,7 @@ describe('resolveCommunityTab (deep-link preservation)', () => {
     expect(resolveCommunityTab('connected')).toBe('connected')
     expect(resolveCommunityTab('stewardship')).toBe('stewardship')
     expect(resolveCommunityTab('activities')).toBe('activities')
+    expect(resolveCommunityTab('inventory')).toBe('inventory')
   })
 
   it('falls back to Home for unknown tabs', () => {
@@ -134,7 +135,8 @@ describe('resolveCommunityTab (deep-link preservation)', () => {
   })
 
   it('exposes exactly the canonical tab set', () => {
-    expect(VALID_TABS).toEqual(['home', 'people', 'connected', 'stewardship', 'activities'])
+    // Sprint 132 PR B added the members-only Shared things tab (`inventory`, ADR-099); Sprint 140 caught this up.
+    expect(VALID_TABS).toEqual(['home', 'people', 'connected', 'stewardship', 'activities', 'inventory'])
   })
 
   it('preserves the Stewardship sub-surface a legacy alias used to open', () => {

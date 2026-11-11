@@ -2115,6 +2115,17 @@ needs status 0; a failed, missing or unbuildable tier is a warning, never a bloc
 `tests/regression/sprint-139-prepush-tdd-report.test.ts` (real installer, real hook, real push into a temp bare repo),
 `tests/regression/sprint-139-tdd-boundaries.test.ts` (real Turbo graph and a clean-output temp monorepo). A real root
 `npm run test:tdd` now runs 23 tasks and exits 1 on pre-existing WIP reds (reported, not fixed).
+**Sprint 140 PR A (2026-11-10):** the baseline was 31 failing suites / 148 failed tests. Eleven clear unit/UI suites were
+repaired to their current contracts and promoted with exact `git mv`: eight frontend suites, request
+`sprint-125-provider-reach-gate`, and root `sprint-36-commitment-depth` and `preferredProviderNotification`. The other
+**twenty stay red and visible** for a separately planned PR B, because they need a CI-tier design or a rewrite/retire
+decision. They are: request (8) `sprint-101-actionability-state`, `sprint-107-offered-awaiting-truth`,
+`sprint-89-community-pulse`, `sprint-100-pulse-truth`, `sprint-85-unified-feed`, `sprint-97-community-pulse`,
+`sprint-108-admin-proposed-decision`, `admin-schemas-api`; community (2) `sprint-100-split-reexecute`,
+`sprint-67-governance`; social-graph (4) `sprint-66-trust-graph-visualization`, `sprint-67-ego-network`,
+`sprint-68-halflife`, `sprint-100-connection-reconcile`; root (6) `sprint-42-dibs`, `rateCards`,
+`sprint-43-feed-ranking`, `preSelectProvider`, `trust-evolution-flow`, `sprint-117-demo-reset.integration.test`
+(which stays at its exact path, where CI runs it last). The WIP tier is **not** green.
 
 ---
 
@@ -2661,7 +2672,7 @@ unverified rest). Holds still refuse an expired offer. Tests:
 
 ---
 
-## BUG-098 · [2026-11-10] · open
+## BUG-098 · [2026-11-10] · fixed on branch (Sprint 140 PR A, v11.113.0 provisional; not yet deployed)
 
 **Several frontend reads still assume a double-wrapped response.** The API client's response interceptor
 (`apps/frontend/src/lib/api.ts:81-91`) unwraps the `{ success, data }` envelope, so `response.data` IS the payload.
@@ -2679,9 +2690,18 @@ Fix direction (not decided; from Sprint 139's `/simplify` altitude pass): type t
 unwrapped payloads so `tsc` rejects a double unwrap, or add a regression gate on `.data.data` — either fixes the class
 without touching the interceptor.
 
+**Fixed on branch (Sprint 140 PR A).** Every listed site was traced to its endpoint. Five consumers were confirmed
+defects and now read `response.data` once: admin trust-questions, preferences (load and add-interest; the unwrapped
+`data.success` guard is gone), `MessagingContext` (four reads), `InlineChat` and `FloatingChat`. Three are correct and
+unchanged, because their client bypasses the interceptor: `invite/[code].tsx:50` (raw `axios.get`), the `api.ts`
+refresh fallback (raw `axios.post`) and `useMessaging.ts` (raw `fetch`). The interceptor is unchanged, and the class-wide
+typed-wrapper or gate fix stays a carry-forward (the spec forbids it in PR A). Tests:
+`apps/frontend/tests/regression/sprint-140-{trust-question,preferences,messaging}-responses.test.tsx`; the messaging file
+also pins the three raw-client controls.
+
 ---
 
-## BUG-099 · [2026-11-10] · open
+## BUG-099 · [2026-11-10] · fixed on branch (Sprint 140 PR A, v11.113.0 provisional; not yet deployed)
 
 **The offers page's "All" status filter shows only active offers.** `apps/frontend/src/pages/offers/index.tsx`'s Status
 `<select>` has an "All" option with `value=""`, which sends no `status` parameter, and `GET /offers` defaults a missing
@@ -2689,9 +2709,16 @@ status to `active` (`services/request-service/src/routes/offers.ts:27`). So "All
 offers. Pre-existing; found by Sprint 139's Task 5 process review. Fix direction (not decided): give the route an
 explicit "all statuses" value, or drop the option.
 
+**Fixed on branch (Sprint 140 PR A, ADR-103 §2).** The option sends `status=all`. The route binds NULL for exactly `all`
+behind `($1::text IS NULL OR o.status = $1)`, so `$1`/`$2` and the optional numbering are unchanged. Omitted still means
+`active`, and the audience and Sprint 139 expiry predicates still apply. Tests:
+`services/request-service/tests/regression/sprint-140-offer-status-all.test.ts`,
+`apps/frontend/tests/regression/sprint-140-offers-all-filter.test.tsx`, and root
+`tests/integration/sprint-140-offer-status-all.integration.test.ts` (CI-only; pending until PR A's CI run).
+
 ---
 
-## BUG-100 · [2026-11-10] · open · **security (proposed severity: MEDIUM)**
+## BUG-100 · [2026-11-10] · fixed on branch (Sprint 140 PR A, v11.113.0 provisional; not yet deployed) · **security (proposed severity: MEDIUM)**
 
 **`GET /communities/my/communities` trusts a query-string `user_id`.** The route
 (`services/community-service/src/routes/communities.ts:266-288`) reads `user_id` from `req.query` and lists that
@@ -2701,5 +2728,14 @@ close elsewhere ("the authenticated identity always comes from the verified JWT"
 sites already pass the caller's own id; Sprint 139's `/offers/new` picker adds one more of the same shape and does not
 widen it. Found by Sprint 139's `/security-review`. Fix direction (not decided): derive the user from the JWT and ignore
 or reject a mismatching `user_id`, with a cross-user denial test like the reputation boundary suite's.
+
+**Fixed on branch (Sprint 140 PR A, ADR-103 §1, §3).** The route reads `req.user.userId` only. A legacy `user_id` is
+ignored whether it is omitted, the caller's own id or a foreign id, and a token without a user id gets 401 before any
+query. Fixing the route would have switched on the simulation's id-less nominate/ratify workflows at the next deploy,
+so both actions now have weight 0 in every profile until the ratification-quorum decision is made. Tests:
+`services/community-service/tests/regression/sprint-140-my-communities-identity.test.ts`,
+`services/simulation-service/tests/regression/sprint-140-governance-actions-disabled.test.ts`, and root
+`tests/integration/sprint-140-community-membership-identity.integration.test.ts` (two real users; CI-only, pending
+until PR A's CI run).
 
 ---

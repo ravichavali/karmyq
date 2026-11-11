@@ -26,6 +26,10 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const { community_id, status = 'active', type, limit = 50, offset = 0 } = req.query;
     const viewerId = (req as any).user?.userId ?? null;
+    // BUG-099 (Sprint 140): exactly `all` lists every readable status. It binds NULL behind a null-aware
+    // predicate, so $1 stays the status and $2 the viewer for every request and no optional parameter is
+    // renumbered. An omitted status still means `active`; any other value keeps plain equality.
+    const statusParam = status === 'all' ? null : status;
 
     // BUG-097 (Sprint 139): expiry hides an ACTIVE offer from other members only. Its owner still
     // sees it, and a non-active offer (matched, withdrawn, ...) stays in the history it belongs to.
@@ -41,7 +45,7 @@ router.get('/', async (req: Request, res: Response) => {
       FROM requests.help_offers o
       LEFT JOIN auth.users u ON o.offerer_id = u.id
       LEFT JOIN communities.communities c ON o.community_id = c.id
-      WHERE o.status = $1
+      WHERE ($1::text IS NULL OR o.status = $1)
         AND ${offerReadableSql('o', '$2')}
         AND (
           o.status <> 'active'
@@ -51,7 +55,7 @@ router.get('/', async (req: Request, res: Response) => {
     `;
 
     // A community_id filter narrows within the boundary; it never widens it.
-    const params: any[] = [status, viewerId];
+    const params: any[] = [statusParam, viewerId];
     let paramCount = 3;
 
     if (community_id) {

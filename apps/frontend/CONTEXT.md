@@ -8,6 +8,43 @@ Next.js 16 web application (Pages Router) consuming all Karmyq backend services.
 
 ---
 
+## Sprint 140 — offers "All" filter (2026-11-10, BUG-099)
+
+The offers page's **All** status option had an empty value, so the page sent no `status` and the request service's
+default (`active`) applied: All showed only active offers. The option's value is now `all`, which the API treats as
+"every readable status"; the audience and expiry rules still apply server-side. **Active** stays the default
+selection, and the category filter combines with All. Test: `tests/regression/sprint-140-offers-all-filter.test.tsx`.
+
+### BUG-098 — five consumers read the intercepted response once
+
+The API client's interceptor (`src/lib/api.ts`) already replaces `response.data` with the envelope's `data`. These
+consumers read `response.data.data` (undefined) and now read `response.data`:
+
+| Consumer | Now reads | Visible effect before the fix |
+|---|---|---|
+| `pages/admin/trust-questions/index.tsx` | `res.data.questions` | error banner instead of the questions |
+| `pages/settings/preferences.tsx` (load) | `.data.preferences`, `.data.interests`; the unwrapped `data.success` guard is gone | saved preferences/interests never loaded (all-subscribed defaults shown) |
+| `pages/settings/preferences.tsx` (add interest) | `.data.isNew`, `.data.id` | a new interest never highlighted |
+| `contexts/MessagingContext.tsx` | conversation list, conversation, messages, created conversation from `.data` | lists/messages lost (`undefined`) |
+| `components/InlineChat.tsx` / `components/FloatingChat.tsx` | `.data.conversation_id` / `.data` | no conversation id / empty list and unread total |
+
+The interceptor is unchanged. Three lookalikes are correct and stay as they are, because their client bypasses the
+interceptor: the invite page's `validateInvitationCode` (raw `axios.get`), the token-refresh fallback in `api.ts` (raw
+`axios.post`), and `hooks/useMessaging.ts`'s REST fallback (raw `fetch` → `data.data.messages`). `useTrustQuestions`
+was already correct; only its test mock was double-wrapped. Tests: `tests/regression/sprint-140-trust-question-responses.test.tsx`,
+`sprint-140-preferences-responses.test.tsx`, `sprint-140-messaging-responses.test.tsx` (which also pins the three
+raw-client controls).
+
+### Eight WIP suites repaired and promoted
+
+`sprint-40-admin-connectors`, `useTrustQuestions`, `sprint-39-provider-ux`, `sprint-85-unified-feed`, `sprint-38-trust-profile`,
+`sprint-89-community-page-ia`, `sprint-102-community-memory-copy` and `trust-model` moved from `tests/tdd/` to
+`tests/regression/` with an exact `git mv` after each went green. Every repair follows a later deliberate change that
+is cited in the test: S106/S107/S108 CommitmentsTab bands, 7abff6c1 provider availability from context, f814a860
+mode-independent FAB/bell, Sprint 120 PR C SpeedDialFab, ADR-082 trust-card non-disclosure, Sprint 103 type-aware
+offer label, Sprint 111 BelongingGraph, Sprint 132 `inventory` tab, and 52db2fc9 DB-driven questionnaire (the test now
+parses the seed migration). No case was removed; three were added.
+
 ## Sprint 139 — offers page repair and honest expiry (2026-11-09, BUG-097)
 
 `src/pages/offers/index.tsx` read `response.data.data`, but the API client's response interceptor
@@ -521,7 +558,7 @@ more open requests** and only on an unfiltered widened feed. Test:
 - Fixes repeated `Match must be in proposed state to accept` 400s caused by clicking stale rejected match decisions.
 
 ### Tests updated
-- `tests/tdd/sprint-85-unified-feed.test.tsx`
+- `tests/regression/sprint-85-unified-feed.test.tsx`
   - new case: accepting one decision refetches and removes sibling decisions rejected by the server.
 
 ---

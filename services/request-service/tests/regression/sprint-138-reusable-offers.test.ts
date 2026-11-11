@@ -207,7 +207,8 @@ describe('C: GET /offers hides expired standing offers', () => {
   // expiry fragments still occur inside the new OR, so `toContain` on them would stay green whatever
   // the grouping is; assert the whole WHERE clause instead (status AND audience AND scoped expiry).
   const tight = (s: string) => s.replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
-  const EXPECTED_WHERE = "WHERE o.status = $1 AND (o.offerer_id = $2 OR EXISTS (SELECT 1 FROM communities.members cm " +
+  // Sprint 140 (BUG-099): the status predicate is null-aware so `status=all` can bind NULL.
+  const EXPECTED_WHERE = "WHERE ($1::text IS NULL OR o.status = $1) AND (o.offerer_id = $2 OR EXISTS (SELECT 1 FROM communities.members cm " +
     "WHERE cm.community_id = o.community_id AND cm.user_id = $2 AND cm.status = 'active')) AND " +
     "(o.status <> 'active' OR o.offerer_id = $2 OR (o.expired IS NOT TRUE AND (o.expires_at IS NULL OR o.expires_at > NOW())))";
 

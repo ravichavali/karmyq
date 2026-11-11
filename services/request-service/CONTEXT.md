@@ -7,6 +7,13 @@
 
 ## Recent Changes
 
+- **2026-11-10 (Sprint 140, BUG-099 fixed on branch)**: `GET /offers?status=all` lists every readable status. The
+  offers page's "All" option used to send no status, which the route defaulted to `active`. The page now sends `all`.
+  The route binds NULL for exactly `all` behind `($1::text IS NULL OR o.status = $1)`, so the bind positions
+  (`$1` status, `$2` viewer, optional filters from `$3`) do not move. The audience and the Sprint 139 expiry OR stay
+  mandatory, and an omitted status is still `active`. The Sprint 138/139 SQL-pinning regressions now expect the
+  null-aware predicate. Tests: `tests/regression/sprint-140-offer-status-all.test.ts`, root
+  `tests/integration/sprint-140-offer-status-all.integration.test.ts`.
 - **2026-11-09 (Sprint 139, BUG-097)**: `GET /offers` scopes expiry by status and ownership:
   `AND (o.status <> 'active' OR o.offerer_id = $2 OR (o.expired IS NOT TRUE AND (o.expires_at IS NULL OR
   o.expires_at > NOW())))`, inside the unchanged readable boundary. An owner sees their own expired offer; matched /
@@ -1670,7 +1677,15 @@ Toggle request urgency between `urgent` and `medium` (Sprint 36). Admin only.
 Get the help offers the caller may read (their own, or their live communities' offers), with optional filters.
 
 **Query Parameters:** `community_id` (narrows within the boundary, never widens it), `status` (default
-`active`), `type`, `limit`, `offset`.
+`active`; the exact value `all` lists every status), `type`, `limit`, `offset`.
+
+**`status=all` (Sprint 140, BUG-099):** the status predicate is `($1::text IS NULL OR o.status = $1)`, and exactly
+`all` binds NULL. `$1` stays the status and `$2` the viewer for every request, and `community_id`/`type`/`limit`/
+`offset` keep numbering from `$3`. Omitted still means `active`; every other value (unknown ones and `ALL`
+included) keeps plain equality. The readable boundary and the expiry rule below are unchanged outer `AND`s, so
+`all` never shows an outsider's row or another member's expired active offer. Tests:
+`tests/regression/sprint-140-offer-status-all.test.ts` (SQL/params) and root
+`tests/integration/sprint-140-offer-status-all.integration.test.ts` (real rows).
 
 **Expiry hides an ACTIVE offer from other members only (Sprint 139, BUG-097; narrows Sprint 138's BUG-096):** a
 flagged or elapsed offer is left out of the list only when it is `active` AND the caller is not its offerer. Its owner

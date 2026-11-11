@@ -284,6 +284,10 @@
           "href": "/docs/concepts/adr-102-live-membership-authorization"
         },
         {
+          "label": "Listings Trust the Authenticated Caller, \"All\" Is an Explicit Status, and a Secu",
+          "href": "/docs/concepts/adr-103-authenticated-listings-and-simulation-containment"
+        },
+        {
           "label": "Monorepo with Turborepo",
           "href": "/docs/concepts/adr-013-monorepo-turborepo"
         },

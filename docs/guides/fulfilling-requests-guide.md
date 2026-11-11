@@ -43,6 +43,13 @@ Members of that community see it, and so do you. Nobody outside the community ca
 leave the community, you still see your own offer, but its members are the only other people who can
 find it. Only you can change or withdraw your offer.
 
+**Filtering the offers list.** The **Status** filter starts on **Active**: offers someone can still take up.
+Choose **Matched** or **Withdrawn** to see that history, or **All** to see every status together. All shows
+exactly what the other filters would show combined. It never shows an offer from a community you are not in,
+and it never shows another member's expired *active* offer (your own stay visible to you, marked *Expired*).
+Matched and withdrawn offers stay in the history even after they expire, with an "Offer expired" note. You can
+combine any status with a **Category**.
+
 ---
 
 ## Opening a Request

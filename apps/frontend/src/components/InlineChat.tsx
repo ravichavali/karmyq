@@ -58,7 +58,8 @@ export default function InlineChat({
   const fetchConversation = async () => {
     try {
       const response = await messagingService.getMatchConversation(matchId)
-      setConversationId(response.data.data.conversation_id)
+      // The API client's interceptor already unwrapped the envelope (BUG-098).
+      setConversationId(response.data.conversation_id)
       // Messages will be loaded by the hook after conversationId is set
     } catch (error) {
       console.error('Error fetching conversation', { error: error instanceof Error ? error.message : String(error) })

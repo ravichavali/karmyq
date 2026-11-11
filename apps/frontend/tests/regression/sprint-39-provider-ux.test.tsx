@@ -10,6 +10,14 @@
  * - Accept button calls requestService.acceptMatch with correct args
  * - Decline button calls requestService.rejectMatch with correct args
  * - Clicking requester name opens TrustCard
+ *
+ * Sprint 140 repair — three later, deliberate changes made parts of this file stale:
+ * - f814a860 ("only dashboard cards change"): the member/provider toggle no longer hides the create action or the
+ *   provider notification bell, so the provider-mode-hides cases now assert they stay visible.
+ * - Sprint 120 PR C: SpeedDialFab has no isProviderMode prop and only the browse/helping/asks tabs exist.
+ * - Sprint 106/107/108: CommitmentsTab also loads the decision band and the offered-awaiting band, and a
+ *   self-offered PROPOSED match is no longer a helping card (BUG-022): it is a link in "Offers awaiting requester",
+ *   and withdrawing happens on the request page (covered by sprint-101-request-detail-action).
  */
 
 import React from 'react';
@@ -25,6 +33,8 @@ jest.mock('../../src/lib/api', () => ({
     acceptMatch: jest.fn(),
     rejectMatch: jest.fn(),
     completeMatch: jest.fn(),
+    getCuratedRequests: jest.fn(() => Promise.resolve({ data: { items: [] } })),
+    getOfferedAwaiting: jest.fn(() => Promise.resolve({ data: { count: 0, items: [] } })),
   },
 }));
 
@@ -68,40 +78,31 @@ jest.mock('../../src/utils/commitmentSort', () => ({
 const SpeedDialFab = require('../../src/components/SpeedDialFab').default;
 
 describe('SpeedDialFab', () => {
-  it('returns null in provider mode', () => {
+  it('is not hidden by provider mode any more: it takes no mode at all and renders on browse', () => {
     const { container } = render(
-      <SpeedDialFab
-        activeTab="browse"
-        onGetHelp={() => {}}
-        onGetService={() => {}}
-        isProviderMode={true}
-      />
+      <SpeedDialFab activeTab="browse" onGetHelp={() => {}} onGetService={() => {}} />
     );
-    expect(container.firstChild).toBeNull();
+    expect(container.firstChild).not.toBeNull();
+    // One trigger per layout: the docked mobile bar and the md+ corner FAB.
+    expect(screen.getAllByRole('button', { name: 'Ask for help or a service' })).toHaveLength(2);
   });
 
-  it('renders + button in member mode on browse tab', () => {
-    render(
-      <SpeedDialFab
-        activeTab="browse"
-        onGetHelp={() => {}}
-        onGetService={() => {}}
-        isProviderMode={false}
-      />
-    );
-    expect(screen.getByRole('button', { name: /open actions/i })).toBeTruthy();
+  it('on the browse tab the trigger expands to Get Help and Get Service', () => {
+    const onGetHelp = jest.fn();
+    const onGetService = jest.fn();
+    render(<SpeedDialFab activeTab="browse" onGetHelp={onGetHelp} onGetService={onGetService} />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ask for help or a service' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /Get Service/ })[0]);
+    expect(onGetService).toHaveBeenCalledTimes(1);
+    expect(onGetHelp).not.toHaveBeenCalled();
   });
 
-  it('returns null for profile tab regardless of mode', () => {
-    const { container } = render(
-      <SpeedDialFab
-        activeTab="profile"
-        onGetHelp={() => {}}
-        onGetService={() => {}}
-        isProviderMode={false}
-      />
-    );
-    expect(container.firstChild).toBeNull();
+  it.each([['helping'], ['asks']])('on the %s tab it is a single Get Help action with no expansion', (tab) => {
+    const onGetHelp = jest.fn();
+    render(<SpeedDialFab activeTab={tab} onGetHelp={onGetHelp} onGetService={() => {}} />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Get Help' })[0]);
+    expect(onGetHelp).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: /Get Service/ })).toBeNull();
   });
 });
 
@@ -120,13 +121,13 @@ describe('ProviderNotificationBell', () => {
     });
   });
 
-  it('returns null when in member mode (hasProviderProfile=true but providerMode=member)', () => {
+  it('still renders in member mode (hasProviderProfile=true, providerMode=member): the toggle only changes dashboard cards', () => {
     (useProvider as jest.Mock).mockReturnValue({
       hasProviderProfile: true,
       providerMode: 'member',
     });
-    const { container } = render(<ProviderNotificationBell />);
-    expect(container.firstChild).toBeNull();
+    render(<ProviderNotificationBell />);
+    expect(screen.getByRole('button', { name: 'Provider notifications' })).toBeTruthy();
   });
 
   it('returns null when user has no provider profile', () => {
@@ -204,28 +205,33 @@ describe('CommitmentsTab — I\'m Helping (proposed)', () => {
     });
   });
 
-  it('shows "Withdraw Offer" button (not Accept) for helping+proposed', async () => {
-    render(<CommitmentsTab />);
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /withdraw offer/i })).toBeTruthy();
+  it('a self-offered proposed match is not a helping card: it is listed under "Offers awaiting requester"', async () => {
+    (requestService.getOfferedAwaiting as jest.Mock).mockResolvedValue({
+      data: { count: 1, items: [{ match_id: 'match-helping-1', request_id: 'req-1', title: 'Need a ride', community_name: 'Maplewood' }] },
     });
+    render(<CommitmentsTab />);
+    const link = await screen.findByRole('link', { name: /Need a ride/ });
+    expect(link.getAttribute('href')).toBe('/requests/req-1');
+    expect(screen.getByText('Offers awaiting requester')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^accept$/i })).toBeNull();
   });
 
-  it('calls rejectMatch when Withdraw is clicked', async () => {
-    (requestService.rejectMatch as jest.Mock).mockResolvedValue({ data: {} });
-    render(<CommitmentsTab />);
-    await waitFor(() => screen.getByRole('button', { name: /withdraw offer/i }));
-
-    fireEvent.click(screen.getByRole('button', { name: /withdraw offer/i }));
-
-    await waitFor(() => {
-      // ADR-064: identity comes from the JWT server-side, so no user_id arg is sent.
-      expect(requestService.rejectMatch).toHaveBeenCalledWith('match-helping-1');
+  it('offers no inline withdraw on the tab, so it never calls rejectMatch (withdraw lives on the request page)', async () => {
+    (requestService.getOfferedAwaiting as jest.Mock).mockResolvedValue({
+      data: { count: 1, items: [{ match_id: 'match-helping-1', request_id: 'req-1', title: 'Need a ride', community_name: null }] },
     });
+    render(<CommitmentsTab />);
+    await screen.findByRole('link', { name: /Need a ride/ });
+    expect(screen.queryByRole('button', { name: /withdraw/i })).toBeNull();
+    // The proposed match was dropped from the helping cards: their "Awaiting Acceptance" section renders nothing.
+    expect(screen.queryByText(/Awaiting Acceptance/)).toBeNull();
+    expect(requestService.rejectMatch).not.toHaveBeenCalled();
   });
 
-  it('makes requester name clickable (opens TrustCard)', async () => {
+  it('makes requester name clickable on an in-progress helping card (opens TrustCard)', async () => {
+    (requestService.getMatches as jest.Mock).mockResolvedValue({
+      data: { matches: [{ ...HELPING_PROPOSED_MATCH, status: 'matched' }] },
+    });
     render(<CommitmentsTab />);
     await waitFor(() => screen.getByRole('button', { name: 'Alice' }));
 

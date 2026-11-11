@@ -101,7 +101,7 @@ describe('GET /providers/community/:communityId — access gates', () => {
     const sql = String(mockQuery.mock.calls[0][0]);
     expect(sql).toContain('communities.members');
     expect(sql).toMatch(/status\s*=\s*'active'/);
-    expect(mockQuery.mock.calls[0][1]).toEqual([VIEWER, COMMUNITY]);
+    expect(mockQuery.mock.calls[0][1]).toEqual([COMMUNITY, VIEWER]); // ADR-102 getLiveRole(communityId, userId)
   });
 
   it('allows an active member through to the layer', async () => {
@@ -265,6 +265,6 @@ describe('Express route ordering', () => {
 
     expect(res.status).toBe(200);
     // The single-provider route takes one param and would never issue the membership pre-check.
-    expect(mockQuery.mock.calls[0][1]).toEqual([VIEWER, COMMUNITY]);
+    expect(mockQuery.mock.calls[0][1]).toEqual([COMMUNITY, VIEWER]); // ADR-102 getLiveRole(communityId, userId)
   });
 });

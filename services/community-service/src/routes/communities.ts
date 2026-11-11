@@ -262,13 +262,15 @@ router.get('/', async (req: any, res: Response) => {
   }
 });
 
-// GET /communities/my - Get communities the user is a member of
+// GET /communities/my/communities - Get the authenticated caller's communities.
+// Sprint 140 (BUG-100): identity comes from the verified JWT only. A legacy `user_id` query
+// parameter is ignored whether omitted, the caller's own id or someone else's.
 router.get('/my/communities', async (req: Request, res: Response) => {
   try {
-    const { user_id } = req.query;
+    const userId = (req as any).user?.userId;
 
-    if (!user_id) {
-      return sendValidationError(res, 'user_id is required', { requestId: (req as any).id });
+    if (!userId) {
+      return sendUnauthorized(res, 'Authentication required', { requestId: (req as any).id });
     }
 
     const result = await query(
@@ -284,7 +286,7 @@ router.get('/my/communities', async (req: Request, res: Response) => {
       LEFT JOIN auth.users u ON c.creator_id = u.id
       WHERE m.user_id = $1 AND m.status = 'active' AND c.status = 'active'
       ORDER BY m.joined_at DESC`,
-      [user_id]
+      [userId]
     );
 
     sendSuccess(res, {

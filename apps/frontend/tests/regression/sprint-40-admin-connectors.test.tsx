@@ -59,6 +59,10 @@ jest.mock('../../src/lib/api', () => ({
     acceptMatch: jest.fn(),
     rejectMatch: jest.fn(),
     completeMatch: jest.fn(),
+    // Sprint 140 repair: CommitmentsTab has since gained the Sprint 106 decision band (curated home feed) and the
+    // Sprint 107 offered-awaiting panel. Both mount-time reads resolve empty here so the tab renders its matches.
+    getCuratedRequests: jest.fn(() => Promise.resolve({ data: { items: [] } })),
+    getOfferedAwaiting: jest.fn(() => Promise.resolve({ data: { count: 0, items: [] } })),
   },
   providerService: {
     updateAvailability: jest.fn(),
@@ -156,7 +160,9 @@ describe('Sprint 40: Admin Connector Tools', () => {
         request_id: 'req-admin',
         responder_id: 'user-me',
         requester_id: 'user-bob',
-        status: 'proposed',
+        // Sprint 108: a PROPOSED responder match renders in the decision band, not as a helping card, so the
+        // card-level label is exercised on an accepted (matched) admin-proposed match (Sprint 140 repair).
+        status: 'matched',
         updated_at: new Date().toISOString(),
         request_title: 'Help with move',
         requester_name: 'Bob',
@@ -171,9 +177,8 @@ describe('Sprint 40: Admin Connector Tools', () => {
       (requestService.getRequests as jest.Mock).mockResolvedValue({ data: { requests: [] } });
 
       render(<CommitmentsTab />);
-      await waitFor(() => {
-        expect(screen.getByText('Suggested by your community admin')).toBeTruthy();
-      });
+      expect(await screen.findByText('Help with move')).toBeTruthy();
+      expect(screen.getByText('Suggested by your community admin')).toBeTruthy();
     });
 
     it('hides label when admin_proposed=false or undefined', async () => {
@@ -183,7 +188,7 @@ describe('Sprint 40: Admin Connector Tools', () => {
         request_id: 'req-regular',
         responder_id: 'user-me',
         requester_id: 'user-carol',
-        status: 'proposed',
+        status: 'matched',
         updated_at: new Date().toISOString(),
         request_title: 'Help with groceries',
         requester_name: 'Carol',
@@ -198,9 +203,9 @@ describe('Sprint 40: Admin Connector Tools', () => {
       (requestService.getRequests as jest.Mock).mockResolvedValue({ data: { requests: [] } });
 
       render(<CommitmentsTab />);
-      await waitFor(() => {
-        expect(screen.queryByText('Suggested by your community admin')).toBeNull();
-      });
+      // Non-vacuous: the card itself renders, it just carries no admin label.
+      expect(await screen.findByText('Help with groceries')).toBeTruthy();
+      expect(screen.queryByText('Suggested by your community admin')).toBeNull();
     });
   });
 
@@ -211,6 +216,8 @@ describe('Sprint 40: Admin Connector Tools', () => {
     const { providerService } = require('../../src/lib/api');
     const ProviderDashboardCard = require('../../src/components/ProviderDashboardCard').default;
 
+    // Availability now comes from the ProviderContext profile (`is_available`, surfaced by the API in
+    // 7abff6c1), not an `isAvailable` prop, and a click also updates the context (Sprint 140 repair).
     const MOCK_PROFILE = {
       id: 'profile-1',
       user_id: 'user-me',
@@ -220,67 +227,66 @@ describe('Sprint 40: Admin Connector Tools', () => {
       completion_rate: '90',
       response_rate: '0.95',
     };
-
-    beforeEach(() => {
+    const updateProviderAvailability = jest.fn();
+    const withProfile = (isAvailable: boolean) =>
       (useProvider as jest.Mock).mockReturnValue({
         hasProviderProfile: true,
-        providerProfiles: [MOCK_PROFILE],
+        providerProfiles: [{ ...MOCK_PROFILE, is_available: isAvailable }],
         providerServiceTypes: ['rides'],
         providerMode: 'provider',
         setProviderMode: jest.fn(),
+        updateProviderAvailability,
         loading: false,
       });
+
+    beforeEach(() => {
+      updateProviderAvailability.mockReset();
+      (providerService.updateAvailability as jest.Mock).mockReset();
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error: jest mock typing resolves to never in strict mode
       (providerService.updateAvailability as jest.Mock).mockResolvedValue({ data: {} });
     });
 
-    it('renders Available button when isAvailable=true', () => {
-      render(
-        <ProviderDashboardCard
-          activeCommitments={2}
-          providerId="profile-1"
-          isAvailable={true}
-        />
-      );
-      expect(screen.getByRole('button', { name: /available/i })).toBeTruthy();
-      expect(screen.getByText('Available')).toBeTruthy();
+    it('renders the Available button when the profile is available', () => {
+      withProfile(true);
+      render(<ProviderDashboardCard activeCommitments={2} providerId="profile-1" />);
+      expect(screen.getByRole('button', { name: 'Available' })).toBeTruthy();
+      expect(screen.queryByText('Unavailable')).toBeNull();
     });
 
-    it('renders Unavailable button when isAvailable=false', () => {
-      render(
-        <ProviderDashboardCard
-          activeCommitments={0}
-          providerId="profile-1"
-          isAvailable={false}
-        />
-      );
-      expect(screen.getByText('Unavailable')).toBeTruthy();
+    it('renders the Unavailable button when the profile is not available', () => {
+      withProfile(false);
+      render(<ProviderDashboardCard activeCommitments={0} providerId="profile-1" />);
+      expect(screen.getByRole('button', { name: 'Unavailable' })).toBeTruthy();
     });
 
-    it('calls updateAvailability with flipped value on click', async () => {
-      render(
-        <ProviderDashboardCard
-          activeCommitments={0}
-          providerId="profile-1"
-          isAvailable={true}
-        />
-      );
-      const btn = screen.getByRole('button', { name: /available/i });
-      fireEvent.click(btn);
+    it('a click saves the flipped value, then updates the provider context', async () => {
+      withProfile(true);
+      render(<ProviderDashboardCard activeCommitments={0} providerId="profile-1" />);
+      fireEvent.click(screen.getByRole('button', { name: 'Available' }));
 
       await waitFor(() => {
-        expect(providerService.updateAvailability).toHaveBeenCalledWith('profile-1', false);
+        expect(updateProviderAvailability).toHaveBeenCalledWith('profile-1', false);
       });
+      expect(providerService.updateAvailability).toHaveBeenCalledTimes(1);
+      expect(providerService.updateAvailability).toHaveBeenCalledWith('profile-1', false);
+    });
+
+    it('a failed save leaves the provider context unchanged', async () => {
+      withProfile(true);
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error: jest mock typing resolves to never in strict mode
+      (providerService.updateAvailability as jest.Mock).mockRejectedValue(new Error('down'));
+      render(<ProviderDashboardCard activeCommitments={0} providerId="profile-1" />);
+      fireEvent.click(screen.getByRole('button', { name: 'Available' }));
+
+      await waitFor(() => expect(providerService.updateAvailability).toHaveBeenCalledWith('profile-1', false));
+      expect(updateProviderAvailability).not.toHaveBeenCalled();
     });
 
     it('does not render toggle when providerId is undefined', () => {
-      render(
-        <ProviderDashboardCard
-          activeCommitments={0}
-          isAvailable={true}
-        />
-      );
+      withProfile(true);
+      render(<ProviderDashboardCard activeCommitments={0} />);
       // Availability section should not be present
       expect(screen.queryByText('Availability')).toBeNull();
     });
