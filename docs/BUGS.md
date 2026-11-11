@@ -2739,3 +2739,21 @@ so both actions now have weight 0 in every profile until the ratification-quorum
 until PR A's CI run).
 
 ---
+
+## BUG-101 · [2026-11-11] · open
+
+**Remaining Claude Edit/Write hooks use an unsupported input environment variable or stale
+commands.** Captured from [Claude's PR #335 review](https://github.com/ravichavali/karmyq/pull/335#issuecomment-6809294318),
+item 7; fixing these hooks is outside that PR's scope. The reminder fixed by #335 reads stdin
+JSON, but the other handlers in [.claude/settings.json](../.claude/settings.json) still read
+`CLAUDE_TOOL_INPUT_FILE_PATH`, which Claude Code does not supply. The dist/generated-file guard
+therefore never blocks and uses non-blocking exit 1 even on its intended rejection path.
+Prettier, simulation type-checking and PostToolUse feedback checks consequently do not run for
+their intended edits. The root `npx tsc --noEmit` handler runs on every edit despite the absence
+of a root TypeScript config, and the integrity handler references
+`simulation/maintenance/check-integrity.js`, deleted in `12d6a146`. The root context's generated-file
+protection claim overstates the effective guard. Repair the original handlers against the
+documented stdin/exit-code interface and prove both rejection and allowed paths; do not bypass
+the normal Git/CI gates.
+
+---

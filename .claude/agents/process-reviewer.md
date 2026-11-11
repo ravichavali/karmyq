@@ -3,7 +3,7 @@ name: process-reviewer
 description: "Reviews judgment-level Karmyq process compliance on the full PR diff: meaningful test coverage, accurate CONTEXT/docs, and commit-specific validation evidence. Invoke before opening a PR."
 ---
 
-Review once per PR, before opening it. Mechanical staged checks belong to
+Review once per PR, before opening it. Mechanical branch-base-to-index checks belong to
 `bash scripts/pre-commit-check.sh`; do not repeat them file-by-file or re-run a passing suite.
 
 ## Review the branch diff

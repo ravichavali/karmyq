@@ -1,7 +1,7 @@
 import { spawnSync } from 'child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { ROOT, posixShell, scratchDirs } from './helpers/workspaces';
+import { ROOT, scratchDirs } from './helpers/workspaces';
 
 // Exercise the configured command with the documented Claude Code stdin contract.
 // stderr-only output, an environment-only input, or broken settings wiring makes this fail.
@@ -10,6 +10,10 @@ afterAll(dirs.cleanup);
 const settings = JSON.parse(readFileSync(join(ROOT, '.claude/settings.json'), 'utf8'));
 const commands = settings.hooks.PreToolUse.find((h: { matcher: string }) => h.matcher === 'Edit|Write').hooks;
 const reminder = commands[1].command;
+
+it('wires the reminder to the reviewed Node script', () => {
+  expect(reminder).toBe('node scripts/service-context-hook.js');
+});
 
 function invoke(file_path: unknown, hasReadme = true) {
   const cwd = dirs.make('karmyq-context-hook-');
@@ -20,7 +24,7 @@ function invoke(file_path: unknown, hasReadme = true) {
   // The existing hooks use repo-relative commands. Supply their scripts at the fixture root.
   mkdirSync(join(cwd, 'scripts'));
   writeFileSync(join(cwd, 'scripts/service-context-hook.js'), readFileSync(join(ROOT, 'scripts/service-context-hook.js')));
-  const r = spawnSync(posixShell(), ['-c', reminder], {
+  const r = spawnSync(process.execPath, [join(cwd, 'scripts/service-context-hook.js')], {
     cwd, input: JSON.stringify({ cwd, tool_name: 'Edit', tool_input: { file_path } }),
     encoding: 'utf8', env: { ...process.env, CLAUDE_TOOL_INPUT_FILE_PATH: '' },
   });

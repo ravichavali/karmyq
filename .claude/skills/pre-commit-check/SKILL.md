@@ -9,8 +9,11 @@ Stage the intended changes, then run from the repo root:
 bash scripts/pre-commit-check.sh
 ```
 
-The script checks the staged diff for service CONTEXT updates and tests for new source files,
-then runs `npm test`, silently on success. It refuses unstaged tracked changes so npm cannot
+The script compares the index against `git merge-base origin/master HEAD`, covering earlier
+branch commits plus staged changes, and fails closed if the base is unavailable. It requires
+service CONTEXT updates and tracked tests for new source files, accepting either a matching
+test basename or a test that imports the module. It then runs `npm test`, silently on success.
+It refuses unstaged tracked changes so npm cannot
 test different contents from the index. If tests generate tracked changes, reconcile generated
 churn before committing; a modified tree is not reusable evidence for a clean HEAD.
 

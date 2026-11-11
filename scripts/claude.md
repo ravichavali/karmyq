@@ -68,8 +68,10 @@ the script was a landmine with no remaining use.
 ## Claude Code hooks
 
 `pre-commit-check.sh` — final task/PR verification, invoked by `/pre-commit-check`, not by every
-intermediate plan commit. It reads the index (NUL-delimited paths), requires staged service
-CONTEXT updates for `src/` changes and tracked matching tests for new TS/TSX source, then runs
+intermediate plan commit. It compares the index to `git merge-base origin/master HEAD`
+(NUL-delimited paths), covering earlier branch commits too and failing closed if the base is
+unavailable. It requires service CONTEXT updates for `src/` changes and tracked tests for new
+TS/TSX source, by matching basename or a quoted module-path import in indexed test content, then runs
 `npm test` with direct exit-status capture. It refuses unstaged tracked changes. Success is
 silent; failures show at most 25 matching diagnostics plus the final 15 log lines. It does not
 run `feedback:check`; the installed git pre-commit hook owns that. Regression fixtures in

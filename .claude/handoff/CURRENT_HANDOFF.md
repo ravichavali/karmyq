@@ -1,4 +1,4 @@
-# Process overhead reduction — PR review handoff
+# Process overhead reduction — PR #335 review fixes
 
 **Date:** 2026-11-11
 **Branch:** `agent/codex/process-overhead`
@@ -13,18 +13,20 @@ retain judgment review once per PR, and reuse tests only on the same clean HEAD.
 2. Stay on `agent/codex/process-overhead`. The task owns the pre-commit/process-reviewer,
    ship/review-response/sprint-planning instructions, service reminder, script docs and two
    root regression suites. No dependency, service behavior, version or ADR changes.
-3. Find this branch's PR with `gh pr list --head agent/codex/process-overhead --state all`.
-   Read its commit-specific `## Validation` ledger for exact tested SHAs and limitations.
-   Opening the PR with the full template is this session's final publication step; if it is
-   absent, finish validation and push with normal hooks before opening it.
-4. The next unchecked task is to check the PR's current-head CI and review findings. Merge and
-   deploy remain maintainer-authorized; never direct-push master.
+3. Open [PR #335](https://github.com/ravichavali/karmyq/pull/335) and its commit-specific
+   `## Validation` ledger for tested SHAs, CodeQL annotations and limitations. Review feedback:
+   [Claude's items 1–8](https://github.com/ravichavali/karmyq/pull/335#issuecomment-6809294318).
+4. The next unchecked task after these fixes is Claude's non-author `/code-review medium` and
+   `/security-review` on the fixed head, plus current-head CI/annotation verification. Codex
+   review equivalents do not claim those Claude commands ran. Merge and deploy still require
+   maintainer authorization; never direct-push master or force-push this branch.
 
 ## Decisions and progress
 
-- Mechanical checks read the Git index, including staged test additions and excluding deletions.
-  New TS/TSX source requires a tracked basename-matching test; filename presence is only a
-  mechanical heuristic. Judgment review still evaluates actual behavior coverage.
+- Mechanical checks compare the Git index to `git merge-base origin/master HEAD`, including
+  earlier branch commits, staged additions and staged deletions. A missing base fails closed.
+  New TS/TSX source requires either a tracked basename-matching test or an indexed test that
+  imports the module; both are heuristics. Judgment review evaluates actual behavior coverage.
 - The final script rejects unstaged tracked changes before npm so tests cannot validate different
   bytes from the index. npm's exit status is captured directly; success is silent and failure
   diagnostics are bounded. The git hook remains responsible for feedback:check.
@@ -38,9 +40,14 @@ retain judgment review once per PR, and reuse tests only on the same clean HEAD.
 - Regression cases were written first. The initial focused run passed 18/18; review then added
   isolated deleted-test and two-service cases. Full testing, gotcha/feedback checks and exact
   outcomes belong to the PR Validation ledger, not an unstamped pass count in this document.
-- Calibrated independent code/security review found no actionable production defects; its
-  deleted-test coverage gap was fixed. Simplify pass removed a literal-command dependency from
-  the hook fixture. Agent/skill YAML frontmatter was parsed after fixing a quoted description.
+- The earlier Codex-equivalent review missed the five blockers Claude found on `e8cb7d20`.
+  The hook fixture now pins the configured command identity and invokes a fixed Node executable
+  with argv; settings text is no longer shell code. New branch-scope, missing-base and imported-test
+  cases were observed failing before the gate fix. Both suites are re-run with `--no-cache`;
+  exact outcomes and actual tested commits belong to the PR ledger.
+- Remaining Edit/Write handler defects are captured as BUG-101 in `docs/BUGS.md` (review item 7).
+  Item 6's session/service reminder deduplication and malformed-input handling are deferred.
+  Item 8's WIP baseline investigation is recorded in the PR ledger; do not assume the old count.
 - Root claude.md relocation remains report-only in the PR. Candidates: service catalog detail,
   nginx setup, schema inventory, event transport detail, new-service scaffolding and deployment
   commands. Keep global authorization, API contracts, dependency rules and merge authority.
@@ -52,8 +59,9 @@ retain judgment review once per PR, and reuse tests only on the same clean HEAD.
   The inherited handoff's awaiting-review state is superseded by this observation.
 - Master Tests run 43103530577 and CodeQL run 43103530350 report success on that SHA.
   This task has not independently verified demo health or marked Sprint 140 complete.
-- The complete prior record, including PR-B suite names and carry-forward details, remains in
-  [the base handoff](https://github.com/ravichavali/karmyq/blob/24bed69b5eb714ef58de7784c750e2e2eaa2bcf6/.claude/handoff/CURRENT_HANDOFF.md).
+- The prior handoff is now restored verbatim in the local
+  [Sprint 140 archive](archive/2026-11-11-sprint-140-pr-a-COMPLETE-v11.113.0.md), with a short
+  post-merge note and verified master CI/CD run 43103530588 on `24bed69b`.
   Sprint 140 PR B remains unplanned and decision-gated: required-CI integration execution design
   and a per-suite repair/rewrite/retire ledger need approval before implementation; retirement
   needs separate approval and replacement coverage. This task does not authorize that work.

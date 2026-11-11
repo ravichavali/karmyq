@@ -27,6 +27,7 @@ function fixture(testBody = "console.log('successful test output');") {
   put('services/example/src/existing.ts');
   git('add', '.');
   git('commit', '-qm', 'fixture');
+  git('update-ref', 'refs/remotes/origin/master', 'HEAD');
   const run = () => {
     // Supply POSIX utilities when launched from PowerShell; bare bash there can resolve to WSL.
     const r = spawnSync(posixShell(), ['-c', 'export PATH="/usr/bin:$PATH"; exec "${BASH:-bash}" "$1"', 'precommit', join(ROOT, 'scripts/pre-commit-check.sh').replace(/\\/g, '/')], {
@@ -42,6 +43,54 @@ function fixture(testBody = "console.log('successful test output');") {
 
 it('is silent when npm passes', () => {
   expect(fixture().run()).toEqual({ status: 0, output: '' });
+});
+
+it('fails closed when origin/master is unavailable', () => {
+  const f = fixture();
+  f.git('update-ref', '-d', 'refs/remotes/origin/master');
+  const r = f.run();
+  expect(r.status).not.toBe(0);
+  expect(r.output).toContain('origin/master');
+});
+
+it('checks source changes committed earlier on the branch, even with an empty staged diff', () => {
+  const f = fixture();
+  f.put('services/example/src/existing.ts', 'earlier branch change\n');
+  f.git('add', '.');
+  f.git('commit', '-qm', 'earlier task without context');
+  const r = f.run();
+  expect(r.status).not.toBe(0);
+  expect(r.output).toContain('services/example/CONTEXT.md');
+  f.context();
+  f.git('commit', '-qm', 'context in an earlier task too');
+  expect(f.run()).toEqual({ status: 0, output: '' });
+});
+
+it.each(['ts', 'tsx'])('accepts a sprint-named tracked test importing new .%s source', (extension) => {
+  const f = fixture();
+  f.put('tests/sprint-335-contract.test.ts', "import '../services/example/src/logic';\n");
+  f.git('add', '.');
+  f.git('commit', '-qm', 'tracked sprint test');
+  f.put(`services/example/src/logic.${extension}`);
+  f.git('add', '.');
+  f.context();
+  expect(f.run()).toEqual({ status: 0, output: '' });
+});
+
+it('reads staged import content, not an unstaged import in a tracked test', () => {
+  const f = fixture();
+  f.put('tests/sprint-335-contract.spec.tsx');
+  f.git('add', '.');
+  f.git('commit', '-qm', 'tracked test without the import');
+  f.put('services/example/src/new.logic.ts');
+  f.git('add', '.');
+  f.context();
+  f.put('tests/sprint-335-contract.spec.tsx', 'import "../services/example/src/new.logic";\n');
+  const r = f.run();
+  expect(r.status).not.toBe(0);
+  expect(r.output).toContain('new.logic.ts');
+  f.git('add', 'tests/sprint-335-contract.spec.tsx');
+  expect(f.run()).toEqual({ status: 0, output: '' });
 });
 
 it('rejects a source modification whose CONTEXT update is only in the worktree', () => {

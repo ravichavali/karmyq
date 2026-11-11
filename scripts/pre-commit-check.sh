@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Final task/PR check. Metadata comes from the index; npm tests the working tree.
+# Final task/PR check. Compare the branch base to the index; npm tests the working tree.
 set -e
 
 cd "$(git rev-parse --show-toplevel)"
@@ -7,9 +7,13 @@ check_tmp=$(mktemp -d)
 trap 'rm -rf "$check_tmp"' EXIT
 
 # Files, not process substitutions: a failed git command must stop the gate.
-git diff --cached --name-only --no-renames -z > "$check_tmp/changed"
-git diff --cached --name-only --diff-filter=ACMRT --no-renames -z > "$check_tmp/staged"
-git diff --cached --name-only --diff-filter=A --no-renames -z > "$check_tmp/new"
+if ! branch_base=$(git merge-base origin/master HEAD 2> "$check_tmp/base-error"); then
+  printf 'FAIL: Cannot find branch base with origin/master; fetch origin/master before verification.\n'
+  exit 1
+fi
+git diff --cached --name-only --no-renames -z "$branch_base" > "$check_tmp/changed"
+git diff --cached --name-only --diff-filter=ACMRT --no-renames -z "$branch_base" > "$check_tmp/staged"
+git diff --cached --name-only --diff-filter=A --no-renames -z "$branch_base" > "$check_tmp/new"
 git ls-files --cached -z > "$check_tmp/tracked"
 
 staged=()
@@ -52,7 +56,21 @@ while IFS= read -r -d '' file; do
     fi
   done
   if [[ "$found" == 0 ]]; then
-    printf 'FAIL: No tracked <base>.test|spec.ts(x) for new source %s.\n' "$file"
+    # Literal suffixes avoid treating filename punctuation as a regex. Read staged test bytes,
+    # including earlier branch commits and new index entries, never untracked/worktree imports.
+    if git grep --cached -lF -e "/$base'" -e "/$base\"" -- \
+        '*.test.ts' '*.test.tsx' '*.spec.ts' '*.spec.tsx' > /dev/null; then
+      found=1
+    else
+      search_status=$?
+      if [[ "$search_status" != 1 ]]; then
+        printf 'FAIL: Could not search indexed tests for %s (git grep exited %s).\n' "$file" "$search_status"
+        exit 1
+      fi
+    fi
+  fi
+  if [[ "$found" == 0 ]]; then
+    printf 'FAIL: No tracked matching test filename or module import for new source %s.\n' "$file"
     failed=1
   fi
 done < "$check_tmp/new"
