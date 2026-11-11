@@ -111,9 +111,7 @@ export default function PreferencesPage() {
     try {
       setLoading(true);
 
-      // The API client's interceptor already unwrapped the { success, data } envelope, so
-      // response.data IS the payload (BUG-098). A failed request rejects into the catch below.
-
+      // response.data is already the payload (interceptor-unwrapped, BUG-098); failures reject into the catch.
       // Fetch request type preferences
       const prefsResponse = await userSettingsService.getRequestTypePreferences();
       const prefs: Record<string, boolean> = {};

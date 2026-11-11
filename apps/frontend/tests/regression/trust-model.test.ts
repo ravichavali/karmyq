@@ -17,6 +17,9 @@ const SEED_SQL = fs.readFileSync(
   path.join(__dirname, '../../../../infrastructure/postgres/migrations/20260404-trust-questions.sql'),
   'utf8',
 )
+// A quoted SQL string, '' escapes included. Rows look like:
+//   question: ('who_is_this_for', 'Who is this community for?', 'This shapes…', 10),
+//   choice:   ('who_is_this_for', 'just_us', 'Just us…', 'Private…', '{"visibility_mode":"members_only",…}', 10),
 const SQL_TEXT = "'(?:[^']|'')*'"
 
 /** The seeded questions (id = slug) with their choices, parsed from the migration's two VALUES lists. */
@@ -100,6 +103,8 @@ describe('answersToConfig', () => {
     expect(cfg.new_member_karma_lockout_days).toBe(14)
     expect(cfg.min_interactions_for_trust).toBe(3)
     expect(cfg.joining_counts_as_interaction).toBe(false)
+    // q6 decides request approval in a full questionnaire, so prove q2's own delta with q2 alone.
+    expect(answersToConfig(QUESTIONS, { new_member_warmth: 'trust_takes_time' }).request_approval_required).toBe(true)
   })
 
   it('q2=cautious → lockout=7, min_interactions=2', () => {

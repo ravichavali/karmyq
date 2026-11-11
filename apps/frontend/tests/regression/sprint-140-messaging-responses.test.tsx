@@ -10,9 +10,9 @@
  *
  * Three lookalikes are NOT defects and must stay as they are, because their client never runs the interceptor:
  * the invite page (raw axios), the token-refresh fallback (raw axios) and useMessaging's REST fallback (raw fetch).
+ * sprint-140-response-boundary.test.ts pins the interceptor and the invite lookalike through the REAL api.ts clients, the
+ * useMessaging fallback through the real hook, and the token-refresh fallback by its source.
  */
-import fs from 'fs'
-import path from 'path'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 
 const mockGetConversations = jest.fn()
@@ -74,9 +74,9 @@ function Probe() {
   ctx = useMessagingContext()
   return (
     <div>
-      <p data-testid="conversations">{JSON.stringify((ctx.conversations ?? null) && ctx.conversations.map((c) => c.id))}</p>
+      <p data-testid="conversations">{JSON.stringify(ctx.conversations?.map((c) => c.id) ?? null)}</p>
       <p data-testid="current">{ctx.currentConversation?.id ?? 'none'}</p>
-      <p data-testid="messages">{JSON.stringify((ctx.messages ?? null) && ctx.messages.map((m) => m.content))}</p>
+      <p data-testid="messages">{JSON.stringify(ctx.messages?.map((m) => m.content) ?? null)}</p>
       <p data-testid="error">{ctx.error ?? ''}</p>
     </div>
   )
@@ -146,25 +146,5 @@ describe('FloatingChat (BUG-098)', () => {
     expect(screen.getByText('Cal')).toBeInTheDocument()
     expect(screen.getByText('5')).toBeInTheDocument() // 2 + 3 unread
     expect(screen.queryByText('When you help someone or get help, you\'ll see conversations here')).not.toBeInTheDocument()
-  })
-})
-
-describe('raw-client lookalikes keep their double read (they bypass the interceptor)', () => {
-  const src = (rel: string) => fs.readFileSync(path.join(__dirname, '../../src', rel), 'utf8')
-
-  it('invite page: validateInvitationCode is a raw axios call, so the page reads response.data.data', () => {
-    expect(src('lib/api.ts')).toMatch(/validateInvitationCode: \(invitationCode: string\) =>\s+axios\.get\(/)
-    expect(src('pages/invite/[code].tsx')).toContain('setInvitationInfo(response.data.data);')
-  })
-
-  it('token refresh: the fallback posts with raw axios and reads the envelope itself', () => {
-    expect(src('lib/api.ts')).toMatch(
-      /const response = await axios\.post\(`\$\{AUTH_API_URL\}\/auth\/refresh`[\s\S]{0,120}?response\.data\.data \?\? response\.data/)
-  })
-
-  it('useMessaging REST fallback: raw fetch, so it reads data.data.messages', () => {
-    const hook = src('hooks/useMessaging.ts')
-    expect(hook).toMatch(/const response = await fetch\(\s+`\$\{MESSAGING_SERVICE_URL\}\/match\/\$\{matchId\}`/)
-    expect(hook).toContain('setMessages(data.data.messages || [])')
   })
 })

@@ -510,8 +510,7 @@ Update community geographic coordinates (admin only, Sprint 36). Enables geograp
 **Implementation:** `src/routes/communities.ts`
 
 ### GET /communities/my/communities
-Get the communities the **authenticated caller** is an active member of (active communities only,
-newest-joined first).
+Get the authenticated caller's active memberships in active communities, newest-joined first.
 
 **Identity (Sprint 140, BUG-100):** the user is `req.user.userId` from the verified JWT — nothing else.
 A legacy `user_id` query parameter is **ignored** whether it is omitted, the caller's own id or another
