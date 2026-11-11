@@ -3,7 +3,7 @@
  * The live npm audit gate detects new advisories; these checks preserve the explicit
  * patched pins and the engine.io ws override across later lock edits. Sprint 134 PR X
  * raised the undici floor and added the @expo/cli zod pin; the Sprint 134 security
- * follow-up raised the node-forge, ip-address and fast-uri floors. Sprint 134 BUG-074's PR
+ * follow-up raised the node-forge, ip-address and fast-uri floors (Sprint 140 raised node-forge again). Sprint 134 BUG-074's PR
  * pinned decode-uri-component 0.5.1 (GHSA-qr28-fpjm-wq7f, high). Sprint 135 raised the minimatch
  * floor to 11.0.1 (GHSA-g3hv-75wg-m249) and added a glob 14.0.2 floor (GHSA-3g3m-2fjr-6pw4), with
  * one exempt subtree, babel-plugin-module-resolver on glob 9 + minimatch 10. Sprint 136 removed that
@@ -43,9 +43,10 @@ describe('D9 security override pins', () => {
 
   // A ">=" override lets npm resolve anything at or above it, so both the floor and every locked copy must be
   // patched. The audit gate blocks only high and critical, so it would not catch a moderate (ip-address,
-  // fast-uri) sliding back; node-forge is 1.4.2, not the advisory's 1.4.1, for 1.4.2's pem.decode fix.
+  // fast-uri) sliding back. Sprint 140 raised node-forge to 1.4.3, the first release patching GHSA-j8rw-jp99-435v,
+  // GHSA-6cv4-p8m7-4r25, GHSA-w4xr-hqv8-ch44 (moderate) and GHSA-6889-vf6x-f3g5 (low), Dependabot #181-#184.
   it.each([
-    ['node-forge', '1.4.2'],
+    ['node-forge', '1.4.3'],
     ['ip-address', '10.7.4'],
     ['fast-uri', '4.2.3'],
     ['glob', '14.0.2'],
