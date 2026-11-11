@@ -67,6 +67,24 @@ the script was a landmine with no remaining use.
 
 ## Claude Code hooks
 
+`pre-commit-check.sh` — final task/PR verification, invoked by `/pre-commit-check`, not by every
+intermediate plan commit. It compares the index to `git merge-base origin/master HEAD`
+(NUL-delimited paths), covering earlier branch commits too and failing closed if the base is
+unavailable. It requires service CONTEXT updates for `src/` changes and tracked tests for new
+TS/TSX source, by matching basename or a quoted module-path import in indexed test content, then runs
+`npm test` with direct exit-status capture. It refuses unstaged tracked changes. Success is
+silent; failures show at most 25 matching diagnostics plus the final 15 log lines. It does not
+run `feedback:check`; the installed git pre-commit hook owns that. Regression fixtures in
+`tests/regression/pre-commit-check.test.ts` inject each violation in disposable Git repos.
+
+`service-context-hook.js` — the PreToolUse `Edit|Write` reminder reads `tool_input.file_path`
+from JSON stdin and emits stdout JSON with `hookSpecificOutput.hookEventName: "PreToolUse"`
+and `additionalContext`. The [Claude Code hook reference](https://code.claude.com/docs/en/hooks#pretooluse-decision-control)
+(checked 2026-11-11) specifies this model-context field; exit-0 stderr is not a context channel.
+The reminder neither grants permission nor blocks the edit. The old inline environment lookup
+and stderr reminder are replaced; other hook handlers are unchanged. The configured command
+is exercised by `tests/regression/service-context-hook.test.ts`.
+
 `update-memory-state.js` — refreshes the memory state file from live git state; wired to the
 **Stop** hook. `dependency-guard-hook.js` — wired to **PreToolUse/PostToolUse** on Bash; blocks
 `npm install --workspace`, `npm dedupe`, and lockfile deletion, and warns on lockfile churn over

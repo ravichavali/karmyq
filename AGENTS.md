@@ -33,7 +33,7 @@ Tool-name mapping (`Read`→your read tool, `Bash`→your shell, `TodoWrite`→`
 `~/.claude/plugins/cache/claude-plugins-official/superpowers/*/skills/using-superpowers/references/codex-tools.md`
 
 **Project skills** ([`.claude/skills/`](.claude/skills/)): `sprint-planning`,
-`pre-commit-check` (**mandatory before every commit**), `deploy`, `ship`, `review-response`,
+`pre-commit-check` (**final task/PR verification; intermediate plan commits keep git hooks**), `deploy`, `ship`, `review-response`,
 `update-handoff`/`handoff`, `bug`, `capture`.
 **Superpowers skills** (same plugin cache, `superpowers/*/skills/`): `brainstorming`,
 `test-driven-development`, `systematic-debugging`, `writing-plans`, `executing-plans`,

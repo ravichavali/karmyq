@@ -50,8 +50,17 @@ If you cannot demonstrate the symptom is gone, say so — do not report the fix 
 
 ## After all findings
 
-1. `npm test` (unit + regression). After deletes/renames, bust the Turbo cache or run the suite
-   directly — `cd tests && npx jest regression/<file>`.
+1. Unit + regression must pass. **Reuse a passing full required-suite result from the same HEAD
+   commit instead of re-running it** when its recorded SHA matches `git rev-parse HEAD`, exit
+   status is 0, command/cache/limitations are recorded, and `git status --porcelain` (including
+   untracked files) was empty at that run and remains empty now. `npm test`, the normal pre-push
+   runner or equivalent complete CI jobs qualify; focused suites or incomplete CI graphs do not.
+   A pre-commit run on a parent
+   SHA does not qualify. Any code/test/config/dependency fix invalidates earlier evidence;
+   documentation-only commits also need same-HEAD evidence for reuse. Without qualifying
+   evidence, run `bash scripts/pre-commit-check.sh` once and name its actual HEAD and result.
+   After deletes/renames, require stale-reference search and a forced or direct affected-suite
+   run too — `cd tests && npx jest regression/<file>`.
 2. `npm run feedback:check` — work its to-do list for this diff.
 3. Re-run whichever gate produced the findings.
 4. **Reconcile `CURRENT_HANDOFF.md`** against `gh pr list` and `git log` — a handoff contradicting

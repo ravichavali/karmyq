@@ -37,7 +37,7 @@
           },
           {
             "type": "command",
-            "command": "node -e \"const p = process.env.CLAUDE_TOOL_INPUT_FILE_PATH || ''; const m = p.replace(/\\\\\\\\/g, '/').match(/services\\/([^/]+)\\//); if (m) { const fs = require('fs'); const r = 'services/' + m[1] + '/.claude/README.md'; if (fs.existsSync(r)) { console.error('\\n⚠️  PROCESS REMINDER: Read ' + r + ' before editing this service.\\n   Use the Read tool on that file first, then proceed.\\n'); } }\"",
+            "command": "node scripts/service-context-hook.js",
             "timeout": 5
           }
         ]

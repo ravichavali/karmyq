@@ -188,10 +188,18 @@ File: `docs/superpowers/plans/YYYY-MM-DD-sprint-NN-{slug}.md`
 | Task N-3 | User guides + landing page docs (mandatory every sprint) + ADR (if architectural decision) |
 | Task N-2 | CONTEXT.md + registry.json + TDD integration test |
 | Task N-1 | **SDLC quality gates** (mandatory every sprint) — see below |
-| Task N | Final type check + pre-push verification (`npm test`, `npm run feedback:check`) |
+| Task N | Final type check + `/pre-commit-check` (runs `bash scripts/pre-commit-check.sh` once); retain git pre-commit feedback check and pre-push hooks |
 | Task N+1 | **Merge + Deploy** — merge to master, push, monitor GitHub Actions, SSH if migration scripts needed. Use the `/deploy` skill. **Omit this task only if the plan is tagged `no-deploy`**. |
 
 **SDLC quality gates — every sprint runs all four (this is the standing process, not optional):**
+
+Generated plans MUST put `/pre-commit-check` only in **Task N (final verification)**, never
+after each implementation task. Intermediate plan-execution commits keep focused TDD checks
+and normal git hooks; do not invoke the full pre-commit skill or process-reviewer per task.
+Run process-reviewer once on the full branch diff before opening the PR. All four gates below
+remain mandatory. Later ship/review-response steps reuse full test evidence only for the same
+clean HEAD, with the SHA, command, exit status, cache state and limitations recorded in the PR
+Validation ledger; otherwise run tests and record fresh evidence.
 
 | Gate | How | When |
 |------|-----|------|

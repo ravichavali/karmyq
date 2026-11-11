@@ -1,16 +1,28 @@
 ---
 name: pre-commit-check
-description: Run the full Karmyq pre-merge checklist before committing — invokes the process-reviewer agent, runs tests, and verifies feedback loop. Use this before every git commit.
+description: Run the Karmyq pre-commit checks. Use when the user asks, or before the final commit of a task or PR. Not needed for intermediate commits during plan execution.
 ---
 
-Run the process-reviewer agent to check compliance with the Karmyq development process.
+Stage the intended changes, then run from the repo root:
 
-The agent will check:
-1. Local `.claude/README.md` was consulted for each changed service
-2. Tests exist for every new logic file
-3. `CONTEXT.md` was updated for each changed service
-4. `npm run feedback:check` passes
-5. `npm test` passes
+```bash
+bash scripts/pre-commit-check.sh
+```
 
-If all checks pass, proceed with the commit.
-If any check fails, fix the flagged items before committing — do NOT use `--no-verify` to bypass.
+The script compares the index against `git merge-base origin/master HEAD`, covering earlier
+branch commits plus staged changes, and fails closed if the base is unavailable. It requires
+service CONTEXT updates and tracked tests for new source files, accepting either a matching
+test basename or a test that imports the module. It then runs `npm test`, silently on success.
+It refuses unstaged tracked changes so npm cannot
+test different contents from the index. If tests generate tracked changes, reconcile generated
+churn before committing; a modified tree is not reusable evidence for a clean HEAD.
+
+- Exit 0: commit without re-reading files or re-running tests. No process-reviewer invocation.
+- Nonzero: fix only flagged items, stage the fixes, and re-run once. If still failing, report
+  the remaining failures and stop; do not commit or retry indefinitely.
+- Never use `--no-verify`. The installed git pre-commit hook still runs `feedback:check` at
+  commit time; this skill and script do not run it a second time.
+
+Intermediate plan-execution commits keep git hooks and focused TDD verification; reserve this
+full check for final verification. The judgment-level process-reviewer runs once before opening
+the PR. All four SDLC gates and pre-push hooks remain mandatory.
