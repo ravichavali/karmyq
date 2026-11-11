@@ -1,10 +1,10 @@
-# Sprint 140 — PR A implemented and opened; next chat verifies CI and merge readiness
+# Sprint 140 — PR A open, CI verified green; awaiting the maintainer's review and merge authorization
 
 **Date**: 2026-11-11
-**State**: **PR A Tasks 1–12 executed on `agent/claude/sprint-140-planning`; PR A is open as [#334](https://github.com/ravichavali/karmyq/pull/334), awaiting
-the maintainer's review.** Not merged, not deployed. The two new root integration suites have **not executed anywhere yet** — they are
-CI-only, and their CI result is the first thing the next chat must verify. PR B (twenty suites) is decision-gated and
-unplanned.
+**State**: **PR A Tasks 1–12 are done on `agent/claude/sprint-140-planning`. PR A is open as [#334](https://github.com/ravichavali/karmyq/pull/334), and its CI
+was verified complete and green on `7f1fca5b`, including both new root integration suites (observed 2026-11-11, below).**
+Not merged, not deployed. The merge is blocked only by branch protection's one required approving review (no human review
+yet). PR B (twenty suites) is decision-gated and unplanned.
 
 **Design**: [`docs/superpowers/specs/2026-11-10-sprint-140-security-and-wip-cleanup-design.md`](../../docs/superpowers/specs/2026-11-10-sprint-140-security-and-wip-cleanup-design.md)
 
@@ -18,16 +18,18 @@ unplanned.
 ## Quick Start (next chat)
 
 1. Read `CLAUDE.md` and this handoff. `git fetch origin`; `gh pr list`; `git log --oneline origin/master -3`.
-2. Open PR A ([#334](https://github.com/ravichavali/karmyq/pull/334)) and check its **latest CI run conclusion and created job count**, not just
-   `gh pr checks` (an uncreated job hides from the checks list). Confirm in the `test-integration` job log that **both**
-   `sprint-140-community-membership-identity.integration.test.ts` and `sprint-140-offer-status-all.integration.test.ts`
-   ran and passed, and that the Sprint 117 exact-path step still ran last.
+2. Re-check PR A ([#334](https://github.com/ravichavali/karmyq/pull/334)) on its **current head**. The verified run is on `7f1fca5b`; the
+   handoff-only commit after it re-triggers every workflow (no path filters in `ci.yml`, `test.yml` or `pr-contract.yml`).
+   Confirm that run's conclusion and created-job count: CI/CD 14 (7 jobs + 7-image matrix, `Deploy to Demo` skipped),
+   Tests 3, PR Contract 1. Do not rely on `gh pr checks` alone.
 3. If the maintainer relays review findings, handle them with the `review-response` skill (verify each against the repo
-   before fixing). If anything is red, fix forward on the same branch (merge commit if `origin/master` moved; never rebase/force-push).
-4. Report merge readiness. **Merge, deploy, demo-host operations and alert dismissals each need separate explicit
-   authorization** — none is granted. #333 must not be merged.
+   before fixing). Fix forward on the same branch (merge commit if `origin/master` moved; never rebase/force-push), re-run
+   the gates, and update this handoff.
+4. Report merge readiness and stop. **Merge, deploy, demo-host operations, alert dismissals, closing #333 and PR B each
+   need separate explicit authorization**; none is granted. #333 must not be merged.
 
-**Next unchecked task**: PR A CI verification (plan Task 12's post-push half). Then Task 14 only if authorized.
+**Next unchecked task**: plan Task 14 (merge and deploy). It starts only on explicit merge authorization, after the
+required approving review. node-forge must reach master by **2026-11-24**.
 
 ## What PR A contains (commits on the branch, oldest first)
 
@@ -42,6 +44,7 @@ unplanned.
 | `b6b01e93` | Root `sprint-36-commitment-depth` + `preferredProviderNotification` repaired; promoted |
 | `47400aba` | ADR-103 (maintainer-allocated, Proposed), guides, BUGS.md, landing docs, onboarding copy, v11.113.0 |
 | `1c047974` | SDLC gate fixes (response-boundary test, q2 assertion, CONTEXT line, /simplify cleanups) and this handoff |
+| `7f1fca5b` | Handoff only: records PR #334 (the CI-verified head) |
 
 ## SDLC gates (all four ran on the branch diff)
 
@@ -65,8 +68,25 @@ unplanned.
   --noEmit` clean for community, request, simulation, frontend.
 - Final `npm run test:tdd`: exit 1 with **exactly the twenty PR-B suites** (103 failed tests; baseline 31 suites/148).
   Frontend TDD 428/428. None of the eleven repaired suites and no new failure.
-- Root integration (two new suites): discovered by `npm run test:integration` (30 suites); compiled locally and failed
-  only on `ECONNREFUSED :5433` — **not a pass**. Pre-fix RED is reasoned in each file header, not observed.
+- Root integration (two new suites): locally, discovered by `npm run test:integration` (30 suites) and failed only on
+  `ECONNREFUSED :5433` (no local Postgres). Pre-fix RED is reasoned in each file header, not observed.
+
+## Evidence (CI, head `7f1fca5b`, observed 2026-11-11)
+
+- CI/CD run [43079861784](https://github.com/ravichavali/karmyq/actions/runs/43079861784): 14/14 jobs created, which matches `ci.yml`'s 7 jobs plus the
+  7-service image matrix. Every job succeeded except `Deploy to Demo`, which was skipped as expected (`ci.yml:413`:
+  push to master only). Tests run 43079861867: 3/3 success. PR Contract run 43079861822: 1/1 success.
+- The `Integration Tests` job log (job 130731558214) shows `sprint-140-offer-status-all` passing 6/6 and
+  `sprint-140-community-membership-identity` passing 6/6. The tier totals were 30/30 suites and 481/481 tests, with 0
+  skipped or todo.
+- The Sprint 117 exact-path step ran after the integration tier and passed 2/2. Only artifact upload and cleanup follow it.
+- Code scanning: 0 open alerts on `refs/pull/334/merge` and 0 on master. `origin/master` is still `8aabc50c` (v11.112.0), an
+  ancestor of the branch, so v11.113.0 is still correct and no merge commit is needed.
+- Branch protection requires 1 approving review, and `enforce_admins` is false. The only review so far is an advisory
+  `graphify-labs[bot]` COMMENTED review on `7f1fca5b`: "no issues found", partial coverage, coupling-hotspot notes only.
+  It is not a human review and needs no response.
+- Commits after the verified head: one handoff-only commit (this update). The PR body's `## Validation` ledger carries the
+  same evidence.
 
 ## PR B boundary — twenty suites remain visible
 
@@ -86,7 +106,7 @@ coverage. Plan it in a fresh chat on a fresh branch from then-current `origin/ma
 | Field | Value |
 |---|---|
 | **PR A branch** | `agent/claude/sprint-140-planning` |
-| **Base** | `origin/master` `8aabc50c` (#332, v11.112.0), unchanged at Task 10 |
+| **Base** | `origin/master` `8aabc50c` (#332, v11.112.0), unchanged at Task 10 and at the CI verification (2026-11-11) |
 | **Version** | v11.113.0 (re-derive from `origin/master` at merge time) |
 | **ADR** | **ADR-103**, allocated by the maintainer 2026-11-10; status Proposed until deployed |
 | **Dependency lane** | **Claude**, node-forge 1.4.3 only — done on this branch. #333 inspected read-only, not merged/closed/pushed |
