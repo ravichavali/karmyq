@@ -1,7 +1,7 @@
 # Sprint 140 — PR A implemented and opened; next chat verifies CI and merge readiness
 
 **Date**: 2026-11-11
-**State**: **PR A Tasks 1–12 executed on `agent/claude/sprint-140-planning`; PR A is open as PR_NUMBER_PENDING, awaiting
+**State**: **PR A Tasks 1–12 executed on `agent/claude/sprint-140-planning`; PR A is open as [#334](https://github.com/ravichavali/karmyq/pull/334), awaiting
 the maintainer's review.** Not merged, not deployed. The two new root integration suites have **not executed anywhere yet** — they are
 CI-only, and their CI result is the first thing the next chat must verify. PR B (twenty suites) is decision-gated and
 unplanned.
@@ -18,7 +18,7 @@ unplanned.
 ## Quick Start (next chat)
 
 1. Read `CLAUDE.md` and this handoff. `git fetch origin`; `gh pr list`; `git log --oneline origin/master -3`.
-2. Open PR A (PR_NUMBER_PENDING) and check its **latest CI run conclusion and created job count**, not just
+2. Open PR A ([#334](https://github.com/ravichavali/karmyq/pull/334)) and check its **latest CI run conclusion and created job count**, not just
    `gh pr checks` (an uncreated job hides from the checks list). Confirm in the `test-integration` job log that **both**
    `sprint-140-community-membership-identity.integration.test.ts` and `sprint-140-offer-status-all.integration.test.ts`
    ran and passed, and that the Sprint 117 exact-path step still ran last.
@@ -41,7 +41,7 @@ unplanned.
 | `a4c57477` | Request `sprint-125-provider-reach-gate`: two bind-order expectations; promoted |
 | `b6b01e93` | Root `sprint-36-commitment-depth` + `preferredProviderNotification` repaired; promoted |
 | `47400aba` | ADR-103 (maintainer-allocated, Proposed), guides, BUGS.md, landing docs, onboarding copy, v11.113.0 |
-| (gate fixes) | SDLC gate fixes (response-boundary test, q2 assertion, CONTEXT line, /simplify cleanups) and this handoff |
+| `1c047974` | SDLC gate fixes (response-boundary test, q2 assertion, CONTEXT line, /simplify cleanups) and this handoff |
 
 ## SDLC gates (all four ran on the branch diff)
 
