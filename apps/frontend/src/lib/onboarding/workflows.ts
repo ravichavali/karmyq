@@ -102,7 +102,7 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
       },
       {
         title: 'Standing offers and expiry',
-        body: 'A standing offer on the Help Offers page says what you can help with before anyone asks. When it expires, your neighbours stop seeing it, but you still do for about a week, until the daily cleanup removes it: it reads Expired, or keeps its status with an "Offer expired" note if an exchange is under way. An expired offer can\'t be attached to a new request.',
+        body: 'A standing offer on the Help Offers page says what you can help with before anyone asks. When it expires, your neighbours stop seeing it, but you still do for about a week, until the daily cleanup removes it: it reads Expired, or keeps its status with an "Offer expired" note if an exchange is under way. An expired offer can\'t be attached to a new request. The Status filter starts on Active; choose All to see active, matched and withdrawn offers together.',
       },
     ],
   },

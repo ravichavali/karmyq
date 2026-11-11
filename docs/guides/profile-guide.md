@@ -19,6 +19,14 @@ selections appear here too. A hint such as **matched to Tutoring** means Karmyq 
 skill, including a phrase such as "Spanish tutoring". These skills help rank requests in your feed.
 You can still add a skill that has no hint; its text is also used for matching.
 
+## Feed preferences
+
+**Settings → Preferences** controls which kinds of requests you want to see (general help, rides, services,
+events, borrowing) and the specific categories you're interested in. The page opens showing the choices you
+saved. Clicking a category adds or removes it straight away. (Before Sprint 140 the page always opened with
+every request type ticked and no categories selected, whatever you had saved, and a newly picked category did
+not stay highlighted. Both are fixed.)
+
 ## Who can see your skills
 
 By default, people who currently share an active community membership with you can see

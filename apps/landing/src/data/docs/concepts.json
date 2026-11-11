@@ -799,6 +799,14 @@
       "status": "implemented",
       "description": "**Date**: 2026-10-22",
       "filename": "ADR-102-live-membership-authorization.md"
+    },
+    {
+      "slug": "adr-103-authenticated-listings-and-simulation-containment",
+      "number": "103",
+      "title": "ADR-103: Listings Trust the Authenticated Caller, \"All\" Is an Explicit Status, and a Security Fix Must Not Switch On Dormant Simulation",
+      "status": "proposed",
+      "description": "**Date**: 2026-11-10",
+      "filename": "ADR-103-authenticated-listings-and-simulation-containment.md"
     }
   ]
 }

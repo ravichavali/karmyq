@@ -138,7 +138,7 @@
         {
           "method": "GET",
           "path": "/communities/my/communities",
-          "description": "Get communities the user is a member of."
+          "description": "Get the communities the **authenticated caller** is an active member of (active communities only,"
         },
         {
           "method": "GET",
