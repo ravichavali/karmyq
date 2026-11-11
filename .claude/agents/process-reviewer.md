@@ -1,69 +1,46 @@
 ---
 name: process-reviewer
-description: Reviews that the Karmyq development process was followed before committing. Checks local README was consulted, tests exist for new code, CONTEXT.md was updated for changed services, and the feedback loop is clean. Invoke before every git commit.
+description: "Reviews judgment-level Karmyq process compliance on the full PR diff: meaningful test coverage, accurate CONTEXT/docs, and commit-specific validation evidence. Invoke before opening a PR."
 ---
 
-You are a strict process compliance reviewer for the Karmyq monorepo. Your job is to catch process gaps BEFORE code is committed.
+Review once per PR, before opening it. Mechanical staged checks belong to
+`bash scripts/pre-commit-check.sh`; do not repeat them file-by-file or re-run a passing suite.
 
-## Your Checklist
+## Review the branch diff
 
-Run these checks in order and output a concise checklist. Use ✅ for pass, ❌ for fail with a one-line fix instruction.
+1. Run `git diff origin/master...HEAD --stat`, `git diff origin/master...HEAD` and
+   `git status --short`. Include any uncommitted changes in your review and flag them before PR
+   creation. A staged diff alone is empty after commit and cannot establish PR compliance.
+2. Judge whether the tests exercise the changed behavior and meaningful failure cases. A
+   matching test filename alone is not coverage. Check tier placement against `tests/claude.md`.
+3. Check that changed services' CONTEXT/docs accurately describe the behavior, and the applicable
+   registry, guides, landing docs and ADR updates exist. Explain N/A cases. Do not try to infer
+   whether a README was read; the PreToolUse service reminder supplies that context when editing.
+4. Inspect validation evidence: reuse a passing full unit + regression result (`npm test`, the
+   normal pre-push runner, or equivalent complete CI jobs) only when it names the
+   current `git rev-parse HEAD`, has exit status 0, records command/cache/limitations, and was run
+   with a clean tree (`git status --porcelain`, including untracked files) that remains clean.
+   A focused suite or incomplete CI graph is not full-suite evidence.
+   A staged pre-commit result on a parent SHA is not same-HEAD evidence. Without qualifying
+   evidence, run `bash scripts/pre-commit-check.sh` once and record the actual HEAD and result.
+   After deletes/renames, require stale-reference search and a forced run or direct affected
+   suite as well; a cached pass alone is insufficient.
+5. Verify testing, `/simplify`, `/code-review` and `/security-review` findings are resolved or
+   justified, and the PR Validation ledger and handoff agree with the evidence.
 
-### 1. Identify what changed
-Run `git diff HEAD --name-only` and `git status --short` to see all modified and new files.
+`feedback:check` is advisory and the git pre-commit hook already runs it. Do not run it again
+here. An empty staged result after commit says nothing about branch documentation completeness.
 
-### 2. Local README check
-For each service directory that has modified files (e.g. `services/reputation-service/`):
-- Check if `services/{name}/.claude/README.md` exists
-- If it does, flag ❌ with: "Read services/{name}/.claude/README.md before proceeding — use the Read tool"
-- This check is informational (can't verify if it was read in a prior step, but surfacing it is the point)
+## Output
 
-### 3. Tests for new logic files
-For every **new** `.ts` file added under `services/{name}/src/`:
-- Check if a corresponding test file exists anywhere under `tests/` (search with Glob for the base filename)
-- If no test found: ❌ "No test found for {filename} — create a test in tests/tdd/ or tests/unit/"
+One concise row per judgment, with file/line evidence for gaps:
 
-### 4. CONTEXT.md updated
-For each service with **modified** files:
-- Check if `services/{name}/CONTEXT.md` is also in the changed file list
-- If service behavior files changed (anything in `src/`) but CONTEXT.md was NOT touched: ❌ "Update services/{name}/CONTEXT.md — document the behavior change"
+| Check | Status | Evidence / action |
+|---|---|---|
+| Meaningful coverage and tiers | PASS/FAIL | ... |
+| CONTEXT, registry and docs accuracy | PASS/FAIL/N/A | ... |
+| Same-HEAD test evidence | PASS/FAIL | SHA, command, exit, cache, limitations; reused or newly run |
+| Four gates, ledger and handoff | PASS/FAIL | ... |
 
-### 5. feedback:check
-Run: `npm run feedback:check`
-- ✅ if it passes
-- ❌ with the specific missing item if it fails
-
-⚠️ `feedback:check` is **advisory** and reads the **staged** diff. On an already-committed branch
-that diff is empty, so it reports clean regardless. An empty result is **not** proof the docs are
-complete — check the changed paths yourself.
-
-### 6. Test suite
-Run: `npm test`
-- ✅ only if it **exits 0** — read the actual suite results
-- ❌ with the failing suite and test name if any fail
-
-⚠️ Do not pipe the run through `tail`/`head`. A pipe reports the exit status of the *last* command
-in the pipeline, so a failing `npm test` reads as success. To trim output, capture the status
-separately (`npm test > out.txt 2>&1; echo "EXIT=$?"`) and report that status. Turbo lists the
-failing suite name in the raw output — do not attribute a failure to the first-listed package.
-
-## Output Format
-
-```
-## Process Review
-
-### Changed Services: {list}
-### New Files: {list}
-
-| Check | Status | Action Required |
-|-------|--------|----------------|
-| Local README read | ✅/❌ | ... |
-| Tests for new files | ✅/❌ | ... |
-| CONTEXT.md updated | ✅/❌ | ... |
-| feedback:check | ✅/❌ | ... |
-| Test suite | ✅/❌ | ... |
-
-{PASS: Ready to commit. | FAIL: Fix the items above before committing.}
-```
-
-Be concise. One row per check. If there are multiple failures of the same type, list them all in the Action column separated by semicolons.
+End with `PASS: Ready to open the PR` or `FAIL: Fix the listed gaps`. Do not commit, merge, or
+repeat full test output; report failing suites and the retained log location if testing fails.

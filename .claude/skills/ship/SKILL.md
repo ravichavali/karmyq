@@ -21,15 +21,24 @@ concise — long end-to-end runs otherwise trip output limits and lose the trans
 
 Run on the branch diff, in this order. These are the standing quality gates — never skip one.
 
-1. **Tests** — `npm test` (unit + regression MUST pass). After any delete/rename this session,
-   first `Grep` the repo for stale references and bust the Turbo cache (`--force` or run the
-   affected suite directly) — green-locally/red-in-CI is the #1 recurring friction.
+1. **Tests** — unit + regression MUST pass. Reuse a passing full required-suite result (`npm
+   test`, the normal pre-push runner, or equivalent complete CI jobs) from the
+   **same HEAD commit** instead of re-running it: verify `git rev-parse HEAD` matches the evidence
+   SHA and `git status --porcelain` (including untracked files) is empty both at that run and
+   now. The ledger must name the SHA, command, exit 0, cache state and limitations; a staged
+   pre-commit run on the parent SHA does not qualify. If evidence is missing, stale, dirty or
+   incomplete, run `bash scripts/pre-commit-check.sh` once and record it on the actual HEAD.
+   A focused suite or incomplete CI graph does not qualify.
+   After any delete/rename this session, first `Grep` the repo for stale references and bust the
+   Turbo cache (`--force` or run the affected suite directly); reuse requires that evidence too.
 2. **`/simplify`** — apply quality cleanups.
 3. **`/code-review`** — resolve real findings; dismiss false positives with written justification.
 4. **`/security-review`** — auth/JWT/membership logic especially. Confirm authorization is derived
    from **live membership lookups, not stale JWT claims**.
 
 If any gate surfaces a finding, fix it and re-run that gate before moving on.
+Changes to code, tests, config or dependencies invalidate prior test evidence; validate the new
+HEAD. Documentation-only commits still need same-HEAD evidence for reuse under this rule.
 
 ### Reconcile claims against evidence
 
