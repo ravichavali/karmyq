@@ -102,7 +102,8 @@ export default function OffersPage() {
                 onChange={(e) => setFilter({ ...filter, status: e.target.value })}
                 className="border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
               >
-                <option value="">All</option>
+                {/* BUG-099: an omitted status means "active" to the API, so All must say "all" explicitly. */}
+                <option value="all">All</option>
                 <option value="active">Active</option>
                 <option value="matched">Matched</option>
                 <option value="withdrawn">Withdrawn</option>

@@ -488,7 +488,16 @@
             "path": "/requests/retention-policy",
             "description": "Sprint 90 / ADR-069: resolved retention windows (completed/expired/message, community->global->fallback via requests.retention_config) + the member's own held vs forgotten request counts. Backs the /about/memory transparency page. Read-only, no PII. Membership-gated on the JWT communities claim when ?communityId= is supplied (non-member -> 403). MUST be registered before /requests/:id (route-order)."
           },
-          "/offers",
+          {
+            "method": "GET",
+            "path": "/offers",
+            "description": "List the help offers the caller may read (own, or live communities' offers). status defaults to active; the exact value all lists every status (Sprint 140, BUG-099). The readable boundary and the Sprint 139 expiry rule (an expired active offer is hidden from everyone but its owner) always apply. Envelope { offers, count, total }."
+          },
+          {
+            "method": "POST",
+            "path": "/offers",
+            "description": "Create a standing help offer as the JWT caller, who must be an active member of the target community (403 otherwise)."
+          },
           {
             "method": "PUT",
             "path": "/offers/:id/privacy",
