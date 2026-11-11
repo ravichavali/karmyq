@@ -5,6 +5,13 @@
 
 ## Recent Changes
 
+- **2026-11-10 (Sprint 140, BUG-100 fixed on branch)**: `GET /communities/my/communities` lists the JWT caller's
+  memberships only. It used to require `?user_id=` and bind it into the SQL, so any signed-in user could read another
+  user's community list. The query parameter is now ignored (omitted, own or foreign id all return the caller's list),
+  and an id-less token gets 401 before any query. SQL, filters, ordering and envelope are unchanged. Side effect contained
+  in simulation-service: its id-less nominate/ratify workflows would have started working, so their weights are 0.
+  Tests: `tests/regression/sprint-140-my-communities-identity.test.ts`, root
+  `tests/integration/sprint-140-community-membership-identity.integration.test.ts`.
 - **2026-11-09 (Sprint 139, BUG-082)**: `src/database/db.ts` logs a successful query with the shared
   `createLogger('community-service')` at **debug** (`Executed query`, `{ text, duration, rows }`, never params) instead
   of an unconditional `console.log`. Silent at the default `info`; `LOG_LEVEL=debug` opts in. Errors, connection logs
@@ -503,28 +510,39 @@ Update community geographic coordinates (admin only, Sprint 36). Enables geograp
 **Implementation:** `src/routes/communities.ts`
 
 ### GET /communities/my/communities
-Get communities the user is a member of.
+Get the communities the **authenticated caller** is an active member of (active communities only,
+newest-joined first).
 
-**Query Parameters:**
-- `user_id` - User UUID (required)
+**Identity (Sprint 140, BUG-100):** the user is `req.user.userId` from the verified JWT — nothing else.
+A legacy `user_id` query parameter is **ignored** whether it is omitted, the caller's own id or another
+user's id; it no longer has any authority (before Sprint 140 the handler bound it into the SQL, so any
+signed-in user could list anyone's memberships). A token without a user id is answered 401 before any
+query runs. Existing callers that still send `user_id` keep working unchanged.
 
 **Response:**
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "id": "uuid",
-      "name": "Seattle Mutual Aid",
-      "role": "admin",
-      "joined_at": "2025-01-10T12:00:00Z"
-    }
-  ],
-  "count": 1
+  "data": {
+    "communities": [
+      {
+        "id": "uuid",
+        "name": "Seattle Mutual Aid",
+        "role": "admin",
+        "joined_at": "2025-01-10T12:00:00Z"
+      }
+    ],
+    "count": 1,
+    "total": 1
+  }
 }
 ```
 
-**Implementation:** `src/routes/communities.ts:94`
+**Tests:** `tests/regression/sprint-140-my-communities-identity.test.ts` (omitted/own/foreign id, id-less
+token, unauthenticated) and root `tests/integration/sprint-140-community-membership-identity.integration.test.ts`
+(two real users with disjoint memberships).
+
+**Implementation:** `src/routes/communities.ts` (`router.get('/my/communities')`)
 
 ### GET /communities/:id
 Get specific community with all members.

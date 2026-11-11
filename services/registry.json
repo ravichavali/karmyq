@@ -167,7 +167,11 @@
             "description": "Create a community \u2014 idempotent on identity (name+location, case-insensitive, ADR-062). Joins the existing active community if one matches (returns existing:true, HTTP 200); otherwise creates it (existing:false, HTTP 201)."
           },
           "/communities/join",
-          "/communities/my/communities",
+          {
+            "method": "GET",
+            "path": "/communities/my/communities",
+            "description": "List the authenticated caller's active memberships in active communities, newest-joined first. Identity is the JWT userId only (Sprint 140, BUG-100); a legacy user_id query parameter is ignored, and a token without a user id is answered 401."
+          },
           "/communities/:id/config",
           "/communities/config-templates",
           "/communities/configs/public",
