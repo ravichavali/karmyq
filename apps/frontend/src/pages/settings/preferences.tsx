@@ -111,34 +111,34 @@ export default function PreferencesPage() {
     try {
       setLoading(true);
 
+      // The API client's interceptor already unwrapped the { success, data } envelope, so
+      // response.data IS the payload (BUG-098). A failed request rejects into the catch below.
+
       // Fetch request type preferences
       const prefsResponse = await userSettingsService.getRequestTypePreferences();
-      if (prefsResponse.data.success) {
-        const prefs: Record<string, boolean> = {};
-        prefsResponse.data.data.preferences.forEach((pref: RequestTypePreference) => {
-          prefs[pref.request_type] = pref.subscribed;
-        });
-        setPreferences(prefs);
-      }
+      const prefs: Record<string, boolean> = {};
+      prefsResponse.data.preferences.forEach((pref: RequestTypePreference) => {
+        prefs[pref.request_type] = pref.subscribed;
+      });
+      setPreferences(prefs);
 
       // Fetch interests
       const interestsResponse = await userSettingsService.getInterests();
-      if (interestsResponse.data.success) {
-        setInterests(interestsResponse.data.data.interests);
+      const loadedInterests: Interest[] = interestsResponse.data.interests;
+      setInterests(loadedInterests);
 
-        // Convert to Set for easier management
-        const selected: Record<string, Set<string>> = {
-          service_category: new Set(),
-          item_category: new Set(),
-          event_type: new Set(),
-        };
+      // Convert to Set for easier management
+      const selected: Record<string, Set<string>> = {
+        service_category: new Set(),
+        item_category: new Set(),
+        event_type: new Set(),
+      };
 
-        interestsResponse.data.data.interests.forEach((interest: Interest) => {
-          selected[interest.interest_type]?.add(interest.interest_value);
-        });
+      loadedInterests.forEach((interest: Interest) => {
+        selected[interest.interest_type]?.add(interest.interest_value);
+      });
 
-        setSelectedInterests(selected);
-      }
+      setSelectedInterests(selected);
     } catch (error) {
       console.error('Error fetching preferences', { error: error instanceof Error ? error.message : String(error) });
       alert('Failed to load preferences');
@@ -191,7 +191,7 @@ export default function PreferencesPage() {
           interest_value: interestValue,
         });
 
-        if (response.data.success && response.data.data.isNew) {
+        if (response.data.isNew) {
           // Update local state
           const newSelected = { ...selectedInterests };
           newSelected[interestType] = new Set(newSelected[interestType]);
@@ -201,7 +201,7 @@ export default function PreferencesPage() {
           setInterests([
             ...interests,
             {
-              id: response.data.data.id,
+              id: response.data.id,
               interest_type: interestType,
               interest_value: interestValue,
               created_at: new Date().toISOString(),

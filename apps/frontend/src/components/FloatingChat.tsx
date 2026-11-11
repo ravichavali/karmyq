@@ -50,7 +50,8 @@ export default function FloatingChat() {
     try {
       setLoading(true)
       const response = await messagingService.getConversations()
-      const convos = response.data.data || []
+      // The API client's interceptor already unwrapped the envelope: response.data IS the array (BUG-098).
+      const convos = response.data || []
       setConversations(convos)
 
       // Calculate total unread

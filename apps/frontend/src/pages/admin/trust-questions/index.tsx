@@ -41,7 +41,8 @@ export default function TrustQuestionsAdminPage() {
     try {
       setLoading(true)
       const res = await trustQuestionsService.list()
-      setQuestions(res.data.data.questions)
+      // The API client's interceptor already unwrapped the envelope (BUG-098).
+      setQuestions(res.data.questions)
       setError('')
     } catch (err: any) {
       setError(err.response?.data?.message ?? 'Failed to load questions')
