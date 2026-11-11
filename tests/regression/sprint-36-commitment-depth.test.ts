@@ -1,27 +1,32 @@
-// tests/tdd/sprint-36-commitment-depth.test.ts
+// tests/regression/sprint-36-commitment-depth.test.ts (promoted from tests/tdd/ in Sprint 140)
 
 import { sortByActionPriority } from '../../apps/frontend/src/utils/commitmentSort'
 import { normalizeTags } from '../../services/community-service/src/utils/tags'
 import { isBoostActive } from '../../services/request-service/src/utils/boost'
 
+// Sprint 43 (c15962cd) changed the sorter's contract from `updated_at` DESC to `created_at` ASC within a status
+// tier ("CommitmentsTab sort direction fixed"); Sprint 140 caught these fixtures up. The generic item type is
+// preserved, so callers keep their own fields (here `id`).
 describe('sortByActionPriority', () => {
   it('sorts proposed before matched before completed', () => {
     const matches = [
-      { id: '3', status: 'completed', updated_at: '2026-01-03' },
-      { id: '1', status: 'proposed', updated_at: '2026-01-01' },
-      { id: '2', status: 'matched', updated_at: '2026-01-02' },
+      { id: '3', status: 'completed', created_at: '2026-01-01' },
+      { id: '1', status: 'proposed', created_at: '2026-01-03' },
+      { id: '2', status: 'matched', created_at: '2026-01-02' },
     ]
     const sorted = sortByActionPriority(matches)
     expect(sorted.map(m => m.id)).toEqual(['1', '2', '3'])
   })
 
-  it('within same status tier, sorts by updated_at DESC', () => {
+  it('within same status tier, sorts by created_at ASC (oldest first)', () => {
     const matches = [
-      { id: 'A', status: 'matched', updated_at: '2026-01-01' },
-      { id: 'B', status: 'matched', updated_at: '2026-01-03' },
+      { id: 'B', status: 'matched', created_at: '2026-01-03' },
+      { id: 'A', status: 'matched', created_at: '2026-01-01' },
+      { id: 'C', status: 'matched', created_at: '2026-01-02' },
     ]
     const sorted = sortByActionPriority(matches)
-    expect(sorted[0].id).toBe('B')
+    expect(sorted.map(m => m.id)).toEqual(['A', 'C', 'B'])
+    expect(matches.map(m => m.id)).toEqual(['B', 'A', 'C']) // input is not mutated
   })
 })
 
