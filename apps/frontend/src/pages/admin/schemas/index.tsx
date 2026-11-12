@@ -4,7 +4,7 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { uiSchemaService } from '@/lib/api'
 import Layout from '@/components/Layout'
-import { requireAdmin, isAdmin } from '@/utils/admin-auth'
+import { usePlatformAdminGate } from '@/hooks/usePlatformAdmin'
 
 interface AdminSchema {
   id: string
@@ -29,22 +29,13 @@ export default function SchemaListPage() {
   const [error, setError] = useState('')
   const [schemas, setSchemas] = useState<AdminSchema[]>([])
   const [filter, setFilter] = useState<{ status?: string; type?: string }>({})
-  const [authChecked, setAuthChecked] = useState(false)
-
-  // Check admin authentication
-  useEffect(() => {
-    if (!requireAdmin(router)) {
-      setAuthChecked(true)
-      return
-    }
-    setAuthChecked(true)
-  }, [router])
+  const allowed = usePlatformAdminGate(router)
 
   useEffect(() => {
-    if (authChecked && isAdmin()) {
+    if (allowed) {
       fetchSchemas()
     }
-  }, [authChecked])
+  }, [allowed])
 
   const fetchSchemas = async () => {
     try {
@@ -86,6 +77,8 @@ export default function SchemaListPage() {
     if (filter.type && schema.type !== filter.type) return false
     return true
   })
+
+  if (!allowed) return null
 
   return (
       <Layout title="Schema Management - Karmyq">

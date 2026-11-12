@@ -163,6 +163,15 @@ CREATE TABLE auth.founding_circle_submissions (
     created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     reviewed_at   TIMESTAMP
 );
+
+-- auth.platform_admins (Sprint 141, ADR-105): explicit platform admin grants, written by operator SQL only.
+-- Also read live by request-, community- and reputation-service (isLivePlatformAdmin).
+CREATE TABLE auth.platform_admins (
+    user_id    UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    granted_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    note       TEXT
+);
 ```
 
 ### Tables Read by This Service
@@ -438,6 +447,18 @@ matches a single path segment (verified with a real-router probe, 2026-10-11).
 ```
 
 **Implementation:** `src/routes/users.ts` (`GET /:userId`)
+
+### GET /users/me/platform-role
+Is the **caller** a platform admin (Sprint 141, ADR-105)? **Requires authentication.** Reads
+`SELECT 1 FROM auth.platform_admins WHERE user_id = $1 LIMIT 1` for the verified token's `userId`, never a claim.
+Two path segments, so `/:userId` does not shadow it.
+
+**Response:** `200 { "success": true, "data": { "platformAdmin": true } }` (or `false`). 401 without a valid token;
+500 on a failed lookup, never an answer.
+
+A UI hint only: it grants nothing. Each platform surface re-checks the table itself.
+
+**Implementation:** `src/routes/users.ts` (`GET /me/platform-role`)
 
 ### PUT /users/:id
 Update user profile.
@@ -922,6 +943,16 @@ src/
 - Database queries use connection pooling (max 20 connections)
 
 ## Recent Changes
+
+### Sprint 141: platform admin role (2026-11-12) — BUG-073, ADR-105
+- New table `auth.platform_admins` (migration `20261112-auth-platform-admins.sql`).
+  - A row is an explicit platform admin grant, written and removed by **operator SQL only**. There is no grant API.
+  - No seed rows, so every environment starts with zero platform admins (fail-closed).
+  - The curated demo reset classifies the table `reset`, so a reset clears every grant.
+- New endpoint `GET /users/me/platform-role` → `{ platformAdmin: boolean }`, read live for the verified token's
+  `userId`. The JWT gets no platform claim. The frontend uses the answer as a hint; request-, community- and
+  reputation-service re-check the table on every request.
+- Test: `tests/regression/sprint-141-platform-role-endpoint.test.ts`.
 
 ### Sprint 139: routine SQL success logs at debug (2026-11-09) — BUG-082
 - `src/database/db.ts` `query()` logged `console.log('Executed query', ...)` for every successful query, which

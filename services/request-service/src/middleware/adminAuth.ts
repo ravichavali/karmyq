@@ -1,14 +1,15 @@
 /**
  * Admin Authentication Middleware
  *
- * Verifies JWT token and checks for admin role.
- * Protects admin-only routes.
+ * Two independent roles (ADR-105), each read live (ADR-102), never OR-ed together:
+ * - platformAdminAuth: a platform admin (auth.platform_admins) — the global request-type catalog (/admin/schemas).
+ * - communityAdminAuth: an admin of SOME community — the admin-actions prefilter; handlers scope to the request.
  */
 
 import { Request, Response, NextFunction, Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { isDemoReadOnlySession } from '@karmyq/shared/middleware/auth';
-import { isLiveAdminOfAnyCommunity } from '../db/liveRole';
+import { isLiveAdminOfAnyCommunity, isLivePlatformAdmin } from '../db/liveRole';
 
 interface JWTPayload {
   userId: string;
@@ -87,13 +88,12 @@ export function verifyToken(req: Request, res: Response, next: NextFunction) {
 }
 
 /**
- * Require admin role middleware
- * Must be used after verifyToken
+ * Require an admin of ANY community. Must be used after verifyToken.
  *
- * Admits a LIVE admin of any community (BUG-069, ADR-102): the role comes from
- * communities.members, never the token's `communities` claim.
+ * The admin-actions prefilter: admits a LIVE admin of any community (BUG-069, ADR-102), read from
+ * communities.members, never the token's `communities` claim. It grants no platform power (BUG-073).
  */
-export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
+export async function requireAnyCommunityAdmin(req: Request, res: Response, next: NextFunction) {
   const user = (req as any).user as JWTPayload | undefined;
 
   if (!user) {
@@ -114,9 +114,37 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
 }
 
 /**
- * Combined middleware: verify token and require admin
+ * Require a platform admin. Must be used after verifyToken.
+ *
+ * Admits a LIVE platform admin (auth.platform_admins, ADR-105). A community admin, including any community's
+ * creator, is refused (BUG-073); the body never says whether the caller administers a community.
  */
-export const adminAuth = [verifyToken, requireAdmin];
+export async function requirePlatformAdmin(req: Request, res: Response, next: NextFunction) {
+  const user = (req as any).user as JWTPayload | undefined;
+
+  if (!user) {
+    return res.status(401).json({
+      success: false,
+      message: 'Authentication required'
+    });
+  }
+
+  if (!(await isLivePlatformAdmin(user.userId))) {
+    return res.status(403).json({
+      success: false,
+      message: 'Platform admin access required',
+      error: 'PLATFORM_ADMIN_REQUIRED'
+    });
+  }
+
+  next();
+}
+
+/** Verify the token, then require an admin of any community (the admin-actions mount). */
+export const communityAdminAuth = [verifyToken, requireAnyCommunityAdmin];
+
+/** Verify the token, then require a platform admin (the /admin/schemas mount). */
+export const platformAdminAuth = [verifyToken, requirePlatformAdmin];
 
 /**
  * The paths an admin chain must cover: every route `router` defines, under `prefix`. Read from the

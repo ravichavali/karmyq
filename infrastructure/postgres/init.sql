@@ -672,6 +672,23 @@ CREATE TABLE auth.inviter_stats (
 );
 
 --
+-- Name: platform_admins; Type: TABLE; Schema: auth; Owner: -
+--
+
+CREATE TABLE auth.platform_admins (
+    user_id uuid NOT NULL,
+    granted_by uuid,
+    granted_at timestamp with time zone DEFAULT now() NOT NULL,
+    note text
+);
+
+--
+-- Name: TABLE platform_admins; Type: COMMENT; Schema: auth; Owner: -
+--
+
+COMMENT ON TABLE auth.platform_admins IS 'Platform admins (ADR-105). Granted and revoked by operator SQL only. A row gives platform-wide powers and no community role.';
+
+--
 -- Name: refresh_tokens; Type: TABLE; Schema: auth; Owner: -
 --
 
@@ -2904,6 +2921,13 @@ ALTER TABLE ONLY auth.founding_circle_submissions
 
 ALTER TABLE ONLY auth.inviter_stats
     ADD CONSTRAINT inviter_stats_pkey PRIMARY KEY (user_id, community_id);
+
+--
+-- Name: platform_admins platform_admins_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.platform_admins
+    ADD CONSTRAINT platform_admins_pkey PRIMARY KEY (user_id);
 
 --
 -- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
@@ -5325,6 +5349,20 @@ ALTER TABLE ONLY auth.inviter_stats
     ADD CONSTRAINT inviter_stats_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 --
+-- Name: platform_admins platform_admins_granted_by_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.platform_admins
+    ADD CONSTRAINT platform_admins_granted_by_fkey FOREIGN KEY (granted_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: platform_admins platform_admins_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.platform_admins
+    ADD CONSTRAINT platform_admins_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+--
 -- Name: refresh_tokens refresh_tokens_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
 --
 
@@ -7023,5 +7061,6 @@ INSERT INTO public.schema_migrations (migration_name) VALUES
   ('20261008-skill-visibility.sql'),
   ('20261013-skill-endorsements.sql'),
   ('20261027-drop-interaction-feedback.sql'),
-  ('20261106-matches-offer-id-index.sql')
+  ('20261106-matches-offer-id-index.sql'),
+  ('20261112-auth-platform-admins.sql')
 ON CONFLICT (migration_name) DO NOTHING;

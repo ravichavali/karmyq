@@ -36,7 +36,10 @@ export async function isActiveMember(communityId: unknown, userId: string | unde
   return (await getLiveRole(communityId, userId)) !== null;
 }
 
-/** For platform-wide admin surfaces that admit an admin of any community (`requireAdmin`). */
+/**
+ * The admin-actions prefilter (`requireAnyCommunityAdmin`): an admin of SOME community. The handlers then scope to the
+ * request's own communities. Never a platform role (BUG-073): platform surfaces use `isLivePlatformAdmin`.
+ */
 export async function isLiveAdminOfAnyCommunity(userId: string | undefined): Promise<boolean> {
   if (!userId) return false;
   const result = await query(
@@ -44,6 +47,13 @@ export async function isLiveAdminOfAnyCommunity(userId: string | undefined): Pro
      WHERE user_id = $1 AND status = 'active' AND role = 'admin' LIMIT 1`,
     [userId]
   );
+  return result.rows.length > 0;
+}
+
+/** Platform admin (ADR-105): an explicit auth.platform_admins grant, read live. Grants no community role. */
+export async function isLivePlatformAdmin(userId: string | undefined): Promise<boolean> {
+  if (!userId) return false;
+  const result = await query('SELECT 1 FROM auth.platform_admins WHERE user_id = $1 LIMIT 1', [userId]);
   return result.rows.length > 0;
 }
 

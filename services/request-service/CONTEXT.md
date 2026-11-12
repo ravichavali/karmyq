@@ -7,6 +7,18 @@
 
 ## Recent Changes
 
+- **2026-11-12 (Sprint 141, BUG-073 fixed on branch, ADR-105)**: `/admin/schemas` (all 9 routes, the global
+  request-type catalog `requests.ui_schemas`) now admits a live **platform admin** only.
+  - The mount is `platformAdminAuth = [verifyToken, requirePlatformAdmin]` (`src/middleware/adminAuth.ts`).
+    `requirePlatformAdmin` reads `isLivePlatformAdmin` (`src/db/liveRole.ts`:
+    `SELECT 1 FROM auth.platform_admins WHERE user_id = $1 LIMIT 1`; no user → false, no query).
+  - A community admin, including any community's creator, gets 403
+    `{ success: false, message: 'Platform admin access required', error: 'PLATFORM_ADMIN_REQUIRED' }`.
+  - The admin-actions mount (boost, propose-match, urgent) keeps the any-community prefilter, renamed
+    `requireAnyCommunityAdmin` / `communityAdminAuth`, with unchanged behavior and `adminChainPaths` coverage.
+  - The old `requireAdmin` / `adminAuth` exports are gone.
+  - Tests: `tests/regression/sprint-141-platform-admin-gate.test.ts` (all 9 routes derived from the router, both roles,
+    exact SQL), the updated PR K suite, and the root PR K integration suite (both role directions, real schema).
 - **2026-11-10 (Sprint 140, BUG-099 fixed on branch)**: `GET /offers?status=all` lists every readable status. The
   offers page's "All" option used to send no status, which the route defaulted to `active`. The page now sends `all`.
   The route binds NULL for exactly `all` behind `($1::text IS NULL OR o.status = $1)`, so the bind positions
@@ -640,6 +652,7 @@ CREATE TABLE provider.offers (
 
 #### Tables Read by This Service
 - `auth.users` - User details for requester/helper names
+- `auth.platform_admins` - Live platform admin grant for `/admin/schemas` (`isLivePlatformAdmin`, Sprint 141, ADR-105)
 - `auth.user_tags` - Skill tags and nullable canonical `skill_slug` for skill-based matching
 - `auth.user_feed_preferences` - Feed visibility preferences (ADR-022)
 - `auth.social_distances` - Trust distance between users (ADR-031)
@@ -3273,7 +3286,8 @@ CREATE TABLE auth.user_interests (
 
 - **BUG-069 — admin gates trusted the JWT `communities` claim.** A demoted or removed admin kept admin powers until
   the token expired (1 h), and an admin of a community beyond the claim's 15 entries was refused. `requireAdmin`
-  (`/admin/schemas` and the `/requests` admin-actions mount; "admin of any community"), the per-request admin/moderator
+  (`/admin/schemas` and the `/requests` admin-actions mount; "admin of any community"; since Sprint 141
+  `/admin/schemas` needs a platform admin and the prefilter is `requireAnyCommunityAdmin`, ADR-105), the per-request admin/moderator
   gate on boost, unboost, propose-match and urgent, and the collective link/unlink community-admin check now read
   `communities.members` through `src/db/liveRole.ts` (`getLiveRole`, `isLiveAdmin`, `isLiveAdminOfAnyCommunity`,
   `hasLiveRoleInRequestCommunities`; arguments `(communityId, userId)`; a malformed id answers false, not a 500).
@@ -3633,7 +3647,7 @@ returned a misleading 500 after the write had already committed. The notificatio
 
 **Purpose:** Enable non-technical admins to create and manage request type schemas without code deployments.
 
-**API Endpoints:** All endpoints require admin role authentication (super_admin or admin).
+**API Endpoints:** All endpoints require a live **platform admin** (`auth.platform_admins`, Sprint 141, ADR-105). Anyone else, including a community admin, gets `403 PLATFORM_ADMIN_REQUIRED`.
 
 #### Schema Management
 - `GET /admin/schemas` - List all schemas (supports status, type, pagination filtering)

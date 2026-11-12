@@ -103,17 +103,6 @@ describe('liveRole helper (real module, pg mocked)', () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ role: 'admin' }], rowCount: 1 });
     expect(await actual.isLiveAdmin(C, U)).toBe(true);
   });
-  it('isLiveAdminOfAnyCommunity passes [userId] and needs an active admin row', async () => {
-    expect(await actual.isLiveAdminOfAnyCommunity(U)).toBe(false);
-    expect(mockQuery.mock.calls[0][0]).toMatch(/WHERE user_id = \$1 AND status = 'active' AND role = 'admin'/);
-    expect(mockQuery.mock.calls[0][1]).toEqual([U]);
-    mockQuery.mockResolvedValueOnce({ rows: [{ '?column?': 1 }], rowCount: 1 });
-    expect(await actual.isLiveAdminOfAnyCommunity(U)).toBe(true);
-  });
-  it('isLiveAdminOfAnyCommunity is false without a query for no user', async () => {
-    expect(await actual.isLiveAdminOfAnyCommunity(undefined)).toBe(false);
-    expect(mockQuery).not.toHaveBeenCalled();
-  });
 });
 
 // [method, path, body, live status]
@@ -145,16 +134,17 @@ describe('community evolution admin routes', () => {
   });
 });
 
-describe('POST /reputation/provider-trust/recalculate (admin of any community, live)', () => {
-  it('refuses a stale admin claim and never runs the backfill', async () => {
-    mocked.isLiveAdminOfAnyCommunity.mockResolvedValue(false);
+// Sprint 141 (BUG-073, ADR-105): the backfill is platform-wide, so its live row is auth.platform_admins.
+describe('POST /reputation/provider-trust/recalculate (platform admin, live)', () => {
+  it('refuses a stale admin claim with no live platform row and never runs the backfill', async () => {
+    mocked.isLivePlatformAdmin.mockResolvedValue(false);
     const res = await send('post', '/reputation/provider-trust/recalculate', undefined, STALE_ADMIN);
     expect(res.status).toBe(403);
-    expect(mocked.isLiveAdminOfAnyCommunity.mock.calls).toEqual([[U]]);
+    expect(mocked.isLivePlatformAdmin.mock.calls).toEqual([[U]]);
     expect(backfillAllProviderTrustScores).not.toHaveBeenCalled();
   });
-  it('runs the backfill for a live admin with an empty claim', async () => {
-    mocked.isLiveAdminOfAnyCommunity.mockResolvedValue(true);
+  it('runs the backfill for a live platform admin with an empty claim', async () => {
+    mocked.isLivePlatformAdmin.mockResolvedValue(true);
     (backfillAllProviderTrustScores as jest.Mock).mockResolvedValue(3);
     const res = await send('post', '/reputation/provider-trust/recalculate', undefined, EMPTY_CLAIM);
     expect(res.status).toBe(200);

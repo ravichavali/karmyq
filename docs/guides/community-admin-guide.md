@@ -52,7 +52,10 @@ Choose which types your community supports. Enable or disable:
 
 For each enabled type, set a **karma multiplier** — how much karma helpers earn. Use multipliers to signal which kinds of help your community values most.
 
-**Custom types:** If your community has specific needs (dog walking, language exchange), create custom types via the **Schema Manager** linked from your admin panel.
+**Custom types:** If your community has specific needs (dog walking, language exchange), ask a **platform admin**.
+Request types are shared by every community, so platform admins create and publish them in the Schema Manager. Once
+a type is published, you enable it here like a built-in one. Community admins don't see the Schema Manager links
+(Sprint 141, ADR-105).
 
 ### Karma Mechanics
 
@@ -101,9 +104,14 @@ user could load another member's list, roles included, by naming them; that is c
 show what they always did: for example, the relationship context shows the names of the communities the people
 around you belong to, without their roles.
 
-**Trust questions.** If you are an admin of any community, the **Admin → Trust Questions** page lists the
-questionnaire's questions and their choices. Before Sprint 140 it showed an error instead of the questions;
-that is fixed.
+**Trust questions.** The questionnaire's questions and choices are shared by every community, so only a **platform
+admin** can edit them, on the **Admin → Trust Questions** page. Your community still answers the questionnaire, and
+you can revisit your answers at any time. (Until Sprint 141, any community admin could open that page and edit the
+shared questions. Sprint 140 fixed the page's earlier error.)
+
+**Two admin roles.** Running a community makes you its **community admin**. A **platform admin** is a separate role,
+granted by an operator, that manages the request-type catalog and the trust questionnaire. Each role gives nothing of
+the other, and one person can hold both (ADR-105).
 
 ---
 

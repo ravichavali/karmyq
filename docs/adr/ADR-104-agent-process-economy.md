@@ -1,8 +1,8 @@
 # ADR-104: Agent Process Economy — Mechanical Checks Are Scripts, Judgment Runs Once per PR, and Context and Model Fit the Task
 
 **Date**: 2026-11-11
-**Status**: Proposed (part 1 shipped in PR #335 on 2026-11-11; parts 2–4 ship in the `agent/claude/usage-diet` PR; becomes Implemented once that PR is merged and deployed)
-**Deciders**: Maintainer (scope, repo frontmatter over user scope, and this ADR number, allocated 2026-11-11); Codex (PR #335); Claude (the follow-up PR)
+**Status**: Implemented (part 1 shipped in PR #335, merged and deployed 2026-11-11 as `edc867e9`; parts 2–4 shipped in PR #336, merged 2026-11-12 as `06685ea4` and deployed by master CI/CD run 43262546443, 14/14 jobs including Deploy to Demo)
+**Deciders**: Maintainer (scope, repo frontmatter over user scope, and this ADR number, allocated 2026-11-11); Codex (PR #335); Claude (the follow-up PR, #336)
 **Related**: [ADR-029](ADR-029-tdd-test-framework.md) (test tiers),
 [ADR-088](ADR-088-test-tier-truthfulness.md) (test-tier truthfulness),
 [ADR-091](ADR-091-verification-before-assertion.md) (verification before assertion),
@@ -41,7 +41,7 @@ failure it prints at most 25 matching diagnostic lines plus the last 15 lines of
 - A test result can be reused only for the same HEAD SHA, with exit 0 and a clean tree both when
   the test ran and now.
 
-The follow-up PR closes three holes where the script's own exit 0 could not be trusted:
+The follow-up PR (#336) closes three holes where the script's own exit 0 could not be trusted:
 
 - **Untracked files are refused before npm runs.** `npm test` tests the working tree, so a test
   could pass by importing a file that the commit will never contain.

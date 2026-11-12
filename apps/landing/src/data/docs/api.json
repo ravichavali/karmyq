@@ -50,6 +50,11 @@
           "description": "Get user profile by ID. **Requires authentication** (Sprint 133, BUG-062). `email` is selected and"
         },
         {
+          "method": "GET",
+          "path": "/users/me/platform-role",
+          "description": "Is the **caller** a platform admin (Sprint 141, ADR-105)? **Requires authentication.** Reads"
+        },
+        {
           "method": "PUT",
           "path": "/users/:id",
           "description": "Update user profile."
@@ -268,7 +273,7 @@
         {
           "method": "POST",
           "path": "/communities/trust-questions",
-          "description": "Create a trust question. Platform admin only."
+          "description": "Create a trust question. Platform admin only: a live `auth.platform_admins` row (`isLivePlatformAdmin`, ADR-105); anyone else gets `403 PLATFORM_ADMIN_REQUIRED`. The same gate guards every write belo"
         },
         {
           "method": "PUT",

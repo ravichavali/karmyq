@@ -9,7 +9,7 @@ import express, { Express } from 'express';
 import jwt from 'jsonwebtoken';
 import schemasRouter from '../../src/routes/schemas';
 import adminSchemasRouter from '../../src/routes/admin-schemas';
-import { adminAuth } from '../../src/middleware/adminAuth';
+import { platformAdminAuth } from '../../src/middleware/adminAuth';
 
 // Test database pool
 export function createTestPool(): Pool {
@@ -28,7 +28,7 @@ export function createTestApp(): Express {
 
   // Mount routes
   app.use('/schemas', schemasRouter);
-  app.use('/admin/schemas', ...adminAuth, adminSchemasRouter);
+  app.use('/admin/schemas', ...platformAdminAuth, adminSchemasRouter); // mirrors src/index.ts (ADR-105)
 
   return app;
 }

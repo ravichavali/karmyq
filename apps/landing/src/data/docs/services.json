@@ -87,6 +87,11 @@
         },
         {
           "method": "GET",
+          "path": "/users/me/platform-role",
+          "description": "Sprint 141 (ADR-105): { platformAdmin: boolean } for the verified caller, read live from auth.platform_admins (operator-granted; no JWT claim). 401 without a token. A UI hint only: platform surfaces re-check the table."
+        },
+        {
+          "method": "GET",
           "path": "/auth/skills/users/:userId",
           "description": "Skill tags visible to self or active co-members when sharing is on; hidden/missing owner gives the same 404. No interests, needs, or email. Sprint 133 PR B: each skill adds endorsement_count (active vouches), endorsed_by_me and can_endorse (a completed match with the owner, either direction)."
         },
@@ -712,6 +717,11 @@
           "method": "GET",
           "path": "/reputation/provider-trust/:providerId",
           "description": "Provider trust score with display_name, service_type and owner user_id. AUTHENTICATION REQUIRED since Sprint 125 / ADR-095 (was public) — leaving it open kept the provider directory anonymously enumerable through reputation-service after request-service was closed."
+        },
+        {
+          "method": "POST",
+          "path": "/reputation/provider-trust/recalculate",
+          "description": "Whole-platform provider trust-score backfill. Sprint 141 (ADR-105): a live platform admin only (auth.platform_admins); anyone else, including a community admin, gets 403 PLATFORM_ADMIN_REQUIRED and the backfill never runs."
         },
         {
           "method": "GET",

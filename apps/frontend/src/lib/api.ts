@@ -851,6 +851,12 @@ export const userSettingsService = {
     api.delete(`/preferences/interests/${id}`),
 }
 
+// Platform role (Auth Service, Sprint 141, ADR-105). Resolves `{ data: { platformAdmin: boolean } }` after the
+// interceptor unwraps the envelope. A UI hint only: every platform surface re-checks the grant live.
+export const platformRoleService = {
+  get: () => api.get('/users/me/platform-role'),
+}
+
 export type FoundingCircleStatus = 'new' | 'reviewed' | 'contacted' | 'archived'
 
 export const foundingCircleAdminService = {

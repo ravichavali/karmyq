@@ -5,6 +5,19 @@
 
 ## Recent Changes
 
+- **2026-11-12 (Sprint 141, BUG-073 fixed on branch, ADR-105)**: the six trust-question writes
+  (`POST /communities/trust-questions`, `PUT`/`DELETE /:id`, `POST /:id/choices`,
+  `PUT`/`DELETE /:id/choices/:choiceId`) admit a live **platform admin** only. `isLivePlatformAdmin`
+  (`src/utils/liveRole.ts`) runs `SELECT 1 FROM auth.platform_admins WHERE user_id = $1 LIMIT 1`.
+  - A community admin, including any community's creator, gets 403
+    `{ success: false, message: 'Platform admin access required', error: 'PLATFORM_ADMIN_REQUIRED' }`, and nothing is
+    written.
+  - One router-wide gate in `src/routes/trust-questions.ts` covers every non-read method, so a write route added later
+    is closed by default. `GET /communities/trust-questions` stays public.
+  - `isLiveAdminOfAnyCommunity` had no caller left and is deleted.
+  - The "Platform admin only" notes under *Trust Questions* below are now true.
+  - Tests: `tests/regression/sprint-141-platform-admin-trust-questions.test.ts`, the updated PR K suite, and the root
+    PR K integration suite.
 - **2026-11-10 (Sprint 140, BUG-100 fixed on branch)**: `GET /communities/my/communities` lists the JWT caller's
   memberships only. It used to require `?user_id=` and bind it into the SQL, so any signed-in user could read another
   user's community list. The query parameter is now ignored (omitted, own or foreign id all return the caller's list),
@@ -22,7 +35,7 @@
   `src/utils/liveRole.ts` (`getLiveRole`, moved there from `utils/memberVisibility.ts`, plus `isLiveAdmin` and
   `isLiveAdminOfAnyCommunity`; arguments `(communityId, userId)`; a malformed id answers null, an active row with a
   NULL role is a member). `fusions.ts`/`splits.ts` lose their claim `isAdmin` and their duplicate `isMember`. Trust
-  questions keep "admin of any community", now live (that scope admits any community creator: BUG-073, open).
+  questions keep "admin of any community", now live (that scope admits any community creator: BUG-073; fixed in Sprint 141, which gates them on a platform admin, ADR-105).
   **BUG-072 fixed:** split `PUT .../assignments` and `POST .../execute` now 404 a split that is not the path community's
   (they checked the path community's admin, then acted on any split). Tests: `tests/regression/sprint-134-pr-k-live-role.test.ts`
   and the root integration/static-gate tests named in ADR-102.
@@ -390,6 +403,7 @@ CREATE TABLE communities.community_links (
 
 ### Tables Read by This Service
 - `auth.users` - User details for member profiles and creator names
+- `auth.platform_admins` - Live platform admin grant for the trust-question writes (`isLivePlatformAdmin`, Sprint 141, ADR-105)
 - `social_graph.trust_edges_live` - Read-only view used for clustering algorithm and prestige weight computation
 
 ## API Endpoints
@@ -1128,7 +1142,7 @@ Remove a link (sets status to `inactive`). Either community's admin can do this.
 Returns active trust questionnaire questions with choices, ordered by `display_order`. Public endpoint — no auth required.
 
 #### POST /communities/trust-questions
-Create a trust question. Platform admin only.
+Create a trust question. Platform admin only: a live `auth.platform_admins` row (`isLivePlatformAdmin`, ADR-105); anyone else gets `403 PLATFORM_ADMIN_REQUIRED`. The same gate guards every write below.
 
 #### PUT /communities/trust-questions/:id
 Update question text, subtext, display_order, or active status. Platform admin only.

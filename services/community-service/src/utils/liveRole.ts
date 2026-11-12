@@ -29,13 +29,12 @@ export async function isLiveAdmin(communityId: unknown, userId: string | undefin
   return (await getLiveRole(communityId, userId)) === 'admin';
 }
 
-/** For platform-wide admin surfaces that admit an admin of any community (trust questions). */
-export async function isLiveAdminOfAnyCommunity(userId: string | undefined): Promise<boolean> {
+/**
+ * Platform admin (ADR-105): an explicit auth.platform_admins grant, read live. Grants no community role. The trust
+ * questionnaire is global, so its writes use this, never a community role (BUG-073).
+ */
+export async function isLivePlatformAdmin(userId: string | undefined): Promise<boolean> {
   if (!userId) return false;
-  const result = await query(
-    `SELECT 1 FROM communities.members
-     WHERE user_id = $1 AND status = 'active' AND role = 'admin' LIMIT 1`,
-    [userId]
-  );
+  const result = await query('SELECT 1 FROM auth.platform_admins WHERE user_id = $1 LIMIT 1', [userId]);
   return result.rows.length > 0;
 }

@@ -812,9 +812,17 @@
       "slug": "adr-104-agent-process-economy",
       "number": "104",
       "title": "ADR-104: Agent Process Economy — Mechanical Checks Are Scripts, Judgment Runs Once per PR, and Context and Model Fit the Task",
-      "status": "proposed",
+      "status": "implemented",
       "description": "**Date**: 2026-11-11",
       "filename": "ADR-104-agent-process-economy.md"
+    },
+    {
+      "slug": "adr-105-platform-admin-role",
+      "number": "105",
+      "title": "ADR-105: Platform Admin Is a Granted Role, Separate from Community Admin",
+      "status": "proposed",
+      "description": "**Date**: 2026-11-12",
+      "filename": "ADR-105-platform-admin-role.md"
     }
   ]
 }

@@ -70,7 +70,7 @@ beforeEach(() => {
     }
     return { rows: [], rowCount: 0 };
   });
-  for (const fn of [mocked.getLiveRole, mocked.isLiveAdmin, mocked.isLiveAdminOfAnyCommunity, executeFusion, executeSplit]) {
+  for (const fn of [mocked.getLiveRole, mocked.isLiveAdmin, mocked.isLivePlatformAdmin, executeFusion, executeSplit]) {
     (fn as jest.Mock).mockReset();
   }
   const notApproved = () => Promise.reject(new Error('Proposal must be in approved status'));
@@ -110,17 +110,6 @@ describe('liveRole helper (real module, pg mocked)', () => {
     expect(await actual.isLiveAdmin(C, U)).toBe(false);
     mockQuery.mockResolvedValueOnce({ rows: [{ role: 'admin' }], rowCount: 1 });
     expect(await actual.isLiveAdmin(C, U)).toBe(true);
-  });
-  it('isLiveAdminOfAnyCommunity passes [userId] and needs an active admin row', async () => {
-    expect(await actual.isLiveAdminOfAnyCommunity(U)).toBe(false);
-    expect(mockQuery.mock.calls[0][0]).toMatch(/WHERE user_id = \$1 AND status = 'active' AND role = 'admin'/);
-    expect(mockQuery.mock.calls[0][1]).toEqual([U]);
-    mockQuery.mockResolvedValueOnce({ rows: [{ '?column?': 1 }], rowCount: 1 });
-    expect(await actual.isLiveAdminOfAnyCommunity(U)).toBe(true);
-  });
-  it('isLiveAdminOfAnyCommunity is false without a query for no user', async () => {
-    expect(await actual.isLiveAdminOfAnyCommunity(undefined)).toBe(false);
-    expect(mockQuery).not.toHaveBeenCalled();
   });
 });
 
@@ -175,7 +164,8 @@ describe('community-admin gates', () => {
   });
 });
 
-const anyCommunityAdminRoutes: Array<[Method, string, unknown, number]> = [
+// Sprint 141 (BUG-073, ADR-105): the questionnaire is global, so its live row is auth.platform_admins.
+const platformAdminRoutes: Array<[Method, string, unknown, number]> = [
   ['post', '/communities/trust-questions', {}, 400],
   ['put', `/communities/trust-questions/${Q}`, { question_text: 'x' }, 404],
   ['delete', `/communities/trust-questions/${Q}`, undefined, 404],
@@ -184,16 +174,16 @@ const anyCommunityAdminRoutes: Array<[Method, string, unknown, number]> = [
   ['delete', `/communities/trust-questions/${Q}/choices/${CHOICE}`, undefined, 404],
 ];
 
-describe('trust-question writes (admin of any community, live)', () => {
-  it.each(anyCommunityAdminRoutes)('%s %s refuses a stale admin claim', async (method, path, body) => {
-    mocked.isLiveAdminOfAnyCommunity.mockResolvedValue(false);
+describe('trust-question writes (platform admin, live)', () => {
+  it.each(platformAdminRoutes)('%s %s refuses a stale admin claim with no live platform row', async (method, path, body) => {
+    mocked.isLivePlatformAdmin.mockResolvedValue(false);
     const res = await send(method, path, body, STALE_ADMIN);
     expect(res.status).toBe(403);
-    expect(mocked.isLiveAdminOfAnyCommunity.mock.calls).toEqual([[U]]);
+    expect(mocked.isLivePlatformAdmin.mock.calls).toEqual([[U]]);
     expect(writes()).toEqual([]);
   });
-  it.each(anyCommunityAdminRoutes)('%s %s admits a live admin with an empty claim', async (method, path, body, live) => {
-    mocked.isLiveAdminOfAnyCommunity.mockResolvedValue(true);
+  it.each(platformAdminRoutes)('%s %s admits a live platform admin with an empty claim', async (method, path, body, live) => {
+    mocked.isLivePlatformAdmin.mockResolvedValue(true);
     expect((await send(method, path, body, [])).status).toBe(live);
   });
 });

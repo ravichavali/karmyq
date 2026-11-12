@@ -19,7 +19,7 @@ import adminSchemasRouter from './routes/admin-schemas';
 import adminActionsRouter from './routes/adminActions';
 import dibsRouter from './routes/dibs';
 import relationshipContextRouter from './routes/relationshipContext';
-import { adminAuth, adminChainPaths } from './middleware/adminAuth';
+import { communityAdminAuth, platformAdminAuth, adminChainPaths } from './middleware/adminAuth';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
   authMiddleware,
@@ -86,11 +86,12 @@ app.use('/providers', rateLimiters.standard, providerOffersRouter);
 // Provider collectives (all endpoints require auth)
 app.use('/collectives', rateLimiters.standard, collectivesRouter);
 
-// Admin schema management (requires admin role)
+// Admin schema management: the request-type catalog is global, so it needs a live PLATFORM admin
+// (auth.platform_admins, ADR-105). A community admin, including any community's creator, is refused (BUG-073).
 app.use(
   '/admin/schemas',
   rateLimiters.standard,
-  ...adminAuth,
+  ...platformAdminAuth,
   dbContextMiddleware(pool),
   adminSchemasRouter
 );
@@ -146,13 +147,13 @@ app.use('/requests', rateLimiters.standard, dibsRouter);
 // router's own routes (adminChainPaths reads them from the router and refuses any layer it could not
 // cover): mounted on the whole /requests prefix it gated every path that fell through to it, which
 // refused the requester-offer routes below to every requester who is not an admin somewhere (BUG-071).
-// requireAdmin admits a live admin of any community; the handlers further scope to the request's
+// requireAnyCommunityAdmin admits a live admin of any community; the handlers further scope to the request's
 // community. (optionalTenantMiddleware also reads the request id in :id as a candidate community id; no
 // community has that id, so it sets no context.)
 app.all(
   adminChainPaths(adminActionsRouter, '/requests'),
   rateLimiters.standard,
-  ...adminAuth,
+  ...communityAdminAuth,
   optionalTenantMiddleware,
   dbContextMiddleware(pool),
 );

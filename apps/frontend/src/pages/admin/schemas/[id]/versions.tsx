@@ -4,7 +4,7 @@ import Head from 'next/head'
 import Link from 'next/link'
 import AdminLayout from '@/components/admin/AdminLayout'
 import { uiSchemaService } from '@/lib/api'
-import { requireAdmin, isAdmin } from '@/utils/admin-auth'
+import { usePlatformAdminGate } from '@/hooks/usePlatformAdmin'
 
 interface SchemaVersion {
   id: string
@@ -23,22 +23,13 @@ export default function VersionHistoryPage() {
   const [error, setError] = useState('')
   const [versions, setVersions] = useState<SchemaVersion[]>([])
   const [selectedVersion, setSelectedVersion] = useState<SchemaVersion | null>(null)
-  const [authChecked, setAuthChecked] = useState(false)
-
-  // Check admin authentication
-  useEffect(() => {
-    if (!requireAdmin(router)) {
-      setAuthChecked(true)
-      return
-    }
-    setAuthChecked(true)
-  }, [router])
+  const allowed = usePlatformAdminGate(router)
 
   useEffect(() => {
-    if (authChecked && isAdmin() && id) {
+    if (allowed && id) {
       loadVersions()
     }
-  }, [id, authChecked])
+  }, [id, allowed])
 
   const loadVersions = async () => {
     try {
@@ -77,6 +68,8 @@ export default function VersionHistoryPage() {
   const formatJSON = (obj: any): string => {
     return JSON.stringify(obj, null, 2)
   }
+
+  if (!allowed) return null
 
   if (loading && !versions.length) {
     return (

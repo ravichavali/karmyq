@@ -26,6 +26,10 @@ describe('Sprint 120 generated init.sql drift gate', () => {
       'BUG-095 matches.offer_id partial index',
       /CREATE INDEX idx_matches_offer_id ON requests\.matches USING btree \(offer_id\) WHERE \(offer_id IS NOT NULL\);/,
     ],
+    [
+      'Sprint 141 platform admin grants table (ADR-105)',
+      /CREATE TABLE auth\.platform_admins \(\s*user_id uuid NOT NULL,/,
+    ],
   ])('contains the %s', (_description, sentinel) => {
     expect((sentinel as RegExp).test(initSql)).toBe(true);
   });

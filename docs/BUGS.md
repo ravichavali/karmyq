@@ -1992,7 +1992,7 @@ Sprint 134 PR K `/code-review` (the gate lines changed in PR K, the missing owne
 
 ---
 
-## BUG-073 · [2026-10-22] · open, **deferred to a future-sprint feature** (maintainer, 2026-10-26) · **HIGH** (proposed)
+## BUG-073 · [2026-10-22] · **fixed on branch** (Sprint 141, `agent/claude/sprint-141-planning`, ADR-105; not deployed) · **HIGH** (proposed)
 
 **Platform-wide admin surfaces admit anyone who creates a community.** `requireAdmin` (request-service `/admin/schemas`:
 the request UI schemas every community uses), the six trust-question writes (community-service
@@ -2012,6 +2012,21 @@ refreshed token. PR K made these gates live and kept their scope; found 2026-10-
 - **Owner:** Claude implements the feature in the sprint that schedules it. **Deadline:** the 2026-10-29 one-week HIGH
   deadline is replaced by the maintainer's deferral; the gap stays open until the feature ships. No target sprint or
   review date is set yet.
+
+**Fix (Sprint 141, ADR-105, on branch):**
+- A platform admin is now an explicit, operator-granted row in `auth.platform_admins`, read live by
+  `isLivePlatformAdmin` in request-, community- and reputation-service.
+- The nine `/admin/schemas` routes, the six trust-question writes and the provider-trust backfill admit only that
+  role. A community admin, including a creator, gets `403 PLATFORM_ADMIN_REQUIRED` and nothing is written.
+- The admin-actions prefilter is renamed `requireAnyCommunityAdmin`, with unchanged behavior.
+- `GET /users/me/platform-role` drives the UI hint.
+- Tests:
+  - the five `sprint-141-*` service suites (request, community, reputation, auth, simulation);
+  - the frontend `sprint-141-platform-admin-ui` suite;
+  - root `tests/integration/sprint-134-pr-k-live-admin-role.integration.test.ts`, with both role directions on 31
+    routes against the real schema (CI-only on Windows).
+- **Rollout is fail-closed:** zero grants after deploy. The demo grant is a separate, authorized data operation. Status
+  becomes *fixed (deployed)* only after a verified deploy.
 
 ---
 

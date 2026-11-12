@@ -551,9 +551,14 @@ export const requireRole = (roles) => async (req, res, next) => {
 > ⚠️ **The `communities` claim is a hint, not an authorization input** ([ADR-102](adr/ADR-102-live-membership-authorization.md)).
 > It is a login-time snapshot (a demoted or removed admin keeps it until the token expires) and holds at most 15
 > communities. Every role or membership decision reads `communities.members` through the service's `liveRole` module
-> (`getLiveRole`, `isLiveAdmin`, `isLiveAdminOfAnyCommunity`; arguments `(communityId, userId)`), with `await`.
+> (`getLiveRole`, `isLiveAdmin`; arguments `(communityId, userId)`), with `await`.
 > `tests/regression/sprint-134-pr-k-claim-gate.test.ts` fails on any other claim read. `tenantMiddleware`'s
 > `req.role`/`req.communityRole` is the claim's copy and must not gate anything.
+>
+> **Platform admin is a separate, granted role** ([ADR-105](adr/ADR-105-platform-admin-role.md)): a row in
+> `auth.platform_admins`, read live by `isLivePlatformAdmin(userId)`. It gates the global request-type catalog, the
+> trust questionnaire's writes and the provider-trust backfill, and gives no community role. A community admin gets no
+> platform power. The JWT carries no platform claim.
 
 ### Usage in Services
 

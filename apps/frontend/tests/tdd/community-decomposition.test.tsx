@@ -15,6 +15,12 @@ jest.mock('next/link', () => {
   return MockLink
 })
 
+// Sprint 141 (ADR-105): the Schema Manager link follows the live platform check, not the community role.
+let mockPlatformAdmin = false
+jest.mock('@/hooks/usePlatformAdmin', () => ({
+  usePlatformAdmin: () => ({ loading: false, platformAdmin: mockPlatformAdmin }),
+}))
+
 jest.mock('@/lib/api', () => ({
   communityService: {
     updateConfig: jest.fn(),
@@ -163,7 +169,8 @@ describe('CommunityHero', () => {
     expect(screen.queryByText('Join Community')).not.toBeInTheDocument()
   })
 
-  it('shows Schema Manager link for admins', () => {
+  it('hides the Schema Manager link from a community admin who is not a platform admin (BUG-073)', () => {
+    mockPlatformAdmin = false
     render(
       <CommunityHero
         community={mockCommunity}
@@ -174,7 +181,23 @@ describe('CommunityHero', () => {
         onJoin={jest.fn()}
       />
     )
+    expect(screen.queryByText(/Schema Manager/)).not.toBeInTheDocument()
+  })
+
+  it('shows the Schema Manager link to a platform admin', () => {
+    mockPlatformAdmin = true
+    render(
+      <CommunityHero
+        community={mockCommunity}
+        isMember={true}
+        isPending={false}
+        isAdmin={false}
+        joiningCommunity={false}
+        onJoin={jest.fn()}
+      />
+    )
     expect(screen.getByText(/Schema Manager/)).toBeInTheDocument()
+    mockPlatformAdmin = false
   })
 
   it('shows "Community Full" when at capacity', () => {

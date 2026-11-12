@@ -22,6 +22,7 @@ import Link from 'next/link'
 import { CommunityConfig, RequestType } from '../types/community-config'
 import { REQUEST_TYPES } from './requests/RequestTypeSelector'
 import { requestService } from '../lib/api'
+import { usePlatformAdmin } from '../hooks/usePlatformAdmin'
 
 interface CommunityConfigEditorProps {
   config: CommunityConfig
@@ -38,6 +39,8 @@ export default function CommunityConfigEditor({
 }: CommunityConfigEditorProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>('identity')
   const [allRequestTypes, setAllRequestTypes] = useState(REQUEST_TYPES)
+  // The Schema Manager edits the global request-type catalog: a platform admin hint only (Sprint 141, ADR-105).
+  const { platformAdmin } = usePlatformAdmin()
 
   // Normalize enabled_request_types: filter to only known built-in names.
   // If none match (e.g. seed data has legacy names like meal_share/tool_borrow),
@@ -424,7 +427,7 @@ export default function CommunityConfigEditor({
               </p>
             </div>
 
-            {!readOnly && (
+            {!readOnly && platformAdmin && (
               <p className="text-xs text-text-muted">
                 Want a custom type?{' '}
                 <Link href="/admin/schemas" className="text-primary underline hover:text-primary-dark">

@@ -270,11 +270,12 @@ describe('Sprint 134 PR K: role gates read live membership, not the JWT claim (A
   });
 
   it('derives the live-role helper names from the source', () => {
-    // requireAdmin is found, not listed: an exported middleware that calls isLiveAdminOfAnyCommunity. Express
-    // calls it (adminAuth = [verifyToken, requireAdmin]), so it has no call site to check.
+    // requireAnyCommunityAdmin and requirePlatformAdmin are found, not listed: exported middleware that call
+    // isLiveAdminOfAnyCommunity and isLivePlatformAdmin (Sprint 141, ADR-105). Express calls them
+    // (communityAdminAuth / platformAdminAuth = [verifyToken, ...]), so they have no call site to check.
     expect([...liveRoleHelpers(live.map(parse))].sort()).toEqual([
       'getLiveRole', 'hasLiveRoleInRequestCommunities', 'isActiveMember', 'isLiveAdmin', 'isLiveAdminOfAnyCommunity',
-      'requireAdmin',
+      'isLivePlatformAdmin', 'requireAnyCommunityAdmin', 'requirePlatformAdmin',
     ]);
   });
 

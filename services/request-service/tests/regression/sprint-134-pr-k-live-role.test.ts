@@ -111,21 +111,22 @@ describe('liveRole helper (real module, pg mocked)', () => {
   });
 });
 
-describe('requireAdmin: /admin/schemas', () => {
-  it('refuses a stale admin claim when no live admin row exists anywhere', async () => {
-    mocked.isLiveAdminOfAnyCommunity.mockResolvedValue(false);
+// Sprint 141 (BUG-073, ADR-105): /admin/schemas is a platform surface, so its live row is auth.platform_admins.
+describe('requirePlatformAdmin: /admin/schemas', () => {
+  it('refuses a stale admin claim when no live platform row exists', async () => {
+    mocked.isLivePlatformAdmin.mockResolvedValue(false);
     const res = await send('get', '/admin/schemas', undefined, STALE_ADMIN);
     expect(res.status).toBe(403);
-    expect(mocked.isLiveAdminOfAnyCommunity).toHaveBeenCalledWith(U);
+    expect(mocked.isLivePlatformAdmin).toHaveBeenCalledWith(U);
     expect(mockQuery).not.toHaveBeenCalled();
   });
-  it('admits a live admin whose claim is empty', async () => {
-    mocked.isLiveAdminOfAnyCommunity.mockResolvedValue(true);
+  it('admits a live platform admin whose claim is empty', async () => {
+    mocked.isLivePlatformAdmin.mockResolvedValue(true);
     expect((await send('get', '/admin/schemas', undefined, [])).status).toBe(200);
   });
 });
 
-describe('admin actions on a request (requireAdmin mount + per-request gate)', () => {
+describe('admin actions on a request (requireAnyCommunityAdmin mount + per-request gate)', () => {
   const routes: Array<[method: 'post' | 'delete' | 'patch', path: string, body: object | undefined, liveStatus: number]> = [
     ['post', `/requests/${REQ}/boost`, undefined, 200],
     ['delete', `/requests/${REQ}/boost`, undefined, 200],
@@ -157,7 +158,7 @@ describe('admin actions on a request (requireAdmin mount + per-request gate)', (
 });
 
 describe('BUG-071: requester-offer routes sit before the admin-actions mount', () => {
-  // A requester who administers nothing: requireAdmin would refuse them if these routes fell through to it.
+  // A requester who administers nothing: requireAnyCommunityAdmin would refuse them if these routes fell through to it.
   beforeEach(() => mocked.isLiveAdminOfAnyCommunity.mockResolvedValue(false));
   const member = [{ id: C, name: 'Member', role: 'member' }];
 
