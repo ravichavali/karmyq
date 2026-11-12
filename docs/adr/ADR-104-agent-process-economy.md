@@ -52,6 +52,9 @@ The follow-up PR closes three holes where the script's own exit 0 could not be t
   worktree equal to the index, so the worktree check alone cannot see it, and the CONTEXT and
   test checks had already run on the index from before npm. The Codex review of PR #336 found
   this hole.
+- **The printed recovery command restores from that same snapshot, never from HEAD.** Restoring
+  from HEAD (`git restore --staged --worktree` with no source) would discard work that was staged
+  before the run. The Codex re-review caught that.
 
 ### 2. Judgment review runs once per PR
 
@@ -74,9 +77,10 @@ maintainer accepted these edits on 2026-11-11, after the Codex review of PR #336
 | Event routing | `packages/claude.md` → *Event routing* | The `events/routes.ts` path moved from the first sentence into the heading, and the registry link became plain code |
 
 The root file goes from 29,978 bytes / 498 lines to 18,109 bytes / 317 lines, as measured with
-`wc -c -l` on the staged file. **No test checks the relocations.** The doc/context drift gate does
-not read any of the four destinations. On 2026-11-11 each root pointer was checked by hand, and
-each names a heading that exists in its destination. A gate for that is a follow-up.
+`wc -c -l` on the staged file. **No test validates the relocation pointers or the preserved section
+content.** The doc/context drift gate reads `.claude/handoff/README.md`, but only to scan it for
+forbidden push recipes. On 2026-11-11 each root pointer was checked by hand, and each names a
+heading that exists in its destination. A gate for that is a follow-up.
 
 Hooks that fire on every edit must not cost a turn when they cannot help. The service-context
 reminder (`scripts/service-context-hook.js`) emits `additionalContext` for a file under
@@ -108,8 +112,8 @@ trade-off is that Codex and Kimi ignore both `.claude/agents/` and `model:`.
 
 **Easier**
 - A task pays for one quiet test run instead of several runs read back into context.
-- The root `CLAUDE.md`, which every session and every custom subagent loads, is about 40% smaller.
-  The rest of their starting context is unchanged.
+- The root `CLAUDE.md` is 39.6% smaller (29,978 → 18,109 bytes) for the sessions and custom
+  subagents that load it. Savings in total context and in tokens are not measured.
 - Broad searches run on a cheaper model, and judgment stays on the session model.
 
 **Harder / risks**
@@ -145,6 +149,6 @@ trade-off is that Codex and Kimi ignore both `.claude/agents/` and `model:`.
   including the untracked-file refusal, and passing runs that change the tree or stage changes.
 - `tests/regression/service-context-hook.test.ts`: the configured command identity, the reminder
   output and quiet exit on unusable stdin.
-- `tests/regression/doc-context-drift-gate.test.ts`: this ADR's index and nav entries only. It
-  does not read the relocation destinations.
+- `tests/regression/doc-context-drift-gate.test.ts`: this ADR's index and nav entries. No test
+  validates the relocation pointers or the preserved section content.
 - The ledger in the PR's `## Validation` section records the commits these tests ran on.

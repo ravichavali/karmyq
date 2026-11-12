@@ -33,15 +33,21 @@
 2. Stay on `agent/claude/usage-diet`. Never push to master directly and never force-push this branch.
 3. Read the PR's `## Validation` ledger and *Quality gates* section before trusting any pass count.
 
-**Next unchecked task**: Codex's non-author re-review of the review-fix commit, as code-review and security-review
-equivalents, labelled as such.
-- Focus on `scripts/pre-commit-check.sh` lines 80–125: the pre-run dirty-tree refusal, the `git write-tree` index
-  snapshot, and the combined post-run index/tree check.
-- The PR's *Review response* table maps each finding to its fix.
+**Next unchecked task**: Codex's third non-author review, of the second review-fix commit, as code-review and
+security-review equivalents, labelled as such.
+- Focus on `scripts/pre-commit-check.sh` lines 80–128, especially the recovery command printed at `:125-126`. It
+  restores from the pre-npm `git write-tree` snapshot, never HEAD.
+- Then the two reworded ADR-104 statements.
+- The PR's *Review response* section maps each finding to its fix.
 
 Gates done so far:
 - [Codex review, 2026-11-11](https://github.com/ravichavali/karmyq/pull/336#issuecomment-6814815323): three P2
   findings, all CONFIRMED and fixed or corrected.
+- [Codex re-review, 2026-11-12](https://github.com/ravichavali/karmyq/pull/336#issuecomment-6825575270): confirmed
+  the staged-change fix.
+  - New P2: the printed recovery command restored from HEAD and discarded work staged before the run.
+  - Two P3 wordings: the drift-gate sentence, and "every custom subagent loads it".
+  - All CONFIRMED and fixed.
 - The author's `/simplify` pass ran once, on the code diff only, done in-conversation rather than with the recipe's
   four subagents. It merged the two post-run checks into one report.
 
@@ -61,7 +67,7 @@ moves to Implemented on the next product branch (never in a docs-only master pus
 - **Scoped context.** The root `claude.md` goes from 29,978 B / 498 lines to 18,109 B / 317 lines. Four
   area-specific sections moved to their local files, adapted to their new location with every requirement kept
   (ADR-104 §3 lists each edit). Pointers were repointed in TEMPLATE.md, CONTRIBUTING.md, AGENTS.md and the
-  update-handoff skill. No test checks the relocations; the drift gate does not read the destinations.
+  update-handoff skill. No test validates the relocation pointers or the preserved section content.
 - **Model routing.**
   - `.claude/agents/Explore.md` overrides the built-in agent with `model: haiku`, read-only tools and
     `omitClaudeMd: true`.

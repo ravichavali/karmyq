@@ -118,8 +118,11 @@ after_tree=$(git write-tree) || { printf 'FAIL: git write-tree failed.\n'; exit 
 git diff --name-only -z "$index_tree" "$after_tree" > "$check_tmp/restaged" ||
   { printf 'FAIL: git diff failed.\n'; exit 1; }
 if dirty_tree || [[ -s "$check_tmp/restaged" ]]; then
-  printf 'FAIL: npm test passed but changed the index or working tree; revert it (git restore --staged --worktree <file>, delete new files) and re-run:\n'
+  printf 'FAIL: npm test passed but changed the index or working tree:\n'
   tr '\0' '\n' < "$check_tmp/restaged" | sed 's/^/  staged: /' | head -10
   list_dirty
+  # Restore from the pre-npm snapshot, never HEAD: work staged before the run must survive.
+  printf 'Undo only what npm changed, then re-run. Delete each untracked path; for each staged or modified path:\n'
+  printf '  git restore --source=%s --staged --worktree -- <path>\n' "$index_tree"
   exit 1
 fi
