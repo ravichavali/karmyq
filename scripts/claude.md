@@ -72,7 +72,11 @@ intermediate plan commit. It compares the index to `git merge-base origin/master
 (NUL-delimited paths), covering earlier branch commits too and failing closed if the base is
 unavailable. It requires service CONTEXT updates for `src/` changes and tracked tests for new
 TS/TSX source, by matching basename or a quoted module-path import in indexed test content, then runs
-`npm test` with direct exit-status capture. It refuses unstaged tracked changes. Success is
+`npm test` with direct exit-status capture. It refuses unstaged tracked changes and untracked
+files before the run (npm would test files the commit omits), and fails a passing run that left
+the tree changed (e.g. regenerated landing docs) or changed the index (a `git write-tree` snapshot
+taken before npm), listing the paths and a `git restore --source=<snapshot>` recovery command
+(restoring from HEAD would discard work staged before the run). Success is
 silent; failures show at most 25 matching diagnostics plus the final 15 log lines. It does not
 run `feedback:check`; the installed git pre-commit hook owns that. Regression fixtures in
 `tests/regression/pre-commit-check.test.ts` inject each violation in disposable Git repos.
@@ -81,7 +85,8 @@ run `feedback:check`; the installed git pre-commit hook owns that. Regression fi
 from JSON stdin and emits stdout JSON with `hookSpecificOutput.hookEventName: "PreToolUse"`
 and `additionalContext`. The [Claude Code hook reference](https://code.claude.com/docs/en/hooks#pretooluse-decision-control)
 (checked 2026-11-11) specifies this model-context field; exit-0 stderr is not a context channel.
-The reminder neither grants permission nor blocks the edit. The old inline environment lookup
+The reminder neither grants permission nor blocks the edit; empty or malformed stdin exits 0
+with no output. The old inline environment lookup
 and stderr reminder are replaced; other hook handlers are unchanged. The configured command
 is exercised by `tests/regression/service-context-hook.test.ts`.
 

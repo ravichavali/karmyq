@@ -4,8 +4,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const input = JSON.parse(fs.readFileSync(0, 'utf8'));
-const file = input.tool_input?.file_path;
+let input;
+try {
+  input = JSON.parse(fs.readFileSync(0, 'utf8'));
+} catch {
+  process.exit(0); // empty or malformed stdin: no reminder, and no hook error on every edit
+}
+const file = input?.tool_input?.file_path;
 if (typeof file !== 'string') process.exit(0);
 const match = file.replace(/\\/g, '/').match(/(?:^|\/)services\/([^/]+)\//);
 if (!match || match[1] === '.' || match[1] === '..') process.exit(0);

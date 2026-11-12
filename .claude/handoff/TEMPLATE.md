@@ -5,7 +5,7 @@
 
 > The handoff carries **state between sessions**. It is not a copy of the plan — link the plan
 > and name the next unchecked task instead. It is branch-local, so it can reserve nothing; see
-> `CLAUDE.md` → *Parallel Development* for how contended resources are actually allocated.
+> `.claude/handoff/README.md` → *Parallel development rules* for how contended resources are actually allocated.
 
 ---
 

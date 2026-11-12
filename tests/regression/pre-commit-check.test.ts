@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'child_process';
-import { mkdirSync, writeFileSync } from 'fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { ROOT, posixShell, scratchDirs } from './helpers/workspaces';
 
@@ -20,6 +20,7 @@ function fixture(testBody = "console.log('successful test output');") {
   git('config', 'user.name', 'test');
   git('config', 'user.email', 'test@example.invalid');
   git('config', 'core.hooksPath', '.git/hooks');
+  git('config', 'core.autocrlf', 'false'); // byte-exact worktree checks on Windows hosts too
   git('config', 'core.excludesFile', join(cwd, '.git/info/exclude').replace(/\\/g, '/'));
   put('package.json', JSON.stringify({ private: true, scripts: { test: 'node test-run.js' } }));
   put('test-run.js', testBody);
@@ -184,6 +185,62 @@ it('refuses a partially staged worktree before testing different contents', () =
   f.put('test-run.js', '// unstaged change\n');
   expect(f.run().status).not.toBe(0);
   expect(f.run().output).toMatch(/unstaged/i);
+});
+
+it('refuses an untracked file that npm would test but the commit would omit, before running npm', () => {
+  const f = fixture('process.exit(9);'); // exit 9 would mean npm ran
+  f.put('services/example/src/helper.ts');
+  const r = f.run();
+  expect(r.status).toBe(1);
+  expect(r.output).toContain('untracked: services/example/src/helper.ts');
+});
+
+// Staging leaves worktree == index, so only an index snapshot sees it; the CONTEXT/test checks
+// above ran on the index before npm, so new source staged by npm would skip them entirely.
+const write = (file: string) => `require('fs').writeFileSync('${file}', '// regenerated\\n');`;
+const stage = (file: string) => `${write(file)} require('child_process').execFileSync('git', ['add', '${file}']);`;
+it.each([
+  [write('services/example/CONTEXT.md'), 'modified: services/example/CONTEXT.md'],
+  [write('generated.json'), 'untracked: generated.json'],
+  [stage('services/example/CONTEXT.md'), 'staged: services/example/CONTEXT.md'],
+  [stage('services/example/src/unchecked.ts'), 'staged: services/example/src/unchecked.ts'],
+])('fails a passing npm run that changes the index or tree (case %#)', (body, listed) => {
+  const r = fixture(body).run();
+  expect(r.status).toBe(1);
+  expect(r.output).toContain('npm test passed but changed the index or working tree');
+  expect(r.output).toContain(listed);
+});
+
+// Run the recovery command the script prints, exactly as a user would, and prove it undoes only
+// npm's change: work staged before the run must survive in both the index and the worktree.
+it.each([
+  ['rewrites a pre-staged file', write('notes.txt'), 'modified: notes.txt'],
+  ['rewrites and stages a pre-staged file', stage('notes.txt'), 'staged: notes.txt'],
+  ['stages new source', stage('services/example/src/unchecked.ts'), 'staged: services/example/src/unchecked.ts'],
+])('printed recovery keeps work staged before the run when npm %s', (_case, body, listed) => {
+  const f = fixture(body);
+  f.put('notes.txt', 'HEAD bytes\n');
+  f.git('add', 'notes.txt');
+  f.git('commit', '-qm', 'notes at HEAD');
+  f.put('notes.txt', 'USER STAGED WORK\n');
+  f.git('add', 'notes.txt');
+  const r = f.run();
+  expect(r.status).toBe(1);
+  expect(r.output).toContain(listed);
+  const advice = r.output.match(/git restore ([^<\n]*)<(?:file|path)>/);
+  expect(advice).not.toBeNull();
+  const path = listed.split(': ')[1];
+  f.git('restore', ...advice![1].trim().split(/\s+/), path);
+  expect(f.git('show', ':notes.txt').toString()).toBe('USER STAGED WORK\n');
+  expect(readFileSync(join(f.cwd, 'notes.txt'), 'utf8')).toBe('USER STAGED WORK\n');
+  expect(f.git('status', '--porcelain').toString()).toBe('M  notes.txt\n');
+});
+
+it('reports staged and unstaged churn from one passing run together', () => {
+  const r = fixture(`${stage('services/example/src/unchecked.ts')} ${write('generated.json')}`).run();
+  expect(r.status).toBe(1);
+  expect(r.output).toContain('staged: services/example/src/unchecked.ts');
+  expect(r.output).toContain('untracked: generated.json');
 });
 
 it('preserves npm failure status and bounds noisy diagnostics', () => {

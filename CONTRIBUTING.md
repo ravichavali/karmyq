@@ -37,8 +37,8 @@ External contributors: fork first, then clone your fork.
 
 ### One editor at a time
 
-The repo is developed from up to two checkouts on different machines (`CLAUDE.md` →
-*Parallel Development* has the rules that apply when both are active, including how contended
+The repo is developed from up to two checkouts on different machines (`.claude/handoff/README.md` →
+*Parallel development rules* has the rules that apply when both are active, including how contended
 resources are allocated). Whichever is running, a branch has **one active editor** at a time, in
 one of two roles — never both at once:
 

@@ -62,6 +62,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-027: Docker Image Size Optimization (Deferred Technical Debt)](ADR-027-docker-image-optimization-deferred.md) — Accepted
 - [ADR-028: NPM Workspace Docker Build Pattern](ADR-028-npm-workspace-docker-build.md) — Accepted
 - [ADR-029: TDD Test Framework](ADR-029-tdd-test-framework.md) — Accepted
+- [ADR-104: Agent Process Economy — Mechanical Checks Are Scripts, Judgment Runs Once per PR, and Context and Model Fit the Task](ADR-104-agent-process-economy.md) — Proposed
 
 ### Social Architecture
 - [ADR-016: Prestige-Based Recognition System](ADR-016-prestige-based-recognition.md) — **Partially Implemented** (Phase 1)

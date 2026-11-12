@@ -50,15 +50,19 @@ npm run build          # prebuild runs generate-docs first
 directory dirty** with timestamp and HEAD-sha churn. Revert the noise before committing, or it
 lands in an unrelated diff.
 
-⚠️ **`nav.json` silently reverts.** Regeneration can drop a hand-added entry. After editing it,
-grep the file to confirm your entry survived — don't assume the write stuck.
+⚠️ **`src/data/docs/` is GENERATED — `nav.json` included.** The landing prebuild regenerates it
+and any hand edit is lost; a regeneration can also drop an entry you added by hand. Fix the
+source lists in `scripts/generate-docs.ts` instead.
 
-**Authoring docs** (every page must be wired into `nav.json`, and the doc/context drift gate
-enforces it):
-
-- ADR → `concepts/adr-{NNN}-{slug}.json`: `{ slug, number, title, status, description, content, filename }`
-- Concept / user guide → `{ slug, title, description, content }`
-- Service endpoint entry → `{ method, path, description }`
+**Authoring docs** — author the SOURCE, never `src/data/docs/`:
+- **Concept / User Guide** — write `docs/concepts/<slug>.md` or `docs/guides/<slug>.md`, then add
+  the slug to the ordering arrays in `scripts/generate-docs.ts` (`CONCEPT_ORDER` **and** one of
+  `whyKarmyq` / `howItWorks`), then regenerate. Missing either list fails the drift gate.
+- **ADR** — write `docs/adr/ADR-{NNN}-{slug}.md`, index it in `docs/adr/README.md`, **and add the
+  slug to a group in `ADR_GROUPS`** in `scripts/generate-docs.ts`, then regenerate. The generator
+  does *not* fall back to listing an ungrouped ADR: it emits the page with **no nav entry**, and the
+  drift gate fails. ⚠️ `apps/landing/src/data/docs/` is gitignored but ~122 of its files are
+  tracked, so a newly generated page is invisible to `git status` and needs `git add -f`.
 
 The landing site calls the API **cross-origin**, so it needs an absolute `karmyq.com/api` base and
 the origin present in the backend's `ALLOWED_ORIGINS` — a relative path works locally and breaks in

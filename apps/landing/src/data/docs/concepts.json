@@ -807,6 +807,14 @@
       "status": "proposed",
       "description": "**Date**: 2026-11-10",
       "filename": "ADR-103-authenticated-listings-and-simulation-containment.md"
+    },
+    {
+      "slug": "adr-104-agent-process-economy",
+      "number": "104",
+      "title": "ADR-104: Agent Process Economy — Mechanical Checks Are Scripts, Judgment Runs Once per PR, and Context and Model Fit the Task",
+      "status": "proposed",
+      "description": "**Date**: 2026-11-11",
+      "filename": "ADR-104-agent-process-economy.md"
     }
   ]
 }

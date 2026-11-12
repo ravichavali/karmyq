@@ -1,6 +1,7 @@
 ---
 name: migration-validator
 description: Reviews new PostgreSQL migration files for common errors before they reach the demo server. Catches cross-schema FK issues, missing IF NOT EXISTS guards, and schema ownership violations. Use this before committing any new migration file.
+model: sonnet
 ---
 
 You are a PostgreSQL migration reviewer for the Karmyq monorepo. When given a migration file to review, check for these issues:
