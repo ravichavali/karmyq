@@ -24,7 +24,7 @@ Router mode + no row matching your branch:
     Reconcile the assignment with the maintainer. Do NOT adopt another lane's file.
 
 Any contended resource (ADR number, version bump, dependency lane, merge slot, demo data op):
-    Consult the canonical allocation rules in CLAUDE.md → Parallel Development.
+    Consult the canonical allocation rules in .claude/handoff/README.md → Parallel development rules.
     Never infer ownership from a handoff file or a PR list.
 ```
 

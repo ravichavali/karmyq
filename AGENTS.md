@@ -42,7 +42,9 @@ Tool-name mapping (`Read`→your read tool, `Bash`→your shell, `TodoWrite`→`
 ## STEP 3 — Local context + agents
 
 Working in a service → `services/<name>/.claude/README.md` AND `CONTEXT.md` first. Custom review
-agents live in [`.claude/agents/`](.claude/agents/) (`migration-validator`, `process-reviewer`).
+agents live in [`.claude/agents/`](.claude/agents/) (`migration-validator`, `process-reviewer`), plus
+an `Explore` override that runs Claude Code's search subagent on haiku. Their `model:` frontmatter is
+read by Claude Code only; other agents ignore it.
 
 ## STEP 4 — Standing rules
 
@@ -108,7 +110,8 @@ the `package.json` version bump (first to merge takes it), dependency/lockfile e
 only — an open Dependabot PR is a queued proposal, NOT the lane holder; dependency work needs a
 security advisory or a feature that requires it, and Dependabot is security-only), and ADR numbers
 (**maintainer-allocated — never self-assigned from a derived list**).
-Full rules and rationale: `CLAUDE.md` → **Parallel Development**.
+Full rules and rationale: `.claude/handoff/README.md` → **Parallel development rules** (summary in
+`CLAUDE.md` → *Parallel Development*).
 
 ### B. Same-machine (Claude + Codex on the Windows box) — shared working tree
 Two VS Code sessions on the SAME folder: one working tree, one checked-out branch, **no

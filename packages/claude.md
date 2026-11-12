@@ -94,3 +94,14 @@ classic false-green: it can hide a real break locally that CI then catches.
 2. Re-export from `index.ts` if it belongs in the barrel.
 3. Add `exports` **and** `typesVersions` entries for any new subpath (see above).
 4. `npm run build`, then update [`shared/CONTEXT.md`](shared/CONTEXT.md) in the same PR.
+
+## Event routing (`events/routes.ts`, ADR-101)
+
+Every event is routed in one of three ways:
+- to its ONE consumer's queue, `karmyq-events-<consumer>` (today only `notification`);
+- to a dedicated transport (`match_completed`, `directed_request_created`, `skill_endorsement_changed`);
+- nowhere, if nothing consumes it: unconsumed events are not enqueued.
+
+**Never attach two services' workers to one Bull queue.** Bull fails a job whose name the taking
+worker never registered (BUG-060). `tests/regression/sprint-133-pr-q-event-routes.test.ts` gates
+this and holds the `services/registry.json` events to the source.

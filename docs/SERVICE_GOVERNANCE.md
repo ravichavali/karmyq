@@ -179,6 +179,17 @@ Does this feature need a new service?
 7. [ ] Run `npm run health:check` to verify
 8. [ ] Update `docs/ARCHITECTURE.md` service table
 
+**Non-obvious must-dos** (moved from `CLAUDE.md` 2026-11-11). The pre-commit hook enforces the
+checklist only once `npm run hooks:install` has run.
+- `services/registry.json` entry FIRST, then `npm run analyze:services` +
+  `node scripts/generate-service-context.js`.
+- tsconfig `"rootDir": "./src"` + `"include": ["src/**/*"]` — the build must emit `dist/index.js`,
+  not `dist/src/index.js`.
+- Copy a multi-stage Dockerfile from an existing TS service: build `@karmyq/shared` first, and copy
+  `shared/dist` before the production install ([ADR-028](adr/ADR-028-npm-workspace-docker-build.md)).
+- nginx routing — `infrastructure/claude.md` → *nginx routing*.
+- Update the simulation service; write an ADR if the decision is architectural.
+
 ### 5. Shared Dependency Management
 
 **Approach**: Hoist common dependencies to workspace root

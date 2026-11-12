@@ -580,6 +580,10 @@
           "divider": true
         },
         {
+          "label": "Agent Process Economy — Mechanical Checks Are Scripts, Judgment Runs Once per PR",
+          "href": "/docs/concepts/adr-104-agent-process-economy"
+        },
+        {
           "label": "Ecosystem Knowledge Registry",
           "href": "/docs/concepts/adr-097-ecosystem-knowledge-registry"
         },

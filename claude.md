@@ -12,13 +12,10 @@
 
 1. **This file** — global rules; they OVERRIDE your defaults.
 2. **[`.claude/handoff/CURRENT_HANDOFF.md`](.claude/handoff/CURRENT_HANDOFF.md)** — the ONLY doc
-   carrying state between sessions. If it exists, follow its Quick Start; update it as you
-   progress; archive it when the feature ships (create/update via the `handoff`/`update-handoff`
-   skill; framework: `.claude/handoff/README.md`).
-   ⚠️ **When parallel lanes are active it is a ROUTER, not the state itself** — its "Active lanes"
-   table maps each branch to its own `lane-<slug>.md`. Read the router, then read and update ONLY
-   your lane's file. Two machines editing one rolling handoff corrupts the one doc that carries
-   all cross-session state.
+   carrying state between sessions. Follow its Quick Start; update it as you progress; archive it
+   when the feature ships (`handoff`/`update-handoff` skill; framework: `.claude/handoff/README.md`).
+   ⚠️ **With parallel lanes active it is a ROUTER**: its "Active lanes" table maps each branch to a
+   `lane-<slug>.md`; read and update ONLY your lane's file.
 3. **Persistent memory** — `MEMORY.md` index + any matching memory file (advisory; verify
    anything it names still exists).
 4. **[`services/registry.json`](services/registry.json)** — services, ports, endpoints, events.
@@ -26,22 +23,18 @@
 
 **Then summarize before coding:** active sprint, branch, blockers, recommended first action.
 
-**Chat cadence:** one fresh chat per sprint (planning chat produces spec + plan + handoff via the
-`sprint-planning` skill; the NEXT chat executes). Same-PR polish/review follow-ups stay in the
-same chat. For a long multi-PR sprint: per-PR plan files and a fresh chat per PR. Two agents on
-one sprint = one chat per agent branch, orchestrated through handoff/PR state. **Two machines on
-two sprints = one lane file per sprint** (see *Parallel Development*); a chat never reads or
-writes the other lane's handoff.
-**Small fixes may plan and execute in one chat**: small, well-understood fixes with clear acceptance criteria and no
-unresolved design decision. Tests, the four review gates and the handoff requirements still apply. Larger or uncertain
-work keeps separate planning and execution chats.
+**Chat cadence:** one fresh chat per sprint — the planning chat produces spec + plan + handoff
+(`sprint-planning` skill), the NEXT chat executes; same-PR polish/review follow-ups stay in the
+same chat. A long multi-PR sprint gets per-PR plan files and a fresh chat per PR; two agents on one
+sprint get one chat per agent branch; two machines on two sprints get one lane file per sprint.
+**Small fixes may plan and execute in one chat** when well understood, with clear acceptance
+criteria and no open design decision; tests, the four review gates and the handoff still apply.
 
 ---
 
 ## Context Follows Directory Scope
 
-Read the LOCAL context first. **This file is global patterns only**; local checklists are mandatory
-— follow them exactly.
+Read the LOCAL context first. **This file is global patterns only**; local checklists are mandatory.
 
 | Working in | Read |
 |---|---|
@@ -52,32 +45,27 @@ Read the LOCAL context first. **This file is global patterns only**; local check
 | `tests/` | [`tests/claude.md`](tests/claude.md) |
 | `infrastructure/`, `scripts/` | that directory's `claude.md` |
 
-Only the **services** carry `.claude/README.md`; everywhere else the directory-level `claude.md`
-*is* the local context, and Claude auto-discovers it from the file you're editing.
+Only the **services** carry `.claude/README.md`; elsewhere the directory-level `claude.md` *is* the
+local context, and Claude auto-discovers it from the file you're editing.
 
 **Also read every gotcha whose `scope` matches the paths you are about to change:**
-`node scripts/gotcha-check.js --for <paths>` names them; the entries live in
-[`docs/gotchas/`](docs/gotchas/), and `node scripts/gotcha-check.js` validates them. Discovery
-answers for files that do not exist yet, so ask before you create one.
+`node scripts/gotcha-check.js --for <paths>` names them; entries live in
+[`docs/gotchas/`](docs/gotchas/). Discovery answers for files that do not exist yet, so ask before
+you create one.
 
 ---
 
 ## Development Disciplines (MUST FOLLOW)
 
-1. **Context-driven:** read the local context for the directory before changing anything in it
-   (table above — `.claude/README.md` for services, `claude.md` elsewhere).
+1. **Context-driven:** read the local context for the directory before changing anything in it.
 2. **Update, don't create:** search for an existing file before creating any new one.
 3. **TDD framework ([ADR-029](docs/adr/ADR-029-tdd-test-framework.md)):** unit + regression MUST
    pass before push (pre-push hook enforces; TDD tier reports only; integration blocks if a DB is
-   available). `npm run hooks:install` once after clone — `.npmrc` `ignore-scripts=true`
-   ([ADR-061](docs/adr/ADR-061-supply-chain-and-secrets-hardening.md)) disables auto-install.
-   `git push --no-verify` emergencies only; `SKIP_PREPUSH=1` skips pre-push only.
-   ⚠️ **Hooks only enforce anything after `hooks:install` has run on this clone.** Git reads only
-   `core.hooksPath` when that is set, so a push that finishes silently and instantly means **no
-   hook ran** — treat that silence as a red flag, not a fast machine.
-
-   Clone setup is exactly two commands, and they must match `README.md` and `CONTRIBUTING.md`
-   verbatim:
+   available). `.npmrc` `ignore-scripts=true` ([ADR-061](docs/adr/ADR-061-supply-chain-and-secrets-hardening.md))
+   disables auto-install of hooks. `git push --no-verify` emergencies only; `SKIP_PREPUSH=1` skips
+   pre-push only. ⚠️ **A push that finishes silently and instantly means no hook ran** — treat
+   that as a red flag. Clone setup is exactly two commands, matching `README.md` and
+   `CONTRIBUTING.md` verbatim:
 
    ```bash
    npm ci
@@ -86,71 +74,46 @@ answers for files that do not exist yet, so ask before you create one.
 4. **Fix forward, not around:** fix the original script, never a workaround copy; ADR if
    architectural.
 5. **Verify before you assert:** every factual claim you write into a spec, plan, handoff or ADR
-   about this repo — file path, dependency/`peerDependency`, export, endpoint route, engine range,
-   CI gate behavior — is read out of the file FIRST; cite `file:line` for non-obvious ones and mark
-   anything you couldn't check **UNVERIFIED**. A changelog or upgrade guide is a hypothesis;
-   the manifest / `node_modules` / the compiler is evidence. Same rule for gates you write: a check
-   comparing against a hand-written shadow map is **false-green** — query the live arbiter
-   (registry, SDK map, upstream API) at run time and prove the check can actually fail.
+   about this repo (path, dependency, export, route, engine range, CI gate behavior) is read out
+   of the file FIRST; cite `file:line` for non-obvious ones and mark anything unchecked
+   **UNVERIFIED**. A changelog is a hypothesis; the manifest / `node_modules` / the compiler is
+   evidence. A gate that compares against a hand-written shadow map is **false-green** — query the
+   live arbiter at run time and prove the check can actually fail.
 6. **Docs feedback loop (MANDATORY):** every behavior change updates docs in the same PR —
    endpoint/schema/event/dependency → service `CONTEXT.md` + `services/registry.json` (+ migration
    in `infrastructure/postgres/migrations/`); shared-package export → `packages/shared/CONTEXT.md`;
-   architectural decision → ADR in `docs/adr/` + its `README.md` index (lifecycle: Proposed →
-   Accepted → Implemented | Superseded | Deprecated; flip to Implemented when deployed);
-   cross-service change (3+ services) → ADR. Then `npm run analyze:services` if dependencies
-   changed, and `npm run feedback:check` to verify.
+   architectural decision or a change across 3+ services → ADR in `docs/adr/` + its `README.md`
+   index (Proposed → Accepted → Implemented | Superseded | Deprecated). Then
+   `npm run analyze:services` if dependencies changed, and `npm run feedback:check`.
 
 ---
 
 ## Pre-Merge Checklist (before `git push`)
 
-Three buckets — don't hand-verify what the machine enforces:
+**🤖 CI blocks on its own** (fix the failure, never `--no-verify` past it): unit + regression;
+dependency audit ([ADR-059](docs/adr/ADR-059-dependency-security-gate.md)) + CodeQL
+([ADR-060](docs/adr/ADR-060-code-scanning-gate.md)); PR contract headers; the doc/context drift
+gate (`tests/regression/doc-context-drift-gate.test.ts`).
 
-**🤖 CI blocks on its own** (fix the failure, never `--no-verify` past it): unit + regression
-tests; dependency audit ([ADR-059](docs/adr/ADR-059-dependency-security-gate.md), high+) + CodeQL
-([ADR-060](docs/adr/ADR-060-code-scanning-gate.md)); PR contract headers (`pr-contract.yml`);
-doc/context drift gate (`tests/regression/doc-context-drift-gate.test.ts`: CLAUDE.md service
-count matches the registry, version line isn't hard-coded semver, every ADR indexed, every
-landing page in `nav.json`, `jest.setup` mocks `next/router`).
-
-**🔔 `npm run feedback:check` advises** (warn-only, but it's your to-do list for the diff):
-CONTEXT.md/registry updates for changed endpoints/schema/events/deps; ADR index; skipped tests
-without a justification comment.
+**🔔 `npm run feedback:check` advises** (warn-only — your to-do list for the diff).
 
 **🧠 Only you can judge:**
-- [ ] The RIGHT tests exist (coverage table below), not just a green suite
+- [ ] The RIGHT tests exist — minimum UI coverage: [`apps/frontend/claude.md`](apps/frontend/claude.md)
+      (last paragraph)
 - [ ] User guide + onboarding workflow updated for behavior/UI changes (`docs/guides/`,
       `apps/frontend/src/lib/onboarding/workflows.ts`)
-- [ ] Landing docs authored for new features/concepts/ADRs (formats below)
+- [ ] Landing docs authored from the SOURCE, never `apps/landing/src/data/docs/` (generated); a new
+      ADR's slug also goes in `ADR_GROUPS` in `scripts/generate-docs.ts` or the drift gate fails.
+      Procedure: [`apps/claude.md`](apps/claude.md) → *Authoring docs*
 - [ ] ADR exists if architectural
-- [ ] SDLC gates run on the branch diff: `/simplify`, `/code-review`, `/security-review` —
-      findings resolved or dismissed with written justification. **Effort calibrated to diff
-      size** (2026-07-16): one `/simplify` pass per PR for small diffs (per-task only on
-      substantial tasks); `/code-review` medium for small well-specified PRs, high for
+- [ ] SDLC gates on the branch diff: `/simplify`, `/code-review`, `/security-review` — findings
+      resolved or dismissed with written justification. Effort calibrated to diff size: one
+      `/simplify` pass per small PR; `/code-review` medium for small well-specified PRs, high for
       risky/large ones. All four gates (with testing) remain mandatory every sprint.
 - [ ] Handoff updated
 - [ ] Vulnerability SLA: high/critical ≤ 1 week; anything ≤ 2 weeks
 
-**Minimum test coverage for UI changes:**
-| Change Type | Required Tests |
-|---|---|
-| New component | Renders correctly, handles edge cases |
-| Conditional render (role/state gate) | Shows for authorized, hidden for unauthorized |
-| API call wired to user action | Mock verifies correct payload |
-| Data fetch on mount | Shows data, graceful error fallback |
-
-**Landing docs authoring** — author the SOURCE, never `apps/landing/src/data/docs/` (that
-directory, `nav.json` included, is regenerated by the landing prebuild and any hand edit is lost):
-- **Concept / User Guide** — write `docs/concepts/<slug>.md` or `docs/guides/<slug>.md`, then add
-  the slug to the ordering arrays in `scripts/generate-docs.ts` (`CONCEPT_ORDER` **and** one of
-  `whyKarmyq` / `howItWorks`), then regenerate. Missing either list fails the drift gate.
-- **ADR** — write `docs/adr/ADR-{NNN}-{slug}.md`, index it in `docs/adr/README.md`, **and add the
-  slug to a group in `ADR_GROUPS`** in `scripts/generate-docs.ts`, then regenerate. The generator
-  does *not* fall back to listing an ungrouped ADR: it emits the page with **no nav entry**, and the
-  drift gate fails. ⚠️ `apps/landing/src/data/docs/` is gitignored but ~122 of its files are
-  tracked, so a newly generated page is invisible to `git status` and needs `git add -f`.
-
-**Quick verification:** `npm test` (blocks) → `npm run feedback:check` →
+**Quick verification:** `/pre-commit-check` (runs `bash scripts/pre-commit-check.sh`) →
 `npm run analyze:services` (if deps changed) → gates on the diff.
 
 ---
@@ -158,27 +121,14 @@ directory, `nav.json` included, is regenerated by the landing prebuild and any h
 ## System Architecture
 
 ### Services (10 total)
-See **[services/registry.json](services/registry.json)** for the complete list. (Sprint 91 /
-ADR-071 folded feed-service into request-service — the feed is `/requests/feed/*`; there is no
-feed-service.)
-
-| Service | Port | Criticality |
-|---------|------|-------------|
-| Auth | 3001 | Critical (7 dependents) |
-| Community | 3002 | Critical (3 dependents) |
-| Request | 3003 | Critical |
-| Reputation | 3004 | Critical |
-| Notification | 3005 | Critical |
-| Messaging | 3006 | Critical |
-| Social-Graph | 3010 | Critical |
-| Cleanup | 3008 | Important |
-| Geocoding | 3009 | Optional |
-| Simulation | dev | Optional |
+Auth 3001 · Community 3002 · Request 3003 · Reputation 3004 · Notification 3005 · Messaging 3006 ·
+Social-Graph 3010 (all Critical) · Cleanup 3008 (Important) · Geocoding 3009, Simulation (dev) —
+Optional. The feed is part of request-service (`/requests/feed/*`, ADR-071); there is no
+feed-service. Full list: [services/registry.json](services/registry.json).
 
 **Tech stack:** Node.js 24 (`node:24-alpine`, [ADR-090](docs/adr/ADR-090-container-runtime-floor.md)
 — images, root `engines.node` and CI's `NODE_VERSION` are gate-locked to one major)/Express
-5/TypeScript · Next.js 16 · React Native + Expo · PostgreSQL 15
-(RLS) · Redis + Bull · Turborepo.
+5/TypeScript · Next.js 16 · React Native + Expo · PostgreSQL 15 (RLS) · Redis + Bull · Turborepo.
 
 ---
 
@@ -193,58 +143,47 @@ JWT payload: `{ userId, email, communities: Array<{id, name, role}> }`, header
 `user.role === 'admin' || (user.communities ?? []).some(m => m.role === 'admin')`.
 
 **⚠️ Authorization decisions MUST re-derive membership from a live lookup** — the JWT claim is a
-login-time snapshot (a removed member keeps the old claim until refresh; claim-only checks leak
-access). Claims are cheap role hints only; anything gating visibility or writes queries current
-membership. Use the service's `liveRole` module (`getLiveRole`/`isLiveAdmin`, `(communityId, userId)`, always
-`await`ed; [ADR-102](docs/adr/ADR-102-live-membership-authorization.md)) — `tests/regression/sprint-134-pr-k-claim-gate.test.ts`
-fails on any claim read outside its reviewed allowlist.
-
-### New service nginx routing
-Add `location ~ ^/api/{prefix}(/.*)?$` to `infrastructure/nginx/nginx.conf`; proxy_pass must
-strip `/api`: `proxy_pass http://your_service/{prefix}$1$is_args$args`. Takes effect on next
-deploy (or manual `sudo cp` + `nginx -t` + reload on the server).
+login-time snapshot (a removed member keeps it until refresh). Claims are cheap role hints only;
+anything gating visibility or writes queries current membership via the service's `liveRole`
+module (`getLiveRole`/`isLiveAdmin`, `(communityId, userId)`, always `await`ed;
+[ADR-102](docs/adr/ADR-102-live-membership-authorization.md)).
+`tests/regression/sprint-134-pr-k-claim-gate.test.ts` fails on any claim read outside its allowlist.
 
 ### Database
-**13 live schemas + 1 reserved**, not 6. Live: `auth`, `communities`, `requests`, `reputation`,
-`notifications`, `messaging`, `social_graph`, `feed`, `governance`, `feedback`, `provider`,
-`events`, `inventory`. Reserved: **`federation`** — twelve tables created by a migration and referenced by no
-service; don't build on it ([ADR-093](docs/adr/ADR-093-federation-schema-reserved.md)).
-The community schema is **`communities`** (plural). Two names where the obvious guess is wrong:
-`communities.members` (not `memberships`) and `requests.help_offers` (not `offers`). RLS is on —
-a query that skips `setDbContext` sees nothing rather than erroring.
-Details: [infrastructure/claude.md](infrastructure/claude.md).
+13 live schemas + **`federation`**, which is reserved — no service uses it; don't build on it
+([ADR-093](docs/adr/ADR-093-federation-schema-reserved.md)). Names where the obvious guess is wrong:
+the schema is **`communities`** (plural), **`communities.members`** (not `memberships`),
+**`requests.help_offers`** (not `offers`). RLS is on — a query that skips `setDbContext` sees
+nothing rather than erroring. Schema table: [infrastructure/claude.md](infrastructure/claude.md).
 
 ### API Response Contract (ADR-074)
 Success: `{ "success": true, "data": T, "message": "optional" }`.
 Error: `{ "success": false, "message": "Human-readable", "error": "ERROR_CODE" }` (string code).
 
 ### Events
-Every event is routed by `packages/shared/events/routes.ts` (ADR-101) in one of three ways:
-- to its ONE consumer's queue, `karmyq-events-<consumer>` (today only `notification`);
-- to a dedicated transport (`match_completed`, `directed_request_created`, `skill_endorsement_changed`);
-- nowhere, if nothing consumes it: unconsumed events are not enqueued.
-
-**Never attach two services' workers to one Bull queue.** Bull fails a job whose name the taking
-worker never registered (BUG-060). `tests/regression/sprint-133-pr-q-event-routes.test.ts` gates
-this and holds the [services/registry.json](services/registry.json) events to the source.
+Every event is routed by `packages/shared/events/routes.ts` (ADR-101): to its one consumer's
+queue, to a dedicated transport, or nowhere. **Never attach two services' workers to one Bull
+queue** — Bull fails a job whose name the taking worker never registered (BUG-060).
+`tests/regression/sprint-133-pr-q-event-routes.test.ts` gates it. Detail:
+[packages/claude.md](packages/claude.md) → *Event routing*.
 
 ### Workspace dependencies
 **Every workspace declares every package it imports.** Hoisting is npm's private optimization, not
-a contract — bumping a package in the workspaces that declare it de-hoists it out from under the
-ones that don't, breaking them. Before any bump, cross-check importers against declarers and add
-the missing declarations; never pin to preserve a hoist.
+a contract — a bump in the workspaces that declare a package de-hoists it out from under the ones
+that don't. Before any bump, cross-check importers against declarers; never pin to preserve a hoist.
 
 **Dependency edits are surgical.** Never `npm install --workspace`, `npm dedupe`, or a lockfile
-scratch-regen to fix a dependency problem — they rewrite exact pins to ranges and churn unrelated
-packages. Edit `package.json` and splice `package-lock.json` in place, then prove it with strict
-`npm ci`. Never add a root-level production dependency to satisfy an advisory — it lands in every
-service image.
+scratch-regen — they rewrite exact pins and churn unrelated packages. Edit `package.json` and
+splice `package-lock.json` in place, then prove it with strict `npm ci`. Never add a root-level
+production dependency to satisfy an advisory — it lands in every service image.
+
+**Dependency work needs a reason:** a security advisory (the SLA applies) or a feature that needs
+the newer version — never upgrades for their own sake. Dependabot is security-only. Ask the
+maintainer who holds the dependency lane before starting (see *Parallel Development*).
 
 ---
 
 ## Development Commands
-
-npm scripts (full list in [`package.json`](package.json)):
 
 | Command | Purpose |
 |---------|---------|
@@ -252,30 +191,26 @@ npm scripts (full list in [`package.json`](package.json)):
 | `npm run test:tdd` / `test:integration` | WIP tests (never block) / integration (needs DB) |
 | `npm run feedback:check` | Advisory doc to-do list for the diff |
 | `npm run analyze:services` | Regenerate dependency graph + impact analysis |
-| `npm run dashboard` / `health:check` | Service health |
 | `npm run hooks:install` | Wire git hooks (once after clone) |
 | `npm run dev` / `build` | Start / build all services |
 
-**Test tiers** per workspace: `unit/` + `regression/` must pass; `tdd/` is WIP (auto-promotes
-when green via `scripts/promote-tdd-tests.js`); `integration/` needs a DB. **New sprint tests
-start in the changed workspace's `tests/tdd/`** (e.g. `services/request-service/tests/tdd/`),
-not root. Infrastructure: `cd infrastructure/docker && docker-compose up -d postgres redis`.
+**Test tiers** per workspace: `unit/` + `regression/` must pass; `tdd/` is WIP; `integration/`
+needs a DB. **New sprint tests start in the changed workspace's `tests/tdd/`** (e.g.
+`services/request-service/tests/tdd/`), not root — see [`tests/claude.md`](tests/claude.md).
 
 ### Host environments — check which machine you are on FIRST
-Development runs from **two checkouts on different machines**. The gotchas below are per-host and
-do not transfer; run `uname -s` before applying either set (`MINGW64_NT-*` = Windows box,
-`Darwin` = Mac).
+Two checkouts on different machines; their gotchas do not transfer. Run `uname -s` first
+(`MINGW64_NT-*` = Windows box, `Darwin` = Mac).
 
 **Windows + Git Bash (primary box):** `curl` flag parsing is unreliable (spurious status `000`),
 `jq` is **not installed**, and PowerShell execution policy blocks dot-sourcing helpers — use
-`node -e` for HTTP probes and JSON parsing instead of `curl`/`jq`. **No local Docker** — anything
-needing PostgreSQL runs in a disposable container on the demo server over an SSH tunnel.
+`node -e` for HTTP probes and JSON parsing. **No local Docker** — anything needing PostgreSQL runs
+in a disposable container on the demo server over an SSH tunnel.
 
-**macOS (second checkout):** `curl` and `jq` behave normally and Docker may be available locally
-for `postgres`/`redis`. Do **not** apply the Windows workarounds here — they are noise at best.
-Note the root context file is git-tracked lowercase (`claude.md`); this resolves on default
-case-insensitive APFS, but would silently load NOTHING on a case-sensitive volume or a Linux
-devcontainer. Verify with `diskutil info / | grep -i "Case-Sensitive"` before using either.
+**macOS (second checkout):** `curl` and `jq` behave normally and Docker may be available locally.
+Do **not** apply the Windows workarounds. The root context file is git-tracked lowercase
+(`claude.md`); that resolves on default case-insensitive APFS but loads NOTHING on a
+case-sensitive volume — check with `diskutil info / | grep -i "Case-Sensitive"`.
 
 **Both hosts:** `| tail` masks exit codes — capture the exit code separately. Don't attribute a
 Turbo failure to the first-listed package; read the failing suite name out of the raw output.
@@ -285,29 +220,16 @@ Turbo failure to the first-listed package; read the failing suite name out of th
 ## Documentation Map
 
 [services/registry.json](services/registry.json) (single source of truth) · per-service
-`.claude/README.md` (read first) + `CONTEXT.md` (technical) + `README.md` (human) ·
-[docs/](docs/): `ARCHITECTURE.md`, `SERVICE_GOVERNANCE.md`, `CONTEXT_MANAGEMENT.md`, `adr/` ·
-[`docs/gotchas/`](docs/gotchas/) — **operational knowledge** (ADR-097): durable repo-scoped facts
-that are not a decision, a defect or an idea. Every entry carries a machine check or a review date,
-so a stale one fails the build. Query with `node scripts/gotcha-check.js --for <paths>`; add one
-with the `learned` skill; the authoring manual is in [`CONTRIBUTING.md`](CONTRIBUTING.md).
-**Generated, never hand-edit** (a hook blocks it): `services/dependency-graph.md`,
-`services/impact-analysis.md`, `/dist/`, `/build/`. Also generated:
-`infrastructure/postgres/init.sql` (source = `migrations/*.sql` + `scripts/regenerate-init-sql.sh`;
-a drift gate enforces it) and `apps/landing/src/data/docs/` (regenerated by the landing prebuild).
+`.claude/README.md` + `CONTEXT.md` + `README.md` · [docs/](docs/) (`ARCHITECTURE.md`,
+`SERVICE_GOVERNANCE.md`, `adr/`) · [`docs/gotchas/`](docs/gotchas/) — durable operational facts
+(ADR-097), each with a machine check or review date; add one with the `learned` skill.
+**Generated, never hand-edit:** `services/dependency-graph.md`, `services/impact-analysis.md`,
+`/dist/`, `/build/`, `infrastructure/postgres/init.sql` (source = `migrations/*.sql` +
+`scripts/regenerate-init-sql.sh`; drift-gated) and `apps/landing/src/data/docs/`.
 
----
-
-## Creating New Services
-
-The pre-commit hook enforces the checklist **once `npm run hooks:install` has run** (see
-Discipline 3); follow [docs/SERVICE_GOVERNANCE.md](docs/SERVICE_GOVERNANCE.md)
-+ [ADR-028](docs/adr/ADR-028-npm-workspace-docker-build.md). Non-obvious must-dos: registry.json
-entry FIRST (then `analyze:services` + `node scripts/generate-service-context.js`); tsconfig
-`"rootDir": "./src"` + `"include": ["src/**/*"]` (build must emit `dist/index.js`, not
-`dist/src/index.js`); copy a multi-stage Dockerfile from an existing TS service (build
-`@karmyq/shared` first, copy `shared/dist` before prod `npm install`); `/health` endpoint; nginx
-routing (above); `docker-compose.yml`; update the simulation service; ADR if architectural.
+**New service:** follow [docs/SERVICE_GOVERNANCE.md](docs/SERVICE_GOVERNANCE.md) → *Service
+Creation Checklist* + [ADR-028](docs/adr/ADR-028-npm-workspace-docker-build.md); the
+`services/registry.json` entry comes FIRST. nginx routing: [infrastructure/claude.md](infrastructure/claude.md).
 
 ---
 
@@ -315,10 +237,9 @@ routing (above); `docker-compose.yml`; update the simulation service; ADR if arc
 
 **Dev:** `npm run dev`; `pm2 restart|logs karmyq-{service}`.
 **Demo (karmyq.com — demo/QA on ARM64/Oracle, NOT production, but master is protected and every
-master push is a full deploy):** push to `master` → GitHub Actions tests, builds ARM64 images,
-SSHes, runs `./scripts/deploy.sh`, verifies health, **rolls back on failure**
-([docs/GITHUB_ACTIONS_SETUP.md](docs/GITHUB_ACTIONS_SETUP.md)). Manual fallback:
-`ssh ubuntu@karmyq.com && cd ~/karmyq && ./scripts/deploy.sh` (`SKIP_TESTS=1` emergencies).
+master push is a full deploy):** merging to `master` runs GitHub Actions — tests, ARM64 images,
+`./scripts/deploy.sh` over SSH, health verify, **rollback on failure**
+([docs/GITHUB_ACTIONS_SETUP.md](docs/GITHUB_ACTIONS_SETUP.md)).
 
 ---
 
@@ -342,8 +263,7 @@ package names/versions, env-var loading order.
 - Verify the fix end-to-end before committing; `tsc --noEmit` before pushing.
 - After ANY delete/rename: grep the whole repo for orphaned references before committing.
 - **Don't trust a suspiciously-green local run after deletes/renames** — Turbo's cache misses
-  cross-workspace test inputs (a `tests/regression/*` test reading `apps/landing` caches a stale
-  pass while CI fails). Re-run directly: `cd tests && npx jest regression/<file>` (or `--force`).
+  cross-workspace test inputs. Re-run directly: `cd tests && npx jest regression/<file>` (or `--force`).
 
 ---
 
@@ -354,145 +274,44 @@ package names/versions, env-var loading order.
   squash-merge). Update a diverged PR branch with a merge commit, not rebase+force.
 - **Planning commits (spec/plan/handoff) stay on the feature branch**; **no docs-only master
   pushes** — a post-merge docs push triggers a second deploy → services restart → demo 502s.
-- **Bundle by default.** Every PR costs a chat, a review round, CI, a merge slot and a deploy. Before opening one, put
-  the work on the in-flight PR, or on the next product PR when that one can merge in time:
-  - a dependency or security fix goes in as that PR's first commit when it will merge inside the fix's SLA. It gets its
-    own PR only when nothing will, or when it blocks every push now; that PR may then include ready, reviewed work
-    that won't delay the security fix;
-  - post-merge records, bug logs, plans and handoffs go in with the next PR;
-  - small bugs in one area ship as one PR;
-  - bundling into an existing PR respects its agreed scope and branch ownership; record any scope expansion explicitly,
-    in the PR body and the handoff;
-  - the PR body says what was bundled, and why any separate PR could not wait.
-- **CodeQL:** recurring alerts here are documented false positives (e.g. `js/request-forgery` on
-  `apps/frontend/src/lib/api.ts`) — surface to the user for dismissal; never loop the dismissal
-  API (rate-limited; UI bulk-dismiss for >~50). The gate can false-block the fix-shipping push
-  (rescan lag) — re-run after rescan, don't bypass.
+- **Bundle by default.** Every PR costs a chat, a review round, CI, a merge slot and a deploy, so
+  put work on the in-flight PR or the next product PR when it can merge in time: a dependency or
+  security fix rides as that PR's first commit if it merges inside the fix's SLA; post-merge
+  records, bug logs, plans and handoffs ride with the next PR; small bugs in one area ship as one
+  PR. Respect the PR's agreed scope and branch ownership; record any expansion in the PR body and
+  the handoff, and say in the PR body what was bundled and why any separate PR could not wait.
+- **CodeQL:** recurring alerts here are documented false positives — surface them to the user for
+  dismissal; never loop the dismissal API (details: `ship` skill, Phase 2).
 - **Demo-server data ops use DB user `karmyq_prod`.**
 
 ---
 
 ## Parallel Development (two checkouts, two machines)
 
-Work runs from **two checkouts on different machines** (Windows primary + Mac), each on its own
-sprint and its own branch. There is real branch isolation, so the lane model is now the actual
-mechanism — but the machines cannot see each other's working trees, so **all coordination goes
-through git and PR state, never through tree hygiene.** Neither machine may assume the other is
-idle.
-
-**Serialize these four shared surfaces** — they collide even when sprint scope is fully disjoint:
-
-| Surface | Why it collides | Rule |
-|---|---|---|
-| `master` merges | Every master push is a full deploy with rollback-on-failure; overlapping deploys restart services and 502 the demo | **One merge at a time.** Wait for the deploy AND health verify to finish before the next PR merges. |
-| `package.json` version | One line, bumped every sprint; second merge ships a duplicate or skipped version | First PR to merge takes the bump; the second re-bumps at merge time, not at branch time. |
-| `package.json` / `package-lock.json` | Lockfile conflicts cannot be resolved by regeneration (scratch-regen is forbidden — it rewrites exact pins) | **One maintainer-designated active holder.** An open Dependabot PR is a queued proposal, NOT the holder (below). |
-| ADR numbers | Both lanes mint the same next number → filename AND `docs/adr/README.md` index conflict | **Maintainer-allocated** — never self-assigned from a derived list. Uniqueness is gate-enforced (below). |
-
-**Also expect, and handle locally:**
-- `apps/landing/src/data/docs/` is **git-tracked** and regenerated by `npm test` with timestamp /
-  HEAD-sha churn. Two machines on two branches produce competing diffs — reverting that churn
-  before committing is **mandatory** here, not advisory.
-- `docs/BUGS.md` and `docs/IDEAS.md` are append-only from both lanes. Append at the end; resolve
-  the trivial conflicts rather than reordering.
-- **The demo server is a single shared resource** — both machines SSH as the same user and write
-  as `karmyq_prod`. Demo data operations are **exclusive, and the maintainer is the lock**: every
-  demo data operation already requires its own explicit per-operation authorization, so ask before
-  each one and say which lane is asking. Do NOT rely on a written announcement to reserve the
-  server — see *Why reservations do not work here*.
-- **Persistent memory does not travel.** `MEMORY.md` and the memory files live outside the repo in
-  `~/.claude/projects/<project>/memory/`. A fresh checkout starts with none of it; sync that
-  directory between machines rather than duplicating it into this file.
-
-**Split sprints on file-disjoint boundaries** — by service. Never run one lane in
-`packages/shared/` while the other is in a consumer of it; a shared-package change plus an
-un-updated importer is exactly the breakage the workspace-dependency rule exists to prevent.
-
-### Why reservations do not work here — derive instead
-
-There is **no shared mutable store between the two checkouts.** Every handoff file, including the
-lane router, is a **branch-local file**: a reservation written on lane A's branch is invisible on
-lane B's branch until it merges to `master`. A lane is also told to read only its own lane file, so
-a reservation recorded there is written where the other lane is forbidden to look. Any protocol of
-the form "announce it in the handoff" is therefore **unreliable by construction** — both lanes can
-believe they hold the same resource.
-
-**Querying live state establishes what is VISIBLE. Allocating ownership still requires
-SERIALIZATION.** These are different problems and need different mechanisms — conflating them was
-the original error. Deriving "the next ADR number" from open PRs tells you what exists; it does not
-stop the other lane deriving the same answer in the same minute.
-
-**Read-only — derive these, no coordination needed:**
-
-| Resource | Live arbiter |
-|---|---|
-| Version bump | `origin/master`'s `package.json` **at merge time**, not at branch time |
-| `master` merge slot | `gh pr list` + the latest deploy run's status — is a deploy in flight? |
-
-**Contended — these need an owner, and the maintainer is the only serializer available:**
-
-| Resource | Allocation |
-|---|---|
-| Next ADR number | **Ask the maintainer to allocate it.** Do not self-assign from a derived list; two lanes reading the same list get the same answer. |
-| Dependency / lockfile lane | **One designated active holder at a time** (below). |
-| Demo data operations | **Ask per operation.** There is no file-based lock. |
-
-There is no shared mutable store between the checkouts, so a human is the only thing that can
-serialize. That is not a workaround — with two independent clones and no lock service, it is the
-only correct answer.
-
-**Detection and reconciliation, because serialization can still fail.** The drift gate now asserts
-ADR numbers are unique (`tests/regression/doc-context-drift-gate.test.ts`, with a negative fixture
-proving it fails on two `ADR-097` files — indexing alone does not catch this). If a collision does
-reach `master`, **the PR that merges second renumbers**: rename the file, update
-`docs/adr/README.md`, and fix every reference to it. The first is already merged and referenced;
-the second is the one that must move.
-
-### The dependency lane: queued proposals vs. the active holder
-
-An open Dependabot PR is a **queued proposal, not a lane holder.** Dependabot PRs sit open for
-weeks — #218 has been open since 2026-09-03 — so treating any open dependency PR as occupying the
-lane would make the lane permanently unavailable, including for the security-exemption renewal that
-must land before **2026-09-15**.
-
-- **Exactly one active dependency task at a time**, designated by the maintainer.
-- **Queued proposals do not hold it.** Dependabot PRs, and PRs awaiting review, are queued.
-- **Ownership transfers explicitly** — the maintainer hands it over; it is never inferred.
-- **Before starting any dependency work, ask who holds the lane.** `gh pr list` shows you what is
-  queued; it cannot tell you who is *working*, because an agent's work is invisible until they push.
-
-**What earns dependency work (maintainer, 2026-09-30).** Only two things do: a **security advisory**
-(the vulnerability SLA applies), or a **feature that needs** a newer version. Dependabot is
-security-only (`open-pull-requests-limit: 0`, gated by
-`tests/regression/sprint-131-dependabot-security-only.test.ts`). Do not start upgrades for their
-own sake, however cheap they look. Weight the process by risk: runtime auth or data paths get a
-planned PR; everything else gets a short PR proven by strict `npm ci`, the suite and one review.
-Keep maintenance to roughly a fifth of capacity; product work is the default.
-
-**The router is a pointer, not a coordination store.** `CURRENT_HANDOFF.md`'s lane table tells you
-which file is yours. Because it is branch-local it can be stale, and it must never be treated as
-the authority on who owns a resource — the arbiters above are.
+Two machines each run their own sprint on their own branch, and **coordinate only through git and
+PR state** — neither may assume the other is idle. Serialize the four shared surfaces even when
+scope is disjoint: **one `master` merge at a time** (wait for deploy + health); the **version bump**
+re-derived from `origin/master` at merge time; **one maintainer-designated holder** of
+`package.json`/`package-lock.json` (an open Dependabot PR is a queued proposal, not the holder);
+**ADR numbers allocated by the maintainer**, never self-assigned. Ask the maintainer before each
+demo data operation. Never "reserve" anything in a handoff — handoffs are branch-local. Split
+sprints on file-disjoint boundaries, never `packages/shared/` against a consumer of it.
+Memory lives outside the repo; sync it between machines.
+Full rules and rationale: [`.claude/handoff/README.md`](.claude/handoff/README.md) → *Parallel
+development rules*.
 
 ---
 
 ## Session Workflow
 
 **Write to `CURRENT_HANDOFF.md` immediately** when sprint goals/scope are agreed, an approach is
-chosen, a constraint is established, or a sprint completes — never defer to end of session (the
-handoff is the only thing that travels between chats). Trigger phrases: "next sprint",
-"the plan is", "we've agreed". Update status/blockers/next steps at every session end.
+chosen, a constraint is established, or a sprint completes — never defer it; the handoff is the
+only thing that travels between chats. Update status/blockers/next steps at every session end.
 
 **Reconcile the handoff before claiming done.** After any merge, PR open/close, and at session
-end, re-read `CURRENT_HANDOFF.md` end-to-end against real state (`gh pr list`, `git log`, current
-branch). A handoff saying "PR N NEXT / start from master" while PR N is already open or merged is
-a **blocking defect**, not a nice-to-have — fix it before reporting the work complete.
+end, re-read `CURRENT_HANDOFF.md` against real state (`gh pr list`, `git log`, current branch). A
+handoff saying "PR N NEXT" while PR N is already open or merged is a **blocking defect**.
 
-**End every chat with a next-chat prompt.** The chat's final message closes with a ready-to-paste prompt for the next
-chat: the branch or PR to pick up, the first command or check, what the handoff names as next, and any authorization
-still pending. It must agree with `CURRENT_HANDOFF.md`'s Quick Start; if the two differ, fix the handoff first.
-
----
-
-**Remember**: this is global context — read the local context for the area you touch (the table in
-*Context Follows Directory Scope*: `.claude/README.md` for a service, that directory's `claude.md`
-everywhere else).
+**End every chat with a next-chat prompt** — the branch or PR to pick up, the first command or
+check, what the handoff names as next, and any authorization still pending. It must agree with
+`CURRENT_HANDOFF.md`'s Quick Start; if the two differ, fix the handoff first.

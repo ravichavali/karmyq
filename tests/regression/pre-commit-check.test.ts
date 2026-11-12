@@ -186,6 +186,24 @@ it('refuses a partially staged worktree before testing different contents', () =
   expect(f.run().output).toMatch(/unstaged/i);
 });
 
+it('refuses an untracked file that npm would test but the commit would omit, before running npm', () => {
+  const f = fixture('process.exit(9);'); // exit 9 would mean npm ran
+  f.put('services/example/src/helper.ts');
+  const r = f.run();
+  expect(r.status).toBe(1);
+  expect(r.output).toContain('untracked: services/example/src/helper.ts');
+});
+
+it.each([
+  ["require('fs').writeFileSync('services/example/CONTEXT.md', 'regenerated\\n');", 'modified: services/example/CONTEXT.md'],
+  ["require('fs').writeFileSync('generated.json', '{}');", 'untracked: generated.json'],
+])('fails a passing npm run that changes the tree (case %#)', (body, listed) => {
+  const r = fixture(body).run();
+  expect(r.status).toBe(1);
+  expect(r.output).toContain('npm test passed but changed the working tree');
+  expect(r.output).toContain(listed);
+});
+
 it('preserves npm failure status and bounds noisy diagnostics', () => {
   const f = fixture(`for (let i=0;i<100;i++) console.log('FAIL case-' + i);
     for (let i=0;i<20;i++) console.log('tail-' + i);
