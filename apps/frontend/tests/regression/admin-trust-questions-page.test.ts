@@ -29,7 +29,7 @@ function setLocalStorage(token: string | null, user: object | null) {
   }
 }
 
-describe('requireAdmin (used by admin/trust-questions page auth gate)', () => {
+describe('requireAdmin (claim-based helper; founding-circle page only since Sprint 141)', () => {
   beforeEach(() => {
     localStorage.clear()
     jest.clearAllMocks()

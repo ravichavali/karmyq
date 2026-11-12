@@ -494,7 +494,7 @@ Create Schema  →  Publish Schema  →  Enable in Community  →  Members Can U
 
 ### Step 1 — Open the Schema Manager (platform admins)
 
-Platform admins see a **"Schema Manager →"** link on community pages, and an **"Open Schema Manager →"** hint under Configuration → Request Types. Community admins who are not platform admins see neither.
+Platform admins see a **"Schema Manager →"** link on community pages. A platform admin who can also edit that community's configuration sees an **"Open Schema Manager →"** hint under Configuration → Request Types; the read-only view shows no hint. Community admins who are not platform admins see neither.
 
 Click **Schema Manager →** to open `/admin/schemas`.
 
@@ -523,7 +523,7 @@ Once enabled, the custom schema type appears in the request creation form for al
 | Problem | Cause | Fix |
 |---------|-------|-----|
 | Schema not appearing in Configuration tab | Schema is Draft or Archived | Publish the schema in Schema Manager |
-| Schema Manager link not visible | Your account is not a platform admin | Ask an operator for the platform admin grant; community admins can still enable published types (Step 3) |
+| Schema Manager link not visible | Your account is not a platform admin (the configuration hint also needs edit access) | Ask an operator for the platform admin grant; community admins can still enable published types (Step 3) |
 | Custom schema missing after save | Fetch error on config load | Refresh the page; check request-service is running |
 | Karma multiplier not saving | Config validation error | Ensure trust weights sum to 1.0 (see error banner) |
 
