@@ -1,8 +1,10 @@
 # Sprint 141 — Platform admin role (BUG-073) — Handoff
 
 **Date**: 2026-11-12
-**Outcome**: implementation complete on the branch; one PR open for a **non-author review**. Not merged, not
-deployed. BUG-073 is *fixed on branch* only; ADR-105 stays **Proposed** until a verified deploy.
+**Outcome**: implementation complete; **PR #337** is open, its non-author review is done (no actionable defects), and
+CI is green except the ADR-060 code-scanning gate. That gate is blocked by **CodeQL #631**, the documented `api.ts`
+false positive, which waits for the **maintainer's UI dismissal**. Not merged, not deployed. BUG-073 is *fixed on
+branch* only; ADR-105 stays **Proposed** until a verified deploy.
 
 > State between sessions only. The design lives in the spec, the steps in the plan, and the evidence in the PR's
 > `## Validation` ledger. This file names the next action and the boundaries.
@@ -30,23 +32,26 @@ without changing what community admins can do in their own communities.
 - **Spec**: [docs/superpowers/specs/2026-11-12-sprint-141-platform-admin-role-design.md](../../docs/superpowers/specs/2026-11-12-sprint-141-platform-admin-role-design.md)
 - **Plan**: [docs/superpowers/plans/2026-11-12-sprint-141-platform-admin-role.md](../../docs/superpowers/plans/2026-11-12-sprint-141-platform-admin-role.md) — Tasks 1–12 done; Task 13 not authorized
 - **ADR**: [ADR-105](../../docs/adr/ADR-105-platform-admin-role.md) (Proposed)
-- **PR**: the one open PR from this branch — `gh pr list --head agent/claude/sprint-141-planning`. Its
-  `## Validation` ledger carries every command, SHA, ruling and deferred minor
+- **PR**: [#337](https://github.com/ravichavali/karmyq/pull/337). Its `## Validation` ledger carries every command,
+  SHA, ruling and deferred minor
+- **Non-author review**: [Codex review of `29a4a2d1`](https://github.com/ravichavali/karmyq/pull/337#pullrequestreview-5882655620),
+  2026-11-12. No actionable code defects; it confirmed both CI proofs and analysed #631 as a false positive in the
+  alert's PR thread (it dismissed nothing)
 - **Previous handoff (PR #336)**: [archive](archive/2026-11-12-pr-336-usage-diet-COMPLETE.md)
 
-## Quick Start (next chat: non-author review)
+## Quick Start (next chat: merge-readiness, after the maintainer's dismissal)
 
-1. `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`. If master moved past `06685ea4`, the author
-   merges `origin/master` in with a merge commit (never rebase) and re-derives the version.
-2. Read the PR body (*Review focus*, *Rulings*, *Deferred minors*), then the diff.
-3. **Confirm in the PR's CI run** (the two things this Windows box could not run):
-   - the integration job log names `tests/integration/sprint-134-pr-k-live-admin-role.integration.test.ts` and it
-     passed (134 tests: both role directions on 31 routes, plus 2 platform-role rows);
-   - the `regenerate-init-sql.yml` PR run passed its byte-for-byte comparison (seeded from the PR base).
-4. Findings go to the author as review comments. Fixes land on this branch.
-
-**Next action after a clean review**: the maintainer decides on merge (plan Task 13). Nothing below is authorized
-until then.
+1. `git fetch origin`, `gh pr view 337`, `git log --oneline origin/master -3`. If master moved past `06685ea4`, merge
+   `origin/master` in with a merge commit (never rebase) and re-derive the version.
+2. **Security gate.** The ship skill (Phase 2) says agents cannot dismiss CodeQL alerts; the maintainer dismisses
+   [#631](https://github.com/ravichavali/karmyq/security/code-scanning/631) in the UI, as a false positive.
+   - Confirm it is gone: `gh api "repos/ravichavali/karmyq/code-scanning/alerts?state=open&ref=refs/pull/337/head"`.
+   - Re-run the latest CI/CD run's failed jobs (`gh run rerun <id> --failed`). Then check `gh pr checks 337` **and**
+     each run's conclusion and job count; the checks list can hide jobs that were never created.
+3. When everything is green, ask the maintainer: "admin merge, yes/no?" (plan Task 13). Merge, deploy and the demo
+   grant are not authorized until that answer.
+4. After any merge: the master CI/CD gate evaluates **all** open alerts, and an `api.ts` line shift can re-raise this
+   false positive on master. Read the open master alerts and the merge-SHA analysis.
 
 ## What the branch holds
 
@@ -70,10 +75,28 @@ until then.
 - Four gates ran: tests, `/simplify`, `/code-review` (high) and `/security-review` (no findings), plus
   `process-reviewer` (its blocking findings were fixed).
 
-## CI-pending
+## CI evidence (PR #337 at `29a4a2d1`, observed 2026-11-12)
 
-- Root integration suite (above): it can't run here (no local Docker). It compiled and counted 134 tests locally.
-- Acceptance criteria 3 and 8 rest on it. **Merge must wait for its pass by name.**
+- **CI/CD Pipeline** run [43303866446](https://github.com/ravichavali/karmyq/actions/runs/43303866446): conclusion
+  **failure**, 8 jobs.
+  - Six succeeded: unit + regression, Security Audit, Lint & Type Check, Integration Tests, Build Landing Page, and
+    one more.
+  - Build Docker Images and Deploy to Demo were skipped (a PR run).
+  - **Code Scanning Gate (ADR-060) failed** with `1 open critical/high code-scanning alert(s) — blocking: #631
+    js/request-forgery apps/frontend/src/lib/api.ts:857`.
+- **Integration job** 131484331377 log: `PASS Integration Tests
+  integration/sprint-134-pr-k-live-admin-role.integration.test.ts`. The job ran 514/514 tests with no failures, so
+  acceptance criteria 3 and 8 are proven.
+- **Regenerate init.sql** run 43303866203: success. The byte-for-byte comparison against the PR base passed.
+- **Other runs:** Tests run 43303866368 succeeded (3 jobs: auth, frontend, Docker build). PR Contract run 43303866219
+  succeeded. The CodeQL analyses (run 43303859436, 2 jobs) succeeded; the separate `CodeQL` check is red only for #631.
+- **#631 disposition.** It is the documented false positive on the browser axios client
+  (`apps/frontend/claude.md`; it recurs on any `api.ts` edit):
+  - `platformRoleService.get` takes no arguments and calls a literal path;
+  - the "host" is the build-time `NEXT_PUBLIC_API_URL` (`api.ts:15`). The seven flagged sources are the seven
+    `NEXT_PUBLIC_*_API_URL` reads that reach `createApiClient`;
+  - the request is made in the browser, so there is no server-side request to forge;
+  - the code is unchanged; the alert waits for the maintainer's dismissal.
 
 ## Not authorized (plan Task 13 — a separate, future chat)
 
