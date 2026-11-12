@@ -1,9 +1,10 @@
-# Sprint 142 — planning (topic not yet chosen) — Handoff
+# Sprint 142 — governance ratification quorum planning — Handoff
 
 **Date**: 2026-11-12
 **Outcome**: in progress. Sprint 141 (PR #337, BUG-073, ADR-105, v11.114.0) is **shipped and verified**; its record
-is [archived](archive/2026-11-12-sprint-141-platform-admin-COMPLETE-v11.114.0.md). This branch holds only Sprint 141's
-post-merge records. The Sprint 142 topic has not been chosen.
+is [archived](archive/2026-11-12-sprint-141-platform-admin-COMPLETE-v11.114.0.md). The maintainer selected
+**governance ratification quorum** for Sprint 142 on 2026-11-12. The maintainer approved the written design,
+including the builder-review proposals; the implementation plan is written. Implementation starts in the next chat.
 
 > State between sessions only. Branch-local, so it reserves nothing; see `.claude/handoff/README.md` →
 > *Parallel development rules* for how contended resources are allocated.
@@ -16,9 +17,9 @@ post-merge records. The Sprint 142 topic has not been chosen.
 |---|---|
 | **Branch** | `agent/claude/sprint-142-planning` |
 | **Base** | `origin/master` at `898f23ba` (fetched 2026-11-12) |
-| **Active editor** | Claude |
-| **Reviewer role** | A non-author (Codex, by recent practice). Reviewers read the diff and do not co-edit |
-| **Owned paths** | So far: the post-merge records (`docs/BUGS.md` status lines, ADR-105 + `docs/adr/README.md`, its two landing JSON files, `.claude/handoff/`) |
+| **Active editor** | Codex (maintainer-directed planning session, 2026-11-12) |
+| **Reviewer role** | A non-author. Reviewers read the diff and do not co-edit |
+| **Owned paths** | Post-merge records already in `bc53d728`; current planning edits: Sprint 142 spec/plan under `docs/superpowers/` and this handoff. Future product paths are listed in the approved spec/plan; no product code changed in planning |
 | **Shared resources needed** | None allocated. Merge slot, version bump, ADR numbers, dependency lane and every demo data operation each need the maintainer's own authorization |
 
 ## Links
@@ -27,20 +28,44 @@ post-merge records. The Sprint 142 topic has not been chosen.
   [archive/2026-11-12-sprint-141-platform-admin-COMPLETE-v11.114.0.md](archive/2026-11-12-sprint-141-platform-admin-COMPLETE-v11.114.0.md)
 - **ADR-105** (Implemented): [docs/adr/ADR-105-platform-admin-role.md](../../docs/adr/ADR-105-platform-admin-role.md)
 - **PR**: none yet for Sprint 142.
+- **Approved spec**: [2026-11-12-sprint-142-governance-quorum-design.md](../../docs/superpowers/specs/2026-11-12-sprint-142-governance-quorum-design.md)
+- **Implementation plan**: [2026-11-12-sprint-142-governance-quorum.md](../../docs/superpowers/plans/2026-11-12-sprint-142-governance-quorum.md)
 
 ## Quick Start
 
 1. `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`. If master moved past `898f23ba`, merge
    `origin/master` into this branch with a merge commit (never rebase).
-2. **This branch's first commit is Sprint 141's post-merge record.** It must never reach master on its own (no
-   docs-only master push); it rides with the next product PR.
-3. **Choose the Sprint 142 topic with the maintainer**, then run the `sprint-planning` skill on this branch. Candidates
-   are listed under *Carried follow-ups*. Nothing is chosen or allocated yet.
+2. **This branch's first commit is Sprint 141's post-merge record (`bc53d728`, already pushed).** It must never
+   reach master on its own (no docs-only master push); it rides with the next product PR. Reuse this task branch.
+3. Read the approved spec and implementation plan linked above. Invoke `superpowers:executing-plans` for one
+   editor on this shared tree (or choose `superpowers:subagent-driven-development` with explicit file ownership).
+   Begin Task 1. No shared resource is allocated. Stop the execution chat at product PR creation.
 
-**Next unchecked task**: the maintainer picks the Sprint 142 topic.
+**Next unchecked task**: plan Task 1 — read current context, verify clean branch/live base, write failing quorum
+and role-elevation policy tests, then implement the pure policy module. This planning chat does not implement.
 
 ## Blockers and decisions
 
+- **Decision (2026-11-12):** the maintainer chose governance ratification quorum as the Sprint 142 topic.
+  Current behavior was read from `services/community-service/src/routes/governance.ts:80-98` (active-member
+  ratification, nominee excluded) and `services/community-service/src/database/governanceDb.ts:119-137`
+  (fixed quorum stored at nomination creation; default 3 at line 26). The role-holder-only wording in
+  `docs/concepts/governance.md:11` disagrees with the route and needs reconciliation in the planned product PR.
+- **Decision (2026-11-12):** the maintainer chose equal votes for active members with quorum scaling by community
+  size over trust-qualified voters or trust-weighted votes. Simulation governance actions remain disabled; their
+  activation needs a separate decision (`docs/adr/ADR-103-authenticated-listings-and-simulation-containment.md:67-70`).
+- **Confirmed scope (2026-11-12):** `max(3, ceil(E / 5))`, where E is active members other than the nominee at
+  nomination creation; fixed voter roster; only still-active voters count; atomic role grant; UI/docs updates;
+  existing pending nominations close and require resubmission. No release version or other shared resource was
+  allocated.
+- **Builder check resolved and design approved (2026-11-12):** the spec adds database protocol guards to fence the old writer during
+  migration/rollback (`scripts/deploy.sh:150-155,225`), plus monotonic role elevation so a later moderator
+  nomination cannot demote an admin (`services/community-service/src/database/governanceDb.ts:167-170`). These
+  were Codex proposals that the maintainer subsequently approved with the written design. Same/lower-role
+  nominations are refused; no new role-removal or expiry mechanism is added.
+- **Implementation choices approved with the design:** fewer than three voters besides nominee refuses creation;
+  original voters may rejoin; R never shrinks; nominee is rechecked for active membership and existing private
+  trust eligibility at grant; stale closed vote retries refuse; existing ADR-055 is amended, no new number.
 - **Pending authorization — the demo platform-admin grant (ADR-105 §6).** Rollout is fail-closed: until the grant,
   nobody on the demo can edit request-type schemas or trust questions, or run the provider-trust backfill.
   - The maintainer chooses the account, never a simulation persona with shared credentials.
@@ -54,6 +79,19 @@ post-merge records. The Sprint 142 topic has not been chosen.
 - **Decision (2026-11-12):** the BUG-076/080/081/082/092/097/098/099/100 status lines were corrected in this record,
   because both deploys were verified (#332 run 42914254213 and #334 run 43103530588, 14/14 jobs each). They had still
   said "on branch / not yet deployed".
+
+## Critical implementation notes
+
+1. `R = max(3, ceil(E / 5))`; E excludes the nominee and is captured once. Never reduce R for departures or cap it to E.
+2. Snapshot voter IDs; count ballots only from snapshot voters who are currently active. Nomination adds no vote.
+3. Lock the nomination and relevant membership rows before finalization; recheck active nominee and existing private trust eligibility inside the transaction.
+4. Legacy pending nominations close once; preserve resolved history and ballots. Rerunning migration must preserve new policy nominations.
+5. Keep ADR-082 identity/coarse eligibility disclosure. Trust metrics and the full voter roster never leave the API.
+6. Root integration config discovers `tests/integration/*.integration.test.ts`; service-local integration tests alone do not supply CI coverage.
+7. Keep simulation governance actions disabled. No demo grant/check, merge, deploy, version bump, dependency lane or new ADR number is authorized.
+8. `init.sql` and landing JSON are generated artifacts. Regenerate from source and remove unrelated churn; no hand edits.
+9. Database protocol guards fence the legacy writer before containers restart; binary rollback leaves governance writes closed. Preserve history and unrelated membership operations.
+10. Ratification only elevates roles; same/lower-role nominations fail. Lock nominee membership for update before granting, with deterministic ordering across all membership locks.
 
 ## Deferred minors (from Sprint 141's gates; detail in the PR #337 body)
 
@@ -103,6 +141,12 @@ post-merge records. The Sprint 142 topic has not been chosen.
 
 ## Verification references
 
+- **Bootstrap observed 2026-11-12:** fetch succeeded; `origin/master` remains `898f23ba`; `gh pr list` returned no
+  open PRs. No merge/rebase was needed. `bc53d728` was pushed to `origin/agent/claude/sprint-142-planning`
+  with normal hooks: required test graph 27/27 successful, 24 cached; root tests 10/101 unit and 49/1074 regression.
+  Pre-push run summary: `.turbo/runs/3M1l4WXrRyBNi34dgykmAxvtY9Z.json`. Integration skipped because no DB was
+  available. WIP/TDD report returned 1 in four workspaces; it is nonblocking and was not represented as passing.
+  These checks preceded the new planning artifacts and do not verify the proposed feature.
 - Sprint 141 deploy: master CI/CD run [43318586338](https://github.com/ravichavali/karmyq/actions/runs/43318586338)
   attempt 2, `success`, 14/14 jobs including Deploy to Demo (observed 2026-11-12). Smoke-test detail is in the
   archive.
