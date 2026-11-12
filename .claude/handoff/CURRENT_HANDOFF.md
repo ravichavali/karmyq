@@ -69,6 +69,17 @@ Implemented on the next product branch, never in a docs-only master push, and th
 
 ## Carried follow-ups (out of scope here)
 
+- **New, found 2026-11-11: the landing docs test always dirties the tree on a Turbo cache miss.**
+  - `apps/landing/tests/regression/docs-generation.test.ts:21-22` runs `npm run generate-docs` into the real, tracked
+    `apps/landing/src/data/docs/`.
+  - Every run where it misses the cache rewrites `architecture.json` and `build.json` (timestamps, commit sha), and on
+    Windows `concepts/adr-010-*.json` (escaped `\r\n`).
+  - Since this branch, `pre-commit-check.sh` fails on that churn, as designed. Observed on `ae02a434`: the first run
+    exited 1 listing exactly those three files. After `git restore`, the re-run exited 0 because the landing test hit
+    the cache.
+  - Fix forward: have the test generate into a temp directory, which needs an output-dir option in
+    `scripts/generate-docs.ts`. Don't weaken the dirty-tree check.
+
 - **migration-validator schema list is stale** (verified 2026-11-11 against `infrastructure/claude.md`).
   - `.claude/agents/migration-validator.md:12-20` names `community` (the schema is `communities`).
   - It says `feed` is "owned by feed-service", which doesn't exist (ADR-071).
