@@ -210,7 +210,15 @@ Choose which types your community supports. Enable or disable:
 
 For each enabled type, set a **karma multiplier** — how much karma helpers earn relative to the base pool. A multiplier of `1.5` means helpers earn 50% more karma for that type than usual. Use multipliers to signal which kinds of help your community values most (e.g., set a higher multiplier for rides or childcare to incentivize underserved needs).
 
-**Custom types:** If your community has specific needs, create custom types via the **Schema Manager** linked from the hero and from Stewardship → Settings.
+**Custom types:** New request types are platform-wide, so **platform admins** create and publish them in the
+**Schema Manager**. As a community admin you enable any published type here, alongside the built-in ones. If your
+community needs a type that doesn't exist yet, ask a platform admin.
+
+**Two admin roles.** Running a community makes you its **community admin**: you govern its members, settings and
+request types. A **platform admin** is a separate role, granted by an operator, that manages what every community
+shares: the request-type catalog and the trust questionnaire's questions. Being an admin of a community, including
+one you created, gives no platform powers, and a platform admin gets no powers inside your community (ADR-105).
+The Schema Manager links appear only for platform admins.
 
 ### Karma Mechanics
 

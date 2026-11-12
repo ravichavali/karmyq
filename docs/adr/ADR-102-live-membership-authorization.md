@@ -61,7 +61,8 @@ community, and the gate must check the community the action targets (Sprint 134 
 execute checking the path community but acting on another community's split, BUG-072). "Admin of any community"
 (`requireAdmin`, trust questions, the provider-trust backfill) is **inherited, not endorsed**. Anyone who creates a
 community is its admin, so these platform-wide surfaces are open to every user (BUG-073). Choosing a real
-platform-admin rule is a separate decision.
+platform-admin rule is a separate decision: [ADR-105](ADR-105-platform-admin-role.md) (Sprint 141) gates all three on a
+granted, live-read platform role.
 
 **Enforcement.** `tests/regression/sprint-134-pr-k-claim-gate.test.ts` parses every tracked service source file and
 the shared middleware with the TypeScript AST. It fails on:

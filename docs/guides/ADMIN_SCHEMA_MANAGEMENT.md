@@ -1,10 +1,10 @@
 # Admin UI - Server-Driven UI Schema Management
 
-**Last Updated:** 2026-02-17
+**Last Updated:** 2026-11-12 (Sprint 141: platform admins only, ADR-105)
 
 **Purpose:** Comprehensive guide for non-technical admins to create, edit, publish, and archive request type schemas using the Server-Driven UI.
 
-**Target Audience:** Community admins (super_admin, admin role) who need to manage request type schemas but are not developers.
+**Target Audience:** Platform admins who manage the request types every community can enable, and who are not developers. Request types are platform-wide, so a community admin cannot open the Schema Manager (see [Who Can Use Admin UI](#who-can-use-admin-ui)).
 
 ---
 
@@ -26,7 +26,7 @@
 
 ## 1. Overview
 
-The Server-Driven UI enables creating and managing custom request types without code deployments. As a community admin, you can now:
+The Server-Driven UI enables creating and managing custom request types without code deployments. As a platform admin, you can:
 
 - **Create new request types** like "Dog Walking" or "Tutoring" with custom forms
 - **Edit existing schema layouts** - Reorder sections, add/remove fields
@@ -37,9 +37,24 @@ The Server-Driven UI enables creating and managing custom request types without 
 ### Who Can Use Admin UI
 
 **Requirements:**
-- User role: `super_admin` or `admin`
+- You are a **platform admin**: an operator has granted your account the platform admin role
 - No technical background needed
 - Basic understanding of form schemas
+
+**Platform admin vs. community admin.** These are two separate roles (ADR-105):
+
+- A **community admin** runs one community: its members, settings and which request types it enables. Creating a
+  community makes you its admin, and nothing more.
+- A **platform admin** manages what every community shares: the request-type catalog on this page, and the trust
+  questionnaire at `/admin/trust-questions`. The role gives no powers inside any community.
+
+One person can hold both roles. Community admins who are not platform admins don't see the Schema Manager links, and
+the server refuses them with `403 PLATFORM_ADMIN_REQUIRED`.
+
+**How someone becomes a platform admin.** There is no button or API for it. An operator grants the role with a SQL
+step on the `auth.platform_admins` table, and revokes it the same way. Every new environment starts with no platform
+admins, so these pages stay closed until the first grant. On the demo, a curated demo reset clears every grant, and
+the operator grants it again afterwards.
 
 ### Key Features
 
@@ -59,11 +74,11 @@ Navigate to: `https://karmyq.com/admin/schemas`
 
 ### Authentication
 
-Access to admin pages requires **admin role**. Verify your user has the appropriate permissions:
+Access to these pages requires the **platform admin** role. The page checks it live when it opens:
 
 1. Log in to Karmyq
-2. Go to your profile
-3. Check if you have admin role (super_admin or admin)
+2. Open `/admin/schemas`
+3. If you are sent to your dashboard instead, your account has no platform admin grant. Ask an operator
 
 ### Navigation
 
@@ -308,7 +323,7 @@ Before publishing a schema, test it using the "Validate" button:
 
 ### Schema API Endpoints
 
-All admin schema endpoints require `super_admin` or `admin` role:
+All admin schema endpoints require a live **platform admin** grant. Any other caller, including a community admin, gets `403` with `"error": "PLATFORM_ADMIN_REQUIRED"`:
 
 #### List Schemas
 ```bash
@@ -474,12 +489,12 @@ After publishing a schema, community founders must enable it in their community 
 
 ```
 Create Schema  →  Publish Schema  →  Enable in Community  →  Members Can Use It
-(Schema Manager)   (Schema Manager)   (Community Admin)       (Request Creation)
+(Platform Admin)   (Platform Admin)   (Community Admin)       (Request Creation)
 ```
 
-### Step 1 — Navigate from Community Admin Page
+### Step 1 — Open the Schema Manager (platform admins)
 
-Community founders see a **"Schema Manager →"** link in the top-right corner of their community admin panel (`/communities/{id}/admin`). This link is only visible to the community creator — regular admins and moderators do not see it.
+Platform admins see a **"Schema Manager →"** link on community pages, and an **"Open Schema Manager →"** hint under Configuration → Request Types. Community admins who are not platform admins see neither.
 
 Click **Schema Manager →** to open `/admin/schemas`.
 
@@ -508,11 +523,11 @@ Once enabled, the custom schema type appears in the request creation form for al
 | Problem | Cause | Fix |
 |---------|-------|-----|
 | Schema not appearing in Configuration tab | Schema is Draft or Archived | Publish the schema in Schema Manager |
-| Schema Manager link not visible | You are not the community creator | Log in as the founder account |
+| Schema Manager link not visible | Your account is not a platform admin | Ask an operator for the platform admin grant; community admins can still enable published types (Step 3) |
 | Custom schema missing after save | Fetch error on config load | Refresh the page; check request-service is running |
 | Karma multiplier not saving | Config validation error | Ensure trust weights sum to 1.0 (see error banner) |
 
 ---
 
-**Version:** v1.1 (Phase 3 — Community Integration)
-**Last Updated:** 2026-02-18
+**Version:** v1.2 (Sprint 141: platform admins only, ADR-105)
+**Last Updated:** 2026-11-12

@@ -39,7 +39,12 @@ Example: choosing `admin_review` for Q6 sets `{ request_approval_required: true 
 
 ## Admin Management
 
-Platform admins can manage questions and choices via the admin UI at `/admin/trust-questions`. From there, you can:
+Only **platform admins** edit the questionnaire, because one set of questions serves every community. A platform admin
+is a role an operator grants explicitly (a row in `auth.platform_admins`). Creating or administering a community does
+not make you one (ADR-105, Sprint 141). Communities still answer the questionnaire when they are created, and revisit
+their answers later.
+
+Platform admins manage questions and choices in the admin UI at `/admin/trust-questions`. From there, they can:
 
 - Edit question text, subtext, and display order
 - Toggle questions active/inactive
@@ -60,4 +65,6 @@ GET /communities/trust-questions
 
 Returns all active questions ordered by `display_order`, each with their active choices.
 
-Admin operations (create/update/delete) require an admin JWT.
+Write operations (create, update, delete) need a signed-in **platform admin**, checked live against
+`auth.platform_admins` on every request. Anyone else, including a community admin, gets `403` with
+`"error": "PLATFORM_ADMIN_REQUIRED"`.

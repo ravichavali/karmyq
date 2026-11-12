@@ -1007,6 +1007,10 @@ column. The feature's spec has to choose how a platform admin is designated (an 
 designated platform community) and whether `/admin/schemas` and trust questions should become per-community instead. The
 check must read live state, not a JWT claim (ADR-102).
 
+**Resolved (Sprint 141, ADR-105, on branch):** the designation is a separate `auth.platform_admins` table, granted by
+operator SQL and read live. The catalogs stay global. The two follow-ups below are recorded as their own entries
+(2026-11-12).
+
 ---
 
 ## [2026-10-28] Dependency-gate follow-ups (Sprint 134 security follow-up `/simplify`, altitude review)
@@ -1083,5 +1087,34 @@ pipeline.
 Evolve the platform into something that can also be used as a communication channel. This runs against the initial
 plan, so it needs an adversarial discussion about why. The idea is to mimic how relationships form: give people the
 tools they need as they grow their networks of trust.
+
+---
+
+## [2026-11-12] feature — Community-owned custom request types (Sprint 141 follow-up, ADR-105)
+
+Sprint 141 kept the request-type catalog (`requests.ui_schemas`) global and made it platform-admin only. A community
+that needs a type the catalog lacks (dog walking, language exchange) now has to ask a platform admin. A later feature
+could let a community own types visible only to itself.
+
+That needs:
+- a community column (or a link table) on `ui_schemas`;
+- a visibility rule for `GET /schemas` and the request form;
+- an answer to whether a community type can be promoted to the global catalog;
+- a gate that uses the community's live admin role (ADR-102), never the platform role.
+
+---
+
+## [2026-11-12] architecture — Fold the founding-circle reviewer allowlist into `auth.platform_admins`
+
+The founding-circle review page (`pages/admin/founding-circle.tsx`) is still gated in auth-service by an env allowlist
+of reviewer ids and emails plus a DB check (`services/auth-service/src/routes/foundingCircle.ts`). Its frontend still
+uses the claim-based `utils/admin-auth.ts`. Sprint 141 left both out of scope.
+
+Moving reviewers onto the platform-admin grant would:
+- drop the env allowlist, which drifts between environments and needs a redeploy to change;
+- make reviewer access auditable (`granted_by`, `granted_at`);
+- let the frontend use `usePlatformAdminGate`.
+
+Open question: is reviewing founding-circle submissions a platform-admin power, or a narrower role of its own?
 
 ---

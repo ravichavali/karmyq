@@ -288,6 +288,10 @@
           "href": "/docs/concepts/adr-103-authenticated-listings-and-simulation-containment"
         },
         {
+          "label": "Platform Admin Is a Granted Role, Separate from Community Admin",
+          "href": "/docs/concepts/adr-105-platform-admin-role"
+        },
+        {
           "label": "Monorepo with Turborepo",
           "href": "/docs/concepts/adr-013-monorepo-turborepo"
         },
