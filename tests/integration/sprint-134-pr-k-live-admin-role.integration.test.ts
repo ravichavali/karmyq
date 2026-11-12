@@ -8,7 +8,12 @@
  * - A is a live admin of C whose token claims NOTHING (as for an admin of a 16th community, beyond the
  *   15-entry claim) → the route's own next answer, proving the gate passed by reading the row.
  *
- * Each A row stops at the first validation or state check after its gate where one exists, so it writes
+ * Sprint 141 (BUG-073, ADR-105) splits the 31 routes by role. The 8 platform rows (R1 schemas, the six C5
+ * trust-question writes, P1 backfill) admit only P, a row in auth.platform_admins with NO community membership and
+ * an empty claim; A, a live admin of C, is refused them. The 23 community rows admit A and refuse P. The two roles
+ * never stand in for each other.
+ *
+ * Each passing row stops at the first validation or state check after its gate where one exists, so it writes
  * nothing; the rest (boost, urgent, collective link/unlink, decay config, the trust backfill) run on
  * disposable fixtures. After every refused call, a snapshot of everything any route could write is unchanged.
  * Unavailable infrastructure fails, including under CI.
@@ -20,11 +25,11 @@ import { createPool, ServiceUrls } from '../fixtures';
 
 describe('Sprint 134 PR K: admin gates read live membership, not the JWT claim (BUG-069)', () => {
   const pool = createPool();
-  const A = randomUUID(), M = randomUUID(), F = randomUUID(), O = randomUUID(), A2 = randomUUID();
+  const A = randomUUID(), M = randomUUID(), F = randomUUID(), O = randomUUID(), A2 = randomUUID(), P = randomUUID();
   const C = randomUUID(), C2 = randomUUID();
-  const users = [A, M, F, O, A2];
+  const users = [A, M, F, O, A2, P];
   const staleAdmin = [{ id: C, name: 'PR K C', role: 'admin' }];
-  const claims: Record<string, unknown[]> = { [A]: [], [M]: staleAdmin, [F]: staleAdmin, [O]: [{ id: C, name: 'PR K C', role: 'member' }], [A2]: [] };
+  const claims: Record<string, unknown[]> = { [A]: [], [M]: staleAdmin, [F]: staleAdmin, [O]: [{ id: C, name: 'PR K C', role: 'member' }], [A2]: [], [P]: [] };
   const token = (id: string) => jwt.sign({ userId: id, email: `${id}@karmyq.test`, communities: claims[id] },
     process.env.JWT_SECRET || 'dev-secret-key');
 
@@ -55,12 +60,14 @@ describe('Sprint 134 PR K: admin gates read live membership, not the JWT claim (
 
   beforeAll(async () => {
     await pool.query('SELECT 1');
-    for (const base of [ServiceUrls.REQUEST, ServiceUrls.COMMUNITY, ServiceUrls.REPUTATION, ServiceUrls.SOCIAL_GRAPH]) {
+    for (const base of [ServiceUrls.AUTH, ServiceUrls.REQUEST, ServiceUrls.COMMUNITY, ServiceUrls.REPUTATION, ServiceUrls.SOCIAL_GRAPH]) {
       expect((await request(base).get('/health')).status).toBe(200);
     }
     for (const id of users) {
       await pool.query('INSERT INTO auth.users(id,name,email,password_hash) VALUES ($1,$2,$3,$4)', [id, `PR K ${id.slice(0, 4)}`, `${id}@karmyq.test`, 'not-a-login']);
     }
+    // P is a platform admin and nothing else: no community row anywhere. The afterAll user delete cascades the grant.
+    await pool.query('INSERT INTO auth.platform_admins(user_id) VALUES ($1)', [P]);
     await pool.query('INSERT INTO communities.communities(id,name,description,creator_id) VALUES ($1,$2,$3,$4),($5,$6,$3,$7)',
       [C, 'PR K C', 'Fixture', A, C2, 'PR K C2', A2]);
     const join = (user: string, community: string, role: string, status: string) => pool.query(
@@ -103,10 +110,22 @@ describe('Sprint 134 PR K: admin gates read live membership, not the JWT claim (
     } finally { await pool.end(); }
   });
 
-  // [label, service, method, path builder, body, A's status]. Paths are built lazily: fixture ids exist only after beforeAll.
+  // [label, service, method, path builder, body, the passing role's status]. Paths are built lazily: fixture ids
+  // exist only after beforeAll.
   type Row = [string, string, Method, () => string, object | undefined, number];
-  const rows: Row[] = [
+  // Platform surfaces (Sprint 141, ADR-105): P passes with the status A got before Sprint 141.
+  const platformRows: Row[] = [
     ['R1 admin schemas list', ServiceUrls.REQUEST, 'get', () => '/admin/schemas', undefined, 200],
+    ['C5 trust question create (missing fields)', ServiceUrls.COMMUNITY, 'post', () => '/communities/trust-questions', {}, 400],
+    ['C5 trust question update', ServiceUrls.COMMUNITY, 'put', () => `/communities/trust-questions/${MISSING}`, { question_text: 'x' }, 404],
+    ['C5 trust question delete', ServiceUrls.COMMUNITY, 'delete', () => `/communities/trust-questions/${MISSING}`, undefined, 404],
+    ['C5 trust choice create (missing fields)', ServiceUrls.COMMUNITY, 'post', () => `/communities/trust-questions/${MISSING}/choices`, {}, 400],
+    ['C5 trust choice update', ServiceUrls.COMMUNITY, 'put', () => `/communities/trust-questions/${MISSING}/choices/${MISSING}`, { label: 'x' }, 404],
+    ['C5 trust choice delete', ServiceUrls.COMMUNITY, 'delete', () => `/communities/trust-questions/${MISSING}/choices/${MISSING}`, undefined, 404],
+    ['P1 provider trust backfill', ServiceUrls.REPUTATION, 'post', () => '/reputation/provider-trust/recalculate', undefined, 200],
+  ];
+  // Community-scoped surfaces: A passes, exactly as before Sprint 141.
+  const communityRows: Row[] = [
     ['R2 boost', ServiceUrls.REQUEST, 'post', () => `/requests/${ask}/boost`, undefined, 200],
     ['R2 unboost', ServiceUrls.REQUEST, 'delete', () => `/requests/${ask}/boost`, undefined, 200],
     ['R2 propose-match (proposed user is not a member)', ServiceUrls.REQUEST, 'post', () => `/requests/${ask}/propose-match`, { user_id: randomUUID() }, 400],
@@ -124,36 +143,49 @@ describe('Sprint 134 PR K: admin gates read live membership, not the JWT claim (
     ['C4 split assignments (not an array)', ServiceUrls.COMMUNITY, 'put', () => `/communities/${C}/splits/${split}/assignments`, {}, 400],
     ['C4 split start-vote', ServiceUrls.COMMUNITY, 'post', () => `/communities/${C}/splits/${split}/start-vote`, undefined, 422],
     ['C4 split execute', ServiceUrls.COMMUNITY, 'post', () => `/communities/${C}/splits/${split}/execute`, undefined, 422],
-    ['C5 trust question create (missing fields)', ServiceUrls.COMMUNITY, 'post', () => '/communities/trust-questions', {}, 400],
-    ['C5 trust question update', ServiceUrls.COMMUNITY, 'put', () => `/communities/trust-questions/${MISSING}`, { question_text: 'x' }, 404],
-    ['C5 trust question delete', ServiceUrls.COMMUNITY, 'delete', () => `/communities/trust-questions/${MISSING}`, undefined, 404],
-    ['C5 trust choice create (missing fields)', ServiceUrls.COMMUNITY, 'post', () => `/communities/trust-questions/${MISSING}/choices`, {}, 400],
-    ['C5 trust choice update', ServiceUrls.COMMUNITY, 'put', () => `/communities/trust-questions/${MISSING}/choices/${MISSING}`, { label: 'x' }, 404],
-    ['C5 trust choice delete', ServiceUrls.COMMUNITY, 'delete', () => `/communities/trust-questions/${MISSING}/choices/${MISSING}`, undefined, 404],
     ['P2 trust-evolution read', ServiceUrls.REPUTATION, 'get', () => `/reputation/communities/${C}/trust-evolution`, undefined, 200],
     ['P2 trust-evolution write (no valid fields)', ServiceUrls.REPUTATION, 'put', () => `/reputation/communities/${C}/trust-evolution`, {}, 400],
     ['P2 evolution history', ServiceUrls.REPUTATION, 'get', () => `/reputation/community/${C}/evolution/history`, undefined, 200],
     ['P2 evolution summary', ServiceUrls.REPUTATION, 'get', () => `/reputation/community/${C}/evolution/summary`, undefined, 200],
     ['P2 evolution toggle (enabled missing)', ServiceUrls.REPUTATION, 'put', () => `/reputation/community/${C}/evolution/toggle`, {}, 400],
-    ['P1 provider trust backfill', ServiceUrls.REPUTATION, 'post', () => '/reputation/provider-trust/recalculate', undefined, 200],
     ['S1 decay config write', ServiceUrls.SOCIAL_GRAPH, 'put', () => `/trust/decay-config/${C}`, { baseHalfLifeDays: 45 }, 200],
   ];
 
-  it('covers all 31 routes PR K fixed', () => {
-    expect(rows).toHaveLength(31);
+  it('covers all 31 routes PR K fixed: 8 platform rows and 23 community rows', () => {
+    expect([...platformRows, ...communityRows]).toHaveLength(31);
+    expect(platformRows).toHaveLength(8);
+    expect(communityRows).toHaveLength(23);
   });
 
-  describe.each(rows)('%s', (_label, base, method, path, body, live) => {
-    it.each([['M (demoted: active member, claim says admin)', M], ['F (removed: admin row with status left, claim says admin)', F]])(
-      '%s → 403, nothing written', async (_who, as) => {
-        const before = await snapshot();
-        expect((await call(base, method, path(), body, as)).status).toBe(403);
-        expect(await snapshot()).toEqual(before);
-      });
+  const staleClaims = [['M (demoted: active member, claim says admin)', M], ['F (removed: admin row with status left, claim says admin)', F]];
+  const refusedNothingWritten = async (base: string, method: Method, path: string, body: object | undefined, as: string) => {
+    const before = await snapshot();
+    expect((await call(base, method, path, body, as)).status).toBe(403);
+    expect(await snapshot()).toEqual(before);
+  };
+
+  describe.each(platformRows)('%s (platform admin only)', (_label, base, method, path, body, live) => {
+    it.each(staleClaims)('%s → 403, nothing written', async (_who, as) => refusedNothingWritten(base, method, path(), body, as));
+    it('A (live admin of C, no platform grant) → 403, nothing written', async () => refusedNothingWritten(base, method, path(), body, A));
+    it(`P (platform admin, no community role, empty claim) passes the gate → ${live}`, async () => {
+      expect((await call(base, method, path(), body, P)).status).toBe(live);
+    });
+  });
+
+  describe.each(communityRows)('%s (community admin only)', (_label, base, method, path, body, live) => {
+    it.each(staleClaims)('%s → 403, nothing written', async (_who, as) => refusedNothingWritten(base, method, path(), body, as));
     it(`A (live admin, empty claim) passes the gate → ${live}`, async () => {
       expect((await call(base, method, path(), body, A)).status).toBe(live);
     });
+    it('P (platform admin, no community role) → 403, nothing written', async () => refusedNothingWritten(base, method, path(), body, P));
   });
+
+  it.each([['P', () => P, true], ['A (a community admin)', () => A, false]] as Array<[string, () => string, boolean]>)(
+    'GET /users/me/platform-role reads the live grant table for %s', async (_who, as, platformAdmin) => {
+      const res = await call(ServiceUrls.AUTH, 'get', '/users/me/platform-role', undefined, as());
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual({ platformAdmin });
+    });
 
   it('the live-admin writes landed (positive controls with side effects)', async () => {
     const [row] = (await pool.query('SELECT is_boosted, urgency FROM requests.help_requests WHERE id=$1', [ask])).rows;
