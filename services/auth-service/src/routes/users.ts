@@ -100,6 +100,19 @@ router.get('/me/settings', authMiddleware, async (req: AuthenticatedRequest, res
   }
 });
 
+// GET /users/me/platform-role - Is the CALLER a platform admin? (Sprint 141, BUG-073, ADR-105)
+// Read live from auth.platform_admins for the verified token's userId; the JWT carries no platform claim. The
+// frontend uses the answer as a hint to show platform admin UI; each gated service re-checks on every request.
+router.get('/me/platform-role', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  try {
+    const result = await query('SELECT 1 FROM auth.platform_admins WHERE user_id = $1 LIMIT 1', [req.user.userId]);
+    sendSuccess(res, { platformAdmin: result.rows.length > 0 }, HTTP_STATUS.OK, { requestId: (req as any).id });
+  } catch (error) {
+    (req as any).logger?.error('Error reading platform role', error instanceof Error ? error : new Error(String(error)), { service: 'auth-service', endpoint: 'GET /me/platform-role' });
+    sendInternalError(res, 'Failed to read platform role', error instanceof Error ? error : undefined, { requestId: (req as any).id });
+  }
+});
+
 // PATCH /users/me/settings - Update current user's privacy settings
 // Implements opt-in karma display (Migration 010, Fractal Karma & Trust)
 router.patch('/me/settings', authMiddleware, async (req: AuthenticatedRequest, res) => {
