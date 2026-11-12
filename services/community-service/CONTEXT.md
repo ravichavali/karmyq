@@ -403,6 +403,7 @@ CREATE TABLE communities.community_links (
 
 ### Tables Read by This Service
 - `auth.users` - User details for member profiles and creator names
+- `auth.platform_admins` - Live platform admin grant for the trust-question writes (`isLivePlatformAdmin`, Sprint 141, ADR-105)
 - `social_graph.trust_edges_live` - Read-only view used for clustering algorithm and prestige weight computation
 
 ## API Endpoints

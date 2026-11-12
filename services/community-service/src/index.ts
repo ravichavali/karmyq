@@ -77,7 +77,7 @@ app.get('/health', (req: any, res: Response) => {
 // Routes with optionalAuth must come FIRST to avoid being blocked by authMiddleware
 
 // Trust Questions routes — mount at full path so router.get('/') → GET /communities/trust-questions
-/// GET is public; every write passes the router's platform-admin gate (src/routes/trust-questions.ts, ADR-105)
+// GET is public; every write passes the router's platform-admin gate (src/routes/trust-questions.ts, ADR-105)
 app.use(
   '/communities/trust-questions',
   optionalAuthMiddleware,

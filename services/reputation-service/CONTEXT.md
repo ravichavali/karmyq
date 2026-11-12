@@ -423,6 +423,7 @@ CREATE INDEX idx_milestone_events_type ON reputation.milestone_events(milestone_
 
 ### Tables Read by This Service
 - `auth.users` - User names for leaderboards
+- `auth.platform_admins` - Live platform admin grant for the provider-trust backfill (`isLivePlatformAdmin`, Sprint 141, ADR-105)
 - `communities.communities` - Community names for karma history
 - `requests.help_requests` - Get community_id from request when match completed
 

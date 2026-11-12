@@ -63,7 +63,7 @@ answers `false` without a query. The JWT gets no platform claim.
 | Surface | Gate |
 |---|---|
 | request-service `/admin/schemas` (9 routes) | `platformAdminAuth = [verifyToken, requirePlatformAdmin]` |
-| community-service trust-question writes (6) | `isLivePlatformAdmin` in each handler |
+| community-service trust-question writes (6) | one router-wide gate on every non-read method (`isLivePlatformAdmin`), so a write route added later is closed by default |
 | reputation-service `POST /reputation/provider-trust/recalculate` | `isLivePlatformAdmin` |
 
 All three refuse with the same body, which does not say whether the caller administers a community:

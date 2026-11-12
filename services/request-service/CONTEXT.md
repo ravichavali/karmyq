@@ -652,6 +652,7 @@ CREATE TABLE provider.offers (
 
 #### Tables Read by This Service
 - `auth.users` - User details for requester/helper names
+- `auth.platform_admins` - Live platform admin grant for `/admin/schemas` (`isLivePlatformAdmin`, Sprint 141, ADR-105)
 - `auth.user_tags` - Skill tags and nullable canonical `skill_slug` for skill-based matching
 - `auth.user_feed_preferences` - Feed visibility preferences (ADR-022)
 - `auth.social_distances` - Trust distance between users (ADR-031)

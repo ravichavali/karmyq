@@ -4,6 +4,12 @@
 **Status**: development
 **Criticality**: optional — used for demo data generation only
 
+Sprint 141 (BUG-073, ADR-105): `TABLE_POLICY` classifies the new `auth.platform_admins` as `reset`. Its grant rows
+reference reset users, so a curated demo reset removes every platform admin grant and the operator re-grants by SQL
+afterwards. `tests/regression/sprint-141-table-policy-covers-init-sql.test.ts` derives the reset catalog from
+`infrastructure/postgres/init.sql` and runs the real classifier, so any base table the migration chain creates without a
+policy entry fails locally instead of at reset time. No demo reset or grant is authorized by this change.
+
 Sprint 134 PR L2: `TABLE_POLICY` no longer classifies the dropped `requests.interaction_feedback`
 table. The live private `feedback.feedback` and `feedback.feedback_categories` policies remain reset.
 No demo reset or seed operation is authorized by this change.

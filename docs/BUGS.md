@@ -2021,7 +2021,7 @@ refreshed token. PR K made these gates live and kept their scope; found 2026-10-
 - The admin-actions prefilter is renamed `requireAnyCommunityAdmin`, with unchanged behavior.
 - `GET /users/me/platform-role` drives the UI hint.
 - Tests:
-  - the four `sprint-141-*` service suites;
+  - the five `sprint-141-*` service suites (request, community, reputation, auth, simulation);
   - the frontend `sprint-141-platform-admin-ui` suite;
   - root `tests/integration/sprint-134-pr-k-live-admin-role.integration.test.ts`, with both role directions on 31
     routes against the real schema (CI-only on Windows).
