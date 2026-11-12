@@ -1,173 +1,145 @@
 # Sprint 141 — Platform admin role (BUG-073) — Handoff
 
 **Date**: 2026-11-12
-**Outcome**: in progress. Planning is complete (spec + plan committed on this branch). Execution starts in the next
-chat
+**Outcome**: implementation complete on the branch; one PR open for a **non-author review**. Not merged, not
+deployed. BUG-073 is *fixed on branch* only; ADR-105 stays **Proposed** until a verified deploy.
 
-> State between sessions only. The design lives in the spec and the steps in the plan. This file names the next
-> unchecked task and the boundaries.
+> State between sessions only. The design lives in the spec, the steps in the plan, and the evidence in the PR's
+> `## Validation` ledger. This file names the next action and the boundaries.
 
 ---
 
 ## Sprint goal
 
-Close BUG-073: add an explicit, live-read **platform admin** role (`auth.platform_admins`), and re-gate the three
-platform-wide surfaces on it without changing what community admins can do in their own communities. Those surfaces
-are the `/admin/schemas` request-type catalog, the six trust-question writes and the provider-trust backfill.
+Close BUG-073: an explicit, live-read **platform admin** role (`auth.platform_admins`) gates the three platform-wide
+surfaces (the `/admin/schemas` request-type catalog, the six trust-question writes, the provider-trust backfill),
+without changing what community admins can do in their own communities.
 
 ## Ownership and base
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-141-planning` (planning and execution share it, per recent practice) |
-| **Base** | `origin/master` at `06685ea4` (PR #336 merge; fetched 2026-11-12) |
-| **Active editor** | Claude |
-| **Reviewer role** | A non-author (Codex, by recent practice), on the PR. Reviewers read the diff and do not co-edit |
-| **Owned paths** | The plan's *File Map*, plus `.claude/handoff/**`, the spec and the plan. The first commit, `444de72d`, also owns `docs/adr/{ADR-104-agent-process-economy.md,README.md}` and the generated ADR-104 landing data |
-| **Shared resources** | **ADR-105** and a **minor version bump** (11.113.0 → 11.114.0, re-derived at merge), both allocated by the maintainer on 2026-11-12. **Not allocated**: merge slot, deploy, any demo data operation (including the post-deploy platform-admin grant) and any dependency change. Each needs explicit authorization |
+| **Branch** | `agent/claude/sprint-141-planning` (planning and execution share it) |
+| **Base** | `origin/master` at `06685ea4` (unmoved as of 2026-11-12, re-checked before the PR) |
+| **Active editor** | Claude (author). Review-fix commits land on this branch |
+| **Reviewer role** | A non-author (Codex, by recent practice). Reviewers read the diff and do not co-edit |
+| **Shared resources** | **ADR-105** and a **minor bump** (11.113.0 → 11.114.0 in the root version fields, re-derived at merge) were allocated by the maintainer on 2026-11-12. **Not allocated**: merge slot, deploy, any demo data operation (including the platform-admin grant), any dependency change |
 
 ## Links
 
 - **Spec**: [docs/superpowers/specs/2026-11-12-sprint-141-platform-admin-role-design.md](../../docs/superpowers/specs/2026-11-12-sprint-141-platform-admin-role-design.md)
-- **Plan**: [docs/superpowers/plans/2026-11-12-sprint-141-platform-admin-role.md](../../docs/superpowers/plans/2026-11-12-sprint-141-platform-admin-role.md)
-- **Bug**: BUG-073 (`docs/BUGS.md`); the tabled feature is `docs/IDEAS.md` 2026-10-26 *architecture*
-- **PR**: none yet
+- **Plan**: [docs/superpowers/plans/2026-11-12-sprint-141-platform-admin-role.md](../../docs/superpowers/plans/2026-11-12-sprint-141-platform-admin-role.md) — Tasks 1–12 done; Task 13 not authorized
+- **ADR**: [ADR-105](../../docs/adr/ADR-105-platform-admin-role.md) (Proposed)
+- **PR**: the one open PR from this branch — `gh pr list --head agent/claude/sprint-141-planning`. Its
+  `## Validation` ledger carries every command, SHA, ruling and deferred minor
 - **Previous handoff (PR #336)**: [archive](archive/2026-11-12-pr-336-usage-diet-COMPLETE.md)
 
-## Quick Start
+## Quick Start (next chat: non-author review)
 
-1. Read this handoff, then confirm live state: `git fetch origin`, `gh pr list`,
-   `git log --oneline origin/master -3`, `git log --oneline origin/master..agent/claude/sprint-141-planning`.
-2. Reuse the existing task branch: `git switch agent/claude/sprint-141-planning`. If master has moved past
-   `06685ea4`, merge `origin/master` in with a merge commit. Never rebase, never force-push, and never branch off a
-   stale local master.
-3. Open the plan: `docs/superpowers/plans/2026-11-12-sprint-141-platform-admin-role.md`.
-4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`). There is no
-   `/execute-plan` slash command; superpowers removed it as a deprecated stub.
+1. `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`. If master moved past `06685ea4`, the author
+   merges `origin/master` in with a merge commit (never rebase) and re-derives the version.
+2. Read the PR body (*Review focus*, *Rulings*, *Deferred minors*), then the diff.
+3. **Confirm in the PR's CI run** (the two things this Windows box could not run):
+   - the integration job log names `tests/integration/sprint-134-pr-k-live-admin-role.integration.test.ts` and it
+     passed (134 tests: both role directions on 31 routes, plus 2 platform-role rows);
+   - the `regenerate-init-sql.yml` PR run passed its byte-for-byte comparison (seeded from the PR base).
+4. Findings go to the author as review comments. Fixes land on this branch.
 
-**Next unchecked task**: plan Task 1, *Preflight and baseline*. Then Task 2 (the migration, the table policy, and
-`init.sql` through the `regenerate-init-sql.yml` workflow).
+**Next action after a clean review**: the maintainer decides on merge (plan Task 13). Nothing below is authorized
+until then.
 
-Tasks 1–12 end once the PR is open. Task 13 (merge, deploy, demo grant) is **not authorized**.
+## What the branch holds
 
-## Decisions (maintainer, 2026-11-12)
+- **444de72d**: PR #336's post-merge records (ADR-104 Implemented, handoff archive). Must not reach master alone.
+- **905cc5af**: Sprint 141 spec + plan.
+- **Execution** (Tasks 1–12):
+  - `auth.platform_admins` migration (`20261112-auth-platform-admins.sql`), and `init.sql` byte-copied from workflow
+    run 43287911994 (hash-identical; precondition: branch `init.sql` == master's).
+  - `TABLE_POLICY`: `reset`. A new test derives the reset catalog from `init.sql`.
+  - `isLivePlatformAdmin` in the request, community and reputation live-role modules.
+  - request-service: `/admin/schemas` uses `platformAdminAuth`; the admin-actions prefilter is renamed
+    `requireAnyCommunityAdmin` (unchanged behavior).
+  - community-service: one router-wide write gate on the trust questions. reputation-service: the backfill gate.
+  - One 403 body everywhere: `PLATFORM_ADMIN_REQUIRED`.
+  - auth-service: `GET /users/me/platform-role`.
+  - Frontend: `usePlatformAdmin` + `usePlatformAdminGate` gate the five admin pages and the two Schema Manager links.
+  - Docs: ADR-105; the guides, concepts, CONTEXT ×5 and registry; `infrastructure/claude.md` counts re-counted from
+    `init.sql`; one global rule in root `claude.md`; landing regenerated.
+  - Version 11.114.0.
+- Six new suites, promoted by exact `git mv` to their workspace's `regression/`.
+- Four gates ran: tests, `/simplify`, `/code-review` (high) and `/security-review` (no findings), plus
+  `process-reviewer` (its blocking findings were fixed).
 
-- **Scope**: the platform admin role is the BUG-073 fix. The maintainer chose it over the ratification quorum, the
-  exchange back-out control and the mobile revival.
-- **Designation**: an `auth.platform_admins` table (`user_id`, `granted_by`, `granted_at`, `note`), read live and
-  granted only by operator SQL. There is no grant API.
-- **Catalogs**: `requests.ui_schemas` and `communities.trust_questions` stay global and become platform-admin only.
-  Community-owned custom request types are a later feature.
-- **No ride-along**: the exchange back-out control stays in `docs/IDEAS.md`.
-- **Allocations**: ADR-105 and a minor bump.
-- **Branch**: the #336 post-merge records ride on this branch. **Don't open or merge a PR with only `444de72d`**:
-  every master push deploys, and a docs-only one is forbidden.
-- **ADR-103 is not flipped here.** Its §Consequences
-  (`docs/adr/ADR-103-authenticated-listings-and-simulation-containment.md:85-87`) needs a deploy-time demo check,
-  which the maintainer runs.
+## CI-pending
 
-## Critical implementation notes (verbatim from the spec)
+- Root integration suite (above): it can't run here (no local Docker). It compiled and counted 134 tests locally.
+- Acceptance criteria 3 and 8 rest on it. **Merge must wait for its pass by name.**
 
-1. **Two independent roles.** A platform admin gets no community-scoped power, and a community admin (including a
-   creator) gets no platform power. No gate may OR the two checks together.
-2. **Live lookup, never a claim** (ADR-102). Add `isLivePlatformAdmin(userId)` to each gated service's live-role
-   module:
-   - `services/request-service/src/db/liveRole.ts`;
-   - `services/community-service/src/utils/liveRole.ts`;
-   - `services/reputation-service/src/utils/liveRole.ts`.
+## Not authorized (plan Task 13 — a separate, future chat)
 
-   The query is `SELECT 1 FROM auth.platform_admins WHERE user_id = $1 LIMIT 1`. An undefined user answers `false`
-   without a query. The JWT payload is unchanged and gets no new claim.
-   `tests/regression/sprint-134-pr-k-claim-gate.test.ts` derives helper names from these modules, so run it.
-3. **Don't narrow the admin-actions prefilter.** Split request-service's middleware so `/admin/schemas` uses
-   `platformAdminAuth` and the `/requests` admin-actions mount keeps the any-community check under its new name. The
-   mount's `adminChainPaths` coverage (BUG-071) is unchanged.
-4. **One 403 body** in all three services: `{ success: false, message: 'Platform admin access required', error:
-   'PLATFORM_ADMIN_REQUIRED' }` (ADR-074 string code). It never reveals whether a user is a community admin.
-5. **Migration discipline.**
-   - Use `IF NOT EXISTS`, same-schema FKs only and no seed rows. The `migration-validator` agent reviews it before
-     commit.
-   - Regenerate `init.sql` through the `regenerate-init-sql.yml` workflow, because this box has no Docker. That's
-     valid only while the branch's `init.sql` is byte-identical to `origin/master`'s, so check with
-     `git hash-object` first.
-   - Never hand-edit `init.sql`.
-6. **Classify the table `reset`** in `tablePolicy.ts`. A curated demo reset removes all grants, and the docs say so.
-7. **Fail-closed rollout.** After deploy, nobody can edit schemas or trust questions, or run the backfill, until an
-   operator grants a platform admin.
-   - The demo grant is a **separate demo data operation that needs the maintainer's explicit authorization**. It runs
-     as DB user `karmyq_prod`, after the deploy is verified.
-   - The maintainer chooses the account. Don't grant it to a simulation persona whose credentials are shared.
-8. **The frontend is a hint, never the boundary.**
-   - `usePlatformAdmin` fails closed on every error.
-   - Admin pages fire no admin request before the check passes.
-   - The API interceptor already unwraps the envelope, so read `res.data`, not `res.data.data`.
-9. **Founding-circle is out of scope.** Leave `utils/admin-auth.ts` working for `pages/admin/founding-circle.tsx`; fix
-   only its header comment.
-10. **Tests.**
-    - New tests start in each changed workspace's `tests/tdd/` and go RED before implementation.
-    - Promote exact green files with `git mv`. Never run `scripts/promote-tdd-tests.js` directly.
-    - Update the existing PR K live-role regression tests (request, community, reputation) and the root integration
-      suite `tests/integration/sprint-134-pr-k-live-admin-role.integration.test.ts` to the new expectations, without
-      weakening any assertion. The suite keeps its 31-route coverage.
-    - Root integration runs only in CI on this Windows box (no local Docker), so record its result as CI-pending
-      until the PR's run.
-    - Run new suites with `--no-cache`.
-    - Check every mocked SQL column against `init.sql`.
-11. **Expect landing churn.** `npm test` can rewrite `architecture.json`, `build.json` and
-    `concepts/adr-010-*.json`. Restore those three with the printed `--source=` command; keep the substantive
-    ADR-105 output.
-12. **License gate.** Paraphrase rather than quote phrases like "internal use only" in any new doc or UI copy
-    (`docs/gotchas/license-gate-flags-claim-phrases-in-any-tracked-file.md`).
+- Merge (one merge slot; re-derive the version from `origin/master` at merge time).
+- Deploy, and the verification afterwards (master CI/CD conclusion + job count, karmyq.com probe, code-scanning
+  alerts on master and the merge-SHA analysis).
+- **The demo platform-admin grant.** It is a separate demo data operation:
+  - it needs the maintainer's explicit authorization;
+  - it runs as DB user `karmyq_prod`, after the deploy is verified;
+  - it uses an account the maintainer chooses, never a simulation persona with shared credentials;
+  - it needs repeating after every curated demo reset.
 
-## Blockers
+  **Rollout is fail-closed.** Until the grant, nobody can edit schemas or trust questions, or run the backfill.
+- Smoke test after deploy:
+  - a community-admin token gets 403 `PLATFORM_ADMIN_REQUIRED` on `GET /api/admin/schemas`;
+  - the granted account gets 200;
+  - `GET /api/users/me/platform-role` agrees for both.
+- Then, on the next product branch: ADR-105 → Implemented, BUG-073 → fixed (deployed), archive this handoff.
 
-- None for execution. Merge, deploy and the demo grant are gated on later maintainer authorization (plan Task 13).
+## Deferred minors (from the gates; detail in the PR body)
 
-## Carried follow-ups (out of scope for Sprint 141 unless the plan names them)
+- A second `GET /users/me/platform-role` from `CommunityConfigEditor` on the Profile tab, including in read-only
+  mode.
+- The 401 bodies in `requirePlatformAdmin` and the trust-question gate lack an ADR-074 `error` code. That is the
+  pre-existing shape, moved here.
+- If the platform-admin lookup throws, the trust-question router gate's error now reaches the app-level handler. It
+  is still a logged 500, but without the route-tagged message.
+- `requirePlatformAdmin` / `requireAnyCommunityAdmin` could share a factory.
+- No test pins `platformRoleService.get` to `/users/me/platform-role`. A wrong path would fail closed.
+- ADR-102:47 and ADR-032:415 still use the pre-Sprint-141 names. They are dated records.
 
-- **ADR-103 is still Proposed** (`docs/adr/README.md:33`), though Sprint 140 PR A (#334, `24bed69b`) merged and its
-  master CI/CD run 43103530588 succeeded on 2026-11-11, per its archive.
-  - The ADR requires a check at deploy time that the demo is not producing simulated nominations or ratifications,
-    and that the deployed artifact carries zero weights.
-  - That is a demo-host read. Agent demo-host reads have been refused by the permission classifier, so the
-    maintainer runs it.
-  - Then flip ADR-103 to Implemented on a product branch.
-- **The landing docs test dirties the tree on a Turbo cache miss.**
-  - `apps/landing/tests/regression/docs-generation.test.ts:21-22` runs `npm run generate-docs` into the tracked
-    `apps/landing/src/data/docs/`.
-  - Fix forward: generate into a temp directory, which needs an output-dir option in `scripts/generate-docs.ts`.
-    Don't weaken the dirty-tree check.
-  - Seen again on 2026-11-12: the pre-commit check failed on exactly the three churn files, then passed after the
-    printed restore.
-- **No relocation pointer gate.** No test checks that each root `claude.md` pointer of the form
-  `[file](file) → *Heading*` names a heading that exists. All four were checked by hand on 2026-11-11.
-- **The prebuild claim is UNVERIFIED.** Three places say the landing **prebuild** regenerates the docs:
-  - `apps/claude.md:46`, `:49` and `:53`;
-  - `scripts/claude.md:54`;
-  - the `landing-docs-are-generated-never-authored` gotcha.
+## Carried follow-ups (out of scope unless a plan names them)
 
-  Memory records that the prebuild never runs under `ignore-scripts` (BUG-054; shown with a scratch package on
-  2026-11-09).
-- **The migration-validator schema list is stale.** `.claude/agents/migration-validator.md:12-20` names `community`
-  and a nonexistent feed-service, and omits six schemas. The examples at `:22` and `:24` repeat
-  `community.communities`. Sprint 141's Task 2 runs this agent, so judge its output against `infrastructure/claude.md`.
-- **BUG-101** (dead Edit/Write hook handlers) is open at `docs/BUGS.md:2743`.
+- **New from Sprint 141:**
+  - `tests/e2e/admin/schema-management.spec.ts` (not in CI) needs a platform-admin fixture.
+  - `apps/frontend/tests/tdd/SchemaManagerNav.test.tsx` still asserts that a creator sees the link. It tests an
+    inline stub and is a spec-deferred suite; retiring it needs maintainer approval (Sprint 140 PR B material).
+  - Two IDEAS entries (2026-11-12): community-owned custom request types; folding the founding-circle reviewer
+    allowlist into `auth.platform_admins`.
+- **ADR-103 is still Proposed.** It needs the maintainer-run deploy-time demo check
+  (`docs/adr/ADR-103-authenticated-listings-and-simulation-containment.md:85-87`), then a flip on a product branch.
+- **The landing docs test dirties the tree on a Turbo cache miss.** It needs an output-dir option in
+  `scripts/generate-docs.ts`.
+  - On this box `architecture.json`'s `dependencyGraph` field also churns. It mirrors the untracked, locally
+    generated `services/dependency-graph.md`; restore that field, as Sprint 141 did.
+- No relocation pointer gate for the root `claude.md` `→ *Heading*` pointers.
+- The landing **prebuild** claim is UNVERIFIED (`apps/claude.md:46,49,53`, `scripts/claude.md:54`, the
+  landing-docs gotcha). It never runs under `ignore-scripts`.
+- The migration-validator schema list is stale (`.claude/agents/migration-validator.md:12-24`). Sprint 141 told the
+  agent to judge against `infrastructure/claude.md` instead, and it reported no findings.
+- BUG-101 (dead Edit/Write hook handlers), `docs/BUGS.md`.
 - #335 item 6, the remaining half: session/service deduplication of the context reminder.
-- **Sprint 140 PR B** is unplanned and decision-gated. It covers required-CI integration execution and the per-suite
-  repair, rewrite or retire ledger. It includes `admin-schemas-api`, which Sprint 141 leaves untouched.
-- **Expo SDK drift.** Issue #329 is open, and the scheduled drift run comments on it (run 43253443885 on
-  2026-11-12). The deepmerge alert #178 is re-checked at the next Expo SDK move or by **2026-12-01**.
-- **Later product candidates** (not chosen 2026-11-12): the governance ratification quorum, the exchange back-out
-  control (IDEAS 2026-10-29), and the mobile revival (IDEAS 2026-10-29 and 2026-11-03).
+- Sprint 140 PR B: unplanned and decision-gated (required-CI integration execution, the per-suite WIP ledger,
+  including `admin-schemas-api`).
+- Expo SDK drift: #329 open; re-check deepmerge alert #178 at the next Expo SDK move or by **2026-12-01**.
+- Later product candidates: the governance ratification quorum, the exchange back-out control (IDEAS 2026-10-29), and
+  the mobile revival.
+- **Git Bash trap seen in Sprint 141:** a `node` argument starting with `//` was rewritten by MSYS path conversion.
+  Export `MSYS_NO_PATHCONV=1`, or put replacements in a script file.
 
 ## Verification references
 
-- PR #336 merge `06685ea4`: master CI/CD run [43262546443](https://github.com/ravichavali/karmyq/actions/runs/43262546443)
-  concluded success, 14/14 jobs including Deploy to Demo. Observed with `gh run view` on 2026-11-12.
-  - `https://karmyq.com/` returned 200, and `POST /api/auth/login` returned an ADR-074 `VALIDATION_ERROR` 400.
-  - Details are in the [archive note](archive/2026-11-12-pr-336-usage-diet-COMPLETE.md).
-- Security state observed 2026-11-12: 0 open code-scanning alerts on master and 0 open Dependabot alerts.
-- The planning facts in the spec were read from the files on 2026-11-12, with a `file:line` for each. Execution
-  re-reads them in plan Task 1, because the code may have moved.
+- Baseline at `905cc5af`: `npm test` exit 0. `npm run test:tdd` exit 1 with 20 known WIP failures (listed in the PR
+  body); no new failing suite is expected.
+- Security state observed 2026-11-12: 0 open code-scanning alerts on master, 0 open Dependabot alerts.
+- Full-suite evidence for the PR head is the pre-push hook and `/pre-commit-check` run recorded in the PR's
+  `## Validation` ledger, plus the PR's CI run. Re-derive it there rather than trusting a count copied here.
 
 ⚠️ GitHub status goes stale. Re-derive PR and deploy state before trusting anything above.
