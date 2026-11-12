@@ -54,6 +54,9 @@ export const TABLE_POLICY: Record<string, TablePolicy> = {
   'auth.skill_vocabulary': 'preserve',
   'auth.device_push_tokens': 'reset',
   'auth.founding_circle_submissions': 'reset',
+  // Sprint 141 (ADR-105): grants reference reset users, so a curated reset removes every platform admin.
+  // The operator re-grants afterwards, by SQL.
+  'auth.platform_admins': 'reset',
 
   // --- communities: entities/runtime reset; per-demo config reseeded; global templates preserved ---
   'communities.communities': 'reset',
