@@ -1,7 +1,7 @@
 # ADR-105: Platform Admin Is a Granted Role, Separate from Community Admin
 
 **Date**: 2026-11-12
-**Status**: Proposed (Sprint 141; becomes Implemented when deployed)
+**Status**: Implemented (Sprint 141, PR #337, merged 2026-11-12 as `898f23ba` and deployed by master CI/CD run 43318586338 attempt 2, 14/14 jobs including Deploy to Demo; the demo grant is still owed, see Consequences)
 **Sprint**: 141 (BUG-073, proposed HIGH)
 **Deciders**: Maintainer (the two-role decision 2026-10-26; scope, designation, global catalogs and this ADR number,
 allocated 2026-11-12); Claude (implementation)

@@ -30,7 +30,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 ## Index
 
 ### Core Architecture
-- [ADR-105: Platform Admin Is a Granted Role, Separate from Community Admin](ADR-105-platform-admin-role.md) — Proposed
+- [ADR-105: Platform Admin Is a Granted Role, Separate from Community Admin](ADR-105-platform-admin-role.md) — Implemented
 - [ADR-103: Listings Trust the Authenticated Caller, "All" Is an Explicit Status, and a Security Fix Must Not Switch On Dormant Simulation](ADR-103-authenticated-listings-and-simulation-containment.md) — Proposed
 - [ADR-102: Authorization Re-derives the Role from Live Membership](ADR-102-live-membership-authorization.md) — Implemented
 - [ADR-101: Per-Consumer Event Queues](ADR-101-per-consumer-event-queues.md) — Implemented

@@ -1992,7 +1992,7 @@ Sprint 134 PR K `/code-review` (the gate lines changed in PR K, the missing owne
 
 ---
 
-## BUG-073 · [2026-10-22] · **fixed on branch** (Sprint 141, `agent/claude/sprint-141-planning`, ADR-105; not deployed) · **HIGH** (proposed)
+## BUG-073 · [2026-10-22] · fixed and deployed (Sprint 141 #337, v11.114.0, 2026-11-12; ADR-105) · **HIGH** (proposed)
 
 **Platform-wide admin surfaces admit anyone who creates a community.** `requireAdmin` (request-service `/admin/schemas`:
 the request UI schemas every community uses), the six trust-question writes (community-service
@@ -2013,7 +2013,7 @@ refreshed token. PR K made these gates live and kept their scope; found 2026-10-
   deadline is replaced by the maintainer's deferral; the gap stays open until the feature ships. No target sprint or
   review date is set yet.
 
-**Fix (Sprint 141, ADR-105, on branch):**
+**Fix (Sprint 141, ADR-105; shipped in #337 `898f23ba`, v11.114.0):**
 - A platform admin is now an explicit, operator-granted row in `auth.platform_admins`, read live by
   `isLivePlatformAdmin` in request-, community- and reputation-service.
 - The nine `/admin/schemas` routes, the six trust-question writes and the provider-trust backfill admit only that
@@ -2027,6 +2027,10 @@ refreshed token. PR K made these gates live and kept their scope; found 2026-10-
     routes against the real schema (CI-only on Windows).
 - **Rollout is fail-closed:** zero grants after deploy. The demo grant is a separate, authorized data operation. Status
   becomes *fixed (deployed)* only after a verified deploy.
+- **Deployed and verified 2026-11-12.** Master CI/CD run 43318586338 (attempt 2) passed 14/14 jobs, Deploy to Demo
+  included. Live probe: a community admin with no grant (admin in 2 communities) gets `403 PLATFORM_ADMIN_REQUIRED` on
+  `GET /api/admin/schemas`, and `GET /api/users/me/platform-role` returns `platformAdmin: false`. The demo grant and the
+  granted-account 200 check wait for the maintainer's authorization.
 
 ---
 
@@ -2107,7 +2111,7 @@ completed row last completed by 2026-11-02. These old rows stay unrepaired (deci
 
 ---
 
-## BUG-076 · [2026-10-29] · fixed on branch (Sprint 139, v11.112.0 provisional; not yet deployed)
+## BUG-076 · [2026-10-29] · fixed and deployed (Sprint 139 #332, v11.112.0, 2026-11-10)
 
 The pre-push hook's TDD step reports "✓ TDD tests passed" without running a single TDD test. Two defects together:
 
@@ -2122,7 +2126,7 @@ Seen on the push of `9af57d4b` (2026-10-29). The TDD tier is report-only (CLAUDE
 but the hook prints a green message for a step that cannot run. Noticed in that push's output; the maintainer-relayed
 review of the BUG-074 plan traced the `tail` exit status.
 
-**Fix (Sprint 139, on branch `agent/claude/sprint-139-planning`, commit `2464bcad`; not yet deployed or merged):**
+**Fix (Sprint 139, commit `2464bcad`; shipped in #332 `8aabc50c`, v11.112.0):**
 `turbo.json` defines `test:tdd` (`cache: false`, `outputs: []`, `dependsOn: ["build"]`); the root script is
 `turbo run test:tdd --continue=always`; `scripts/git-hooks/pre-push` writes npm's output to a unique retained `mktemp`
 log under `${TMPDIR:-/tmp}`, keeps npm's status, then prints the last 20 lines, the log path and that status. Success
@@ -2255,7 +2259,7 @@ other NUMERIC arithmetic was checked: community evolution parses its values (`co
 
 ---
 
-## BUG-080 · [2026-10-29] · fixed on branch (Sprint 139, v11.112.0 provisional; not yet deployed)
+## BUG-080 · [2026-10-29] · fixed and deployed (Sprint 139 #332, v11.112.0, 2026-11-10)
 
 **Provider completion rate counts a match status the platform never writes, so it reads 100% for any provider with a
 completed exchange.** `updateProviderCompletionRate` and `backfillAllProviderTrustScores` count
@@ -2270,7 +2274,7 @@ matched exchange that is later cancelled never lowers it. It feeds 30% of the pr
 Fix direction (not decided): define the rate (completed over matched + completed + cancelled-after-match?) and use
 the statuses the routes write. Found while planning BUG-077; not fixed there.
 
-**Fix (Sprint 139, on branch, commit `ef31e57a`; not yet deployed):** the maintainer chose completed / (completed +
+**Fix (Sprint 139, commit `ef31e57a`; shipped in #332 `8aabc50c`, v11.112.0):** the maintainer chose completed / (completed +
 cancelled), ongoing excluded (2026-11-09; ADR-042 amended). One internal `readProviderCompletionRate` serves the
 `match_completed` refresh, the fail-fast manual backfill and a new provider phase of the existing 03:30 job
 (`refreshAllProviderTrustScores`, per-profile isolation; `runDailyTrustScoreRefresh` keeps the two phases
@@ -2282,7 +2286,7 @@ successful 03:30 run after deploy refreshes historical rates. Tests:
 
 ---
 
-## BUG-081 · [2026-10-29] · fixed on branch (Sprint 139, v11.112.0 provisional; not yet deployed) · **LOW** (proposed, latent)
+## BUG-081 · [2026-10-29] · fixed and deployed (Sprint 139 #332, v11.112.0, 2026-11-10) · **LOW** (proposed, latent)
 
 **Two trust-config readers return NUMERIC columns as strings while their types say `number`.**
 `getCommunityTrustConfig` passes `trust_depth_weight` and `trust_breadth_weight` through raw
@@ -2309,7 +2313,7 @@ their 4 h TTL. The BUG-077 spec kept the wire format (maintainer decision 4) and
 multiply, so that change may cost less than the spec assumed. Raised by the BUG-077 PR's `/simplify` altitude pass and
 `/code-review`; not fixed there.
 
-**Fix (Sprint 139, on branch, commit `ef31e57a`; not yet deployed):** `getCommunityTrustConfig` (depth/breadth: NULL →
+**Fix (Sprint 139, commit `ef31e57a`; shipped in #332 `8aabc50c`, v11.112.0):** `getCommunityTrustConfig` (depth/breadth: NULL →
 default, a community `0` stays `0`), `getUserTrustConfig` (overrides → number or NULL = inherit; prior → number) and
 `getCommunityEvolutionConfig` (prior → number) convert with null checks; `getCachedEffectiveParams` normalizes every hit
 (finite numbers, or strings matching exactly `^-?\d+(\.\d+)?$`; anything else is a miss, read from the DB and replaced),
@@ -2319,7 +2323,7 @@ so a legacy string entry needs no flush. No global NUMERIC type parser. BUG-079'
 
 ---
 
-## BUG-082 · [2026-11-01] · fixed on branch (Sprint 139, v11.112.0 provisional; not yet deployed)
+## BUG-082 · [2026-11-01] · fixed and deployed (Sprint 139 #332, v11.112.0, 2026-11-10)
 
 **The per-query SQL log floods service logs.** `console.log('Executed query', { text, duration, rows })` runs on every
 query at `services/reputation-service/src/database/db.ts:40`. The same line is in the `db.ts` of auth-service,
@@ -2331,7 +2335,7 @@ pushes the 02:00Z nightly run out of the log. So the nightly can't be checked fr
 validation had to fall back to a DB read. The line logs SQL text, not parameters, so the cost is volume, not a leak.
 Maintainer approved logging it 2026-11-01. Not scheduled.
 
-**Fix (Sprint 139, on branch, commit `cf038909`; not yet deployed):** the five wrappers (auth, community, request, reputation,
+**Fix (Sprint 139, commit `cf038909`; shipped in #332 `8aabc50c`, v11.112.0):** the five wrappers (auth, community, request, reputation,
 notification `src/database/db.ts`) log success through the shared `createLogger('<service>')` at **debug** — silent at
 the default `info`, one structured `Executed query` record with `{ text, duration, rows }` (never params) under
 `LOG_LEVEL=debug`. A repo-wide search found no other equivalent; cleanup already did this. ADR-015 amended. Tests: each
@@ -2560,7 +2564,7 @@ integration file `tests/integration/sprint-137-exchange-integrity.integration.te
 
 ---
 
-## BUG-092 · [2026-11-04] · fixed on branch (Sprint 139, v11.112.0 provisional; not yet deployed)
+## BUG-092 · [2026-11-04] · fixed and deployed (Sprint 139 #332, v11.112.0, 2026-11-10)
 
 **Cleanup-service and simulation-service run their tdd tier in their blocking `test`.** ADR-029 and `tests/claude.md`
 say the `tdd/` tier reports only. But `services/cleanup-service/package.json:12` is `"test": "jest"`, and its
@@ -2576,7 +2580,7 @@ Found by the Codex review of the Sprint 137 plan (finding 3). Sprint 137 sequenc
 committed with its implementation. Fix direction (not decided): give both workspaces the tiered `test` script the
 others use.
 
-**Fix (Sprint 139, on branch, commit `96966f6a`; not yet deployed):** both workspaces now use tiered scripts (`test` =
+**Fix (Sprint 139, commit `96966f6a`; shipped in #332 `8aabc50c`, v11.112.0):** both workspaces now use tiered scripts (`test` =
 `test:unit && test:regression`, plus `test:tdd`) with explicit unit/regression/tdd `testMatch`; cleanup no longer
 inherits the root patterns that also pulled in `tests/integration/`. Simulation's passing 17-test
 `sprint-134-demo-env-file` suite, blocking only through the old sweep, moved to `tests/regression/`. Gate:
@@ -2664,7 +2668,7 @@ every status filter. Tests: `services/request-service/tests/regression/sprint-13
 
 ---
 
-## BUG-097 · [2026-11-08] · fixed on branch (Sprint 139, v11.112.0 provisional; not yet deployed)
+## BUG-097 · [2026-11-08] · fixed and deployed (Sprint 139 #332, v11.112.0, 2026-11-10)
 
 **The offers list's expiry filter also hides in-use and owner-only views.** F1 from Sprint 138's `/code-review` (PR
 #331); the maintainer kept it as shipped on 2026-11-08, with this follow-up. `GET /offers`
@@ -2674,7 +2678,7 @@ every status filter. Tests: `services/request-service/tests/regression/sprint-13
 touches `active` offers, so the clock arm alone hides it), and an owner no longer sees their own expired active offer in
 the list. Possible fix: scope the expiry arms to `status = 'active'`. Low severity, UX.
 
-**Fix (Sprint 139, on branch, commit `559b2364`; not yet deployed):** `GET /offers` uses
+**Fix (Sprint 139, commit `559b2364`; shipped in #332 `8aabc50c`, v11.112.0):** `GET /offers` uses
 `AND (o.status <> 'active' OR o.offerer_id = $2 OR (unflagged AND unexpired))` inside the unchanged readable boundary, and
 list items gain `expires_at` / `expired`. The `/offers` page, which read `response.data.data` after the API client had
 already unwrapped the envelope (so it set `undefined` and crashed), reads `response.data.offers`, shows a load error with
@@ -2687,7 +2691,7 @@ unverified rest). Holds still refuse an expired offer. Tests:
 
 ---
 
-## BUG-098 · [2026-11-10] · fixed on branch (Sprint 140 PR A, v11.113.0 provisional; not yet deployed)
+## BUG-098 · [2026-11-10] · fixed and deployed (Sprint 140 PR A #334, v11.113.0, 2026-11-11)
 
 **Several frontend reads still assume a double-wrapped response.** The API client's response interceptor
 (`apps/frontend/src/lib/api.ts:81-91`) unwraps the `{ success, data }` envelope, so `response.data` IS the payload.
@@ -2705,7 +2709,7 @@ Fix direction (not decided; from Sprint 139's `/simplify` altitude pass): type t
 unwrapped payloads so `tsc` rejects a double unwrap, or add a regression gate on `.data.data` — either fixes the class
 without touching the interceptor.
 
-**Fixed on branch (Sprint 140 PR A).** Every listed site was traced to its endpoint. Five consumers were confirmed
+**Fixed (Sprint 140 PR A; shipped in #334 `24bed69b`, v11.113.0).** Every listed site was traced to its endpoint. Five consumers were confirmed
 defects and now read `response.data` once: admin trust-questions, preferences (load and add-interest; the unwrapped
 `data.success` guard is gone), `MessagingContext` (four reads), `InlineChat` and `FloatingChat`. Three are correct and
 unchanged, because their client bypasses the interceptor: `invite/[code].tsx:50` (raw `axios.get`), the `api.ts`
@@ -2716,7 +2720,7 @@ also pins the three raw-client controls.
 
 ---
 
-## BUG-099 · [2026-11-10] · fixed on branch (Sprint 140 PR A, v11.113.0 provisional; not yet deployed)
+## BUG-099 · [2026-11-10] · fixed and deployed (Sprint 140 PR A #334, v11.113.0, 2026-11-11)
 
 **The offers page's "All" status filter shows only active offers.** `apps/frontend/src/pages/offers/index.tsx`'s Status
 `<select>` has an "All" option with `value=""`, which sends no `status` parameter, and `GET /offers` defaults a missing
@@ -2724,7 +2728,7 @@ status to `active` (`services/request-service/src/routes/offers.ts:27`). So "All
 offers. Pre-existing; found by Sprint 139's Task 5 process review. Fix direction (not decided): give the route an
 explicit "all statuses" value, or drop the option.
 
-**Fixed on branch (Sprint 140 PR A, ADR-103 §2).** The option sends `status=all`. The route binds NULL for exactly `all`
+**Fixed (Sprint 140 PR A, ADR-103 §2; shipped in #334 `24bed69b`, v11.113.0).** The option sends `status=all`. The route binds NULL for exactly `all`
 behind `($1::text IS NULL OR o.status = $1)`, so `$1`/`$2` and the optional numbering are unchanged. Omitted still means
 `active`, and the audience and Sprint 139 expiry predicates still apply. Tests:
 `services/request-service/tests/regression/sprint-140-offer-status-all.test.ts`,
@@ -2733,7 +2737,7 @@ behind `($1::text IS NULL OR o.status = $1)`, so `$1`/`$2` and the optional numb
 
 ---
 
-## BUG-100 · [2026-11-10] · fixed on branch (Sprint 140 PR A, v11.113.0 provisional; not yet deployed) · **security (proposed severity: MEDIUM)**
+## BUG-100 · [2026-11-10] · fixed and deployed (Sprint 140 PR A #334, v11.113.0, 2026-11-11) · **security (proposed severity: MEDIUM)**
 
 **`GET /communities/my/communities` trusts a query-string `user_id`.** The route
 (`services/community-service/src/routes/communities.ts:266-288`) reads `user_id` from `req.query` and lists that
@@ -2744,7 +2748,7 @@ sites already pass the caller's own id; Sprint 139's `/offers/new` picker adds o
 widen it. Found by Sprint 139's `/security-review`. Fix direction (not decided): derive the user from the JWT and ignore
 or reject a mismatching `user_id`, with a cross-user denial test like the reputation boundary suite's.
 
-**Fixed on branch (Sprint 140 PR A, ADR-103 §1, §3).** The route reads `req.user.userId` only. A legacy `user_id` is
+**Fixed (Sprint 140 PR A, ADR-103 §1, §3; shipped in #334 `24bed69b`, v11.113.0).** The route reads `req.user.userId` only. A legacy `user_id` is
 ignored whether it is omitted, the caller's own id or a foreign id, and a token without a user id gets 401 before any
 query. Fixing the route would have switched on the simulation's id-less nominate/ratify workflows at the next deploy,
 so both actions now have weight 0 in every profile until the ratification-quorum decision is made. Tests:
