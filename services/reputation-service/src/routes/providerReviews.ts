@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { query } from '../database/db';
-import { isLiveAdminOfAnyCommunity } from '../utils/liveRole';
+import { isLivePlatformAdmin } from '../utils/liveRole';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { recalculateProviderTrustScore, backfillAllProviderTrustScores } from '../services/providerTrustService';
 import { publishEvent } from '../events/publisher';
@@ -123,14 +123,15 @@ router.get('/provider-reviews/:providerId', authMiddleware, async (req: any, res
   }
 });
 
-// POST /reputation/provider-trust/recalculate - Admin: backfill all provider trust scores
+// POST /reputation/provider-trust/recalculate - Platform admin: backfill all provider trust scores
 // Recalculates completion_rate from historical matches and recomputes trust_score for
 // every active provider. Safe to run multiple times — idempotent.
 router.post('/provider-trust/recalculate', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    // A LIVE admin of any community, never the JWT claim (BUG-069, ADR-102).
-    if (!(await isLiveAdminOfAnyCommunity(req.user!.userId))) {
-      return res.status(403).json({ success: false, message: 'Admin access required' });
+    // A platform-wide job: a LIVE platform admin (auth.platform_admins, ADR-105), never a community role
+    // (BUG-073) and never the JWT claim (ADR-102).
+    if (!(await isLivePlatformAdmin(req.user!.userId))) {
+      return res.status(403).json({ success: false, message: 'Platform admin access required', error: 'PLATFORM_ADMIN_REQUIRED' });
     }
 
     const updated = await backfillAllProviderTrustScores();
