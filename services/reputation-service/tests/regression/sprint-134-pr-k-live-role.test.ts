@@ -103,8 +103,6 @@ describe('liveRole helper (real module, pg mocked)', () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ role: 'admin' }], rowCount: 1 });
     expect(await actual.isLiveAdmin(C, U)).toBe(true);
   });
-  // Sprint 141: isLiveAdminOfAnyCommunity is deleted here (its only caller, the backfill gate, now uses
-  // isLivePlatformAdmin, whose own cases are in tests/regression/sprint-141-platform-admin-backfill.test.ts).
 });
 
 // [method, path, body, live status]

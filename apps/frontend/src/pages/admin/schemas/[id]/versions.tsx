@@ -23,7 +23,6 @@ export default function VersionHistoryPage() {
   const [error, setError] = useState('')
   const [versions, setVersions] = useState<SchemaVersion[]>([])
   const [selectedVersion, setSelectedVersion] = useState<SchemaVersion | null>(null)
-  // Platform admins only (Sprint 141, ADR-105): nothing renders or fetches until the live check says yes.
   const allowed = usePlatformAdminGate(router)
 
   useEffect(() => {

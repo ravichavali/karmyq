@@ -118,6 +118,21 @@ describe('trust-question writes admit platform admins only (BUG-073)', () => {
     expect(mocked.isLivePlatformAdmin).not.toHaveBeenCalled();
   });
 
+  it('every write route the router defines is in this table (read from the router, not a hand list)', () => {
+    const defined = (trustQuestionsRouter.stack as unknown as Array<{ route?: { path: string; methods: Record<string, boolean> } }>)
+      .flatMap((layer) => (layer.route ? Object.keys(layer.route.methods).filter((m) => m !== 'get').map((m) => `${m} ${layer.route!.path}`) : []))
+      .sort();
+    const tabled = writeRoutes.map(([m, p]) => `${m} ${p.replace('/communities/trust-questions', '').replace(Q, ':id').replace(CHOICE, ':choiceId') || '/'}`).sort();
+    expect(defined).toEqual(tabled);
+  });
+
+  it('the gate is router-wide: a write to a path no handler defines is refused, not passed on', async () => {
+    mocked.isLivePlatformAdmin.mockResolvedValue(false);
+    const res = await send('post', `/communities/trust-questions/${Q}/not-a-route`, {}, ADMIN_OF_C);
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual(PLATFORM_ADMIN_REQUIRED);
+  });
+
   it('a platform admin creating a valid question writes it', async () => {
     mocked.isLivePlatformAdmin.mockResolvedValue(true);
     mockQuery.mockResolvedValueOnce({ rows: [{ id: Q, slug: 's141' }], rowCount: 1 });

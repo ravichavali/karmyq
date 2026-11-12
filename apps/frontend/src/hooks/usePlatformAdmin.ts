@@ -35,10 +35,9 @@ export function usePlatformAdmin(): PlatformAdminState {
     ;(async () => {
       let platformAdmin = false
       try {
-        const res = await platformRoleService.get()
-        platformAdmin = res?.data?.platformAdmin === true
+        platformAdmin = (await platformRoleService.get())?.data?.platformAdmin === true
       } catch {
-        platformAdmin = false
+        // Fail closed: any error leaves platformAdmin false.
       }
       if (!cancelled) setState({ loading: false, platformAdmin })
     })()

@@ -29,7 +29,6 @@ export default function SchemaListPage() {
   const [error, setError] = useState('')
   const [schemas, setSchemas] = useState<AdminSchema[]>([])
   const [filter, setFilter] = useState<{ status?: string; type?: string }>({})
-  // Platform admins only (Sprint 141, ADR-105): nothing renders or fetches until the live check says yes.
   const allowed = usePlatformAdminGate(router)
 
   useEffect(() => {

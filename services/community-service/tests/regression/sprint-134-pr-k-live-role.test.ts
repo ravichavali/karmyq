@@ -111,8 +111,6 @@ describe('liveRole helper (real module, pg mocked)', () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ role: 'admin' }], rowCount: 1 });
     expect(await actual.isLiveAdmin(C, U)).toBe(true);
   });
-  // Sprint 141: isLiveAdminOfAnyCommunity is deleted here (its only callers, the trust-question gates, now use
-  // isLivePlatformAdmin, whose own cases are in tests/regression/sprint-141-platform-admin-trust-questions.test.ts).
 });
 
 // [method, path, body, the community ids the gate must consult, live status, fusion proposal status]. Every row has

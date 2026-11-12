@@ -20,7 +20,6 @@ export default function NewSchemaPage() {
   const [color, setColor] = useState('#10b981')
   const [description, setDescription] = useState('')
   const [sections, setSections] = useState<any[]>([])
-  // Platform admins only (Sprint 141, ADR-105): nothing renders or fetches until the live check says yes.
   const allowed = usePlatformAdminGate(router)
 
   const handleSubmit = async (e: React.FormEvent) => {

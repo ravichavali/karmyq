@@ -1,15 +1,25 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { query } from '../database/db';
 import { isLivePlatformAdmin } from '../utils/liveRole';
 
 const router = Router();
 
 /**
- * The questionnaire is global configuration (no community column), so its writes need a live PLATFORM admin
+ * The questionnaire is global configuration (no community column), so every write needs a live PLATFORM admin
  * (auth.platform_admins, ADR-105). A community admin, including any community's creator, is refused (BUG-073), and
- * the body never says whether the caller administers a community.
+ * the body never says whether the caller administers a community. One router-wide gate, so a write route added
+ * later is closed by default; reads stay public.
  */
 const PLATFORM_ADMIN_REQUIRED = { success: false, message: 'Platform admin access required', error: 'PLATFORM_ADMIN_REQUIRED' } as const;
+const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+router.use(async (req: Request, res: Response, next: NextFunction) => {
+  if (READ_METHODS.has(req.method)) return next();
+  const user = (req as any).user;
+  if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
+  if (!(await isLivePlatformAdmin(user.userId))) return res.status(403).json(PLATFORM_ADMIN_REQUIRED);
+  next();
+});
 
 /**
  * GET /communities/trust-questions
@@ -50,11 +60,6 @@ router.get('/', async (req: Request, res: Response) => {
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
-
-    if (!(await isLivePlatformAdmin(user.userId))) return res.status(403).json(PLATFORM_ADMIN_REQUIRED);
-
     const { slug, question_text, subtext, display_order } = req.body;
     if (!slug || !question_text || display_order === undefined) {
       return res.status(400).json({ success: false, message: 'slug, question_text, and display_order are required' });
@@ -78,11 +83,6 @@ router.post('/', async (req: Request, res: Response) => {
  */
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
-
-    if (!(await isLivePlatformAdmin(user.userId))) return res.status(403).json(PLATFORM_ADMIN_REQUIRED);
-
     const { id } = req.params;
     const { question_text, subtext, display_order, active } = req.body;
 
@@ -112,11 +112,6 @@ router.put('/:id', async (req: Request, res: Response) => {
  */
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
-
-    if (!(await isLivePlatformAdmin(user.userId))) return res.status(403).json(PLATFORM_ADMIN_REQUIRED);
-
     const { id } = req.params;
     const result = await query(
       `UPDATE communities.trust_questions SET active = false, updated_at = NOW() WHERE id = $1 RETURNING id`,
@@ -136,11 +131,6 @@ router.delete('/:id', async (req: Request, res: Response) => {
  */
 router.post('/:id/choices', async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
-
-    if (!(await isLivePlatformAdmin(user.userId))) return res.status(403).json(PLATFORM_ADMIN_REQUIRED);
-
     const { id: questionId } = req.params;
     const { value, label, description, config_delta, display_order } = req.body;
     if (!value || !label || display_order === undefined) {
@@ -165,11 +155,6 @@ router.post('/:id/choices', async (req: Request, res: Response) => {
  */
 router.put('/:id/choices/:choiceId', async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
-
-    if (!(await isLivePlatformAdmin(user.userId))) return res.status(403).json(PLATFORM_ADMIN_REQUIRED);
-
     const { choiceId } = req.params;
     const { label, description, config_delta, display_order } = req.body;
 
@@ -198,11 +183,6 @@ router.put('/:id/choices/:choiceId', async (req: Request, res: Response) => {
  */
 router.delete('/:id/choices/:choiceId', async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
-
-    if (!(await isLivePlatformAdmin(user.userId))) return res.status(403).json(PLATFORM_ADMIN_REQUIRED);
-
     const { choiceId } = req.params;
     const result = await query(
       `DELETE FROM communities.trust_question_choices WHERE id = $1 RETURNING id`,

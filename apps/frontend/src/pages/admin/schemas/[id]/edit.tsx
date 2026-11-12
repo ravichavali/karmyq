@@ -64,7 +64,6 @@ export default function SchemaEditorPage() {
   const [editingField, setEditingField] = useState<any>(null)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [showPublishDialog, setShowPublishDialog] = useState(false)
-  // Platform admins only (Sprint 141, ADR-105): nothing renders or fetches until the live check says yes.
   const allowed = usePlatformAdminGate(router)
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
 
