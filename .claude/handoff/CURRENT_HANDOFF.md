@@ -1,7 +1,7 @@
 # Usage diet — #335 follow-ups, scoped CLAUDE.md, agent model routing (ADR-104) — Handoff
 
 **Date**: 2026-11-11
-**Outcome**: in progress. The PR is open. The review-fix commit for Codex's review is pushed and awaits Codex re-review, then the maintainer's merge authorization
+**Outcome**: in progress. Three Codex non-author review rounds are complete; the third (2026-11-12) verified every fix and found nothing new. Awaiting the maintainer's merge authorization
 
 > State between sessions only. The rationale lives in [ADR-104](../../docs/adr/ADR-104-agent-process-economy.md); the
 > evidence lives in the PR's `## Validation` ledger. There is no separate plan: this is a small, well-understood change,
@@ -33,12 +33,15 @@
 2. Stay on `agent/claude/usage-diet`. Never push to master directly and never force-push this branch.
 3. Read the PR's `## Validation` ledger and *Quality gates* section before trusting any pass count.
 
-**Next unchecked task**: Codex's third non-author review, of the second review-fix commit, as code-review and
-security-review equivalents, labelled as such.
-- Focus on `scripts/pre-commit-check.sh` lines 80–128, especially the recovery command printed at `:125-126`. It
-  restores from the pre-npm `git write-tree` snapshot, never HEAD.
-- Then the two reworded ADR-104 statements.
-- The PR's *Review response* section maps each finding to its fix.
+**Next unchecked task**: the maintainer's merge decision. Nothing in this file authorizes it.
+- On 2026-11-12, `gh pr view 336` reported `mergeable=MERGEABLE` and `reviewDecision=REVIEW_REQUIRED`. Codex's reviews
+  are PR comments, not approving reviews. So the merge needs an approving review from a non-author, or an admin merge
+  the maintainer explicitly authorizes.
+- After the merge, verify the master CI/CD run, including Deploy to Demo, and check the demo is healthy.
+- Then, on the next product branch (never in a docs-only push to master):
+  - move ADR-104 to Implemented;
+  - archive this handoff with a post-merge note;
+  - re-read the open code-scanning alerts on master.
 
 Gates done so far:
 - [Codex review, 2026-11-11](https://github.com/ravichavali/karmyq/pull/336#issuecomment-6814815323): three P2
@@ -47,7 +50,12 @@ Gates done so far:
   the staged-change fix.
   - New P2: the printed recovery command restored from HEAD and discarded work staged before the run.
   - Two P3 wordings: the drift-gate sentence, and "every custom subagent loads it".
-  - All CONFIRMED and fixed.
+  - All CONFIRMED and fixed in `0a0101e7`.
+- [Codex third review, 2026-11-12](https://github.com/ravichavali/karmyq/pull/336#issuecomment-6827843452): all three
+  fixes verified, and no new code or security findings.
+  - Its recovery probe passed 3/3, and the regenerated ADR page is byte-identical to its source.
+  - Same-head CI/CD, Tests and CodeQL succeeded, re-checked with `gh run list` on 2026-11-12.
+  - Native macOS behavior is still unexercised.
 - The author's `/simplify` pass ran once, on the code diff only, done in-conversation rather than with the recipe's
   four subagents. It merged the two post-run checks into one report.
 
