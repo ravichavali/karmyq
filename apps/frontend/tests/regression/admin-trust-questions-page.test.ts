@@ -6,8 +6,9 @@
  * - authenticated non-admins → redirect to /dashboard
  * - authenticated admins → allowed through (returns true)
  *
- * These tests exercise the auth-gate utilities directly, mirroring the pattern
- * used in admin/schemas/index.tsx and admin/trust-questions/index.tsx.
+ * These tests exercise the auth-gate utilities directly. Since Sprint 141 (ADR-105) neither
+ * admin/schemas nor admin/trust-questions uses them: those pages wait for the live platform check
+ * (hooks/usePlatformAdmin.ts). pages/admin/founding-circle.tsx still does.
  */
 
 import { requireAdmin, isAdmin } from '../../src/utils/admin-auth'

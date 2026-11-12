@@ -4,12 +4,13 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { trustQuestionsService } from '@/lib/api'
 import Layout from '@/components/Layout'
-import { requireAdmin, isAdmin } from '@/utils/admin-auth'
+import { usePlatformAdminGate } from '@/hooks/usePlatformAdmin'
 import type { TrustQuestion } from '@/lib/answersToConfig'
 
 export default function TrustQuestionsAdminPage() {
   const router = useRouter()
-  const [authChecked, setAuthChecked] = useState(false)
+  // Platform admins only (Sprint 141, ADR-105): nothing renders or fetches until the live check says yes.
+  const allowed = usePlatformAdminGate(router)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [questions, setQuestions] = useState<TrustQuestion[]>([])
@@ -29,13 +30,8 @@ export default function TrustQuestionsAdminPage() {
   const [choiceDraft, setChoiceDraft] = useState<{ label: string; description: string; config_delta: string; display_order: number } | null>(null)
 
   useEffect(() => {
-    if (!requireAdmin(router)) { setAuthChecked(true); return }
-    setAuthChecked(true)
-  }, [router])
-
-  useEffect(() => {
-    if (authChecked && isAdmin()) fetchQuestions()
-  }, [authChecked])
+    if (allowed) fetchQuestions()
+  }, [allowed])
 
   async function fetchQuestions() {
     try {
@@ -128,7 +124,7 @@ export default function TrustQuestionsAdminPage() {
     }
   }
 
-  if (!authChecked) return null
+  if (!allowed) return null
 
   return (
     <Layout>

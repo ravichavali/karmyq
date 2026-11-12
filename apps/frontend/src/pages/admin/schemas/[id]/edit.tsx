@@ -11,7 +11,7 @@ const SchemaCanvas = dynamic(() => import('@/components/admin/SchemaCanvas'), {
   ssr: false,
 })
 import EmojiPicker from '@/components/admin/EmojiPicker'
-import { requireAdmin, isAdmin } from '@/utils/admin-auth'
+import { usePlatformAdminGate } from '@/hooks/usePlatformAdmin'
 
 // Admin schema is the database record representation (includes id, status, etc.)
 interface AdminField {
@@ -64,24 +64,16 @@ export default function SchemaEditorPage() {
   const [editingField, setEditingField] = useState<any>(null)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [showPublishDialog, setShowPublishDialog] = useState(false)
-  const [authChecked, setAuthChecked] = useState(false)
-
-  // Check admin authentication
-  useEffect(() => {
-    if (!requireAdmin(router)) {
-      setAuthChecked(true)
-      return
-    }
-    setAuthChecked(true)
-  }, [router])
+  // Platform admins only (Sprint 141, ADR-105): nothing renders or fetches until the live check says yes.
+  const allowed = usePlatformAdminGate(router)
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
 
   useEffect(() => {
-    if (authChecked && isAdmin() && id) {
+    if (allowed && id) {
       loadSchema()
       loadVersions()
     }
-  }, [id, authChecked])
+  }, [id, allowed])
 
   const loadSchema = async () => {
     try {
@@ -324,6 +316,8 @@ export default function SchemaEditorPage() {
       setValidationErrors([err.response?.data?.message || 'Validation failed'])
     }
   }
+
+  if (!allowed) return null
 
   return (
       <AdminLayout title="Schema Editor">

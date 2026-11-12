@@ -1,8 +1,11 @@
 /**
- * Admin authentication utility
+ * Admin authentication utility (claim-based UI hint)
  *
- * Checks if current user has admin role in any community
- * Used to protect admin UI pages
+ * Checks whether the stored login claim lists an admin role in any community. Only
+ * `pages/admin/founding-circle.tsx` still uses it; that page's server gate is a separate reviewer allowlist.
+ *
+ * It does NOT guard the request-type schema pages or the trust-questions page: those are platform admin
+ * surfaces and wait for `usePlatformAdminGate` (`hooks/usePlatformAdmin.ts`, Sprint 141, ADR-105), a live check.
  */
 
 export interface User {

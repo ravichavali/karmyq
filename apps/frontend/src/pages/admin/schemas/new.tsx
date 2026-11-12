@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
@@ -6,7 +6,7 @@ import { uiSchemaService } from '@/lib/api'
 import Layout from '@/components/Layout'
 import EmojiPicker from '@/components/admin/EmojiPicker'
 import { UISchema } from '@karmyq/shared/schemas/ui'
-import { requireAdmin, isAdmin } from '@/utils/admin-auth'
+import { usePlatformAdminGate } from '@/hooks/usePlatformAdmin'
 
 const builtInTypes = ['generic', 'ride', 'service', 'event', 'borrow']
 
@@ -20,16 +20,8 @@ export default function NewSchemaPage() {
   const [color, setColor] = useState('#10b981')
   const [description, setDescription] = useState('')
   const [sections, setSections] = useState<any[]>([])
-  const [authChecked, setAuthChecked] = useState(false)
-
-  // Check admin authentication
-  useEffect(() => {
-    if (!requireAdmin(router)) {
-      setAuthChecked(true)
-      return
-    }
-    setAuthChecked(true)
-  }, [router])
+  // Platform admins only (Sprint 141, ADR-105): nothing renders or fetches until the live check says yes.
+  const allowed = usePlatformAdminGate(router)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,6 +53,8 @@ export default function NewSchemaPage() {
   const addSection = () => {
     setSections([...sections, { id: crypto.randomUUID(), title: 'New Section', fields: [] }])
   }
+
+  if (!allowed) return null
 
   return (
       <Layout title="Create New Schema - Karmyq">

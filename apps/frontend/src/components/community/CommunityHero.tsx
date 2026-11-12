@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { Community } from '@/hooks/useCommunityData'
+import { usePlatformAdmin } from '@/hooks/usePlatformAdmin'
 
 interface Props {
   community: Community
@@ -24,7 +25,8 @@ function initials(name: string): string {
  * Sprint 89 / ADR-068 — the warm community hero. Opens the page as a *neighbourhood*: serif name,
  * mission quote, a few member faces, and the visible Dunbar cap bar ("capped on purpose"). Embeds
  * the join CTA for non-members/pending (same logic as the retired CommunityHeader), and keeps the
- * admin size-alert / Schema Manager affordances so nothing functional is lost in the reskin.
+ * admin size-alert affordance so nothing functional is lost in the reskin. The Schema Manager link edits the
+ * global request-type catalog, so it is shown to platform admins, not community admins (Sprint 141, ADR-105).
  */
 export default function CommunityHero({ community, isMember, isPending, isAdmin, joiningCommunity, onJoin, onShowFission }: Props) {
   const activeMembers = (community.members ?? []).filter((m) => m.status === 'active')
@@ -36,6 +38,7 @@ export default function CommunityHero({ community, isMember, isPending, isAdmin,
 
   const faceMembers = activeMembers.slice(0, 3)
   const overflow = current - faceMembers.length
+  const { platformAdmin } = usePlatformAdmin()
 
   return (
     <div className="kq-hero">
@@ -91,7 +94,7 @@ export default function CommunityHero({ community, isMember, isPending, isAdmin,
       </div>
       <p className="kq-quiet-meta mt-2">Capped at {cap}, on purpose — small enough that people still know each other.</p>
 
-      {isAdmin && (
+      {platformAdmin && (
         <div className="mt-4">
           <Link
             href="/admin/schemas"

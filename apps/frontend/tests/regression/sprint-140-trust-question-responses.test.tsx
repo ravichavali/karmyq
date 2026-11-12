@@ -16,9 +16,10 @@ jest.mock('@/components/Layout', () => ({
   __esModule: true,
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
-jest.mock('@/utils/admin-auth', () => ({
-  requireAdmin: () => true,
-  isAdmin: () => true,
+// Sprint 141 (ADR-105): the page now waits for the live platform check; this suite is about the response shape.
+jest.mock('@/hooks/usePlatformAdmin', () => ({
+  usePlatformAdminGate: () => true,
+  usePlatformAdmin: () => ({ loading: false, platformAdmin: true }),
 }))
 
 import TrustQuestionsAdminPage from '@/pages/admin/trust-questions'
