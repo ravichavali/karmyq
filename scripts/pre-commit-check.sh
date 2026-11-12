@@ -96,6 +96,9 @@ if dirty_tree; then
   exit 1
 fi
 
+# The checks above read this index. Snapshot it so npm cannot stage changes past them unseen.
+index_tree=$(git write-tree) || { printf 'FAIL: git write-tree failed.\n'; exit 1; }
+
 # Never pipe npm: formatting commands must not replace the test exit status.
 set +e
 out=$(npm test 2>&1)
@@ -108,10 +111,15 @@ if [[ "$status" != 0 ]]; then
   exit "$status"
 fi
 
-# A passing run that rewrote files (e.g. regenerated landing docs) leaves a tree that no longer
-# matches the index. Exit 0 means "commit now", so that churn must not pass silently.
-if dirty_tree; then
-  printf 'FAIL: npm test passed but changed the working tree; revert the generated churn (git restore <file>, delete new files) and re-run:\n'
+# A passing run that staged or rewrote files (e.g. regenerated landing docs) no longer tested what
+# will be committed. Exit 0 means "commit now", so that churn must not pass silently. Report the
+# index and the tree together, so one re-run fixes both.
+after_tree=$(git write-tree) || { printf 'FAIL: git write-tree failed.\n'; exit 1; }
+git diff --name-only -z "$index_tree" "$after_tree" > "$check_tmp/restaged" ||
+  { printf 'FAIL: git diff failed.\n'; exit 1; }
+if dirty_tree || [[ -s "$check_tmp/restaged" ]]; then
+  printf 'FAIL: npm test passed but changed the index or working tree; revert it (git restore --staged --worktree <file>, delete new files) and re-run:\n'
+  tr '\0' '\n' < "$check_tmp/restaged" | sed 's/^/  staged: /' | head -10
   list_dirty
   exit 1
 fi

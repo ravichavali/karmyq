@@ -194,14 +194,27 @@ it('refuses an untracked file that npm would test but the commit would omit, bef
   expect(r.output).toContain('untracked: services/example/src/helper.ts');
 });
 
+// Staging leaves worktree == index, so only an index snapshot sees it; the CONTEXT/test checks
+// above ran on the index before npm, so new source staged by npm would skip them entirely.
+const write = (file: string) => `require('fs').writeFileSync('${file}', '// regenerated\\n');`;
+const stage = (file: string) => `${write(file)} require('child_process').execFileSync('git', ['add', '${file}']);`;
 it.each([
-  ["require('fs').writeFileSync('services/example/CONTEXT.md', 'regenerated\\n');", 'modified: services/example/CONTEXT.md'],
-  ["require('fs').writeFileSync('generated.json', '{}');", 'untracked: generated.json'],
-])('fails a passing npm run that changes the tree (case %#)', (body, listed) => {
+  [write('services/example/CONTEXT.md'), 'modified: services/example/CONTEXT.md'],
+  [write('generated.json'), 'untracked: generated.json'],
+  [stage('services/example/CONTEXT.md'), 'staged: services/example/CONTEXT.md'],
+  [stage('services/example/src/unchecked.ts'), 'staged: services/example/src/unchecked.ts'],
+])('fails a passing npm run that changes the index or tree (case %#)', (body, listed) => {
   const r = fixture(body).run();
   expect(r.status).toBe(1);
-  expect(r.output).toContain('npm test passed but changed the working tree');
+  expect(r.output).toContain('npm test passed but changed the index or working tree');
   expect(r.output).toContain(listed);
+});
+
+it('reports staged and unstaged churn from one passing run together', () => {
+  const r = fixture(`${stage('services/example/src/unchecked.ts')} ${write('generated.json')}`).run();
+  expect(r.status).toBe(1);
+  expect(r.output).toContain('staged: services/example/src/unchecked.ts');
+  expect(r.output).toContain('untracked: generated.json');
 });
 
 it('preserves npm failure status and bounds noisy diagnostics', () => {

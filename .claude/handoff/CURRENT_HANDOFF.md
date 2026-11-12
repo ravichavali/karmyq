@@ -1,7 +1,7 @@
 # Usage diet — #335 follow-ups, scoped CLAUDE.md, agent model routing (ADR-104) — Handoff
 
 **Date**: 2026-11-11
-**Outcome**: in progress. The PR is open and awaits non-author review, then the maintainer's merge authorization
+**Outcome**: in progress. The PR is open. The review-fix commit for Codex's review is pushed and awaits Codex re-review, then the maintainer's merge authorization
 
 > State between sessions only. The rationale lives in [ADR-104](../../docs/adr/ADR-104-agent-process-economy.md); the
 > evidence lives in the PR's `## Validation` ledger. There is no separate plan: this is a small, well-understood change,
@@ -33,24 +33,35 @@
 2. Stay on `agent/claude/usage-diet`. Never push to master directly and never force-push this branch.
 3. Read the PR's `## Validation` ledger and *Quality gates* section before trusting any pass count.
 
-**Next unchecked task**: the SDLC review gates on the PR diff, none of which has run yet. The author's `/simplify` pass
-comes first. Then the non-author `/code-review` (medium) and `/security-review`, or Codex equivalents labeled as such.
-The highest-risk file is `scripts/pre-commit-check.sh` (lines 80–117: the dirty-tree checks).
-After that comes merge, which needs the maintainer's explicit authorization. Once merged and deployed, ADR-104 moves to
-Implemented on the next product branch, never in a docs-only master push, and this handoff is archived.
+**Next unchecked task**: Codex's non-author re-review of the review-fix commit, as code-review and security-review
+equivalents, labelled as such.
+- Focus on `scripts/pre-commit-check.sh` lines 80–125: the pre-run dirty-tree refusal, the `git write-tree` index
+  snapshot, and the combined post-run index/tree check.
+- The PR's *Review response* table maps each finding to its fix.
+
+Gates done so far:
+- [Codex review, 2026-11-11](https://github.com/ravichavali/karmyq/pull/336#issuecomment-6814815323): three P2
+  findings, all CONFIRMED and fixed or corrected.
+- The author's `/simplify` pass ran once, on the code diff only, done in-conversation rather than with the recipe's
+  four subagents. It merged the two post-run checks into one report.
+
+After re-review comes the merge, which needs the maintainer's explicit authorization. Once merged and deployed, ADR-104
+moves to Implemented on the next product branch (never in a docs-only master push), and this handoff is archived.
 
 ## What this branch does
 
 - **#335 follow-ups.**
-  - `scripts/pre-commit-check.sh` refuses untracked files before npm runs, and fails any passing run that changed the
-    tree, listing the paths.
+  - `scripts/pre-commit-check.sh` refuses untracked files before npm runs. It fails any passing run that changed the
+    tree or the index, listing the paths. The index check compares a `git write-tree` snapshot taken before npm with
+    one taken after; the Codex review added it.
   - `scripts/service-context-hook.js` exits 0 silently on empty or malformed stdin. That covers the malformed-input
     half of #335 review item 6.
   - 7 new regression cases cover these changes. The ledger records them RED on `edc867e9`'s scripts and GREEN on this
     branch.
 - **Scoped context.** The root `claude.md` goes from 29,978 B / 498 lines to 18,109 B / 317 lines. Four
-  area-specific sections moved verbatim to their local files (ADR-104 §3 has the table), and pointers were repointed
-  in TEMPLATE.md, CONTRIBUTING.md, AGENTS.md and the update-handoff skill.
+  area-specific sections moved to their local files, adapted to their new location with every requirement kept
+  (ADR-104 §3 lists each edit). Pointers were repointed in TEMPLATE.md, CONTRIBUTING.md, AGENTS.md and the
+  update-handoff skill. No test checks the relocations; the drift gate does not read the destinations.
 - **Model routing.**
   - `.claude/agents/Explore.md` overrides the built-in agent with `model: haiku`, read-only tools and
     `omitClaudeMd: true`.
@@ -65,7 +76,12 @@ Implemented on the next product branch, never in a docs-only master push, and th
 - **Decision (maintainer, 2026-11-11)**: an ADR is wanted after all. #335 shipped without one, so ADR-104 records both
   PRs.
 - **Decision**: `process-reviewer` keeps the session model, because its remaining work is judgment.
-- **Decision**: area text is moved verbatim, never deleted.
+- **Decision (maintainer, 2026-11-11, after the Codex review)**: moved text stays adapted to its new location rather
+  than restored word-for-word. Restoring would bring back a wrong file reference. Nothing is deleted.
+- **Decision (maintainer, 2026-11-11)**: the drift-gate claim is narrowed to what the gate actually checks, rather than
+  adding a relocation gate in this PR (see follow-ups).
+- **Decision**: `Explore` keeps `Bash` for `git log` and `git show`. Its read-only rule rests on its prompt and the
+  session's inherited permissions, and ADR-104 §4 now says so.
 
 ## Carried follow-ups (out of scope here)
 
@@ -80,6 +96,12 @@ Implemented on the next product branch, never in a docs-only master push, and th
   - Fix forward: have the test generate into a temp directory, which needs an output-dir option in
     `scripts/generate-docs.ts`. Don't weaken the dirty-tree check.
 
+- **Relocation pointer gate.** No test checks that each root `claude.md` pointer of the form `[file](file) → *Heading*`
+  names a heading that exists. All four were checked by hand on 2026-11-11.
+- `apps/claude.md:53`, the `generate-docs.ts` line in `scripts/claude.md`, and the
+  `landing-docs-are-generated-never-authored` gotcha all say the landing **prebuild** regenerates the docs.
+  - Memory records that it never runs under `ignore-scripts` (shown with a scratch package on 2026-11-09).
+  - **UNVERIFIED** in this branch; out of scope here.
 - **migration-validator schema list is stale** (verified 2026-11-11 against `infrastructure/claude.md`).
   - `.claude/agents/migration-validator.md:12-20` names `community` (the schema is `communities`).
   - It says `feed` is "owned by feed-service", which doesn't exist (ADR-071).

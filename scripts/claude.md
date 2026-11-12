@@ -74,7 +74,8 @@ unavailable. It requires service CONTEXT updates for `src/` changes and tracked 
 TS/TSX source, by matching basename or a quoted module-path import in indexed test content, then runs
 `npm test` with direct exit-status capture. It refuses unstaged tracked changes and untracked
 files before the run (npm would test files the commit omits), and fails a passing run that left
-the tree changed (e.g. regenerated landing docs), listing the paths. Success is
+the tree changed (e.g. regenerated landing docs) or changed the index (a `git write-tree` snapshot
+taken before npm), listing the paths. Success is
 silent; failures show at most 25 matching diagnostics plus the final 15 log lines. It does not
 run `feedback:check`; the installed git pre-commit hook owns that. Regression fixtures in
 `tests/regression/pre-commit-check.test.ts` inject each violation in disposable Git repos.
