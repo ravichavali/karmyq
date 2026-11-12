@@ -12,7 +12,8 @@
   - A community admin, including any community's creator, gets 403
     `{ success: false, message: 'Platform admin access required', error: 'PLATFORM_ADMIN_REQUIRED' }`, and nothing is
     written.
-  - `GET /communities/trust-questions` stays public.
+  - One router-wide gate in `src/routes/trust-questions.ts` covers every non-read method, so a write route added later
+    is closed by default. `GET /communities/trust-questions` stays public.
   - `isLiveAdminOfAnyCommunity` had no caller left and is deleted.
   - The "Platform admin only" notes under *Trust Questions* below are now true.
   - Tests: `tests/regression/sprint-141-platform-admin-trust-questions.test.ts`, the updated PR K suite, and the root
