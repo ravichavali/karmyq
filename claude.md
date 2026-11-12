@@ -148,6 +148,8 @@ anything gating visibility or writes queries current membership via the service'
 module (`getLiveRole`/`isLiveAdmin`, `(communityId, userId)`, always `await`ed;
 [ADR-102](docs/adr/ADR-102-live-membership-authorization.md)).
 `tests/regression/sprint-134-pr-k-claim-gate.test.ts` fails on any claim read outside its allowlist.
+**Platform admin is a separate, granted role** (`auth.platform_admins`, `isLivePlatformAdmin(userId)`;
+[ADR-105](docs/adr/ADR-105-platform-admin-role.md)): a community admin, even a creator, is never one. No gate ORs the two.
 
 ### Database
 13 live schemas + **`federation`**, which is reserved — no service uses it; don't build on it

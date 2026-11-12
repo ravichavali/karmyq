@@ -20,7 +20,7 @@ Its own header says so. The source of truth is the **migration chain**:
 infrastructure/postgres/migrations/*.sql  ->  scripts/regenerate-init-sql.sh  ->  init.sql
 ```
 
-65 migrations currently. Curated demo data lives separately in `postgres/seed-data.sql` and is
+75 migrations currently (the `schema_migrations` ledger in `init.sql` has 75 rows, 2026-11-12). Curated demo data lives separately in `postgres/seed-data.sql` and is
 spliced into the artifact during regeneration. The generated schema deliberately carries **no
 object ownership and no ACLs** — Postgres's docker-entrypoint runs it as `POSTGRES_USER`, which
 therefore owns everything.
@@ -36,11 +36,13 @@ before it touches real rows. The `migration-validator` agent reviews these befor
 
 ## Database schemas — 13 live + 1 reserved
 
+Table counts are `CREATE TABLE` statements per schema in the generated `init.sql` (re-counted 2026-11-12).
+
 | Schema | Tables | Owner service |
 |---|---|---|
-| `auth` | 14 | Auth (3001) |
+| `auth` | 16 | Auth (3001); `auth.platform_admins` holds the platform admin grants (ADR-105) |
 | `communities` | 20 | Community (3002) |
-| `requests` | 18 | Request (3003) |
+| `requests` | 17 | Request (3003) |
 | `reputation` | 13 | Reputation (3004) |
 | `notifications` | 3 | Notification (3005) |
 | `messaging` | 3 | Messaging (3006) |
@@ -51,7 +53,7 @@ before it touches real rows. The `migration-validator` agent reviews these befor
 | `feedback` | 2 | interaction feedback |
 | `provider` | 1 | provider profiles |
 | `events` | 1 | event log |
-| `inventory` | 2 | Request (3003): items and community shares |
+| `inventory` | 3 | Request (3003): items, community shares and the borrow notification outbox |
 
 **The schema is `communities`, plural — not `community`.** There is not one `community.` reference
 in `init.sql`. Same trap family as the JWT `communities` field: the singular guess parses fine and

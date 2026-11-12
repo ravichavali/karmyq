@@ -5,6 +5,15 @@
 
 ## Recent Changes
 
+- **2026-11-12 (Sprint 141, BUG-073 fixed on branch, ADR-105)**: `POST /reputation/provider-trust/recalculate`
+  (the whole-platform provider-trust backfill) admits a live **platform admin** only.
+  - `isLivePlatformAdmin` (`src/utils/liveRole.ts`) runs `SELECT 1 FROM auth.platform_admins WHERE user_id = $1 LIMIT 1`.
+  - A community admin gets 403
+    `{ success: false, message: 'Platform admin access required', error: 'PLATFORM_ADMIN_REQUIRED' }`, and the backfill
+    never runs.
+  - `isLiveAdminOfAnyCommunity` had no caller left and is deleted.
+  - Tests: `tests/regression/sprint-141-platform-admin-backfill.test.ts`, the updated PR K suite, and the root PR K
+    integration suite.
 - **2026-11-09 (Sprint 139, BUG-082)**: `src/database/db.ts` logs a successful query with the shared
   `createLogger('reputation-service')` at **debug** (`Executed query`, `{ text, duration, rows }`, never params)
   instead of an unconditional `console.log`. Silent at the default `info`; `LOG_LEVEL=debug` opts in. The
@@ -98,7 +107,7 @@
 
 - **2026-10-22 (Sprint 134 PR K, BUG-069 fixed, ADR-102)**: `GET`/`PUT /reputation/communities/:communityId/trust-evolution`,
   `GET /reputation/community/:communityId/evolution/history` and `/summary`, `PUT .../evolution/toggle` (community admin)
-  and `POST /reputation/provider-trust/recalculate` (admin of any community) decided from the JWT `communities` claim.
+  and `POST /reputation/provider-trust/recalculate` (admin of any community; a platform admin since Sprint 141, ADR-105) decided from the JWT `communities` claim.
   They now read `communities.members` through `src/utils/liveRole.ts` (`getLiveRole`, `isLiveAdmin`,
   `isLiveAdminOfAnyCommunity`; arguments `(communityId, userId)`, unlike `disclosureAuth.getActiveMembership`). The
   uncalled claim helper `disclosureAuth.isCommunityAdmin` is deleted. Tests: `tests/regression/sprint-134-pr-k-live-role.test.ts`
