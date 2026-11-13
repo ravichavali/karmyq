@@ -5,10 +5,43 @@
 **Deciders**: Ravi Chavali
 **Supersedes**: —
 **Superseded by**: —
+**Amended**: 2026-11-13 — Sprint 142 proportional ratification (implemented on the feature branch; deployment pending).
 
 ---
 
 ## Context
+
+### Sprint 142 amendment — equal votes and a frozen electorate
+
+The maintainer selected equal votes over trust-qualified or trust-weighted ratification. New nominations use
+`max(3, ceil(E / 5))`, where E is the active membership excluding the nominee at creation. Capture voter IDs,
+E and the threshold once. Fewer than three other members refuses creation; legacy quorum/template numbers
+do not change this policy. Nomination adds no vote. Only original voters who are currently active count;
+later arrivals do not join the electorate, and departures never lower the threshold. Staff reactivation can
+restore an original voter's ballot; self-service rejoin is not promised (BUG-102).
+
+Creation locks only caller/nominee memberships with FOR NO KEY UPDATE. Voting first locks the scoped
+nomination, then nominee plus every existing snapshot membership in user-ID order at the same lock strength.
+At quorum it rechecks private nominee eligibility, active membership and monotonic role elevation before
+granting/closing atomically. PostgreSQL 40P01 rolls back and becomes a retryable 503; no partial ballot or
+grant survives. Same/lower roles are refused. GET projects live counts and matching ratifier identities,
+coarse viewer eligibility and can_nominate, without exposing the full roster or personal metrics (ADR-082).
+
+Migration `20261112-governance-quorum.sql` uses one atomic DO block under both appliers. It fences old writers
+with transaction-local protocol guards, closes legacy pending nominations as withdrawn and preserves history.
+Already resolved nominations remain unchanged. Binary rollback leaves governance writes closed until compatible
+code returns. Tests cover preinstalled-guard replay in a rollback fixture and independent cutoff connections
+in an isolated scratch database. Explicit community predicates supply isolation; superuser CI role flags are
+recorded rather than crediting bypassed RLS. The new voter table is classified reset for curated fixtures.
+
+Simulated nomination/ratification remains disabled. The maintainer accepts that persona-heavy demo communities
+may not reach quorum. The implementation does not add role rotation, automatic revocation, delegation,
+nomination expiry or withdrawal. The original architecture below records those broader intentions; its old
+role-holder-only quorum and template-specific sizes are superseded by this amendment for new nominations.
+
+Design: [Sprint 142 spec](../superpowers/specs/2026-11-12-sprint-142-governance-quorum-design.md).
+
+### Original context (2026-05-25)
 
 karmyq communities currently have static admin/moderator roles assigned at creation and never rotated. Sprint 65 added `social_graph.trust_edges` — a persistent, weighted, community-scoped record of member interactions. As trust data matures, there is an opportunity to ground governance authority in measured trust rather than legacy assignment.
 
