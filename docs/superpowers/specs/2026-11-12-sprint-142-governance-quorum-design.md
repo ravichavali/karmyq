@@ -5,6 +5,13 @@
 **Version**: v11.114.0 baseline → release version pending maintainer allocation
 **Sprint Branch**: `agent/claude/sprint-142-planning`
 
+**Review revision (2026-11-13):** Claude's non-author review was checked against both migration appliers,
+CI, membership routes and the curated reset classifier. The amendments below implement the maintainer's
+requested corrections. The maintainer authorized real-DB testing over SSH on karmyq.com and accepted that
+persona-heavy demo communities may not reach quorum. Use a disposable database/container on that host for
+destructive fixtures and guard drops; leave the demo application database and platform-admin grant untouched.
+CI runs for PRs to master, not feature-branch pushes (`.github/workflows/ci.yml:3-7`).
+
 ## Overview
 
 A fixed three-person quorum lets the same small group elevate an administrator in a large community. Sprint 142 makes the participation requirement grow with the community while retaining equal votes. Nominee eligibility stays trust-based; voting does not gain a trust gate or weight.
@@ -58,7 +65,7 @@ Let `E` be the number of active members other than the nominee at the moment the
 
 - Do not cap `R` to the electorate. If `E < 3`, creation returns 422 `GOVERNANCE_ELECTORATE_TOO_SMALL`, with no nomination persisted. This implements the confirmed minimum of three independent ratifiers.
 - Capture voter IDs and `E` in the creation transaction; exclude nominee. Nominator can vote if in the roster, and nomination itself adds no vote. Self-nomination remains allowed for an eligible active member; self-ratification remains forbidden.
-- Later joins do not enter the roster. Later departures remove that member's vote from the live tally but do not lower `R`. Rejoining members regain eligibility if their ID is in the original roster; continuous membership tracking is not introduced.
+- Later joins do not enter the roster. Later departures remove that member's vote from the live tally but do not lower `R`. Original voters reactivated by the existing staff status PUT regain eligibility; continuous membership tracking is not introduced. Do not promise self-service rejoin: the inactive-row join bug is logged separately. The existing status PUT permits admins and status-only moderator updates (`services/community-service/src/routes/members.ts:348-369`).
 - A stalled nomination stays pending. This sprint adds no withdrawal endpoint or expiry. A future policy may address that explicitly.
 - Recheck nominee's active membership and existing trust eligibility before the grant. Reaching quorum must not elevate an inactive or currently ineligible nominee. A failed recheck rolls back that ratification request; earlier accepted votes stay recorded.
 - A completed grant is final for this nomination. Later departures do not retroactively revoke roles. Duplicate retries on a completed nomination return 409 `GOVERNANCE_NOMINATION_CLOSED`; retries of an already recorded vote while pending are idempotent.
@@ -92,23 +99,31 @@ CREATE TABLE IF NOT EXISTS communities.governance_nomination_voters (
 
 Preserve ballots separately in `governance_ratifications`. Never seed or reconstruct historical electorates from today's membership. In a transactional, rerunnable migration, change legacy `pending` rows without policy metadata to `withdrawn` and set `resolved_at`; preserve ballots and already resolved rows. Replaying the migration must not withdraw new version-1 nominations.
 
-Add a partial unique index on `(community_id, nominated_user_id, nominated_for_role) WHERE status = 'pending'` after closing legacy rows. The DB enforces duplicate protection; map its named constraint violation to 409. Regenerate `init.sql` from the migration chain; never edit it manually. Evaluate table privileges/RLS against the existing governance tables and the actual app DB role; prove permitted scoped access and foreign-community refusal in real SQL tests. New transactions set DB context on their own checked-out client, not a separate pooled middleware query (`packages/shared/middleware/dbContext.ts:31-38`).
+Add a partial unique index on `(community_id, nominated_user_id, nominated_for_role) WHERE status = 'pending'` after closing legacy rows. The DB enforces duplicate protection; map its named constraint violation to 409. Regenerate `init.sql` from the migration chain; never edit it manually. Add `'communities.governance_nomination_voters': 'reset'` to `services/simulation-service/src/fixtures/curatedDemo/tablePolicy.ts`; its catalog-derived gate is `services/simulation-service/tests/regression/sprint-141-table-policy-covers-init-sql.test.ts:47-51`.
+
+Isolation proof must exercise explicit community_id predicates with a foreign community, not claim RLS supplied the denial. CI uses the postgres image's `POSTGRES_USER` as the service/test account (`tests/docker-compose.test.yml:16,56`); that initialization account is a superuser and bypasses RLS. Record `current_user`, `rolsuper`, `rolbypassrls` from `pg_roles` in real-DB evidence rather than inferring an effective boundary from enabled policies. Preserve transaction-local DB context on the operation's checked-out client (`packages/shared/middleware/dbContext.ts:31-38`).
 
 ### Rollout fence (Codex proposal following builder review)
 
 `scripts/deploy.sh:150-155` applies migrations before old containers stop at line 225. Fence old writers in the database; do not rely on restart timing. Install named `BEFORE INSERT` guards on nominations and ratifications, plus a guard on transition to `ratified`. They require the transaction-local protocol marker `app.governance_policy_version = '1'`; nomination inserts additionally require valid version-1 metadata. The new writer sets the marker using `set_config(..., true)` after BEGIN. It is a compatibility protocol for trusted application SQL, not authorization.
 
-Install guards and close legacy pending nominations in the same migration transaction, holding the necessary governance-table locks so an already-running old transaction finishes before the cutoff. Legacy code inserts a ballot before any role update (`governanceDb.ts:149-169`); the ballot guard therefore aborts the whole old transaction, including duplicate insert attempts. A legacy creation lacking metadata/marker also fails. Resolved history remains untouched. Administrative membership updates outside governance do not require this marker.
+The file must contain no top-level BEGIN/COMMIT and no top-level LOCK TABLE. `scripts/apply-migrations.sh:83-90` wraps it in a transaction; `scripts/ci-apply-full-schema.sh:90-105` strips top-level transaction wrappers and otherwise autocommits statements, including during init regeneration (`scripts/regenerate-init-sql.sh:155-163`). Put schema changes, table locks, legacy close, function and trigger installation in one DO block so the cutoff is atomic under both appliers. PL/pgSQL BEGIN/END is block syntax, not a file transaction wrapper. Replay over regenerated init.sql must produce no schema change.
+
+Hold the necessary governance-table locks inside that DO block so an already-running old transaction finishes before cutoff. Legacy code inserts a ballot before any role update (`governanceDb.ts:149-169`); the ballot guard aborts the whole old transaction, including duplicate insert attempts. A legacy creation lacking metadata/marker also fails. Resolved history remains untouched. Administrative membership updates outside governance do not require this marker.
+
+CI applies the chain before integration (`.github/workflows/ci.yml:317-326`), so tests begin with guards installed. The legacy-replay fixture explicitly starts one transaction, drops the named guards, inserts legacy rows, runs the migration and asserts results, then ROLLBACK restores the original guards/schema/data. For the two-connection cutoff fixture use a separate scratch database on the authorized demo host: legacy transaction and migration must have independently committing connections. Drop guards only in that scratch database and restore/verify them in finally; never commit a guard drop in the live application DB. `tests/jest.integration.config.js:51` pins serial integration execution but serial execution alone does not isolate live data.
 
 After a binary rollback, governance writes fail closed until compatible code returns; do not remove guards or reopen old pending nominations to recover availability. Reads and unrelated app operations remain available. Prove this with the exact legacy statement sequence on a real DB, including concurrent migration/legacy transactions, duplicate ballots and post-rollback writes. No global deploy-script change is needed for this fence.
 
 ## Transactions and authorization
 
-Creation takes community ID, caller ID, nominee ID and role; it does not accept quorum or electorate from the client. Validate UUIDs and role before queries. In one transaction, set context/protocol marker, verify community existence, lock/check active caller and nominee membership, apply the existing private trust threshold and role-elevation check, capture the active voter roster once, derive E and R, create the version-1 pending row with complete metadata and persist exactly that roster. Use a single consistent roster read, locking the selected memberships in deterministic order, rather than independent count and voter queries. Roll back if too small or duplicate.
+Creation takes community ID, caller ID, nominee ID and role; it does not accept quorum or electorate from the client. Validate UUIDs and role before queries. In one transaction, set context/protocol marker, verify community existence, lock only nominator + nominee membership rows ORDER BY user_id FOR NO KEY UPDATE, check active status, apply the existing private trust threshold and role-elevation check, capture the active voter roster once without locking every voter, derive E and R, create the version-1 pending row with complete metadata and persist exactly that roster. The roster read's statement snapshot defines creation's electorate. Roll back if too small or duplicate.
 
 Ratification takes path community ID, nomination ID and caller ID. Lock the nomination with `SELECT ... FOR UPDATE` and recheck community, status, policy version, caller roster inclusion and active membership inside that transaction. Lock the relevant membership rows in deterministic user-ID order before tallying so a departure cannot race the final grant; use a consistent locking order for creation/voting and test deadlocks/races. Count only ballots joined to snapshot voters and current active community membership. Insert at most one ballot per voter. Check the nominee again and grant the role only while it is still active and eligible, then close the nomination within the same commit. Re-read tally after the insert, rather than incrementing a remembered number.
 
-Do not broaden this into changes to all membership writers. The implementer must demonstrate the chosen PostgreSQL row-lock behavior using two real connections, including member departure versus finalization. Lock all involved membership rows in deterministic user-ID order, using an update-strength lock for the nominee whose role may change and compatible locks for voters; avoid taking shared locks on the same nominee in two transactions and then both upgrading. If existing membership mutations delete/reinsert rows rather than updating them, preserve the same effective outcome through locks and the FK/unique constraints; verify those writer paths before choosing the exact lock statements.
+Exact voting lock set: first the path-scoped nomination row FOR UPDATE; then every existing membership row in that community whose user_id is either the nominee or a snapshot voter, including inactive snapshot voters, ORDER BY user_id FOR NO KEY UPDATE. The caller must belong to that snapshot and be active. Count using the locked rows and ballots. No lock upgrade from SHARE is needed to grant the role. Creation locks only the two identities above, not this full set.
+
+The existing last-admin guards lock multiple admins without ORDER BY (`members.ts:407-409,514-516`). Keep scope small by mapping PostgreSQL deadlock code 40P01 to a rollback plus retryable 503 `GOVERNANCE_RETRY`; clients may refresh/retry, never report success. A consistent order in governance alone does not prove all membership writers are deadlock-free. Test last-admin mutation versus finalization with two connections and assert either a valid serialized outcome or the explicit retryable error with no partial ballot/grant. Existing removal soft-deletes status (`members.ts:524-529`); test reactivation using the real staff PUT route.
 
 ## API endpoints
 
@@ -116,7 +131,7 @@ Keep existing route paths and ADR-074 envelopes. Proposed response fields are ad
 
 | Method/path (service path) | Auth/body | Result |
 |---|---|---|
-| GET `/communities/:communityId/governance` | Active member, live lookup | Existing identity/coarse eligibility data; settings expose `quorum_policy: { version: 1, percentage: 20, minimum: 3 }`; nominations include fixed `electorate_size`, required count, live ratification count and viewer eligibility/reason. |
+| GET `/communities/:communityId/governance` | Active member, live lookup | Existing identity/coarse eligibility data; settings expose `quorum_policy: { version: 1, percentage: 20, minimum: 3 }`; `can_nominate: boolean` is false when fewer than 3 other active members exist; nominations include fixed `electorate_size`, required count, live ratification count and viewer eligibility/reason. |
 | POST `/communities/:communityId/governance/nominate` | Active caller; `{ nominated_user_id, role }`; active trust-eligible nominee | 201 with ID and policy/count metadata; 409 duplicate; 422 too few voters or nominee ineligible. |
 | POST `/communities/:communityId/governance/ratify/:nominationId` | Active snapshot voter other than nominee; empty body | 200 `{ ratified, ratification_count, required_ratifications }`; 403 not an active snapshot voter; 404 wrong-community/missing; 409 closed; 422 nominee eligibility changed. |
 
@@ -127,6 +142,8 @@ If consumer search finds a real client needing `settings.quorum_size`, retain it
 ## Frontend changes
 
 Update `apps/frontend/src/components/GovernanceTab.tsx` in place. Display “20% of eligible voters · at least 3”; per nomination show “X of R ratifications” and “R fixed when nominated from E eligible voters.” Hide voting for the nominee, already counted voters and viewers outside the snapshot; show a plain reason for ineligible viewers. Treat the server as the authority when a stale screen is rejected and refresh after successful actions. Disable duplicate submissions while pending, show accessible inline errors and support loading/error states.
+
+Hide nomination controls when `can_nominate` is false and explain the minimum-three requirement. Use `role_holders` to hide same/lower-role choices: admins have none; moderators can be nominated only for admin; members can be nominated for either. Server checks remain authoritative.
 
 Conceptual text only; use the existing layout and design tokens. No new screen or visual redesign is planned. Fix any repeated response unwrap on this component's actual API path while wiring the new payload; prove the production interceptor-shaped response in tests. Preserve identity-only nominee/role-holder displays.
 
@@ -147,7 +164,7 @@ Prove formula boundaries, electorate exclusion of nominee, minimum-three refusal
 
 Migration proof: populated legacy pending/resolved rows; first apply closes only legacy pending and retains ballots; replay preserves new policy nominations and history; duplicate pending index fails correctly; generated schema converges. UI tests mount the real component, assert actual API payloads, server-shaped response, policy/progress rendering, hidden/visible actions, stale errors and refresh. Retain privacy and no-NaN regressions.
 
-Run unit+regression, type checks, the four SDLC gates and final pre-commit check. Real DB validation is mandatory for implementation; this Windows host has no Docker. Use an explicitly authorized disposable DB environment or CI, never the demo application DB as a test fixture. Do not infer new demo authorization from this plan.
+Run unit+regression, type checks, the four SDLC gates and final pre-commit check. Real DB validation is mandatory for implementation; this Windows host has no Docker. Maintainer answer (a), 2026-11-13: “Demo db... you can ssh on karmyq.com to run it.” Use a disposable DB/container on that authorized host for Tasks 2/4/5, including scratch-DB cutoff tests, never destructive fixture operations on the demo application DB. Answer (b): the maintainer accepts that persona-heavy demo communities cannot reach quorum. CI starts with a product PR, not a feature-branch push. Record actual DB role flags and commands. Platform-admin grant/200 smoke and deploy allocations remain unauthorized.
 
 ## Critical implementation notes
 

@@ -1,10 +1,11 @@
 # Sprint 142 — governance ratification quorum planning — Handoff
 
-**Date**: 2026-11-12
+**Date**: 2026-11-13
 **Outcome**: in progress. Sprint 141 (PR #337, BUG-073, ADR-105, v11.114.0) is **shipped and verified**; its record
 is [archived](archive/2026-11-12-sprint-141-platform-admin-COMPLETE-v11.114.0.md). The maintainer selected
 **governance ratification quorum** for Sprint 142 on 2026-11-12. The maintainer approved the written design,
-including the builder-review proposals; the implementation plan is written. Implementation starts in the next chat.
+including the builder-review proposals. Claude's follow-up review is verified and incorporated; execution is
+starting with Task 1 in this session. No product PR is open yet.
 
 > State between sessions only. Branch-local, so it reserves nothing; see `.claude/handoff/README.md` →
 > *Parallel development rules* for how contended resources are allocated.
@@ -16,11 +17,11 @@ including the builder-review proposals; the implementation plan is written. Impl
 | Field | Value |
 |---|---|
 | **Branch** | `agent/claude/sprint-142-planning` |
-| **Base** | `origin/master` at `898f23ba` (fetched 2026-11-12) |
-| **Active editor** | Codex (maintainer-directed planning session, 2026-11-12) |
+| **Base** | `origin/master` at `898f23ba` (fetched 2026-11-13; no open PRs observed) |
+| **Active editor** | Codex (maintainer-directed review response + inline execution, 2026-11-13) |
 | **Reviewer role** | A non-author. Reviewers read the diff and do not co-edit |
 | **Owned paths** | Post-merge records already in `bc53d728`; current planning edits: Sprint 142 spec/plan under `docs/superpowers/` and this handoff. Future product paths are listed in the approved spec/plan; no product code changed in planning |
-| **Shared resources needed** | None allocated. Merge slot, version bump, ADR numbers, dependency lane and every demo data operation each need the maintainer's own authorization |
+| **Shared resources needed** | Maintainer authorized real-DB tests via SSH on karmyq.com (isolated disposable DB/container). Demo application mutations, platform-admin grant/200 smoke, merge slot, version bump, new ADR numbers and dependency lane remain unallocated |
 
 ## Links
 
@@ -39,10 +40,65 @@ including the builder-review proposals; the implementation plan is written. Impl
    reach master on its own (no docs-only master push); it rides with the next product PR. Reuse this task branch.
 3. Read the approved spec and implementation plan linked above. Invoke `superpowers:executing-plans` for one
    editor on this shared tree (or choose `superpowers:subagent-driven-development` with explicit file ownership).
-   Begin Task 1. No shared resource is allocated. Stop the execution chat at product PR creation.
+   Resume the first unfinished task in the execution ledger. Stop the execution chat at product PR creation.
 
 **Next unchecked task**: plan Task 1 — read current context, verify clean branch/live base, write failing quorum
-and role-elevation policy tests, then implement the pure policy module. This planning chat does not implement.
+and role-elevation policy tests, then implement the pure policy module. Both pre-Task-2 answers are present.
+
+## Non-author review response — 2026-11-13
+
+Findings quoted from the maintainer's relayed Claude review; corrections here are spec/plan obligations,
+not assertions that their runtime tests already pass.
+
+1. > The migration must work under both appliers. apply-migrations.sh wraps the file in BEGIN/COMMIT; ci-apply-full-schema.sh strips it and autocommits, so a top-level LOCK TABLE fails CI and init.sql regen. No BEGIN/COMMIT in the file; the lock, the legacy close and the guards are atomic under both (e.g. one DO block); replaying over init.sql changes no schema.
+
+   **CONFIRMED:** `scripts/apply-migrations.sh:83-90`, `scripts/ci-apply-full-schema.sh:90-105`,
+   `scripts/regenerate-init-sql.sh:155-163`. Spec and Task 2 require one atomic DO block, no top-level
+   transaction wrapper/lock, both-applier proof and schema-identical replay.
+
+2. > CI applies the full chain before integration tests, so the guards already exist. Name the fixture: drop guards + insert legacy rows + run migration + ROLLBACK in one transaction for the replay test; a committed drop with verified restore (integration runs serially, maxWorkers 1) or a scratch DB for the two-connection cutoff test.
+
+   **CONFIRMED:** `.github/workflows/ci.yml:317-326`, `tests/jest.integration.config.js:51`. Named rollback
+   fixture added to spec/Task 2; independently committing cutoff fixture uses a task-owned scratch DB with
+   verified guard restoration, never live application guard removal.
+
+3. > Add 'communities.governance_nomination_voters': 'reset' to services/simulation-service/src/fixtures/curatedDemo/tablePolicy.ts (gate: sprint-141-table-policy-covers-init-sql.test.ts).
+
+   **CONFIRMED:** `services/simulation-service/src/fixtures/curatedDemo/tablePolicy.ts:80-81` lists the two
+   existing governance tables; the catalog-derived gate is actually in that service's `tests/regression/`
+   (`sprint-141-table-policy-covers-init-sql.test.ts:47-51`). Task 2 now includes classification and gate proof.
+
+4. > CI and services connect as the postgres image superuser, so RLS is bypassed. Do not use RLS as the isolation proof; test the explicit community_id predicates; record rolsuper/rolbypassrls in the evidence.
+
+   **CONFIRMED configuration, live flags still to be measured:** `tests/docker-compose.test.yml:16,56`,
+   `.github/workflows/ci.yml:339`, `services/community-service/src/database/db.ts:10-15`. Spec/Tasks 2/9 now
+   require role flags and explicit foreign-community predicate tests; enabled RLS is not credited as proof.
+
+5. > Lock order: add ORDER BY user_id to the last-admin guards (members.ts:407-409, 514-516) or map 40P01 to a retryable error. Creation locks only nominator + nominee (FOR NO KEY UPDATE). Name Task 5's exact lock set.
+
+   **CONFIRMED:** both last-admin queries lack ordering at the cited lines. Chosen bounded fix: rollback
+   and map 40P01 to retryable 503 GOVERNANCE_RETRY. Creation locks only nominator/nominee; voting locks
+   the nomination then nominee + all snapshot membership rows, including inactive voters, ordered by user_id
+   FOR NO KEY UPDATE. Spec/Tasks 4/5 name the sets and required overlap tests.
+
+6. > Rejoin exists only as an admin PUT status 'active'. A self-join of an inactive row 500s (pre-existing; log it via /bug). Test the admin path; the guide must not promise self-service rejoin.
+
+   **PARTIAL (staff-role detail):** `members.ts:348-369` also admits status-only moderator updates.
+   `members.ts:106-133` checks active/pending but then INSERTs an inactive membership, conflicting with
+   `init.sql:3210` uniqueness; its catch at `members.ts:203-204` returns internal error. Captured as BUG-102,
+   reported/source-traced, not live-reproduced. Spec/Tasks 5/8 use the real staff PUT; self-join fix stays out of scope.
+
+7. > Task 7: hide same/lower-role nominations using role_holders; GET exposes a coarse can-nominate flag for communities too small to nominate in.
+
+   **CONFIRMED:** current UI offers both roles at `apps/frontend/src/components/GovernanceTab.tsx:150-157`;
+   old GET has no such flag (`governanceDb.ts:110-115`). Spec and Tasks 6/7 now define can_nominate and
+   role_holders-based choices, with both UI and server refusal tests.
+
+**Maintainer answers (2026-11-13):** (a) “Demo db... you can ssh on karmyq.com to run it.” Use disposable
+database/container isolation on that authorized host; SSH/Docker availability verified read-only this session.
+No tests may drop guards or create irreversible fixture changes in the live application DB. (b) “I Accept this”:
+persona-heavy demo communities may not reach quorum. Simulation nomination/ratification stays disabled.
+CI starts on PR creation, not feature pushes (`.github/workflows/ci.yml:3-7`); local real-DB proof precedes PR.
 
 ## Blockers and decisions
 

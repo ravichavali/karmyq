@@ -2776,3 +2776,13 @@ documented stdin/exit-code interface and prove both rejection and allowed paths;
 the normal Git/CI gates.
 
 ---
+
+## BUG-102 · [2026-11-13] · open
+
+**Self-service rejoin of an inactive membership returns 500.** Reported in Claude's Sprint 142 plan review.
+`services/community-service/src/routes/members.ts:106-133` detects active/pending memberships but falls
+through to INSERT for an inactive row, conflicting with the existing `(community_id, user_id)` uniqueness;
+the catch returns an internal error. Staff can reactivate through the status PUT instead. Captured for a
+later fix; not reproduced live and not included in Sprint 142's quorum scope.
+
+---
