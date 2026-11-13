@@ -5,8 +5,10 @@
 is [archived](archive/2026-11-12-sprint-141-platform-admin-COMPLETE-v11.114.0.md). The maintainer selected
 **governance ratification quorum** for Sprint 142 on 2026-11-12. The maintainer approved the written design,
 including the builder-review proposals. Claude's seven follow-up findings are verified and incorporated.
-Implementation and the fresh review's Important fix are finished. Read final validation from the verification
-commit message and the branch PR's Validation ledger; read PR/CI state live rather than inferring it here.
+Implementation and the fresh review's Important fix are finished. **Ship cycle (2026-11-13, Claude):** the
+restored-quorum fix was reviewed with no new findings; the maintainer allocated **v11.115.0** and authorized one
+admin merge of PR #338 once the ADR-060 gate is green. The gate is blocked only by CodeQL #633–#638 (test file),
+which await the maintainer's dismissal. Read PR/CI state live rather than inferring it here.
 
 > State between sessions only. Branch-local, so it reserves nothing; see `.claude/handoff/README.md` →
 > *Parallel development rules* for how contended resources are allocated.
@@ -19,10 +21,10 @@ commit message and the branch PR's Validation ledger; read PR/CI state live rath
 |---|---|
 | **Branch** | `agent/claude/sprint-142-planning` |
 | **Base** | `origin/master` at `898f23ba` (fetched 2026-11-13; no open PRs observed) |
-| **Active editor** | Codex (maintainer-directed review response + inline execution, 2026-11-13) |
+| **Active editor** | Claude (reviewer/orchestrator, ship cycle, 2026-11-13). Codex authored the implementation (lane `codex`) |
 | **Reviewer role** | A non-author. Reviewers read the diff and do not co-edit |
 | **Owned paths** | Governance DB/policy/routes + scoped tests in community-service; GovernanceTab/onboarding/tests; simulation reset table policy/context/test; migration/generated schema; scoped guides/ADR-055/generated landing docs; registry and this handoff. Sprint 141 records remain bundled from `bc53d728` |
-| **Shared resources needed** | Maintainer authorized real-DB tests via SSH on karmyq.com (isolated disposable DB/container). Demo application mutations, platform-admin grant/200 smoke, merge slot, version bump, new ADR numbers and dependency lane remain unallocated |
+| **Shared resources needed** | Maintainer authorized real-DB tests via SSH on karmyq.com (isolated disposable DB/container). **Allocated 2026-11-13:** release version v11.115.0 and one admin merge + deploy slot for PR #338, conditional on a green ADR-060 gate. Demo application mutations, platform-admin grant/200 smoke, new ADR numbers and dependency lane remain unallocated |
 
 ## Links
 
@@ -41,13 +43,38 @@ commit message and the branch PR's Validation ledger; read PR/CI state live rath
    `origin/master` into this branch with a merge commit (never rebase).
 2. **This branch's first commit is Sprint 141's post-merge record (`bc53d728`, already pushed).** It must never
    reach master on its own (no docs-only master push); it rides with the next product PR. Reuse this task branch.
-3. Reviewer/orchestrator: resolve the branch PR, read its Validation ledger and current CI, then review the
-   approved spec/plan and the restored-quorum fix. Implementation is finished; no new execution workspace is
-   needed. The maintainer must allocate the release version and authorize merge/deploy separately.
+3. Orchestrator: read PR #338's live checks. Review, version allocation and merge authorization are done
+   (see *Ship cycle* below). Implementation is finished; no new execution workspace is needed.
 
-**Next unchecked task for the reviewer/orchestrator**: review the draft product PR and live checks; obtain
-maintainer release-version/merge/deploy allocation before shipping. Contributor never self-merges. Platform
-grant and granted-account 200 smoke remain a separate, unauthorized operation.
+**Next unchecked task for the orchestrator**: once the maintainer has dismissed CodeQL #633–#638 and the ADR-060
+gate is green on the version-bump commit, mark #338 ready and admin-merge it (authorized once, 2026-11-13). Then
+verify the master CI/CD run (job count + conclusion), Deploy to Demo, health, and open master CodeQL alerts on the
+merge SHA. Post-merge records ride the next product branch. Contributor never self-merges. Platform grant and
+granted-account 200 smoke remain a separate, unauthorized operation.
+
+## Ship cycle — 2026-11-13 (Claude, non-author orchestrator)
+
+- **Restored-quorum fix (`932cc19d`) reviewed, no new findings.** `addRatification` already finalizes on a
+  duplicate `ON CONFLICT DO NOTHING` ballot by recounting under the nomination lock. The new read-only
+  `ready_to_finalize` count in `getGovernanceState` uses the same live-tally predicate as the POST (ballot ∩
+  frozen roster ∩ active member of the path community), so the Finalize button cannot appear when the POST
+  would refuse. No new disclosure: count and required were already public. A 422 at finalize (nominee
+  inactive or trust-ineligible) leaves the nomination pending with Finalize still shown. That is the accepted
+  stall behavior (no expiry or withdrawal).
+- **PR CI on `932cc19d`** (CI/CD run 43513192874 + Tests/PR Contract/Regenerate init.sql runs): unit +
+  regression, frontend, lint/type, security audit, landing build, Docker build, init.sql regen and Integration
+  Tests all passed. Integration ran 31 suites / 546 tests; the Sprint 142 file passed 32/32 and logged
+  `karmyq_test rolsuper=true rolbypassrls=true`. Build Images/Deploy skipped (PR event).
+- **ADR-060 gate blocked by 6 high CodeQL alerts, all in
+  `tests/integration/sprint-142-governance-quorum.integration.test.ts`:** #633–#637 `js/sql-injection` (lines
+  62/71/125/136/159). The SQL is the checked-in migration and `init.sql`, read from fixed `__dirname` paths.
+  #638 `js/missing-rate-limiting` (line 429): a supertest-only Express harness that is never served.
+  Precedent dismissals: #588–#591 (false positive), #619–#623 (used in tests). The maintainer dismisses; agents
+  never loop the dismissal API.
+- **Version bump commit:** `package.json` + the two root `package-lock.json` fields, 11.114.0 → 11.115.0
+  (re-derived from `origin/master` `898f23ba`). The spec header was updated.
+- **Gotchas added (maintainer-approved):** `docs/gotchas/migration-appliers-disagree-on-transaction-wrapping`
+  and `docs/gotchas/database-roles-bypass-rls-so-rls-is-not-an-isolation-proof`; `gotcha-check` clean (15).
 
 **Implementation and evidence (2026-11-13):** review amendments `dfdfefba`; policy `f85924b1`; migration/schema
 `28e14995`; route contracts `7caa4210`; creation `35bf5ff1`; voting `2d5d32df`; getter/routes `3db3bc4e`;

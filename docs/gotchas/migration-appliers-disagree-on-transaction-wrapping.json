@@ -1,0 +1,18 @@
+{
+  "title": "Deploy wraps a migration in BEGIN/COMMIT, but CI's drift check and init.sql regen strip it and autocommit each statement — a top-level LOCK TABLE fails in CI",
+  "owner": "ravichavali",
+  "created": "2026-11-13",
+  "scope": [
+    "infrastructure/postgres/migrations/",
+    "scripts/apply-migrations.sh",
+    "scripts/ci-apply-full-schema.sh",
+    "scripts/regenerate-init-sql.sh"
+  ],
+  "verify": {
+    "file_matches": {
+      "path": "scripts/ci-apply-full-schema.sh",
+      "pattern": "\\(BEGIN\\|COMMIT\\)"
+    }
+  },
+  "see_also": ["database-roles-bypass-rls-so-rls-is-not-an-isolation-proof"]
+}

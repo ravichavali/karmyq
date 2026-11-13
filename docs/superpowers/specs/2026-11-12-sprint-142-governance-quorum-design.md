@@ -2,7 +2,7 @@
 
 **Date**: 2026-11-12
 **Status**: Approved by maintainer, 2026-11-12 (including builder-review proposals)
-**Version**: v11.114.0 baseline → release version pending maintainer allocation
+**Version**: v11.114.0 → v11.115.0 (allocated by the maintainer 2026-11-13, re-derived from `origin/master` `898f23ba`)
 **Sprint Branch**: `agent/claude/sprint-142-planning`
 
 **Review revision (2026-11-13):** Claude's non-author review was checked against both migration appliers,
