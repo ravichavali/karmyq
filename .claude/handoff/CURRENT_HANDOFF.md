@@ -42,9 +42,9 @@ starting with Task 1 in this session. No product PR is open yet.
    editor on this shared tree (or choose `superpowers:subagent-driven-development` with explicit file ownership).
    Resume the first unfinished task in the execution ledger. Stop the execution chat at product PR creation.
 
-**Next unchecked task**: plan Task 7 — frontend policy/eligibility/error lifecycle. Backend Tasks 1–6 are
-implemented; Task 3 contracts are green after Task 6. Both DB answers and exact transfer/regeneration approval
-are present. Final cross-workspace verification, docs and product PR are still pending.
+**Next unchecked task**: finish source/generated docs and Task 9 context/integration/regression promotion,
+then whole-branch gates and final verification. Backend Tasks 1–6 and UI Task 7 are implemented. Both DB
+answers and exact transfer/regeneration approval are present. No product PR is open yet.
 
 **Execution progress (2026-11-13):** review amendments committed as `dfdfefba`. Task 1's policy module and TDD
 suite are implemented: first run failed TS2307 for the absent module; after implementation 25/25 passed with
@@ -73,6 +73,12 @@ passed (5/5 read/HTTP cases). Route contracts pass 20/20; community unit 9/9 and
 Getter owns a live membership check, fixed metadata, active ratifier projection and coarse can_nominate. UI is
 still the old contract until Task 7; nothing is ready to ship yet. Additional malformed-config/constraint assertions
 will be included in the final root integration run.
+
+Task 6 committed `3db3bc4e`. Task 7 UI ran 12 tests red→green, then a stale-role selector test ran red→green;
+focused UI + retained no-NaN tests pass 16/16, frontend tsc passed, existing frontend unit/regression pair
+passed 62/595 tests respectively. New Sprint 142 tests are still in TDD until Task 9 promotes only these files.
+Task 8 source docs/onboarding/ADR-055 amendment are authored and generated; unrelated build/architecture/ADR-010
+churn is restored. Docs/CONTEXT/registry final parity and whole-branch review remain to do.
 
 ## Non-author review response — 2026-11-13
 

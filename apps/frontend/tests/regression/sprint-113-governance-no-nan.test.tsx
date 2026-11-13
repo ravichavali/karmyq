@@ -24,9 +24,10 @@ import { communityService } from '@/lib/api';
 // NO member trust_score / karma anywhere.
 const ADR082_GOVERNANCE_STATE = {
   data: {
+    can_nominate: true,
     settings: {
       eligibility_threshold: 50,
-      quorum_size: 3,
+      quorum_policy: { version: 1,percentage: 20,minimum: 3 },
       template: 'small-collective',
     },
     maturity: { status: 'mature', avg_trust_score: 42.5, threshold: 50 },
