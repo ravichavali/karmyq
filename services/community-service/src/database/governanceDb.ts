@@ -198,51 +198,62 @@ export async function createNomination(input: CreateNominationInput): Promise<{
   });
 }
 
-export async function addRatification(
-  nominationId: string,
-  ratifierId: string
-): Promise<{ ratified: boolean; ratification_count: number }> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
+export interface RatificationInput { communityId: string; nominationId: string; ratifierId: string }
 
-    await client.query(`
-      INSERT INTO communities.governance_ratifications (nomination_id, ratifier_id)
-      VALUES ($1, $2) ON CONFLICT DO NOTHING
-    `, [nominationId, ratifierId]);
-
-    const countRes = await client.query(`
-      SELECT n.required_ratifications, COUNT(r.ratifier_id) AS count,
-             n.nominated_user_id, n.nominated_for_role, n.community_id
-      FROM communities.governance_nominations n
-      LEFT JOIN communities.governance_ratifications r ON r.nomination_id = n.id
-      WHERE n.id = $1
-      GROUP BY n.id, n.required_ratifications, n.nominated_user_id, n.nominated_for_role, n.community_id
-    `, [nominationId]);
-    const row = countRes.rows[0];
-    const ratificationCount = parseInt(row.count);
-
-    let ratified = false;
-    if (ratificationCount >= parseInt(row.required_ratifications)) {
-      await client.query(`
-        UPDATE communities.members SET role = $1
-        WHERE user_id = $2 AND community_id = $3
-      `, [row.nominated_for_role, row.nominated_user_id, row.community_id]);
-
-      await client.query(`
-        UPDATE communities.governance_nominations
-        SET status = 'ratified', resolved_at = NOW()
-        WHERE id = $1
-      `, [nominationId]);
-      ratified = true;
-    }
-
-    await client.query('COMMIT');
-    return { ratified, ratification_count: ratificationCount };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
+function assertNominationPolicy(nomination: any) {
+  if (nomination.quorum_policy_version !== 1 || !Number.isSafeInteger(nomination.electorate_size)
+    || nomination.electorate_size < 3 || nomination.required_ratifications !== requiredRatifications(nomination.electorate_size)) {
+    throw new Error('Invalid governance nomination policy metadata');
   }
+}
+
+export async function addRatification(input: RatificationInput): Promise<{
+  ratified: boolean; ratification_count: number; required_ratifications: number;
+}> {
+  const { communityId,nominationId,ratifierId } = input;
+  return governanceTransaction(communityId,ratifierId,async client => {
+    const nominations = await client.query(`SELECT * FROM communities.governance_nominations
+      WHERE id=$1 AND community_id=$2 FOR UPDATE`, [nominationId,communityId]);
+    const nomination = nominations.rows[0];
+    if (!nomination) throw new GovernanceError(404,'NOT_FOUND','Nomination not found.');
+    if (nomination.status !== 'pending') throw new GovernanceError(409,'GOVERNANCE_NOMINATION_CLOSED','This nomination is closed.');
+    assertNominationPolicy(nomination);
+    if (nomination.nominated_user_id === ratifierId) {
+      throw new GovernanceError(422,'GOVERNANCE_SELF_RATIFICATION','Cannot ratify your own nomination.');
+    }
+    // Lock every existing snapshot membership, including inactive rows, plus the nominee.
+    // The explicit community predicate is required even when the DB role bypasses RLS.
+    const members = await client.query(`SELECT m.user_id,m.role,m.status FROM communities.members m
+      WHERE m.community_id=$1 AND (m.user_id=$2 OR EXISTS (
+        SELECT 1 FROM communities.governance_nomination_voters v WHERE v.nomination_id=$3 AND v.user_id=m.user_id
+      )) ORDER BY m.user_id FOR NO KEY UPDATE`, [communityId,nomination.nominated_user_id,nominationId]);
+    if (members.rows.find(r => r.user_id === ratifierId)?.status !== 'active') {
+      throw new GovernanceError(403,'GOVERNANCE_VOTER_NOT_ELIGIBLE','Only active members of the original electorate may ratify.');
+    }
+    await client.query(`INSERT INTO communities.governance_ratifications(nomination_id,ratifier_id)
+      VALUES($1,$2) ON CONFLICT DO NOTHING`, [nominationId,ratifierId]);
+    const count = await client.query(`SELECT count(*)::int AS n FROM communities.governance_ratifications r
+      JOIN communities.governance_nomination_voters v ON v.nomination_id=r.nomination_id AND v.user_id=r.ratifier_id
+      JOIN communities.members m ON m.user_id=v.user_id AND m.community_id=$2 AND m.status='active'
+      WHERE r.nomination_id=$1`, [nominationId,communityId]);
+    const ratificationCount = count.rows[0].n;
+    const ratified = ratificationCount >= nomination.required_ratifications;
+    if (ratified) {
+      const nominee = members.rows.find(r => r.user_id === nomination.nominated_user_id);
+      if (nominee?.status !== 'active') {
+        throw new GovernanceError(422,'GOVERNANCE_ELIGIBILITY_NOT_MET','The nominee must still be an eligible active community member.');
+      }
+      if (!canElevateRole(nominee.role ?? 'member',nomination.nominated_for_role)) {
+        throw new GovernanceError(409,'GOVERNANCE_ROLE_ALREADY_HELD','The nominee already holds this or a higher role.');
+      }
+      const community = await client.query(`SELECT governance_settings FROM communities.communities WHERE id=$1`, [communityId]);
+      if (!community.rows.length) throw new GovernanceError(404,'NOT_FOUND','Community not found.');
+      await checkNomineeTrust(client,communityId,nomination.nominated_user_id,eligibilityThreshold(community.rows[0].governance_settings));
+      await client.query(`UPDATE communities.members SET role=$3 WHERE community_id=$1 AND user_id=$2 AND status='active'`,
+        [communityId,nomination.nominated_user_id,nomination.nominated_for_role]);
+      await client.query(`UPDATE communities.governance_nominations SET status='ratified',resolved_at=now()
+        WHERE id=$1 AND community_id=$2`, [nominationId,communityId]);
+    }
+    return { ratified,ratification_count: ratificationCount,required_ratifications: nomination.required_ratifications };
+  });
 }

@@ -96,7 +96,7 @@ router.post('/:communityId/governance/ratify/:nominationId', async (req: any, re
       return res.status(422).json({ success: false, message: 'Cannot ratify your own nomination' });
     }
 
-    const result = await addRatification(nominationId, ratifierId);
+    const result = await addRatification({ communityId, nominationId, ratifierId });
     res.json({ success: true, data: result });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to ratify nomination' });

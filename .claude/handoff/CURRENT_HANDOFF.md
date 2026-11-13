@@ -1,4 +1,4 @@
-# Sprint 142 — governance ratification quorum planning — Handoff
+# Sprint 142 — governance ratification quorum implementation — Handoff
 
 **Date**: 2026-11-13
 **Outcome**: in progress. Sprint 141 (PR #337, BUG-073, ADR-105, v11.114.0) is **shipped and verified**; its record
@@ -42,8 +42,9 @@ starting with Task 1 in this session. No product PR is open yet.
    editor on this shared tree (or choose `superpowers:subagent-driven-development` with explicit file ownership).
    Resume the first unfinished task in the execution ledger. Stop the execution chat at product PR creation.
 
-**Next unchecked task**: plan Task 2 — provision an isolated disposable PostgreSQL environment over SSH on
-karmyq.com, then write migration fixtures before implementation. Both pre-Task-2 answers are present.
+**Next unchecked task**: plan Task 6 — viewer-aware getter and HTTP boundary. Tasks 1/2/4 are committed;
+Task 3 contracts are red until Task 6 wires them. Task 5 voting is green and being committed; both DB answers
+and the exact source-transfer/regeneration approval are present.
 
 **Execution progress (2026-11-13):** review amendments committed as `dfdfefba`. Task 1's policy module and TDD
 suite are implemented: first run failed TS2307 for the absent module; after implementation 25/25 passed with
@@ -59,6 +60,13 @@ Canonical regeneration and CI-applier schema-identical replay passed; tracked ap
 applied exactly the new migration in BEGIN/DO/INSERT/COMMIT. Reset classifier + catalog gate passed 5/5.
 Task 3 contracts ran red (20 failures expected against old routes). Task 4 transactional creation tests ran
 red→green (9/9). Route error/identity wiring and voting implementation are still unfinished; no feature-ready claim.
+
+Task 2 committed `28e14995`, Task 3 red contracts `7caa4210`, Task 4 creation `35bf5ff1`.
+Task 5 voting/concurrency ran red→green (11/11) against the isolated DB, including departure and nominee removal
+while finalization waits, duplicate/final vote races, reactivation via staff PUT, higher-role preservation and
+last-admin mutation overlap. Transaction rollback/deadlock mapping checks pass 2/2; service type-check passed.
+HTTP boundary/viewer reads and UI/docs remain incomplete. Root DB evidence is under the plan's ignored execution
+workspace; DB role was measured as superuser/bypass-RLS, so the tests exercise explicit community predicates.
 
 ## Non-author review response — 2026-11-13
 
