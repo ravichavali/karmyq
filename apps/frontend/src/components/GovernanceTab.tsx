@@ -31,68 +31,67 @@ function actionMessage(error: unknown) {
   return typeof message === 'string' ? message : 'The decision could not be completed. Please refresh and retry.'
 }
 
-export default function GovernanceTab({ communityId, currentUserId }: GovernanceTabProps) {
-  const scope = JSON.stringify([communityId, currentUserId])
-  const scopeRef = useRef(scope)
-  scopeRef.current = scope
+export default function GovernanceTab(props: GovernanceTabProps) {
+  return <GovernancePanel key={JSON.stringify([props.communityId, props.currentUserId])} {...props} />
+}
+
+function GovernancePanel({ communityId }: GovernanceTabProps) {
   const mounted = useRef(false)
   const requestId = useRef(0)
   const busy = useRef<object | null>(null)
-  const [snapshot, setSnapshot] = useState<{ scope: string; data: GovernanceState } | null>(null)
-  const state = snapshot?.scope === scope ? snapshot.data : null
+  const [state, setState] = useState<GovernanceState | null>(null)
   const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<{ scope: string; message: string } | null>(null)
-  const [actionError, setActionError] = useState<{ scope: string; message: string } | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [nominateTarget, setNominateTarget] = useState<string | null>(null)
   const [nominateRole, setNominateRole] = useState<GovernanceRole>('moderator')
   const [submitting, setSubmitting] = useState(false)
 
-  const load = useCallback(async () => {
+  const fetchState = useCallback(() => {
     const id = ++requestId.current
-    const active = () => mounted.current && scopeRef.current === scope && id === requestId.current
-    if (!active()) return
-    setLoading(true)
-    setLoadError(null)
-    try {
-      const res = await communityService.getGovernanceState(communityId)
+    const active = () => mounted.current && id === requestId.current
+    if (!active()) return Promise.resolve()
+    return communityService.getGovernanceState(communityId).then(res => {
       const data = res.data as GovernanceState
       if (!data || data.settings?.quorum_policy?.version !== 1 || typeof data.can_nominate !== 'boolean') {
         throw new Error('Unsupported governance response')
       }
-      if (active()) setSnapshot({ scope, data })
-    } catch {
-      if (active()) setLoadError({ scope, message: 'Failed to load governance data.' })
-    } finally {
+      if (active()) setState(data)
+    }).catch(() => {
+      if (active()) setLoadError('Failed to load governance data.')
+    }).finally(() => {
       if (active()) setLoading(false)
-    }
-  }, [communityId, scope])
+    })
+  }, [communityId])
+
+  const refresh = () => {
+    setLoading(true)
+    setLoadError(null)
+    return fetchState()
+  }
 
   useEffect(() => {
     mounted.current = true
-    busy.current = null
-    setSubmitting(false)
-    setNominateTarget(null)
-    setActionError(null)
-    void load()
-    return () => { mounted.current = false; requestId.current++ }
-  }, [load])
+    void fetchState()
+    return () => { mounted.current = false }
+  }, [fetchState])
 
   const perform = async (operation: () => Promise<unknown>) => {
-    if (busy.current || !mounted.current || scopeRef.current !== scope) return
+    if (busy.current || !mounted.current) return
     const token = {}
     busy.current = token
-    const active = () => mounted.current && scopeRef.current === scope && busy.current === token
+    const active = () => mounted.current && busy.current === token
     setSubmitting(true)
     setActionError(null)
     try {
       await operation()
       if (!active()) return
       setNominateTarget(null)
-      await load()
+      await refresh()
     } catch (error) {
       if (!active()) return
-      setActionError({ scope, message: actionMessage(error) })
-      await load()
+      setActionError(actionMessage(error))
+      await refresh()
     } finally {
       if (active()) { busy.current = null; setSubmitting(false) }
     }
@@ -100,15 +99,17 @@ export default function GovernanceTab({ communityId, currentUserId }: Governance
 
   const rolesFor = (userId: string): GovernanceRole[] => {
     const role = state?.role_holders.find(holder => holder.user_id === userId)?.role
-    return role === 'admin' ? [] : role === 'moderator' ? ['admin'] : ['moderator', 'admin']
+    if (role === 'admin') return []
+    if (role === 'moderator') return ['admin']
+    return ['moderator', 'admin']
   }
   const selectedRoleFor = (userId: string): GovernanceRole => {
     const roles = rolesFor(userId)
     return roles.includes(nominateRole) ? nominateRole : roles[0]
   }
 
-  if (loadError?.scope === scope) return <div className="p-6 text-red-500" role="alert">
-    {loadError.message} <button onClick={() => { void load() }}>Retry</button>
+  if (loadError) return <div className="p-6 text-red-500" role="alert">
+    {loadError} <button onClick={() => { void refresh() }}>Retry</button>
   </div>
   if (loading || !state) return <div className="p-6 text-gray-500">Loading governance data…</div>
 
@@ -116,7 +117,7 @@ export default function GovernanceTab({ communityId, currentUserId }: Governance
 
   return (
     <div className="p-6 space-y-8">
-      {actionError?.scope === scope && <p role="alert" className="text-red-600">{actionError.message}</p>}
+      {actionError && <p role="alert" className="text-red-600">{actionError}</p>}
       {/* Maturity banner */}
       <div className="flex items-center gap-4 p-4 rounded-lg border border-gray-200 bg-gray-50">
         <span className={`px-3 py-1 rounded-full text-sm font-medium ${

@@ -42,7 +42,7 @@ implemented and tested; whole-branch review/final verification precede product P
    editor on this shared tree (or choose `superpowers:subagent-driven-development` with explicit file ownership).
    Resume the first unfinished task in the execution ledger. Stop the execution chat at product PR creation.
 
-**Next unchecked task**: Task 10 whole-branch simplify/code/security reviews, then Task 11 final checks and
+**Next unchecked task**: Task 10 fresh non-author whole-branch review, then Task 11 final checks and
 draft product PR (release version/merge/deploy remain unallocated). Stop at PR creation.
 
 **Implementation and evidence (2026-11-13):** review amendments `dfdfefba`; policy `f85924b1`; migration/schema
@@ -63,6 +63,12 @@ explicitly approved after automatic approval review initially rejected SCP; the 
 Six green Sprint 142 test files were promoted individually to regression. Direct uncached checks passed:
 community 48, frontend 13, reset/catalog 5. Prior workspace pairs passed community 9 unit/282 regression and
 frontend 62 unit/595 regression; final post-promotion full checks and non-author review still remain.
+
+Task 9 committed `0c746ef9`; its completion check repeated 30/30 real-DB tests uncached. Task 10's own simplify/
+security passes refined conditionals/formatting, restored unrelated registry encoding, and fixed a reproduced
+uppercase-UUID mismatch (new real-DB case red→green). React lint caught render-ref/effect-state problems;
+the UI now keys a panel by community+viewer and handles state in async callbacks. Fresh non-author review
+and final all-workspace/unit/regression + complete 31-case DB evidence are pending.
 
 ## Non-author review response — 2026-11-13
 

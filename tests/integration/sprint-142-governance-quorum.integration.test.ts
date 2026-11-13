@@ -210,6 +210,15 @@ describe('Sprint 142 nomination creation using shipped SQL', () => {
     expect((await pool.query(`SELECT * FROM communities.governance_ratifications WHERE nomination_id=$1`, [result.id])).rowCount).toBe(0);
   });
 
+  it('accepts valid UUID casing consistently for creation, voting and viewer identity', async () => {
+    const result=await create({ ...input(),communityId: fixture.community.toUpperCase(),
+      nominatorId: fixture.users[0].toUpperCase(),nominatedUserId: fixture.users[1].toUpperCase() });
+    expect(await addRatification({ communityId: fixture.community.toUpperCase(),nominationId: result.id.toUpperCase(),
+      ratifierId: fixture.users[0].toUpperCase() })).toEqual({ ratified: false,ratification_count: 1,required_ratifications: 3 });
+    const state=await getGovernanceState(fixture.community.toUpperCase(),fixture.users[1].toUpperCase());
+    expect(state.nominations[0].viewer).toEqual({ can_ratify: false,reason: 'nominee' });
+  });
+
   it.each(['nominator','nominee'])('refuses inactive %s membership without a partial nomination', async (who) => {
     await pool.query(`UPDATE communities.members SET status='inactive' WHERE community_id=$1 AND user_id=$2`,
       [fixture.community,fixture.users[who === 'nominator' ? 0 : 1]]);

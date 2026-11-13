@@ -24,7 +24,8 @@
     longer a public policy), coarse can_nominate, fixed per-nomination electorate_size/required_ratifications/
     quorum_policy_version and viewer `{can_ratify,reason}`. Count and ratifier identities use the same live
     projection. No full roster or personal metrics leave the API. The getter owns a live membership check.
-  - All routes validate IDs/roles, derive identity only from JWT userId, and use ADR-074 errors. Expected
+  - All routes validate IDs/roles, derive identity only from JWT userId, and use ADR-074 errors. DB entry points
+    canonicalize valid UUID casing before comparing returned identities. Expected
     codes: UNAUTHORIZED / INVALID_REQUEST / FORBIDDEN / NOT_FOUND; GOVERNANCE_VOTER_NOT_ELIGIBLE,
     GOVERNANCE_SELF_RATIFICATION, GOVERNANCE_NOMINATION_CLOSED, GOVERNANCE_DUPLICATE_NOMINATION,
     GOVERNANCE_ELECTORATE_TOO_SMALL, GOVERNANCE_ELIGIBILITY_NOT_MET, GOVERNANCE_ROLE_ALREADY_HELD,
@@ -142,7 +143,7 @@ Sprint 142 governance additions (migration `20261112-governance-quorum.sql`):
 
 - `communities.governance_nominations.quorum_policy_version SMALLINT` and `electorate_size INTEGER`, nullable
   only for historical metadata. Version-1 rows require E>=3 and the exact proportional required_ratifications;
-  partial unique `governance_one_pending_role` enforces one pending `(community_id, nominated_user_id, role)`.
+  partial unique `governance_one_pending_role` enforces one pending `(community_id, nominated_user_id, nominated_for_role)`.
 - `communities.governance_nomination_voters(nomination_id UUID, user_id UUID)` has a composite primary key;
   nomination FK cascades and user FK references auth.users. This table stores the frozen electorate separately
   from `governance_ratifications` ballots. Curated reset classifies all three as reset.
