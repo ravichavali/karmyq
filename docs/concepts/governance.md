@@ -20,6 +20,8 @@ There must be at least three voters besides the nominee to open a nomination. No
 
 New arrivals cannot vote on an already-open nomination. Departed members' votes stop counting, while the required number stays fixed. If a steward reactivates an original member, their existing vote counts again. Self-service rejoin does not currently reactivate an inactive membership; ask a steward.
 
+If restored votes already satisfy quorum, a prior active voter can select **Finalize decision**. This safely rechecks the existing votes and nominee eligibility without adding another ballot. Reading the decision never grants a role by itself.
+
 At quorum, Karmyq rechecks that the nominee is still active, eligible and being elevated, then grants the role and closes the nomination together. A completed grant is not undone by later voter departures. A nomination that loses too many voters can remain pending; this change adds no expiry or withdrawal control.
 
 **Transition:** nominations pending under the old fixed-quorum rules close during the migration and must be submitted again. Already granted roles and historical ballots remain.

@@ -4,8 +4,9 @@
 **Outcome**: in progress. Sprint 141 (PR #337, BUG-073, ADR-105, v11.114.0) is **shipped and verified**; its record
 is [archived](archive/2026-11-12-sprint-141-platform-admin-COMPLETE-v11.114.0.md). The maintainer selected
 **governance ratification quorum** for Sprint 142 on 2026-11-12. The maintainer approved the written design,
-including the builder-review proposals. Claude's follow-up review is verified and incorporated. Tasks 1–9 are
-implemented and tested; whole-branch review/final verification precede product PR creation. No PR is open yet.
+including the builder-review proposals. Claude's seven follow-up findings are verified and incorporated.
+Implementation and the fresh review's Important fix are finished. Read final validation from the verification
+commit message and the branch PR's Validation ledger; read PR/CI state live rather than inferring it here.
 
 > State between sessions only. Branch-local, so it reserves nothing; see `.claude/handoff/README.md` →
 > *Parallel development rules* for how contended resources are allocated.
@@ -28,7 +29,9 @@ implemented and tested; whole-branch review/final verification precede product P
 - **Sprint 141 archive** (post-merge verification + the final Sprint 141 handoff, verbatim):
   [archive/2026-11-12-sprint-141-platform-admin-COMPLETE-v11.114.0.md](archive/2026-11-12-sprint-141-platform-admin-COMPLETE-v11.114.0.md)
 - **ADR-105** (Implemented): [docs/adr/ADR-105-platform-admin-role.md](../../docs/adr/ADR-105-platform-admin-role.md)
-- **PR**: none yet for Sprint 142.
+- **PR**: resolve the branch's product PR with `gh pr list --state all --head agent/claude/sprint-142-planning`.
+  Its Validation ledger is authoritative for final SHA/command/cache evidence. PR creation is this execution
+  session's final action; no CI outcome or merge readiness is claimed here.
 - **Approved spec**: [2026-11-12-sprint-142-governance-quorum-design.md](../../docs/superpowers/specs/2026-11-12-sprint-142-governance-quorum-design.md)
 - **Implementation plan**: [2026-11-12-sprint-142-governance-quorum.md](../../docs/superpowers/plans/2026-11-12-sprint-142-governance-quorum.md)
 
@@ -38,20 +41,23 @@ implemented and tested; whole-branch review/final verification precede product P
    `origin/master` into this branch with a merge commit (never rebase).
 2. **This branch's first commit is Sprint 141's post-merge record (`bc53d728`, already pushed).** It must never
    reach master on its own (no docs-only master push); it rides with the next product PR. Reuse this task branch.
-3. Read the approved spec and implementation plan linked above. Invoke `superpowers:executing-plans` for one
-   editor on this shared tree (or choose `superpowers:subagent-driven-development` with explicit file ownership).
-   Resume the first unfinished task in the execution ledger. Stop the execution chat at product PR creation.
+3. Reviewer/orchestrator: resolve the branch PR, read its Validation ledger and current CI, then review the
+   approved spec/plan and the restored-quorum fix. Implementation is finished; no new execution workspace is
+   needed. The maintainer must allocate the release version and authorize merge/deploy separately.
 
-**Next unchecked task**: Task 10 fresh non-author whole-branch review, then Task 11 final checks and
-draft product PR (release version/merge/deploy remain unallocated). Stop at PR creation.
+**Next unchecked task for the reviewer/orchestrator**: review the draft product PR and live checks; obtain
+maintainer release-version/merge/deploy allocation before shipping. Contributor never self-merges. Platform
+grant and granted-account 200 smoke remain a separate, unauthorized operation.
 
 **Implementation and evidence (2026-11-13):** review amendments `dfdfefba`; policy `f85924b1`; migration/schema
 `28e14995`; route contracts `7caa4210`; creation `35bf5ff1`; voting `2d5d32df`; getter/routes `3db3bc4e`;
-UI `e2c8a6f1`; source/generated guides + ADR amendment `58a91072`. Detailed red→green/command evidence lives
-in these commit messages and the plan-scoped execution ledger, not a second copy of the plan here.
+UI `e2c8a6f1`; source/generated guides + ADR amendment `58a91072`; regression/context `0c746ef9`; own
+simplify/security/lint fixes `f162c1e6`. Detailed red→green evidence lives in these commit messages; final
+post-review verification is recorded in the final verification commit message and PR Validation ledger.
 
-The full Sprint 142 integration suite passed **30/30**, uncached, on the working tree rooted at `58a91072`
-(`task-9-full-db.log` in `.superpowers/sdd/2026-11-12-sprint-142-governance-quorum/`). It covers both valid
+The full Sprint 142 integration suite passed **30/30**, uncached, during Task 9 (see `0c746ef9` and its
+preceding test evidence). This predates the later UUID and restored-quorum cases; use final PR evidence for
+the complete post-review suite. It covers both valid
 communities, protocol replay/cutoff, real JWT routes, live membership/counts, reactivation, role preservation,
 concurrent votes/departures, and invalid config/metadata. Actual role: karmyq_prod, rolsuper=true,
 rolbypassrls=true; explicit community predicates supply isolation, not RLS. The DB/container was disposable
@@ -62,13 +68,28 @@ CI applier replay reported zero schema drift. Exact migration transfer/regenerat
 explicitly approved after automatic approval review initially rejected SCP; the approved operation succeeded.
 Six green Sprint 142 test files were promoted individually to regression. Direct uncached checks passed:
 community 48, frontend 13, reset/catalog 5. Prior workspace pairs passed community 9 unit/282 regression and
-frontend 62 unit/595 regression; final post-promotion full checks and non-author review still remain.
+frontend 62 unit/595 regression. These older counts are historical; final all-workspace evidence belongs in
+the verification commit message and the PR, rather than a count that goes stale in this handoff.
 
 Task 9 committed `0c746ef9`; its completion check repeated 30/30 real-DB tests uncached. Task 10's own simplify/
 security passes refined conditionals/formatting, restored unrelated registry encoding, and fixed a reproduced
 uppercase-UUID mismatch (new real-DB case red→green). React lint caught render-ref/effect-state problems;
-the UI now keys a panel by community+viewer and handles state in async callbacks. Fresh non-author review
-and final all-workspace/unit/regression + complete 31-case DB evidence are pending.
+the UI now keys a panel by community+viewer and handles state in async callbacks.
+
+**Fresh non-author review (`898f23ba..f162c1e6`):** no Critical findings or additional security vulnerability.
+One Important was confirmed with real-DB and component RED tests: staff reactivation could restore quorum
+with all voters already ratified, leaving no UI action. Fixed with coarse `ready_to_finalize` and an explicit
+Finalize decision action using the existing idempotent POST. GET stays read-only, ballots stay unique and
+final eligibility checks still run. Focused fix tests passed; final complete-suite results belong in PR Validation.
+
+**Deferred Minor:** `not_in_electorate` UI copy says a member joined later, but a previously inactive member
+reactivated after opening can also receive it. Eligibility enforcement is correct; wording refinement is deferred
+under the inline execution review policy. Suggested copy: “You were not an active member when this nomination opened.”
+
+**Review rulings:** BUG-102 self-join remains out of scope (500 still exists); automatic rotation/revocation,
+delegation/expiry/withdrawal remain deferred (pending nominations can stall); persona-heavy demo quorum
+limitations remain accepted (simulation stays off); release/platform/deploy operations remain authorization-gated
+(draft PR is not shipping authority). Disposable DB isolation and the two extra regression suites were retained.
 
 ## Non-author review response — 2026-11-13
 
@@ -173,6 +194,7 @@ CI starts on PR creation, not feature pushes (`.github/workflows/ci.yml:3-7`); l
 8. `init.sql` and landing JSON are generated artifacts. Regenerate from source and remove unrelated churn; no hand edits.
 9. Database protocol guards fence the legacy writer before containers restart; binary rollback leaves governance writes closed. Preserve history and unrelated membership operations.
 10. Ratification only elevates roles; same/lower-role nominations fail. Lock nominee membership for update before granting, with deterministic ordering across all membership locks.
+11. Restored quorum must stay actionable: active prior voters may finalize through the idempotent POST without adding a ballot; GET remains read-only.
 
 ## Deferred minors (from Sprint 141's gates; detail in the PR #337 body)
 

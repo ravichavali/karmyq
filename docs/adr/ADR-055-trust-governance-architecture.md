@@ -19,6 +19,8 @@ E and the threshold once. Fewer than three other members refuses creation; legac
 do not change this policy. Nomination adds no vote. Only original voters who are currently active count;
 later arrivals do not join the electorate, and departures never lower the threshold. Staff reactivation can
 restore an original voter's ballot; self-service rejoin is not promised (BUG-102).
+If restoration reaches quorum with no uncast votes remaining, an active prior voter receives a finalization
+action backed by the existing idempotent POST. GET stays read-only, and finalization adds no second ballot.
 
 Creation locks only caller/nominee memberships with FOR NO KEY UPDATE. Voting first locks the scoped
 nomination, then nominee plus every existing snapshot membership in user-ID order at the same lock strength.

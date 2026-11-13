@@ -82,6 +82,7 @@ Read `CLAUDE.md`, community-service `.claude/README.md` + `CONTEXT.md`, `apps/fr
 8. `init.sql` and landing JSON are generated artifacts. Regenerate from source and remove unrelated churn; no hand edits.
 9. Database protocol guards fence the legacy writer before containers restart; binary rollback leaves governance writes closed. Preserve history and unrelated membership operations.
 10. Ratification only elevates roles; same/lower-role nominations fail. Lock nominee membership for update before granting, with deterministic ordering across all membership locks.
+11. Restored quorum must stay actionable: active prior voters may finalize through the idempotent POST without adding a ballot; GET remains read-only.
 
 ## Task 1: Pin the policy with failing tests, then implement the pure rules
 
@@ -146,7 +147,7 @@ Read `CLAUDE.md`, community-service `.claude/README.md` + `CONTEXT.md`, `apps/fr
 
 **Files:** Modify DB getter, real router and Sprint 112 privacy regression.
 
-**Interfaces:** Export `getGovernanceState(communityId: string, viewerId: string): Promise<GovernanceState>` and exported DTO types from `governanceDb.ts`. Preserve existing identity/coarse eligibility/maturity/role-holder fields. Top-level `can_nominate: boolean` is false when fewer than three other active members exist. Settings add `quorum_policy`; nominations add `electorate_size`, `quorum_policy_version`, `viewer: { can_ratify: boolean; reason: 'eligible' | 'nominee' | 'already_ratified' | 'not_in_electorate' }`. Retain `required_ratifications`; count and ratifiers both use the live tally predicate.
+**Interfaces:** Export `getGovernanceState(communityId: string, viewerId: string): Promise<GovernanceState>` and exported DTO types from `governanceDb.ts`. Preserve existing identity/coarse eligibility/maturity/role-holder fields. Top-level `can_nominate: boolean` is false when fewer than three other active members exist. Settings add `quorum_policy`; nominations add `electorate_size`, `quorum_policy_version`, `viewer: { can_ratify: boolean; reason: 'eligible' | 'nominee' | 'already_ratified' | 'not_in_electorate' | 'ready_to_finalize' }`. Retain `required_ratifications`; count and ratifiers both use the live tally predicate. If restored ballots meet quorum, active prior voters get ready_to_finalize/can_ratify=true so an idempotent POST can finalize without another ballot; GET stays read-only.
 
 - [ ] Write red GET tests proving active caller authorization, consistent count/ratifier list, viewer-specific eligibility, no full voter roster and no personal trust/karma values. Test empty nominations, historical nullable metadata and malformed settings. Bad new-policy metadata must fail closed, never default to a lower quorum.
 - [ ] Search every consumer of settings.quorum_size and all DB function call sites. The checked baseline includes `governance.ts` and the Sprint 112 regression for DB functions; frontend GovernanceTab consumes the numeric setting. Update real consumers; retain an explicitly legacy settings field only if necessary for a verified consumer. Do not change simulation weights.
@@ -162,6 +163,7 @@ Read `CLAUDE.md`, community-service `.claude/README.md` + `CONTEXT.md`, `apps/fr
 
 - [ ] Write tests mounting the real component with production-shaped res.data. Assert policy/E/R, no voting for nominee/already-ratified/late joiner, working eligible vote. Assert no nomination controls when can_nominate=false and minimum-three explanation. Use role_holders: admin has no target role; moderator can be nominated only for admin; member for either. Assert actual existing API argument signatures and refusal-refresh handling.
 - [ ] Test loading/fetch failure, inline creation/vote refusal, repeat clicks while a request is pending, refresh after success and stale-community responses. Change community while requests are unresolved; neither old state nor success/error may overwrite the new view. Preserve identity-only content and no-NaN assertions.
+- [ ] Review boundary: exactly three voters; A votes and leaves, B/C vote, staff reactivates A. Root integration must prove GET stays read-only but exposes finalization, duplicate POST grants with only three ballots, and the component offers Finalize decision using that same POST.
 - [ ] Run red: `npm exec --workspace=apps/frontend -- jest --runTestsByPath tests/tdd/sprint-142-governance-quorum.test.tsx --runInBand --no-cache`.
 - [ ] Implement in the existing layout: policy copy, per-nomination E/R, typed viewer state, busy buttons, accessible inline errors and guarded request lifecycle. Preserve graceful error retry and coarse eligibility.
 - [ ] Run new suite green and `npm test --workspace=apps/frontend`; adapt the Sprint 113 fixture only to the new contract. Commit focused UI work.

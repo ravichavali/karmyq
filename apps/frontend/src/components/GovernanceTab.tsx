@@ -12,7 +12,7 @@ interface Nomination {
   id: string; nominated_user: Person; nominator: Person; role: GovernanceRole;
   ratification_count: number; required_ratifications: number; electorate_size: number;
   ratifiers: Person[];
-  viewer: { can_ratify: boolean; reason: 'eligible' | 'nominee' | 'already_ratified' | 'not_in_electorate' }
+  viewer: { can_ratify: boolean; reason: 'eligible' | 'nominee' | 'already_ratified' | 'not_in_electorate' | 'ready_to_finalize' }
 }
 interface GovernanceState {
   can_nominate: boolean;
@@ -24,6 +24,7 @@ interface GovernanceState {
 }
 const reasonCopy = {
   eligible: '', nominee: 'Your nomination', already_ratified: 'Already ratified',
+  ready_to_finalize: 'Ready to finalize',
   not_in_electorate: 'You joined after this nomination opened.',
 }
 function actionMessage(error: unknown) {
@@ -168,7 +169,7 @@ function GovernancePanel({ communityId }: GovernanceTabProps) {
                       disabled={submitting}
                       className="text-sm px-3 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
                     >
-                      Ratify
+                      {nom.viewer.reason === 'ready_to_finalize' ? 'Finalize decision' : 'Ratify'}
                     </button>
                   ) : <span className="text-xs text-gray-500">{reasonCopy[nom.viewer.reason]}</span>}
                 </div>

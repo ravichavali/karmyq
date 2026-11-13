@@ -69,6 +69,7 @@ Let `E` be the number of active members other than the nominee at the moment the
 - A stalled nomination stays pending. This sprint adds no withdrawal endpoint or expiry. A future policy may address that explicitly.
 - Recheck nominee's active membership and existing trust eligibility before the grant. Reaching quorum must not elevate an inactive or currently ineligible nominee. A failed recheck rolls back that ratification request; earlier accepted votes stay recorded.
 - A completed grant is final for this nomination. Later departures do not retroactively revoke roles. Duplicate retries on a completed nomination return 409 `GOVERNANCE_NOMINATION_CLOSED`; retries of an already recorded vote while pending are idempotent.
+- Review clarification: if staff reactivation restores quorum when all active original voters already voted, GET exposes `viewer.reason: 'ready_to_finalize'` and can_ratify=true for active prior voters. The UI offers **Finalize decision** using the existing duplicate POST, which rechecks and grants without another ballot. GET never mutates the decision.
 - Existing configured `governance_settings.quorum_size` is retained as legacy storage but no longer controls new nominations. `eligibility_threshold` and `template` retain their existing meaning; no new policy editor is added.
 - Role elevation is monotonic: member → moderator/admin, moderator → admin. Reject same-role or lower-role nominations at creation and recheck at finalization with 409 `GOVERNANCE_ROLE_ALREADY_HELD`. Admin → moderator through ratification is refused; intentional administrative role changes remain outside this flow. Concurrent admin/moderator nominations serialize on the nominee's membership row.
 
@@ -178,3 +179,4 @@ Run unit+regression, type checks, the four SDLC gates and final pre-commit check
 8. `init.sql` and landing JSON are generated artifacts. Regenerate from source and remove unrelated churn; no hand edits.
 9. Database protocol guards fence the legacy writer before containers restart; binary rollback leaves governance writes closed. Preserve history and unrelated membership operations.
 10. Ratification only elevates roles; same/lower-role nominations fail. Lock nominee membership for update before granting, with deterministic ordering across all membership locks.
+11. Restored quorum must stay actionable: active prior voters may finalize through the idempotent POST without adding a ballot; GET remains read-only.

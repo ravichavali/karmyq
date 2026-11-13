@@ -24,6 +24,8 @@
     longer a public policy), coarse can_nominate, fixed per-nomination electorate_size/required_ratifications/
     quorum_policy_version and viewer `{can_ratify,reason}`. Count and ratifier identities use the same live
     projection. No full roster or personal metrics leave the API. The getter owns a live membership check.
+    If restored ballots satisfy quorum, an active prior voter gets reason `ready_to_finalize` with can_ratify=true;
+    the UI offers Finalize decision via the existing idempotent POST. GET stays read-only; no second ballot is added.
   - All routes validate IDs/roles, derive identity only from JWT userId, and use ADR-074 errors. DB entry points
     canonicalize valid UUID casing before comparing returned identities. Expected
     codes: UNAUTHORIZED / INVALID_REQUEST / FORBIDDEN / NOT_FOUND; GOVERNANCE_VOTER_NOT_ELIGIBLE,

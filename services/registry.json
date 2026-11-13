@@ -263,7 +263,7 @@
           {
             "method": "GET",
             "path": "/communities/:id/governance",
-            "description": "Live active-member governance state: equal-vote quorum_policy, coarse can_nominate, fixed nomination electorates/required votes, matching live ratifier counts/identities, and viewer voting eligibility. No full voter roster or personal trust metrics."
+            "description": "Live active-member governance state: equal-vote quorum_policy, coarse can_nominate, fixed nomination electorates/required votes, matching live ratifier counts/identities, and viewer voting eligibility. No full voter roster or personal trust metrics. Restored quorum exposes viewer.reason ready_to_finalize for active prior voters; the existing idempotent POST finalizes without another ballot."
           },
           {
             "method": "POST",

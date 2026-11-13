@@ -91,6 +91,9 @@ Later arrivals cannot vote on that nomination. Votes stop counting when their me
 the target does not shrink. If a steward reactivates an original member, their existing vote can count again.
 Ask a steward about reactivation; the self-service Join flow does not currently restore inactive memberships.
 
+When reactivation restores enough previous votes to meet quorum, a prior active voter sees **Finalize decision**.
+Select it to recheck the decision and grant the role if the nominee still qualifies. It does not add a second vote.
+
 Karmyq rechecks the nominee's active membership and eligibility before granting the role. A stale screen can
 therefore be refused; its inline message explains the refusal and the decision refreshes. If an overlapping
 membership change asks you to retry, refresh and try again. An already completed nomination stays closed.

@@ -19,7 +19,7 @@ export interface GovernanceNomination {
   ratifiers: Array<{ user_id: string; name: string }>;
   electorate_size: number;
   quorum_policy_version: 1;
-  viewer: { can_ratify: boolean; reason: 'eligible' | 'nominee' | 'already_ratified' | 'not_in_electorate' };
+  viewer: { can_ratify: boolean; reason: 'eligible' | 'nominee' | 'already_ratified' | 'not_in_electorate' | 'ready_to_finalize' };
 }
 
 export interface GovernanceState {
@@ -116,7 +116,10 @@ export async function getGovernanceState(rawCommunityId: string, rawViewerId: st
       let reason: GovernanceNomination['viewer']['reason'] = 'eligible';
       if (row.nominated_user_id === viewerId) reason = 'nominee';
       else if (!row.viewer_in_electorate) reason = 'not_in_electorate';
-      else if (ratifiersRes.rows.some(r => r.user_id === viewerId)) reason = 'already_ratified';
+      else if (ratifiersRes.rows.some(r => r.user_id === viewerId)) {
+        reason = 'already_ratified';
+        if (ratifiersRes.rows.length >= row.required_ratifications) reason = 'ready_to_finalize';
+      }
       nominations.push({
         id: row.id,
         nominated_user: { user_id: row.nominated_user_id, name: row.nominated_user_name },
@@ -128,7 +131,7 @@ export async function getGovernanceState(rawCommunityId: string, rawViewerId: st
         ratifiers: ratifiersRes.rows,
         electorate_size: row.electorate_size,
         quorum_policy_version: 1,
-        viewer: { can_ratify: reason === 'eligible',reason },
+        viewer: { can_ratify: reason === 'eligible' || reason === 'ready_to_finalize',reason },
       });
     }
 

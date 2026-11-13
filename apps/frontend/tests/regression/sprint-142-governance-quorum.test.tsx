@@ -111,6 +111,19 @@ it('submits one vote while busy and refreshes after success', async () => {
   await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
 });
 
+it('offers explicit finalization when restored prior ballots already satisfy quorum', async () => {
+  const data=state();
+  data.nominations[0].ratification_count=4;
+  data.nominations[0].ratifiers.push({ user_id: 'viewer',name: 'You' },{ user_id: 'another',name: 'Sol' });
+  data.nominations[0].viewer={ can_ratify: true,reason: 'ready_to_finalize' };
+  get.mockResolvedValue({ data });
+  render(<GovernanceTab communityId="c1" currentUserId="viewer" />); await ready();
+  expect(screen.queryByRole('button',{ name: 'Ratify' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button',{ name: 'Finalize decision' }));
+  await waitFor(() => expect(ratify).toHaveBeenCalledWith('c1','nom'));
+  expect(ratify).toHaveBeenCalledTimes(1);
+});
+
 it('shows a stale-vote refusal inline and refreshes the decision rather than claiming success', async () => {
   const updated=state(); updated.nominations=[];
   get.mockResolvedValueOnce({ data: state() }).mockResolvedValue({ data: updated });

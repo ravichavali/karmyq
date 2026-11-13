@@ -327,6 +327,28 @@ describe('Sprint 142 voting live invariants and concurrency', () => {
     await expect(cast(4)).rejects.toMatchObject({ status: 409,code: 'GOVERNANCE_NOMINATION_CLOSED' });
   });
 
+  it('restored quorum exposes finalization without an additional ballot', async () => {
+    await pool.query(`DELETE FROM communities.governance_nominations WHERE id=$1`, [nomination.id]);
+    await pool.query(`UPDATE communities.members SET status='inactive' WHERE community_id=$1 AND user_id=$2`, [fixture.community,fixture.users[4]]);
+    nomination=await create({ communityId: fixture.community,nominatorId: fixture.users[0],nominatedUserId: fixture.users[1],role: 'moderator' });
+    expect(nomination.electorate_size).toBe(3);
+    await cast(2);
+    const membership=`/communities/${fixture.community}/members/${fixture.users[2]}`;
+    expect((await request(staffApp).put(membership).send({ status: 'inactive' })).status).toBe(200);
+    await cast(0);
+    expect((await cast(3)).ratified).toBe(false);
+    expect((await request(staffApp).put(membership).send({ status: 'active' })).status).toBe(200);
+    const pending=await getGovernanceState(fixture.community,fixture.users[0]);
+    expect(pending.nominations[0]).toMatchObject({ ratification_count: 3,required_ratifications: 3,
+      viewer: { can_ratify: true,reason: 'ready_to_finalize' } });
+    expect(await role()).toBe('member');
+    expect(await ballots()).toBe(3);
+    expect(await cast(0)).toEqual({ ratified: true,ratification_count: 3,required_ratifications: 3 });
+    expect(await ballots()).toBe(3);
+    expect(await role()).toBe('moderator');
+    expect((await getGovernanceState(fixture.community,fixture.users[0])).nominations).toEqual([]);
+  });
+
   it.each(['inactive','trust'])('rolls back a final ballot if nominee eligibility changed: %s', async reason => {
     await cast(0); await cast(2);
     if (reason === 'inactive') await pool.query(`UPDATE communities.members SET status='inactive' WHERE community_id=$1 AND user_id=$2`, [fixture.community,fixture.users[1]]);
