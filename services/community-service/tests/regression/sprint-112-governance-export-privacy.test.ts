@@ -42,14 +42,18 @@ beforeEach(() => {
 
 describe('getGovernanceState projection (ADR-082)', () => {
   it('projects eligible_members + role_holders to identity/role only — no trust_score or karma', async () => {
-    mockQuery
-      .mockResolvedValueOnce({ rows: [{ governance_settings: { eligibility_threshold: 50, quorum_size: 3, template: 'small-collective' } }] })
-      .mockResolvedValueOnce({ rows: [{ avg_trust: 62 }] })
-      .mockResolvedValueOnce({ rows: [{ user_id: U1, name: 'Maria' }] })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ user_id: U2, name: 'Sam', role: 'admin' }] });
+    mockQuery.mockImplementation(async (sql: string) => {
+      if (/^(BEGIN|COMMIT|ROLLBACK)$/.test(sql) || /SELECT set_config/.test(sql)) return { rows: [] };
+      if (/FOR SHARE OF m/.test(sql)) return { rows: [{ status: 'active',active_member_count: 5 }] };
+      if (/SELECT governance_settings/.test(sql)) return { rows: [{ governance_settings: { eligibility_threshold: 50,template: 'small-collective' } }] };
+      if (/AVG\(te.raw_weight\)/.test(sql)) return { rows: [{ avg_trust: 62 }] };
+      if (/WHERE COALESCE/.test(sql)) return { rows: [{ user_id: U1,name: 'Maria' }] };
+      if (/FROM communities.governance_nominations n/.test(sql)) return { rows: [] };
+      if (/cm.role IN/.test(sql)) return { rows: [{ user_id: U2,name: 'Sam',role: 'admin' }] };
+      throw new Error('Unexpected governance read in privacy fixture');
+    });
 
-    const state: any = await getGovernanceState(COMMUNITY);
+    const state: any = await getGovernanceState(COMMUNITY,U1);
 
     expect(state.eligible_members).toEqual([
       { user_id: U1, name: 'Maria', eligible: true, eligibility_reason: 'established_community_relationships' },

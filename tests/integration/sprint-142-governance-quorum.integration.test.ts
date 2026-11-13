@@ -8,6 +8,9 @@ import { addRatification, getGovernanceState } from '../../services/community-se
 import express from 'express';
 import request from 'supertest';
 import membersRouter from '../../services/community-service/src/routes/members';
+import governanceRouter from '../../services/community-service/src/routes/governance';
+import { authMiddleware } from '../../packages/shared/middleware/auth';
+import jwt from 'jsonwebtoken';
 
 jest.mock('../../services/community-service/src/events/publisher', () => ({ publishEvent: jest.fn(), initEventPublisher: jest.fn() }));
 
@@ -67,6 +70,16 @@ describe('Sprint 142 migration on the fully migrated integration schema', () => 
         VALUES($1,$2,$2,'admin',1,16,4) RETURNING id`, [community,user]);
       await client.query(migration());
       expect((await client.query(`SELECT status FROM communities.governance_nominations WHERE id=$1`, [current.rows[0].id])).rows[0].status).toBe('pending');
+      await client.query('SAVEPOINT duplicate_pending');
+      await expect(client.query(`INSERT INTO communities.governance_nominations
+        (community_id,nominated_user_id,nominator_id,nominated_for_role,quorum_policy_version,electorate_size,required_ratifications)
+        VALUES($1,$2,$2,'admin',1,16,4)`, [community,user]))
+        .rejects.toMatchObject({ code: '23505',constraint: 'governance_one_pending_role' });
+      await client.query('ROLLBACK TO SAVEPOINT duplicate_pending');
+      await client.query('SAVEPOINT invalid_metadata');
+      await expect(client.query(`UPDATE communities.governance_nominations SET required_ratifications=1 WHERE id=$1`, [current.rows[0].id]))
+        .rejects.toMatchObject({ code: '23514',constraint: 'governance_quorum_metadata' });
+      await client.query('ROLLBACK TO SAVEPOINT invalid_metadata');
     } finally {
       await client.query('ROLLBACK');
       client.release();
@@ -363,7 +376,10 @@ describe('Sprint 142 voting live invariants and concurrency', () => {
   });
 });
 
-const readState = (community: string,user: string): Promise<any> => (getGovernanceState as any)(community,user);
+const readState = (community: string,user: string) => getGovernanceState(community,user);
+const governanceApp = express();
+governanceApp.use(express.json());
+governanceApp.use('/communities',authMiddleware,governanceRouter);
 
 describe('Sprint 142 viewer state using explicit community predicates', () => {
   let nomination: any;
@@ -409,5 +425,34 @@ describe('Sprint 142 viewer state using explicit community predicates', () => {
     await expect(readState(randomUUID(),fixture.users[0])).rejects.toMatchObject({ status: 403,code: 'FORBIDDEN' });
     await pool.query(`UPDATE communities.members SET status='inactive' WHERE community_id=$1 AND user_id=$2`, [fixture.community,fixture.users[0]]);
     await expect(readState(fixture.community,fixture.users[0])).rejects.toMatchObject({ status: 403,code: 'FORBIDDEN' });
+  });
+
+  it('does not turn malformed eligibility configuration into a weaker policy', async () => {
+    await pool.query(`UPDATE communities.communities SET governance_settings=$2::jsonb WHERE id=$1`,
+      [fixture.community,JSON.stringify({ eligibility_threshold: -1 })]);
+    await expect(readState(fixture.community,fixture.users[0])).rejects.toThrow('Invalid governance eligibility configuration');
+  });
+
+  it('runs shared JWT authentication and real scoped DB operations through HTTP', async () => {
+    const token = (user: string,extra = {}) => jwt.sign({ userId: user,email: 'test@s142.invalid',communities: [],...extra },process.env.JWT_SECRET!);
+    const url = `/communities/${fixture.community}/governance`;
+    expect((await request(governanceApp).get(url)).status).toBe(401);
+    const own = await request(governanceApp).get(url).auth(token(fixture.users[0]),{ type: 'bearer' });
+    expect(own.status).toBe(200);
+    expect(own.body.data.can_nominate).toBe(true);
+    const foreign = randomUUID();
+    const claim = token(fixture.users[0],{ communities: [{ id: foreign,name: 'Foreign',role: 'admin' }] });
+    expect((await request(governanceApp).get(`/communities/${foreign}/governance`).auth(claim,{ type: 'bearer' })).status).toBe(403);
+    const duplicate = await request(governanceApp).post(`${url}/nominate`).auth(token(fixture.users[0]),{ type: 'bearer' })
+      .send({ nominated_user_id: fixture.users[1],role: 'moderator',quorum: 1 });
+    expect(duplicate.status).toBe(409);
+    expect(duplicate.body.error).toBe('GOVERNANCE_DUPLICATE_NOMINATION');
+    const voting = await request(governanceApp).post(`${url}/ratify/${nomination.id}`).auth(token(fixture.users[2]),{ type: 'bearer' })
+      .send({ ratifierId: fixture.users[1] });
+    expect(voting.status).toBe(200);
+    expect(voting.body.data).toEqual({ ratified: false,ratification_count: 1,required_ratifications: 3 });
+    const readonly = await request(governanceApp).post(`${url}/ratify/${nomination.id}`)
+      .auth(token(fixture.users[3],{ sessionMode: 'demo_read_only' }),{ type: 'bearer' }).send({});
+    expect(readonly.status).toBe(403);
   });
 });

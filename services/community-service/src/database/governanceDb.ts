@@ -4,8 +4,8 @@ import { GOVERNANCE_QUORUM_POLICY, requiredRatifications, canElevateRole, Govern
 
 export interface GovernanceSettings {
   eligibility_threshold: number;
-  quorum_size: number;
   template: string;
+  quorum_policy: typeof GOVERNANCE_QUORUM_POLICY;
 }
 
 export interface GovernanceNomination {
@@ -17,18 +17,37 @@ export interface GovernanceNomination {
   required_ratifications: number;
   status: string;
   ratifiers: Array<{ user_id: string; name: string }>;
+  electorate_size: number;
+  quorum_policy_version: 1;
+  viewer: { can_ratify: boolean; reason: 'eligible' | 'nominee' | 'already_ratified' | 'not_in_electorate' };
 }
 
-export async function getGovernanceState(communityId: string) {
-  const settingsRes = await pool.query(
-    `SELECT governance_settings FROM communities.communities WHERE id = $1`,
-    [communityId]
-  );
-  const settings: GovernanceSettings = settingsRes.rows[0]?.governance_settings ??
-    { eligibility_threshold: 50, quorum_size: 3, template: 'small-collective' };
+export interface GovernanceState {
+  settings: GovernanceSettings;
+  can_nominate: boolean;
+  maturity: { status: string; avg_trust_score: number; threshold: number };
+  eligible_members: Array<{ user_id: string; name: string; eligible: true; eligibility_reason: 'established_community_relationships' }>;
+  nominations: GovernanceNomination[];
+  role_holders: Array<{ user_id: string; name: string; role: string }>;
+}
+
+export async function getGovernanceState(communityId: string, viewerId: string): Promise<GovernanceState> {
+  return governanceTransaction(communityId,viewerId,async client => {
+    const membership = await client.query(`SELECT m.status, (SELECT count(*)::int FROM communities.members active
+      WHERE active.community_id=$1 AND active.status='active') AS active_member_count
+      FROM communities.members m WHERE m.community_id=$1 AND m.user_id=$2 FOR SHARE OF m`, [communityId,viewerId]);
+    if (membership.rows[0]?.status !== 'active') throw new GovernanceError(403,'FORBIDDEN','Must be an active community member.');
+    const settingsRes = await client.query(`SELECT governance_settings FROM communities.communities WHERE id=$1`, [communityId]);
+    if (!settingsRes.rows.length) throw new GovernanceError(404,'NOT_FOUND','Community not found.');
+    const rawSettings = settingsRes.rows[0].governance_settings;
+    const settings: GovernanceSettings = {
+      eligibility_threshold: eligibilityThreshold(rawSettings),
+      template: typeof rawSettings?.template === 'string' ? rawSettings.template : 'small-collective',
+      quorum_policy: GOVERNANCE_QUORUM_POLICY,
+    };
 
   // Trust maturity: avg raw_weight of active edges in the community
-  const maturityRes = await pool.query(`
+  const maturityRes = await client.query(`
     SELECT AVG(te.raw_weight) AS avg_trust
     FROM social_graph.trust_edges te
     JOIN communities.members cm_a ON cm_a.user_id = te.user_id_a AND cm_a.community_id = $1 AND cm_a.status = 'active'
@@ -46,7 +65,7 @@ export async function getGovernanceState(communityId: string) {
   // threshold comparison stays in SQL (internal eligibility calculation), but Sprint 112 (ADR-082)
   // projects each row to identity + a coarse eligibility reason only — no member trust_score/karma
   // leaves the boundary.
-  const eligibleRes = await pool.query(`
+  const eligibleRes = await client.query(`
     SELECT u.id AS user_id, u.name
     FROM auth.users u
     JOIN communities.members cm ON cm.user_id = u.id AND cm.community_id = $1 AND cm.status = 'active'
@@ -65,44 +84,53 @@ export async function getGovernanceState(communityId: string) {
   }));
 
   // Pending nominations with ratification counts
-  const nominationsRes = await pool.query(`
+  const nominationsRes = await client.query(`
     SELECT n.id, n.nominated_for_role AS role, n.status,
-           n.required_ratifications, n.created_at,
+           n.required_ratifications, n.created_at, n.electorate_size, n.quorum_policy_version,
            nu.id AS nominated_user_id, nu.name AS nominated_user_name,
            nom.id AS nominator_id, nom.name AS nominator_name,
-           COUNT(r.ratifier_id) AS ratification_count
+           EXISTS(SELECT 1 FROM communities.governance_nomination_voters v
+             WHERE v.nomination_id=n.id AND v.user_id=$2) AS viewer_in_electorate
     FROM communities.governance_nominations n
     JOIN auth.users nu ON nu.id = n.nominated_user_id
     JOIN auth.users nom ON nom.id = n.nominator_id
-    LEFT JOIN communities.governance_ratifications r ON r.nomination_id = n.id
     WHERE n.community_id = $1 AND n.status = 'pending'
-    GROUP BY n.id, nu.id, nu.name, nom.id, nom.name
     ORDER BY n.created_at DESC
-  `, [communityId]);
+  `, [communityId,viewerId]);
 
-  const nominations: GovernanceNomination[] = await Promise.all(
-    nominationsRes.rows.map(async (row) => {
-      const ratifiersRes = await pool.query(`
+  const nominations: GovernanceNomination[] = [];
+  for (const row of nominationsRes.rows) {
+      assertNominationPolicy(row);
+      const ratifiersRes = await client.query(`
         SELECT u.id AS user_id, u.name
         FROM communities.governance_ratifications r
+        JOIN communities.governance_nomination_voters v ON v.nomination_id=r.nomination_id AND v.user_id=r.ratifier_id
+        JOIN communities.governance_nominations n ON n.id=r.nomination_id AND n.community_id=$2
+        JOIN communities.members m ON m.user_id=r.ratifier_id AND m.community_id=$2 AND m.status='active'
         JOIN auth.users u ON u.id = r.ratifier_id
         WHERE r.nomination_id = $1
-      `, [row.id]);
-      return {
+        ORDER BY u.id
+      `, [row.id,communityId]);
+      const reason: GovernanceNomination['viewer']['reason'] = row.nominated_user_id === viewerId ? 'nominee'
+        : !row.viewer_in_electorate ? 'not_in_electorate'
+        : ratifiersRes.rows.some(r => r.user_id === viewerId) ? 'already_ratified' : 'eligible';
+      nominations.push({
         id: row.id,
         nominated_user: { user_id: row.nominated_user_id, name: row.nominated_user_name },
         role: row.role,
         nominator: { user_id: row.nominator_id, name: row.nominator_name },
-        ratification_count: parseInt(row.ratification_count),
+        ratification_count: ratifiersRes.rows.length,
         required_ratifications: row.required_ratifications,
         status: row.status,
         ratifiers: ratifiersRes.rows,
-      };
-    })
-  );
+        electorate_size: row.electorate_size,
+        quorum_policy_version: 1,
+        viewer: { can_ratify: reason === 'eligible',reason },
+      });
+  }
 
   // Current governance role holders — identity + role only (no member trust_score).
-  const roleHoldersRes = await pool.query(`
+  const roleHoldersRes = await client.query(`
     SELECT u.id AS user_id, u.name, cm.role
     FROM communities.members cm
     JOIN auth.users u ON u.id = cm.user_id
@@ -111,11 +139,13 @@ export async function getGovernanceState(communityId: string) {
 
   return {
     settings,
+    can_nominate: membership.rows[0].active_member_count >= 4,
     maturity,
     eligible_members,
     nominations,
     role_holders: roleHoldersRes.rows,
   };
+  });
 }
 
 async function governanceTransaction<T>(communityId: string, userId: string, work: (client: PoolClient) => Promise<T>): Promise<T> {

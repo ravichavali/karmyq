@@ -42,9 +42,9 @@ starting with Task 1 in this session. No product PR is open yet.
    editor on this shared tree (or choose `superpowers:subagent-driven-development` with explicit file ownership).
    Resume the first unfinished task in the execution ledger. Stop the execution chat at product PR creation.
 
-**Next unchecked task**: plan Task 6 — viewer-aware getter and HTTP boundary. Tasks 1/2/4 are committed;
-Task 3 contracts are red until Task 6 wires them. Task 5 voting is green and being committed; both DB answers
-and the exact source-transfer/regeneration approval are present.
+**Next unchecked task**: plan Task 7 — frontend policy/eligibility/error lifecycle. Backend Tasks 1–6 are
+implemented; Task 3 contracts are green after Task 6. Both DB answers and exact transfer/regeneration approval
+are present. Final cross-workspace verification, docs and product PR are still pending.
 
 **Execution progress (2026-11-13):** review amendments committed as `dfdfefba`. Task 1's policy module and TDD
 suite are implemented: first run failed TS2307 for the absent module; after implementation 25/25 passed with
@@ -67,6 +67,12 @@ while finalization waits, duplicate/final vote races, reactivation via staff PUT
 last-admin mutation overlap. Transaction rollback/deadlock mapping checks pass 2/2; service type-check passed.
 HTTP boundary/viewer reads and UI/docs remain incomplete. Root DB evidence is under the plan's ignored execution
 workspace; DB role was measured as superuser/bypass-RLS, so the tests exercise explicit community predicates.
+
+Task 5 committed `2d5d32df`. Task 6 viewer getter ran red→green (4/4), then real shared-JWT HTTP coverage
+passed (5/5 read/HTTP cases). Route contracts pass 20/20; community unit 9/9 and regression 282/282; tsc passed.
+Getter owns a live membership check, fixed metadata, active ratifier projection and coarse can_nominate. UI is
+still the old contract until Task 7; nothing is ready to ship yet. Additional malformed-config/constraint assertions
+will be included in the final root integration run.
 
 ## Non-author review response — 2026-11-13
 
