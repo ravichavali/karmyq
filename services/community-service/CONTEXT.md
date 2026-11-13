@@ -5,6 +5,15 @@
 
 ## Recent Changes
 
+- **2026-11-13 (Sprint 142 schema, implementation in progress):** migration
+  `20261112-governance-quorum.sql` adds frozen nomination electorates and policy metadata. One atomic
+  DO block locks ballots then nominations, closes only legacy pending nominations, and installs protocol
+  guards. Compatible transactions set transaction-local `app.governance_policy_version=1`; old writers fail
+  closed after migration or binary rollback. Resolved history/ballots remain. Both canonical appliers and
+  schema-identical replay were verified on isolated demo-host PostgreSQL. The snapshot-voter table is
+  classified reset in simulation-service; no live reset or platform grant is authorized. Route wiring is
+  still in progress, so this entry does not claim the new runtime behavior is deployed.
+
 - **2026-11-12 (Sprint 141, BUG-073 fixed on branch, ADR-105)**: the six trust-question writes
   (`POST /communities/trust-questions`, `PUT`/`DELETE /:id`, `POST /:id/choices`,
   `PUT`/`DELETE /:id/choices/:choiceId`) admit a live **platform admin** only. `isLivePlatformAdmin`

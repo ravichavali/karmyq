@@ -51,6 +51,15 @@ suite are implemented: first run failed TS2307 for the absent module; after impl
 `npm run type-check --workspace=services/community-service` exited 0. These focused checks do not prove DB or
 runtime behavior; the policy is not wired into routes yet. Full verification remains at the final task.
 
+Task 1 committed `f85924b1`; skill completion check re-ran 25/25 green. Task 2 migration/reset tests ran
+red→green; real isolated-DB migration fixtures passed 4/4, including independently committing cutoff.
+Migration-validator review passed. The maintainer explicitly approved the exact migration transfer and generated
+artifact download after automatic approval review rejected earlier SCP attempts; the approved transfer succeeded.
+Canonical regeneration and CI-applier schema-identical replay passed; tracked applier on separate baseline DB
+applied exactly the new migration in BEGIN/DO/INSERT/COMMIT. Reset classifier + catalog gate passed 5/5.
+Task 3 contracts ran red (20 failures expected against old routes). Task 4 transactional creation tests ran
+red→green (9/9). Route error/identity wiring and voting implementation are still unfinished; no feature-ready claim.
+
 ## Non-author review response — 2026-11-13
 
 Findings quoted from the maintainer's relayed Claude review; corrections here are spec/plan obligations,
