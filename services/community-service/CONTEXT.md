@@ -5,14 +5,35 @@
 
 ## Recent Changes
 
-- **2026-11-13 (Sprint 142 schema, implementation in progress):** migration
+- **2026-11-13 (Sprint 142, implemented on branch; deployment pending):** migration
   `20261112-governance-quorum.sql` adds frozen nomination electorates and policy metadata. One atomic
   DO block locks ballots then nominations, closes only legacy pending nominations, and installs protocol
   guards. Compatible transactions set transaction-local `app.governance_policy_version=1`; old writers fail
   closed after migration or binary rollback. Resolved history/ballots remain. Both canonical appliers and
   schema-identical replay were verified on isolated demo-host PostgreSQL. The snapshot-voter table is
-  classified reset in simulation-service; no live reset or platform grant is authorized. Route wiring is
-  still in progress, so this entry does not claim the new runtime behavior is deployed.
+  classified reset in simulation-service; no live reset or platform grant is authorized.
+  - New nomination quorum is `max(3, ceil(E/5))`, with E captured active members excluding the nominee.
+    Fewer than three voters refuses creation. Only nominator/nominee memberships are creation-locked;
+    their active status, private nominee trust and monotonic role elevation are checked transactionally.
+  - Voting locks the path-scoped nomination, then nominee + all existing snapshot memberships (including
+    inactive voters), ORDER BY user_id FOR NO KEY UPDATE. Only active snapshot ballots count. Finalization
+    rechecks active/private eligibility and higher role, then commits the role and closed nomination together.
+    Departures never lower quorum; staff status PUT reactivation restores an original ballot. PostgreSQL
+    40P01 rolls back and returns retryable 503 GOVERNANCE_RETRY; no automatic retries or partial writes.
+  - GET returns settings.quorum_policy `{version:1, percentage:20, minimum:3}` (legacy quorum_size is no
+    longer a public policy), coarse can_nominate, fixed per-nomination electorate_size/required_ratifications/
+    quorum_policy_version and viewer `{can_ratify,reason}`. Count and ratifier identities use the same live
+    projection. No full roster or personal metrics leave the API. The getter owns a live membership check.
+  - All routes validate IDs/roles, derive identity only from JWT userId, and use ADR-074 errors. Expected
+    codes: UNAUTHORIZED / INVALID_REQUEST / FORBIDDEN / NOT_FOUND; GOVERNANCE_VOTER_NOT_ELIGIBLE,
+    GOVERNANCE_SELF_RATIFICATION, GOVERNANCE_NOMINATION_CLOSED, GOVERNANCE_DUPLICATE_NOMINATION,
+    GOVERNANCE_ELECTORATE_TOO_SMALL, GOVERNANCE_ELIGIBILITY_NOT_MET, GOVERNANCE_ROLE_ALREADY_HELD,
+    GOVERNANCE_RETRY; unexpected errors are logged with route and return opaque INTERNAL_ERROR.
+  - Real-DB tests run through an isolated demo-host DB/tunnel. Role flags were superuser+bypass-RLS, so
+    isolation evidence tests explicit community_id predicates, including forged foreign JWT claims.
+    The root integration suite covers migration replay/cutoff, concurrent votes/departures, staff reactivation,
+    role preservation, getter privacy, and real shared-JWT routes. Unit/route/rollback tests are promoted into
+    this service's regression tier; UI tests cover authoritative eligibility and stale-community actions.
 
 - **2026-11-12 (Sprint 141, BUG-073 fixed on branch, ADR-105)**: the six trust-question writes
   (`POST /communities/trust-questions`, `PUT`/`DELETE /:id`, `POST /:id/choices`,
@@ -116,6 +137,19 @@ Manages communities, membership, and community norms (rules). Enforces Dunbar's 
 ## Database Schema
 
 ### Tables Owned by This Service
+
+Sprint 142 governance additions (migration `20261112-governance-quorum.sql`):
+
+- `communities.governance_nominations.quorum_policy_version SMALLINT` and `electorate_size INTEGER`, nullable
+  only for historical metadata. Version-1 rows require E>=3 and the exact proportional required_ratifications;
+  partial unique `governance_one_pending_role` enforces one pending `(community_id, nominated_user_id, role)`.
+- `communities.governance_nomination_voters(nomination_id UUID, user_id UUID)` has a composite primary key;
+  nomination FK cascades and user FK references auth.users. This table stores the frozen electorate separately
+  from `governance_ratifications` ballots. Curated reset classifies all three as reset.
+- Protocol guards reject old nomination/ballot inserts and unauthorized ratified transitions. One atomic DO
+  block locks ballots then nominations, adds schema, closes only legacy pending rows, and installs guards.
+  The migration contains no top-level transaction wrapper/LOCK TABLE and replays without schema drift under
+  both canonical appliers. Binary rollback intentionally leaves governance writes closed.
 
 ```sql
 -- communities.communities

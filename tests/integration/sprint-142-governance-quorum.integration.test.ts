@@ -186,6 +186,13 @@ async function memberFixture(count = 5) {
   return { community, users };
 }
 
+async function foreignCommunity(member: string) {
+  const id=randomUUID();
+  await pool.query(`INSERT INTO communities.communities(id,name,creator_id) VALUES($1,'S142 other community',$2)`, [id,member]);
+  await pool.query(`INSERT INTO communities.members(community_id,user_id,role) VALUES($1,$2,'admin')`, [id,member]);
+  return id;
+}
+
 describe('Sprint 142 nomination creation using shipped SQL', () => {
   beforeEach(async () => { fixture = await memberFixture(); });
   afterEach(async () => {
@@ -213,6 +220,10 @@ describe('Sprint 142 nomination creation using shipped SQL', () => {
   it('refuses foreign/nonmember identities despite a privileged DB role', async () => {
     await expect(create({ ...input(), nominatorId: randomUUID() })).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
     await expect(create({ ...input(), nominatedUserId: randomUUID() })).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
+    const foreign = await foreignCommunity(fixture.users[2]);
+    try {
+      await expect(create({ ...input(), communityId: foreign })).rejects.toMatchObject({ status: 403,code: 'FORBIDDEN' });
+    } finally { await pool.query(`DELETE FROM communities.communities WHERE id=$1`, [foreign]); }
   });
 
   it('refuses fewer than three other voters, without capping the quorum', async () => {
@@ -276,8 +287,11 @@ describe('Sprint 142 voting live invariants and concurrency', () => {
     expect(await cast(0)).toEqual({ ratified: false,ratification_count: 1,required_ratifications: 3 });
     expect(await cast(0)).toEqual({ ratified: false,ratification_count: 1,required_ratifications: 3 });
     await expect(cast(1)).rejects.toMatchObject({ status: 422,code: 'GOVERNANCE_SELF_RATIFICATION' });
-    await expect(vote({ communityId: randomUUID(),nominationId: nomination.id,ratifierId: fixture.users[0] }))
-      .rejects.toMatchObject({ status: 404,code: 'NOT_FOUND' });
+    const foreign = await foreignCommunity(fixture.users[0]);
+    try {
+      await expect(vote({ communityId: foreign,nominationId: nomination.id,ratifierId: fixture.users[0] }))
+        .rejects.toMatchObject({ status: 404,code: 'NOT_FOUND' });
+    } finally { await pool.query(`DELETE FROM communities.communities WHERE id=$1`, [foreign]); }
     expect(await ballots()).toBe(1);
   });
 
@@ -286,6 +300,8 @@ describe('Sprint 142 voting live invariants and concurrency', () => {
     await pool.query(`INSERT INTO auth.users(id,email,name,password_hash) VALUES($1,$2,'Late joiner','unused')`, [user,`${user}@s142.invalid`]);
     await pool.query(`INSERT INTO communities.members(community_id,user_id) VALUES($1,$2)`, [fixture.community,user]);
     await expect(cast(5)).rejects.toMatchObject({ status: 403,code: 'GOVERNANCE_VOTER_NOT_ELIGIBLE' });
+    expect((await getGovernanceState(fixture.community,user)).nominations[0].viewer)
+      .toEqual({ can_ratify: false,reason: 'not_in_electorate' });
     expect(await ballots()).toBe(0);
   });
 
@@ -440,9 +456,11 @@ describe('Sprint 142 viewer state using explicit community predicates', () => {
     const own = await request(governanceApp).get(url).auth(token(fixture.users[0]),{ type: 'bearer' });
     expect(own.status).toBe(200);
     expect(own.body.data.can_nominate).toBe(true);
-    const foreign = randomUUID();
-    const claim = token(fixture.users[0],{ communities: [{ id: foreign,name: 'Foreign',role: 'admin' }] });
-    expect((await request(governanceApp).get(`/communities/${foreign}/governance`).auth(claim,{ type: 'bearer' })).status).toBe(403);
+    const foreign = await foreignCommunity(fixture.users[0]);
+    try {
+      const claim = token(fixture.users[2],{ communities: [{ id: foreign,name: 'Foreign',role: 'admin' }] });
+      expect((await request(governanceApp).get(`/communities/${foreign}/governance`).auth(claim,{ type: 'bearer' })).status).toBe(403);
+    } finally { await pool.query(`DELETE FROM communities.communities WHERE id=$1`, [foreign]); }
     const duplicate = await request(governanceApp).post(`${url}/nominate`).auth(token(fixture.users[0]),{ type: 'bearer' })
       .send({ nominated_user_id: fixture.users[1],role: 'moderator',quorum: 1 });
     expect(duplicate.status).toBe(409);

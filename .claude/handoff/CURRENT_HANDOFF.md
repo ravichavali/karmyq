@@ -4,8 +4,8 @@
 **Outcome**: in progress. Sprint 141 (PR #337, BUG-073, ADR-105, v11.114.0) is **shipped and verified**; its record
 is [archived](archive/2026-11-12-sprint-141-platform-admin-COMPLETE-v11.114.0.md). The maintainer selected
 **governance ratification quorum** for Sprint 142 on 2026-11-12. The maintainer approved the written design,
-including the builder-review proposals. Claude's follow-up review is verified and incorporated; execution is
-starting with Task 1 in this session. No product PR is open yet.
+including the builder-review proposals. Claude's follow-up review is verified and incorporated. Tasks 1–9 are
+implemented and tested; whole-branch review/final verification precede product PR creation. No PR is open yet.
 
 > State between sessions only. Branch-local, so it reserves nothing; see `.claude/handoff/README.md` →
 > *Parallel development rules* for how contended resources are allocated.
@@ -20,7 +20,7 @@ starting with Task 1 in this session. No product PR is open yet.
 | **Base** | `origin/master` at `898f23ba` (fetched 2026-11-13; no open PRs observed) |
 | **Active editor** | Codex (maintainer-directed review response + inline execution, 2026-11-13) |
 | **Reviewer role** | A non-author. Reviewers read the diff and do not co-edit |
-| **Owned paths** | Post-merge records already in `bc53d728`; current planning edits: Sprint 142 spec/plan under `docs/superpowers/` and this handoff. Future product paths are listed in the approved spec/plan; no product code changed in planning |
+| **Owned paths** | Governance DB/policy/routes + scoped tests in community-service; GovernanceTab/onboarding/tests; simulation reset table policy/context/test; migration/generated schema; scoped guides/ADR-055/generated landing docs; registry and this handoff. Sprint 141 records remain bundled from `bc53d728` |
 | **Shared resources needed** | Maintainer authorized real-DB tests via SSH on karmyq.com (isolated disposable DB/container). Demo application mutations, platform-admin grant/200 smoke, merge slot, version bump, new ADR numbers and dependency lane remain unallocated |
 
 ## Links
@@ -42,48 +42,32 @@ starting with Task 1 in this session. No product PR is open yet.
    editor on this shared tree (or choose `superpowers:subagent-driven-development` with explicit file ownership).
    Resume the first unfinished task in the execution ledger. Stop the execution chat at product PR creation.
 
-**Next unchecked task**: finish source/generated docs and Task 9 context/integration/regression promotion,
-then whole-branch gates and final verification. Backend Tasks 1–6 and UI Task 7 are implemented. Both DB
-answers and exact transfer/regeneration approval are present. No product PR is open yet.
+**Next unchecked task**: Task 10 whole-branch simplify/code/security reviews, then Task 11 final checks and
+draft product PR (release version/merge/deploy remain unallocated). Stop at PR creation.
 
-**Execution progress (2026-11-13):** review amendments committed as `dfdfefba`. Task 1's policy module and TDD
-suite are implemented: first run failed TS2307 for the absent module; after implementation 25/25 passed with
-`npm exec --workspace=services/community-service -- jest --runTestsByPath tests/tdd/sprint-142-governance-policy.test.ts --runInBand --no-cache`;
-`npm run type-check --workspace=services/community-service` exited 0. These focused checks do not prove DB or
-runtime behavior; the policy is not wired into routes yet. Full verification remains at the final task.
+**Implementation and evidence (2026-11-13):** review amendments `dfdfefba`; policy `f85924b1`; migration/schema
+`28e14995`; route contracts `7caa4210`; creation `35bf5ff1`; voting `2d5d32df`; getter/routes `3db3bc4e`;
+UI `e2c8a6f1`; source/generated guides + ADR amendment `58a91072`. Detailed red→green/command evidence lives
+in these commit messages and the plan-scoped execution ledger, not a second copy of the plan here.
 
-Task 1 committed `f85924b1`; skill completion check re-ran 25/25 green. Task 2 migration/reset tests ran
-red→green; real isolated-DB migration fixtures passed 4/4, including independently committing cutoff.
-Migration-validator review passed. The maintainer explicitly approved the exact migration transfer and generated
-artifact download after automatic approval review rejected earlier SCP attempts; the approved transfer succeeded.
-Canonical regeneration and CI-applier schema-identical replay passed; tracked applier on separate baseline DB
-applied exactly the new migration in BEGIN/DO/INSERT/COMMIT. Reset classifier + catalog gate passed 5/5.
-Task 3 contracts ran red (20 failures expected against old routes). Task 4 transactional creation tests ran
-red→green (9/9). Route error/identity wiring and voting implementation are still unfinished; no feature-ready claim.
+The full Sprint 142 integration suite passed **30/30**, uncached, on the working tree rooted at `58a91072`
+(`task-9-full-db.log` in `.superpowers/sdd/2026-11-12-sprint-142-governance-quorum/`). It covers both valid
+communities, protocol replay/cutoff, real JWT routes, live membership/counts, reactivation, role preservation,
+concurrent votes/departures, and invalid config/metadata. Actual role: karmyq_prod, rolsuper=true,
+rolbypassrls=true; explicit community predicates supply isolation, not RLS. The DB/container was disposable
+on karmyq.com through SSH; no live application DB/reset/platform grant was changed.
 
-Task 2 committed `28e14995`, Task 3 red contracts `7caa4210`, Task 4 creation `35bf5ff1`.
-Task 5 voting/concurrency ran red→green (11/11) against the isolated DB, including departure and nominee removal
-while finalization waits, duplicate/final vote races, reactivation via staff PUT, higher-role preservation and
-last-admin mutation overlap. Transaction rollback/deadlock mapping checks pass 2/2; service type-check passed.
-HTTP boundary/viewer reads and UI/docs remain incomplete. Root DB evidence is under the plan's ignored execution
-workspace; DB role was measured as superuser/bypass-RLS, so the tests exercise explicit community predicates.
-
-Task 5 committed `2d5d32df`. Task 6 viewer getter ran red→green (4/4), then real shared-JWT HTTP coverage
-passed (5/5 read/HTTP cases). Route contracts pass 20/20; community unit 9/9 and regression 282/282; tsc passed.
-Getter owns a live membership check, fixed metadata, active ratifier projection and coarse can_nominate. UI is
-still the old contract until Task 7; nothing is ready to ship yet. Additional malformed-config/constraint assertions
-will be included in the final root integration run.
-
-Task 6 committed `3db3bc4e`. Task 7 UI ran 12 tests red→green, then a stale-role selector test ran red→green;
-focused UI + retained no-NaN tests pass 16/16, frontend tsc passed, existing frontend unit/regression pair
-passed 62/595 tests respectively. New Sprint 142 tests are still in TDD until Task 9 promotes only these files.
-Task 8 source docs/onboarding/ADR-055 amendment are authored and generated; unrelated build/architecture/ADR-010
-churn is restored. Docs/CONTEXT/registry final parity and whole-branch review remain to do.
+Both canonical appliers passed: tracked wrapper applied exactly the new migration to a separate baseline DB;
+CI applier replay reported zero schema drift. Exact migration transfer/regeneration/artifact download was
+explicitly approved after automatic approval review initially rejected SCP; the approved operation succeeded.
+Six green Sprint 142 test files were promoted individually to regression. Direct uncached checks passed:
+community 48, frontend 13, reset/catalog 5. Prior workspace pairs passed community 9 unit/282 regression and
+frontend 62 unit/595 regression; final post-promotion full checks and non-author review still remain.
 
 ## Non-author review response — 2026-11-13
 
-Findings quoted from the maintainer's relayed Claude review; corrections here are spec/plan obligations,
-not assertions that their runtime tests already pass.
+Findings quoted from the maintainer's relayed Claude review. Source evidence and decisions follow; the
+implementation/runtime proof is summarized above and will be pinned to final commits in the PR ledger.
 
 1. > The migration must work under both appliers. apply-migrations.sh wraps the file in BEGIN/COMMIT; ci-apply-full-schema.sh strips it and autocommits, so a top-level LOCK TABLE fails CI and init.sql regen. No BEGIN/COMMIT in the file; the lock, the legacy close and the guards are atomic under both (e.g. one DO block); replaying over init.sql changes no schema.
 
