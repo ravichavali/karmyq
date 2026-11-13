@@ -72,6 +72,7 @@ export const TABLE_POLICY: Record<string, TablePolicy> = {
   'communities.fusion_votes': 'reset',
   'communities.governance_nominations': 'reset',
   'communities.governance_ratifications': 'reset',
+  'communities.governance_nomination_voters': 'reset',
   'communities.health_summary': 'reset',
   'communities.split_member_assignments': 'reset',
   'communities.split_proposals': 'reset',

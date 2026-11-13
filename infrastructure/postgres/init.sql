@@ -279,6 +279,34 @@ $$;
 COMMENT ON FUNCTION communities.calculate_expires_at(p_community_id uuid, p_entity_type character varying, p_created_at timestamp without time zone) IS 'Calculate expiration timestamp based on community TTL settings';
 
 --
+-- Name: require_governance_protocol_v1(); Type: FUNCTION; Schema: communities; Owner: -
+--
+
+CREATE FUNCTION communities.require_governance_protocol_v1() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+  BEGIN
+    IF TG_TABLE_NAME = 'governance_ratifications' THEN
+      IF current_setting('app.governance_policy_version', true) IS DISTINCT FROM '1' THEN
+        RAISE EXCEPTION 'GOVERNANCE_PROTOCOL_REQUIRED' USING ERRCODE = '23514';
+      END IF;
+      RETURN NEW;
+    END IF;
+    IF TG_OP = 'INSERT' OR NEW.status = 'ratified' THEN
+      IF current_setting('app.governance_policy_version', true) IS DISTINCT FROM '1' THEN
+        RAISE EXCEPTION 'GOVERNANCE_PROTOCOL_REQUIRED' USING ERRCODE = '23514';
+      END IF;
+      IF TG_TABLE_NAME = 'governance_nominations' THEN
+        IF NEW.quorum_policy_version IS DISTINCT FROM 1 OR NEW.electorate_size IS NULL THEN
+          RAISE EXCEPTION 'GOVERNANCE_POLICY_METADATA_REQUIRED' USING ERRCODE = '23514';
+        END IF;
+      END IF;
+    END IF;
+    RETURN NEW;
+  END;
+  $$;
+
+--
 -- Name: update_community_config_timestamp(); Type: FUNCTION; Schema: communities; Owner: -
 --
 
@@ -1240,6 +1268,15 @@ CREATE TABLE communities.fusion_votes (
 );
 
 --
+-- Name: governance_nomination_voters; Type: TABLE; Schema: communities; Owner: -
+--
+
+CREATE TABLE communities.governance_nomination_voters (
+    nomination_id uuid NOT NULL,
+    user_id uuid NOT NULL
+);
+
+--
 -- Name: governance_nominations; Type: TABLE; Schema: communities; Owner: -
 --
 
@@ -1253,6 +1290,9 @@ CREATE TABLE communities.governance_nominations (
     required_ratifications integer DEFAULT 3 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     resolved_at timestamp with time zone,
+    quorum_policy_version smallint,
+    electorate_size integer,
+    CONSTRAINT governance_quorum_metadata CHECK ((((quorum_policy_version IS NULL) AND (electorate_size IS NULL)) OR ((quorum_policy_version IS NOT NULL) AND (electorate_size IS NOT NULL) AND (quorum_policy_version = 1) AND (electorate_size >= 3) AND ((required_ratifications)::numeric = GREATEST((3)::numeric, ceil(((electorate_size)::numeric / (5)::numeric))))))),
     CONSTRAINT valid_nomination_status CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'ratified'::character varying, 'rejected'::character varying, 'withdrawn'::character varying])::text[])))
 );
 
@@ -3182,6 +3222,13 @@ ALTER TABLE ONLY communities.fusion_votes
     ADD CONSTRAINT fusion_votes_proposal_id_user_id_key UNIQUE (proposal_id, user_id);
 
 --
+-- Name: governance_nomination_voters governance_nomination_voters_pkey; Type: CONSTRAINT; Schema: communities; Owner: -
+--
+
+ALTER TABLE ONLY communities.governance_nomination_voters
+    ADD CONSTRAINT governance_nomination_voters_pkey PRIMARY KEY (nomination_id, user_id);
+
+--
 -- Name: governance_nominations governance_nominations_pkey; Type: CONSTRAINT; Schema: communities; Owner: -
 --
 
@@ -4211,6 +4258,12 @@ CREATE INDEX idx_user_tags_user_id ON auth.user_tags USING btree (user_id);
 --
 
 CREATE INDEX idx_users_invited_by ON auth.users USING btree (invited_by) WHERE (invited_by IS NOT NULL);
+
+--
+-- Name: governance_one_pending_role; Type: INDEX; Schema: communities; Owner: -
+--
+
+CREATE UNIQUE INDEX governance_one_pending_role ON communities.governance_nominations USING btree (community_id, nominated_user_id, nominated_for_role) WHERE ((status)::text = 'pending'::text);
 
 --
 -- Name: idx_activities_community_id; Type: INDEX; Schema: communities; Owner: -
@@ -5251,6 +5304,18 @@ CREATE TRIGGER update_user_preferences_timestamp BEFORE UPDATE ON auth.user_requ
 CREATE TRIGGER community_links_updated_at BEFORE UPDATE ON communities.community_links FOR EACH ROW EXECUTE FUNCTION communities.update_community_links_updated_at();
 
 --
+-- Name: governance_ratifications governance_ballot_protocol; Type: TRIGGER; Schema: communities; Owner: -
+--
+
+CREATE TRIGGER governance_ballot_protocol BEFORE INSERT ON communities.governance_ratifications FOR EACH ROW EXECUTE FUNCTION communities.require_governance_protocol_v1();
+
+--
+-- Name: governance_nominations governance_nomination_protocol; Type: TRIGGER; Schema: communities; Owner: -
+--
+
+CREATE TRIGGER governance_nomination_protocol BEFORE INSERT OR UPDATE OF status ON communities.governance_nominations FOR EACH ROW EXECUTE FUNCTION communities.require_governance_protocol_v1();
+
+--
 -- Name: settings settings_updated_at; Type: TRIGGER; Schema: communities; Owner: -
 --
 
@@ -5599,6 +5664,20 @@ ALTER TABLE ONLY communities.fusion_votes
 
 ALTER TABLE ONLY communities.fusion_votes
     ADD CONSTRAINT fusion_votes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id);
+
+--
+-- Name: governance_nomination_voters governance_nomination_voters_nomination_id_fkey; Type: FK CONSTRAINT; Schema: communities; Owner: -
+--
+
+ALTER TABLE ONLY communities.governance_nomination_voters
+    ADD CONSTRAINT governance_nomination_voters_nomination_id_fkey FOREIGN KEY (nomination_id) REFERENCES communities.governance_nominations(id) ON DELETE CASCADE;
+
+--
+-- Name: governance_nomination_voters governance_nomination_voters_user_id_fkey; Type: FK CONSTRAINT; Schema: communities; Owner: -
+--
+
+ALTER TABLE ONLY communities.governance_nomination_voters
+    ADD CONSTRAINT governance_nomination_voters_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id);
 
 --
 -- Name: governance_nominations governance_nominations_community_id_fkey; Type: FK CONSTRAINT; Schema: communities; Owner: -
@@ -7062,5 +7141,6 @@ INSERT INTO public.schema_migrations (migration_name) VALUES
   ('20261013-skill-endorsements.sql'),
   ('20261027-drop-interaction-feedback.sql'),
   ('20261106-matches-offer-id-index.sql'),
-  ('20261112-auth-platform-admins.sql')
+  ('20261112-auth-platform-admins.sql'),
+  ('20261112-governance-quorum.sql')
 ON CONFLICT (migration_name) DO NOTHING;

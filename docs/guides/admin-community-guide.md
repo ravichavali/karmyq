@@ -75,6 +75,34 @@ admin action, so a newly promoted admin's actions are accepted at once.
 
 ---
 
+## Stewardship → Decisions
+
+Active members can nominate an eligible active member for Moderator or Admin. Open the eligible member's
+**Nominate** control, choose an available higher role, and submit. An existing admin has no higher role here;
+a moderator can be nominated only for Admin. If there are fewer than three other active members, nomination
+controls are unavailable.
+
+Each nomination fixes its voter list when it opens, excluding the nominee. Every voter has one equal vote.
+The required number is **20% of those voters, rounded up, with a minimum of three**: 10 voters need 3 votes,
+50 need 10, and 149 need 30. Submitting a nomination does not cast a vote. Eligible members can then select
+**Ratify**; the screen shows both the live count and the fixed requirement.
+
+Later arrivals cannot vote on that nomination. Votes stop counting when their members become inactive, but
+the target does not shrink. If a steward reactivates an original member, their existing vote can count again.
+Ask a steward about reactivation; the self-service Join flow does not currently restore inactive memberships.
+
+When reactivation restores enough previous votes to meet quorum, a prior active voter sees **Finalize decision**.
+Select it to recheck the decision and grant the role if the nominee still qualifies. It does not add a second vote.
+
+Karmyq rechecks the nominee's active membership and eligibility before granting the role. A stale screen can
+therefore be refused; its inline message explains the refusal and the decision refreshes. If an overlapping
+membership change asks you to retry, refresh and try again. An already completed nomination stays closed.
+
+Pending nominations from the old fixed-quorum system close at the upgrade and must be resubmitted. Granted
+roles remain. A nomination can stay pending if too many original voters leave; this release adds no expiry
+or withdrawal control. In the demo, the simulation does not cast these votes, so a community with many personas
+may have too few human voters to reach its target. That limitation is accepted; simulation governance stays off.
+
 ## Stewardship → Steward requests (Requests + Insights + Admin Actions)
 
 The **Steward requests** sub-section of Stewardship is the primary tool for admins who play an active
