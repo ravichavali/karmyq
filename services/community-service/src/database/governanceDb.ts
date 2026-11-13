@@ -1,4 +1,6 @@
 import pool from './db';
+import { PoolClient } from 'pg';
+import { GOVERNANCE_QUORUM_POLICY, requiredRatifications, canElevateRole, GovernanceError } from './governancePolicy';
 
 export interface GovernanceSettings {
   eligibility_threshold: number;
@@ -116,26 +118,84 @@ export async function getGovernanceState(communityId: string) {
   };
 }
 
-export async function createNomination(
-  communityId: string,
-  nominatorId: string,
-  nominatedUserId: string,
-  role: string,
-  quorumSize: number
-): Promise<{ id: string }> {
-  const existing = await pool.query(`
-    SELECT id FROM communities.governance_nominations
-    WHERE community_id = $1 AND nominated_user_id = $2 AND nominated_for_role = $3 AND status = 'pending'
-  `, [communityId, nominatedUserId, role]);
-  if (existing.rows.length > 0) throw new Error('DUPLICATE_NOMINATION');
+async function governanceTransaction<T>(communityId: string, userId: string, work: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`SELECT set_config('app.current_user_id',$1,true),
+      set_config('app.current_community_id',$2,true), set_config('app.governance_policy_version','1',true)`, [userId,communityId]);
+    const result = await work(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error: any) {
+    try { await client.query('ROLLBACK'); } catch { /* preserve original failure */ }
+    if (error.code === '40P01') throw new GovernanceError(503, 'GOVERNANCE_RETRY', 'Another membership decision overlapped. Please refresh and retry.');
+    if (error.code === '23505' && error.constraint === 'governance_one_pending_role') {
+      throw new GovernanceError(409, 'GOVERNANCE_DUPLICATE_NOMINATION', 'A pending nomination already exists for this member and role.');
+    }
+    throw error;
+  } finally { client.release(); }
+}
 
-  const res = await pool.query(`
-    INSERT INTO communities.governance_nominations
-      (community_id, nominated_user_id, nominated_for_role, nominator_id, required_ratifications)
-    VALUES ($1, $2, $3, $4, $5)
-    RETURNING id
-  `, [communityId, nominatedUserId, role, nominatorId, quorumSize]);
-  return { id: res.rows[0].id };
+function eligibilityThreshold(settings: any): number {
+  const threshold = settings?.eligibility_threshold ?? 50;
+  if (typeof threshold !== 'number' || !Number.isFinite(threshold) || threshold < 0) {
+    throw new Error('Invalid governance eligibility configuration');
+  }
+  return threshold;
+}
+
+async function checkNomineeTrust(client: PoolClient, communityId: string, userId: string, threshold: number) {
+  const trust = await client.query(`SELECT COALESCE(SUM(te.raw_weight),0) AS trust_score
+    FROM social_graph.trust_edges te WHERE te.community_id=$1 AND (te.user_id_a=$2::uuid OR te.user_id_b=$2::uuid)`, [communityId,userId]);
+  const score = Number(trust.rows[0]?.trust_score ?? 0);
+  if (!Number.isFinite(score) || score < threshold) {
+    throw new GovernanceError(422, 'GOVERNANCE_ELIGIBILITY_NOT_MET',
+      'This member has not yet met the eligibility threshold through established community relationships.');
+  }
+}
+
+export interface CreateNominationInput {
+  communityId: string;
+  nominatorId: string;
+  nominatedUserId: string;
+  role: 'admin' | 'moderator';
+}
+
+export async function createNomination(input: CreateNominationInput): Promise<{
+  id: string; quorum_policy_version: 1; electorate_size: number; required_ratifications: number;
+}> {
+  const { communityId,nominatorId,nominatedUserId,role } = input;
+  return governanceTransaction(communityId,nominatorId,async client => {
+    const community = await client.query(`SELECT governance_settings FROM communities.communities WHERE id=$1`, [communityId]);
+    if (!community.rows.length) throw new GovernanceError(404,'NOT_FOUND','Community not found.');
+    // Only these identities need creation locks. The following roster statement defines its own snapshot.
+    const members = await client.query(`SELECT user_id,role,status FROM communities.members
+      WHERE community_id=$1 AND user_id=ANY($2::uuid[]) ORDER BY user_id FOR NO KEY UPDATE`, [communityId,[nominatorId,nominatedUserId]]);
+    const nominator = members.rows.find(r => r.user_id === nominatorId);
+    const nominee = members.rows.find(r => r.user_id === nominatedUserId);
+    if (nominator?.status !== 'active' || nominee?.status !== 'active') {
+      throw new GovernanceError(403,'FORBIDDEN','The nominator and nominee must be active community members.');
+    }
+    if (!canElevateRole(nominee.role ?? 'member',role)) {
+      throw new GovernanceError(409,'GOVERNANCE_ROLE_ALREADY_HELD','The nominee already holds this or a higher role.');
+    }
+    await checkNomineeTrust(client,communityId,nominatedUserId,eligibilityThreshold(community.rows[0].governance_settings));
+    const voters = await client.query(`SELECT user_id FROM communities.members
+      WHERE community_id=$1 AND status='active' AND user_id<>$2 ORDER BY user_id`, [communityId,nominatedUserId]);
+    const electorate = voters.rows.map(r => r.user_id);
+    if (electorate.length < GOVERNANCE_QUORUM_POLICY.minimum) {
+      throw new GovernanceError(422,'GOVERNANCE_ELECTORATE_TOO_SMALL','At least three other active members are needed to open a nomination.');
+    }
+    const required = requiredRatifications(electorate.length);
+    const nomination = await client.query(`INSERT INTO communities.governance_nominations
+      (community_id,nominated_user_id,nominated_for_role,nominator_id,quorum_policy_version,electorate_size,required_ratifications)
+      VALUES($1,$2,$3,$4,1,$5,$6) RETURNING id`, [communityId,nominatedUserId,role,nominatorId,electorate.length,required]);
+    const id = nomination.rows[0].id;
+    await client.query(`INSERT INTO communities.governance_nomination_voters(nomination_id,user_id)
+      SELECT $1,user_id FROM unnest($2::uuid[]) user_id`, [id,electorate]);
+    return { id,quorum_policy_version: 1,electorate_size: electorate.length,required_ratifications: required };
+  });
 }
 
 export async function addRatification(

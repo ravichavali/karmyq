@@ -59,9 +59,7 @@ router.post('/:communityId/governance/nominate', async (req: any, res: Response)
       });
     }
 
-    const nomination = await createNomination(
-      communityId, nominatorId, nominated_user_id, role, settings.quorum_size
-    );
+    const nomination = await createNomination({ communityId, nominatorId, nominatedUserId: nominated_user_id, role });
     res.status(201).json({ success: true, data: nomination });
   } catch (err: any) {
     if (err.message === 'DUPLICATE_NOMINATION') {
