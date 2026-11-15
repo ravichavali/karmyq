@@ -2786,3 +2786,17 @@ the catch returns an internal error. Staff can reactivate through the status PUT
 later fix; not reproduced live and not included in Sprint 142's quorum scope.
 
 ---
+
+## BUG-103 · [2026-11-15] · open
+
+**`communities.communities.current_members` drifts away from the real active-member count.** Found while
+planning Sprint 143 (BUG-102). The DELETE member handler (`services/community-service/src/routes/members.ts`,
+soft delete near line 526) decrements the counter unconditionally, including when the row was a pending
+applicant who was rejected or cancelled (pending joins were never counted) or a row that was already inactive.
+The staff `PUT /communities/:communityId/members/:userId` status transitions (`inactive` → `active` and back)
+never adjust the counter. The join capacity check (`current_members >= max_members`, members.ts:103) reads the
+drifted value. Sprint 143 makes only the statements it already edits correct (DELETE decrements only an active
+row; self-rejoin increments only on an active rejoin). The PUT transitions and any existing drift on the demo
+are out of scope; the size of the demo drift is unmeasured (it needs a demo DB read).
+
+---
