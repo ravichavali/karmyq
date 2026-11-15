@@ -5,7 +5,7 @@
 **Deciders**: Ravi Chavali
 **Supersedes**: —
 **Superseded by**: —
-**Amended**: 2026-11-13 — Sprint 142 proportional ratification (implemented on the feature branch; deployment pending).
+**Amended**: 2026-11-13 — Sprint 142 proportional ratification (shipped in #338 `1692a560`, v11.115.0; deployed 2026-11-15).
 
 ---
 

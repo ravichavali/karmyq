@@ -5,7 +5,7 @@
 
 ## Recent Changes
 
-- **2026-11-13 (Sprint 142, implemented on branch; deployment pending):** migration
+- **2026-11-13 (Sprint 142, #338 `1692a560`, v11.115.0; deployed 2026-11-15):** migration
   `20261112-governance-quorum.sql` adds frozen nomination electorates and policy metadata. One atomic
   DO block locks ballots then nominations, closes only legacy pending nominations, and installs protocol
   guards. Compatible transactions set transaction-local `app.governance_policy_version=1`; old writers fail
@@ -38,7 +38,7 @@
     role preservation, getter privacy, and real shared-JWT routes. Unit/route/rollback tests are promoted into
     this service's regression tier; UI tests cover authoritative eligibility and stale-community actions.
 
-- **2026-11-12 (Sprint 141, BUG-073 fixed on branch, ADR-105)**: the six trust-question writes
+- **2026-11-12 (Sprint 141, BUG-073 fixed, #337 `898f23ba`, deployed 2026-11-12, ADR-105)**: the six trust-question writes
   (`POST /communities/trust-questions`, `PUT`/`DELETE /:id`, `POST /:id/choices`,
   `PUT`/`DELETE /:id/choices/:choiceId`) admit a live **platform admin** only. `isLivePlatformAdmin`
   (`src/utils/liveRole.ts`) runs `SELECT 1 FROM auth.platform_admins WHERE user_id = $1 LIMIT 1`.
@@ -51,7 +51,7 @@
   - The "Platform admin only" notes under *Trust Questions* below are now true.
   - Tests: `tests/regression/sprint-141-platform-admin-trust-questions.test.ts`, the updated PR K suite, and the root
     PR K integration suite.
-- **2026-11-10 (Sprint 140, BUG-100 fixed on branch)**: `GET /communities/my/communities` lists the JWT caller's
+- **2026-11-10 (Sprint 140, BUG-100 fixed, #334, v11.113.0, deployed)**: `GET /communities/my/communities` lists the JWT caller's
   memberships only. It used to require `?user_id=` and bind it into the SQL, so any signed-in user could read another
   user's community list. The query parameter is now ignored (omitted, own or foreign id all return the caller's list),
   and an id-less token gets 401 before any query. SQL, filters, ordering and envelope are unchanged. Side effect contained
