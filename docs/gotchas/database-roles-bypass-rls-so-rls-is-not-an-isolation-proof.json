@@ -1,0 +1,18 @@
+{
+  "title": "CI and the default service DB role are Postgres superusers, so row-level security never applies — test explicit community predicates, never credit RLS as isolation",
+  "owner": "ravichavali",
+  "created": "2026-11-13",
+  "scope": [
+    "tests/integration/",
+    "tests/docker-compose.test.yml",
+    "packages/shared/middleware/dbContext.ts",
+    "infrastructure/postgres/migrations/"
+  ],
+  "verify": {
+    "file_matches": {
+      "path": "tests/docker-compose.test.yml",
+      "pattern": "POSTGRES_USER: karmyq_test"
+    }
+  },
+  "see_also": ["migration-appliers-disagree-on-transaction-wrapping"]
+}

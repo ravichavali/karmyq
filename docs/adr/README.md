@@ -30,7 +30,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 ## Index
 
 ### Core Architecture
-- [ADR-105: Platform Admin Is a Granted Role, Separate from Community Admin](ADR-105-platform-admin-role.md) — Proposed
+- [ADR-105: Platform Admin Is a Granted Role, Separate from Community Admin](ADR-105-platform-admin-role.md) — Implemented
 - [ADR-103: Listings Trust the Authenticated Caller, "All" Is an Explicit Status, and a Security Fix Must Not Switch On Dormant Simulation](ADR-103-authenticated-listings-and-simulation-containment.md) — Proposed
 - [ADR-102: Authorization Re-derives the Role from Live Membership](ADR-102-live-membership-authorization.md) — Implemented
 - [ADR-101: Per-Consumer Event Queues](ADR-101-per-consumer-event-queues.md) — Implemented
@@ -98,7 +98,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-052: Security Hardening — OWASP Top 10 Baseline](ADR-052-security-hardening.md) — **Implemented**
 - [ADR-053: Feed Design Philosophy](ADR-053-feed-design-philosophy.md) — **Accepted**
 - [ADR-054: Trust Graph Architecture](ADR-054-trust-graph-architecture.md) — **Implemented**
-- [ADR-055: Trust-Based Governance Architecture](ADR-055-trust-governance-architecture.md) — **Accepted**
+- [ADR-055: Trust-Based Governance Architecture](ADR-055-trust-governance-architecture.md) — **Implemented** (Sprint 142 amendment: proportional equal-vote ratification; deployment pending)
 - [ADR-056: Intrinsic Trust Decay (Interaction Half-Life)](ADR-056-intrinsic-trust-decay.md) — **Implemented**
 - [ADR-057: Community Fission Mechanism](ADR-057-fission-mechanism.md) — **Implemented**
 - [ADR-058: Community Fusion Mechanism](ADR-058-fusion-mechanism.md) — **Implemented**

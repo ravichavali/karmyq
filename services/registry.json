@@ -263,17 +263,17 @@
           {
             "method": "GET",
             "path": "/communities/:id/governance",
-            "description": "Get governance state: settings, maturity, eligible members, pending nominations with ratifier counts, and current role holders."
+            "description": "Live active-member governance state: equal-vote quorum_policy, coarse can_nominate, fixed nomination electorates/required votes, matching live ratifier counts/identities, and viewer voting eligibility. No full voter roster or personal trust metrics. Restored quorum exposes viewer.reason ready_to_finalize for active prior voters; the existing idempotent POST finalizes without another ballot."
           },
           {
             "method": "POST",
             "path": "/communities/:id/governance/nominate",
-            "description": "Nominate an eligible member (trust score >= threshold) for Admin or Moderator role. Returns 409 if pending nomination already exists."
+            "description": "Active members nominate an active trust-eligible member for a higher admin/moderator role. Atomically snapshots other active voters; quorum is max(3, ceil(E/5)), refusing E<3; duplicate pending or same/lower-role nominations are 409. Legacy quorum_size does not control new nominations."
           },
           {
             "method": "POST",
             "path": "/communities/:id/governance/ratify/:nominationId",
-            "description": "Ratify an open nomination (role-holders only). Auto-grants role when quorum is reached."
+            "description": "One equal vote from an active original voter other than the nominee. Live recount and nominee eligibility/role rechecks grant and close atomically at the fixed quorum. Foreign community refused, pending duplicate votes idempotent, closed votes 409, deadlocks retryable 503 GOVERNANCE_RETRY."
           },
           {
             "method": "POST",
@@ -1172,7 +1172,7 @@
       "database_schemas": [],
       "health_check": null,
       "criticality": "optional",
-      "notes": "Development/demo tool only - not deployed to production. Sprint 117: owns the curated demo reset (deterministic protected-core baseline via a guarded transactional reset) plus the ambient synthetic population. Trust/karma history is fixture-only replay locked to production math; live match_completed behaviour is unchanged. Operator CLIs reset:demo/verify:demo/rotate:demo-stories are dry-run/read-only by default."
+      "notes": "Development/demo tool only - not deployed to production. Sprint 117: owns the curated demo reset (deterministic protected-core baseline via a guarded transactional reset) plus the ambient synthetic population. Trust/karma history is fixture-only replay locked to production math; live match_completed behaviour is unchanged. Operator CLIs reset:demo/verify:demo/rotate:demo-stories are dry-run/read-only by default. Sprint 142: governance_nomination_voters is reset with nominations/ratifications; nomination and ratification action weights remain zero."
     }
   },
   "infrastructure": {

@@ -4,6 +4,11 @@
 **Status**: development
 **Criticality**: optional — used for demo data generation only
 
+Sprint 142: `communities.governance_nomination_voters` is a `reset` table, alongside nominations and
+ratifications. The catalog-derived Sprint 141 gate covers its generated schema; the Sprint 142 classifier
+test also proves unclassified tables still fail closed. Nomination/ratification action weights remain zero.
+No live reset or enabling of simulation governance is part of this change.
+
 Sprint 141 (BUG-073, ADR-105): `TABLE_POLICY` classifies the new `auth.platform_admins` as `reset`. Its grant rows
 reference reset users, so a curated demo reset removes every platform admin grant and the operator re-grants by SQL
 afterwards. `tests/regression/sprint-141-table-policy-covers-init-sql.test.ts` derives the reset catalog from

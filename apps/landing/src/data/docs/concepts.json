@@ -820,7 +820,7 @@
       "slug": "adr-105-platform-admin-role",
       "number": "105",
       "title": "ADR-105: Platform Admin Is a Granted Role, Separate from Community Admin",
-      "status": "proposed",
+      "status": "implemented",
       "description": "**Date**: 2026-11-12",
       "filename": "ADR-105-platform-admin-role.md"
     }
