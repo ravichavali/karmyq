@@ -4,6 +4,7 @@ import { query, withTransaction } from '../database/db';
 import { publishEvent } from '../events/publisher';
 import { canSeeNonActiveMembers, shapeMemberRows } from '../utils/memberVisibility';
 import { getLiveRole, LiveRole } from '../utils/liveRole';
+import { canSelfDepart, classifyExistingMembership, departureStatus } from '../utils/memberLifecycle';
 import {
   sendSuccess,
   sendError,
@@ -69,137 +70,104 @@ router.get('/:communityId/members', async (req: Request, res: Response) => {
   }
 });
 
+async function issueMembershipToken(req: Request, userId: string, communityId: string): Promise<string | undefined> {
+  try {
+    const communitiesResult = await query(
+      `SELECT c.id, c.name, m.role
+       FROM communities.communities c
+       JOIN communities.members m ON m.community_id = c.id
+       WHERE m.user_id = $1 AND m.status = 'active'
+       ORDER BY c.name`,
+      [userId]
+    );
+    return jwt.sign(
+      {
+        userId,
+        email: (req as any).user.email,
+        communities: communitiesResult.rows.map((row: any) => ({ id: row.id, role: row.role, name: row.name })),
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: '7d' }
+    );
+  } catch {
+    (req as any).logger?.warn('Failed to generate membership refresh token', { userId, communityId });
+    return undefined;
+  }
+}
+
 // POST /communities/:communityId/join - Join a community (handles public/private)
 router.post('/:communityId/join', async (req: any, res: Response) => {
   try {
     const { communityId } = req.params;
     const { message } = req.body;
-
-    // Get user_id from authenticated JWT token
     const user_id = req.user?.userId;
+    if (!user_id) return sendUnauthorized(res, 'Authentication required');
 
-    if (!user_id) {
-      return sendUnauthorized(res, 'Authentication required');
-    }
-
-    // Check if community exists and get access_type
     const communityResult = await query(
       `SELECT id, name, max_members, current_members, status, access_type
-       FROM communities.communities
-       WHERE id = $1`,
-      [communityId]
+       FROM communities.communities WHERE id = $1`, [communityId]
     );
-
-    if (communityResult.rowCount === 0) {
-      return sendNotFound(res, 'Community');
-    }
-
+    if (communityResult.rowCount === 0) return sendNotFound(res, 'Community');
     const community = communityResult.rows[0];
-
-    if (community.status !== 'active') {
-      return sendError(res, 'COMMUNITY_INACTIVE', 'Community is not active', 400);
-    }
-
+    if (community.status !== 'active') return sendError(res, 'COMMUNITY_INACTIVE', 'Community is not active', 400);
     if (community.current_members >= community.max_members) {
       return sendError(res, 'COMMUNITY_FULL', 'Community is full (Dunbar\'s number limit reached)', 400);
     }
 
-    // Check if user is already a member or has pending request
     const existingMember = await query(
-      `SELECT id, status FROM communities.members
-       WHERE community_id = $1 AND user_id = $2`,
+      `SELECT id, status FROM communities.members WHERE community_id = $1 AND user_id = $2`,
       [communityId, user_id]
     );
-
-    if (existingMember.rowCount && existingMember.rowCount > 0) {
-      const status = existingMember.rows[0].status;
-      if (status === 'active') {
-        return sendConflict(res, 'You are already a member of this community');
-      } else if (status === 'pending') {
-        return sendConflict(res, 'You already have a pending join request for this community');
-      }
+    const classification = classifyExistingMembership(existingMember.rows[0]?.status);
+    if (classification === 'already_active') return sendConflict(res, 'You are already a member of this community');
+    if (classification === 'already_pending') {
+      return sendConflict(res, 'You already have a pending join request for this community');
+    }
+    if (classification === 'staff_only') {
+      return sendError(res, 'MEMBERSHIP_RESTORE_REQUIRES_STAFF', 'Only community staff can restore this membership', 409);
     }
 
-    // Determine status based on access_type
     const memberStatus = community.access_type === 'public' ? 'active' : 'pending';
-
-    // Add member
-    const memberResult = await query(
-      `INSERT INTO communities.members
-        (community_id, user_id, role, status, join_request_message)
-      VALUES ($1, $2, 'member', $3, $4)
-      RETURNING *`,
-      [communityId, user_id, memberStatus, message || null]
-    );
-
-    // If public, increment current_members count immediately
-    if (memberStatus === 'active') {
-      await query(
-        `UPDATE communities.communities
-         SET current_members = current_members + 1
-         WHERE id = $1`,
-        [communityId]
-      );
-
-      // Publish event
-      await publishEvent('user_joined_community', {
-        community_id: communityId,
-        user_id,
-        role: 'member',
-      });
-    } else {
-      // Publish join request event for private communities
-      await publishEvent('join_request_created', {
-        community_id: communityId,
-        user_id,
-        message,
-      });
-    }
-
-    // Re-issue JWT with updated community list so the client stays in sync.
-    // Isolated in its own try-catch: if token generation fails the join still succeeds.
-    // Only issued for public joins (status='active'); pending joins don't grant access yet.
-    let newToken: string | undefined;
-    if (memberStatus === 'active') {
-      try {
-        const communitiesResult = await query(
-          `SELECT c.id, c.name, m.role
-           FROM communities.communities c
-           JOIN communities.members m ON m.community_id = c.id
-           WHERE m.user_id = $1 AND m.status = 'active'
-           ORDER BY c.name`,
-          [user_id]
-        );
-        newToken = jwt.sign(
-          {
-            userId: user_id,
-            email: (req as any).user.email,
-            communities: communitiesResult.rows.map((row: any) => ({
-              id: row.id,
-              role: row.role,
-              name: row.name,
-            })),
-          },
-          process.env.JWT_SECRET!,
-          { expiresIn: '7d' }
-        );
-      } catch (tokenErr) {
-        // Non-fatal: log and continue — join still succeeds, client refreshes token on next login
-        (req as any).logger?.warn('Failed to generate refresh token after join', { user_id, communityId });
+    const member = await withTransaction(async (q) => {
+      const result = classification === 'rejoin'
+        ? await q(`UPDATE communities.members
+            SET role='member',status=$3,join_request_message=$4
+            WHERE community_id=$1 AND user_id=$2 AND status='left' RETURNING *`,
+          [communityId, user_id, memberStatus, message || null])
+        : await q(`INSERT INTO communities.members(community_id,user_id,role,status,join_request_message)
+            VALUES($1,$2,'member',$3,$4) RETURNING *`,
+          [communityId, user_id, memberStatus, message || null]);
+      if (result.rowCount === 0) {
+        await q(`SELECT status FROM communities.members WHERE community_id=$1 AND user_id=$2`, [communityId, user_id]);
+        return undefined;
       }
-    }
+      if (memberStatus === 'active') {
+        await q(`UPDATE communities.communities SET current_members=current_members+1 WHERE id=$1`, [communityId]);
+      }
+      return result.rows[0];
+    });
+    if (!member) return sendConflict(res, 'Your membership changed; please refresh and try again');
 
+    if (memberStatus === 'active') {
+      await publishEvent('user_joined_community', { community_id: communityId, user_id, role: 'member' });
+    } else {
+      await publishEvent('join_request_created', { community_id: communityId, user_id, message });
+    }
+    const newToken = memberStatus === 'active'
+      ? await issueMembershipToken(req, user_id, communityId)
+      : undefined;
     res.status(200).json({
       success: true,
       data: {
-        ...memberResult.rows[0],
-        message: memberStatus === 'active'
-          ? 'Successfully joined community'
-          : 'Join request submitted. Waiting for approval.',
+        ...member,
+        message: memberStatus === 'active' ? 'Successfully joined community' : 'Join request submitted. Waiting for approval.',
         ...(newToken ? { token: newToken } : {}),
       },
     });
   } catch (error: any) {
+    if (error.code === '23505' && error.constraint === 'members_community_id_user_id_key') {
+      return sendConflict(res, 'You are already a member of this community');
+    }
     (req as any).logger?.error('Error joining community', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'POST /:communityId/join' });
     return sendInternalError(res, 'Failed to join community', error);
   }
@@ -489,73 +457,50 @@ router.delete('/:communityId/members/:userId', async (req: Request, res: Respons
       }
     }
 
-    // Check if member exists
-    const memberResult = await query(
-      `SELECT role FROM communities.members
-       WHERE community_id = $1 AND user_id = $2`,
-      [communityId, userId]
-    );
-
-    if (memberResult.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Member not found',
-      });
-    }
-
-    const isTargetAdmin = memberResult.rows[0].role === 'admin';
-
-    // Atomic last-admin guard + soft delete (BUG-001): lock the active-admin rows
-    // (FOR UPDATE) so two concurrent removals serialize and can't both pass the count
-    // check and leave the community with zero admins.
-    const lastAdmin = await withTransaction(async (q) => {
-      if (isTargetAdmin) {
-        const admins = await q(
-          `SELECT user_id FROM communities.members
-           WHERE community_id = $1 AND role = 'admin' AND status = 'active'
-           FOR UPDATE`,
-          [communityId]
-        );
-        const targetIsSoleAdmin =
-          admins.rows.some((r: any) => r.user_id === userId) && admins.rows.length <= 1;
-        if (targetIsSoleAdmin) return true;
-      }
-
-      // Remove member (soft delete)
-      await q(
-        `UPDATE communities.members
-         SET status = 'inactive'
-         WHERE community_id = $1 AND user_id = $2`,
+    const outcome = await withTransaction(async (q) => {
+      const locked = await q(
+        `SELECT user_id,role,status FROM communities.members
+         WHERE community_id=$1 AND (user_id=$2 OR (role='admin' AND status='active'))
+         ORDER BY user_id FOR UPDATE`,
         [communityId, userId]
       );
-
-      // Decrement current_members count
-      await q(
-        `UPDATE communities.communities
-         SET current_members = current_members - 1
-         WHERE id = $1`,
-        [communityId]
-      );
-      return false;
+      const target = locked.rows.find((row: any) => row.user_id === userId);
+      if (!target) return 'not_found' as const;
+      if (isSelfRemove && !canSelfDepart(target.status)) return 'invalid_departure' as const;
+      const activeAdmins = locked.rows.filter((row: any) => row.role === 'admin' && row.status === 'active');
+      if (activeAdmins.some((row: any) => row.user_id === userId) && activeAdmins.length <= 1) {
+        return 'last_admin' as const;
+      }
+      await q(`UPDATE communities.members SET status=$3 WHERE community_id=$1 AND user_id=$2`,
+        [communityId, userId, departureStatus(isSelfRemove)]);
+      if (target.status === 'active') {
+        await q(`UPDATE communities.communities SET current_members=current_members-1 WHERE id=$1`, [communityId]);
+      }
+      return { wasActive: target.status === 'active' };
     });
 
-    if (lastAdmin) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot remove the last admin. Assign another admin first.',
-      });
+    if (outcome === 'not_found') {
+      return res.status(404).json({ success: false, message: 'Member not found' });
+    }
+    if (outcome === 'invalid_departure') {
+      return sendConflict(res, 'Only active or pending memberships can be left directly');
+    }
+    if (outcome === 'last_admin') {
+      return res.status(400).json({ success: false, message: 'Cannot remove the last admin. Assign another admin first.' });
     }
 
-    // Publish event
+    const newToken = isSelfRemove && outcome.wasActive
+      ? await issueMembershipToken(req, caller, String(communityId))
+      : undefined;
     await publishEvent('user_left_community', {
       community_id: communityId,
       user_id: userId,
       removed_by: caller,
       is_self_remove: isSelfRemove,
     });
-
     res.json({
       success: true,
+      data: { ...(newToken ? { token: newToken } : {}) },
       message: isSelfRemove ? 'Left community successfully' : 'Member removed successfully',
     });
   } catch (error: any) {

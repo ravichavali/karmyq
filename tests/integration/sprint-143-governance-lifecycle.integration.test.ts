@@ -1,6 +1,11 @@
 import { Pool } from 'pg';
 import { randomUUID } from 'crypto';
+import express from 'express';
+import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import servicePool from '../../services/community-service/src/database/db';
+import membersRouter from '../../services/community-service/src/routes/members';
+import { authMiddleware } from '../../packages/shared/middleware/auth';
 import {
   addRatification,
   closeNomination,
@@ -421,5 +426,187 @@ describe('Sprint 143 governance GET projection and POST mirror', () => {
     expect(await ballotCount(nomination.id)).toBe(1);
     expect((await nominationRow(nomination.id)).status).toBe('pending');
     expect(await nomineeRole()).toBe('member');
+  });
+});
+
+
+const membersApp = express();
+membersApp.use(express.json());
+membersApp.use('/communities', authMiddleware, membersRouter);
+const memberToken = (userId: string) => jwt.sign(
+  { userId, email: `${userId}@s143.invalid`, communities: [] },
+  process.env.JWT_SECRET!,
+);
+const join = (userId: string) => request(membersApp)
+  .post(`/communities/${fixture.community}/join`)
+  .auth(memberToken(userId), { type: 'bearer' })
+  .send({});
+const depart = (callerId: string, targetId = callerId) => request(membersApp)
+  .delete(`/communities/${fixture.community}/members/${targetId}`)
+  .auth(memberToken(callerId), { type: 'bearer' })
+  .send({});
+const memberRow = async (userId: string) => (await pool.query(
+  `SELECT role,status FROM communities.members WHERE community_id=$1 AND user_id=$2`,
+  [fixture.community, userId],
+)).rows[0];
+const currentMembers = async () => (await pool.query(
+  `SELECT current_members FROM communities.communities WHERE id=$1`, [fixture.community],
+)).rows[0].current_members;
+
+ describe('Sprint 143 membership departure and rejoin', () => {
+  beforeEach(async () => { fixture = await memberFixture(); });
+
+  it('records the DB role flags used to exercise explicit member predicates', async () => {
+    const result = await pool.query(`SELECT current_user,rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user`);
+    console.warn('Sprint 143 membership DB role evidence', result.rows[0]);
+    expect(result.rows).toHaveLength(1);
+  });
+
+  it.each(['active', 'pending'])('lets a %s member leave and only decrements for active membership', async (status) => {
+    await pool.query(`UPDATE communities.members SET status=$3 WHERE community_id=$1 AND user_id=$2`,
+      [fixture.community, fixture.users[1], status]);
+    const response = await depart(fixture.users[1]);
+    expect(response.status).toBe(200);
+    expect(await memberRow(fixture.users[1])).toEqual({ role: 'member', status: 'left' });
+    expect(await currentMembers()).toBe(status === 'active' ? 4 : 5);
+    if (status === 'active') {
+      const claims = jwt.verify(response.body.data.token, process.env.JWT_SECRET!) as jwt.JwtPayload;
+      expect(claims.communities).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: fixture.community }),
+      ]));
+    } else {
+      expect(response.body.data.token).toBeUndefined();
+    }
+  });
+
+  it('refuses self-departure from inactive without changing the row', async () => {
+    await pool.query(`UPDATE communities.members SET status='inactive' WHERE community_id=$1 AND user_id=$2`,
+      [fixture.community, fixture.users[1]]);
+    expect((await depart(fixture.users[1])).status).toBe(409);
+    expect((await memberRow(fixture.users[1])).status).toBe('inactive');
+    expect(await currentMembers()).toBe(5);
+  });
+
+  it.each(['pending', 'left'])('lets an admin remove a %s row without changing the active counter', async (status) => {
+    await pool.query(`UPDATE communities.members SET status=$3 WHERE community_id=$1 AND user_id=$2`,
+      [fixture.community, fixture.users[1], status]);
+    const response = await depart(fixture.users[0], fixture.users[1]);
+    expect(response.status).toBe(200);
+    expect((await memberRow(fixture.users[1])).status).toBe('inactive');
+    expect(await currentMembers()).toBe(5);
+  });
+
+  it('still refuses a sole admin self-leave', async () => {
+    const response = await depart(fixture.users[0]);
+    expect(response.status).toBe(400);
+    expect((await memberRow(fixture.users[0])).status).toBe('active');
+    expect(await currentMembers()).toBe(5);
+  });
+
+  it('rejoins a public community as an active member, never restoring a stored staff role', async () => {
+    await pool.query(`UPDATE communities.members SET status='left',role='admin' WHERE community_id=$1 AND user_id=$2`,
+      [fixture.community, fixture.users[1]]);
+    await pool.query(`UPDATE communities.communities SET current_members=4 WHERE id=$1`, [fixture.community]);
+    const response = await join(fixture.users[1]);
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({ status: 'active', role: 'member', token: expect.any(String) });
+    expect(await memberRow(fixture.users[1])).toEqual({ role: 'member', status: 'active' });
+    expect(await currentMembers()).toBe(5);
+    const claims = jwt.verify(response.body.data.token, process.env.JWT_SECRET!) as jwt.JwtPayload;
+    expect(claims.communities).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: fixture.community, role: 'member' }),
+    ]));
+  });
+
+  it('rejoins a private community as pending without changing the active counter', async () => {
+    await pool.query(`UPDATE communities.communities SET access_type='private',current_members=4 WHERE id=$1`,
+      [fixture.community]);
+    await pool.query(`UPDATE communities.members SET status='left',role='admin' WHERE community_id=$1 AND user_id=$2`,
+      [fixture.community, fixture.users[1]]);
+    const response = await join(fixture.users[1]);
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({ status: 'pending', role: 'member' });
+    expect(response.body.data.token).toBeUndefined();
+    expect(await currentMembers()).toBe(4);
+  });
+
+  it('requires staff to restore inactive membership', async () => {
+    await pool.query(`UPDATE communities.members SET status='inactive' WHERE community_id=$1 AND user_id=$2`,
+      [fixture.community, fixture.users[1]]);
+    const response = await join(fixture.users[1]);
+    expect(response.status).toBe(409);
+    expect(response.body.error).toBe('MEMBERSHIP_RESTORE_REQUIRES_STAFF');
+    expect((await memberRow(fixture.users[1])).status).toBe('inactive');
+  });
+
+  it('serializes concurrent rejoins to one success and one conflict', async () => {
+    await pool.query(`UPDATE communities.members SET status='left' WHERE community_id=$1 AND user_id=$2`,
+      [fixture.community, fixture.users[1]]);
+    await pool.query(`UPDATE communities.communities SET current_members=4 WHERE id=$1`, [fixture.community]);
+    const responses = await Promise.all([join(fixture.users[1]), join(fixture.users[1])]);
+    expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
+    expect((await memberRow(fixture.users[1])).status).toBe('active');
+    expect(await currentMembers()).toBe(5);
+  });
+
+  it('maps concurrent first joins to one success and one conflict, never 500', async () => {
+    const userId = randomUUID();
+    fixture.users.push(userId);
+    await pool.query(`INSERT INTO auth.users(id,email,name,password_hash) VALUES($1,$2,'First join','unused')`,
+      [userId, `${userId}@s143.invalid`]);
+    const responses = await Promise.all([join(userId), join(userId)]);
+    expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
+    expect((await memberRow(userId)).status).toBe('active');
+    expect(await currentMembers()).toBe(6);
+  });
+
+  it.each([2, 3])('serializes two admin self-leaves with %i initial admins', async (adminCount) => {
+    await pool.query(`UPDATE communities.members SET role='admin' WHERE community_id=$1 AND user_id=$2`,
+      [fixture.community, fixture.users[1]]);
+    if (adminCount === 3) {
+      await pool.query(`UPDATE communities.members SET role='admin' WHERE community_id=$1 AND user_id=$2`,
+        [fixture.community, fixture.users[2]]);
+    }
+    const responses = await Promise.all([depart(fixture.users[0]), depart(fixture.users[1])]);
+    const statuses = responses.map((response) => response.status).sort();
+    expect(statuses).toEqual(adminCount === 3 ? [200, 200] : [200, 400]);
+    expect(statuses).not.toContain(500);
+    const admins = await pool.query(`SELECT user_id FROM communities.members
+      WHERE community_id=$1 AND role='admin' AND status='active'`, [fixture.community]);
+    expect(admins.rows).toHaveLength(1);
+    expect(await currentMembers()).toBe(adminCount === 3 ? 3 : 4);
+  });
+
+  it('finishes a self-leave racing a final ratification without deadlock', async () => {
+    const nomination = await create();
+    await vote(nomination.id, fixture.users[0]);
+    await vote(nomination.id, fixture.users[2]);
+    const [departure, ballot] = await Promise.allSettled([
+      depart(fixture.users[3]),
+      vote(nomination.id, fixture.users[3]),
+    ]);
+    expect(departure.status).toBe('fulfilled');
+    if (departure.status === 'fulfilled') expect(departure.value.status).toBe(200);
+    if (ballot.status === 'fulfilled') expect([false, true]).toContain(ballot.value.ratified);
+    else expect(ballot.reason).toMatchObject({ status: 403, code: 'GOVERNANCE_VOTER_NOT_ELIGIBLE' });
+    expect(['pending', 'ratified']).toContain((await nominationRow(nomination.id)).status);
+  }, 60000);
+
+  it('allows an ordinary member to leave a community with no active admin', async () => {
+    await pool.query(`UPDATE communities.members SET status='inactive' WHERE community_id=$1 AND user_id=$2`,
+      [fixture.community, fixture.users[0]]);
+    expect((await depart(fixture.users[2])).status).toBe(200);
+    expect((await memberRow(fixture.users[2])).status).toBe('left');
+  });
+
+  it('restores an original voter ballot after that voter rejoins', async () => {
+    const nomination = await create();
+    await vote(nomination.id, fixture.users[2]);
+    expect((await depart(fixture.users[2])).status).toBe(200);
+    expect((await getGovernanceState(fixture.community, fixture.users[0])).nominations[0].ratification_count).toBe(0);
+    expect((await join(fixture.users[2])).status).toBe(200);
+    const nominationView = (await getGovernanceState(fixture.community, fixture.users[0])).nominations[0];
+    expect(nominationView.ratification_count).toBe(1);
+    expect(nominationView.required_ratifications).toBe(3);
   });
 });

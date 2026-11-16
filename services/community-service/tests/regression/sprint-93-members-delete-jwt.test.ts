@@ -54,18 +54,19 @@ const tokenFor = (userId: string) =>
  * Param-aware content mock: role lookups resolve by the queried user_id ($2), so the
  * tests can distinguish "caller from JWT" from "admin_user_id from body". That is what
  * makes the spoof cases RED on the old (body-trusting) handler and GREEN on the fix.
- * `roles` maps userId → membership role; `activeAdmins` is the set the FOR UPDATE
- * last-admin lock returns.
+ * `roles` maps userId → membership role; `activeAdmins` is the set included in the
+ * ordered target-and-admin FOR UPDATE lock.
  */
 function mockDeleteDb({ roles, activeAdmins }: { roles: Record<string, string>; activeAdmins: string[] }) {
   mockQuery.mockImplementation((sql: any, params?: any) => {
     const s = String(sql);
     const p: any[] = params || [];
-    // Last-admin guard's row-locking SELECT.
-    if (/SELECT user_id\s+FROM communities\.members/i.test(s) && /FOR UPDATE/i.test(s)) {
-      return Promise.resolve({ rows: activeAdmins.map((id) => ({ user_id: id })), rowCount: activeAdmins.length } as any);
+    if (/SELECT user_id,role,status\s+FROM communities\.members/i.test(s) && /FOR UPDATE/i.test(s)) {
+      const targetId = p[1];
+      const ids = [...new Set([...activeAdmins, ...(roles[targetId] ? [targetId] : [])])];
+      const rows = ids.map((id) => ({ user_id: id, role: roles[id] || 'admin', status: 'active' }));
+      return Promise.resolve({ rows, rowCount: rows.length } as any);
     }
-    // Role lookups (caller admin-check AND target-exists check) resolve by user_id param.
     if (/SELECT role\s+FROM communities\.members/i.test(s)) {
       const uid = p[1];
       const role = roles[uid];
