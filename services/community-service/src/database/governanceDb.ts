@@ -237,6 +237,20 @@ export async function createNomination(input: CreateNominationInput): Promise<{
   });
 }
 
+export interface CloseNominationInput {
+  communityId: string;
+  nominationId: string;
+  callerId: string;
+  action: 'withdraw' | 'decline';
+}
+
+export async function closeNomination(_input: CloseNominationInput): Promise<{
+  id: string;
+  status: 'withdrawn' | 'declined';
+}> {
+  throw new Error('closeNomination is implemented with its DB lifecycle tests');
+}
+
 export interface RatificationInput { communityId: string; nominationId: string; ratifierId: string }
 
 function assertNominationPolicy(nomination: any): void {
