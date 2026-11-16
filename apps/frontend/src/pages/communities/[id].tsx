@@ -13,10 +13,9 @@ import ProvidersTab from '@/components/community/tabs/ProvidersTab'
 import InventoryTab from '@/components/community/tabs/InventoryTab'
 import FindASkillPanel from '@/components/skills/FindASkillPanel'
 import { useCommunityData } from '@/hooks/useCommunityData'
-import { decodeJwtPayload } from '@/lib/jwt'
 import { useCommunityPulse } from '@/hooks/useCommunityPulse'
 import { communityService } from '@/lib/api'
-import { isFirstEverJoin, beginArrival } from '@/lib/session'
+import { isFirstEverJoin, beginArrival, persistMembershipToken } from '@/lib/session'
 import { resolveCommunityTab, resolveStewardshipSection, type CommunityTab, type StewardshipSection } from '@/lib/communityTabs'
 import { canViewCommunityStats } from '@/lib/community/statsVisibility'
 
@@ -98,22 +97,9 @@ export default function CommunityDetailPage() {
     try {
       const joinRes = await communityService.joinCommunity(communityId, { user_id: currentUser.id })
 
-      // Persist refreshed JWT so other pages reflect the new membership immediately
       const newToken = joinRes?.data?.token
       if (newToken && community.access_type === 'public') {
-        localStorage.setItem('token', newToken)
-        try {
-          const payload = decodeJwtPayload<any>(newToken)
-          if (payload?.communities) {
-            const stored = localStorage.getItem('user')
-            if (stored) {
-              const u = { ...JSON.parse(stored), communities: payload.communities }
-              localStorage.setItem('user', JSON.stringify(u))
-            }
-          }
-        } catch {
-          // Non-fatal: token decode failed, communities list stays stale until next login
-        }
+        persistMembershipToken(newToken)
       }
 
       if (isFirstJoin && community.access_type === 'public') {
@@ -130,6 +116,22 @@ export default function CommunityDetailPage() {
       )
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to join community')
+    } finally {
+      setJoiningCommunity(false)
+    }
+  }
+
+  const handleLeaveCommunity = async () => {
+    if (!currentUser || !communityId || !community) return
+    if (!window.confirm('Leave this community?')) return
+    setJoiningCommunity(true)
+    try {
+      const res = await communityService.leaveCommunity(communityId, currentUser.id)
+      if (res?.data?.token) persistMembershipToken(res.data.token)
+      await refetchCommunity()
+      alert('Successfully left the community!')
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to leave community')
     } finally {
       setJoiningCommunity(false)
     }
@@ -199,6 +201,7 @@ export default function CommunityDetailPage() {
             isAdmin={isAdmin ?? false}
             joiningCommunity={joiningCommunity}
             onJoin={handleJoinCommunity}
+            onLeave={handleLeaveCommunity}
             onShowFission={() => setActiveTab('stewardship')}
           />
 

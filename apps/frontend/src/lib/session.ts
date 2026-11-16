@@ -1,3 +1,20 @@
+import { decodeJwtPayload } from '@/lib/jwt'
+
+export function persistMembershipToken(token: string): any | undefined {
+  localStorage.setItem('token', token)
+  try {
+    const payload = decodeJwtPayload<any>(token)
+    if (!payload?.communities) return undefined
+    const stored = localStorage.getItem('user')
+    if (!stored) return undefined
+    const updatedUser = { ...JSON.parse(stored), communities: payload.communities }
+    localStorage.setItem('user', JSON.stringify(updatedUser))
+    return updatedUser
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * Sprint 119 — the ONE write sequence for a real authenticated session, shared by every
  * real-auth site (login, register, invite). Storage only: the API clients' request interceptor

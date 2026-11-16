@@ -9,6 +9,7 @@ interface Props {
   isAdmin: boolean
   joiningCommunity: boolean
   onJoin: () => void
+  onLeave?: () => void
   onShowFission?: () => void
 }
 
@@ -28,7 +29,7 @@ function initials(name: string): string {
  * admin size-alert affordance so nothing functional is lost in the reskin. The Schema Manager link edits the
  * global request-type catalog, so it is shown to platform admins, not community admins (Sprint 141, ADR-105).
  */
-export default function CommunityHero({ community, isMember, isPending, isAdmin, joiningCommunity, onJoin, onShowFission }: Props) {
+export default function CommunityHero({ community, isMember, isPending, isAdmin, joiningCommunity, onJoin, onLeave, onShowFission }: Props) {
   const activeMembers = (community.members ?? []).filter((m) => m.status === 'active')
   const cap = community.max_members || DUNBAR_CAP
   const current = community.current_members
@@ -67,6 +68,15 @@ export default function CommunityHero({ community, isMember, isPending, isAdmin,
               : community.access_type === 'private'
               ? 'Request to Join'
               : 'Join Community'}
+          </button>
+        )}
+        {isMember && (
+          <button
+            onClick={onLeave}
+            disabled={joiningCommunity}
+            className="flex-none px-6 py-2 rounded bg-surface border border-border text-text-muted hover:bg-surface-raised disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {joiningCommunity ? 'Leaving...' : 'Leave community'}
           </button>
         )}
         {isPending && (
