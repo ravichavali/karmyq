@@ -5,6 +5,30 @@
 
 ## Recent Changes
 
+- **2026-11-15 (Sprint 143, BUG-102 fixed):** migration
+  `20261115-governance-nomination-lifecycle.sql` adds `governance_nominations.expires_at`, the `declined`
+  and `expired` statuses, and an expiry-aware v1 database guard. New v1 rows default to 30 days; replay
+  backfills existing v1 rows with exactly `created_at + 30 days`, preserves pre-v1 NULL history, and makes no
+  second-run changes. Expired pending rows close lazily on GET and nomination writes with
+  `resolved_at=expires_at`; GET hides them and creation reclaims their slots. A 409 expiry refusal does not
+  roll back that close, and the DB guard refuses expired ballots/final transitions even with the protocol marker.
+  - Withdraw and decline are separate POST routes for the active nominator and nominee. They preserve ballots,
+    return 404 for foreign-community paths, 403 for the wrong/inactive party, and 409 for retries. Every
+    governance write locks nomination then memberships; close versus final ratification serializes atomically.
+  - GET adds `expires_at`, coarse `nominee_eligible`, and viewer `can_withdraw`/`can_decline`; `can_ratify`
+    mirrors POST, including `nominee_ineligible` and `ready_to_finalize`. No voter roster or personal metric is
+    disclosed. Web controls expose confirmed withdrawal/decline and honest ineligible/expiry states.
+  - Membership self-leave now stores `left`; staff removal remains `inactive`. Active/pending self-leave is
+    allowed, inactive self-leave is 409, and the last-admin refusal remains. Target plus active admins lock in
+    one user-ID-ordered statement. Counters change only for active transitions; active self-leave reissues the JWT.
+  - A `left` row self-rejoins public as active ordinary `member` or private as pending ordinary `member`, never
+    regaining a stored staff role. `inactive` (removed/rejected) requires staff and returns 409
+    `MEMBERSHIP_RESTORE_REQUIRES_STAFF`. Active public rejoin increments the counter once and reissues the JWT;
+    private pending does neither. Duplicate concurrent joins map to 409 rather than 500.
+  - Real-DB replay, lifecycle, privacy, membership and race proof passed on disposable PostgreSQL (2 suites,
+    78 tests; superuser+bypass-RLS flags recorded, explicit predicates supply isolation). The disposable DB and
+    tunnel were removed. Whole-tier integration remains PR CI evidence; no demo data operation was performed.
+
 - **2026-11-13 (Sprint 142, #338 `1692a560`, v11.115.0; deployed 2026-11-15):** migration
   `20261112-governance-quorum.sql` adds frozen nomination electorates and policy metadata. One atomic
   DO block locks ballots then nominations, closes only legacy pending nominations, and installs protocol
@@ -146,13 +170,18 @@ Sprint 142 governance additions (migration `20261112-governance-quorum.sql`):
 - `communities.governance_nominations.quorum_policy_version SMALLINT` and `electorate_size INTEGER`, nullable
   only for historical metadata. Version-1 rows require E>=3 and the exact proportional required_ratifications;
   partial unique `governance_one_pending_role` enforces one pending `(community_id, nominated_user_id, nominated_for_role)`.
+- Sprint 143 adds `expires_at TIMESTAMPTZ DEFAULT (now() + interval '30 days')` and extends
+  `valid_nomination_status` with `declined` and `expired`. `governance_expiry_metadata` requires every v1 row
+  to retain an expiry later than creation; legacy NULL-policy rows may keep NULL. Migration backfill uses
+  `created_at + 30 days`, not the migration clock.
 - `communities.governance_nomination_voters(nomination_id UUID, user_id UUID)` has a composite primary key;
   nomination FK cascades and user FK references auth.users. This table stores the frozen electorate separately
   from `governance_ratifications` ballots. Curated reset classifies all three as reset.
-- Protocol guards reject old nomination/ballot inserts and unauthorized ratified transitions. One atomic DO
-  block locks ballots then nominations, adds schema, closes only legacy pending rows, and installs guards.
-  The migration contains no top-level transaction wrapper/LOCK TABLE and replays without schema drift under
-  both canonical appliers. Binary rollback intentionally leaves governance writes closed.
+- Protocol guards reject old nomination/ballot inserts and unauthorized ratified transitions. Sprint 143 also
+  rejects ballots and ratified transitions after expiry even when the protocol marker is set. The Sprint 142
+  atomic DO block locks ballots then nominations, adds schema, closes only legacy pending rows, and installs guards.
+  Neither migration has a top-level transaction wrapper/LOCK TABLE; both replay without schema drift under the
+  canonical appliers. Binary rollback intentionally leaves governance writes closed.
 
 ```sql
 -- communities.communities
@@ -184,8 +213,8 @@ CREATE TABLE communities.members (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     community_id UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    role VARCHAR(50) DEFAULT 'member',         -- admin/member
-    status VARCHAR(50) DEFAULT 'active',       -- active/pending/inactive
+    role VARCHAR(50) DEFAULT 'member',         -- admin/moderator/member
+    status VARCHAR(50) DEFAULT 'active',       -- active/pending/invited/left/inactive
     invited_by UUID REFERENCES auth.users(id),
     join_request_message TEXT,
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -736,29 +765,39 @@ Get all members of a community.
 **Implementation:** `src/routes/members.ts:8`
 
 ### POST /communities/:communityId/join
-Join a community (public: immediate, private: pending approval).
+Join or rejoin a community as the verified JWT caller. Public communities return active membership immediately;
+private communities return pending approval. A body `user_id` has no authority and is not read.
 
 **Request:**
 ```json
 {
-  "user_id": "uuid",
   "message": "I'd like to join this community!"
 }
 ```
 
-**Response:**
+**Existing rows (Sprint 143):** active/pending rows return 409. A `left` row rejoins with `role='member'`,
+regardless of its stored prior role. An `inactive` row (staff removal or rejection) returns 409
+`MEMBERSHIP_RESTORE_REQUIRES_STAFF`; only staff can restore it. Conditional updates and the duplicate-key mapping
+return one success plus one 409 for concurrent attempts instead of a 500.
+
+**Active response (private pending omits `token` and has `status: 'pending'`):**
 ```json
 {
   "success": true,
   "data": {
     "id": "uuid",
-    "status": "active"
-  },
-  "message": "Joined community successfully"
+    "status": "active",
+    "role": "member",
+    "token": "<refreshed-jwt>"
+  }
 }
 ```
 
-**Implementation:** `src/routes/members.ts:43`
+The counter increments only for active membership. `issueMembershipToken` rebuilds claims from active rows only;
+private pending rejoin does not issue a token.
+
+**Implementation:** `src/routes/members.ts` — `POST /:communityId/join`, `classifyExistingMembership`,
+`issueMembershipToken`
 
 **Events Published:** `user_joined_community` (public) or `join_request_created` (private)
 
@@ -800,12 +839,50 @@ Remove member from community (self-leave or admin kick). **Auth required** (rout
 
 **Request:** no body. The caller's identity is taken from the verified JWT (`req.user.userId`),
 **not** from the request body. Self-leave = JWT userId === `:userId`; removing another member
-requires the JWT caller to be an active `admin`. (ADR-064 close-out, Sprint 93 — the previous
-`admin_user_id` body field was spoofable and is now ignored; the last-admin guard is unchanged.)
+requires the JWT caller to be an active `admin`. The old `admin_user_id` body field remains ignored.
 
-**Implementation:** `src/routes/members.ts` (DELETE handler)
+Self-leave accepts active or pending rows and records `left`; inactive/left self-leave returns 409. Staff removal
+records `inactive`. The last active admin cannot leave or be removed. One user-ID-ordered statement locks the target
+and every active admin before checking/updating, preventing two concurrent last-admin departures. Only an active
+target decrements `current_members`; pending/left/inactive removal does not. Active self-leave returns
+`data.token` from `issueMembershipToken`; pending self-leave and staff removal do not.
+
+**Implementation:** `src/routes/members.ts` — `DELETE /:communityId/members/:userId`, `canSelfDepart`,
+`departureStatus`, `issueMembershipToken`
 
 **Events Published:** `user_left_community`
+
+### GET /communities/:communityId/governance
+Return governance state for an active member. Nominations include fixed electorate/quorum metadata, live matching
+ratifier count/identities, `expires_at`, coarse `nominee_eligible`, and viewer
+`{can_ratify,reason,can_withdraw,can_decline}`. Reasons mirror POST behavior, including `nominee`, `already_ratified`,
+`not_in_electorate`, `nominee_ineligible`, `eligible`, and `ready_to_finalize`. No full voter roster or personal
+trust/karma values are returned. An expired pending row is committed as `expired` and hidden; GET alone never grants
+a role.
+
+### POST /communities/:communityId/governance/nominate
+Active members nominate an eligible active member for a higher role. Creation snapshots the other active members,
+uses `max(3, ceil(E/5))`, refuses E<3, and stores expiry 30 days after creation. An expired pending slot can be
+reclaimed; duplicate pending and same/lower-role requests return 409.
+
+### POST /communities/:communityId/governance/withdraw/:nominationId
+The active nominator closes a pending nomination as `withdrawn`; another admin has no special close power.
+The active nominee is the only accepted caller for the parallel **decline** endpoint below. Both preserve ballots,
+return 404 for a foreign community, 403 for an inactive/wrong party, and 409 for an already closed nomination.
+An expired close returns 409 `GOVERNANCE_NOMINATION_EXPIRED` after committing `expired` and
+`resolved_at=expires_at`.
+
+### POST /communities/:communityId/governance/decline/:nominationId
+The active nominee closes a pending nomination as `declined`, including when quorum is already reachable.
+
+### POST /communities/:communityId/governance/ratify/:nominationId
+An active original voter other than the nominee casts one equal vote. The nomination locks before nominee/voter
+memberships. Finalization rechecks current active membership, private eligibility and monotonic elevation, then
+grants/closes atomically. Duplicate below-quorum ballots are idempotent; expired/closed nominations return 409,
+foreign/ineligible callers are refused, and deadlock SQLSTATE 40P01 becomes retryable 503 `GOVERNANCE_RETRY`.
+
+**Implementation (governance):** `src/routes/governance.ts` route handlers and
+`src/database/governanceDb.ts` — `getGovernanceState`, `createNomination`, `closeNomination`, `addRatification`
 
 ### GET /communities/:communityId/norms
 Get all norms for a community.

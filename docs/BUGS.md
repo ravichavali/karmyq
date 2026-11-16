@@ -2777,13 +2777,20 @@ the normal Git/CI gates.
 
 ---
 
-## BUG-102 · [2026-11-13] · open
+## BUG-102 · [2026-11-13] · fixed (Sprint 143; PR pending)
 
 **Self-service rejoin of an inactive membership returns 500.** Reported in Claude's Sprint 142 plan review.
 `services/community-service/src/routes/members.ts:106-133` detects active/pending memberships but falls
 through to INSERT for an inactive row, conflicting with the existing `(community_id, user_id)` uniqueness;
 the catch returns an internal error. Staff can reactivate through the status PUT instead. Captured for a
 later fix; not reproduced live and not included in Sprint 142's quorum scope.
+
+**Resolution:** the join handler now classifies the existing row before writing. A voluntary `left` row rejoins
+public as active ordinary `member` or private as pending ordinary `member`, resets any stored staff role, adjusts
+the counter only for active rejoin, and returns a refreshed token only for active membership. Removed/rejected
+`inactive` rows return 409 `MEMBERSHIP_RESTORE_REQUIRES_STAFF` rather than attempting an INSERT. Conditional
+rejoin updates and 23505 mapping make concurrent attempts one success plus one conflict, never a duplicate-insert
+500. Real-DB coverage is in `tests/integration/sprint-143-governance-lifecycle.integration.test.ts`.
 
 ---
 
@@ -2798,5 +2805,11 @@ never adjust the counter. The join capacity check (`current_members >= max_membe
 drifted value. Sprint 143 makes only the statements it already edits correct (DELETE decrements only an active
 row; self-rejoin increments only on an active rejoin). The PUT transitions and any existing drift on the demo
 are out of scope; the size of the demo drift is unmeasured (it needs a demo DB read).
+
+**Sprint 143 correction:** the DELETE counter statement now runs only when the locked target was active, covering
+pending self-leave and staff removal of pending/left/inactive rows. The self-service join increment runs only for
+an active insert/rejoin, so private pending joins and rejected inactive restoration do not change the counter.
+The staff status PUT transitions and pre-existing stored drift remain open exactly as described above; no demo
+read or repair was performed.
 
 ---
