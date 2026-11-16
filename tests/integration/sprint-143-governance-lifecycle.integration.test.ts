@@ -1,4 +1,6 @@
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import { randomUUID } from 'crypto';
 import express from 'express';
 import request from 'supertest';
@@ -20,6 +22,15 @@ jest.mock('../../services/community-service/src/events/publisher', () => ({
 }));
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 8 });
+const migration = (name: string) => readFileSync(
+  resolve(__dirname, '../../infrastructure/postgres/migrations', name), 'utf8',
+);
+const quorumMigration = () => migration('20261112-governance-quorum.sql');
+const lifecycleMigration = () => migration('20261115-governance-nomination-lifecycle.sql');
+const dropGuards = `
+  DROP TRIGGER IF EXISTS governance_nomination_protocol ON communities.governance_nominations;
+  DROP TRIGGER IF EXISTS governance_ballot_protocol ON communities.governance_ratifications;
+`;
 type CreateInput = {
   communityId: string;
   nominatorId: string;
@@ -86,6 +97,120 @@ afterEach(async () => {
 afterAll(async () => {
   await servicePool.end();
   await pool.end();
+});
+
+describe('Sprint 143 migration replay from the pre-lifecycle shape', () => {
+  it('backfills v1 rows, upgrades the guards, is idempotent and rolls back cleanly', async () => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(dropGuards);
+      const user = randomUUID();
+      const community = randomUUID();
+      await client.query(`INSERT INTO auth.users(id,email,name,password_hash)
+        VALUES($1,$2,'S143 replay','unused')`, [user, `${user}@s143.invalid`]);
+      await client.query(`INSERT INTO communities.communities(id,name,creator_id)
+        VALUES($1,'S143 replay',$2)`, [community, user]);
+      await client.query(`ALTER TABLE communities.governance_nominations DROP COLUMN expires_at`);
+      expect((await client.query(`SELECT 1 FROM pg_constraint
+        WHERE conrelid='communities.governance_nominations'::regclass
+        AND conname='governance_expiry_metadata'`)).rowCount).toBe(0);
+      await client.query(`ALTER TABLE communities.governance_nominations DROP CONSTRAINT valid_nomination_status`);
+      await client.query(`ALTER TABLE communities.governance_nominations ADD CONSTRAINT valid_nomination_status
+        CHECK (status IN ('pending','ratified','rejected','withdrawn'))`);
+
+      const legacy = (await client.query(`INSERT INTO communities.governance_nominations
+        (community_id,nominated_user_id,nominator_id,nominated_for_role,status,resolved_at)
+        VALUES($1,$2,$2,'moderator','rejected',NOW()) RETURNING id`, [community, user])).rows[0].id;
+      const pending = (await client.query(`INSERT INTO communities.governance_nominations
+        (community_id,nominated_user_id,nominator_id,nominated_for_role,status,
+         quorum_policy_version,electorate_size,required_ratifications,created_at)
+        VALUES($1,$2,$2,'moderator','pending',1,3,3,NOW()-interval '10 days') RETURNING id`,
+      [community, user])).rows[0].id;
+      const ratified = (await client.query(`INSERT INTO communities.governance_nominations
+        (community_id,nominated_user_id,nominator_id,nominated_for_role,status,resolved_at,
+         quorum_policy_version,electorate_size,required_ratifications,created_at)
+        VALUES($1,$2,$2,'moderator','ratified',NOW()-interval '20 days',1,3,3,NOW()-interval '20 days') RETURNING id`,
+      [community, user])).rows[0].id;
+
+      await client.query(quorumMigration());
+      await client.query(lifecycleMigration());
+      const backfilled = await client.query(`SELECT id,created_at,expires_at FROM communities.governance_nominations
+        WHERE id=ANY($1::uuid[]) ORDER BY id`, [[legacy, pending, ratified]]);
+      for (const row of backfilled.rows.filter(row => row.id !== legacy)) {
+        expect(row.expires_at.getTime() - row.created_at.getTime()).toBe(30 * 24 * 60 * 60 * 1000);
+      }
+      expect(backfilled.rows.find(row => row.id === legacy).expires_at).toBeNull();
+
+      const guard = () => client.query(`SELECT pg_get_functiondef(
+        'communities.require_governance_protocol_v1()'::regprocedure) AS definition`);
+      expect((await guard()).rows[0].definition).toEqual(expect.stringContaining('GOVERNANCE_NOMINATION_EXPIRED'));
+      for (const check of [
+        'GOVERNANCE_PROTOCOL_REQUIRED',
+        'GOVERNANCE_POLICY_METADATA_REQUIRED',
+        "current_setting('app.governance_policy_version', true) IS DISTINCT FROM '1'",
+        'NEW.quorum_policy_version IS DISTINCT FROM 1',
+        'NEW.electorate_size IS NULL',
+      ]) {
+        expect((await guard()).rows[0].definition).toEqual(expect.stringContaining(check));
+      }
+
+      await client.query(`SELECT set_config('app.governance_policy_version','1',true)`);
+      const current = (await client.query(`INSERT INTO communities.governance_nominations
+        (community_id,nominated_user_id,nominator_id,nominated_for_role,
+         quorum_policy_version,electorate_size,required_ratifications)
+        VALUES($1,$2,$2,'admin',1,3,3) RETURNING id,created_at,expires_at`, [community, user])).rows[0];
+      expect(current.expires_at.getTime() - current.created_at.getTime()).toBe(30 * 24 * 60 * 60 * 1000);
+
+      await client.query('SAVEPOINT null_expiry');
+      await expect(client.query(`UPDATE communities.governance_nominations SET expires_at=NULL WHERE id=$1`,
+        [current.id])).rejects.toMatchObject({ code: '23514', constraint: 'governance_expiry_metadata' });
+      await client.query('ROLLBACK TO SAVEPOINT null_expiry');
+      for (const status of ['declined', 'expired']) {
+        await client.query('SAVEPOINT accepted_status');
+        await client.query(`UPDATE communities.governance_nominations SET status=$2 WHERE id=$1`, [current.id, status]);
+        await client.query('ROLLBACK TO SAVEPOINT accepted_status');
+      }
+      await client.query('SAVEPOINT unknown_status');
+      await expect(client.query(`UPDATE communities.governance_nominations SET status='unknown' WHERE id=$1`,
+        [current.id])).rejects.toMatchObject({ code: '23514', constraint: 'valid_nomination_status' });
+      await client.query('ROLLBACK TO SAVEPOINT unknown_status');
+
+      const snapshot = async () => ({
+        rows: (await client.query(`SELECT id,status,required_ratifications,quorum_policy_version,electorate_size,
+          created_at,resolved_at,expires_at FROM communities.governance_nominations
+          WHERE community_id=$1 ORDER BY id`, [community])).rows,
+        constraints: (await client.query(`SELECT conname,pg_get_constraintdef(oid) AS definition FROM pg_constraint
+          WHERE conrelid='communities.governance_nominations'::regclass
+          AND conname=ANY($1::text[]) ORDER BY conname`,
+        [['governance_quorum_metadata', 'governance_expiry_metadata', 'valid_nomination_status']])).rows,
+        guard: (await guard()).rows[0].definition,
+      });
+      const before = await snapshot();
+      await client.query(lifecycleMigration());
+      expect(await snapshot()).toEqual(before);
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
+
+    const column = await pool.query(`SELECT data_type,column_default FROM information_schema.columns
+      WHERE table_schema='communities' AND table_name='governance_nominations' AND column_name='expires_at'`);
+    expect(column.rows).toHaveLength(1);
+    expect(column.rows[0].data_type).toBe('timestamp with time zone');
+    expect(column.rows[0].column_default).toContain('30 days');
+    const constraints = await pool.query(`SELECT conname FROM pg_constraint
+      WHERE conrelid='communities.governance_nominations'::regclass AND conname=ANY($1::text[]) ORDER BY conname`,
+    [['governance_expiry_metadata', 'valid_nomination_status']]);
+    expect(constraints.rows.map(row => row.conname)).toEqual(['governance_expiry_metadata', 'valid_nomination_status']);
+    const triggers = await pool.query(`SELECT tgname FROM pg_trigger WHERE NOT tgisinternal AND (
+      (tgrelid='communities.governance_nominations'::regclass AND tgname='governance_nomination_protocol') OR
+      (tgrelid='communities.governance_ratifications'::regclass AND tgname='governance_ballot_protocol')) ORDER BY tgname`);
+    expect(triggers.rows.map(row => row.tgname)).toEqual(['governance_ballot_protocol', 'governance_nomination_protocol']);
+    const currentGuard = await pool.query(`SELECT pg_get_functiondef(
+      'communities.require_governance_protocol_v1()'::regprocedure) AS definition`);
+    expect(currentGuard.rows[0].definition).toContain('GOVERNANCE_NOMINATION_EXPIRED');
+  }, 60000);
 });
 
 describe('Sprint 143 nomination close operations', () => {
