@@ -5,7 +5,9 @@ import {
   addRatification,
   closeNomination,
   createNomination,
+  getGovernanceState,
 } from '../../services/community-service/src/database/governanceDb';
+import { assertNoForbiddenReputationKeys } from '@karmyq/shared';
 
 jest.mock('../../services/community-service/src/events/publisher', () => ({
   publishEvent: jest.fn(),
@@ -249,4 +251,175 @@ describe('Sprint 143 lifecycle races', () => {
         .toContain(outcomes[1].reason.code);
     }
   }, 60000);
+});
+
+
+describe('Sprint 143 governance GET projection and POST mirror', () => {
+  beforeEach(async () => { fixture = await memberFixture(); });
+
+  const readNomination = async (viewer = fixture.users[0]) => {
+    const state = await getGovernanceState(fixture.community, viewer);
+    expect(state.nominations).toHaveLength(1);
+    return state.nominations[0];
+  };
+
+  const restoreQuorumWithoutFinalizing = async (nominationId: string) => {
+    await vote(nominationId, fixture.users[0]);
+    await vote(nominationId, fixture.users[2]);
+    await pool.query(`UPDATE communities.members SET status='inactive' WHERE community_id=$1 AND user_id=$2`,
+      [fixture.community, fixture.users[2]]);
+    await vote(nominationId, fixture.users[3]);
+    await pool.query(`UPDATE communities.members SET status='active' WHERE community_id=$1 AND user_id=$2`,
+      [fixture.community, fixture.users[2]]);
+  };
+
+  it('returns exact expiry and party flags, hides expired rows and preserves disclosure boundaries', async () => {
+    const nomination = await create();
+    const stored = await nominationRow(nomination.id);
+    const nominatorView = await readNomination();
+    expect(nominatorView.expires_at).toEqual(stored.expires_at);
+    expect(stored.expires_at.getTime() - stored.created_at.getTime()).toBe(30 * 24 * 60 * 60 * 1000);
+    expect(nominatorView.nominee_eligible).toBe(true);
+    expect(nominatorView.viewer).toEqual({
+      can_ratify: true,
+      reason: 'eligible',
+      can_withdraw: true,
+      can_decline: false,
+    });
+    expect(nominatorView).not.toHaveProperty('voters');
+    expect((await readNomination(fixture.users[1])).viewer).toEqual({
+      can_ratify: false,
+      reason: 'nominee',
+      can_withdraw: false,
+      can_decline: true,
+    });
+    const state = await getGovernanceState(fixture.community, fixture.users[0]);
+    expect(() => assertNoForbiddenReputationKeys(state)).not.toThrow();
+
+    await expire(nomination.id);
+    expect((await getGovernanceState(fixture.community, fixture.users[0])).nominations).toEqual([]);
+  });
+
+  it.each(['inactive', 'trust', 'role'])('reports nominee_eligible false for %s', async (reason) => {
+    const nomination = await create();
+    if (reason === 'inactive') {
+      await pool.query(`UPDATE communities.members SET status='inactive' WHERE community_id=$1 AND user_id=$2`,
+        [fixture.community, fixture.users[1]]);
+    } else if (reason === 'trust') {
+      await pool.query(`UPDATE social_graph.trust_edges SET raw_weight=0 WHERE community_id=$1`, [fixture.community]);
+    } else {
+      await pool.query(`UPDATE communities.members SET role='moderator' WHERE community_id=$1 AND user_id=$2`,
+        [fixture.community, fixture.users[1]]);
+    }
+    expect((await readNomination()).nominee_eligible).toBe(false);
+    expect((await nominationRow(nomination.id)).status).toBe('pending');
+  });
+
+  it('mirrors nominee refusal without a ballot or finalization', async () => {
+    const nomination = await create();
+    const view = await readNomination(fixture.users[1]);
+    expect(view.viewer).toMatchObject({ can_ratify: false, reason: 'nominee' });
+    await expect(vote(nomination.id, fixture.users[1]))
+      .rejects.toMatchObject({ status: 422, code: 'GOVERNANCE_SELF_RATIFICATION' });
+    expect(await ballotCount(nomination.id)).toBe(0);
+    expect((await nominationRow(nomination.id)).status).toBe('pending');
+    expect(await nomineeRole()).toBe('member');
+  });
+
+  it('mirrors not_in_electorate refusal without a ballot or finalization', async () => {
+    const nomination = await create();
+    const lateUser = randomUUID();
+    fixture.users.push(lateUser);
+    await pool.query(`INSERT INTO auth.users(id,email,name,password_hash) VALUES($1,$2,'Late voter','unused')`,
+      [lateUser, `${lateUser}@s143.invalid`]);
+    await pool.query(`INSERT INTO communities.members(community_id,user_id) VALUES($1,$2)`,
+      [fixture.community, lateUser]);
+    expect((await readNomination(lateUser)).viewer).toEqual({
+      can_ratify: false,
+      reason: 'not_in_electorate',
+      can_withdraw: false,
+      can_decline: false,
+    });
+    await expect(vote(nomination.id, lateUser))
+      .rejects.toMatchObject({ status: 403, code: 'GOVERNANCE_VOTER_NOT_ELIGIBLE' });
+    expect(await ballotCount(nomination.id)).toBe(0);
+    expect((await nominationRow(nomination.id)).status).toBe('pending');
+    expect(await nomineeRole()).toBe('member');
+  });
+
+  it('mirrors already_ratified below quorum to an idempotent POST with no changes', async () => {
+    const nomination = await create();
+    await vote(nomination.id, fixture.users[2]);
+    expect((await readNomination(fixture.users[2])).viewer).toMatchObject({
+      can_ratify: false,
+      reason: 'already_ratified',
+    });
+    await expect(vote(nomination.id, fixture.users[2])).resolves.toEqual({
+      ratified: false,
+      ratification_count: 1,
+      required_ratifications: 3,
+    });
+    expect(await ballotCount(nomination.id)).toBe(1);
+    expect((await nominationRow(nomination.id)).status).toBe('pending');
+    expect(await nomineeRole()).toBe('member');
+  });
+
+  it('mirrors ready_to_finalize to finalization without another ballot', async () => {
+    const nomination = await create();
+    await restoreQuorumWithoutFinalizing(nomination.id);
+    expect((await readNomination()).viewer).toMatchObject({ can_ratify: true, reason: 'ready_to_finalize' });
+    await expect(vote(nomination.id, fixture.users[0])).resolves.toEqual({
+      ratified: true,
+      ratification_count: 3,
+      required_ratifications: 3,
+    });
+    expect(await ballotCount(nomination.id)).toBe(3);
+    expect((await nominationRow(nomination.id)).status).toBe('ratified');
+    expect(await nomineeRole()).toBe('moderator');
+  });
+
+  it('mirrors restored quorum with an ineligible nominee to a rollback with no changes', async () => {
+    const nomination = await create();
+    await restoreQuorumWithoutFinalizing(nomination.id);
+    await pool.query(`UPDATE social_graph.trust_edges SET raw_weight=0 WHERE community_id=$1`, [fixture.community]);
+    expect((await readNomination()).viewer).toMatchObject({ can_ratify: false, reason: 'nominee_ineligible' });
+    await expect(vote(nomination.id, fixture.users[0]))
+      .rejects.toMatchObject({ status: 422, code: 'GOVERNANCE_ELIGIBILITY_NOT_MET' });
+    expect(await ballotCount(nomination.id)).toBe(3);
+    expect((await nominationRow(nomination.id)).status).toBe('pending');
+    expect(await nomineeRole()).toBe('member');
+  });
+
+  it('mirrors a deciding ballot with an ineligible nominee to a rollback with no changes', async () => {
+    const nomination = await create();
+    await vote(nomination.id, fixture.users[0]);
+    await vote(nomination.id, fixture.users[2]);
+    await pool.query(`UPDATE social_graph.trust_edges SET raw_weight=0 WHERE community_id=$1`, [fixture.community]);
+    expect((await readNomination(fixture.users[3])).viewer).toMatchObject({
+      can_ratify: false,
+      reason: 'nominee_ineligible',
+    });
+    await expect(vote(nomination.id, fixture.users[3]))
+      .rejects.toMatchObject({ status: 422, code: 'GOVERNANCE_ELIGIBILITY_NOT_MET' });
+    expect(await ballotCount(nomination.id)).toBe(2);
+    expect((await nominationRow(nomination.id)).status).toBe('pending');
+    expect(await nomineeRole()).toBe('member');
+  });
+
+  it('offers and records a non-deciding ballot even when the nominee is ineligible', async () => {
+    const nomination = await create();
+    await pool.query(`UPDATE social_graph.trust_edges SET raw_weight=0 WHERE community_id=$1`, [fixture.community]);
+    expect((await readNomination(fixture.users[2])).viewer).toMatchObject({
+      can_ratify: true,
+      reason: 'eligible',
+    });
+    await expect(vote(nomination.id, fixture.users[2])).resolves.toEqual({
+      ratified: false,
+      ratification_count: 1,
+      required_ratifications: 3,
+    });
+    expect(await ballotCount(nomination.id)).toBe(1);
+    expect((await nominationRow(nomination.id)).status).toBe('pending');
+    expect(await nomineeRole()).toBe('member');
+  });
 });

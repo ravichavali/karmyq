@@ -1,6 +1,6 @@
 import pool from './db';
 import { PoolClient } from 'pg';
-import { GOVERNANCE_QUORUM_POLICY, requiredRatifications, canElevateRole, GovernanceError } from './governancePolicy';
+import { GOVERNANCE_QUORUM_POLICY, requiredRatifications, canElevateRole, deriveViewerState, GovernanceError, GovernanceViewerReason } from './governancePolicy';
 
 export interface GovernanceSettings {
   eligibility_threshold: number;
@@ -16,10 +16,12 @@ export interface GovernanceNomination {
   ratification_count: number;
   required_ratifications: number;
   status: string;
+  expires_at: Date;
+  nominee_eligible: boolean;
   ratifiers: Array<{ user_id: string; name: string }>;
   electorate_size: number;
   quorum_policy_version: 1;
-  viewer: { can_ratify: boolean; reason: 'eligible' | 'nominee' | 'already_ratified' | 'not_in_electorate' | 'ready_to_finalize' };
+  viewer: { can_ratify: boolean; reason: GovernanceViewerReason; can_withdraw: boolean; can_decline: boolean };
 }
 
 export interface GovernanceState {
@@ -87,18 +89,23 @@ export async function getGovernanceState(rawCommunityId: string, rawViewerId: st
 
     // Pending nominations with ratification counts
     const nominationsRes = await client.query(`
-      SELECT n.id, n.nominated_for_role AS role, n.status,
+      SELECT n.id, n.nominated_for_role AS role, n.status, n.expires_at,
              n.required_ratifications, n.created_at, n.electorate_size, n.quorum_policy_version,
              nu.id AS nominated_user_id, nu.name AS nominated_user_name,
              nom.id AS nominator_id, nom.name AS nominator_name,
+             nm.role AS nominee_current_role, nm.status='active' AS nominee_active,
+             COALESCE((SELECT SUM(te.raw_weight) FROM social_graph.trust_edges te
+               WHERE te.community_id=$1 AND (te.user_id_a=n.nominated_user_id OR te.user_id_b=n.nominated_user_id)
+             ),0) >= $3 AS nominee_meets_threshold,
              EXISTS(SELECT 1 FROM communities.governance_nomination_voters v
                WHERE v.nomination_id=n.id AND v.user_id=$2) AS viewer_in_electorate
       FROM communities.governance_nominations n
       JOIN auth.users nu ON nu.id = n.nominated_user_id
       JOIN auth.users nom ON nom.id = n.nominator_id
-      WHERE n.community_id = $1 AND n.status = 'pending'
+      LEFT JOIN communities.members nm ON nm.community_id=n.community_id AND nm.user_id=n.nominated_user_id
+      WHERE n.community_id = $1 AND n.status = 'pending' AND n.expires_at > now()
       ORDER BY n.created_at DESC
-    `, [communityId,viewerId]);
+    `, [communityId,viewerId,settings.eligibility_threshold]);
 
     const nominations: GovernanceNomination[] = [];
     for (const row of nominationsRes.rows) {
@@ -113,13 +120,17 @@ export async function getGovernanceState(rawCommunityId: string, rawViewerId: st
         WHERE r.nomination_id = $1
         ORDER BY u.id
       `, [row.id,communityId]);
-      let reason: GovernanceNomination['viewer']['reason'] = 'eligible';
-      if (row.nominated_user_id === viewerId) reason = 'nominee';
-      else if (!row.viewer_in_electorate) reason = 'not_in_electorate';
-      else if (ratifiersRes.rows.some(r => r.user_id === viewerId)) {
-        reason = 'already_ratified';
-        if (ratifiersRes.rows.length >= row.required_ratifications) reason = 'ready_to_finalize';
-      }
+      const nomineeEligible = row.nominee_active
+        && canElevateRole(row.nominee_current_role ?? 'member',row.role)
+        && row.nominee_meets_threshold;
+      const viewer = deriveViewerState({
+        isNominee: row.nominated_user_id === viewerId,
+        inElectorate: row.viewer_in_electorate,
+        hasVoted: ratifiersRes.rows.some(r => r.user_id === viewerId),
+        count: ratifiersRes.rows.length,
+        required: row.required_ratifications,
+        nomineeEligible,
+      });
       nominations.push({
         id: row.id,
         nominated_user: { user_id: row.nominated_user_id, name: row.nominated_user_name },
@@ -128,10 +139,12 @@ export async function getGovernanceState(rawCommunityId: string, rawViewerId: st
         ratification_count: ratifiersRes.rows.length,
         required_ratifications: row.required_ratifications,
         status: row.status,
+        expires_at: row.expires_at,
+        nominee_eligible: nomineeEligible,
         ratifiers: ratifiersRes.rows,
         electorate_size: row.electorate_size,
         quorum_policy_version: 1,
-        viewer: { can_ratify: reason === 'eligible' || reason === 'ready_to_finalize',reason },
+        viewer: { ...viewer,can_withdraw: row.nominator_id === viewerId,can_decline: row.nominated_user_id === viewerId },
       });
     }
 
