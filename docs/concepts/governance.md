@@ -18,11 +18,13 @@ Karmyq combines trust-based eligibility for leadership with equal member votes o
 
 There must be at least three voters besides the nominee to open a nomination. Nomination adds no automatic vote; a nominator can ratify separately. The nominee cannot ratify their own nomination.
 
-New arrivals cannot vote on an already-open nomination. Departed members' votes stop counting, while the required number stays fixed. If a steward reactivates an original member, their existing vote counts again. Self-service rejoin does not currently reactivate an inactive membership; ask a steward.
+New arrivals cannot vote on an already-open nomination. Departed members' votes stop counting, while the required number stays fixed. If an original voter rejoins or a steward reactivates them, their existing vote counts again. Removed and rejected members need staff reactivation; self-service rejoin applies only to members who left.
 
 If restored votes already satisfy quorum, a prior active voter can select **Finalize decision**. This safely rechecks the existing votes and nominee eligibility without adding another ballot. Reading the decision never grants a role by itself.
 
-At quorum, Karmyq rechecks that the nominee is still active, eligible and being elevated, then grants the role and closes the nomination together. A completed grant is not undone by later voter departures. A nomination that loses too many voters can remain pending; this change adds no expiry or withdrawal control.
+At quorum, Karmyq rechecks that the nominee is still active, eligible and being elevated, then grants the role and closes the nomination together. A completed grant is not undone by later voter departures. If the nominee is no longer eligible, the nomination cannot be finalized; it remains open until it closes by withdrawal, decline or expiry.
+
+A pending nomination closes when its nominator selects **Withdraw nomination**, its nominee selects **Decline**, or 30 days pass. Closing preserves its historical ballots. Expired nominations disappear from the open list, allowing a new nomination for that member and role. Expiry applies to the nomination, not to a role that was already granted.
 
 **Transition:** nominations pending under the old fixed-quorum rules close during the migration and must be submitted again. Already granted roles and historical ballots remain.
 
@@ -47,6 +49,6 @@ Existing template labels can describe a community's governance style. New admin/
 
 ## Why Non-Permanent Roles?
 
-Avoiding permanent privilege is an architectural goal. This sprint implements nomination eligibility and ratification; it does not add automatic role rotation, revocation on a trust drop, or time-based expiry. Those intentions must not be read as promises made by the current voting controls.
+Avoiding permanent privilege is an architectural goal. The current controls implement nomination eligibility, ratification, withdrawal, decline and nomination expiry. They do not add automatic role rotation or revocation on a trust drop, and a role already granted does not expire with its nomination. Those broader intentions must not be read as promises made by the current voting controls.
 
 See [ADR-055: Trust-Based Governance Architecture](/docs/concepts/adr-055-trust-governance-architecture) for the full design rationale.

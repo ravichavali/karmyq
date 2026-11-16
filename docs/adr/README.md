@@ -98,7 +98,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-052: Security Hardening — OWASP Top 10 Baseline](ADR-052-security-hardening.md) — **Implemented**
 - [ADR-053: Feed Design Philosophy](ADR-053-feed-design-philosophy.md) — **Accepted**
 - [ADR-054: Trust Graph Architecture](ADR-054-trust-graph-architecture.md) — **Implemented**
-- [ADR-055: Trust-Based Governance Architecture](ADR-055-trust-governance-architecture.md) — **Implemented** (Sprint 142 amendment: proportional equal-vote ratification; deployed 2026-11-15, v11.115.0)
+- [ADR-055: Trust-Based Governance Architecture](ADR-055-trust-governance-architecture.md) — **Implemented** (Sprint 142 amendment: proportional equal-vote ratification; Sprint 143 amendment: withdraw, decline, 30-day nomination expiry and member rejoin)
 - [ADR-056: Intrinsic Trust Decay (Interaction Half-Life)](ADR-056-intrinsic-trust-decay.md) — **Implemented**
 - [ADR-057: Community Fission Mechanism](ADR-057-fission-mechanism.md) — **Implemented**
 - [ADR-058: Community Fusion Mechanism](ADR-058-fusion-mechanism.md) — **Implemented**
