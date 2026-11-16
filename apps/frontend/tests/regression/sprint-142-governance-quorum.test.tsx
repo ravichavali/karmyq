@@ -5,6 +5,7 @@ import { communityService } from '@/lib/api';
 
 jest.mock('@/lib/api', () => ({ communityService: {
   getGovernanceState: jest.fn(),nominateForRole: jest.fn(),ratifyNomination: jest.fn(),
+  withdrawNomination: jest.fn(),declineNomination: jest.fn(),
 } }));
 
 function state() {
@@ -21,7 +22,8 @@ function state() {
     nominations: [{ id: 'nom',nominated_user: { user_id: 'member',name: 'Nia' },role: 'moderator',
       nominator: { user_id: 'admin',name: 'Ada' },ratification_count: 2,required_ratifications: 4,electorate_size: 16,
       quorum_policy_version: 1,ratifiers: [{ user_id: 'admin',name: 'Ada' },{ user_id: 'other',name: 'Ari' }],
-      viewer: { can_ratify: true,reason: 'eligible' } }],
+      expires_at: '2026-12-15T12:00:00.000Z',nominee_eligible: true,
+      viewer: { can_ratify: true,reason: 'eligible',can_withdraw: false,can_decline: false } }],
   };
 }
 function deferred<T>() {
@@ -49,7 +51,7 @@ it('renders fixed policy/progress from the production-unwrapped response', async
 });
 
 it.each([
-  ['nominee','Your nomination'],['already_ratified','Already ratified'],['not_in_electorate','You joined after this nomination opened.'],
+  ['nominee','Your nomination'],['already_ratified','Already ratified'],['not_in_electorate','You were not an active member when this nomination opened.'],
 ])('uses server eligibility to hide voting for %s', async (reason,copy) => {
   const data=state(); data.nominations[0].viewer={ can_ratify: false,reason };
   get.mockResolvedValue({ data });

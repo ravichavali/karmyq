@@ -11,8 +11,12 @@ interface Person { user_id: string; name: string }
 interface Nomination {
   id: string; nominated_user: Person; nominator: Person; role: GovernanceRole;
   ratification_count: number; required_ratifications: number; electorate_size: number;
-  ratifiers: Person[];
-  viewer: { can_ratify: boolean; reason: 'eligible' | 'nominee' | 'already_ratified' | 'not_in_electorate' | 'ready_to_finalize' }
+  ratifiers: Person[]; expires_at: string; nominee_eligible: boolean;
+  viewer: {
+    can_ratify: boolean;
+    reason: 'eligible' | 'nominee' | 'already_ratified' | 'not_in_electorate' | 'ready_to_finalize' | 'nominee_ineligible';
+    can_withdraw: boolean; can_decline: boolean;
+  }
 }
 interface GovernanceState {
   can_nominate: boolean;
@@ -24,8 +28,8 @@ interface GovernanceState {
 }
 const reasonCopy = {
   eligible: '', nominee: 'Your nomination', already_ratified: 'Already ratified',
-  ready_to_finalize: 'Ready to finalize',
-  not_in_electorate: 'You joined after this nomination opened.',
+  ready_to_finalize: 'Ready to finalize', nominee_ineligible: 'Nominee ineligible',
+  not_in_electorate: 'You were not an active member when this nomination opened.',
 }
 function actionMessage(error: unknown) {
   const message = (error as { response?: { data?: { message?: unknown } } } | null)?.response?.data?.message
@@ -46,6 +50,7 @@ function GovernancePanel({ communityId }: GovernanceTabProps) {
   const [actionError, setActionError] = useState<string | null>(null)
   const [nominateTarget, setNominateTarget] = useState<string | null>(null)
   const [nominateRole, setNominateRole] = useState<GovernanceRole>('moderator')
+  const [closeAction, setCloseAction] = useState<{ id: string; action: 'withdraw' | 'decline' } | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   const fetchState = useCallback(() => {
@@ -88,6 +93,7 @@ function GovernancePanel({ communityId }: GovernanceTabProps) {
       await operation()
       if (!active()) return
       setNominateTarget(null)
+      setCloseAction(null)
       await refresh()
     } catch (error) {
       if (!active()) return
@@ -162,6 +168,7 @@ function GovernancePanel({ communityId }: GovernanceTabProps) {
                     <span className="font-medium text-gray-900">{nom.nominated_user.name}</span>
                     <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs">{nom.role}</span>
                     <p className="text-xs text-gray-500 mt-0.5">Nominated by {nom.nominator.name}</p>
+                    <p className="text-xs text-gray-500">Closes {new Date(nom.expires_at).toLocaleDateString()}</p>
                   </div>
                   {nom.viewer.can_ratify ? (
                     <button
@@ -173,6 +180,38 @@ function GovernancePanel({ communityId }: GovernanceTabProps) {
                     </button>
                   ) : <span className="text-xs text-gray-500">{reasonCopy[nom.viewer.reason]}</span>}
                 </div>
+                {(nom.viewer.can_withdraw || nom.viewer.can_decline) && <div className="mt-3 flex items-center gap-2">
+                  {closeAction?.id === nom.id ? (
+                    <>
+                      <button
+                        disabled={submitting}
+                        onClick={() => { void perform(() => closeAction.action === 'withdraw'
+                          ? communityService.withdrawNomination(communityId, nom.id)
+                          : communityService.declineNomination(communityId, nom.id)) }}
+                        className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                      >
+                        Confirm {closeAction.action === 'withdraw' ? 'withdrawal' : 'decline'}
+                      </button>
+                      <button disabled={submitting} onClick={() => setCloseAction(null)} className="text-xs text-gray-400">Cancel</button>
+                    </>
+                  ) : (
+                    <>
+                      {nom.viewer.can_withdraw && <button
+                        disabled={submitting}
+                        onClick={() => setCloseAction({ id: nom.id, action: 'withdraw' })}
+                        className="text-xs px-2 py-1 border border-gray-200 rounded text-red-600 hover:bg-red-50"
+                      >Withdraw nomination</button>}
+                      {nom.viewer.can_decline && <button
+                        disabled={submitting}
+                        onClick={() => setCloseAction({ id: nom.id, action: 'decline' })}
+                        className="text-xs px-2 py-1 border border-gray-200 rounded text-red-600 hover:bg-red-50"
+                      >Decline</button>}
+                    </>
+                  )}
+                </div>}
+                {!nom.nominee_eligible && <p className="mt-3 text-xs text-amber-700">
+                  This nomination can't be finalized while the nominee isn't eligible. It closes on {new Date(nom.expires_at).toLocaleDateString()}.
+                </p>}
                 <div className="mt-3">
                   <div className="flex justify-between text-xs text-gray-500 mb-1">
                     <span>{nom.ratification_count} of {nom.required_ratifications} ratifications</span>
