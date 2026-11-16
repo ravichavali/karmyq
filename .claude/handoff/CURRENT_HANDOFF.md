@@ -1,8 +1,8 @@
 # Sprint 143 — Governance nomination lifecycle + member rejoin — Handoff
 
 **Date**: 2026-11-15
-**Outcome**: **planned; round 1 of the plan review (Codex) is integrated; awaiting a round-2 re-review, then
-execution.** The spec and plan are committed on this branch. No product code has changed yet. Sprint 142 (PR #338, v11.115.0) is shipped and verified; its record
+**Outcome**: **planned and review-clean; ready for execution.** Codex's plan review rounds 1 and 2 are
+integrated. The spec and plan are committed on this branch. No product code has changed yet. Sprint 142 (PR #338, v11.115.0) is shipped and verified; its record
 is [archived](archive/2026-11-15-sprint-142-governance-quorum-COMPLETE-v11.115.0.md).
 
 **Sprint goal:** pending nominations close by nominator withdrawal, nominee decline or 30-day expiry, and members
@@ -19,7 +19,7 @@ who left can rejoin without a 500 and without regaining their old role.
 |---|---|
 | **Branch** | `agent/claude/sprint-143-planning` (reused task branch) |
 | **Base** | `origin/master` at `1692a560` (fetched 2026-11-15; no open PRs observed) |
-| **Active editor** | None until the plan review lands. Then the executing agent |
+| **Active editor** | The executing agent (next chat) |
 | **Reviewer role** | A non-author (Codex) reviews the plan read-only; findings go back to the author to integrate. Reviewers do not co-edit |
 | **Owned paths** | The plan's *File map* (community-service governance + members routes, one migration + regenerated `init.sql`, GovernanceTab, CommunityHero/community page, governance and leave/rejoin docs, CONTEXT/registry/BUGS) |
 | **Shared resources** | **Allocated (2026-11-15):** SSH to karmyq.com for a *disposable* Postgres container only. **Not allocated:** merge slot, version bump, ADR numbers, dependency lane, any demo data operation, the demo platform-admin grant and its 200 smoke check |
@@ -38,15 +38,14 @@ who left can rejoin without a 500 and without regaining their old role.
 2. Reuse the existing task branch `agent/claude/sprint-143-planning` (`git switch agent/claude/sprint-143-planning`).
    Then `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`; if master moved past `1692a560`,
    merge `origin/master` (merge commit, never rebase). Never branch off a stale local master.
-3. **Round 1 of the non-author plan review is integrated** (see *Plan review log*). **A round-2 re-review of the
-   updated HEAD comes first**: read-only, with findings returned to the author (see *Next step*).
+3. **Both rounds of the non-author plan review are integrated** (see *Plan review log*). No further plan review
+   is pending before Task 1.
 4. Open the plan: `docs/superpowers/plans/2026-11-15-sprint-143-governance-nomination-lifecycle.md`.
 5. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`, preferred in this
    shared working tree with one editor). There is no `/execute-plan` slash command; superpowers removed it as a
    deprecated stub.
 
-**Next step**: Codex re-reviews the updated HEAD (round 2) → the author integrates any findings → Plan **Task 1**
-in a fresh execution chat.
+**Next step**: Plan **Task 1** in a fresh execution chat.
 
 **This branch's first commit `3e63ca9f` is Sprint 142's post-merge record.** It must never reach master on its own
 (no docs-only master push). It rides with this sprint's product PR, and the PR body says so.
@@ -104,6 +103,15 @@ source, and all eight held. They are integrated in the commit after `246f958a`:
 | 6 | Sprint 142's exact-equality assertions break on the new fields | CONFIRMED (`:207`, `:219`, `:313`, `:452`, `:458`; `:343` and `:447` use `toMatchObject` and survive) | Plan file map; Tasks 4 and 5 extend them with exact values |
 | 7 | DELETE locking target-then-admins can deadlock two admins who leave at once | CONFIRMED by tracing the lock sequence (`members.ts:492-518`), not yet run against a DB; plan Task 6 adds the race | One `user_id`-ordered lock statement (spec lock-order section, plan Task 6); note 1 |
 | 8 | The Sprint 120 sentinel test is not regeneration proof | CONFIRMED (`sprint-120-init-sql-drift-gate.test.ts:8-32`) | Plan Task 1 names the drift check and byte comparison; Tasks 13 and 14 track them; note 12 |
+
+**Round 2: Codex, read-only, at `6f8c7bf1` (2026-11-15).** No new blocking defects. The four requested checks
+held: the ordered DELETE lock, the Task 9 shape restore, the focused command and the `init.sql` evidence chain.
+Two clarifications, both CONFIRMED, are integrated in the commit after `6f8c7bf1`:
+
+| # | Clarification | Evidence | Where it landed |
+|---|---|---|---|
+| R2-1 | The combined DELETE lock result always contains the target, so the last-admin guard must filter to active admins | `members.ts:513-520` counts a result that holds active admins only | Spec lock-order step 2 and acceptance; plan Task 6 (the filter, plus a no-active-admin leave case) |
+| R2-2 | The `DATABASE_URL`-only claim is verified for the Sprint 142 file but only planned for the Sprint 143 file, and the scratch-DB case needs `CREATE DATABASE` | `sprint-142-governance-quorum.integration.test.ts:15`, `:117`; `tests/integration/setup.ts:46-48` | Plan Task 4; handoff facts. Plan Task 9 also issues `ROLLBACK` in `finally` (`:83-86`) |
 
 ## ⚠️ Critical implementation notes (verbatim from the spec)
 
@@ -172,8 +180,12 @@ source, and all eight held. They are integrated in the commit after `246f958a`:
     and the timestamp-moving fixtures need no protocol marker.
   - Creation and ratification already lock memberships in one `user_id`-ordered statement
     (`services/community-service/src/database/governanceDb.ts:212-213`, `:266-270`); DELETE was the outlier.
-  - The Sprint 142/143 integration files need only `DATABASE_URL`
-    (`services/community-service/src/database/db.ts:9-14`; the events publisher is mocked).
+  - Verified: the Sprint 142 integration file needs only `DATABASE_URL` supplied
+    (`services/community-service/src/database/db.ts:9-14`; publisher mocked at its `:15`; `JWT_SECRET` defaulted
+    by `tests/integration/setup.ts:46-48`). Its scratch-DB case (`:117`) also needs a role that may
+    `CREATE DATABASE`.
+  - Planned, PLAUSIBLE until the file exists: the Sprint 143 file has the same needs only if it follows that
+    pattern (plan Task 4).
   - DELETE's 500 body returns the raw `error.message` (`members.ts:563-567`) instead of an ADR-074 code, as do
     other handlers in the file (`:67`, `:321`, `:451`). This is out of scope; it is flagged for Task 12's
     `/security-review`, which decides whether the rewritten DELETE carries the fix.

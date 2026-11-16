@@ -1,8 +1,8 @@
 # Sprint 143: Governance Nomination Lifecycle and Member Rejoin — Design Spec
 
 **Date**: 2026-11-15
-**Status**: Approved by the maintainer, 2026-11-15 (planning chat; decisions 1–8 below). Plan review round 1
-(Codex, 8 findings) was integrated the same day; see the handoff's *Plan review log*.
+**Status**: Approved by the maintainer, 2026-11-15 (planning chat; decisions 1–8 below). Codex's plan review
+rounds 1 (8 findings) and 2 (2 clarifications) were integrated the same day; see the handoff's *Plan review log*.
 **Version**: v11.115.0 → **unallocated.** The maintainer allocates the release version at merge time, re-derived
 from `origin/master`.
 **Sprint Branch**: `agent/claude/sprint-143-planning` (reused task branch; it already carries the Sprint 142
@@ -259,7 +259,10 @@ only)'`.
   1. Lock every membership row the decision reads in **one statement ordered by `user_id`**: the target plus
      every active admin (`WHERE community_id = $1 AND (user_id = $2 OR (role = 'admin' AND status = 'active'))
      ORDER BY user_id FOR UPDATE`). Read the target's prior status from it; no target row → 404.
-  2. Apply the self-departure guard, then the existing last-admin guard, to the locked rows.
+  2. Apply the self-departure guard to the target's prior status. Then filter the locked rows to `activeAdmins`
+     (`role = 'admin' AND status = 'active'`), and refuse as the last admin (400) only when the target is itself
+     in `activeAdmins` and it is the only row there. The result always contains the target, whatever its role or
+     status, so the old unfiltered count (`members.ts:519-520`) must not carry over.
   3. Write `left` or `inactive`.
   4. Decrement `current_members` only if the prior status was `active`.
   - **Why one ordered statement.** Today DELETE reads the target unlocked and then locks the active admins
@@ -403,6 +406,8 @@ Proofs required:
   - Two admins leaving at once: with a third active admin both get 200; with exactly two, one 200 and one 400,
     one active admin remains, and never a 500. A DELETE racing a final ratification over the same members does
     not deadlock.
+  - The last-admin guard counts only active admins: a member can leave a community that has no active admin
+    (200, not the last-admin 400).
   - A rejoined original voter counts again.
   - Real-DB evidence records `current_user`, `rolsuper` and `rolbypassrls`.
 - **UI.**

@@ -289,9 +289,14 @@ npm exec --workspace=services/community-service -- jest --runTestsByPath tests/t
 DATABASE_URL=<tunnel URL> npm exec --workspace=tests -- jest --config jest.integration.config.js --runTestsByPath integration/sprint-143-governance-lifecycle.integration.test.ts integration/sprint-142-governance-quorum.integration.test.ts
 ```
 
-  These two files need only `DATABASE_URL`: the community-service pool reads it
-  (`services/community-service/src/database/db.ts:9-14`), and the events publisher is mocked (copy Sprint 142's
-  mock, `sprint-142-governance-quorum.integration.test.ts:15`). Do not use `npm run test:integration` here. The
+  **Verified for the Sprint 142 file:** it needs only `DATABASE_URL` supplied. The community-service pool reads
+  it (`services/community-service/src/database/db.ts:9-14`), the events publisher is mocked
+  (`sprint-142-governance-quorum.integration.test.ts:15`), and `tests/integration/setup.ts:46-48` defaults
+  `JWT_SECRET`. **Planned for the Sprint 143 file (PLAUSIBLE until it exists):** it keeps that property only if
+  it follows the same pattern: copy the publisher mock, rely on the setup defaults, and add no service URL or
+  Redis dependency. The DB role must also be allowed to `CREATE DATABASE` for Sprint 142's scratch-DB case
+  (`:117`). The official `postgres` image creates `POSTGRES_USER` as a superuser; confirm `rolsuper` or
+  `rolcreatedb` before the run. Do not use `npm run test:integration` here. The
   whole tier also calls running services and needs Redis (`tests/integration/auth-flow.integration.test.ts:48`;
   CI starts them at `.github/workflows/ci.yml:296-306` and sets Redis at `:340`), which the container does not
   provide.
@@ -369,6 +374,7 @@ DATABASE_URL=<tunnel URL> npm exec --workspace=tests -- jest --config jest.integ
   - two admins self-leaving at once (two connections): with a third active admin both get 200; with exactly two
     admins, one 200 and one 400, one active admin remains, and never a 500 or 40P01;
   - a DELETE racing a final ratification that locks the same member rows: both finish, with no deadlock;
+  - a member self-leaving a community with no active admin (seeded directly) gets 200, not the last-admin 400;
   - a rejoined original voter's ballot counts again on a pending nomination;
   - log the DB role flags (`current_user`, `rolsuper`, `rolbypassrls`).
 - [ ] **Run red** on the disposable DB with Task 4's focused command.
@@ -378,7 +384,11 @@ DATABASE_URL=<tunnel URL> npm exec --workspace=tests -- jest --config jest.integ
     (role = 'admin' AND status = 'active')) ORDER BY user_id FOR UPDATE`. It replaces the separate target read
     and admin lock (`members.ts:492-518`), so no transaction holds one membership row while waiting for another
     out of order. No target row → 404, as today;
-  - from the locked rows: the target's prior status → `canSelfDepart` guard for self, then the last-admin guard;
+  - from the locked rows: the target's prior status → `canSelfDepart` guard for self. Then
+    `activeAdmins = locked.filter(r => r.role === 'admin' && r.status === 'active')`, and refuse as the last
+    admin (400) only when the target is in `activeAdmins` and `activeAdmins.length <= 1`. The result always
+    contains the target, whatever its role or status, so do not carry over the old unfiltered count
+    (`members.ts:519-520`);
   - write `departureStatus(isSelfRemove)`;
   - decrement only if the prior status was `active`.
   Reissue the token for a self-leave from active.
@@ -471,7 +481,8 @@ npm exec --workspace=apps/frontend -- jest --runTestsByPath tests/tdd/sprint-143
   - `declined` and `expired` are accepted and an unknown status is rejected (savepoints);
   - a second replay changes nothing (the rows, constraint definitions and `pg_get_functiondef` are equal before
     and after).
-  After `ROLLBACK`, assert from a fresh connection that the column, both constraints, both triggers and the
+  Issue the `ROLLBACK` and release the client in `finally`, as Sprint 142's case does (`:83-86`). Afterwards,
+  assert from a fresh connection that the column, both constraints, both triggers and the
   Sprint 143 guard body are still in place, as Sprint 142's case does for its guards.
 - [ ] **Run the Sprint 142 and Sprint 143 integration files** on the disposable DB with Task 4's focused command
   plus `--no-cache`. Record the counts, the role flags and the exact commands in the commit message. Do not run
