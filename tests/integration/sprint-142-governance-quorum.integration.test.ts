@@ -204,7 +204,9 @@ describe('Sprint 142 nomination creation using shipped SQL', () => {
 
   it('stores a fixed nominee-excluding roster and gives the nominator no automatic vote', async () => {
     const result = await create(input());
-    expect(result).toEqual({ id: expect.any(String), quorum_policy_version: 1, electorate_size: 4, required_ratifications: 3 });
+    const stored = (await pool.query(`SELECT created_at,expires_at FROM communities.governance_nominations WHERE id=$1`, [result.id])).rows[0];
+    expect(result).toEqual({ id: expect.any(String), quorum_policy_version: 1, electorate_size: 4, required_ratifications: 3, expires_at: stored.expires_at });
+    expect(stored.expires_at.getTime() - stored.created_at.getTime()).toBe(30 * 24 * 60 * 60 * 1000);
     const roster = await pool.query(`SELECT user_id FROM communities.governance_nomination_voters WHERE nomination_id=$1`, [result.id]);
     expect(roster.rows.map(r => r.user_id).sort()).toEqual(fixture.users.filter(u => u !== fixture.users[1]).sort());
     expect((await pool.query(`SELECT * FROM communities.governance_ratifications WHERE nomination_id=$1`, [result.id])).rowCount).toBe(0);
