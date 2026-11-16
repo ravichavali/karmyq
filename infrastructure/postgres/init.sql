@@ -290,6 +290,12 @@ CREATE FUNCTION communities.require_governance_protocol_v1() RETURNS trigger
       IF current_setting('app.governance_policy_version', true) IS DISTINCT FROM '1' THEN
         RAISE EXCEPTION 'GOVERNANCE_PROTOCOL_REQUIRED' USING ERRCODE = '23514';
       END IF;
+      IF EXISTS (
+        SELECT 1 FROM communities.governance_nominations
+        WHERE id = NEW.nomination_id AND expires_at <= now()
+      ) THEN
+        RAISE EXCEPTION 'GOVERNANCE_NOMINATION_EXPIRED' USING ERRCODE = '23514';
+      END IF;
       RETURN NEW;
     END IF;
     IF TG_OP = 'INSERT' OR NEW.status = 'ratified' THEN
@@ -299,6 +305,9 @@ CREATE FUNCTION communities.require_governance_protocol_v1() RETURNS trigger
       IF TG_TABLE_NAME = 'governance_nominations' THEN
         IF NEW.quorum_policy_version IS DISTINCT FROM 1 OR NEW.electorate_size IS NULL THEN
           RAISE EXCEPTION 'GOVERNANCE_POLICY_METADATA_REQUIRED' USING ERRCODE = '23514';
+        END IF;
+        IF NEW.status = 'ratified' AND NEW.expires_at <= now() THEN
+          RAISE EXCEPTION 'GOVERNANCE_NOMINATION_EXPIRED' USING ERRCODE = '23514';
         END IF;
       END IF;
     END IF;
@@ -1292,8 +1301,10 @@ CREATE TABLE communities.governance_nominations (
     resolved_at timestamp with time zone,
     quorum_policy_version smallint,
     electorate_size integer,
+    expires_at timestamp with time zone DEFAULT (now() + '30 days'::interval),
+    CONSTRAINT governance_expiry_metadata CHECK (((quorum_policy_version IS NULL) OR ((expires_at IS NOT NULL) AND (expires_at > created_at)))),
     CONSTRAINT governance_quorum_metadata CHECK ((((quorum_policy_version IS NULL) AND (electorate_size IS NULL)) OR ((quorum_policy_version IS NOT NULL) AND (electorate_size IS NOT NULL) AND (quorum_policy_version = 1) AND (electorate_size >= 3) AND ((required_ratifications)::numeric = GREATEST((3)::numeric, ceil(((electorate_size)::numeric / (5)::numeric))))))),
-    CONSTRAINT valid_nomination_status CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'ratified'::character varying, 'rejected'::character varying, 'withdrawn'::character varying])::text[])))
+    CONSTRAINT valid_nomination_status CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'ratified'::character varying, 'rejected'::character varying, 'withdrawn'::character varying, 'declined'::character varying, 'expired'::character varying])::text[])))
 );
 
 --
@@ -1351,7 +1362,7 @@ CREATE TABLE communities.members (
 -- Name: COLUMN members.status; Type: COMMENT; Schema: communities; Owner: -
 --
 
-COMMENT ON COLUMN communities.members.status IS 'active: member, pending: awaiting approval, invited: has invite';
+COMMENT ON COLUMN communities.members.status IS 'active: member; pending: awaiting approval; invited: has invite; left: the member left and may self-rejoin; inactive: removed or rejected by staff (staff reactivation only)';
 
 --
 -- Name: COLUMN members.join_request_message; Type: COMMENT; Schema: communities; Owner: -
@@ -7142,5 +7153,6 @@ INSERT INTO public.schema_migrations (migration_name) VALUES
   ('20261027-drop-interaction-feedback.sql'),
   ('20261106-matches-offer-id-index.sql'),
   ('20261112-auth-platform-admins.sql'),
-  ('20261112-governance-quorum.sql')
+  ('20261112-governance-quorum.sql'),
+  ('20261115-governance-nomination-lifecycle.sql')
 ON CONFLICT (migration_name) DO NOTHING;
