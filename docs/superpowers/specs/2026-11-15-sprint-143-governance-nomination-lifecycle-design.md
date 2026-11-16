@@ -1,7 +1,8 @@
 # Sprint 143: Governance Nomination Lifecycle and Member Rejoin — Design Spec
 
 **Date**: 2026-11-15
-**Status**: Approved by the maintainer, 2026-11-15 (planning chat; decisions 1–8 below)
+**Status**: Approved by the maintainer, 2026-11-15 (planning chat; decisions 1–8 below). Plan review round 1
+(Codex, 8 findings) was integrated the same day; see the handoff's *Plan review log*.
 **Version**: v11.115.0 → **unallocated.** The maintainer allocates the release version at merge time, re-derived
 from `origin/master`.
 **Sprint Branch**: `agent/claude/sprint-143-planning` (reused task branch; it already carries the Sprint 142
@@ -67,7 +68,8 @@ still unimplemented (`docs/concepts/governance.md:48-50`).
 6. **Rejected join applicants are staff-only**, like removed members: one rule that fails closed.
 7. **Real-DB proof:** root `tests/integration/` runs in CI on the PR. In addition, the maintainer re-authorized
    SSH to karmyq.com to run the suite in a disposable Postgres container, never against the demo application
-   database (the same arrangement as Sprint 142).
+   database (the same arrangement as Sprint 142). That container runs only the DB-backed Sprint 142/143 files;
+   the whole tier also needs the service stack and Redis, so CI is its proof (plan review, round 1).
 8. **Scope expansion:** a web **Leave community** control. Self-leave reissues the JWT, as join does.
 
 ---
@@ -128,7 +130,8 @@ still unimplemented (`docs/concepts/governance.md:48-50`).
   nomination and refuses a transition to `ratified` after `expires_at`. An old or rolled-back binary cannot
   ratify an expired nomination either; it fails closed, matching Sprint 142's rollback philosophy.
 - **An ineligible nominee** is a nominee who is inactive, already holds the target role or a higher one, or is
-  below the trust threshold. Such a nomination is not closed. GET reports a coarse `nominee_eligible: false`,
+  below the trust threshold. These are the three predicates finalization checks (`governanceDb.ts:283-292`), and
+  `nominee_eligible` evaluates all three. Such a nomination is not closed. GET reports a coarse `nominee_eligible: false`,
   and ballots that could not be recorded are not offered (next section). Trust can recover before expiry.
 
 ### Viewer actions mirror the POST
@@ -197,8 +200,9 @@ order:
 ALTER TABLE communities.governance_nominations ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
 -- default AFTER the add, so existing rows are NOT stamped with now()+30d
 ALTER TABLE communities.governance_nominations ALTER COLUMN expires_at SET DEFAULT (now() + interval '30 days');
+-- every v1 row, pending AND resolved, because the CHECK below requires it; legacy rows (NULL policy) stay NULL
 UPDATE communities.governance_nominations SET expires_at = created_at + interval '30 days'
-  WHERE quorum_policy_version = 1 AND expires_at IS NULL;   -- v1 rows only; legacy/history stay NULL
+  WHERE quorum_policy_version = 1 AND expires_at IS NULL;
 -- guarded by pg_constraint lookups, as in 20261112:
 --   governance_expiry_metadata CHECK (quorum_policy_version IS NULL
 --                                     OR (expires_at IS NOT NULL AND expires_at > created_at))
@@ -220,6 +224,9 @@ only)'`.
   - Old v11.115.0 writers stay compatible during the deploy window: their inserts receive the default, and their
     status transitions are unaffected.
   - The Sprint 142 protocol marker remains `'1'`, because the quorum policy is unchanged.
+  - The backfill needs no protocol marker. The nominations trigger fires only on `INSERT OR UPDATE OF status`
+    (`20261112-governance-quorum.sql:61-63`), and the backfill sets only `expires_at`. Test fixtures that move
+    `created_at` and `expires_at` rely on the same fact.
 - **Generated artifacts.** Regenerate `init.sql` from the chain, never by hand. There are no table-policy changes,
   since no new table is added (`services/simulation-service/tests/regression/sprint-141-table-policy-covers-init-sql.test.ts`
   stays green).
@@ -249,10 +256,20 @@ only)'`.
   returned as a result and turned into the 409 after `COMMIT`. A throw inside the transaction would roll back the
   close.
 - **Members DELETE**: one transaction:
-  1. Lock the target row (`FOR UPDATE`) and read its prior status.
-  2. Apply the existing last-admin guard.
+  1. Lock every membership row the decision reads in **one statement ordered by `user_id`**: the target plus
+     every active admin (`WHERE community_id = $1 AND (user_id = $2 OR (role = 'admin' AND status = 'active'))
+     ORDER BY user_id FOR UPDATE`). Read the target's prior status from it; no target row → 404.
+  2. Apply the self-departure guard, then the existing last-admin guard, to the locked rows.
   3. Write `left` or `inactive`.
   4. Decrement `current_members` only if the prior status was `active`.
+  - **Why one ordered statement.** Today DELETE reads the target unlocked and then locks the active admins
+    (`members.ts:492-518`). Locking the target first and the admins second would let two admins who leave at
+    once each hold their own row while waiting for the other's: a 40P01 that DELETE maps to 500
+    (`members.ts:561-567`). Creation and ratification already lock memberships in `user_id` order
+    (`governanceDb.ts:212-213`, `:266-270`), so DELETE joins that one global order.
+  - A departure that committed first drops out of the other transaction's admin set when PostgreSQL re-checks
+    the locked row, so the last-admin guard sees the live count. If it misses a concurrent promotion, it errs
+    toward refusing (400), never toward zero admins.
 - **Members join**: the rejoin `UPDATE` (guarded by `WHERE status = 'left'`) and the counter increment share one
   transaction. A concurrent second rejoin matches zero rows, re-reads the row and returns 409.
 - **Membership writes never touch nominations** (decision 4), so no new membership → nomination lock path
@@ -344,7 +361,11 @@ promoted individually (no promoter sweep). Real-PostgreSQL proof goes in root
 Proofs required:
 
 - **Migration.**
-  - Backfills only v1 pending rows; legacy and resolved rows keep NULL.
+  - Backfills every v1 row, pending and resolved, with exactly `created_at + 30 days`; legacy rows (NULL policy
+    version) keep NULL.
+  - Fixtures respect the new CHECK. The replay case restores the pre-Sprint-143 table shape inside its
+    rollback-only transaction (plan Task 9), because the migrated schema rejects a v1 row without `expires_at`.
+    An expiry fixture moves `created_at` and `expires_at` back together, so `expires_at > created_at` holds.
   - New inserts get exactly `created_at + 30 days`, and a v1 row cannot be stored without `expires_at`.
   - The status CHECK accepts `declined`/`expired` and rejects junk.
   - Replay is idempotent.
@@ -365,8 +386,11 @@ Proofs required:
   - Withdraw vs. ratification.
   - Creation reclaiming a slot vs. a ratification on that same expired row: no deadlock, or else the explicit
     503.
-- **Viewer mirror.** Every row of the viewer table above, including that a `nominee_ineligible` viewer's POST is
-  in fact refused, and that a `count + 1 < R` ballot with an ineligible nominee is recorded.
+- **Viewer mirror.** Every row of the viewer table above. For each `can_ratify: false` row, a POST adds no ballot
+  and finalizes nothing: `nominee` → 422, `not_in_electorate` → 403, `nominee_ineligible` → the 422/409
+  rollback, and `already_ratified` → Sprint 142's idempotent 200 (`ON CONFLICT DO NOTHING`,
+  `governanceDb.ts:274-275`; pinned at `sprint-142-governance-quorum.integration.test.ts:296-297`). A
+  `count + 1 < R` ballot with an ineligible nominee is recorded.
 - **BUG-102.**
   - A left member rejoins a public community as an active `member` (from a stored `admin` role), and a private
     one as pending.
@@ -376,6 +400,9 @@ Proofs required:
   - Self-cancel of a pending row → `left`.
   - Admin DELETE of a pending row leaves the counter unchanged.
   - Two concurrent rejoins → one 200, one 409; two concurrent first joins → one 200, one 409 (no 500).
+  - Two admins leaving at once: with a third active admin both get 200; with exactly two, one 200 and one 400,
+    one active admin remains, and never a 500. A DELETE racing a final ratification over the same members does
+    not deadlock.
   - A rejoined original voter counts again.
   - Real-DB evidence records `current_user`, `rolsuper` and `rolbypassrls`.
 - **UI.**
@@ -414,13 +441,16 @@ Run the following before the PR:
 ## Critical implementation notes
 
 1. **Lock order is nomination → membership everywhere.** Creation must close an expired slot *before* its
-   membership locks. Members routes never lock nominations.
+   membership locks. Members routes never lock nominations. Every multi-row membership lock is one statement
+   ordered by `user_id`, as creation's and ratification's already are; DELETE locks its target and every active
+   admin that way.
 2. **Expiry uses the DB clock.** Use `expires_at <= now()` in SQL inside the transaction, never JS time. Write
    `resolved_at = expires_at` for an expired close.
 3. **An expired close must commit before the 409.** `governanceTransaction` rolls back on any throw, so return a
    result and refuse after `COMMIT`.
-4. **Migration order matters.** Run `ADD COLUMN` (no default), then `SET DEFAULT`, then backfill v1 rows, then
-   the CHECKs. Adding the column *with* a volatile default stamps every historical row with now()+30d.
+4. **Migration order matters.** Run `ADD COLUMN` (no default), then `SET DEFAULT`, then backfill **every** v1 row
+   (pending and resolved, since the CHECK requires it), then the CHECKs. Legacy rows (NULL policy version) keep
+   NULL. Adding the column *with* a volatile default stamps every historical row with now()+30d.
 5. **One `DO` block.** No top-level `BEGIN`/`COMMIT`/`LOCK`; rerunnable with zero drift. `CREATE OR REPLACE` the
    guard function with the Sprint 142 body plus the expiry checks. Never drop the guards in the live DB.
 6. **A self-DELETE of a non-active row must be refused.** Otherwise a removed member can convert `inactive` →
@@ -429,12 +459,17 @@ Run the following before the PR:
    reactivates `inactive` rows.
 8. **Decrement `current_members` only for a row that was `active`.** Increment it only on an active rejoin, in
    the same transaction. Other drift is BUG-103.
-9. **`can_ratify` must mirror the POST exactly**, including the `count + 1 ≥ R` ineligible case.
-   `nominee_eligible` is a coarse boolean; no score or threshold leaves the API (ADR-082).
+9. **`can_ratify` must mirror the POST exactly**, including the `count + 1 ≥ R` ineligible case. `false` means
+   the POST changes nothing: it is refused, or, for an already-voted viewer, it is Sprint 142's idempotent 200
+   with no new ballot. `nominee_eligible` needs all three finalization predicates (active membership,
+   `canElevateRole`, trust threshold). It is a coarse boolean; no score or threshold leaves the API (ADR-082).
 10. **Isolation comes from explicit predicates.** Use `community_id` predicates on every read and write and
     test them with a foreign community. CI's DB role bypasses RLS
     (`docs/gotchas/database-roles-bypass-rls-so-rls-is-not-an-isolation-proof.md`).
 11. **Real-DB runs use a disposable container only.** They run on karmyq.com over SSH (decision 7) or in CI.
-    Nothing touches the demo application DB. No platform grant, demo data operation, merge, deploy, version
+    The container runs only the DB-backed Sprint 142/143 files; the whole tier also needs the services and
+    Redis, so CI proves it. Nothing touches the demo application DB. No platform grant, demo data operation, merge, deploy, version
     bump, dependency edit or new ADR number is authorized.
-12. **`init.sql` and landing JSON are generated.** Regenerate them from source and revert unrelated churn.
+12. **`init.sql` and landing JSON are generated.** Regenerate them from source and revert unrelated churn. The
+    Sprint 120 sentinel test cannot prove a regeneration; the PR's `regenerate-init-sql.yml` run (drift check
+    plus the independent-base byte comparison) does.

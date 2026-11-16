@@ -47,8 +47,11 @@ staff-only), and the web app gains a Leave control and governance close actions.
 3. An expired close must commit even though the request returns 409 (Task 4).
 4. `can_ratify` must mirror the POST exactly; a stale or ineligible screen must never show a working Finalize
    (Tasks 5 and 7).
-5. The migration must not stamp historical rows, must replay with zero drift, and must stay compatible with the
-   v11.115.0 writer (Task 1).
+5. The migration must not stamp existing rows with `now() + 30 days` (every v1 row gets `created_at + 30 days`;
+   legacy rows stay NULL), must replay with zero drift, and must stay compatible with the v11.115.0 writer
+   (Task 1).
+6. DELETE locks its target and every active admin in one `user_id`-ordered statement, so two admins leaving at
+   once cannot deadlock (Task 6).
 
 ## File map
 
@@ -73,6 +76,7 @@ New paths are proposed deliverables. Search before creating, and run gotcha disc
 | `services/community-service/src/routes/members.ts` | Join rejoin/staff-only/23505; DELETE departure status, guard, counter, token |
 | `services/community-service/tests/regression/sprint-93-members-delete-jwt.test.ts` and other member regressions that drive DELETE/join | Adapt to the new transaction shape without weakening any assertion |
 | `services/community-service/tests/regression/sprint-112-governance-export-privacy.test.ts` | Adapt fixtures to the new GET fields; keep the privacy assertions |
+| `tests/integration/sprint-142-governance-quorum.integration.test.ts` | Extend the exact `toEqual` contracts with exact values: `:207` (creation gains `expires_at`) and `:219`, `:313`, `:452`, `:458` (viewer gains `can_withdraw`/`can_decline`). Never loosen them. `:343` and `:447` already use `toMatchObject` |
 | `apps/frontend/src/components/GovernanceTab.tsx` | Types, close actions, expiry, ineligible notice, copy fix |
 | `apps/frontend/src/lib/api.ts` | `withdrawNomination`, `declineNomination` |
 | `apps/frontend/src/components/community/CommunityHero.tsx`, `apps/frontend/src/pages/communities/[id].tsx` | Leave control and handler; shared token persistence |
@@ -92,13 +96,16 @@ New paths are proposed deliverables. Search before creating, and run gotcha disc
 ## ⚠️ Critical Implementation Notes (read before Task 2)
 
 1. **Lock order is nomination → membership everywhere.** Creation must close an expired slot *before* its
-   membership locks. Members routes never lock nominations.
+   membership locks. Members routes never lock nominations. Every multi-row membership lock is one statement
+   ordered by `user_id`, as creation's and ratification's already are; DELETE locks its target and every active
+   admin that way.
 2. **Expiry uses the DB clock.** Use `expires_at <= now()` in SQL inside the transaction, never JS time. Write
    `resolved_at = expires_at` for an expired close.
 3. **An expired close must commit before the 409.** `governanceTransaction` rolls back on any throw, so return a
    result and refuse after `COMMIT`.
-4. **Migration order matters.** Run `ADD COLUMN` (no default), then `SET DEFAULT`, then backfill v1 rows, then
-   the CHECKs. Adding the column *with* a volatile default stamps every historical row with now()+30d.
+4. **Migration order matters.** Run `ADD COLUMN` (no default), then `SET DEFAULT`, then backfill **every** v1 row
+   (pending and resolved, since the CHECK requires it), then the CHECKs. Legacy rows (NULL policy version) keep
+   NULL. Adding the column *with* a volatile default stamps every historical row with now()+30d.
 5. **One `DO` block.** No top-level `BEGIN`/`COMMIT`/`LOCK`; rerunnable with zero drift. `CREATE OR REPLACE` the
    guard function with the Sprint 142 body plus the expiry checks. Never drop the guards in the live DB.
 6. **A self-DELETE of a non-active row must be refused.** Otherwise a removed member can convert `inactive` →
@@ -107,15 +114,20 @@ New paths are proposed deliverables. Search before creating, and run gotcha disc
    reactivates `inactive` rows.
 8. **Decrement `current_members` only for a row that was `active`.** Increment it only on an active rejoin, in
    the same transaction. Other drift is BUG-103.
-9. **`can_ratify` must mirror the POST exactly**, including the `count + 1 ≥ R` ineligible case.
-   `nominee_eligible` is a coarse boolean; no score or threshold leaves the API (ADR-082).
+9. **`can_ratify` must mirror the POST exactly**, including the `count + 1 ≥ R` ineligible case. `false` means
+   the POST changes nothing: it is refused, or, for an already-voted viewer, it is Sprint 142's idempotent 200
+   with no new ballot. `nominee_eligible` needs all three finalization predicates (active membership,
+   `canElevateRole`, trust threshold). It is a coarse boolean; no score or threshold leaves the API (ADR-082).
 10. **Isolation comes from explicit predicates.** Use `community_id` predicates on every read and write and
     test them with a foreign community. CI's DB role bypasses RLS
     (`docs/gotchas/database-roles-bypass-rls-so-rls-is-not-an-isolation-proof.md`).
 11. **Real-DB runs use a disposable container only.** They run on karmyq.com over SSH (decision 7) or in CI.
-    Nothing touches the demo application DB. No platform grant, demo data operation, merge, deploy, version
+    The container runs only the DB-backed Sprint 142/143 files; the whole tier also needs the services and
+    Redis, so CI proves it. Nothing touches the demo application DB. No platform grant, demo data operation, merge, deploy, version
     bump, dependency edit or new ADR number is authorized.
-12. **`init.sql` and landing JSON are generated.** Regenerate them from source and revert unrelated churn.
+12. **`init.sql` and landing JSON are generated.** Regenerate them from source and revert unrelated churn. The
+    Sprint 120 sentinel test cannot prove a regeneration; the PR's `regenerate-init-sql.yml` run (drift check
+    plus the independent-base byte comparison) does.
 
 ---
 
@@ -156,19 +168,34 @@ npm exec --workspace=services/community-service -- jest --runTestsByPath tests/t
 - [ ] **Regenerate `init.sql`.** No Docker on this box, so choose one route:
   - **A — workflow.** `regenerate-init-sql.yml` on the pushed branch, per the memory note
     `reference_init_sql_regen_via_workflow`. Precondition: the branch's `init.sql` is byte-identical to
-    `origin/master`'s (`git hash-object` on both). Before pushing, run
-    `npm exec --workspace=tests -- jest --runTestsByPath regression/sprint-120-init-sql-drift-gate.test.ts`. If the
-    pre-push gate would block the migration-only push, use route B rather than bypassing hooks.
+    `origin/master`'s (`git hash-object` on both). If the pre-push hook would block the migration-only push, use
+    route B rather than bypassing hooks (whether it does is **UNVERIFIED**). A workflow dispatch has no PR base,
+    so its byte comparison is skipped (`.github/workflows/regenerate-init-sql.yml:55-60`): the artifact is a
+    generator output, not proof.
   - **B — authorized disposable container.** On karmyq.com, run `scripts/regenerate-init-sql.sh` against a
-    throwaway `postgres:15` container (`REGEN_PG_CONTAINER`), then copy the artifact back byte-for-byte.
+    throwaway `postgres:15` container (`REGEN_PG_CONTAINER`), with `SOURCE_INIT_SQL` set to `origin/master`'s
+    `init.sql` rather than the default committed file (`scripts/regenerate-init-sql.sh:111`). Then load the
+    result into a fresh scratch database and run `scripts/ci-apply-full-schema.sh --drift-check` against it, as
+    the workflow does (`regenerate-init-sql.yml:110-134`; the exact invocation is **UNVERIFIED**, so re-derive it
+    from those steps). It must print `Schema drift check passed: no changes after migration replay.` Copy the
+    artifact back byte-for-byte and `cmp` it against the host copy.
   - Either way, the diff must contain only this migration's objects plus its `schema_migrations` ledger row.
-- [ ] **Verify:**
+- [ ] **Verify.** The Sprint 120 sentinel test is a smoke check only. It matches fixed strings
+  (`tests/regression/sprint-120-init-sql-drift-gate.test.ts:8-32`), so it can show neither zero drift nor a missing
+  migration. Run it anyway:
 
 ```bash
 npm exec --workspace=tests -- jest --runTestsByPath regression/sprint-120-init-sql-drift-gate.test.ts
 ```
 
-  Must pass. Commit the migration, `init.sql` and the shape test.
+  The regeneration evidence is:
+  - route B: the drift-check line and the `cmp` above;
+  - both routes: the PR's `regenerate-init-sql.yml` run, whose drift-check step (`:127-134`) and independent-base
+    byte comparison (`:142-149`) must both pass, plus `ci.yml`'s *Prove init.sql matches the full migrated
+    schema* step (`.github/workflows/ci.yml:320-321`). These run only once the PR is open, so Task 13 records
+    them as pending and Task 14 confirms them before any merge.
+
+  Commit the migration, `init.sql` and the shape test.
 
 ## Task 2: Pure lifecycle and membership rules
 
@@ -226,6 +253,7 @@ npm exec --workspace=services/community-service -- jest --runTestsByPath tests/t
 **Files:**
 - Modify: `services/community-service/src/database/governanceDb.ts`
 - Create: `tests/integration/sprint-143-governance-lifecycle.integration.test.ts` (governance cases first)
+- Modify: `tests/integration/sprint-142-governance-quorum.integration.test.ts` (the creation contract at `:207`)
 
 **Interface:** `closeNomination(input: { communityId: string; nominationId: string; callerId: string; action: 'withdraw' | 'decline' }): Promise<{ id: string; status: 'withdrawn' | 'declined' }>`
 
@@ -234,7 +262,8 @@ npm exec --workspace=services/community-service -- jest --runTestsByPath tests/t
   - start a throwaway `postgres:15` container bound to `127.0.0.1` on an unused port;
   - load this branch's `init.sql`, then replay the migration chain with `scripts/ci-apply-full-schema.sh`;
   - open an SSH `-L` tunnel and set `DATABASE_URL` to the tunnel;
-  - tear the container down at the end of the task.
+  - keep it for Tasks 4–9, which all use it. A session that stops before Task 9 tears it down and says so in the
+    handoff, and the next session recreates it first. Task 9 does the final teardown.
   These commands are a sketch: re-derive them on the host first and record the exact ones in the commit
   message (**UNVERIFIED** here). Never point anything at the demo application DB.
 - [ ] **Write the integration cases first:**
@@ -243,13 +272,29 @@ npm exec --workspace=services/community-service -- jest --runTestsByPath tests/t
     unchanged);
   - ballots are preserved, retries return 409 `GOVERNANCE_NOMINATION_CLOSED`, and a self-nomination can use
     either endpoint;
-  - set `expires_at` into the past by direct `UPDATE`, which the guard allows, since it fires only on a status
-    change. Then ratify, withdraw and decline each return 409 `GOVERNANCE_NOMINATION_EXPIRED`, and in a **fresh
-    connection** the row is `expired` with `resolved_at = expires_at`;
+  - expire a row by moving **both** timestamps back:
+    `UPDATE … SET created_at = created_at - interval '31 days', expires_at = expires_at - interval '31 days'`.
+    That keeps `expires_at = created_at + 30 days`, so `governance_expiry_metadata` (`expires_at > created_at`)
+    still holds; moving `expires_at` alone into the past would violate it for a just-created row. The guard
+    allows the update because its trigger fires only on `INSERT OR UPDATE OF status`
+    (`20261112-governance-quorum.sql:61-63`). Then ratify, withdraw and decline each return 409
+    `GOVERNANCE_NOMINATION_EXPIRED`, and in a **fresh connection** the row is `expired` with
+    `resolved_at = expires_at`;
   - creation for the same nominee and role succeeds and the old row is `expired`;
   - with the marker set, a raw ballot insert and a raw `UPDATE … status='ratified'` on an expired row both fail
     with `GOVERNANCE_NOMINATION_EXPIRED`.
-- [ ] **Run red** with `npm run test:integration` against the tunnel (needs `DATABASE_URL`).
+- [ ] **Run red** with the focused command against the tunnel:
+
+```bash
+DATABASE_URL=<tunnel URL> npm exec --workspace=tests -- jest --config jest.integration.config.js --runTestsByPath integration/sprint-143-governance-lifecycle.integration.test.ts integration/sprint-142-governance-quorum.integration.test.ts
+```
+
+  These two files need only `DATABASE_URL`: the community-service pool reads it
+  (`services/community-service/src/database/db.ts:9-14`), and the events publisher is mocked (copy Sprint 142's
+  mock, `sprint-142-governance-quorum.integration.test.ts:15`). Do not use `npm run test:integration` here. The
+  whole tier also calls running services and needs Redis (`tests/integration/auth-flow.integration.test.ts:48`;
+  CI starts them at `.github/workflows/ci.yml:296-306` and sets Redis at `:340`), which the container does not
+  provide.
 - [ ] **Implement:**
   - `closeNomination` per the spec's lock sequence;
   - in ratify, the expired branch after the nomination lock;
@@ -260,6 +305,9 @@ npm exec --workspace=services/community-service -- jest --runTestsByPath tests/t
   - withdraw vs. ratification;
   - creation reclaiming a slot vs. ratification on that same expired row: no deadlock, or else the explicit 503
     with no partial write.
+- [ ] **Extend the Sprint 142 creation contract** (`sprint-142-governance-quorum.integration.test.ts:207`). Add
+  `expires_at` to the exact `toEqual`, checked against the stored row's `created_at + 30 days`. Never loosen it to
+  `toMatchObject`.
 - [ ] **Verify** the Sprint 143 governance cases and the **whole** Sprint 142 integration file green on the
   disposable DB. Commit.
 
@@ -269,24 +317,34 @@ npm exec --workspace=services/community-service -- jest --runTestsByPath tests/t
 - Modify: `services/community-service/src/database/governanceDb.ts`
 - Modify: `tests/integration/sprint-143-governance-lifecycle.integration.test.ts`
 - Modify: `services/community-service/tests/regression/sprint-112-governance-export-privacy.test.ts` (only if its fixtures need the new fields)
+- Modify: `tests/integration/sprint-142-governance-quorum.integration.test.ts` (viewer contracts at `:219`, `:313`, `:452`, `:458`)
 
 - [ ] **Write the integration cases first:**
   - GET hides expired pending rows and returns `expires_at` exactly `created_at + 30 days`;
   - `nominee_eligible` is false for an inactive nominee, a below-threshold nominee, and a nominee who already
     holds the role;
-  - each viewer-table row maps to the right `reason` and `can_ratify`, and **for each `can_ratify: false` case the
-    POST is in fact refused**. The `count + 1 < R` ineligible case records a ballot;
+  - each viewer-table row maps to the right `reason` and `can_ratify`. For each `can_ratify: false` case the POST
+    makes **no additional ballot and no finalization**: `nominee` → 422, `not_in_electorate` → 403,
+    `nominee_ineligible` → the 422/409 rollback, and `already_ratified` below quorum → Sprint 142's idempotent
+    200 (`ON CONFLICT DO NOTHING`, `governanceDb.ts:274-275`; pinned at
+    `sprint-142-governance-quorum.integration.test.ts:296-297`). Assert in each case that the ballot count, the
+    nomination status and the nominee's role are unchanged. The `count + 1 < R` ineligible case records a ballot;
   - `can_withdraw` is true only for the nominator and `can_decline` only for the nominee;
   - the response still has no forbidden reputation key (`Disclosure.assertNoForbiddenReputationKeys`) and no
     roster.
-- [ ] **Run red** on the disposable DB.
+- [ ] **Run red** on the disposable DB with Task 4's focused command.
 - [ ] **Implement.**
   - Add `AND n.expires_at > now()` to the pending query (`governanceDb.ts:99`).
-  - Compute `nominee_eligible` per nomination by reusing the threshold SQL from `checkNomineeTrust` as a boolean.
-    Never return the sum.
+  - Compute `nominee_eligible` per nomination from **all three** predicates that finalization applies
+    (`governanceDb.ts:283-292`): the nominee's membership in this community is `active`;
+    `canElevateRole(role, nominated_for_role)` holds; and the trust threshold is met, reusing
+    `checkNomineeTrust`'s SQL as a boolean (never return the sum). The threshold alone would offer Finalize for an
+    inactive nominee or a role holder.
   - Replace the inline reason logic (`governanceDb.ts:116-122`) with `deriveViewerState`.
   - Extend the `GovernanceNomination` DTO.
-- [ ] **Run green**, plus `npm exec --workspace=services/community-service -- jest --runTestsByPath tests/regression/sprint-112-governance-export-privacy.test.ts`. Commit.
+- [ ] **Extend the Sprint 142 viewer contracts** at `:219`, `:313`, `:452` and `:458` with the exact
+  `can_withdraw` and `can_decline` values each viewer should get. Keep `toEqual`.
+- [ ] **Run green** with Task 4's focused command, plus `npm exec --workspace=services/community-service -- jest --runTestsByPath tests/regression/sprint-112-governance-export-privacy.test.ts`. Commit.
 
 ## Task 6: Member departure and rejoin (BUG-102)
 
@@ -308,12 +366,19 @@ npm exec --workspace=services/community-service -- jest --runTestsByPath tests/t
     +1, token; into a private community → `pending`, counter unchanged;
   - join after `inactive` → 409 `MEMBERSHIP_RESTORE_REQUIRES_STAFF`;
   - two concurrent rejoins → one 200 and one 409; two concurrent first joins → one 200 and one 409, never 500;
+  - two admins self-leaving at once (two connections): with a third active admin both get 200; with exactly two
+    admins, one 200 and one 400, one active admin remains, and never a 500 or 40P01;
+  - a DELETE racing a final ratification that locks the same member rows: both finish, with no deadlock;
   - a rejoined original voter's ballot counts again on a pending nomination;
   - log the DB role flags (`current_user`, `rolsuper`, `rolbypassrls`).
-- [ ] **Run red** on the disposable DB.
+- [ ] **Run red** on the disposable DB with Task 4's focused command.
 - [ ] **Implement DELETE.** One transaction:
-  - row `FOR UPDATE` with the prior status → `canSelfDepart` guard for self;
-  - the existing last-admin guard;
+  - one lock statement covering every membership row the decision reads, ordered by `user_id`:
+    `SELECT user_id, role, status FROM communities.members WHERE community_id = $1 AND (user_id = $2 OR
+    (role = 'admin' AND status = 'active')) ORDER BY user_id FOR UPDATE`. It replaces the separate target read
+    and admin lock (`members.ts:492-518`), so no transaction holds one membership row while waiting for another
+    out of order. No target row → 404, as today;
+  - from the locked rows: the target's prior status → `canSelfDepart` guard for self, then the last-admin guard;
   - write `departureStatus(isSelfRemove)`;
   - decrement only if the prior status was `active`.
   Reissue the token for a self-leave from active.
@@ -387,17 +452,32 @@ npm exec --workspace=apps/frontend -- jest --runTestsByPath tests/tdd/sprint-143
 **Files:**
 - Modify: `tests/integration/sprint-143-governance-lifecycle.integration.test.ts`
 
-- [ ] **Add the migration replay cases** (one `BEGIN … ROLLBACK` client, as Sprint 142's legacy-replay case
-  does):
-  - seed v1 pending, v1 resolved and legacy rows with `expires_at` NULL, then re-run the migration text;
-  - only v1 rows get `created_at + 30 days`, and resolved/legacy rows keep NULL;
-  - a Sprint 142-shaped v1 insert (no `expires_at`) receives the default;
-  - a v1 row with `expires_at` NULL is rejected by the CHECK;
-  - an unknown status is rejected;
-  - a second replay changes nothing.
-- [ ] **Run the whole root integration tier uncached** on the disposable DB:
-  `npm run test:integration` (Sprint 142 + Sprint 143 + everything else it discovers). Record the counts, the
-  role flags and the exact commands in the commit message.
+- [ ] **Add the migration replay case** (one `BEGIN … ROLLBACK` client, as Sprint 142's legacy-replay case
+  does). The DB is fully migrated, so its CHECK rejects the NULL-expiry v1 rows this case needs. Inside the
+  transaction, restore the pre-Sprint-143 shape first:
+  - drop the guards (`dropGuards`, Sprint 142 file `:20-23`) so legacy rows can be seeded;
+  - `ALTER TABLE communities.governance_nominations DROP COLUMN expires_at`. PostgreSQL drops table constraints
+    that involve the column, including `governance_expiry_metadata`; assert via `pg_constraint` that it is gone;
+  - restore the four-status `valid_nomination_status` from `009-governance-schema.sql:20`;
+  - seed a legacy resolved row (NULL policy version), a v1 pending row and a v1 `ratified` row, both with valid
+    Sprint 142 metadata;
+  - execute `20261112-governance-quorum.sql`, which restores the Sprint 142 guard body and both triggers; its
+    other statements are idempotent.
+  Then run the Sprint 143 migration text and assert:
+  - both v1 rows, pending and ratified, get exactly `created_at + 30 days`; the legacy row keeps NULL;
+  - the guard body now carries `GOVERNANCE_NOMINATION_EXPIRED` and still carries every Sprint 142 check;
+  - a Sprint 142-shaped v1 insert (marker set, no `expires_at`) receives the default;
+  - setting a v1 row's `expires_at` to NULL is rejected by the CHECK (savepoint);
+  - `declined` and `expired` are accepted and an unknown status is rejected (savepoints);
+  - a second replay changes nothing (the rows, constraint definitions and `pg_get_functiondef` are equal before
+    and after).
+  After `ROLLBACK`, assert from a fresh connection that the column, both constraints, both triggers and the
+  Sprint 143 guard body are still in place, as Sprint 142's case does for its guards.
+- [ ] **Run the Sprint 142 and Sprint 143 integration files** on the disposable DB with Task 4's focused command
+  plus `--no-cache`. Record the counts, the role flags and the exact commands in the commit message. Do not run
+  or claim the whole tier locally: it also needs auth-service and the other services plus Redis
+  (`tests/integration/auth-flow.integration.test.ts:48`; `.github/workflows/ci.yml:296-306`, `:340`). CI's
+  integration job on the PR is the whole-tier proof. Task 13 records it as pending and Task 14 confirms it.
 - [ ] **Tear down** the container and tunnel. Verify on the host that no Sprint 143 container remains. Commit.
 
 ## Task 10: User guides, landing docs and the ADR-055 amendment
@@ -458,8 +538,8 @@ npm exec --workspace=tests -- jest --runTestsByPath regression/reputation-disclo
 **Files:** the full branch diff and any justified corrections. No new scope.
 
 - [ ] **Testing.** Map every spec acceptance bullet to a named test. Confirm that red→green evidence exists per
-  task and that the whole root integration tier passed (Task 9). Verification: the matrix has no uncovered
-  bullet.
+  task, and that the Sprint 142/143 integration files passed on the disposable DB (Task 9). The whole tier is
+  CI's to prove. Verification: the matrix has no uncovered bullet.
 - [ ] **`/simplify`.** One calibrated pass on the PR diff. Verification: findings resolved or justified in the PR
   ledger.
 - [ ] **`/code-review`** at **high** effort (the diff touches locking, authorization and migration). Focus on the
@@ -505,7 +585,8 @@ npm exec --workspace=apps/frontend -- tsc --noEmit
   `.github/workflows/pr-contract.yml`). The body must also:
   - state that it bundles the Sprint 142 post-merge record `3e63ca9f`;
   - name the scope expansions: the Leave control, the BUG-103 statement corrections and the DB expiry guard;
-  - list the unauthorized items.
+  - list the unauthorized items;
+  - list CI's integration job (the whole tier) and the `regenerate-init-sql.yml` run as pending evidence.
 - [ ] **Reconcile the handoff** with live PR state, push, and **stop** (memory `feedback_stop_after_pr_creation`):
   no CI watch, merge ask or deploy in this chat. End with the next-chat prompt.
 
@@ -514,5 +595,8 @@ npm exec --workspace=apps/frontend -- tsc --noEmit
 - [ ] **Only with the maintainer's explicit allocation** of the version, the merge slot and (if needed) an admin
   merge: run the `ship`/`deploy` skill. That covers the CI/CD deploy, health verification, CodeQL master alerts
   read after the merge, and the post-merge record on the next branch.
+- [ ] **Before any merge**, confirm on the PR head that CI's integration job (the whole tier) and the
+  `regenerate-init-sql.yml` run (drift check and byte comparison) passed. Read the run conclusions and job
+  counts, not just the checks list (memory `feedback_checks_list_hides_uncreated_jobs`).
 - [ ] **The post-deploy smoke test** may use only authorized checks. The platform-admin grant and its 200 smoke
   check remain separately unauthorized.

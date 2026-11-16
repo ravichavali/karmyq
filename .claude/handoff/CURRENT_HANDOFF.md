@@ -1,8 +1,8 @@
 # Sprint 143 — Governance nomination lifecycle + member rejoin — Handoff
 
 **Date**: 2026-11-15
-**Outcome**: **planned; awaiting a non-author plan review, then execution.** The spec and plan are committed on
-this branch. No product code has changed yet. Sprint 142 (PR #338, v11.115.0) is shipped and verified; its record
+**Outcome**: **planned; round 1 of the plan review (Codex) is integrated; awaiting a round-2 re-review, then
+execution.** The spec and plan are committed on this branch. No product code has changed yet. Sprint 142 (PR #338, v11.115.0) is shipped and verified; its record
 is [archived](archive/2026-11-15-sprint-142-governance-quorum-COMPLETE-v11.115.0.md).
 
 **Sprint goal:** pending nominations close by nominator withdrawal, nominee decline or 30-day expiry, and members
@@ -38,15 +38,15 @@ who left can rejoin without a 500 and without regaining their old role.
 2. Reuse the existing task branch `agent/claude/sprint-143-planning` (`git switch agent/claude/sprint-143-planning`).
    Then `git fetch origin`, `gh pr list`, `git log --oneline origin/master -3`; if master moved past `1692a560`,
    merge `origin/master` (merge commit, never rebase). Never branch off a stale local master.
-3. **If the non-author plan review has not happened yet, that comes first**: a read-only review of the spec and
-   plan, with findings returned to the author (see *Next step*).
+3. **Round 1 of the non-author plan review is integrated** (see *Plan review log*). **A round-2 re-review of the
+   updated HEAD comes first**: read-only, with findings returned to the author (see *Next step*).
 4. Open the plan: `docs/superpowers/plans/2026-11-15-sprint-143-governance-nomination-lifecycle.md`.
 5. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`, preferred in this
    shared working tree with one editor). There is no `/execute-plan` slash command; superpowers removed it as a
    deprecated stub.
 
-**Next step**: a non-author plan review (Codex) → the author integrates the findings → Plan **Task 1** in a fresh
-execution chat.
+**Next step**: Codex re-reviews the updated HEAD (round 2) → the author integrates any findings → Plan **Task 1**
+in a fresh execution chat.
 
 **This branch's first commit `3e63ca9f` is Sprint 142's post-merge record.** It must never reach master on its own
 (no docs-only master push). It rides with this sprint's product PR, and the PR body says so.
@@ -87,17 +87,37 @@ approved design, not separate maintainer decisions:
 - A self-DELETE of a non-active row is refused, which closes the removed-member `inactive` → `left` loophole.
 - DELETE decrements `current_members` only for an active row (the BUG-103 statements this sprint already edits).
 - A concurrent first-join 23505 maps to 409.
+- DELETE locks its target and every active admin in one `user_id`-ordered statement (review round 1, finding 7).
+
+## Plan review log
+
+**Round 1: Codex, read-only, at `246f958a` (2026-11-15).** Eight findings. The author verified each against
+source, and all eight held. They are integrated in the commit after `246f958a`:
+
+| # | Finding | Verdict and evidence | Where it landed |
+|---|---|---|---|
+| 1 | The backfill DDL covers every v1 row, but the acceptance text said resolved rows keep NULL | CONFIRMED: the CHECK requires expiry on every v1 row | Spec DDL comment and acceptance; plan Task 9; note 4 |
+| 2 | Replay fixtures seed NULL-expiry v1 rows that the CHECK rejects; moving only `expires_at` into the past breaks `expires_at > created_at` | CONFIRMED | Plan Task 9 restores the pre-Sprint-143 shape inside the rollback transaction; Task 4 moves both timestamps |
+| 3 | Postgres alone cannot run the whole integration tier, and Task 4's teardown contradicted Tasks 5–9 | CONFIRMED (`auth-flow.integration.test.ts:48`; `ci.yml:296-306`, `:340`) | Focused Sprint 142/143 runs locally, the whole tier in CI; one container for Tasks 4–9; note 11 |
+| 4 | `can_ratify: false` does not always mean a refused POST: an already-voted viewer gets the idempotent 200 | CONFIRMED (`governanceDb.ts:274-275`; Sprint 142 test `:296-297`) | Spec acceptance; plan Task 5 asserts no new ballot or finalization; note 9 |
+| 5 | The `nominee_eligible` instructions omitted the active-membership and `canElevateRole` predicates | CONFIRMED (`governanceDb.ts:283-292`) | Spec definition; plan Task 5; note 9 |
+| 6 | Sprint 142's exact-equality assertions break on the new fields | CONFIRMED (`:207`, `:219`, `:313`, `:452`, `:458`; `:343` and `:447` use `toMatchObject` and survive) | Plan file map; Tasks 4 and 5 extend them with exact values |
+| 7 | DELETE locking target-then-admins can deadlock two admins who leave at once | CONFIRMED by tracing the lock sequence (`members.ts:492-518`), not yet run against a DB; plan Task 6 adds the race | One `user_id`-ordered lock statement (spec lock-order section, plan Task 6); note 1 |
+| 8 | The Sprint 120 sentinel test is not regeneration proof | CONFIRMED (`sprint-120-init-sql-drift-gate.test.ts:8-32`) | Plan Task 1 names the drift check and byte comparison; Tasks 13 and 14 track them; note 12 |
 
 ## ⚠️ Critical implementation notes (verbatim from the spec)
 
 1. **Lock order is nomination → membership everywhere.** Creation must close an expired slot *before* its
-   membership locks. Members routes never lock nominations.
+   membership locks. Members routes never lock nominations. Every multi-row membership lock is one statement
+   ordered by `user_id`, as creation's and ratification's already are; DELETE locks its target and every active
+   admin that way.
 2. **Expiry uses the DB clock.** Use `expires_at <= now()` in SQL inside the transaction, never JS time. Write
    `resolved_at = expires_at` for an expired close.
 3. **An expired close must commit before the 409.** `governanceTransaction` rolls back on any throw, so return a
    result and refuse after `COMMIT`.
-4. **Migration order matters.** Run `ADD COLUMN` (no default), then `SET DEFAULT`, then backfill v1 rows, then
-   the CHECKs. Adding the column *with* a volatile default stamps every historical row with now()+30d.
+4. **Migration order matters.** Run `ADD COLUMN` (no default), then `SET DEFAULT`, then backfill **every** v1 row
+   (pending and resolved, since the CHECK requires it), then the CHECKs. Legacy rows (NULL policy version) keep
+   NULL. Adding the column *with* a volatile default stamps every historical row with now()+30d.
 5. **One `DO` block.** No top-level `BEGIN`/`COMMIT`/`LOCK`; rerunnable with zero drift. `CREATE OR REPLACE` the
    guard function with the Sprint 142 body plus the expiry checks. Never drop the guards in the live DB.
 6. **A self-DELETE of a non-active row must be refused.** Otherwise a removed member can convert `inactive` →
@@ -106,15 +126,20 @@ approved design, not separate maintainer decisions:
    reactivates `inactive` rows.
 8. **Decrement `current_members` only for a row that was `active`.** Increment it only on an active rejoin, in
    the same transaction. Other drift is BUG-103.
-9. **`can_ratify` must mirror the POST exactly**, including the `count + 1 ≥ R` ineligible case.
-   `nominee_eligible` is a coarse boolean; no score or threshold leaves the API (ADR-082).
+9. **`can_ratify` must mirror the POST exactly**, including the `count + 1 ≥ R` ineligible case. `false` means
+   the POST changes nothing: it is refused, or, for an already-voted viewer, it is Sprint 142's idempotent 200
+   with no new ballot. `nominee_eligible` needs all three finalization predicates (active membership,
+   `canElevateRole`, trust threshold). It is a coarse boolean; no score or threshold leaves the API (ADR-082).
 10. **Isolation comes from explicit predicates.** Use `community_id` predicates on every read and write and
     test them with a foreign community. CI's DB role bypasses RLS
     (`docs/gotchas/database-roles-bypass-rls-so-rls-is-not-an-isolation-proof.md`).
 11. **Real-DB runs use a disposable container only.** They run on karmyq.com over SSH (decision 7) or in CI.
-    Nothing touches the demo application DB. No platform grant, demo data operation, merge, deploy, version
+    The container runs only the DB-backed Sprint 142/143 files; the whole tier also needs the services and
+    Redis, so CI proves it. Nothing touches the demo application DB. No platform grant, demo data operation, merge, deploy, version
     bump, dependency edit or new ADR number is authorized.
-12. **`init.sql` and landing JSON are generated.** Regenerate them from source and revert unrelated churn.
+12. **`init.sql` and landing JSON are generated.** Regenerate them from source and revert unrelated churn. The
+    Sprint 120 sentinel test cannot prove a regeneration; the PR's `regenerate-init-sql.yml` run (drift check
+    plus the independent-base byte comparison) does.
 
 ## Blockers and pending authorizations
 
@@ -128,7 +153,8 @@ approved design, not separate maintainer decisions:
 - **Version and merge slot unallocated.** Both block merge readiness, not execution.
 - **Init.sql regeneration route** (plan Task 1): workflow dispatch, valid while the branch's `init.sql` equals
   master's, or the authorized disposable container. Whether the pre-push drift gate blocks a migration-only push
-  is **UNVERIFIED**; the plan checks it before pushing.
+  is **UNVERIFIED**; the plan checks it before pushing. Neither route's artifact is proof by itself; the proof is
+  the PR's `regenerate-init-sql.yml` drift check and byte comparison (plan Task 1).
 
 ## Facts found while planning (verified 2026-11-15 at `3e63ca9f`)
 
@@ -140,6 +166,17 @@ approved design, not separate maintainer decisions:
 - The curated demo already uses member status `'left'` (`services/simulation-service/src/fixtures/curatedDemo/types.ts:40`).
 - **BUG-103 logged** (`docs/BUGS.md`): `current_members` drifts. DELETE decrements unconditionally, and the staff
   PUT never adjusts the counter. Sprint 143 corrects only the DELETE and rejoin statements.
+- Verified while integrating review round 1 (at `246f958a`):
+  - The nominations guard trigger fires only on `INSERT OR UPDATE OF status`
+    (`infrastructure/postgres/migrations/20261112-governance-quorum.sql:61-63`), so the `expires_at` backfill
+    and the timestamp-moving fixtures need no protocol marker.
+  - Creation and ratification already lock memberships in one `user_id`-ordered statement
+    (`services/community-service/src/database/governanceDb.ts:212-213`, `:266-270`); DELETE was the outlier.
+  - The Sprint 142/143 integration files need only `DATABASE_URL`
+    (`services/community-service/src/database/db.ts:9-14`; the events publisher is mocked).
+  - DELETE's 500 body returns the raw `error.message` (`members.ts:563-567`) instead of an ADR-074 code, as do
+    other handlers in the file (`:67`, `:321`, `:451`). This is out of scope; it is flagged for Task 12's
+    `/security-review`, which decides whether the rewritten DELETE carries the fix.
 
 ## Sprint 142 follow-ups (out of scope unless a plan names them)
 
