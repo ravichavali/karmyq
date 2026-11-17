@@ -64,6 +64,29 @@ describe('getGovernanceState projection (ADR-082)', () => {
     expect(() => assertNoForbiddenReputationKeys(state)).not.toThrow();
     expect(state.maturity).toEqual(expect.objectContaining({ avg_trust_score: expect.any(Number), threshold: 50 }));
   });
+
+  it('uses finite-only trust totals for both GET eligibility projections', async () => {
+    const queries: string[] = [];
+    mockQuery.mockImplementation(async (sql: string) => {
+      queries.push(sql);
+      if (/^(BEGIN|COMMIT|ROLLBACK)$/.test(sql) || /SELECT set_config/.test(sql)) return { rows: [] };
+      if (/FOR SHARE OF m/.test(sql)) return { rows: [{ status: 'active',active_member_count: 5 }] };
+      if (/SELECT governance_settings/.test(sql)) return { rows: [{ governance_settings: { eligibility_threshold: 50,template: 'small-collective' } }] };
+      if (/AVG\(te.raw_weight\)/.test(sql)) return { rows: [{ avg_trust: 62 }] };
+      if (/WHERE COALESCE/.test(sql)) return { rows: [] };
+      if (/FROM communities.governance_nominations n/.test(sql)) return { rows: [] };
+      if (/cm.role IN/.test(sql)) return { rows: [] };
+      throw new Error('Unexpected governance read in privacy fixture');
+    });
+
+    await getGovernanceState(COMMUNITY,U1);
+
+    const eligibilityQueries = queries.filter(sql => /WHERE COALESCE|nominee_meets_threshold/.test(sql));
+    expect(eligibilityQueries).toHaveLength(2);
+    for (const sql of eligibilityQueries) {
+      expect(sql).toMatch(/COALESCE\([\s\S]*?\),\s*0\)\s*<\s*'Infinity'::float8/i);
+    }
+  });
 });
 
 // Route exports the SQL by distinctive substring so the assertions don't depend on call ordering.

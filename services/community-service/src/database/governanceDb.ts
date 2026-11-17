@@ -79,6 +79,12 @@ export async function getGovernanceState(rawCommunityId: string, rawViewerId: st
         WHERE te.community_id = $1
           AND (te.user_id_a = u.id OR te.user_id_b = u.id)
       ), 0) >= $2
+        AND COALESCE((
+          SELECT SUM(te.raw_weight)
+          FROM social_graph.trust_edges te
+          WHERE te.community_id = $1
+            AND (te.user_id_a = u.id OR te.user_id_b = u.id)
+        ), 0) < 'Infinity'::float8
     `, [communityId, settings.eligibility_threshold]);
     const eligible_members = eligibleRes.rows.map((r) => ({
       user_id: r.user_id,
@@ -96,7 +102,10 @@ export async function getGovernanceState(rawCommunityId: string, rawViewerId: st
              nm.role AS nominee_current_role, nm.status='active' AS nominee_active,
              COALESCE((SELECT SUM(te.raw_weight) FROM social_graph.trust_edges te
                WHERE te.community_id=$1 AND (te.user_id_a=n.nominated_user_id OR te.user_id_b=n.nominated_user_id)
-             ),0) >= $3 AS nominee_meets_threshold,
+             ),0) >= $3
+             AND COALESCE((SELECT SUM(te.raw_weight) FROM social_graph.trust_edges te
+               WHERE te.community_id=$1 AND (te.user_id_a=n.nominated_user_id OR te.user_id_b=n.nominated_user_id)
+             ),0) < 'Infinity'::float8 AS nominee_meets_threshold,
              EXISTS(SELECT 1 FROM communities.governance_nomination_voters v
                WHERE v.nomination_id=n.id AND v.user_id=$2) AS viewer_in_electorate
       FROM communities.governance_nominations n

@@ -131,7 +131,7 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
     const member = await withTransaction(async (q) => {
       const result = classification === 'rejoin'
         ? await q(`UPDATE communities.members
-            SET role='member',status=$3,join_request_message=$4
+            SET role='member',status=$3,join_request_message=$4,joined_at=CURRENT_TIMESTAMP
             WHERE community_id=$1 AND user_id=$2 AND status='left' RETURNING *`,
           [communityId, user_id, memberStatus, message || null])
         : await q(`INSERT INTO communities.members(community_id,user_id,role,status,join_request_message)

@@ -552,6 +552,22 @@ describe('Sprint 143 governance GET projection and POST mirror', () => {
     expect((await nominationRow(nomination.id)).status).toBe('pending');
     expect(await nomineeRole()).toBe('member');
   });
+
+  it.each(['Infinity', '-Infinity', 'NaN'])('keeps non-finite trust %s ineligible in GET and POST', async (weight) => {
+    const nomination = await create();
+    await restoreQuorumWithoutFinalizing(nomination.id);
+    await pool.query(`UPDATE social_graph.trust_edges SET raw_weight=$2::float8 WHERE community_id=$1`, [fixture.community, weight]);
+    const state = await getGovernanceState(fixture.community, fixture.users[0]);
+    expect(state.eligible_members).toEqual([]);
+    expect(state.nominations[0]).toMatchObject({
+      nominee_eligible: false,
+      viewer: { can_ratify: false, reason: 'nominee_ineligible' },
+    });
+    await expect(vote(nomination.id, fixture.users[0]))
+      .rejects.toMatchObject({ status: 422, code: 'GOVERNANCE_ELIGIBILITY_NOT_MET' });
+    expect((await nominationRow(nomination.id)).status).toBe('pending');
+    expect(await nomineeRole()).toBe('member');
+  });
 });
 
 
@@ -629,12 +645,13 @@ const currentMembers = async () => (await pool.query(
   });
 
   it('rejoins a public community as an active member, never restoring a stored staff role', async () => {
-    await pool.query(`UPDATE communities.members SET status='left',role='admin' WHERE community_id=$1 AND user_id=$2`,
+    await pool.query(`UPDATE communities.members SET status='left',role='admin',joined_at='2000-01-01' WHERE community_id=$1 AND user_id=$2`,
       [fixture.community, fixture.users[1]]);
     await pool.query(`UPDATE communities.communities SET current_members=4 WHERE id=$1`, [fixture.community]);
     const response = await join(fixture.users[1]);
     expect(response.status).toBe(200);
     expect(response.body.data).toMatchObject({ status: 'active', role: 'member', token: expect.any(String) });
+    expect(new Date(response.body.data.joined_at).getTime()).toBeGreaterThan(new Date('2000-01-01').getTime());
     expect(await memberRow(fixture.users[1])).toEqual({ role: 'member', status: 'active' });
     expect(await currentMembers()).toBe(5);
     const claims = jwt.verify(response.body.data.token, process.env.JWT_SECRET!) as jwt.JwtPayload;

@@ -775,8 +775,8 @@ private communities return pending approval. A body `user_id` has no authority a
 }
 ```
 
-**Existing rows (Sprint 143):** active/pending rows return 409. A `left` row rejoins with `role='member'`,
-regardless of its stored prior role. An `inactive` row (staff removal or rejection) returns 409
+**Existing rows (Sprint 143):** active/pending rows return 409. A `left` row rejoins with `role='member'` and a
+refreshed `joined_at`, regardless of its stored prior role. An `inactive` row (staff removal or rejection) returns 409
 `MEMBERSHIP_RESTORE_REQUIRES_STAFF`; only staff can restore it. Conditional updates and the duplicate-key mapping
 return one success plus one 409 for concurrent attempts instead of a 500.
 

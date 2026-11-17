@@ -144,3 +144,33 @@ describe('Sprint 93 ADR-064: DELETE members derives caller from JWT, ignores bod
     );
   });
 });
+
+describe('Sprint 143 membership rejoin', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('refreshes joined_at when a departed member rejoins', async () => {
+    mockQuery.mockImplementation(async (sql: any) => {
+      const s = String(sql);
+      if (/FROM communities\.communities WHERE id/i.test(s)) {
+        return { rows: [{ id: 'comm-1', name: 'Community', max_members: 150, current_members: 4, status: 'active', access_type: 'public' }], rowCount: 1 } as any;
+      }
+      if (/SELECT id, status FROM communities\.members/i.test(s)) {
+        return { rows: [{ id: 'membership-1', status: 'left' }], rowCount: 1 } as any;
+      }
+      if (/UPDATE communities\.members/i.test(s)) {
+        return { rows: [{ id: 'membership-1', status: 'active', role: 'member' }], rowCount: 1 } as any;
+      }
+      return { rows: [], rowCount: 0 } as any;
+    });
+
+    const res = await request(app)
+      .post('/communities/comm-1/join')
+      .set('Authorization', `Bearer ${tokenFor('u1')}`)
+      .send({});
+
+    expect(res.status).toBe(200);
+    const update = mockQuery.mock.calls.find(([sql]) => /UPDATE communities\.members/i.test(String(sql)));
+    expect(update).toBeDefined();
+    expect(String(update![0])).toMatch(/joined_at\s*=\s*CURRENT_TIMESTAMP/i);
+  });
+});
