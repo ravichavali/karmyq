@@ -1,8 +1,8 @@
 # Sprint 143 — Governance nomination lifecycle + member rejoin — Handoff
 
 **Date**: 2026-11-17
-**Outcome**: **implementation and local quality gates complete; product PR not open yet.** Sprint 143 is not complete:
-completion requires merge, deploy and post-deploy verification by a separately authorized follow-on.
+**Outcome**: **Tasks 1–13 complete; product PR #340 is open.** Sprint 143 is not complete: completion requires merge,
+deploy and post-deploy verification by a separately authorized follow-on.
 
 > State between sessions only. This branch-local file reserves no contended resource; see
 > `.claude/handoff/README.md` → *Parallel development rules*.
@@ -13,26 +13,24 @@ completion requires merge, deploy and post-deploy verification by a separately a
 |---|---|
 | **Branch** | `agent/claude/sprint-143-planning` |
 | **Base** | `origin/master` at `1692a560`, fetched again on 2026-11-17; unchanged, so no merge was needed |
-| **Open PRs observed** | Only Dependabot #339 (Next bump), unrelated; do not enter its dependency lane |
+| **Open PRs observed** | Sprint 143 product PR #340; Dependabot #339 (Next bump), unrelated — do not enter its dependency lane |
 | **Plan** | `docs/superpowers/plans/2026-11-15-sprint-143-governance-nomination-lifecycle.md` |
 | **Spec** | `docs/superpowers/specs/2026-11-15-sprint-143-governance-nomination-lifecycle-design.md` |
 | **Ledger** | `.superpowers/sdd/2026-11-15-sprint-143-governance-nomination-lifecycle/progress.md` |
-| **PR** | Not open yet; Task 13 is in progress |
+| **PR** | [#340 — feat: Sprint 143 governance nomination lifecycle](https://github.com/ravichavali/karmyq/pull/340) |
 
-The plan review rounds 1–2 are integrated. Tasks 1–12 are complete. Never rebase this branch.
+The plan review rounds 1–2 are integrated. Tasks 1–13 are complete. Never rebase this branch.
 
 ## Quick Start — next unchecked work
 
-1. Reconcile `git status -sb`, `git fetch origin`, `gh pr list`, and `git log --oneline origin/master -3`; merge a moved
-   master with a merge commit only.
-2. Finish Task 13: run `bash scripts/pre-commit-check.sh` exactly once unless its documented artifact-recovery rule
-   permits one retry, commit/push with normal hooks, then open the single product PR from
-   `.github/pull_request_template.md`.
-3. Replace BUG-102's `PR pending` text in `docs/BUGS.md` with the real PR reference, reconcile this handoff with the
-   live PR, push that correction, and **stop**. Do not watch CI in this chat.
-4. A later maintainer-authorized chat starts at Task 14: confirm the PR head's whole-tier integration job and
-   `regenerate-init-sql.yml` drift check plus independent byte comparison, then obtain version and merge-slot
-   allocation before any merge/deploy.
+1. Re-derive live state with `git status -sb`, `git fetch origin`, `gh pr list`, `gh pr view 340`, and
+   `git log --oneline origin/master -3`; merge a moved master with a merge commit only.
+2. A later maintainer-authorized chat starts at Task 14: inspect the PR head's actual whole-tier integration job and
+   `regenerate-init-sql.yml` drift check plus independent byte comparison, including job counts and conclusions. The
+   current real-DB review additions also require CI. Independent whole-branch correctness/security review was
+   provider-blocked; only inline review and the completed process review are claimed.
+3. Obtain version and merge-slot allocation before any merge/deploy, then follow Task 14 and the `ship`/`deploy`
+   process. The platform-admin grant and its 200 smoke check remain separately unauthorized.
 
 ## Delivered commits
 
@@ -84,7 +82,8 @@ The plan review rounds 1–2 are integrated. Tasks 1–12 are complete. Never re
 | `9db325a7` | `npm run type-check --workspace=services/community-service` and `npm exec --workspace=apps/frontend -- tsc --noEmit` passed | Static checks only |
 | `9db325a7` | `feedback:check` rerun; generated landing service/API docs refreshed, known build/dependencyGraph/ADR-010 churn reverted | Advisory output is not a pass claim; no dependency edit was made |
 
-Task 13's final pre-commit and push-hook evidence must be added to the PR Validation ledger after it runs.
+| `685ef410` | Final `bash scripts/pre-commit-check.sh`: initial tests passed but generated-doc churn failed; applied its exact snapshot recovery `20ceb2ba32ebf1de83a18498e9981fa3c73c129f`, and the single permitted retry exited 0 | Mixed project test cache; retry followed the documented artifact-recovery rule; local integration unavailable |
+| `685ef410` | Normal push hook passed required unit/regression checks and pushed the branch | Turbo reported mixed caching; integration skipped without a local DB. Non-blocking development-TDD tasks in community/request/social-graph/root-tests failed with `ECONNREFUSED 127.0.0.1:5432`, which the hook explicitly accepted as development-tier behavior |
 
 ## Remaining authorizations and blockers
 

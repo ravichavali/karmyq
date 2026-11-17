@@ -2777,7 +2777,7 @@ the normal Git/CI gates.
 
 ---
 
-## BUG-102 · [2026-11-13] · fixed (Sprint 143; PR pending)
+## BUG-102 · [2026-11-13] · fixed (Sprint 143; PR #340)
 
 **Self-service rejoin of an inactive membership returns 500.** Reported in Claude's Sprint 142 plan review.
 `services/community-service/src/routes/members.ts:106-133` detects active/pending memberships but falls
