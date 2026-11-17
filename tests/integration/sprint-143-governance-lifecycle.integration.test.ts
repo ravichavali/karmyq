@@ -719,6 +719,22 @@ const currentMembers = async () => (await pool.query(
     expect(await currentMembers()).toBe(adminCount === 3 ? 3 : 4);
   });
 
+  it('finishes a staff status update racing an admin removal without deadlock', async () => {
+    await pool.query(`UPDATE communities.members SET role='admin' WHERE community_id=$1 AND user_id=$2`,
+      [fixture.community, fixture.users[1]]);
+    const statusUpdate = request(membersApp)
+      .put(`/communities/${fixture.community}/members/${fixture.users[1]}`)
+      .auth(memberToken(fixture.users[0]), { type: 'bearer' })
+      .send({ status: 'inactive' });
+    const [updateResponse, departureResponse] = await Promise.all([
+      statusUpdate,
+      depart(fixture.users[0], fixture.users[2]),
+    ]);
+    expect([updateResponse.status, departureResponse.status]).toEqual([200, 200]);
+    expect((await memberRow(fixture.users[1])).status).toBe('inactive');
+    expect((await memberRow(fixture.users[2])).status).toBe('left');
+  }, 60000);
+
   it('finishes a self-leave racing a final ratification without deadlock', async () => {
     const nomination = await create();
     await vote(nomination.id, fixture.users[0]);

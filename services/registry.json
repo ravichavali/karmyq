@@ -272,7 +272,7 @@
           {
             "method": "GET",
             "path": "/communities/:id/governance",
-            "description": "Live active-member governance state with lazy committed expiry: expired rows close and are hidden. Returns expires_at, coarse nominee_eligible, fixed electorates/required votes, matching live ratifier counts/identities, and viewer can_ratify/reason plus can_withdraw/can_decline. Restored quorum exposes ready_to_finalize; no full roster or personal metrics."
+            "description": "Live active-member governance state; expired pending rows are hidden without a GET write and close lazily on nomination writes. Returns expires_at, coarse nominee_eligible, fixed electorates/required votes, matching live ratifier counts/identities, and viewer can_ratify/reason plus can_withdraw/can_decline. Restored quorum exposes ready_to_finalize; no full roster or personal metrics."
           },
           {
             "method": "POST",

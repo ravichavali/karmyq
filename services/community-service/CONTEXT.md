@@ -9,8 +9,8 @@
   `20261115-governance-nomination-lifecycle.sql` adds `governance_nominations.expires_at`, the `declined`
   and `expired` statuses, and an expiry-aware v1 database guard. New v1 rows default to 30 days; replay
   backfills existing v1 rows with exactly `created_at + 30 days`, preserves pre-v1 NULL history, and makes no
-  second-run changes. Expired pending rows close lazily on GET and nomination writes with
-  `resolved_at=expires_at`; GET hides them and creation reclaims their slots. A 409 expiry refusal does not
+  second-run changes. GET hides expired pending rows without writing; nomination writes close them lazily with
+  `resolved_at=expires_at`, and creation reclaims their slots. A 409 expiry refusal does not
   roll back that close, and the DB guard refuses expired ballots/final transitions even with the protocol marker.
   - Withdraw and decline are separate POST routes for the active nominator and nominee. They preserve ballots,
     return 404 for foreign-community paths, 403 for the wrong/inactive party, and 409 for retries. Every
@@ -819,20 +819,22 @@ self-service joining is `POST /communities/:communityId/join`, which applies the
 **Events Published:** `user_joined_community`
 
 ### PUT /communities/:communityId/members/:userId
-Update member role or status.
+Update member role or status as the verified JWT caller; any body `admin_user_id` is ignored.
 
 **Request:**
 ```json
 {
-  "admin_user_id": "uuid",
   "role": "admin",
   "status": "active"
 }
 ```
 
-**Implementation:** `src/routes/members.ts:260`
+**Implementation:** `src/routes/members.ts` — `PUT /:communityId/members/:userId`
 
 **Sprint 25 — Moderator support:** Moderators (`role='moderator'`) can update member `status` (e.g., approve or reject pending members) but cannot change member `role`. Admins retain full update capability (role + status). Non-admin/non-moderator callers receive `403`.
+
+Demotion or deactivation locks the target and every active admin in one user-ID-ordered statement, matching DELETE,
+before applying the last-admin guard and update. Other staff status counter drift remains BUG-103.
 
 ### DELETE /communities/:communityId/members/:userId
 Remove member from community (self-leave or admin kick). **Auth required** (router mounts `authMiddleware`).
@@ -845,7 +847,8 @@ Self-leave accepts active or pending rows and records `left`; inactive/left self
 records `inactive`. The last active admin cannot leave or be removed. One user-ID-ordered statement locks the target
 and every active admin before checking/updating, preventing two concurrent last-admin departures. Only an active
 target decrements `current_members`; pending/left/inactive removal does not. Active self-leave returns
-`data.token` from `issueMembershipToken`; pending self-leave and staff removal do not.
+`data.token` from `issueMembershipToken`; pending self-leave and staff removal do not. Unexpected failures use the
+ADR-074 `INTERNAL_ERROR` envelope without raw database details.
 
 **Implementation:** `src/routes/members.ts` — `DELETE /:communityId/members/:userId`, `canSelfDepart`,
 `departureStatus`, `issueMembershipToken`
@@ -857,8 +860,8 @@ Return governance state for an active member. Nominations include fixed electora
 ratifier count/identities, `expires_at`, coarse `nominee_eligible`, and viewer
 `{can_ratify,reason,can_withdraw,can_decline}`. Reasons mirror POST behavior, including `nominee`, `already_ratified`,
 `not_in_electorate`, `nominee_ineligible`, `eligible`, and `ready_to_finalize`. No full voter roster or personal
-trust/karma values are returned. An expired pending row is committed as `expired` and hidden; GET alone never grants
-a role.
+trust/karma values are returned. An expired pending row is hidden without a GET write; ratify, withdraw, decline
+and creation perform the lazy stored close. GET alone never grants a role.
 
 ### POST /communities/:communityId/governance/nominate
 Active members nominate an eligible active member for a higher role. Creation snapshots the other active members,

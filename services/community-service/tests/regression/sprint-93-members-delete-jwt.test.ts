@@ -143,6 +143,16 @@ describe('Sprint 93 ADR-064: DELETE members derives caller from JWT, ignores bod
       expect.objectContaining({ removed_by: 'admin1', is_self_remove: false })
     );
   });
+
+  it('withholds internal database details from a failed departure response', async () => {
+    mockQuery.mockRejectedValue(new Error('secret SQL and membership details'));
+    const res = await request(app)
+      .delete('/communities/comm-1/members/u1')
+      .set('Authorization', `Bearer ${tokenFor('u1')}`);
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('INTERNAL_ERROR');
+    expect(JSON.stringify(res.body)).not.toMatch(/secret|SQL|membership details/);
+  });
 });
 
 describe('Sprint 143 membership rejoin', () => {

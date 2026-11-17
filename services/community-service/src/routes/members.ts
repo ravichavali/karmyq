@@ -362,23 +362,22 @@ router.put('/:communityId/members/:userId', async (req: Request, res: Response) 
     }
 
     // Last-admin guard (BUG-001): demoting or deactivating the sole active admin would
-    // leave the community adminless. Run the count-check and the write in ONE
-    // transaction, locking the active-admin rows (FOR UPDATE) so two concurrent
-    // demotions serialize instead of both seeing count=2 and dropping the community to
-    // zero admins (the DELETE path below guards the same way).
+    // leave the community adminless. Lock the target and active admins in the same
+    // user-id order as DELETE so concurrent membership writes cannot lock in reverse order.
     const demotesRole = role !== undefined && role !== 'admin';
     const deactivates = status !== undefined && status !== 'active';
 
     const outcome = await withTransaction(async (q) => {
       if (demotesRole || deactivates) {
-        const admins = await q(
-          `SELECT user_id FROM communities.members
-           WHERE community_id = $1 AND role = 'admin' AND status = 'active'
-           FOR UPDATE`,
-          [communityId]
+        const locked = await q(
+          `SELECT user_id,role,status FROM communities.members
+           WHERE community_id=$1 AND (user_id=$2 OR (role='admin' AND status='active'))
+           ORDER BY user_id FOR UPDATE`,
+          [communityId, userId]
         );
+        const activeAdmins = locked.rows.filter((row: any) => row.role === 'admin' && row.status === 'active');
         const targetIsSoleAdmin =
-          admins.rows.some((r: any) => r.user_id === userId) && admins.rows.length <= 1;
+          activeAdmins.some((r: any) => r.user_id === userId) && activeAdmins.length <= 1;
         if (targetIsSoleAdmin) return { lastAdmin: true as const };
       }
 
@@ -505,11 +504,7 @@ router.delete('/:communityId/members/:userId', async (req: Request, res: Respons
     });
   } catch (error: any) {
     (req as any).logger?.error('Error removing member', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'DELETE /:communityId/members/:userId' });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to remove member',
-      error: error.message,
-    });
+    return sendInternalError(res, 'Failed to remove member', error);
   }
 });
 
