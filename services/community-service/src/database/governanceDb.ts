@@ -1,6 +1,6 @@
 import pool from './db';
 import { PoolClient } from 'pg';
-import { GOVERNANCE_QUORUM_POLICY, requiredRatifications, canElevateRole, deriveViewerState, GovernanceError, GovernanceViewerReason } from './governancePolicy';
+import { GOVERNANCE_QUORUM_POLICY, requiredRatifications, canElevateRole, closeStatusFor, deriveViewerState, GovernanceError, GovernanceViewerReason } from './governancePolicy';
 
 export interface GovernanceSettings {
   eligibility_threshold: number;
@@ -304,7 +304,7 @@ export async function closeNomination(input: CloseNominationInput): Promise<{
     if (expired.rowCount) return { expired: true as const };
     const closed = await client.query(`UPDATE communities.governance_nominations
       SET status=$3,resolved_at=now() WHERE id=$1 AND community_id=$2 AND status='pending'
-      RETURNING id,status`, [nominationId,communityId,input.action === 'withdraw' ? 'withdrawn' : 'declined']);
+      RETURNING id,status`, [nominationId,communityId,closeStatusFor(input.action)]);
     return { expired: false as const,row: closed.rows[0] };
   });
   if (outcome.expired) {

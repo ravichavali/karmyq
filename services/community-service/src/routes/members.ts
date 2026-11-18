@@ -138,7 +138,6 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
             VALUES($1,$2,'member',$3,$4) RETURNING *`,
           [communityId, user_id, memberStatus, message || null]);
       if (result.rowCount === 0) {
-        await q(`SELECT status FROM communities.members WHERE community_id=$1 AND user_id=$2`, [communityId, user_id]);
         return undefined;
       }
       if (memberStatus === 'active') {

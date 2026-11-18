@@ -359,6 +359,8 @@ describe('Sprint 143 lifecycle races', () => {
     ]);
     expect(outcomes.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
     expect(outcomes.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    const rejected = outcomes.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+    expect(rejected?.reason).toMatchObject({ status: 409, code: 'GOVERNANCE_NOMINATION_CLOSED' });
     const row = await nominationRow(nomination.id);
     expect([action === 'decline' ? 'declined' : 'withdrawn', 'ratified']).toContain(row.status);
     if (row.status === 'ratified') expect(await nomineeRole()).toBe('moderator');
@@ -732,7 +734,7 @@ const currentMembers = async () => (await pool.query(
     ]);
     expect([updateResponse.status, departureResponse.status]).toEqual([200, 200]);
     expect((await memberRow(fixture.users[1])).status).toBe('inactive');
-    expect((await memberRow(fixture.users[2])).status).toBe('left');
+    expect((await memberRow(fixture.users[2])).status).toBe('inactive');
   }, 60000);
 
   it('finishes a self-leave racing a final ratification without deadlock', async () => {

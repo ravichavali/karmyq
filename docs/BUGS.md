@@ -2813,3 +2813,23 @@ The staff status PUT transitions and pre-existing stored drift remain open exact
 read or repair was performed.
 
 ---
+
+## BUG-104 · [2026-11-18] · open
+
+**The PUT last-admin guard can be bypassed with a non-canonical UUID.** Found in Claude's PR #340 review.
+`services/community-service/src/routes/members.ts:380` compares PostgreSQL's canonical `user_id` value directly with
+the unnormalized `userId` path parameter. An uppercase or otherwise non-canonical UUID can therefore make the target
+check fail even when the target is the sole active admin, allowing demotion or deactivation past the guard. The
+maintainer chose to log this separately rather than expand PR #340.
+
+---
+
+## BUG-105 · [2026-11-18] · open
+
+**Moderator reactivation can restore a stored admin role.** Found in Claude's PR #340 review.
+`services/community-service/src/routes/members.ts:326-334` allows moderators to make status-only updates, and the
+UPDATE at `:384-390` changes `status` without constraining the existing role. Reactivating an inactive row whose
+stored role is `admin` therefore restores an active admin through a moderator-only operation. The maintainer chose
+to log this separately rather than expand PR #340.
+
+---

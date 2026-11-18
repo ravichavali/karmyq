@@ -1,8 +1,8 @@
 # Sprint 143 — Governance nomination lifecycle + member rejoin — Handoff
 
-**Date**: 2026-11-17
-**Outcome**: **Tasks 1–13 complete; product PR #340 is open.** Sprint 143 is not complete: completion requires merge,
-deploy and post-deploy verification by a separately authorized follow-on.
+**Date**: 2026-11-18
+**Outcome**: **PR #340 review corrections are being finalized; merge remains unauthorized.** Sprint 143 is not complete:
+completion requires merge, deploy and post-deploy verification by a separately authorized follow-on.
 
 > State between sessions only. This branch-local file reserves no contended resource; see
 > `.claude/handoff/README.md` → *Parallel development rules*.
@@ -12,24 +12,26 @@ deploy and post-deploy verification by a separately authorized follow-on.
 | Field | Value |
 |---|---|
 | **Branch** | `agent/claude/sprint-143-planning` |
-| **Base** | `origin/master` at `1692a560`, fetched again on 2026-11-17; unchanged, so no merge was needed |
+| **Base** | `origin/master` at `1692a560`, fetched again on 2026-11-18; unchanged, so no merge was needed |
 | **Open PRs observed** | Sprint 143 product PR #340; Dependabot #339 (Next bump), unrelated — do not enter its dependency lane |
 | **Plan** | `docs/superpowers/plans/2026-11-15-sprint-143-governance-nomination-lifecycle.md` |
 | **Spec** | `docs/superpowers/specs/2026-11-15-sprint-143-governance-nomination-lifecycle-design.md` |
 | **Ledger** | `.superpowers/sdd/2026-11-15-sprint-143-governance-nomination-lifecycle/progress.md` |
 | **PR** | [#340 — feat: Sprint 143 governance nomination lifecycle](https://github.com/ravichavali/karmyq/pull/340) |
 
-The plan review rounds 1–2 are integrated. Tasks 1–13 are complete. Never rebase this branch.
+The plan review rounds 1–2 are integrated. Tasks 1–13 are complete; PR #340 review corrections are now being verified.
+Never rebase this branch.
 
 ## Quick Start — next unchecked work
 
 1. Re-derive live state with `git status -sb`, `git fetch origin`, `gh pr list`, `gh pr view 340`, and
    `git log --oneline origin/master -3`; merge a moved master with a merge commit only.
-2. A later maintainer-authorized chat starts at Task 14: inspect the PR head's actual whole-tier integration job and
-   `regenerate-init-sql.yml` drift check plus independent byte comparison, including job counts and conclusions. The
-   current real-DB review additions also require CI. Independent whole-branch correctness/security review was
-   provider-blocked; only inline review and the completed process review are claimed.
-3. Obtain version and merge-slot allocation before any merge/deploy, then follow Task 14 and the `ship`/`deploy`
+2. Inspect the final head's actual CI jobs. Initial integration run `44103556510` had 595/596 passing and one incorrect
+   staff-removal assertion, now corrected; close-race rejection assertions also need the final real-DB rerun.
+   `regenerate-init-sql` run `44103556499` passed every applicable step, including independent byte comparison.
+3. The maintainer must dismiss the six known false-positive CodeQL alerts after the final head commit, following the
+   Sprint 142 precedent; this agent has not dismissed them. Independent whole-branch review remains provider-blocked.
+4. Obtain version and merge-slot allocation before any merge/deploy, then follow Task 14 and the `ship`/`deploy`
    process. The platform-admin grant and its 200 smoke check remain separately unauthorized.
 
 ## Delivered commits
@@ -74,34 +76,39 @@ The plan review rounds 1–2 are integrated. Tasks 1–13 are complete. Never re
 
 | Commit / tested tree | Evidence | Limitation |
 |---|---|---|
-| `0f47ee40` | Route-A workflow `43801545661`: determinism, fresh boot, ledger and replay-drift checks passed; artifact host hash `f711ff9413787d4ce232fd90c4bed7bc71ad7c7c` | Dispatch skipped independent byte comparison; PR workflow evidence remains pending |
-| `4f42066a` | Disposable PostgreSQL: Sprint 142 + 143 integration, 2 suites / 78 tests; `karmyq_test` superuser+bypass-RLS recorded, explicit community predicates tested | Predates review fixes; container/tunnel removed. New `joined_at`, non-finite-trust and PUT/DELETE race cases require PR CI |
+| `0f47ee40` | Route-A workflow `43801545661`: determinism, fresh boot, ledger and replay-drift checks passed; artifact host hash `f711ff9413787d4ce232fd90c4bed7bc71ad7c7c` | Dispatch skipped independent byte comparison; PR run `44103556499` supplies it below |
+| `4f42066a` | Disposable PostgreSQL: Sprint 142 + 143 integration, 2 suites / 78 tests; `karmyq_test` superuser+bypass-RLS recorded, explicit community predicates tested | Predates all review fixes; container/tunnel removed. PR CI below covers the later real-DB additions |
 | `612c3207` | Frontend full tier: 62 unit + 609 regression tests passed | No frontend product change after this run; final frontend `tsc --noEmit` also passed at `9db325a7` |
-| `9db325a7` | Community-service full tier: 28 suites / 373 tests passed; focused new tests used `--no-cache` and had red→green proof | Local, not CI; no disposable DB restart was authorized for review fixes |
-| `9db325a7` | Root `npm test --workspace=tests`: 49 suites / 1074 tests passed after all review fixes; documentation+disclosure gate also passed 191 tests cold | Jest cache was not globally disabled for the root run; whole-tier integration is CI-only |
-| `9db325a7` | `npm run type-check --workspace=services/community-service` and `npm exec --workspace=apps/frontend -- tsc --noEmit` passed | Static checks only |
+| `9db325a7` | Community-service full tier: 28 suites / 373 tests passed; focused new tests used `--no-cache` and had red→green proof | Local and predates the PR #340 review corrections |
+| `9db325a7` | Root `npm test --workspace=tests`: 49 suites / 1074 tests passed after the initial review fixes; documentation+disclosure gate also passed 191 tests cold | Jest cache was not globally disabled; predates the PR #340 review corrections |
+| `9db325a7` | `npm run type-check --workspace=services/community-service` and `npm exec --workspace=apps/frontend -- tsc --noEmit` passed | Static checks only; predate the PR #340 review corrections |
 | `9db325a7` | `feedback:check` rerun; generated landing service/API docs refreshed, known build/dependencyGraph/ADR-010 churn reverted | Advisory output is not a pass claim; no dependency edit was made |
-
 | `685ef410` | Final `bash scripts/pre-commit-check.sh`: initial tests passed but generated-doc churn failed; applied its exact snapshot recovery `20ceb2ba32ebf1de83a18498e9981fa3c73c129f`, and the single permitted retry exited 0 | Mixed project test cache; retry followed the documented artifact-recovery rule; local integration unavailable |
-| `685ef410` | Normal push hook passed required unit/regression checks and pushed the branch | Turbo reported mixed caching; integration skipped without a local DB. Non-blocking development-TDD tasks in community/request/social-graph/root-tests failed with `ECONNREFUSED 127.0.0.1:5432`, which the hook explicitly accepted as development-tier behavior |
+| `685ef410` | Normal push hook passed required unit/regression checks and pushed the branch | Turbo reported mixed caching; integration skipped without a local DB. Non-blocking development-TDD tasks failed with `ECONNREFUSED 127.0.0.1:5432`, which the hook explicitly accepted |
+| `678403be` | PR CI run [44103556510](https://github.com/ravichavali/karmyq/actions/runs/44103556510): integration executed 32 suites / 596 tests; 595 passed and one failed because the staff-removal race expected `left` instead of actual `inactive` | Run failed; assertion corrected along with stronger close-race 409/error-code checks. Final-head rerun remains required |
+| `678403be` | `regenerate-init-sql` run [44103556499](https://github.com/ravichavali/karmyq/actions/runs/44103556499) passed every applicable step: independent baseline, determinism, fresh boot, migration ledger, zero drift and committed-byte comparison | The failure-only database-log step was skipped on success; this run predates review corrections but the schema did not change |
 
 ## Remaining authorizations and blockers
 
 - **Not authorized:** demo data operations; demo application DB access; platform-admin grant and its 200 smoke check;
-  version bump; merge slot; new ADR numbers; dependency lane; merge/deploy; watching CI after PR creation.
+  version bump; merge slot; new ADR numbers; dependency lane; merge/deploy. This review follow-up explicitly authorizes
+  reading the final PR CI jobs to report their conclusions.
 - Disposable SSH/Postgres authorization covered Tasks 1 and 4–9 only and has ended cleanly. Do not recreate that DB for
-  Task 13. No demo data operation occurred.
-- Version and merge slot remain unallocated and block merge readiness, not PR creation.
-- PR CI must still prove the whole integration tier, current real-DB review additions, regeneration drift check and
-  independent `init.sql` byte comparison. Read actual job conclusions before merge.
+  these review corrections. No demo data operation occurred.
+- Version and merge slot remain unallocated and block merge readiness.
+- Final-head CI must still prove the corrected whole integration tier. Read actual job conclusions before merge.
+  Regeneration run `44103556499` passed every applicable step at `678403be`; no schema change followed it.
+- The maintainer must dismiss six CodeQL alerts after the final head commit, following Sprint 142's precedent.
 - The platform-admin rollout remains fail-closed pending a separately authorized maintainer grant and smoke test.
 
 ## Carried follow-ups
 
+- BUG-104 tracks the non-canonical-UUID PUT last-admin guard bypass; BUG-105 tracks moderator reactivation restoring a
+  stored admin role. The maintainer explicitly chose separate bugs rather than bundling either fix into PR #340.
 - Rotation, revocation, delegation, opposition votes and close/expiry notifications are unplanned.
 - No web control cancels one's own pending join request; the API supports it after this sprint.
 - Mobile's separate `POST /communities/:id/leave` remains revival debt, outside this branch.
-- Other legacy member-handler error envelopes and staff PUT input/counter semantics are pre-existing debt; this branch
-  only fixed the rewritten DELETE disclosure and the lock interaction its new DELETE lock set introduced.
+- Other legacy member-handler error envelopes and staff PUT input/counter semantics (BUG-103) are pre-existing debt;
+  this branch only fixed the rewritten DELETE disclosure and the lock interaction its new DELETE lock set introduced.
 
 ⚠️ GitHub status goes stale. Re-derive PR, CI and deploy state before acting on this handoff.

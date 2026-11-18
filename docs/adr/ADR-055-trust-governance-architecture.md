@@ -51,9 +51,9 @@ ballots survive every close. `expires_at` defaults to 30 days for new protocol-v
 row with exactly `created_at + 30 days`, including resolved rows, while pre-v1 history keeps NULL. A CHECK prevents
 v1 rows from losing their expiry.
 
-Expiry is lazy: GET and nomination writes close an expired pending row before projecting or refusing the operation,
-with `resolved_at = expires_at`; the 409 response does not roll that close back. GET hides expired rows and creation
-can reclaim their nomination slot. The database guard independently refuses new ballots and `ratified` transitions
+Expiry is lazy: nomination writes close an expired pending row before refusing the operation, with
+`resolved_at = expires_at`; the 409 response does not roll that close back. GET hides expired rows without writing
+them, and creation can reclaim their nomination slot. The database guard independently refuses new ballots and `ratified` transitions
 after expiry even when the v1 protocol marker is present. Replay preserves constraints, trigger behavior and row
 values, and a second migration makes no changes.
 
