@@ -1,9 +1,10 @@
 # Sprint 144 — Staff membership write integrity — Handoff
 
 **Date**: 2026-11-19
-**Outcome**: **PLANNED, ready to execute.** The maintainer approved the spec's decisions 1–6 in the planning chat.
-Spec, plan, the Sprint 143 post-merge record and the bug-log updates are committed on this branch. No product code
-has been written yet.
+**Outcome**: **PLANNED — awaiting Codex plan review (read-only), round 1.** The maintainer approved the spec's
+decisions 1–6 in the planning chat. Spec, plan, the Sprint 143 post-merge record and the bug-log updates are
+committed on this branch (`e6713ca5`). No product code has been written yet. Execution starts only after Claude
+(the author) integrates the review findings.
 
 > State between sessions only. This branch-local file reserves no contended resource; see
 > `.claude/handoff/README.md` → *Parallel development rules*.
@@ -25,6 +26,14 @@ Never rebase this branch.
 
 ## Quick Start
 
+0. **Plan review gate.** Until the *Plan review log* below shows the latest round integrated, the next step is not
+   execution:
+   - **Codex** reviews the spec + plan read-only and returns numbered findings in chat.
+   - **Claude** (the author) verifies each finding against the repo with the `review-response` skill, integrates
+     them, commits `docs: Sprint 144 plan review round N — …`, and updates the log.
+   - A re-review covers only that round's delta.
+
+   Once the log says the plan is ready for Task 1, continue at step 1.
 1. Read this handoff.
 2. Reuse the existing task branch: `git switch agent/claude/sprint-144-planning`, then `git fetch origin`. If
    `origin/master` moved past `a2746057`, merge it with a merge commit (never rebase). Do not create a
@@ -35,6 +44,12 @@ Never rebase this branch.
    `superpowers:subagent-driven-development`. There is no `/execute-plan` slash command; superpowers removed it.
 5. Task 1 starts by asking the maintainer one question (disposable PostgreSQL container for integration
    iteration) and then makes the Next.js splice the **first commit**. **SLA: merged by 2026-12-01.**
+
+## Plan review log
+
+| Round | Reviewer | Reviewed head | Status |
+|---|---|---|---|
+| 1 | Codex (read-only) | `e6713ca5` (spec + plan) | **pending**. Findings go to the maintainer in chat; Claude integrates them |
 
 ## Sprint goal
 
