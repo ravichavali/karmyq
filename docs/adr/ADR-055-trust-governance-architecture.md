@@ -5,7 +5,7 @@
 **Deciders**: Ravi Chavali
 **Supersedes**: —
 **Superseded by**: —
-**Amended**: 2026-11-13 — Sprint 142 proportional ratification (implemented on the feature branch; deployment pending).
+**Amended**: 2026-11-13 — Sprint 142 proportional ratification (shipped in #338 `1692a560`, v11.115.0; deployed 2026-11-15); 2026-11-15 — Sprint 143 nomination lifecycle and member rejoin.
 
 ---
 
@@ -37,11 +37,40 @@ in an isolated scratch database. Explicit community predicates supply isolation;
 recorded rather than crediting bypassed RLS. The new voter table is classified reset for curated fixtures.
 
 Simulated nomination/ratification remains disabled. The maintainer accepts that persona-heavy demo communities
-may not reach quorum. The implementation does not add role rotation, automatic revocation, delegation,
+may not reach quorum. The Sprint 142 implementation did not add role rotation, automatic revocation, delegation,
 nomination expiry or withdrawal. The original architecture below records those broader intentions; its old
 role-holder-only quorum and template-specific sizes are superseded by this amendment for new nominations.
 
 Design: [Sprint 142 spec](../superpowers/specs/2026-11-12-sprint-142-governance-quorum-design.md).
+
+### Sprint 143 amendment — nomination lifecycle and member rejoin (2026-11-15)
+
+A pending nomination can now close as `withdrawn` by its active nominator, `declined` by its active nominee, or
+`expired` after 30 days. Party authorization is derived from current membership, not JWT role hints, and historical
+ballots survive every close. `expires_at` defaults to 30 days for new protocol-v1 rows. Migration backfills every v1
+row with exactly `created_at + 30 days`, including resolved rows, while pre-v1 history keeps NULL. A CHECK prevents
+v1 rows from losing their expiry.
+
+Expiry is lazy: nomination writes close an expired pending row before refusing the operation, with
+`resolved_at = expires_at`; the 409 response does not roll that close back. GET hides expired rows without writing
+them, and creation can reclaim their nomination slot. The database guard independently refuses new ballots and `ratified` transitions
+after expiry even when the v1 protocol marker is present. Replay preserves constraints, trigger behavior and row
+values, and a second migration makes no changes.
+
+Every governance write keeps the nomination → membership lock order. Self-departure instead locks the target and all
+active admins in one user-ID-ordered statement, preserving the last-admin invariant without taking a nomination lock.
+Close versus final ratification and leave versus final ratification therefore serialize without a partial grant.
+
+Self-leave records `left`; public self-rejoin returns an ordinary active `member`, private self-rejoin returns a
+pending ordinary member, and neither restores a stored staff role. Staff removal and rejection remain `inactive` and
+require staff restoration. Only original voters who are currently active count, so either kind of return can restore
+that voter's existing ballot without adding late voters or lowering the threshold. Active self-leave and active
+public rejoin reissue the membership JWT; private pending rejoin does not.
+
+This amendment adds no automatic role rotation, revocation, delegation or lifecycle notifications. Nomination expiry
+does not expire a role already granted.
+
+Design: [Sprint 143 spec](../superpowers/specs/2026-11-15-sprint-143-governance-nomination-lifecycle-design.md).
 
 ### Original context (2026-05-25)
 

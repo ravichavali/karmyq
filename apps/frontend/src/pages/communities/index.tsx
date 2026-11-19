@@ -3,7 +3,7 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
 import { communityService, reputationService } from '@/lib/api'
-import { isFirstEverJoin, beginArrival } from '@/lib/session'
+import { isFirstEverJoin, beginArrival, persistMembershipToken } from '@/lib/session'
 import { decodeJwtPayload } from '@/lib/jwt'
 import Layout from '@/components/Layout'
 import EmptyState from '@/components/EmptyState'
@@ -346,18 +346,8 @@ export default function CommunitiesPage() {
       // Persist refreshed JWT so buildMembershipStatusFromToken uses up-to-date community list
       const newToken = joinRes?.data?.token
       if (newToken && accessType === 'public') {
-        localStorage.setItem('token', newToken)
-        try {
-          // Decode the new JWT to get the complete community list (id + name + role)
-          const payload = decodeJwtPayload<any>(newToken)
-          if (payload?.communities) {
-            const updatedUser = { ...user, communities: payload.communities }
-            localStorage.setItem('user', JSON.stringify(updatedUser))
-            setUser(updatedUser)
-          }
-        } catch {
-          // Non-fatal: token decode failed, communities list stays stale until next login
-        }
+        const updatedUser = persistMembershipToken(newToken)
+        if (updatedUser) setUser(updatedUser)
       }
 
       setMembershipStatus(prev => ({

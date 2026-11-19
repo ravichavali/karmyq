@@ -54,18 +54,19 @@ const tokenFor = (userId: string) =>
  * Param-aware content mock: role lookups resolve by the queried user_id ($2), so the
  * tests can distinguish "caller from JWT" from "admin_user_id from body". That is what
  * makes the spoof cases RED on the old (body-trusting) handler and GREEN on the fix.
- * `roles` maps userId → membership role; `activeAdmins` is the set the FOR UPDATE
- * last-admin lock returns.
+ * `roles` maps userId → membership role; `activeAdmins` is the set included in the
+ * ordered target-and-admin FOR UPDATE lock.
  */
 function mockDeleteDb({ roles, activeAdmins }: { roles: Record<string, string>; activeAdmins: string[] }) {
   mockQuery.mockImplementation((sql: any, params?: any) => {
     const s = String(sql);
     const p: any[] = params || [];
-    // Last-admin guard's row-locking SELECT.
-    if (/SELECT user_id\s+FROM communities\.members/i.test(s) && /FOR UPDATE/i.test(s)) {
-      return Promise.resolve({ rows: activeAdmins.map((id) => ({ user_id: id })), rowCount: activeAdmins.length } as any);
+    if (/SELECT user_id,role,status\s+FROM communities\.members/i.test(s) && /FOR UPDATE/i.test(s)) {
+      const targetId = p[1];
+      const ids = [...new Set([...activeAdmins, ...(roles[targetId] ? [targetId] : [])])];
+      const rows = ids.map((id) => ({ user_id: id, role: roles[id] || 'admin', status: 'active' }));
+      return Promise.resolve({ rows, rowCount: rows.length } as any);
     }
-    // Role lookups (caller admin-check AND target-exists check) resolve by user_id param.
     if (/SELECT role\s+FROM communities\.members/i.test(s)) {
       const uid = p[1];
       const role = roles[uid];
@@ -141,5 +142,45 @@ describe('Sprint 93 ADR-064: DELETE members derives caller from JWT, ignores bod
       'user_left_community',
       expect.objectContaining({ removed_by: 'admin1', is_self_remove: false })
     );
+  });
+
+  it('withholds internal database details from a failed departure response', async () => {
+    mockQuery.mockRejectedValue(new Error('secret SQL and membership details'));
+    const res = await request(app)
+      .delete('/communities/comm-1/members/u1')
+      .set('Authorization', `Bearer ${tokenFor('u1')}`);
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('INTERNAL_ERROR');
+    expect(JSON.stringify(res.body)).not.toMatch(/secret|SQL|membership details/);
+  });
+});
+
+describe('Sprint 143 membership rejoin', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('refreshes joined_at when a departed member rejoins', async () => {
+    mockQuery.mockImplementation(async (sql: any) => {
+      const s = String(sql);
+      if (/FROM communities\.communities WHERE id/i.test(s)) {
+        return { rows: [{ id: 'comm-1', name: 'Community', max_members: 150, current_members: 4, status: 'active', access_type: 'public' }], rowCount: 1 } as any;
+      }
+      if (/SELECT id, status FROM communities\.members/i.test(s)) {
+        return { rows: [{ id: 'membership-1', status: 'left' }], rowCount: 1 } as any;
+      }
+      if (/UPDATE communities\.members/i.test(s)) {
+        return { rows: [{ id: 'membership-1', status: 'active', role: 'member' }], rowCount: 1 } as any;
+      }
+      return { rows: [], rowCount: 0 } as any;
+    });
+
+    const res = await request(app)
+      .post('/communities/comm-1/join')
+      .set('Authorization', `Bearer ${tokenFor('u1')}`)
+      .send({});
+
+    expect(res.status).toBe(200);
+    const update = mockQuery.mock.calls.find(([sql]) => /UPDATE communities\.members/i.test(String(sql)));
+    expect(update).toBeDefined();
+    expect(String(update![0])).toMatch(/joined_at\s*=\s*CURRENT_TIMESTAMP/i);
   });
 });

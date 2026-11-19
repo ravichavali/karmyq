@@ -1,6 +1,6 @@
 import pool from './db';
 import { PoolClient } from 'pg';
-import { GOVERNANCE_QUORUM_POLICY, requiredRatifications, canElevateRole, GovernanceError } from './governancePolicy';
+import { GOVERNANCE_QUORUM_POLICY, requiredRatifications, canElevateRole, closeStatusFor, deriveViewerState, GovernanceError, GovernanceViewerReason } from './governancePolicy';
 
 export interface GovernanceSettings {
   eligibility_threshold: number;
@@ -16,10 +16,12 @@ export interface GovernanceNomination {
   ratification_count: number;
   required_ratifications: number;
   status: string;
+  expires_at: Date;
+  nominee_eligible: boolean;
   ratifiers: Array<{ user_id: string; name: string }>;
   electorate_size: number;
   quorum_policy_version: 1;
-  viewer: { can_ratify: boolean; reason: 'eligible' | 'nominee' | 'already_ratified' | 'not_in_electorate' | 'ready_to_finalize' };
+  viewer: { can_ratify: boolean; reason: GovernanceViewerReason; can_withdraw: boolean; can_decline: boolean };
 }
 
 export interface GovernanceState {
@@ -77,6 +79,12 @@ export async function getGovernanceState(rawCommunityId: string, rawViewerId: st
         WHERE te.community_id = $1
           AND (te.user_id_a = u.id OR te.user_id_b = u.id)
       ), 0) >= $2
+        AND COALESCE((
+          SELECT SUM(te.raw_weight)
+          FROM social_graph.trust_edges te
+          WHERE te.community_id = $1
+            AND (te.user_id_a = u.id OR te.user_id_b = u.id)
+        ), 0) < 'Infinity'::float8
     `, [communityId, settings.eligibility_threshold]);
     const eligible_members = eligibleRes.rows.map((r) => ({
       user_id: r.user_id,
@@ -87,18 +95,26 @@ export async function getGovernanceState(rawCommunityId: string, rawViewerId: st
 
     // Pending nominations with ratification counts
     const nominationsRes = await client.query(`
-      SELECT n.id, n.nominated_for_role AS role, n.status,
+      SELECT n.id, n.nominated_for_role AS role, n.status, n.expires_at,
              n.required_ratifications, n.created_at, n.electorate_size, n.quorum_policy_version,
              nu.id AS nominated_user_id, nu.name AS nominated_user_name,
              nom.id AS nominator_id, nom.name AS nominator_name,
+             nm.role AS nominee_current_role, nm.status='active' AS nominee_active,
+             COALESCE((SELECT SUM(te.raw_weight) FROM social_graph.trust_edges te
+               WHERE te.community_id=$1 AND (te.user_id_a=n.nominated_user_id OR te.user_id_b=n.nominated_user_id)
+             ),0) >= $3
+             AND COALESCE((SELECT SUM(te.raw_weight) FROM social_graph.trust_edges te
+               WHERE te.community_id=$1 AND (te.user_id_a=n.nominated_user_id OR te.user_id_b=n.nominated_user_id)
+             ),0) < 'Infinity'::float8 AS nominee_meets_threshold,
              EXISTS(SELECT 1 FROM communities.governance_nomination_voters v
                WHERE v.nomination_id=n.id AND v.user_id=$2) AS viewer_in_electorate
       FROM communities.governance_nominations n
       JOIN auth.users nu ON nu.id = n.nominated_user_id
       JOIN auth.users nom ON nom.id = n.nominator_id
-      WHERE n.community_id = $1 AND n.status = 'pending'
+      LEFT JOIN communities.members nm ON nm.community_id=n.community_id AND nm.user_id=n.nominated_user_id
+      WHERE n.community_id = $1 AND n.status = 'pending' AND n.expires_at > now()
       ORDER BY n.created_at DESC
-    `, [communityId,viewerId]);
+    `, [communityId,viewerId,settings.eligibility_threshold]);
 
     const nominations: GovernanceNomination[] = [];
     for (const row of nominationsRes.rows) {
@@ -113,13 +129,17 @@ export async function getGovernanceState(rawCommunityId: string, rawViewerId: st
         WHERE r.nomination_id = $1
         ORDER BY u.id
       `, [row.id,communityId]);
-      let reason: GovernanceNomination['viewer']['reason'] = 'eligible';
-      if (row.nominated_user_id === viewerId) reason = 'nominee';
-      else if (!row.viewer_in_electorate) reason = 'not_in_electorate';
-      else if (ratifiersRes.rows.some(r => r.user_id === viewerId)) {
-        reason = 'already_ratified';
-        if (ratifiersRes.rows.length >= row.required_ratifications) reason = 'ready_to_finalize';
-      }
+      const nomineeEligible = row.nominee_active
+        && canElevateRole(row.nominee_current_role ?? 'member',row.role)
+        && row.nominee_meets_threshold;
+      const viewer = deriveViewerState({
+        isNominee: row.nominated_user_id === viewerId,
+        inElectorate: row.viewer_in_electorate,
+        hasVoted: ratifiersRes.rows.some(r => r.user_id === viewerId),
+        count: ratifiersRes.rows.length,
+        required: row.required_ratifications,
+        nomineeEligible,
+      });
       nominations.push({
         id: row.id,
         nominated_user: { user_id: row.nominated_user_id, name: row.nominated_user_name },
@@ -128,10 +148,12 @@ export async function getGovernanceState(rawCommunityId: string, rawViewerId: st
         ratification_count: ratifiersRes.rows.length,
         required_ratifications: row.required_ratifications,
         status: row.status,
+        expires_at: row.expires_at,
+        nominee_eligible: nomineeEligible,
         ratifiers: ratifiersRes.rows,
         electorate_size: row.electorate_size,
         quorum_policy_version: 1,
-        viewer: { can_ratify: reason === 'eligible' || reason === 'ready_to_finalize',reason },
+        viewer: { ...viewer,can_withdraw: row.nominator_id === viewerId,can_decline: row.nominated_user_id === viewerId },
       });
     }
 
@@ -199,7 +221,7 @@ export interface CreateNominationInput {
 }
 
 export async function createNomination(input: CreateNominationInput): Promise<{
-  id: string; quorum_policy_version: 1; electorate_size: number; required_ratifications: number;
+  id: string; quorum_policy_version: 1; electorate_size: number; required_ratifications: number; expires_at: Date;
 }> {
   const { role } = input;
   const communityId = input.communityId.toLowerCase();
@@ -208,6 +230,10 @@ export async function createNomination(input: CreateNominationInput): Promise<{
   return governanceTransaction(communityId,nominatorId,async client => {
     const community = await client.query(`SELECT governance_settings FROM communities.communities WHERE id=$1`, [communityId]);
     if (!community.rows.length) throw new GovernanceError(404,'NOT_FOUND','Community not found.');
+    await client.query(`UPDATE communities.governance_nominations
+      SET status='expired',resolved_at=expires_at
+      WHERE community_id=$1 AND nominated_user_id=$2 AND nominated_for_role=$3
+        AND status='pending' AND expires_at<=now()`, [communityId,nominatedUserId,role]);
     // Only these identities need creation locks. The following roster statement defines its own snapshot.
     const members = await client.query(`SELECT user_id,role,status FROM communities.members
       WHERE community_id=$1 AND user_id=ANY($2::uuid[]) ORDER BY user_id FOR NO KEY UPDATE`, [communityId,[nominatorId,nominatedUserId]]);
@@ -229,12 +255,62 @@ export async function createNomination(input: CreateNominationInput): Promise<{
     const required = requiredRatifications(electorate.length);
     const nomination = await client.query(`INSERT INTO communities.governance_nominations
       (community_id,nominated_user_id,nominated_for_role,nominator_id,quorum_policy_version,electorate_size,required_ratifications)
-      VALUES($1,$2,$3,$4,1,$5,$6) RETURNING id`, [communityId,nominatedUserId,role,nominatorId,electorate.length,required]);
-    const id = nomination.rows[0].id;
+      VALUES($1,$2,$3,$4,1,$5,$6) RETURNING id,expires_at`, [communityId,nominatedUserId,role,nominatorId,electorate.length,required]);
+    const { id,expires_at } = nomination.rows[0];
     await client.query(`INSERT INTO communities.governance_nomination_voters(nomination_id,user_id)
       SELECT $1,user_id FROM unnest($2::uuid[]) user_id`, [id,electorate]);
-    return { id,quorum_policy_version: 1,electorate_size: electorate.length,required_ratifications: required };
+    return { id,quorum_policy_version: 1,electorate_size: electorate.length,required_ratifications: required,expires_at };
   });
+}
+
+export interface CloseNominationInput {
+  communityId: string;
+  nominationId: string;
+  callerId: string;
+  action: 'withdraw' | 'decline';
+}
+
+export async function closeNomination(input: CloseNominationInput): Promise<{
+  id: string;
+  status: 'withdrawn' | 'declined';
+}> {
+  const communityId = input.communityId.toLowerCase();
+  const nominationId = input.nominationId.toLowerCase();
+  const callerId = input.callerId.toLowerCase();
+  const outcome = await governanceTransaction(communityId,callerId,async client => {
+    const nominations = await client.query(`SELECT * FROM communities.governance_nominations
+      WHERE id=$1 AND community_id=$2 FOR UPDATE`, [nominationId,communityId]);
+    const nomination = nominations.rows[0];
+    if (!nomination) throw new GovernanceError(404,'NOT_FOUND','Nomination not found.');
+    const membership = await client.query(`SELECT status FROM communities.members
+      WHERE community_id=$1 AND user_id=$2 FOR SHARE`, [communityId,callerId]);
+    if (membership.rows[0]?.status !== 'active') {
+      throw new GovernanceError(403,'FORBIDDEN','Must be an active community member.');
+    }
+    if (input.action === 'withdraw' && nomination.nominator_id !== callerId) {
+      throw new GovernanceError(403,'GOVERNANCE_NOT_NOMINATOR','Only the nominator can withdraw this nomination.');
+    }
+    if (input.action === 'decline' && nomination.nominated_user_id !== callerId) {
+      throw new GovernanceError(403,'GOVERNANCE_NOT_NOMINEE','Only the nominee can decline this nomination.');
+    }
+    if (nomination.status !== 'pending') {
+      throw new GovernanceError(409,'GOVERNANCE_NOMINATION_CLOSED','This nomination is closed.');
+    }
+    assertNominationPolicy(nomination);
+    const expired = await client.query(`UPDATE communities.governance_nominations
+      SET status='expired',resolved_at=expires_at
+      WHERE id=$1 AND community_id=$2 AND status='pending' AND expires_at<=now() RETURNING id`,
+    [nominationId,communityId]);
+    if (expired.rowCount) return { expired: true as const };
+    const closed = await client.query(`UPDATE communities.governance_nominations
+      SET status=$3,resolved_at=now() WHERE id=$1 AND community_id=$2 AND status='pending'
+      RETURNING id,status`, [nominationId,communityId,closeStatusFor(input.action)]);
+    return { expired: false as const,row: closed.rows[0] };
+  });
+  if (outcome.expired) {
+    throw new GovernanceError(409,'GOVERNANCE_NOMINATION_EXPIRED','This nomination has expired.');
+  }
+  return outcome.row;
 }
 
 export interface RatificationInput { communityId: string; nominationId: string; ratifierId: string }
@@ -252,13 +328,18 @@ export async function addRatification(input: RatificationInput): Promise<{
   const communityId = input.communityId.toLowerCase();
   const nominationId = input.nominationId.toLowerCase();
   const ratifierId = input.ratifierId.toLowerCase();
-  return governanceTransaction(communityId,ratifierId,async client => {
+  const outcome = await governanceTransaction(communityId,ratifierId,async client => {
     const nominations = await client.query(`SELECT * FROM communities.governance_nominations
       WHERE id=$1 AND community_id=$2 FOR UPDATE`, [nominationId,communityId]);
     const nomination = nominations.rows[0];
     if (!nomination) throw new GovernanceError(404,'NOT_FOUND','Nomination not found.');
     if (nomination.status !== 'pending') throw new GovernanceError(409,'GOVERNANCE_NOMINATION_CLOSED','This nomination is closed.');
     assertNominationPolicy(nomination);
+    const expired = await client.query(`UPDATE communities.governance_nominations
+      SET status='expired',resolved_at=expires_at
+      WHERE id=$1 AND community_id=$2 AND status='pending' AND expires_at<=now() RETURNING id`,
+    [nominationId,communityId]);
+    if (expired.rowCount) return { expired: true as const };
     if (nomination.nominated_user_id === ratifierId) {
       throw new GovernanceError(422,'GOVERNANCE_SELF_RATIFICATION','Cannot ratify your own nomination.');
     }
@@ -295,6 +376,10 @@ export async function addRatification(input: RatificationInput): Promise<{
       await client.query(`UPDATE communities.governance_nominations SET status='ratified',resolved_at=now()
         WHERE id=$1 AND community_id=$2`, [nominationId,communityId]);
     }
-    return { ratified,ratification_count: ratificationCount,required_ratifications: nomination.required_ratifications };
+    return { expired: false as const,result: { ratified,ratification_count: ratificationCount,required_ratifications: nomination.required_ratifications } };
   });
+  if (outcome.expired) {
+    throw new GovernanceError(409,'GOVERNANCE_NOMINATION_EXPIRED','This nomination has expired.');
+  }
+  return outcome.result;
 }

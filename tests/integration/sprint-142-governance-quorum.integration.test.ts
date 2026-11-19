@@ -204,7 +204,9 @@ describe('Sprint 142 nomination creation using shipped SQL', () => {
 
   it('stores a fixed nominee-excluding roster and gives the nominator no automatic vote', async () => {
     const result = await create(input());
-    expect(result).toEqual({ id: expect.any(String), quorum_policy_version: 1, electorate_size: 4, required_ratifications: 3 });
+    const stored = (await pool.query(`SELECT created_at,expires_at FROM communities.governance_nominations WHERE id=$1`, [result.id])).rows[0];
+    expect(result).toEqual({ id: expect.any(String), quorum_policy_version: 1, electorate_size: 4, required_ratifications: 3, expires_at: stored.expires_at });
+    expect(stored.expires_at.getTime() - stored.created_at.getTime()).toBe(30 * 24 * 60 * 60 * 1000);
     const roster = await pool.query(`SELECT user_id FROM communities.governance_nomination_voters WHERE nomination_id=$1`, [result.id]);
     expect(roster.rows.map(r => r.user_id).sort()).toEqual(fixture.users.filter(u => u !== fixture.users[1]).sort());
     expect((await pool.query(`SELECT * FROM communities.governance_ratifications WHERE nomination_id=$1`, [result.id])).rowCount).toBe(0);
@@ -216,7 +218,7 @@ describe('Sprint 142 nomination creation using shipped SQL', () => {
     expect(await addRatification({ communityId: fixture.community.toUpperCase(),nominationId: result.id.toUpperCase(),
       ratifierId: fixture.users[0].toUpperCase() })).toEqual({ ratified: false,ratification_count: 1,required_ratifications: 3 });
     const state=await getGovernanceState(fixture.community.toUpperCase(),fixture.users[1].toUpperCase());
-    expect(state.nominations[0].viewer).toEqual({ can_ratify: false,reason: 'nominee' });
+    expect(state.nominations[0].viewer).toEqual({ can_ratify: false,reason: 'nominee',can_withdraw: false,can_decline: true });
   });
 
   it.each(['nominator','nominee'])('refuses inactive %s membership without a partial nomination', async (who) => {
@@ -310,7 +312,7 @@ describe('Sprint 142 voting live invariants and concurrency', () => {
     await pool.query(`INSERT INTO communities.members(community_id,user_id) VALUES($1,$2)`, [fixture.community,user]);
     await expect(cast(5)).rejects.toMatchObject({ status: 403,code: 'GOVERNANCE_VOTER_NOT_ELIGIBLE' });
     expect((await getGovernanceState(fixture.community,user)).nominations[0].viewer)
-      .toEqual({ can_ratify: false,reason: 'not_in_electorate' });
+      .toEqual({ can_ratify: false,reason: 'not_in_electorate',can_withdraw: false,can_decline: false });
     expect(await ballots()).toBe(0);
   });
 
@@ -449,13 +451,13 @@ describe('Sprint 142 viewer state using explicit community predicates', () => {
     for (const row of [...state.eligible_members,...state.role_holders]) {
       expect(row).not.toHaveProperty('trust_score'); expect(row).not.toHaveProperty('karma');
     }
-    expect((await readState(fixture.community,fixture.users[1])).nominations[0].viewer).toEqual({ can_ratify: false,reason: 'nominee' });
+    expect((await readState(fixture.community,fixture.users[1])).nominations[0].viewer).toEqual({ can_ratify: false,reason: 'nominee',can_withdraw: false,can_decline: true });
   });
 
   it('returns an already-ratified viewer and keeps the live count equal to the live ratifier identities', async () => {
     await vote({ communityId: fixture.community,nominationId: nomination.id,ratifierId: fixture.users[2] });
     const before = await readState(fixture.community,fixture.users[2]);
-    expect(before.nominations[0].viewer).toEqual({ can_ratify: false,reason: 'already_ratified' });
+    expect(before.nominations[0].viewer).toEqual({ can_ratify: false,reason: 'already_ratified',can_withdraw: false,can_decline: false });
     await pool.query(`UPDATE communities.members SET status='inactive' WHERE community_id=$1 AND user_id=$2`, [fixture.community,fixture.users[2]]);
     const after = await readState(fixture.community,fixture.users[0]);
     expect(after.nominations[0].ratification_count).toBe(0);

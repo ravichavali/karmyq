@@ -73,6 +73,16 @@ fusion and split steps, trust-evolution settings, boosting or flagging requests,
 screen may still show admin controls for a while, but using one is refused. Karmyq checks the current role on every
 admin action, so a newly promoted admin's actions are accepted at once.
 
+### Leaving, removal and rejection
+
+An active member can use **Leave community** on the community page. A sole admin must assign another admin first.
+Someone who left can rejoin a public community immediately as an ordinary member, or request approval again for a
+private community. Rejoining never restores their previous moderator or admin role.
+
+Staff removal and join-request rejection are different: they make the membership inactive. A removed or rejected
+person cannot use self-service Join to return and sees a message asking for staff restoration. A current community
+admin or moderator must reactivate that membership.
+
 ---
 
 ## Stewardship → Decisions
@@ -87,21 +97,25 @@ The required number is **20% of those voters, rounded up, with a minimum of thre
 50 need 10, and 149 need 30. Submitting a nomination does not cast a vote. Eligible members can then select
 **Ratify**; the screen shows both the live count and the fixed requirement.
 
-Later arrivals cannot vote on that nomination. Votes stop counting when their members become inactive, but
-the target does not shrink. If a steward reactivates an original member, their existing vote can count again.
-Ask a steward about reactivation; the self-service Join flow does not currently restore inactive memberships.
+Later arrivals cannot vote on that nomination. Votes stop counting when their members leave or become inactive, but
+the target does not shrink. If an original voter rejoins or a steward reactivates them, their existing vote can count
+again. Removed and rejected members still need staff reactivation; self-service Join applies only to members who left.
 
-When reactivation restores enough previous votes to meet quorum, a prior active voter sees **Finalize decision**.
+When enough previous votes are restored to meet quorum, a prior active voter sees **Finalize decision**.
 Select it to recheck the decision and grant the role if the nominee still qualifies. It does not add a second vote.
 
 Karmyq rechecks the nominee's active membership and eligibility before granting the role. A stale screen can
-therefore be refused; its inline message explains the refusal and the decision refreshes. If an overlapping
-membership change asks you to retry, refresh and try again. An already completed nomination stays closed.
+therefore be refused; its inline message explains the refusal and the decision refreshes. If the nominee is not
+eligible, the screen explains that the nomination cannot be finalized. If an overlapping membership change asks you
+to retry, refresh and try again. An already completed nomination stays closed.
 
-Pending nominations from the old fixed-quorum system close at the upgrade and must be resubmitted. Granted
-roles remain. A nomination can stay pending if too many original voters leave; this release adds no expiry
-or withdrawal control. In the demo, the simulation does not cast these votes, so a community with many personas
-may have too few human voters to reach its target. That limitation is accepted; simulation governance stays off.
+The nominator can select **Withdraw nomination**, and the nominee can select **Decline**. Both ask for confirmation,
+close the nomination and preserve its ballot history. Every pending nomination also closes 30 days after it was
+created. Expired decisions leave the open list, so a new nomination can be opened for that member and role.
+
+Pending nominations from the old fixed-quorum system closed at the earlier upgrade and had to be resubmitted; granted
+roles remained. In the demo, the simulation does not cast these votes, so a community with many personas may have too
+few human voters to reach its target. That limitation is accepted; simulation governance stays off.
 
 ## Stewardship → Steward requests (Requests + Insights + Admin Actions)
 

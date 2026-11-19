@@ -173,7 +173,7 @@
         {
           "method": "POST",
           "path": "/communities/:communityId/join",
-          "description": "Join a community (public: immediate, private: pending approval)."
+          "description": "Join or rejoin a community as the verified JWT caller. Public communities return active membership immediately;"
         },
         {
           "method": "POST",
@@ -183,12 +183,37 @@
         {
           "method": "PUT",
           "path": "/communities/:communityId/members/:userId",
-          "description": "Update member role or status."
+          "description": "Update member role or status as the verified JWT caller; any body `admin_user_id` is ignored."
         },
         {
           "method": "DELETE",
           "path": "/communities/:communityId/members/:userId",
           "description": "Remove member from community (self-leave or admin kick). **Auth required** (router mounts `authMiddleware`)."
+        },
+        {
+          "method": "GET",
+          "path": "/communities/:communityId/governance",
+          "description": "Return governance state for an active member. Nominations include fixed electorate/quorum metadata, live matching"
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:communityId/governance/nominate",
+          "description": "Active members nominate an eligible active member for a higher role. Creation snapshots the other active members,"
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:communityId/governance/withdraw/:nominationId",
+          "description": "The active nominator closes a pending nomination as `withdrawn`; another admin has no special close power."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:communityId/governance/decline/:nominationId",
+          "description": "The active nominee closes a pending nomination as `declined`, including when quorum is already reachable."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:communityId/governance/ratify/:nominationId",
+          "description": "An active original voter other than the nominee casts one equal vote. The nomination locks before nominee/voter"
         },
         {
           "method": "GET",

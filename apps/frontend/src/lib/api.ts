@@ -361,6 +361,12 @@ export const communityService = {
   ratifyNomination: (communityId: string, nominationId: string) =>
     communityApi.post(`/communities/${communityId}/governance/ratify/${nominationId}`),
 
+  withdrawNomination: (communityId: string, nominationId: string) =>
+    communityApi.post(`/communities/${communityId}/governance/withdraw/${nominationId}`),
+
+  declineNomination: (communityId: string, nominationId: string) =>
+    communityApi.post(`/communities/${communityId}/governance/decline/${nominationId}`),
+
   // Fission (Community Splits)
   createSplitProposal: (communityId: string, data: { group_a_name: string; group_b_name: string; rationale?: string }) =>
     communityApi.post(`/communities/${communityId}/splits`, data),

@@ -54,8 +54,9 @@ function mockMembersDb({ activeAdmins }: { activeAdmins: string[] }) {
   mockQuery.mockImplementation((sql: any) => {
     const s = String(sql);
     // Last-admin guard's row-locking SELECT.
-    if (/SELECT user_id\s+FROM communities\.members/i.test(s) && /FOR UPDATE/i.test(s)) {
-      return Promise.resolve({ rows: activeAdmins.map((id) => ({ user_id: id })), rowCount: activeAdmins.length } as any);
+    if (/SELECT user_id(?:,role,status)?\s+FROM communities\.members/i.test(s) && /FOR UPDATE/i.test(s)) {
+      const rows = activeAdmins.map((id) => ({ user_id: id, role: 'admin', status: 'active' }));
+      return Promise.resolve({ rows, rowCount: rows.length } as any);
     }
     // Caller admin-permission check.
     if (/SELECT role\s+FROM communities\.members/i.test(s)) {
@@ -109,8 +110,21 @@ describe('Sprint 92 BUG-001: last-admin guard on role update', () => {
       .send({ role: 'member' });
     // The guard must read the admin set under a row lock, not a bare count.
     const lockingSelect = mockQuery.mock.calls.find(([sql]: any) =>
-      /SELECT user_id\s+FROM communities\.members/i.test(String(sql)) && /FOR UPDATE/i.test(String(sql))
+      /SELECT user_id(?:,role,status)?\s+FROM communities\.members/i.test(String(sql)) && /FOR UPDATE/i.test(String(sql))
     );
     expect(lockingSelect).toBeDefined();
+  });
+
+  it('locks the target and active admins in the same user-id order as departure', async () => {
+    mockMembersDb({ activeAdmins: ['u2', 'u9'] });
+    await request(app)
+      .put('/communities/comm-1/members/u2')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ role: 'member' });
+    const lockingSelect = mockQuery.mock.calls.find(([sql]: any) => /FOR UPDATE/i.test(String(sql)));
+    expect(lockingSelect).toBeDefined();
+    expect(String(lockingSelect![0])).toMatch(/user_id\s*=\s*\$2 OR \(role='admin' AND status='active'\)/i);
+    expect(String(lockingSelect![0])).toMatch(/ORDER BY user_id FOR UPDATE/i);
+    expect(lockingSelect![1]).toEqual(['comm-1', 'u2']);
   });
 });

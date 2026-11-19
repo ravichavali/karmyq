@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { createLogger } from '@karmyq/shared/utils/logger';
-import { getGovernanceState, createNomination, addRatification } from '../database/governanceDb';
+import { getGovernanceState, createNomination, addRatification, closeNomination } from '../database/governanceDb';
 import { GovernanceError } from '../database/governancePolicy';
 
 const router = Router();
@@ -38,6 +38,18 @@ router.post('/:communityId/governance/nominate', (req: any,res,next) => {
   next();
 }, handle(req => createNomination({ communityId: req.params.communityId,nominatorId: req.user.userId,
   nominatedUserId: req.body.nominated_user_id,role: req.body.role }),201));
+
+router.post('/:communityId/governance/withdraw/:nominationId', (req: any,res,next) => {
+  if (!validId(req.params.nominationId)) return refuse(res,400,'INVALID_REQUEST','A valid nomination identifier is required.');
+  next();
+}, handle(req => closeNomination({ communityId: req.params.communityId,nominationId: req.params.nominationId,
+  callerId: req.user.userId,action: 'withdraw' })));
+
+router.post('/:communityId/governance/decline/:nominationId', (req: any,res,next) => {
+  if (!validId(req.params.nominationId)) return refuse(res,400,'INVALID_REQUEST','A valid nomination identifier is required.');
+  next();
+}, handle(req => closeNomination({ communityId: req.params.communityId,nominationId: req.params.nominationId,
+  callerId: req.user.userId,action: 'decline' })));
 
 router.post('/:communityId/governance/ratify/:nominationId', (req: any,res,next) => {
   if (!validId(req.params.nominationId)) return refuse(res,400,'INVALID_REQUEST','A valid nomination identifier is required.');

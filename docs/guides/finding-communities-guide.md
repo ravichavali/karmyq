@@ -12,6 +12,17 @@ The list itself comes from your login token, so no extra call is needed to build
 
 Communities in this strip are automatically excluded from the discover grid below it, so you only see new communities to explore.
 
+### Leaving and rejoining
+
+On a community page, an active member can select **Leave community** and confirm. A sole admin must assign another
+admin before leaving. After you leave, the community returns to the discovery grid and your stored membership list
+no longer includes it.
+
+You can rejoin a community you left: public communities restore you immediately as an ordinary member, while private
+communities create a new pending request. Rejoining never restores an old moderator or admin role. If staff removed
+you or rejected your request, Join instead explains that only community staff can restore your membership; ask a
+steward for help.
+
 ### When you have no communities yet
 
 Your **Dashboard Home** only shows the "You haven't joined a community yet" prompt once your
