@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { query, withTransaction } from '../database/db';
-import { assertWithinCapacity, CommunityFullError, readMemberCount } from '../database/memberCapacity';
+import { assertWithinCapacity, CommunityFullError, COMMUNITY_FULL_MESSAGE, readMemberCount } from '../database/memberCapacity';
 import { publishEvent } from '../events/publisher';
 import { getActiveFusionProposalForCommunityRoute } from './fusions';
 import {
@@ -465,7 +465,7 @@ router.post('/', async (req: Request, res: Response) => {
         });
       } catch (error) {
         if (error instanceof CommunityFullError) {
-          return sendError(res, 'COMMUNITY_FULL', 'Community is full (Dunbar\'s number limit reached)', 400,
+          return sendError(res, 'COMMUNITY_FULL', COMMUNITY_FULL_MESSAGE, 400,
             undefined, { requestId: (req as any).id });
         }
         throw error;

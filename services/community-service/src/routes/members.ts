@@ -1,15 +1,13 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { query, withTransaction } from '../database/db';
+import { query, withTransaction, TxQuery } from '../database/db';
 import { publishEvent } from '../events/publisher';
 import { canSeeNonActiveMembers, shapeMemberRows } from '../utils/memberVisibility';
 import { getLiveRole, LiveRole } from '../utils/liveRole';
 import { canSelfDepart, classifyExistingMembership, departureStatus } from '../utils/memberLifecycle';
 import { canonicalUuid } from '../utils/uuid';
-import { planStaffChange, validateStaffBody, CallerRole, Refusal } from '../utils/staffTransitions';
-import { assertWithinCapacity, CommunityFullError } from '../database/memberCapacity';
-
-const COMMUNITY_FULL_MESSAGE = 'Community is full (Dunbar\'s number limit reached)';
+import { planStaffChange, validateStaffBody, Refusal, ROLES } from '../utils/staffTransitions';
+import { assertWithinCapacity, CommunityFullError, COMMUNITY_FULL_MESSAGE } from '../database/memberCapacity';
 import {
   sendSuccess,
   sendError,
@@ -23,6 +21,24 @@ import {
 } from '@karmyq/shared/utils/response';
 
 const router = Router();
+
+/**
+ * Lock the target membership and every active admin in ONE user-id-ordered statement. PUT and DELETE
+ * both call this, so concurrent staff writes always lock rows in the same order (no deadlock), and the
+ * sole-admin decision is made on locked rows. Ids must already be canonical (canonicalUuid).
+ */
+async function lockTargetAndAdmins(q: TxQuery, communityId: string, userId: string) {
+  const locked = await q(
+    `SELECT user_id,role,status FROM communities.members
+     WHERE community_id=$1 AND (user_id=$2 OR (role='admin' AND status='active'))
+     ORDER BY user_id FOR UPDATE`,
+    [communityId, userId]
+  );
+  const target = locked.rows.find((row: any) => row.user_id === userId);
+  const activeAdmins = locked.rows.filter((row: any) => row.role === 'admin' && row.status === 'active');
+  const isSoleActiveAdmin = activeAdmins.length <= 1 && activeAdmins.some((row: any) => row.user_id === userId);
+  return { target, isSoleActiveAdmin };
+}
 
 // GET /communities/:communityId/members - Get all members of a community
 router.get('/:communityId/members', async (req: Request, res: Response) => {
@@ -196,15 +212,16 @@ router.post('/:communityId/members', async (req: Request, res: Response) => {
     }
 
     // Sprint 144 (BUG-104): canonical at parse, so every later comparison sees the DB's spelling.
-    if (req.body?.user_id === undefined || req.body?.user_id === null || req.body?.user_id === '') {
+    const rawUserId = req.body?.user_id;
+    if (rawUserId === undefined || rawUserId === null || rawUserId === '') {
       return sendValidationError(res, 'user_id is required');
     }
-    const user_id = canonicalUuid(req.body.user_id);
+    const user_id = canonicalUuid(rawUserId);
     if (!user_id) {
       return sendValidationError(res, 'user_id must be a valid UUID');
     }
 
-    if (!['member', 'moderator', 'admin'].includes(role)) {
+    if (!ROLES.includes(role)) {
       return sendValidationError(res, 'Invalid role');
     }
 
@@ -313,29 +330,9 @@ router.put('/:communityId/members/:userId', async (req: Request, res: Response) 
     if (parsed.kind === 'refuse') return sendRefusal(res, parsed);
 
     const outcome = await withTransaction(async (q) => {
-      const locked = await q(
-        `SELECT user_id,role,status FROM communities.members
-         WHERE community_id=$1 AND (user_id=$2 OR (role='admin' AND status='active'))
-         ORDER BY user_id FOR UPDATE`,
-        [communityId, userId]
-      );
-      const callerRow = await q(
-        `SELECT role FROM communities.members
-         WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
-        [communityId, caller]
-      );
-      // `role` is nullable with DEFAULT 'member': an active row is a membership whatever its role says.
-      const callerRole = callerRow.rows.length > 0 ? ((callerRow.rows[0].role ?? 'member') as CallerRole) : null;
-
-      const targetRow = locked.rows.find((row: any) => row.user_id === userId);
-      const activeAdmins = locked.rows.filter((row: any) => row.role === 'admin' && row.status === 'active');
-      const target = targetRow
-        ? {
-            status: targetRow.status,
-            role: targetRow.role,
-            isSoleActiveAdmin: activeAdmins.length <= 1 && activeAdmins.some((row: any) => row.user_id === userId),
-          }
-        : null;
+      const { target: targetRow, isSoleActiveAdmin } = await lockTargetAndAdmins(q, communityId, userId);
+      const callerRole = await getLiveRole(communityId, caller, q);
+      const target = targetRow ? { status: targetRow.status, role: targetRow.role, isSoleActiveAdmin } : null;
 
       const plan = planStaffChange(callerRole, target, req.body);
       if (plan.kind === 'refuse') return plan;
@@ -424,19 +421,10 @@ router.delete('/:communityId/members/:userId', async (req: Request, res: Respons
     }
 
     const outcome = await withTransaction(async (q) => {
-      const locked = await q(
-        `SELECT user_id,role,status FROM communities.members
-         WHERE community_id=$1 AND (user_id=$2 OR (role='admin' AND status='active'))
-         ORDER BY user_id FOR UPDATE`,
-        [communityId, userId]
-      );
-      const target = locked.rows.find((row: any) => row.user_id === userId);
+      const { target, isSoleActiveAdmin } = await lockTargetAndAdmins(q, communityId, userId);
       if (!target) return 'not_found' as const;
       if (isSelfRemove && !canSelfDepart(target.status)) return 'invalid_departure' as const;
-      const activeAdmins = locked.rows.filter((row: any) => row.role === 'admin' && row.status === 'active');
-      if (activeAdmins.some((row: any) => row.user_id === userId) && activeAdmins.length <= 1) {
-        return 'last_admin' as const;
-      }
+      if (isSoleActiveAdmin) return 'last_admin' as const;
       // ADR-106: the sync trigger applies the active → left/inactive decrement.
       await q(`UPDATE communities.members SET status=$3 WHERE community_id=$1 AND user_id=$2`,
         [communityId, userId, departureStatus(isSelfRemove)]);
@@ -454,7 +442,7 @@ router.delete('/:communityId/members/:userId', async (req: Request, res: Respons
     }
 
     const newToken = isSelfRemove && outcome.wasActive
-      ? await issueMembershipToken(req, caller, String(communityId))
+      ? await issueMembershipToken(req, caller, communityId)
       : undefined;
     await publishEvent('user_left_community', {
       community_id: communityId,

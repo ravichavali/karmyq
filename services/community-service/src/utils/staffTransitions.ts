@@ -11,7 +11,9 @@
  *   3. target row exists (404)       6. the transition itself (moderators: approve/reject only)
  */
 
-export type CallerRole = 'admin' | 'moderator' | 'member' | null;
+import type { LiveRole } from './liveRole';
+
+export type CallerRole = LiveRole;
 export type StaffStatus = 'active' | 'inactive' | 'left';
 export type StaffRole = 'member' | 'moderator' | 'admin';
 
@@ -39,7 +41,8 @@ export type Plan =
   | Refusal;
 
 const STATUSES: readonly string[] = ['active', 'inactive', 'left'];
-const ROLES: readonly string[] = ['member', 'moderator', 'admin'];
+/** Every community member role, the one list for validation (staff PUT and staff add). */
+export const ROLES: readonly string[] = ['member', 'moderator', 'admin'];
 const IGNORED_KEYS = new Set(['admin_user_id']);
 
 const refuse = (http: Refusal['http'], code: RefusalCode, message: string): Refusal =>
@@ -71,11 +74,9 @@ export function validateStaffBody(body: unknown): StaffRequest | Refusal {
   return { kind: 'role', value: value as StaffRole };
 }
 
-const isRefusal = (value: StaffRequest | Refusal): value is Refusal => value.kind === 'refuse';
-
 export function planStaffChange(caller: CallerRole, target: Target | null, body: unknown): Plan {
   const request = validateStaffBody(body);
-  if (isRefusal(request)) return request;
+  if (request.kind === 'refuse') return request;
 
   if (caller !== 'admin' && caller !== 'moderator') {
     return refuse(403, 'FORBIDDEN', 'Only community admins or moderators can update members');

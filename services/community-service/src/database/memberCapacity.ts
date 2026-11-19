@@ -9,11 +9,13 @@
  * together. A pre-write "is it full?" read alone lets two concurrent admissions both pass.
  */
 
-export type TxQuery = (text: string, params?: any[]) => Promise<any>;
+import type { TxQuery } from './db';
+
+export const COMMUNITY_FULL_MESSAGE = 'Community is full (Dunbar\'s number limit reached)';
 
 export class CommunityFullError extends Error {
-  constructor(readonly communityId: string) {
-    super('Community is full (Dunbar\'s number limit reached)');
+  constructor() {
+    super(COMMUNITY_FULL_MESSAGE);
     this.name = 'CommunityFullError';
   }
 }
@@ -30,7 +32,7 @@ export async function assertWithinCapacity(q: TxQuery, communityId: string): Pro
   );
   const row = result.rows[0] as Capacity | undefined;
   if (row && row.current_members > row.max_members) {
-    throw new CommunityFullError(communityId);
+    throw new CommunityFullError();
   }
   return row as Capacity;
 }

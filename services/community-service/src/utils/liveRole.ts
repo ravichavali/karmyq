@@ -1,5 +1,5 @@
-import { query } from '../database/db';
-import { UUID_RE } from './uuid';
+import { query, TxQuery } from '../database/db';
+import { isUuid } from './uuid';
 
 /**
  * The caller's LIVE community role (BUG-069, ADR-102). Every authorization and visibility decision
@@ -8,13 +8,14 @@ import { UUID_RE } from './uuid';
  *
  * Arguments are always (communityId, userId). A malformed id is simply not a community the caller
  * belongs to: answering null/false (not a Postgres 22P02 → 500) keeps every gate's 403 identical for
- * bad and foreign ids. userId comes from the verified JWT.
+ * bad and foreign ids. userId comes from the verified JWT. Pass a transaction's `q` to read the role on
+ * that client, after its row locks (the staff PUT does, Sprint 144).
  */
 export type LiveRole = 'admin' | 'moderator' | 'member' | null;
 
-export async function getLiveRole(communityId: unknown, userId: string | undefined): Promise<LiveRole> {
-  if (!userId || typeof communityId !== 'string' || !UUID_RE.test(communityId)) return null;
-  const result = await query(
+export async function getLiveRole(communityId: unknown, userId: string | undefined, q: TxQuery = query): Promise<LiveRole> {
+  if (!userId || !isUuid(communityId)) return null;
+  const result = await q(
     `SELECT role FROM communities.members
      WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
     [communityId, userId]
