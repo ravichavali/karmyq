@@ -130,7 +130,9 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
       return sendConflict(res, 'You already have a pending join request for this community');
     }
     if (classification === 'staff_only') {
-      return sendError(res, 'MEMBERSHIP_RESTORE_REQUIRES_STAFF', 'Only community staff can restore this membership', 409);
+      // Decision 8: staff never reactivate; an admin lifts the block (inactive → left) and the person
+      // then rejoins through this route. The code stays for clients that key on it.
+      return sendError(res, 'MEMBERSHIP_RESTORE_REQUIRES_STAFF', 'Ask a community admin to lift the block; then you can rejoin', 409);
     }
 
     const memberStatus = community.access_type === 'public' ? 'active' : 'pending';

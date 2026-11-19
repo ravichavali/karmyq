@@ -322,6 +322,20 @@ describe('Sprint 144 PUT /communities/:communityId/members/:userId (transition t
   });
 });
 
+describe('Sprint 144 POST /communities/:communityId/join from a blocked row', () => {
+  it('tells the person to ask an admin to lift the block, since staff no longer reactivate (decision 8)', async () => {
+    installDb([
+      { user_id: ADMIN, role: 'admin', status: 'active' },
+      { user_id: APPLICANT, role: 'member', status: 'inactive' },
+    ]);
+    const res = await request(app).post(`/communities/${COMMUNITY}/join`)
+      .set('Authorization', `Bearer ${tokenFor(APPLICANT)}`).send({});
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ success: false, error: 'MEMBERSHIP_RESTORE_REQUIRES_STAFF' });
+    expect(res.body.message).toBe('Ask a community admin to lift the block; then you can rejoin');
+  });
+});
+
 function NEWCOMER_ID() {
   return '99999999-0000-4000-8000-000000000099';
 }
