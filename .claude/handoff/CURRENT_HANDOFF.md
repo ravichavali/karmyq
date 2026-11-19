@@ -1,8 +1,9 @@
 # Sprint 143 — Governance nomination lifecycle + member rejoin — Handoff
 
 **Date**: 2026-11-18
-**Outcome**: **PR #340 review corrections are being finalized; merge remains unauthorized.** Sprint 143 is not complete:
-completion requires merge, deploy and post-deploy verification by a separately authorized follow-on.
+**Outcome**: **PR #340 passed re-review; v11.116.0 and the merge slot are allocated.** Final reviewed-head integration
+and `init.sql` runs are green; six maintainer CodeQL dismissals and gate rerun remain. Merge, deploy and the
+platform-admin smoke check each still require separate explicit maintainer authorization.
 
 > State between sessions only. This branch-local file reserves no contended resource; see
 > `.claude/handoff/README.md` → *Parallel development rules*.
@@ -18,21 +19,23 @@ completion requires merge, deploy and post-deploy verification by a separately a
 | **Spec** | `docs/superpowers/specs/2026-11-15-sprint-143-governance-nomination-lifecycle-design.md` |
 | **Ledger** | `.superpowers/sdd/2026-11-15-sprint-143-governance-nomination-lifecycle/progress.md` |
 | **PR** | [#340 — feat: Sprint 143 governance nomination lifecycle](https://github.com/ravichavali/karmyq/pull/340) |
+| **Release** | v11.116.0 and merge slot allocated by the maintainer on 2026-11-18 |
 
-The plan review rounds 1–2 are integrated. Tasks 1–13 are complete; PR #340 review corrections are now being verified.
+The plan review rounds 1–2 are integrated. Tasks 1–13 and the PR #340 review corrections are complete; re-review passed.
 Never rebase this branch.
 
 ## Quick Start — next unchecked work
 
 1. Re-derive live state with `git status -sb`, `git fetch origin`, `gh pr list`, `gh pr view 340`, and
    `git log --oneline origin/master -3`; merge a moved master with a merge commit only.
-2. Inspect the final head's actual CI jobs. Initial integration run `44103556510` had 595/596 passing and one incorrect
-   staff-removal assertion, now corrected; close-race rejection assertions also need the final real-DB rerun.
-   `regenerate-init-sql` run `44103556499` passed every applicable step, including independent byte comparison.
-3. The maintainer must dismiss the six known false-positive CodeQL alerts after the final head commit, following the
-   Sprint 142 precedent; this agent has not dismissed them. Independent whole-branch review remains provider-blocked.
-4. Obtain version and merge-slot allocation before any merge/deploy, then follow Task 14 and the `ship`/`deploy`
-   process. The platform-admin grant and its 200 smoke check remain separately unauthorized.
+2. Final reviewed-head `e1fa89fb` evidence: CI run `44422291966` passed all 32 integration suites / 596 tests plus 2
+   curated-reset tests; `regenerate-init-sql` run `44422291636` passed every applicable step, including independent
+   byte comparison. Read the new release head's actual job conclusions after pushing the version/evidence commit.
+3. Hand the maintainer the six alerts from the release head's CodeQL annotations for UI dismissal: `api.ts` alerts as
+   `false positive`, test-file alerts as `used in tests`. After dismissal, re-run only the gate job and update the PR
+   body's *Security dismissals*. This agent must not dismiss the alerts itself.
+4. Merge, deploy and the platform-admin grant/200 smoke check each require separate explicit maintainer authorization.
+   Do not infer any of those authorizations from the allocated merge slot.
 
 ## Delivered commits
 
@@ -85,20 +88,21 @@ Never rebase this branch.
 | `9db325a7` | `feedback:check` rerun; generated landing service/API docs refreshed, known build/dependencyGraph/ADR-010 churn reverted | Advisory output is not a pass claim; no dependency edit was made |
 | `685ef410` | Final `bash scripts/pre-commit-check.sh`: initial tests passed but generated-doc churn failed; applied its exact snapshot recovery `20ceb2ba32ebf1de83a18498e9981fa3c73c129f`, and the single permitted retry exited 0 | Mixed project test cache; retry followed the documented artifact-recovery rule; local integration unavailable |
 | `685ef410` | Normal push hook passed required unit/regression checks and pushed the branch | Turbo reported mixed caching; integration skipped without a local DB. Non-blocking development-TDD tasks failed with `ECONNREFUSED 127.0.0.1:5432`, which the hook explicitly accepted |
-| `678403be` | PR CI run [44103556510](https://github.com/ravichavali/karmyq/actions/runs/44103556510): integration executed 32 suites / 596 tests; 595 passed and one failed because the staff-removal race expected `left` instead of actual `inactive` | Run failed; assertion corrected along with stronger close-race 409/error-code checks. Final-head rerun remains required |
-| `678403be` | `regenerate-init-sql` run [44103556499](https://github.com/ravichavali/karmyq/actions/runs/44103556499) passed every applicable step: independent baseline, determinism, fresh boot, migration ledger, zero drift and committed-byte comparison | The failure-only database-log step was skipped on success; this run predates review corrections but the schema did not change |
+| `678403be` | PR CI run [44103556510](https://github.com/ravichavali/karmyq/actions/runs/44103556510): integration executed 32 suites / 596 tests; 595 passed and one failed because the staff-removal race expected `left` instead of actual `inactive` | Failed run; corrected assertions are proved by final reviewed-head run `44422291966` below |
+| `678403be` | `regenerate-init-sql` run [44103556499](https://github.com/ravichavali/karmyq/actions/runs/44103556499) passed every applicable step: independent baseline, determinism, fresh boot, migration ledger, zero drift and committed-byte comparison | The failure-only database-log step was skipped on success; final reviewed-head run `44422291636` also passed |
+| `e1fa89fb` | Final reviewed-head CI run [44422291966](https://github.com/ravichavali/karmyq/actions/runs/44422291966): Integration Tests passed 32 suites / 596 tests plus 2 curated-reset tests; backend unit/regression, lint/typecheck, security audit and landing build passed | Overall run failed only at Code Scanning Gate; Docker image build and deploy skipped. No deployment occurred |
+| `e1fa89fb` | Final reviewed-head `regenerate-init-sql` run [44422291636](https://github.com/ravichavali/karmyq/actions/runs/44422291636) passed every applicable step, including independent baseline, determinism, fresh boot, migration ledger, zero drift and committed-byte comparison | Failure-only DB-log step skipped on success; no schema change followed |
 
 ## Remaining authorizations and blockers
 
-- **Not authorized:** demo data operations; demo application DB access; platform-admin grant and its 200 smoke check;
-  version bump; merge slot; new ADR numbers; dependency lane; merge/deploy. This review follow-up explicitly authorizes
-  reading the final PR CI jobs to report their conclusions.
-- Disposable SSH/Postgres authorization covered Tasks 1 and 4–9 only and has ended cleanly. Do not recreate that DB for
-  these review corrections. No demo data operation occurred.
-- Version and merge slot remain unallocated and block merge readiness.
-- Final-head CI must still prove the corrected whole integration tier. Read actual job conclusions before merge.
-  Regeneration run `44103556499` passed every applicable step at `678403be`; no schema change followed it.
-- The maintainer must dismiss six CodeQL alerts after the final head commit, following Sprint 142's precedent.
+- **Allocated:** v11.116.0 and the merge slot. **Not authorized:** demo data operations; demo application DB access;
+  platform-admin grant and its 200 smoke check; new ADR numbers; dependency lane; merge; deploy. Each of merge, deploy
+  and the platform-admin smoke check needs separate explicit maintainer authorization.
+- Disposable SSH/Postgres authorization covered Tasks 1 and 4–9 only and has ended cleanly. No demo data operation occurred.
+- Final reviewed-head integration and regeneration are green. Read the new release head's actual CI jobs after the
+  version/evidence commit; do not infer their conclusions from `e1fa89fb`.
+- The maintainer must dismiss six CodeQL alerts from the release head's annotations: `api.ts` as `false positive`, test
+  files as `used in tests`; then re-run the gate job and update the PR body's *Security dismissals*.
 - The platform-admin rollout remains fail-closed pending a separately authorized maintainer grant and smoke test.
 
 ## Carried follow-ups

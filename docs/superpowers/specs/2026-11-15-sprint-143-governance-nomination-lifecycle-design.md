@@ -3,8 +3,8 @@
 **Date**: 2026-11-15
 **Status**: Approved by the maintainer, 2026-11-15 (planning chat; decisions 1–8 below). Codex's plan review
 rounds 1 (8 findings) and 2 (2 clarifications) were integrated the same day; see the handoff's *Plan review log*.
-**Version**: v11.115.0 → **unallocated.** The maintainer allocates the release version at merge time, re-derived
-from `origin/master`.
+**Version**: v11.115.0 → **v11.116.0**, allocated by the maintainer on 2026-11-18 with the merge slot;
+`origin/master` remained `1692a560` when re-fetched.
 **Sprint Branch**: `agent/claude/sprint-143-planning` (reused task branch; it already carries the Sprint 142
 post-merge record `3e63ca9f`, which rides with this product PR)
 

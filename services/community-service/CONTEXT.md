@@ -26,10 +26,13 @@
     `MEMBERSHIP_RESTORE_REQUIRES_STAFF`. Active public rejoin increments the counter once and reissues the JWT;
     private pending does neither. Duplicate concurrent joins map to 409 rather than 500.
   - Real-DB replay, lifecycle, privacy, membership and race proof passed on disposable PostgreSQL (2 suites,
-    78 tests; superuser+bypass-RLS flags recorded, explicit predicates supply isolation). PR CI run
-    [44103556510](https://github.com/ravichavali/karmyq/actions/runs/44103556510) then ran the whole integration
-    tier: 595 of 596 tests passed. Its sole failure was the staff-removal race test incorrectly expecting `left`
-    instead of `inactive`; that assertion and the close-race error assertions are corrected for the final-head rerun.
+    78 tests; superuser+bypass-RLS flags recorded, explicit predicates supply isolation). Initial PR CI run
+    [44103556510](https://github.com/ravichavali/karmyq/actions/runs/44103556510) ran 595 of 596 tests successfully;
+    its sole failure was the corrected staff-removal assertion. Final reviewed-head CI run
+    [44422291966](https://github.com/ravichavali/karmyq/actions/runs/44422291966) passed all 32 integration suites /
+    596 tests plus 2 curated-reset tests, including the corrected close and staff-removal races. Final reviewed-head
+    `regenerate-init-sql` run [44422291636](https://github.com/ravichavali/karmyq/actions/runs/44422291636) passed
+    every applicable step, including independent baseline generation, zero drift and committed-byte comparison.
     The disposable DB and tunnel were removed. No demo data operation was performed.
 
 - **2026-11-13 (Sprint 142, #338 `1692a560`, v11.115.0; deployed 2026-11-15):** migration
