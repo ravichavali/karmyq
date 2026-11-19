@@ -2777,7 +2777,7 @@ the normal Git/CI gates.
 
 ---
 
-## BUG-102 · [2026-11-13] · fixed (Sprint 143; PR #340)
+## BUG-102 · [2026-11-13] · fixed and deployed (Sprint 143 #340, v11.116.0, 2026-11-19)
 
 **Self-service rejoin of an inactive membership returns 500.** Reported in Claude's Sprint 142 plan review.
 `services/community-service/src/routes/members.ts:106-133` detects active/pending memberships but falls
@@ -2794,7 +2794,7 @@ rejoin updates and 23505 mapping make concurrent attempts one success plus one c
 
 ---
 
-## BUG-103 · [2026-11-15] · open
+## BUG-103 · [2026-11-15] · planned (Sprint 144, ADR-106)
 
 **`communities.communities.current_members` drifts away from the real active-member count.** Found while
 planning Sprint 143 (BUG-102). The DELETE member handler (`services/community-service/src/routes/members.ts`,
@@ -2814,7 +2814,7 @@ read or repair was performed.
 
 ---
 
-## BUG-104 · [2026-11-18] · open
+## BUG-104 · [2026-11-18] · planned (Sprint 144)
 
 **The PUT last-admin guard can be bypassed with a non-canonical UUID.** Found in Claude's PR #340 review.
 `services/community-service/src/routes/members.ts:380` compares PostgreSQL's canonical `user_id` value directly with
@@ -2824,12 +2824,27 @@ maintainer chose to log this separately rather than expand PR #340.
 
 ---
 
-## BUG-105 · [2026-11-18] · open
+## BUG-105 · [2026-11-18] · planned (Sprint 144)
 
 **Moderator reactivation can restore a stored admin role.** Found in Claude's PR #340 review.
 `services/community-service/src/routes/members.ts:326-334` allows moderators to make status-only updates, and the
 UPDATE at `:384-390` changes `status` without constraining the existing role. Reactivating an inactive row whose
 stored role is `admin` therefore restores an active admin through a moderator-only operation. The maintainer chose
 to log this separately rather than expand PR #340.
+
+---
+
+## BUG-106 · [2026-11-19] · open
+
+**Invitation acceptance admits a member without the capacity check and silently ignores an existing membership row.**
+Found while planning Sprint 144 (BUG-103). `POST /invitations/accept` in
+`services/social-graph-service/src/routes/invitations.ts` (member INSERT near line 154) inserts
+`communities.members` with `ON CONFLICT (community_id, user_id) DO NOTHING` and no `status`, so it uses the
+column default `active`. It never compares the community's `current_members` with `max_members`, and it runs
+as separate `pool.query` calls with no transaction. When the invitee already has a `left`, `inactive` or
+`pending` row, the INSERT is a no-op, yet the invitation is still marked accepted and the handler still returns
+success. Until Sprint 144 the handler also incremented `current_members` unconditionally. That double count is
+removed by Sprint 144 (ADR-106 moves the counter into a database trigger). The capacity bypass and the
+silent no-op are not fixed by Sprint 144; they remain open here.
 
 ---

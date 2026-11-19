@@ -5,7 +5,7 @@
 
 ## Recent Changes
 
-- **2026-11-15 (Sprint 143, BUG-102 fixed):** migration
+- **2026-11-15 (Sprint 143, #340 `a2746057`, v11.116.0; deployed 2026-11-19; BUG-102 fixed):** migration
   `20261115-governance-nomination-lifecycle.sql` adds `governance_nominations.expires_at`, the `declined`
   and `expired` statuses, and an expiry-aware v1 database guard. New v1 rows default to 30 days; replay
   backfills existing v1 rows with exactly `created_at + 30 days`, preserves pre-v1 NULL history, and makes no
