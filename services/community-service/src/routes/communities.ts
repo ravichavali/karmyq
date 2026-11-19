@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { query } from '../database/db';
+import { query, withTransaction } from '../database/db';
+import { assertWithinCapacity, CommunityFullError, readMemberCount } from '../database/memberCapacity';
 import { publishEvent } from '../events/publisher';
 import { getActiveFusionProposalForCommunityRoute } from './fusions';
 import {
@@ -445,19 +446,29 @@ router.post('/', async (req: Request, res: Response) => {
         }, HTTP_STATUS.OK, { requestId: (req as any).id });
       }
 
-      // Upsert the caller as a member; only bump the count if a new row was inserted.
-      const joinResult = await query(
-        `INSERT INTO communities.members (community_id, user_id, role, status)
-         VALUES ($1, $2, 'member', 'active')
-         ON CONFLICT (community_id, user_id) DO NOTHING`,
-        [existing.id, creator_id]
-      );
-      if (joinResult.rowCount && joinResult.rowCount > 0) {
-        await query(
-          `UPDATE communities.communities SET current_members = current_members + 1 WHERE id = $1`,
-          [existing.id]
-        );
-        existing.current_members = (existing.current_members ?? 0) + 1;
+      // Upsert the caller as a member. ADR-106: the sync trigger counts a new active row; an
+      // admission is re-checked against capacity on the same client, and the response reports the
+      // count the database holds (never application arithmetic).
+      let memberCount: number;
+      try {
+        memberCount = await withTransaction(async (q) => {
+          const joinResult = await q(
+            `INSERT INTO communities.members (community_id, user_id, role, status)
+             VALUES ($1, $2, 'member', 'active')
+             ON CONFLICT (community_id, user_id) DO NOTHING`,
+            [existing.id, creator_id]
+          );
+          if (joinResult.rowCount && joinResult.rowCount > 0) {
+            return (await assertWithinCapacity(q, existing.id)).current_members;
+          }
+          return readMemberCount(q, existing.id);
+        });
+      } catch (error) {
+        if (error instanceof CommunityFullError) {
+          return sendError(res, 'COMMUNITY_FULL', 'Community is full (Dunbar\'s number limit reached)', 400,
+            undefined, { requestId: (req as any).id });
+        }
+        throw error;
       }
 
       // Refresh JWT with the updated community list (mirrors the create path).
@@ -468,7 +479,7 @@ router.post('/', async (req: Request, res: Response) => {
       const callerRole = joinCommunities.find((c) => c.id === existing.id)?.role ?? 'member';
 
       return sendSuccess(res, {
-        community: { ...existing, role: callerRole },
+        community: { ...existing, current_members: memberCount, role: callerRole },
         existing: true,
         joined: true,
         token: joinToken,
@@ -523,7 +534,7 @@ router.post('/', async (req: Request, res: Response) => {
         []
       );
 
-      if (defaultTemplate.rowCount > 0) {
+      if ((defaultTemplate.rowCount ?? 0) > 0) {
         communityConfig = defaultTemplate.rows[0].config_json;
         templateSource = defaultTemplate.rows[0].name;
       } else {
@@ -533,11 +544,12 @@ router.post('/', async (req: Request, res: Response) => {
       }
     }
 
-    // Create community
+    // Create community. ADR-106: a new community has no member rows, so its count is 0 (the column
+    // guard forces it anyway); the creator's member INSERT below makes it 1.
     const result = await query(
       `INSERT INTO communities.communities
         (name, description, location, category, max_members, current_members, access_type, creator_id, community_type, status)
-      VALUES ($1, $2, $3, $4, $5, 1, $6, $7, $8, 'active')
+      VALUES ($1, $2, $3, $4, $5, 0, $6, $7, $8, 'active')
       RETURNING *`,
       [name, description, location, category, max_members, access_type, creator_id, community_type]
     );
@@ -599,6 +611,7 @@ router.post('/', async (req: Request, res: Response) => {
       VALUES ($1, $2, 'admin', 'active')`,
       [community.id, creator_id]
     );
+    const createdCount = await readMemberCount(query, community.id);
 
     // Refresh JWT token with updated community list
     // This prevents 403 errors when creator tries to access the new community immediately
@@ -621,6 +634,7 @@ router.post('/', async (req: Request, res: Response) => {
     sendSuccess(res, {
       community: {
         ...community,
+        current_members: createdCount,
         role: 'admin',
       },
       existing: false,

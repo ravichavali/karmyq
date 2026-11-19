@@ -177,8 +177,10 @@ async function memberFixture(count = 5) {
   const community = randomUUID();
   await pool.query(`INSERT INTO auth.users(id,email,name,password_hash)
     SELECT id, id::text || '@s142.invalid', 'S142 member', 'unused' FROM unnest($1::uuid[]) id`, [users]);
-  await pool.query(`INSERT INTO communities.communities(id,name,creator_id,current_members)
-    VALUES($1,'S142 creation fixture',$2,$3)`, [community,users[0],count]);
+  // Sprint 144 (ADR-106): the column guard stores 0 and the sync trigger counts the member rows
+  // inserted below, so the fixture no longer sets current_members (it cannot).
+  await pool.query(`INSERT INTO communities.communities(id,name,creator_id)
+    VALUES($1,'S142 creation fixture',$2)`, [community,users[0]]);
   await pool.query(`INSERT INTO communities.members(community_id,user_id,role)
     SELECT $1,id,CASE WHEN id=$3 THEN 'admin' ELSE 'member' END FROM unnest($2::uuid[]) id`, [community,users,users[0]]);
   const [a,b] = [users[0],users[1]].sort();

@@ -50,9 +50,25 @@ describe('Sprint 134 L2 nightly health + HTTP fallback against migrated SQL (BUG
     }
     await pool.query(`INSERT INTO communities.members(community_id,user_id,role,status) VALUES ($1,$2,'admin','left')`, [C, FORMER]);
     // Cached member count can be zero even when live membership passes the disclosure check.
-    await pool.query(`UPDATE communities.communities
-      SET current_members=CASE WHEN id=$1 THEN 10 WHEN id=$2 THEN 24 ELSE 0 END
-      WHERE id=ANY($3::uuid[])`, [C, GROWTH, communities]);
+    // Sprint 144 (ADR-106, note 2's one controlled-corruption exception): the column guard ignores a
+    // plain UPDATE of current_members, so the deliberately wrong cache is stored through the sync
+    // flag, on one checked-out client inside one transaction (a transaction-local flag set by a
+    // separate autocommit pool.query would be gone before the UPDATE). afterAll deletes these rows.
+    const corrupt = await pool.connect();
+    try {
+      await corrupt.query('BEGIN');
+      await corrupt.query(`SELECT set_config('karmyq.member_count_sync','on',true)`);
+      await corrupt.query(`UPDATE communities.communities
+        SET current_members=CASE WHEN id=$1 THEN 10 WHEN id=$2 THEN 24 ELSE 0 END
+        WHERE id=ANY($3::uuid[])`, [C, GROWTH, communities]);
+      await corrupt.query(`SELECT set_config('karmyq.member_count_sync','',true)`);
+      await corrupt.query('COMMIT');
+    } catch (error) {
+      await corrupt.query('ROLLBACK');
+      throw error;
+    } finally {
+      corrupt.release();
+    }
     await addMatch(A, H, [C]);
     await addMatch(A, J, [C, D]);
     await addMatch(B, H, [C]);

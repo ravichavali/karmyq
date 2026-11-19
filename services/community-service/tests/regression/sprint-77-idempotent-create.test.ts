@@ -8,6 +8,12 @@
  *
  * The DB boundary (`../../src/database/db.query`) is mocked; we assert on the
  * SQL the route issues and the HTTP response, so no live database is required.
+ *
+ * Sprint 144 (ADR-106, note 3b/3c): the duplicate-create join now runs inside withTransaction with a
+ * capacity post-check, so the mock also provides withTransaction (running on the same query mock) and
+ * answers the post-check read with the count the database holds after the insert. The trigger owns
+ * the counter, so the old `UPDATE … current_members` mock was dead and is gone. Every assertion is
+ * unchanged.
  */
 import express from 'express';
 import request from 'supertest';
@@ -16,6 +22,7 @@ import request from 'supertest';
 const mockQuery = jest.fn();
 jest.mock('../../src/database/db', () => ({
   query: (...args: any[]) => mockQuery(...args),
+  withTransaction: (fn: any) => fn((...args: any[]) => mockQuery(...args)),
 }));
 // Mock the event publisher so the route doesn't touch Bull/Redis.
 jest.mock('../../src/events/publisher', () => ({
@@ -72,7 +79,10 @@ describe('Sprint 77 — idempotent POST /communities', () => {
     mockQuery.mockImplementation(async (sql: string) => {
       if (isIdentitySelect(sql)) return { rowCount: 1, rows: [existingRow] };
       if (/INSERT\s+INTO\s+communities\.members/i.test(sql)) return { rowCount: 1, rows: [] };
-      if (/UPDATE\s+communities\.communities\s+SET\s+current_members/i.test(sql)) return { rowCount: 1, rows: [] };
+      // Capacity post-check after the insert: the trigger has counted the new row (5 → 6).
+      if (/SELECT current_members, max_members FROM communities\.communities/i.test(sql)) {
+        return { rowCount: 1, rows: [{ current_members: 6, max_members: 150 }] };
+      }
       // JWT-refresh membership lookup
       if (/JOIN\s+communities\.members/i.test(sql)) {
         return { rowCount: 1, rows: [{ id: EXISTING_ID, name: existingRow.name, role: 'member' }] };

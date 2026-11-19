@@ -15,6 +15,20 @@ import { Pool, PoolClient } from 'pg';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { randomUUID } from 'crypto';
+import express from 'express';
+import request from 'supertest';
+import jwt from 'jsonwebtoken';
+import servicePool from '../../services/community-service/src/database/db';
+import membersRouter from '../../services/community-service/src/routes/members';
+import communitiesRouter from '../../services/community-service/src/routes/communities';
+import invitationsRouter from '../../services/social-graph-service/src/routes/invitations';
+import { pool as socialGraphPool } from '../../services/social-graph-service/src/config/database';
+import { authMiddleware } from '../../packages/shared/middleware/auth';
+
+jest.mock('../../services/community-service/src/events/publisher', () => ({
+  publishEvent: jest.fn(),
+  initEventPublisher: jest.fn(),
+}));
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 8 });
 const MIGRATION = '20261119-community-member-count-trigger.sql';
@@ -90,6 +104,10 @@ async function inTransaction<T>(work: (client: PoolClient) => Promise<T>, finish
 }
 
 afterEach(async () => {
+  if (createdUsers.length) {
+    await pool.query(`DELETE FROM auth.user_invitations WHERE inviter_id=ANY($1::uuid[]) OR invitee_id=ANY($1::uuid[])`,
+      [createdUsers]);
+  }
   if (createdCommunities.length) {
     await pool.query(`DELETE FROM communities.communities WHERE id=ANY($1::uuid[])`, [createdCommunities.splice(0)]);
   }
@@ -99,8 +117,69 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
+  await servicePool.end();
+  await socialGraphPool.end();
   await pool.end();
 });
+
+// In-process routes, as Sprint 143's file drives them: real withTransaction, real triggers.
+const app = express();
+app.use(express.json());
+app.use('/communities', authMiddleware, communitiesRouter);
+app.use('/communities', authMiddleware, membersRouter);
+app.use('/invitations', authMiddleware, invitationsRouter);
+const tokenFor = (userId: string) => jwt.sign(
+  { userId, email: `${userId}@s144.invalid`, communities: [] }, process.env.JWT_SECRET!,
+);
+const as = (userId: string) => ({
+  join: (c: string) => request(app).post(`/communities/${c}/join`).auth(tokenFor(userId), { type: 'bearer' }).send({}),
+  add: (c: string, user_id: string) => request(app).post(`/communities/${c}/members`)
+    .auth(tokenFor(userId), { type: 'bearer' }).send({ user_id }),
+  put: (c: string, target: string, body: object) => request(app).put(`/communities/${c}/members/${target}`)
+    .auth(tokenFor(userId), { type: 'bearer' }).send(body),
+  del: (c: string, target: string) => request(app).delete(`/communities/${c}/members/${target}`)
+    .auth(tokenFor(userId), { type: 'bearer' }).send({}),
+  create: (body: object) => request(app).post('/communities').auth(tokenFor(userId), { type: 'bearer' }).send(body),
+  accept: (code: string) => request(app).post('/invitations/accept').auth(tokenFor(userId), { type: 'bearer' })
+    .send({ invitation_code: code }),
+});
+const memberRow = async (c: string, u: string) => (await pool.query(
+  `SELECT role, status FROM communities.members WHERE community_id=$1 AND user_id=$2`, [c, u])).rows[0];
+
+/** A community with an active admin and `others` more active members, at `max` capacity. */
+async function staffedCommunity(opts: { others?: number; max?: number; access?: 'public' | 'private' } = {}) {
+  const [admin] = await users(1);
+  const c = await community({ creator: admin, max: opts.max, access: opts.access });
+  await addMember(c, admin, 'active', 'admin');
+  const others = await users(opts.others ?? 0);
+  for (const u of others) await addMember(c, u);
+  return { c, admin, others };
+}
+
+/**
+ * Force the race the post-check exists for: hold the community row lock, start the admissions,
+ * wait until `waiters` of them are blocked inside the sync trigger's UPDATE, then release. Every
+ * admission has passed the pre-write "is it full?" read by then.
+ */
+async function raceOnCommunityRow<T>(c: string, waiters: number, fire: () => Promise<T>): Promise<T> {
+  const barrier = await pool.connect();
+  try {
+    await barrier.query('BEGIN');
+    await barrier.query(`SELECT 1 FROM communities.communities WHERE id=$1 FOR UPDATE`, [c]);
+    const pending = fire();
+    let waiting = 0;
+    for (let i = 0; i < 300 && waiting < waiters; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      waiting = (await pool.query(`SELECT count(*)::int AS n FROM pg_stat_activity
+        WHERE datname=current_database() AND wait_event_type='Lock' AND query ILIKE '%communities.members%'`)).rows[0].n;
+    }
+    expect(waiting).toBe(waiters);
+    await barrier.query('ROLLBACK');
+    return await pending;
+  } finally {
+    barrier.release();
+  }
+}
 
 describe('Sprint 144 database role evidence', () => {
   it('records the DB role flags used to exercise explicit community predicates', async () => {
@@ -346,5 +425,89 @@ describe('Sprint 144 converging recount', () => {
       rerun: 0,
       triggers: TRIGGERS.map(([name]) => name).sort(),
     });
+  });
+});
+
+describe('Sprint 144 atomic capacity (decision 5, note 4)', () => {
+  it('admits exactly one of two concurrent public joins into the last free slot', async () => {
+    const { c } = await staffedCommunity({ others: 1, max: 3 });
+    const [j1, j2] = await users(2);
+    expect(await count(c)).toBe(2);
+    const responses = await raceOnCommunityRow(c, 2, () => Promise.all([as(j1).join(c), as(j2).join(c)]));
+    expect(responses.map((r) => r.status).sort()).toEqual([200, 400]);
+    expect(responses.find((r) => r.status === 400)!.body.error).toBe('COMMUNITY_FULL');
+    expect(await count(c)).toBe(3);
+    expect(await activeRows(c)).toBe(3);
+  });
+
+  it('admits exactly one of two concurrent staff adds into the last free slot', async () => {
+    const { c, admin } = await staffedCommunity({ others: 1, max: 3 });
+    const [n1, n2] = await users(2);
+    const responses = await raceOnCommunityRow(c, 2, () => Promise.all([as(admin).add(c, n1), as(admin).add(c, n2)]));
+    expect(responses.map((r) => r.status).sort()).toEqual([201, 400]);
+    expect(responses.find((r) => r.status === 400)!.body.error).toBe('COMMUNITY_FULL');
+    expect(await count(c)).toBe(3);
+    const refused = responses[0].status === 400 ? n1 : n2;
+    expect(await memberRow(c, refused)).toBeUndefined();
+  });
+
+  it('refuses a staff add into a full community and leaves no member row', async () => {
+    const { c, admin } = await staffedCommunity({ others: 1, max: 2 });
+    const [n] = await users(1);
+    const res = await as(admin).add(c, n);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('COMMUNITY_FULL');
+    expect(await memberRow(c, n)).toBeUndefined();
+    expect(await count(c)).toBe(2);
+  });
+
+  it('counts an accepted invitation exactly once', async () => {
+    const { c, admin } = await staffedCommunity({ others: 1 });
+    const [invitee] = await users(1);
+    const code = `KARMYQ-S144-2026-${randomUUID().slice(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, 'X')}`;
+    await pool.query(`INSERT INTO auth.user_invitations(inviter_id, invitation_code, community_id) VALUES($1,$2,$3)`,
+      [admin, code, c]);
+    expect(await count(c)).toBe(2);
+    const res = await as(invitee).accept(code);
+    expect(res.status).toBe(200);
+    expect(await memberRow(c, invitee)).toEqual({ role: 'member', status: 'active' });
+    expect(await count(c)).toBe(3);
+    expect(await activeRows(c)).toBe(3);
+  });
+
+  it('creates a community whose stored and reported count is its creator', async () => {
+    const [creator] = await users(1);
+    const res = await as(creator).create({ name: `S144 create ${randomUUID()}`, community_type: 'mutual_aid' });
+    expect(res.status).toBe(201);
+    const id = res.body.data.community.id;
+    createdCommunities.push(id);
+    expect(await count(id)).toBe(1);
+    expect(res.body.data.community.current_members).toBe(1);
+  });
+
+  it('joins an existing community by duplicate create once, reporting the stored count', async () => {
+    const { c } = await staffedCommunity({ others: 1 });
+    const name = (await pool.query(`SELECT name FROM communities.communities WHERE id=$1`, [c])).rows[0].name;
+    const [joiner] = await users(1);
+    const first = await as(joiner).create({ name: name.toUpperCase(), community_type: 'mutual_aid' });
+    expect(first.status).toBe(200);
+    expect(first.body.data).toMatchObject({ existing: true, joined: true });
+    expect(await count(c)).toBe(3);
+    expect(first.body.data.community.current_members).toBe(3);
+    const again = await as(joiner).create({ name, community_type: 'mutual_aid' });
+    expect(again.status).toBe(200);
+    expect(await count(c)).toBe(3);
+    expect(again.body.data.community.current_members).toBe(3);
+  });
+
+  it('refuses a duplicate-create join into a full community and leaves no member row', async () => {
+    const { c } = await staffedCommunity({ others: 1, max: 2 });
+    const name = (await pool.query(`SELECT name FROM communities.communities WHERE id=$1`, [c])).rows[0].name;
+    const [joiner] = await users(1);
+    const res = await as(joiner).create({ name, community_type: 'mutual_aid' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('COMMUNITY_FULL');
+    expect(await memberRow(c, joiner)).toBeUndefined();
+    expect(await count(c)).toBe(2);
   });
 });

@@ -6,6 +6,9 @@ import { canSeeNonActiveMembers, shapeMemberRows } from '../utils/memberVisibili
 import { getLiveRole, LiveRole } from '../utils/liveRole';
 import { canSelfDepart, classifyExistingMembership, departureStatus } from '../utils/memberLifecycle';
 import { canonicalUuid } from '../utils/uuid';
+import { assertWithinCapacity, CommunityFullError } from '../database/memberCapacity';
+
+const COMMUNITY_FULL_MESSAGE = 'Community is full (Dunbar\'s number limit reached)';
 import {
   sendSuccess,
   sendError,
@@ -111,8 +114,9 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
     if (communityResult.rowCount === 0) return sendNotFound(res, 'Community');
     const community = communityResult.rows[0];
     if (community.status !== 'active') return sendError(res, 'COMMUNITY_INACTIVE', 'Community is not active', 400);
+    // Friendly early refusal only; the post-check inside the transaction is authoritative.
     if (community.current_members >= community.max_members) {
-      return sendError(res, 'COMMUNITY_FULL', 'Community is full (Dunbar\'s number limit reached)', 400);
+      return sendError(res, 'COMMUNITY_FULL', COMMUNITY_FULL_MESSAGE, 400);
     }
 
     const existingMember = await query(
@@ -141,9 +145,8 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
       if (result.rowCount === 0) {
         return undefined;
       }
-      if (memberStatus === 'active') {
-        await q(`UPDATE communities.communities SET current_members=current_members+1 WHERE id=$1`, [communityId]);
-      }
+      // ADR-106: the sync trigger counted the active row; re-check capacity after it, on this client.
+      if (memberStatus === 'active') await assertWithinCapacity(q, communityId);
       return result.rows[0];
     });
     if (!member) return sendConflict(res, 'Your membership changed; please refresh and try again');
@@ -165,6 +168,9 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
       },
     });
   } catch (error: any) {
+    if (error instanceof CommunityFullError) {
+      return sendError(res, 'COMMUNITY_FULL', COMMUNITY_FULL_MESSAGE, 400);
+    }
     if (error.code === '23505' && error.constraint === 'members_community_id_user_id_key') {
       return sendConflict(res, 'You are already a member of this community');
     }
@@ -217,26 +223,18 @@ router.post('/:communityId/members', async (req: Request, res: Response) => {
     );
 
     if (communityResult.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Community not found',
-      });
+      return sendNotFound(res, 'Community');
     }
 
     const community = communityResult.rows[0];
 
     if (community.status !== 'active') {
-      return res.status(400).json({
-        success: false,
-        message: 'Community is not active',
-      });
+      return sendError(res, 'COMMUNITY_INACTIVE', 'Community is not active', 400);
     }
 
+    // Friendly early refusal only; the post-check inside the transaction is authoritative.
     if (community.current_members >= community.max_members) {
-      return res.status(400).json({
-        success: false,
-        message: 'Community is full (Dunbar\'s number limit reached)',
-      });
+      return sendError(res, 'COMMUNITY_FULL', COMMUNITY_FULL_MESSAGE, 400);
     }
 
     // Check if user is already a member
@@ -247,28 +245,22 @@ router.post('/:communityId/members', async (req: Request, res: Response) => {
     );
 
     if (existingMember.rowCount && existingMember.rowCount > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'User is already a member of this community',
-      });
+      return sendError(res, 'ALREADY_MEMBER', 'User is already a member of this community', 400);
     }
 
-    // Add member
-    const memberResult = await query(
-      `INSERT INTO communities.members
-        (community_id, user_id, role, invited_by, status)
-      VALUES ($1, $2, $3, $4, 'active')
-      RETURNING *`,
-      [communityId, user_id, role, invited_by]
-    );
-
-    // Increment current_members count
-    await query(
-      `UPDATE communities.communities
-       SET current_members = current_members + 1
-       WHERE id = $1`,
-      [communityId]
-    );
+    // Decision 10 (BUG-107): staff direct-add stays a documented consent exception; it activates the
+    // user directly. ADR-106: the sync trigger counts the row; capacity is re-checked after it.
+    const member = await withTransaction(async (q) => {
+      const inserted = await q(
+        `INSERT INTO communities.members
+          (community_id, user_id, role, invited_by, status)
+        VALUES ($1, $2, $3, $4, 'active')
+        RETURNING *`,
+        [communityId, user_id, role, invited_by]
+      );
+      await assertWithinCapacity(q, String(communityId));
+      return inserted.rows[0];
+    });
 
     // Publish event
     await publishEvent('user_joined_community', {
@@ -280,16 +272,18 @@ router.post('/:communityId/members', async (req: Request, res: Response) => {
 
     res.status(201).json({
       success: true,
-      data: memberResult.rows[0],
+      data: member,
       message: 'Member added successfully',
     });
   } catch (error: any) {
+    if (error instanceof CommunityFullError) {
+      return sendError(res, 'COMMUNITY_FULL', COMMUNITY_FULL_MESSAGE, 400);
+    }
+    if (error.code === '23505' && error.constraint === 'members_community_id_user_id_key') {
+      return sendError(res, 'ALREADY_MEMBER', 'User is already a member of this community', 400);
+    }
     (req as any).logger?.error('Error adding member', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'POST /:communityId/members' });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to add member',
-      error: error.message,
-    });
+    return sendInternalError(res, 'Failed to add member', error);
   }
 });
 
@@ -478,11 +472,9 @@ router.delete('/:communityId/members/:userId', async (req: Request, res: Respons
       if (activeAdmins.some((row: any) => row.user_id === userId) && activeAdmins.length <= 1) {
         return 'last_admin' as const;
       }
+      // ADR-106: the sync trigger applies the active → left/inactive decrement.
       await q(`UPDATE communities.members SET status=$3 WHERE community_id=$1 AND user_id=$2`,
         [communityId, userId, departureStatus(isSelfRemove)]);
-      if (target.status === 'active') {
-        await q(`UPDATE communities.communities SET current_members=current_members-1 WHERE id=$1`, [communityId]);
-      }
       return { wasActive: target.status === 'active' };
     });
 
