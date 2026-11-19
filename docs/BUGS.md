@@ -2848,3 +2848,16 @@ removed by Sprint 144 (ADR-106 moves the counter into a database trigger). The c
 silent no-op are not fixed by Sprint 144; they remain open here.
 
 ---
+
+## BUG-107 · [2026-11-19] · open
+
+**Staff direct-add makes an arbitrary user an active member without their consent.** Found in Codex's Sprint 144
+plan review (round 2, R1). `POST /communities/:communityId/members` (`services/community-service/src/routes/members.ts`,
+handler near line 176, INSERT near line 255) lets an active admin insert any user id as `active`. The person never
+asked to join and is never asked to accept. The route has been admin-only since BUG-061, and no web, mobile or
+simulation screen calls it (`apps/frontend/src/lib/api.ts` `addMember` is unused). The full-stack test fixtures
+(`tests/fixtures/index.ts` `createAdmin`, `addMember`) and the Sprint 132 security tests rely on it. The maintainer
+chose to keep it as a documented exception in Sprint 144 (spec decision 10). Retiring it, or turning it into an
+invitation the person accepts, is later work.
+
+---

@@ -1,9 +1,10 @@
 # Sprint 144 — Staff membership write integrity — Handoff
 
 **Date**: 2026-11-19
-**Outcome**: **PLANNED — review round 1 integrated; awaiting Codex re-review round 2 (delta only).** The
-maintainer approved decisions 1–6 in the planning chat. Codex's round 1 returned 11 findings (`e6713ca5`); Claude
-verified all 11 against the repo, and the maintainer decided 7–9 on the three open points. Spec, plan, the
+**Outcome**: **PLANNED — review rounds 1–2 integrated; awaiting Codex re-review round 3 (delta only).** The
+maintainer approved decisions 1–6 in the planning chat. Codex's round 1 returned 11 findings (`e6713ca5`) and
+round 2 returned 8 (`ba798c27`). Claude verified every finding against the repo, and the maintainer decided 7–11
+on the open points. Spec, plan, the
 Sprint 143 post-merge record and the bug-log updates are committed on this branch. No product code has been
 written yet.
 
@@ -51,7 +52,8 @@ Never rebase this branch.
 | Round | Reviewer | Reviewed head | Status |
 |---|---|---|---|
 | 1 | Codex (read-only) | `e6713ca5` (spec + plan) | **integrated**. 11 findings (2 BLOCKING, 7 SHOULD-FIX, 2 NIT), all verified (10 confirmed, F3 partial); see *Round 1 dispositions* |
-| 2 | Codex (read-only) | the round-1 integration commit, delta vs `6559e7c8` | **pending** |
+| 2 | Codex (read-only) | `ba798c27`, delta vs `6559e7c8` | **integrated**. 8 findings (1 BLOCKING, 6 SHOULD-FIX, 1 NIT), all confirmed; see *Round 2 dispositions* |
+| 3 | Codex (read-only) | the round-2 integration commit, delta vs `ba798c27` | **pending** |
 
 ### Round 1 dispositions (2026-11-19)
 
@@ -61,13 +63,26 @@ Never rebase this branch.
 | F2 | Old writers double-count between migration and restart | CONFIRMED, worse: a failed build at `deploy.sh:208-219` leaves old code serving with the trigger | **Decision 7: column guard** |
 | F3 | Staff DELETE (`left → inactive`) + reactivation forces a departed member back | PARTIAL: Sprint 143 keeps the DELETE block on purpose (S143 spec `:172-173`) | **Decision 8: reactivate lifts the block** (`inactive → left`) |
 | F4 | Reciprocal community moves can deadlock | CONFIRMED but theoretical: no writer moves `community_id` | Sync trigger raises on `community_id` change; one community row per firing |
-| F5 | Note 3 misidentifies regression changes | CONFIRMED (S93 `:91`, S132 `:9-12`, S133 `:62` is a GET fixture; S92 also synthetic) | Note 3 split into (a) UUID fixtures, (b) transaction mocks, (c) counter mocks |
+| F5 | Note 3 misidentifies regression changes | CONFIRMED (S93 `:91`, S132 `:48-51` (corrected in round 2), S133 `:62` is a GET fixture; S92 also synthetic) | Note 3 split into (a) UUID fixtures, (b) transaction mocks, (c) counter mocks |
 | F6 | Delta gate regex misses alias/order/wrapper forms | CONFIRMED | Gate flags any self-referential assignment; negative fixture per form |
 | F7 | Count equality cannot prove a trigger did not write | CONFIRMED | Note 14: `xmin` evidence |
 | F8 | No-container path skips the migration's red phase | CONFIRMED | **Decision 9: disposable container**; Tasks 5–7 run real-DB cases red first |
 | F9 | Draft-PR "plumbing" note is an unapproved exception | CONFIRMED | Removed; the PR opens only at the end of Task 13 (decision 9) |
 | F10 | Archived recomputes unclassified; one counts all statuses | CONFIRMED (`generate-realistic-data.ts:430`) | Classified as excluded deprecated tooling; the guard ignores both |
-| F11 | Nominee already lowercased; other raw comparisons missed | CONFIRMED (`governanceDb.ts:226-228`; `links.ts:56`, `fusions.ts:113`, `splits.ts:79`) | Inventory corrected; governance is consolidation only; the others are fail-closed or DB-checked |
+| F11 | Nominee already lowercased; other raw comparisons missed | CONFIRMED (`governanceDb.ts:227-229`, corrected in round 2; `links.ts:56`, `fusions.ts:113`, `splits.ts:79`) | Inventory corrected; governance is consolidation only; the others are fail-closed or DB-checked |
+
+### Round 2 dispositions (2026-11-19)
+
+| # | Finding | Verdict | Resolution |
+|---|---|---|---|
+| R1 | Staff direct-add makes a user active without consent, contradicting decision 8's wording | CONFIRMED (`members.ts:254-260`; `addMember` at `api.ts:233` unused; used by `tests/fixtures/index.ts:309`, `:402` and the S132 tests) | **Decision 10: documented exception**; guarantee reworded to returning members; **BUG-107** logged |
+| R2 | `left → left` matches both `MEMBER_MUST_REJOIN` and D4 | CONFIRMED | D3 precedes D4: any request against a `left` row is `MEMBER_MUST_REJOIN` |
+| R3 | S142 tests and two docs still restore by staff PUT `active` | CONFIRMED (S142 test `:325`, `:342`; `governance.md:21`; guide `:100-102`) | Task 7 rewrites both S142 cases to lift + self-rejoin; Task 10 updates both docs |
+| R4 | The fixture rule would erase the S134 L2 health test's deliberate corruption | CONFIRMED (`:53-55`, `:175-181`) | Note 2 exception: a scoped flag helper keeps the scenario and its exact assertions |
+| R5 | "Every new case must fail" is impossible for baseline cases | CONFIRMED | Note 11: red for changed behavior only; baselines expected-green; the static gate proves neutralized-statement removal |
+| R6 | A bare PostgreSQL container cannot run the services/Redis suites | CONFIRMED (e.g. `event-driven-flow.integration.test.ts:46`, `:54`; `sprint-133-endorsement-trust.integration.test.ts:162`) | **Decision 11:** in-process DB suites locally; full suite in PR CI, read by the next chat |
+| R7 | Task 13 still reads CI and pushes after creating the PR | CONFIRMED (`feedback_stop_after_pr_creation`) | Handoff pushed first; PR creation is the last action; CI reading moved to Task 14 (next chat) |
+| R8 | Wrong citations; "exactly one" community row | CONFIRMED | `governanceDb.ts:227-229`; S132 `:48-51` and its `withTransaction` mock (`:32`) so (a) only; UPDATE inventory adds `members.ts:133-136`, `:384-390`; "at most one" |
 
 ## Sprint goal
 
@@ -101,9 +116,14 @@ drift, while shipping the Next.js 16.4.6 security patch inside its SLA.
    `communities.communities` ignores every write not made by the sync trigger or the recount function, so old
    containers, a failed build and rollbacks cannot double-count.
 8. **Reactivate lifts the block** (round 1, F3): an admin PUT `inactive → left`; the person rejoins themselves.
-   Staff never make anyone active except by approving that person's request.
+   Staff never return someone who left or was removed/rejected; direct-add and fission/fusion are the documented
+   exceptions (decision 10).
 9. **Disposable PostgreSQL container** on the demo host over SSH, with no demo data, for real-DB red→green (round 1,
    F8/F9). There is no draft-PR exception; the PR opens at the end.
+10. **Staff direct-add is a documented exception** (round 2, R1): it keeps activating a user directly (admin-only,
+    API-only), and decision 8's guarantee covers returning members. The consent gap is BUG-107.
+11. **Verification scope** (round 2, R6): the container runs the in-process DB suites; the services/Redis suites run
+    in PR CI and the next chat reads them. No isolated full test stack is authorized.
 
 Planning defaults D1–D8 are in the spec's *Planning defaults* section, and review may challenge them:
 - one change per request;
@@ -151,15 +171,22 @@ Planning defaults D1–D8 are in the spec's *Planning defaults* section, and rev
    - the `tests/fixtures/` seeds.
 
    Fix each fixture to state the truth. Never weaken an assertion to make it pass.
+
+   **One controlled-corruption exception (Codex round 2, R4).** `tests/integration/sprint-134-pr-l2-health.integration.test.ts`
+   deliberately stores wrong cached counts (`:53-55`) to prove that health metrics read live rows, not the cache
+   (`:175-181` asserts a cached `0` for a community whose live data yields 24 participants). Keep that scenario. Write the corrupt values inside
+   a helper that sets `karmyq.member_count_sync` to `'on'` for that one statement and restores it, the same way the
+   recount tests seed drift. Keep the exact assertions, and recount or clean up afterwards.
 3. **Existing regressions change for three separate reasons; inventory each separately (Codex F5).**
    - **(a) UUID fixtures.** `sprint-93-members-delete-jwt` (`/comm-1/members/victim`, `:91`),
-     `sprint-132-body-identity` (`'admin-user'`, `'attacker-user'`, `:9-12`), `sprint-92-last-admin-guard`, and any
+     `sprint-132-body-identity` (`'admin-user'`, `'attacker-user'`, `:48-51`), `sprint-92-last-admin-guard`, and any
      other route test Task 2 finds, use non-UUID ids that the new validation rejects. Replace them with valid UUIDs
      and keep every exact authorization, bound-identity and no-write assertion. Never change an expected 403 into
      a 400.
    - **(b) Transaction wrapping.** Staff add and the duplicate-create join now run inside `withTransaction`. Tests
-     that mock only `query` (`sprint-77-idempotent-create`, `sprint-132-body-identity`) must also mock the
-     transaction client, as `sprint-92` and `sprint-93` already do.
+     that mock only `query` (`sprint-77-idempotent-create`, and any other Task 2 finds) must also mock the
+     transaction client, as `sprint-92` and `sprint-93` already do. `sprint-132-body-identity` already mocks
+     `withTransaction` (`:32`), so it needs (a) only.
    - **(c) Counter mocks.** `sprint-77`'s `UPDATE … current_members` mock (`:75`) becomes dead; delete it.
      `sprint-133-member-email-admin-only`'s `current_members: 3` (`:62`) is a GET fixture and is unrelated; no
      change. `sprint-78-fission-execute` and `sprint-86-fusion-member-count` assert the recompute that stays (D7),
@@ -172,7 +199,8 @@ Planning defaults D1–D8 are in the spec's *Planning defaults* section, and rev
    lifting a block admits nobody. The real-DB race test must show two concurrent admissions into a community with
    one free slot produce exactly one 200 and one 400 `COMMUNITY_FULL`, and a final count of `max_members`.
 5. **Lock order is member row(s) → that one community row.** Membership rows never move between communities (the
-   sync trigger raises on a `community_id` change), so each firing locks exactly one community row (Codex F4). Do
+   sync trigger raises on a `community_id` change), so each firing locks at most one community row (Codex F4;
+   round 2, R8). Do
    not add a `SELECT … FOR UPDATE` on the community row before member locks: that inverts join/DELETE's order and
    can deadlock with the trigger. Governance keeps nomination → memberships (Sprint 143). Its role-only update does
    not fire the trigger.
@@ -184,7 +212,7 @@ Planning defaults D1–D8 are in the spec's *Planning defaults* section, and rev
 7. **Canonicalize at parse, compare canonical.** The member routes run every request-supplied id they compare in
    JS through `canonicalUuid`. A malformed id is 400 before SQL. JWT ids are compared as issued. Do not fix BUG-104
    by casting inside SQL alone: the JS comparison is the bypass. Governance already lowercases
-   (`governanceDb.ts:226-228`); importing the shared regex there is consolidation.
+   (`governanceDb.ts:227-229`); importing the shared regex there is consolidation.
 8. **The migration must hold on both appliers.**
    - No top-level `BEGIN`/`COMMIT`/`LOCK`.
    - Rerunnable, with a zero-drift normalized dump.
@@ -202,15 +230,23 @@ Planning defaults D1–D8 are in the spec's *Planning defaults* section, and rev
     read or measure demo drift before or after without separate authorization. `scripts/audit-demo-data.sql`
     query 1 is the measurement to hand the maintainer if they want one. Any later repair uses
     `communities.recount_current_members()`, never a direct `UPDATE`, which the guard ignores.
-11. **Real-DB evidence comes from a disposable container (decision 9).** Use a disposable PostgreSQL container on
-    the demo host over an SSH tunnel, with no demo database access, as Sprint 143 did. Load the branch's schema
-    (`init.sql`, then the migration chain). Run every new real-DB test red before its implementation, then green.
-    Remove the container, scratch and tunnel afterwards, and record the role flags. If the permission classifier
-    blocks the SSH command, try once and hand the setup command to the maintainer; do not reroute. The PR opens
-    only at the end of execution; there is no draft-PR exception.
-12. **Do not reopen settled decisions.** Decisions 1–9 are the maintainer's: scope, the Next.js bundling, the
-    recount, moderator powers, trigger ownership, ADR-106, the column guard, lift-the-block reactivation and the
-    disposable container. Planning defaults D1–D8 may be challenged in review.
+11. **Real-DB evidence comes from a disposable container (decisions 9, 11).** Use a disposable PostgreSQL container
+    on the demo host over an SSH tunnel, with no demo database access, as Sprint 143 did. Load the branch's schema
+    (`init.sql`, then the migration chain).
+    - **Red first for changed behavior only (Codex round 2, R5).** Each real-DB case that tests new behavior must
+      fail before its implementation and pass after. Baseline cases that already hold, such as the `xmin`
+      no-write checks or the invitation `+1` after the guard exists, are recorded as expected-green both times.
+      The static gate's red result is what proves the removal of already-neutralized arithmetic.
+    - **Scope.** The container runs the in-process database suites only. The services/Redis suites run in PR CI,
+      which the next chat reads (decision 11).
+    - Remove the container, scratch and tunnel afterwards, and record the role flags.
+    - If the permission classifier blocks the SSH command, try once and hand the setup command to the maintainer;
+      do not reroute.
+    - The PR opens only at the end of execution, as the chat's last action; there is no draft-PR exception.
+12. **Do not reopen settled decisions.** Decisions 1–11 are the maintainer's: scope, the Next.js bundling, the
+    recount, moderator powers, trigger ownership, ADR-106, the column guard, lift-the-block reactivation, the
+    disposable container, the direct-add exception and the verification scope. Planning defaults D1–D8 may be
+    challenged in review.
 13. **Flag discipline.** The sync and recount functions set `karmyq.member_count_sync` to `'on'` only around their
     own `UPDATE`, and restore the prior value before returning. Leaving it on would let a later application delta
     in the same transaction through the guard. A real-DB test proves that an application `UPDATE … current_members
@@ -225,12 +261,14 @@ Planning defaults D1–D8 are in the spec's *Planning defaults* section, and rev
   - dependency work for #185/#186 (`next` 16.4.6, first commit);
   - ADR-106;
   - the single recount write at deploy, through the migration;
-  - a disposable PostgreSQL container on the demo host over SSH, with no demo database access (decision 9).
+  - a disposable PostgreSQL container on the demo host over SSH, with no demo database access, for the in-process
+    DB suites (decisions 9, 11).
 - **Not allocated:**
   - the release version (v11.117.0 is provisional) and the merge slot;
   - merge, and deploy, each needing its own explicit yes;
   - any demo DB read or other demo write;
   - a draft-PR exception to the stop-after-PR-creation rule;
+  - an isolated full test stack (services + Redis) on the demo host;
   - the demo platform-admin grant and its 200 smoke check (ADR-105, still fail-closed);
   - CodeQL alert dismissals, which the maintainer performs in the UI.
 
