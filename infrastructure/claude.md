@@ -20,7 +20,7 @@ Its own header says so. The source of truth is the **migration chain**:
 infrastructure/postgres/migrations/*.sql  ->  scripts/regenerate-init-sql.sh  ->  init.sql
 ```
 
-75 migrations currently (the `schema_migrations` ledger in `init.sql` has 75 rows, 2026-11-12). Curated demo data lives separately in `postgres/seed-data.sql` and is
+78 migrations currently (the `schema_migrations` ledger in `init.sql` has 78 rows, re-counted 2026-11-19). Curated demo data lives separately in `postgres/seed-data.sql` and is
 spliced into the artifact during regeneration. The generated schema deliberately carries **no
 object ownership and no ACLs** — Postgres's docker-entrypoint runs it as `POSTGRES_USER`, which
 therefore owns everything.

@@ -2794,7 +2794,7 @@ rejoin updates and 23505 mapping make concurrent attempts one success plus one c
 
 ---
 
-## BUG-103 · [2026-11-15] · planned (Sprint 144, ADR-106)
+## BUG-103 · [2026-11-15] · fixed (Sprint 144, ADR-106, pending deploy)
 
 **`communities.communities.current_members` drifts away from the real active-member count.** Found while
 planning Sprint 143 (BUG-102). The DELETE member handler (`services/community-service/src/routes/members.ts`,
@@ -2812,9 +2812,20 @@ an active insert/rejoin, so private pending joins and rejected inactive restorat
 The staff status PUT transitions and pre-existing stored drift remain open exactly as described above; no demo
 read or repair was performed.
 
+**Resolution (Sprint 144, ADR-106):** the database now owns the counter. Migration
+`20261119-community-member-count-trigger.sql` installs a sync trigger on `communities.members` (each row's
+active-delta, applied to its one community), a column guard on `communities.communities` that ignores every other
+write (old binaries, a failed build and rollbacks cannot double-count), and `communities.recount_current_members()`,
+which the migration runs once to converge the stored drift (the one authorized demo write, at deploy). Every
+hand-written `±1` is removed from community-service and social-graph-service, and approval now counts. Capacity is
+re-checked after each admitting write in the same transaction (400 `COMMUNITY_FULL` rolls it back). Proof:
+`tests/integration/sprint-144-staff-write-integrity.integration.test.ts` (trigger deltas, `xmin` no-write evidence,
+guard, flag discipline, recount idempotence and replay, admission races) and the root gate
+`tests/regression/sprint-144-no-member-count-deltas.test.ts`. Any later repair uses the recount function.
+
 ---
 
-## BUG-104 · [2026-11-18] · planned (Sprint 144)
+## BUG-104 · [2026-11-18] · fixed (Sprint 144, pending deploy)
 
 **The PUT last-admin guard can be bypassed with a non-canonical UUID.** Found in Claude's PR #340 review.
 `services/community-service/src/routes/members.ts:380` compares PostgreSQL's canonical `user_id` value directly with
@@ -2822,15 +2833,31 @@ the unnormalized `userId` path parameter. An uppercase or otherwise non-canonica
 check fail even when the target is the sole active admin, allowing demotion or deactivation past the guard. The
 maintainer chose to log this separately rather than expand PR #340.
 
+**Resolution (Sprint 144):** the member routes canonicalize every request-supplied id they compare in JavaScript
+at parse (`services/community-service/src/utils/uuid.ts`, `canonicalUuid`): PUT and DELETE path ids and the staff
+POST body `user_id`. A malformed id is 400 `VALIDATION_ERROR` before any SQL. The PUT's sole-admin check compares
+canonical ids under the target-plus-admins row lock. Proof: the real-DB cases "refuses the sole admin's demotion /
+deactivation through an uppercase UUID" (400 `LAST_ADMIN`, row unchanged) and the mocked route cases in
+`services/community-service/tests/regression/sprint-144-staff-put-route.test.ts`.
+
 ---
 
-## BUG-105 · [2026-11-18] · planned (Sprint 144)
+## BUG-105 · [2026-11-18] · fixed (Sprint 144, pending deploy)
 
 **Moderator reactivation can restore a stored admin role.** Found in Claude's PR #340 review.
 `services/community-service/src/routes/members.ts:326-334` allows moderators to make status-only updates, and the
 UPDATE at `:384-390` changes `status` without constraining the existing role. Reactivating an inactive row whose
 stored role is `admin` therefore restores an active admin through a moderator-only operation. The maintainer chose
 to log this separately rather than expand PR #340.
+
+**Resolution (Sprint 144, decisions 4 and 8):** the PUT executes the transition table in
+`services/community-service/src/utils/staffTransitions.ts`. Moderators may only approve (`pending → active`, which
+writes `role='member'`) and reject (`pending → inactive`); every other transition is admin-only (403 `FORBIDDEN`).
+Nobody reactivates: `inactive → active` is 409, and an admin instead lifts the block (`inactive → left`, role reset
+to `member`) so the person rejoins themselves. The caller's live role is read inside the locked transaction. Proof:
+the real-DB cases "refuses a moderator trying to lift the block on / reactivate an inactive stored admin", "refuses a
+moderator deactivating a non-last admin" and the Codex F3 lift-then-rejoin path, plus
+`services/community-service/tests/regression/sprint-144-staff-transitions.test.ts`.
 
 ---
 

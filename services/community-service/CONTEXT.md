@@ -5,6 +5,23 @@
 
 ## Recent Changes
 
+- **2026-11-19 (Sprint 144, ADR-106; BUG-103, BUG-104, BUG-105 fixed, pending deploy):** migration
+  `20261119-community-member-count-trigger.sql` makes the database the only writer of
+  `communities.current_members`. A sync trigger on `communities.members` applies each row's active-delta to its one
+  community (a `community_id` change raises `check_violation`). A column guard on `communities.communities` stores
+  `0` on INSERT and ignores every other write unless the transaction-local `karmyq.member_count_sync` flag is on,
+  which only the sync and recount functions set (and restore). `communities.recount_current_members(id?)` is the
+  only repair path; the migration runs it once. Every hand-written `±1` is gone (join, staff add, DELETE, the
+  duplicate-create join, social-graph invitation accept); approval now counts.
+  - Capacity is atomic: `src/database/memberCapacity.ts` `assertWithinCapacity` runs after the admitting write, on
+    the same transaction client (join to active, staff add, PUT approve, duplicate-create join) and rolls back with
+    400 `COMMUNITY_FULL`. The pre-write read stays as an early refusal.
+  - The staff PUT is the transition table in `src/utils/staffTransitions.ts` (see its section). Path and body ids
+    on PUT, DELETE and staff POST are canonicalized at parse (`src/utils/uuid.ts`); a malformed id is 400 before any
+    SQL. Staff POST, PUT and the duplicate-create join use ADR-074 errors with no raw `error.message`.
+  - Join from an `inactive` row now says "Ask a community admin to lift the block; then you can rejoin" (code
+    `MEMBERSHIP_RESTORE_REQUIRES_STAFF` unchanged). Web Reject uses the PUT; pending applicants get Cancel request.
+
 - **2026-11-15 (Sprint 143, #340 `a2746057`, v11.116.0; deployed 2026-11-19; BUG-102 fixed):** migration
   `20261115-governance-nomination-lifecycle.sql` adds `governance_nominations.expires_at`, the `declined`
   and `expired` statuses, and an expiry-aware v1 database guard. New v1 rows default to 30 days; replay
@@ -198,7 +215,7 @@ CREATE TABLE communities.communities (
     location VARCHAR(255),
     category VARCHAR(100),
     max_members INTEGER DEFAULT 150,           -- Dunbar's number
-    current_members INTEGER DEFAULT 0,
+    current_members INTEGER DEFAULT 0,         -- ADR-106: trigger-owned count of active members; never write it
     creator_id UUID NOT NULL REFERENCES auth.users(id),
     access_type VARCHAR(50) DEFAULT 'public',  -- public/private
     status VARCHAR(50) DEFAULT 'active',       -- active/archived
@@ -672,9 +689,9 @@ row. The caller's role is read live from `communities.members`.
 Create new community — **idempotent on community identity** (ADR-062).
 
 A community's identity is `(LOWER(TRIM(name)), LOWER(TRIM(COALESCE(location,''))))`. Before inserting, the route looks up an **active** community by this identity key:
-- **Match found (public):** the caller is joined (`communities.members` upsert, `current_members` bumped only if newly inserted) and the existing community is returned with `existing: true` and HTTP **200** — no duplicate row is created.
+- **Match found (public):** the caller is joined (`communities.members` upsert in one transaction; the ADR-106 trigger counts a newly inserted active row, and the capacity post-check refuses an overfilling join with 400 `COMMUNITY_FULL`) and the existing community is returned with `existing: true`, its stored `current_members`, and HTTP **200** — no duplicate row is created.
 - **Match found (private):** not auto-joined; returns `existing: true, joined: false` and an approval-required message.
-- **No match:** the community is created as before and returned with `existing: false` and HTTP **201**.
+- **No match:** the community is created (inserted with `current_members = 0`; the creator's admin row makes it 1) and returned with `existing: false`, the post-trigger count, and HTTP **201**.
 
 Clients should read the `existing` flag rather than assuming a new row was created. A partial unique index `idx_communities_identity_active` enforces one active community per identity.
 
@@ -783,8 +800,10 @@ private communities return pending approval. A body `user_id` has no authority a
 
 **Existing rows (Sprint 143):** active/pending rows return 409. A `left` row rejoins with `role='member'` and a
 refreshed `joined_at`, regardless of its stored prior role. An `inactive` row (staff removal or rejection) returns 409
-`MEMBERSHIP_RESTORE_REQUIRES_STAFF`; only staff can restore it. Conditional updates and the duplicate-key mapping
-return one success plus one 409 for concurrent attempts instead of a 500.
+`MEMBERSHIP_RESTORE_REQUIRES_STAFF` ("Ask a community admin to lift the block; then you can rejoin"). Staff never
+reactivate (Sprint 144, decision 8): an admin lifts the block with `PUT … {"status":"left"}`, and the person then
+rejoins here under the normal access rules. Conditional updates and the duplicate-key mapping return one success
+plus one 409 for concurrent attempts instead of a 500.
 
 **Active response (private pending omits `token` and has `status: 'pending'`):**
 ```json
@@ -799,8 +818,10 @@ return one success plus one 409 for concurrent attempts instead of a 500.
 }
 ```
 
-The counter increments only for active membership. `issueMembershipToken` rebuilds claims from active rows only;
-private pending rejoin does not issue a token.
+The ADR-106 trigger counts an active row; the route never writes `current_members`. An active admission (including a
+`left` rejoin) runs `assertWithinCapacity` after the write in the same transaction, so a concurrent join into the
+last free slot gets 400 `COMMUNITY_FULL` and rolls back. The pre-write full check is only an early refusal.
+`issueMembershipToken` rebuilds claims from active rows only; private pending rejoin does not issue a token.
 
 **Implementation:** `src/routes/members.ts` — `POST /:communityId/join`, `classifyExistingMembership`,
 `issueMembershipToken`
@@ -820,27 +841,50 @@ self-service joining is `POST /communities/:communityId/join`, which applies the
 }
 ```
 
-**Implementation:** `src/routes/members.ts:162`
+`user_id` is canonicalized (400 `VALIDATION_ERROR` when missing or malformed, before any SQL). The insert and the
+capacity post-check run in one transaction; the ADR-106 trigger counts the row. Errors use ADR-074 codes:
+404 `NOT_FOUND`, 400 `COMMUNITY_INACTIVE` / `COMMUNITY_FULL` / `ALREADY_MEMBER`, 500 `INTERNAL_ERROR` (no raw
+detail). **Documented consent exception (decision 10, BUG-107):** this route activates a user directly, without
+their action. It is admin-only and API-only (no web, mobile or simulation caller).
+
+**Implementation:** `src/routes/members.ts` — `POST /:communityId/members`
 
 **Events Published:** `user_joined_community`
 
 ### PUT /communities/:communityId/members/:userId
-Update member role or status as the verified JWT caller; any body `admin_user_id` is ignored.
+A staff change to someone else's membership, as the verified JWT caller (Sprint 144: BUG-104, BUG-105, decision 8).
+The body carries **exactly one** of `status` or `role` (D1); both, neither, or any other key except the ignored
+legacy `admin_user_id` is 400 `VALIDATION_ERROR`, as is a malformed path id. Both checks run before any SQL.
 
-**Request:**
-```json
-{
-  "role": "admin",
-  "status": "active"
-}
-```
+**Request:** `{ "status": "active" | "inactive" | "left" }` **or** `{ "role": "member" | "moderator" | "admin" }`
 
-**Implementation:** `src/routes/members.ts` — `PUT /:communityId/members/:userId`
+Status transitions (`src/utils/staffTransitions.ts`, `planStaffChange`):
 
-**Sprint 25 — Moderator support:** Moderators (`role='moderator'`) can update member `status` (e.g., approve or reject pending members) but cannot change member `role`. Admins retain full update capability (role + status). Non-admin/non-moderator callers receive `403`.
+| Stored → requested | Who | Effect |
+|---|---|---|
+| `pending` → `active` (approve) | admin or moderator | role set to `member`; capacity re-checked after the write (400 `COMMUNITY_FULL`) |
+| `pending` → `inactive` (reject) | admin or moderator | role unchanged |
+| `active` → `inactive` (deactivate) | admin only | 400 `LAST_ADMIN` for the sole active admin |
+| `inactive` → `left` (lift the block) | admin only | role set to `member`; admits nobody, the person rejoins via `POST /join` |
+| `inactive` → `active` | — | 409 `INVALID_MEMBERSHIP_TRANSITION` (lift the block instead) |
+| `active`/`pending` → `left` | — | 409 `INVALID_MEMBERSHIP_TRANSITION` (only the member leaves) |
+| `left` → anything, incl. `left` | — | 409 `MEMBER_MUST_REJOIN` (checked before same-state) |
+| same state | — | 409 `INVALID_MEMBERSHIP_TRANSITION` (a retry) |
 
-Demotion or deactivation locks the target and every active admin in one user-ID-ordered statement, matching DELETE,
-before applying the last-admin guard and update. Other staff status counter drift remains BUG-103.
+Role changes are for an **active admin caller and an active target** only: same role is 409, a non-active target
+is 409 (`MEMBER_MUST_REJOIN` for `left`), demoting the sole active admin is 400 `LAST_ADMIN`. A moderator gets 403
+`FORBIDDEN` for anything but approve and reject; a non-staff caller gets 403; a missing target is 404 `NOT_FOUND`
+(staff callers only). Unexpected failures are 500 `INTERNAL_ERROR` without raw detail.
+
+Inside one transaction the route locks the target plus every active admin in the user-ID-ordered statement shared
+with DELETE, then reads the caller's live role on that client (ADR-102), plans, and writes. Every demotion or
+removal of staff is itself a PUT/DELETE locking the same admin rows, so it serializes with this request. The
+ADR-106 trigger applies any count change. Staff never write `pending` and never return anyone who left or was
+removed: the person rejoins themselves (decision 8).
+
+**Response:** 200 `{ success, data: memberRow, message }`.
+
+**Implementation:** `src/routes/members.ts` — `PUT /:communityId/members/:userId`; `src/utils/staffTransitions.ts`
 
 ### DELETE /communities/:communityId/members/:userId
 Remove member from community (self-leave or admin kick). **Auth required** (router mounts `authMiddleware`).
@@ -849,10 +893,13 @@ Remove member from community (self-leave or admin kick). **Auth required** (rout
 **not** from the request body. Self-leave = JWT userId === `:userId`; removing another member
 requires the JWT caller to be an active `admin`. The old `admin_user_id` body field remains ignored.
 
-Self-leave accepts active or pending rows and records `left`; inactive/left self-leave returns 409. Staff removal
-records `inactive`. The last active admin cannot leave or be removed. One user-ID-ordered statement locks the target
-and every active admin before checking/updating, preventing two concurrent last-admin departures. Only an active
-target decrements `current_members`; pending/left/inactive removal does not. Active self-leave returns
+Path ids are canonicalized (Sprint 144): an uppercase spelling of the caller's own id is self-leave, and a
+malformed id is 400 `VALIDATION_ERROR` before any SQL. Self-leave accepts active or pending rows and records `left`
+(a pending self-leave is the web's **Cancel request**); inactive/left self-leave returns 409. Staff removal records
+`inactive`, including on a `left` row (it blocks the person; an admin lift, `PUT {"status":"left"}`, reverses it).
+The last active admin cannot leave or be removed. One user-ID-ordered statement locks the target and every active
+admin before checking/updating, preventing two concurrent last-admin departures. The ADR-106 trigger decrements
+`current_members` for an active target only; the route never writes the column. Active self-leave returns
 `data.token` from `issueMembershipToken`; pending self-leave and staff removal do not. Unexpected failures use the
 ADR-074 `INTERNAL_ERROR` envelope without raw database details.
 
@@ -1552,41 +1599,36 @@ if (category && !COMMUNITY_CATEGORIES.includes(category)) {
 ## Security Considerations
 
 ### Dunbar's Number Enforcement
-- Hard limit of 150 members prevents scaling issues
-- Maintains social cohesion and trust
-- Cannot be bypassed in code (database constraint)
+- `max_members` caps a community at 150 or fewer active members, to keep it small enough that people know each other.
+- There is **no database constraint** on the cap. The application enforces it atomically (Sprint 144, ADR-106):
+  every admitting path runs `assertWithinCapacity` after its member write, on the same transaction client, and a
+  `CommunityFullError` rolls the write back with 400 `COMMUNITY_FULL`. The sync trigger's `UPDATE` holds the
+  community row lock until commit, so concurrent admitters serialize and the later one sees the committed count.
+- Fission and fusion do not check capacity (a merged community can exceed `max_members`); that is unchanged.
 
 ```typescript
-// src/routes/members.ts - Dunbar's number check
-if (community.current_members >= community.max_members) {
-  return res.status(400).json({
-    success: false,
-    message: 'Community is full (Dunbar\'s number limit reached)',
-  });
-}
+// src/routes/members.ts — inside withTransaction, after the member INSERT/UPDATE
+if (memberStatus === 'active') await assertWithinCapacity(q, communityId); // throws → rollback → COMMUNITY_FULL
 ```
 
 ### Admin Permissions
 - Only admins can update community details
-- Only admins can remove other members
-- Prevent removing the last admin
+- Only admins can remove other members, lift a block or change roles; moderators approve and reject only
+- The last active admin cannot be demoted, deactivated, removed or leave
+
+The PUT and DELETE handlers lock the target and every active admin in one user-ID-ordered statement, then decide on
+the locked rows, comparing canonical ids:
 
 ```typescript
-// src/routes/members.ts - Last admin protection
-if (memberResult.rows[0].role === 'admin') {
-  const adminCount = await query(
-    `SELECT COUNT(*) as count FROM communities.members
-     WHERE community_id = $1 AND role = 'admin' AND status = 'active'`,
-    [communityId]
-  );
-
-  if (adminCount.rows[0].count <= 1) {
-    return res.status(400).json({
-      success: false,
-      message: 'Cannot remove the last admin. Assign another admin first.',
-    });
-  }
-}
+// src/routes/members.ts — PUT (DELETE uses the same lock statement)
+const locked = await q(
+  `SELECT user_id,role,status FROM communities.members
+   WHERE community_id=$1 AND (user_id=$2 OR (role='admin' AND status='active'))
+   ORDER BY user_id FOR UPDATE`,
+  [communityId, userId]   // both canonicalUuid() at parse
+);
+const activeAdmins = locked.rows.filter((row) => row.role === 'admin' && row.status === 'active');
+const isSoleActiveAdmin = activeAdmins.length <= 1 && activeAdmins.some((row) => row.user_id === userId);
 ```
 
 ### Member-Only Actions
