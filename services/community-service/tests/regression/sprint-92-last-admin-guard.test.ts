@@ -8,6 +8,9 @@
  *
  * (The historical adminless communities are repaired by the idempotent migration
  * 20260608-backfill-community-admins.sql.)
+ *
+ * Sprint 144 (note 3a): the PUT now canonicalizes path ids and refuses a malformed one with 400
+ * before any SQL, so 'comm-1', 'u1', 'u2' and 'u9' became valid UUIDs. Every assertion is unchanged.
  */
 
 process.env.JWT_SECRET = 'test-secret';
@@ -43,7 +46,11 @@ import { query } from '../../src/database/db';
 
 const mockQuery = query as jest.MockedFunction<typeof query>;
 const SECRET = 'test-secret';
-const token = jwt.sign({ userId: 'u1', email: 'a@test.com', communities: [] }, SECRET);
+const COMMUNITY = '92000000-0000-4000-8000-000000000001';
+const U1 = '92000000-0000-4000-8000-0000000000a1';
+const U2 = '92000000-0000-4000-8000-0000000000b2';
+const U9 = '92000000-0000-4000-8000-0000000000c9';
+const token = jwt.sign({ userId: U1, email: 'a@test.com', communities: [] }, SECRET);
 
 /**
  * Content-based mock so middleware queries (tenant/db-context) don't offset a brittle
@@ -73,9 +80,9 @@ describe('Sprint 92 BUG-001: last-admin guard on role update', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('rejects demoting the sole admin with 400', async () => {
-    mockMembersDb({ activeAdmins: ['u2'] }); // u2 is the only active admin
+    mockMembersDb({ activeAdmins: [U2] }); // u2 is the only active admin
     const res = await request(app)
-      .put('/communities/comm-1/members/u2')
+      .put(`/communities/${COMMUNITY}/members/${U2}`)
       .set('Authorization', `Bearer ${token}`)
       .send({ role: 'member' });
     expect(res.status).toBe(400);
@@ -83,9 +90,9 @@ describe('Sprint 92 BUG-001: last-admin guard on role update', () => {
   });
 
   it('rejects deactivating the sole admin with 400', async () => {
-    mockMembersDb({ activeAdmins: ['u2'] });
+    mockMembersDb({ activeAdmins: [U2] });
     const res = await request(app)
-      .put('/communities/comm-1/members/u2')
+      .put(`/communities/${COMMUNITY}/members/${U2}`)
       .set('Authorization', `Bearer ${token}`)
       .send({ status: 'inactive' });
     expect(res.status).toBe(400);
@@ -93,9 +100,9 @@ describe('Sprint 92 BUG-001: last-admin guard on role update', () => {
   });
 
   it('allows demoting an admin when another admin remains', async () => {
-    mockMembersDb({ activeAdmins: ['u2', 'u9'] });
+    mockMembersDb({ activeAdmins: [U2, U9] });
     const res = await request(app)
-      .put('/communities/comm-1/members/u2')
+      .put(`/communities/${COMMUNITY}/members/${U2}`)
       .set('Authorization', `Bearer ${token}`)
       .send({ role: 'member' });
     expect(res.status).toBe(200);
@@ -103,9 +110,9 @@ describe('Sprint 92 BUG-001: last-admin guard on role update', () => {
   });
 
   it('locks the active-admin rows (FOR UPDATE) so concurrent demotions serialize', async () => {
-    mockMembersDb({ activeAdmins: ['u2'] });
+    mockMembersDb({ activeAdmins: [U2] });
     await request(app)
-      .put('/communities/comm-1/members/u2')
+      .put(`/communities/${COMMUNITY}/members/${U2}`)
       .set('Authorization', `Bearer ${token}`)
       .send({ role: 'member' });
     // The guard must read the admin set under a row lock, not a bare count.
@@ -116,15 +123,15 @@ describe('Sprint 92 BUG-001: last-admin guard on role update', () => {
   });
 
   it('locks the target and active admins in the same user-id order as departure', async () => {
-    mockMembersDb({ activeAdmins: ['u2', 'u9'] });
+    mockMembersDb({ activeAdmins: [U2, U9] });
     await request(app)
-      .put('/communities/comm-1/members/u2')
+      .put(`/communities/${COMMUNITY}/members/${U2}`)
       .set('Authorization', `Bearer ${token}`)
       .send({ role: 'member' });
     const lockingSelect = mockQuery.mock.calls.find(([sql]: any) => /FOR UPDATE/i.test(String(sql)));
     expect(lockingSelect).toBeDefined();
     expect(String(lockingSelect![0])).toMatch(/user_id\s*=\s*\$2 OR \(role='admin' AND status='active'\)/i);
     expect(String(lockingSelect![0])).toMatch(/ORDER BY user_id FOR UPDATE/i);
-    expect(lockingSelect![1]).toEqual(['comm-1', 'u2']);
+    expect(lockingSelect![1]).toEqual([COMMUNITY, U2]);
   });
 });

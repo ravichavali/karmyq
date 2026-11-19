@@ -10,6 +10,10 @@
  * The query mock answers membership lookups by the BOUND user id ($2), so each spoof case is
  * RED on a body-trusting handler (the named admin/member passes) and GREEN on the fix (the JWT
  * caller has no role). Every spoof case also asserts no write statement reached the database.
+ *
+ * Sprint 144 (note 3a): POST /members now canonicalizes body user_id and refuses a malformed one
+ * with 400 before any SQL, so the synthetic user ids became valid UUIDs. Every authorization,
+ * bound-identity and no-write assertion is unchanged.
  */
 
 process.env.JWT_SECRET = 'test-secret';
@@ -45,10 +49,10 @@ const mockQuery = query as jest.MockedFunction<typeof query>;
 const SECRET = 'test-secret';
 const COMMUNITY = '11111111-1111-4111-8111-111111111111';
 const NORM = '22222222-2222-4222-8222-222222222222';
-const ADMIN = 'admin-user';
-const MEMBER = 'member-user';
-const ATTACKER = 'attacker-user';
-const NEWBIE = 'newbie-user';
+const ADMIN = '13200000-0000-4000-8000-0000000000a1';
+const MEMBER = '13200000-0000-4000-8000-0000000000b1';
+const ATTACKER = '13200000-0000-4000-8000-0000000000c1';
+const NEWBIE = '13200000-0000-4000-8000-0000000000d1';
 
 const tokenFor = (userId: string) =>
   `Bearer ${jwt.sign({ userId, email: `${userId}@test.com`, communities: [] }, SECRET)}`;

@@ -5,6 +5,7 @@ import { publishEvent } from '../events/publisher';
 import { canSeeNonActiveMembers, shapeMemberRows } from '../utils/memberVisibility';
 import { getLiveRole, LiveRole } from '../utils/liveRole';
 import { canSelfDepart, classifyExistingMembership, departureStatus } from '../utils/memberLifecycle';
+import { canonicalUuid } from '../utils/uuid';
 import {
   sendSuccess,
   sendError,
@@ -176,7 +177,7 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
 router.post('/:communityId/members', async (req: Request, res: Response) => {
   try {
     const { communityId } = req.params;
-    const { user_id, role = 'member' } = req.body;
+    const { role = 'member' } = req.body;
     // SECURITY (BUG-061, ADR-064): only an active admin may add members directly; the inviter
     // is the verified JWT caller. Self-service joining goes through POST /:communityId/join,
     // which applies the community's access policy.
@@ -185,11 +186,13 @@ router.post('/:communityId/members', async (req: Request, res: Response) => {
       return sendUnauthorized(res, 'Authentication required');
     }
 
+    // Sprint 144 (BUG-104): canonical at parse, so every later comparison sees the DB's spelling.
+    if (req.body?.user_id === undefined || req.body?.user_id === null || req.body?.user_id === '') {
+      return sendValidationError(res, 'user_id is required');
+    }
+    const user_id = canonicalUuid(req.body.user_id);
     if (!user_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'user_id is required',
-      });
+      return sendValidationError(res, 'user_id must be a valid UUID');
     }
 
     if (!['member', 'moderator', 'admin'].includes(role)) {
@@ -422,11 +425,10 @@ router.put('/:communityId/members/:userId', async (req: Request, res: Response) 
 // DELETE /communities/:communityId/members/:userId - Remove member (leave or kick)
 router.delete('/:communityId/members/:userId', async (req: Request, res: Response) => {
   try {
-    const { communityId, userId } = req.params;
     // SECURITY (ADR-064): the caller's identity comes from the verified JWT, never the
     // request body. Reading admin_user_id from req.body let an attacker spoof an admin —
     // or set it equal to the target userId to fake a "self-remove" and skip the admin
-    // check entirely. Mirror the PUT handler's JWT-caller pattern (members.ts:294-295).
+    // check entirely. Mirror the PUT handler's JWT-caller pattern.
     const caller = (req as any).user?.userId;
 
     if (!caller) {
@@ -434,6 +436,13 @@ router.delete('/:communityId/members/:userId', async (req: Request, res: Respons
         success: false,
         message: 'Authentication required',
       });
+    }
+
+    // Sprint 144 (BUG-104): canonical path ids; the JWT id is compared as issued.
+    const communityId = canonicalUuid(req.params.communityId);
+    const userId = canonicalUuid(req.params.userId);
+    if (!communityId || !userId) {
+      return sendValidationError(res, 'communityId and userId must be valid UUIDs');
     }
 
     // Check if self-remove or admin remove

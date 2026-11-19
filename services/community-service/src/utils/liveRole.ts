@@ -1,4 +1,5 @@
 import { query } from '../database/db';
+import { UUID_RE } from './uuid';
 
 /**
  * The caller's LIVE community role (BUG-069, ADR-102). Every authorization and visibility decision
@@ -10,8 +11,6 @@ import { query } from '../database/db';
  * bad and foreign ids. userId comes from the verified JWT.
  */
 export type LiveRole = 'admin' | 'moderator' | 'member' | null;
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function getLiveRole(communityId: unknown, userId: string | undefined): Promise<LiveRole> {
   if (!userId || typeof communityId !== 'string' || !UUID_RE.test(communityId)) return null;
