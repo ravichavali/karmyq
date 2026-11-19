@@ -42,6 +42,7 @@ const tokenFor = (userId: string) =>
 type Row = { user_id: string; role: string; status: string };
 let members: Record<string, Row>;
 let writes: Array<{ sql: string; params: any[] }>;
+let capacity = { current_members: 2, max_members: 150 };
 
 /** A PostgreSQL-like membership store: case-insensitive uuid match, lowercase values out. */
 function installDb(rows: Row[]) {
@@ -65,6 +66,9 @@ function installDb(rows: Row[]) {
       const row = members[id(params[1])];
       return row ? { rows: [{ id: 'm-' + row.user_id, status: row.status }], rowCount: 1 } : { rows: [], rowCount: 0 };
     }
+    if (/SELECT current_members, max_members FROM communities\.communities/i.test(s)) {
+      return { rows: [capacity], rowCount: 1 };
+    }
     if (/FROM communities\.communities/i.test(s) && /max_members/i.test(s)) {
       return { rows: [{ id: COMMUNITY, max_members: 150, current_members: 2, status: 'active', access_type: 'public' }], rowCount: 1 };
     }
@@ -78,6 +82,8 @@ function installDb(rows: Row[]) {
       writes.push({ sql: s, params });
       const row = members[id(params[1])];
       if (row && /SET status=\$3/i.test(s)) row.status = params[2];
+      // The PUT's plan-driven SET list: `status = $n`, `role = $n`.
+      if (row) for (const [, column, n] of s.matchAll(/\b(status|role) = \$(\d+)/g)) (row as any)[column] = params[Number(n) - 1];
       return { rows: row ? [{ ...row }] : [], rowCount: row ? 1 : 0 };
     }
     if (/^\s*UPDATE communities\.communities/i.test(s)) {
@@ -139,6 +145,186 @@ describe('Sprint 144 DELETE /communities/:communityId/members/:userId canonical 
     expect(mockTxQuery).not.toHaveBeenCalled();
   });
 });
+
+const MOD = 'eeeeeeee-0000-4000-8000-00000000000e';
+const APPLICANT = 'ffffffff-0000-4000-8000-00000000000f';
+const put = (caller: string, communityId: string, userId: string, body: unknown) => request(app)
+  .put(`/communities/${communityId}/members/${userId}`)
+  .set('Authorization', `Bearer ${tokenFor(caller)}`)
+  .send(body as object);
+const txSql = () => mockTxQuery.mock.calls.map(([sql]) => String(sql));
+const memberWrites = () => writes.filter((w) => /UPDATE communities\.members/i.test(w.sql));
+const staffed = (extra: Row[] = []) => installDb([
+  { user_id: ADMIN, role: 'admin', status: 'active' },
+  { user_id: MOD, role: 'moderator', status: 'active' },
+  { user_id: MEMBER, role: 'member', status: 'active' },
+  ...extra,
+]);
+
+describe('Sprint 144 PUT /communities/:communityId/members/:userId (transition table)', () => {
+  beforeEach(() => { capacity = { current_members: 2, max_members: 150 }; });
+
+  it.each([
+    ['a malformed target id', COMMUNITY, 'u2'],
+    ['a malformed community id', 'comm-1', MEMBER],
+  ])('returns 400 VALIDATION_ERROR for %s before any SQL', async (_label, communityId, userId) => {
+    staffed();
+    const res = await put(ADMIN, communityId, userId, { role: 'moderator' });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ success: false, error: 'VALIDATION_ERROR' });
+    expect(mockQuery).not.toHaveBeenCalled();
+    expect(mockTxQuery).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['both keys', { role: 'member', status: 'active' }],
+    ['neither key', {}],
+    ['an unknown key', { status: 'active', joined_at: '2000-01-01' }],
+    ['status pending', { status: 'pending' }],
+    ['an unknown role', { role: 'owner' }],
+  ])('returns 400 VALIDATION_ERROR for a body with %s before any SQL', async (_label, body) => {
+    staffed();
+    const res = await put(ADMIN, COMMUNITY, MEMBER, body);
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ success: false, error: 'VALIDATION_ERROR' });
+    expect(mockQuery).not.toHaveBeenCalled();
+    expect(mockTxQuery).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['an active member', MEMBER],
+    ['a non-member', NEWCOMER_ID()],
+  ])('returns 403 FORBIDDEN to %s, with no write', async (_label, caller) => {
+    staffed([{ user_id: APPLICANT, role: 'member', status: 'pending' }]);
+    const res = await put(caller, COMMUNITY, APPLICANT, { status: 'active' });
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ success: false, error: 'FORBIDDEN' });
+    expect(memberWrites()).toEqual([]);
+  });
+
+  it('returns 404 NOT_FOUND to staff for a missing target', async () => {
+    staffed();
+    const res = await put(ADMIN, COMMUNITY, APPLICANT, { status: 'active' });
+    expect(res.status).toBe(404);
+    expect(res.body).toMatchObject({ success: false, error: 'NOT_FOUND' });
+    expect(memberWrites()).toEqual([]);
+  });
+
+  it.each([
+    ['deactivate an active member', MEMBER, { status: 'inactive' }, null],
+    ['lift a block on a stored admin', APPLICANT, { status: 'left' }, { user_id: APPLICANT, role: 'admin', status: 'inactive' }],
+    ['reactivate a stored admin', APPLICANT, { status: 'active' }, { user_id: APPLICANT, role: 'admin', status: 'inactive' }],
+    ['change a role', MEMBER, { role: 'moderator' }, null],
+  ])('returns 403 FORBIDDEN to a moderator trying to %s (BUG-105), with no write', async (_label, target, body, extra) => {
+    staffed(extra ? [extra as Row] : []);
+    const before = { ...members[target] };
+    const res = await put(MOD, COMMUNITY, target, body);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('FORBIDDEN');
+    expect(members[target]).toEqual(before);
+    expect(memberWrites()).toEqual([]);
+  });
+
+  it('lets a moderator approve, writing status active and role member, then re-checking capacity', async () => {
+    staffed([{ user_id: APPLICANT, role: 'admin', status: 'pending' }]);
+    const res = await put(MOD, COMMUNITY, APPLICANT, { status: 'active' });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ user_id: APPLICANT, status: 'active', role: 'member' });
+    expect(memberWrites()).toHaveLength(1);
+    expect(memberWrites()[0].params).toEqual([COMMUNITY, APPLICANT, 'active', 'member']);
+    const sql = txSql();
+    expect(sql.findIndex((s) => /SELECT current_members, max_members/i.test(s)))
+      .toBeGreaterThan(sql.findIndex((s) => /UPDATE communities\.members/i.test(s)));
+  });
+
+  it('lets a moderator reject, writing status inactive and leaving the role', async () => {
+    staffed([{ user_id: APPLICANT, role: 'member', status: 'pending' }]);
+    const res = await put(MOD, COMMUNITY, APPLICANT, { status: 'inactive' });
+    expect(res.status).toBe(200);
+    expect(memberWrites().map((w) => w.params)).toEqual([[COMMUNITY, APPLICANT, 'inactive']]);
+    expect(txSql().some((s) => /SELECT current_members, max_members/i.test(s))).toBe(false);
+  });
+
+  it('lets an admin lift a block, writing status left and role member, admitting nobody', async () => {
+    staffed([{ user_id: APPLICANT, role: 'admin', status: 'inactive' }]);
+    const res = await put(ADMIN, COMMUNITY, APPLICANT, { status: 'left' });
+    expect(res.status).toBe(200);
+    expect(members[APPLICANT]).toEqual({ user_id: APPLICANT, role: 'member', status: 'left' });
+    expect(memberWrites().map((w) => w.params)).toEqual([[COMMUNITY, APPLICANT, 'left', 'member']]);
+    expect(txSql().some((s) => /SELECT current_members, max_members/i.test(s))).toBe(false);
+  });
+
+  it('refuses inactive → active with 409 INVALID_MEMBERSHIP_TRANSITION', async () => {
+    staffed([{ user_id: APPLICANT, role: 'member', status: 'inactive' }]);
+    const res = await put(ADMIN, COMMUNITY, APPLICANT, { status: 'active' });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('INVALID_MEMBERSHIP_TRANSITION');
+    expect(members[APPLICANT].status).toBe('inactive');
+  });
+
+  it('refuses any request against a left row with 409 MEMBER_MUST_REJOIN', async () => {
+    staffed([{ user_id: APPLICANT, role: 'member', status: 'left' }]);
+    for (const body of [{ status: 'active' }, { status: 'left' }, { role: 'admin' }]) {
+      const res = await put(ADMIN, COMMUNITY, APPLICANT, body);
+      expect(res.status).toBe(409);
+      expect(res.body.error).toBe('MEMBER_MUST_REJOIN');
+    }
+    expect(memberWrites()).toEqual([]);
+  });
+
+  it.each([
+    ['demotion', { role: 'member' }],
+    ['deactivation', { status: 'inactive' }],
+  ])('refuses the sole admin\'s %s through an uppercase id with 400 LAST_ADMIN (BUG-104)', async (_label, body) => {
+    installDb([
+      { user_id: ADMIN, role: 'admin', status: 'active' },
+      { user_id: MEMBER, role: 'member', status: 'active' },
+    ]);
+    const res = await put(ADMIN, COMMUNITY.toUpperCase(), ADMIN.toUpperCase(), body);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('LAST_ADMIN');
+    expect(members[ADMIN]).toEqual({ user_id: ADMIN, role: 'admin', status: 'active' });
+  });
+
+  it('refuses an approve that overfills the community with 400 COMMUNITY_FULL, checking after the UPDATE', async () => {
+    staffed([{ user_id: APPLICANT, role: 'member', status: 'pending' }]);
+    capacity = { current_members: 4, max_members: 3 };
+    const res = await put(ADMIN, COMMUNITY, APPLICANT, { status: 'active' });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ success: false, error: 'COMMUNITY_FULL' });
+    const sql = txSql();
+    expect(sql.findIndex((s) => /SELECT current_members, max_members/i.test(s)))
+      .toBeGreaterThan(sql.findIndex((s) => /UPDATE communities\.members/i.test(s)));
+  });
+
+  it('answers an unexpected database error with 500 INTERNAL_ERROR and no raw detail', async () => {
+    staffed();
+    mockTxQuery.mockRejectedValue(new Error('secret: relation communities.members does not exist'));
+    const res = await put(ADMIN, COMMUNITY, MEMBER, { role: 'moderator' });
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('INTERNAL_ERROR');
+    expect(JSON.stringify(res.body)).not.toMatch(/secret|relation|does not exist/);
+  });
+
+  it('runs lock, caller-role read, plan and write on the one transaction client, in that order', async () => {
+    staffed();
+    const res = await put(ADMIN, COMMUNITY, MEMBER, { role: 'moderator' });
+    expect(res.status).toBe(200);
+    expect(mockQuery).not.toHaveBeenCalled();
+    const sql = txSql();
+    expect(sql).toHaveLength(3);
+    expect(sql[0]).toMatch(/user_id=\$2 OR \(role='admin' AND status='active'\)\)\s+ORDER BY user_id FOR UPDATE/);
+    expect(mockTxQuery.mock.calls[0][1]).toEqual([COMMUNITY, MEMBER]);
+    expect(sql[1]).toMatch(/SELECT role FROM communities\.members\s+WHERE community_id = \$1 AND user_id = \$2 AND status = 'active'/);
+    expect(mockTxQuery.mock.calls[1][1]).toEqual([COMMUNITY, ADMIN]);
+    expect(sql[2]).toMatch(/^\s*UPDATE communities\.members/);
+    expect(mockTxQuery.mock.calls[2][1]).toEqual([COMMUNITY, MEMBER, 'moderator']);
+  });
+});
+
+function NEWCOMER_ID() {
+  return '99999999-0000-4000-8000-000000000099';
+}
 
 const NEWCOMER = 'dddddddd-0000-4000-8000-00000000000d';
 const add = (caller: string, body: any) => request(app)

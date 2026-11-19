@@ -156,6 +156,18 @@ async function staffedCommunity(opts: { others?: number; max?: number; access?: 
   return { c, admin, others };
 }
 
+/** Poll until `expected` backends wait on a lock in a communities.members statement (or give up). */
+async function lockWaiters(expected: number, done: () => boolean): Promise<number> {
+  const deadline = Date.now() + 15000;
+  let waiting = 0;
+  while (waiting < expected && !done() && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 50));
+    waiting = (await pool.query(`SELECT count(*)::int AS n FROM pg_stat_activity
+      WHERE datname=current_database() AND wait_event_type='Lock' AND query ILIKE '%communities.members%'`)).rows[0].n;
+  }
+  return waiting;
+}
+
 /**
  * Force the race the post-check exists for: hold the community row lock, start the admissions,
  * wait until `waiters` of them are blocked inside the sync trigger's UPDATE, then release. Every
@@ -166,13 +178,9 @@ async function raceOnCommunityRow<T>(c: string, waiters: number, fire: () => Pro
   try {
     await barrier.query('BEGIN');
     await barrier.query(`SELECT 1 FROM communities.communities WHERE id=$1 FOR UPDATE`, [c]);
-    const pending = fire();
-    let waiting = 0;
-    for (let i = 0; i < 300 && waiting < waiters; i++) {
-      await new Promise((r) => setTimeout(r, 50));
-      waiting = (await pool.query(`SELECT count(*)::int AS n FROM pg_stat_activity
-        WHERE datname=current_database() AND wait_event_type='Lock' AND query ILIKE '%communities.members%'`)).rows[0].n;
-    }
+    let settled = false;
+    const pending = fire().finally(() => { settled = true; });
+    const waiting = await lockWaiters(waiters, () => settled);
     expect(waiting).toBe(waiters);
     await barrier.query('ROLLBACK');
     return await pending;
@@ -509,5 +517,168 @@ describe('Sprint 144 atomic capacity (decision 5, note 4)', () => {
     expect(res.body.error).toBe('COMMUNITY_FULL');
     expect(await memberRow(c, joiner)).toBeUndefined();
     expect(await count(c)).toBe(2);
+  });
+});
+
+describe('Sprint 144 staff PUT transition table (BUG-104, BUG-105, decision 8)', () => {
+  const setRow = (c: string, u: string, status: string, role = 'member') => pool.query(
+    `UPDATE communities.members SET status=$3, role=$4 WHERE community_id=$1 AND user_id=$2`, [c, u, status, role]);
+
+  it.each([
+    ['demotion', { role: 'member' }],
+    ['deactivation', { status: 'inactive' }],
+  ])('refuses the sole admin\'s %s through an uppercase UUID and leaves the row (BUG-104)', async (_label, body) => {
+    const { c, admin } = await staffedCommunity({ others: 2 });
+    const res = await as(admin).put(c.toUpperCase(), admin.toUpperCase(), body);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('LAST_ADMIN');
+    expect(await memberRow(c, admin)).toEqual({ role: 'admin', status: 'active' });
+    expect(await count(c)).toBe(3);
+  });
+
+  it.each([
+    ['lift the block on', { status: 'left' }],
+    ['reactivate', { status: 'active' }],
+  ])('refuses a moderator trying to %s an inactive stored admin (BUG-105)', async (_label, body) => {
+    const { c, others: [mod, removed] } = await staffedCommunity({ others: 2 });
+    await setRow(c, mod, 'active', 'moderator');
+    await setRow(c, removed, 'inactive', 'admin');
+    const res = await as(mod).put(c, removed, body);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('FORBIDDEN');
+    expect(await memberRow(c, removed)).toEqual({ role: 'admin', status: 'inactive' });
+  });
+
+  it('refuses a moderator deactivating a non-last admin (BUG-105)', async () => {
+    const { c, others: [mod, coAdmin] } = await staffedCommunity({ others: 2 });
+    await setRow(c, mod, 'active', 'moderator');
+    await setRow(c, coAdmin, 'active', 'admin');
+    const res = await as(mod).put(c, coAdmin, { status: 'inactive' });
+    expect(res.status).toBe(403);
+    expect(await memberRow(c, coAdmin)).toEqual({ role: 'admin', status: 'active' });
+    expect(await count(c)).toBe(3);
+  });
+
+  it.each(['public', 'private'] as const)('returns a departed, blocked person only through their own %s rejoin (Codex F3)', async (access) => {
+    const { c, admin, others: [person] } = await staffedCommunity({ others: 2, access });
+    await setRow(c, person, 'active', 'moderator');
+    expect((await as(person).del(c, person)).status).toBe(200);
+    expect(await memberRow(c, person)).toEqual({ role: 'moderator', status: 'left' });
+    expect(await count(c)).toBe(2);
+
+    expect((await as(admin).del(c, person)).status).toBe(200);
+    expect(await memberRow(c, person)).toEqual({ role: 'moderator', status: 'inactive' });
+    const blocked = await as(person).join(c);
+    expect(blocked.status).toBe(409);
+    expect(blocked.body.error).toBe('MEMBERSHIP_RESTORE_REQUIRES_STAFF');
+
+    const reactivate = await as(admin).put(c, person, { status: 'active' });
+    expect(reactivate.status).toBe(409);
+    expect(await memberRow(c, person)).toEqual({ role: 'moderator', status: 'inactive' });
+
+    const lift = await as(admin).put(c, person, { status: 'left' });
+    expect(lift.status).toBe(200);
+    expect(await memberRow(c, person)).toEqual({ role: 'member', status: 'left' });
+    expect(await count(c)).toBe(2);
+
+    const rejoin = await as(person).join(c);
+    expect(rejoin.status).toBe(200);
+    const expected = access === 'public' ? 'active' : 'pending';
+    expect(await memberRow(c, person)).toEqual({ role: 'member', status: expected });
+    expect(await count(c)).toBe(access === 'public' ? 3 : 2);
+  });
+
+  it('applies the capacity post-check to a lifted person\'s own rejoin', async () => {
+    const { c, admin, others: [person] } = await staffedCommunity({ others: 2, max: 3 });
+    await setRow(c, person, 'inactive');
+    expect((await as(admin).put(c, person, { status: 'left' })).status).toBe(200);
+    const [filler] = await users(1);
+    expect((await as(filler).join(c)).status).toBe(200);
+    expect(await count(c)).toBe(3);
+    const rejoin = await as(person).join(c);
+    expect(rejoin.status).toBe(400);
+    expect(rejoin.body.error).toBe('COMMUNITY_FULL');
+    expect(await memberRow(c, person)).toEqual({ role: 'member', status: 'left' });
+  });
+
+  it.each([{ status: 'active' }, { status: 'left' }, { status: 'inactive' }, { role: 'admin' }])(
+    'refuses %j against a left row with 409 MEMBER_MUST_REJOIN', async (body) => {
+      const { c, admin, others: [person] } = await staffedCommunity({ others: 1 });
+      await setRow(c, person, 'left');
+      const res = await as(admin).put(c, person, body);
+      expect(res.status).toBe(409);
+      expect(res.body.error).toBe('MEMBER_MUST_REJOIN');
+      expect(await memberRow(c, person)).toEqual({ role: 'member', status: 'left' });
+    });
+
+  it('keeps staff direct-add as the documented exception: an active member, counted once (decision 10)', async () => {
+    const { c, admin } = await staffedCommunity({ others: 1 });
+    const [added] = await users(1);
+    const res = await as(admin).add(c, added.toUpperCase());
+    expect(res.status).toBe(201);
+    expect(await memberRow(c, added)).toEqual({ role: 'member', status: 'active' });
+    expect(await count(c)).toBe(3);
+  });
+
+  it('lets a moderator approve (role reset to member, counted) and reject (not counted)', async () => {
+    const { c, others: [mod, approved, rejected] } = await staffedCommunity({ others: 3 });
+    await setRow(c, mod, 'active', 'moderator');
+    await setRow(c, approved, 'pending', 'admin');
+    await setRow(c, rejected, 'pending');
+    expect(await count(c)).toBe(2);
+    const ok = await as(mod).put(c, approved, { status: 'active' });
+    expect(ok.status).toBe(200);
+    expect(await memberRow(c, approved)).toEqual({ role: 'member', status: 'active' });
+    expect(await count(c)).toBe(3);
+    const no = await as(mod).put(c, rejected, { status: 'inactive' });
+    expect(no.status).toBe(200);
+    expect(await memberRow(c, rejected)).toEqual({ role: 'member', status: 'inactive' });
+    expect(await count(c)).toBe(3);
+  });
+
+  it('approves exactly one of two pending applicants racing for the last free slot', async () => {
+    const { c, admin, others: [a, b] } = await staffedCommunity({ others: 3, max: 3 });
+    await setRow(c, a, 'pending');
+    await setRow(c, b, 'pending');
+    expect(await count(c)).toBe(2);
+    const responses = await raceOnCommunityRow(c, 2, () => Promise.all([
+      as(admin).put(c, a, { status: 'active' }), as(admin).put(c, b, { status: 'active' }),
+    ]));
+    expect(responses.map((r) => r.status).sort()).toEqual([200, 400]);
+    expect(responses.find((r) => r.status === 400)!.body.error).toBe('COMMUNITY_FULL');
+    expect(await count(c)).toBe(3);
+    const statuses = [(await memberRow(c, a)).status, (await memberRow(c, b)).status].sort();
+    expect(statuses).toEqual(['active', 'pending']);
+  });
+
+  it('refuses a moderator whose demotion commits while their approve waits on the admin locks', async () => {
+    const { c, admin, others: [mod, applicant] } = await staffedCommunity({ others: 2 });
+    await setRow(c, mod, 'active', 'moderator');
+    await setRow(c, applicant, 'pending');
+    expect(await count(c)).toBe(2);
+    // The demoting admin's PUT, paused after its lock: target + active admins, user-id ordered.
+    const demotion = await pool.connect();
+    let approve: Promise<request.Response>;
+    try {
+      await demotion.query('BEGIN');
+      await demotion.query(`SELECT user_id FROM communities.members
+        WHERE community_id=$1 AND (user_id=$2 OR (role='admin' AND status='active')) ORDER BY user_id FOR UPDATE`, [c, mod]);
+      await demotion.query(`UPDATE communities.members SET role='member' WHERE community_id=$1 AND user_id=$2`, [c, mod]);
+      let settled = false;
+      approve = as(mod).put(c, applicant, { status: 'active' }).then((r) => r).finally(() => { settled = true; });
+      expect(await lockWaiters(1, () => settled)).toBe(1);
+      await demotion.query('COMMIT');
+    } catch (error) {
+      await demotion.query('ROLLBACK');
+      throw error;
+    } finally {
+      demotion.release();
+    }
+    const res = await approve!;
+    expect(res.status).toBe(403);
+    expect(await memberRow(c, applicant)).toEqual({ role: 'member', status: 'pending' });
+    expect(await memberRow(c, mod)).toEqual({ role: 'member', status: 'active' });
+    expect(await count(c)).toBe(2);
+    void admin;
   });
 });
