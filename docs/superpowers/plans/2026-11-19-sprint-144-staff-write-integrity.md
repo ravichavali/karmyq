@@ -8,45 +8,50 @@
 **Goal:** Make every staff membership write authorized per transition and make `communities.current_members`
 impossible to drift, while shipping the Next.js 16.4.6 security patch inside its SLA.
 
-**Architecture:** A PostgreSQL trigger on `communities.members` becomes the only writer of `current_members`
-(ADR-106). A converging recount repairs stored drift, and every hand-written `±1` write in community-service and
-social-graph-service is removed. Community-service's staff PUT executes a pure transition table, canonicalizes
-request UUIDs at parse, and enforces capacity atomically with a post-write re-check in the same transaction. The
-web app moves Reject onto the PUT and gives pending applicants **Cancel request**.
+**Architecture:** A PostgreSQL sync trigger on `communities.members` becomes the only writer of `current_members`.
+A column guard on `communities.communities` ignores every other write (ADR-106). A converging recount repairs
+stored drift, and every hand-written `±1` write in community-service and social-graph-service is removed.
+Community-service's staff PUT executes a pure transition table in which "reactivate" lifts a block instead of
+re-adding anyone. It canonicalizes request UUIDs at parse and enforces capacity atomically with a post-write
+re-check in the same transaction. The web app moves Reject onto the PUT and gives pending applicants **Cancel
+request**.
 
 **Tech Stack:** the canonical stack in `CLAUDE.md` → *System Architecture*. One dependency change (`next`,
 security-only, Task 1).
 
 **Spec:** [`docs/superpowers/specs/2026-11-19-sprint-144-staff-write-integrity-design.md`](../specs/2026-11-19-sprint-144-staff-write-integrity-design.md)
-(maintainer approved 2026-11-19, decisions 1–6; planning defaults D1–D8).
+(maintainer decisions 1–9; planning defaults D1–D8; Codex plan review round 1 integrated 2026-11-19).
 
 ---
 
 ## Global constraints
 
 - Reuse `agent/claude/sprint-144-planning` (cut from `origin/master` `a2746057`). No worktrees, rebase, force push
-  or direct master push. If master moved, merge `origin/master` with a merge commit. Its first push needs
-  `git push -u origin agent/claude/sprint-144-planning`. The local branch has no upstream; the planning chat
-  removed the accidental `origin/master` tracking.
-- The planning commit carries the Sprint 143 post-merge record. It rides with this product PR and must never go to
+  or direct master push. If master moved, merge `origin/master` with a merge commit. The local branch has no
+  upstream; its first push is `git push -u origin agent/claude/sprint-144-planning`.
+- The planning commits carry the Sprint 143 post-merge record. It rides with this product PR and must never go to
   master alone; say so in the PR body.
 - **Allocated (2026-11-19):**
   - dependency work for Dependabot #185/#186 (`next` → 16.4.6) as the PR's first commit;
   - ADR-106;
-  - the one demo write that the recount migration performs at deploy.
+  - the one demo write that the recount migration performs at deploy;
+  - a **disposable PostgreSQL container on the demo host over SSH**, with no demo database access, for
+    integration runs (decision 9).
 - **Not allocated:**
   - the release version (provisional v11.117.0) and the merge/deploy slot;
   - any demo data read or other demo write;
-  - a disposable PostgreSQL container on the demo host (ask in Task 1);
   - the demo platform-admin grant;
-  - merge and deploy, which each need separate explicit authorization.
+  - merge and deploy, which each need separate explicit authorization;
+  - a draft-PR exception. The PR opens only at the end of Task 13 (`feedback_stop_after_pr_creation`).
 - New workspace tests start in that workspace's `tests/tdd/`, run red before implementation, and are promoted
   **individually** with `git mv` (never a promoter sweep; `tests/claude.md`). Real-DB proof lives in root
   `tests/integration/`, which CI runs. A rule meant to block goes straight into root `tests/regression/`.
 - Run new or changed Jest files with `--no-cache` at least once
   (`feedback_local_green_cannot_prove_ci_green`). Run root gates with
   `npm exec --workspace=tests -- jest --runTestsByPath <file>`; a root `npx jest tests/regression/...` finds zero
-  tests.
+  tests. Run real-DB files with Sprint 143's form:
+  `env DATABASE_URL=postgresql://karmyq_test:<pw>@127.0.0.1:55432/karmyq_test npm exec --workspace=tests -- jest --config jest.integration.config.js --runTestsByPath <files> --runInBand --no-cache`
+  (`.superpowers/sdd/2026-11-15-sprint-143-governance-nomination-lifecycle/progress.md:12`).
 - Intermediate commits use focused tests and the normal git hooks. `/pre-commit-check` runs once, in Task 13.
   process-reviewer runs once, in Task 12.
 - Read before editing in their scopes:
@@ -68,7 +73,7 @@ security-only, Task 1).
 
 | File | Responsibility |
 |------|---------------|
-| `infrastructure/postgres/migrations/20261119-community-member-count-trigger.sql` | `communities.sync_current_members()`, the two triggers, the converging recount, and the column comment (ADR-106) |
+| `infrastructure/postgres/migrations/20261119-community-member-count-trigger.sql` | `sync_current_members()`, `guard_current_members()`, `recount_current_members()`, the three triggers, the converging recount, and the column comment (ADR-106) |
 | `services/community-service/src/utils/uuid.ts` | The single `UUID_RE` and `canonicalUuid(value): string \| null` |
 | `services/community-service/src/utils/staffTransitions.ts` | Pure `planStaffChange(callerRole, target, body)`: the spec's transition table |
 | `services/community-service/src/database/memberCapacity.ts` | `assertWithinCapacity(q, communityId)` and `CommunityFullError` |
@@ -76,8 +81,8 @@ security-only, Task 1).
 | `services/community-service/tests/tdd/sprint-144-staff-transitions.test.ts` | Every row of the transition table |
 | `services/community-service/tests/tdd/sprint-144-staff-put-route.test.ts` | Mocked-route contract: validation, 403/404/409 codes, no raw error detail, plan executed in one transaction |
 | `services/community-service/tests/tdd/sprint-144-capacity.test.ts` | Post-check throws/rolls back; admit routes map to 400 `COMMUNITY_FULL` |
-| `tests/integration/sprint-144-staff-write-integrity.integration.test.ts` | Real-DB proof: trigger deltas, recount idempotence and replay, capacity race, PUT transitions, BUG-104 uppercase, invitation no double count |
-| `tests/regression/sprint-144-no-member-count-deltas.test.ts` | Root static gate: no `current_members` delta writes in `services/*/src`, `apps/*/src`, `packages/*/src`; a negative fixture proves it can fail |
+| `tests/integration/sprint-144-staff-write-integrity.integration.test.ts` | Real-DB proof: trigger deltas, guard, flag discipline, `xmin` no-write evidence, recount idempotence and replay, capacity race, PUT transitions incl. lift-the-block, BUG-104 uppercase, invitation +1 once |
+| `tests/regression/sprint-144-no-member-count-deltas.test.ts` | Root static gate: no self-referential `current_members` assignment in `services/*/src`, `apps/*/src`, `packages/*/src`; negative fixtures per form, positive fixtures for both recomputes |
 | `apps/frontend/tests/tdd/sprint-144-staff-member-actions.test.tsx` | Reject → PUT payload; Cancel request shown/hidden/wired/error path |
 | `docs/adr/ADR-106-database-owned-member-count.md` | The decision record |
 
@@ -85,15 +90,15 @@ security-only, Task 1).
 
 | File | Change |
 |------|--------|
-| `package-lock.json`, `apps/frontend/package.json`, `apps/landing/package.json` | Task 1: 10-node `next` splice; ranges `^16.4.6` |
+| `package-lock.json`, `apps/frontend/package.json`, `apps/landing/package.json` | Task 1: 10 root nodes + the `next` node's 9 exact references → 16.4.6; ranges `^16.4.6` |
 | `infrastructure/postgres/init.sql` | Regenerated by workflow artifact only |
 | `services/community-service/src/routes/members.ts` | PUT rewrite; DELETE/POST canonical UUIDs; delete `±1` writes; capacity post-checks; ADR-074 errors on POST/PUT |
-| `services/community-service/src/routes/communities.ts` | Create inserts `current_members = 0` and returns the post-trigger count; duplicate-create join drops `+1` and gains the post-check |
-| `services/community-service/src/routes/governance.ts`, `src/database/governanceDb.ts`, `src/utils/liveRole.ts` | Import the shared UUID helper; canonicalize the nominee id |
+| `services/community-service/src/routes/communities.ts` | Create inserts `current_members = 0` and re-reads the count; duplicate-create join drops `+1`, re-reads the count, gains the transaction and post-check |
+| `services/community-service/src/routes/governance.ts`, `src/utils/liveRole.ts` | Import the shared `UUID_RE` (consolidation) |
 | `services/social-graph-service/src/routes/invitations.ts` | Delete the manual `+1` (`:162-167`) |
 | `infrastructure/postgres/seed-e2e.sql` | Seed `current_members` `0` (`:85`, `:114` blocks) |
-| `services/community-service/tests/regression/sprint-77-idempotent-create.test.ts`, `sprint-93-members-delete-jwt.test.ts`, `sprint-132-body-identity.test.ts`, `sprint-133-member-email-admin-only.test.ts` | Only where they assert the removed mechanism; header note gives the reason |
-| `tests/integration/sprint-143-governance-lifecycle.integration.test.ts`, `social-graph.test.ts`, `sprint-142-governance-quorum.integration.test.ts`, `sprint-134-pr-l2-health.integration.test.ts` | Fixture arithmetic under the trigger (inventory first) |
+| community-service `tests/regression/` per critical note 3 (a) UUID fixtures, (b) transaction mocks, (c) dead counter mock | Each with a header reason |
+| `tests/integration/` fixtures per critical note 2 (Task 2 list) | Create rows / lower `max_members` instead of setting counts |
 | `apps/frontend/src/components/community/tabs/ActiveTab.tsx` | Reject via PUT `{status:'inactive'}`; drop `admin_user_id` |
 | `apps/frontend/src/components/community/CommunityHero.tsx` | Optional `onCancelRequest`; button in the pending badge |
 | `apps/frontend/src/pages/communities/[id].tsx` | `handleCancelRequest` |
@@ -111,75 +116,110 @@ security-only, Task 1).
 Copied verbatim from the spec.
 
 1. **First commit = the Next.js splice, nothing else.** Root lock nodes `node_modules/next`, `node_modules/@next/env`
-   and the 8 `node_modules/@next/swc-*` go 16.4.2 → **16.4.6**: `version`, `resolved` and `integrity` only, from
-   registry metadata. 16.4.6 is `latest` on 2026-11-19, and its dependency map equals 16.4.2's except `@next/env`.
+   and the 8 `node_modules/@next/swc-*` go 16.4.2 → **16.4.6**: `version`, `resolved` and `integrity`, from
+   registry metadata. The `node_modules/next` node's own exact references change too (Codex F1):
+   `dependencies["@next/env"]` (`package-lock.json:18665`) and the eight `optionalDependencies` `@next/swc-*`
+   (from `:18679`) go `16.4.2` → `16.4.6`.
+
+   Registry metadata read 2026-11-19: 16.4.6 is `latest`. Its `dependencies` equal 16.4.2's except `@next/env`.
+   Its `optionalDependencies` are the eight SWC packages at 16.4.6 plus an unchanged `sharp ^0.35.5`. Its
+   `peerDependencies` and `engines` (`node >=20.9.0`) equal the lock node's.
+
    Keep every `libc` field (4 swc nodes carry one). Declared ranges go `^16.4.2` → `^16.4.6` in
    `apps/frontend/package.json:24`, `apps/landing/package.json:18` and those workspaces' `packages[...]` entries in
    the lock. `postcss` stays governed by the root override `"postcss": "^8.5.25"`, so no nested postcss node is
-   added. Prove the splice with strict `npx npm@11.19.0 ci`, an `npm ls --all` problem list identical to master's
+   added. `next` stays at the root because `eslint-config-next` requires its bundled parser from there (#339's
+   failure).
+
+   Prove the splice with strict `npx npm@11.19.0 ci`, an `npm ls --all` problem list identical to master's
    (BUG-047's `picomatch` line is pre-existing), the ADR-059 audit gate at 0 high/critical with #185/#186's GHSAs
    gone, and `tests/regression/sprint-122-lint-config-gate.test.ts` green. Never execute a downloaded tarball.
    Never use `npm install --workspace`, `npm dedupe` or a lock regen. Use a script file with match-count guards
    for the splice.
-2. **The trigger changes every fixture's arithmetic.** Any test or seed that inserts a community with a non-zero
-   `current_members` and then inserts active member rows now gets the sum. Inventory every such site before
+2. **The counter is no longer settable, so fixtures must create rows.** Under the column guard, a community INSERT
+   stores `0` and any `UPDATE … current_members` outside the sync path is ignored. A test that "sets" a count, or
+   needs a full community, must create the active rows or lower `max_members`. Inventory every such site before
    implementing. Known sites:
    - `tests/integration/sprint-143-governance-lifecycle.integration.test.ts:48`, which also sets counts at
      `:652`, `:666` and `:689`;
    - `tests/integration/social-graph.test.ts:152-188`;
    - `tests/integration/sprint-142-governance-quorum.integration.test.ts`;
    - `tests/integration/sprint-134-pr-l2-health.integration.test.ts`;
-   - `infrastructure/postgres/seed-e2e.sql:85`, `:114`.
+   - `infrastructure/postgres/seed-e2e.sql:85`, `:114`;
+   - the `tests/fixtures/` seeds.
 
-   Fix each fixture to state the truth: seed `0` and let the trigger count, or assert deltas. Never weaken an
-   assertion to make it pass.
-3. **Mocked-SQL regressions assert the old mechanism.** `sprint-77-idempotent-create`, `sprint-93-members-delete-jwt`,
-   `sprint-132-body-identity` and `sprint-133-member-email-admin-only` (community-service `tests/regression/`) mock
-   `UPDATE … current_members` or assume a creation count of `1`. Changing a regression test needs a written reason
-   in its header ("counter moved to the DB trigger, ADR-106; real-DB proof in
-   `tests/integration/sprint-144-staff-write-integrity.integration.test.ts`"). `sprint-78-fission-execute` and
-   `sprint-86-fusion-member-count` assert the converging recompute, which stays (D7). They must stay unchanged and
-   green.
+   Fix each fixture to state the truth. Never weaken an assertion to make it pass.
+3. **Existing regressions change for three separate reasons; inventory each separately (Codex F5).**
+   - **(a) UUID fixtures.** `sprint-93-members-delete-jwt` (`/comm-1/members/victim`, `:91`),
+     `sprint-132-body-identity` (`'admin-user'`, `'attacker-user'`, `:9-12`), `sprint-92-last-admin-guard`, and any
+     other route test Task 2 finds, use non-UUID ids that the new validation rejects. Replace them with valid UUIDs
+     and keep every exact authorization, bound-identity and no-write assertion. Never change an expected 403 into
+     a 400.
+   - **(b) Transaction wrapping.** Staff add and the duplicate-create join now run inside `withTransaction`. Tests
+     that mock only `query` (`sprint-77-idempotent-create`, `sprint-132-body-identity`) must also mock the
+     transaction client, as `sprint-92` and `sprint-93` already do.
+   - **(c) Counter mocks.** `sprint-77`'s `UPDATE … current_members` mock (`:75`) becomes dead; delete it.
+     `sprint-133-member-email-admin-only`'s `current_members: 3` (`:62`) is a GET fixture and is unrelated; no
+     change. `sprint-78-fission-execute` and `sprint-86-fusion-member-count` assert the recompute that stays (D7),
+     and must stay unchanged and green.
+
+   Each changed regression file states its reason in its header.
 4. **Capacity is checked after the write, never only before.** `assertWithinCapacity` runs inside the same
    `withTransaction`, after the member write, and throws to roll back. A returned sentinel would commit
-   (`db.ts:51-53`). The real-DB race test must show two concurrent admissions into a community with one free slot
-   produce exactly one 200 and one 400 `COMMUNITY_FULL`, and a final count of `max_members`.
-5. **Lock order is member row(s) → community row**, everywhere. Do not add a `SELECT … FOR UPDATE` on the community
-   row before member locks: that inverts join/DELETE's order and can deadlock with the trigger. Governance keeps
-   nomination → memberships (Sprint 143). Its role-only update does not fire the trigger.
+   (`db.ts:51-53`). The admitting paths are join-to-active, staff add, PUT approve and the duplicate-create join;
+   lifting a block admits nobody. The real-DB race test must show two concurrent admissions into a community with
+   one free slot produce exactly one 200 and one 400 `COMMUNITY_FULL`, and a final count of `max_members`.
+5. **Lock order is member row(s) → that one community row.** Membership rows never move between communities (the
+   sync trigger raises on a `community_id` change), so each firing locks exactly one community row (Codex F4). Do
+   not add a `SELECT … FOR UPDATE` on the community row before member locks: that inverts join/DELETE's order and
+   can deadlock with the trigger. Governance keeps nomination → memberships (Sprint 143). Its role-only update does
+   not fire the trigger.
 6. **The PUT locks and reads in one transaction.** It locks the target plus active admins in the existing
    user-ID-ordered statement (`members.ts:371-376`), reads the caller's live role and the target's stored
    status/role, plans the change with `planStaffChange`, then writes. The caller's role is read inside the
    transaction (ADR-102). Today's pre-transaction read (`members.ts:310-314`) allows a demoted moderator to race
    a write.
-7. **Canonicalize at parse, compare canonical.** Reuse `canonicalUuid` for every request-supplied id compared in
-   JS. A malformed id is 400 before SQL. Do not fix BUG-104 by casting inside SQL alone: the JS comparison is the
-   bypass.
-8. **The migration must hold on both appliers.** No top-level `BEGIN`/`COMMIT`/`LOCK`. It must be rerunnable with a
-   zero-drift normalized dump. Run the `migration-validator` agent before committing it. Regenerate `init.sql`
-   through `gh workflow run regenerate-init-sql.yml --ref agent/claude/sprint-144-planning` (no local Docker) and
-   commit the artifact only while the branch's pre-migration `init.sql` equals master's.
+7. **Canonicalize at parse, compare canonical.** The member routes run every request-supplied id they compare in
+   JS through `canonicalUuid`. A malformed id is 400 before SQL. JWT ids are compared as issued. Do not fix BUG-104
+   by casting inside SQL alone: the JS comparison is the bypass. Governance already lowercases
+   (`governanceDb.ts:226-228`); importing the shared regex there is consolidation.
+8. **The migration must hold on both appliers.**
+   - No top-level `BEGIN`/`COMMIT`/`LOCK`.
+   - Rerunnable, with a zero-drift normalized dump.
+   - `lock_timeout` set locally so a busy table fails the migration (deploy rolls back, `deploy.sh:157-162`)
+     instead of stalling it.
+   - Run the `migration-validator` agent before committing it.
+   - Regenerate `init.sql` through `gh workflow run regenerate-init-sql.yml --ref agent/claude/sprint-144-planning`
+     (no local Docker), and commit the artifact only while the branch's pre-migration `init.sql` equals master's.
+   - A fresh boot from the regenerated `init.sql` must show correct counts for its spliced seed data.
 9. **RLS is not the isolation proof.** CI and the default service DB role bypass RLS (gotcha
-   `database-roles-bypass-rls-so-rls-is-not-an-isolation-proof.md`). The trigger's `UPDATE` runs as the invoking
-   role, the same exposure as today's application `UPDATE`. Do not add `SECURITY DEFINER` without an ADR-106 note
-   explaining why.
+   `database-roles-bypass-rls-so-rls-is-not-an-isolation-proof.md`). The triggers run as the invoking role, the
+   same exposure as today's application `UPDATE`. Do not add `SECURITY DEFINER` without an ADR-106 note explaining
+   why.
 10. **Recount authorization is exactly one write.** Deploying the migration is the authorized demo write. Do not
     read or measure demo drift before or after without separate authorization. `scripts/audit-demo-data.sql`
-    query 1 is the measurement to hand the maintainer if they want one.
-11. **Real-DB proof runs in CI.** CI runs `tests/integration` only on PRs and master pushes
-    (`.github/workflows/ci.yml:3-7`). A disposable PostgreSQL container on the demo host is **not** allocated.
-    Ask the maintainer at Task 1 if local iteration is wanted; otherwise open the PR as a draft once the migration
-    and trigger tests exist, and treat CI as the real-DB arbiter.
-12. **Do not reopen settled decisions.** Moderator powers, trigger ownership, the recount, ADR-106 and the bundling
-    of the Next.js fix are maintainer decisions (1–6). Planning defaults D1–D8 may be challenged in review.
-
-**Plan-level clarification of note 11.** A draft PR opened mid-execution is CI plumbing, not "PR creation" in the
-sense of `feedback_stop_after_pr_creation`. The chat continues through Task 13. Mark the PR ready for review only
-at the end of Task 13.
+    query 1 is the measurement to hand the maintainer if they want one. Any later repair uses
+    `communities.recount_current_members()`, never a direct `UPDATE`, which the guard ignores.
+11. **Real-DB evidence comes from a disposable container (decision 9).** Use a disposable PostgreSQL container on
+    the demo host over an SSH tunnel, with no demo database access, as Sprint 143 did. Load the branch's schema
+    (`init.sql`, then the migration chain). Run every new real-DB test red before its implementation, then green.
+    Remove the container, scratch and tunnel afterwards, and record the role flags. If the permission classifier
+    blocks the SSH command, try once and hand the setup command to the maintainer; do not reroute. The PR opens
+    only at the end of execution; there is no draft-PR exception.
+12. **Do not reopen settled decisions.** Decisions 1–9 are the maintainer's: scope, the Next.js bundling, the
+    recount, moderator powers, trigger ownership, ADR-106, the column guard, lift-the-block reactivation and the
+    disposable container. Planning defaults D1–D8 may be challenged in review.
+13. **Flag discipline.** The sync and recount functions set `karmyq.member_count_sync` to `'on'` only around their
+    own `UPDATE`, and restore the prior value before returning. Leaving it on would let a later application delta
+    in the same transaction through the guard. A real-DB test proves that an application `UPDATE … current_members
+    + 1` issued after a member INSERT in the same transaction is ignored.
+14. **Prove "the trigger did not write" with the row version, not the count (Codex F7).** A role-only update and
+    a same-status update must leave the community row's `xmin` unchanged. Count equality proves nothing: an
+    accidental active→active firing would do −1 then +1 and still take the community row lock.
 
 ---
 
-## Task 1: Branch state, real-DB access question, and the Next.js splice (first commit)
+## Task 1: Branch state, disposable database, and the Next.js splice (first commit)
 
 **Files:**
 - Modify: `package-lock.json`, `apps/frontend/package.json`, `apps/landing/package.json`
@@ -192,43 +232,56 @@ git status -sb && git fetch origin && git log --oneline origin/master -3
 gh pr list --state open && gh api 'repos/ravichavali/karmyq/dependabot/alerts?state=open' --jq '.[] | "\(.number) \(.security_advisory.severity) \(.dependency.package.name)"'
 ```
 
-Expected: branch `agent/claude/sprint-144-planning` at the planning commit on top of `a2746057`. Open alerts are
+Expected: branch `agent/claude/sprint-144-planning` with the planning commits on top of `a2746057`. Open alerts are
 #185/#186 (`next`), unless a new advisory landed; if one did, stop and report. If `origin/master` moved, merge it
 with a merge commit.
 
-- [ ] **Ask the maintainer once:** "May I use a disposable PostgreSQL container on the demo host over SSH for
-  Sprint 144's integration iteration (no demo data access)? If not, PR CI is the real-DB arbiter (note 11)."
-  Record the answer in the handoff.
+- [ ] **Start the disposable database (decision 9).**
+  1. Start a uniquely named `postgres:15` container on the demo host, bound to `127.0.0.1` only. No volume from,
+     and no network to, the demo database.
+  2. Open an SSH tunnel to local port `55432`.
+  3. Load the branch's `infrastructure/postgres/init.sql`, then replay migrations with
+     `scripts/ci-apply-full-schema.sh` (or the Sprint 143 procedure).
+  4. Record `rolsuper`/`rolbypassrls` for the test role in the ledger,
+     `.superpowers/sdd/2026-11-19-sprint-144-staff-write-integrity/progress.md`.
 
-- [ ] **Re-check registry metadata (read-only).** `npm view next@16.4.6 dependencies dist.integrity dist.tarball`,
-  and the same for `@next/env@16.4.6` and each of the 8 `@next/swc-*@16.4.6`. Confirm 16.4.6 is still `latest`
-  on the 16.4 line and that no advisory covers it (`npm audit` after the splice is the arbiter). If `latest`
-  moved within 16.4.x, take the newest 16.4.x and record why.
+  If the classifier blocks the SSH call, try once, then hand the exact commands to the maintainer (note 11).
+  Smoke-test with the existing `integration/sprint-143-governance-lifecycle.integration.test.ts`; it must pass
+  before any Sprint 144 change.
 
-- [ ] **Splice.** Write `scratchpad/next-splice.js` with the Write tool. For each of the 10 root nodes it replaces
-  `version`/`resolved`/`integrity`. Each replacement is guarded by an exact-one-match check against the current
-  16.4.2 values, and the script leaves every other field (`libc`, `cpu`, `os`, `optional`, `engines`) untouched.
-  It also updates `packages["apps/frontend"].dependencies.next` and `packages["apps/landing"].dependencies.next`
-  to `^16.4.6`. Edit the two `package.json` lines to `"next": "^16.4.6"`.
+- [ ] **Re-check registry metadata (read-only).** Run `npm view next@16.4.6 dependencies optionalDependencies
+  peerDependencies engines dist.integrity dist.tarball` and the same for `@next/env@16.4.6` and each of the 8
+  `@next/swc-*@16.4.6`. Confirm note 1's metadata still holds and that 16.4.6 is still `latest` on the 16.4 line.
+  If `latest` moved within 16.4.x, take the newest 16.4.x, re-check its maps, and record why.
+
+- [ ] **Splice.** Write `scratchpad/next-splice.js` with the Write tool. It updates:
+  1. each of the 10 root nodes' `version`/`resolved`/`integrity`;
+  2. inside `packages["node_modules/next"]`, `dependencies["@next/env"]` and the 8
+     `optionalDependencies["@next/swc-*"]` (`16.4.2` → `16.4.6`);
+  3. `packages["apps/frontend"].dependencies.next` and `packages["apps/landing"].dependencies.next` → `^16.4.6`.
+
+  Each replacement is guarded by an exact-one-match check against the current value. Every other field (`libc`,
+  `cpu`, `os`, `optional`, `engines`, `sharp`) stays untouched. Edit the two `package.json` lines to
+  `"next": "^16.4.6"`.
 
 - [ ] **Prove it**
 
 ```bash
 git diff --stat   # exactly 3 files
-node -e "const l=require('./package-lock.json');for(const[k,v]of Object.entries(l.packages)){if(/node_modules\/(next|@next\/(env|swc-[^/]+))$/.test(k))console.log(k,v.version,v.libc||'')}"   # 10 nodes @16.4.6, 4 libc
+node -e "const l=require('./package-lock.json');for(const[k,v]of Object.entries(l.packages)){if(/node_modules\/(next|@next\/(env|swc-[^/]+))$/.test(k))console.log(k,v.version,v.libc||'')};const n=l.packages['node_modules/next'];console.log(JSON.stringify(n.dependencies),JSON.stringify(n.optionalDependencies))"   # 10 nodes @16.4.6, 4 libc; no 16.4.2 left in next's maps
+grep -c '16\.4\.2' package-lock.json                 # 0 for next-family entries (inspect any remaining hit)
 git diff package-lock.json | grep -c '^-.*"libc"'   # 0
 npx npm@11.19.0 ci                                   # strict install, exit 0
 npx npm@11.19.0 ls --all > scratchpad/ls-after.txt 2>&1; echo "exit=$?"   # compare the problem list with master's (scratchpad/ls-before.txt taken first)
+node scripts/audit-exemptions.js                    # ADR-059 gate as CI runs it (ci.yml:98-99)
 npm exec --workspace=tests -- jest --runTestsByPath regression/sprint-122-lint-config-gate.test.ts --no-cache
 npm exec --workspace=tests -- jest --runTestsByPath regression/sprint-131-workspace-declarations.test.ts --no-cache
 ```
 
-Also run the ADR-059 audit gate the way CI does: `node scripts/audit-exemptions.js` (`.github/workflows/ci.yml:98-99`).
 Expect 0 high/critical, with GHSA-mfr8-8qww-v76h and GHSA-vc7v-qv4w-wrv8 absent from `npm audit --json`.
 
 - [ ] **Commit** `fix(deps): next 16.4.6 for GHSA-mfr8-8qww-v76h and GHSA-vc7v-qv4w-wrv8 (Dependabot #185, #186)`.
-  Record the evidence (commands, exit codes, `npm ls` comparison) in the ledger,
-  `.superpowers/sdd/2026-11-19-sprint-144-staff-write-integrity/progress.md`.
+  Record the evidence (commands, exit codes, `npm ls` comparison) in the ledger.
 
 ---
 
@@ -243,19 +296,37 @@ Expect 0 high/critical, with GHSA-mfr8-8qww-v76h and GHSA-vc7v-qv4w-wrv8 absent 
 ```bash
 grep -rnE "current_members" --include=*.ts --include=*.tsx --include=*.js --include=*.sql services apps packages scripts infrastructure/postgres/seed* infrastructure/postgres/seed-e2e.sql tests \
   | grep -v node_modules | grep -v /dist/ > scratchpad/counter-sites.txt; wc -l scratchpad/counter-sites.txt
+grep -rnE "TRUNCATE[^;]*communities\.(members|communities)" --include=*.ts --include=*.js --include=*.sql services tests scripts infrastructure | grep -v node_modules
 ```
 
-Classify every line as **read**, **delta write** (must go), **converging recompute** (stays, D7), **fixture seed**
-(note 2), or **mocked SQL in a test** (note 3). The spec's writer table is the expected result. Any extra delta
-writer joins this sprint's scope.
+Classify every line as one of:
+- **read**;
+- **delta write** (must go);
+- **converging recompute** (stays, D7);
+- **fixture seed** (note 2);
+- **mocked SQL in a test** (note 3c);
+- **archived tooling** (excluded: `scripts/archive/seeding/*`; `generate-realistic-data.ts:430` counts all
+  statuses, so it is not a converging recompute).
 
-- [ ] **Fixture arithmetic inventory.** For every `tests/integration/*.ts` that inserts `communities.communities`
-  and then active `communities.members` rows, record whether it asserts an absolute count. List the ones that need
-  a change.
+The spec's writer table is the expected result. Any extra delta writer joins this sprint's scope. Every TRUNCATE
+of `members` must be paired with `communities` (row triggers do not fire on TRUNCATE).
+
+- [ ] **Fixture settability inventory (note 2).** List every test or seed that inserts a community with an explicit
+  count, `UPDATE`s `current_members`, or relies on a fake count for a capacity case. Record the honest
+  replacement for each: create rows, or lower `max_members`.
+
+- [ ] **Regression-reason inventory (note 3).** Classify each affected community-service test:
+  - **(a)** non-UUID path or body ids on the member routes;
+  - **(b)** mocks only `query` around staff add or the duplicate-create join;
+  - **(c)** a counter mock.
+
+  Find (a) by grepping `tests/` for member/governance route calls whose ids fail `UUID_RE`, rather than relying
+  on the three names in note 3.
 
 - [ ] **UUID comparison inventory.** Enumerate JS equality between a request-supplied id and a DB/JWT id across
-  `services/community-service/src` (`===`, `!==`, `.find(`, `.some(`, `.includes(`). Classify each fail-open or
-  fail-closed. The spec's table is the expected result. A new fail-open site joins scope.
+  `services/community-service/src` (`===`, `!==`, `.find(`, `.some(`, `.includes(`). Classify each as fail-open
+  authorization, fail-closed, or app validation backed by a DB constraint. The spec's corrected table is the
+  expected result. Only a new fail-open authorization site joins scope.
 
 - [ ] **Commit** `docs: Sprint 144 inventories` (ledger only).
 
@@ -265,12 +336,12 @@ writer joins this sprint's scope.
 
 **Files:**
 - Create: `services/community-service/src/utils/uuid.ts`, `services/community-service/tests/tdd/sprint-144-uuid.test.ts`
-- Modify: `src/utils/liveRole.ts`, `src/routes/governance.ts`, `src/database/governanceDb.ts` (nominee id), `src/routes/members.ts` (DELETE + POST parse only)
+- Modify: `src/utils/liveRole.ts`, `src/routes/governance.ts` (regex import only), `src/routes/members.ts` (DELETE + staff-POST parse only), the note-3(a) regressions
 
 - [ ] **Write the test first** (red). Cases:
   - a lowercase UUID returns itself;
   - an uppercase or mixed-case UUID returns lowercase;
-  - leading or trailing whitespace returns `null` (no trimming: a path id with spaces is malformed);
+  - leading or trailing whitespace returns `null` (no trimming);
   - `''`, `undefined`, non-string, 35/37-char and non-hex input return `null`;
   - `UUID_RE` is the one exported regex.
 
@@ -286,15 +357,19 @@ export function canonicalUuid(value: unknown): string | null {
 npm exec --workspace=services/community-service -- jest --runTestsByPath tests/tdd/sprint-144-uuid.test.ts --no-cache   # red, then green
 ```
 
-- [ ] **Adopt it.** `liveRole.ts:14` and `governance.ts:7-8` import `UUID_RE`/`canonicalUuid` and drop their local
-  regexes. Governance canonicalizes the nominee id before it reaches `governanceDb.ts:241`. Members DELETE
-  canonicalizes `:communityId`, `:userId` and the JWT caller, returning 400 `VALIDATION_ERROR` on malformed input.
-  Staff POST canonicalizes body `user_id`. The PUT gets the same treatment in Task 7.
-- [ ] Add DELETE cases to `sprint-144-staff-put-route.test.ts` (create it now if needed): an uppercase self-id is
+- [ ] **Adopt it.**
+  - `liveRole.ts:14` and `governance.ts:7-8` import `UUID_RE` and drop their local regexes (consolidation;
+    `governanceDb.ts:226-228` already lowercases).
+  - Members DELETE canonicalizes `:communityId` and `:userId`, returning 400 `VALIDATION_ERROR` on malformed input,
+    and compares the canonical path id with the JWT id as issued.
+  - Staff POST canonicalizes body `user_id`.
+  - The PUT gets the same treatment in Task 7.
+- [ ] **DELETE cases first** in `sprint-144-staff-put-route.test.ts` (create it now): an uppercase self-id is
   self-leave, an uppercase target is found, and a malformed id is 400 with no SQL issued.
+- [ ] **Note-3(a) regressions:** swap synthetic ids for valid UUIDs and keep every assertion, then run them.
 - [ ] Run the community-service unit + regression tiers (`npm run test --workspace=services/community-service`)
   and `npm run type-check --workspace=services/community-service`. **Commit**
-  `fix(community): canonicalize request UUIDs at parse (BUG-104 groundwork)`.
+  `fix(community): canonicalize member-route UUIDs at parse (BUG-104 groundwork)`.
 
 ---
 
@@ -306,13 +381,17 @@ npm exec --workspace=services/community-service -- jest --runTestsByPath tests/t
 - [ ] **Write the test first** (red). One case per row of the spec's table, for both an admin and a moderator
   caller where the row allows either. Also cover:
   - body validation (D1): both keys, neither key, an unknown key, `admin_user_id` ignored, non-string values;
-  - role values outside `{member, moderator, admin}`;
+  - status values outside `{active, inactive, left}` and role values outside `{member, moderator, admin}`;
   - `left` → anything gives `MEMBER_MUST_REJOIN` (D3);
+  - `inactive` → `active` gives `INVALID_MEMBERSHIP_TRANSITION`;
+  - `inactive` → `left` (lift) is allowed for an admin with `role:'member'`, and forbidden for a moderator;
+  - `active`/`pending` → `left` gives `INVALID_MEMBERSHIP_TRANSITION`;
   - every same-state request gives `INVALID_MEMBERSHIP_TRANSITION` (D4);
-  - a moderator deactivating or reactivating anyone gives a forbidden refusal (BUG-105);
+  - a moderator deactivating or lifting anyone gives `FORBIDDEN` (BUG-105);
   - a moderator approving a pending row with a stored `admin` role still writes `role='member'` (D2);
   - a role change on a non-active target is refused;
-  - the last-admin flag is required for an admin demotion or deactivation.
+  - the last-admin flag is required for an admin demotion or deactivation;
+  - only approve has `admits: true`.
 
   Assert exact operation objects, not truthiness (`feedback_testing_standard`).
 
@@ -321,7 +400,7 @@ npm exec --workspace=services/community-service -- jest --runTestsByPath tests/t
 type CallerRole = 'admin' | 'moderator' | 'member' | null;
 type Target = { status: string; role: string; isSoleActiveAdmin: boolean };
 type Plan =
-  | { kind: 'write'; set: { status?: 'active' | 'inactive'; role?: 'member' | 'moderator' | 'admin' }; admits: boolean }
+  | { kind: 'write'; set: { status?: 'active' | 'inactive' | 'left'; role?: 'member' | 'moderator' | 'admin' }; admits: boolean }
   | { kind: 'refuse'; http: 400 | 403 | 409; code: 'VALIDATION_ERROR' | 'FORBIDDEN' | 'LAST_ADMIN'
       | 'INVALID_MEMBERSHIP_TRANSITION' | 'MEMBER_MUST_REJOIN'; message: string };
 export function planStaffChange(caller: CallerRole, target: Target, body: unknown): Plan;
@@ -331,42 +410,61 @@ export function planStaffChange(caller: CallerRole, target: Target, body: unknow
 
 ---
 
-## Task 5: Migration — trigger, recount, init.sql (real-DB test first)
+## Task 5: Migration — sync trigger, column guard, recount, init.sql (real-DB red first)
 
 **Files:**
 - Create: `infrastructure/postgres/migrations/20261119-community-member-count-trigger.sql`,
   `tests/integration/sprint-144-staff-write-integrity.integration.test.ts`
 - Modify: `infrastructure/postgres/init.sql` (artifact copy only)
 
-- [ ] **Write the integration test's trigger section first.** Model its DB setup on
+- [ ] **Write the integration file's trigger and guard sections first**, modeled on
   `tests/integration/sprint-143-governance-lifecycle.integration.test.ts`. Record the
   `rolsuper`/`rolbypassrls` flags and use explicit community predicates (note 9). Cases:
-  - INSERT active → +1; INSERT pending → 0;
-  - UPDATE pending→active +1, active→inactive −1, active→left −1, inactive→active +1;
-  - a role-only UPDATE fires nothing (assert the community row's `xmin` unchanged, or the count);
-  - an UPDATE that rewrites the same status fires nothing;
-  - moving `community_id` gives −1 on the old community and +1 on the new;
-  - DELETE active → −1; a NULL status counts as inactive;
-  - community deletion with members does not error.
-- [ ] **Recount section:**
-  - seed deliberately drifted counts (high, low, zero-member communities);
-  - apply the migration file text; the counts equal active rows;
-  - apply it a second time; zero rows change and the counts are identical;
-  - assert the column comment exists.
+  - **Deltas:**
+    - INSERT active → +1; INSERT pending → 0;
+    - UPDATE pending→active +1, active→inactive −1, active→left −1, inactive→left 0;
+    - DELETE active → −1;
+    - a NULL status counts as inactive;
+    - community deletion with members does not error.
+  - **No write (note 14):** a role-only UPDATE and an UPDATE that rewrites the same status leave the community
+    row's `xmin` unchanged.
+  - **Immutability:** UPDATE of `community_id` raises `check_violation`, and nothing changes.
+  - **Guard (decision 7):**
+    - INSERT of a community with `current_members = 7` stores 0;
+    - a direct `UPDATE … SET current_members = 99` leaves the value;
+    - an `UPDATE … SET access_type='private', current_members=4` changes `access_type` only.
+  - **Flag discipline (note 13):** in one transaction, INSERT an active member and then run the old join code's
+    `UPDATE … current_members = current_members + 1`. Exactly +1 results. After the trigger returns,
+    `current_setting('karmyq.member_count_sync', true)` is not `'on'`.
+  - **Recount:**
+    - seed drifted counts (high, low, zero-member) the way pre-ADR code could: set
+      `karmyq.member_count_sync` to `'on'` in the test's own transaction and `UPDATE` the column. In the replay
+      case, insert the rows before the migration exists;
+    - apply the migration file text, and the counts equal the active rows;
+    - apply it again, and zero rows change;
+    - `recount_current_members(<id>)` repairs one community and returns its changed-row count;
+    - the column comment exists.
+- [ ] **Run that file red** against the disposable DB on the current schema (no migration yet). Every new case
+  must fail for the expected reason. Record that in the ledger.
 - [ ] **Write the migration** from the spec's *Data Model* SQL. Run the `migration-validator` agent on it and
   resolve its findings. Confirm it has no top-level `BEGIN`/`COMMIT`/`LOCK` (gotcha).
-- [ ] **Real-DB run.** With the Task 1 container, if granted, run
-  `npm run test:integration --workspace=tests -- --runTestsByPath integration/sprint-144-staff-write-integrity.integration.test.ts`.
-  Also run `scripts/apply-migrations.sh` (exactly one migration applied) and
-  `scripts/ci-apply-full-schema.sh --drift-check` (zero drift) against isolated databases, the Sprint 142
-  evidence pattern in the gotcha. Without a container, defer to Task 6's draft PR CI.
-- [ ] **Regenerate init.sql** per `reference_init_sql_regen_via_workflow`. First check that
-  `git hash-object infrastructure/postgres/init.sql` equals `git rev-parse origin/master:infrastructure/postgres/init.sql`.
-  Then commit and push the migration, run `gh workflow run regenerate-init-sql.yml --ref agent/claude/sprint-144-planning`,
-  watch it, download into a fresh empty directory, and diff. Expect only the function, the 2 triggers, the
-  comment and the ledger row. Byte-copy the artifact and prove `git hash-object` equality.
-- [ ] **Commits:** `feat: database-owned community member count (ADR-106)` (migration + test), then
-  `chore: regenerate schema for member count trigger`.
+- [ ] **Green on the disposable DB.** Apply the migration with `scripts/apply-migrations.sh` (exactly one migration
+  applied). Run `scripts/ci-apply-full-schema.sh --drift-check` (zero drift) against a second isolated database,
+  the Sprint 142 evidence pattern in the gotcha. Run the integration file green, and also the Sprint 142 and 143
+  integration files (fixture fallout comes in Task 6, so record which fail and why).
+- [ ] **Regenerate init.sql** per `reference_init_sql_regen_via_workflow`:
+  1. check that `git hash-object infrastructure/postgres/init.sql` equals
+     `git rev-parse origin/master:infrastructure/postgres/init.sql`;
+  2. commit and push the migration;
+  3. run `gh workflow run regenerate-init-sql.yml --ref agent/claude/sprint-144-planning` and watch it;
+  4. download the artifact into a fresh empty directory and diff it. Expect only the 3 functions, the 3 triggers,
+     the comment and the ledger row;
+  5. byte-copy the artifact and prove `git hash-object` equality.
+
+  Then fresh-boot it on the disposable host and check that the spliced seed data's counts equal its active rows
+  (note 8).
+- [ ] **Commits:** `feat: database-owned community member count with column guard (ADR-106)` (migration + test),
+  then `chore: regenerate schema for member count trigger`.
 
 ---
 
@@ -378,53 +476,58 @@ export function planStaffChange(caller: CallerRole, target: Target, body: unknow
   `tests/regression/sprint-144-no-member-count-deltas.test.ts`
 - Modify: `members.ts` (join, staff POST, DELETE), `communities.ts` (create, duplicate-create join),
   `services/social-graph-service/src/routes/invitations.ts`, `infrastructure/postgres/seed-e2e.sql`, the Task 2
-  fixture list, and the note-3 regressions
+  fixture list, and the note-3(b)/(c) regressions
 
 - [ ] **Gate first** (red on today's tree). The root regression gate walks `services/*/src`, `apps/*/src` and
-  `packages/*/src` (`.ts`, `.tsx`, `.js`). It fails on any SQL text matching
-  `current_members\s*=\s*current_members\s*[-+]` or `current_members\s*[-+]=`. It allows reads and converging
-  `= (SELECT count(*)` recomputes. A negative fixture (an in-memory string run through the same matcher) proves it
-  fails, and a positive fixture proves the recompute is allowed. Run it: red, listing exactly the spec's 5 delta
-  writers (`members.ts` join/staff-add/DELETE, `communities.ts` duplicate-create join, `invitations.ts`). Assert
-  that identity list, not a count (`feedback_gates_assert_weaker_than_claimed`). `communities.ts:460`'s in-memory
-  response adjustment is JavaScript, not SQL, and must not match.
-- [ ] **Capacity test first** (red). `assertWithinCapacity` throws `CommunityFullError` when `current > max`, and
-  passes at `current == max`. Mocked-route tests: join (public), staff POST, the duplicate-create join and (in
-  Task 7) the PUT approve/reactivate each map the throw to 400 `COMMUNITY_FULL`, issue the post-check **after**
-  the member write, and run both inside the same `withTransaction` client.
+  `packages/*/src` (`.ts`, `.tsx`, `.js`). It parses each assignment to `current_members`, optionally
+  alias-qualified (`c.current_members =`, `existing.current_members =`), up to the next top-level `,`, `WHERE`,
+  `RETURNING`, `)` or end of statement. It fails when that right-hand side references `current_members`. It also
+  fails on `current_members +=`/`-=`.
+  - Negative fixtures, one per form: `current_members = current_members + 1`, `= c.current_members - 1`,
+    `= 1 + current_members`, `= GREATEST(0, current_members - 1)`, `= (existing.current_members ?? 0) + 1`, `+= 1`.
+  - Positive fixtures: the two real recomputes (`fissionService.ts:287-295`, `fusionService.ts:94-102`) and a
+    plain read.
+
+  Run it red. It must list exactly the spec's 5 delta writers (`members.ts` join, staff-add and DELETE;
+  `communities.ts` duplicate-create join, including its JS response line `:460`; `invitations.ts`). Assert that
+  identity list, not a count (`feedback_gates_assert_weaker_than_claimed`).
+- [ ] **Capacity tests first** (red):
+  - **Mocked:** `assertWithinCapacity` throws `CommunityFullError` when `current > max` and passes at
+    `current == max`. Join (public), staff POST and the duplicate-create join each map the throw to 400
+    `COMMUNITY_FULL`, issue the post-check **after** the member write, and run both inside the same
+    `withTransaction` client.
+  - **Real-DB**, in the integration file, run red now:
+    - a community at `max_members - 1` gets two concurrent public joins → exactly one 200 and one 400
+      `COMMUNITY_FULL`, final count = `max_members`;
+    - in a full community (built by rows and a small `max_members`), staff POST is refused and leaves no member
+      row;
+    - the invitation accept (`social-graph.test.ts` flow) increments exactly +1;
+    - community create → count 1;
+    - duplicate-create join → +1 once, and the response count matches the DB.
+
+  Drive the routes through supertest against an in-process app, as Sprint 143's file does. Do not mock
+  `withTransaction`.
 - [ ] **Implement.**
   - Delete every delta write.
   - Wrap staff POST in `withTransaction`, with the post-check and ADR-074 errors (D5).
   - Join: post-check for active admission only.
   - Create: `VALUES (..., 0, ...)`, insert the creator, then re-read `current_members` for the response.
-  - Duplicate-create join: one transaction, post-check, response count re-read or `+1` in memory only when inserted.
+  - Duplicate-create join: one transaction, post-check, and the response count re-read (no in-memory `+1`).
   - social-graph: delete the `+1` statement only (D8; BUG-106 stays).
   - Seed: `seed-e2e.sql` counts → `0`.
-- [ ] **Fixtures and regressions:** apply the Task 2 list (note 2) and note 3, each with its header reason. Confirm
-  `sprint-78-fission-execute` and `sprint-86-fusion-member-count` are untouched and green.
-- [ ] **Real-DB race cases** in the integration file:
-  - a community at `max_members - 1` gets two concurrent public joins → exactly one 200 and one 400
-    `COMMUNITY_FULL`, final count = `max_members`;
-  - a full community: staff POST is refused and leaves no member row;
-  - the invitation accept (`social-graph.test.ts` flow) increments exactly +1;
-  - community create → count 1;
-  - duplicate-create join → +1 once.
-
-  Drive the routes through supertest against the real app or an in-process app, as Sprint 143's file does. Do
-  not mock `withTransaction`.
-- [ ] **Run:** community-service and social-graph-service unit + regression; the root gate with `--no-cache`;
-  `npm test --workspace=tests`; type-check both services.
+- [ ] **Fixtures and regressions:** apply the Task 2 settability list (note 2) and notes 3(b)/(c), each with its
+  header reason. Confirm `sprint-78-fission-execute` and `sprint-86-fusion-member-count` are untouched and green.
+- [ ] **Run:**
+  - community-service and social-graph-service unit + regression;
+  - the root gate with `--no-cache`;
+  - `npm test --workspace=tests`;
+  - type-check both services;
+  - the full root `tests/integration` suite on the disposable DB, green.
 - [ ] **Commit** `fix: derive member count in the database and enforce capacity atomically (BUG-103)`.
-- [ ] **Without a container (note 11):** push, then
-  `gh pr create --draft --base master --title "feat: Sprint 144 staff membership write integrity (ADR-106)"` with
-  a placeholder body that follows `.github/pull_request_template.md` (read it first). Then read the Integration
-  Tests job's own conclusion and suite count. `gh pr checks` alone is not evidence
-  (`feedback_checks_list_hides_uncreated_jobs`). Fix forward until the Sprint 144 integration file and every
-  pre-existing suite pass.
 
 ---
 
-## Task 7: Staff PUT rewrite (BUG-104, BUG-105, validation)
+## Task 7: Staff PUT rewrite (BUG-104, BUG-105, lift-the-block, validation)
 
 **Files:**
 - Modify: `services/community-service/src/routes/members.ts` (PUT handler)
@@ -435,14 +538,30 @@ export function planStaffChange(caller: CallerRole, target: Target, body: unknow
   - body validation is 400;
   - a non-staff caller is 403 `FORBIDDEN`;
   - a missing target is 404 `NOT_FOUND`;
-  - a moderator deactivate is 403;
+  - a moderator deactivate or lift is 403;
   - a moderator approve writes `status='active', role='member'`;
-  - a reactivate by an admin writes `role='member'`;
+  - an admin lift writes `status='left', role='member'`;
+  - `inactive` → `active` is 409 `INVALID_MEMBERSHIP_TRANSITION`;
   - a sole-admin demotion is 400 `LAST_ADMIN`;
   - a full community on approve is 400 `COMMUNITY_FULL`, with the post-check after the UPDATE;
   - an unexpected DB error is 500 `INTERNAL_ERROR` with no `error.message` and no SQL text in the body;
   - all SQL from lock to write runs on the one transaction client;
   - the caller-role read happens inside the transaction (note 6).
+- [ ] **Real-DB cases first** (red), in the integration file:
+  - an uppercase-UUID demotion of the sole admin is 400, and the role is unchanged (BUG-104);
+  - a moderator lifting or reactivating an inactive stored admin is 403, and the row stays `inactive` with its
+    role (BUG-105);
+  - **Codex F3 path:**
+    1. a member leaves (`left`);
+    2. an admin DELETE blocks them (`inactive`), and Join returns 409 `MEMBERSHIP_RESTORE_REQUIRES_STAFF`;
+    3. an admin PUT `{status:'left'}` lifts the block: `left`, role `member`, count unchanged;
+    4. the person's own Join returns them, active in a public community and pending in a private one, with the
+       capacity post-check applied;
+    5. at no step does a staff call make them active;
+  - a staff PUT `{status:'active'}` on an inactive row is 409;
+  - approve/reject by a moderator;
+  - a concurrent approve of two pending rows with one free slot → one 200, one 400;
+  - a moderator demoted mid-request cannot write (lock/live-role ordering).
 - [ ] **Implement.** Inside one `withTransaction`:
   1. canonical ids;
   2. lock target + active admins (`members.ts:371-376` statement);
@@ -452,15 +571,8 @@ export function planStaffChange(caller: CallerRole, target: Target, body: unknow
   6. if `plan.admits`, run `assertWithinCapacity`.
 
   Map refusals with the ADR-074 helpers.
-- [ ] **Real-DB cases:**
-  - an uppercase-UUID demotion of the sole admin is 400 and the role is unchanged (BUG-104);
-  - a moderator reactivating an inactive stored admin is 403, and the row stays inactive (BUG-105);
-  - an admin reactivation returns role `member`, and the count goes +1;
-  - approve/reject by a moderator;
-  - a concurrent approve of two pending rows with one free slot → one 200, one 400;
-  - a moderator demoted mid-request cannot write (lock/live-role ordering).
-- [ ] Run the community-service tiers, type-check and the integration file (container or PR CI). **Commit**
-  `fix(community): staff membership PUT as an authorized transition table (BUG-104, BUG-105)`.
+- [ ] Run the community-service tiers, type-check and the integration file on the disposable DB (red cases now
+  green). **Commit** `fix(community): staff membership PUT as an authorized transition table (BUG-104, BUG-105)`.
 
 ---
 
@@ -484,6 +596,7 @@ export function planStaffChange(caller: CallerRole, target: Target, body: unknow
   for page setup.
 - [ ] **Implement:** narrow `updateMember`'s type; drop `admin_user_id` from both callers; add the hero button
   (match the Leave button's styling; disabled while `joiningCommunity`); add `handleCancelRequest` in `[id].tsx`.
+  No lift-the-block UI (decision 8).
 - [ ] `npm run test --workspace=apps/frontend`, the new file with `--no-cache`, and
   `npm exec --workspace=apps/frontend -- tsc --noEmit`. **Commit**
   `feat(frontend): moderators reject via staff PUT; applicants can cancel a join request`.
@@ -494,14 +607,15 @@ export function planStaffChange(caller: CallerRole, target: Target, body: unknow
 
 **Files:** ledger only, unless a new site is found
 
-- [ ] Re-run the Task 2 inventories on the new tree. Expect zero delta writers. Every request-supplied id is
-  canonicalized before JS comparison.
+- [ ] Re-run the Task 2 inventories on the new tree. Expect zero delta writers. Every member-route
+  request-supplied id is canonicalized before JS comparison.
 - [ ] Mobile: check `apps/mobile` for `updateMember`/`removeMember`/reject/approve callers and `current_members`
   writes. Mobile's separate leave route remains known revival debt. Record anything found; fix it here only if it
   is a staff write that the new PUT contract breaks.
 - [ ] Simulation: confirm `services/simulation-service` never writes `current_members`. Its reads
   (`join-community-workflow.ts:61`, `vote-on-governance-workflow.ts:30`) now see true counts.
-- [ ] Record the trace (source → route → trigger → API response → hero) in the ledger, then **commit** the ledger.
+- [ ] Record the trace (source → route → trigger and guard → API response → hero) in the ledger, then **commit**
+  the ledger.
 
 ---
 
@@ -514,14 +628,32 @@ export function planStaffChange(caller: CallerRole, target: Target, body: unknow
   (regenerated)
 
 - [ ] **ADR-106**, Status **Accepted** (→ Implemented after deploy). It records:
-  - context: three repairs, five writers in two services, approval never counted, the false "DB constraint" claim;
-  - the decision: trigger semantics, recount, capacity post-check;
-  - alternatives rejected: per-writer app fixes; capacity inside the trigger, which would change fusion;
-    a CHECK constraint;
-  - consequences: fixture arithmetic, `SECURITY DEFINER` deliberately not used (note 9), BUG-106 out of scope;
-  - the rule "never write deltas".
-- [ ] **Guides** per the spec's *User Guide & Doc Updates*. Read `docs/concepts/governance.md` and
-  `apps/frontend/src/lib/onboarding/workflows.ts`, and record whether either changes.
+  - **context:** three repairs, five writers in two services, approval never counted, the false "DB constraint"
+    claim;
+  - **the decision:**
+    - the sync trigger and its semantics, including `community_id` immutability;
+    - the column guard and why it exists: the deploy window between `deploy.sh:154` and `:225`, a failed build at
+      `:208-219`, and rollbacks;
+    - flag discipline;
+    - the recount function;
+    - the capacity post-check;
+  - **alternatives rejected:**
+    - per-writer app fixes;
+    - capacity inside the trigger, which would change fusion;
+    - reordering `deploy.sh`;
+    - accepting the window;
+    - a CHECK constraint;
+  - **consequences:**
+    - fixtures cannot set counts;
+    - operators repair only through the function;
+    - the fission/fusion recompute becomes a no-op (D7);
+    - the flag is a correctness fence, not a privilege boundary;
+    - `SECURITY DEFINER` is deliberately not used (note 9);
+    - BUG-106 is out of scope;
+  - **the rule:** "never write the column".
+- [ ] **Guides** per the spec's *User Guide & Doc Updates*, including the lift-the-block wording in both guides.
+  Read `docs/concepts/governance.md` and `apps/frontend/src/lib/onboarding/workflows.ts`, and record whether
+  either changes.
 - [ ] Regenerate landing docs (`npm run generate-docs --workspace=apps/landing`, or `npx tsx scripts/generate-docs.ts`).
   `git add -f` the new ADR page. Revert timestamp/HEAD-sha/adr-010 churn
   (`feedback_npm_test_regenerates_landing_docs`). Run
@@ -538,8 +670,10 @@ export function planStaffChange(caller: CallerRole, target: Target, body: unknow
 - Move: each green `tests/tdd/sprint-144-*` file → that workspace's `tests/regression/`
 
 - [ ] community-service CONTEXT:
-  - PUT section: the transition table, codes and moderator powers (replace the Sprint 25 line, `:840`);
-  - DELETE/join/staff-add sections: the trigger and the post-check;
+  - PUT section: the transition table, codes, lift-the-block and moderator powers (replace the Sprint 25 line,
+    `:840`);
+  - DELETE/join/staff-add sections: the trigger, the guard and the post-check, and join's
+    `MEMBERSHIP_RESTORE_REQUIRES_STAFF` pointing to lifting the block;
   - replace the false "database constraint" text (`:1554-1567`) and the stale last-admin sample (`:1569-1590`);
   - a Recent Changes entry citing ADR-106, the migration, and BUG-103/104/105.
 - [ ] social-graph CONTEXT: invitation accept no longer writes the counter; BUG-106 pointer.
@@ -558,10 +692,11 @@ export function planStaffChange(caller: CallerRole, target: Target, body: unknow
 
 - [ ] **`/simplify`** on the branch diff (one pass). Apply or justify each finding.
   Verify: the ledger lists every finding and its disposition.
-- [ ] **`/code-review` at high effort** on the branch diff. The diff is risky: authorization, a trigger
-  migration, and concurrency. Focus areas:
+- [ ] **`/code-review` at high effort** on the branch diff. The diff is risky: authorization, a trigger migration
+  with a column guard, and concurrency. Focus areas:
   - the transition table vs the spec;
   - lock order;
+  - flag discipline;
   - the post-check placement;
   - migration rerunnability;
   - fixture honesty;
@@ -570,20 +705,22 @@ export function planStaffChange(caller: CallerRole, target: Target, body: unknow
   Verify: correctness findings are fixed, with red→green proof, or dismissed in writing.
 - [ ] **`/security-review`** on the branch diff. Focus areas:
   - moderator/admin powers and the live-role read;
+  - lift-the-block consent;
   - UUID canonicalization;
   - no raw error detail;
-  - the trigger's privilege context (note 9);
+  - the triggers' privilege context and the flag (note 9, note 13);
   - the dependency splice.
 
   Verify: real findings are fixed and dismissals are justified in the ledger.
 - [ ] **process-reviewer** agent on the full branch diff, run once: test meaningfulness, CONTEXT/docs accuracy,
   validation evidence. Verify: findings resolved.
 - [ ] After review fixes, re-run the root gates `npm test --workspace=tests`
-  (`feedback_rerun_root_gates_after_review_fixes`) and the affected workspace tiers. **Commit** the review fixes.
+  (`feedback_rerun_root_gates_after_review_fixes`), the affected workspace tiers, and the integration suite on the
+  disposable DB. **Commit** the review fixes.
 
 ---
 
-## Task 13: Final verification, PR, handoff
+## Task 13: Final verification, teardown, PR, handoff
 
 - [ ] Run `npm run type-check --workspace=services/community-service`, the social-graph-service type-check
   (`npx tsc --noEmit` in that workspace), and `npm exec --workspace=apps/frontend -- tsc --noEmit`.
@@ -591,13 +728,14 @@ export function planStaffChange(caller: CallerRole, target: Target, body: unknow
   hooks. A silent, instant push is a red flag.
 - [ ] `npm run analyze:services` only if dependencies changed: the `next` bump is in apps, so check whether the
   analyzer covers apps and record the answer.
-- [ ] Push. Update the PR body per `.github/pull_request_template.md`. It must include:
+- [ ] **Tear down** the disposable container, scratch data and SSH tunnel. Record the teardown and the role flags in
+  the ledger.
+- [ ] Push. **Create the PR** (`gh pr create --base master`) with a body that follows
+  `.github/pull_request_template.md` (read it first). It must include:
   - the bundled Sprint 143 post-merge record and the `next` security commit (why bundled: SLA 2026-12-01);
   - the BUG list and ADR-106;
   - the Validation ledger with SHA, command, exit status, cache state and limitations per row;
   - *Security dismissals* (none yet).
-
-  Mark the PR ready (or create it if Task 6 did not).
 - [ ] Read the head's real CI job conclusions: Integration Tests suite/test counts, Code Scanning Gate, and
   `regenerate-init-sql` byte comparison. List any CodeQL annotations for the maintainer to dismiss in the UI
   (`api.ts` request-forgery → `false positive`; test migration-reads → `used in tests`). Never dismiss them
@@ -617,7 +755,8 @@ export function planStaffChange(caller: CallerRole, target: Target, body: unknow
     `feedback_merge_blocked_by_permission_classifier`).
 - [ ] Watch CI/CD on the merge SHA. Verify the run conclusion, the job count, and **Deploy to Demo = success**.
   The deploy log must show `20261119-community-member-count-trigger.sql` applied by `scripts/apply-migrations.sh`.
-  That is the one authorized demo write.
+  That is the one authorized demo write. If the deploy fails after the migration, the column guard keeps the old
+  containers' counts exact; record which step failed.
 - [ ] Smoke via the public API only (`reference_demo_smoke_test_paths`: `POST /api/auth/login` 200). Any demo DB
   read (for example `scripts/audit-demo-data.sql` query 1 to show zero drift) needs a separate authorization.
 - [ ] After deploy: read the open master code-scanning alerts and the merge-SHA analyses

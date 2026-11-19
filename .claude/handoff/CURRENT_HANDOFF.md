@@ -1,10 +1,11 @@
 # Sprint 144 — Staff membership write integrity — Handoff
 
 **Date**: 2026-11-19
-**Outcome**: **PLANNED — awaiting Codex plan review (read-only), round 1.** The maintainer approved the spec's
-decisions 1–6 in the planning chat. Spec, plan, the Sprint 143 post-merge record and the bug-log updates are
-committed on this branch (`e6713ca5`). No product code has been written yet. Execution starts only after Claude
-(the author) integrates the review findings.
+**Outcome**: **PLANNED — review round 1 integrated; awaiting Codex re-review round 2 (delta only).** The
+maintainer approved decisions 1–6 in the planning chat. Codex's round 1 returned 11 findings (`e6713ca5`); Claude
+verified all 11 against the repo, and the maintainer decided 7–9 on the three open points. Spec, plan, the
+Sprint 143 post-merge record and the bug-log updates are committed on this branch. No product code has been
+written yet.
 
 > State between sessions only. This branch-local file reserves no contended resource; see
 > `.claude/handoff/README.md` → *Parallel development rules*.
@@ -42,14 +43,31 @@ Never rebase this branch.
 3. Open the plan: `docs/superpowers/plans/2026-11-19-sprint-144-staff-write-integrity.md`.
 4. Invoke `superpowers:executing-plans` (shared working tree, one editor) or
    `superpowers:subagent-driven-development`. There is no `/execute-plan` slash command; superpowers removed it.
-5. Task 1 starts by asking the maintainer one question (disposable PostgreSQL container for integration
-   iteration) and then makes the Next.js splice the **first commit**. **SLA: merged by 2026-12-01.**
+5. Task 1 starts the authorized disposable PostgreSQL container (decision 9), then makes the Next.js splice the
+   **first commit**. **SLA: merged by 2026-12-01.**
 
 ## Plan review log
 
 | Round | Reviewer | Reviewed head | Status |
 |---|---|---|---|
-| 1 | Codex (read-only) | `e6713ca5` (spec + plan) | **pending**. Findings go to the maintainer in chat; Claude integrates them |
+| 1 | Codex (read-only) | `e6713ca5` (spec + plan) | **integrated**. 11 findings (2 BLOCKING, 7 SHOULD-FIX, 2 NIT), all verified (10 confirmed, F3 partial); see *Round 1 dispositions* |
+| 2 | Codex (read-only) | the round-1 integration commit, delta vs `6559e7c8` | **pending** |
+
+### Round 1 dispositions (2026-11-19)
+
+| # | Finding | Verdict | Resolution |
+|---|---|---|---|
+| F1 | Splice leaves `next`'s exact `@next/env` + 8 SWC references at 16.4.2 | CONFIRMED (`package-lock.json:18665`, `:18679`) | Note 1 + Task 1 update those 9 references; 16.4.6 metadata read (`optionalDependencies`, `peerDependencies`, `engines`) |
+| F2 | Old writers double-count between migration and restart | CONFIRMED, worse: a failed build at `deploy.sh:208-219` leaves old code serving with the trigger | **Decision 7: column guard** |
+| F3 | Staff DELETE (`left → inactive`) + reactivation forces a departed member back | PARTIAL: Sprint 143 keeps the DELETE block on purpose (S143 spec `:172-173`) | **Decision 8: reactivate lifts the block** (`inactive → left`) |
+| F4 | Reciprocal community moves can deadlock | CONFIRMED but theoretical: no writer moves `community_id` | Sync trigger raises on `community_id` change; one community row per firing |
+| F5 | Note 3 misidentifies regression changes | CONFIRMED (S93 `:91`, S132 `:9-12`, S133 `:62` is a GET fixture; S92 also synthetic) | Note 3 split into (a) UUID fixtures, (b) transaction mocks, (c) counter mocks |
+| F6 | Delta gate regex misses alias/order/wrapper forms | CONFIRMED | Gate flags any self-referential assignment; negative fixture per form |
+| F7 | Count equality cannot prove a trigger did not write | CONFIRMED | Note 14: `xmin` evidence |
+| F8 | No-container path skips the migration's red phase | CONFIRMED | **Decision 9: disposable container**; Tasks 5–7 run real-DB cases red first |
+| F9 | Draft-PR "plumbing" note is an unapproved exception | CONFIRMED | Removed; the PR opens only at the end of Task 13 (decision 9) |
+| F10 | Archived recomputes unclassified; one counts all statuses | CONFIRMED (`generate-realistic-data.ts:430`) | Classified as excluded deprecated tooling; the guard ignores both |
+| F11 | Nominee already lowercased; other raw comparisons missed | CONFIRMED (`governanceDb.ts:226-228`; `links.ts:56`, `fusions.ts:113`, `splits.ts:79`) | Inventory corrected; governance is consolidation only; the others are fail-closed or DB-checked |
 
 ## Sprint goal
 
@@ -79,93 +97,140 @@ drift, while shipping the Next.js 16.4.6 security patch inside its SLA.
 5. A DB trigger owns `current_members`; hand `±1` writes are removed; capacity is checked atomically in the app by
    a post-write re-check; fission/fusion are unchanged.
 6. **ADR-106 allocated:** "Database-owned community member count".
+7. **Column guard** (round 1, F2): a `BEFORE INSERT OR UPDATE OF current_members` trigger on
+   `communities.communities` ignores every write not made by the sync trigger or the recount function, so old
+   containers, a failed build and rollbacks cannot double-count.
+8. **Reactivate lifts the block** (round 1, F3): an admin PUT `inactive → left`; the person rejoins themselves.
+   Staff never make anyone active except by approving that person's request.
+9. **Disposable PostgreSQL container** on the demo host over SSH, with no demo data, for real-DB red→green (round 1,
+   F8/F9). There is no draft-PR exception; the PR opens at the end.
 
 Planning defaults D1–D8 are in the spec's *Planning defaults* section, and review may challenge them:
 - one change per request;
-- admission resets the role;
-- `left` belongs to the member;
+- staff actions never leave a staff role on a returning row;
+- `left` belongs to the member (staff write it only to lift a block);
 - retries are 409;
 - the ADR-074 envelope;
 - no event changes;
-- the fission/fusion recompute stays;
+- the fission/fusion recompute stays (now a guarded no-op);
 - BUG-106 stays open.
 
 ## ⚠️ Critical Implementation Notes (verbatim from the spec)
 
 1. **First commit = the Next.js splice, nothing else.** Root lock nodes `node_modules/next`, `node_modules/@next/env`
-   and the 8 `node_modules/@next/swc-*` go 16.4.2 → **16.4.6**: `version`, `resolved` and `integrity` only, from
-   registry metadata. 16.4.6 is `latest` on 2026-11-19, and its dependency map equals 16.4.2's except `@next/env`.
+   and the 8 `node_modules/@next/swc-*` go 16.4.2 → **16.4.6**: `version`, `resolved` and `integrity`, from
+   registry metadata. The `node_modules/next` node's own exact references change too (Codex F1):
+   `dependencies["@next/env"]` (`package-lock.json:18665`) and the eight `optionalDependencies` `@next/swc-*`
+   (from `:18679`) go `16.4.2` → `16.4.6`.
+
+   Registry metadata read 2026-11-19: 16.4.6 is `latest`. Its `dependencies` equal 16.4.2's except `@next/env`.
+   Its `optionalDependencies` are the eight SWC packages at 16.4.6 plus an unchanged `sharp ^0.35.5`. Its
+   `peerDependencies` and `engines` (`node >=20.9.0`) equal the lock node's.
+
    Keep every `libc` field (4 swc nodes carry one). Declared ranges go `^16.4.2` → `^16.4.6` in
    `apps/frontend/package.json:24`, `apps/landing/package.json:18` and those workspaces' `packages[...]` entries in
    the lock. `postcss` stays governed by the root override `"postcss": "^8.5.25"`, so no nested postcss node is
-   added. Prove the splice with strict `npx npm@11.19.0 ci`, an `npm ls --all` problem list identical to master's
+   added. `next` stays at the root because `eslint-config-next` requires its bundled parser from there (#339's
+   failure).
+
+   Prove the splice with strict `npx npm@11.19.0 ci`, an `npm ls --all` problem list identical to master's
    (BUG-047's `picomatch` line is pre-existing), the ADR-059 audit gate at 0 high/critical with #185/#186's GHSAs
    gone, and `tests/regression/sprint-122-lint-config-gate.test.ts` green. Never execute a downloaded tarball.
    Never use `npm install --workspace`, `npm dedupe` or a lock regen. Use a script file with match-count guards
    for the splice.
-2. **The trigger changes every fixture's arithmetic.** Any test or seed that inserts a community with a non-zero
-   `current_members` and then inserts active member rows now gets the sum. Inventory every such site before
+2. **The counter is no longer settable, so fixtures must create rows.** Under the column guard, a community INSERT
+   stores `0` and any `UPDATE … current_members` outside the sync path is ignored. A test that "sets" a count, or
+   needs a full community, must create the active rows or lower `max_members`. Inventory every such site before
    implementing. Known sites:
    - `tests/integration/sprint-143-governance-lifecycle.integration.test.ts:48`, which also sets counts at
      `:652`, `:666` and `:689`;
    - `tests/integration/social-graph.test.ts:152-188`;
    - `tests/integration/sprint-142-governance-quorum.integration.test.ts`;
    - `tests/integration/sprint-134-pr-l2-health.integration.test.ts`;
-   - `infrastructure/postgres/seed-e2e.sql:85`, `:114`.
+   - `infrastructure/postgres/seed-e2e.sql:85`, `:114`;
+   - the `tests/fixtures/` seeds.
 
-   Fix each fixture to state the truth: seed `0` and let the trigger count, or assert deltas. Never weaken an
-   assertion to make it pass.
-3. **Mocked-SQL regressions assert the old mechanism.** `sprint-77-idempotent-create`, `sprint-93-members-delete-jwt`,
-   `sprint-132-body-identity` and `sprint-133-member-email-admin-only` (community-service `tests/regression/`) mock
-   `UPDATE … current_members` or assume a creation count of `1`. Changing a regression test needs a written reason
-   in its header ("counter moved to the DB trigger, ADR-106; real-DB proof in
-   `tests/integration/sprint-144-staff-write-integrity.integration.test.ts`"). `sprint-78-fission-execute` and
-   `sprint-86-fusion-member-count` assert the converging recompute, which stays (D7). They must stay unchanged and
-   green.
+   Fix each fixture to state the truth. Never weaken an assertion to make it pass.
+3. **Existing regressions change for three separate reasons; inventory each separately (Codex F5).**
+   - **(a) UUID fixtures.** `sprint-93-members-delete-jwt` (`/comm-1/members/victim`, `:91`),
+     `sprint-132-body-identity` (`'admin-user'`, `'attacker-user'`, `:9-12`), `sprint-92-last-admin-guard`, and any
+     other route test Task 2 finds, use non-UUID ids that the new validation rejects. Replace them with valid UUIDs
+     and keep every exact authorization, bound-identity and no-write assertion. Never change an expected 403 into
+     a 400.
+   - **(b) Transaction wrapping.** Staff add and the duplicate-create join now run inside `withTransaction`. Tests
+     that mock only `query` (`sprint-77-idempotent-create`, `sprint-132-body-identity`) must also mock the
+     transaction client, as `sprint-92` and `sprint-93` already do.
+   - **(c) Counter mocks.** `sprint-77`'s `UPDATE … current_members` mock (`:75`) becomes dead; delete it.
+     `sprint-133-member-email-admin-only`'s `current_members: 3` (`:62`) is a GET fixture and is unrelated; no
+     change. `sprint-78-fission-execute` and `sprint-86-fusion-member-count` assert the recompute that stays (D7),
+     and must stay unchanged and green.
+
+   Each changed regression file states its reason in its header.
 4. **Capacity is checked after the write, never only before.** `assertWithinCapacity` runs inside the same
    `withTransaction`, after the member write, and throws to roll back. A returned sentinel would commit
-   (`db.ts:51-53`). The real-DB race test must show two concurrent admissions into a community with one free slot
-   produce exactly one 200 and one 400 `COMMUNITY_FULL`, and a final count of `max_members`.
-5. **Lock order is member row(s) → community row**, everywhere. Do not add a `SELECT … FOR UPDATE` on the community
-   row before member locks: that inverts join/DELETE's order and can deadlock with the trigger. Governance keeps
-   nomination → memberships (Sprint 143). Its role-only update does not fire the trigger.
+   (`db.ts:51-53`). The admitting paths are join-to-active, staff add, PUT approve and the duplicate-create join;
+   lifting a block admits nobody. The real-DB race test must show two concurrent admissions into a community with
+   one free slot produce exactly one 200 and one 400 `COMMUNITY_FULL`, and a final count of `max_members`.
+5. **Lock order is member row(s) → that one community row.** Membership rows never move between communities (the
+   sync trigger raises on a `community_id` change), so each firing locks exactly one community row (Codex F4). Do
+   not add a `SELECT … FOR UPDATE` on the community row before member locks: that inverts join/DELETE's order and
+   can deadlock with the trigger. Governance keeps nomination → memberships (Sprint 143). Its role-only update does
+   not fire the trigger.
 6. **The PUT locks and reads in one transaction.** It locks the target plus active admins in the existing
    user-ID-ordered statement (`members.ts:371-376`), reads the caller's live role and the target's stored
    status/role, plans the change with `planStaffChange`, then writes. The caller's role is read inside the
    transaction (ADR-102). Today's pre-transaction read (`members.ts:310-314`) allows a demoted moderator to race
    a write.
-7. **Canonicalize at parse, compare canonical.** Reuse `canonicalUuid` for every request-supplied id compared in
-   JS. A malformed id is 400 before SQL. Do not fix BUG-104 by casting inside SQL alone: the JS comparison is the
-   bypass.
-8. **The migration must hold on both appliers.** No top-level `BEGIN`/`COMMIT`/`LOCK`. It must be rerunnable with a
-   zero-drift normalized dump. Run the `migration-validator` agent before committing it. Regenerate `init.sql`
-   through `gh workflow run regenerate-init-sql.yml --ref agent/claude/sprint-144-planning` (no local Docker) and
-   commit the artifact only while the branch's pre-migration `init.sql` equals master's.
+7. **Canonicalize at parse, compare canonical.** The member routes run every request-supplied id they compare in
+   JS through `canonicalUuid`. A malformed id is 400 before SQL. JWT ids are compared as issued. Do not fix BUG-104
+   by casting inside SQL alone: the JS comparison is the bypass. Governance already lowercases
+   (`governanceDb.ts:226-228`); importing the shared regex there is consolidation.
+8. **The migration must hold on both appliers.**
+   - No top-level `BEGIN`/`COMMIT`/`LOCK`.
+   - Rerunnable, with a zero-drift normalized dump.
+   - `lock_timeout` set locally so a busy table fails the migration (deploy rolls back, `deploy.sh:157-162`)
+     instead of stalling it.
+   - Run the `migration-validator` agent before committing it.
+   - Regenerate `init.sql` through `gh workflow run regenerate-init-sql.yml --ref agent/claude/sprint-144-planning`
+     (no local Docker), and commit the artifact only while the branch's pre-migration `init.sql` equals master's.
+   - A fresh boot from the regenerated `init.sql` must show correct counts for its spliced seed data.
 9. **RLS is not the isolation proof.** CI and the default service DB role bypass RLS (gotcha
-   `database-roles-bypass-rls-so-rls-is-not-an-isolation-proof.md`). The trigger's `UPDATE` runs as the invoking
-   role, the same exposure as today's application `UPDATE`. Do not add `SECURITY DEFINER` without an ADR-106 note
-   explaining why.
+   `database-roles-bypass-rls-so-rls-is-not-an-isolation-proof.md`). The triggers run as the invoking role, the
+   same exposure as today's application `UPDATE`. Do not add `SECURITY DEFINER` without an ADR-106 note explaining
+   why.
 10. **Recount authorization is exactly one write.** Deploying the migration is the authorized demo write. Do not
     read or measure demo drift before or after without separate authorization. `scripts/audit-demo-data.sql`
-    query 1 is the measurement to hand the maintainer if they want one.
-11. **Real-DB proof runs in CI.** CI runs `tests/integration` only on PRs and master pushes
-    (`.github/workflows/ci.yml:3-7`). A disposable PostgreSQL container on the demo host is **not** allocated.
-    Ask the maintainer at Task 1 if local iteration is wanted; otherwise open the PR as a draft once the migration
-    and trigger tests exist, and treat CI as the real-DB arbiter.
-12. **Do not reopen settled decisions.** Moderator powers, trigger ownership, the recount, ADR-106 and the bundling
-    of the Next.js fix are maintainer decisions (1–6). Planning defaults D1–D8 may be challenged in review.
+    query 1 is the measurement to hand the maintainer if they want one. Any later repair uses
+    `communities.recount_current_members()`, never a direct `UPDATE`, which the guard ignores.
+11. **Real-DB evidence comes from a disposable container (decision 9).** Use a disposable PostgreSQL container on
+    the demo host over an SSH tunnel, with no demo database access, as Sprint 143 did. Load the branch's schema
+    (`init.sql`, then the migration chain). Run every new real-DB test red before its implementation, then green.
+    Remove the container, scratch and tunnel afterwards, and record the role flags. If the permission classifier
+    blocks the SSH command, try once and hand the setup command to the maintainer; do not reroute. The PR opens
+    only at the end of execution; there is no draft-PR exception.
+12. **Do not reopen settled decisions.** Decisions 1–9 are the maintainer's: scope, the Next.js bundling, the
+    recount, moderator powers, trigger ownership, ADR-106, the column guard, lift-the-block reactivation and the
+    disposable container. Planning defaults D1–D8 may be challenged in review.
+13. **Flag discipline.** The sync and recount functions set `karmyq.member_count_sync` to `'on'` only around their
+    own `UPDATE`, and restore the prior value before returning. Leaving it on would let a later application delta
+    in the same transaction through the guard. A real-DB test proves that an application `UPDATE … current_members
+    + 1` issued after a member INSERT in the same transaction is ignored.
+14. **Prove "the trigger did not write" with the row version, not the count (Codex F7).** A role-only update and
+    a same-status update must leave the community row's `xmin` unchanged. Count equality proves nothing: an
+    accidental active→active firing would do −1 then +1 and still take the community row lock.
 
 ## Authorizations
 
 - **Allocated (2026-11-19):**
   - dependency work for #185/#186 (`next` 16.4.6, first commit);
   - ADR-106;
-  - the single recount write at deploy, through the migration.
+  - the single recount write at deploy, through the migration;
+  - a disposable PostgreSQL container on the demo host over SSH, with no demo database access (decision 9).
 - **Not allocated:**
   - the release version (v11.117.0 is provisional) and the merge slot;
   - merge, and deploy, each needing its own explicit yes;
   - any demo DB read or other demo write;
-  - a disposable PostgreSQL container on the demo host (ask in Task 1);
+  - a draft-PR exception to the stop-after-PR-creation rule;
   - the demo platform-admin grant and its 200 smoke check (ADR-105, still fail-closed);
   - CodeQL alert dismissals, which the maintainer performs in the UI.
 
