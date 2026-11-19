@@ -542,7 +542,9 @@ export function planStaffChange(caller: CallerRole, target: Target, body: unknow
   - social-graph: delete the `+1` statement only (D8; BUG-106 stays).
   - Seed: `seed-e2e.sql` counts → `0`.
 - [ ] **Fixtures and regressions:** apply the Task 2 settability list (note 2) and notes 3(b)/(c), each with its
-  header reason. Confirm `sprint-78-fission-execute` and `sprint-86-fusion-member-count` are untouched and green.
+  header reason. The note-2 corruption helper must run the flag set, the `UPDATE`, the restore and the `COMMIT` on
+  one checked-out client inside one transaction. Separate autocommit `pool.query` calls lose a transaction-local
+  flag before the `UPDATE` (round 3; today's statement is `sprint-134-pr-l2-health.integration.test.ts:53`). Confirm `sprint-78-fission-execute` and `sprint-86-fusion-member-count` are untouched and green.
 - [ ] **Run:**
   - community-service and social-graph-service unit + regression;
   - the root gate with `--no-cache`;
@@ -591,17 +593,6 @@ export function planStaffChange(caller: CallerRole, target: Target, body: unknow
   - approve/reject by a moderator;
   - a concurrent approve of two pending rows with one free slot → one 200, one 400;
   - a moderator demoted mid-request cannot write (lock/live-role ordering).
-- [ ] **Sprint 142 governance restoration (round 2, R3).** Rewrite
-  `tests/integration/sprint-142-governance-quorum.integration.test.ts:319-331` and `:333-348`. Each restores a
-  voter with PUT `{status:'active'}`, which is now 409. Instead:
-  1. deactivate the voter (staff PUT `inactive`);
-  2. prove the ballot stays excluded through `inactive` and through `left` after an admin lift
-     (PUT `{status:'left'}`);
-  3. the voter self-rejoins (`POST /join`, public fixture);
-  4. prove the existing ballot counts again, ratification or `ready_to_finalize` follows without another ballot,
-     `R` never lowers, and the role results match today's assertions.
-
-  Keep every other assertion. Run it red against Task 7's new PUT before rewriting, and green after.
 - [ ] **Implement.** Inside one `withTransaction`:
   1. canonical ids;
   2. lock target + active admins (`members.ts:371-376` statement);
@@ -611,8 +602,22 @@ export function planStaffChange(caller: CallerRole, target: Target, body: unknow
   6. if `plan.admits`, run `assertWithinCapacity`.
 
   Map refusals with the ADR-074 helpers.
-- [ ] Run the community-service tiers, type-check and the integration file on the disposable DB (red cases now
-  green). **Commit** `fix(community): staff membership PUT as an authorized transition table (BUG-104, BUG-105)`.
+- [ ] **Sprint 142 governance restoration (round 2, R3; ordered after implementation by round 3).** First run
+  `tests/integration/sprint-142-governance-quorum.integration.test.ts` against the new PUT. Its two restoration
+  cases (`:319-331`, `:333-348`) must now fail with 409: that is the expected compatibility break, recorded in
+  the ledger. Then rewrite them:
+  1. deactivate the voter (staff PUT `inactive`);
+  2. prove the ballot stays excluded through `inactive` and through `left` after an admin lift
+     (PUT `{status:'left'}`);
+  3. the voter self-rejoins (`POST /join`, public fixture);
+  4. prove the existing ballot counts again, ratification or `ready_to_finalize` follows without another ballot,
+     `R` never lowers, and the role results match today's assertions.
+
+  Restored ballots count through the frozen roster plus current active membership, not `joined_at`
+  (`governanceDb.ts:125-129`, `:357-360`; `governancePolicy.ts:29-32`; confirmed in round 3). Keep every other
+  assertion, and run the file green.
+- [ ] Run the community-service tiers, type-check, the Sprint 144 integration file and the rewritten Sprint 142 file
+  on the disposable DB (red cases now green). **Commit** `fix(community): staff membership PUT as an authorized transition table (BUG-104, BUG-105)`.
 
 ---
 
@@ -772,8 +777,9 @@ export function planStaffChange(caller: CallerRole, target: Target, body: unknow
 - [ ] **Tear down** the disposable container, scratch data and SSH tunnel. Record the teardown and the role flags in
   the ledger.
 - [ ] **Handoff first** (round 2, R7; `feedback_stop_after_pr_creation`). Rewrite `CURRENT_HANDOFF.md` with:
-  - the head SHA the PR will open from, and "PR opening from `agent/claude/sprint-144-planning`; find it with
-    `gh pr list --head agent/claude/sprint-144-planning`";
+  - the **validated implementation SHA** (the head before this handoff commit), and "PR opening from
+    `agent/claude/sprint-144-planning`; Task 14 resolves the actual PR head and number with
+    `gh pr list --head agent/claude/sprint-144-planning`" (round 3);
   - the evidence ledger summary;
   - the remaining authorizations: version, merge slot, merge, deploy;
   - the next chat's first steps (Task 14).

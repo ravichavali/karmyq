@@ -1,7 +1,8 @@
 # Sprint 144 — Staff membership write integrity — Handoff
 
 **Date**: 2026-11-19
-**Outcome**: **PLANNED — review rounds 1–2 integrated; awaiting Codex re-review round 3 (delta only).** The
+**Outcome**: **PLANNED and REVIEWED — ready for Task 1.** Codex plan review round 3 returned "ready for Task 1"
+(two NITs, integrated). The
 maintainer approved decisions 1–6 in the planning chat. Codex's round 1 returned 11 findings (`e6713ca5`) and
 round 2 returned 8 (`ba798c27`). Claude verified every finding against the repo, and the maintainer decided 7–11
 on the open points. Spec, plan, the
@@ -28,8 +29,7 @@ Never rebase this branch.
 
 ## Quick Start
 
-0. **Plan review gate.** Until the *Plan review log* below shows the latest round integrated, the next step is not
-   execution:
+0. **Plan review gate: SATISFIED** (round 3, "ready for Task 1"). The procedure, for any future plan change:
    - **Codex** reviews the spec + plan read-only and returns numbered findings in chat.
    - **Claude** (the author) verifies each finding against the repo with the `review-response` skill, integrates
      them, commits `docs: Sprint 144 plan review round N — …`, and updates the log.
@@ -53,7 +53,7 @@ Never rebase this branch.
 |---|---|---|---|
 | 1 | Codex (read-only) | `e6713ca5` (spec + plan) | **integrated**. 11 findings (2 BLOCKING, 7 SHOULD-FIX, 2 NIT), all verified (10 confirmed, F3 partial); see *Round 1 dispositions* |
 | 2 | Codex (read-only) | `ba798c27`, delta vs `6559e7c8` | **integrated**. 8 findings (1 BLOCKING, 6 SHOULD-FIX, 1 NIT), all confirmed; see *Round 2 dispositions* |
-| 3 | Codex (read-only) | the round-2 integration commit, delta vs `ba798c27` | **pending** |
+| 3 | Codex (read-only) | `c3aacdf1`, delta vs `ba798c27` | **integrated: ready for Task 1.** No BLOCKING/SHOULD-FIX. Two NITs fixed: Task 13 records the validated implementation SHA (the PR head is resolved in Task 14), and the Sprint 142 compatibility rewrite moved after Task 7's implementation. Codex also confirmed that restored ballots ignore `joined_at` (`governanceDb.ts:125-129`, `:357-360`) and that the R4 helper needs one client and transaction (now in Task 6) |
 
 ### Round 1 dispositions (2026-11-19)
 
