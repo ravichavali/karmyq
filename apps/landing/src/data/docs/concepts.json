@@ -823,6 +823,14 @@
       "status": "implemented",
       "description": "**Date**: 2026-11-12",
       "filename": "ADR-105-platform-admin-role.md"
+    },
+    {
+      "slug": "adr-106-database-owned-member-count",
+      "number": "106",
+      "title": "ADR-106: Database-Owned Community Member Count",
+      "status": "accepted",
+      "description": "**Date**: 2026-11-19",
+      "filename": "ADR-106-database-owned-member-count.md"
     }
   ]
 }

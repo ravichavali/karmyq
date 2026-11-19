@@ -79,9 +79,25 @@ An active member can use **Leave community** on the community page. A sole admin
 Someone who left can rejoin a public community immediately as an ordinary member, or request approval again for a
 private community. Rejoining never restores their previous moderator or admin role.
 
-Staff removal and join-request rejection are different: they make the membership inactive. A removed or rejected
-person cannot use self-service Join to return and sees a message asking for staff restoration. A current community
-admin or moderator must reactivate that membership.
+Staff removal and join-request rejection are different: they block the membership. A removed or rejected person
+cannot use self-service Join to return; Join asks them to have an admin lift the block. Staff cannot make someone a
+member again without that person's own action. An admin can **lift the block**, and the person then rejoins
+themselves: right away in a public community, or with a new request in a private one. Someone who left rejoins
+themselves; staff cannot restore them. Lifting a block is an admin action through the API; there is no button for it
+yet.
+
+### Approving and rejecting join requests
+
+In a private community, join requests appear under **Pending Requests** on the People tab. Moderators and admins can
+**Approve** or **Reject** them. Approving makes the applicant an ordinary member, whatever role their old record
+carried. Approval counts toward the member cap, so it is refused when the community is full. Rejecting blocks the
+request; the applicant can rejoin only after an admin lifts the block.
+
+Every other change is an admin power: removing a member, lifting a block, and changing someone's role. The community
+always keeps at least one admin, so the last admin cannot be demoted or removed.
+
+The member count on the community page always equals the number of active members. The database keeps it, so every
+join, approval, removal and departure updates it, and two people can never take the last free place at once.
 
 ---
 
@@ -98,8 +114,8 @@ The required number is **20% of those voters, rounded up, with a minimum of thre
 **Ratify**; the screen shows both the live count and the fixed requirement.
 
 Later arrivals cannot vote on that nomination. Votes stop counting when their members leave or become inactive, but
-the target does not shrink. If an original voter rejoins or a steward reactivates them, their existing vote can count
-again. Removed and rejected members still need staff reactivation; self-service Join applies only to members who left.
+the target does not shrink. An original voter's existing vote counts again when they rejoin. For a removed or
+rejected voter, an admin first lifts the block, and the vote counts again once that person rejoins.
 
 When enough previous votes are restored to meet quorum, a prior active voter sees **Finalize decision**.
 Select it to recheck the decision and grant the role if the nominee still qualifies. It does not add a second vote.
