@@ -225,12 +225,7 @@ router.post('/:communityId/members', async (req: Request, res: Response) => {
       return sendValidationError(res, 'Invalid role');
     }
 
-    const callerCheck = await query(
-      `SELECT role FROM communities.members
-       WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
-      [communityId, invited_by]
-    );
-    if (callerCheck.rows[0]?.role !== 'admin') {
+    if ((await getLiveRole(communityId, invited_by)) !== 'admin') {
       return sendForbidden(res, 'Only community admins can add members');
     }
 
@@ -329,6 +324,11 @@ router.put('/:communityId/members/:userId', async (req: Request, res: Response) 
     const parsed = validateStaffBody(req.body);
     if (parsed.kind === 'refuse') return sendRefusal(res, parsed);
 
+    // Early, lock-free refusal: a caller who is not staff now (or a moderator sending a role) never takes
+    // row locks. The authoritative live-role read is repeated below, after the lock.
+    const early = planStaffChange(await getLiveRole(communityId, caller), null, req.body);
+    if (early.kind === 'refuse' && early.http === 403) return sendRefusal(res, early);
+
     const outcome = await withTransaction(async (q) => {
       const { target: targetRow, isSoleActiveAdmin } = await lockTargetAndAdmins(q, communityId, userId);
       const callerRole = await getLiveRole(communityId, caller, q);
@@ -404,24 +404,16 @@ router.delete('/:communityId/members/:userId', async (req: Request, res: Respons
     // Check if self-remove or admin remove
     const isSelfRemove = userId === caller;
 
-    if (!isSelfRemove) {
-      // Verify admin permission for removing others
-      const adminCheck = await query(
-        `SELECT role FROM communities.members
-         WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
-        [communityId, caller]
-      );
-
-      if (adminCheck.rowCount === 0 || adminCheck.rows[0].role !== 'admin') {
-        return res.status(403).json({
-          success: false,
-          message: 'Only admins can remove other members',
-        });
-      }
+    // Removing someone else needs a live admin: an early, lock-free refusal here, and the authoritative
+    // re-read below on the transaction client after the row lock (ADR-102). Every demotion of an admin
+    // locks the same admin rows, so a demotion that commits first is seen there.
+    if (!isSelfRemove && (await getLiveRole(communityId, caller)) !== 'admin') {
+      return sendForbidden(res, 'Only admins can remove other members');
     }
 
     const outcome = await withTransaction(async (q) => {
       const { target, isSoleActiveAdmin } = await lockTargetAndAdmins(q, communityId, userId);
+      if (!isSelfRemove && (await getLiveRole(communityId, caller, q)) !== 'admin') return 'forbidden' as const;
       if (!target) return 'not_found' as const;
       if (isSelfRemove && !canSelfDepart(target.status)) return 'invalid_departure' as const;
       if (isSoleActiveAdmin) return 'last_admin' as const;
@@ -431,6 +423,9 @@ router.delete('/:communityId/members/:userId', async (req: Request, res: Respons
       return { wasActive: target.status === 'active' };
     });
 
+    if (outcome === 'forbidden') {
+      return sendForbidden(res, 'Only admins can remove other members');
+    }
     if (outcome === 'not_found') {
       return res.status(404).json({ success: false, message: 'Member not found' });
     }

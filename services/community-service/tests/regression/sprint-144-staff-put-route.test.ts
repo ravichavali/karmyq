@@ -132,6 +132,22 @@ describe('Sprint 144 DELETE /communities/:communityId/members/:userId canonical 
     expect(memberWrite?.params).toEqual([COMMUNITY, MEMBER, 'inactive']);
   });
 
+  it('re-reads an admin\'s live role on the transaction client after locking, before removing someone (code review #1)', async () => {
+    installDb([
+      { user_id: ADMIN, role: 'admin', status: 'active' },
+      { user_id: MEMBER, role: 'member', status: 'active' },
+    ]);
+    const res = await del(ADMIN, COMMUNITY, MEMBER);
+    expect(res.status).toBe(200);
+    const sql = mockTxQuery.mock.calls.map(([s]) => String(s));
+    const lock = sql.findIndex((s) => /FOR UPDATE/.test(s));
+    const roleRead = sql.findIndex((s) => /SELECT role FROM communities\.members/.test(s));
+    expect(lock).toBe(0);
+    expect(roleRead).toBeGreaterThan(lock);
+    expect(mockTxQuery.mock.calls[roleRead][1]).toEqual([COMMUNITY, ADMIN]);
+    expect(sql.findIndex((s) => /UPDATE communities\.members/.test(s))).toBeGreaterThan(roleRead);
+  });
+
   it.each([
     ['a malformed member id', COMMUNITY, 'not-a-uuid'],
     ['a malformed community id', 'comm-1', MEMBER],
@@ -306,11 +322,26 @@ describe('Sprint 144 PUT /communities/:communityId/members/:userId (transition t
     expect(JSON.stringify(res.body)).not.toMatch(/secret|relation|does not exist/);
   });
 
+  it.each([
+    ['an active member', MEMBER, { status: 'active' }],
+    ['a non-member', '99999999-0000-4000-8000-000000000099', { status: 'active' }],
+    ['a moderator sending role', MOD, { role: 'admin' }],
+  ])('refuses %s with 403 before taking any row lock (code review #3)', async (_label, caller, body) => {
+    staffed([{ user_id: APPLICANT, role: 'member', status: 'pending' }]);
+    const res = await put(caller, COMMUNITY, APPLICANT, body);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('FORBIDDEN');
+    expect(mockTxQuery).not.toHaveBeenCalled();
+  });
+
   it('runs lock, caller-role read, plan and write on the one transaction client, in that order', async () => {
     staffed();
     const res = await put(ADMIN, COMMUNITY, MEMBER, { role: 'moderator' });
     expect(res.status).toBe(200);
-    expect(mockQuery).not.toHaveBeenCalled();
+    // The only pool query is the early, lock-free staff refusal; the authoritative read is below.
+    expect(mockQuery.mock.calls.map(([sql]) => String(sql))).toEqual([
+      expect.stringMatching(/SELECT role FROM communities\.members\s+WHERE community_id = \$1 AND user_id = \$2 AND status = 'active'/),
+    ]);
     const sql = txSql();
     expect(sql).toHaveLength(3);
     expect(sql[0]).toMatch(/user_id=\$2 OR \(role='admin' AND status='active'\)\)\s+ORDER BY user_id FOR UPDATE/);

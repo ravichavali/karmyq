@@ -48,8 +48,11 @@ It applies the row's active-delta, `(NEW is active ? +1 : 0) − (OLD is active 
 community. A `NULL` status is not active. It never clamps: a negative count would expose a bug instead of hiding it.
 
 **Membership rows never move between communities.** The function raises `check_violation` on a `community_id`
-change. No writer does that today (fission and fusion insert new rows), so every firing touches at most one
-community row and no two-community lock order exists.
+change. No writer does that today (fission and fusion insert new rows), so every row firing touches at most one
+community row. One statement that changes member rows in several communities still locks those community rows in
+the order it scans them: for example a user deletion cascading through `members_user_id_fkey`. Two such statements
+running concurrently can deadlock, and PostgreSQL then aborts one of them. No product path issues such a statement.
+The only multi-community member deletion is the simulation's curated reset, and it runs as one transaction.
 
 ### 2. A column guard ignores every other write
 

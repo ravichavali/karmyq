@@ -876,8 +876,10 @@ is 409 (`MEMBER_MUST_REJOIN` for `left`), demoting the sole active admin is 400 
 `FORBIDDEN` for anything but approve and reject; a non-staff caller gets 403; a missing target is 404 `NOT_FOUND`
 (staff callers only). Unexpected failures are 500 `INTERNAL_ERROR` without raw detail.
 
-Inside one transaction the route locks the target plus every active admin in the user-ID-ordered statement shared
-with DELETE, then reads the caller's live role on that client (ADR-102), plans, and writes. Every demotion or
+A caller who is not staff (or a moderator sending `role`) is refused 403 before any lock. Inside one transaction the
+route then locks the target plus every active admin with `lockTargetAndAdmins` (the
+user-ID-ordered statement shared with DELETE), then reads the caller's live role on that client
+(`getLiveRole(communityId, caller, q)`, ADR-102), plans, and writes. Every demotion or
 removal of staff is itself a PUT/DELETE locking the same admin rows, so it serializes with this request. The
 ADR-106 trigger applies any count change. Staff never write `pending` and never return anyone who left or was
 removed: the person rejoins themselves (decision 8).
@@ -891,7 +893,9 @@ Remove member from community (self-leave or admin kick). **Auth required** (rout
 
 **Request:** no body. The caller's identity is taken from the verified JWT (`req.user.userId`),
 **not** from the request body. Self-leave = JWT userId === `:userId`; removing another member
-requires the JWT caller to be an active `admin`. The old `admin_user_id` body field remains ignored.
+requires the JWT caller to be an active `admin`, checked early without locks and then re-read with
+`getLiveRole(communityId, caller, q)` after the row lock (Sprint 144), so an admin demoted while the request waits is
+refused (403). The old `admin_user_id` body field remains ignored.
 
 Path ids are canonicalized (Sprint 144): an uppercase spelling of the caller's own id is self-leave, and a
 malformed id is 400 `VALIDATION_ERROR` before any SQL. Self-leave accepts active or pending rows and records `left`
@@ -1620,7 +1624,7 @@ The PUT and DELETE handlers lock the target and every active admin in one user-I
 the locked rows, comparing canonical ids:
 
 ```typescript
-// src/routes/members.ts — PUT (DELETE uses the same lock statement)
+// src/routes/members.ts — lockTargetAndAdmins(), shared by PUT and DELETE
 const locked = await q(
   `SELECT user_id,role,status FROM communities.members
    WHERE community_id=$1 AND (user_id=$2 OR (role='admin' AND status='active'))

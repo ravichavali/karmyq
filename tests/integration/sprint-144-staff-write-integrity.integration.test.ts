@@ -681,4 +681,32 @@ describe('Sprint 144 staff PUT transition table (BUG-104, BUG-105, decision 8)',
     expect(await count(c)).toBe(2);
     void admin;
   });
+
+  it('refuses an admin whose demotion commits while their member removal waits on the admin locks (code review #1)', async () => {
+    const { c, others: [coAdmin, victim] } = await staffedCommunity({ others: 2 });
+    await setRow(c, coAdmin, 'active', 'admin');
+    expect(await count(c)).toBe(3);
+    // Another admin's PUT demoting coAdmin, paused after its lock: target + active admins, user-id ordered.
+    const demotion = await pool.connect();
+    let removal: Promise<request.Response>;
+    try {
+      await demotion.query('BEGIN');
+      await demotion.query(`SELECT user_id FROM communities.members
+        WHERE community_id=$1 AND (user_id=$2 OR (role='admin' AND status='active')) ORDER BY user_id FOR UPDATE`, [c, coAdmin]);
+      await demotion.query(`UPDATE communities.members SET role='member' WHERE community_id=$1 AND user_id=$2`, [c, coAdmin]);
+      let settled = false;
+      removal = as(coAdmin).del(c, victim).then((r) => r).finally(() => { settled = true; });
+      expect(await lockWaiters(1, () => settled)).toBe(1);
+      await demotion.query('COMMIT');
+    } catch (error) {
+      await demotion.query('ROLLBACK');
+      throw error;
+    } finally {
+      demotion.release();
+    }
+    const res = await removal!;
+    expect(res.status).toBe(403);
+    expect(await memberRow(c, victim)).toEqual({ role: 'member', status: 'active' });
+    expect(await count(c)).toBe(3);
+  });
 });

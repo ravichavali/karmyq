@@ -2888,3 +2888,18 @@ chose to keep it as a documented exception in Sprint 144 (spec decision 10). Ret
 invitation the person accepts, is later work.
 
 ---
+
+## BUG-108 · [2026-11-19] · open
+
+**The duplicate-create join reports `joined: true` for a caller whose existing membership is not active.** Found in
+the Sprint 144 `/code-review` (finding 4); the behavior predates Sprint 144 (ADR-062). `POST /communities` with the
+name and location of an existing public community upserts the caller with `ON CONFLICT (community_id, user_id) DO
+NOTHING` (`services/community-service/src/routes/communities.ts`, duplicate-create join). When the caller already has
+an `inactive` (blocked), `pending` or `left` row, the insert does nothing, yet the response says `joined: true` with
+`role` falling back to `member`. The refreshed token correctly omits the community, so nobody is admitted. But the
+caller is told they joined, and the path skips the rules `POST /communities/:communityId/join` applies. That route
+answers `MEMBERSHIP_RESTORE_REQUIRES_STAFF` for a blocked row, rejoins a `left` row, and refuses a duplicate pending
+request. The fix is to route this case through the join route's `classifyExistingMembership`. Sprint 144 kept the
+existing behavior and only added the capacity post-check and the stored count.
+
+---
