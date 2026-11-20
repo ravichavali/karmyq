@@ -1,11 +1,15 @@
 # Sprint 144 — Staff membership write integrity — Handoff
 
 **Date**: 2026-11-19
-**Outcome**: **IMPLEMENTED; PR #341 open; Codex review done (1 SHOULD-FIX, fixed in a test-only commit). AWAITING a
-scoped Codex re-review of that commit.** Tasks 1–13 of the plan are done on `agent/claude/sprint-144-planning`. The
-validated product SHA is still `91f1ada0`: the review fix changes only the S144 integration test file, and the
-other later commits are handoff-only. **Next: the scoped re-review**, then a Claude chat for Task 14 (merge and
-deploy, each only on explicit maintainer authorization).
+**Outcome**: **IMPLEMENTED and REVIEWED; PR #341 open, ready for Task 14.** Status:
+- The Codex review found 1 SHOULD-FIX, fixed in `c243a4ce` (test-only).
+- The scoped Codex re-review of `c243a4ce` was **clean** (2026-11-19).
+- Tasks 1–13 of the plan are done on `agent/claude/sprint-144-planning`.
+- The validated product SHA is still `91f1ada0`. `c243a4ce` changes only the S144 integration test file; the other
+  later commits are handoff-only.
+
+**Next: a Claude chat for Task 14.** Version, merge slot, merge and deploy each need explicit maintainer
+authorization. The CodeQL dismissals #646–#652 are the maintainer's to make.
 
 > State between sessions only. This branch-local file reserves no contended resource; see
 > `.claude/handoff/README.md` → *Parallel development rules*.
@@ -64,11 +68,18 @@ with the fix: the whole file passes 53/53, including the three race cases that u
 **Test-only change.** `lockWaiters` and `raceOnCommunityRow` take an optional `timeoutMs` (default 15000), so the
 red case fails in 1 s. The disposable container, host scratch and tunnel are torn down; port 55432 is closed.
 
-## Quick Start — step 0: scoped Codex re-review of the review-fix commit (read-only)
+**Re-review:** Codex re-reviewed `c243a4ce` alone and found it **clean**.
 
-Scope: only the review-fix commit (the S144 integration test file). The reviewer does not edit the branch. If it
-comes back clean, continue at step 1 below. If it returns findings, a Claude chat integrates them with
-`review-response` first.
+**CI on `c243a4ce`** (read once, 2026-11-19):
+- Integration Tests: 33 suites / **649** tests (648 + the new case), plus 2 curated-reset tests.
+- Every other job passed. Build Docker Images and Deploy were skipped (as expected on a PR).
+- The only red is the Code Scanning Gate. It is blocked by the same 7 alerts, **#646–#652**, which carried to the
+  shifted lines and gained no new numbers:
+  - `js/missing-rate-limiting` #646–#648 at :128–130;
+  - `js/sql-injection` #649–#652 at :375, :379, :425, :427.
+
+The maintainer dismisses all 7 as `used in tests`. Re-check the gate on the final head, because CodeQL re-raises are
+unpredictable (`feedback_codeql_dismissals_die_on_line_shift`).
 
 ## Quick Start (Claude chat after the re-review = Task 14)
 
@@ -77,15 +88,14 @@ comes back clean, continue at step 1 below. If it returns findings, a Claude cha
 2. `gh pr list --head agent/claude/sprint-144-planning --json number,headRefOid,state`. Then read the PR's **real**
    CI. `gh pr checks` alone is not evidence (`feedback_checks_list_hides_uncreated_jobs`). Check the run conclusion,
    the job count, and these jobs' own logs:
-   - **Integration Tests**: suite/test counts. This is the first run of every services/Redis suite under the column
-     guard (decision 11). The S126 backfill/schema, rls-policies and S134-L2 suites also run here first; they are
-     DB-only but too slow over the SSH tunnel.
+   - **Integration Tests**: suite/test counts. Expect 33 suites / 649 tests plus 2 curated-reset tests; that was the
+     result on `c243a4ce`. Any lower number on a later head is a regression.
    - **Code Scanning Gate** + the analysis's check-run annotations.
    - **Regenerate and verify init.sql**: the byte comparison against the base.
 3. Fix forward any red with `review-response`. Note 2's fixture rules apply: create rows or lower `max_members`, and
    never set a count. Update the PR's Validation ledger and this handoff.
-4. List CodeQL annotations for the maintainer to dismiss in the UI. On `653a877d` these are the 7 test-file alerts
-   in *CI on `653a877d`* above, all `used in tests`. Re-read them on the final head. Never dismiss them yourself.
+4. List CodeQL annotations for the maintainer to dismiss in the UI. On `c243a4ce` these are #646–#652, the 7
+   test-file alerts listed above, all `used in tests`. Re-read them on the final head. Never dismiss them yourself.
 5. Only on explicit maintainer authorization: version + merge slot (re-derive the bump from `origin/master`), merge
    (`--admin` needs its own yes), deploy watch, smoke, post-merge record on the NEXT branch (plan Task 14).
 
