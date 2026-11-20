@@ -157,8 +157,8 @@ async function staffedCommunity(opts: { others?: number; max?: number; access?: 
 }
 
 /** Poll until `expected` backends wait on a lock in a communities.members statement (or give up). */
-async function lockWaiters(expected: number, done: () => boolean): Promise<number> {
-  const deadline = Date.now() + 15000;
+async function lockWaiters(expected: number, done: () => boolean, timeoutMs = 15000): Promise<number> {
+  const deadline = Date.now() + timeoutMs;
   let waiting = 0;
   while (waiting < expected && !done() && Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 50));
@@ -175,20 +175,22 @@ async function lockWaiters(expected: number, done: () => boolean): Promise<numbe
  * PUT blocks in its UPDATE and the second waits on the admin rows in lockTargetAndAdmins. Every admission
  * has passed the pre-write "is it full?" read by then.
  */
-async function raceOnCommunityRow<T>(c: string, waiters: number, fire: () => Promise<T>): Promise<T> {
+async function raceOnCommunityRow<T>(c: string, waiters: number, fire: () => Promise<T>, timeoutMs = 15000): Promise<T> {
   const barrier = await pool.connect();
+  let pending: Promise<T> | undefined;
   try {
     await barrier.query('BEGIN');
     await barrier.query(`SELECT 1 FROM communities.communities WHERE id=$1 FOR UPDATE`, [c]);
     let settled = false;
-    const pending = fire().finally(() => { settled = true; });
-    const waiting = await lockWaiters(waiters, () => settled);
-    expect(waiting).toBe(waiters);
-    await barrier.query('ROLLBACK');
-    return await pending;
+    pending = fire().finally(() => { settled = true; });
+    expect(await lockWaiters(waiters, () => settled, timeoutMs)).toBe(waiters);
   } finally {
-    barrier.release();
+    // Unlock first, unconditionally: a failed count above must not return a locked client to the pool (PR #341
+    // review). A client whose ROLLBACK fails is destroyed, which ends its transaction too. Then settle the admissions.
+    barrier.release(await barrier.query('ROLLBACK').then(() => undefined, (error: Error) => error));
+    await pending?.catch(() => undefined);
   }
+  return pending!;
 }
 
 describe('Sprint 144 database role evidence', () => {
@@ -712,5 +714,23 @@ describe('Sprint 144 staff PUT transition table (BUG-104, BUG-105, decision 8)',
     expect(res.status).toBe(403);
     expect(await memberRow(c, victim)).toEqual({ role: 'member', status: 'active' });
     expect(await count(c)).toBe(3);
+  });
+});
+
+describe('Sprint 144 race barrier', () => {
+  it('unlocks the row, settles the admission and leaves no open transaction when its waiter count fails (PR #341 review)', async () => {
+    const c = await community();
+    const [joiner] = await users(1);
+    // Two waiters are expected but only one join is fired, so the barrier's own assertion fails.
+    await expect(raceOnCommunityRow(c, 2, () => as(joiner).join(c).then((r) => r), 1000)).rejects.toThrow(/Expected: 2/);
+    // joined: the join had run to completion before the barrier rejected (let through, not left blocked).
+    // The other two are probed through community-service's pool: the test pool could hand back the barrier client.
+    expect({
+      joined: await memberRow(c, joiner),
+      idleInTransaction: (await servicePool.query(`SELECT count(*)::int AS n FROM pg_stat_activity
+        WHERE datname=current_database() AND state LIKE 'idle in transaction%'`)).rows[0].n,
+      rowLock: await servicePool.query(`SELECT 1 FROM communities.communities WHERE id=$1 FOR UPDATE NOWAIT`, [c])
+        .then(() => 'free', (error: { code?: string }) => error.code),
+    }).toEqual({ joined: { role: 'member', status: 'active' }, idleInTransaction: 0, rowLock: 'free' });
   });
 });

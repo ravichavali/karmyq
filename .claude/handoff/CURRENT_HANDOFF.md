@@ -1,10 +1,11 @@
 # Sprint 144 — Staff membership write integrity — Handoff
 
 **Date**: 2026-11-19
-**Outcome**: **IMPLEMENTED; PR #341 open, AWAITING CROSS-AGENT REVIEW (Codex).** Tasks 1–13 of the plan are done on
-`agent/claude/sprint-144-planning`. The validated implementation SHA is `91f1ada0`; every later commit is
-handoff-only. **Next: a read-only Codex review of PR #341**, then a Claude chat that integrates its findings and runs
-Task 14 (merge and deploy, each only on explicit maintainer authorization).
+**Outcome**: **IMPLEMENTED; PR #341 open; Codex review done (1 SHOULD-FIX, fixed in a test-only commit). AWAITING a
+scoped Codex re-review of that commit.** Tasks 1–13 of the plan are done on `agent/claude/sprint-144-planning`. The
+validated product SHA is still `91f1ada0`: the review fix changes only the S144 integration test file, and the
+other later commits are handoff-only. **Next: the scoped re-review**, then a Claude chat for Task 14 (merge and
+deploy, each only on explicit maintainer authorization).
 
 > State between sessions only. This branch-local file reserves no contended resource; see
 > `.claude/handoff/README.md` → *Parallel development rules*.
@@ -34,17 +35,42 @@ Never rebase this branch.
   `tests/integration/sprint-144-staff-write-integrity.integration.test.ts`; none are in product code:**
   - `js/missing-rate-limiting` at :128, :129, :130. These are the test's own in-process Express app (`app.use(...)`).
   - `js/sql-injection` at :373, :377, :423, :425. Each is `query(migrationText())` replaying the repo's migration file.
+    After the review fix these lines are :375, :379, :425, :427.
 
   Both classes are the recurring test-only false positives; dismiss them as `used in tests`. The maintainer does this
   in the UI. The PR body's prediction of rate-limiting alerts on `members.ts`/`communities.ts` lines was wrong.
-  Dismiss **after the final head**: a push that shifts these lines can re-raise them.
+  Codex agreed, naming them as alerts **#646–#652**. Dismiss them **after the final head**: a push that shifts
+  these lines can re-raise them.
 
-## Quick Start — step 0: Codex review of PR #341 (read-only)
+## Codex review of PR #341 (2026-11-19, head `3ff1be7b`)
 
-The reviewer does not edit the branch. Findings go to the PR or to the maintainer as a list. The next Claude chat
-integrates them with `review-response`, then continues at step 1 below.
+**Verdict:** 1 SHOULD-FIX and no other in-scope correctness findings. Codex also checked CI on `653a877d`:
+- all 8 pipeline jobs;
+- Integration Tests: 33 suites / 648 tests, plus 2 curated-reset tests;
+- the independent-base `init.sql` byte check passed;
+- alerts #646–#652 are `used in tests`.
 
-## Quick Start (Claude chat after the review = findings + Task 14)
+**The finding.** `raceOnCommunityRow` in the S144 integration file called `ROLLBACK` only after its waiter assertion
+passed. When that assertion failed, it released a client still holding the community row lock back to the test
+pool. **Verdict: CONFIRMED.**
+
+**The fix.** The helper's `finally` now always rolls back before releasing the client. A client whose `ROLLBACK`
+fails is destroyed. The helper then waits for the in-flight requests to finish.
+
+**The proof.** A new case, `Sprint 144 race barrier`, fires one join where the barrier expects two waiters. Red on
+the old helper (disposable DB, `--no-cache`): `{joined: undefined, idleInTransaction: 1, rowLock: '55P03'}`. Green
+with the fix: the whole file passes 53/53, including the three race cases that use the helper's success path.
+
+**Test-only change.** `lockWaiters` and `raceOnCommunityRow` take an optional `timeoutMs` (default 15000), so the
+red case fails in 1 s. The disposable container, host scratch and tunnel are torn down; port 55432 is closed.
+
+## Quick Start — step 0: scoped Codex re-review of the review-fix commit (read-only)
+
+Scope: only the review-fix commit (the S144 integration test file). The reviewer does not edit the branch. If it
+comes back clean, continue at step 1 below. If it returns findings, a Claude chat integrates them with
+`review-response` first.
+
+## Quick Start (Claude chat after the re-review = Task 14)
 
 1. `git switch agent/claude/sprint-144-planning && git fetch origin && git log --oneline origin/master -3`. If master
    moved past `a2746057`, merge it with a merge commit (never rebase). Re-run the root gates afterwards.
