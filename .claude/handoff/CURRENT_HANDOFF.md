@@ -48,7 +48,7 @@ Never rebase this branch.
 
 | Commit | What |
 |---|---|
-| `2dd9f214` | **First commit:** `next` 16.4.6 lock splice for GHSA-mfr8-8qww-v76h / GHSA-vc7v-qv4w-wrv8 (Dependabot #185/#186) |
+| `2dd9f214` | **First commit:** `next` 16.4.6 lock splice for GHSA-mfr8-8qww-v76h / GHSA-vc7v-qv4w-wrv8 (Dependabot #185/#186); it also covers **#187** GHSA-vvgp-ww4w-46vf (opened 2026-11-19T23:59Z, `>=16.4.0 <=16.4.4`), confirmed by a fresh `npm audit` (total 0) on the branch |
 | `a198b3a4` | `canonicalUuid` + DELETE/staff-POST canonical ids; note-3(a) UUID fixtures (sprint-92/93/132) |
 | `f26507f4` | Pure staff transition table `planStaffChange` |
 | `f6c29023`, `efa3deff` | Migration `20261119-community-member-count-trigger.sql` (sync trigger, column guard, recount; ADR-106) + workflow-regenerated `init.sql` |
@@ -190,7 +190,7 @@ Never rebase this branch.
   - the demo platform-admin grant and smoke check (separate authorization);
   - `deepmerge` #178 re-check by 2026-12-01 or at the next Expo SDK move.
 - **Dependabot:** #339 (`next` 16.4.6, nests `next` under `apps/*` and fails the lint-config gate) is not used.
-  Closing it after the merge is the maintainer's call. #185/#186 should show `fixed` after deploy.
+  Closing it after the merge is the maintainer's call. #185/#186/#187 should show `fixed` after deploy.
 
 ## At deploy (plan Task 14)
 
@@ -220,6 +220,6 @@ Never rebase this branch.
   - a full services/Redis test stack;
   - the demo platform-admin grant;
   - CodeQL dismissals (maintainer, in the UI).
-- **SLA:** merge by **2026-12-01** (MEDIUM advisories #185/#186).
+- **SLA:** merge by **2026-12-01** (MEDIUM advisories #185/#186; #187, opened 2026-11-19, is covered by the same splice and its SLA ends 2026-12-03).
 
 ⚠️ GitHub status goes stale. Re-derive PR, CI and deploy state before acting on this handoff.
