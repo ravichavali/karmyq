@@ -169,9 +169,11 @@ async function lockWaiters(expected: number, done: () => boolean): Promise<numbe
 }
 
 /**
- * Force the race the post-check exists for: hold the community row lock, start the admissions,
- * wait until `waiters` of them are blocked inside the sync trigger's UPDATE, then release. Every
- * admission has passed the pre-write "is it full?" read by then.
+ * Force the race the post-check exists for: hold the community row lock, start the admissions, wait until
+ * `waiters` of them are blocked on a communities.members statement, then release. A join or staff add blocks
+ * at its member INSERT (the foreign-key check on the locked community row); in the approve race the first
+ * PUT blocks in its UPDATE and the second waits on the admin rows in lockTargetAndAdmins. Every admission
+ * has passed the pre-write "is it full?" read by then.
  */
 async function raceOnCommunityRow<T>(c: string, waiters: number, fire: () => Promise<T>): Promise<T> {
   const barrier = await pool.connect();
@@ -588,7 +590,9 @@ describe('Sprint 144 staff PUT transition table (BUG-104, BUG-105, decision 8)',
     expect(await count(c)).toBe(access === 'public' ? 3 : 2);
   });
 
-  it('applies the capacity post-check to a lifted person\'s own rejoin', async () => {
+  // The community is already full when the person rejoins, so the pre-write refusal answers here; the post-check's
+  // placement on the rejoin path is pinned by the mocked "checks a public rejoin after its UPDATE" case.
+  it('refuses a lifted person\'s own rejoin into a full community and keeps the row left', async () => {
     const { c, admin, others: [person] } = await staffedCommunity({ others: 2, max: 3 });
     await setRow(c, person, 'inactive');
     expect((await as(admin).put(c, person, { status: 'left' })).status).toBe(200);

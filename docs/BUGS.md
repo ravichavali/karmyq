@@ -2852,9 +2852,10 @@ to log this separately rather than expand PR #340.
 
 **Resolution (Sprint 144, decisions 4 and 8):** the PUT executes the transition table in
 `services/community-service/src/utils/staffTransitions.ts`. Moderators may only approve (`pending → active`, which
-writes `role='member'`) and reject (`pending → inactive`); every other transition is admin-only (403 `FORBIDDEN`).
-Nobody reactivates: `inactive → active` is 409, and an admin instead lifts the block (`inactive → left`, role reset
-to `member`) so the person rejoins themselves. The caller's live role is read inside the locked transaction. Proof:
+writes `role='member'`) and reject (`pending → inactive`). Any other moderator request is 403 `FORBIDDEN`, except
+that a request against a `left` row or a same-state retry is 409 for every caller. Nobody reactivates:
+`inactive → active` is 409 for an admin (403 for a moderator), and an admin instead lifts the block
+(`inactive → left`, role reset to `member`) so the person rejoins themselves. The caller's live role is read inside the locked transaction. Proof:
 the real-DB cases "refuses a moderator trying to lift the block on / reactivate an inactive stored admin", "refuses a
 moderator deactivating a non-last admin" and the Codex F3 lift-then-rejoin path, plus
 `services/community-service/tests/regression/sprint-144-staff-transitions.test.ts`.

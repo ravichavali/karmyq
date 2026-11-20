@@ -866,15 +866,18 @@ Status transitions (`src/utils/staffTransitions.ts`, `planStaffChange`):
 | `pending` → `inactive` (reject) | admin or moderator | role unchanged |
 | `active` → `inactive` (deactivate) | admin only | 400 `LAST_ADMIN` for the sole active admin |
 | `inactive` → `left` (lift the block) | admin only | role set to `member`; admits nobody, the person rejoins via `POST /join` |
-| `inactive` → `active` | — | 409 `INVALID_MEMBERSHIP_TRANSITION` (lift the block instead) |
-| `active`/`pending` → `left` | — | 409 `INVALID_MEMBERSHIP_TRANSITION` (only the member leaves) |
-| `left` → anything, incl. `left` | — | 409 `MEMBER_MUST_REJOIN` (checked before same-state) |
-| same state | — | 409 `INVALID_MEMBERSHIP_TRANSITION` (a retry) |
+| `inactive` → `active` | nobody | admin: 409 `INVALID_MEMBERSHIP_TRANSITION` (lift the block instead); moderator: 403 |
+| `active`/`pending` → `left` | nobody | admin: 409 `INVALID_MEMBERSHIP_TRANSITION` (only the member leaves); moderator: 403 |
+| `left` → anything, incl. `left` | nobody | 409 `MEMBER_MUST_REJOIN` for every staff caller (checked first) |
+| same state | nobody | 409 `INVALID_MEMBERSHIP_TRANSITION` for every staff caller (a retry; checked second) |
 
+Check order for a staff caller: a `left` target (409), then same state (409), then the transition. So a moderator
+retrying a reject gets 409, but any other moderator request than approve or reject gets 403 `FORBIDDEN` (decision 4;
+the spec's table listed `inactive → active` as 409 for everyone, and Sprint 144 ruled moderators get 403 there).
 Role changes are for an **active admin caller and an active target** only: same role is 409, a non-active target
-is 409 (`MEMBER_MUST_REJOIN` for `left`), demoting the sole active admin is 400 `LAST_ADMIN`. A moderator gets 403
-`FORBIDDEN` for anything but approve and reject; a non-staff caller gets 403; a missing target is 404 `NOT_FOUND`
-(staff callers only). Unexpected failures are 500 `INTERNAL_ERROR` without raw detail.
+is 409 (`MEMBER_MUST_REJOIN` for `left`), demoting the sole active admin is 400 `LAST_ADMIN`; a moderator sending
+`role` gets 403. A non-staff caller gets 403; a missing target is 404 `NOT_FOUND` (staff callers only). A malformed
+body is 400 before the caller is checked. Unexpected failures are 500 `INTERNAL_ERROR` without raw detail.
 
 A caller who is not staff (or a moderator sending `role`) is refused 403 before any lock. Inside one transaction the
 route then locks the target plus every active admin with `lockTargetAndAdmins` (the
@@ -1603,7 +1606,8 @@ if (category && !COMMUNITY_CATEGORIES.includes(category)) {
 ## Security Considerations
 
 ### Dunbar's Number Enforcement
-- `max_members` caps a community at 150 or fewer active members, to keep it small enough that people know each other.
+- `max_members` caps a community's active members, to keep it small enough that people know each other. Community
+  create validates it to 1–150; `PUT /communities/:id` does not re-validate it (pre-existing).
 - There is **no database constraint** on the cap. The application enforces it atomically (Sprint 144, ADR-106):
   every admitting path runs `assertWithinCapacity` after its member write, on the same transaction client, and a
   `CommunityFullError` rolls the write back with 400 `COMMUNITY_FULL`. The sync trigger's `UPDATE` holds the

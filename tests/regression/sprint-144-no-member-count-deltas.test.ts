@@ -10,14 +10,22 @@
  * `current_members`, plus `current_members +=` / `-=`. A converging recompute whose right-hand side
  * is a count(*) subquery that never names the column is allowed (fission/fusion, D7).
  *
- * Scope: services/* /src, apps/* /src and packages/* /src — SQL strings and JavaScript alike.
+ * Scope: every source file of every services/*, apps/* and packages/* workspace — SQL strings and JavaScript
+ * alike — except dependencies, build output and test directories. (The spec named each workspace's src folder;
+ * apps/mobile keeps its
+ * code in app/, services/ and components/, and packages/shared in api/, events/, middleware/ and utils/, so the
+ * scan covers workspace roots.)
  */
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, relative, resolve } from 'path';
 
 const ROOT = resolve(__dirname, '../..');
 const EXTENSIONS = /\.(ts|tsx|js)$/;
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '.next', 'coverage']);
+const SKIP_DIRS = new Set([
+  'node_modules', 'dist', 'build', '.next', '.expo', '.turbo', 'coverage', 'out',
+  // Tests may spell the forbidden forms on purpose (fixtures, mocked SQL); generated landing data is JSON.
+  'tests', '__tests__', 'data',
+]);
 
 type Finding = { file: string; line: number; text: string };
 
@@ -69,10 +77,8 @@ function scanRoots(): string[] {
   const roots: string[] = [];
   for (const group of ['services', 'apps', 'packages']) {
     for (const workspace of readdirSync(join(ROOT, group))) {
-      const src = join(ROOT, group, workspace, 'src');
-      try {
-        if (statSync(src).isDirectory()) roots.push(src);
-      } catch { /* a workspace without src/ */ }
+      const dir = join(ROOT, group, workspace);
+      if (statSync(dir).isDirectory() && !SKIP_DIRS.has(workspace)) roots.push(dir);
     }
   }
   return roots;
@@ -137,14 +143,24 @@ describe('Sprint 144 counter-delta detector', () => {
 });
 
 describe('Sprint 144 gate: no hand-written member-count arithmetic (ADR-106)', () => {
-  it('scans every services, apps and packages source tree', () => {
+  it('scans every services, apps and packages workspace root, including code outside src/', () => {
     const roots = scanRoots().map((root) => relative(ROOT, root).replace(/\\/g, '/'));
     expect(roots).toEqual(expect.arrayContaining([
-      'services/community-service/src',
-      'services/social-graph-service/src',
-      'apps/frontend/src',
-      'packages/shared/src',
+      'services/community-service',
+      'services/social-graph-service',
+      'services/simulation-service',
+      'apps/frontend',
+      'apps/mobile',
+      'packages/shared',
     ]));
+    const files = roots.flatMap((root) => sourceFiles(join(ROOT, root)))
+      .map((file) => relative(ROOT, file).replace(/\\/g, '/'));
+    expect(files).toEqual(expect.arrayContaining([
+      'services/community-service/src/routes/members.ts',
+      'packages/shared/events/routes.ts',
+      'apps/mobile/services/api.ts',
+    ]));
+    expect(files.some((file) => /\/(node_modules|tests|\.next)\//.test(file))).toBe(false);
   });
 
   it('finds no self-referential current_members assignment', () => {

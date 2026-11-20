@@ -166,7 +166,7 @@
         {
           "method": "PUT",
           "path": "/communities/:communityId/members/:userId",
-          "description": "Staff change to another member as a transition table (Sprint 144: BUG-104, BUG-105, decision 8). Body is exactly one of status (active|inactive|left) or role (member|moderator|admin); canonical path ids; malformed input is 400 before SQL. Moderators approve (pending->active, role reset to member, capacity re-check) and reject (pending->inactive) only; admins also deactivate (last-admin 400 LAST_ADMIN), lift a block (inactive->left, role member) and change roles of active members. inactive->active and active/pending->left are 409 INVALID_MEMBERSHIP_TRANSITION; any request on a left row is 409 MEMBER_MUST_REJOIN. Live caller role is read inside the locked transaction (ADR-102)."
+          "description": "Staff change to another member as a transition table (Sprint 144: BUG-104, BUG-105, decision 8). Body is exactly one of status (active|inactive|left) or role (member|moderator|admin); canonical path ids; malformed input is 400 before SQL. Moderators approve (pending->active, role reset to member, capacity re-check) and reject (pending->inactive) only; admins also deactivate (last-admin 400 LAST_ADMIN), lift a block (inactive->left, role member) and change roles of active members. a request on a left row (409 MEMBER_MUST_REJOIN) and a same-state retry (409) are refused first for every caller; then inactive->active and active/pending->left are 409 INVALID_MEMBERSHIP_TRANSITION for an admin and 403 for a moderator (any moderator request other than approve/reject is 403). Live caller role is read inside the locked transaction (ADR-102)."
         },
         {
           "method": "POST",

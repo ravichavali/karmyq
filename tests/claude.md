@@ -117,6 +117,12 @@ cd tests/load && npm install && npm test              # npx ts-node load-test.ts
 
 ## Fixtures (`fixtures/index.ts`)
 
+⚠️ **`communities.communities.current_members` cannot be set by a fixture** (ADR-106). A trigger counts active
+`communities.members` rows, and a column guard stores `0` on INSERT and ignores any other write. Create the active
+rows to get a count, and lower `max_members` to get a full community. A test that deliberately needs a wrong cached
+count sets `karmyq.member_count_sync` to `'on'` on one checked-out client inside one transaction, as
+`integration/sprint-134-pr-l2-health.integration.test.ts` does.
+
 Class factories, not standalone helpers:
 
 ```typescript

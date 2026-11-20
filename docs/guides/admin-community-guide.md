@@ -97,7 +97,9 @@ Every other change is an admin power: removing a member, lifting a block, and ch
 always keeps at least one admin, so the last admin cannot be demoted or removed.
 
 The member count on the community page always equals the number of active members. The database keeps it, so every
-join, approval, removal and departure updates it, and two people can never take the last free place at once.
+join, approval, removal and departure updates it. Joining, approval and an admin adding someone directly all check
+the cap at the moment they admit the person, so two of them can never take the last free place at once. Accepting
+an invitation does not check the cap yet, and merging two communities can go over it.
 
 ---
 
