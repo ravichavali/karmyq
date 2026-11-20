@@ -1,10 +1,10 @@
 # Sprint 144 — Staff membership write integrity — Handoff
 
 **Date**: 2026-11-19
-**Outcome**: **IMPLEMENTED; PR opening.** Tasks 1–13 of the plan are done on `agent/claude/sprint-144-planning`. The
-validated implementation SHA is `91f1ada0`, the head before this handoff commit. The PR is opened from this
-branch as the execution chat's last action. **Next: Task 14 (next chat)**: read the PR's real CI, fix forward, then
-merge and deploy, each only on explicit maintainer authorization.
+**Outcome**: **IMPLEMENTED; PR #341 open, AWAITING CROSS-AGENT REVIEW (Codex).** Tasks 1–13 of the plan are done on
+`agent/claude/sprint-144-planning`. The validated implementation SHA is `91f1ada0`; every later commit is
+handoff-only. **Next: a read-only Codex review of PR #341**, then a Claude chat that integrates its findings and runs
+Task 14 (merge and deploy, each only on explicit maintainer authorization).
 
 > State between sessions only. This branch-local file reserves no contended resource; see
 > `.claude/handoff/README.md` → *Parallel development rules*.
@@ -15,7 +15,7 @@ merge and deploy, each only on explicit maintainer authorization.
 |---|---|
 | **Branch** | `agent/claude/sprint-144-planning` (planning + execution), pushed with upstream |
 | **Base** | `origin/master` `a2746057` (Sprint 143 #340, v11.116.0), unchanged through execution (re-fetched 2026-11-19) |
-| **PR** | opening from this branch; resolve the real number and head with `gh pr list --head agent/claude/sprint-144-planning` |
+| **PR** | **#341**, opened 2026-11-19; confirm the live head with `gh pr list --head agent/claude/sprint-144-planning` |
 | **Spec** | `docs/superpowers/specs/2026-11-19-sprint-144-staff-write-integrity-design.md` (decisions 1–11, D1–D8, notes 1–14) |
 | **Plan** | `docs/superpowers/plans/2026-11-19-sprint-144-staff-write-integrity.md` (Task 14 is next) |
 | **Ledger** | `.superpowers/sdd/2026-11-19-sprint-144-staff-write-integrity/progress.md` (git-ignored, Windows box only; its essentials are copied below) |
@@ -24,7 +24,27 @@ merge and deploy, each only on explicit maintainer authorization.
 
 Never rebase this branch.
 
-## Quick Start (next chat = Task 14)
+## CI on `653a877d` (read 2026-11-19, after the PR opened)
+
+- **Integration Tests: success, 33 suites / 648 tests.** This is the first run of the services/Redis suites under the
+  column guard; S126 backfill + schema, S134-L2, S142, S143 and S144 all passed.
+- **Regenerate and verify init.sql: success.** Every other job passed; Build Docker Images and Deploy were skipped (as
+  expected on a PR).
+- **CodeQL / Code Scanning Gate (ADR-060): FAILURE, 7 alerts, all in
+  `tests/integration/sprint-144-staff-write-integrity.integration.test.ts`; none are in product code:**
+  - `js/missing-rate-limiting` at :128, :129, :130. These are the test's own in-process Express app (`app.use(...)`).
+  - `js/sql-injection` at :373, :377, :423, :425. Each is `query(migrationText())` replaying the repo's migration file.
+
+  Both classes are the recurring test-only false positives; dismiss them as `used in tests`. The maintainer does this
+  in the UI. The PR body's prediction of rate-limiting alerts on `members.ts`/`communities.ts` lines was wrong.
+  Dismiss **after the final head**: a push that shifts these lines can re-raise them.
+
+## Quick Start — step 0: Codex review of PR #341 (read-only)
+
+The reviewer does not edit the branch. Findings go to the PR or to the maintainer as a list. The next Claude chat
+integrates them with `review-response`, then continues at step 1 below.
+
+## Quick Start (Claude chat after the review = findings + Task 14)
 
 1. `git switch agent/claude/sprint-144-planning && git fetch origin && git log --oneline origin/master -3`. If master
    moved past `a2746057`, merge it with a merge commit (never rebase). Re-run the root gates afterwards.
@@ -38,9 +58,8 @@ Never rebase this branch.
    - **Regenerate and verify init.sql**: the byte comparison against the base.
 3. Fix forward any red with `review-response`. Note 2's fixture rules apply: create rows or lower `max_members`, and
    never set a count. Update the PR's Validation ledger and this handoff.
-4. List CodeQL annotations for the maintainer to dismiss in the UI (expected: `js/missing-rate-limiting` on the
-   touched route lines in `members.ts`/`communities.ts` → `false positive`; test migration-reads → `used in tests`).
-   Never dismiss them yourself.
+4. List CodeQL annotations for the maintainer to dismiss in the UI. On `653a877d` these are the 7 test-file alerts
+   in *CI on `653a877d`* above, all `used in tests`. Re-read them on the final head. Never dismiss them yourself.
 5. Only on explicit maintainer authorization: version + merge slot (re-derive the bump from `origin/master`), merge
    (`--admin` needs its own yes), deploy watch, smoke, post-merge record on the NEXT branch (plan Task 14).
 
