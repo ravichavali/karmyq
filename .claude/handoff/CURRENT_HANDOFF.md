@@ -1,15 +1,17 @@
 # Sprint 144 — Staff membership write integrity — Handoff
 
 **Date**: 2026-11-19
-**Outcome**: **IMPLEMENTED and REVIEWED; PR #341 open, ready for Task 14.** Status:
+**Outcome**: **Task 14 IN PROGRESS. v11.117.0 and the merge slot are allocated; PR #341 is waiting for merge
+authorization.** Status:
 - The Codex review found 1 SHOULD-FIX, fixed in `c243a4ce` (test-only).
 - The scoped Codex re-review of `c243a4ce` was **clean** (2026-11-19).
 - Tasks 1–13 of the plan are done on `agent/claude/sprint-144-planning`.
-- The validated product SHA is still `91f1ada0`. `c243a4ce` changes only the S144 integration test file; the other
-  later commits are handoff-only.
+- The validated product SHA is still `91f1ada0`. `c243a4ce` changes only the S144 integration test file. The other
+  later commits are handoff-only, apart from the `chore(release): v11.117.0` bump, which changes version fields only.
+- CI on `d280a0b1` is fully green (attempt 2), and the maintainer dismissed #646–#652 (see *CI on `d280a0b1`*).
 
-**Next: a Claude chat for Task 14.** Version, merge slot, merge and deploy each need explicit maintainer
-authorization. The CodeQL dismissals #646–#652 are the maintainer's to make.
+**Next: the release head's CI + CodeQL re-read, then the merge ask.** Merge (`--admin` needs its own yes) and the
+deploy watch each need explicit maintainer authorization.
 
 > State between sessions only. This branch-local file reserves no contended resource; see
 > `.claude/handoff/README.md` → *Parallel development rules*.
@@ -24,7 +26,7 @@ authorization. The CodeQL dismissals #646–#652 are the maintainer's to make.
 | **Spec** | `docs/superpowers/specs/2026-11-19-sprint-144-staff-write-integrity-design.md` (decisions 1–11, D1–D8, notes 1–14) |
 | **Plan** | `docs/superpowers/plans/2026-11-19-sprint-144-staff-write-integrity.md` (Task 14 is next) |
 | **Ledger** | `.superpowers/sdd/2026-11-19-sprint-144-staff-write-integrity/progress.md` (git-ignored, Windows box only; its essentials are copied below) |
-| **Release** | provisional v11.117.0; the maintainer allocates the version and merge slot at merge time |
+| **Release** | **v11.117.0, allocated by the maintainer 2026-11-19 with the merge slot**, re-derived from `origin/master` `a2746057` (v11.116.0) |
 | **Dependency lane** | Claude (maintainer-designated); `next` 16.4.6 is the first commit (`2dd9f214`) |
 
 Never rebase this branch.
@@ -81,23 +83,44 @@ red case fails in 1 s. The disposable container, host scratch and tunnel are tor
 The maintainer dismisses all 7 as `used in tests`. Re-check the gate on the final head, because CodeQL re-raises are
 unpredictable (`feedback_codeql_dismissals_die_on_line_shift`).
 
-## Quick Start (Claude chat after the re-review = Task 14)
+## CI on `d280a0b1` (Task 14 chat, read 2026-11-20 UTC)
 
-1. `git switch agent/claude/sprint-144-planning && git fetch origin && git log --oneline origin/master -3`. If master
-   moved past `a2746057`, merge it with a merge commit (never rebase). Re-run the root gates afterwards.
-2. `gh pr list --head agent/claude/sprint-144-planning --json number,headRefOid,state`. Then read the PR's **real**
-   CI. `gh pr checks` alone is not evidence (`feedback_checks_list_hides_uncreated_jobs`). Check the run conclusion,
-   the job count, and these jobs' own logs:
-   - **Integration Tests**: suite/test counts. Expect 33 suites / 649 tests plus 2 curated-reset tests; that was the
-     result on `c243a4ce`. Any lower number on a later head is a regression.
-   - **Code Scanning Gate** + the analysis's check-run annotations.
-   - **Regenerate and verify init.sql**: the byte comparison against the base.
-3. Fix forward any red with `review-response`. Note 2's fixture rules apply: create rows or lower `max_members`, and
-   never set a count. Update the PR's Validation ledger and this handoff.
-4. List CodeQL annotations for the maintainer to dismiss in the UI. On `c243a4ce` these are #646–#652, the 7
-   test-file alerts listed above, all `used in tests`. Re-read them on the final head. Never dismiss them yourself.
-5. Only on explicit maintainer authorization: version + merge slot (re-derive the bump from `origin/master`), merge
-   (`--admin` needs its own yes), deploy watch, smoke, post-merge record on the NEXT branch (plan Task 14).
+Workflow runs on `d280a0b1`:
+- **CI/CD Pipeline 44684595072, attempt 2: success, 14 jobs.** 13 passed and Deploy to Demo was skipped (as
+  expected on a PR).
+  - Attempt 1 was red only on the Code Scanning Gate. At 06:00Z it listed #646–#652 as open, at :128–130 and
+    :375/:379/:425/:427.
+  - The maintainer dismissed all 7 as `used in tests` at 06:10:59Z (`dismissed_by` ravichavali, read via the alerts
+    API). The agent dismissed nothing.
+  - Only the failed job was re-run: `gh run rerun --failed`. This was safe because `build-images` uses
+    `push: false` and `deploy-demo` requires a master push. The gate then read "0 open critical/high".
+- **Integration Tests: 33 suites / 649 passed**, plus `tdd/sprint-117-demo-reset` 1 suite / 2 passed.
+- **Regenerate init.sql 44684595049: success.** It was seeded from base `a2746057`, and the committed `init.sql` is
+  byte-identical to the canonical regeneration.
+- **Tests 44684595047** (3 jobs) and **PR Contract**: success.
+- **CodeQL check run:** 7 annotations, exactly #646–#652; no new alerts. Open alerts are 0 on `refs/pull/341/head`
+  and 0 on master.
+- **Dependabot #185/#186/#187: still `open`.** This is expected until the splice reaches master.
+- **Open PRs:** #341, and Dependabot #339 (unused). No other lane is open.
+
+## Quick Start (after the v11.117.0 bump = rest of Task 14)
+
+1. `git fetch origin && git log --oneline origin/master -1`. If master moved past `a2746057`, **stop**: the bump
+   must be re-derived. Merge master with a merge commit (never rebase) and re-run the root gates.
+2. Read the **real** CI on the release head (the `chore(release): v11.117.0` commit), not just `gh pr checks`
+   (`feedback_checks_list_hides_uncreated_jobs`). Check:
+   - the run conclusion and the job count;
+   - Integration Tests 33 / 649 + 2;
+   - the init.sql byte check;
+   - Code Scanning Gate + annotations: any re-raise of #646–#652 or any new alert goes to the maintainer, and the agent
+     never dismisses.
+3. Ask the maintainer for the merge (`--admin` needs its own yes; `feedback_merge_blocked_by_permission_classifier`).
+4. On a separate yes, the deploy watch:
+   - the merge-SHA run is success with Deploy to Demo = success;
+   - the deploy log shows `20261119-community-member-count-trigger.sql` applied;
+   - smoke `POST /api/auth/login` 200;
+   - the post-deploy CodeQL and Dependabot reads.
+5. Post-merge record on the NEXT branch (plan Task 14).
 
 ## What shipped on the branch (commits on `a2746057`)
 
@@ -267,14 +290,14 @@ unpredictable (`feedback_codeql_dismissals_die_on_line_shift`).
   - `next` #185/#186 dependency work (done, first commit);
   - ADR-106 (written, Accepted);
   - the single recount write at deploy, through the migration;
-  - the disposable container for the in-process DB suites (used; torn down).
+  - the disposable container for the in-process DB suites (used; torn down);
+  - **the release version v11.117.0 and the merge slot**, in the Task 14 chat.
 - **Not allocated:**
-  - the release version (v11.117.0 is provisional) and the merge slot;
-  - merge and deploy, each needing its own explicit yes;
+  - merge and the deploy watch, each needing its own explicit yes;
   - any demo DB read or other demo write;
   - a full services/Redis test stack;
   - the demo platform-admin grant;
-  - CodeQL dismissals (maintainer, in the UI).
+  - CodeQL dismissals (maintainer, in the UI; #646–#652 done 2026-11-20 06:10Z).
 - **SLA:** merge by **2026-12-01** (MEDIUM advisories #185/#186; #187, opened 2026-11-19, is covered by the same splice and its SLA ends 2026-12-03).
 
 ⚠️ GitHub status goes stale. Re-derive PR, CI and deploy state before acting on this handoff.

@@ -5,8 +5,8 @@
 (11 findings, all verified) is integrated, and the maintainer decided 7–9 on its three open points the same day.
 Round 2 (8 findings, all verified) is integrated with decisions 10–11.
 Planning defaults D1–D8 are this chat's choices within that approval; a reviewer may challenge them.
-**Version**: v11.116.0 → **v11.117.0** (provisional; the maintainer allocates the version and the merge slot at
-merge time, re-derived from `origin/master`)
+**Version**: v11.116.0 → **v11.117.0** (allocated by the maintainer 2026-11-19 with the merge slot, re-derived from
+`origin/master` `a2746057`)
 **Sprint Branch**: `agent/claude/sprint-144-planning`, cut from `origin/master` `a2746057`. It is reused as the
 execution branch, and it carries the Sprint 143 post-merge record, which rides with this product PR.
 
