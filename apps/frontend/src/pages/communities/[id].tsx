@@ -137,6 +137,22 @@ export default function CommunityDetailPage() {
     }
   }
 
+  // Sprint 144: a pending applicant withdraws their own request through the existing self-DELETE
+  // (pending → left). It returns no token: a pending row was never in the JWT's communities.
+  const handleCancelRequest = async () => {
+    if (!currentUser || !communityId || !community) return
+    if (!window.confirm('Cancel your join request?')) return
+    setJoiningCommunity(true)
+    try {
+      await communityService.leaveCommunity(communityId, currentUser.id)
+      await refetchCommunity()
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to cancel join request')
+    } finally {
+      setJoiningCommunity(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -202,6 +218,7 @@ export default function CommunityDetailPage() {
             joiningCommunity={joiningCommunity}
             onJoin={handleJoinCommunity}
             onLeave={handleLeaveCommunity}
+            onCancelRequest={handleCancelRequest}
             onShowFission={() => setActiveTab('stewardship')}
           />
 

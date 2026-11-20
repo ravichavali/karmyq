@@ -1,9 +1,17 @@
-# Sprint 143 — Governance nomination lifecycle + member rejoin — Handoff
+# Sprint 144 — Staff membership write integrity — Handoff
 
-**Date**: 2026-11-18
-**Outcome**: **PR #340 passed re-review; v11.116.0 and the merge slot are allocated.** Final reviewed-head integration
-and `init.sql` runs are green; six maintainer CodeQL dismissals and gate rerun remain. Merge, deploy and the
-platform-admin smoke check each still require separate explicit maintainer authorization.
+**Date**: 2026-11-19
+**Outcome**: **Task 14 IN PROGRESS. v11.117.0 and the merge slot are allocated; PR #341 is waiting for merge
+authorization.** Status:
+- The Codex review found 1 SHOULD-FIX, fixed in `c243a4ce` (test-only).
+- The scoped Codex re-review of `c243a4ce` was **clean** (2026-11-19).
+- Tasks 1–13 of the plan are done on `agent/claude/sprint-144-planning`.
+- The validated product SHA is still `91f1ada0`. `c243a4ce` changes only the S144 integration test file. The other
+  later commits are handoff-only, apart from the `chore(release): v11.117.0` bump, which changes version fields only.
+- CI on `d280a0b1` is fully green (attempt 2), and the maintainer dismissed #646–#652 (see *CI on `d280a0b1`*).
+
+**Next: the release head's CI + CodeQL re-read, then the merge ask.** Merge (`--admin` needs its own yes) and the
+deploy watch each need explicit maintainer authorization.
 
 > State between sessions only. This branch-local file reserves no contended resource; see
 > `.claude/handoff/README.md` → *Parallel development rules*.
@@ -12,107 +20,284 @@ platform-admin smoke check each still require separate explicit maintainer autho
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-143-planning` |
-| **Base** | `origin/master` at `1692a560`, fetched again on 2026-11-18; unchanged, so no merge was needed |
-| **Open PRs observed** | Sprint 143 product PR #340; Dependabot #339 (Next bump), unrelated — do not enter its dependency lane |
-| **Plan** | `docs/superpowers/plans/2026-11-15-sprint-143-governance-nomination-lifecycle.md` |
-| **Spec** | `docs/superpowers/specs/2026-11-15-sprint-143-governance-nomination-lifecycle-design.md` |
-| **Ledger** | `.superpowers/sdd/2026-11-15-sprint-143-governance-nomination-lifecycle/progress.md` |
-| **PR** | [#340 — feat: Sprint 143 governance nomination lifecycle](https://github.com/ravichavali/karmyq/pull/340) |
-| **Release** | v11.116.0 and merge slot allocated by the maintainer on 2026-11-18 |
+| **Branch** | `agent/claude/sprint-144-planning` (planning + execution), pushed with upstream |
+| **Base** | `origin/master` `a2746057` (Sprint 143 #340, v11.116.0), unchanged through execution (re-fetched 2026-11-19) |
+| **PR** | **#341**, opened 2026-11-19; confirm the live head with `gh pr list --head agent/claude/sprint-144-planning` |
+| **Spec** | `docs/superpowers/specs/2026-11-19-sprint-144-staff-write-integrity-design.md` (decisions 1–11, D1–D8, notes 1–14) |
+| **Plan** | `docs/superpowers/plans/2026-11-19-sprint-144-staff-write-integrity.md` (Task 14 is next) |
+| **Ledger** | `.superpowers/sdd/2026-11-19-sprint-144-staff-write-integrity/progress.md` (git-ignored, Windows box only; its essentials are copied below) |
+| **Release** | **v11.117.0, allocated by the maintainer 2026-11-19 with the merge slot**, re-derived from `origin/master` `a2746057` (v11.116.0) |
+| **Dependency lane** | Claude (maintainer-designated); `next` 16.4.6 is the first commit (`2dd9f214`) |
 
-The plan review rounds 1–2 are integrated. Tasks 1–13 and the PR #340 review corrections are complete; re-review passed.
 Never rebase this branch.
 
-## Quick Start — next unchecked work
+## CI on `653a877d` (read 2026-11-19, after the PR opened)
 
-1. Re-derive live state with `git status -sb`, `git fetch origin`, `gh pr list`, `gh pr view 340`, and
-   `git log --oneline origin/master -3`; merge a moved master with a merge commit only.
-2. Final reviewed-head `e1fa89fb` evidence: CI run `44422291966` passed all 32 integration suites / 596 tests plus 2
-   curated-reset tests; `regenerate-init-sql` run `44422291636` passed every applicable step, including independent
-   byte comparison. Read the new release head's actual job conclusions after pushing the version/evidence commit.
-3. Hand the maintainer the six alerts from the release head's CodeQL annotations for UI dismissal: `api.ts` alerts as
-   `false positive`, test-file alerts as `used in tests`. After dismissal, re-run only the gate job and update the PR
-   body's *Security dismissals*. This agent must not dismiss the alerts itself.
-4. Merge, deploy and the platform-admin grant/200 smoke check each require separate explicit maintainer authorization.
-   Do not infer any of those authorizations from the allocated merge slot.
+- **Integration Tests: success, 33 suites / 648 tests.** This is the first run of the services/Redis suites under the
+  column guard; S126 backfill + schema, S134-L2, S142, S143 and S144 all passed.
+- **Regenerate and verify init.sql: success.** Every other job passed; Build Docker Images and Deploy were skipped (as
+  expected on a PR).
+- **CodeQL / Code Scanning Gate (ADR-060): FAILURE, 7 alerts, all in
+  `tests/integration/sprint-144-staff-write-integrity.integration.test.ts`; none are in product code:**
+  - `js/missing-rate-limiting` at :128, :129, :130. These are the test's own in-process Express app (`app.use(...)`).
+  - `js/sql-injection` at :373, :377, :423, :425. Each is `query(migrationText())` replaying the repo's migration file.
+    After the review fix these lines are :375, :379, :425, :427.
 
-## Delivered commits
+  Both classes are the recurring test-only false positives; dismiss them as `used in tests`. The maintainer does this
+  in the UI. The PR body's prediction of rate-limiting alerts on `members.ts`/`communities.ts` lines was wrong.
+  Codex agreed, naming them as alerts **#646–#652**. Dismiss them **after the final head**: a push that shifts
+  these lines can re-raise them.
 
-- `3e63ca9f` — Sprint 142 post-merge record. It rides with this product PR and must never go to master alone.
-- `246f958a`…`5cb9447f` — spec, plan and integrated plan reviews.
-- `dcffbae9`, `0f47ee40` — lifecycle migration and regenerated `init.sql`.
-- `62a1ee4b`…`e3f2edc6` — pure lifecycle rules, withdraw/decline routes, DB close/expiry behavior and race coverage.
-- `556e13c7` — GET expiry/viewer projection and POST mirror.
-- `69b617c4` — member self-leave/rejoin, counters, active-only guards and token reissue.
-- `9ad4b8cd`, `612c3207` — governance close controls and the web Leave control with shared token persistence.
-- `4f42066a` — real-DB migration replay proof.
-- `8e2414b8`, `aa018f6b` — guides/onboarding/ADR-055 amendment, landing docs, CONTEXT/registry/BUGS and test promotion.
-- `cdb59891` — review fixes: rejoin refreshes `joined_at`; both GET trust eligibility sites reject non-finite sums.
-- `9db325a7` — review fixes: staff PUT and DELETE share target-plus-active-admin user-ID lock order; DELETE hides
-  internal DB details; GET documentation now correctly says it hides expired rows without writing.
+## Codex review of PR #341 (2026-11-19, head `3ff1be7b`)
 
-## Behavior and review decisions
+**Verdict:** 1 SHOULD-FIX and no other in-scope correctness findings. Codex also checked CI on `653a877d`:
+- all 8 pipeline jobs;
+- Integration Tests: 33 suites / 648 tests, plus 2 curated-reset tests;
+- the independent-base `init.sql` byte check passed;
+- alerts #646–#652 are `used in tests`.
 
-- Pending nominations close only through the active nominator's withdraw, active nominee's decline, ratification, or
-  30-day expiry. Expired closes commit `resolved_at=expires_at` before returning 409. GET hides expired rows but does
-  not persist that close; creation reclaims expired slots. Ballots survive every close.
-- `can_ratify` mirrors POST, including idempotent prior-voter finalization and ineligible-nominee refusals. GET returns
-  coarse eligibility only. PostgreSQL NaN and both infinities are ineligible in both GET projections and POST.
-- Self-leave writes `left`; staff removal writes `inactive`. Only active/pending rows can self-leave, so removed users
-  cannot convert `inactive` → `left`. Rejoin resets role to `member`, refreshes `joined_at`, applies public/private
-  join rules, updates the counter only for active transitions, and reissues active-membership JWT claims.
-- Governance writes lock nomination before memberships. Staff PUT demotion/deactivation and DELETE lock target plus
-  active admins in one user-ID-ordered statement, preventing the review-discovered reverse-lock path. BUG-103 remains
-  open for other staff-PUT counter drift.
-- DELETE unexpected failures now use ADR-074 `INTERNAL_ERROR` without raw SQL/error details. Token reissue rebuilds
-  claims from active memberships; no revocation or rotation was added.
-- `/simplify` made no code change: existing lifecycle/policy helpers and shared token persistence were sufficient.
-- The independent `process-reviewer` completed. Its GET-expiry documentation finding was fixed; its clean-tree/root
-  evidence findings were resolved by subsequent commits and green runs, and this handoff replaces the planning state.
-- A fresh independent whole-branch correctness/security reviewer was attempted twice and failed both times on the
-  provider five-hour usage limit. Do **not** claim that independent review passed. Inline high-effort review completed
-  all plan focus areas and fixed its verified leads. The known route-local `js/missing-rate-limiting` pattern is a
-  false positive because rate limiting mounts at app level; no alert has been dismissed by this task.
+**The finding.** `raceOnCommunityRow` in the S144 integration file called `ROLLBACK` only after its waiter assertion
+passed. When that assertion failed, it released a client still holding the community row lock back to the test
+pool. **Verdict: CONFIRMED.**
 
-## Validation evidence
+**The fix.** The helper's `finally` now always rolls back before releasing the client. A client whose `ROLLBACK`
+fails is destroyed. The helper then waits for the in-flight requests to finish.
 
-| Commit / tested tree | Evidence | Limitation |
-|---|---|---|
-| `0f47ee40` | Route-A workflow `43801545661`: determinism, fresh boot, ledger and replay-drift checks passed; artifact host hash `f711ff9413787d4ce232fd90c4bed7bc71ad7c7c` | Dispatch skipped independent byte comparison; PR run `44103556499` supplies it below |
-| `4f42066a` | Disposable PostgreSQL: Sprint 142 + 143 integration, 2 suites / 78 tests; `karmyq_test` superuser+bypass-RLS recorded, explicit community predicates tested | Predates all review fixes; container/tunnel removed. PR CI below covers the later real-DB additions |
-| `612c3207` | Frontend full tier: 62 unit + 609 regression tests passed | No frontend product change after this run; final frontend `tsc --noEmit` also passed at `9db325a7` |
-| `9db325a7` | Community-service full tier: 28 suites / 373 tests passed; focused new tests used `--no-cache` and had red→green proof | Local and predates the PR #340 review corrections |
-| `9db325a7` | Root `npm test --workspace=tests`: 49 suites / 1074 tests passed after the initial review fixes; documentation+disclosure gate also passed 191 tests cold | Jest cache was not globally disabled; predates the PR #340 review corrections |
-| `9db325a7` | `npm run type-check --workspace=services/community-service` and `npm exec --workspace=apps/frontend -- tsc --noEmit` passed | Static checks only; predate the PR #340 review corrections |
-| `9db325a7` | `feedback:check` rerun; generated landing service/API docs refreshed, known build/dependencyGraph/ADR-010 churn reverted | Advisory output is not a pass claim; no dependency edit was made |
-| `685ef410` | Final `bash scripts/pre-commit-check.sh`: initial tests passed but generated-doc churn failed; applied its exact snapshot recovery `20ceb2ba32ebf1de83a18498e9981fa3c73c129f`, and the single permitted retry exited 0 | Mixed project test cache; retry followed the documented artifact-recovery rule; local integration unavailable |
-| `685ef410` | Normal push hook passed required unit/regression checks and pushed the branch | Turbo reported mixed caching; integration skipped without a local DB. Non-blocking development-TDD tasks failed with `ECONNREFUSED 127.0.0.1:5432`, which the hook explicitly accepted |
-| `678403be` | PR CI run [44103556510](https://github.com/ravichavali/karmyq/actions/runs/44103556510): integration executed 32 suites / 596 tests; 595 passed and one failed because the staff-removal race expected `left` instead of actual `inactive` | Failed run; corrected assertions are proved by final reviewed-head run `44422291966` below |
-| `678403be` | `regenerate-init-sql` run [44103556499](https://github.com/ravichavali/karmyq/actions/runs/44103556499) passed every applicable step: independent baseline, determinism, fresh boot, migration ledger, zero drift and committed-byte comparison | The failure-only database-log step was skipped on success; final reviewed-head run `44422291636` also passed |
-| `e1fa89fb` | Final reviewed-head CI run [44422291966](https://github.com/ravichavali/karmyq/actions/runs/44422291966): Integration Tests passed 32 suites / 596 tests plus 2 curated-reset tests; backend unit/regression, lint/typecheck, security audit and landing build passed | Overall run failed only at Code Scanning Gate; Docker image build and deploy skipped. No deployment occurred |
-| `e1fa89fb` | Final reviewed-head `regenerate-init-sql` run [44422291636](https://github.com/ravichavali/karmyq/actions/runs/44422291636) passed every applicable step, including independent baseline, determinism, fresh boot, migration ledger, zero drift and committed-byte comparison | Failure-only DB-log step skipped on success; no schema change followed |
+**The proof.** A new case, `Sprint 144 race barrier`, fires one join where the barrier expects two waiters. Red on
+the old helper (disposable DB, `--no-cache`): `{joined: undefined, idleInTransaction: 1, rowLock: '55P03'}`. Green
+with the fix: the whole file passes 53/53, including the three race cases that use the helper's success path.
 
-## Remaining authorizations and blockers
+**Test-only change.** `lockWaiters` and `raceOnCommunityRow` take an optional `timeoutMs` (default 15000), so the
+red case fails in 1 s. The disposable container, host scratch and tunnel are torn down; port 55432 is closed.
 
-- **Allocated:** v11.116.0 and the merge slot. **Not authorized:** demo data operations; demo application DB access;
-  platform-admin grant and its 200 smoke check; new ADR numbers; dependency lane; merge; deploy. Each of merge, deploy
-  and the platform-admin smoke check needs separate explicit maintainer authorization.
-- Disposable SSH/Postgres authorization covered Tasks 1 and 4–9 only and has ended cleanly. No demo data operation occurred.
-- Final reviewed-head integration and regeneration are green. Read the new release head's actual CI jobs after the
-  version/evidence commit; do not infer their conclusions from `e1fa89fb`.
-- The maintainer must dismiss six CodeQL alerts from the release head's annotations: `api.ts` as `false positive`, test
-  files as `used in tests`; then re-run the gate job and update the PR body's *Security dismissals*.
-- The platform-admin rollout remains fail-closed pending a separately authorized maintainer grant and smoke test.
+**Re-review:** Codex re-reviewed `c243a4ce` alone and found it **clean**.
 
-## Carried follow-ups
+**CI on `c243a4ce`** (read once, 2026-11-19):
+- Integration Tests: 33 suites / **649** tests (648 + the new case), plus 2 curated-reset tests.
+- Every other job passed. Build Docker Images and Deploy were skipped (as expected on a PR).
+- The only red is the Code Scanning Gate. It is blocked by the same 7 alerts, **#646–#652**, which carried to the
+  shifted lines and gained no new numbers:
+  - `js/missing-rate-limiting` #646–#648 at :128–130;
+  - `js/sql-injection` #649–#652 at :375, :379, :425, :427.
 
-- BUG-104 tracks the non-canonical-UUID PUT last-admin guard bypass; BUG-105 tracks moderator reactivation restoring a
-  stored admin role. The maintainer explicitly chose separate bugs rather than bundling either fix into PR #340.
-- Rotation, revocation, delegation, opposition votes and close/expiry notifications are unplanned.
-- No web control cancels one's own pending join request; the API supports it after this sprint.
-- Mobile's separate `POST /communities/:id/leave` remains revival debt, outside this branch.
-- Other legacy member-handler error envelopes and staff PUT input/counter semantics (BUG-103) are pre-existing debt;
-  this branch only fixed the rewritten DELETE disclosure and the lock interaction its new DELETE lock set introduced.
+The maintainer dismisses all 7 as `used in tests`. Re-check the gate on the final head, because CodeQL re-raises are
+unpredictable (`feedback_codeql_dismissals_die_on_line_shift`).
+
+## CI on `d280a0b1` (Task 14 chat, read 2026-11-20 UTC)
+
+Workflow runs on `d280a0b1`:
+- **CI/CD Pipeline 44684595072, attempt 2: success, 14 jobs.** 13 passed and Deploy to Demo was skipped (as
+  expected on a PR).
+  - Attempt 1 was red only on the Code Scanning Gate. At 06:00Z it listed #646–#652 as open, at :128–130 and
+    :375/:379/:425/:427.
+  - The maintainer dismissed all 7 as `used in tests` at 06:10:59Z (`dismissed_by` ravichavali, read via the alerts
+    API). The agent dismissed nothing.
+  - Only the failed job was re-run: `gh run rerun --failed`. This was safe because `build-images` uses
+    `push: false` and `deploy-demo` requires a master push. The gate then read "0 open critical/high".
+- **Integration Tests: 33 suites / 649 passed**, plus `tdd/sprint-117-demo-reset` 1 suite / 2 passed.
+- **Regenerate init.sql 44684595049: success.** It was seeded from base `a2746057`, and the committed `init.sql` is
+  byte-identical to the canonical regeneration.
+- **Tests 44684595047** (3 jobs) and **PR Contract**: success.
+- **CodeQL check run:** 7 annotations, exactly #646–#652; no new alerts. Open alerts are 0 on `refs/pull/341/head`
+  and 0 on master.
+- **Dependabot #185/#186/#187: still `open`.** This is expected until the splice reaches master.
+- **Open PRs:** #341, and Dependabot #339 (unused). No other lane is open.
+
+## Quick Start (after the v11.117.0 bump = rest of Task 14)
+
+1. `git fetch origin && git log --oneline origin/master -1`. If master moved past `a2746057`, **stop**: the bump
+   must be re-derived. Merge master with a merge commit (never rebase) and re-run the root gates.
+2. Read the **real** CI on the release head (the `chore(release): v11.117.0` commit), not just `gh pr checks`
+   (`feedback_checks_list_hides_uncreated_jobs`). Check:
+   - the run conclusion and the job count;
+   - Integration Tests 33 / 649 + 2;
+   - the init.sql byte check;
+   - Code Scanning Gate + annotations: any re-raise of #646–#652 or any new alert goes to the maintainer, and the agent
+     never dismisses.
+3. Ask the maintainer for the merge (`--admin` needs its own yes; `feedback_merge_blocked_by_permission_classifier`).
+4. On a separate yes, the deploy watch:
+   - the merge-SHA run is success with Deploy to Demo = success;
+   - the deploy log shows `20261119-community-member-count-trigger.sql` applied;
+   - smoke `POST /api/auth/login` 200;
+   - the post-deploy CodeQL and Dependabot reads.
+5. Post-merge record on the NEXT branch (plan Task 14).
+
+## What shipped on the branch (commits on `a2746057`)
+
+| Commit | What |
+|---|---|
+| `2dd9f214` | **First commit:** `next` 16.4.6 lock splice for GHSA-mfr8-8qww-v76h / GHSA-vc7v-qv4w-wrv8 (Dependabot #185/#186); it also covers **#187** GHSA-vvgp-ww4w-46vf (opened 2026-11-19T23:59Z, `>=16.4.0 <=16.4.4`), confirmed by a fresh `npm audit` (total 0) on the branch |
+| `a198b3a4` | `canonicalUuid` + DELETE/staff-POST canonical ids; note-3(a) UUID fixtures (sprint-92/93/132) |
+| `f26507f4` | Pure staff transition table `planStaffChange` |
+| `f6c29023`, `efa3deff` | Migration `20261119-community-member-count-trigger.sql` (sync trigger, column guard, recount; ADR-106) + workflow-regenerated `init.sql` |
+| `d11ff8e1` | All five `±1` writers removed; atomic capacity post-check; fixtures; root delta gate (BUG-103) |
+| `6a1ebb4e` | Staff PUT as the transition table (BUG-104, BUG-105, decision 8); Sprint 142 restoration cases rewritten |
+| `35cea82c` | Web: Reject via PUT, Cancel request; join message now "Ask a community admin to lift the block; then you can rejoin" |
+| `bb2b096b`, `6644453f` | ADR-106, guides, landing docs; CONTEXT, registry, BUGS; tdd → regression promotion |
+| `32ba5b91`, `5dad8d8d`, `91f1ada0` | `/simplify`, `/code-review` and process-review fixes |
+
+## Evidence (ledger summary)
+
+- **Disposable PostgreSQL** (decision 9): container `karmyq-s144-disposable` (`postgres:15-alpine`) on the demo
+  host.
+  - Isolation: bound to 127.0.0.1:55432 on the default bridge, no volume except the branch `init.sql`, no demo
+    database access. Reached over an SSH tunnel.
+  - Role flags: `karmyq_test` **rolsuper=t, rolbypassrls=t**, so explicit community predicates provide isolation.
+  - Teardown: the container, the host scratch and the tunnel were removed after the final runs (verified: 0 s144 containers remain, port 55432 refuses connections); no demo database was read or written.
+- **Splice:**
+  - strict `npx npm@11.19.0 ci` exit 0, "found 0 vulnerabilities";
+  - `npm ls --all` problem list identical to master's (180 lines, version-normalized);
+  - ADR-059 gate 0 high/critical; both GHSAs absent;
+  - lint-config + workspace-declarations gates 15/15.
+- **Migration, deploy applier:** `apply-migrations.sh` applied exactly one migration, including a rerun over existing
+  objects.
+- **Migration, CI applier:** `ci-apply-full-schema.sh --drift-check` showed zero drift on two isolated DBs, one of
+  which took the CI autocommit path first with 0 ERROR lines.
+- **Migration, review:** migration-validator found 0 BLOCKING. Its SHOULD-FIX (lock upgrade deadlock) is fixed:
+  ACCESS EXCLUSIVE is taken up front, members then communities.
+- **`init.sql` regeneration:**
+  - workflow run 44620603831; artifact hash `d640dd5b` == committed blob;
+  - the precondition held (branch `init.sql` == master's `f711ff94`);
+  - fresh boot: 3 triggers, 0 communities, 0 drifted.
+- **Red before green:** every new-behavior case was red first. Baselines were recorded as expected-green (note 11).
+  Real-DB races are forced with row-lock barriers and exact waiter counts:
+  - two joins into the last slot;
+  - two staff adds into the last slot;
+  - two approves into the last slot;
+  - a PUT demotion committing during a moderator approve → 403;
+  - a demotion committing during an admin DELETE → 403.
+- **Final local suites (in-process DB):** S142 + S143 + S144 3 suites / 134 tests at `5dad8d8d`; S144 52/52 at
+  `91f1ada0`.
+- **Final unit + regression:**
+  - community-service 9 + 32/525;
+  - social-graph 12 + 26/184;
+  - frontend 62 + 66/643;
+  - root 101 + 50/1098;
+  - `/pre-commit-check` run 1 on clean 91f1ada0 (cold Turbo, 18/27 cached) was red on @karmyq/tests#test with the suite unnamed (the script deletes its log); the same commit then passed standalone (root 101 + 1098), in a full warm npm test (27/27) and in run 2 (exit 0, tree clean). Treated as a load-dependent flake; PR CI is the arbiter.
+- **Type-checks:** community-service, social-graph and frontend `tsc` all clean.
+- **Not run locally** (decision 11): every services/Redis integration suite, plus S126 ×2, rls-policies and S134-L2
+  (the S134-L2 fixture change gets its first real run in CI).
+
+## Quality gates (Task 12)
+
+- **`/simplify`** (4 reviewers): shared `lockTargetAndAdmins`, `getLiveRole(…, q)`, one `COMMUNITY_FULL_MESSAGE`,
+  `TxQuery`, `isUuid`, `ROLES` reuse. Skips are recorded in the ledger.
+- **`/code-review` high:** 10 candidates. 3 Important were fixed red → green:
+  - DELETE re-reads the live role after its lock;
+  - the PUT refuses non-staff with no lock;
+  - `getLiveRole` is used for the early checks.
+  The 7 minors are deferred (below).
+- **`/security-review`:** no findings.
+- **process-reviewer:** 1 BLOCKING (an evidence gap, resolved). 4 SHOULD-FIX fixed: the moderator outcomes docs, the
+  guide claim, a test title, and the delta-gate scope (now whole workspace roots, proven able to fail outside
+  `src/`). 3 NITs fixed.
+
+## Rulings made during execution (each a deliberate deviation; cost if wrong)
+
+1. **Moderator outcomes.**
+   - The spec's table lists `inactive → active` as 409 for every caller. Decision 4 instead gives moderators 403 for
+     any transition other than approve/reject, and Task 7's BUG-105 case requires 403. A `left` row and a same-state
+     retry are still 409 for every caller and are checked first.
+   - Cost if wrong: a moderator sees 403 instead of 409 on requests no screen sends.
+2. **Validation before the caller check.** A malformed body or id is 400 before the caller check. A non-staff caller
+   with a malformed body therefore gets 400, not 403 (spec: "400 before SQL").
+3. **`planStaffChange` returns 404 `NOT_FOUND` for a null target.** The plan's shape omitted it.
+4. **Unrecognized stored statuses** (NULL, `invited`, `removed`) refuse every staff change (fail-closed).
+5. **Staff POST errors** use ADR-074 codes: NOT_FOUND, COMMUNITY_INACTIVE, COMMUNITY_FULL, ALREADY_MEMBER (including
+   the 23505 race), INTERNAL_ERROR. The status codes are unchanged.
+6. **The join's `MEMBERSHIP_RESTORE_REQUIRES_STAFF` message changed.** The old "Only community staff can restore
+   this membership" became false under decision 8, and the page alerts it verbatim. The code is unchanged.
+7. **The migration's lock** is ACCESS EXCLUSIVE up front on members, then communities (validator SHOULD-FIX). The
+   spec's SQL had SHARE ROW EXCLUSIVE followed by an upgrade.
+8. **The PUT reads the caller's role after the existing lock without adding the caller to the lock set.** Every staff
+   demotion or removal locks the same admin rows. A lock-free early refusal runs before it (code review #3).
+9. **`communities.ts:526`** now reads `rowCount ?? 0`. It was the only strict-mode error, surfaced by the first root
+   test that imports this router.
+10. **`assertWithinCapacity` returns the capacity row**, so the duplicate-create join can report the count.
+11. **The delta gate scans whole workspace roots**, not just the spec's `src/` (process review #5).
+12. **`updateMember`'s type** is `{ role } | { status }`.
+13. **No ledger-only commits.** The ledger is git-ignored; this handoff and the PR body carry its essentials.
+14. **`/code-review` high served as the whole-branch final review** (executing-plans).
+15. **The in-process container set is S142/S143/S144.** The other DB-only suites go to PR CI.
+
+## Task 2 inventories (from the git-ignored ledger)
+
+- **Delta writers (exactly the spec's five, now removed):**
+  - `members.ts`: join, staff add, DELETE;
+  - `communities.ts`: the duplicate-create join (SQL plus JS arithmetic);
+  - social-graph `invitations.ts`.
+- **Writers that stay:** the converging recomputes in `fissionService.ts:289` and `fusionService.ts:96` (D7, guarded
+  no-ops) and the archived seeders (excluded).
+- **Fixtures:**
+  - `tests/fixtures/*.sql` and the generators never set counts. They relied on the default 0, so their counts are
+    now correct, and their TRUNCATEs are paired.
+  - `init.sql`'s spliced seed has no communities.
+- **UUID comparisons:** the only fail-open authorization site was `members.ts` PUT (BUG-104). DELETE was fail-closed.
+  Governance, links, fusions and splits are fail-closed or DB-checked, so no new site joined the scope.
+- **Callers:**
+  - mobile reads the count only; its separate `POST /communities/:id/leave` stays revival debt;
+  - simulation reads only;
+  - `packages/shared/api/client.ts` `updateCommunityMember(…, { role?, status?, admin_user_id })` has **zero
+    callers**. It is dead, and sending both keys would now be a 400.
+
+## Deferred / follow-ups
+
+- **Open bugs:**
+  - BUG-106: invitation accept ignores capacity and silently no-ops on an existing row.
+  - BUG-107: staff direct-add has no consent step (decision 10).
+  - **BUG-108 (new)**: the duplicate-create join answers `joined: true` for a non-active existing row. This is
+    pre-existing ADR-062 behavior; nobody is admitted.
+- **Deferred code-review minors:**
+  - **#2:** a multi-row member statement spanning communities (a user-deletion cascade) locks community rows in scan
+    order and can deadlock. No product path issues one; ADR-106 now notes it.
+  - **#5:** `assertWithinCapacity` with no community row is unreachable after a member INSERT (FK lock).
+  - **#7:** `planStaffChange` re-validates the body.
+  - **#8:** the recount takes a table-wide writer fence and counts twice.
+  - **#9:** community create is not one transaction.
+  - **#10:** the `validId = isUuid` alias.
+- **`/simplify` skips:**
+  - recount/trigger SQL tweaks (they would need another regen);
+  - deleting the fission/fusion recompute (D7 *Later*);
+  - staff POST's pre-SELECT;
+  - a `router.param` refactor;
+  - a shared join body for duplicate-create.
+- **Carried from Sprint 143:**
+  - rotation, revocation, delegation and opposition votes;
+  - close/expiry notifications;
+  - other legacy member-handler error envelopes;
+  - the demo platform-admin grant and smoke check (separate authorization);
+  - `deepmerge` #178 re-check by 2026-12-01 or at the next Expo SDK move.
+- **Dependabot:** #339 (`next` 16.4.6, nests `next` under `apps/*` and fails the lint-config gate) is not used.
+  Closing it after the merge is the maintainer's call. #185/#186/#187 should show `fixed` after deploy.
+
+## At deploy (plan Task 14)
+
+- **The one authorized demo write** is the recount inside `20261119-community-member-count-trigger.sql`, applied by
+  `scripts/apply-migrations.sh`. The deploy log must show that file applied.
+- **If the deploy fails after the migration**, the column guard keeps the old containers' counts exact. Record which
+  step failed.
+- **Do not read demo data.** That includes measuring drift with `scripts/audit-demo-data.sql` query 1. Any read
+  needs a separate authorization.
+- **Post-merge record, on the NEXT branch:**
+  - ADR-106 → Implemented;
+  - BUG-103/104/105 → fixed and deployed;
+  - archive this handoff.
+  No docs-only master push.
+
+## Authorizations
+
+- **Allocated (2026-11-19):**
+  - `next` #185/#186 dependency work (done, first commit);
+  - ADR-106 (written, Accepted);
+  - the single recount write at deploy, through the migration;
+  - the disposable container for the in-process DB suites (used; torn down);
+  - **the release version v11.117.0 and the merge slot**, in the Task 14 chat.
+- **Not allocated:**
+  - merge and the deploy watch, each needing its own explicit yes;
+  - any demo DB read or other demo write;
+  - a full services/Redis test stack;
+  - the demo platform-admin grant;
+  - CodeQL dismissals (maintainer, in the UI; #646–#652 done 2026-11-20 06:10Z).
+- **SLA:** merge by **2026-12-01** (MEDIUM advisories #185/#186; #187, opened 2026-11-19, is covered by the same splice and its SLA ends 2026-12-03).
 
 ⚠️ GitHub status goes stale. Re-derive PR, CI and deploy state before acting on this handoff.

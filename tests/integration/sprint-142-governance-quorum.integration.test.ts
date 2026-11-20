@@ -177,8 +177,10 @@ async function memberFixture(count = 5) {
   const community = randomUUID();
   await pool.query(`INSERT INTO auth.users(id,email,name,password_hash)
     SELECT id, id::text || '@s142.invalid', 'S142 member', 'unused' FROM unnest($1::uuid[]) id`, [users]);
-  await pool.query(`INSERT INTO communities.communities(id,name,creator_id,current_members)
-    VALUES($1,'S142 creation fixture',$2,$3)`, [community,users[0],count]);
+  // Sprint 144 (ADR-106): the column guard stores 0 and the sync trigger counts the member rows
+  // inserted below, so the fixture no longer sets current_members (it cannot).
+  await pool.query(`INSERT INTO communities.communities(id,name,creator_id)
+    VALUES($1,'S142 creation fixture',$2)`, [community,users[0]]);
   await pool.query(`INSERT INTO communities.members(community_id,user_id,role)
     SELECT $1,id,CASE WHEN id=$3 THEN 'admin' ELSE 'member' END FROM unnest($2::uuid[]) id`, [community,users,users[0]]);
   const [a,b] = [users[0],users[1]].sort();
@@ -266,6 +268,13 @@ const staffApp = express();
 staffApp.use(express.json());
 staffApp.use((req: any, _res, next) => { req.user = { userId: fixture.users[0] }; next(); });
 staffApp.use('/communities', membersRouter);
+// Sprint 144 (decision 8): staff cannot reactivate anyone; the voter rejoins through their own POST /join.
+const selfApp = express();
+selfApp.use(express.json());
+selfApp.use((req: any, _res, next) => { req.user = { userId: req.get('x-test-user'), email: 'voter@s142.invalid' }; next(); });
+selfApp.use('/communities', membersRouter);
+const selfJoin = (userId: string) => request(selfApp)
+  .post(`/communities/${fixture.community}/join`).set('x-test-user', userId).send({});
 type VoteInput = { communityId: string; nominationId: string; ratifierId: string };
 const vote = (input: VoteInput) => addRatification(input);
 
@@ -316,13 +325,19 @@ describe('Sprint 142 voting live invariants and concurrency', () => {
     expect(await ballots()).toBe(0);
   });
 
-  it('excludes departed ballots, restores them via the real staff status PUT and never lowers R', async () => {
+  it('excludes departed ballots through inactive and left, restores them when the lifted voter rejoins and never lowers R', async () => {
     await cast(2);
     const base = `/communities/${fixture.community}/members/${fixture.users[2]}`;
     expect((await request(staffApp).put(base).send({ status: 'inactive' })).status).toBe(200);
     await expect(cast(2)).rejects.toMatchObject({ status: 403,code: 'GOVERNANCE_VOTER_NOT_ELIGIBLE' });
     expect(await cast(0)).toEqual({ ratified: false,ratification_count: 1,required_ratifications: 3 });
-    expect((await request(staffApp).put(base).send({ status: 'active' })).status).toBe(200);
+    // Sprint 144 (decision 8, round 2 R3): staff PUT cannot reactivate; an admin lifts the block (left)
+    // and the ballot stays excluded until the voter rejoins themselves.
+    expect((await request(staffApp).put(base).send({ status: 'active' })).status).toBe(409);
+    expect((await request(staffApp).put(base).send({ status: 'left' })).status).toBe(200);
+    await expect(cast(2)).rejects.toMatchObject({ status: 403,code: 'GOVERNANCE_VOTER_NOT_ELIGIBLE' });
+    expect(await cast(0)).toEqual({ ratified: false,ratification_count: 1,required_ratifications: 3 });
+    expect((await selfJoin(fixture.users[2])).status).toBe(200);
     expect(await cast(2)).toEqual({ ratified: false,ratification_count: 2,required_ratifications: 3 });
     expect(await cast(3)).toEqual({ ratified: true,ratification_count: 3,required_ratifications: 3 });
     expect(await role()).toBe('moderator');
@@ -339,7 +354,11 @@ describe('Sprint 142 voting live invariants and concurrency', () => {
     expect((await request(staffApp).put(membership).send({ status: 'inactive' })).status).toBe(200);
     await cast(0);
     expect((await cast(3)).ratified).toBe(false);
-    expect((await request(staffApp).put(membership).send({ status: 'active' })).status).toBe(200);
+    // Sprint 144 (decision 8, round 2 R3): lift the block, then the voter rejoins; no new ballot is cast.
+    expect((await request(staffApp).put(membership).send({ status: 'left' })).status).toBe(200);
+    expect((await getGovernanceState(fixture.community,fixture.users[0])).nominations[0])
+      .toMatchObject({ ratification_count: 2,required_ratifications: 3 });
+    expect((await selfJoin(fixture.users[2])).status).toBe(200);
     const pending=await getGovernanceState(fixture.community,fixture.users[0]);
     expect(pending.nominations[0]).toMatchObject({ ratification_count: 3,required_ratifications: 3,
       viewer: { can_ratify: true,reason: 'ready_to_finalize' } });

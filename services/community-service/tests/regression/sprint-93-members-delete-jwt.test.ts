@@ -10,6 +10,10 @@
  * The PUT handler was already hardened (members.ts:294-295, "always use verified
  * userId from JWT"). This locks the DELETE path to the same pattern:
  * caller = req.user.userId, request body ignored.
+ *
+ * Sprint 144 (note 3a): the route now canonicalizes path ids and refuses a malformed one with 400
+ * before any SQL, so the synthetic ids ('comm-1', 'victim', 'u1', ...) became valid UUIDs. Every
+ * authorization, bound-identity and no-write assertion is unchanged.
  */
 
 process.env.JWT_SECRET = 'test-secret';
@@ -46,6 +50,13 @@ import { publishEvent } from '../../src/events/publisher';
 const mockQuery = query as jest.MockedFunction<typeof query>;
 const mockPublish = publishEvent as jest.MockedFunction<typeof publishEvent>;
 const SECRET = 'test-secret';
+const COMMUNITY = '93000000-0000-4000-8000-000000000001';
+const VICTIM = '93000000-0000-4000-8000-0000000000a1';
+const U1 = '93000000-0000-4000-8000-0000000000b1';
+const ADMIN1 = '93000000-0000-4000-8000-0000000000c1';
+const ATTACKER = '93000000-0000-4000-8000-0000000000d1';
+const REAL_ADMIN = '93000000-0000-4000-8000-0000000000e1';
+const SPOOFED = '93000000-0000-4000-8000-0000000000f1';
 
 const tokenFor = (userId: string) =>
   jwt.sign({ userId, email: `${userId}@test.com`, communities: [] }, SECRET);
@@ -86,69 +97,69 @@ describe('Sprint 93 ADR-064: DELETE members derives caller from JWT, ignores bod
   beforeEach(() => jest.clearAllMocks());
 
   it('ignores a spoofed body admin_user_id naming another admin (non-admin caller → 403)', async () => {
-    mockDeleteDb({ roles: { attacker: 'member', victim: 'member', 'real-admin': 'admin' }, activeAdmins: [] });
+    mockDeleteDb({ roles: { [ATTACKER]: 'member', [VICTIM]: 'member', [REAL_ADMIN]: 'admin' }, activeAdmins: [] });
     const res = await request(app)
-      .delete('/communities/comm-1/members/victim')
-      .set('Authorization', `Bearer ${tokenFor('attacker')}`)
-      .send({ admin_user_id: 'real-admin' });
+      .delete(`/communities/${COMMUNITY}/members/${VICTIM}`)
+      .set('Authorization', `Bearer ${tokenFor(ATTACKER)}`)
+      .send({ admin_user_id: REAL_ADMIN });
     expect(res.status).toBe(403);
   });
 
   it('ignores a body admin_user_id that fakes a self-remove (the exploit) → 403', async () => {
-    mockDeleteDb({ roles: { attacker: 'member', victim: 'member' }, activeAdmins: [] });
+    mockDeleteDb({ roles: { [ATTACKER]: 'member', [VICTIM]: 'member' }, activeAdmins: [] });
     const res = await request(app)
-      .delete('/communities/comm-1/members/victim')
-      .set('Authorization', `Bearer ${tokenFor('attacker')}`)
-      .send({ admin_user_id: 'victim' }); // old code: isSelfRemove = (victim === victim) → bypass
+      .delete(`/communities/${COMMUNITY}/members/${VICTIM}`)
+      .set('Authorization', `Bearer ${tokenFor(ATTACKER)}`)
+      .send({ admin_user_id: VICTIM }); // old code: isSelfRemove = (victim === victim) → bypass
     expect(res.status).toBe(403);
   });
 
   it('allows a member to remove themselves with no body (JWT userId === target)', async () => {
-    mockDeleteDb({ roles: { u1: 'member' }, activeAdmins: [] });
+    mockDeleteDb({ roles: { [U1]: 'member' }, activeAdmins: [] });
     const res = await request(app)
-      .delete('/communities/comm-1/members/u1')
-      .set('Authorization', `Bearer ${tokenFor('u1')}`);
+      .delete(`/communities/${COMMUNITY}/members/${U1}`)
+      .set('Authorization', `Bearer ${tokenFor(U1)}`);
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.message).toMatch(/left community/i);
   });
 
   it('allows an admin to remove another member with no body', async () => {
-    mockDeleteDb({ roles: { admin1: 'admin', victim: 'member' }, activeAdmins: ['admin1'] });
+    mockDeleteDb({ roles: { [ADMIN1]: 'admin', [VICTIM]: 'member' }, activeAdmins: [ADMIN1] });
     const res = await request(app)
-      .delete('/communities/comm-1/members/victim')
-      .set('Authorization', `Bearer ${tokenFor('admin1')}`);
+      .delete(`/communities/${COMMUNITY}/members/${VICTIM}`)
+      .set('Authorization', `Bearer ${tokenFor(ADMIN1)}`);
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.message).toMatch(/removed/i);
   });
 
   it('still blocks removing the last admin (sole-admin self-remove → 400)', async () => {
-    mockDeleteDb({ roles: { admin1: 'admin' }, activeAdmins: ['admin1'] });
+    mockDeleteDb({ roles: { [ADMIN1]: 'admin' }, activeAdmins: [ADMIN1] });
     const res = await request(app)
-      .delete('/communities/comm-1/members/admin1')
-      .set('Authorization', `Bearer ${tokenFor('admin1')}`);
+      .delete(`/communities/${COMMUNITY}/members/${ADMIN1}`)
+      .set('Authorization', `Bearer ${tokenFor(ADMIN1)}`);
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/last admin/i);
   });
 
   it('publishes user_left_community with removed_by = JWT caller, not the body value', async () => {
-    mockDeleteDb({ roles: { admin1: 'admin', victim: 'member', spoofed: 'admin' }, activeAdmins: ['admin1'] });
+    mockDeleteDb({ roles: { [ADMIN1]: 'admin', [VICTIM]: 'member', [SPOOFED]: 'admin' }, activeAdmins: [ADMIN1] });
     await request(app)
-      .delete('/communities/comm-1/members/victim')
-      .set('Authorization', `Bearer ${tokenFor('admin1')}`)
-      .send({ admin_user_id: 'spoofed' });
+      .delete(`/communities/${COMMUNITY}/members/${VICTIM}`)
+      .set('Authorization', `Bearer ${tokenFor(ADMIN1)}`)
+      .send({ admin_user_id: SPOOFED });
     expect(mockPublish).toHaveBeenCalledWith(
       'user_left_community',
-      expect.objectContaining({ removed_by: 'admin1', is_self_remove: false })
+      expect.objectContaining({ removed_by: ADMIN1, is_self_remove: false })
     );
   });
 
   it('withholds internal database details from a failed departure response', async () => {
     mockQuery.mockRejectedValue(new Error('secret SQL and membership details'));
     const res = await request(app)
-      .delete('/communities/comm-1/members/u1')
-      .set('Authorization', `Bearer ${tokenFor('u1')}`);
+      .delete(`/communities/${COMMUNITY}/members/${U1}`)
+      .set('Authorization', `Bearer ${tokenFor(U1)}`);
     expect(res.status).toBe(500);
     expect(res.body.error).toBe('INTERNAL_ERROR');
     expect(JSON.stringify(res.body)).not.toMatch(/secret|SQL|membership details/);
@@ -162,7 +173,7 @@ describe('Sprint 143 membership rejoin', () => {
     mockQuery.mockImplementation(async (sql: any) => {
       const s = String(sql);
       if (/FROM communities\.communities WHERE id/i.test(s)) {
-        return { rows: [{ id: 'comm-1', name: 'Community', max_members: 150, current_members: 4, status: 'active', access_type: 'public' }], rowCount: 1 } as any;
+        return { rows: [{ id: COMMUNITY, name: 'Community', max_members: 150, current_members: 4, status: 'active', access_type: 'public' }], rowCount: 1 } as any;
       }
       if (/SELECT id, status FROM communities\.members/i.test(s)) {
         return { rows: [{ id: 'membership-1', status: 'left' }], rowCount: 1 } as any;
@@ -174,8 +185,8 @@ describe('Sprint 143 membership rejoin', () => {
     });
 
     const res = await request(app)
-      .post('/communities/comm-1/join')
-      .set('Authorization', `Bearer ${tokenFor('u1')}`)
+      .post(`/communities/${COMMUNITY}/join`)
+      .set('Authorization', `Bearer ${tokenFor(U1)}`)
       .send({});
 
     expect(res.status).toBe(200);

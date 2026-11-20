@@ -149,20 +149,14 @@ router.post('/accept', async (req: AuthenticatedRequest, res: Response) => {
       [invitation.inviter_id, userId]
     );
 
-    // Add user to the community as a member
+    // Add user to the community as a member. ADR-106: the database's sync trigger counts the row
+    // (communities.current_members is never written here). BUG-106: this path still ignores
+    // capacity and silently no-ops on an existing membership row.
     await pool.query(
       `INSERT INTO communities.members (community_id, user_id, role, joined_at)
        VALUES ($1, $2, 'member', NOW())
        ON CONFLICT (community_id, user_id) DO NOTHING`,
       [invitation.community_id, userId]
-    );
-
-    // Increment community member count
-    await pool.query(
-      `UPDATE communities.communities
-       SET current_members = current_members + 1
-       WHERE id = $1`,
-      [invitation.community_id]
     );
 
     logger.info('Invitation accepted', {

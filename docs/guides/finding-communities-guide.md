@@ -20,8 +20,11 @@ no longer includes it.
 
 You can rejoin a community you left: public communities restore you immediately as an ordinary member, while private
 communities create a new pending request. Rejoining never restores an old moderator or admin role. If staff removed
-you or rejected your request, Join instead explains that only community staff can restore your membership; ask a
-steward for help.
+you or rejected your request, Join instead asks you to have a community admin lift the block. Once they have, you
+rejoin the same way. Staff cannot make you a member again; only you can.
+
+While a join request is pending, the community page shows **Cancel request** next to "Join Request Pending". Select
+it and confirm to withdraw the request. You can send a new request later, like any rejoin.
 
 ### When you have no communities yet
 

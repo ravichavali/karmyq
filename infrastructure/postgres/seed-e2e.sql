@@ -95,7 +95,7 @@ VALUES (
   '00000000-0000-0000-0000-000000000001',
   'public',
   1000,
-  2,
+  0, -- ADR-106: the column guard stores 0; the member rows below are counted by the sync trigger
   'active',
   NOW(),
   NOW()
@@ -124,7 +124,7 @@ VALUES (
   '00000000-0000-0000-0000-000000000001',
   'private',
   50,
-  1,
+  0, -- ADR-106: counted from the member rows below
   'active',
   NOW(),
   NOW()

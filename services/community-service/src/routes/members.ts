@@ -1,10 +1,13 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { query, withTransaction } from '../database/db';
+import { query, withTransaction, TxQuery } from '../database/db';
 import { publishEvent } from '../events/publisher';
 import { canSeeNonActiveMembers, shapeMemberRows } from '../utils/memberVisibility';
 import { getLiveRole, LiveRole } from '../utils/liveRole';
 import { canSelfDepart, classifyExistingMembership, departureStatus } from '../utils/memberLifecycle';
+import { canonicalUuid } from '../utils/uuid';
+import { planStaffChange, validateStaffBody, Refusal, ROLES } from '../utils/staffTransitions';
+import { assertWithinCapacity, CommunityFullError, COMMUNITY_FULL_MESSAGE } from '../database/memberCapacity';
 import {
   sendSuccess,
   sendError,
@@ -18,6 +21,24 @@ import {
 } from '@karmyq/shared/utils/response';
 
 const router = Router();
+
+/**
+ * Lock the target membership and every active admin in ONE user-id-ordered statement. PUT and DELETE
+ * both call this, so concurrent staff writes always lock rows in the same order (no deadlock), and the
+ * sole-admin decision is made on locked rows. Ids must already be canonical (canonicalUuid).
+ */
+async function lockTargetAndAdmins(q: TxQuery, communityId: string, userId: string) {
+  const locked = await q(
+    `SELECT user_id,role,status FROM communities.members
+     WHERE community_id=$1 AND (user_id=$2 OR (role='admin' AND status='active'))
+     ORDER BY user_id FOR UPDATE`,
+    [communityId, userId]
+  );
+  const target = locked.rows.find((row: any) => row.user_id === userId);
+  const activeAdmins = locked.rows.filter((row: any) => row.role === 'admin' && row.status === 'active');
+  const isSoleActiveAdmin = activeAdmins.length <= 1 && activeAdmins.some((row: any) => row.user_id === userId);
+  return { target, isSoleActiveAdmin };
+}
 
 // GET /communities/:communityId/members - Get all members of a community
 router.get('/:communityId/members', async (req: Request, res: Response) => {
@@ -110,8 +131,9 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
     if (communityResult.rowCount === 0) return sendNotFound(res, 'Community');
     const community = communityResult.rows[0];
     if (community.status !== 'active') return sendError(res, 'COMMUNITY_INACTIVE', 'Community is not active', 400);
+    // Friendly early refusal only; the post-check inside the transaction is authoritative.
     if (community.current_members >= community.max_members) {
-      return sendError(res, 'COMMUNITY_FULL', 'Community is full (Dunbar\'s number limit reached)', 400);
+      return sendError(res, 'COMMUNITY_FULL', COMMUNITY_FULL_MESSAGE, 400);
     }
 
     const existingMember = await query(
@@ -124,7 +146,9 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
       return sendConflict(res, 'You already have a pending join request for this community');
     }
     if (classification === 'staff_only') {
-      return sendError(res, 'MEMBERSHIP_RESTORE_REQUIRES_STAFF', 'Only community staff can restore this membership', 409);
+      // Decision 8: staff never reactivate; an admin lifts the block (inactive → left) and the person
+      // then rejoins through this route. The code stays for clients that key on it.
+      return sendError(res, 'MEMBERSHIP_RESTORE_REQUIRES_STAFF', 'Ask a community admin to lift the block; then you can rejoin', 409);
     }
 
     const memberStatus = community.access_type === 'public' ? 'active' : 'pending';
@@ -140,9 +164,8 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
       if (result.rowCount === 0) {
         return undefined;
       }
-      if (memberStatus === 'active') {
-        await q(`UPDATE communities.communities SET current_members=current_members+1 WHERE id=$1`, [communityId]);
-      }
+      // ADR-106: the sync trigger counted the active row; re-check capacity after it, on this client.
+      if (memberStatus === 'active') await assertWithinCapacity(q, communityId);
       return result.rows[0];
     });
     if (!member) return sendConflict(res, 'Your membership changed; please refresh and try again');
@@ -164,6 +187,9 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
       },
     });
   } catch (error: any) {
+    if (error instanceof CommunityFullError) {
+      return sendError(res, 'COMMUNITY_FULL', COMMUNITY_FULL_MESSAGE, 400);
+    }
     if (error.code === '23505' && error.constraint === 'members_community_id_user_id_key') {
       return sendConflict(res, 'You are already a member of this community');
     }
@@ -176,7 +202,7 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
 router.post('/:communityId/members', async (req: Request, res: Response) => {
   try {
     const { communityId } = req.params;
-    const { user_id, role = 'member' } = req.body;
+    const { role = 'member' } = req.body;
     // SECURITY (BUG-061, ADR-064): only an active admin may add members directly; the inviter
     // is the verified JWT caller. Self-service joining goes through POST /:communityId/join,
     // which applies the community's access policy.
@@ -185,23 +211,21 @@ router.post('/:communityId/members', async (req: Request, res: Response) => {
       return sendUnauthorized(res, 'Authentication required');
     }
 
+    // Sprint 144 (BUG-104): canonical at parse, so every later comparison sees the DB's spelling.
+    const rawUserId = req.body?.user_id;
+    if (rawUserId === undefined || rawUserId === null || rawUserId === '') {
+      return sendValidationError(res, 'user_id is required');
+    }
+    const user_id = canonicalUuid(rawUserId);
     if (!user_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'user_id is required',
-      });
+      return sendValidationError(res, 'user_id must be a valid UUID');
     }
 
-    if (!['member', 'moderator', 'admin'].includes(role)) {
+    if (!ROLES.includes(role)) {
       return sendValidationError(res, 'Invalid role');
     }
 
-    const callerCheck = await query(
-      `SELECT role FROM communities.members
-       WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
-      [communityId, invited_by]
-    );
-    if (callerCheck.rows[0]?.role !== 'admin') {
+    if ((await getLiveRole(communityId, invited_by)) !== 'admin') {
       return sendForbidden(res, 'Only community admins can add members');
     }
 
@@ -214,26 +238,18 @@ router.post('/:communityId/members', async (req: Request, res: Response) => {
     );
 
     if (communityResult.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Community not found',
-      });
+      return sendNotFound(res, 'Community');
     }
 
     const community = communityResult.rows[0];
 
     if (community.status !== 'active') {
-      return res.status(400).json({
-        success: false,
-        message: 'Community is not active',
-      });
+      return sendError(res, 'COMMUNITY_INACTIVE', 'Community is not active', 400);
     }
 
+    // Friendly early refusal only; the post-check inside the transaction is authoritative.
     if (community.current_members >= community.max_members) {
-      return res.status(400).json({
-        success: false,
-        message: 'Community is full (Dunbar\'s number limit reached)',
-      });
+      return sendError(res, 'COMMUNITY_FULL', COMMUNITY_FULL_MESSAGE, 400);
     }
 
     // Check if user is already a member
@@ -244,28 +260,22 @@ router.post('/:communityId/members', async (req: Request, res: Response) => {
     );
 
     if (existingMember.rowCount && existingMember.rowCount > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'User is already a member of this community',
-      });
+      return sendError(res, 'ALREADY_MEMBER', 'User is already a member of this community', 400);
     }
 
-    // Add member
-    const memberResult = await query(
-      `INSERT INTO communities.members
-        (community_id, user_id, role, invited_by, status)
-      VALUES ($1, $2, $3, $4, 'active')
-      RETURNING *`,
-      [communityId, user_id, role, invited_by]
-    );
-
-    // Increment current_members count
-    await query(
-      `UPDATE communities.communities
-       SET current_members = current_members + 1
-       WHERE id = $1`,
-      [communityId]
-    );
+    // Decision 10 (BUG-107): staff direct-add stays a documented consent exception; it activates the
+    // user directly. ADR-106: the sync trigger counts the row; capacity is re-checked after it.
+    const member = await withTransaction(async (q) => {
+      const inserted = await q(
+        `INSERT INTO communities.members
+          (community_id, user_id, role, invited_by, status)
+        VALUES ($1, $2, $3, $4, 'active')
+        RETURNING *`,
+        [communityId, user_id, role, invited_by]
+      );
+      await assertWithinCapacity(q, String(communityId));
+      return inserted.rows[0];
+    });
 
     // Publish event
     await publishEvent('user_joined_community', {
@@ -277,156 +287,104 @@ router.post('/:communityId/members', async (req: Request, res: Response) => {
 
     res.status(201).json({
       success: true,
-      data: memberResult.rows[0],
+      data: member,
       message: 'Member added successfully',
     });
   } catch (error: any) {
+    if (error instanceof CommunityFullError) {
+      return sendError(res, 'COMMUNITY_FULL', COMMUNITY_FULL_MESSAGE, 400);
+    }
+    if (error.code === '23505' && error.constraint === 'members_community_id_user_id_key') {
+      return sendError(res, 'ALREADY_MEMBER', 'User is already a member of this community', 400);
+    }
     (req as any).logger?.error('Error adding member', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'POST /:communityId/members' });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to add member',
-      error: error.message,
-    });
+    return sendInternalError(res, 'Failed to add member', error);
   }
 });
 
-// PUT /communities/:communityId/members/:userId - Update member role/status
-// SECURITY: admin_user_id comes from verified JWT token, not from request body
+// PUT /communities/:communityId/members/:userId - Staff change to someone else's membership
+// Sprint 144 (BUG-104, BUG-105, decision 8): the route executes the transition table in
+// utils/staffTransitions.ts. Inside ONE transaction it locks the target and the active admins in the
+// same user-id order as DELETE, then reads the caller's LIVE role on that client (ADR-102), plans, and
+// writes. Every demotion or removal of staff is itself a locked PUT/DELETE over the same admin rows,
+// so it serializes with this request: a moderator demoted before this lock is granted cannot write.
+// SECURITY: the caller comes from the verified JWT; the legacy body admin_user_id is ignored.
 router.put('/:communityId/members/:userId', async (req: Request, res: Response) => {
   try {
-    const { communityId, userId } = req.params;
-    const { role, status } = req.body;
-    // SECURITY: Always use verified userId from JWT, never trust client-provided admin_user_id
-    const admin_user_id = (req as any).user?.userId;
-
-    if (!admin_user_id) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-      });
+    const caller = (req as any).user?.userId;
+    if (!caller) {
+      return sendUnauthorized(res, 'Authentication required');
     }
 
-    // Verify admin permission
-    const adminCheck = await query(
-      `SELECT role FROM communities.members
-       WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
-      [communityId, admin_user_id]
-    );
-
-    const callerRole = adminCheck.rows[0]?.role
-
-    if (!callerRole) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only admins or moderators can update members',
-      });
+    const communityId = canonicalUuid(req.params.communityId);
+    const userId = canonicalUuid(req.params.userId);
+    if (!communityId || !userId) {
+      return sendValidationError(res, 'communityId and userId must be valid UUIDs');
     }
+    const parsed = validateStaffBody(req.body);
+    if (parsed.kind === 'refuse') return sendRefusal(res, parsed);
 
-    if (callerRole === 'moderator') {
-      // Moderators can only update status (approve/reject), not role
-      if (req.body.role !== undefined) {
-        return res.status(403).json({
-          success: false,
-          message: 'Moderators cannot change member roles',
-        });
-      }
-      // Allow status-only updates to proceed
-    } else if (callerRole !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only admins or moderators can update members',
-      });
-    }
-    // callerRole === 'admin': allow all updates
-
-    // Build the update set (validation only — no DB yet).
-    const updates: string[] = [];
-    const values: any[] = [];
-    let paramCount = 1;
-
-    if (role !== undefined) {
-      updates.push(`role = $${paramCount++}`);
-      values.push(role);
-    }
-    if (status !== undefined) {
-      updates.push(`status = $${paramCount++}`);
-      values.push(status);
-    }
-
-    if (updates.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No updates provided',
-      });
-    }
-
-    // Last-admin guard (BUG-001): demoting or deactivating the sole active admin would
-    // leave the community adminless. Lock the target and active admins in the same
-    // user-id order as DELETE so concurrent membership writes cannot lock in reverse order.
-    const demotesRole = role !== undefined && role !== 'admin';
-    const deactivates = status !== undefined && status !== 'active';
+    // Early, lock-free refusal: a caller who is not staff now (or a moderator sending a role) never takes
+    // row locks. The authoritative live-role read is repeated below, after the lock.
+    const early = planStaffChange(await getLiveRole(communityId, caller), null, req.body);
+    if (early.kind === 'refuse' && early.http === 403) return sendRefusal(res, early);
 
     const outcome = await withTransaction(async (q) => {
-      if (demotesRole || deactivates) {
-        const locked = await q(
-          `SELECT user_id,role,status FROM communities.members
-           WHERE community_id=$1 AND (user_id=$2 OR (role='admin' AND status='active'))
-           ORDER BY user_id FOR UPDATE`,
-          [communityId, userId]
-        );
-        const activeAdmins = locked.rows.filter((row: any) => row.role === 'admin' && row.status === 'active');
-        const targetIsSoleAdmin =
-          activeAdmins.some((r: any) => r.user_id === userId) && activeAdmins.length <= 1;
-        if (targetIsSoleAdmin) return { lastAdmin: true as const };
-      }
+      const { target: targetRow, isSoleActiveAdmin } = await lockTargetAndAdmins(q, communityId, userId);
+      const callerRole = await getLiveRole(communityId, caller, q);
+      const target = targetRow ? { status: targetRow.status, role: targetRow.role, isSoleActiveAdmin } : null;
 
-      const result = await q(
-        `UPDATE communities.members
-         SET ${updates.join(', ')}
-         WHERE community_id = $${paramCount} AND user_id = $${paramCount + 1}
+      const plan = planStaffChange(callerRole, target, req.body);
+      if (plan.kind === 'refuse') return plan;
+
+      const values: any[] = [communityId, userId];
+      const assignments: string[] = [];
+      if (plan.set.status) {
+        values.push(plan.set.status);
+        assignments.push(`status = $${values.length}`);
+      }
+      if (plan.set.role) {
+        values.push(plan.set.role);
+        assignments.push(`role = $${values.length}`);
+      }
+      // ADR-106: the sync trigger applies any active-delta of this status change.
+      const updated = await q(
+        `UPDATE communities.members SET ${assignments.join(', ')}
+         WHERE community_id = $1 AND user_id = $2
          RETURNING *`,
-        [...values, communityId, userId]
+        values
       );
-      return { result };
+      if (plan.admits) await assertWithinCapacity(q, communityId);
+      return { member: updated.rows[0] };
     });
 
-    if ('lastAdmin' in outcome) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot demote the last admin. Assign another admin first.',
-      });
-    }
-
-    if (outcome.result.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Member not found',
-      });
-    }
+    if ('kind' in outcome) return sendRefusal(res, outcome);
 
     res.json({
       success: true,
-      data: outcome.result.rows[0],
+      data: outcome.member,
       message: 'Member updated successfully',
     });
   } catch (error: any) {
+    if (error instanceof CommunityFullError) {
+      return sendError(res, 'COMMUNITY_FULL', COMMUNITY_FULL_MESSAGE, 400);
+    }
     (req as any).logger?.error('Error updating member', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'PUT /:communityId/members/:userId' });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update member',
-      error: error.message,
-    });
+    return sendInternalError(res, 'Failed to update member', error);
   }
 });
+
+function sendRefusal(res: Response, refusal: Refusal) {
+  return sendError(res, refusal.code, refusal.message, refusal.http);
+}
 
 // DELETE /communities/:communityId/members/:userId - Remove member (leave or kick)
 router.delete('/:communityId/members/:userId', async (req: Request, res: Response) => {
   try {
-    const { communityId, userId } = req.params;
     // SECURITY (ADR-064): the caller's identity comes from the verified JWT, never the
     // request body. Reading admin_user_id from req.body let an attacker spoof an admin —
     // or set it equal to the target userId to fake a "self-remove" and skip the admin
-    // check entirely. Mirror the PUT handler's JWT-caller pattern (members.ts:294-295).
+    // check entirely. Mirror the PUT handler's JWT-caller pattern.
     const caller = (req as any).user?.userId;
 
     if (!caller) {
@@ -436,47 +394,38 @@ router.delete('/:communityId/members/:userId', async (req: Request, res: Respons
       });
     }
 
+    // Sprint 144 (BUG-104): canonical path ids; the JWT id is compared as issued.
+    const communityId = canonicalUuid(req.params.communityId);
+    const userId = canonicalUuid(req.params.userId);
+    if (!communityId || !userId) {
+      return sendValidationError(res, 'communityId and userId must be valid UUIDs');
+    }
+
     // Check if self-remove or admin remove
     const isSelfRemove = userId === caller;
 
-    if (!isSelfRemove) {
-      // Verify admin permission for removing others
-      const adminCheck = await query(
-        `SELECT role FROM communities.members
-         WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
-        [communityId, caller]
-      );
-
-      if (adminCheck.rowCount === 0 || adminCheck.rows[0].role !== 'admin') {
-        return res.status(403).json({
-          success: false,
-          message: 'Only admins can remove other members',
-        });
-      }
+    // Removing someone else needs a live admin: an early, lock-free refusal here, and the authoritative
+    // re-read below on the transaction client after the row lock (ADR-102). Every demotion of an admin
+    // locks the same admin rows, so a demotion that commits first is seen there.
+    if (!isSelfRemove && (await getLiveRole(communityId, caller)) !== 'admin') {
+      return sendForbidden(res, 'Only admins can remove other members');
     }
 
     const outcome = await withTransaction(async (q) => {
-      const locked = await q(
-        `SELECT user_id,role,status FROM communities.members
-         WHERE community_id=$1 AND (user_id=$2 OR (role='admin' AND status='active'))
-         ORDER BY user_id FOR UPDATE`,
-        [communityId, userId]
-      );
-      const target = locked.rows.find((row: any) => row.user_id === userId);
+      const { target, isSoleActiveAdmin } = await lockTargetAndAdmins(q, communityId, userId);
+      if (!isSelfRemove && (await getLiveRole(communityId, caller, q)) !== 'admin') return 'forbidden' as const;
       if (!target) return 'not_found' as const;
       if (isSelfRemove && !canSelfDepart(target.status)) return 'invalid_departure' as const;
-      const activeAdmins = locked.rows.filter((row: any) => row.role === 'admin' && row.status === 'active');
-      if (activeAdmins.some((row: any) => row.user_id === userId) && activeAdmins.length <= 1) {
-        return 'last_admin' as const;
-      }
+      if (isSoleActiveAdmin) return 'last_admin' as const;
+      // ADR-106: the sync trigger applies the active → left/inactive decrement.
       await q(`UPDATE communities.members SET status=$3 WHERE community_id=$1 AND user_id=$2`,
         [communityId, userId, departureStatus(isSelfRemove)]);
-      if (target.status === 'active') {
-        await q(`UPDATE communities.communities SET current_members=current_members-1 WHERE id=$1`, [communityId]);
-      }
       return { wasActive: target.status === 'active' };
     });
 
+    if (outcome === 'forbidden') {
+      return sendForbidden(res, 'Only admins can remove other members');
+    }
     if (outcome === 'not_found') {
       return res.status(404).json({ success: false, message: 'Member not found' });
     }
@@ -488,7 +437,7 @@ router.delete('/:communityId/members/:userId', async (req: Request, res: Respons
     }
 
     const newToken = isSelfRemove && outcome.wasActive
-      ? await issueMembershipToken(req, caller, String(communityId))
+      ? await issueMembershipToken(req, caller, communityId)
       : undefined;
     await publishEvent('user_left_community', {
       community_id: communityId,

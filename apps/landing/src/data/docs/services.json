@@ -151,17 +151,27 @@
         {
           "method": "POST",
           "path": "/communities",
-          "description": "Create a community — idempotent on identity (name+location, case-insensitive, ADR-062). Joins the existing active community if one matches (returns existing:true, HTTP 200); otherwise creates it (existing:false, HTTP 201)."
+          "description": "Create a community — idempotent on identity (name+location, case-insensitive, ADR-062). Joins the existing active community if one matches (returns existing:true, HTTP 200); otherwise creates it (existing:false, HTTP 201). Sprint 144 (ADR-106): the duplicate-create join runs in one transaction with a capacity post-check (400 COMMUNITY_FULL) and reports the stored count; a new community is inserted with current_members 0 and the creator row makes it 1."
         },
         {
           "method": "POST",
           "path": "/communities/:communityId/join",
-          "description": "JWT caller joins or rejoins: public returns active ordinary member with a refreshed membership token; private returns pending ordinary member without one. Only left rows self-rejoin; inactive removed/rejected rows return 409 MEMBERSHIP_RESTORE_REQUIRES_STAFF. Active rejoin increments current_members once; duplicate races return 409."
+          "description": "JWT caller joins or rejoins: public returns active ordinary member with a refreshed membership token; private returns pending ordinary member without one. Only left rows self-rejoin; inactive removed/rejected rows return 409 MEMBERSHIP_RESTORE_REQUIRES_STAFF (an admin lifts the block, then the person rejoins here). The ADR-106 trigger counts an active row; active admission re-checks capacity after the write in the same transaction (400 COMMUNITY_FULL); duplicate races return 409."
         },
         {
           "method": "DELETE",
           "path": "/communities/:communityId/members/:userId",
-          "description": "JWT self-leave (active/pending) records left and staff admin removal records inactive. Last-admin and inactive self-leave are refused. Target plus active admins lock in user-ID order; only active departure decrements current_members, and active self-leave returns a refreshed membership token."
+          "description": "JWT self-leave (active/pending) records left and staff admin removal records inactive. Last-admin and inactive self-leave are refused. Target plus active admins lock in user-ID order; path ids are canonicalized (malformed = 400). The ADR-106 trigger decrements for an active departure only; active self-leave returns a refreshed membership token; a pending self-leave is the web Cancel request."
+        },
+        {
+          "method": "PUT",
+          "path": "/communities/:communityId/members/:userId",
+          "description": "Staff change to another member as a transition table (Sprint 144: BUG-104, BUG-105, decision 8). Body is exactly one of status (active|inactive|left) or role (member|moderator|admin); canonical path ids; malformed input is 400 before SQL. Moderators approve (pending->active, role reset to member, capacity re-check) and reject (pending->inactive) only; admins also deactivate (last-admin 400 LAST_ADMIN), lift a block (inactive->left, role member) and change roles of active members. a request on a left row (409 MEMBER_MUST_REJOIN) and a same-state retry (409) are refused first for every caller; then inactive->active and active/pending->left are 409 INVALID_MEMBERSHIP_TRANSITION for an admin and 403 for a moderator (any moderator request other than approve/reject is 403). Live caller role is read inside the locked transaction (ADR-102)."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:communityId/members",
+          "description": "Active admin adds a user directly as an active member (BUG-061; documented consent exception, decision 10, BUG-107). Canonical body user_id; one transaction with the capacity post-check; ADR-074 errors (NOT_FOUND, COMMUNITY_INACTIVE, COMMUNITY_FULL, ALREADY_MEMBER, INTERNAL_ERROR)."
         },
         {
           "method": "GET",

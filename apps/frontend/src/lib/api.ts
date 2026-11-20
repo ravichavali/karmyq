@@ -233,7 +233,9 @@ export const communityService = {
   addMember: (communityId: string, data: { user_id: string; invited_by?: string; role?: string }) =>
     communityApi.post(`/communities/${communityId}/members`, data),
 
-  updateMember: (communityId: string, userId: string, data: { role?: string; status?: string; admin_user_id: string }) =>
+  // Staff change to someone else's membership: exactly one of role or status (Sprint 144 D1). The
+  // caller is the JWT (ADR-064); the server ignores a legacy admin_user_id.
+  updateMember: (communityId: string, userId: string, data: { role: string } | { status: string }) =>
     communityApi.put(`/communities/${communityId}/members/${userId}`, data),
 
   // Caller identity is derived from the JWT server-side (ADR-064); no admin_user_id body.

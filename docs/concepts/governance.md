@@ -18,7 +18,7 @@ Karmyq combines trust-based eligibility for leadership with equal member votes o
 
 There must be at least three voters besides the nominee to open a nomination. Nomination adds no automatic vote; a nominator can ratify separately. The nominee cannot ratify their own nomination.
 
-New arrivals cannot vote on an already-open nomination. Departed members' votes stop counting, while the required number stays fixed. If an original voter rejoins or a steward reactivates them, their existing vote counts again. Removed and rejected members need staff reactivation; self-service rejoin applies only to members who left.
+New arrivals cannot vote on an already-open nomination. Departed members' votes stop counting, while the required number stays fixed. An original voter's existing vote counts again when they rejoin. For a removed or rejected voter, an admin first lifts the block, and the vote counts again once that person rejoins; staff cannot reactivate anyone.
 
 If restored votes already satisfy quorum, a prior active voter can select **Finalize decision**. This safely rechecks the existing votes and nominee eligibility without adding another ballot. Reading the decision never grants a role by itself.
 

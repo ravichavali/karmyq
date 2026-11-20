@@ -42,9 +42,10 @@ export async function query(text: string, params?: any[]) {
  * write are atomic (with `SELECT … FOR UPDATE` serializing concurrent demotions —
  * two of them can't both see count=2 and leave the community with zero admins).
  */
-export async function withTransaction<T>(
-  fn: (q: (text: string, params?: any[]) => Promise<any>) => Promise<T>
-): Promise<T> {
+/** The query function a transaction hands its callback (and the pool-level `query` also satisfies). */
+export type TxQuery = (text: string, params?: any[]) => Promise<any>;
+
+export async function withTransaction<T>(fn: (q: TxQuery) => Promise<T>): Promise<T> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

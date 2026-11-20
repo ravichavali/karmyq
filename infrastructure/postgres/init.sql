@@ -279,6 +279,50 @@ $$;
 COMMENT ON FUNCTION communities.calculate_expires_at(p_community_id uuid, p_entity_type character varying, p_created_at timestamp without time zone) IS 'Calculate expiration timestamp based on community TTL settings';
 
 --
+-- Name: guard_current_members(); Type: FUNCTION; Schema: communities; Owner: -
+--
+
+CREATE FUNCTION communities.guard_current_members() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF COALESCE(current_setting('karmyq.member_count_sync', true), '') <> 'on' THEN
+    IF TG_OP = 'INSERT' THEN
+      -- A new community has no member rows yet; the creator's INSERT makes it 1.
+      NEW.current_members := 0;
+    ELSE
+      NEW.current_members := OLD.current_members;
+    END IF;
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+--
+-- Name: recount_current_members(uuid); Type: FUNCTION; Schema: communities; Owner: -
+--
+
+CREATE FUNCTION communities.recount_current_members(p_community_id uuid DEFAULT NULL::uuid) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE prev text := current_setting('karmyq.member_count_sync', true); changed integer;
+BEGIN
+  -- Fence member writers for the rest of the caller's transaction, so no concurrent delta is lost.
+  LOCK TABLE communities.members IN SHARE ROW EXCLUSIVE MODE;
+  PERFORM set_config('karmyq.member_count_sync', 'on', true);
+  UPDATE communities.communities c
+  SET current_members = (SELECT count(*)::int FROM communities.members m
+                         WHERE m.community_id = c.id AND m.status = 'active')
+  WHERE (p_community_id IS NULL OR c.id = p_community_id)
+    AND c.current_members IS DISTINCT FROM (SELECT count(*)::int FROM communities.members m
+                                            WHERE m.community_id = c.id AND m.status = 'active');
+  GET DIAGNOSTICS changed = ROW_COUNT;
+  PERFORM set_config('karmyq.member_count_sync', COALESCE(prev, ''), true);
+  RETURN changed;
+END
+$$;
+
+--
 -- Name: require_governance_protocol_v1(); Type: FUNCTION; Schema: communities; Owner: -
 --
 
@@ -314,6 +358,34 @@ CREATE FUNCTION communities.require_governance_protocol_v1() RETURNS trigger
     RETURN NEW;
   END;
   $$;
+
+--
+-- Name: sync_current_members(); Type: FUNCTION; Schema: communities; Owner: -
+--
+
+CREATE FUNCTION communities.sync_current_members() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE prev text := current_setting('karmyq.member_count_sync', true);
+BEGIN
+  -- Membership rows never move between communities, so a firing touches at most one community row
+  -- and no two-community lock order can exist.
+  IF TG_OP = 'UPDATE' AND NEW.community_id IS DISTINCT FROM OLD.community_id THEN
+    RAISE EXCEPTION 'communities.members.community_id is immutable (ADR-106)' USING ERRCODE = 'check_violation';
+  END IF;
+  -- The flag is on only around this function's own UPDATEs; the prior value is restored before
+  -- returning, so a later application write in the same transaction still meets the guard.
+  PERFORM set_config('karmyq.member_count_sync', 'on', true);
+  IF TG_OP IN ('UPDATE', 'DELETE') AND OLD.status = 'active' THEN
+    UPDATE communities.communities SET current_members = current_members - 1 WHERE id = OLD.community_id;
+  END IF;
+  IF TG_OP IN ('INSERT', 'UPDATE') AND NEW.status = 'active' THEN
+    UPDATE communities.communities SET current_members = current_members + 1 WHERE id = NEW.community_id;
+  END IF;
+  PERFORM set_config('karmyq.member_count_sync', COALESCE(prev, ''), true);
+  RETURN NULL;
+END
+$$;
 
 --
 -- Name: update_community_config_timestamp(); Type: FUNCTION; Schema: communities; Owner: -
@@ -1028,6 +1100,12 @@ CREATE TABLE communities.communities (
     governance_settings jsonb DEFAULT '{"template": "small-collective", "quorum_size": 3, "eligibility_threshold": 50}'::jsonb NOT NULL,
     CONSTRAINT chk_community_type CHECK (((community_type)::text = ANY ((ARRAY['mutual_aid'::character varying, 'group'::character varying])::text[])))
 );
+
+--
+-- Name: COLUMN communities.current_members; Type: COMMENT; Schema: communities; Owner: -
+--
+
+COMMENT ON COLUMN communities.communities.current_members IS 'Count of active communities.members rows, maintained by trigger members_sync_current_members_* and protected by communities_guard_current_members (ADR-106). Application writes are ignored; repair with communities.recount_current_members().';
 
 --
 -- Name: COLUMN communities.access_type; Type: COMMENT; Schema: communities; Owner: -
@@ -5309,6 +5387,12 @@ CREATE TRIGGER trigger_update_inviter_stats_on_acceptance AFTER UPDATE ON auth.u
 CREATE TRIGGER update_user_preferences_timestamp BEFORE UPDATE ON auth.user_request_preferences FOR EACH ROW EXECUTE FUNCTION public.update_user_preferences_timestamp();
 
 --
+-- Name: communities communities_guard_current_members; Type: TRIGGER; Schema: communities; Owner: -
+--
+
+CREATE TRIGGER communities_guard_current_members BEFORE INSERT OR UPDATE OF current_members ON communities.communities FOR EACH ROW EXECUTE FUNCTION communities.guard_current_members();
+
+--
 -- Name: community_links community_links_updated_at; Type: TRIGGER; Schema: communities; Owner: -
 --
 
@@ -5325,6 +5409,18 @@ CREATE TRIGGER governance_ballot_protocol BEFORE INSERT ON communities.governanc
 --
 
 CREATE TRIGGER governance_nomination_protocol BEFORE INSERT OR UPDATE OF status ON communities.governance_nominations FOR EACH ROW EXECUTE FUNCTION communities.require_governance_protocol_v1();
+
+--
+-- Name: members members_sync_current_members_ins_del; Type: TRIGGER; Schema: communities; Owner: -
+--
+
+CREATE TRIGGER members_sync_current_members_ins_del AFTER INSERT OR DELETE ON communities.members FOR EACH ROW EXECUTE FUNCTION communities.sync_current_members();
+
+--
+-- Name: members members_sync_current_members_upd; Type: TRIGGER; Schema: communities; Owner: -
+--
+
+CREATE TRIGGER members_sync_current_members_upd AFTER UPDATE OF status, community_id ON communities.members FOR EACH ROW WHEN ((((old.status)::text IS DISTINCT FROM (new.status)::text) OR (old.community_id IS DISTINCT FROM new.community_id))) EXECUTE FUNCTION communities.sync_current_members();
 
 --
 -- Name: settings settings_updated_at; Type: TRIGGER; Schema: communities; Owner: -
@@ -7154,5 +7250,6 @@ INSERT INTO public.schema_migrations (migration_name) VALUES
   ('20261106-matches-offer-id-index.sql'),
   ('20261112-auth-platform-admins.sql'),
   ('20261112-governance-quorum.sql'),
-  ('20261115-governance-nomination-lifecycle.sql')
+  ('20261115-governance-nomination-lifecycle.sql'),
+  ('20261119-community-member-count-trigger.sql')
 ON CONFLICT (migration_name) DO NOTHING;
