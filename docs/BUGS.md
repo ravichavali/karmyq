@@ -2777,7 +2777,7 @@ the normal Git/CI gates.
 
 ---
 
-## BUG-102 · [2026-11-13] · fixed (Sprint 143; PR #340)
+## BUG-102 · [2026-11-13] · fixed and deployed (Sprint 143 #340, v11.116.0, 2026-11-19)
 
 **Self-service rejoin of an inactive membership returns 500.** Reported in Claude's Sprint 142 plan review.
 `services/community-service/src/routes/members.ts:106-133` detects active/pending memberships but falls
@@ -2794,7 +2794,7 @@ rejoin updates and 23505 mapping make concurrent attempts one success plus one c
 
 ---
 
-## BUG-103 · [2026-11-15] · open
+## BUG-103 · [2026-11-15] · fixed (Sprint 144, ADR-106, pending deploy)
 
 **`communities.communities.current_members` drifts away from the real active-member count.** Found while
 planning Sprint 143 (BUG-102). The DELETE member handler (`services/community-service/src/routes/members.ts`,
@@ -2812,9 +2812,20 @@ an active insert/rejoin, so private pending joins and rejected inactive restorat
 The staff status PUT transitions and pre-existing stored drift remain open exactly as described above; no demo
 read or repair was performed.
 
+**Resolution (Sprint 144, ADR-106):** the database now owns the counter. Migration
+`20261119-community-member-count-trigger.sql` installs a sync trigger on `communities.members` (each row's
+active-delta, applied to its one community), a column guard on `communities.communities` that ignores every other
+write (old binaries, a failed build and rollbacks cannot double-count), and `communities.recount_current_members()`,
+which the migration runs once to converge the stored drift (the one authorized demo write, at deploy). Every
+hand-written `±1` is removed from community-service and social-graph-service, and approval now counts. Capacity is
+re-checked after each admitting write in the same transaction (400 `COMMUNITY_FULL` rolls it back). Proof:
+`tests/integration/sprint-144-staff-write-integrity.integration.test.ts` (trigger deltas, `xmin` no-write evidence,
+guard, flag discipline, recount idempotence and replay, admission races) and the root gate
+`tests/regression/sprint-144-no-member-count-deltas.test.ts`. Any later repair uses the recount function.
+
 ---
 
-## BUG-104 · [2026-11-18] · open
+## BUG-104 · [2026-11-18] · fixed (Sprint 144, pending deploy)
 
 **The PUT last-admin guard can be bypassed with a non-canonical UUID.** Found in Claude's PR #340 review.
 `services/community-service/src/routes/members.ts:380` compares PostgreSQL's canonical `user_id` value directly with
@@ -2822,14 +2833,74 @@ the unnormalized `userId` path parameter. An uppercase or otherwise non-canonica
 check fail even when the target is the sole active admin, allowing demotion or deactivation past the guard. The
 maintainer chose to log this separately rather than expand PR #340.
 
+**Resolution (Sprint 144):** the member routes canonicalize every request-supplied id they compare in JavaScript
+at parse (`services/community-service/src/utils/uuid.ts`, `canonicalUuid`): PUT and DELETE path ids and the staff
+POST body `user_id`. A malformed id is 400 `VALIDATION_ERROR` before any SQL. The PUT's sole-admin check compares
+canonical ids under the target-plus-admins row lock. Proof: the real-DB cases "refuses the sole admin's demotion /
+deactivation through an uppercase UUID" (400 `LAST_ADMIN`, row unchanged) and the mocked route cases in
+`services/community-service/tests/regression/sprint-144-staff-put-route.test.ts`.
+
 ---
 
-## BUG-105 · [2026-11-18] · open
+## BUG-105 · [2026-11-18] · fixed (Sprint 144, pending deploy)
 
 **Moderator reactivation can restore a stored admin role.** Found in Claude's PR #340 review.
 `services/community-service/src/routes/members.ts:326-334` allows moderators to make status-only updates, and the
 UPDATE at `:384-390` changes `status` without constraining the existing role. Reactivating an inactive row whose
 stored role is `admin` therefore restores an active admin through a moderator-only operation. The maintainer chose
 to log this separately rather than expand PR #340.
+
+**Resolution (Sprint 144, decisions 4 and 8):** the PUT executes the transition table in
+`services/community-service/src/utils/staffTransitions.ts`. Moderators may only approve (`pending → active`, which
+writes `role='member'`) and reject (`pending → inactive`). Any other moderator request is 403 `FORBIDDEN`, except
+that a request against a `left` row or a same-state retry is 409 for every caller. Nobody reactivates:
+`inactive → active` is 409 for an admin (403 for a moderator), and an admin instead lifts the block
+(`inactive → left`, role reset to `member`) so the person rejoins themselves. The caller's live role is read inside the locked transaction. Proof:
+the real-DB cases "refuses a moderator trying to lift the block on / reactivate an inactive stored admin", "refuses a
+moderator deactivating a non-last admin" and the Codex F3 lift-then-rejoin path, plus
+`services/community-service/tests/regression/sprint-144-staff-transitions.test.ts`.
+
+---
+
+## BUG-106 · [2026-11-19] · open
+
+**Invitation acceptance admits a member without the capacity check and silently ignores an existing membership row.**
+Found while planning Sprint 144 (BUG-103). `POST /invitations/accept` in
+`services/social-graph-service/src/routes/invitations.ts` (member INSERT near line 154) inserts
+`communities.members` with `ON CONFLICT (community_id, user_id) DO NOTHING` and no `status`, so it uses the
+column default `active`. It never compares the community's `current_members` with `max_members`, and it runs
+as separate `pool.query` calls with no transaction. When the invitee already has a `left`, `inactive` or
+`pending` row, the INSERT is a no-op, yet the invitation is still marked accepted and the handler still returns
+success. Until Sprint 144 the handler also incremented `current_members` unconditionally. That double count is
+removed by Sprint 144 (ADR-106 moves the counter into a database trigger). The capacity bypass and the
+silent no-op are not fixed by Sprint 144; they remain open here.
+
+---
+
+## BUG-107 · [2026-11-19] · open
+
+**Staff direct-add makes an arbitrary user an active member without their consent.** Found in Codex's Sprint 144
+plan review (round 2, R1). `POST /communities/:communityId/members` (`services/community-service/src/routes/members.ts`,
+handler near line 176, INSERT near line 255) lets an active admin insert any user id as `active`. The person never
+asked to join and is never asked to accept. The route has been admin-only since BUG-061, and no web, mobile or
+simulation screen calls it (`apps/frontend/src/lib/api.ts` `addMember` is unused). The full-stack test fixtures
+(`tests/fixtures/index.ts` `createAdmin`, `addMember`) and the Sprint 132 security tests rely on it. The maintainer
+chose to keep it as a documented exception in Sprint 144 (spec decision 10). Retiring it, or turning it into an
+invitation the person accepts, is later work.
+
+---
+
+## BUG-108 · [2026-11-19] · open
+
+**The duplicate-create join reports `joined: true` for a caller whose existing membership is not active.** Found in
+the Sprint 144 `/code-review` (finding 4); the behavior predates Sprint 144 (ADR-062). `POST /communities` with the
+name and location of an existing public community upserts the caller with `ON CONFLICT (community_id, user_id) DO
+NOTHING` (`services/community-service/src/routes/communities.ts`, duplicate-create join). When the caller already has
+an `inactive` (blocked), `pending` or `left` row, the insert does nothing, yet the response says `joined: true` with
+`role` falling back to `member`. The refreshed token correctly omits the community, so nobody is admitted. But the
+caller is told they joined, and the path skips the rules `POST /communities/:communityId/join` applies. That route
+answers `MEMBERSHIP_RESTORE_REQUIRES_STAFF` for a blocked row, rejoins a `left` row, and refuses a duplicate pending
+request. The fix is to route this case through the join route's `classifyExistingMembership`. Sprint 144 kept the
+existing behavior and only added the capacity post-check and the stored count.
 
 ---

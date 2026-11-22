@@ -194,6 +194,9 @@ Accept an invitation code during user signup.
 1. Updates `user_invitations.invitation_accepted_at`
 2. Sets `users.invited_by` for the new user
 3. Triggers `update_inviter_stats_on_acceptance()` (increments `total_invitations_accepted`)
+4. Inserts the invitee into `communities.members` (`ON CONFLICT DO NOTHING`). Since Sprint 144 (ADR-106) this
+   route never writes `communities.current_members`: the database's sync trigger counts the new active row once.
+   **BUG-106 (open):** the insert ignores community capacity and silently no-ops on an existing membership row.
 
 ---
 

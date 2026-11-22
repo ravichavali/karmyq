@@ -183,7 +183,7 @@
         {
           "method": "PUT",
           "path": "/communities/:communityId/members/:userId",
-          "description": "Update member role or status as the verified JWT caller; any body `admin_user_id` is ignored."
+          "description": "A staff change to someone else's membership, as the verified JWT caller (Sprint 144: BUG-104, BUG-105, decision 8)."
         },
         {
           "method": "DELETE",

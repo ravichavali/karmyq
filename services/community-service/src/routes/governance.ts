@@ -2,10 +2,10 @@ import { Router, Response } from 'express';
 import { createLogger } from '@karmyq/shared/utils/logger';
 import { getGovernanceState, createNomination, addRatification, closeNomination } from '../database/governanceDb';
 import { GovernanceError } from '../database/governancePolicy';
+import { isUuid } from '../utils/uuid';
 
 const router = Router();
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const validId = (value: unknown): value is string => typeof value === 'string' && uuid.test(value);
+const validId = isUuid;
 const refuse = (res: Response,status: number,error: string,message: string) =>
   res.status(status).json({ success: false,message,error });
 let fallbackLogger: ReturnType<typeof createLogger> | undefined;

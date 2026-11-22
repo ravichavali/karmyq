@@ -5,7 +5,7 @@
 **Deciders**: Ravi Chavali
 **Supersedes**: —
 **Superseded by**: —
-**Amended**: 2026-11-13 — Sprint 142 proportional ratification (shipped in #338 `1692a560`, v11.115.0; deployed 2026-11-15); 2026-11-15 — Sprint 143 nomination lifecycle and member rejoin.
+**Amended**: 2026-11-13 — Sprint 142 proportional ratification (shipped in #338 `1692a560`, v11.115.0; deployed 2026-11-15); 2026-11-15 — Sprint 143 nomination lifecycle and member rejoin (shipped in #340 `a2746057`, v11.116.0; deployed 2026-11-19).
 
 ---
 

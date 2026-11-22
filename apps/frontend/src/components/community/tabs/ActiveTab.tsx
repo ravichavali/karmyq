@@ -43,7 +43,7 @@ export default function ActiveTab({
   const handleUpdateMemberRole = async (userId: string, newRole: string) => {
     if (!currentUser) return
     try {
-      await communityService.updateMember(communityId, userId, { role: newRole, admin_user_id: currentUser.id })
+      await communityService.updateMember(communityId, userId, { role: newRole })
       refetchCommunity()
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to update member role')
@@ -53,17 +53,18 @@ export default function ActiveTab({
   const handleApproveMember = async (userId: string) => {
     if (!currentUser) return
     try {
-      await communityService.updateMember(communityId, userId, { status: 'active', admin_user_id: currentUser.id })
+      await communityService.updateMember(communityId, userId, { status: 'active' })
       refetchCommunity()
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to approve member')
     }
   }
 
+  // Sprint 144: reject through the staff PUT (moderators may reject; the DELETE is admin-only).
   const handleRejectMember = async (userId: string) => {
     if (!currentUser) return
     try {
-      await communityService.removeMember(communityId, userId)
+      await communityService.updateMember(communityId, userId, { status: 'inactive' })
       refetchCommunity()
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to reject member')

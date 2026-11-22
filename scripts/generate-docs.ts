@@ -505,6 +505,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-021-trust-path-filtering',
       'adr-050-group-communities',
       'adr-062-community-identity-idempotent-creation',
+      'adr-106-database-owned-member-count',
     ],
   },
   {

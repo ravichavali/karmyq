@@ -502,6 +502,10 @@
           "href": "/docs/concepts/adr-062-community-identity-idempotent-creation"
         },
         {
+          "label": "Database-Owned Community Member Count",
+          "href": "/docs/concepts/adr-106-database-owned-member-count"
+        },
+        {
           "label": "— Requests & Matching —",
           "href": "/docs/concepts",
           "divider": true
