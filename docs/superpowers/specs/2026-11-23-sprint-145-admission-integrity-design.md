@@ -68,9 +68,12 @@ pre-implementation evidence, not future line assignments.
 | `tests/integration/social-graph.test.ts:103`, `services/social-graph-service/package.json:11` | The root test's filename does not match that runner, and service `npm test` runs only unit/regression. Neither older acceptance test file supplies blocking coverage. |
 | `tests/integration/sprint-144-staff-write-integrity.integration.test.ts:476` | The current gated API acceptance coverage admits a new invitee with an active admin inviter. It does not establish an already-active contract. |
 | `services/social-graph-service/src/routes/invitations.ts:9`, `:12`, `:49`, `:58` | Generation trusts a supplied community header, inserts an unbound code, and increments sent statistics without a membership check. |
-| `infrastructure/postgres/init.sql:950`, `services/social-graph-service/src/routes/invitations.ts:176` | Self-acceptance already violates a database constraint; the current catch returns 500. The proposed 400 improves the error contract. |
+| `infrastructure/postgres/init.sql:950`, `services/social-graph-service/src/routes/invitations.ts:177`, `:179` | Self-acceptance already violates a database constraint; the current catch returns 500. The proposed 400 improves the error contract. |
 | `docs/guides/joining-karmyq-guide.md:9`, `docs/guides/onboarding-guide.md:3` | Invitation entry is documented in the joining guide; the onboarding guide concerns first-visit intro screens. |
 | `services/social-graph-service/src/services/pathComputation.ts:360`, `:362`, `infrastructure/postgres/init.sql:220` | Accepted invitation rows feed invitation-chain topology and the acceptance statistics trigger. A false acceptance creates effects beyond membership. |
+| `infrastructure/postgres/init.sql:3157` | The unique inviter/invitee/community triplet prevents a former invitee from consuming a fresh code from the same inviter in the same community; this is a real rejoin/pending-user refusal. |
+| `services/notification-service/src/events/subscriber.ts:259`, `:282`, `:291` | A join request already produces admin notifications. Under D2/D3 another member's invitation can admit the applicant while staff are reviewing, leaving that notification stale. |
+| `services/auth-service/src/routes/auth.ts:78`, `:110`, `:128`, `:155` | Registration creates the user/session with no membership. D1's frontend branch is defensive coverage for a separately admitted same-account race, not an ordinary registration outcome. |
 
 ## Approaches
 
@@ -94,11 +97,11 @@ These are revised author recommendations, not approved requirements. The state t
 validation cases below describe this recommended variant; do not write the implementation plan until D1–D3 and
 the revised design have been approved.
 
-| Decision | Recommended outcome and reason | Alternative and cost |
-|---|---|---|
-| **D1 — already-active invitee** | Return 200 with no persistent writes: no code consumption, membership/timestamp change, accepted-stat increase, user-attribution overwrite or new invitation-chain edge. Leave the code usable by a newcomer. | Consume and attribute despite no admission. This can fabricate provenance and improve inviter statistics; no running acceptance test requires it. |
-| **D2 — pending invitee** | An eligible invitation promotes pending to active ordinary member, with the same post-write capacity check as a newcomer. This avoids penalizing someone who applied before receiving the code. | 409, forcing the applicant to withdraw then accept. This gives a pending applicant fewer admission options than a stranger holding the same code. |
-| **D3 — private invitation authority** | Require a live active inviter, regardless of role. **Any active member of a private community can admit anyone without admin approval.** This closes outsider-minted-code admission while retaining member-to-member private invitations. | Restrict private admission to staff or create pending membership instead. Either changes who may admit private members and needs a different state table and guide. |
+| Decision | Recommended outcome and reason | Cost of recommendation | Alternative and cost |
+|---|---|---|---|
+| **D1 — already-active invitee** | Return 200 with no persistent writes: no code consumption, membership/timestamp change, accepted-stat increase, user-attribution overwrite or new invitation-chain edge. Leave the code usable by a newcomer. | Response distinguishes a no-op with `already_member: true` and `accepted_at: null`; keep its defensive frontend guard/test minimal. | Consume and attribute despite no admission. This can fabricate provenance and improve inviter statistics; no running acceptance test requires it. |
+| **D2 — pending invitee** | An eligible invitation promotes pending to active ordinary member, with the same post-write capacity check as a newcomer. This avoids penalizing someone who applied before receiving the code. | With D3, any active member can admit an applicant whom staff are reviewing or about to decline. The admin's existing `join_request` notification becomes stale; it is not withdrawn or rewritten in this sprint. | 409, forcing the applicant to withdraw then accept. This gives a pending applicant fewer admission options than a stranger holding the same code. |
+| **D3 — private invitation authority** | Require a live active inviter, regardless of role. **Any active member of a private community can admit anyone without admin approval.** This closes outsider-minted-code admission while retaining member-to-member private invitations. | Staff do not have exclusive admission authority, including over pending applicants; capacity and blocked-state refusals still apply. | Restrict private admission to staff or create pending membership instead. Either changes who may admit private members and needs a different state table and guide. |
 
 The live-inviter check is an in-scope security fix under the proposed D3 rule. Today any authenticated outsider can
 mint a code for a supplied private community and the unguarded accept handler admits its holder; the source has
@@ -152,6 +155,18 @@ the existing pointer response, regardless of caller membership; it does not cons
   Actual acceptance retains its stored timestamp and may omit `already_member` (existing consumers stay valid).
   `accepted_at` is therefore a timestamp only when this code was consumed. Do not fabricate an acceptance time
   for the no-op. The used-code check still precedes this branch: a consumed code returns 400, even to a member.
+- A previous accepted invitation with the same inviter, invitee and community prevents consuming a fresh code
+  for an actual admission (the existing triplet uniqueness constraint). This affects a person who joined via A,
+  left and is now left or pending when using another code from A. Keep 409 `INVITATION_CONFLICT` and roll back
+  every new effect; do not change the schema, erase the old accepted invitation or merge invitation history.
+  Use this actionable message: "You previously joined this community through this inviter. Ask a different member
+  for an invitation. If the community is public, rejoin from its community page."
+  The fresh code stays unconsumed, user attribution/statistics stay unchanged, and a pending/left row retains its
+  prior state. Active no-ops do not consume a code and therefore do not hit this constraint.
+- D2 does not cancel an admin's already-created `join_request` notification. Staff actions still use live
+  membership transitions; race coverage must exercise invitation versus staff approval/rejection and assert the
+  final stored state rather than treating a notification as a current pending-membership guarantee. Do not add a
+  notification-service behavior change or new notification event to this sprint.
 
 ## Transaction design
 
@@ -239,8 +254,9 @@ Errors use ADR-074 `{ success: false, error: string, message: string }`. Use `CO
 `CONFLICT` for pending or an unresolved membership insert race; `INVITATION_CONFLICT` for the known invitation
 triplet uniqueness collision. Recognize the relevant constraint, not every PostgreSQL 23505. Unexpected failures
 are logged with route/context and sent as opaque `INTERNAL_ERROR`; never return SQL text or raw exception messages.
-Keep the used-code message compatible with current tests. Restoration copy tells the person to ask an admin to
-lift the block and then rejoin themselves.
+Keep the used-code message compatible with current tests. `INVITATION_CONFLICT` is a real user-facing repeat-invite
+refusal and uses the alternate-path message above, not an unexplained duplicate error. Restoration copy tells the
+person to ask an admin to lift the block and then rejoin themselves.
 
 ## Frontend and callers
 
@@ -249,9 +265,11 @@ joined destination. Verify successful active duplicate-create still accepts the 
 Verify invite registration preserves the account/session and goes to discovery when acceptance fails; it must not
 create invitation arrival context or re-login on a refused acceptance. Actual acceptance retains the re-login
 and arrival sequence. The invitation page currently offers registration only, not acceptance for an existing
-account. Do not add a logged-in acceptance flow. If the existing submission receives D1's no-op (e.g. another
-admission won the race), refresh its session as usual and route to the existing community without calling
-`beginArrival` for an invitation bond. This is a small response-branch guard, not a new screen or funnel redesign.
+account. Registration itself adds no community membership. Do not add a logged-in acceptance flow. D1's frontend
+guard is defensive: a same newly created account would first need a separate admission, such as two authenticated
+tabs accepting different codes. If that rare case returns D1's no-op, refresh its session as usual and route to
+the existing community without calling `beginArrival` for an invitation bond. Keep this guard and its one focused
+test minimal; do not build a new screen, multi-tab coordinator or funnel redesign for it.
 
 Validation intentionally uses the raw Axios envelope (`response.data.data`), while acceptance uses the unwrapped
 per-service client (`response.data`). Keep both shapes and the corresponding Sprint 118 mocks; there is no
@@ -268,6 +286,10 @@ validation envelope defect to fix or defer.
   outcome, D2's pending promotion and the account-preserving fallback. State D3's ordinary-member private
   admission authority separately from ordinary private join requests. Do not target `onboarding-guide.md`,
   which documents first-visit intro screens rather than this invitation flow.
+  Include the same-inviter repeat-invitation limitation and alternate paths: another member's code, or self-rejoin
+  from a public community's page. Explain that the rejected fresh code remains unused and the prior invitation
+  history is kept. Include the D2 trade-off: member-issued invitations can resolve pending membership while staff
+  are reviewing, so a prior admin join-request notification may no longer describe current membership.
 - `docs/concepts/community-identity.md`: qualify join-if-exists with capacity and membership state.
 - `docs/adr/ADR-062-community-identity-idempotent-creation.md`: amend the implemented duplicate-create contract to
   reflect lifecycle checks and ADR-106's counter, without rewriting historical migration evidence or allocating
@@ -291,11 +313,15 @@ Do not put the only SQL or race evidence in an unrun service integration tier.
    roles on left rows and promoted pending invitation rows reset to member, active roles/timestamps remain;
    active full/overfull no-ops remain successful. Include D1's no-write accepted-stat/attribution/lineage invariants,
    D2's pending promotion on public/private invitations, private duplicate-create pointers (including a mid-request
-   change) and inactive/missing communities. The bound-invitee case uses a synthetic fixture; self-acceptance proves
+   change) and inactive/missing communities. Add real-history cases for both left and pending invitees: accept a
+   first code, leave (and reapply for the pending case), then try a fresh code from the same inviter/community.
+   Assert 409 `INVITATION_CONFLICT`, the actionable message, the unused fresh code, unchanged prior history and
+   exact membership/count/attribution/statistics rollback. Prove a different inviter's code succeeds and public
+   self-rejoin is an available alternative. The bound-invitee case uses a synthetic fixture; self-acceptance proves
    the existing constraint still holds and the API returns 400, not 500.
 2. **Atomic invitation effects:** exact before/after rows for invitation, user attribution, inviter stats, membership
-   and stored/actual active count. Force a failure after member insertion (e.g. a real invitation triplet conflict)
-   and prove every write rolls back. A separate injected user-attribution query failure after acceptance proves
+   and stored/actual active count. Use the real repeat-invitation conflict above to prove every tentative admission
+   write rolls back, not merely as an artificial failure injection. A separate injected user-attribution query failure after acceptance proves
    the statistics trigger also rolls back. Pure query-order mocks are supplemental evidence, never DB proof.
 3. **Single-use races:** two eligible newcomers accept the same code (one winner); two codes for one user in the
    same community (one actual admission, then D1 no-op leaves the other code usable); repeat a used code. Assert
@@ -310,8 +336,10 @@ Do not put the only SQL or race evidence in an unrun service integration tier.
    before releasing the capacity barrier. No workaround using distinct inviters to hide exclusive inviter locking.
    Do not use arbitrary sleeps as race evidence.
 5. **State/authority races:** block or change the invitee while acceptance waits; remove the inviter while acceptance
-   waits; archive a community or make a public match private while admission waits. Assert the committed winner's
-   state determines the response. Forged JWT community claims and foreign membership rows never confer authority.
+   waits; archive a community or make a public match private while admission waits. Include pending admission
+   against staff approval/rejection. Assert the committed winner's state determines the response. Admin notification
+   creation is established by the existing subscriber; no notification-service test or cleanup is added here.
+   Forged JWT community claims and foreign membership rows never confer authority.
 6. **Resource cleanup:** the new social-graph transaction releases checked-out clients; failed rollback destroys
    its client. BUG-108 retains community-service's existing wrapper, whose failed-rollback handling is a known
    limitation outside scope (`src/database/db.ts:57–60`); do not claim destroy-on-failure for it. Barrier helpers
@@ -323,7 +351,8 @@ Do not put the only SQL or race evidence in an unrun service integration tier.
    tests belong in service `tests/tdd/`, promoted to gated `tests/regression/`; do not spend this sprint updating
    mocked tests in service `tests/integration/`, which standard CI/npm test never selects. New real DB coverage is
    in the root `*.integration.test.ts` file. Frontend tests cover actual acceptance, failure and D1's no-bond guard
-   while preserving validation's raw envelope; do not "correct" that mock to the acceptance client's shape.
+   while preserving validation's raw envelope; keep D1's defensive no-bond test to one focused case. Do not
+   "correct" the validation mock to the acceptance client's shape.
 
 No database/remote server is authorized by planning. Execution can obtain DB evidence from the isolated CI test
 stack after a PR is opened; local remote-container proof requires a new explicit authorization. Record any locally
@@ -363,3 +392,9 @@ outside this planning authorization; tag the implementation plan `no-deploy` and
    Do not claim live UI smoke or deployment from API tests, source inspection or historical Sprint 144 evidence.
 10. Version, merge, deploy, demo data and remote test infrastructure remain unauthorized; planning produces docs
     only, with execution in the next chat after design/plan readiness.
+11. Repeat invitations from the same inviter/community can hit the existing unique triplet on a left or pending
+    invitee. Keep 409 INVITATION_CONFLICT with the alternate-path message, joining-guide explanation and real-history
+    state-matrix/rollback proof. No schema change or deletion of accepted history.
+12. D2/D3 let an ordinary member admit an applicant while staff review, leaving a prior join-request notification
+    stale. This is an explicit policy cost, not a notification cleanup task. The D1 frontend guard is defensive
+    and gets one minimal test because registration itself creates no membership.

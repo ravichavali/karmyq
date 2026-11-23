@@ -2,9 +2,11 @@
 
 **Date**: 2026-11-23
 **Outcome**: Sprint 145 scope confirmed by the maintainer: BUG-106 + BUG-108 admission integrity;
-BUG-107 staff direct-add consent policy deferred. Claude's review of `32754735` rejected the first draft;
-source-backed corrections and revised recommendations D1–D3 are recorded. Those decisions and design approval
-remain pending. Do not write the implementation plan yet; no implementation is authorized here.
+BUG-107 staff direct-add consent policy deferred. Claude's re-review of `d169f5c6` confirms all ten prior findings
+were addressed. The two additional gaps and two nits are incorporated into the spec; no further review round is
+needed for them. The pasted maintainer decision line remains unfilled, so D1–D3/design approval is still pending
+and a confirmation question is outstanding. Do not write the implementation plan yet; no implementation is
+authorized here.
 
 ## Ownership and base
 
@@ -23,8 +25,9 @@ remain pending. Do not write the implementation plan yet; no implementation is a
    `git status --short`. Reuse `agent/claude/sprint-145-planning`; never branch from local master.
 3. Read the [Sprint 144 shipped archive](archive/2026-11-23-sprint-144-staff-write-integrity-SHIPPED-v11.117.0.md).
 4. Review the [Sprint 145 design draft](../../docs/superpowers/specs/2026-11-23-sprint-145-admission-integrity-design.md).
-   Scope is confirmed (2026-11-23); the first draft was not approved. Review the revised D1–D3 policy table
-   and the review ledger below. After those decisions and the revised design are approved, invoke
+   Scope is confirmed (2026-11-23); the re-review accepted the prior corrections. Confirm D1–D3 in the revised
+   policy table (especially D2's cost and D3's private admission authority); the two further gaps do not need
+   another design-review round. After those decisions and the revised design are approved, invoke
    `superpowers:writing-plans` and finish `.claude/skills/sprint-planning/SKILL.md`.
    No Sprint 145 implementation plan exists yet. Do not start product implementation in this planning chat.
 
@@ -42,10 +45,13 @@ results (BUG-108). BUG-107's staff direct-add consent policy stays deferred.
   capacity/state refusals leave all unchanged. Inviter liveness is explicitly an acceptance-side security fix.
 - **D1 (recommended, pending):** already-active invitee gets 200 with no persistent writes: no consumption,
   stats, attribution or membership change. Code remains usable; response has `already_member: true` and
-  `accepted_at: null`. A minimal caller guard avoids creating an invitation bond for this no-op.
+  `accepted_at: null`. The caller guard is defensive (registration creates no membership), with one minimal
+  test for a separately admitted same-account/two-tab race; no new existing-user acceptance flow.
 - **D2 (recommended, pending):** an invitation promotes a pending applicant to active ordinary member,
   with the same post-write capacity check as a newcomer. New/left invitees become active ordinary members;
   blocked/NULL/unknown states still refuse. Duplicate-create still refuses pending membership.
+  **Cost:** an ordinary member can admit an applicant whom staff are reviewing/about to decline, leaving the
+  admin's earlier join-request notification stale. No notification cleanup/service change is in scope.
 - **D3 (recommended, pending):** inviter must still be a live active member, regardless of role.
   **Any active member of a private community can admit anyone without admin approval**, subject to capacity
   and blocked-state checks. This authority requires an explicit maintainer decision; it is not implied by scope.
@@ -55,6 +61,10 @@ results (BUG-108). BUG-107's staff direct-add consent policy stays deferred.
 - Capacity follows the active write on the transaction client, using the ADR-106 counter. No community
   pre-lock ahead of membership locks. Races/rollback need real DB proof through isolated CI; remote test
   infrastructure is not authorized by this session.
+- A former invitee (left or pending again) cannot consume a new code from the same inviter/community because
+  of the existing unique triplet. Keep 409 `INVITATION_CONFLICT`, with guidance to ask another member for a code
+  or self-rejoin from a public community page. Cover the real-history scenario, unchanged old history/unused
+  new code and full rollback in the state matrix; include the limitation in the joining guide. No schema change.
 - These are author proposals, not decisions implied by the maintainer's scope confirmation. The spec's
   Critical implementation notes are not copied here until the design is approved.
 
@@ -73,8 +83,25 @@ approved by the review's proposed choices.
 | 6 | "The \"inviter must still be active\" rule is a security fix" | CONFIRMED security gap. State D3's ordinary-member private authority explicitly; decision pending. Log generation/stat inflation as out-of-scope BUG-109. | `services/social-graph-service/src/routes/invitations.ts:9–19`, `:46–66`, `:110–160` |
 | 7 | "\"Destroy the client if rollback fails\" can't apply to BUG-108 as scoped." | CONFIRMED. Limit new cleanup guarantee to social-graph; community wrapper stays unchanged. | `services/community-service/src/database/db.ts:48–60` |
 | 8 | "Follow existing patterns." | CONFIRMED patterns. Use db: Queryable = pool, and ordered inviter FOR SHARE / invitee FOR UPDATE locks; remove artificial exclusive-inviter queueing assumptions. | `services/social-graph-service/src/database/trustEdgeDb.ts:107–111`; `services/community-service/src/database/governanceDb.ts:286` |
-| 9 | "Two invitation rules have no live trigger." | CONFIRMED distinctions. Bound-invitee refusal is synthetic-fixture coverage; self-acceptance already has a DB guard, with the planned API improvement 500→400. | `services/social-graph-service/src/routes/invitations.ts:49`, `:137`, `:176`; `infrastructure/postgres/init.sql:950` |
+| 9 | "Two invitation rules have no live trigger." | CONFIRMED distinctions. Bound-invitee refusal is synthetic-fixture coverage; self-acceptance already has a DB guard, with the planned API improvement 500→400. | `services/social-graph-service/src/routes/invitations.ts:49`, `:137`, `:177`, `:179`; `infrastructure/postgres/init.sql:950` |
 | 10 | "for an active member, return the existing private-community response" | Adopted in revised proposal. Private pointer covers a mid-request change too, with any tentative admission rolled back first. | `services/community-service/src/routes/communities.ts:438–447` |
+
+## Re-review follow-through (`d169f5c6`, 2026-11-23)
+
+Claude's re-review accepted the preceding ten corrections. The maintainer relayed the following additions;
+each was re-verified before editing the spec. These are requirements for the eventual plan, not implemented
+product behavior.
+
+| Item | Disposition | Source evidence |
+|---|---|---|
+| "A person re-invited by the same inviter can never use the new code." | CONFIRMED for an actual admission after a previous accepted triplet. Document the real left/pending scenario, 409 alternate-path message, joining-guide update and state-matrix rollback coverage; keep the schema unchanged. D1 active no-op does not consume a code and avoids the conflict. | `infrastructure/postgres/init.sql:3157` |
+| "D2's downside isn't written down." | CONFIRMED. Added a cost column: member admission can supersede staff's review and stale join-request notification. No notification-service expansion. | `services/notification-service/src/events/subscriber.ts:259`, `:281`, `:291` |
+| "The D1 frontend guard covers a case the web can't really reach." | CONFIRMED ordinary registration has no membership. Label guard/test defensive and minimal for a separate same-account admission race. | `services/auth-service/src/routes/auth.ts:110`, `:128`, `:155`; `apps/frontend/src/pages/invite/[code].tsx:87–111` |
+| "the catch is at line 177 and the 500 at line 179." | CONFIRMED. Corrected both spec and prior ledger citations. | `services/social-graph-service/src/routes/invitations.ts:177`, `:179` |
+
+Recommendations are still D1 = no-write 200, D2 = promote pending with the documented cost, D3 = live active
+member-to-member private admission. The review's recommendations do not fill the quoted maintainer decision
+placeholders. An explicit confirmation question was sent; do not interpret elapsed time as approval.
 
 ## Verified prior release
 
@@ -113,7 +140,7 @@ post-merge records ride with the next product PR, never a docs-only master push.
 
 ## Verification
 
-GitHub open-PR query returned none again on 2026-11-23; the branch was clean at `32754735` before review revisions.
+GitHub open-PR query returned none again on 2026-11-23; the branch was clean at `d169f5c6` before re-review additions.
 Fetched master remains `71773476` (Sprint 144 #341); root package version is 11.117.0 (`package.json:3`).
 The first commit `8471a6a7` contains the Sprint 144 post-merge record. Its historical validation remains
 in the shipped archive; it is not evidence of an implemented Sprint 145 fix.
@@ -127,6 +154,9 @@ and the implementation plan remain pending. Historical draft documentation drift
 --no-cache`); that result predates these review revisions. Fresh revision checks, their exit statuses and
 limitations are recorded in the body of the `docs: revise Sprint 145 design after review` commit. Do not reuse
 the earlier result as evidence for this diff or treat planning checks as proof that the proposed fixes work.
+The `d169f5c6` full pre-commit pass predates the current re-review additions. Fresh checks for these further
+documentation edits are recorded in the body of the `docs: capture Sprint 145 re-review planning details`
+commit; they do not replace the final planning/implementation verification still owed.
 No product implementation test, DB proof, live smoke or release is claimed. This is an intermediate
 planning checkpoint, not final task/PR verification; the final pre-commit skill and full implementation
 gates remain owed when that stage is reached.
