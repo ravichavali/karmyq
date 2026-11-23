@@ -14,7 +14,7 @@ authorized here.
 |---|---|
 | Branch | `agent/claude/sprint-145-planning`, created from `origin/master` `71773476` |
 | Active editor | Codex (this session); one editor at a time in the shared Windows checkout |
-| Owned paths | Sprint 144 post-merge record (committed); Sprint 145 spec/plan, this handoff, BUG-109 log in docs/BUGS.md |
+| Owned paths | Sprint 144 post-merge record (committed); Sprint 145 spec/plan, this handoff, BUG-109 log in docs/BUGS.md; bundled agent-process commit (see below) |
 | PR | None; `gh pr list --state open` returned no open PRs on 2026-11-23 |
 | Release | Current master v11.117.0; Sprint 145 version unallocated |
 
@@ -114,6 +114,14 @@ maintainer-reported and was not independently rerun here).
 
 ## Open candidates and decisions
 
+- **Bundled agent-process commit (maintainer-requested 2026-11-23, Claude):** this is the
+  `docs(process): ...` commit on this branch, from the `/insights` report triage. It changes the
+  CLAUDE.md Windows-host and next-chat-prompt rules, the sprint-planning Step 5b self-audit and
+  checkpoint, the ship blocker report, the deploy post-merge closeout plus frontmatter, and the
+  review-response agent-report section. There is no product, settings or dependency change. The
+  Sprint 145 PR body must list it under bundled work. It is docs-only, so a separate PR would cost
+  a deploy for no gain. Pre-existing defect found, not fixed: `tests/claude.md` says the TDD
+  promoter "runs as root `posttest`", but `.npmrc` `ignore-scripts=true` stops npm from running it.
 - [BUG-106/108](../../docs/BUGS.md): confirmed Sprint 145 scope. BUG-107 staff direct-add consent
   remains open and deferred; scope confirmation does not change that exception.
 - [BUG-109](../../docs/BUGS.md): newly logged generation authorization/statistics security gap, outside

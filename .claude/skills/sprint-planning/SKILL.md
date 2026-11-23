@@ -238,6 +238,9 @@ The handoff **Quick Start** section MUST include:
 3. Open plan: `docs/superpowers/plans/YYYY-MM-DD-sprint-NN-{slug}.md`
 4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`).
    There is no `/execute-plan` slash command — superpowers removed it as a deprecated stub.
+5. Checkpoint: after every group of at most 3 tasks, and before starting any long-running suite or
+   subagent review, commit and update this handoff's task status (task, state, SHA, evidence) and
+   say what you are waiting on. A mid-sprint pickup reads this handoff, never `git log`.
 ```
 
 The handoff MUST include:
@@ -247,6 +250,35 @@ The handoff MUST include:
 - Critical implementation notes from the spec (copied verbatim)
 - Any carry-forward issues or known bugs relevant to this sprint
 - Persistent context section (copy from previous handoff unchanged)
+
+---
+
+## Step 5b: Pre-review self-audit
+
+Before the spec, plan or handoff goes to the other agent for review, audit it for the defect
+classes that first drafts here keep shipping. The cross-agent review should confirm, not discover.
+
+1. **Citations:** re-open every `file:line` and confirm the line still says what the doc claims.
+   Line numbers drift by one or two between drafting and committing.
+2. **Behavior-changing config:** `.npmrc` sets `ignore-scripts=true`, so no `pre*`/`post*`
+   lifecycle script runs, locally or in CI. Confirm that the tier each new test lands in actually
+   runs in CI. CI's integration step runs only root `tests/integration/*.integration.test.ts`
+   (`tests/jest.integration.config.js` `roots` + `testMatch`); a service's `tests/integration/`
+   never runs there.
+3. **Ordering and invariants:** for each migration, dependency or lockfile-splice step, list its
+   preconditions. Check that no two requirements contradict each other and that every task's
+   inputs exist when it runs.
+4. **Gates fail closed:** every new gate or test names the red case it fails on, and every
+   negative assertion is paired with a positive match on a known-bad input.
+5. **Claim scope:** "every writer" or "all callers" is enumerated with a live search, never a
+   sample. Policy choices are marked pending until the maintainer decides them; scope approval
+   does not approve them.
+
+For a plan with schema, migration, dependency or security-gate tasks, run this checklist through
+**one** fresh-context reviewer subagent on the session model (ADR-104: judgment is not delegated
+to a cheaper model). Verify each of its findings with `review-response` before applying it. This
+pass does not replace the cross-agent review. Record "self-audit at `<sha>`: N findings fixed" in
+the handoff.
 
 ---
 
@@ -268,5 +300,6 @@ git commit -m "docs: Sprint NN spec + plan — ready to execute"
 | Task N-1 missing TDD test | Every plan ends with a docs/registry task then a verification task |
 | Handoff Quick Start doesn't name the execution skill | Next conversation won't know how to start — name `superpowers:subagent-driven-development`, never the removed `/execute-plan` |
 | Sprint number guessed instead of read from git | Always `git log --oneline -5` first |
+| Sending a draft to review without the Step 5b self-audit | Cross-agent rounds then spend themselves on mechanical defects (stale citations, contradictory migration steps); run 5b first |
 | Setting `evolution_enabled` defaults to `false` (opt-in) when it should be `true` (opt-out) | See `docs/IDEAS.md` [2026-03-20] — evolution defaults are opt-out |
 | Treating docs as optional ("no ADR this sprint") | User guides MUST be updated every sprint — even without an ADR, update affected guides and concept pages in `apps/landing/` |
