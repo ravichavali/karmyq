@@ -2917,3 +2917,28 @@ request. The fix is to route this case through the join route's `classifyExistin
 existing behavior and only added the capacity post-check and the stored count.
 
 ---
+
+## BUG-109 · [2026-11-23] · open · **security (severity not yet triaged)**
+
+**Invitation generation accepts an arbitrary community id without verifying the caller's live membership and
+increments that caller's sent statistics for the community.** Found in Claude's Sprint 145 design review;
+source re-verified by Codex at `32754735`. `POST /invitations/generate` reads `X-Community-ID` (or a token's current
+community hint) and checks only that caller and community ids are present
+(`services/social-graph-service/src/routes/invitations.ts:9–19`). It then looks up the caller's name, generates a
+code, inserts `auth.user_invitations` with `invitee_id=NULL` (`:46–53`) and increments
+`auth.inviter_stats.total_invitations_sent` (`:58–66`), without reading `communities.members`.
+
+At the handler level an authenticated outsider can therefore mint codes for a supplied public or private
+community and inflate their sent count there. The current acceptance handler also lacks a live inviter check
+(`:110–160`), so such a code can admit its holder to that community as active. This is source-derived security
+evidence, not a demo-server exploit reproduction; no demo data was accessed. Do not assume database RLS supplies
+the missing application authorization (see `docs/gotchas/database-roles-bypass-rls-so-rls-is-not-an-isolation-proof.md`).
+
+Sprint 145 proposes an acceptance-side live-inviter security gate under BUG-106. It is **not implemented yet**;
+once implemented it would refuse outsider-minted codes at acceptance, including previously generated codes.
+It would not fix generation or sent-stat inflation. Generation's membership gate and statistics writes remain
+**outside Sprint 145 implementation scope** and this bug stays open; no dependency, migration or data operation
+is authorized by recording it. Future work must derive generation authority from live membership rather than
+the header or JWT community hint.
+
+---
