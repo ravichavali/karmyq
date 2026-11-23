@@ -1,7 +1,9 @@
 # Sprint 145 — Planning — Handoff
 
 **Date**: 2026-11-23
-**Outcome**: Sprint 144 post-merge record prepared; Sprint 145 goal selection pending.
+**Outcome**: Sprint 145 scope confirmed by the maintainer: BUG-106 + BUG-108 admission integrity;
+BUG-107 staff direct-add consent policy deferred. Design draft written and builder-checked; maintainer design
+approval is next. No implementation authorized here.
 
 ## Ownership and base
 
@@ -9,7 +11,7 @@
 |---|---|
 | Branch | `agent/claude/sprint-145-planning`, created from `origin/master` `71773476` |
 | Active editor | Codex (this session); one editor at a time in the shared Windows checkout |
-| Owned paths | Sprint 144 ADR/bug status, handoff/archive; Sprint 145 spec/plan after goal confirmation |
+| Owned paths | Sprint 144 post-merge record (committed); Sprint 145 spec/plan and this handoff |
 | PR | None; `gh pr list --state open` returned no open PRs on 2026-11-23 |
 | Release | Current master v11.117.0; Sprint 145 version unallocated |
 
@@ -19,11 +21,37 @@
 2. `git fetch origin && git log --oneline origin/master -2`; reconcile `gh pr list` and
    `git status --short`. Reuse `agent/claude/sprint-145-planning`; never branch from local master.
 3. Read the [Sprint 144 shipped archive](archive/2026-11-23-sprint-144-staff-write-integrity-SHIPPED-v11.117.0.md).
-4. Continue `.claude/skills/sprint-planning/SKILL.md` Step 2: confirm the Sprint 145 goal before writing
-   the spec and implementation plan. No Sprint 145 spec or plan exists yet.
+4. Review the [Sprint 145 design draft](../../docs/superpowers/specs/2026-11-23-sprint-145-admission-integrity-design.md).
+   Scope is confirmed (2026-11-23); detailed design approval is pending. After approval, invoke
+   `superpowers:writing-plans` and finish `.claude/skills/sprint-planning/SKILL.md`.
+   No Sprint 145 implementation plan exists yet. Do not start product implementation in this planning chat.
 
-**Next action**: select the sprint outcome. Recommendation: BUG-106 + BUG-108 admission integrity,
-with BUG-107's consent policy as a separate decision. This is a proposal, not approved scope.
+**Goal (confirmed 2026-11-23)**: invitation acceptance must enforce capacity and membership state
+atomically (BUG-106); duplicate-create joins must follow membership lifecycle rules and report truthful
+results (BUG-108). BUG-107's staff direct-add consent policy stays deferred.
+
+**Next action**: obtain approval of the linked design draft, then write the implementation plan tagged
+`no-deploy`. Execution belongs in the next chat after planning is ready; reuse this branch.
+
+## Proposed design (awaiting approval)
+
+- Service-local transactions; no new schema, shared-package export, dependency or ADR number.
+- Invitation consumption, membership, user attribution and inviter-statistics trigger commit together;
+  capacity/state refusals leave all unchanged. Inviter must still have live active membership.
+- New/left invitees become active ordinary members (including private invitations, preserving current
+  behavior); existing active members retain role/count; pending/blocked/unknown states refuse.
+- Duplicate-create uses the existing membership classifier inside its transaction. Active retries stay
+  idempotent; left rows rejoin as member; pending/blocked refuse. Private pointer response stays unchanged.
+- Capacity follows the active write on the transaction client, using the ADR-106 counter. No community
+  pre-lock ahead of membership locks. Races/rollback need real DB proof through isolated CI; remote test
+  infrastructure is not authorized by this session.
+- These are author proposals, not decisions implied by the maintainer's scope confirmation. The spec's
+  Critical implementation notes are not copied here until the design is approved.
+
+**Adjacent finding, deferred:** `apps/frontend/src/pages/invite/[code].tsx:51` reads validation as
+`response.data.data`, while `apps/frontend/src/lib/api.ts:81` unwraps the envelope. The existing
+`apps/frontend/tests/regression/sprint-118-invited-arrival.test.tsx` mocks the nested shape. Source-backed
+observation only; no live UI reproduction or fix here. The spec explicitly limits any funnel claim.
 
 ## Verified prior release
 
@@ -36,8 +64,8 @@ maintainer-reported and was not independently rerun here).
 
 ## Open candidates and decisions
 
-- [BUG-106/107/108](../../docs/BUGS.md): invitation acceptance capacity/state, staff direct-add consent,
-  duplicate-create false joined response. Goal selection is pending.
+- [BUG-106/108](../../docs/BUGS.md): confirmed Sprint 145 scope. BUG-107 staff direct-add consent
+  remains open and deferred; scope confirmation does not change that exception.
 - [Expo drift #329](https://github.com/ravichavali/karmyq/issues/329): daily run
   [45246722488](https://github.com/ravichavali/karmyq/actions/runs/45246722488) failed on nine patch
   mismatches. No advisory established; the maintainer must earn and allocate dependency work.
@@ -60,8 +88,16 @@ post-merge records ride with the next product PR, never a docs-only master push.
 
 ## Verification
 
-GitHub and git observations above were re-read 2026-11-23. The documentation drift gate passed
-41/41 (`npm exec --workspace=tests -- jest --runTestsByPath regression/doc-context-drift-gate.test.ts
---runInBand --no-cache`). `git diff --check` passed. Landing docs were generated from source; ADR-106's
-generated content matches its source and says Implemented. No product code changed. The first commit
-contains the Sprint 144 post-merge record; Sprint 145 planning follows separately after goal confirmation.
+GitHub open-PR query returned none on 2026-11-23; the branch was clean at `8471a6a7` before planning edits.
+Fetched master remains `71773476` (Sprint 144 #341); root package version is 11.117.0 (`package.json:3`).
+The first commit `8471a6a7` contains the Sprint 144 post-merge record. Its historical validation remains
+in the shipped archive; it is not evidence of an implemented Sprint 145 fix.
+
+Sprint 145 changes are this handoff and the design draft only. Source references were checked, and a
+fresh read-only builder reviewer reported "nothing important left" (2026-11-23). Design approval and
+the implementation plan remain pending. Draft documentation drift check passed 41/41, exit 0, no Jest cache
+(`npm exec --workspace=tests -- jest --runTestsByPath regression/doc-context-drift-gate.test.ts --runInBand
+--no-cache`); `git diff --check` passed and editor diagnostics reported no errors for the two draft files.
+No product implementation test, DB proof, live smoke or release is claimed. This is an intermediate
+planning checkpoint, not final task/PR verification; the final pre-commit skill and full implementation
+gates remain owed when that stage is reached.
