@@ -2794,7 +2794,7 @@ rejoin updates and 23505 mapping make concurrent attempts one success plus one c
 
 ---
 
-## BUG-103 · [2026-11-15] · fixed (Sprint 144, ADR-106, pending deploy)
+## BUG-103 · [2026-11-15] · fixed and deployed (Sprint 144, ADR-106, v11.117.0)
 
 **`communities.communities.current_members` drifts away from the real active-member count.** Found while
 planning Sprint 143 (BUG-102). The DELETE member handler (`services/community-service/src/routes/members.ts`,
@@ -2823,9 +2823,14 @@ re-checked after each admitting write in the same transaction (400 `COMMUNITY_FU
 guard, flag discipline, recount idempotence and replay, admission races) and the root gate
 `tests/regression/sprint-144-no-member-count-deltas.test.ts`. Any later repair uses the recount function.
 
+**Deployed 2026-11-23:** [#341](https://github.com/ravichavali/karmyq/pull/341), squash `71773476`.
+[CI/CD 45066293676, attempt 2](https://github.com/ravichavali/karmyq/actions/runs/45066293676/attempts/2)
+passed 14/14 jobs; the deploy log confirms the migration above committed (one applied) and 9/9 healthy services.
+No demo drift measurement was taken in this post-merge record.
+
 ---
 
-## BUG-104 · [2026-11-18] · fixed (Sprint 144, pending deploy)
+## BUG-104 · [2026-11-18] · fixed and deployed (Sprint 144, v11.117.0)
 
 **The PUT last-admin guard can be bypassed with a non-canonical UUID.** Found in Claude's PR #340 review.
 `services/community-service/src/routes/members.ts:380` compares PostgreSQL's canonical `user_id` value directly with
@@ -2840,9 +2845,13 @@ canonical ids under the target-plus-admins row lock. Proof: the real-DB cases "r
 deactivation through an uppercase UUID" (400 `LAST_ADMIN`, row unchanged) and the mocked route cases in
 `services/community-service/tests/regression/sprint-144-staff-put-route.test.ts`.
 
+**Deployed 2026-11-23:** [#341](https://github.com/ravichavali/karmyq/pull/341), squash `71773476`;
+[CI/CD 45066293676, attempt 2](https://github.com/ravichavali/karmyq/actions/runs/45066293676/attempts/2),
+Deploy to Demo successful, 9/9 healthy services.
+
 ---
 
-## BUG-105 · [2026-11-18] · fixed (Sprint 144, pending deploy)
+## BUG-105 · [2026-11-18] · fixed and deployed (Sprint 144, v11.117.0)
 
 **Moderator reactivation can restore a stored admin role.** Found in Claude's PR #340 review.
 `services/community-service/src/routes/members.ts:326-334` allows moderators to make status-only updates, and the
@@ -2859,6 +2868,10 @@ that a request against a `left` row or a same-state retry is 409 for every calle
 the real-DB cases "refuses a moderator trying to lift the block on / reactivate an inactive stored admin", "refuses a
 moderator deactivating a non-last admin" and the Codex F3 lift-then-rejoin path, plus
 `services/community-service/tests/regression/sprint-144-staff-transitions.test.ts`.
+
+**Deployed 2026-11-23:** [#341](https://github.com/ravichavali/karmyq/pull/341), squash `71773476`;
+[CI/CD 45066293676, attempt 2](https://github.com/ravichavali/karmyq/actions/runs/45066293676/attempts/2),
+Deploy to Demo successful, 9/9 healthy services.
 
 ---
 

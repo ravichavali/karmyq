@@ -51,7 +51,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-008: 3-Column Dashboard Layout (V7)](ADR-008-three-column-dashboard.md) — Superseded
 
 ### Data & Infrastructure
-- [ADR-106: Database-Owned Community Member Count](ADR-106-database-owned-member-count.md) — Accepted
+- [ADR-106: Database-Owned Community Member Count](ADR-106-database-owned-member-count.md) — **Implemented** (Sprint 144, v11.117.0)
 - [ADR-009: Ephemeral Data Design](ADR-009-ephemeral-data.md) — Accepted
 - [ADR-011: Reputation Decay System](ADR-011-reputation-decay.md) — Accepted
 - [ADR-012: Real-Time Communication Stack (WebSocket + SSE)](ADR-012-realtime-communication.md) — Accepted

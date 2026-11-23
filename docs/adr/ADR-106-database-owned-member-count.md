@@ -1,7 +1,7 @@
 # ADR-106: Database-Owned Community Member Count
 
 **Date**: 2026-11-19
-**Status**: Accepted (Sprint 144; becomes Implemented when the migration is deployed)
+**Status**: Implemented (Sprint 144, v11.117.0; deployed 2026-11-23)
 **Sprint**: 144 (BUG-103, with BUG-104 and BUG-105 on the same staff-write surface)
 **Deciders**: Maintainer (trigger ownership, the column guard, the recount write and this ADR number, allocated
 2026-11-19); Claude (implementation)
@@ -9,6 +9,12 @@
 [ADR-062](ADR-062-community-identity-idempotent-creation.md) (the duplicate-create join),
 [ADR-018](ADR-018-community-splitting-mechanics.md) (fission/fusion), [ADR-087](ADR-087-one-seed-path-init-sql-regeneration.md)
 (init.sql is generated), BUG-103, BUG-106
+
+**Deployment evidence**: [PR #341](https://github.com/ravichavali/karmyq/pull/341), squash
+`71773476`; [CI/CD 45066293676, attempt 2](https://github.com/ravichavali/karmyq/actions/runs/45066293676/attempts/2)
+passed 14/14 jobs. The deploy log records `20261119-community-member-count-trigger.sql` applied with
+`COMMIT` (one migration) and all nine service health checks passing on 2026-11-23. This record uses
+the existing deploy log; no new demo database read or write was performed.
 
 ## Context
 
