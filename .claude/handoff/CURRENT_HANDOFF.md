@@ -2,11 +2,12 @@
 
 **Date**: 2026-11-24
 **Outcome**: planned; Codex reviewed `1e1248c1` on 2026-11-24: **FIX-FIRST** (four findings below).
-Awaiting author revisions and non-author re-review before execution. Sprint 146 goal named by the
-maintainer 2026-11-24: **Expo drift #329** — align the nine drifted SDK-57 pins in `apps/mobile`
-to Expo's live version map. Two maintainer authorizations given with the goal: the Deepmerge #178
-re-check rides along as a docs task, and the version bump (→ v11.119.0). Merge/deploy, any ADR
-number and demo-data operations remain unauthorized.
+Author revisions landed (see "Author response" below); awaiting non-author re-review of the
+revised spec/plan before execution. Sprint 146 goal named by the maintainer 2026-11-24: **Expo
+drift #329** — align the nine drifted SDK-57 pins in `apps/mobile` to Expo's live version map.
+Two maintainer authorizations given with the goal: the Deepmerge #178 re-check rides along as a
+docs task, and the version bump (→ v11.119.0). Merge/deploy, any ADR number and demo-data
+operations remain unauthorized.
 
 ## Ownership and base
 
@@ -14,8 +15,8 @@ number and demo-data operations remain unauthorized.
 |---|---|
 | **Branch** | `agent/claude/sprint-146-planning`, cut from `origin/master` `95d5e8c1` (fetched 2026-11-24) |
 | **Base** | `origin/master` `95d5e8c1` = Sprint 145, [PR #342](https://github.com/ravichavali/karmyq/pull/342), v11.118.0 |
-| **Active editor** | Codex completed the review; only this review record changes. Next editor: Claude/planner for revisions; one editor at a time in the shared Windows checkout |
-| **Reviewer role** | Codex reviewed `1e1248c1`: FIX-FIRST; revised spec and plan need non-author re-review before implementation |
+| **Active editor** | Claude/planner applied the review-response revisions (2026-11-24). Next editor: Codex for the non-author re-review; one editor at a time in the shared Windows checkout |
+| **Reviewer role** | Codex reviewed `1e1248c1`: FIX-FIRST; revised spec and plan at the revision commit below need non-author re-review before implementation |
 | **Owned paths** | The Sprint 145 post-merge record (rides with this PR) plus the Sprint 146 spec, plan, this handoff, `docs/adr/ADR-059-dependency-security-gate.md`, `apps/mobile/package.json`, `package-lock.json`, root `package.json` version, `apps/mobile/claude.md` |
 | **Shared resources needed** | Version bump AUTHORIZED (v11.119.0). Merge slot, any ADR number, further dependency work and demo-data operations each need their own maintainer yes |
 
@@ -32,17 +33,18 @@ number and demo-data operations remain unauthorized.
    Sprint 145 post-merge record and this sprint's spec + plan. Never branch off a stale local
    master — unpushed local-master commits leak in via the squash-merge.
 3. Open plan: `docs/superpowers/plans/2026-11-24-sprint-146-expo-drift.md`
-4. **Before execution:** resolve review findings R1-R4 below in the spec and plan, then obtain
-   non-author re-review. Once cleared, invoke `superpowers:subagent-driven-development`
+4. **Before execution:** Codex re-reviews the revised spec and plan (author response below).
+   Once cleared, invoke `superpowers:subagent-driven-development`
    directly (or `superpowers:executing-plans`).
    There is no `/execute-plan` slash command — superpowers removed it as a deprecated stub.
 5. Checkpoint: after every group of at most 3 tasks, and before starting any long-running suite or
    subagent review, commit and update this handoff's task status (task, state, SHA, evidence) and
    say what you are waiting on. A mid-sprint pickup reads this handoff, never `git log`.
 
-**Next action (Claude/planner):** read plan Task 3, beginning at line 121, and revise the lockfile
-scope for R1/R2; fix R3/R4 and request Codex re-review. Execution Task 1 remains pending. If master has moved past
-`95d5e8c1`, stop and re-plan — the base changed.
+**Next action (Codex reviewer):** non-author re-review of the revised spec and plan (author
+response above; revision commit in `git log`). If clean, execution starts at plan Task 1 — branch
+state + live drift capture + HEAD baselines. If master has moved past `95d5e8c1`, stop and
+re-plan — the base changed.
 
 ## Codex non-author review — 2026-11-24
 
@@ -76,6 +78,36 @@ working directories. The "first use" history claim conflicts with prior alignmen
 
 **Set aside:** pre-existing BUG-041/mobile runtime debt, unrelated Sprint 145 bundled records,
 and merge/deploy readiness; this review assesses planning, not implementation or release approval.
+
+### Author response — 2026-11-24 (Claude, review-response procedure)
+
+Each finding was verified against the repo before fixing. All four CONFIRMED. Fixes are in the
+spec and plan at the revision commit (see `git log`); no code, manifest or lock change was made.
+
+| ID | Verdict | Evidence | Fix |
+|---|---|---|---|
+| R1 | CONFIRMED | Closure probe (PR-268 technique) run live: the nine targets force **23 transitive hoisted moves**; reverse scan shows the hoisted `minimatch@11.0.3` serves `glob ^11.0.2` and cannot move | Task 3 rewritten: closure probe + reverse-break scan + splice; 31 hoisted moves + ONE nested add (`@expo/fingerprint/node_modules/minimatch@10.2.6`); node count 1845 → 1846; strict pinned-npm `ci` + `npm ls` baseline comparison |
+| R2 | CONFIRMED | `package-lock.json` `packages["apps/mobile"].dependencies` repeats all nine ranges (verified by `node -e` read) | Task 3 Step 4/5: splice mirrors the workspace node; explicit parity check `workspace-node parity OK` |
+| R3 | CONFIRMED | Reproduced: bare `npx jest tests/regression/...` from root → "No tests found" (root `jest.config.js` testMatch excludes regression) | All focused commands now `npx jest --config tests/jest.config.js --runTestsByPath <file> --runInBand` from root; verified green at planning: 2 suites / 47 tests |
+| R4 | CONFIRMED | `scripts/generate-docs.ts` publishes ADR-059 to `apps/landing/.../adr-059-dependency-security-gate.json`; `.npmrc ignore-scripts=true` disables `prebuild`; `ci.yml:249` and `scripts/deploy.sh:177` build only | Task 6: explicit `npm run generate-docs --workspace=karmyq-landing`, commit the ADR-059 content delta, revert unrelated churn |
+
+Smaller corrections also applied: Task 10 no longer claims pre-commit-check type-checks (it
+doesn't; no TS changes this sprint so none needed); Task 5 uses `--workspace=` flags instead of
+persistent-`cd` chains; the spec's "first use of the drift machinery" history claim corrected
+(S131 #268 and a 2026-10-21 twenty-node re-derivation preceded this sprint).
+
+One deviation from R1's literal text, with justification: the review suggested expanding the
+splice to "the recursively required dependency closure … preserve unrelated entries". The closure
+probe proves that requirement is met by **31 hoisted moves + 1 nested add**, not by moving the
+hoisted minimatch (which would break `glob`). The nested add is the resolution npm itself would
+write, and it also repairs a pre-existing invalid (`@expo/fingerprint` declaring `minimatch
+^10.2.2` against the hoisted 11.0.3). Baseline note: `npm ls --all` at HEAD crashes with
+`Cannot read properties of null (reading 'edgesOut')` under both npm 10.8.2 and npm@11.19.0 —
+pre-existing; the Task 1/3 proof compares error sets, it does not require a clean `npm ls`.
+
+New evidence this pass: closure probe exit 0 with the 23-move table (recorded in plan Task 3);
+reverse scan CLEAN for the 31 hoisted moves; corrected jest command 2/47 green; lock node count
+1845; drift gate re-confirmed 9 BLOCKING + 2 registered.
 
 ## Sprint 146 goal and arc
 
@@ -144,7 +176,8 @@ version entries). Re-run the citation checks at execution and record
 
 ## Blockers and decisions
 
-- **Blocker**: resolve R1-R4 and obtain non-author re-review before execution; merge requires a fresh maintainer yes (Sprint 145's merge
+- **Blocker**: Codex non-author re-review of the revised spec/plan (R1-R4 fixed; see author
+  response above); merge requires a fresh maintainer yes (Sprint 145's merge
   authorization does not carry over).
 - **Decision (Sprint 145, 2026-11-23)**: D1 an active invitee gets a no-write 200; D2 an
   invitation promotes a pending applicant; D3 any live active member may admit someone to a

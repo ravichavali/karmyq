@@ -37,9 +37,10 @@ a number older than the run that produced it.
   gates (ADR-088 alignment test, ADR-094 divergence registry, daily drift workflow).
 - **Sprint 136 (complete)** — mobile dependency wave and status follow-ups; confirmed the map
   (not Dependabot) decides SDK-managed pins.
-- **Sprint 146 (this sprint)** — first *use* of the drift machinery for its designed purpose:
-  consume the daily gate's signal, align the nine drifted pins, close #329, and close out the
-  Deepmerge #178 re-check obligation in ADR-059.
+- **Sprint 146 (this sprint)** — the largest alignment since the gates were built (S131 #268
+  moved six packages/13 nodes; a 2026-10-21 re-derivation moved twenty) and the first that
+  requires a **nested node add**: align the nine drifted pins plus their full transitive closure,
+  close #329, and close out the Deepmerge #178 re-check obligation in ADR-059.
 
 ---
 
@@ -80,6 +81,22 @@ expected** because no non-expo-prefixed SDK pin (react, react-native, reanimated
 screens, gesture-handler, safe-area-context, maps, web, picker) appears in the live drift.
 Re-verify both facts at execution — the map moves.
 
+### The lockfile closure (verified by probe at planning, live map 2026-11-24)
+
+The nine target manifests force **23 additional hoisted lock nodes** to move with them (each is a
+requirement of a published manifest the new versions declare — e.g. `expo@57.0.34` requires
+`@expo/cli ^57.0.35`, lock has 57.0.32). The full table is plan Task 3 Step 1; the probe script
+(reused from the Sprint 131 PR-268 expo-drift plan) recomputes it at execution and the map's word
+wins over this document.
+
+One move is special: `@expo/fingerprint@0.20.17` wants `minimatch ^10.2.6`, but the hoisted
+`node_modules/minimatch@11.0.3` serves `glob ^11.0.2` and cannot move. The splice therefore
+**adds one nested node**, `node_modules/@expo/fingerprint/node_modules/minimatch@10.2.6` — the
+resolution npm itself would produce. Expected node count: 1845 → 1846 (32 moved, 1 added, 0
+removed) plus the `apps/mobile` workspace node, whose `dependencies` map mirrors the manifest
+ranges and must be updated in the same splice (verified: `package-lock.json`
+`packages["apps/mobile"].dependencies` repeats all nine ranges).
+
 The two registered divergences (`jest ^30.5.1` → Expo `~29.7.0`; `@types/jest ^30.0.0` → Expo
 `29.5.14`, both ADR-094) still match the live map and stay registered. The divergence gate fails
 on a *stale* entry, so they must not be removed.
@@ -114,8 +131,13 @@ Mandatory doc updates this sprint:
 3. **`.claude/handoff/CURRENT_HANDOFF.md`** — rewritten for the executing conversation; the
    Deepmerge #178 item leaves the open-candidates list.
 4. **`docs/BUGS.md`** — no entry: #329 is a tracking issue, not a bug record; nothing new is filed.
-5. **Landing docs** (`apps/landing/src/data/docs/`): no user-facing behavior changes; the
-   assessment is recorded in the PR body rather than regenerating pages with no content delta.
+5. **Landing docs** (`apps/landing/src/data/docs/`) — the ADR-059 page MUST be regenerated:
+   `scripts/generate-docs.ts` publishes the ADR to
+   `apps/landing/src/data/docs/concepts/adr-059-dependency-security-gate.json`, and
+   `.npmrc` `ignore-scripts=true` disables `prebuild`, so neither CI (`npm run build` only) nor
+   `scripts/deploy.sh` regenerates it — the committed JSON is what ships. Run
+   `npm run generate-docs --workspace=karmyq-landing`, commit the ADR-059 content delta, and
+   revert any unrelated generated churn. No other landing page has a content delta.
 6. **Root version** — `package.json` and `package-lock.json` (`version` + `packages[""].version`)
    → v11.119.0, the same four-line lock diff pattern Sprint 145 used.
 
@@ -128,11 +150,16 @@ Mandatory doc updates this sprint:
    and bump to *those* values. The issue's numbers and the table above are evidence, not
    instructions. If the live map differs, the live map wins; if it moved a `SDK_PINNED` package,
    that map entry changes too, with a written reason per its comment contract.
-2. **Lockfile edits are surgical.** Never `npm install --workspace`, never `npm dedupe`, never a
-   scratch regen. Edit the nine hoisted `package-lock.json` entries in place (version, resolved,
-   integrity from `npm view <pkg>@<version> dist.tarball dist.integrity`), diff each entry's
-   `dependencies`/`peerDependencies` between old and new and splice any change, then prove with a
-   strict `npm ci`.
+2. **Lockfile edits are surgical, and the splice unit is the closure, not the nine.** Never
+   `npm install --workspace`, never `npm dedupe`, never a scratch regen. Run the closure probe
+   (Sprint 131 PR-268 technique) to compute every hoisted node the new manifests force to move —
+   23 at planning time — then run a reverse-break scan: any hoisted node that serves another
+   requirer must NOT move; that requirement becomes a nested add instead (planning time: exactly
+   one, `minimatch@10.2.6` under `@expo/fingerprint`, because the hoisted 11.0.3 serves `glob`).
+   Update the `apps/mobile` workspace node's mirrored `dependencies` in the same splice. Every
+   changed node is registry-verified (version, resolved, integrity, field set); the expected end
+   state is 1845 → 1846 nodes, proven by strict pinned-npm `npm ci` and an `npm ls --all` error
+   set identical to the HEAD baseline.
 3. **Do not touch the registered divergences.** `security/expo-divergences.json` stays as-is;
    removing a still-matching entry fails the gate, and widening one to hide drift is forbidden
    (ADR-094).
