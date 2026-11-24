@@ -174,6 +174,21 @@ async function waitForWaiters(waits: Array<[string, number]>, done: () => boolea
   return counts;
 }
 
+/** The lock waiters a barrier saw did not match what it demanded. */
+class BarrierError extends Error {
+  constructor(readonly expected: number[], readonly counts: number[], patterns: string[]) {
+    super(`barrier expected lock waiters ${JSON.stringify(expected)} on ${JSON.stringify(patterns)}, saw ${JSON.stringify(counts)}`);
+    this.name = 'BarrierError';
+  }
+}
+
+/** Wait for the [pattern, n] waiters; throw a BarrierError (after the timeout) when they do not appear. */
+async function expectWaiters(waits: Array<[string, number]>, done: () => boolean): Promise<void> {
+  const counts = await waitForWaiters(waits, done);
+  const expected = waits.map(([, n]) => n);
+  if (counts.some((n, i) => n !== expected[i])) throw new BarrierError(expected, counts, waits.map(([p]) => p));
+}
+
 /**
  * Hold `lock.sql` on a barrier client, fire the contenders, and wait until exactly the expected number block
  * on each statement pattern. Then run `whileHeld` (probes), then `lock.mutate` (a change the contenders
@@ -181,11 +196,15 @@ async function waitForWaiters(waits: Array<[string, number]>, done: () => boolea
  * expectation must not return a locked client to the pool (PR #341 review). The barrier COMMITs only when its
  * mutation ran, otherwise it rolls back; a barrier whose COMMIT/ROLLBACK fails is destroyed. In-flight requests
  * are always settled before the helper returns or rethrows.
+ *
+ * `fire` may return any thenable. A supertest request is one: it has then/catch but no finally, and it is
+ * sent (and its ephemeral server closed) only once something calls then. Calling `.finally` on it directly
+ * threw before the request was sent and left the server listening, so Jest never exited (PR #342 CI).
  */
 async function holdAndRace<T>(
   lock: { sql: string; params: unknown[]; mutate?: (barrier: PoolClient) => Promise<unknown> },
   waits: Array<[string, number]>,
-  fire: () => Promise<T>,
+  fire: () => PromiseLike<T>,
   whileHeld?: () => Promise<void>,
 ): Promise<T> {
   const barrier = await pool.connect();
@@ -195,9 +214,9 @@ async function holdAndRace<T>(
   try {
     await barrier.query('BEGIN');
     await barrier.query(lock.sql, lock.params);
-    pending = fire().finally(() => { finished = true; });
+    pending = Promise.resolve().then(fire).finally(() => { finished = true; });
     pending.catch(() => undefined);
-    expect(await waitForWaiters(waits, () => finished)).toEqual(waits.map(([, n]) => n));
+    await expectWaiters(waits, () => finished);
     if (whileHeld) await whileHeld();
     if (lock.mutate) {
       await lock.mutate(barrier);
@@ -211,6 +230,47 @@ async function holdAndRace<T>(
 }
 const COMMUNITY_ROW_LOCK = (c: string) => ({ sql: `SELECT 1 FROM communities.communities WHERE id=$1 FOR UPDATE`, params: [c] });
 const MEMBER_INSERT = '%INSERT INTO communities.members%';
+
+/**
+ * Under `lock`, park `first` on `firstPark`, run `whileFirstParked` (probes), then park `second` on
+ * `secondPark`, release, and return both responses. Both requests are settled on every path.
+ *
+ * Arrival order decides the winner only when the second contender waits on a lock the first one already
+ * holds or queues ahead for: an exclusive row lock (FOR UPDATE) the first waiter holds the tuple lock for, or
+ * the first's own share lock. Capacity races do not qualify: an INSERT's foreign-key FOR KEY SHARE waiters
+ * on the community row wake together, so those cases keep asserting whichever winner committed.
+ */
+async function raceInOrder<A, B>(
+  lock: { sql: string; params: unknown[] },
+  first: () => PromiseLike<A>, firstPark: string,
+  second: () => PromiseLike<B>, secondPark: string,
+  whileFirstParked?: () => Promise<void>,
+): Promise<[A, B]> {
+  let later: Promise<B> | undefined;
+  try {
+    const firstResponse = await holdAndRace(lock, [[firstPark, 1]], first, async () => {
+      if (whileFirstParked) await whileFirstParked();
+      let laterDone = false;
+      later = Promise.resolve().then(second).finally(() => { laterDone = true; });
+      later.catch(() => undefined);
+      await expectWaiters([[secondPark, 1]], () => laterDone);
+    });
+    return [firstResponse, await later!];
+  } finally {
+    await later?.catch(() => undefined);
+  }
+}
+
+/** The invitation side of a race: consumed, attributed and counted exactly when it won, untouched otherwise. */
+async function expectInvitationSettled(c: string, invitee: string, inviter: string, invitationId: string, won: boolean) {
+  expect(await invitationRow(invitationId)).toMatchObject(won
+    ? { invitee_id: invitee, invitation_accepted_at: expect.any(Date) }
+    : { invitee_id: null, invitation_accepted_at: null });
+  expect(await attribution(invitee)).toEqual(won
+    ? { invited_by: inviter, invitation_accepted_at: expect.any(Date) }
+    : { invited_by: null, invitation_accepted_at: null });
+  expect(await acceptedStat(inviter, c)).toBe(won ? 1 : 0);
+}
 
 /** A share lock held by an acceptance makes an exclusive lock on the same member row unavailable. */
 async function expectRowShareLocked(c: string, u: string) {
@@ -734,7 +794,9 @@ describe('Sprint 145 last-slot capacity races across admission paths', () => {
     return { c, a, b, inviter, responses };
   }
 
-  it('invitation versus ordinary join: the losing invitation leaves its code unconsumed', async () => {
+  // Winner order here is whichever admission's trigger update commits first (see raceInOrder): each case
+  // asserts the full outcome for the winner it observed, both admissions' rows and the invitation's effects.
+  it('invitation versus ordinary join: one admission; a losing invitation leaves its code unconsumed', async () => {
     let id = '';
     const { c, a, b, inviter, responses } = await lastSlot(async (c0, a0, b0, inv0) => {
       const inv = await invite(inv0, c0);
@@ -742,49 +804,51 @@ describe('Sprint 145 last-slot capacity races across admission paths', () => {
       return Promise.all([as(a0).accept(inv.code), as(b0).join(c0)]);
     });
     const invitationWon = responses[0].status === 200;
-    expect(await memberRow(c, invitationWon ? a : b)).toMatchObject({ status: 'active' });
+    expect(await memberRow(c, invitationWon ? a : b)).toMatchObject({ status: 'active', role: 'member' });
     expect(await memberRow(c, invitationWon ? b : a)).toBeUndefined();
-    expect((await invitationRow(id)).invitee_id).toBe(invitationWon ? a : null);
-    expect(await acceptedStat(inviter, c)).toBe(invitationWon ? 1 : 0);
-    expect((await attribution(a)).invited_by).toBe(invitationWon ? inviter : null);
+    await expectInvitationSettled(c, a, inviter, id, invitationWon);
   });
 
   it('invitation versus staff add', async () => {
     let id = '';
-    const { c, a, b, responses } = await lastSlot(async (c0, a0, b0, inv0, admin0) => {
+    const { c, a, b, inviter, responses } = await lastSlot(async (c0, a0, b0, inv0, admin0) => {
       const inv = await invite(inv0, c0);
       id = inv.id;
       return Promise.all([as(a0).accept(inv.code), as(admin0).add(c0, b0)]);
     });
     const invitationWon = responses[0].status === 200;
-    expect((await invitationRow(id)).invitee_id).toBe(invitationWon ? a : null);
+    expect(await memberRow(c, invitationWon ? a : b)).toMatchObject({ status: 'active', role: 'member' });
     expect(await memberRow(c, invitationWon ? b : a)).toBeUndefined();
+    await expectInvitationSettled(c, a, inviter, id, invitationWon);
   });
 
   it('invitation versus staff approval of a different pending applicant (ordinary-member inviter)', async () => {
     let id = '';
-    const { c, a, b, responses } = await lastSlot(async (c0, a0, b0, inv0, admin0) => {
+    const { c, a, b, inviter, responses } = await lastSlot(async (c0, a0, b0, inv0, admin0) => {
       const inv = await invite(inv0, c0);
       id = inv.id;
       return Promise.all([as(a0).accept(inv.code), as(admin0).put(c0, b0, { status: 'active' })]);
     }, [[MEMBER_INSERT, 1], [UPDATE_MEMBER, 1]], async (c0, _a0, b0) => { await addMember(c0, b0, 'pending'); });
     const invitationWon = responses[0].status === 200;
-    expect((await invitationRow(id)).invitee_id).toBe(invitationWon ? a : null);
-    expect(await memberRow(c, b)).toMatchObject({ status: invitationWon ? 'pending' : 'active' });
+    if (invitationWon) expect(await memberRow(c, a)).toMatchObject({ status: 'active', role: 'member' });
+    else expect(await memberRow(c, a)).toBeUndefined();
+    expect(await memberRow(c, b)).toMatchObject({ status: invitationWon ? 'pending' : 'active', role: 'member' });
+    await expectInvitationSettled(c, a, inviter, id, invitationWon);
   });
 
   it('invitation versus duplicate-create join', async () => {
     let id = '';
-    const { c, a, b, responses } = await lastSlot(async (c0, a0, b0, inv0) => {
+    const { c, a, b, inviter, responses } = await lastSlot(async (c0, a0, b0, inv0) => {
       const inv = await invite(inv0, c0);
       id = inv.id;
       const body = await duplicateBody(c0);
       return Promise.all([as(a0).accept(inv.code), as(b0).create(body)]);
     });
     const invitationWon = responses[0].status === 200;
-    expect((await invitationRow(id)).invitee_id).toBe(invitationWon ? a : null);
+    expect(await memberRow(c, invitationWon ? a : b)).toMatchObject({ status: 'active', role: 'member' });
     expect(await memberRow(c, invitationWon ? b : a)).toBeUndefined();
     if (!invitationWon) expect(responses[1].body.data).toMatchObject({ existing: true, joined: true });
+    await expectInvitationSettled(c, a, inviter, id, invitationWon);
   });
 
   it('two duplicate-create joins', async () => {
@@ -799,7 +863,7 @@ describe('Sprint 145 last-slot capacity races across admission paths', () => {
 
   it('two left members rejoining, by invitation and by duplicate create', async () => {
     let id = '';
-    const { c, a, b, responses } = await lastSlot(async (c0, a0, b0, inv0) => {
+    const { c, a, b, inviter, responses } = await lastSlot(async (c0, a0, b0, inv0) => {
       const inv = await invite(inv0, c0);
       id = inv.id;
       const body = await duplicateBody(c0);
@@ -810,56 +874,72 @@ describe('Sprint 145 last-slot capacity races across admission paths', () => {
     });
     const invitationWon = responses[0].status === 200;
     expect(await memberRow(c, invitationWon ? a : b)).toMatchObject({ status: 'active', role: 'member' });
-    expect(await memberRow(c, invitationWon ? b : a)).toMatchObject({ status: 'left' });
-    expect((await invitationRow(id)).invitee_id).toBe(invitationWon ? a : null);
+    // The loser keeps its stored row exactly: still left, with its former role.
+    if (invitationWon) expect(await memberRow(c, b)).toMatchObject({ status: 'left', role: 'moderator' });
+    else expect(await memberRow(c, a)).toMatchObject({ status: 'left', role: 'admin' });
+    await expectInvitationSettled(c, a, inviter, id, invitationWon);
   });
 });
 
 describe('Sprint 145 state and authority interleavings — the committed winner decides', () => {
+  // Both contenders take FOR UPDATE on the applicant's row, so arrival order under the barrier decides the
+  // winner (raceInOrder). Each order runs, with the exact outcome for both sides.
+  const INVITEE_LOCK = '%SELECT status, role FROM communities.members%FOR UPDATE%';
+  const STAFF_LOCK = '%communities.members%ORDER BY user_id FOR UPDATE%';
   it.each([
-    ['approval', 'active'],
-    ['rejection', 'inactive'],
-  ])('a pending applicant\'s invitation against a moderator %s of the same request', async (_label, staffStatus) => {
+    { action: 'approval', order: 'invitation first' },
+    { action: 'rejection', order: 'invitation first' },
+    { action: 'approval', order: 'staff first' },
+    { action: 'rejection', order: 'staff first' },
+  ])('a pending applicant\'s invitation against a moderator $action of the same request, $order', async ({ action, order }) => {
+    const staffStatus = action === 'approval' ? 'active' : 'inactive';
     const { c, inviter } = await invitingCommunity({ access: 'private' });
     const [mod, q] = await users(2);
     await addMember(c, mod, 'active', 'moderator');
     await addMember(c, q, 'pending', 'member', 'please');
     const inv = await invite(inviter, c);
-    const [acceptRes, staffRes] = await holdAndRace(MEMBER_ROW_LOCK(c, q), [['%communities.members%FOR UPDATE%', 2]],
-      () => Promise.all([as(q).accept(inv.code), as(mod).put(c, q, { status: staffStatus })]));
-    const invitationAdmitted = acceptRes.status === 200 && acceptRes.body.data.already_member === undefined;
-    if (invitationAdmitted) {
-      // The invitation committed first; the staff action then met an active member and was refused.
-      expect(staffRes.status).toBeGreaterThanOrEqual(400);
-      expect(await memberRow(c, q)).toMatchObject({ status: 'active', role: 'member' });
-      expect((await invitationRow(inv.id)).invitee_id).toBe(q);
-      expect(await acceptedStat(inviter, c)).toBe(1);
+    const accept = () => as(q).accept(inv.code);
+    const staff = () => as(mod).put(c, q, { status: staffStatus });
+    let acceptRes: request.Response;
+    let staffRes: request.Response;
+    if (order === 'invitation first') {
+      [acceptRes, staffRes] = await raceInOrder(MEMBER_ROW_LOCK(c, q), accept, INVITEE_LOCK, staff, STAFF_LOCK);
+      // The invitation admitted the applicant (D2); the staff action then met an active member.
+      expect(acceptRes.status).toBe(200);
+      expect(acceptRes.body.data).toMatchObject({ community_id: c, inviter_id: inviter, accepted_at: expect.any(String) });
+      expect(acceptRes.body.data.already_member).toBeUndefined();
+      // Approving an active member is a same-state retry; a moderator may not block an active member.
+      expect(staffRes.status).toBe(action === 'approval' ? 409 : 403);
+      expect(staffRes.body.error).toBe(action === 'approval' ? 'INVALID_MEMBERSHIP_TRANSITION' : 'FORBIDDEN');
+      expect(await memberRow(c, q)).toMatchObject({ status: 'active', role: 'member', join_request_message: null });
     } else {
-      // The staff action committed first; the invitation answered from that state and consumed nothing.
+      [staffRes, acceptRes] = await raceInOrder(MEMBER_ROW_LOCK(c, q), staff, STAFF_LOCK, accept, INVITEE_LOCK);
+      // The staff decision committed first; the invitation answered from that state.
       expect(staffRes.status).toBe(200);
-      expect(await memberRow(c, q)).toMatchObject({ status: staffStatus });
-      if (staffStatus === 'active') expect(acceptRes.body.data).toMatchObject({ already_member: true, accepted_at: null });
-      else expect(acceptRes.body).toMatchObject({ success: false, error: 'MEMBERSHIP_RESTORE_REQUIRES_STAFF' });
-      expect(await invitationRow(inv.id)).toMatchObject({ invitee_id: null, invitation_accepted_at: null });
-      expect(await acceptedStat(inviter, c)).toBe(0);
+      expect(await memberRow(c, q)).toMatchObject({ status: staffStatus, role: 'member' });
+      if (action === 'approval') {
+        expect(acceptRes.status).toBe(200);
+        expect(acceptRes.body.data).toMatchObject({ already_member: true, accepted_at: null });
+      } else {
+        expect(acceptRes.status).toBe(409);
+        expect(acceptRes.body).toMatchObject({ success: false, error: 'MEMBERSHIP_RESTORE_REQUIRES_STAFF' });
+      }
     }
+    await expectInvitationSettled(c, q, inviter, inv.id, order === 'invitation first');
     expect(await count(c)).toBe(await activeRows(c));
+    expect(await activeRows(c)).toBe(staffStatus === 'inactive' && order === 'staff first' ? 3 : 4);
   });
 
   it('a staff removal of the inviter waits behind an acceptance holding the shared authority lock', async () => {
     const { c, inviter, admin } = await invitingCommunity();
     const [p] = await users(1);
     const inv = await invite(inviter, c);
-    let removal: Promise<request.Response> | undefined;
-    const accepted = await holdAndRace(COMMUNITY_ROW_LOCK(c), [[MEMBER_INSERT, 1]],
-      () => as(p).accept(inv.code),
-      async () => {
-        await expectRowShareLocked(c, inviter);
-        removal = Promise.resolve(as(admin).del(c, inviter));
-        // The removal parks on lockTargetAndAdmins' FOR UPDATE of the share-locked inviter row.
-        expect(await waitForWaiters([['%communities.members%ORDER BY user_id FOR UPDATE%', 1]], () => false)).toEqual([1]);
-      });
-    const removed = await removal!;
+    // The acceptance parks at its member INSERT holding FOR SHARE on the inviter row; the removal then parks on
+    // lockTargetAndAdmins' FOR UPDATE of that row and runs only after the acceptance commits.
+    const [accepted, removed] = await raceInOrder(COMMUNITY_ROW_LOCK(c),
+      () => as(p).accept(inv.code), MEMBER_INSERT,
+      () => as(admin).del(c, inviter), STAFF_LOCK,
+      () => expectRowShareLocked(c, inviter));
     expect(accepted.status).toBe(200);
     expect(removed.status).toBe(200);
     expect(await memberRow(c, p)).toMatchObject({ status: 'active' });
@@ -935,9 +1015,15 @@ describe('Sprint 145 state and authority interleavings — the committed winner 
     const { c, inviter } = await invitingCommunity();
     const [p] = await users(1);
     const inv = await invite(inviter, c);
-    // Demand a waiter count that cannot happen: the helper must still unlock and settle the acceptance.
-    await expect(holdAndRace(COMMUNITY_ROW_LOCK(c), [[MEMBER_INSERT, 2]], () => as(p).accept(inv.code))).rejects.toThrow();
+    // Demand a waiter count that cannot happen: the helper must still unlock and settle the acceptance. The
+    // failure must be the barrier's own count (one acceptance parked, two demanded), not any other error.
+    const failure = await holdAndRace(COMMUNITY_ROW_LOCK(c), [[MEMBER_INSERT, 2]], () => as(p).accept(inv.code))
+      .then(() => undefined, (error: unknown) => error);
+    expect(failure).toBeInstanceOf(BarrierError);
+    expect(failure).toMatchObject({ expected: [2], counts: [1] });
+    // Settled after the unlock: the acceptance committed.
     expect(await memberRow(c, p)).toMatchObject({ status: 'active' });
+    expect((await invitationRow(inv.id)).invitee_id).toBe(p);
     const probe = await pool.connect();
     try {
       await probe.query('BEGIN');

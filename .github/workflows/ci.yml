@@ -320,7 +320,11 @@ jobs:
       - name: Prove init.sql matches the full migrated schema
         run: bash scripts/ci-apply-full-schema.sh --drift-check
 
+      # The suite runs in under two minutes. A leaked handle (an un-ended supertest request keeps its server
+      # listening) makes Jest print "did not exit" and wait forever; PR #342's first run sat there for the
+      # six-hour job limit. Bound the step so a hang fails in minutes and the teardown steps still run.
       - name: Run integration tests
+        timeout-minutes: 20
         run: |
           cd tests
           npm run test:integration
