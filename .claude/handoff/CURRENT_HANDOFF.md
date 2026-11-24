@@ -15,9 +15,11 @@ BUG-106 and BUG-108 are fixed in this branch, pending review and deploy.
   `app.use` lines 130–132. This is the rule the maintainer dismissed as "used in tests" on the Sprint 142–144
   files. Dismissal is the maintainer's call; nothing in code changes them.
 
-`c3860cf6` fixes the harness and closes the race gaps (75 cases). **Next: read that push's CI.** If the
-integration job is green, the next step is Codex's cross-agent review. If red, the author fixes it first. The gate
-stays red until the maintainer dismisses #654–656. Version, merge, deploy and demo-data access remain unauthorized.
+`c3860cf6` fixes the harness and closes the race gaps. **Its CI** ([45426404877](https://github.com/ravichavali/karmyq/actions/runs/45426404877),
+head `59ab057b`) **passed Integration Tests: all 75 Sprint 145 cases, suite 724/724, and Jest exited.** Every
+other job passed except the Code Scanning Gate and the CodeQL check, which fail on #654–656 alone (no new
+alerts). **Next: Codex's cross-agent review of PR #342.** The maintainer decides on #654–656. Version, merge,
+deploy and demo-data access remain unauthorized.
 
 ## Ownership, approval and base
 
@@ -28,7 +30,7 @@ stays red until the maintainer dismisses #654–656. Version, merge, deploy and 
 | Owned paths | Sprint 145 implementation, tests, docs and this handoff. The plan and spec stay Codex-authored; review findings are recorded here, not edited into them |
 | Spec | [Approved design](../../docs/superpowers/specs/2026-11-23-sprint-145-admission-integrity-design.md) |
 | Plan | [Implementation plan](../../docs/superpowers/plans/2026-11-23-sprint-145-admission-integrity.md), tagged `no-deploy` |
-| PR | [#342](https://github.com/ravichavali/karmyq/pull/342), opened 2026-11-23 from tested head `42d587da`; first CI on `7c183014` (handoff-only). Fix-forward `c3860cf6` (test + `ci.yml` only) plus this handoff commit, pushed 2026-11-24 |
+| PR | [#342](https://github.com/ravichavali/karmyq/pull/342), opened 2026-11-23 from tested head `42d587da`; first CI on `7c183014` (handoff-only). Fix-forward `c3860cf6` (test + `ci.yml` only) and handoff `59ab057b`, pushed 2026-11-24 and CI-verified, plus this handoff-only commit recording that CI |
 | Release | Master v11.117.0; Sprint 145 version unallocated |
 
 **Maintainer approval (2026-11-23)**: "Approve D1–D3 and the revised design".
@@ -71,7 +73,7 @@ respects membership lifecycle and reports truthful outcomes. BUG-107/109 remain 
 | Task 9 contexts/registry/BUGS + promotion | `0a3cb4dc` | 5 files `git mv`'d to regression, verified directly (78 / 42 / 28, `--no-cache`); drift 41/41; `analyze:services` no diff |
 | Task 10 SDLC gates | Done at `bdc852a7` | `/simplify` (4 Sonnet reviewers): 2 cleanups applied in `bdc852a7`, rest skipped with reasons. `/security-review`: 0 findings. `/code-review` high: 5 "important" + 3 nits, all re-graded (spec-mandated or false premise; nits deferred) with no code change. Process review: PASS on coverage, docs, bundled commits and gate rulings; its handoff-staleness blocker is fixed by this revision; advisory A1 applied (ADR-106 points at the Sprint 145 fix), A2 N/A (AGENTS.md only bridges into CLAUDE.md) |
 | Task 11 final verification + PR | Done: `42d587da`, PR #342 | `tsc --noEmit` ×3 exit 0 at `bdc852a7`. `bash scripts/pre-commit-check.sh` on tree `123e340a`: run 1 had `npm test` pass but failed the integrity check on landing generator churn (restored from snapshot); run 2 exit 0, tree unchanged. Pre-push at `42d587da`: unit + regression 27/27 Turbo tasks (26 cached; root `tests` ran fresh), report-only TDD tier exit 1 (existing WIP), integration skipped (no DB) |
-| PR #342 CI fix-forward | `c3860cf6` | First CI (run 45340891388): integration 66/73, 7 failed with `fire(...).finally is not a function`, then the six-hour hang. Reproduced without a DB (old form: TypeError, one server left listening, process kept alive; new form: 200, zero servers, clean exit). Fixed: thenable adoption, a typed `BarrierError`, `raceInOrder`, a forced-order pending race (2 → 4 cases), full winner/loser/invitation assertions on the last-slot races, and `timeout-minutes: 20` on the CI step. Local: compiles, 75 cases, all `ECONNREFUSED`, Jest exits in 11 s; tests `tsc`: 0 errors in the file; CI-workflow gate 8/8; `pre-commit-check.sh` exit 0 on tree `3a19c6af`. **DB outcome owed to this push's CI** |
+| PR #342 CI fix-forward | `c3860cf6` | First CI (run 45340891388): integration 66/73, 7 failed with `fire(...).finally is not a function`, then the six-hour hang. Reproduced without a DB (old form: TypeError, one server left listening, process kept alive; new form: 200, zero servers, clean exit). Fixed: thenable adoption, a typed `BarrierError`, `raceInOrder`, a forced-order pending race (2 → 4 cases), full winner/loser/invitation assertions on the last-slot races, and `timeout-minutes: 20` on the CI step. Local: compiles, 75 cases, all `ECONNREFUSED`, Jest exits in 11 s; tests `tsc`: 0 errors in the file; CI-workflow gate 8/8; `pre-commit-check.sh` exit 0 on tree `3a19c6af`. **CI run 45426404877 at `59ab057b`: Integration Tests passed, Sprint 145 file 75/75 (suite 724/724); the gate fails only on #654–656** |
 
 ## Rulings (deviations from the plan, all recorded in the git-ignored ledger too)
 
