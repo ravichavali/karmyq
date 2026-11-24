@@ -1,41 +1,42 @@
 # Sprint 145 — Admission integrity — Handoff
 
 **Date**: 2026-11-23
-**Outcome**: D1–D3 and the revised design are explicitly approved. Claude's cross-agent plan review found the
-plan executable (no design decision owed; four execution rulings below). Execution is in progress, inline
-(`superpowers:executing-plans`), on this branch.
+**Outcome**: **Implementation complete (plan Tasks 1–10); Task 11 opens the reviewable PR.** Claude executed the
+Codex-authored, maintainer-approved plan inline (`superpowers:executing-plans`) after a cross-agent plan review.
+BUG-106 and BUG-108 are fixed in this branch, pending review and deploy. **Next: a cross-agent review of the PR
+(Codex), including the PR's CI. The root real-DB integration job is the arbiter for the 73 DB/race cases, which
+never ran locally.** Version, merge, deploy and demo-data access remain unauthorized.
 
 ## Ownership, approval and base
 
 | Field | Value |
 |---|---|
-| Branch | `agent/claude/sprint-145-planning`, based on `origin/master` `71773476` |
-| Active editor | Claude (executor since 2026-11-23), one editor at a time in the shared Windows checkout |
-| Owned paths now | Sprint 145 implementation, tests, docs and this handoff. The plan and spec stay Codex-authored; review findings are recorded here, not edited into them |
+| Branch | `agent/claude/sprint-145-planning`, based on `origin/master` `71773476` (re-fetched 2026-11-23; unchanged) |
+| Active editor | Claude (executor since 2026-11-23); hands to the reviewer after the PR opens. One editor at a time in the shared Windows checkout |
+| Owned paths | Sprint 145 implementation, tests, docs and this handoff. The plan and spec stay Codex-authored; review findings are recorded here, not edited into them |
 | Spec | [Approved design](../../docs/superpowers/specs/2026-11-23-sprint-145-admission-integrity-design.md) |
 | Plan | [Implementation plan](../../docs/superpowers/plans/2026-11-23-sprint-145-admission-integrity.md), tagged `no-deploy` |
-| PR | None; open-PR query returned none on 2026-11-23 |
+| PR | Opened at the end of Task 11 from this branch; its URL is recorded by the bookkeeping commit that follows it |
 | Release | Master v11.117.0; Sprint 145 version unallocated |
 
 **Maintainer approval (2026-11-23)**: "Approve D1–D3 and the revised design".
 D1 = active invitee no-write 200; D2 = invitation promotes pending, accepting the stale staff-notification cost;
 D3 = any live active private member can admit someone without admin approval, subject to capacity/blocked checks.
-This is design/planning approval. Version, merge, deploy, demo-data operations and remote test infrastructure
-remain unauthorized. Execution belongs in the next chat.
+Version, merge, deploy, demo-data operations and remote test infrastructure remain unauthorized.
 
-## Quick Start
+## Quick Start (reviewer)
 
 1. Read [CLAUDE.md](../../CLAUDE.md) and this handoff.
-2. `git fetch origin && git log --oneline origin/master -2`; reconcile `gh pr list` and
-   `git status --short`. Reuse this branch; no worktrees or branch from local master.
-3. Read the linked approved spec and plan together. All implementation Tasks 1–11 are unchecked.
-4. Review the plan against the approved design before execution. Step 5b is complete; final planning
-   verification evidence is in the planning closeout commit body. Do not mistake it for implemented behavior.
-5. After plan review, the next execution chat uses `superpowers:subagent-driven-development` or
-   `superpowers:executing-plans`. The plan includes the required Sonnet/Haiku/Opus subagent-model header.
-   No execution-method selection or product implementation has occurred in this planning chat.
-6. Checkpoint after at most three tasks and before any long suite or subagent review: commit, update
-   task/state/SHA/evidence here, and state what is awaited. A mid-sprint pickup reads this file.
+2. `git fetch origin && git log --oneline origin/master -2`; `gh pr list`; `git status --short`. Review the PR
+   head read-only. Do not edit this branch while reviewing.
+3. Read the approved spec and plan, then the PR diff. The rulings below record every deviation from the plan.
+4. Check the PR's CI: unit + regression, the **root integration job** (it runs
+   `tests/integration/sprint-145-admission-integrity.integration.test.ts`, 73 cases, never run locally),
+   CodeQL, the dependency audit, `pr-contract` and the doc/context drift gate. A local green is not CI green;
+   the integration file has had no DB run at all, so failures there are expected possible test bugs, not proof
+   of a product bug.
+5. Report findings to the maintainer; the author (Claude) fixes them in a follow-up session. Merge, version and
+   deploy each need the maintainer's explicit yes.
 
 **Goal**: BUG-106 invitation acceptance enforces capacity/live membership atomically; BUG-108 duplicate-create
 respects membership lifecycle and reports truthful outcomes. BUG-107/109 remain out of implementation scope.
@@ -44,88 +45,69 @@ respects membership lifecycle and reports truthful outcomes. BUG-107/109 remain 
 
 | Task | State | SHA/evidence |
 |---|---|---|
-| Design D1–D3 | Approved | Explicit maintainer message, 2026-11-23; includes the two re-review gaps and nits |
-| Implementation plan | Cross-agent reviewed (Claude) — executable | Reviewed `a24e854a`. Citations re-read, staff/governance lock order confirmed ascending user_id (`members.ts:30-34`, `governanceDb.ts:239`), so there is no deadlock cycle with acceptance locks. No local psql/postgres/Docker, so DB proof is CI-owed |
-| Step 5b self-audit | Complete | self-audit at `92e398ff`: 0 findings fixed; fresh-context session-model reviewer found no actionable findings |
-| Task 1 red tests | Committed (see Task 1 commit) | 3 social-graph TDD files + root integration file. Focused run: 57 red / 5 green, all behavioral (old timestamp, D1 writes, explicit client ignored); module test red = missing new module; integration compiles, 43 cases unrun locally (ECONNREFUSED; CI-owed) |
-| Task 2 live role + acceptance module | Committed `f48a0bb3` | Module and live-role TDD 21/21 green (exit 0, `--no-cache`); S134 live-role regression 11/11; social-graph tsc exit 0 |
-| Task 3 accept route wiring | Committed (Task 3 commit) | 3 social-graph TDD files 78/78; service unit+regression 27 suites/196 passed; root claim gate 17/17; tsc exit 0. A test bug was fixed: the 401 undefined-caller case used a default parameter. It was re-verified red on the old handler (400 vs 401) |
-| Task 4 red duplicate-create + DB races | Committed `5455d3aa` | community TDD 19 red / 9 green (behavioral); root integration now 73 cases, compiles, unrun locally (CI-owed) |
-| Task 5 duplicate-create implementation | Committed `865065ba` | focused 66/66; community-service unit+regression 33 suites/534; tsc exit 0. Fixture corrections: S144 capacity + S77 idempotent-create mocks answer the new state read (assertions kept) |
-| Task 6 frontend contract tests | Committed (Task 6 commit) | 1 red (D1 routes to /welcome) / 10 green baselines (actual acceptance, 4 refusal fallbacks, 4 create refusals, create success) |
-| Task 7 defensive D1 branch | Committed `b0007785` | frontend S145 + S118 28/28; frontend tsc exit 0 |
-| Task 8 guides/concept/ADR-062 + landing | Committed `54a40c7f` | drift gate 41/41; generator churn restored (architecture/build/adr-010) |
-| Task 9 contexts/registry/BUGS + promotion | Committed (Task 9 commit) | BUG-106/108 "fixed in branch, pending review and deploy"; BUG-107/109 open. 5 files `git mv`'d to regression and verified directly: social-graph 78, community 42, frontend 28 (all `--no-cache`, exit 0). Drift 41/41; `analyze:services` no change. Root DB file stays in `tests/integration/` — **unrun locally, CI-owed** |
-| Task 10 SDLC gates | In progress at `0a3cb4dc` | `/simplify`: four Sonnet cleanup reviewers dispatched on the code+test diff; awaiting findings. Then `/security-review`, the process review and `/code-review` (Opus, final whole-branch review) |
-| Task 11 final verification + PR | Not started | — |
+| Design D1–D3 | Approved | Explicit maintainer message, 2026-11-23 |
+| Implementation plan | Cross-agent reviewed (Claude) — executable | Reviewed `a24e854a`. Citations re-read; staff/governance lock order confirmed ascending user_id (`members.ts:30-34`, `governanceDb.ts:239`), so there is no deadlock cycle with acceptance locks. No local psql/postgres/Docker, so DB proof is CI-owed |
+| Step 5b self-audit | Complete | `92e398ff`: 0 findings |
+| Task 1 red tests | `fafc13ce` | 57 red / 5 green (behavioral); module red = missing module; integration compiled, unrun (ECONNREFUSED) |
+| Task 2 live role + acceptance module | `f48a0bb3` | 21/21 green; S134 live-role regression 11/11; tsc 0 |
+| Task 3 accept route wiring | `7b578444` | 78/78; social-graph unit+regression 27 suites/196; root claim gate 17/17; tsc 0. Fixed a test bug (the 401 undefined caller used a default parameter); re-verified red on the old handler |
+| Task 4 red duplicate-create + DB races | `5455d3aa` | 19 red / 9 green (behavioral); integration 73 cases, compiled, unrun |
+| Task 5 duplicate-create implementation | `865065ba` | focused 66/66; community-service unit+regression 33 suites/534; tsc 0. Fixture corrections in S144 capacity + S77 idempotent-create (assertions kept, one no-write assertion added) |
+| Task 6 frontend contract tests | `2832a09f` | 1 red (D1) / 10 green baselines |
+| Task 7 defensive D1 branch | `b0007785` | 28/28; tsc 0 |
+| Task 8 guides/concept/ADR-062 + landing | `54a40c7f` | drift gate 41/41; generator churn restored |
+| Task 9 contexts/registry/BUGS + promotion | `0a3cb4dc` | 5 files `git mv`'d to regression, verified directly (78 / 42 / 28, `--no-cache`); drift 41/41; `analyze:services` no diff |
+| Task 10 SDLC gates | Done at `bdc852a7` | `/simplify` (4 Sonnet reviewers): 2 cleanups applied in `bdc852a7`, rest skipped with reasons. `/security-review`: 0 findings. `/code-review` high: 5 "important" + 3 nits, all re-graded (spec-mandated or false premise; nits deferred) with no code change. Process review: PASS on coverage, docs, bundled commits and gate rulings; its handoff-staleness blocker is fixed by this revision; advisory A1 applied (ADR-106 points at the Sprint 145 fix), A2 N/A (AGENTS.md only bridges into CLAUDE.md) |
+| Task 11 final verification + PR | In progress | Type checks at `bdc852a7`: social-graph, community-service, frontend `tsc --noEmit` exit 0. Final `bash scripts/pre-commit-check.sh` evidence is in the final commit body and the PR Validation ledger |
 
-**Plan-review execution rulings (Claude):** (1) the same-inviter barrier counts waiters on
-`INSERT INTO communities.members` only, plus a `FOR UPDATE NOWAIT` probe proving the inviter row is share-locked.
-The S144 `'%communities.members%'` filter also matches the inviter `FOR SHARE` select, so it would pass with an
-exclusive lock (false green). (2) Self-acceptance is refused in code before the D1 branch, with the CHECK as a
-backstop; otherwise an active self-inviter would get D1's 200. (3) The stats-trigger rollback proof intercepts only
-the `UPDATE auth.users` statement on the real client; everything else, including ROLLBACK, runs on the real DB.
-(4) Classifier parity is one shared state table that drives both endpoints in the root integration file. Also: a
-new `services/social-graph-service/tests/helpers/fakeInvitationDb.ts`, shared by the two unit tiers (not a test
-file; it is never promoted).
-| Final planning verification | See planning closeout commit body | Fresh command/exit/cache/limitations recorded there; older `d169f5c6` evidence does not cover this plan |
+## Rulings (deviations from the plan, all recorded in the git-ignored ledger too)
 
-**Next action**: continue execution at the first task without a commit (Claude, inline). The ledger is in the
-git-ignored `.superpowers/sdd/2026-11-23-sprint-145-admission-integrity/progress.md`; `git log` is the record if it is lost.
-The design and D1–D3 do not need another approval; any new material scope change still does.
+1. The same-inviter barrier counts waiters on `INSERT INTO communities.members` only, plus a `FOR UPDATE NOWAIT`
+   probe proving the inviter row is share-locked. S144's `'%communities.members%'` filter also matches the inviter
+   `FOR SHARE` select and would pass with an exclusive lock (false green).
+2. Self-acceptance is refused in code before the D1 branch, with the CHECK as a backstop.
+3. The stats-trigger rollback proof intercepts only the `UPDATE auth.users` statement on the real client; every
+   other statement and the ROLLBACK run on the real DB.
+4. Classifier parity is one shared state table driving both endpoints in the root integration file.
+5. A non-test helper `services/social-graph-service/tests/helpers/fakeInvitationDb.ts` serves both social-graph
+   unit tiers and is never promoted.
+6. The S77 idempotent-create regression mock gained one answer for the new in-transaction state read (not in the
+   plan's file map; spec allows necessary fixture corrections).
+7. `/code-review` ran before the process review, because the process reviewer verifies code-review resolution.
+8. `/code-review` re-grades: NULL `max_members` = full is already shared by every admission path (JS `n > null`);
+   active invitee with a non-live inviter gets 403 (spec: live-inviter check precedes D1); an active member of a
+   now-private/inactive public match gets the pointer / `COMMUNITY_INACTIVE` (spec); stored `invited` fails closed
+   (approved table; no writer exists); refused acceptance → discovery without a reason (spec frontend section).
 
 ## Execution boundaries and PR contract
 
-- Reuse the approved design; no more policy decision is pending. Same-inviter repeat admission remains
-  409 INVITATION_CONFLICT with another member's code/public self-rejoin as recovery; no schema change.
+- No policy decision is pending. Same-inviter repeat admission remains 409 INVITATION_CONFLICT with another
+  member's code/public self-rejoin as recovery; no schema change.
 - D2/D3 may supersede staff review and stale its earlier notification; no notification-service cleanup.
-- D1's UI branch is defensive, with one minimal test; validation's bare-Axios nested envelope is correct.
-- New TDD files are explicitly promoted only after green. `.npmrc` disables npm posttest/prebuild lifecycle
-  hooks, so never rely on automatic promotion or automatic landing generation.
-- No authorized local DB/remote test host is allocated. New DB tests are written before backend implementation;
-  local DB red/green may remain unrun and must be recorded CI-owed. Root integration CI is mandatory evidence
-  before a future merge; mocks and test-file discovery are not transaction/race proof.
-- The execution PR body must use the complete repository template and explicitly list bundled work:
-  **30b1823e — docs(process): apply /insights triage to agent rules and skills** and
-  **cd8b973a — docs(process): route plan subagent models**. Explain why these docs ride with this product PR
-  instead of costing a separate deploy. Include the Sprint 144 post-merge record as bundled documentation.
-- Keep real test SHA/command/exit/cache/limits in the PR Validation ledger. Stop the execution chat after
-  opening its reviewable PR; a next reviewer checks actual CI before any future release authorization.
+- `.npmrc` disables npm posttest/prebuild lifecycle hooks: promotion and landing generation were run explicitly.
+- Root integration CI is mandatory evidence before a future merge; mocks and test-file discovery are not
+  transaction/race proof.
+- The PR body uses the complete template and lists bundled work: **30b1823e — docs(process): apply /insights
+  triage to agent rules and skills**, **cd8b973a — docs(process): route plan subagent models**, and the Sprint 144
+  post-merge record **8471a6a7**, each docs-only, riding here because a separate docs PR costs a full deploy.
+- The execution chat stops after opening the PR; the reviewer checks actual CI before any release authorization.
 
-## Critical implementation notes
+## Critical implementation notes (as implemented)
 
-1. One transaction client owns actual invitation consumption, membership, counter effect, attribution and inviter
-   stats; failed admission consumes nothing. Failed rollback destroys the new social-graph transaction's client
-   only; community-service's existing wrapper remains unchanged with its documented cleanup limitation.
-2. Lock invitation, then inviter FOR SHARE and invitee FOR UPDATE in global user_id order, then let the trigger
-   lock the community. Use the existing Queryable/client injection pattern. Never pre-lock a community.
-3. Approved D1–D3: active invitees get a no-write 200 with an unconsumed code; pending invitees become
-   active ordinary members after capacity validation; any active private member can admit anyone without admin
-   approval (subject to capacity and blocked-state refusals). Duplicate-create still refuses pending; both paths
-   refuse inactive/NULL/unknown and reset left rejoins to ordinary member.
-4. A conflict no-op must be followed by a locked state read. A missing row is not a NULL-status row. Never infer
-   active membership from row existence or fall back to an invented role/token claim.
-5. Live inviter authority is an in-scope security fix; read it inside the locked acceptance transaction using the
-   stored community and verified caller. BUG-109 tracks unguarded generation separately. Self-acceptance already
-   has a DB guard (now map to 400); bound-invitee refusal is defensive fixture-only coverage.
-6. Capacity checks follow real active admissions on the same client. The database owns current_members; no deltas,
-   counter assignments, recounts, schema changes, generated init.sql edits or new dependency are needed.
-7. Preserve private duplicate-create pointers, including a mid-request change (rollback tentative admission
-   first), active member roles, used-code status and post-commit token refresh. D1 adds already_member: true and
-   accepted_at: null; the invite caller must not manufacture an invitation bond for that no-write outcome.
-8. Prove SQL, rollback and interleavings against the real CI database; mocks alone do not prove them. Include
-   compatible shared inviter locks in barriers and unconditionally clean up failed barriers. Put new acceptance
-   coverage in gated tiers, not the unselected old root/service integration files.
-9. BUG-107 and generation BUG-109 stay out of scope. Validation uses bare Axios, so its nested envelope is correct.
-   Do not claim live UI smoke or deployment from API tests, source inspection or historical Sprint 144 evidence.
-10. Version, merge, deploy, demo data and remote test infrastructure remain unauthorized; planning produces docs
-    only, with execution in the next chat after design/plan readiness.
-11. Repeat invitations from the same inviter/community can hit the existing unique triplet on a left or pending
-    invitee. Keep 409 INVITATION_CONFLICT with the alternate-path message, joining-guide explanation and real-history
-    state-matrix/rollback proof. No schema change or deletion of accepted history.
-12. D2/D3 let an ordinary member admit an applicant while staff review, leaving a prior join-request notification
-    stale. This is an explicit policy cost, not a notification cleanup task. The D1 frontend guard is defensive
-    and gets one minimal test because registration itself creates no membership.
+1. One social-graph transaction client owns invitation consumption, membership, counter effect, attribution and
+   inviter stats (`src/services/invitationAcceptance.ts`); a failed admission consumes nothing; a failed ROLLBACK
+   destroys that client. Community-service's `withTransaction` is unchanged, with its documented cleanup limitation.
+2. Lock order: invitation → inviter FOR SHARE / invitee FOR UPDATE in ascending user id → community row via the
+   trigger only. Never pre-lock a community.
+3. D1/D2/D3 as approved; duplicate-create refuses pending; both paths refuse inactive/NULL/unknown and reset left
+   rejoins to ordinary member.
+4. A conflict no-op is followed by a locked read of the winner; no invented role or claim anywhere.
+5. Live inviter authority is read inside the locked transaction (`getLiveRole(..., client)`); BUG-109 (generation)
+   stays open.
+6. Capacity checks follow real admitting writes on the same client; the database owns `current_members`.
+7. Private duplicate-create pointer preserved, including a mid-request flip (tentative write rolled back first);
+   post-commit token must contain the community or the answer is 409 `MEMBERSHIP_CHANGED`.
+8. Do not claim live UI smoke, DB proof or deployment from API tests, mocks or historical Sprint 144 evidence.
 
 ## Persistent context (carried forward)
 
@@ -140,21 +122,21 @@ maintainer-reported and was not independently rerun here).
 
 ## Open candidates and decisions
 
-- **Bundled agent-process commit (maintainer-requested 2026-11-23, Claude):** this is the
-  `docs(process): ...` commit on this branch, from the `/insights` report triage. It changes the
-  CLAUDE.md Windows-host and next-chat-prompt rules, the sprint-planning Step 5b self-audit and
-  checkpoint, the ship blocker report, the deploy post-merge closeout plus frontmatter, and the
-  review-response agent-report section. A second commit, `docs(process): route plan subagent models`
-  (the maintainer's `/usage` follow-up), adds the plan-template rule: implementers and per-task
-  reviewers run on Sonnet, and the final whole-branch review runs on Opus. Neither commit changes
-  product code, committed settings or dependencies. The Sprint 145 PR body must list both under
-  bundled work. It is docs-only, so a separate PR would cost
-  a deploy for no gain. Pre-existing defect found, not fixed: `tests/claude.md` says the TDD
-  promoter "runs as root `posttest`", but `.npmrc` `ignore-scripts=true` stops npm from running it.
-- [BUG-106/108](../../docs/BUGS.md): confirmed Sprint 145 scope. BUG-107 staff direct-add consent
-  remains open and deferred; scope confirmation does not change that exception.
-- [BUG-109](../../docs/BUGS.md): newly logged generation authorization/statistics security gap, outside
-  Sprint 145 implementation. Acceptance liveness is the proposed in-scope mitigation, not a generation fix.
+- **Bundled agent-process commits (maintainer-requested 2026-11-23, Claude):** `30b1823e` (the `/insights`
+  triage: CLAUDE.md Windows-host and next-chat-prompt rules, sprint-planning Step 5b self-audit and checkpoint,
+  ship blocker report, deploy post-merge closeout plus frontmatter, review-response agent-report section) and
+  `cd8b973a` (plan-template subagent model routing: implementers and per-task reviewers on Sonnet, final
+  whole-branch review on Opus). Neither changes product code, committed settings or dependencies. Pre-existing
+  defect found, not fixed: `tests/claude.md` says the TDD promoter "runs as root `posttest`", but `.npmrc`
+  `ignore-scripts=true` stops npm from running it.
+- [BUG-107](../../docs/BUGS.md) staff direct-add consent remains open and deferred.
+- [BUG-109](../../docs/BUGS.md) generation authorization/sent-stat gap remains open. The acceptance-side
+  live-inviter gate (in this branch) stops outsider-minted codes from admitting anyone; generation is unchanged.
+- **New candidates from Sprint 145 review (not filed):** invitation codes carry a 4-hex suffix per inviter-year
+  (`init.sql:189-213`), so they are guessable within an inviter's year (pre-existing; narrowed by the live-inviter
+  check). A refused acceptance lands on discovery without saying why; carrying the refusal reason there is a UX
+  follow-up. Deferred minors: shared social-graph test builders, integration `as()` helper, `MEMBERSHIP_CHANGED`
+  wording, untrimmed code lookup after a blank check, the `liveRole.ts` `db` doc placement.
 - [Expo drift #329](https://github.com/ravichavali/karmyq/issues/329): daily run
   [45246722488](https://github.com/ravichavali/karmyq/actions/runs/45246722488) failed on nine patch
   mismatches. No advisory established; the maintainer must earn and allocate dependency work.
@@ -172,19 +154,10 @@ maintainer-reported and was not independently rerun here).
 ## Constraints
 
 No demo database reads or writes. Version, merge and deploy each require the maintainer's explicit yes.
-No dependency/lockfile work or settings change is allocated by this planning request. One task branch/PR;
-post-merge records ride with the next product PR, never a docs-only master push. No worktrees.
+No dependency/lockfile work or settings change was allocated. One task branch/PR; post-merge records ride with
+the next product PR, never a docs-only master push. No worktrees.
 
 ## Planning verification record
 
-Source references are pre-implementation anchors. The approved spec contains verified current behavior;
-the plan's new helper/test paths are proposed interfaces. The first builder check at `32754735` missed
-errors subsequently corrected by Claude's reviews; it is not approval or a self-audit of this plan.
-Historical review details are in `d169f5c6` and `a29a38ed`; their test evidence is dated in those commit bodies.
-
-Step 5b reviewed clean checkpoint `92e398ff`: **0 actionable findings; 0 findings fixed**. It checked source
-citations, npm lifecycle/CI tiers, task order/interfaces, transaction invariants, races/rollback and scope.
-This read-only session-model review did not run tests or replace the next cross-agent plan review.
-
-The planning closeout commit body records the fresh final check command, exit status, cache and limitations
-for its staged tree. Product behavior, DB proof, live smoke and release remain unverified/unperformed.
+Source references in the spec were pre-implementation anchors; the as-built contracts are in the two service
+`CONTEXT.md` files. Planning review history is in `d169f5c6`, `a29a38ed` and `92e398ff` (Step 5b: 0 findings).
