@@ -50,7 +50,10 @@ respects membership lifecycle and reports truthful outcomes. BUG-107/109 remain 
 | Task 1 red tests | Committed (see Task 1 commit) | 3 social-graph TDD files + root integration file. Focused run: 57 red / 5 green, all behavioral (old timestamp, D1 writes, explicit client ignored); module test red = missing new module; integration compiles, 43 cases unrun locally (ECONNREFUSED; CI-owed) |
 | Task 2 live role + acceptance module | Committed `f48a0bb3` | Module and live-role TDD 21/21 green (exit 0, `--no-cache`); S134 live-role regression 11/11; social-graph tsc exit 0 |
 | Task 3 accept route wiring | Committed (Task 3 commit) | 3 social-graph TDD files 78/78; service unit+regression 27 suites/196 passed; root claim gate 17/17; tsc exit 0. A test bug was fixed: the 401 undefined-caller case used a default parameter. It was re-verified red on the old handler (400 vs 401) |
-| Tasks 4–11 | Not started | Next: Task 4 duplicate-create TDD + cross-path DB races. Root integration DB cases remain CI-owed |
+| Task 4 red duplicate-create + DB races | Committed `5455d3aa` | community TDD 19 red / 9 green (behavioral); root integration now 73 cases, compiles, unrun locally (CI-owed) |
+| Task 5 duplicate-create implementation | Committed `865065ba` | focused 66/66; community-service unit+regression 33 suites/534; tsc exit 0. Fixture corrections: S144 capacity + S77 idempotent-create mocks answer the new state read (assertions kept) |
+| Task 6 frontend contract tests | Committed (Task 6 commit) | 1 red (D1 routes to /welcome) / 10 green baselines (actual acceptance, 4 refusal fallbacks, 4 create refusals, create success) |
+| Tasks 7–11 | Not started | Next: Task 7 defensive D1 branch in `invite/[code].tsx` |
 
 **Plan-review execution rulings (Claude):** (1) the same-inviter barrier counts waiters on
 `INSERT INTO communities.members` only, plus a `FOR UPDATE NOWAIT` probe proving the inviter row is share-locked.
