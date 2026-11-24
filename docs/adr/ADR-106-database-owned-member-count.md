@@ -147,7 +147,7 @@ rolls back, instead of stalling it.
 - **Staff direct-add stays a documented consent exception** (decision 10). It still activates a user directly and is
   admin-only and API-only. The consent gap is BUG-107.
 - **BUG-106 is out of scope.** Invitation accept loses only its manual increment. It still ignores capacity and
-  silently no-ops on an existing row. (Sprint 145 fixes BUG-106 in its branch, still to be reviewed and deployed. It
+  silently no-ops on an existing row. (Sprint 145 fixed BUG-106, deployed in v11.118.0 on 2026-11-24. It
   uses this ADR's trigger and the same post-write capacity check, on social-graph's own transaction client; see the
   social-graph `CONTEXT.md`.)
 - **A static gate** (`tests/regression/sprint-144-no-member-count-deltas.test.ts`) keeps self-referential

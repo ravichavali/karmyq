@@ -90,6 +90,10 @@ no token, and the old fallback that invented role `member` is gone. Decision 2's
 predates [ADR-106](ADR-106-database-owned-member-count.md): the database trigger owns the count. The historical
 migration and data evidence above is unchanged.
 
+**Deployed** in v11.118.0 on 2026-11-24: [PR #342](https://github.com/ravichavali/karmyq/pull/342), squash
+`95d5e8c1`, [CI/CD 45473083712](https://github.com/ravichavali/karmyq/actions/runs/45473083712) 14/14 jobs, all nine
+services healthy. The amendment needed no migration.
+
 ## Related
 
 - [ADR-001](ADR-001-postgresql-schemas.md): PostgreSQL Schemas
