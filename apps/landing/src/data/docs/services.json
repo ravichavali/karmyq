@@ -151,7 +151,7 @@
         {
           "method": "POST",
           "path": "/communities",
-          "description": "Create a community — idempotent on identity (name+location, case-insensitive, ADR-062). Joins the existing active community if one matches (returns existing:true, HTTP 200); otherwise creates it (existing:false, HTTP 201). Sprint 144 (ADR-106): the duplicate-create join runs in one transaction with a capacity post-check (400 COMMUNITY_FULL) and reports the stored count; a new community is inserted with current_members 0 and the creator row makes it 1."
+          "description": "Create a community — idempotent on identity (name+location, case-insensitive, ADR-062). Joins the existing active community if one matches (returns existing:true, HTTP 200); otherwise creates it (existing:false, HTTP 201). Sprint 144 (ADR-106): the duplicate-create join runs in one transaction with a capacity post-check (400 COMMUNITY_FULL) and reports the stored count; a new community is inserted with current_members 0 and the creator row makes it 1. Sprint 145 (BUG-108): the public join locks the caller's member row, re-reads community status/access on the transaction client and classifies it: no row or left -> active ordinary member (capacity post-checked); active -> idempotent no-op keeping role; pending -> 409 CONFLICT; inactive/NULL/unknown -> 409 MEMBERSHIP_RESTORE_REQUIRES_STAFF; now inactive -> 400 COMMUNITY_INACTIVE; now private -> tentative write rolled back, private pointer (joined:false, no token); 503 ADMISSION_RETRY on deadlock/serialization; a post-commit token without the community -> 409 MEMBERSHIP_CHANGED (no invented role)."
         },
         {
           "method": "POST",
@@ -1021,7 +1021,7 @@
         {
           "method": "POST",
           "path": "/invitations/accept",
-          "description": "Accept an invitation code during user signup."
+          "description": "Accept an invitation code for the verified caller (Sprint 145, BUG-106; approved D1-D3). One transaction on one client: lock the invitation, share-lock the inviter and update-lock the invitee member rows in ascending user id, re-read live inviter authority (any active member, private communities included; JWT claims never count), classify the invitee, post-check status and capacity after the admitting write, then consume the invitation (stats trigger) and write attribution. Actual admission returns {inviter_id, community_id, accepted_at}; an already-active invitee gets a no-write 200 with already_member:true and accepted_at:null (code stays usable); pending is promoted. Refusals persist nothing: 401 non-UUID caller, 400 VALIDATION_ERROR (blank/non-string code, own code), 400 INVITATION_ALREADY_USED, 403 FORBIDDEN (bound to someone else, inviter not live), 404 NOT_FOUND (code or community), 400 COMMUNITY_INACTIVE/COMMUNITY_FULL, 409 MEMBERSHIP_RESTORE_REQUIRES_STAFF (inactive/NULL/unknown), 409 INVITATION_CONFLICT (repeat admission through the same inviter), 409 CONFLICT (unreadable race winner), 503 ADMISSION_RETRY (deadlock/serialization), opaque 500 INTERNAL_ERROR."
         },
         {
           "method": "GET",

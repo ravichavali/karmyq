@@ -53,7 +53,10 @@ respects membership lifecycle and reports truthful outcomes. BUG-107/109 remain 
 | Task 4 red duplicate-create + DB races | Committed `5455d3aa` | community TDD 19 red / 9 green (behavioral); root integration now 73 cases, compiles, unrun locally (CI-owed) |
 | Task 5 duplicate-create implementation | Committed `865065ba` | focused 66/66; community-service unit+regression 33 suites/534; tsc exit 0. Fixture corrections: S144 capacity + S77 idempotent-create mocks answer the new state read (assertions kept) |
 | Task 6 frontend contract tests | Committed (Task 6 commit) | 1 red (D1 routes to /welcome) / 10 green baselines (actual acceptance, 4 refusal fallbacks, 4 create refusals, create success) |
-| Tasks 7–11 | Not started | Next: Task 7 defensive D1 branch in `invite/[code].tsx` |
+| Task 7 defensive D1 branch | Committed `b0007785` | frontend S145 + S118 28/28; frontend tsc exit 0 |
+| Task 8 guides/concept/ADR-062 + landing | Committed `54a40c7f` | drift gate 41/41; generator churn restored (architecture/build/adr-010) |
+| Task 9 contexts/registry/BUGS + promotion | Committed (Task 9 commit) | BUG-106/108 "fixed in branch, pending review and deploy"; BUG-107/109 open. 5 files `git mv`'d to regression and verified directly: social-graph 78, community 42, frontend 28 (all `--no-cache`, exit 0). Drift 41/41; `analyze:services` no change. Root DB file stays in `tests/integration/` — **unrun locally, CI-owed** |
+| Tasks 10–11 | Not started | Next: whole-branch gates (/simplify, /security-review, process review, /code-review), then final verification and PR |
 
 **Plan-review execution rulings (Claude):** (1) the same-inviter barrier counts waiters on
 `INSERT INTO communities.members` only, plus a `FOR UPDATE NOWAIT` probe proving the inviter row is share-locked.

@@ -5,6 +5,17 @@
 
 ## Recent Changes
 
+- **2026-11-23 (Sprint 145, BUG-108 fixed in this branch, pending deploy; ADR-062 amended):** the duplicate-create
+  join of an existing public community (`POST /communities`) answered `joined: true` even when its
+  `ON CONFLICT DO NOTHING` had not admitted anyone: a pending applicant, a blocked member, a NULL/unknown row. It also
+  never rejoined a `left` row, and invented role `member` when the refreshed token lacked the community. It now
+  decides from the caller's row locked `FOR UPDATE` inside the existing `withTransaction` and re-reads community state
+  on that client (contract under POST /communities). `withTransaction` and its failed-rollback limitation
+  (`db.ts`) are unchanged. Tests: `tests/regression/sprint-145-duplicate-create.test.ts`, and the root real-DB
+  `tests/integration/sprint-145-admission-integrity.integration.test.ts`. Social-graph's invitation acceptance
+  (BUG-106) now checks capacity on its own transaction client too, so fusion is the only admission that can exceed
+  the cap.
+
 - **2026-11-19 (Sprint 144, ADR-106; BUG-103, BUG-104, BUG-105 fixed, pending deploy):** migration
   `20261119-community-member-count-trigger.sql` makes the database the only writer of
   `communities.current_members`. A sync trigger on `communities.members` applies each row's active-delta to its one
@@ -689,8 +700,8 @@ row. The caller's role is read live from `communities.members`.
 Create new community — **idempotent on community identity** (ADR-062).
 
 A community's identity is `(LOWER(TRIM(name)), LOWER(TRIM(COALESCE(location,''))))`. Before inserting, the route looks up an **active** community by this identity key:
-- **Match found (public):** the caller is joined (`communities.members` upsert in one transaction; the ADR-106 trigger counts a newly inserted active row, and the capacity post-check refuses an overfilling join with 400 `COMMUNITY_FULL`) and the existing community is returned with `existing: true`, its stored `current_members`, and HTTP **200** — no duplicate row is created.
-- **Match found (private):** not auto-joined; returns `existing: true, joined: false` and an approval-required message.
+- **Match found (public):** one transaction locks the caller's `communities.members` row `FOR UPDATE`, re-reads the community's `status`/`access_type` on that client, and classifies the row (`classifyExistingMembership`; Sprint 145, BUG-108). No row: insert an active member. `left`: rejoin as an ordinary member (role, request message, join time reset). For both, the ADR-106 trigger counts the write, then status and capacity are re-checked on the same client (400 `COMMUNITY_FULL` rolls back). `active`: idempotent no-op that keeps role and join time, with no write and no capacity check, even when full. `pending`: 409 `CONFLICT`. `inactive`, NULL or any other status: 409 `MEMBERSHIP_RESTORE_REQUIRES_STAFF`. A lost insert race locks and classifies the winner (unreadable → 409 `CONFLICT`). A community no longer active: 400 `COMMUNITY_INACTIVE`. A community now private: any tentative write rolls back and the private pointer below is returned, with the community re-read. 40P01/40001: 503 `ADMISSION_RETRY`. Success returns `existing: true, joined: true`, the stored `current_members`, the caller's actual role and a refreshed token, with HTTP **200**; no duplicate row is created. If the post-commit refreshed list lacks the community (staff removed the caller in between), the answer is 409 `MEMBERSHIP_CHANGED` with no token; no role is invented.
+- **Match found (private):** not auto-joined, whatever the caller's membership; returns `existing: true, joined: false` and an approval-required message, no token.
 - **No match:** the community is created (inserted with `current_members = 0`; the creator's admin row makes it 1) and returned with `existing: false`, the post-trigger count, and HTTP **201**.
 
 Clients should read the `existing` flag rather than assuming a new row was created. A partial unique index `idx_communities_identity_active` enforces one active community per identity.

@@ -743,6 +743,13 @@ communityName}`); `/welcome` renders `ArrivalGraph` (ring primitives, never spar
 invitation bond is a distinct dashed chord from funnel context — NEVER a trust edge) and writes
 the user-scoped onboarded key on completion/skip.
 
+Sprint 145 (BUG-106, D1): a refused acceptance still keeps the registered session and routes to
+`/communities?welcome=true` with no re-login and no arrival context. Defensively, an acceptance
+answering `already_member: true` (a no-write success, `accepted_at: null`) refreshes the session
+as usual, then opens `/communities/<community_id>` and returns before `beginArrival`, so no bond is
+manufactured. Validation keeps the raw Axios envelope (`response.data.data`). Test:
+`tests/regression/sprint-145-admission-feedback.test.tsx`.
+
 ### `karmyq_onboarded:<userId>` localStorage flag
 Absence of this key (and of the legacy global `karmyq_onboarded`) triggers the `WelcomeModal`.
 Written `'1'` when the `/welcome` arrival completes or is skipped, or on modal close. Checked in

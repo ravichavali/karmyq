@@ -167,36 +167,53 @@ Generate a new invitation code for current user.
 
 ### POST /invitations/accept
 
-Accept an invitation code during user signup.
+Accept an invitation code for the verified caller (Sprint 145, BUG-106; approved D1–D3).
 
-**Request** (authenticated):
-```json
-{
-  "invitation_code": "KARMYQ-MIKE-2024-A7B3"
-}
-```
+**Request** (authenticated): `{ "invitation_code": "KARMYQ-MIKE-2024-A7B3" }`. A caller id that is not a UUID is 401
+`UNAUTHORIZED`; a code that is not a non-empty string is 400 `VALIDATION_ERROR` before any SQL. The code is looked up
+exactly as supplied.
 
-**Response**:
-```json
-{
-  "success": true,
-  "data": {
-    "inviter_id": "uuid-123",
-    "community_id": "uuid-456",
-    "accepted_at": "2025-12-27T10:35:00Z"
-  }
-}
-```
+**Response** (actual admission): `{ inviter_id, community_id, accepted_at }`, where `accepted_at` is the stored
+acceptance timestamp. **D1, already-active invitee**: `{ inviter_id, community_id, accepted_at: null,
+already_member: true }` and nothing is written. The code stays unconsumed, and attribution, statistics, membership and
+count are untouched.
 
-**Implementation**: [src/routes/invitations.ts:91](src/routes/invitations.ts#L91)
+**Implementation**: [src/routes/invitations.ts](src/routes/invitations.ts) (validation and envelope) and
+[src/services/invitationAcceptance.ts](src/services/invitationAcceptance.ts) (the transaction).
 
-**Side Effects**:
-1. Updates `user_invitations.invitation_accepted_at`
-2. Sets `users.invited_by` for the new user
-3. Triggers `update_inviter_stats_on_acceptance()` (increments `total_invitations_accepted`)
-4. Inserts the invitee into `communities.members` (`ON CONFLICT DO NOTHING`). Since Sprint 144 (ADR-106) this
-   route never writes `communities.current_members`: the database's sync trigger counts the new active row once.
-   **BUG-106 (open):** the insert ignores community capacity and silently no-ops on an existing membership row.
+**One transaction on one checked-out client.** In order:
+1. Lock the invitation `FOR UPDATE`. Missing → 404 `NOT_FOUND`. Already used, even by this caller → 400
+   `INVITATION_ALREADY_USED` ("This invitation code has already been used"). The caller's own code → 400
+   `VALIDATION_ERROR`, checked in code before D1, with the `no_self_invitation` CHECK as a backstop. Bound to another
+   invitee → 403 `FORBIDDEN`. NULL or missing community → 404. Inactive community → 400 `COMMUNITY_INACTIVE`. All UUID
+   comparisons are canonical (lower case).
+2. Lock the inviter's member row `FOR SHARE` and the invitee's `FOR UPDATE`, in ascending user id, the same order
+   as staff and governance writes. Then read the inviter's authority with `getLiveRole(community, inviter, client)`.
+   No active inviter row in the stored community → 403 `FORBIDDEN`; JWT claims and other communities' rows never
+   count. **D3:** any active member may admit someone to a private community without staff approval. Shared inviter
+   locks let concurrent acceptances through one inviter proceed together, and a staff removal of that inviter waits.
+3. Classify the locked invitee row. Missing → insert an active member (`ON CONFLICT DO NOTHING RETURNING`; a lost
+   race locks and classifies the winner, and an unreadable winner is a retryable 409 `CONFLICT`). `left` or
+   `pending` (**D2**) → a conditional update to an active ordinary member, which resets role, join time and request
+   message. `active` → D1. `inactive`, NULL or any other status → 409 `MEMBERSHIP_RESTORE_REQUIRES_STAFF`.
+4. After an admitting write, the ADR-106 trigger has moved and locked the community row. Status and
+   `current_members > max_members` are re-read on this client (400 `COMMUNITY_INACTIVE` / 400 `COMMUNITY_FULL`).
+   The community is never locked ahead of member rows.
+5. Consume the invitation. `update_inviter_stats_on_acceptance()` fires in this transaction, and the application
+   never writes stats. Then write `users.invited_by` / `invitation_accepted_at`. A repeat admission through the same
+   inviter in the same community hits the `(inviter_id, invitee_id, community_id)` unique → 409
+   `INVITATION_CONFLICT`: "You previously joined this community through this inviter. Ask a different member for an
+   invitation. If the community is public, rejoin from its community page." Everything rolls back and history is
+   kept.
+6. COMMIT, release, then log. Deadlock or serialization (40P01/40001) → 503 `ADMISSION_RETRY`, with no automatic
+   retry. If ROLLBACK fails, the client is destroyed. Any other failure → opaque 500 `INTERNAL_ERROR`, logged with
+   its route.
+
+Every refusal persists nothing. D2's known cost: a member's invitation can admit someone whose join request staff are
+still reviewing, which leaves the earlier `join_request` notification stale. Notification-service is unchanged.
+Generation (`POST /invitations/generate`) still has no membership check and counts sent stats unconditionally
+(**BUG-109, open**). The acceptance-time inviter check is what keeps such a code from admitting anyone. Real-DB proof:
+`tests/integration/sprint-145-admission-integrity.integration.test.ts`.
 
 ---
 
@@ -993,6 +1010,15 @@ See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision
 
 ## Recent Changes
 
+### Sprint 145: atomic invitation acceptance (2026-11-23, BUG-106; approved D1–D3)
+- **FIX (BUG-106, fixed in this branch, pending deploy)**: `POST /invitations/accept` used to run four separate
+  pool statements. It consumed the code and attributed the user before the membership insert, ignored capacity,
+  silently no-op'd on existing rows and had no live check on the inviter. It is now one transaction
+  (`src/services/invitationAcceptance.ts`); the contract is under the endpoint above. `getLiveRole` takes an optional
+  `Queryable` client, defaulting to the pool. Tests: `tests/regression/invitationAcceptance.test.ts`,
+  `sprint-145-invitation-routes.test.ts` and `sprint-145-live-role-client.test.ts` (fake DB in
+  `tests/helpers/fakeInvitationDb.ts`), plus the root real-DB file named above.
+
 ### Sprint 134 PR K: live admin role (2026-10-22, BUG-069, ADR-102)
 - **FIX (BUG-069)**: `PUT /trust/decay-config/:communityId` decided from the JWT `communities` claim (and a dead
   `user.role` branch), so a demoted or removed admin could still rewrite the community's decay policy until the token
@@ -1106,6 +1132,9 @@ See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision
 ### Current Limitations
 
 - No invitation code expiration
+- **BUG-109 (open)**: `POST /invitations/generate` trusts a supplied `X-Community-ID`, mints a code without checking
+  that the caller is a live member there, and increments `total_invitations_sent` regardless. Acceptance refuses such
+  a code (live inviter check), but the sent stats can be inflated.
 - No rate limiting on invitation generation
 - No detection of "invitation farms" (fake accounts)
 - Cache invalidation is time-based only (no manual purge)

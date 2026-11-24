@@ -2875,7 +2875,7 @@ Deploy to Demo successful, 9/9 healthy services.
 
 ---
 
-## BUG-106 · [2026-11-19] · open
+## BUG-106 · [2026-11-19] · fixed in branch, pending review and deploy (Sprint 145)
 
 **Invitation acceptance admits a member without the capacity check and silently ignores an existing membership row.**
 Found while planning Sprint 144 (BUG-103). `POST /invitations/accept` in
@@ -2887,6 +2887,18 @@ as separate `pool.query` calls with no transaction. When the invitee already has
 success. Until Sprint 144 the handler also incremented `current_members` unconditionally. That double count is
 removed by Sprint 144 (ADR-106 moves the counter into a database trigger). The capacity bypass and the
 silent no-op are not fixed by Sprint 144; they remain open here.
+
+**Fixed (Sprint 145, `agent/claude/sprint-145-planning`; not yet merged or deployed).** Acceptance is one
+transaction on one social-graph client (`src/services/invitationAcceptance.ts`). It locks the invitation, then
+share-locks the inviter's member row and update-locks the invitee's in ascending user id, and re-reads the
+inviter's live authority on that client. It classifies the invitee row and post-checks status and capacity after
+the admitting write, then consumes the invitation and writes attribution. Approved D1–D3: an active invitee gets a
+no-write 200 (`already_member: true`, `accepted_at: null`); a pending invitee is promoted; any live active member
+may admit to a private community. Blocked, NULL and unknown rows get 409. Every refusal persists nothing. A repeat
+admission through the same inviter keeps 409 `INVITATION_CONFLICT` with an alternate-path message. Unit and route
+proof is in the social-graph regression tier. The real-DB state, rollback and race proof is
+`tests/integration/sprint-145-admission-integrity.integration.test.ts`; it was unrun locally and is owed to PR CI.
+Generation is unchanged (BUG-109).
 
 ---
 
@@ -2903,7 +2915,7 @@ invitation the person accepts, is later work.
 
 ---
 
-## BUG-108 · [2026-11-19] · open
+## BUG-108 · [2026-11-19] · fixed in branch, pending review and deploy (Sprint 145)
 
 **The duplicate-create join reports `joined: true` for a caller whose existing membership is not active.** Found in
 the Sprint 144 `/code-review` (finding 4); the behavior predates Sprint 144 (ADR-062). `POST /communities` with the
@@ -2915,6 +2927,15 @@ caller is told they joined, and the path skips the rules `POST /communities/:com
 answers `MEMBERSHIP_RESTORE_REQUIRES_STAFF` for a blocked row, rejoins a `left` row, and refuses a duplicate pending
 request. The fix is to route this case through the join route's `classifyExistingMembership`. Sprint 144 kept the
 existing behavior and only added the capacity post-check and the stored count.
+
+**Fixed (Sprint 145, `agent/claude/sprint-145-planning`; not yet merged or deployed; ADR-062 amended).** Inside the
+existing transaction, the join locks the caller's row `FOR UPDATE`, re-reads the community's status and access on
+that client, and applies `classifyExistingMembership`. No row and `left` are admitted as ordinary members and
+capacity-checked after the write. `active` is an idempotent no-op that keeps its role. `pending` → 409 `CONFLICT`.
+Blocked, NULL and unknown → 409 `MEMBERSHIP_RESTORE_REQUIRES_STAFF`. A community that went private rolls any
+tentative write back and answers the existing pointer. The post-commit role fallback is gone: a refreshed token
+without the community answers 409 `MEMBERSHIP_CHANGED`. Real-DB proof is in the Sprint 145 root integration file;
+it was unrun locally and is owed to PR CI.
 
 ---
 
@@ -2934,8 +2955,10 @@ community and inflate their sent count there. The current acceptance handler als
 evidence, not a demo-server exploit reproduction; no demo data was accessed. Do not assume database RLS supplies
 the missing application authorization (see `docs/gotchas/database-roles-bypass-rls-so-rls-is-not-an-isolation-proof.md`).
 
-Sprint 145 proposes an acceptance-side live-inviter security gate under BUG-106. It is **not implemented yet**;
-once implemented it would refuse outsider-minted codes at acceptance, including previously generated codes.
+Sprint 145 implements (in branch, not yet deployed) an acceptance-side live-inviter gate under BUG-106: acceptance
+reads the inviter's active membership in the stored community inside its transaction, so an outsider-minted code,
+including one generated earlier, is refused with 403 and admits no one. **BUG-109 itself stays open:** generation
+still mints codes without a membership check and still inflates `total_invitations_sent`.
 It would not fix generation or sent-stat inflation. Generation's membership gate and statistics writes remain
 **outside Sprint 145 implementation scope** and this bug stays open; no dependency, migration or data operation
 is authorized by recording it. Future work must derive generation authority from live membership rather than
