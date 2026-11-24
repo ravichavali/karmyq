@@ -129,6 +129,9 @@ File: `docs/superpowers/plans/YYYY-MM-DD-sprint-NN-{slug}.md`
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task.
+> **Subagent models:** implementers and per-task reviewers run on `sonnet` (`haiku` for a
+> one-file mechanical task); only the final whole-branch review runs on `opus`. Pass the
+> model on every dispatch; SDD's fix-loop escalation still applies.
 
 **Goal:** [One sentence.]
 

@@ -118,8 +118,11 @@ maintainer-reported and was not independently rerun here).
   `docs(process): ...` commit on this branch, from the `/insights` report triage. It changes the
   CLAUDE.md Windows-host and next-chat-prompt rules, the sprint-planning Step 5b self-audit and
   checkpoint, the ship blocker report, the deploy post-merge closeout plus frontmatter, and the
-  review-response agent-report section. There is no product, settings or dependency change. The
-  Sprint 145 PR body must list it under bundled work. It is docs-only, so a separate PR would cost
+  review-response agent-report section. A second commit, `docs(process): route plan subagent models`
+  (the maintainer's `/usage` follow-up), adds the plan-template rule: implementers and per-task
+  reviewers run on Sonnet, and the final whole-branch review runs on Opus. Neither commit changes
+  product code, committed settings or dependencies. The Sprint 145 PR body must list both under
+  bundled work. It is docs-only, so a separate PR would cost
   a deploy for no gain. Pre-existing defect found, not fixed: `tests/claude.md` says the TDD
   promoter "runs as root `posttest`", but `.npmrc` `ignore-scripts=true` stops npm from running it.
 - [BUG-106/108](../../docs/BUGS.md): confirmed Sprint 145 scope. BUG-107 staff direct-add consent
