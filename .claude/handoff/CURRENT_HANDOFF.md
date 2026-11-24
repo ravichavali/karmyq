@@ -1,7 +1,8 @@
 # Sprint 145 — Admission integrity — Handoff
 
 **Date**: 2026-11-23
-**Outcome**: **Implementation complete (plan Tasks 1–10); Task 11 opens the reviewable PR.** Claude executed the
+**Outcome**: **Implementation complete; PR [#342](https://github.com/ravichavali/karmyq/pull/342) is open for
+review (plan Tasks 1–11 done).** Claude executed the
 Codex-authored, maintainer-approved plan inline (`superpowers:executing-plans`) after a cross-agent plan review.
 BUG-106 and BUG-108 are fixed in this branch, pending review and deploy. **Next: a cross-agent review of the PR
 (Codex), including the PR's CI. The root real-DB integration job is the arbiter for the 73 DB/race cases, which
@@ -16,7 +17,7 @@ never ran locally.** Version, merge, deploy and demo-data access remain unauthor
 | Owned paths | Sprint 145 implementation, tests, docs and this handoff. The plan and spec stay Codex-authored; review findings are recorded here, not edited into them |
 | Spec | [Approved design](../../docs/superpowers/specs/2026-11-23-sprint-145-admission-integrity-design.md) |
 | Plan | [Implementation plan](../../docs/superpowers/plans/2026-11-23-sprint-145-admission-integrity.md), tagged `no-deploy` |
-| PR | Opened at the end of Task 11 from this branch; its URL is recorded by the bookkeeping commit that follows it |
+| PR | [#342](https://github.com/ravichavali/karmyq/pull/342), opened 2026-11-23 from tested head `42d587da`, plus this handoff-only bookkeeping commit. The author did not watch CI (the chat stops after the PR opens) |
 | Release | Master v11.117.0; Sprint 145 version unallocated |
 
 **Maintainer approval (2026-11-23)**: "Approve D1–D3 and the revised design".
@@ -58,7 +59,7 @@ respects membership lifecycle and reports truthful outcomes. BUG-107/109 remain 
 | Task 8 guides/concept/ADR-062 + landing | `54a40c7f` | drift gate 41/41; generator churn restored |
 | Task 9 contexts/registry/BUGS + promotion | `0a3cb4dc` | 5 files `git mv`'d to regression, verified directly (78 / 42 / 28, `--no-cache`); drift 41/41; `analyze:services` no diff |
 | Task 10 SDLC gates | Done at `bdc852a7` | `/simplify` (4 Sonnet reviewers): 2 cleanups applied in `bdc852a7`, rest skipped with reasons. `/security-review`: 0 findings. `/code-review` high: 5 "important" + 3 nits, all re-graded (spec-mandated or false premise; nits deferred) with no code change. Process review: PASS on coverage, docs, bundled commits and gate rulings; its handoff-staleness blocker is fixed by this revision; advisory A1 applied (ADR-106 points at the Sprint 145 fix), A2 N/A (AGENTS.md only bridges into CLAUDE.md) |
-| Task 11 final verification + PR | In progress | Type checks at `bdc852a7`: social-graph, community-service, frontend `tsc --noEmit` exit 0. Final `bash scripts/pre-commit-check.sh` evidence is in the final commit body and the PR Validation ledger |
+| Task 11 final verification + PR | Done: `42d587da`, PR #342 | `tsc --noEmit` ×3 exit 0 at `bdc852a7`. `bash scripts/pre-commit-check.sh` on tree `123e340a`: run 1 had `npm test` pass but failed the integrity check on landing generator churn (restored from snapshot); run 2 exit 0, tree unchanged. Pre-push at `42d587da`: unit + regression 27/27 Turbo tasks (26 cached; root `tests` ran fresh), report-only TDD tier exit 1 (existing WIP), integration skipped (no DB) |
 
 ## Rulings (deviations from the plan, all recorded in the git-ignored ledger too)
 
