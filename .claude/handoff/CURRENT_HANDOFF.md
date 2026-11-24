@@ -1,10 +1,12 @@
 # Sprint 145 — Admission integrity — Handoff
 
-**Date**: 2026-11-24 (Codex re-review clean); opened 2026-11-23
-**Outcome**: **Implementation complete and cross-agent reviewed clean; PR [#342](https://github.com/ravichavali/karmyq/pull/342)
-is open and awaits the maintainer's release decision.** Claude executed the Codex-authored, maintainer-approved
-plan inline (`superpowers:executing-plans`) after a cross-agent plan review. BUG-106 and BUG-108 are fixed in
-this branch, pending merge and deploy.
+**Date**: 2026-11-24 (release approved); opened 2026-11-23
+**Outcome**: **Released as v11.118.0, pending the merge. The maintainer approved merging and deploying PR
+[#342](https://github.com/ravichavali/karmyq/pull/342) on 2026-11-24 ("Approved — merge PR #342 and deploy").**
+The release head adds `chore(release): v11.118.0` (`6bb68d7d`, version fields only) and this handoff commit.
+Claude executed the Codex-authored, maintainer-approved plan inline (`superpowers:executing-plans`) after a
+cross-agent plan review, and Codex re-reviewed it clean. BUG-106 and BUG-108 are fixed in this branch, pending
+merge and deploy.
 
 **Review and CI evidence (observed 2026-11-24):**
 - **Codex's re-review of `e9be2a26`: no new findings.** Both P2 races from its review of `222d6dc4` are resolved:
@@ -16,12 +18,17 @@ this branch, pending merge and deploy.
 - **CI run [45444724146](https://github.com/ravichavali/karmyq/actions/runs/45444724146) on `e9be2a26`:** every
   check passed, including Integration Tests (Sprint 145 file 78/78, suite 727/727, Jest exited), the Code Scanning
   Gate and CodeQL. Deploy to Demo was skipped (PR branch). Detail: the PR's `## Validation` ledger.
-- **Commits after `e9be2a26`:** only the handoff commit that records this review (docs-only). Its CI is a fresh
-  run; check it on the head that merges.
+- **Commits after `e9be2a26`:** handoff `f1006ae7`, which records this review (docs-only; CI run
+  [45451177223](https://github.com/ravichavali/karmyq/actions/runs/45451177223): 20 pass, Deploy to Demo
+  skipped), then the release bump `6bb68d7d` (`package.json:3`, `package-lock.json:3` and `:9`; strict
+  `npm ci --dry-run` exit 0), then this handoff commit. None changes code or tests, so the review stands. The
+  release head needs its own green CI before the merge.
 - CodeQL #654–656 were dismissed by the maintainer as "used in tests" (2026-11-24, 16:33Z).
 
-**Next: the maintainer decides on merge, version and deploy.** None of them is authorized yet. A release chat
-starts with the `deploy` skill once the maintainer says yes.
+**Next: the merge, then deploy verification.** Master requires an approving review that this account cannot
+give itself (`REVIEW_REQUIRED`), so the only merge path is `gh pr merge 342 --squash --admin
+--match-head-commit <release head>`. The admin override needs its own explicit yes. After the merge, the next
+chat starts at the `deploy` skill's Step 6 (see Quick Start).
 
 **Review history.** Codex's first review raised the two P2 races above (fixed test-first in `a7235275`: 6
 regression cases, red first, plus 3 DB cases). Before that, **PR #342's first CI run** ([45340891388](https://github.com/ravichavali/karmyq/actions/runs/45340891388), head
@@ -36,37 +43,48 @@ regression cases, red first, plus 3 DB cases). Before that, **PR #342's first CI
 `c3860cf6` fixes the harness and closes the race gaps. **Its CI** ([45426404877](https://github.com/ravichavali/karmyq/actions/runs/45426404877),
 head `59ab057b`) **passed Integration Tests: all 75 Sprint 145 cases, suite 724/724, and Jest exited.** At that
 head, every other job passed except the Code Scanning Gate and the CodeQL check, which failed on #654–656 alone
-(since dismissed). Version, merge, deploy and demo-data access remain unauthorized.
+(since dismissed). Demo-data access remains unauthorized.
 
 ## Ownership, approval and base
 
 | Field | Value |
 |---|---|
 | Branch | `agent/claude/sprint-145-planning`, based on `origin/master` `71773476` (re-fetched 2026-11-23; unchanged) |
-| Active editor | Claude (executor since 2026-11-23). The review is complete; the next actor is the maintainer (release decision). One editor at a time in the shared Windows checkout |
+| Active editor | Claude (executor since 2026-11-23; release chat 2026-11-24). The review is complete and the release is approved; the next actor runs the merge, then deploy Step 6. One editor at a time in the shared Windows checkout |
 | Owned paths | Sprint 145 implementation, tests, docs and this handoff. The plan and spec stay Codex-authored; review findings are recorded here, not edited into them |
 | Spec | [Approved design](../../docs/superpowers/specs/2026-11-23-sprint-145-admission-integrity-design.md) |
 | Plan | [Implementation plan](../../docs/superpowers/plans/2026-11-23-sprint-145-admission-integrity.md), tagged `no-deploy` |
-| PR | [#342](https://github.com/ravichavali/karmyq/pull/342), opened 2026-11-23 from tested head `42d587da`; first CI on `7c183014` (handoff-only). Fix-forward `c3860cf6` (test + `ci.yml` only) and handoff `59ab057b`, CI-verified, then handoff `222d6dc4` (Codex reviewed it). Review fixes `a7235275` + registry `8932e9c5` + handoff `e9be2a26` (Codex re-reviewed it clean; CI green), plus this handoff-only commit recording that review |
-| Release | Master v11.117.0; Sprint 145 version unallocated |
+| PR | [#342](https://github.com/ravichavali/karmyq/pull/342), opened 2026-11-23 from tested head `42d587da`; first CI on `7c183014` (handoff-only). Fix-forward `c3860cf6` (test + `ci.yml` only) and handoff `59ab057b`, CI-verified, then handoff `222d6dc4` (Codex reviewed it). Review fixes `a7235275` + registry `8932e9c5` + handoff `e9be2a26` (Codex re-reviewed it clean; CI green). Then handoff `f1006ae7` (records the re-review; CI green), release bump `6bb68d7d` and this handoff-only commit |
+| Release | **v11.118.0**, re-derived on 2026-11-24 from `origin/master` `71773476` (v11.117.0) as the next minor, in `6bb68d7d`. Merge and deploy approved by the maintainer on 2026-11-24. No migration ships (no `infrastructure/` change in the diff) |
 
 **Maintainer approval (2026-11-23)**: "Approve D1–D3 and the revised design".
 D1 = active invitee no-write 200; D2 = invitation promotes pending, accepting the stale staff-notification cost;
 D3 = any live active private member can admit someone without admin approval, subject to capacity/blocked checks.
-Version, merge, deploy, demo-data operations and remote test infrastructure remain unauthorized.
+**Release approval (2026-11-24)**: "Approved — merge PR #342 and deploy." The version follows from it
+(v11.118.0, the next minor). Demo-data operations and remote test infrastructure remain unauthorized.
 
-## Quick Start (release decision)
+## Quick Start (post-merge: `deploy` skill Step 6)
 
 1. Read [CLAUDE.md](../../CLAUDE.md) and this handoff.
-2. `git fetch origin && git log --oneline origin/master -2`; `gh pr list`; `git status --short`. Confirm master is
-   still `71773476` and PR #342 is open.
-3. Check CI **on the current head** (`gh pr view 342 --json headRefOid,statusCheckRollup`). The reviewed head is
-   `e9be2a26`; later commits must be handoff-only and green, including the root integration job (78 Sprint 145
-   cases) and the Code Scanning Gate.
-4. **Stop for the maintainer.** Merge, the version bump (re-derived from `origin/master` at merge time) and deploy
-   each need an explicit yes. Only with that yes, continue with the `deploy` skill: one master merge at a time,
-   then CI/CD deploy and health, then the post-merge record, which rides with the next PR.
-5. If anything has changed since `e9be2a26` beyond handoff commits, it needs a fresh cross-agent review first.
+2. `git fetch origin && gh pr view 342 --json state,mergeCommit,mergedAt`.
+   - **Still OPEN:** the merge has not happened. Confirm that the head is the handoff commit after `6bb68d7d`, that
+     it has green CI (run conclusion and job count, not just `gh pr checks`), and that master is still `71773476`.
+     The merge is the admin override, and it needs the maintainer's explicit yes:
+     `gh pr merge 342 --squash --admin --match-head-commit <head>`. Anything beyond handoff commits since
+     `e9be2a26` needs a fresh cross-agent review first.
+   - **MERGED:** take the full merge SHA.
+3. `gh run list --commit <merge sha> --workflow "CI/CD Pipeline"`, then `gh run view <id> --json conclusion,jobs`.
+   Judge the conclusion and the job count. Read the open CodeQL alerts on master, and report any re-raised alert;
+   never dismiss one yourself.
+4. Health: run the node `POST https://karmyq.com/api/auth/login` probe (`deploy` Step 8). No migration ships
+   (Step 7 is a no-op). Demo-data operations are not authorized.
+5. Write the post-merge record on a **new branch cut from `origin/master`**, never as a docs-only master push:
+   - archive this handoff as `.claude/handoff/archive/2026-11-24-sprint-145-admission-integrity-SHIPPED-v11.118.0.md`
+     with the merge SHA and the CI/CD run;
+   - mark BUG-106 and BUG-108 deployed in `docs/BUGS.md`;
+   - mark the ADR-062 amendment and both services' `CONTEXT.md` status lines deployed;
+   - then a fresh `CURRENT_HANDOFF.md`.
+   It rides with the next product PR.
 
 **Goal**: BUG-106 invitation acceptance enforces capacity/live membership atomically; BUG-108 duplicate-create
 respects membership lifecycle and reports truthful outcomes. BUG-107/109 remain out of implementation scope.
@@ -92,6 +110,7 @@ respects membership lifecycle and reports truthful outcomes. BUG-107/109 remain 
 | PR #342 CI fix-forward | `c3860cf6` | First CI (run 45340891388): integration 66/73, 7 failed with `fire(...).finally is not a function`, then the six-hour hang. Reproduced without a DB (old form: TypeError, one server left listening, process kept alive; new form: 200, zero servers, clean exit). Fixed: thenable adoption, a typed `BarrierError`, `raceInOrder`, a forced-order pending race (2 → 4 cases), full winner/loser/invitation assertions on the last-slot races, and `timeout-minutes: 20` on the CI step. Local: compiles, 75 cases, all `ECONNREFUSED`, Jest exits in 11 s; tests `tsc`: 0 errors in the file; CI-workflow gate 8/8; `pre-commit-check.sh` exit 0 on tree `3a19c6af`. **CI run 45426404877 at `59ab057b`: Integration Tests passed, Sprint 145 file 75/75 (suite 724/724); the gate fails only on #654–656** |
 | Codex review fixes (two P2 races) | `a7235275`, registry `8932e9c5` | Both confirmed in source (`communities.ts:119-123`; the ignored `FOR SHARE` result in `invitationAcceptance.ts`). Red first on unchanged product code: community duplicate-create +4 (failed 409, 409, `joined: true`, 200); social-graph acceptance +2 via the fake's new `afterInviterLock` hook (resolved as admitted). Green: social-graph focused 80/80, unit+regression 30 suites / 276; community focused 48/48, unit+regression 34 suites / 566; `tsc` 0 / 0; claim + count-delta gates 41/41; drift 41/41. +3 DB cases (file 78), compiled, unrun locally. `pre-commit-check.sh` on tree `1981a6f5`: run 1 `npm test` passed, then the integrity check failed on landing churn (restored); run 2 exit 0. Docs: both CONTEXTs, ADR-062 amendment, BUG-106/108, registry, regenerated landing pages. **CI run 45444724146 at `e9be2a26`: all checks green; Sprint 145 file 78/78, suite 727/727** |
 | Codex re-review | Clean at `e9be2a26` (2026-11-24) | No new findings; both P2 races resolved; ruling 13 matches the spec. Codex judged the three new DB cases discriminating by source and barrier inspection; the old code was not rerun against PostgreSQL. Branch unchanged by the reviewer |
+| Release prep | `6bb68d7d` (2026-11-24) | v11.118.0 in `package.json:3` and `package-lock.json:3`/`:9` only; strict `npm ci --dry-run` exit 0. Only PR #342 is open, and no master CI/CD run is in flight (the last is 45066293676 for `71773476`, success) |
 
 ## Rulings (deviations from the plan, all recorded in the git-ignored ledger too)
 
@@ -212,8 +231,9 @@ maintainer-reported and was not independently rerun here).
 
 ## Constraints
 
-No demo database reads or writes. Version, merge and deploy each require the maintainer's explicit yes.
-No dependency/lockfile work or settings change was allocated. One task branch/PR; post-merge records ride with
+No demo database reads or writes. Merge and deploy were approved on 2026-11-24 (v11.118.0). The admin-override
+merge still needs its own explicit yes. No dependency or settings change was allocated: the lockfile edit is the
+two version fields of the release bump only. One task branch/PR; post-merge records ride with
 the next product PR, never a docs-only master push. No worktrees.
 
 ## Planning verification record
