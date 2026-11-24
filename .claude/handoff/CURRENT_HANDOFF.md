@@ -1,7 +1,8 @@
 # Sprint 146 planned — Expo SDK drift reconciliation (#329) + Deepmerge #178 close-out — Handoff
 
 **Date**: 2026-11-24
-**Outcome**: planned, awaiting non-author review and execution. Sprint 146 goal named by the
+**Outcome**: planned; Codex reviewed `1e1248c1` on 2026-11-24: **FIX-FIRST** (four findings below).
+Awaiting author revisions and non-author re-review before execution. Sprint 146 goal named by the
 maintainer 2026-11-24: **Expo drift #329** — align the nine drifted SDK-57 pins in `apps/mobile`
 to Expo's live version map. Two maintainer authorizations given with the goal: the Deepmerge #178
 re-check rides along as a docs task, and the version bump (→ v11.119.0). Merge/deploy, any ADR
@@ -13,8 +14,8 @@ number and demo-data operations remain unauthorized.
 |---|---|
 | **Branch** | `agent/claude/sprint-146-planning`, cut from `origin/master` `95d5e8c1` (fetched 2026-11-24) |
 | **Base** | `origin/master` `95d5e8c1` = Sprint 145, [PR #342](https://github.com/ravichavali/karmyq/pull/342), v11.118.0 |
-| **Active editor** | Claude (planner, 2026-11-24). The executor takes over; one editor at a time in the shared Windows checkout |
-| **Reviewer role** | A non-author (Codex) reviews this sprint's spec and plan before implementation |
+| **Active editor** | Codex completed the review; only this review record changes. Next editor: Claude/planner for revisions; one editor at a time in the shared Windows checkout |
+| **Reviewer role** | Codex reviewed `1e1248c1`: FIX-FIRST; revised spec and plan need non-author re-review before implementation |
 | **Owned paths** | The Sprint 145 post-merge record (rides with this PR) plus the Sprint 146 spec, plan, this handoff, `docs/adr/ADR-059-dependency-security-gate.md`, `apps/mobile/package.json`, `package-lock.json`, root `package.json` version, `apps/mobile/claude.md` |
 | **Shared resources needed** | Version bump AUTHORIZED (v11.119.0). Merge slot, any ADR number, further dependency work and demo-data operations each need their own maintainer yes |
 
@@ -31,14 +32,50 @@ number and demo-data operations remain unauthorized.
    Sprint 145 post-merge record and this sprint's spec + plan. Never branch off a stale local
    master — unpushed local-master commits leak in via the squash-merge.
 3. Open plan: `docs/superpowers/plans/2026-11-24-sprint-146-expo-drift.md`
-4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`).
+4. **Before execution:** resolve review findings R1-R4 below in the spec and plan, then obtain
+   non-author re-review. Once cleared, invoke `superpowers:subagent-driven-development`
+   directly (or `superpowers:executing-plans`).
    There is no `/execute-plan` slash command — superpowers removed it as a deprecated stub.
 5. Checkpoint: after every group of at most 3 tasks, and before starting any long-running suite or
    subagent review, commit and update this handoff's task status (task, state, SHA, evidence) and
    say what you are waiting on. A mid-sprint pickup reads this handoff, never `git log`.
 
-**Next unchecked task**: Task 1 (branch state + live drift capture). If master has moved past
+**Next action (Claude/planner):** read plan Task 3, beginning at line 121, and revise the lockfile
+scope for R1/R2; fix R3/R4 and request Codex re-review. Execution Task 1 remains pending. If master has moved past
 `95d5e8c1`, stop and re-plan — the base changed.
+
+## Codex non-author review — 2026-11-24
+
+Reviewed the spec and plan at `1e1248c1`; verdict **FIX-FIRST**. No implementation, spec or plan
+edits, push, PR creation, merge or deployment in this review. This handoff records the findings.
+
+| ID | Priority | Finding and required revision |
+|---|---|---|
+| R1 | P1 | Plan Task 3 (`docs/superpowers/plans/2026-11-24-sprint-146-expo-drift.md:138`) forbids any lock entry beyond the nine, repeated in Task 9. Published target manifests require at least **15 additional package versions** absent from those nine. For example, `expo@57.0.34` requires `@expo/cli ^57.0.35` while `package-lock.json:2825` locks 57.0.32. Expand the surgical splice to the recursively required dependency closure, document each change, preserve unrelated nodes, and retain strict install proof; compare `npm ls --all` errors against a baseline. |
+| R2 | P2 | Task 3 also omits `packages["apps/mobile"].dependencies` (`package-lock.json:166`), which duplicates all nine manifest ranges. Explicitly update those ranges with the manifest and verify parity; changing only `node_modules/<pkg>` leaves stale lock metadata. |
+| R3 | P2 | Task 2's command (`plan:118`), repeated at lines 154/188, selects root `jest.config.js:11`, whose testMatch excludes regression files. Reproduced exit 1, **No tests found**; this cannot serve as the required red run. Use `npx jest --config tests/jest.config.js --runTestsByPath tests/regression/<file>.test.ts --runInBand` from the repo root, or run from `tests/`. |
+| R4 | P2 | Spec's landing-doc exemption (`docs/superpowers/specs/2026-11-24-sprint-146-expo-drift-design.md:117`) and plan Task 7 (`plan:247`) contradict the ADR-059 amendment. `scripts/generate-docs.ts:207` publishes that ADR to `apps/landing/src/data/docs/concepts/adr-059-dependency-security-gate.json`. `.npmrc` disables automatic prebuild; CI (`.github/workflows/ci.yml:249`) and deploy (`scripts/deploy.sh:177`) invoke only build. Explicitly regenerate from source and include the ADR page's content delta, excluding unrelated generated churn. |
+
+Additional corrections: Task 10's shell script does not run a type check
+(`scripts/pre-commit-check.sh`); name the explicit command or narrow the claim. Task 5's consecutive
+`cd apps/mobile` commands do not work in one persistent shell; use workspace commands or explicit
+working directories. The "first use" history claim conflicts with prior alignments documented in
+`apps/mobile/claude.md` (S128/S129/S131/S134).
+
+**Fresh evidence at reviewed HEAD `1e1248c1`:**
+
+- `node scripts/expo-divergences.js`: exit 1, exactly the nine stated BLOCKING rows and two jest
+  registered divergences (network-enabled run; restricted-network run failed with EACCES).
+- Corrected explicit-config command, both sprint-122 and sprint-124 files, `--runInBand --no-cache`:
+  exit 0, **2 suites / 47 tests**. Full `npm test`, install and mobile build were not run for this review.
+- Read the nine target manifests from `registry.npmjs.org` as data only; the 15-node minimum counts
+  additional immediate requirements, not their recursive closure. No downloaded package code executed.
+- Live advisory: `withdrawn_at` 2026-11-16T18:55:38Z; deepmerge latest 4.3.1; PR #178 closed and
+  unmerged; `gh api` with `state=open&ref=refs/heads/master` returned zero code-scanning alerts.
+- `gh pr list --state open`: empty. `git ls-remote origin refs/heads/master`: `95d5e8c1`.
+
+**Set aside:** pre-existing BUG-041/mobile runtime debt, unrelated Sprint 145 bundled records,
+and merge/deploy readiness; this review assesses planning, not implementation or release approval.
 
 ## Sprint 146 goal and arc
 
@@ -107,7 +144,7 @@ version entries). Re-run the citation checks at execution and record
 
 ## Blockers and decisions
 
-- **Blocker**: none for execution; merge requires a fresh maintainer yes (Sprint 145's merge
+- **Blocker**: resolve R1-R4 and obtain non-author re-review before execution; merge requires a fresh maintainer yes (Sprint 145's merge
   authorization does not carry over).
 - **Decision (Sprint 145, 2026-11-23)**: D1 an active invitee gets a no-write 200; D2 an
   invitation promotes a pending applicant; D3 any live active member may admit someone to a
