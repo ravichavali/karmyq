@@ -190,7 +190,8 @@ count are untouched.
 2. Lock the inviter's member row `FOR SHARE` and the invitee's `FOR UPDATE`, in ascending user id, the same order
    as staff and governance writes. Then read the inviter's authority with `getLiveRole(community, inviter, client)`.
    No active inviter row in the stored community → 403 `FORBIDDEN`; JWT claims and other communities' rows never
-   count. **D3:** any active member may admit someone to a private community without staff approval. Shared inviter
+   count. The share lock must find the row. If it finds none, the answer is 403, even when a membership commits
+   before the live-role read: that row was never locked, so a removal could commit first. **D3:** any active member may admit someone to a private community without staff approval. Shared inviter
    locks let concurrent acceptances through one inviter proceed together, and a staff removal of that inviter waits.
 3. Classify the locked invitee row. Missing → insert an active member (`ON CONFLICT DO NOTHING RETURNING`; a lost
    race locks and classifies the winner, and an unreadable winner is a retryable 409 `CONFLICT`). `left` or

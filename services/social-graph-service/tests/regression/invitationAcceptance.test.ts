@@ -163,6 +163,23 @@ describe('Sprint 145 acceptInvitation — statement and lock order', () => {
     expect(db.sql().some((s) => /FROM communities\.communities[\s\S]*FOR (UPDATE|SHARE|NO KEY UPDATE)/i.test(s))).toBe(false);
   });
 
+  // PR #342 review: a live-role read cannot stand in for the authority lock. A row committed after the
+  // FOR SHARE select found nothing is visible to the later read but was never locked, so a removal could
+  // commit before this admission does.
+  it.each([['lower', LOW, HIGH], ['higher', HIGH, LOW]])(
+    'refuses with 403 when the inviter FOR SHARE locked no row, even though the row exists by the live-role read (inviter id %s)',
+    async (_label, inviter, invitee) => {
+      const s = state(inviter, invitee);
+      s.members = [];
+      const db = install(s, { afterInviterLock: (x) => { x.members.push(member(inviter)); } });
+      const error = await acceptInvitation({ userId: invitee, invitationCode: CODE }).catch((e) => e);
+      expect(error).toBeInstanceOf(InvitationAcceptanceError);
+      expect(error).toMatchObject({ status: 403, code: 'FORBIDDEN' });
+      expect(db.writes()).toEqual([]);
+      expect(db.sql()).toContain('ROLLBACK');
+      expect(db.sql()).not.toContain('COMMIT');
+    });
+
   it('reads inviter authority on the transaction client after the inviter lock', async () => {
     const db = install(state(LOW, HIGH));
     await acceptInvitation({ userId: HIGH, invitationCode: CODE });

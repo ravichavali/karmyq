@@ -116,9 +116,12 @@ async function joinExistingPublic(q: TxQuery, communityId: string, userId: strin
     if ((inserted.rowCount ?? 0) > 0) {
       admitted = true;
     } else {
-      // Lost the INSERT race: classify the winner's committed row; a no-op is never a join.
+      // Lost the INSERT race: classify the winner's committed row; a no-op is never a join. The INSERT
+      // waited on the winner's transaction, which may also have changed the community, so re-read it
+      // first, as the first path does after its lock (PR #342 review).
       const winner = await lockCaller();
       if (!winner) throw new DuplicateJoinRefusal(409, 'CONFLICT', MEMBERSHIP_CHANGED_MESSAGE);
+      await requireActivePublic(q, communityId);
       classification = classifyExistingMembership(winner.status);
     }
   }

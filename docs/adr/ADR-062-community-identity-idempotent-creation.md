@@ -80,7 +80,8 @@ status and access on the same client, and classifies the row:
 - **Active**: idempotent success with no write. The caller keeps their role and join time, and no capacity check
   runs, even when the community is full.
 - **Pending**: 409 `CONFLICT`. **Inactive, NULL or any other stored status**: 409
-  `MEMBERSHIP_RESTORE_REQUIRES_STAFF`. A lost insert race locks and classifies the winning row.
+  `MEMBERSHIP_RESTORE_REQUIRES_STAFF`. A lost insert race locks the winning row and re-reads the community before
+  classifying it, so the two community rules below apply to it as well.
 - **Community no longer active**: 400 `COMMUNITY_INACTIVE`. **Community now private**: any tentative write rolls back
   and the decision-2 private pointer is returned. Deadlock or serialization failure: 503 `ADMISSION_RETRY`.
 

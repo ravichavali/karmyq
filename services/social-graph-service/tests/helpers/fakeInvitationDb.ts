@@ -55,6 +55,8 @@ export interface FakeDbOptions {
   beforeMemberInsert?: (state: FakeState) => void;
   /** Runs after the conflict no-op, before the next statement: lets a test remove the winner again. */
   afterMemberInsertConflict?: (state: FakeState) => void;
+  /** Runs once, right after the inviter FOR SHARE select returns: lets a test commit a row that select missed. */
+  afterInviterLock?: (state: FakeState) => void;
 }
 
 export const pgError = (message: string, fields: { code: string; constraint?: string }): Error =>
@@ -114,7 +116,13 @@ export function createFakeDb(initial: FakeState, options: FakeDbOptions = {}) {
     }
     if (/^\s*SELECT[\s\S]*FROM communities\.members\s+WHERE community_id = \$1 AND user_id = \$2/i.test(sql)) {
       const row = member(params[0], params[1]);
-      return rows(row ? [{ ...row }] : []);
+      const result = rows(row ? [{ ...row }] : []);
+      if (/FOR SHARE\s*$/i.test(sql) && options.afterInviterLock) {
+        const hook = options.afterInviterLock;
+        options.afterInviterLock = undefined;
+        hook(state);
+      }
+      return result;
     }
     if (/^\s*INSERT INTO communities\.members/i.test(sql)) {
       options.beforeMemberInsert?.(state);

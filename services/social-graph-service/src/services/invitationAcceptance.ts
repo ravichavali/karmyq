@@ -100,12 +100,13 @@ async function admit(client: PoolClient, userId: string, invitationCode: string)
   const communityId = String(invitation.community_id).toLowerCase();
   await requireActiveCommunity(client, communityId);
 
-  const lockInviter = () => client.query(
+  /** True when the inviter's member row exists and is now share-locked. */
+  const lockInviter = async () => (await client.query(
     `SELECT user_id FROM communities.members
      WHERE community_id = $1 AND user_id = $2
      FOR SHARE`,
     [communityId, inviterId]
-  );
+  )).rows.length > 0;
   const lockInvitee = async () => (await client.query(
     `SELECT status, role FROM communities.members
      WHERE community_id = $1 AND user_id = $2
@@ -114,14 +115,18 @@ async function admit(client: PoolClient, userId: string, invitationCode: string)
   )).rows[0];
 
   let invitee: { status?: unknown } | undefined;
+  let inviterLocked: boolean;
   if (inviterId < userId) {
-    await lockInviter();
+    inviterLocked = await lockInviter();
     invitee = await lockInvitee();
   } else {
     invitee = await lockInvitee();
-    await lockInviter();
+    inviterLocked = await lockInviter();
   }
-  if (!(await getLiveRole(communityId, inviterId, client))) {
+  // The FOR SHARE select is the authority lock. If it found no row, a membership committed after it would be
+  // visible to the live-role read without being locked, and could be removed before this admission commits
+  // (PR #342 review).
+  if (!inviterLocked || !(await getLiveRole(communityId, inviterId, client))) {
     throw refuse(403, 'FORBIDDEN', 'The member who invited you is no longer active in this community');
   }
 

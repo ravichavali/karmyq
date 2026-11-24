@@ -299,6 +299,34 @@ describe('Sprint 145 duplicate-create — lost INSERT race and post-commit token
     expect(f.txSql.some((s) => /current_members, max_members/.test(s))).toBe(false);
   });
 
+  // PR #342 review: the INSERT waited on the winner's transaction, which may also have changed the community.
+  // The winner is classified only after the community is re-read, exactly as on the first path.
+  it.each([['an active', 'active'], ['a pending', 'pending'], ['a blocked', 'inactive']])(
+    'answers the private pointer to %s INSERT-race winner when the community turned private meanwhile', async (_label, status) => {
+      const f = install({ beforeInsert: (x) => {
+        x.member = { status, role: 'admin', joined_at: OLD_JOIN };
+        x.community.access_type = 'private';
+      } });
+      const res = await create();
+      expect(res.status).toBe(200);
+      expect(res.body.data).toMatchObject({ existing: true, joined: false, message: PRIVATE_MESSAGE });
+      expect(res.body.data.token).toBeUndefined();
+      expect(f.tx.committed).toBe(0);
+      expect(memberWrites(f)).toEqual([expect.stringMatching(/^INSERT INTO communities\.members .*ON CONFLICT/)]);
+    });
+
+  it('refuses an active INSERT-race winner with 400 COMMUNITY_INACTIVE when the community was archived meanwhile', async () => {
+    const f = install({ beforeInsert: (x) => {
+      x.member = { status: 'active', role: 'admin', joined_at: OLD_JOIN };
+      x.community.status = 'archived';
+    } });
+    const res = await create();
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ success: false, error: 'COMMUNITY_INACTIVE' });
+    expect(res.body.data).toBeUndefined();
+    expect(f.tx.committed).toBe(0);
+  });
+
   it('refuses with retryable 409 CONFLICT when the winner cannot be read back', async () => {
     const f = install({
       beforeInsert: (x) => { x.member = { status: 'active', role: 'member', joined_at: OLD_JOIN }; },

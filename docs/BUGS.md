@@ -2891,13 +2891,14 @@ silent no-op are not fixed by Sprint 144; they remain open here.
 **Fixed (Sprint 145, `agent/claude/sprint-145-planning`; not yet merged or deployed).** Acceptance is one
 transaction on one social-graph client (`src/services/invitationAcceptance.ts`). It locks the invitation, then
 share-locks the inviter's member row and update-locks the invitee's in ascending user id, and re-reads the
-inviter's live authority on that client. It classifies the invitee row and post-checks status and capacity after
+inviter's live authority on that client. If the share lock found no inviter row, it refuses 403 even when the
+live-role read would now see one (PR #342 review): authority is never taken from an unlocked row. It classifies the invitee row and post-checks status and capacity after
 the admitting write, then consumes the invitation and writes attribution. Approved D1–D3: an active invitee gets a
 no-write 200 (`already_member: true`, `accepted_at: null`); a pending invitee is promoted; any live active member
 may admit to a private community. Blocked, NULL and unknown rows get 409. Every refusal persists nothing. A repeat
 admission through the same inviter keeps 409 `INVITATION_CONFLICT` with an alternate-path message. Unit and route
 proof is in the social-graph regression tier. The real-DB state, rollback and race proof is
-`tests/integration/sprint-145-admission-integrity.integration.test.ts`; it was unrun locally and is owed to PR CI.
+`tests/integration/sprint-145-admission-integrity.integration.test.ts`, run by PR #342 CI (no local database).
 Generation is unchanged (BUG-109).
 
 ---
@@ -2934,8 +2935,10 @@ that client, and applies `classifyExistingMembership`. No row and `left` are adm
 capacity-checked after the write. `active` is an idempotent no-op that keeps its role. `pending` → 409 `CONFLICT`.
 Blocked, NULL and unknown → 409 `MEMBERSHIP_RESTORE_REQUIRES_STAFF`. A community that went private rolls any
 tentative write back and answers the existing pointer. The post-commit role fallback is gone: a refreshed token
-without the community answers 409 `MEMBERSHIP_CHANGED`. Real-DB proof is in the Sprint 145 root integration file;
-it was unrun locally and is owed to PR CI.
+without the community answers 409 `MEMBERSHIP_CHANGED`. A lost INSERT race re-reads the community before it
+classifies the winner, so a winner whose transaction made the community private or inactive gets the pointer or
+400 rather than `joined: true` (PR #342 review). Real-DB proof is in the Sprint 145 root integration file, run by
+PR #342 CI.
 
 ---
 

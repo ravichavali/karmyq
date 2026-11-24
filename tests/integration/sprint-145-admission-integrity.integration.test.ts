@@ -1011,6 +1011,60 @@ describe('Sprint 145 state and authority interleavings — the committed winner 
     expect(await count(c)).toBe(2);
   });
 
+  // PR #342 review, finding 1: the duplicate create's INSERT waits on a winner's transaction that inserts the
+  // caller's own row and also changes the community. Losing that race must answer from the community's new state.
+  it.each([
+    { change: 'made private', sql: `UPDATE communities.communities SET access_type='private' WHERE id=$1` },
+    { change: 'archived', sql: `UPDATE communities.communities SET status='archived' WHERE id=$1` },
+  ])('a duplicate create that loses its INSERT to a transaction that also $change the community answers from the new state', async ({ change, sql }) => {
+    const { c } = await invitingCommunity();
+    const [p] = await users(1);
+    const body = await duplicateBody(c);
+    const res = await holdAndRace({
+      sql: `INSERT INTO communities.members(community_id,user_id,role,status,joined_at) VALUES($1,$2,'member','active',$3)`,
+      params: [c, p, OLD_JOIN],
+      mutate: (b) => b.query(sql, [c]),
+    }, [[MEMBER_INSERT, 1]], () => as(p).create(body));
+    if (change === 'made private') {
+      expect(res.status).toBe(200);
+      expect(res.body.data).toMatchObject(PRIVATE_POINTER);
+      expect(res.body.data.token).toBeUndefined();
+      expect(res.body.data.community.current_members).toBe(3);
+    } else {
+      expect(res.status).toBe(400);
+      expect(res.body).toMatchObject({ success: false, error: 'COMMUNITY_INACTIVE' });
+      expect(res.body.data).toBeUndefined();
+    }
+    // Only the winner's committed row exists: the duplicate create wrote nothing of its own.
+    expect(await memberRow(c, p)).toMatchObject({ status: 'active', role: 'member' });
+    expect(await count(c)).toBe(3);
+    expect(await activeRows(c)).toBe(3);
+  });
+
+  // PR #342 review, finding 2: the inviter's FOR SHARE select is the authority lock. Ids are ordered so the
+  // acceptance runs that select first (finding no row), then parks on the invitee row while the inviter's
+  // membership commits. The later live-role read would see that row, but it was never locked.
+  it('refuses with 403 when the inviter\'s membership commits after the authority lock found no row', async () => {
+    const [inviter, p] = (await users(2)).sort();
+    const [admin] = await users(1);
+    const c = await community({ creator: admin });
+    await addMember(c, admin, 'active', 'admin');
+    await addMember(c, p, 'left', 'member');
+    const inv = await invite(inviter, c);
+    const res = await holdAndRace({
+      ...MEMBER_ROW_LOCK(c, p),
+      mutate: (b) => b.query(`INSERT INTO communities.members(community_id,user_id,role,status,joined_at)
+        VALUES($1,$2,'member','active',$3)`, [c, inviter, OLD_JOIN]),
+    }, [[INVITEE_LOCK, 1]], () => as(p).accept(inv.code));
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ success: false, error: 'FORBIDDEN' });
+    expect(await memberRow(c, inviter)).toMatchObject({ status: 'active' });
+    expect(await memberRow(c, p)).toMatchObject({ status: 'left', role: 'member' });
+    await expectInvitationSettled(c, p, inviter, inv.id, false);
+    expect(await count(c)).toBe(2);
+    expect(await activeRows(c)).toBe(2);
+  });
+
   it('unlocks and settles when a barrier expectation fails (the failed-barrier cleanup path)', async () => {
     const { c, inviter } = await invitingCommunity();
     const [p] = await users(1);
