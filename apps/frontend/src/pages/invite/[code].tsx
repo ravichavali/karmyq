@@ -106,6 +106,13 @@ export default function InviteAcceptance() {
         });
         setAuthSession(loginResponse.data);
 
+        // Sprint 145 (D1, defensive): the account was already an active member, so nothing was
+        // accepted and there is no invitation bond to celebrate. Open the community instead.
+        if (acceptResponse?.data?.already_member === true) {
+          router.push(`/communities/${acceptResponse.data.community_id}`);
+          return;
+        }
+
         // Hand the invitation-bond context to the arrival moment (stamped with the account it
         // belongs to — /welcome drops a context left behind by another login on this tab).
         beginArrival({

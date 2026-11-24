@@ -14,6 +14,9 @@
  * answers the post-check read with the count the database holds after the insert. The trigger owns
  * the counter, so the old `UPDATE … current_members` mock was dead and is gone. Every assertion is
  * unchanged.
+ *
+ * Sprint 145 (BUG-108): the join decides from the caller's locked row and re-reads the community's
+ * status/access inside the transaction, so the mock answers that read too. Every assertion is unchanged.
  */
 import express from 'express';
 import request from 'supertest';
@@ -78,6 +81,10 @@ describe('Sprint 77 — idempotent POST /communities', () => {
 
     mockQuery.mockImplementation(async (sql: string) => {
       if (isIdentitySelect(sql)) return { rowCount: 1, rows: [existingRow] };
+      // Sprint 145 (BUG-108): the join re-reads the community's state on the transaction client.
+      if (/SELECT status, access_type FROM communities\.communities WHERE id = \$1/i.test(sql)) {
+        return { rowCount: 1, rows: [{ status: 'active', access_type: 'public' }] };
+      }
       if (/INSERT\s+INTO\s+communities\.members/i.test(sql)) return { rowCount: 1, rows: [] };
       // Capacity post-check after the insert: the trigger has counted the new row (5 → 6).
       if (/SELECT current_members, max_members FROM communities\.communities/i.test(sql)) {

@@ -93,13 +93,24 @@ In a private community, join requests appear under **Pending Requests** on the P
 carried. Approval counts toward the member cap, so it is refused when the community is full. Rejecting blocks the
 request; the applicant can rejoin only after an admin lifts the block.
 
+### Invitations from members
+
+Any active member can invite people, and an accepted invitation admits the person at once, in a private community
+too. Staff approval is not part of it. The member cap and blocks still apply: an invitation never admits anyone into
+a full community, and it never lifts a block. It also only works while the member who sent it is still active in
+your community.
+
+Someone whose join request is still pending becomes an ordinary member as soon as they accept a member's invitation.
+Any join-request notification you already received about them can then be out of date. Check the People tab before
+acting on it.
+
 Every other change is an admin power: removing a member, lifting a block, and changing someone's role. The community
 always keeps at least one admin, so the last admin cannot be demoted or removed.
 
 The member count on the community page always equals the number of active members. The database keeps it, so every
-join, approval, removal and departure updates it. Joining, approval and an admin adding someone directly all check
-the cap at the moment they admit the person, so two of them can never take the last free place at once. Accepting
-an invitation does not check the cap yet, and merging two communities can go over it.
+join, approval, removal and departure updates it. Joining, approval, accepting an invitation, re-creating an existing
+community and an admin adding someone directly all check the cap at the moment they admit the person, so two of them
+can never take the last free place at once. Merging two communities can still go over it.
 
 ---
 

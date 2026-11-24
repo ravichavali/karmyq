@@ -2,6 +2,9 @@ import express, { Response } from 'express';
 import { pool } from '../config/database';
 import { logger } from '../config/logger';
 import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
+import { sendError, sendSuccess } from '@karmyq/shared';
+import { acceptInvitation, InvitationAcceptanceError } from '../services/invitationAcceptance';
+import { isUuid } from '../services/communityContext';
 
 const router = express.Router();
 
@@ -93,93 +96,26 @@ router.post('/generate', async (req: AuthenticatedRequest, res: Response) => {
 // Note: /invitations/validate/:code endpoint is defined in index.ts (public, before auth)
 // This is necessary because validation must be accessible without authentication
 
-// POST /invitations/accept - Accept an invitation code during signup
+// POST /invitations/accept - Accept an invitation code (Sprint 145, BUG-106; approved D1–D3).
+// One transaction admits, consumes and attributes, or refuses with nothing persisted; an already-active
+// invitee gets a no-write 200 with already_member: true and accepted_at: null. Contract:
+// services/social-graph-service/CONTEXT.md and src/services/invitationAcceptance.ts.
 router.post('/accept', async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user?.userId;
+  if (!isUuid(userId)) return sendError(res, 'UNAUTHORIZED', 'Authentication required', 401);
+  const invitationCode = req.body?.invitation_code;
+  if (typeof invitationCode !== 'string' || invitationCode.trim() === '') {
+    return sendError(res, 'VALIDATION_ERROR', 'invitation_code must be a non-empty string', 400);
+  }
+
   try {
-    const userId = req.user?.userId;
-    const { invitation_code } = req.body;
-
-    if (!userId || !invitation_code) {
-      return res.status(400).json({
-        success: false,
-        message: 'User ID and invitation code required',
-      });
-    }
-
-    // Find the invitation
-    const invitationResult = await pool.query(
-      `SELECT id, inviter_id, community_id, invitation_accepted_at
-       FROM auth.user_invitations
-       WHERE invitation_code = $1`,
-      [invitation_code]
-    );
-
-    if (invitationResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Invalid invitation code',
-      });
-    }
-
-    const invitation = invitationResult.rows[0];
-
-    // Check if already accepted by someone else
-    if (invitation.invitation_accepted_at) {
-      return res.status(400).json({
-        success: false,
-        message: 'This invitation code has already been used',
-      });
-    }
-
-    // Update invitation with invitee and acceptance timestamp
-    await pool.query(
-      `UPDATE auth.user_invitations
-       SET invitee_id = $1,
-           invitation_accepted_at = NOW()
-       WHERE id = $2`,
-      [userId, invitation.id]
-    );
-
-    // Update user's invited_by field
-    await pool.query(
-      `UPDATE auth.users
-       SET invited_by = $1,
-           invitation_accepted_at = NOW()
-       WHERE id = $2`,
-      [invitation.inviter_id, userId]
-    );
-
-    // Add user to the community as a member. ADR-106: the database's sync trigger counts the row
-    // (communities.current_members is never written here). BUG-106: this path still ignores
-    // capacity and silently no-ops on an existing membership row.
-    await pool.query(
-      `INSERT INTO communities.members (community_id, user_id, role, joined_at)
-       VALUES ($1, $2, 'member', NOW())
-       ON CONFLICT (community_id, user_id) DO NOTHING`,
-      [invitation.community_id, userId]
-    );
-
-    logger.info('Invitation accepted', {
-      inviterId: invitation.inviter_id,
-      inviteeId: userId,
-      communityId: invitation.community_id,
-      invitationCode: invitation_code,
-    });
-
-    res.json({
-      success: true,
-      data: {
-        inviter_id: invitation.inviter_id,
-        community_id: invitation.community_id,
-        accepted_at: new Date(),
-      },
-    });
+    const result = await acceptInvitation({ userId, invitationCode });
+    return sendSuccess(res, result);
   } catch (error) {
-    logger.error('Error accepting invitation', error instanceof Error ? error : undefined);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to accept invitation',
-    });
+    if (error instanceof InvitationAcceptanceError) return sendError(res, error.code, error.message, error.status);
+    logger.error('Error accepting invitation', error instanceof Error ? error : new Error(String(error)),
+      { route: 'POST /invitations/accept', userId });
+    return sendError(res, 'INTERNAL_ERROR', 'Failed to accept invitation', 500);
   }
 });
 

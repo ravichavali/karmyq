@@ -71,6 +71,21 @@ decides what lands. This is the trigger that catches what mid-session capture mi
   on `apps/frontend/src/lib/api.ts`). **You cannot dismiss them — surface the exact alert(s) to the
   user and ask them to dismiss via the UI.** Do not loop the dismissal API. If the gate false-blocks
   the fix-shipping push (rescan lag), wait for the rescan and re-run — do not `--no-verify`.
+- Before the final push, read `security/audit-exemptions.json`: the audit gate fails closed on an
+  expired entry (at most 7 days), so an entry expiring before merge needs re-deciding now.
+- Watch CI with the full SHA printed by `git rev-parse HEAD`, never a retyped or shortened one: a
+  watcher waiting on a SHA that does not exist only times out.
+
+### Blocker report
+
+When anything outside this diff blocks the PR, stop and send **one** report. That includes a
+CodeQL alert on lines the diff did not touch, a new advisory, an expired exemption, or a GitHub
+Actions, npm or Docker Hub outage. Then wait. Per item:
+
+| Blocker | Evidence it is not this diff | Alert / run URL | Exact maintainer action |
+
+For "not this diff", show that `git diff origin/master...HEAD -- <file>` leaves the flagged line
+untouched, or name the failing upstream service. Never change unrelated code to quiet an alert.
 
 ## Phase 3 — Merge & deploy
 

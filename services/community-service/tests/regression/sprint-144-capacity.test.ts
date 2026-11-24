@@ -60,6 +60,7 @@ function app(userId: string) {
 }
 
 const CAPACITY_READ = /SELECT current_members, max_members FROM communities\.communities WHERE id = \$1/i;
+const COMMUNITY_STATE_READ = /SELECT status, access_type FROM communities\.communities WHERE id = \$1/i;
 type Rows = { rows: any[]; rowCount: number };
 const rows = (r: any[]): Rows => ({ rows: r, rowCount: r.length });
 
@@ -87,6 +88,8 @@ function installDb(opts: {
   });
   mockTxQuery.mockImplementation(async (sql: string, params: any[] = []) => {
     if (CAPACITY_READ.test(sql)) return rows([opts.capacity]);
+    // Sprint 145 (BUG-108): the duplicate-create join re-reads the community on the transaction client.
+    if (COMMUNITY_STATE_READ.test(sql)) return rows([{ status: 'active', access_type: opts.access ?? 'public' }]);
     if (/^\s*INSERT INTO communities\.members/i.test(sql)) {
       return rows([{ community_id: params[0], user_id: params[1], role: 'member', status: params[2] ?? 'active' }]);
     }
@@ -224,10 +227,15 @@ describe('Sprint 144 POST /communities duplicate-create join and create', () => 
     expect(allSql().some((sql) => /UPDATE communities\.communities/i.test(sql))).toBe(false);
   });
 
-  it('reports the stored count when the caller was already a member (ON CONFLICT no-op) and skips the post-check', async () => {
+  it('reports the stored count when the caller was already a member (active no-op) and skips the post-check', async () => {
     installDb({ identityMatch: true, preCount: 5, capacity: { current_members: 5, max_members: 3 } });
+    // Sprint 145: the caller's row is read locked inside the transaction; an active row is a no-op with
+    // no member write at all (it no longer relies on an ON CONFLICT no-op).
     mockTxQuery.mockImplementation(async (sql: string) => {
-      if (/^\s*INSERT INTO communities\.members/i.test(sql)) return rows([]);
+      if (/FROM communities\.members\s+WHERE community_id = \$1 AND user_id = \$2\s+FOR UPDATE/i.test(sql)) {
+        return rows([{ status: 'active', role: 'member' }]);
+      }
+      if (COMMUNITY_STATE_READ.test(sql)) return rows([{ status: 'active', access_type: 'public' }]);
       if (/SELECT current_members FROM communities\.communities WHERE id = \$1/i.test(sql)) return rows([{ current_members: 5 }]);
       return rows([]);
     });
@@ -235,6 +243,7 @@ describe('Sprint 144 POST /communities duplicate-create join and create', () => 
     expect(res.status).toBe(200);
     expect(res.body.data.community.current_members).toBe(5);
     expect(txSql().some((sql) => CAPACITY_READ.test(sql))).toBe(false);
+    expect(txSql().some((sql) => /^\s*(INSERT INTO|UPDATE) communities\.members/i.test(sql))).toBe(false);
   });
 
   it('inserts a new community with a literal 0 and reports the post-trigger count', async () => {

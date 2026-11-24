@@ -1,6 +1,15 @@
+---
+name: deploy
+description: Karmyq PR → independent review → authorized merge → CI/CD deploy → health, plus post-merge closeout. Use when taking a reviewed PR to merge, or in the chat AFTER the maintainer merged a PR ("verify PR N's merge", "check the deploy", "record the post-merge updates") — that chat starts at Step 6.
+disable-model-invocation: false
+---
+
 # Deploy to Demo
 
 End-of-sprint review, authorized merge, and deployment to karmyq.com.
+
+A chat ends once its PR is open, and the maintainer merges between chats. **A post-merge chat
+starts at Step 6.**
 
 **Skip entirely if the plan is tagged `no-deploy`.**
 
@@ -63,11 +72,21 @@ Merging the approved PR is what triggers the CI/CD pipeline and the deployment.
 ## Step 6: Monitor the pipeline
 
 ```bash
-gh run list --limit 3
+gh pr view <N> --json state,mergeCommit,mergedAt   # state MERGED; take the full merge SHA
+gh run list --commit <full merge sha> --workflow "CI/CD Pipeline"   # the deploy run for that commit
+gh run view <run id> --json conclusion,jobs         # conclusion AND job count
 ```
 
 Wait for the run to go green. If it fails, read the logs and fix the root cause — do not re-run
 blindly without diagnosing. The pipeline rolls back on failed health verification.
+
+Judge the run by its conclusion and its jobs, not by `gh pr checks`: a job that was never created
+does not show up in the checks list, which can read all-pass while the run failed.
+
+Then read the **open CodeQL alerts on master** and the merge commit's analysis. Alerts can be
+re-raised on master alone, on lines the PR never touched, and they block the deploy even when the
+PR's own gate was green. Report them with the `ship` skill's blocker report; never dismiss them
+yourself.
 
 ## Step 7: SSH to demo and run any needed scripts
 
@@ -101,3 +120,8 @@ the router instead of your lane file corrupts the one document carrying cross-se
 
 Record the merged SHA, the verified run, and any post-deploy follow-ups. Do this on the next task
 branch — a docs-only master push would trigger a second deploy.
+
+Post-merge records ride in the same commit. Mark a shipped ADR **Implemented**, in the ADR and in
+the `docs/adr/README.md` index. Mark fixed entries in `docs/BUGS.md`. Archive the handoff when the
+feature shipped (`.claude/handoff/README.md`). Close with the next-chat prompt (`CLAUDE.md` →
+*Session Workflow*).

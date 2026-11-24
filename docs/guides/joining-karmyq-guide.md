@@ -8,12 +8,40 @@ your own web.
 
 If someone sent you an invite link, open it. You'll land on their invitation itself: who invited
 you, and which community they're bringing you into. Your account form lives right inside that
-context — fill it in and you join their community directly, no browsing required.
+context. Fill it in, and you join their community directly, no browsing required, as long as the
+invitation can still admit you (see below).
 
 Your inviter matters here. The moment you accept, Karmyq remembers the **invitation bond** between
 you — the relationship that brought you in. It isn't trust yet: trust on Karmyq is earned through
 real exchanges, never granted by a link. But it's where your story starts, and it becomes trust
 the first time you help each other.
+
+### When an invitation can't bring you in
+
+Accepting checks the community and your membership at that moment. Nothing is recorded unless
+you actually join, and a refused invitation stays unused:
+
+- The community is full, or no longer active.
+- The member who invited you is no longer active in that community. An invitation only works
+  while its sender is still a member.
+- Staff removed you from that community or rejected your request there. An admin has to lift the
+  block first; then you can rejoin.
+- You joined this community through the same person before, left, and are now using a new
+  invitation from them. Ask a different member for an invitation instead, or, if the community is
+  public, rejoin from its community page. Your earlier invitation history is kept.
+- The code was already used. Each invitation admits one person, once.
+
+If this happens while you're signing up, your new account is still created and you stay signed
+in. Karmyq takes you to community discovery instead of the arrival moment.
+
+### Pending requests, private communities and existing members
+
+- If you already sent a join request, accepting a member's invitation makes you a member straight
+  away. Staff who were reviewing your request may still have their earlier notification about it.
+- In a private community, an invitation from any active member admits you without staff approval.
+  An ordinary join request to a private community still waits for staff.
+- If you're already an active member, accepting changes nothing and the invitation isn't used up.
+  Karmyq opens the community for you.
 
 ## The open path
 

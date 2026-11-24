@@ -959,7 +959,7 @@
         {
           "method": "POST",
           "path": "/invitations/accept",
-          "description": "Accept an invitation code during user signup."
+          "description": "Accept an invitation code for the verified caller (Sprint 145, BUG-106; approved D1–D3)."
         },
         {
           "method": "GET",

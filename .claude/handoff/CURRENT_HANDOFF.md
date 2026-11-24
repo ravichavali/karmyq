@@ -1,303 +1,242 @@
-# Sprint 144 — Staff membership write integrity — Handoff
+# Sprint 145 — Admission integrity — Handoff
 
-**Date**: 2026-11-19
-**Outcome**: **Task 14 IN PROGRESS. v11.117.0 and the merge slot are allocated; PR #341 is waiting for merge
-authorization.** Status:
-- The Codex review found 1 SHOULD-FIX, fixed in `c243a4ce` (test-only).
-- The scoped Codex re-review of `c243a4ce` was **clean** (2026-11-19).
-- Tasks 1–13 of the plan are done on `agent/claude/sprint-144-planning`.
-- The validated product SHA is still `91f1ada0`. `c243a4ce` changes only the S144 integration test file. The other
-  later commits are handoff-only, apart from the `chore(release): v11.117.0` bump, which changes version fields only.
-- CI on `d280a0b1` is fully green (attempt 2), and the maintainer dismissed #646–#652 (see *CI on `d280a0b1`*).
+**Date**: 2026-11-24 (release approved); opened 2026-11-23
+**Outcome**: **Released as v11.118.0, pending the merge. The maintainer approved merging and deploying PR
+[#342](https://github.com/ravichavali/karmyq/pull/342) on 2026-11-24 ("Approved — merge PR #342 and deploy").**
+The release head adds `chore(release): v11.118.0` (`6bb68d7d`, version fields only) and this handoff commit.
+Claude executed the Codex-authored, maintainer-approved plan inline (`superpowers:executing-plans`) after a
+cross-agent plan review, and Codex re-reviewed it clean. BUG-106 and BUG-108 are fixed in this branch, pending
+merge and deploy.
 
-**Next: the release head's CI + CodeQL re-read, then the merge ask.** Merge (`--admin` needs its own yes) and the
-deploy watch each need explicit maintainer authorization.
+**Review and CI evidence (observed 2026-11-24):**
+- **Codex's re-review of `e9be2a26`: no new findings.** Both P2 races from its review of `222d6dc4` are resolved:
+  the duplicate-create lost race re-reads the community before classifying the winner (`communities.ts:124`;
+  ruling 13 matches the spec), and acceptance refuses an inviter row its share lock missed
+  (`invitationAcceptance.ts:129`; lock order and rollback intact). Codex judged that all three new DB cases
+  discriminate the old code by source and barrier inspection. **It did not rerun the old implementation against
+  PostgreSQL**, and neither did the author.
+- **CI run [45444724146](https://github.com/ravichavali/karmyq/actions/runs/45444724146) on `e9be2a26`:** every
+  check passed, including Integration Tests (Sprint 145 file 78/78, suite 727/727, Jest exited), the Code Scanning
+  Gate and CodeQL. Deploy to Demo was skipped (PR branch). Detail: the PR's `## Validation` ledger.
+- **Commits after `e9be2a26`:** handoff `f1006ae7`, which records this review (docs-only; CI run
+  [45451177223](https://github.com/ravichavali/karmyq/actions/runs/45451177223): 20 pass, Deploy to Demo
+  skipped), then the release bump `6bb68d7d` (`package.json:3`, `package-lock.json:3` and `:9`; strict
+  `npm ci --dry-run` exit 0), then this handoff commit. None changes code or tests, so the review stands. The
+  release head needs its own green CI before the merge.
+- CodeQL #654–656 were dismissed by the maintainer as "used in tests" (2026-11-24, 16:33Z).
 
-> State between sessions only. This branch-local file reserves no contended resource; see
-> `.claude/handoff/README.md` → *Parallel development rules*.
+**Next: the merge, then deploy verification.** Master requires an approving review that this account cannot
+give itself (`REVIEW_REQUIRED`), so the only merge path is `gh pr merge 342 --squash --admin
+--match-head-commit <release head>`. The admin override needs its own explicit yes. After the merge, the next
+chat starts at the `deploy` skill's Step 6 (see Quick Start).
 
-## Ownership and live base
+**Review history.** Codex's first review raised the two P2 races above (fixed test-first in `a7235275`: 6
+regression cases, red first, plus 3 DB cases). Before that, **PR #342's first CI run** ([45340891388](https://github.com/ravichavali/karmyq/actions/runs/45340891388), head
+`7c183014`) failed two jobs:
+- **Integration Tests:** 66 of the 73 new DB cases passed, 7 failed, then Jest never exited and the job hit the
+  six-hour limit. One harness defect caused all of it: `holdAndRace` called `.finally` on a bare supertest
+  request, which throws before sending and leaves its server listening. No product failure was observed.
+- **Code Scanning Gate:** three `js/missing-rate-limiting` alerts (#654–656) on the test file's in-process
+  `app.use` lines 130–132. This is the rule the maintainer dismissed as "used in tests" on the Sprint 142–144
+  files. Dismissal is the maintainer's call; nothing in code changes them.
+
+`c3860cf6` fixes the harness and closes the race gaps. **Its CI** ([45426404877](https://github.com/ravichavali/karmyq/actions/runs/45426404877),
+head `59ab057b`) **passed Integration Tests: all 75 Sprint 145 cases, suite 724/724, and Jest exited.** At that
+head, every other job passed except the Code Scanning Gate and the CodeQL check, which failed on #654–656 alone
+(since dismissed). Demo-data access remains unauthorized.
+
+## Ownership, approval and base
 
 | Field | Value |
 |---|---|
-| **Branch** | `agent/claude/sprint-144-planning` (planning + execution), pushed with upstream |
-| **Base** | `origin/master` `a2746057` (Sprint 143 #340, v11.116.0), unchanged through execution (re-fetched 2026-11-19) |
-| **PR** | **#341**, opened 2026-11-19; confirm the live head with `gh pr list --head agent/claude/sprint-144-planning` |
-| **Spec** | `docs/superpowers/specs/2026-11-19-sprint-144-staff-write-integrity-design.md` (decisions 1–11, D1–D8, notes 1–14) |
-| **Plan** | `docs/superpowers/plans/2026-11-19-sprint-144-staff-write-integrity.md` (Task 14 is next) |
-| **Ledger** | `.superpowers/sdd/2026-11-19-sprint-144-staff-write-integrity/progress.md` (git-ignored, Windows box only; its essentials are copied below) |
-| **Release** | **v11.117.0, allocated by the maintainer 2026-11-19 with the merge slot**, re-derived from `origin/master` `a2746057` (v11.116.0) |
-| **Dependency lane** | Claude (maintainer-designated); `next` 16.4.6 is the first commit (`2dd9f214`) |
+| Branch | `agent/claude/sprint-145-planning`, based on `origin/master` `71773476` (re-fetched 2026-11-23; unchanged) |
+| Active editor | Claude (executor since 2026-11-23; release chat 2026-11-24). The review is complete and the release is approved; the next actor runs the merge, then deploy Step 6. One editor at a time in the shared Windows checkout |
+| Owned paths | Sprint 145 implementation, tests, docs and this handoff. The plan and spec stay Codex-authored; review findings are recorded here, not edited into them |
+| Spec | [Approved design](../../docs/superpowers/specs/2026-11-23-sprint-145-admission-integrity-design.md) |
+| Plan | [Implementation plan](../../docs/superpowers/plans/2026-11-23-sprint-145-admission-integrity.md), tagged `no-deploy` |
+| PR | [#342](https://github.com/ravichavali/karmyq/pull/342), opened 2026-11-23 from tested head `42d587da`; first CI on `7c183014` (handoff-only). Fix-forward `c3860cf6` (test + `ci.yml` only) and handoff `59ab057b`, CI-verified, then handoff `222d6dc4` (Codex reviewed it). Review fixes `a7235275` + registry `8932e9c5` + handoff `e9be2a26` (Codex re-reviewed it clean; CI green). Then handoff `f1006ae7` (records the re-review; CI green), release bump `6bb68d7d` and this handoff-only commit |
+| Release | **v11.118.0**, re-derived on 2026-11-24 from `origin/master` `71773476` (v11.117.0) as the next minor, in `6bb68d7d`. Merge and deploy approved by the maintainer on 2026-11-24. No migration ships (no `infrastructure/` change in the diff) |
 
-Never rebase this branch.
+**Maintainer approval (2026-11-23)**: "Approve D1–D3 and the revised design".
+D1 = active invitee no-write 200; D2 = invitation promotes pending, accepting the stale staff-notification cost;
+D3 = any live active private member can admit someone without admin approval, subject to capacity/blocked checks.
+**Release approval (2026-11-24)**: "Approved — merge PR #342 and deploy." The version follows from it
+(v11.118.0, the next minor). Demo-data operations and remote test infrastructure remain unauthorized.
 
-## CI on `653a877d` (read 2026-11-19, after the PR opened)
+## Quick Start (post-merge: `deploy` skill Step 6)
 
-- **Integration Tests: success, 33 suites / 648 tests.** This is the first run of the services/Redis suites under the
-  column guard; S126 backfill + schema, S134-L2, S142, S143 and S144 all passed.
-- **Regenerate and verify init.sql: success.** Every other job passed; Build Docker Images and Deploy were skipped (as
-  expected on a PR).
-- **CodeQL / Code Scanning Gate (ADR-060): FAILURE, 7 alerts, all in
-  `tests/integration/sprint-144-staff-write-integrity.integration.test.ts`; none are in product code:**
-  - `js/missing-rate-limiting` at :128, :129, :130. These are the test's own in-process Express app (`app.use(...)`).
-  - `js/sql-injection` at :373, :377, :423, :425. Each is `query(migrationText())` replaying the repo's migration file.
-    After the review fix these lines are :375, :379, :425, :427.
+1. Read [CLAUDE.md](../../CLAUDE.md) and this handoff.
+2. `git fetch origin && gh pr view 342 --json state,mergeCommit,mergedAt`.
+   - **Still OPEN:** the merge has not happened. Confirm that the head is the handoff commit after `6bb68d7d`, that
+     it has green CI (run conclusion and job count, not just `gh pr checks`), and that master is still `71773476`.
+     The merge is the admin override, and it needs the maintainer's explicit yes:
+     `gh pr merge 342 --squash --admin --match-head-commit <head>`. Anything beyond handoff commits since
+     `e9be2a26` needs a fresh cross-agent review first.
+   - **MERGED:** take the full merge SHA.
+3. `gh run list --commit <merge sha> --workflow "CI/CD Pipeline"`, then `gh run view <id> --json conclusion,jobs`.
+   Judge the conclusion and the job count. Read the open CodeQL alerts on master, and report any re-raised alert;
+   never dismiss one yourself.
+4. Health: run the node `POST https://karmyq.com/api/auth/login` probe (`deploy` Step 8). No migration ships
+   (Step 7 is a no-op). Demo-data operations are not authorized.
+5. Write the post-merge record on a **new branch cut from `origin/master`**, never as a docs-only master push:
+   - archive this handoff as `.claude/handoff/archive/2026-11-24-sprint-145-admission-integrity-SHIPPED-v11.118.0.md`
+     with the merge SHA and the CI/CD run;
+   - mark BUG-106 and BUG-108 deployed in `docs/BUGS.md`;
+   - mark the ADR-062 amendment and both services' `CONTEXT.md` status lines deployed;
+   - then a fresh `CURRENT_HANDOFF.md`.
+   It rides with the next product PR.
 
-  Both classes are the recurring test-only false positives; dismiss them as `used in tests`. The maintainer does this
-  in the UI. The PR body's prediction of rate-limiting alerts on `members.ts`/`communities.ts` lines was wrong.
-  Codex agreed, naming them as alerts **#646–#652**. Dismiss them **after the final head**: a push that shifts
-  these lines can re-raise them.
+**Goal**: BUG-106 invitation acceptance enforces capacity/live membership atomically; BUG-108 duplicate-create
+respects membership lifecycle and reports truthful outcomes. BUG-107/109 remain out of implementation scope.
 
-## Codex review of PR #341 (2026-11-19, head `3ff1be7b`)
+## Task status and evidence
 
-**Verdict:** 1 SHOULD-FIX and no other in-scope correctness findings. Codex also checked CI on `653a877d`:
-- all 8 pipeline jobs;
-- Integration Tests: 33 suites / 648 tests, plus 2 curated-reset tests;
-- the independent-base `init.sql` byte check passed;
-- alerts #646–#652 are `used in tests`.
+| Task | State | SHA/evidence |
+|---|---|---|
+| Design D1–D3 | Approved | Explicit maintainer message, 2026-11-23 |
+| Implementation plan | Cross-agent reviewed (Claude) — executable | Reviewed `a24e854a`. Citations re-read; staff/governance lock order confirmed ascending user_id (`members.ts:30-34`, `governanceDb.ts:239`), so there is no deadlock cycle with acceptance locks. No local psql/postgres/Docker, so DB proof is CI-owed |
+| Step 5b self-audit | Complete | `92e398ff`: 0 findings |
+| Task 1 red tests | `fafc13ce` | 57 red / 5 green (behavioral); module red = missing module; integration compiled, unrun (ECONNREFUSED) |
+| Task 2 live role + acceptance module | `f48a0bb3` | 21/21 green; S134 live-role regression 11/11; tsc 0 |
+| Task 3 accept route wiring | `7b578444` | 78/78; social-graph unit+regression 27 suites/196; root claim gate 17/17; tsc 0. Fixed a test bug (the 401 undefined caller used a default parameter); re-verified red on the old handler |
+| Task 4 red duplicate-create + DB races | `5455d3aa` | 19 red / 9 green (behavioral); integration 73 cases, compiled, unrun |
+| Task 5 duplicate-create implementation | `865065ba` | focused 66/66; community-service unit+regression 33 suites/534; tsc 0. Fixture corrections in S144 capacity + S77 idempotent-create (assertions kept, one no-write assertion added) |
+| Task 6 frontend contract tests | `2832a09f` | 1 red (D1) / 10 green baselines |
+| Task 7 defensive D1 branch | `b0007785` | 28/28; tsc 0 |
+| Task 8 guides/concept/ADR-062 + landing | `54a40c7f` | drift gate 41/41; generator churn restored |
+| Task 9 contexts/registry/BUGS + promotion | `0a3cb4dc` | 5 files `git mv`'d to regression, verified directly (78 / 42 / 28, `--no-cache`); drift 41/41; `analyze:services` no diff |
+| Task 10 SDLC gates | Done at `bdc852a7` | `/simplify` (4 Sonnet reviewers): 2 cleanups applied in `bdc852a7`, rest skipped with reasons. `/security-review`: 0 findings. `/code-review` high: 5 "important" + 3 nits, all re-graded (spec-mandated or false premise; nits deferred) with no code change. Process review: PASS on coverage, docs, bundled commits and gate rulings; its handoff-staleness blocker is fixed by this revision; advisory A1 applied (ADR-106 points at the Sprint 145 fix), A2 N/A (AGENTS.md only bridges into CLAUDE.md) |
+| Task 11 final verification + PR | Done: `42d587da`, PR #342 | `tsc --noEmit` ×3 exit 0 at `bdc852a7`. `bash scripts/pre-commit-check.sh` on tree `123e340a`: run 1 had `npm test` pass but failed the integrity check on landing generator churn (restored from snapshot); run 2 exit 0, tree unchanged. Pre-push at `42d587da`: unit + regression 27/27 Turbo tasks (26 cached; root `tests` ran fresh), report-only TDD tier exit 1 (existing WIP), integration skipped (no DB) |
+| PR #342 CI fix-forward | `c3860cf6` | First CI (run 45340891388): integration 66/73, 7 failed with `fire(...).finally is not a function`, then the six-hour hang. Reproduced without a DB (old form: TypeError, one server left listening, process kept alive; new form: 200, zero servers, clean exit). Fixed: thenable adoption, a typed `BarrierError`, `raceInOrder`, a forced-order pending race (2 → 4 cases), full winner/loser/invitation assertions on the last-slot races, and `timeout-minutes: 20` on the CI step. Local: compiles, 75 cases, all `ECONNREFUSED`, Jest exits in 11 s; tests `tsc`: 0 errors in the file; CI-workflow gate 8/8; `pre-commit-check.sh` exit 0 on tree `3a19c6af`. **CI run 45426404877 at `59ab057b`: Integration Tests passed, Sprint 145 file 75/75 (suite 724/724); the gate fails only on #654–656** |
+| Codex review fixes (two P2 races) | `a7235275`, registry `8932e9c5` | Both confirmed in source (`communities.ts:119-123`; the ignored `FOR SHARE` result in `invitationAcceptance.ts`). Red first on unchanged product code: community duplicate-create +4 (failed 409, 409, `joined: true`, 200); social-graph acceptance +2 via the fake's new `afterInviterLock` hook (resolved as admitted). Green: social-graph focused 80/80, unit+regression 30 suites / 276; community focused 48/48, unit+regression 34 suites / 566; `tsc` 0 / 0; claim + count-delta gates 41/41; drift 41/41. +3 DB cases (file 78), compiled, unrun locally. `pre-commit-check.sh` on tree `1981a6f5`: run 1 `npm test` passed, then the integrity check failed on landing churn (restored); run 2 exit 0. Docs: both CONTEXTs, ADR-062 amendment, BUG-106/108, registry, regenerated landing pages. **CI run 45444724146 at `e9be2a26`: all checks green; Sprint 145 file 78/78, suite 727/727** |
+| Codex re-review | Clean at `e9be2a26` (2026-11-24) | No new findings; both P2 races resolved; ruling 13 matches the spec. Codex judged the three new DB cases discriminating by source and barrier inspection; the old code was not rerun against PostgreSQL. Branch unchanged by the reviewer |
+| Release prep | `6bb68d7d` (2026-11-24) | v11.118.0 in `package.json:3` and `package-lock.json:3`/`:9` only; strict `npm ci --dry-run` exit 0. Only PR #342 is open, and no master CI/CD run is in flight (the last is 45066293676 for `71773476`, success) |
 
-**The finding.** `raceOnCommunityRow` in the S144 integration file called `ROLLBACK` only after its waiter assertion
-passed. When that assertion failed, it released a client still holding the community row lock back to the test
-pool. **Verdict: CONFIRMED.**
+## Rulings (deviations from the plan, all recorded in the git-ignored ledger too)
 
-**The fix.** The helper's `finally` now always rolls back before releasing the client. A client whose `ROLLBACK`
-fails is destroyed. The helper then waits for the in-flight requests to finish.
+1. The same-inviter barrier counts waiters on `INSERT INTO communities.members` only, plus a `FOR UPDATE NOWAIT`
+   probe proving the inviter row is share-locked. S144's `'%communities.members%'` filter also matches the inviter
+   `FOR SHARE` select and would pass with an exclusive lock (false green).
+2. Self-acceptance is refused in code before the D1 branch, with the CHECK as a backstop.
+3. The stats-trigger rollback proof intercepts only the `UPDATE auth.users` statement on the real client; every
+   other statement and the ROLLBACK run on the real DB.
+4. Classifier parity is one shared state table driving both endpoints in the root integration file.
+5. A non-test helper `services/social-graph-service/tests/helpers/fakeInvitationDb.ts` serves both social-graph
+   unit tiers and is never promoted.
+6. The S77 idempotent-create regression mock gained one answer for the new in-transaction state read (not in the
+   plan's file map; spec allows necessary fixture corrections).
+7. `/code-review` ran before the process review, because the process reviewer verifies code-review resolution.
+8. `/code-review` re-grades: NULL `max_members` = full is already shared by every admission path (JS `n > null`);
+   active invitee with a non-live inviter gets 403 (spec: live-inviter check precedes D1); an active member of a
+   now-private/inactive public match gets the pointer / `COMMUNITY_INACTIVE` (spec); stored `invited` fails closed
+   (approved table; no writer exists); refused acceptance → discovery without a reason (spec frontend section).
+9. (CI fix-forward) The pending-applicant race now forces both arrival orders, because both contenders take
+   `FOR UPDATE` on the applicant row and queue first-come-first-served. The last-slot capacity races cannot be ordered:
+   an INSERT's foreign-key `FOR KEY SHARE` waiters on the community row wake together. They keep asserting the
+   winner they observe, now with the full outcome on both sides. Cost if wrong: a branch of those races runs
+   only when CI happens to pick it.
+10. (CI fix-forward) `ci.yml` gains `timeout-minutes: 20` on "Run integration tests". This is outside the plan's file
+    map; it is recorded in the PR body. It bounds a leaked handle to minutes instead of six hours of runner time.
+    Cost if wrong: a legitimately slow suite would fail at 20 minutes (today it runs in about 90 seconds).
+11. (CI fix-forward) CodeQL #654–656 are surfaced to the maintainer for dismissal, not code-fixed: they flag the
+    test file's in-process app, the same pattern dismissed as "used in tests" for Sprints 142–144. Adding a rate
+    limiter to a test app would only satisfy the scanner. The maintainer dismissed all three as "used in tests"
+    on 2026-11-24 (16:33Z).
+12. (Review fixes) The acceptance checks the inviter lock's result after both member locks, not right after the
+    inviter lock. Lock order and the statement sequence stay the same in both id orders, and the DB case can
+    park the acceptance on the invitee row after its empty inviter lock. Cost if wrong: an acceptance with a
+    missing inviter row holds the invitee lock a few statements longer before refusing.
+13. (Review fixes) A lost duplicate-create race re-reads the community after locking the winner row and before
+    classifying it. So a now-private community answers the pointer for every winner state, including pending and
+    blocked winners that previously got 409. This follows "a current private match is a no-write pointer for
+    every stored membership state" (plan Task 4). Cost if wrong: a pending or blocked caller of a just-privatized
+    community sees the approval pointer instead of their 409.
 
-**The proof.** A new case, `Sprint 144 race barrier`, fires one join where the barrier expects two waiters. Red on
-the old helper (disposable DB, `--no-cache`): `{joined: undefined, idleInTransaction: 1, rowLock: '55P03'}`. Green
-with the fix: the whole file passes 53/53, including the three race cases that use the helper's success path.
+## Execution boundaries and PR contract
 
-**Test-only change.** `lockWaiters` and `raceOnCommunityRow` take an optional `timeoutMs` (default 15000), so the
-red case fails in 1 s. The disposable container, host scratch and tunnel are torn down; port 55432 is closed.
+- No policy decision is pending. Same-inviter repeat admission remains 409 INVITATION_CONFLICT with another
+  member's code/public self-rejoin as recovery; no schema change.
+- D2/D3 may supersede staff review and stale its earlier notification; no notification-service cleanup.
+- `.npmrc` disables npm posttest/prebuild lifecycle hooks: promotion and landing generation were run explicitly.
+- Root integration CI is mandatory evidence before a future merge; mocks and test-file discovery are not
+  transaction/race proof.
+- The PR body uses the complete template and lists bundled work: **30b1823e — docs(process): apply /insights
+  triage to agent rules and skills**, **cd8b973a — docs(process): route plan subagent models**, and the Sprint 144
+  post-merge record **8471a6a7**, each docs-only, riding here because a separate docs PR costs a full deploy.
+- The execution chat stops after opening the PR; the reviewer checks actual CI before any release authorization.
 
-**Re-review:** Codex re-reviewed `c243a4ce` alone and found it **clean**.
+## Critical implementation notes (as implemented)
 
-**CI on `c243a4ce`** (read once, 2026-11-19):
-- Integration Tests: 33 suites / **649** tests (648 + the new case), plus 2 curated-reset tests.
-- Every other job passed. Build Docker Images and Deploy were skipped (as expected on a PR).
-- The only red is the Code Scanning Gate. It is blocked by the same 7 alerts, **#646–#652**, which carried to the
-  shifted lines and gained no new numbers:
-  - `js/missing-rate-limiting` #646–#648 at :128–130;
-  - `js/sql-injection` #649–#652 at :375, :379, :425, :427.
+1. One social-graph transaction client owns invitation consumption, membership, counter effect, attribution and
+   inviter stats (`src/services/invitationAcceptance.ts`); a failed admission consumes nothing; a failed ROLLBACK
+   destroys that client. Community-service's `withTransaction` is unchanged, with its documented cleanup limitation.
+2. Lock order: invitation → inviter FOR SHARE / invitee FOR UPDATE in ascending user id → community row via the
+   trigger only. Never pre-lock a community.
+3. D1/D2/D3 as approved; duplicate-create refuses pending; both paths refuse inactive/NULL/unknown and reset left
+   rejoins to ordinary member.
+4. A conflict no-op is followed by a locked read of the winner; no invented role or claim anywhere.
+5. Live inviter authority is read inside the locked transaction (`getLiveRole(..., client)`); BUG-109 (generation)
+   stays open.
+6. Capacity checks follow real admitting writes on the same client; the database owns `current_members`.
+7. Private duplicate-create pointer preserved, including a mid-request flip (tentative write rolled back first);
+   post-commit token must contain the community or the answer is 409 `MEMBERSHIP_CHANGED`.
+8. Do not claim live UI smoke, DB proof or deployment from API tests, mocks or historical Sprint 144 evidence.
 
-The maintainer dismisses all 7 as `used in tests`. Re-check the gate on the final head, because CodeQL re-raises are
-unpredictable (`feedback_codeql_dismissals_die_on_line_shift`).
+## Persistent context (carried forward)
 
-## CI on `d280a0b1` (Task 14 chat, read 2026-11-20 UTC)
+## Verified prior release
 
-Workflow runs on `d280a0b1`:
-- **CI/CD Pipeline 44684595072, attempt 2: success, 14 jobs.** 13 passed and Deploy to Demo was skipped (as
-  expected on a PR).
-  - Attempt 1 was red only on the Code Scanning Gate. At 06:00Z it listed #646–#652 as open, at :128–130 and
-    :375/:379/:425/:427.
-  - The maintainer dismissed all 7 as `used in tests` at 06:10:59Z (`dismissed_by` ravichavali, read via the alerts
-    API). The agent dismissed nothing.
-  - Only the failed job was re-run: `gh run rerun --failed`. This was safe because `build-images` uses
-    `push: false` and `deploy-demo` requires a master push. The gate then read "0 open critical/high".
-- **Integration Tests: 33 suites / 649 passed**, plus `tdd/sprint-117-demo-reset` 1 suite / 2 passed.
-- **Regenerate init.sql 44684595049: success.** It was seeded from base `a2746057`, and the committed `init.sql` is
-  byte-identical to the canonical regeneration.
-- **Tests 44684595047** (3 jobs) and **PR Contract**: success.
-- **CodeQL check run:** 7 annotations, exactly #646–#652; no new alerts. Open alerts are 0 on `refs/pull/341/head`
-  and 0 on master.
-- **Dependabot #185/#186/#187: still `open`.** This is expected until the splice reaches master.
-- **Open PRs:** #341, and Dependabot #339 (unused). No other lane is open.
+[#341](https://github.com/ravichavali/karmyq/pull/341) merged as `71773476` on 2026-11-22;
+[CI/CD attempt 2](https://github.com/ravichavali/karmyq/actions/runs/45066293676/attempts/2)
+passed 14/14, Deploy to Demo succeeded, the member-count migration committed, 9/9 service health checks
+passed. ADR-106 is Implemented and BUG-103/104/105 fixed and deployed in this branch's post-merge record.
+See the archive for exact timestamps, security status and evidence limitations (application smoke is
+maintainer-reported and was not independently rerun here).
 
-## Quick Start (after the v11.117.0 bump = rest of Task 14)
+## Open candidates and decisions
 
-1. `git fetch origin && git log --oneline origin/master -1`. If master moved past `a2746057`, **stop**: the bump
-   must be re-derived. Merge master with a merge commit (never rebase) and re-run the root gates.
-2. Read the **real** CI on the release head (the `chore(release): v11.117.0` commit), not just `gh pr checks`
-   (`feedback_checks_list_hides_uncreated_jobs`). Check:
-   - the run conclusion and the job count;
-   - Integration Tests 33 / 649 + 2;
-   - the init.sql byte check;
-   - Code Scanning Gate + annotations: any re-raise of #646–#652 or any new alert goes to the maintainer, and the agent
-     never dismisses.
-3. Ask the maintainer for the merge (`--admin` needs its own yes; `feedback_merge_blocked_by_permission_classifier`).
-4. On a separate yes, the deploy watch:
-   - the merge-SHA run is success with Deploy to Demo = success;
-   - the deploy log shows `20261119-community-member-count-trigger.sql` applied;
-   - smoke `POST /api/auth/login` 200;
-   - the post-deploy CodeQL and Dependabot reads.
-5. Post-merge record on the NEXT branch (plan Task 14).
+- **Bundled agent-process commits (maintainer-requested 2026-11-23, Claude):** `30b1823e` (the `/insights`
+  triage: CLAUDE.md Windows-host and next-chat-prompt rules, sprint-planning Step 5b self-audit and checkpoint,
+  ship blocker report, deploy post-merge closeout plus frontmatter, review-response agent-report section) and
+  `cd8b973a` (plan-template subagent model routing: implementers and per-task reviewers on Sonnet, final
+  whole-branch review on Opus). Neither changes product code, committed settings or dependencies. Pre-existing
+  defect found, not fixed: `tests/claude.md` says the TDD promoter "runs as root `posttest`", but `.npmrc`
+  `ignore-scripts=true` stops npm from running it.
+- [BUG-107](../../docs/BUGS.md) staff direct-add consent remains open and deferred.
+- [BUG-109](../../docs/BUGS.md) generation authorization/sent-stat gap remains open. The acceptance-side
+  live-inviter gate (in this branch) stops outsider-minted codes from admitting anyone; generation is unchanged.
+- **New candidates from Sprint 145 review (not filed):** invitation codes carry a 4-hex suffix per inviter-year
+  (`init.sql:189-213`), so they are guessable within an inviter's year (pre-existing; narrowed by the live-inviter
+  check). A refused acceptance lands on discovery without saying why; carrying the refusal reason there is a UX
+  follow-up. Deferred minors: shared social-graph test builders, integration `as()` helper, `MEMBERSHIP_CHANGED`
+  wording, untrimmed code lookup after a blank check, the `liveRole.ts` `db` doc placement.
+- **Gotcha candidate (CI fix-forward, not filed):** a bare supertest request is a thenable without `.finally`.
+  It sends only when something calls `then`, and its ephemeral server closes only when the request ends. So
+  `req.finally(...)` throws and leaks a listening server, and Jest never exits. Sprint 144's helper avoided it with
+  `.then((r) => r)`. A `docs/gotchas/` entry would need a machine check, such as a static scan of
+  `tests/integration` for `.finally(` on a request chain.
+- [Expo drift #329](https://github.com/ravichavali/karmyq/issues/329): daily run
+  [45246722488](https://github.com/ravichavali/karmyq/actions/runs/45246722488) failed on nine patch
+  mismatches. No advisory established; the maintainer must earn and allocate dependency work.
+- Deepmerge #178 now returns HTTP 410 (withdrawn), and
+  [GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) was withdrawn 2026-11-16.
+  Keep the 2026-12-01 re-check to reconcile the old obligation; no upgrade authorized.
+- Parked `origin/lane/lanes-provenance`: design/PR-1 plan/lane file exist only on that branch.
+  Schedule it or land a reconciled spec; do not silently drop or execute the old plan.
+  The old spec's ADR-098 is occupied on master, so any future ADR needs a fresh maintainer allocation.
+- GitHub auto-delete of merged head branches is OFF (`delete_branch_on_merge=false`); maintainer setting.
+- Carry-forward: governance rotation/revocation/delegation/opposition, close/expiry notifications,
+  legacy member-handler error envelopes, mobile revival debt, demo platform-admin grant and smoke
+  (separate authorization), Sprint 144 review minors. Historical detail stays in the shipped archive.
 
-## What shipped on the branch (commits on `a2746057`)
+## Constraints
 
-| Commit | What |
-|---|---|
-| `2dd9f214` | **First commit:** `next` 16.4.6 lock splice for GHSA-mfr8-8qww-v76h / GHSA-vc7v-qv4w-wrv8 (Dependabot #185/#186); it also covers **#187** GHSA-vvgp-ww4w-46vf (opened 2026-11-19T23:59Z, `>=16.4.0 <=16.4.4`), confirmed by a fresh `npm audit` (total 0) on the branch |
-| `a198b3a4` | `canonicalUuid` + DELETE/staff-POST canonical ids; note-3(a) UUID fixtures (sprint-92/93/132) |
-| `f26507f4` | Pure staff transition table `planStaffChange` |
-| `f6c29023`, `efa3deff` | Migration `20261119-community-member-count-trigger.sql` (sync trigger, column guard, recount; ADR-106) + workflow-regenerated `init.sql` |
-| `d11ff8e1` | All five `±1` writers removed; atomic capacity post-check; fixtures; root delta gate (BUG-103) |
-| `6a1ebb4e` | Staff PUT as the transition table (BUG-104, BUG-105, decision 8); Sprint 142 restoration cases rewritten |
-| `35cea82c` | Web: Reject via PUT, Cancel request; join message now "Ask a community admin to lift the block; then you can rejoin" |
-| `bb2b096b`, `6644453f` | ADR-106, guides, landing docs; CONTEXT, registry, BUGS; tdd → regression promotion |
-| `32ba5b91`, `5dad8d8d`, `91f1ada0` | `/simplify`, `/code-review` and process-review fixes |
+No demo database reads or writes. Merge and deploy were approved on 2026-11-24 (v11.118.0). The admin-override
+merge still needs its own explicit yes. No dependency or settings change was allocated: the lockfile edit is the
+two version fields of the release bump only. One task branch/PR; post-merge records ride with
+the next product PR, never a docs-only master push. No worktrees.
 
-## Evidence (ledger summary)
+## Planning verification record
 
-- **Disposable PostgreSQL** (decision 9): container `karmyq-s144-disposable` (`postgres:15-alpine`) on the demo
-  host.
-  - Isolation: bound to 127.0.0.1:55432 on the default bridge, no volume except the branch `init.sql`, no demo
-    database access. Reached over an SSH tunnel.
-  - Role flags: `karmyq_test` **rolsuper=t, rolbypassrls=t**, so explicit community predicates provide isolation.
-  - Teardown: the container, the host scratch and the tunnel were removed after the final runs (verified: 0 s144 containers remain, port 55432 refuses connections); no demo database was read or written.
-- **Splice:**
-  - strict `npx npm@11.19.0 ci` exit 0, "found 0 vulnerabilities";
-  - `npm ls --all` problem list identical to master's (180 lines, version-normalized);
-  - ADR-059 gate 0 high/critical; both GHSAs absent;
-  - lint-config + workspace-declarations gates 15/15.
-- **Migration, deploy applier:** `apply-migrations.sh` applied exactly one migration, including a rerun over existing
-  objects.
-- **Migration, CI applier:** `ci-apply-full-schema.sh --drift-check` showed zero drift on two isolated DBs, one of
-  which took the CI autocommit path first with 0 ERROR lines.
-- **Migration, review:** migration-validator found 0 BLOCKING. Its SHOULD-FIX (lock upgrade deadlock) is fixed:
-  ACCESS EXCLUSIVE is taken up front, members then communities.
-- **`init.sql` regeneration:**
-  - workflow run 44620603831; artifact hash `d640dd5b` == committed blob;
-  - the precondition held (branch `init.sql` == master's `f711ff94`);
-  - fresh boot: 3 triggers, 0 communities, 0 drifted.
-- **Red before green:** every new-behavior case was red first. Baselines were recorded as expected-green (note 11).
-  Real-DB races are forced with row-lock barriers and exact waiter counts:
-  - two joins into the last slot;
-  - two staff adds into the last slot;
-  - two approves into the last slot;
-  - a PUT demotion committing during a moderator approve → 403;
-  - a demotion committing during an admin DELETE → 403.
-- **Final local suites (in-process DB):** S142 + S143 + S144 3 suites / 134 tests at `5dad8d8d`; S144 52/52 at
-  `91f1ada0`.
-- **Final unit + regression:**
-  - community-service 9 + 32/525;
-  - social-graph 12 + 26/184;
-  - frontend 62 + 66/643;
-  - root 101 + 50/1098;
-  - `/pre-commit-check` run 1 on clean 91f1ada0 (cold Turbo, 18/27 cached) was red on @karmyq/tests#test with the suite unnamed (the script deletes its log); the same commit then passed standalone (root 101 + 1098), in a full warm npm test (27/27) and in run 2 (exit 0, tree clean). Treated as a load-dependent flake; PR CI is the arbiter.
-- **Type-checks:** community-service, social-graph and frontend `tsc` all clean.
-- **Not run locally** (decision 11): every services/Redis integration suite, plus S126 ×2, rls-policies and S134-L2
-  (the S134-L2 fixture change gets its first real run in CI).
-
-## Quality gates (Task 12)
-
-- **`/simplify`** (4 reviewers): shared `lockTargetAndAdmins`, `getLiveRole(…, q)`, one `COMMUNITY_FULL_MESSAGE`,
-  `TxQuery`, `isUuid`, `ROLES` reuse. Skips are recorded in the ledger.
-- **`/code-review` high:** 10 candidates. 3 Important were fixed red → green:
-  - DELETE re-reads the live role after its lock;
-  - the PUT refuses non-staff with no lock;
-  - `getLiveRole` is used for the early checks.
-  The 7 minors are deferred (below).
-- **`/security-review`:** no findings.
-- **process-reviewer:** 1 BLOCKING (an evidence gap, resolved). 4 SHOULD-FIX fixed: the moderator outcomes docs, the
-  guide claim, a test title, and the delta-gate scope (now whole workspace roots, proven able to fail outside
-  `src/`). 3 NITs fixed.
-
-## Rulings made during execution (each a deliberate deviation; cost if wrong)
-
-1. **Moderator outcomes.**
-   - The spec's table lists `inactive → active` as 409 for every caller. Decision 4 instead gives moderators 403 for
-     any transition other than approve/reject, and Task 7's BUG-105 case requires 403. A `left` row and a same-state
-     retry are still 409 for every caller and are checked first.
-   - Cost if wrong: a moderator sees 403 instead of 409 on requests no screen sends.
-2. **Validation before the caller check.** A malformed body or id is 400 before the caller check. A non-staff caller
-   with a malformed body therefore gets 400, not 403 (spec: "400 before SQL").
-3. **`planStaffChange` returns 404 `NOT_FOUND` for a null target.** The plan's shape omitted it.
-4. **Unrecognized stored statuses** (NULL, `invited`, `removed`) refuse every staff change (fail-closed).
-5. **Staff POST errors** use ADR-074 codes: NOT_FOUND, COMMUNITY_INACTIVE, COMMUNITY_FULL, ALREADY_MEMBER (including
-   the 23505 race), INTERNAL_ERROR. The status codes are unchanged.
-6. **The join's `MEMBERSHIP_RESTORE_REQUIRES_STAFF` message changed.** The old "Only community staff can restore
-   this membership" became false under decision 8, and the page alerts it verbatim. The code is unchanged.
-7. **The migration's lock** is ACCESS EXCLUSIVE up front on members, then communities (validator SHOULD-FIX). The
-   spec's SQL had SHARE ROW EXCLUSIVE followed by an upgrade.
-8. **The PUT reads the caller's role after the existing lock without adding the caller to the lock set.** Every staff
-   demotion or removal locks the same admin rows. A lock-free early refusal runs before it (code review #3).
-9. **`communities.ts:526`** now reads `rowCount ?? 0`. It was the only strict-mode error, surfaced by the first root
-   test that imports this router.
-10. **`assertWithinCapacity` returns the capacity row**, so the duplicate-create join can report the count.
-11. **The delta gate scans whole workspace roots**, not just the spec's `src/` (process review #5).
-12. **`updateMember`'s type** is `{ role } | { status }`.
-13. **No ledger-only commits.** The ledger is git-ignored; this handoff and the PR body carry its essentials.
-14. **`/code-review` high served as the whole-branch final review** (executing-plans).
-15. **The in-process container set is S142/S143/S144.** The other DB-only suites go to PR CI.
-
-## Task 2 inventories (from the git-ignored ledger)
-
-- **Delta writers (exactly the spec's five, now removed):**
-  - `members.ts`: join, staff add, DELETE;
-  - `communities.ts`: the duplicate-create join (SQL plus JS arithmetic);
-  - social-graph `invitations.ts`.
-- **Writers that stay:** the converging recomputes in `fissionService.ts:289` and `fusionService.ts:96` (D7, guarded
-  no-ops) and the archived seeders (excluded).
-- **Fixtures:**
-  - `tests/fixtures/*.sql` and the generators never set counts. They relied on the default 0, so their counts are
-    now correct, and their TRUNCATEs are paired.
-  - `init.sql`'s spliced seed has no communities.
-- **UUID comparisons:** the only fail-open authorization site was `members.ts` PUT (BUG-104). DELETE was fail-closed.
-  Governance, links, fusions and splits are fail-closed or DB-checked, so no new site joined the scope.
-- **Callers:**
-  - mobile reads the count only; its separate `POST /communities/:id/leave` stays revival debt;
-  - simulation reads only;
-  - `packages/shared/api/client.ts` `updateCommunityMember(…, { role?, status?, admin_user_id })` has **zero
-    callers**. It is dead, and sending both keys would now be a 400.
-
-## Deferred / follow-ups
-
-- **Open bugs:**
-  - BUG-106: invitation accept ignores capacity and silently no-ops on an existing row.
-  - BUG-107: staff direct-add has no consent step (decision 10).
-  - **BUG-108 (new)**: the duplicate-create join answers `joined: true` for a non-active existing row. This is
-    pre-existing ADR-062 behavior; nobody is admitted.
-- **Deferred code-review minors:**
-  - **#2:** a multi-row member statement spanning communities (a user-deletion cascade) locks community rows in scan
-    order and can deadlock. No product path issues one; ADR-106 now notes it.
-  - **#5:** `assertWithinCapacity` with no community row is unreachable after a member INSERT (FK lock).
-  - **#7:** `planStaffChange` re-validates the body.
-  - **#8:** the recount takes a table-wide writer fence and counts twice.
-  - **#9:** community create is not one transaction.
-  - **#10:** the `validId = isUuid` alias.
-- **`/simplify` skips:**
-  - recount/trigger SQL tweaks (they would need another regen);
-  - deleting the fission/fusion recompute (D7 *Later*);
-  - staff POST's pre-SELECT;
-  - a `router.param` refactor;
-  - a shared join body for duplicate-create.
-- **Carried from Sprint 143:**
-  - rotation, revocation, delegation and opposition votes;
-  - close/expiry notifications;
-  - other legacy member-handler error envelopes;
-  - the demo platform-admin grant and smoke check (separate authorization);
-  - `deepmerge` #178 re-check by 2026-12-01 or at the next Expo SDK move.
-- **Dependabot:** #339 (`next` 16.4.6, nests `next` under `apps/*` and fails the lint-config gate) is not used.
-  Closing it after the merge is the maintainer's call. #185/#186/#187 should show `fixed` after deploy.
-
-## At deploy (plan Task 14)
-
-- **The one authorized demo write** is the recount inside `20261119-community-member-count-trigger.sql`, applied by
-  `scripts/apply-migrations.sh`. The deploy log must show that file applied.
-- **If the deploy fails after the migration**, the column guard keeps the old containers' counts exact. Record which
-  step failed.
-- **Do not read demo data.** That includes measuring drift with `scripts/audit-demo-data.sql` query 1. Any read
-  needs a separate authorization.
-- **Post-merge record, on the NEXT branch:**
-  - ADR-106 → Implemented;
-  - BUG-103/104/105 → fixed and deployed;
-  - archive this handoff.
-  No docs-only master push.
-
-## Authorizations
-
-- **Allocated (2026-11-19):**
-  - `next` #185/#186 dependency work (done, first commit);
-  - ADR-106 (written, Accepted);
-  - the single recount write at deploy, through the migration;
-  - the disposable container for the in-process DB suites (used; torn down);
-  - **the release version v11.117.0 and the merge slot**, in the Task 14 chat.
-- **Not allocated:**
-  - merge and the deploy watch, each needing its own explicit yes;
-  - any demo DB read or other demo write;
-  - a full services/Redis test stack;
-  - the demo platform-admin grant;
-  - CodeQL dismissals (maintainer, in the UI; #646–#652 done 2026-11-20 06:10Z).
-- **SLA:** merge by **2026-12-01** (MEDIUM advisories #185/#186; #187, opened 2026-11-19, is covered by the same splice and its SLA ends 2026-12-03).
-
-⚠️ GitHub status goes stale. Re-derive PR, CI and deploy state before acting on this handoff.
+Source references in the spec were pre-implementation anchors; the as-built contracts are in the two service
+`CONTEXT.md` files. Planning review history is in `d169f5c6`, `a29a38ed` and `92e398ff` (Step 5b: 0 findings).

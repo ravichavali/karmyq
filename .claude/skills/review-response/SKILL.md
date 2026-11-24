@@ -1,6 +1,6 @@
 ---
 name: review-response
-description: Respond to code-review or plan-review findings by verifying each one against the repo before fixing. Use when the user relays review feedback ("here are the review findings", "reviewer says…", "/review-response"), or after /code-review, /security-review, or an external agent review returns findings.
+description: Respond to code-review or plan-review findings by verifying each one against the repo before fixing. Use when the user relays review feedback ("here are the review findings", "reviewer says…", "/review-response"), after /code-review, /security-review, or an external agent review returns findings, or when the user pastes another agent's (Codex, Kimi) fix-forward report or checkpoint whose claims need checking against the live branch.
 disable-model-invocation: false
 ---
 
@@ -45,6 +45,22 @@ longer overlap." Prove the original complaint is gone:
   worse than no gate.
 
 If you cannot demonstrate the symptom is gone, say so — do not report the fix as complete.
+
+---
+
+## Another agent's progress report
+
+A pasted fix-forward report or checkpoint makes **state claims**, such as "pushed", "CI green",
+"alert dismissed" or "tests pass". Treat each one as a finding and run it through steps 1–3. The
+evidence is the live state:
+
+- `git fetch origin && git log --oneline origin/<branch>` for commits and the head SHA
+- `gh run view <id> --json conclusion,jobs` on that exact head for CI
+- `gh api repos/{owner}/{repo}/code-scanning/alerts?state=open&ref=<ref>` for alerts
+
+If the handoff lags the commits the report describes, say so in one line (the commit range and
+the stage it appears to reach) and stop. The executing agent reconciles its own handoff. The merge
+decision stays with the maintainer, however green the report reads.
 
 ---
 

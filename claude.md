@@ -207,7 +207,11 @@ Two checkouts on different machines; their gotchas do not transfer. Run `uname -
 **Windows + Git Bash (primary box):** `curl` flag parsing is unreliable (spurious status `000`),
 `jq` is **not installed**, and PowerShell execution policy blocks dot-sourcing helpers — use
 `node -e` for HTTP probes and JSON parsing. **No local Docker** — anything needing PostgreSQL runs
-in a disposable container on the demo server over an SSH tunnel.
+in a disposable container on the demo server over an SSH tunnel. Git Bash rewrites a native
+program's argument that starts with `/` (`/c/x` → `C:/x`, `// GET` → `/ GET`): prefix
+`MSYS_NO_PATHCONV=1`. Claude's Bash tool halves `\\` even inside single quotes, so code holding
+backslashes, regexes, `$` or apostrophes goes in a script file written by the editor tool — never
+inline `node -e`, a heredoc or `sed`.
 
 **macOS (second checkout):** `curl` and `jq` behave normally and Docker may be available locally.
 Do **not** apply the Windows workarounds. The root context file is git-tracked lowercase
@@ -316,4 +320,8 @@ handoff saying "PR N NEXT" while PR N is already open or merged is a **blocking 
 
 **End every chat with a next-chat prompt** — the branch or PR to pick up, the first command or
 check, what the handoff names as next, and any authorization still pending. It must agree with
-`CURRENT_HANDOFF.md`'s Quick Start; if the two differ, fix the handoff first.
+`CURRENT_HANDOFF.md`'s Quick Start; if the two differ, fix the handoff first. When the artifact
+is not yet reviewed, the next step is a **review by the other agent**, not execution: write that
+prompt for the reviewer (what to review, head SHA, what changed, read-only), labelled by audience.
+If another agent's commits run ahead of the handoff, report the gap and wait for that agent to
+reconcile it — never reconstruct its progress from `git log`.

@@ -1,5 +1,8 @@
+import type { PoolClient } from 'pg';
 import { pool } from '../config/database';
 import { isUuid } from '../services/communityContext';
+
+type Queryable = Pick<PoolClient, 'query'>;
 
 /**
  * The caller's LIVE community role (BUG-069, ADR-102). Every authorization and visibility decision
@@ -9,12 +12,16 @@ import { isUuid } from '../services/communityContext';
  * Arguments are always (communityId, userId). A malformed id is simply not a community the caller
  * belongs to: answering null/false (not a Postgres 22P02 → 500) keeps every gate's answer identical
  * for bad and foreign ids. userId comes from the verified JWT.
+ *
+ * Pass `db` (a transaction client) when the answer must be read inside a locked transaction — Sprint 145's
+ * invitation acceptance reads its inviter's authority after share-locking that row. Callers that omit it
+ * use the pool, as before (the trustEdgeDb.ts `db: Queryable = pool` pattern).
  */
 export type LiveRole = 'admin' | 'moderator' | 'member' | null;
 
-export async function getLiveRole(communityId: unknown, userId: string | undefined): Promise<LiveRole> {
+export async function getLiveRole(communityId: unknown, userId: string | undefined, db: Queryable = pool): Promise<LiveRole> {
   if (!userId || !isUuid(communityId)) return null;
-  const result = await pool.query(
+  const result = await db.query(
     `SELECT role FROM communities.members
      WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
     [communityId, userId]
