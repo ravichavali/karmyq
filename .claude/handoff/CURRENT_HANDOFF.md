@@ -1,16 +1,17 @@
 # Sprint 145 — Admission integrity — Handoff
 
 **Date**: 2026-11-23
-**Outcome**: D1–D3 and the revised design are explicitly approved. The no-deploy implementation plan is
-written and its Step 5b self-audit is complete. Cross-agent plan review is next. No product task has started.
+**Outcome**: D1–D3 and the revised design are explicitly approved. Claude's cross-agent plan review found the
+plan executable (no design decision owed; four execution rulings below). Execution is in progress, inline
+(`superpowers:executing-plans`), on this branch.
 
 ## Ownership, approval and base
 
 | Field | Value |
 |---|---|
 | Branch | `agent/claude/sprint-145-planning`, based on `origin/master` `71773476` |
-| Active editor | Codex, one editor at a time in the shared Windows checkout |
-| Owned paths now | Approved spec, implementation plan and this handoff; prior branch records/process changes stay bundled |
+| Active editor | Claude (executor since 2026-11-23), one editor at a time in the shared Windows checkout |
+| Owned paths now | Sprint 145 implementation, tests, docs and this handoff. The plan and spec stay Codex-authored; review findings are recorded here, not edited into them |
 | Spec | [Approved design](../../docs/superpowers/specs/2026-11-23-sprint-145-admission-integrity-design.md) |
 | Plan | [Implementation plan](../../docs/superpowers/plans/2026-11-23-sprint-145-admission-integrity.md), tagged `no-deploy` |
 | PR | None; open-PR query returned none on 2026-11-23 |
@@ -44,12 +45,24 @@ respects membership lifecycle and reports truthful outcomes. BUG-107/109 remain 
 | Task | State | SHA/evidence |
 |---|---|---|
 | Design D1–D3 | Approved | Explicit maintainer message, 2026-11-23; includes the two re-review gaps and nits |
-| Implementation plan | Written; ready for cross-agent review | Plan and approved spec checkpointed at `92e398ff`; no implementation executed |
+| Implementation plan | Cross-agent reviewed (Claude) — executable | Reviewed `a24e854a`. Citations re-read, staff/governance lock order confirmed ascending user_id (`members.ts:30-34`, `governanceDb.ts:239`), so there is no deadlock cycle with acceptance locks. No local psql/postgres/Docker, so DB proof is CI-owed |
 | Step 5b self-audit | Complete | self-audit at `92e398ff`: 0 findings fixed; fresh-context session-model reviewer found no actionable findings |
-| Product Tasks 1–11 | Not started | No red/green product evidence or DB proof claimed |
+| Task 1 red tests | Committed (see Task 1 commit) | 3 social-graph TDD files + root integration file. Focused run: 57 red / 5 green, all behavioral (old timestamp, D1 writes, explicit client ignored); module test red = missing new module; integration compiles, 43 cases unrun locally (ECONNREFUSED; CI-owed) |
+| Product Tasks 2–11 | Not started | — |
+
+**Plan-review execution rulings (Claude):** (1) the same-inviter barrier counts waiters on
+`INSERT INTO communities.members` only, plus a `FOR UPDATE NOWAIT` probe proving the inviter row is share-locked.
+The S144 `'%communities.members%'` filter also matches the inviter `FOR SHARE` select, so it would pass with an
+exclusive lock (false green). (2) Self-acceptance is refused in code before the D1 branch, with the CHECK as a
+backstop; otherwise an active self-inviter would get D1's 200. (3) The stats-trigger rollback proof intercepts only
+the `UPDATE auth.users` statement on the real client; everything else, including ROLLBACK, runs on the real DB.
+(4) Classifier parity is one shared state table that drives both endpoints in the root integration file. Also: a
+new `services/social-graph-service/tests/helpers/fakeInvitationDb.ts`, shared by the two unit tiers (not a test
+file; it is never promoted).
 | Final planning verification | See planning closeout commit body | Fresh command/exit/cache/limitations recorded there; older `d169f5c6` evidence does not cover this plan |
 
-**Next action**: cross-agent review of the plan, then select the execution workflow in the next chat.
+**Next action**: continue execution at the first task without a commit (Claude, inline). The ledger is in the
+git-ignored `.superpowers/sdd/2026-11-23-sprint-145-admission-integrity/progress.md`; `git log` is the record if it is lost.
 The design and D1–D3 do not need another approval; any new material scope change still does.
 
 ## Execution boundaries and PR contract
