@@ -26,6 +26,20 @@ rejoin the same way. Staff cannot make you a member again; only you can.
 While a join request is pending, the community page shows **Cancel request** next to "Join Request Pending". Select
 it and confirm to withdraw the request. You can send a new request later, like any rejoin.
 
+### Creating a community that already exists
+
+If you create a community whose name and place match an active one, Karmyq sends you to that community instead of
+making a duplicate. For a public community, it joins you only as far as your membership allows:
+
+- Never a member: you're added as an ordinary member.
+- Left: you rejoin as an ordinary member, never with an old moderator or admin role.
+- Already a member: nothing changes, and you keep your role.
+- Pending request: it stays pending. Wait for staff, or withdraw it.
+- Removed or rejected by staff: you see the same "lift the block" message as Join.
+
+If the community is full, you're told so and nothing changes. A private match only points you to the community, so
+you can ask to join it.
+
 ### When you have no communities yet
 
 Your **Dashboard Home** only shows the "You haven't joined a community yet" prompt once your

@@ -68,6 +68,27 @@ The unreachable `limit:11`/`>=15` check is replaced with a coherent `MAX_COMMUNI
 - **Trade-off:** Two communities can no longer share a name in the same location while both active. This is intended (it is the identity definition); different locations remain distinct.
 - **Data note:** Inter-duplicate relationship rows (sister links, community-trust aggregates, fusion/fission proposals among duplicates) are dropped rather than re-parented. `community_trust_edges` is recomputed by the trust pipeline; the others were sim artifacts.
 
+## Amendment — Sprint 145 BUG-108: the join follows the caller's membership (2026-11-23)
+
+Decision 2's public join-if-exists branch no longer upserts with `ON CONFLICT DO NOTHING` and reports every
+outcome as `joined: true`. Inside the join transaction it locks the caller's membership row, re-reads the community's
+status and access on the same client, and classifies the row:
+
+- **No row**: insert an active ordinary member. **Left**: rejoin as an ordinary member (role, request message and
+  join time reset). Both are admissions: the ADR-106 trigger moves the stored count, and capacity is re-checked on
+  the same client after the write (400 `COMMUNITY_FULL` rolls the write back).
+- **Active**: idempotent success with no write. The caller keeps their role and join time, and no capacity check
+  runs, even when the community is full.
+- **Pending**: 409 `CONFLICT`. **Inactive, NULL or any other stored status**: 409
+  `MEMBERSHIP_RESTORE_REQUIRES_STAFF`. A lost insert race locks and classifies the winning row.
+- **Community no longer active**: 400 `COMMUNITY_INACTIVE`. **Community now private**: any tentative write rolls back
+  and the decision-2 private pointer is returned. Deadlock or serialization failure: 503 `ADMISSION_RETRY`.
+
+After commit, the refreshed token must list the community. Otherwise the route answers 409 `MEMBERSHIP_CHANGED` with
+no token, and the old fallback that invented role `member` is gone. Decision 2's "bump `current_members`" wording
+predates [ADR-106](ADR-106-database-owned-member-count.md): the database trigger owns the count. The historical
+migration and data evidence above is unchanged.
+
 ## Related
 
 - [ADR-001](ADR-001-postgresql-schemas.md): PostgreSQL Schemas

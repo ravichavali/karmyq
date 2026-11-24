@@ -10,7 +10,7 @@ A neighborhood only works if everyone gathers in the same place. If the platform
 
 When you create a community, Karmyq first checks whether an active community with the same name and location already exists (matching is case- and whitespace-insensitive):
 
-- **If it exists**, you simply **join it** — no duplicate is created. You land in the community everyone else is already using.
+- **If it exists**, you **join it** instead of creating a duplicate, so you land in the community everyone else is already using. The join follows your membership: you're added if you were never a member, you rejoin as an ordinary member if you left, and you keep your role if you're already in. A pending request or a staff block is never turned into a join, and a full community refuses it.
 - **If it doesn't**, your new community is created as usual.
 
 A private community with the same name and place won't auto-join you; instead Karmyq points you to it so you can request approval.
