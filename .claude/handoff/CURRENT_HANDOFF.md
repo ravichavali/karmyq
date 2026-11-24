@@ -56,7 +56,8 @@ respects membership lifecycle and reports truthful outcomes. BUG-107/109 remain 
 | Task 7 defensive D1 branch | Committed `b0007785` | frontend S145 + S118 28/28; frontend tsc exit 0 |
 | Task 8 guides/concept/ADR-062 + landing | Committed `54a40c7f` | drift gate 41/41; generator churn restored (architecture/build/adr-010) |
 | Task 9 contexts/registry/BUGS + promotion | Committed (Task 9 commit) | BUG-106/108 "fixed in branch, pending review and deploy"; BUG-107/109 open. 5 files `git mv`'d to regression and verified directly: social-graph 78, community 42, frontend 28 (all `--no-cache`, exit 0). Drift 41/41; `analyze:services` no change. Root DB file stays in `tests/integration/` — **unrun locally, CI-owed** |
-| Tasks 10–11 | Not started | Next: whole-branch gates (/simplify, /security-review, process review, /code-review), then final verification and PR |
+| Task 10 SDLC gates | In progress at `0a3cb4dc` | `/simplify`: four Sonnet cleanup reviewers dispatched on the code+test diff; awaiting findings. Then `/security-review`, the process review and `/code-review` (Opus, final whole-branch review) |
+| Task 11 final verification + PR | Not started | — |
 
 **Plan-review execution rulings (Claude):** (1) the same-inviter barrier counts waiters on
 `INSERT INTO communities.members` only, plus a `FOR UPDATE NOWAIT` probe proving the inviter row is share-locked.
