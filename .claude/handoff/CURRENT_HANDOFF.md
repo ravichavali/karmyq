@@ -1,12 +1,23 @@
 # Sprint 145 — Admission integrity — Handoff
 
-**Date**: 2026-11-23
+**Date**: 2026-11-24 (CI fix-forward); opened 2026-11-23
 **Outcome**: **Implementation complete; PR [#342](https://github.com/ravichavali/karmyq/pull/342) is open for
-review (plan Tasks 1–11 done).** Claude executed the
+review (plan Tasks 1–11 done), with a CI fix-forward at `c3860cf6`.** Claude executed the
 Codex-authored, maintainer-approved plan inline (`superpowers:executing-plans`) after a cross-agent plan review.
-BUG-106 and BUG-108 are fixed in this branch, pending review and deploy. **Next: a cross-agent review of the PR
-(Codex), including the PR's CI. The root real-DB integration job is the arbiter for the 73 DB/race cases, which
-never ran locally.** Version, merge, deploy and demo-data access remain unauthorized.
+BUG-106 and BUG-108 are fixed in this branch, pending review and deploy.
+
+**PR #342's first CI run** ([45340891388](https://github.com/ravichavali/karmyq/actions/runs/45340891388), head
+`7c183014`) failed two jobs:
+- **Integration Tests:** 66 of the 73 new DB cases passed, 7 failed, then Jest never exited and the job hit the
+  six-hour limit. One harness defect caused all of it: `holdAndRace` called `.finally` on a bare supertest
+  request, which throws before sending and leaves its server listening. No product failure was observed.
+- **Code Scanning Gate:** three `js/missing-rate-limiting` alerts (#654–656) on the test file's in-process
+  `app.use` lines 130–132. This is the rule the maintainer dismissed as "used in tests" on the Sprint 142–144
+  files. Dismissal is the maintainer's call; nothing in code changes them.
+
+`c3860cf6` fixes the harness and closes the race gaps (75 cases). **Next: read that push's CI.** If the
+integration job is green, the next step is Codex's cross-agent review. If red, the author fixes it first. The gate
+stays red until the maintainer dismisses #654–656. Version, merge, deploy and demo-data access remain unauthorized.
 
 ## Ownership, approval and base
 
@@ -17,7 +28,7 @@ never ran locally.** Version, merge, deploy and demo-data access remain unauthor
 | Owned paths | Sprint 145 implementation, tests, docs and this handoff. The plan and spec stay Codex-authored; review findings are recorded here, not edited into them |
 | Spec | [Approved design](../../docs/superpowers/specs/2026-11-23-sprint-145-admission-integrity-design.md) |
 | Plan | [Implementation plan](../../docs/superpowers/plans/2026-11-23-sprint-145-admission-integrity.md), tagged `no-deploy` |
-| PR | [#342](https://github.com/ravichavali/karmyq/pull/342), opened 2026-11-23 from tested head `42d587da`, plus this handoff-only bookkeeping commit. The author did not watch CI (the chat stops after the PR opens) |
+| PR | [#342](https://github.com/ravichavali/karmyq/pull/342), opened 2026-11-23 from tested head `42d587da`; first CI on `7c183014` (handoff-only). Fix-forward `c3860cf6` (test + `ci.yml` only) plus this handoff commit, pushed 2026-11-24 |
 | Release | Master v11.117.0; Sprint 145 version unallocated |
 
 **Maintainer approval (2026-11-23)**: "Approve D1–D3 and the revised design".
@@ -31,11 +42,11 @@ Version, merge, deploy, demo-data operations and remote test infrastructure rema
 2. `git fetch origin && git log --oneline origin/master -2`; `gh pr list`; `git status --short`. Review the PR
    head read-only. Do not edit this branch while reviewing.
 3. Read the approved spec and plan, then the PR diff. The rulings below record every deviation from the plan.
-4. Check the PR's CI: unit + regression, the **root integration job** (it runs
-   `tests/integration/sprint-145-admission-integrity.integration.test.ts`, 73 cases, never run locally),
-   CodeQL, the dependency audit, `pr-contract` and the doc/context drift gate. A local green is not CI green;
-   the integration file has had no DB run at all, so failures there are expected possible test bugs, not proof
-   of a product bug.
+4. Check the PR's CI **on the current head** (`gh pr view 342 --json headRefOid,statusCheckRollup`): unit +
+   regression, the **root integration job** (it runs
+   `tests/integration/sprint-145-admission-integrity.integration.test.ts`, 75 cases; no local DB run ever),
+   CodeQL, the dependency audit, `pr-contract` and the doc/context drift gate. A local green is not CI green.
+   The Code Scanning Gate stays red until the maintainer decides on alerts #654–656 (see Outcome).
 5. Report findings to the maintainer; the author (Claude) fixes them in a follow-up session. Merge, version and
    deploy each need the maintainer's explicit yes.
 
@@ -60,6 +71,7 @@ respects membership lifecycle and reports truthful outcomes. BUG-107/109 remain 
 | Task 9 contexts/registry/BUGS + promotion | `0a3cb4dc` | 5 files `git mv`'d to regression, verified directly (78 / 42 / 28, `--no-cache`); drift 41/41; `analyze:services` no diff |
 | Task 10 SDLC gates | Done at `bdc852a7` | `/simplify` (4 Sonnet reviewers): 2 cleanups applied in `bdc852a7`, rest skipped with reasons. `/security-review`: 0 findings. `/code-review` high: 5 "important" + 3 nits, all re-graded (spec-mandated or false premise; nits deferred) with no code change. Process review: PASS on coverage, docs, bundled commits and gate rulings; its handoff-staleness blocker is fixed by this revision; advisory A1 applied (ADR-106 points at the Sprint 145 fix), A2 N/A (AGENTS.md only bridges into CLAUDE.md) |
 | Task 11 final verification + PR | Done: `42d587da`, PR #342 | `tsc --noEmit` ×3 exit 0 at `bdc852a7`. `bash scripts/pre-commit-check.sh` on tree `123e340a`: run 1 had `npm test` pass but failed the integrity check on landing generator churn (restored from snapshot); run 2 exit 0, tree unchanged. Pre-push at `42d587da`: unit + regression 27/27 Turbo tasks (26 cached; root `tests` ran fresh), report-only TDD tier exit 1 (existing WIP), integration skipped (no DB) |
+| PR #342 CI fix-forward | `c3860cf6` | First CI (run 45340891388): integration 66/73, 7 failed with `fire(...).finally is not a function`, then the six-hour hang. Reproduced without a DB (old form: TypeError, one server left listening, process kept alive; new form: 200, zero servers, clean exit). Fixed: thenable adoption, a typed `BarrierError`, `raceInOrder`, a forced-order pending race (2 → 4 cases), full winner/loser/invitation assertions on the last-slot races, and `timeout-minutes: 20` on the CI step. Local: compiles, 75 cases, all `ECONNREFUSED`, Jest exits in 11 s; tests `tsc`: 0 errors in the file; CI-workflow gate 8/8; `pre-commit-check.sh` exit 0 on tree `3a19c6af`. **DB outcome owed to this push's CI** |
 
 ## Rulings (deviations from the plan, all recorded in the git-ignored ledger too)
 
@@ -79,6 +91,17 @@ respects membership lifecycle and reports truthful outcomes. BUG-107/109 remain 
    active invitee with a non-live inviter gets 403 (spec: live-inviter check precedes D1); an active member of a
    now-private/inactive public match gets the pointer / `COMMUNITY_INACTIVE` (spec); stored `invited` fails closed
    (approved table; no writer exists); refused acceptance → discovery without a reason (spec frontend section).
+9. (CI fix-forward) The pending-applicant race now forces both arrival orders, because both contenders take
+   `FOR UPDATE` on the applicant row and queue first-come-first-served. The last-slot capacity races cannot be ordered:
+   an INSERT's foreign-key `FOR KEY SHARE` waiters on the community row wake together. They keep asserting the
+   winner they observe, now with the full outcome on both sides. Cost if wrong: a branch of those races runs
+   only when CI happens to pick it.
+10. (CI fix-forward) `ci.yml` gains `timeout-minutes: 20` on "Run integration tests". This is outside the plan's file
+    map; it is recorded in the PR body. It bounds a leaked handle to minutes instead of six hours of runner time.
+    Cost if wrong: a legitimately slow suite would fail at 20 minutes (today it runs in about 90 seconds).
+11. (CI fix-forward) CodeQL #654–656 are surfaced to the maintainer for dismissal, not code-fixed: they flag the
+    test file's in-process app, the same pattern dismissed as "used in tests" for Sprints 142–144. Adding a rate
+    limiter to a test app would only satisfy the scanner.
 
 ## Execution boundaries and PR contract
 
@@ -138,6 +161,11 @@ maintainer-reported and was not independently rerun here).
   check). A refused acceptance lands on discovery without saying why; carrying the refusal reason there is a UX
   follow-up. Deferred minors: shared social-graph test builders, integration `as()` helper, `MEMBERSHIP_CHANGED`
   wording, untrimmed code lookup after a blank check, the `liveRole.ts` `db` doc placement.
+- **Gotcha candidate (CI fix-forward, not filed):** a bare supertest request is a thenable without `.finally`.
+  It sends only when something calls `then`, and its ephemeral server closes only when the request ends. So
+  `req.finally(...)` throws and leaks a listening server, and Jest never exits. Sprint 144's helper avoided it with
+  `.then((r) => r)`. A `docs/gotchas/` entry would need a machine check, such as a static scan of
+  `tests/integration` for `.finally(` on a request chain.
 - [Expo drift #329](https://github.com/ravichavali/karmyq/issues/329): daily run
   [45246722488](https://github.com/ravichavali/karmyq/actions/runs/45246722488) failed on nine patch
   mismatches. No advisory established; the maintainer must earn and allocate dependency work.
