@@ -1,8 +1,11 @@
-# Between sprints — Sprint 145 shipped (v11.118.0); Sprint 146 not yet planned — Handoff
+# Sprint 146 planned — Expo SDK drift reconciliation (#329) + Deepmerge #178 close-out — Handoff
 
 **Date**: 2026-11-24
-**Outcome**: shipped. Sprint 145 (admission integrity, BUG-106 and BUG-108) is merged and deployed. This branch
-carries its post-merge record, which rides with the next product PR (never a docs-only master push).
+**Outcome**: planned, awaiting non-author review and execution. Sprint 146 goal named by the
+maintainer 2026-11-24: **Expo drift #329** — align the nine drifted SDK-57 pins in `apps/mobile`
+to Expo's live version map. Two maintainer authorizations given with the goal: the Deepmerge #178
+re-check rides along as a docs task, and the version bump (→ v11.119.0). Merge/deploy, any ADR
+number and demo-data operations remain unauthorized.
 
 ## Ownership and base
 
@@ -10,79 +13,142 @@ carries its post-merge record, which rides with the next product PR (never a doc
 |---|---|
 | **Branch** | `agent/claude/sprint-146-planning`, cut from `origin/master` `95d5e8c1` (fetched 2026-11-24) |
 | **Base** | `origin/master` `95d5e8c1` = Sprint 145, [PR #342](https://github.com/ravichavali/karmyq/pull/342), v11.118.0 |
-| **Active editor** | Claude (post-merge record, 2026-11-24). The next sprint's planner takes over; one editor at a time in the shared Windows checkout |
-| **Reviewer role** | A non-author (Codex) reviews the next sprint's spec and plan |
-| **Owned paths** | The Sprint 145 post-merge record: this handoff, its archive, `docs/BUGS.md` BUG-106/108, the ADR-062 and ADR-106 status text, both services' `CONTEXT.md` status lines, and the regenerated landing pages. The next sprint adds its own paths |
-| **Shared resources needed** | None allocated. The next sprint's version, merge slot, any ADR number, dependency work and demo-data operations each need their own maintainer yes |
+| **Active editor** | Claude (planner, 2026-11-24). The executor takes over; one editor at a time in the shared Windows checkout |
+| **Reviewer role** | A non-author (Codex) reviews this sprint's spec and plan before implementation |
+| **Owned paths** | The Sprint 145 post-merge record (rides with this PR) plus the Sprint 146 spec, plan, this handoff, `docs/adr/ADR-059-dependency-security-gate.md`, `apps/mobile/package.json`, `package-lock.json`, root `package.json` version, `apps/mobile/claude.md` |
+| **Shared resources needed** | Version bump AUTHORIZED (v11.119.0). Merge slot, any ADR number, further dependency work and demo-data operations each need their own maintainer yes |
 
 ## Links
 
-- **Shipped record**: [archive/2026-11-24-sprint-145-admission-integrity-SHIPPED-v11.118.0.md](archive/2026-11-24-sprint-145-admission-integrity-SHIPPED-v11.118.0.md)
-- **Spec / plan for the next sprint**: none yet
+- **Sprint 145 shipped record**: [archive/2026-11-24-sprint-145-admission-integrity-SHIPPED-v11.118.0.md](archive/2026-11-24-sprint-145-admission-integrity-SHIPPED-v11.118.0.md)
+- **Sprint 146 spec**: [docs/superpowers/specs/2026-11-24-sprint-146-expo-drift-design.md](../../docs/superpowers/specs/2026-11-24-sprint-146-expo-drift-design.md)
+- **Sprint 146 plan**: [docs/superpowers/plans/2026-11-24-sprint-146-expo-drift.md](../../docs/superpowers/plans/2026-11-24-sprint-146-expo-drift.md)
 
 ## Quick Start
 
-1. Read [CLAUDE.md](../../CLAUDE.md), then confirm live state: `git fetch origin`, `gh pr list`,
-   `git log --oneline origin/master -3`. Master should be `95d5e8c1` unless something merged since.
-2. Reuse this branch (`git switch agent/claude/sprint-146-planning`). If master moved, update it with a merge commit,
-   never a rebase.
-3. Plan Sprint 146 with the `sprint-planning` skill once the maintainer names the goal. The open candidates are
-   below. The spec, plan and handoff go on this branch with the post-merge record.
+1. Read this handoff
+2. Reuse the existing task branch (`agent/claude/sprint-146-planning`); it already holds the
+   Sprint 145 post-merge record and this sprint's spec + plan. Never branch off a stale local
+   master — unpushed local-master commits leak in via the squash-merge.
+3. Open plan: `docs/superpowers/plans/2026-11-24-sprint-146-expo-drift.md`
+4. Invoke `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`).
+   There is no `/execute-plan` slash command — superpowers removed it as a deprecated stub.
+5. Checkpoint: after every group of at most 3 tasks, and before starting any long-running suite or
+   subagent review, commit and update this handoff's task status (task, state, SHA, evidence) and
+   say what you are waiting on. A mid-sprint pickup reads this handoff, never `git log`.
 
-**Next unchecked task**: the maintainer picks the Sprint 146 goal. Nothing is executable until then.
+**Next unchecked task**: Task 1 (branch state + live drift capture). If master has moved past
+`95d5e8c1`, stop and re-plan — the base changed.
+
+## Sprint 146 goal and arc
+
+Align nine `expo-*/@expo/*` pins (live capture 2026-11-24: metro-runtime → ~57.0.19, expo →
+~57.0.34, expo-constants → ~57.0.25, expo-image-picker → ~57.0.22, expo-linking → ~57.0.14,
+expo-location → ~57.0.24, expo-notifications → ~57.0.26, expo-router → ~57.0.32,
+expo-splash-screen → ~57.0.12) to Expo's live SDK-57 map, prove the drift gates green, close #329,
+and land the Deepmerge #178 re-check as an ADR-059 docs reconciliation. Ship as v11.119.0.
+Arc: S121/122 built the Expo SDK gates (ADR-088/094) → S136 mobile deps → **S146: first real
+use of the drift machinery**.
+
+Deepmerge #178 evidence (live, 2026-11-24, cited verbatim in the spec): GHSA-gcqx-w48m-w2h4
+`withdrawn_at` 2026-11-16T18:55:38Z; PR #178 CLOSED; zero open code-scanning alerts on master.
+The re-check obligation closes; documentation only.
+
+## Critical implementation notes (verbatim from the spec — read before Task 2)
+
+1. **Never trust a drift number older than the run that produced it.** Capture
+   `npx expo install --check` (or `node scripts/expo-divergences.js`) output at execution time
+   and bump to *those* values. The issue's numbers and the spec table are evidence, not
+   instructions. If the live map differs, the live map wins; if it moved a `SDK_PINNED` package,
+   that map entry changes too, with a written reason per its comment contract.
+2. **Lockfile edits are surgical.** Never `npm install --workspace`, never `npm dedupe`, never a
+   scratch regen. Edit the nine hoisted `package-lock.json` entries in place (version, resolved,
+   integrity from `npm view <pkg>@<version> dist.tarball dist.integrity`), diff each entry's
+   `dependencies`/`peerDependencies` between old and new and splice any change, then prove with a
+   strict `npm ci`.
+3. **Do not touch the registered divergences.** `security/expo-divergences.json` stays as-is;
+   removing a still-matching entry fails the gate, and widening one to hide drift is forbidden
+   (ADR-094).
+4. **The gate must report exactly two cleared divergences and zero blocking drift.** Any other
+   shape (a stale entry, an unparsed row, exit status other than 0/1) is a gate failure, not a
+   partial success.
+5. **Windows host.** `scripts/expo-divergences.js` already wraps `npx` in `cmd.exe` on win32;
+   use the script rather than hand-running npx for the authoritative result. Use `node -e` for
+   lockfile inspection; `jq` is absent in Git Bash.
+6. **Deepmerge work is documentation only.** No dependency edit, no upgrade, no registry entry.
+7. **No new tests are added.** The sprint-122 alignment test, sprint-124 divergence-gate
+   regression test and the daily drift workflow are the red→green proof. If the live map
+   surprises us, tests-first applies to any gate edit.
+
+Self-audit: one fresh-context reviewer subagent ran the Step-5b checklist at planning. 4 findings:
+1 BLOCKER fixed (plan Task 4 wrongly demanded raw `expo install --check` exit 0 — with the two
+ADR-094 jest divergences registered, the arbiter's steady state is exit 1 with exactly the two
+jest rows; the sprint-124 regression test encodes that as the passing input); 2 NITs fixed
+(stale Task cross-reference; Windows uppercase-`C:\` `npm ci` gotcha added); 1 NIT rejected with
+evidence (the "four-line lock diff" claim verified against `95d5e8c1 --stat`: 4 diff lines, two
+version entries). Re-run the citation checks at execution and record
+"self-audit at `<sha>`: N findings fixed" here.
+
+## Task status (update as execution proceeds)
+
+| Task | State | SHA / evidence |
+|---|---|---|
+| 1 Branch state + live drift capture | pending | — |
+| 2 Bump nine manifest ranges | pending | — |
+| 3 Lockfile splice + npm ci proof | pending | — |
+| 4 Drift gates green | pending | — |
+| 5 Mobile tests + type-check + root regression | pending | — |
+| 6 ADR-059 deepmerge reconciliation | pending | — |
+| 7 Version v11.119.0 + mobile doc line | pending | — |
+| 8 Handoff rewrite (this file) | pending | — |
+| 9 SDLC quality gates | pending | — |
+| 10 Final pre-commit-check | pending | — |
+| 11 Merge + deploy (maintainer-authorized only) | pending | — |
 
 ## Blockers and decisions
 
-- **Blocker**: no Sprint 146 goal yet; the maintainer decides.
-- **Decision (Sprint 145, 2026-11-23)**: D1 an active invitee gets a no-write 200; D2 an invitation promotes a pending
-  applicant (accepting the stale staff notification); D3 any live active member may admit someone to a private
-  community, subject to capacity and block checks. Do not re-debate these; they shipped.
-- **Decision (2026-11-24)**: the release was approved ("Approved — merge PR #342 and deploy"), and the admin-override
-  merge got its own "Yes, admin merge". Neither carries over to the next PR.
+- **Blocker**: none for execution; merge requires a fresh maintainer yes (Sprint 145's merge
+  authorization does not carry over).
+- **Decision (Sprint 145, 2026-11-23)**: D1 an active invitee gets a no-write 200; D2 an
+  invitation promotes a pending applicant; D3 any live active member may admit someone to a
+  private community. Shipped — do not re-debate.
+- **Decision (2026-11-24, Sprint 146 planning)**: goal = Expo drift #329; #178 re-check rides
+  along as docs-only; version bump to v11.119.0 authorized. BUG-109 (invitation-generation
+  membership check) remains the natural next sprint's candidate; BUG-107 stays deferred.
 
 ## Open candidates (carried forward)
 
-- **Deepmerge #178 re-check by 2026-12-01.** #178 returns HTTP 410 (withdrawn), and
-  [GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) was withdrawn on 2026-11-16. Reconcile
-  the old obligation; no upgrade is authorized.
-- **[BUG-109](../../docs/BUGS.md) (security, untriaged).** Invitation generation mints codes for any community
-  without a live-membership check and inflates `total_invitations_sent`. Sprint 145's acceptance-side live-inviter
-  gate stops outsider-minted codes from admitting anyone; generation is unchanged. This is the natural follow-up on
-  the same surface.
+- **[BUG-109](../../docs/BUGS.md) (security, untriaged).** Invitation generation mints codes for
+  any community without a live-membership check and inflates `total_invitations_sent`
+  (`services/social-graph-service/src/routes/invitations.ts:12-94`; the Sprint 145 acceptance
+  side already refuses outsider-minted codes). Natural follow-up on the same surface.
 - **[BUG-107](../../docs/BUGS.md).** Staff direct-add consent gap; deferred.
-- **Sprint 145 review candidates (not filed).**
-  - Invitation codes carry a 4-hex suffix per inviter-year (`init.sql:189-213`), so they are guessable within an
-    inviter's year. This is pre-existing, and the live-inviter check narrows it.
-  - A refused acceptance lands on discovery without saying why.
-  - Deferred minors: shared social-graph test builders, an integration `as()` helper, the `MEMBERSHIP_CHANGED`
-    wording, the untrimmed code lookup after a blank check, and the `liveRole.ts` `db` doc placement.
-- **Gotcha candidate (not filed).** A bare supertest request is a thenable without `.finally`: `req.finally(...)`
-  throws before sending, leaks a listening server, and Jest never exits. A `docs/gotchas/` entry needs a machine
-  check, for example a static scan of `tests/integration` for `.finally(` on a request chain.
-- **Pre-existing doc defect.** `tests/claude.md` says the TDD promoter "runs as root `posttest`", but `.npmrc`
-  `ignore-scripts=true` stops npm from running it.
-- **Stale status headers (pre-existing, not touched here).** `docs/BUGS.md` BUG-034, BUG-036 and BUG-037 still say
-  "pending deploy". Check each against its deploy before changing it.
-- **CI image matrix.** `.github/workflows/ci.yml:387-394` builds seven service images but not social-graph-service.
-  `scripts/deploy.sh` builds every compose service on the server and health-checks social-graph (`:208`, `:279`), so
-  deploys are unaffected; CI just never builds that image before merge.
-- **[Expo drift #329](https://github.com/ravichavali/karmyq/issues/329).** The daily run fails on nine patch
-  mismatches. No advisory is established, so the maintainer must justify and allocate any dependency work.
-- **Parked `origin/lane/lanes-provenance`.** Its design, PR-1 plan and lane file exist only on that branch. Schedule
-  it or land a reconciled spec. Its old ADR-098 number is taken on master, so any ADR needs a fresh allocation.
-- **Branches.** GitHub auto-delete of merged head branches is OFF. `agent/claude/sprint-145-planning` (merged) still
-  exists on the remote; deleting it is the maintainer's call.
-- **Carry-forward.** Governance rotation, revocation, delegation and opposition; close and expiry notifications;
-  legacy member-handler error envelopes; mobile revival debt; the demo platform-admin grant and smoke (separate
-  authorization); Sprint 144 review minors.
+- **Sprint 145 review candidates (not filed).** Guessable 4-hex invitation-code suffix; a refused
+  acceptance lands on discovery without saying why; deferred minors (shared social-graph test
+  builders, integration `as()` helper, `MEMBERSHIP_CHANGED` wording, untrimmed code lookup,
+  `liveRole.ts` `db` doc placement).
+- **Gotcha candidate (not filed).** Bare supertest request is a thenable without `.finally`;
+  needs a `docs/gotchas/` entry with a machine check.
+- **Pre-existing doc defect.** `tests/claude.md` says the TDD promoter "runs as root
+  `posttest`", but `.npmrc` `ignore-scripts=true` stops npm from running it.
+- **Stale status headers (pre-existing).** `docs/BUGS.md` BUG-034, BUG-036, BUG-037 still say
+  "pending deploy"; check each against its deploy before changing it.
+- **CI image matrix.** `ci.yml` builds seven service images but not social-graph-service;
+  deploys unaffected (`scripts/deploy.sh` builds all on the server).
+- **Parked `origin/lane/lanes-provenance`.** Design, PR-1 plan and lane file exist only on that
+  branch; its old ADR-098 number is taken on master — any ADR needs a fresh maintainer allocation.
+- **Branches.** `agent/claude/sprint-145-planning` (merged) still exists on the remote; deleting
+  it is the maintainer's call.
+- **Carry-forward.** Governance rotation, revocation, delegation and opposition; close and
+  expiry notifications; legacy member-handler error envelopes; mobile revival debt; the demo
+  platform-admin grant and smoke (separate authorization); Sprint 144 review minors.
 
 ## Verification references
 
-- PR #342 merged 2026-11-24T19:42:37Z as squash `95d5e8c1` (observed 2026-11-24).
-- [CI/CD 45473083712](https://github.com/ravichavali/karmyq/actions/runs/45473083712): success, 14/14 jobs, Deploy
-  to Demo included; all nine services healthy; no migration applied (observed 2026-11-24).
-- Open CodeQL alerts on master: 0 (observed 2026-11-24).
-- External probe 2026-11-24: `GET /` → 200; wrong-password `POST /api/auth/login` → 401 ADR-074 envelope.
-- Full evidence: the shipped archive linked above.
+- Sprint 145: PR #342 merged 2026-11-24T19:42:37Z as squash `95d5e8c1`; CI/CD 45473083712 success
+  14/14 with deploy; nine services healthy (observed 2026-11-24).
+- Sprint 146 planning: master `95d5e8c1`, no open PRs, drift gate live capture 2026-11-24 (exit 1,
+  nine BLOCKING rows, two registered divergences); deepmerge advisory withdrawn 2026-11-16,
+  PR #178 CLOSED, zero open code-scanning alerts (observed 2026-11-24).
 
 ⚠️ **GitHub status goes stale.** Re-derive PR and deploy state before trusting anything here.
