@@ -1,27 +1,30 @@
 # Sprint 145 — Admission integrity — Handoff
 
-**Date**: 2026-11-24 (Codex review fixes); opened 2026-11-23
-**Outcome**: **Implementation complete; PR [#342](https://github.com/ravichavali/karmyq/pull/342) is open for
-re-review (plan Tasks 1–11 done), with a CI fix-forward at `c3860cf6` and Codex's two review races fixed at
-`a7235275`.** Claude executed the
-Codex-authored, maintainer-approved plan inline (`superpowers:executing-plans`) after a cross-agent plan review.
-BUG-106 and BUG-108 are fixed in this branch, pending review and deploy.
+**Date**: 2026-11-24 (Codex re-review clean); opened 2026-11-23
+**Outcome**: **Implementation complete and cross-agent reviewed clean; PR [#342](https://github.com/ravichavali/karmyq/pull/342)
+is open and awaits the maintainer's release decision.** Claude executed the Codex-authored, maintainer-approved
+plan inline (`superpowers:executing-plans`) after a cross-agent plan review. BUG-106 and BUG-108 are fixed in
+this branch, pending merge and deploy.
 
-**Codex's review of `222d6dc4`** confirmed the harness fix, the forced-order pending race and ruling 9. It raised
-two P2 races in product code. Both were confirmed against the source and fixed test-first in `a7235275`:
-1. **Duplicate-create lost INSERT race.** It locked and classified the winner without re-reading the community, so
-   an active winner of a community made private or archived meanwhile got `joined: true` and a token. It now
-   re-reads status and access before classifying: the pointer, or 400 `COMMUNITY_INACTIVE`.
-2. **Acceptance authority lock.** It ignored an empty inviter `FOR SHARE` result, so a membership committed after
-   that select could authorize admission without ever being locked. An unlocked inviter is now refused 403.
+**Review and CI evidence (observed 2026-11-24):**
+- **Codex's re-review of `e9be2a26`: no new findings.** Both P2 races from its review of `222d6dc4` are resolved:
+  the duplicate-create lost race re-reads the community before classifying the winner (`communities.ts:124`;
+  ruling 13 matches the spec), and acceptance refuses an inviter row its share lock missed
+  (`invitationAcceptance.ts:129`; lock order and rollback intact). Codex judged that all three new DB cases
+  discriminate the old code by source and barrier inspection. **It did not rerun the old implementation against
+  PostgreSQL**, and neither did the author.
+- **CI run [45444724146](https://github.com/ravichavali/karmyq/actions/runs/45444724146) on `e9be2a26`:** every
+  check passed, including Integration Tests (Sprint 145 file 78/78, suite 727/727, Jest exited), the Code Scanning
+  Gate and CodeQL. Deploy to Demo was skipped (PR branch). Detail: the PR's `## Validation` ledger.
+- **Commits after `e9be2a26`:** only the handoff commit that records this review (docs-only). Its CI is a fresh
+  run; check it on the head that merges.
+- CodeQL #654–656 were dismissed by the maintainer as "used in tests" (2026-11-24, 16:33Z).
 
-Proof: 6 new regression cases (red: 4 + 2 behavioral failures) and 3 new real-DB cases (78 in the file). The
-DB cases are owed to the CI run on the pushed head. The maintainer dismissed #654–656 as "used in tests" on
-2026-11-24 (16:33Z).
-**Next: read the CI on the current head. If Integration Tests is green, the next step is Codex's re-review of
-PR #342.** A red integration job goes back to the author.
+**Next: the maintainer decides on merge, version and deploy.** None of them is authorized yet. A release chat
+starts with the `deploy` skill once the maintainer says yes.
 
-**PR #342's first CI run** ([45340891388](https://github.com/ravichavali/karmyq/actions/runs/45340891388), head
+**Review history.** Codex's first review raised the two P2 races above (fixed test-first in `a7235275`: 6
+regression cases, red first, plus 3 DB cases). Before that, **PR #342's first CI run** ([45340891388](https://github.com/ravichavali/karmyq/actions/runs/45340891388), head
 `7c183014`) failed two jobs:
 - **Integration Tests:** 66 of the 73 new DB cases passed, 7 failed, then Jest never exited and the job hit the
   six-hour limit. One harness defect caused all of it: `holdAndRace` called `.finally` on a bare supertest
@@ -40,11 +43,11 @@ head, every other job passed except the Code Scanning Gate and the CodeQL check,
 | Field | Value |
 |---|---|
 | Branch | `agent/claude/sprint-145-planning`, based on `origin/master` `71773476` (re-fetched 2026-11-23; unchanged) |
-| Active editor | Claude (executor since 2026-11-23); hands to the reviewer after the PR opens. One editor at a time in the shared Windows checkout |
+| Active editor | Claude (executor since 2026-11-23). The review is complete; the next actor is the maintainer (release decision). One editor at a time in the shared Windows checkout |
 | Owned paths | Sprint 145 implementation, tests, docs and this handoff. The plan and spec stay Codex-authored; review findings are recorded here, not edited into them |
 | Spec | [Approved design](../../docs/superpowers/specs/2026-11-23-sprint-145-admission-integrity-design.md) |
 | Plan | [Implementation plan](../../docs/superpowers/plans/2026-11-23-sprint-145-admission-integrity.md), tagged `no-deploy` |
-| PR | [#342](https://github.com/ravichavali/karmyq/pull/342), opened 2026-11-23 from tested head `42d587da`; first CI on `7c183014` (handoff-only). Fix-forward `c3860cf6` (test + `ci.yml` only) and handoff `59ab057b`, CI-verified, then handoff `222d6dc4` (Codex reviewed it). Review fixes `a7235275` + registry `8932e9c5`, plus this handoff commit, pushed 2026-11-24 |
+| PR | [#342](https://github.com/ravichavali/karmyq/pull/342), opened 2026-11-23 from tested head `42d587da`; first CI on `7c183014` (handoff-only). Fix-forward `c3860cf6` (test + `ci.yml` only) and handoff `59ab057b`, CI-verified, then handoff `222d6dc4` (Codex reviewed it). Review fixes `a7235275` + registry `8932e9c5` + handoff `e9be2a26` (Codex re-reviewed it clean; CI green), plus this handoff-only commit recording that review |
 | Release | Master v11.117.0; Sprint 145 version unallocated |
 
 **Maintainer approval (2026-11-23)**: "Approve D1–D3 and the revised design".
@@ -52,21 +55,18 @@ D1 = active invitee no-write 200; D2 = invitation promotes pending, accepting th
 D3 = any live active private member can admit someone without admin approval, subject to capacity/blocked checks.
 Version, merge, deploy, demo-data operations and remote test infrastructure remain unauthorized.
 
-## Quick Start (reviewer)
+## Quick Start (release decision)
 
 1. Read [CLAUDE.md](../../CLAUDE.md) and this handoff.
-2. `git fetch origin && git log --oneline origin/master -2`; `gh pr list`; `git status --short`. Review the PR
-   head read-only. Do not edit this branch while reviewing.
-3. Read the approved spec and plan, then the PR diff. The rulings below record every deviation from the plan.
-4. Check the PR's CI **on the current head** (`gh pr view 342 --json headRefOid,statusCheckRollup`): unit +
-   regression, the **root integration job** (it runs
-   `tests/integration/sprint-145-admission-integrity.integration.test.ts`, 78 cases; no local DB run ever),
-   CodeQL, the Code Scanning Gate, the dependency audit, `pr-contract` and the doc/context drift gate. A local
-   green is not CI green. #654–656 are dismissed, so the gate should pass on a fresh run.
-   - Re-review focus: the two `a7235275` fixes (`joinExistingPublic`'s lost-race branch; the `inviterLocked` check
-     in `invitationAcceptance.ts`) and their three DB cases at the end of the interleavings `describe`.
-5. Report findings to the maintainer; the author (Claude) fixes them in a follow-up session. Merge, version and
-   deploy each need the maintainer's explicit yes.
+2. `git fetch origin && git log --oneline origin/master -2`; `gh pr list`; `git status --short`. Confirm master is
+   still `71773476` and PR #342 is open.
+3. Check CI **on the current head** (`gh pr view 342 --json headRefOid,statusCheckRollup`). The reviewed head is
+   `e9be2a26`; later commits must be handoff-only and green, including the root integration job (78 Sprint 145
+   cases) and the Code Scanning Gate.
+4. **Stop for the maintainer.** Merge, the version bump (re-derived from `origin/master` at merge time) and deploy
+   each need an explicit yes. Only with that yes, continue with the `deploy` skill: one master merge at a time,
+   then CI/CD deploy and health, then the post-merge record, which rides with the next PR.
+5. If anything has changed since `e9be2a26` beyond handoff commits, it needs a fresh cross-agent review first.
 
 **Goal**: BUG-106 invitation acceptance enforces capacity/live membership atomically; BUG-108 duplicate-create
 respects membership lifecycle and reports truthful outcomes. BUG-107/109 remain out of implementation scope.
@@ -90,7 +90,8 @@ respects membership lifecycle and reports truthful outcomes. BUG-107/109 remain 
 | Task 10 SDLC gates | Done at `bdc852a7` | `/simplify` (4 Sonnet reviewers): 2 cleanups applied in `bdc852a7`, rest skipped with reasons. `/security-review`: 0 findings. `/code-review` high: 5 "important" + 3 nits, all re-graded (spec-mandated or false premise; nits deferred) with no code change. Process review: PASS on coverage, docs, bundled commits and gate rulings; its handoff-staleness blocker is fixed by this revision; advisory A1 applied (ADR-106 points at the Sprint 145 fix), A2 N/A (AGENTS.md only bridges into CLAUDE.md) |
 | Task 11 final verification + PR | Done: `42d587da`, PR #342 | `tsc --noEmit` ×3 exit 0 at `bdc852a7`. `bash scripts/pre-commit-check.sh` on tree `123e340a`: run 1 had `npm test` pass but failed the integrity check on landing generator churn (restored from snapshot); run 2 exit 0, tree unchanged. Pre-push at `42d587da`: unit + regression 27/27 Turbo tasks (26 cached; root `tests` ran fresh), report-only TDD tier exit 1 (existing WIP), integration skipped (no DB) |
 | PR #342 CI fix-forward | `c3860cf6` | First CI (run 45340891388): integration 66/73, 7 failed with `fire(...).finally is not a function`, then the six-hour hang. Reproduced without a DB (old form: TypeError, one server left listening, process kept alive; new form: 200, zero servers, clean exit). Fixed: thenable adoption, a typed `BarrierError`, `raceInOrder`, a forced-order pending race (2 → 4 cases), full winner/loser/invitation assertions on the last-slot races, and `timeout-minutes: 20` on the CI step. Local: compiles, 75 cases, all `ECONNREFUSED`, Jest exits in 11 s; tests `tsc`: 0 errors in the file; CI-workflow gate 8/8; `pre-commit-check.sh` exit 0 on tree `3a19c6af`. **CI run 45426404877 at `59ab057b`: Integration Tests passed, Sprint 145 file 75/75 (suite 724/724); the gate fails only on #654–656** |
-| Codex review fixes (two P2 races) | `a7235275`, registry `8932e9c5` | Both confirmed in source (`communities.ts:119-123`; the ignored `FOR SHARE` result in `invitationAcceptance.ts`). Red first on unchanged product code: community duplicate-create +4 (failed 409, 409, `joined: true`, 200); social-graph acceptance +2 via the fake's new `afterInviterLock` hook (resolved as admitted). Green: social-graph focused 80/80, unit+regression 30 suites / 276; community focused 48/48, unit+regression 34 suites / 566; `tsc` 0 / 0; claim + count-delta gates 41/41; drift 41/41. +3 DB cases (file 78), compiled, unrun locally. `pre-commit-check.sh` on tree `1981a6f5`: run 1 `npm test` passed, then the integrity check failed on landing churn (restored); run 2 exit 0. Docs: both CONTEXTs, ADR-062 amendment, BUG-106/108, registry, regenerated landing pages. **DB outcome owed to the pushed head's CI** |
+| Codex review fixes (two P2 races) | `a7235275`, registry `8932e9c5` | Both confirmed in source (`communities.ts:119-123`; the ignored `FOR SHARE` result in `invitationAcceptance.ts`). Red first on unchanged product code: community duplicate-create +4 (failed 409, 409, `joined: true`, 200); social-graph acceptance +2 via the fake's new `afterInviterLock` hook (resolved as admitted). Green: social-graph focused 80/80, unit+regression 30 suites / 276; community focused 48/48, unit+regression 34 suites / 566; `tsc` 0 / 0; claim + count-delta gates 41/41; drift 41/41. +3 DB cases (file 78), compiled, unrun locally. `pre-commit-check.sh` on tree `1981a6f5`: run 1 `npm test` passed, then the integrity check failed on landing churn (restored); run 2 exit 0. Docs: both CONTEXTs, ADR-062 amendment, BUG-106/108, registry, regenerated landing pages. **CI run 45444724146 at `e9be2a26`: all checks green; Sprint 145 file 78/78, suite 727/727** |
+| Codex re-review | Clean at `e9be2a26` (2026-11-24) | No new findings; both P2 races resolved; ruling 13 matches the spec. Codex judged the three new DB cases discriminating by source and barrier inspection; the old code was not rerun against PostgreSQL. Branch unchanged by the reviewer |
 
 ## Rulings (deviations from the plan, all recorded in the git-ignored ledger too)
 
