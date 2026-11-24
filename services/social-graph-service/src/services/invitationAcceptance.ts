@@ -39,11 +39,11 @@ export class InvitationAcceptanceError extends Error {
   }
 }
 
-export const INVITATION_USED_MESSAGE = 'This invitation code has already been used';
-export const INVITATION_CONFLICT_MESSAGE = 'You previously joined this community through this inviter. Ask a different '
+const INVITATION_USED_MESSAGE = 'This invitation code has already been used';
+const INVITATION_CONFLICT_MESSAGE = 'You previously joined this community through this inviter. Ask a different '
   + 'member for an invitation. If the community is public, rejoin from its community page.';
 /** Same copy as community-service's memberCapacity.ts, so both admission paths read alike. */
-export const COMMUNITY_FULL_MESSAGE = 'Community is full (Dunbar\'s number limit reached)';
+const COMMUNITY_FULL_MESSAGE = 'Community is full (Dunbar\'s number limit reached)';
 const RESTORE_MESSAGE = 'Ask a community admin to lift the block; then you can rejoin';
 const MEMBERSHIP_CHANGED_MESSAGE = 'Your membership changed; please try again';
 
@@ -68,13 +68,15 @@ function classify(row: { status?: unknown } | undefined): MembershipState {
   }
 }
 
-async function requireActiveCommunity(client: PoolClient, communityId: string): Promise<void> {
-  const { rows } = await client.query(
-    `SELECT status FROM communities.communities WHERE id = $1`,
+/** Read the community on the transaction client; refuse a missing (404) or inactive (400) one. */
+async function requireActiveCommunity(client: PoolClient, communityId: string): Promise<{ current_members: number; max_members: number }> {
+  const row = (await client.query(
+    `SELECT status, current_members, max_members FROM communities.communities WHERE id = $1`,
     [communityId]
-  );
-  if (rows.length === 0) throw refuse(404, 'NOT_FOUND', 'Community not found');
-  if (rows[0].status !== 'active') throw refuse(400, 'COMMUNITY_INACTIVE', 'Community is not active');
+  )).rows[0];
+  if (!row) throw refuse(404, 'NOT_FOUND', 'Community not found');
+  if (row.status !== 'active') throw refuse(400, 'COMMUNITY_INACTIVE', 'Community is not active');
+  return row;
 }
 
 async function admit(client: PoolClient, userId: string, invitationCode: string): Promise<InvitationAcceptance> {
@@ -123,11 +125,6 @@ async function admit(client: PoolClient, userId: string, invitationCode: string)
     throw refuse(403, 'FORBIDDEN', 'The member who invited you is no longer active in this community');
   }
 
-  const noop = async (): Promise<InvitationAcceptance> => {
-    await requireActiveCommunity(client, communityId);
-    return { inviter_id: inviterId, community_id: communityId, accepted_at: null, already_member: true };
-  };
-
   let state = classify(invitee);
   if (state === 'new') {
     const inserted = await client.query(
@@ -144,7 +141,11 @@ async function admit(client: PoolClient, userId: string, invitationCode: string)
     }
   }
   if (state === 'blocked') throw restoreRequired();
-  if (state === 'active') return noop();
+  if (state === 'active') {
+    // D1: re-check the community after the locks, then admit nobody and write nothing.
+    await requireActiveCommunity(client, communityId);
+    return { inviter_id: inviterId, community_id: communityId, accepted_at: null, already_member: true };
+  }
   if (state === 'pending' || state === 'left') {
     const updated = await client.query(
       `UPDATE communities.members
@@ -157,14 +158,7 @@ async function admit(client: PoolClient, userId: string, invitationCode: string)
   }
 
   // The counter trigger has moved and locked the community row; read it back on this client.
-  const after = (await client.query(
-    `SELECT status, current_members, max_members
-     FROM communities.communities
-     WHERE id = $1`,
-    [communityId]
-  )).rows[0];
-  if (!after) throw refuse(404, 'NOT_FOUND', 'Community not found');
-  if (after.status !== 'active') throw refuse(400, 'COMMUNITY_INACTIVE', 'Community is not active');
+  const after = await requireActiveCommunity(client, communityId);
   if (Number(after.current_members) > Number(after.max_members)) throw refuse(400, 'COMMUNITY_FULL', COMMUNITY_FULL_MESSAGE);
 
   const consumed = await client.query(
