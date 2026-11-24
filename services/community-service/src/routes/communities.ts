@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { query, withTransaction } from '../database/db';
+import { query, withTransaction, type TxQuery } from '../database/db';
+import { classifyExistingMembership } from '../utils/memberLifecycle';
 import { assertWithinCapacity, CommunityFullError, COMMUNITY_FULL_MESSAGE, readMemberCount } from '../database/memberCapacity';
 import { publishEvent } from '../events/publisher';
 import { getActiveFusionProposalForCommunityRoute } from './fusions';
@@ -47,6 +48,102 @@ async function buildRefreshedToken(
     { expiresIn: '7d' }
   );
   return { token, communities };
+}
+
+const PRIVATE_MATCH_MESSAGE = 'A private community with this name and location already exists. Request approval to join.';
+const MEMBERSHIP_RESTORE_MESSAGE = 'Ask a community admin to lift the block; then you can rejoin';
+const MEMBERSHIP_CHANGED_MESSAGE = 'Your membership changed; please refresh and try again';
+const RETRYABLE_TX_CODES = new Set(['40P01', '40001']);
+
+/** ADR-062's existing-private-community answer: a pointer, never a join, request or token. */
+function sendPrivatePointer(res: Response, community: any, requestId: unknown) {
+  return sendSuccess(res, { community, existing: true, joined: false, message: PRIVATE_MATCH_MESSAGE },
+    HTTP_STATUS.OK, { requestId: requestId as string });
+}
+
+/** A duplicate-create join refusal; thrown inside the transaction so any tentative write rolls back. */
+class DuplicateJoinRefusal extends Error {
+  constructor(readonly status: number, readonly code: string, message: string) {
+    super(message);
+    this.name = 'DuplicateJoinRefusal';
+  }
+}
+
+/** The matched community is private now: roll back any tentative admission, then answer the pointer. */
+class CommunityNowPrivate extends Error {
+  constructor() {
+    super('community is now private');
+    this.name = 'CommunityNowPrivate';
+  }
+}
+
+/** Refuse unless the community is still active and public, read on the transaction client. */
+async function requireActivePublic(q: TxQuery, communityId: string): Promise<void> {
+  const row = (await q(`SELECT status, access_type FROM communities.communities WHERE id = $1`, [communityId])).rows[0];
+  if (!row || row.status !== 'active') throw new DuplicateJoinRefusal(400, 'COMMUNITY_INACTIVE', 'Community is not active');
+  if (row.access_type === 'private') throw new CommunityNowPrivate();
+}
+
+/**
+ * Sprint 145 (BUG-108): the duplicate-create join of an existing public community, inside withTransaction.
+ * Decides from the caller's row locked FOR UPDATE (member before community: the ADR-106 lock order) and the
+ * community's current state, per the approved table: no row → insert an active member; left → rejoin as an
+ * ordinary member; active → idempotent no-op that keeps role and join time (ADR-062); pending → 409
+ * CONFLICT; inactive, NULL or any other stored status → 409 MEMBERSHIP_RESTORE_REQUIRES_STAFF. A lost INSERT
+ * race locks and classifies the winner. Returns the stored member count.
+ */
+async function joinExistingPublic(q: TxQuery, communityId: string, userId: string): Promise<number> {
+  const lockCaller = async () => (await q(
+    `SELECT status, role FROM communities.members
+     WHERE community_id = $1 AND user_id = $2
+     FOR UPDATE`,
+    [communityId, userId]
+  )).rows[0];
+
+  const locked = await lockCaller();
+  await requireActivePublic(q, communityId);
+  let classification = classifyExistingMembership(locked ? locked.status : undefined);
+  let admitted = false;
+
+  if (classification === 'new') {
+    const inserted = await q(
+      `INSERT INTO communities.members (community_id, user_id, role, status)
+       VALUES ($1, $2, 'member', 'active')
+       ON CONFLICT (community_id, user_id) DO NOTHING
+       RETURNING role`,
+      [communityId, userId]
+    );
+    if ((inserted.rowCount ?? 0) > 0) {
+      admitted = true;
+    } else {
+      // Lost the INSERT race: classify the winner's committed row; a no-op is never a join.
+      const winner = await lockCaller();
+      if (!winner) throw new DuplicateJoinRefusal(409, 'CONFLICT', MEMBERSHIP_CHANGED_MESSAGE);
+      classification = classifyExistingMembership(winner.status);
+    }
+  }
+  if (classification === 'already_pending') {
+    throw new DuplicateJoinRefusal(409, 'CONFLICT', 'You already have a pending join request for this community');
+  }
+  if (classification === 'staff_only') {
+    throw new DuplicateJoinRefusal(409, 'MEMBERSHIP_RESTORE_REQUIRES_STAFF', MEMBERSHIP_RESTORE_MESSAGE);
+  }
+  if (classification === 'rejoin') {
+    const rejoined = await q(
+      `UPDATE communities.members
+       SET role = 'member', status = 'active', join_request_message = NULL, joined_at = CURRENT_TIMESTAMP
+       WHERE community_id = $1 AND user_id = $2 AND status = 'left'
+       RETURNING role`,
+      [communityId, userId]
+    );
+    if ((rejoined.rowCount ?? 0) === 0) throw new DuplicateJoinRefusal(409, 'CONFLICT', MEMBERSHIP_CHANGED_MESSAGE);
+    admitted = true;
+  }
+
+  if (!admitted) return readMemberCount(q, communityId);
+  // The trigger has moved and locked the community row: re-read its state, then capacity, on this client.
+  await requireActivePublic(q, communityId);
+  return (await assertWithinCapacity(q, communityId)).current_members;
 }
 
 // GET /communities - Get all communities (with optional filters, search, and discovery modes)
@@ -438,48 +535,51 @@ router.post('/', async (req: Request, res: Response) => {
 
       // Private communities require approval — don't auto-join, just point the caller at it.
       if (existing.access_type === 'private') {
-        return sendSuccess(res, {
-          community: existing,
-          existing: true,
-          joined: false,
-          message: 'A private community with this name and location already exists. Request approval to join.',
-        }, HTTP_STATUS.OK, { requestId: (req as any).id });
+        return sendPrivatePointer(res, existing, (req as any).id);
       }
 
-      // Upsert the caller as a member. ADR-106: the sync trigger counts a new active row; an
-      // admission is re-checked against capacity on the same client, and the response reports the
-      // count the database holds (never application arithmetic).
+      // Sprint 145 (BUG-108): join only as the caller's actual membership allows, decided on the
+      // locked row inside one transaction. ADR-106: the trigger counts an admitting write and capacity
+      // is re-checked after it on the same client; the response reports the count the database holds.
       let memberCount: number;
       try {
-        memberCount = await withTransaction(async (q) => {
-          const joinResult = await q(
-            `INSERT INTO communities.members (community_id, user_id, role, status)
-             VALUES ($1, $2, 'member', 'active')
-             ON CONFLICT (community_id, user_id) DO NOTHING`,
-            [existing.id, creator_id]
-          );
-          if (joinResult.rowCount && joinResult.rowCount > 0) {
-            return (await assertWithinCapacity(q, existing.id)).current_members;
-          }
-          return readMemberCount(q, existing.id);
-        });
-      } catch (error) {
+        memberCount = await withTransaction((q) => joinExistingPublic(q, existing.id, creator_id));
+      } catch (error: any) {
+        const requestId = (req as any).id;
         if (error instanceof CommunityFullError) {
-          return sendError(res, 'COMMUNITY_FULL', COMMUNITY_FULL_MESSAGE, 400,
-            undefined, { requestId: (req as any).id });
+          return sendError(res, 'COMMUNITY_FULL', COMMUNITY_FULL_MESSAGE, 400, undefined, { requestId });
+        }
+        if (error instanceof DuplicateJoinRefusal) {
+          return sendError(res, error.code, error.message, error.status, undefined, { requestId });
+        }
+        if (error instanceof CommunityNowPrivate) {
+          // The tentative write (if any) is rolled back; read the community again so the pointer's
+          // count never includes the rolled-back member.
+          const fresh = await query(`SELECT * FROM communities.communities WHERE id = $1`, [existing.id]);
+          return sendPrivatePointer(res, fresh.rows[0] ?? existing, requestId);
+        }
+        if (RETRYABLE_TX_CODES.has(error?.code)) {
+          return sendError(res, 'ADMISSION_RETRY', 'The join could not complete because of a concurrent change; please try again',
+            503, undefined, { requestId });
         }
         throw error;
       }
 
-      // Refresh JWT with the updated community list (mirrors the create path).
+      // Refresh JWT with the updated community list (mirrors the create path). The committed join is
+      // only reported if the refreshed list still holds it (staff may have removed the caller since);
+      // never manufacture a membership claim.
       const { token: joinToken, communities: joinCommunities } =
         await buildRefreshedToken((req as any).user.userId, (req as any).user.email, existing.id);
-      // Reflect the caller's actual role (ON CONFLICT DO NOTHING preserves a prior
-      // admin/member role rather than demoting a re-joining admin to 'member').
-      const callerRole = joinCommunities.find((c) => c.id === existing.id)?.role ?? 'member';
+      const joinedEntry = joinCommunities.find((c) => c.id === existing.id);
+      if (!joinedEntry) {
+        return sendError(res, 'MEMBERSHIP_CHANGED',
+          'Your membership changed before the join could be confirmed; refresh and try again', 409,
+          undefined, { requestId: (req as any).id });
+      }
 
       return sendSuccess(res, {
-        community: { ...existing, current_members: memberCount, role: callerRole },
+        // An active row's NULL role is a member (the column default; same reading as liveRole).
+        community: { ...existing, current_members: memberCount, role: joinedEntry.role ?? 'member' },
         existing: true,
         joined: true,
         token: joinToken,
