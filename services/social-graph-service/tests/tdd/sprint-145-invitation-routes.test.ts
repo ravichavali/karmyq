@@ -117,7 +117,8 @@ beforeEach(() => {
 describe('Sprint 145 accept — input validation before any SQL', () => {
   it.each([[undefined], ['not-a-uuid'], [42]])('refuses a caller identity of %p with 401 UNAUTHORIZED', async (userId) => {
     const db = install(scenario());
-    const res = await accept({ invitation_code: CODE }, userId);
+    // Not the accept() helper: its default parameter would replace an explicit undefined caller.
+    const res = await request(app(userId)).post('/invitations/accept').send({ invitation_code: CODE });
     expect(res.status).toBe(401);
     expect(res.body).toMatchObject({ success: false, error: 'UNAUTHORIZED' });
     expect(db.calls).toEqual([]);

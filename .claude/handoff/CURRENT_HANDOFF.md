@@ -48,7 +48,9 @@ respects membership lifecycle and reports truthful outcomes. BUG-107/109 remain 
 | Implementation plan | Cross-agent reviewed (Claude) — executable | Reviewed `a24e854a`. Citations re-read, staff/governance lock order confirmed ascending user_id (`members.ts:30-34`, `governanceDb.ts:239`), so there is no deadlock cycle with acceptance locks. No local psql/postgres/Docker, so DB proof is CI-owed |
 | Step 5b self-audit | Complete | self-audit at `92e398ff`: 0 findings fixed; fresh-context session-model reviewer found no actionable findings |
 | Task 1 red tests | Committed (see Task 1 commit) | 3 social-graph TDD files + root integration file. Focused run: 57 red / 5 green, all behavioral (old timestamp, D1 writes, explicit client ignored); module test red = missing new module; integration compiles, 43 cases unrun locally (ECONNREFUSED; CI-owed) |
-| Product Tasks 2–11 | Not started | — |
+| Task 2 live role + acceptance module | Committed `f48a0bb3` | Module and live-role TDD 21/21 green (exit 0, `--no-cache`); S134 live-role regression 11/11; social-graph tsc exit 0 |
+| Task 3 accept route wiring | Committed (Task 3 commit) | 3 social-graph TDD files 78/78; service unit+regression 27 suites/196 passed; root claim gate 17/17; tsc exit 0. A test bug was fixed: the 401 undefined-caller case used a default parameter. It was re-verified red on the old handler (400 vs 401) |
+| Tasks 4–11 | Not started | Next: Task 4 duplicate-create TDD + cross-path DB races. Root integration DB cases remain CI-owed |
 
 **Plan-review execution rulings (Claude):** (1) the same-inviter barrier counts waiters on
 `INSERT INTO communities.members` only, plus a `FOR UPDATE NOWAIT` probe proving the inviter row is share-locked.
