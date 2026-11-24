@@ -2,13 +2,17 @@
 
 **Date**: 2026-11-23
 
-**Status**: Revised draft — scope approved; policy decisions D1–D3 and design approval pending
+**Status**: Approved — D1–D3 and the revised design approved by the maintainer on 2026-11-23
 
 **Version**: Current master v11.117.0; Sprint 145 version unallocated (no version edits authorized)
 
 **Sprint Branch**: `agent/claude/sprint-145-planning`
 
 **Scope approval**: BUG-106 + BUG-108; BUG-107 deferred (maintainer, 2026-11-23)
+
+**Design approval**: "Approve D1–D3 and the revised design" (maintainer, 2026-11-23).
+Approval covers planning the specified behavior, including D2's stale-notification cost and D3's private
+admission authority; it does not authorize version, merge, deploy or demo data operations.
 
 ## Overview
 
@@ -31,7 +35,7 @@ leaves membership, count, invitation consumption and attribution unchanged.
 
 - In scope: `POST /invitations/accept` (BUG-106), the existing-public-community branch of `POST /communities`
   (BUG-108), tests and the documentation feedback loop.
-- Private admission is a policy decision (D3), not a detail forced by compatibility: the proposed rule lets
+- Private admission is an approved policy decision (D3), not a detail forced by compatibility: the rule lets
   **any active member of a private community admit anyone without admin approval** through an invitation.
 - Preserve duplicate-create's private-community pointer response (`existing: true`, `joined: false`) without writes.
 - BUG-107 staff direct-add consent stays deferred. Do not retire or repurpose that endpoint or its fixture callers.
@@ -60,7 +64,7 @@ pre-implementation evidence, not future line assignments.
 | `services/social-graph-service/src/database/liveRole.ts:15` | The existing live-role helper currently uses the pool; a transaction-aware use needs an optional query argument. |
 | `services/social-graph-service/src/database/trustEdgeDb.ts:107`, `:111` | Existing client injection uses `type Queryable = Pick<PoolClient, 'query'>` and `db: Queryable = pool`; use that pattern. |
 | `services/community-service/src/database/governanceDb.ts:286` | Existing authority membership is locked `FOR SHARE`; acceptance can share-lock its inviter and update-lock its invitee in UUID order. |
-| `services/community-service/src/database/db.ts:48`, `:57`, `:60` | Community-service's existing wrapper swallows rollback failure and releases the client; this sprint does not change it. |
+| `services/community-service/src/database/db.ts:48`, `:56`, `:59` | Community-service's existing wrapper swallows rollback failure and releases the client; this sprint does not change it. |
 | `apps/frontend/src/lib/api.ts:915`, `:170`, `apps/frontend/src/pages/invite/[code].tsx:50` | Validation uses bare `axios.get`, outside the per-client interceptor. Its nested `response.data.data` and the Sprint 118 fixture are correct. |
 | `apps/frontend/src/pages/invite/[code].tsx:99`, `:103`, `:120`, `:126` | Web accepts, re-logs in for memberships, then arrives; acceptance/session-refresh failure instead routes to discovery after registration. |
 | `apps/frontend/src/pages/communities/new.tsx:197`, `:201`, `:205` | Web stores a returned token and navigates on success; errors render the server message. |
@@ -88,22 +92,21 @@ pre-implementation evidence, not future line assignments.
 3. **Only add a pre-insert capacity read and filter the success response.** This leaves races, consumed failed
    invitations and inconsistent membership state. It does not meet the goal.
 
-The maintainer approved the bug scope. The detailed choices below are the author's proposed design and await
-approval; scope approval is not recorded as approval of these choices.
+The maintainer approved the bug scope and subsequently approved D1–D3 and the revised design on 2026-11-23.
+The alternatives below record the trade-offs behind those approved decisions.
 
-## Policy decisions requiring maintainer approval
+## Approved policy decisions
 
-These are revised author recommendations, not approved requirements. The state table, transaction steps and
-validation cases below describe this recommended variant; do not write the implementation plan until D1–D3 and
-the revised design have been approved.
+The state table, transaction steps and validation cases below implement the explicitly approved D1–D3 variant.
+The implementation plan may now be written; product execution belongs in the next chat.
 
-| Decision | Recommended outcome and reason | Cost of recommendation | Alternative and cost |
+| Decision | Approved outcome and reason | Accepted cost | Alternative and cost |
 |---|---|---|---|
 | **D1 — already-active invitee** | Return 200 with no persistent writes: no code consumption, membership/timestamp change, accepted-stat increase, user-attribution overwrite or new invitation-chain edge. Leave the code usable by a newcomer. | Response distinguishes a no-op with `already_member: true` and `accepted_at: null`; keep its defensive frontend guard/test minimal. | Consume and attribute despite no admission. This can fabricate provenance and improve inviter statistics; no running acceptance test requires it. |
 | **D2 — pending invitee** | An eligible invitation promotes pending to active ordinary member, with the same post-write capacity check as a newcomer. This avoids penalizing someone who applied before receiving the code. | With D3, any active member can admit an applicant whom staff are reviewing or about to decline. The admin's existing `join_request` notification becomes stale; it is not withdrawn or rewritten in this sprint. | 409, forcing the applicant to withdraw then accept. This gives a pending applicant fewer admission options than a stranger holding the same code. |
 | **D3 — private invitation authority** | Require a live active inviter, regardless of role. **Any active member of a private community can admit anyone without admin approval.** This closes outsider-minted-code admission while retaining member-to-member private invitations. | Staff do not have exclusive admission authority, including over pending applicants; capacity and blocked-state refusals still apply. | Restrict private admission to staff or create pending membership instead. Either changes who may admit private members and needs a different state table and guide. |
 
-The live-inviter check is an in-scope security fix under the proposed D3 rule. Today any authenticated outsider can
+The live-inviter check is an in-scope security fix under the approved D3 rule. Today any authenticated outsider can
 mint a code for a supplied private community and the unguarded accept handler admits its holder; the source has
 no live membership gate at either point. Checking acceptance blocks that admission path, including codes minted
 before the fix. BUG-109 separately tracks generation's missing live membership check and sent-stat inflation;
@@ -145,7 +148,7 @@ the existing pointer response, regardless of caller membership; it does not cons
 - Require the inviter's live active membership in the stored community (403 `FORBIDDEN` if absent/inactive).
   This is the security fix described in D3 and applies ADR-102 to admission authority. A stale JWT or a membership
   in another community never supplies it. The choice to let an ordinary member admit to a private community is
-  explicit and pending maintainer approval.
+  explicit and approved by the maintainer on 2026-11-23.
 - Only an actual new/left/pending admission writes the invitee's `auth.users.invited_by` and
   `invitation_accepted_at`, consumes the invitation and triggers accepted statistics. An active no-op changes none
   of them. For actual admissions to different communities, existing attribution writes remain; a global
@@ -246,7 +249,7 @@ counts and set a community's cap to create full conditions; they never assign th
 
 | Endpoint | Auth/body | Success | Expected refusal |
 |---|---|---|---|
-| POST `/invitations/accept` | Verified caller; `{ invitation_code: string }` | D1–D3 proposal: 200 `{ inviter_id, community_id, accepted_at }` for actual admission; active no-op adds `already_member: true` with `accepted_at: null` and no writes | 400 malformed/self/used/inactive/full; 403 wrong bound invitee or inviter no longer active; 404 missing invitation/community; 409 restoration/triplet conflict; 503 transaction retry |
+| POST `/invitations/accept` | Verified caller; `{ invitation_code: string }` | Approved D1–D3: 200 `{ inviter_id, community_id, accepted_at }` for actual admission; active no-op adds `already_member: true` with `accepted_at: null` and no writes | 400 malformed/self/used/inactive/full; 403 wrong bound invitee or inviter no longer active; 404 missing invitation/community; 409 restoration/triplet conflict; 503 transaction retry |
 | POST `/communities`, existing public match | Existing authenticated creation request; caller from JWT | 200 `{ community, existing: true, joined: true, token }` only after an active outcome; if now private, use private pointer after rolling back any tentative write | 409 pending/restoration/membership changed; 400 inactive/full; 503 transaction retry |
 | POST `/communities`, existing private match | Unchanged | 200 `{ community, existing: true, joined: false, message }`, no token | Existing validation only |
 
@@ -342,7 +345,7 @@ Do not put the only SQL or race evidence in an unrun service integration tier.
    Forged JWT community claims and foreign membership rows never confer authority.
 6. **Resource cleanup:** the new social-graph transaction releases checked-out clients; failed rollback destroys
    its client. BUG-108 retains community-service's existing wrapper, whose failed-rollback handling is a known
-   limitation outside scope (`src/database/db.ts:57–60`); do not claim destroy-on-failure for it. Barrier helpers
+   limitation outside scope (`src/database/db.ts:56–59`); do not claim destroy-on-failure for it. Barrier helpers
    unconditionally release locks and settle in-flight requests on assertion failure, following the corrected S144
    helper (`tests/integration/sprint-144-staff-write-integrity.integration.test.ts:178`).
 7. **Caller coverage:** focused frontend success/refusal tests using the existing per-service envelope; keep
@@ -371,7 +374,7 @@ outside this planning authorization; tag the implementation plan `no-deploy` and
    only; community-service's existing wrapper remains unchanged with its documented cleanup limitation.
 2. Lock invitation, then inviter FOR SHARE and invitee FOR UPDATE in global user_id order, then let the trigger
    lock the community. Use the existing Queryable/client injection pattern. Never pre-lock a community.
-3. Pending D1–D3 approval: active invitees get a no-write 200 with an unconsumed code; pending invitees become
+3. Approved D1–D3: active invitees get a no-write 200 with an unconsumed code; pending invitees become
    active ordinary members after capacity validation; any active private member can admit anyone without admin
    approval (subject to capacity and blocked-state refusals). Duplicate-create still refuses pending; both paths
    refuse inactive/NULL/unknown and reset left rejoins to ordinary member.
