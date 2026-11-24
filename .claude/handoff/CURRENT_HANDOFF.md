@@ -2,7 +2,7 @@
 
 **Date**: 2026-11-23
 **Outcome**: D1–D3 and the revised design are explicitly approved. The no-deploy implementation plan is
-written; planning self-audit/final verification are in progress. No product task has started.
+written and its Step 5b self-audit is complete. Cross-agent plan review is next. No product task has started.
 
 ## Ownership, approval and base
 
@@ -28,8 +28,8 @@ remain unauthorized. Execution belongs in the next chat.
 2. `git fetch origin && git log --oneline origin/master -2`; reconcile `gh pr list` and
    `git status --short`. Reuse this branch; no worktrees or branch from local master.
 3. Read the linked approved spec and plan together. All implementation Tasks 1–11 are unchecked.
-4. Finish the planning Step 5b audit and final verification before handing the plan to the next agent.
-   The current audit state is below; do not mistake planning checks for implemented behavior.
+4. Review the plan against the approved design before execution. Step 5b is complete; final planning
+   verification evidence is in the planning closeout commit body. Do not mistake it for implemented behavior.
 5. After plan review, the next execution chat uses `superpowers:subagent-driven-development` or
    `superpowers:executing-plans`. The plan includes the required Sonnet/Haiku/Opus subagent-model header.
    No execution-method selection or product implementation has occurred in this planning chat.
@@ -44,13 +44,13 @@ respects membership lifecycle and reports truthful outcomes. BUG-107/109 remain 
 | Task | State | SHA/evidence |
 |---|---|---|
 | Design D1–D3 | Approved | Explicit maintainer message, 2026-11-23; includes the two re-review gaps and nits |
-| Implementation plan | Written, self-audit pending | New plan in current planning checkpoint; no implementation executed |
-| Step 5b self-audit | Pending fresh-context session-model reviewer | Checkpoint before dispatch; record audited SHA and findings here |
+| Implementation plan | Written; ready for cross-agent review | Plan and approved spec checkpointed at `92e398ff`; no implementation executed |
+| Step 5b self-audit | Complete | self-audit at `92e398ff`: 0 findings fixed; fresh-context session-model reviewer found no actionable findings |
 | Product Tasks 1–11 | Not started | No red/green product evidence or DB proof claimed |
-| Final planning verification | Pending | Older `d169f5c6` full pre-commit pass predates this plan; do not reuse it |
+| Final planning verification | See planning closeout commit body | Fresh command/exit/cache/limitations recorded there; older `d169f5c6` evidence does not cover this plan |
 
-**Next action**: checkpoint these planning docs, then dispatch the one Step 5b reviewer on the session model
-and verify any finding against source. Finish final verification and prepare the next-chat review prompt.
+**Next action**: cross-agent review of the plan, then select the execution workflow in the next chat.
+The design and D1–D3 do not need another approval; any new material scope change still does.
 
 ## Execution boundaries and PR contract
 
@@ -160,5 +160,9 @@ the plan's new helper/test paths are proposed interfaces. The first builder chec
 errors subsequently corrected by Claude's reviews; it is not approval or a self-audit of this plan.
 Historical review details are in `d169f5c6` and `a29a38ed`; their test evidence is dated in those commit bodies.
 
-Fresh Step 5b findings and final planning command/exit/cache/limitations will be recorded at this checkpoint
-before readiness is claimed. Product behavior, DB proof, live smoke and release remain unverified/unperformed.
+Step 5b reviewed clean checkpoint `92e398ff`: **0 actionable findings; 0 findings fixed**. It checked source
+citations, npm lifecycle/CI tiers, task order/interfaces, transaction invariants, races/rollback and scope.
+This read-only session-model review did not run tests or replace the next cross-agent plan review.
+
+The planning closeout commit body records the fresh final check command, exit status, cache and limitations
+for its staged tree. Product behavior, DB proof, live smoke and release remain unverified/unperformed.
