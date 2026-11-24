@@ -162,43 +162,49 @@ async function waiting(pattern: string): Promise<number> {
   return (await pool.query(`SELECT count(*)::int AS n FROM pg_stat_activity
     WHERE datname=current_database() AND wait_event_type='Lock' AND query ILIKE $1`, [pattern])).rows[0].n;
 }
-async function waitForWaiters(pattern: string, expected: number, done: () => boolean, timeoutMs = 15000): Promise<number> {
+/** Poll until every [pattern, n] has n lock waiters (or the contenders settle, or time runs out). */
+async function waitForWaiters(waits: Array<[string, number]>, done: () => boolean, timeoutMs = 15000): Promise<number[]> {
   const deadline = Date.now() + timeoutMs;
-  let n = await waiting(pattern);
-  while (n < expected && !done() && Date.now() < deadline) {
+  const read = () => Promise.all(waits.map(([pattern]) => waiting(pattern)));
+  let counts = await read();
+  while (counts.some((n, i) => n < waits[i][1]) && !done() && Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 50));
-    n = await waiting(pattern);
+    counts = await read();
   }
-  return n;
+  return counts;
 }
 
 /**
- * Hold `lockSql` on a barrier client, fire the contenders, wait for exactly `expected` of them to block on a
- * statement matching `waitPattern`, run `whileHeld` (more probes, more contenders), then release. Unlock comes
- * first and unconditionally: a failed expectation must not return a locked client to the pool (PR #341
- * review). A barrier whose ROLLBACK fails is destroyed, which ends its transaction too. In-flight requests are
- * always settled before the helper returns or rethrows.
+ * Hold `lock.sql` on a barrier client, fire the contenders, and wait until exactly the expected number block
+ * on each statement pattern. Then run `whileHeld` (probes), then `lock.mutate` (a change the contenders
+ * must see once they get the lock), and release. Unlock comes first and unconditionally: a failed
+ * expectation must not return a locked client to the pool (PR #341 review). The barrier COMMITs only when its
+ * mutation ran, otherwise it rolls back; a barrier whose COMMIT/ROLLBACK fails is destroyed. In-flight requests
+ * are always settled before the helper returns or rethrows.
  */
 async function holdAndRace<T>(
-  lock: { sql: string; params: unknown[]; commit?: (barrier: PoolClient) => Promise<void> },
-  waitPattern: string,
-  expected: number,
+  lock: { sql: string; params: unknown[]; mutate?: (barrier: PoolClient) => Promise<unknown> },
+  waits: Array<[string, number]>,
   fire: () => Promise<T>,
   whileHeld?: () => Promise<void>,
 ): Promise<T> {
   const barrier = await pool.connect();
   let pending: Promise<T> | undefined;
   let finished = false;
+  let commit = false;
   try {
     await barrier.query('BEGIN');
     await barrier.query(lock.sql, lock.params);
     pending = fire().finally(() => { finished = true; });
     pending.catch(() => undefined);
-    expect(await waitForWaiters(waitPattern, expected, () => finished)).toBe(expected);
+    expect(await waitForWaiters(waits, () => finished)).toEqual(waits.map(([, n]) => n));
     if (whileHeld) await whileHeld();
-    if (lock.commit) await lock.commit(barrier);
+    if (lock.mutate) {
+      await lock.mutate(barrier);
+      commit = true;
+    }
   } finally {
-    barrier.release(await barrier.query(lock.commit ? 'COMMIT' : 'ROLLBACK').then(() => undefined, (error: Error) => error));
+    barrier.release(await barrier.query(commit ? 'COMMIT' : 'ROLLBACK').then(() => undefined, (error: Error) => error));
     await pending?.catch(() => undefined);
   }
   return pending!;
@@ -555,7 +561,7 @@ describe('Sprint 145 invitation acceptance — single-use and capacity races', (
     const inv = await invite(inviter, c);
     const responses = await holdAndRace(
       { sql: `SELECT 1 FROM auth.user_invitations WHERE id=$1 FOR UPDATE`, params: [inv.id] },
-      '%FROM auth.user_invitations%FOR UPDATE%', 2,
+      [['%FROM auth.user_invitations%FOR UPDATE%', 2]],
       () => Promise.all([as(n1).accept(inv.code), as(n2).accept(inv.code)]),
     );
     expect(responses.map((r) => r.status).sort()).toEqual([200, 400]);
@@ -575,7 +581,7 @@ describe('Sprint 145 invitation acceptance — single-use and capacity races', (
     const [p] = await users(1);
     const a = await invite(inviter, c);
     const b = await invite(admin, c);
-    const responses = await holdAndRace(COMMUNITY_ROW_LOCK(c), MEMBER_INSERT, 2,
+    const responses = await holdAndRace(COMMUNITY_ROW_LOCK(c), [[MEMBER_INSERT, 2]],
       () => Promise.all([as(p).accept(a.code), as(p).accept(b.code)]));
     expect(responses.map((r) => r.status)).toEqual([200, 200]);
     const actual = responses.findIndex((r) => r.body.data.already_member === undefined);
@@ -598,7 +604,7 @@ describe('Sprint 145 invitation acceptance — single-use and capacity races', (
     const [n1, n2] = await users(2);
     const i1 = await invite(inviter, c);
     const i2 = await invite(inviter, c);
-    const responses = await holdAndRace(COMMUNITY_ROW_LOCK(c), MEMBER_INSERT, 2,
+    const responses = await holdAndRace(COMMUNITY_ROW_LOCK(c), [[MEMBER_INSERT, 2]],
       () => Promise.all([as(n1).accept(i1.code), as(n2).accept(i2.code)]),
       // Both contenders are parked at their member INSERT, past the inviter FOR SHARE: the shared lock is held.
       () => expectRowShareLocked(c, inviter));
@@ -615,5 +621,329 @@ describe('Sprint 145 invitation acceptance — single-use and capacity races', (
     expect(await acceptedStat(inviter, c)).toBe(1);
     expect(await count(c)).toBe(3);
     expect(await activeRows(c)).toBe(3);
+  });
+});
+
+// ─── Task 4: duplicate-create (BUG-108) and cross-path interleavings ──────────────────────────────────────
+
+/** The identity-matching create body for community `c` (case and spacing differ from the stored row). */
+async function duplicateBody(c: string) {
+  const { rows } = await pool.query(`SELECT name, location FROM communities.communities WHERE id=$1`, [c]);
+  return { name: `  ${rows[0].name.toUpperCase()} `, location: rows[0].location.toLowerCase(), community_type: 'mutual_aid' };
+}
+const UPDATE_MEMBER = '%UPDATE communities.members%';
+const MEMBER_ROW_LOCK = (c: string, u: string) => ({
+  sql: `SELECT 1 FROM communities.members WHERE community_id=$1 AND user_id=$2 FOR UPDATE`, params: [c, u],
+});
+const PRIVATE_POINTER = {
+  existing: true, joined: false,
+  message: 'A private community with this name and location already exists. Request approval to join.',
+};
+
+describe('Sprint 145 duplicate-create — state matrix on the shared table (real SQL and triggers)', () => {
+  it('joins a newcomer as an active member with the stored count and a token carrying the membership', async () => {
+    const { c } = await invitingCommunity();
+    const [p] = await users(1);
+    const res = await as(p).create(await duplicateBody(c));
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ existing: true, joined: true });
+    expect(res.body.data.community).toMatchObject({ id: c, current_members: 3, role: 'member' });
+    expect((jwt.decode(res.body.data.token) as any).communities).toContainEqual(expect.objectContaining({ id: c, role: 'member' }));
+    expect(await memberRow(c, p)).toMatchObject({ role: 'member', status: 'active' });
+    expect(await count(c)).toBe(await activeRows(c));
+  });
+
+  it.each(STATE_MATRIX)('public: a duplicate create by $label answers per the approved table', async ({ status, role, duplicate }) => {
+    const { c, inviter } = await invitingCommunity();
+    const [p] = await users(1);
+    await addMember(c, p, status, role, 'request note');
+    const before = await snapshot(c, p, inviter, []);
+    const res = await as(p).create(await duplicateBody(c));
+    expect(res.status).toBe(duplicate.http);
+    if (duplicate.http === 409) {
+      expect(res.body).toMatchObject({ success: false, error: duplicate.error });
+      expect(res.body.data).toBeUndefined();
+      expect(await snapshot(c, p, inviter, [])).toEqual(before);
+    } else if (duplicate.kind === 'noop') {
+      expect(res.body.data).toMatchObject({ existing: true, joined: true });
+      expect(res.body.data.community).toMatchObject({ current_members: before.community.current_members, role });
+      expect(await snapshot(c, p, inviter, [])).toEqual(before);
+    } else {
+      expect(res.body.data).toMatchObject({ existing: true, joined: true });
+      expect(res.body.data.community.role).toBe('member');
+      expect(await memberRow(c, p)).toMatchObject({ role: 'member', status: 'active', join_request_message: null });
+      expect(await count(c)).toBe(before.community.current_members + 1);
+      expect(res.body.data.community.current_members).toBe(await count(c));
+    }
+  });
+
+  it('keeps the active no-op successful at full and overfull counts, preserving role and join time', async () => {
+    const { c, inviter } = await invitingCommunity({ max: 3 });
+    const [p] = await users(1);
+    await addMember(c, p, 'active', 'moderator');
+    for (const max of [3, 2]) {
+      await setMax(c, max);
+      const before = await snapshot(c, p, inviter, []);
+      const res = await as(p).create(await duplicateBody(c));
+      expect(res.status).toBe(200);
+      expect(res.body.data.community).toMatchObject({ current_members: 3, role: 'moderator' });
+      expect(await snapshot(c, p, inviter, [])).toEqual(before);
+    }
+  });
+
+  it.each([['a newcomer', null], ['a left member', 'left']])('refuses %s whose admission overfills with 400 COMMUNITY_FULL, persisting nothing',
+    async (_label, status) => {
+      const { c, inviter } = await invitingCommunity({ max: 2 });
+      const [p] = await users(1);
+      if (status) await addMember(c, p, status, 'admin');
+      const before = await snapshot(c, p, inviter, []);
+      const res = await as(p).create(await duplicateBody(c));
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('COMMUNITY_FULL');
+      expect(await snapshot(c, p, inviter, [])).toEqual(before);
+    });
+
+  it.each([[null], ['active'], ['pending'], ['left'], ['inactive']])('answers a private match with the pointer for a %p caller and writes nothing',
+    async (status) => {
+      const { c, inviter } = await invitingCommunity({ access: 'private' });
+      const [p] = await users(1);
+      if (status) await addMember(c, p, status, 'member');
+      const before = await snapshot(c, p, inviter, []);
+      const res = await as(p).create(await duplicateBody(c));
+      expect(res.status).toBe(200);
+      expect(res.body.data).toMatchObject(PRIVATE_POINTER);
+      expect(res.body.data.token).toBeUndefined();
+      expect(await snapshot(c, p, inviter, [])).toEqual(before);
+    });
+});
+
+describe('Sprint 145 last-slot capacity races across admission paths', () => {
+  type Contenders = (c: string, a: string, b: string, inviter: string, admin: string) => Promise<request.Response[]>;
+
+  /** Exactly one of two contenders is admitted at the last slot; stored count == active rows == cap. */
+  async function lastSlot(fire: Contenders, waits: Array<[string, number]> = [[MEMBER_INSERT, 2]],
+    setup?: (c: string, a: string, b: string) => Promise<void>) {
+    const { c, inviter, admin } = await invitingCommunity({ max: 3 });
+    const [a, b] = await users(2);
+    if (setup) await setup(c, a, b);
+    const responses = await holdAndRace(COMMUNITY_ROW_LOCK(c), waits, () => fire(c, a, b, inviter, admin));
+    expect(responses.filter((r) => r.status === 200)).toHaveLength(1);
+    expect(responses.filter((r) => r.status === 400).map((r) => r.body.error)).toEqual(['COMMUNITY_FULL']);
+    expect(await count(c)).toBe(3);
+    expect(await activeRows(c)).toBe(3);
+    return { c, a, b, inviter, responses };
+  }
+
+  it('invitation versus ordinary join: the losing invitation leaves its code unconsumed', async () => {
+    let id = '';
+    const { c, a, b, inviter, responses } = await lastSlot(async (c0, a0, b0, inv0) => {
+      const inv = await invite(inv0, c0);
+      id = inv.id;
+      return Promise.all([as(a0).accept(inv.code), as(b0).join(c0)]);
+    });
+    const invitationWon = responses[0].status === 200;
+    expect(await memberRow(c, invitationWon ? a : b)).toMatchObject({ status: 'active' });
+    expect(await memberRow(c, invitationWon ? b : a)).toBeUndefined();
+    expect((await invitationRow(id)).invitee_id).toBe(invitationWon ? a : null);
+    expect(await acceptedStat(inviter, c)).toBe(invitationWon ? 1 : 0);
+    expect((await attribution(a)).invited_by).toBe(invitationWon ? inviter : null);
+  });
+
+  it('invitation versus staff add', async () => {
+    let id = '';
+    const { c, a, b, responses } = await lastSlot(async (c0, a0, b0, inv0, admin0) => {
+      const inv = await invite(inv0, c0);
+      id = inv.id;
+      return Promise.all([as(a0).accept(inv.code), as(admin0).add(c0, b0)]);
+    });
+    const invitationWon = responses[0].status === 200;
+    expect((await invitationRow(id)).invitee_id).toBe(invitationWon ? a : null);
+    expect(await memberRow(c, invitationWon ? b : a)).toBeUndefined();
+  });
+
+  it('invitation versus staff approval of a different pending applicant (ordinary-member inviter)', async () => {
+    let id = '';
+    const { c, a, b, responses } = await lastSlot(async (c0, a0, b0, inv0, admin0) => {
+      const inv = await invite(inv0, c0);
+      id = inv.id;
+      return Promise.all([as(a0).accept(inv.code), as(admin0).put(c0, b0, { status: 'active' })]);
+    }, [[MEMBER_INSERT, 1], [UPDATE_MEMBER, 1]], async (c0, _a0, b0) => { await addMember(c0, b0, 'pending'); });
+    const invitationWon = responses[0].status === 200;
+    expect((await invitationRow(id)).invitee_id).toBe(invitationWon ? a : null);
+    expect(await memberRow(c, b)).toMatchObject({ status: invitationWon ? 'pending' : 'active' });
+  });
+
+  it('invitation versus duplicate-create join', async () => {
+    let id = '';
+    const { c, a, b, responses } = await lastSlot(async (c0, a0, b0, inv0) => {
+      const inv = await invite(inv0, c0);
+      id = inv.id;
+      const body = await duplicateBody(c0);
+      return Promise.all([as(a0).accept(inv.code), as(b0).create(body)]);
+    });
+    const invitationWon = responses[0].status === 200;
+    expect((await invitationRow(id)).invitee_id).toBe(invitationWon ? a : null);
+    expect(await memberRow(c, invitationWon ? b : a)).toBeUndefined();
+    if (!invitationWon) expect(responses[1].body.data).toMatchObject({ existing: true, joined: true });
+  });
+
+  it('two duplicate-create joins', async () => {
+    const { c, a, b, responses } = await lastSlot(async (c0, a0, b0) => {
+      const body = await duplicateBody(c0);
+      return Promise.all([as(a0).create(body), as(b0).create(body)]);
+    });
+    const winner = responses[0].status === 200 ? a : b;
+    expect(await memberRow(c, winner)).toMatchObject({ status: 'active', role: 'member' });
+    expect(await memberRow(c, winner === a ? b : a)).toBeUndefined();
+  });
+
+  it('two left members rejoining, by invitation and by duplicate create', async () => {
+    let id = '';
+    const { c, a, b, responses } = await lastSlot(async (c0, a0, b0, inv0) => {
+      const inv = await invite(inv0, c0);
+      id = inv.id;
+      const body = await duplicateBody(c0);
+      return Promise.all([as(a0).accept(inv.code), as(b0).create(body)]);
+    }, [[UPDATE_MEMBER, 2]], async (c0, a0, b0) => {
+      await addMember(c0, a0, 'left', 'admin');
+      await addMember(c0, b0, 'left', 'moderator');
+    });
+    const invitationWon = responses[0].status === 200;
+    expect(await memberRow(c, invitationWon ? a : b)).toMatchObject({ status: 'active', role: 'member' });
+    expect(await memberRow(c, invitationWon ? b : a)).toMatchObject({ status: 'left' });
+    expect((await invitationRow(id)).invitee_id).toBe(invitationWon ? a : null);
+  });
+});
+
+describe('Sprint 145 state and authority interleavings — the committed winner decides', () => {
+  it.each([
+    ['approval', 'active'],
+    ['rejection', 'inactive'],
+  ])('a pending applicant\'s invitation against a moderator %s of the same request', async (_label, staffStatus) => {
+    const { c, inviter } = await invitingCommunity({ access: 'private' });
+    const [mod, q] = await users(2);
+    await addMember(c, mod, 'active', 'moderator');
+    await addMember(c, q, 'pending', 'member', 'please');
+    const inv = await invite(inviter, c);
+    const [acceptRes, staffRes] = await holdAndRace(MEMBER_ROW_LOCK(c, q), [['%communities.members%FOR UPDATE%', 2]],
+      () => Promise.all([as(q).accept(inv.code), as(mod).put(c, q, { status: staffStatus })]));
+    const invitationAdmitted = acceptRes.status === 200 && acceptRes.body.data.already_member === undefined;
+    if (invitationAdmitted) {
+      // The invitation committed first; the staff action then met an active member and was refused.
+      expect(staffRes.status).toBeGreaterThanOrEqual(400);
+      expect(await memberRow(c, q)).toMatchObject({ status: 'active', role: 'member' });
+      expect((await invitationRow(inv.id)).invitee_id).toBe(q);
+      expect(await acceptedStat(inviter, c)).toBe(1);
+    } else {
+      // The staff action committed first; the invitation answered from that state and consumed nothing.
+      expect(staffRes.status).toBe(200);
+      expect(await memberRow(c, q)).toMatchObject({ status: staffStatus });
+      if (staffStatus === 'active') expect(acceptRes.body.data).toMatchObject({ already_member: true, accepted_at: null });
+      else expect(acceptRes.body).toMatchObject({ success: false, error: 'MEMBERSHIP_RESTORE_REQUIRES_STAFF' });
+      expect(await invitationRow(inv.id)).toMatchObject({ invitee_id: null, invitation_accepted_at: null });
+      expect(await acceptedStat(inviter, c)).toBe(0);
+    }
+    expect(await count(c)).toBe(await activeRows(c));
+  });
+
+  it('a staff removal of the inviter waits behind an acceptance holding the shared authority lock', async () => {
+    const { c, inviter, admin } = await invitingCommunity();
+    const [p] = await users(1);
+    const inv = await invite(inviter, c);
+    let removal: Promise<request.Response> | undefined;
+    const accepted = await holdAndRace(COMMUNITY_ROW_LOCK(c), [[MEMBER_INSERT, 1]],
+      () => as(p).accept(inv.code),
+      async () => {
+        await expectRowShareLocked(c, inviter);
+        removal = Promise.resolve(as(admin).del(c, inviter));
+        // The removal parks on lockTargetAndAdmins' FOR UPDATE of the share-locked inviter row.
+        expect(await waitForWaiters([['%communities.members%ORDER BY user_id FOR UPDATE%', 1]], () => false)).toEqual([1]);
+      });
+    const removed = await removal!;
+    expect(accepted.status).toBe(200);
+    expect(removed.status).toBe(200);
+    expect(await memberRow(c, p)).toMatchObject({ status: 'active' });
+    expect(await memberRow(c, inviter)).toMatchObject({ status: 'inactive' });
+    expect((await invitationRow(inv.id)).invitee_id).toBe(p);
+  });
+
+  it('an acceptance waiting behind the inviter\'s removal is refused with 403 and consumes nothing', async () => {
+    const { c, inviter } = await invitingCommunity();
+    const [p] = await users(1);
+    const inv = await invite(inviter, c);
+    const before = await snapshot(c, p, inviter, [inv.id]);
+    const res = await holdAndRace({
+      ...MEMBER_ROW_LOCK(c, inviter),
+      mutate: (b) => b.query(`UPDATE communities.members SET status='inactive' WHERE community_id=$1 AND user_id=$2`, [c, inviter]),
+    }, [['%communities.members%FOR SHARE%', 1]], () => as(p).accept(inv.code));
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('FORBIDDEN');
+    const after = await snapshot(c, p, inviter, [inv.id]);
+    expect(after.invitations).toEqual(before.invitations);
+    expect(after.attribution).toEqual(before.attribution);
+    expect(await memberRow(c, p)).toBeUndefined();
+  });
+
+  it('an invitee blocked while the acceptance waits on its row is refused with 409 and consumes nothing', async () => {
+    const { c, inviter } = await invitingCommunity();
+    const [p] = await users(1);
+    await addMember(c, p, 'left', 'member');
+    const inv = await invite(inviter, c);
+    const res = await holdAndRace({
+      ...MEMBER_ROW_LOCK(c, p),
+      mutate: (b) => b.query(`UPDATE communities.members SET status='inactive' WHERE community_id=$1 AND user_id=$2`, [c, p]),
+    }, [['%SELECT status, role FROM communities.members%FOR UPDATE%', 1]], () => as(p).accept(inv.code));
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('MEMBERSHIP_RESTORE_REQUIRES_STAFF');
+    expect(await invitationRow(inv.id)).toMatchObject({ invitee_id: null, invitation_accepted_at: null });
+    expect(await memberRow(c, p)).toMatchObject({ status: 'inactive' });
+  });
+
+  it.each(['acceptance', 'duplicate create'])('a community archived while the %s waits is refused with 400 COMMUNITY_INACTIVE', async (path) => {
+    const { c, inviter } = await invitingCommunity();
+    const [p] = await users(1);
+    const inv = await invite(inviter, c);
+    const body = await duplicateBody(c);
+    const res = await holdAndRace({
+      ...COMMUNITY_ROW_LOCK(c),
+      mutate: (b) => b.query(`UPDATE communities.communities SET status='archived' WHERE id=$1`, [c]),
+    }, [[MEMBER_INSERT, 1]], () => (path === 'acceptance' ? as(p).accept(inv.code) : as(p).create(body)));
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('COMMUNITY_INACTIVE');
+    expect(await memberRow(c, p)).toBeUndefined();
+    expect(await count(c)).toBe(2);
+    expect(await invitationRow(inv.id)).toMatchObject({ invitee_id: null, invitation_accepted_at: null });
+  });
+
+  it('a public community made private while a duplicate create waits answers the pointer after rolling back', async () => {
+    const { c } = await invitingCommunity();
+    const [p] = await users(1);
+    const body = await duplicateBody(c);
+    const res = await holdAndRace({
+      ...COMMUNITY_ROW_LOCK(c),
+      mutate: (b) => b.query(`UPDATE communities.communities SET access_type='private' WHERE id=$1`, [c]),
+    }, [[MEMBER_INSERT, 1]], () => as(p).create(body));
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject(PRIVATE_POINTER);
+    expect(res.body.data.token).toBeUndefined();
+    expect(res.body.data.community.current_members).toBe(2);
+    expect(await memberRow(c, p)).toBeUndefined();
+    expect(await count(c)).toBe(2);
+  });
+
+  it('unlocks and settles when a barrier expectation fails (the failed-barrier cleanup path)', async () => {
+    const { c, inviter } = await invitingCommunity();
+    const [p] = await users(1);
+    const inv = await invite(inviter, c);
+    // Demand a waiter count that cannot happen: the helper must still unlock and settle the acceptance.
+    await expect(holdAndRace(COMMUNITY_ROW_LOCK(c), [[MEMBER_INSERT, 2]], () => as(p).accept(inv.code))).rejects.toThrow();
+    expect(await memberRow(c, p)).toMatchObject({ status: 'active' });
+    const probe = await pool.connect();
+    try {
+      await probe.query('BEGIN');
+      await expect(probe.query(`SELECT 1 FROM communities.communities WHERE id=$1 FOR UPDATE NOWAIT`, [c])).resolves.toBeDefined();
+    } finally {
+      probe.release(await probe.query('ROLLBACK').then(() => undefined, (error: Error) => error));
+    }
   });
 });
