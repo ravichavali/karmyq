@@ -2,9 +2,10 @@
 
 **Date**: 2026-11-24
 **Outcome**: planned; Codex re-reviewed `6ee743ca` on 2026-11-24: **PASS — planning review
-cleared**, R3-1 resolved, no new findings in this revision. **Execution: Task 1 (evidence only)
-complete at `ca97d62c`; live drift matches the plan exactly. Task 2 (the first manifest edit)
-has not started.**
+cleared**, R3-1 resolved, no new findings in this revision. **Execution: Tasks 1-2 complete.
+Task 1 (evidence only, at `ca97d62c`): live drift matches the plan exactly. Task 2: nine
+manifest ranges bumped; the sprint-122 lock-parity test is now intentionally RED until the
+Task 3 lock splice. Task 3 has not started; do not push before it is green.**
 Prior review records below are historical; the final verdict supersedes their blocker lists.
 Sprint 146 goal named by the
 maintainer 2026-11-24: **Expo drift #329** — align the nine drifted SDK-57 pins in `apps/mobile`
@@ -18,7 +19,7 @@ number and demo-data operations remain unauthorized.
 |---|---|
 | **Branch** | `agent/claude/sprint-146-planning`, cut from `origin/master` `95d5e8c1` (fetched 2026-11-24) |
 | **Base** | `origin/master` `95d5e8c1` = Sprint 145, [PR #342](https://github.com/ravichavali/karmyq/pull/342), v11.118.0 |
-| **Active editor** | Claude (executor) ran Task 1 on 2026-11-24 and committed this handoff update only. Next editor: the executor for Task 2 when the maintainer says go; one editor at a time in the shared Windows checkout |
+| **Active editor** | Claude (executor) ran Tasks 1-2 on 2026-11-24 and committed the Task 2 checkpoint. Next editor: the executor for Task 3 when the maintainer says go; one editor at a time in the shared Windows checkout |
 | **Reviewer role** | Codex re-reviewed spec/plan at `6ee743ca`: PASS, R1-R4/RR1-RR4/R3-1 resolved; implementation still requires its own verification and reviews |
 | **Owned paths** | The Sprint 145 post-merge record (rides with this PR) plus the Sprint 146 spec, plan, this handoff, `docs/adr/ADR-059-dependency-security-gate.md`, `apps/mobile/package.json`, `package-lock.json`, root `package.json` version, `apps/mobile/claude.md` |
 | **Shared resources needed** | Version bump AUTHORIZED (v11.119.0). Merge slot, any ADR number, further dependency work and demo-data operations each need their own maintainer yes |
@@ -45,11 +46,13 @@ number and demo-data operations remain unauthorized.
 
 **Next chat (executor):** read this handoff, run `git status --short` and
 `git branch --show-current`, re-run `git fetch origin && git log --oneline origin/master -1`
-(must still be `95d5e8c1`), then start plan Task 2: bump the nine manifest ranges and watch the
-sprint-122 lock-parity test go red. Load `superpowers:test-driven-development` first. Task 1's
-captured values and baselines are in the Task 1 evidence block below. Reuse
-`agent/claude/sprint-146-planning`. If master has moved past `95d5e8c1`, stop and re-plan,
-because the base changed. Merge/deploy still require a fresh maintainer yes.
+(must still be `95d5e8c1`), then start plan Task 3: the override-aware closure probe,
+reverse-break scan, surgical lock splice and strict pinned-npm `npm ci` proof. It turns
+Task 2's red sprint-122 run green. Compare against the Task 1 evidence block's baselines
+(1845 nodes; 9 root / 45 total `npm ls --package-lock-only` problems). Reuse
+`agent/claude/sprint-146-planning`. **Do not push until Task 3 is green**, because the branch tip is
+intentionally red. If master has moved past `95d5e8c1`, stop and re-plan, because the base
+changed. Merge/deploy still require a fresh maintainer yes.
 
 ## Codex non-author review — 2026-11-24
 
@@ -280,7 +283,7 @@ version entries). Re-run the citation checks at execution and record
 | Task | State | SHA / evidence |
 |---|---|---|
 | 1 Branch state + live drift capture | **done** 2026-11-24 | Evidence only, at `ca97d62c`; no repo file changed except this handoff. See the Task 1 evidence block below |
-| 2 Bump nine manifest ranges | pending | — |
+| 2 Bump nine manifest ranges | **done** 2026-11-24 (red by design) | `apps/mobile/package.json`: exactly nine `dependencies` lines changed (9+/9−), to the Task 1 values; nothing else touched. **Red case observed**: explicit-config sprint-122 run, exit 1, **1 of 16 tests fails**, "the lockfile satisfies every apps/mobile declaration", naming exactly the nine as `lock has <old>, manifest wants <new>` (e.g. `expo: lock has 57.0.31, manifest wants ~57.0.34`); the other 15 pass. Lock untouched until Task 3 |
 | 3 Lockfile splice + npm ci proof | pending | — |
 | 4 Drift gates green | pending | — |
 | 5 Mobile tests + type-check + root regression | pending | — |
@@ -329,9 +332,10 @@ version entries). Re-run the citation checks at execution and record
 
 ## Blockers and decisions
 
-- **Planning-review blockers**: none; Codex cleared spec/plan at `6ee743ca`. Task 1 evidence is
-  captured, and implementation (Task 2 onward) has not started. Merge requires a fresh
-  maintainer yes (Sprint 145's merge authorization does not carry over).
+- **Planning-review blockers**: none; Codex cleared spec/plan at `6ee743ca`. Tasks 1-2 are done.
+  The branch tip is intentionally red (manifest ahead of lock) until Task 3, so no push before
+  then. Merge requires a fresh maintainer yes (Sprint 145's merge authorization does not carry
+  over).
 - **Decision (Sprint 145, 2026-11-23)**: D1 an active invitee gets a no-write 200; D2 an
   invitation promotes a pending applicant; D3 any live active member may admit someone to a
   private community. Shipped — do not re-debate.
