@@ -1,9 +1,9 @@
 # Sprint 146 in execution — Expo SDK drift reconciliation (#329) + Deepmerge #178 close-out — Handoff
 
 **Date**: 2026-11-25
-**Outcome**: in progress. Plan Tasks 1-8 are done and committed on the task branch; **nothing is
-pushed** (the remote branch is still at `013d4923`). Task 9 (SDLC quality gates) is next. The
-planning review was cleared by Codex at `6ee743ca`.
+**Outcome**: in progress. Plan Tasks 1-9 are done and committed on the task branch; **nothing is
+pushed** (the remote branch is still at `013d4923`). Task 10 (final verification) is next. The
+planning review was cleared by Codex at `6ee743ca`; the Task 9 gates are resolved.
 
 Sprint 146 goal, named by the maintainer 2026-11-24: **Expo drift #329**, which aligns the nine
 drifted SDK-57 pins in `apps/mobile` to Expo's live version map. Two maintainer authorizations
@@ -44,15 +44,13 @@ demo-data operations remain unauthorized.
    subagent review, commit and update this handoff's task status (task, state, SHA, evidence)
    and say what you are waiting on. A mid-sprint pickup reads this handoff, never `git log`.
 
-**Next unchecked task**: **Task 9, SDLC quality gates** on the branch diff
-(`git diff origin/master...HEAD`): `/simplify`, then `/code-review`, then `/security-review`. Record
-each result with the SHA of the reviewed HEAD. ⚠️ Plan Task 9's `/code-review` bullet still says
-"the 1 predicted add (nested minimatch)". That is a stale round-1 leftover contradicting RR1 and
-Task 3's result. The correct expectation is **changed 32 lock nodes (31 hoisted moves + the
-`apps/mobile` workspace node), added 0, removed 0, no minimatch node touched**, plus the
-root/lock version lines from Task 7. Then Task 10 (final `/pre-commit-check` at the final HEAD,
-re-running the suites Task 5 ran at `03e398fe`), then Task 11 (PR + merge/deploy, maintainer-
-authorized only).
+**Next unchecked task**: **Task 10, final verification** at the final HEAD: `/pre-commit-check`
+(`bash scripts/pre-commit-check.sh`) and a re-run of the full root suite (`npm test -- --force`).
+Task 5's full run was at `03e398fe`; docs, version and the d9 test comment followed, so it no
+longer counts as same-HEAD evidence. Revert the landing generator churn afterwards (see Open
+candidates). Then Task 11: push, open the PR (closes #329) with a `## Validation` ledger, and
+let CI run. The chat ends once the PR is open; merge needs a fresh maintainer yes. A non-author
+(Codex) review of the branch is owed before merge.
 
 ## Sprint 146 goal and arc
 
@@ -125,8 +123,8 @@ stale nested-minimatch expectation (see Next unchecked task).
 | 6 ADR-059 deepmerge reconciliation | **done** 2026-11-25 | `68e806ec` + `24236a8a` (record `cb51b1fc`). Live re-check 2026-11-25T15:24Z: advisory withdrawn 2026-11-16T18:55:38Z (CVE-2026-93753), PR #178 CLOSED unmerged, 0 open code-scanning alerts on master, deepmerge 4.3.1 latest = locked. `ADR-059…:524-531`: original sentence kept, dated close-out appended. `docs/adr/README.md` ADR-059 line gains the Sprint 146 note. Landing: the ADR-059 page delta is `content` only, matching the source exactly; unrelated churn reverted. Doc drift gate 41/41 |
 | 7 Version v11.119.0 + mobile doc line | **done** 2026-11-25 | `8d50a0b2` (+ `edb6cc48`). Version 11.119.0 in `package.json` and both lock entries (4 lock lines, version-only against the splice). `apps/mobile/claude.md` Sprint 146 bullet: pins, closure, override lesson, BUG-041 still stands (expo-router 57.0.32 keeps `query-string ^7.1.3`), `@expo/cli` 57.0.35 still defaults tsconfig paths on, plus the `edgesOut` correction (and a pointer in the S134 bullet). Branch landing set = the five expected files. 3 suites / 69 tests |
 | 8 Handoff rewrite | **done** 2026-11-25 | This rewrite (a handoff cannot record its own SHA). Self-audit line above |
-| 9 SDLC quality gates | **in progress** 2026-11-25 | **`/simplify`** at `3b10d021`: run inline (four angles, no source code in the diff). 1 fixed in `cfa22949` (the mobile bullet restated derivable pins); 2 altitude findings skipped as outside the diff and listed under Open candidates. **`/code-review` medium** at `cfa22949`: 5 findings, all verified. **F1** (Important, CONFIRMED): `@expo/cli` 57.0.35 lists `zod` only as a devDependency, so the `package.json:108-110` scoped override is inert. Maintainer decision 2026-11-25: keep it as a guard and document it. **F2** (Important, PARTIAL): the sprint-131-d9 zod comment was false, but the case still enforces one locked copy at the pin; comment corrected, assertions unchanged, mutation-proved able to fail. **F3** (nit, CONFIRMED): `ADR-059` Sprint 146 zod note added after line 475; landing page regenerated (`content` only). **F4** (nit, CONFIRMED): mobile bullet notes the dropped zod. **F5** (nit, CONFIRMED): plan erratum under Task 9. After the fixes, d9 + sprint-122 + sprint-124 + the doc drift gate pass, 4 suites / 100 tests. **`/code-review` re-run** on `cfa22949...a3ba68c1`: 4 nits, all CONFIRMED and fixed. Say "no runtime `zod`", because 57.0.35 keeps `zod ^3.25.76` as a devDependency; the registry shows 57.0.32/58.1.15 runtime and 57.0.35/58.1.21 dev-only. A bump that brings a runtime `zod ^3` back must re-run the Sprint 134 consumer check. The d9 comment now matches its assertions. Next: `/security-review` |
-| 10 Final verification | pending | `/pre-commit-check` at the final HEAD; re-run the suites, since Task 5 ran at `03e398fe` and docs/version commits followed |
+| 9 SDLC quality gates | **done** 2026-11-25 | **`/simplify`** at `3b10d021`: run inline (four angles, no source code in the diff). 1 fixed in `cfa22949` (the mobile bullet restated derivable pins); 2 altitude findings skipped as outside the diff and listed under Open candidates. **`/code-review` medium** at `cfa22949`: 5 findings, all verified. **F1** (Important, CONFIRMED): `@expo/cli` 57.0.35 lists `zod` only as a devDependency, so the `package.json:108-110` scoped override is inert. Maintainer decision 2026-11-25: keep it as a guard and document it. **F2** (Important, PARTIAL): the sprint-131-d9 zod comment was false, but the case still enforces one locked copy at the pin; comment corrected, assertions unchanged, mutation-proved able to fail. **F3** (nit, CONFIRMED): `ADR-059` Sprint 146 zod note added after line 475; landing page regenerated (`content` only). **F4** (nit, CONFIRMED): mobile bullet notes the dropped zod. **F5** (nit, CONFIRMED): plan erratum under Task 9. After the fixes, d9 + sprint-122 + sprint-124 + the doc drift gate pass, 4 suites / 100 tests. **`/code-review` re-run** on `cfa22949...a3ba68c1`: 4 nits, all CONFIRMED and fixed. Say "no runtime `zod`", because 57.0.35 keeps `zod ^3.25.76` as a devDependency; the registry shows 57.0.32/58.1.15 runtime and 57.0.35/58.1.21 dev-only. A bump that brings a runtime `zod ^3` back must re-run the Sprint 134 consumer check. The d9 comment now matches its assertions. **`/security-review`** at `4c2b0223`: **no findings**. Run inline, since the diff has no executable code; the only code-like file is the comment-only d9 test edit. Supply-chain check on the lock vs `origin/master`: changed 33 (31 moves + `apps/mobile` + root version), added 0, removed 0. All 31 package nodes come from `registry.npmjs.org` with sha512 integrity equal to `npm view`. No `hasInstallScript`/`bin`/`os`/`cpu` changes. None of the 29 override-governed packages moved. All 266 dependency edges of the moved nodes resolve to existing lock nodes. `npm audit --audit-level=high` exit 0, 0 vulnerabilities; `.npmrc` `ignore-scripts=true` |
+| 10 Final verification | **next** | `/pre-commit-check` at the final HEAD; re-run the suites, since Task 5 ran at `03e398fe` and docs/version commits followed |
 | 11 Merge + deploy | pending, **maintainer-authorized only** | Push, open the PR (closes #329), CI, then a fresh maintainer yes for merge. The chat ends once the PR is open |
 
 ### Execution evidence carried forward
@@ -176,9 +174,9 @@ stale nested-minimatch expectation (see Next unchecked task).
 
 ## Blockers and decisions
 
-- **Blockers**: none. Planning review is cleared; Tasks 1-8 are done. Implementation review
-  (Task 9 gates + a non-author branch review) is owed before the PR. Merge requires a fresh
-  maintainer yes (Sprint 145's merge authorization does not carry over).
+- **Blockers**: none. Planning review is cleared; Tasks 1-9 are done and the Task 9 gates are
+  resolved. A non-author branch review is owed before merge. Merge requires a fresh maintainer yes
+  (Sprint 145's merge authorization does not carry over).
 - **Decision (2026-11-24, Sprint 146 planning)**: goal = Expo drift #329; the #178 re-check rides
   along as docs only; version bump to v11.119.0 authorized. BUG-109 (invitation-generation
   membership check) is the natural next sprint's candidate; BUG-107 stays deferred.
