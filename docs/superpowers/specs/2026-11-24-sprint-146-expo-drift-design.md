@@ -116,6 +116,13 @@ The re-check is already done; this sprint lands its documentation:
   in the handoff).
 - Open code-scanning alerts on master: **0** (`gh api repos/.../code-scanning/alerts`).
 
+> **Erratum (execution, 2026-11-25, process review):** "#178" in this obligation is **Dependabot
+> alert #178** (deepmerge, dismissed `tolerable_risk` 2026-10-28 in Sprint 134), not PR #178.
+> PR #178 is an unrelated dev-deps bump closed 2026-07-30. The original "HTTP 410" was the right
+> evidence: `gh api repos/ravichavali/karmyq/dependabot/alerts/178` returns 410, "Alert number
+> 178 has been withdrawn". The arbiter is 0 open Dependabot alerts, not code-scanning alerts. The
+> conclusion below stands.
+
 Conclusion: no upgrade is or was needed — `deepmerge` 4.3.1 remains latest and below the ADR-059
 gate floor, which was and is the correct posture. The 2026-12-01 re-check obligation closes as
 "withdrawn by GitHub 2026-11-16; re-checked 2026-11-24; no open alert; no registry entry."

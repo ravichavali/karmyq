@@ -1,10 +1,10 @@
 # Sprint 146 in execution — Expo SDK drift reconciliation (#329) + Deepmerge #178 close-out — Handoff
 
 **Date**: 2026-11-25
-**Outcome**: in progress. Plan Tasks 1-10 are done and committed on the task branch; **nothing is
-pushed** (the remote branch is still at `013d4923`). Task 11 (push + PR) is next. The planning
-review was cleared by Codex at `6ee743ca`, the Task 9 gates are resolved, and `pre-commit-check`
-is green at `acd22556`.
+**Outcome**: in progress. Plan Tasks 1-10 are done. Task 11 is underway: the pre-PR
+`process-reviewer` returned FAIL (B1 blocking: "#178" is Dependabot alert #178, not PR #178).
+Its findings are fixed on the branch, and the push and PR follow. The planning review was
+cleared by Codex at `6ee743ca` and the Task 9 gates are resolved.
 
 Sprint 146 goal, named by the maintainer 2026-11-24: **Expo drift #329**, which aligns the nine
 drifted SDK-57 pins in `apps/mobile` to Expo's live version map. Two maintainer authorizations
@@ -18,9 +18,9 @@ demo-data operations remain unauthorized.
 |---|---|
 | **Branch** | `agent/claude/sprint-146-planning`, cut from `origin/master` `95d5e8c1` (fetched 2026-11-24; re-checked 2026-11-25, unchanged) |
 | **Base** | `origin/master` `95d5e8c1` = Sprint 145, [PR #342](https://github.com/ravichavali/karmyq/pull/342), v11.118.0 |
-| **Active editor** | Claude (executor) ran Tasks 1-8 on 2026-11-24/25, one checkpoint commit per task. Next editor: the Task 9 executor when the maintainer says go; one editor at a time in the shared Windows checkout |
-| **Reviewer role** | Codex cleared the spec and plan at `6ee743ca` (planning only). Implementation review is still owed: the Task 9 gates, then a non-author review of the branch before the PR |
-| **Owned paths** | The Sprint 145 post-merge record (rides with this PR), the Sprint 146 spec, plan and this handoff, `apps/mobile/package.json`, `package-lock.json`, root `package.json` version, `apps/mobile/claude.md`, `docs/adr/ADR-059-dependency-security-gate.md`, the ADR-059 line of `docs/adr/README.md`, `apps/landing/src/data/docs/concepts/adr-059-dependency-security-gate.json` |
+| **Active editor** | Claude (executor) ran Tasks 1-11 on 2026-11-24/25, one checkpoint commit per task. Next editor: the reviewer (Codex) for the branch review, then the maintainer for merge; one editor at a time in the shared Windows checkout |
+| **Reviewer role** | Codex cleared the spec and plan at `6ee743ca` (planning only). The Task 9 gates and the pre-PR `process-reviewer` are done (see the Task 9 and Task 11 rows). A non-author (Codex) review of the branch is still owed before merge |
+| **Owned paths** | The Sprint 145 post-merge record (rides with this PR), the Sprint 146 spec, plan and this handoff, `apps/mobile/package.json`, `package-lock.json`, root `package.json` version, `apps/mobile/claude.md`, `docs/adr/ADR-059-dependency-security-gate.md`, the ADR-059 line of `docs/adr/README.md`, `apps/landing/src/data/docs/concepts/adr-059-dependency-security-gate.json`, and the zod-case comment in `tests/regression/sprint-131-d9-security-overrides.test.ts` (from `/code-review` F2) |
 | **Shared resources needed** | Version bump AUTHORIZED and done (v11.119.0, re-derived from `origin/master` at 11.118.0). Merge slot, any ADR number, further dependency work and demo-data operations each need their own maintainer yes |
 
 ## Links
@@ -45,9 +45,9 @@ demo-data operations remain unauthorized.
    subagent review, commit and update this handoff's task status (task, state, SHA, evidence)
    and say what you are waiting on. A mid-sprint pickup reads this handoff, never `git log`.
 
-**Next unchecked task**: **Task 11, push + PR.** First run the judgment-level `process-reviewer`
-agent once on the full PR diff (the `pre-commit-check` skill reserves it for just before the PR).
-Then `git push -u origin agent/claude/sprint-146-planning`: the pre-push hook runs unit +
+**Next unchecked task**: **Task 11, push + PR.** The `process-reviewer` has run, and its
+findings are fixed (see the Task 11 row). Re-run `pre-commit-check` at the fix HEAD, then
+`git push -u origin agent/claude/sprint-146-planning`: the pre-push hook runs unit +
 regression, and an instant, silent push means no hook ran. Open the PR against `master` with
 `Closes #329`, following `.github/pull_request_template.md`, a `## Validation` ledger citing the
 evidence in this file, and the bundled Sprint 145 record named in the body. Then stop: the
@@ -105,13 +105,13 @@ findings, 1 BLOCKER fixed (raw `expo install --check` exit 1 with the two jest r
 state, not exit 0), 2 NITs fixed, 1 NIT rejected with evidence. **Self-audit at `edb6cc48`: 2
 findings fixed.** Twelve live citations this handoff carries were re-checked against the files
 and all 12 hold (`package.json:70`; the sprint-131-d9 every-copy floor; `sprint-122…:103-115`;
-the `cmd.exe` wrap; the two registered divergences; `ADR-059…:524-531`; `invitations.ts:12-94`;
+the `cmd.exe` wrap; the two registered divergences; the ADR-059 deepmerge close-out, then at `:524-531` and now at `:532-541`; `invitations.ts:12-94`;
 `generate-docs` ADR publishing; `.npmrc` `ignore-scripts`; root `jest.config.js` testMatch;
 `instantiateMetro.js:295`; lock 11.119.0 / 1845 nodes). The two fixes: the old Task 3 row
 ended "Steps 6-8 … pending" after recording them done (removed in this rewrite), and the
 next-chat block listed a "process review" that plan Task 9 does not name (fixed in
-`edb6cc48`). Flagged but not edited, because the plan is the reviewed artifact: plan Task 9's
-stale nested-minimatch expectation (see Next unchecked task).
+`edb6cc48`). Plan Task 9's stale nested-minimatch expectation was later given an erratum line
+under that task (`4ce53806`), and the spec has an erratum for the #178 identity (Task 11).
 
 ## Task status
 
@@ -122,12 +122,12 @@ stale nested-minimatch expectation (see Next unchecked task).
 | 3 Lockfile splice + strict proof | **done** 2026-11-24, green | `0ae053d1` (record `557c4183`). Override-aware closure probe exit 0: 31 moves equal to the plan table, plus one `OVERRIDE >=11.0.1 satisfied by 11.0.3 — no move` line. Reverse-break scan CLEAN. Diff proof: **changed 32, added 0, removed 0**, every integrity/tarball equals `npm view`, key order kept, workspace-node parity OK, minimatch untouched. `npx -y npm@11.19.0 ci` from uppercase `C:\` exit 0 with the lock unchanged. `npm ls --package-lock-only` root problems **9 → 9**, total problem lines **45 → 45**. All 31 installed at their targets. sprint-122 **16/16**. `npm audit --audit-level=high` exit 0 (0 vulnerabilities) |
 | 4 Drift gates green | **done** 2026-11-24 | Evidence only, at `557c4183` (record `03e398fe`). Raw `npx expo install --check` (from `apps/mobile`) exit 1 with exactly the two jest rows, the designed ADR-094 state. `node scripts/expo-divergences.js` **exit 0**: two REGISTERED DIVERGENCE lines plus `✅ Expo divergence gate clean (2 registered divergence(s)).`. sprint-124 **31/31** |
 | 5 Mobile tests + type check + root regression | **done** 2026-11-25 | Evidence only, at `03e398fe` (record `69fe86a6`). Mobile `tsc --noEmit` exit 0; mobile jest 2 suites / 5 tests. `npm test -- --force`: exit 0, **27/27 Turbo tasks, 0 cached**, 11m13s; root `@karmyq/tests` 50 suites / 1098 tests + 10 / 101, sprint-122 and sprint-124 PASS in that run. The landing generator churn it leaves was reverted |
-| 6 ADR-059 deepmerge reconciliation | **done** 2026-11-25 | `68e806ec` + `24236a8a` (record `cb51b1fc`). Live re-check 2026-11-25T15:24Z: advisory withdrawn 2026-11-16T18:55:38Z (CVE-2026-93753), PR #178 CLOSED unmerged, 0 open code-scanning alerts on master, deepmerge 4.3.1 latest = locked. `ADR-059…:524-531`: original sentence kept, dated close-out appended. `docs/adr/README.md` ADR-059 line gains the Sprint 146 note. Landing: the ADR-059 page delta is `content` only, matching the source exactly; unrelated churn reverted. Doc drift gate 41/41 |
+| 6 ADR-059 deepmerge reconciliation | **done** 2026-11-25 | `68e806ec` + `24236a8a` (record `cb51b1fc`). Live re-check 2026-11-25T15:24Z: advisory withdrawn 2026-11-16T18:55:38Z (CVE-2026-93753), deepmerge 4.3.1 latest = locked. ⚠️ **Corrected in Task 11 (process review B1):** "#178" is **Dependabot alert #178** (deepmerge, dismissed `tolerable_risk` 2026-10-28), not PR #178 (an unrelated 2026-07-30 dev-deps bump). `gh api …/dependabot/alerts/178` returns HTTP 410, "Alert number 178 has been withdrawn", and there are 0 open Dependabot alerts (2026-11-25). The ADR, landing page and spec erratum are fixed. Commit `68e806ec`'s message still says PR #178. `ADR-059…:532-541` (was 524-531): original sentence kept, dated close-out appended. `docs/adr/README.md` ADR-059 line gains the Sprint 146 note. Landing: the ADR-059 page delta is `content` only, matching the source exactly; unrelated churn reverted. Doc drift gate 41/41 |
 | 7 Version v11.119.0 + mobile doc line | **done** 2026-11-25 | `8d50a0b2` (+ `edb6cc48`). Version 11.119.0 in `package.json` and both lock entries (4 lock lines, version-only against the splice). `apps/mobile/claude.md` Sprint 146 bullet: pins, closure, override lesson, BUG-041 still stands (expo-router 57.0.32 keeps `query-string ^7.1.3`), `@expo/cli` 57.0.35 still defaults tsconfig paths on, plus the `edgesOut` correction (and a pointer in the S134 bullet). Branch landing set = the five expected files. 3 suites / 69 tests |
 | 8 Handoff rewrite | **done** 2026-11-25 | This rewrite (a handoff cannot record its own SHA). Self-audit line above |
 | 9 SDLC quality gates | **done** 2026-11-25 | **`/simplify`** at `3b10d021`: run inline (four angles, no source code in the diff). 1 fixed in `cfa22949` (the mobile bullet restated derivable pins); 2 altitude findings skipped as outside the diff and listed under Open candidates. **`/code-review` medium** at `cfa22949`: 5 findings, all verified. **F1** (Important, CONFIRMED): `@expo/cli` 57.0.35 lists `zod` only as a devDependency, so the `package.json:108-110` scoped override is inert. Maintainer decision 2026-11-25: keep it as a guard and document it. **F2** (Important, PARTIAL): the sprint-131-d9 zod comment was false, but the case still enforces one locked copy at the pin; comment corrected, assertions unchanged, mutation-proved able to fail. **F3** (nit, CONFIRMED): `ADR-059` Sprint 146 zod note added after line 475; landing page regenerated (`content` only). **F4** (nit, CONFIRMED): mobile bullet notes the dropped zod. **F5** (nit, CONFIRMED): plan erratum under Task 9. After the fixes, d9 + sprint-122 + sprint-124 + the doc drift gate pass, 4 suites / 100 tests. **`/code-review` re-run** on `cfa22949...a3ba68c1`: 4 nits, all CONFIRMED and fixed. Say "no runtime `zod`", because 57.0.35 keeps `zod ^3.25.76` as a devDependency; the registry shows 57.0.32/58.1.15 runtime and 57.0.35/58.1.21 dev-only. A bump that brings a runtime `zod ^3` back must re-run the Sprint 134 consumer check. The d9 comment now matches its assertions. **`/security-review`** at `4c2b0223`: **no findings**. Run inline, since the diff has no executable code; the only code-like file is the comment-only d9 test edit. Supply-chain check on the lock vs `origin/master`: changed 33 (31 moves + `apps/mobile` + root version), added 0, removed 0. All 31 package nodes come from `registry.npmjs.org` with sha512 integrity equal to `npm view`. No `hasInstallScript`/`bin`/`os`/`cpu` changes. None of the 29 override-governed packages moved. All 266 dependency edges of the moved nodes resolve to existing lock nodes. `npm audit --audit-level=high` exit 0, 0 vulnerabilities; `.npmrc` `ignore-scripts=true` |
 | 10 Final verification | **done** 2026-11-25 | Evidence only, at `acd22556`. Run 1, with Turbo's cache forced off: `npm test` exited 0, and the script failed closed only on the landing churn, restored from its snapshot. Run 2: `pre-commit-check` exit 0 with a clean tree. See Verification references |
-| 11 Merge + deploy | **next** (push + PR); merge **maintainer-authorized only** | process-reviewer, push (pre-push hook), open the PR (closes #329) with a `## Validation` ledger, CI. The chat ends once the PR is open; a Codex branch review and a fresh maintainer yes come before merge |
+| 11 Merge + deploy | **in progress** (push + PR); merge **maintainer-authorized only** | **`process-reviewer`** at `a27740c0`: FAIL. All findings were verified and fixed in the Task 11 fix commit. **B1** (blocking, CONFIRMED): the obligation is Dependabot alert #178 (dismissed `tolerable_risk` 2026-10-28), which now returns HTTP 410 "withdrawn", with 0 open Dependabot alerts. PR #178 is unrelated. ADR-059 close-out rewritten, landing page regenerated (`content` = source), spec erratum added. **S1**: runtime `zod` was dropped in 57.0.33 / 58.1.18 (registry), not 57.0.35 / 58.1.21; ADR note and d9 comment fixed. **S2**: PR ledger cache labels and same-HEAD evidence corrected (handoff files feed the doc drift gate). **S3**: stale handoff rows fixed. **N1-N3**: ledger wording, README "no override or registry change", PR body notes the Sprint 144 CONTEXT flip. **N4**: no change; the tripwire is already a candidate. It also ran `pre-commit-check` at `a27740c0`: exit 0. Then: `pre-commit-check` at the fix HEAD, push, PR (closes #329). The chat ends once the PR is open; a Codex branch review and a fresh maintainer yes come before merge |
 
 ### Execution evidence carried forward
 
@@ -160,7 +160,9 @@ stale nested-minimatch expectation (see Next unchecked task).
 - **Task 5**: ran `npm test -- --force` rather than bare `npm test`. The ledger verified the saved
   full run rather than re-running 11 minutes at an unchanged HEAD; Task 10 re-runs at the final HEAD.
 - **Task 6**: appended a dated close-out rather than rewriting the Sprint 134 amendment sentence.
-  PR #178 is described only as "closed unmerged", because its title is a generic dev-deps group bump.
+  That ruling cited "PR #178 closed unmerged" while noting its generic dev-deps title. The mismatch
+  was the signal, and the process review (Task 11, B1) resolved it: the obligation is Dependabot
+  alert #178, now withdrawn (HTTP 410).
   Added the `docs/adr/README.md` index note (not in the plan file map; CLAUDE.md Discipline 6).
 - **Task 7**: the mobile bullet carries more than the plan's one line: the override lesson, two
   re-verified facts, and the `edgesOut` correction assigned to this task.
@@ -244,12 +246,15 @@ stale nested-minimatch expectation (see Next unchecked task).
   `TURBO_FORCE=true bash scripts/pre-commit-check.sh`. `npm test` exited 0 with no cached result
   replayed (2026-11-25T17:08-17:18Z), and the script failed closed only on the usual landing
   generator churn, restored from its pre-npm snapshot. Run 2: `bash scripts/pre-commit-check.sh`
-  exit 0 (17:19-17:23Z), tree clean, nothing untracked. The only commit since `acd22556` is the
-  handoff update that records this. Earlier: the full root suite at `03e398fe` (`npm test --
-  --force`, 27/27, 0 cached). CI runs on push, and the pre-push hook re-runs unit + regression.
+  exit 0 (17:19-17:23Z), tree clean, nothing untracked. The root `@karmyq/tests#test` is
+  `cache: false`, so run 2 re-ran root unit + regression; other workspaces may have replayed.
+  `process-reviewer` also ran `pre-commit-check` at `a27740c0`: exit 0. The Task 11 fixes moved
+  HEAD again. `.claude/handoff/*.md` is a `doc-context-drift-gate` input, so the final same-HEAD
+  evidence is in the PR's `## Validation` ledger, not here. Earlier: the full root suite at
+  `03e398fe` (`npm test -- --force`, 27/27, 0 cached).
 - **Sprint 146 live evidence**: master `95d5e8c1` and no open PRs (observed 2026-11-25); drift gate
-  green after the splice (Task 4); deepmerge advisory withdrawn, PR #178 CLOSED, 0 open
-  code-scanning alerts (observed 2026-11-25T15:24Z).
+  green after the splice (Task 4); deepmerge advisory withdrawn (2026-11-16), Dependabot alert
+  #178 returns HTTP 410 "withdrawn", 0 open Dependabot alerts (observed 2026-11-25).
 - **Sprint 145**: PR #342 merged 2026-11-24T19:42:37Z as squash `95d5e8c1`; CI/CD 45473083712
   success 14/14 with deploy; nine services healthy (observed 2026-11-24).
 

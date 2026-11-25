@@ -474,9 +474,9 @@ manifests, command outputs and MCP arguments under `zod` 3.25.76 and 4.6.6, and 
 neither, so adding `expo-mcp` means re-checking it under zod 4. `sprint-131-d9-security-overrides.test.ts` fails
 if the pin and the lock's single `zod` copy diverge. **Sprint 146 (2026-11-25):** `@expo/cli` 57.0.35 no
 longer lists `zod` as a runtime dependency. It is only a devDependency (`^3.25.76`), which consumers never install.
-The CLI resolves `zod` from `expo-mcp`'s directory, and only for MCP (`build/src/start/server/mcp/MCP.js:60`). Expo
-made the same move in 58.1.21; 58.1.15, cited above, still had runtime `zod ^3.25.76` (registry, 2026-11-25). The
-scoped pin therefore applies to nothing in this lock. The maintainer kept it on 2026-11-25 as a guard for any
+The CLI resolves `zod` from `expo-mcp`'s directory, and only for MCP (`build/src/start/server/mcp/MCP.js:60`). The
+runtime `zod` was dropped in 57.0.33 and 58.1.18; 57.0.32 and 58.1.17 (and 58.1.15, cited above) still declare
+`zod ^3.25.76` (registry, 2026-11-25). The scoped pin therefore applies to nothing in this lock. The maintainer kept it on 2026-11-25 as a guard for any
 `@expo/cli` that declares a runtime `zod ^3`. The pin would force 4.6.6 onto such a version silently, so a bump that
 brings a runtime `zod` back must re-run the consumer check above before keeping the pin. The lock's single `zod` copy
 stays at 4.6.6, and retiring the pin is an open candidate. Adding `expo-mcp` now means checking the `zod` that
@@ -533,9 +533,11 @@ platform binaries, which select the musl builds the Alpine images need.
 and gets no registry entry. **Re-check closed (Sprint 146, 2026-11-24):** GitHub withdrew the advisory at
 2026-11-16T18:55:38Z (`gh api advisories/GHSA-gcqx-w48m-w2h4` → `withdrawn_at`; summary now "Withdrawn Advisory:
 deepmerge mergeObject() allows prototype poisoning of returned objects", CVE-2026-93753). The "low with no fix, below
-the gate floor" reasoning above is therefore moot: there is no advisory left to gate. The re-check due by 2026-12-01
-found Dependabot PR #178 closed unmerged and zero open code-scanning alerts on master, and was re-verified on
-2026-11-25. The lock still holds `deepmerge` 4.3.1, the latest release. There was no upgrade, no registry entry and no
+the gate floor" reasoning above is therefore moot: there is no advisory left to gate. The re-check was owed for
+Dependabot alert #178, dismissed `tolerable_risk` on 2026-10-28 (Sprint 134), at the next Expo SDK move or by
+2026-12-01. On 2026-11-25 `gh api repos/ravichavali/karmyq/dependabot/alerts/178` returned HTTP 410, "Alert number
+178 has been withdrawn", and there were 0 open Dependabot alerts. (Sprint 146 first cited PR #178 here, an unrelated
+2026-07-30 dev-deps bump; that citation was wrong.) The lock still holds `deepmerge` 4.3.1, the latest release. There was no upgrade, no registry entry and no
 exemption change, and the obligation is closed. `decode-uri-component`
 GHSA-vcc3-ghjq-m6fr (moderate) stays BUG-041: alert #150 was dismissed as tolerable risk on 2026-09-14, and 0.5.1
 (2026-10-23) is still ESM-only.
