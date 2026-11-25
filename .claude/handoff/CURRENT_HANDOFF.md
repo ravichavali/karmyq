@@ -1,10 +1,11 @@
 # Sprint 146 in execution — Expo SDK drift reconciliation (#329) + Deepmerge #178 close-out — Handoff
 
 **Date**: 2026-11-25
-**Outcome**: in progress. Plan Tasks 1-10 are done. Task 11 is underway: the pre-PR
-`process-reviewer` returned FAIL (B1 blocking: "#178" is Dependabot alert #178, not PR #178).
-Its findings are fixed on the branch, and the push and PR follow. The planning review was
-cleared by Codex at `6ee743ca` and the Task 9 gates are resolved.
+**Outcome**: **PR [#343](https://github.com/ravichavali/karmyq/pull/343) open, awaiting a Codex
+branch review and the maintainer's merge decision.** It was opened 2026-11-25 at `73e93812`, and
+CI runs on it. Plan Tasks 1-10 are done. In Task 11 the pre-PR `process-reviewer` returned FAIL
+(B1: "#178" is Dependabot alert #178, not PR #178), and its findings are fixed in `73e93812`.
+**Merge and deploy are NOT authorized**; they need a fresh maintainer yes.
 
 Sprint 146 goal, named by the maintainer 2026-11-24: **Expo drift #329**, which aligns the nine
 drifted SDK-57 pins in `apps/mobile` to Expo's live version map. Two maintainer authorizations
@@ -28,7 +29,7 @@ demo-data operations remain unauthorized.
 - **Sprint 145 shipped record**: [archive/2026-11-24-sprint-145-admission-integrity-SHIPPED-v11.118.0.md](archive/2026-11-24-sprint-145-admission-integrity-SHIPPED-v11.118.0.md)
 - **Sprint 146 spec**: [docs/superpowers/specs/2026-11-24-sprint-146-expo-drift-design.md](../../docs/superpowers/specs/2026-11-24-sprint-146-expo-drift-design.md)
 - **Sprint 146 plan**: [docs/superpowers/plans/2026-11-24-sprint-146-expo-drift.md](../../docs/superpowers/plans/2026-11-24-sprint-146-expo-drift.md)
-- **PR**: none yet (opened after Task 10)
+- **PR**: [#343](https://github.com/ravichavali/karmyq/pull/343) (opened 2026-11-25 at `73e93812`; its `## Validation` ledger holds the final same-HEAD evidence)
 
 ## Quick Start
 
@@ -45,14 +46,10 @@ demo-data operations remain unauthorized.
    subagent review, commit and update this handoff's task status (task, state, SHA, evidence)
    and say what you are waiting on. A mid-sprint pickup reads this handoff, never `git log`.
 
-**Next unchecked task**: **Task 11, push + PR.** The `process-reviewer` has run, and its
-findings are fixed (see the Task 11 row). Re-run `pre-commit-check` at the fix HEAD, then
-`git push -u origin agent/claude/sprint-146-planning`: the pre-push hook runs unit +
-regression, and an instant, silent push means no hook ran. Open the PR against `master` with
-`Closes #329`, following `.github/pull_request_template.md`, a `## Validation` ledger citing the
-evidence in this file, and the bundled Sprint 145 record named in the body. Then stop: the
-chat ends once the PR is open. A non-author (Codex) review of the branch is owed, and merge needs
-a fresh maintainer yes.
+**Next step**: a **Codex non-author review of PR #343**, read-only, at its current head (re-derive
+with `gh pr view 343 --json headRefOid,statusCheckRollup`). Then the maintainer decides on merge.
+On a yes, use the `deploy` skill (merge → CI/CD → health). After merge, confirm the next daily
+`expo-sdk-drift.yml` run is green and #329 is closed (Task 11's remaining verification).
 
 ## Sprint 146 goal and arc
 
@@ -127,7 +124,7 @@ under that task (`4ce53806`), and the spec has an erratum for the #178 identity 
 | 8 Handoff rewrite | **done** 2026-11-25 | This rewrite (a handoff cannot record its own SHA). Self-audit line above |
 | 9 SDLC quality gates | **done** 2026-11-25 | **`/simplify`** at `3b10d021`: run inline (four angles, no source code in the diff). 1 fixed in `cfa22949` (the mobile bullet restated derivable pins); 2 altitude findings skipped as outside the diff and listed under Open candidates. **`/code-review` medium** at `cfa22949`: 5 findings, all verified. **F1** (Important, CONFIRMED): `@expo/cli` 57.0.35 lists `zod` only as a devDependency, so the `package.json:108-110` scoped override is inert. Maintainer decision 2026-11-25: keep it as a guard and document it. **F2** (Important, PARTIAL): the sprint-131-d9 zod comment was false, but the case still enforces one locked copy at the pin; comment corrected, assertions unchanged, mutation-proved able to fail. **F3** (nit, CONFIRMED): `ADR-059` Sprint 146 zod note added after line 475; landing page regenerated (`content` only). **F4** (nit, CONFIRMED): mobile bullet notes the dropped zod. **F5** (nit, CONFIRMED): plan erratum under Task 9. After the fixes, d9 + sprint-122 + sprint-124 + the doc drift gate pass, 4 suites / 100 tests. **`/code-review` re-run** on `cfa22949...a3ba68c1`: 4 nits, all CONFIRMED and fixed. Say "no runtime `zod`", because 57.0.35 keeps `zod ^3.25.76` as a devDependency; the registry shows 57.0.32/58.1.15 runtime and 57.0.35/58.1.21 dev-only. A bump that brings a runtime `zod ^3` back must re-run the Sprint 134 consumer check. The d9 comment now matches its assertions. **`/security-review`** at `4c2b0223`: **no findings**. Run inline, since the diff has no executable code; the only code-like file is the comment-only d9 test edit. Supply-chain check on the lock vs `origin/master`: changed 33 (31 moves + `apps/mobile` + root version), added 0, removed 0. All 31 package nodes come from `registry.npmjs.org` with sha512 integrity equal to `npm view`. No `hasInstallScript`/`bin`/`os`/`cpu` changes. None of the 29 override-governed packages moved. All 266 dependency edges of the moved nodes resolve to existing lock nodes. `npm audit --audit-level=high` exit 0, 0 vulnerabilities; `.npmrc` `ignore-scripts=true` |
 | 10 Final verification | **done** 2026-11-25 | Evidence only, at `acd22556`. Run 1, with Turbo's cache forced off: `npm test` exited 0, and the script failed closed only on the landing churn, restored from its snapshot. Run 2: `pre-commit-check` exit 0 with a clean tree. See Verification references |
-| 11 Merge + deploy | **in progress** (push + PR); merge **maintainer-authorized only** | **`process-reviewer`** at `a27740c0`: FAIL. All findings were verified and fixed in the Task 11 fix commit. **B1** (blocking, CONFIRMED): the obligation is Dependabot alert #178 (dismissed `tolerable_risk` 2026-10-28), which now returns HTTP 410 "withdrawn", with 0 open Dependabot alerts. PR #178 is unrelated. ADR-059 close-out rewritten, landing page regenerated (`content` = source), spec erratum added. **S1**: runtime `zod` was dropped in 57.0.33 / 58.1.18 (registry), not 57.0.35 / 58.1.21; ADR note and d9 comment fixed. **S2**: PR ledger cache labels and same-HEAD evidence corrected (handoff files feed the doc drift gate). **S3**: stale handoff rows fixed. **N1-N3**: ledger wording, README "no override or registry change", PR body notes the Sprint 144 CONTEXT flip. **N4**: no change; the tripwire is already a candidate. It also ran `pre-commit-check` at `a27740c0`: exit 0. Then: `pre-commit-check` at the fix HEAD, push, PR (closes #329). The chat ends once the PR is open; a Codex branch review and a fresh maintainer yes come before merge |
+| 11 Merge + deploy | **PR #343 open**; merge **maintainer-authorized only** | **`process-reviewer`** at `a27740c0`: FAIL. All findings were verified and fixed in the Task 11 fix commit. **B1** (blocking, CONFIRMED): the obligation is Dependabot alert #178 (dismissed `tolerable_risk` 2026-10-28), which now returns HTTP 410 "withdrawn", with 0 open Dependabot alerts. PR #178 is unrelated. ADR-059 close-out rewritten, landing page regenerated (`content` = source), spec erratum added. **S1**: runtime `zod` was dropped in 57.0.33 / 58.1.18 (registry), not 57.0.35 / 58.1.21; ADR note and d9 comment fixed. **S2**: PR ledger cache labels and same-HEAD evidence corrected (handoff files feed the doc drift gate). **S3**: stale handoff rows fixed. **N1-N3**: ledger wording, README "no override or registry change", PR body notes the Sprint 144 CONTEXT flip. **N4**: no change; the tripwire is already a candidate. It also ran `pre-commit-check` at `a27740c0`: exit 0. **Then, at `73e93812`:** `pre-commit-check` passed on the second run; the first failed only on the usual churn, restored. The push ran the pre-push hook: unit + regression 27/27, root regression 50 suites / 1098 tests. The report-only TDD tier was red in 4 workspaces, all `ECONNREFUSED :5432`/`:3001`, the box's lack of a DB and running services. **PR [#343](https://github.com/ravichavali/karmyq/pull/343) opened** (closes #329). Remaining: Codex review, maintainer merge yes, deploy, then confirm the drift workflow and that #329 closed |
 
 ### Execution evidence carried forward
 
