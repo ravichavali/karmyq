@@ -28,13 +28,10 @@ hand-rolled with `@expo/vector-icons`; state is the one Zustand store in `store/
 
 ## Recent changes
 
-- **Sprint 146 (2026-11-25, v11.119.0; Expo drift #329): nine SDK-managed pins move to the live SDK 57 map**
-  (captured 2026-11-24: `expo` ~57.0.34, `expo-router` ~57.0.32, `@expo/metro-runtime` ~57.0.19, `expo-constants`
-  ~57.0.25, `-image-picker` ~57.0.22, `-linking` ~57.0.14, `-location` ~57.0.24, `-notifications` ~57.0.26,
-  `-splash-screen` ~57.0.12). The lock moves 31 hoisted nodes, spliced in place: the nine plus 22 that their published
-  manifests require (`@expo/cli` 57.0.35, `-config`, `-config-plugins`, `-fingerprint`, `-prebuild-config`,
-  `babel-preset-expo`, `expo-modules-core`/`-autolinking`, …). The `apps/mobile` workspace node is mirrored, with 0 nodes
-  added or removed. **The closure probe must apply root `overrides`.** `@expo/fingerprint@0.20.17` declares
+- **Sprint 146 (2026-11-25, v11.119.0; Expo drift #329): nine SDK-managed pins move one or more patches to the live
+  SDK 57 map** (captured 2026-11-24: Expo 57.0.34, Router 57.0.32). The lock moves 31 hoisted nodes, spliced in place:
+  the nine plus 22 that their published manifests require, headed by `@expo/cli` 57.0.35. The `apps/mobile` workspace
+  node is mirrored, with 0 nodes added or removed. **The closure probe must apply root `overrides`.** `@expo/fingerprint@0.20.17` declares
   `minimatch ^10.2.6`, but the `>=11.0.1` override resolves it to the hoisted 11.0.3, so there is no move and no nest. A
   nested 10.x copy would fail `sprint-131-d9-security-overrides`. Proof: the drift gate is clean (only the two registered
   jest divergences), strict `npx -y npm@11.19.0 ci` passes, and `npm ls --all --package-lock-only` root problems are
