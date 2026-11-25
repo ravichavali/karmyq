@@ -2,7 +2,9 @@
 
 **Date**: 2026-11-24
 **Outcome**: planned; Codex re-reviewed `6ee743ca` on 2026-11-24: **PASS — planning review
-cleared**, R3-1 resolved, no new findings in this revision. Implementation has not started.
+cleared**, R3-1 resolved, no new findings in this revision. **Execution: Task 1 (evidence only)
+complete at `ca97d62c`; live drift matches the plan exactly. Task 2 (the first manifest edit)
+has not started.**
 Prior review records below are historical; the final verdict supersedes their blocker lists.
 Sprint 146 goal named by the
 maintainer 2026-11-24: **Expo drift #329** — align the nine drifted SDK-57 pins in `apps/mobile`
@@ -16,7 +18,7 @@ number and demo-data operations remain unauthorized.
 |---|---|
 | **Branch** | `agent/claude/sprint-146-planning`, cut from `origin/master` `95d5e8c1` (fetched 2026-11-24) |
 | **Base** | `origin/master` `95d5e8c1` = Sprint 145, [PR #342](https://github.com/ravichavali/karmyq/pull/342), v11.118.0 |
-| **Active editor** | Codex completed the final planning re-review; only this handoff record changes. Next editor: the executor when the maintainer starts execution; one editor at a time in the shared Windows checkout |
+| **Active editor** | Claude (executor) ran Task 1 on 2026-11-24 and committed this handoff update only. Next editor: the executor for Task 2 when the maintainer says go; one editor at a time in the shared Windows checkout |
 | **Reviewer role** | Codex re-reviewed spec/plan at `6ee743ca`: PASS, R1-R4/RR1-RR4/R3-1 resolved; implementation still requires its own verification and reviews |
 | **Owned paths** | The Sprint 145 post-merge record (rides with this PR) plus the Sprint 146 spec, plan, this handoff, `docs/adr/ADR-059-dependency-security-gate.md`, `apps/mobile/package.json`, `package-lock.json`, root `package.json` version, `apps/mobile/claude.md` |
 | **Shared resources needed** | Version bump AUTHORIZED (v11.119.0). Merge slot, any ADR number, further dependency work and demo-data operations each need their own maintainer yes |
@@ -42,9 +44,12 @@ number and demo-data operations remain unauthorized.
    say what you are waiting on. A mid-sprint pickup reads this handoff, never `git log`.
 
 **Next chat (executor):** read this handoff, run `git status --short` and
-`git branch --show-current`, then start plan Task 1 — branch state + live drift capture + HEAD
-baselines. Reuse `agent/claude/sprint-146-planning`. If master has moved past `95d5e8c1`, stop
-and re-plan — the base changed. Merge/deploy still require a fresh maintainer yes.
+`git branch --show-current`, re-run `git fetch origin && git log --oneline origin/master -1`
+(must still be `95d5e8c1`), then start plan Task 2: bump the nine manifest ranges and watch the
+sprint-122 lock-parity test go red. Load `superpowers:test-driven-development` first. Task 1's
+captured values and baselines are in the Task 1 evidence block below. Reuse
+`agent/claude/sprint-146-planning`. If master has moved past `95d5e8c1`, stop and re-plan,
+because the base changed. Merge/deploy still require a fresh maintainer yes.
 
 ## Codex non-author review — 2026-11-24
 
@@ -274,7 +279,7 @@ version entries). Re-run the citation checks at execution and record
 
 | Task | State | SHA / evidence |
 |---|---|---|
-| 1 Branch state + live drift capture | pending | — |
+| 1 Branch state + live drift capture | **done** 2026-11-24 | Evidence only, at `ca97d62c`; no repo file changed except this handoff. See the Task 1 evidence block below |
 | 2 Bump nine manifest ranges | pending | — |
 | 3 Lockfile splice + npm ci proof | pending | — |
 | 4 Drift gates green | pending | — |
@@ -286,11 +291,47 @@ version entries). Re-run the citation checks at execution and record
 | 10 Final pre-commit-check | pending | — |
 | 11 Merge + deploy (maintainer-authorized only) | pending | — |
 
+### Task 1 evidence (captured 2026-11-24 at `ca97d62c`)
+
+- **Base**: `git ls-remote origin refs/heads/master` = `95d5e8c1` = merge-base; no open PRs.
+  The branch carries `013d4923` (Sprint 145 record) plus 8 planning/review commits;
+  `git diff --name-only 013d4923..HEAD` names only this handoff, the plan and the spec.
+- **Live gate** (`node scripts/expo-divergences.js`, node v24.11.1 / npm 10.8.2): **exit 1**,
+  exactly two `REGISTERED DIVERGENCE` rows (jest ^30.5.1 vs ~29.7.0; @types/jest ^30.0.0 vs
+  29.5.14) and exactly nine `BLOCKING` rows, installed → live pin:
+  @expo/metro-runtime 57.0.17 → ~57.0.19 · expo 57.0.31 → ~57.0.34 · expo-constants 57.0.22 →
+  ~57.0.25 · expo-image-picker 57.0.20 → ~57.0.22 · expo-linking 57.0.13 → ~57.0.14 ·
+  expo-location 57.0.22 → ~57.0.24 · expo-notifications 57.0.24 → ~57.0.26 · expo-router
+  57.0.29 → ~57.0.32 · expo-splash-screen 57.0.10 → ~57.0.12. These are identical to the plan
+  list and the spec table, so **Task 2 bumps to exactly these values**.
+- **No `SDK_PINNED` package drifted.** All nine are expo-prefixed, and none of the 11
+  `SDK_PINNED` names (`tests/regression/sprint-122-expo-sdk-alignment.test.ts:103-115`)
+  appears in the output.
+- **Lock baselines**: 1845 `packages` nodes (lockfileVersion 3, version 11.118.0).
+  `npm ls --all --package-lock-only --json`: exit 1, `ELSPROBLEMS`, **9 root problems** (exactly
+  the nine the plan names: invalid minimatch@11.0.3, color-string@2.1.4, ms@2.0.0,
+  picomatch@2.3.2, @emnapi/core@1.10.0, @emnapi/runtime@1.10.0, @emnapi/wasi-threads@1.2.1,
+  @emnapi/runtime@1.11.2 under sharp-wasm32; missing @react-native/metro-config@* required by
+  react-native-worklets@0.10.1), and **45 total problem lines** across the tree. Task 3 Step 6
+  compares against both counts.
+- **sha256 at HEAD**: `package-lock.json` 5751f9f3…; `apps/mobile/package.json` 69b3a75e…;
+  `package.json` e88b5bda….
+- **Landing pre-execution snapshot**: `git diff --name-only origin/master -- apps/landing` names
+  the four Sprint 145 pages (adr-062, adr-106, community-service, social-graph-service).
+  ADR-059 joins it after Task 6.
+- **Green pre-change baseline**: the sprint-122, sprint-124 and sprint-131-d9 suites,
+  explicit-config `--runInBand --no-cache`: **3 suites / 59 tests pass**. Task 2's red run is
+  measured against this.
+- The gate-shape check script was mutation-proved: one wrong pin makes it exit 1 with a
+  mismatch. The raw outputs and ledger are in git-ignored
+  `.superpowers/sdd/2026-11-24-sprint-146-expo-drift/` and exist on this Windows box only; this
+  block is the copy that travels.
+
 ## Blockers and decisions
 
-- **Planning-review blockers**: none; Codex cleared spec/plan at `6ee743ca`. Implementation is
-  unstarted. Merge requires a fresh maintainer yes (Sprint 145's merge
-  authorization does not carry over).
+- **Planning-review blockers**: none; Codex cleared spec/plan at `6ee743ca`. Task 1 evidence is
+  captured, and implementation (Task 2 onward) has not started. Merge requires a fresh
+  maintainer yes (Sprint 145's merge authorization does not carry over).
 - **Decision (Sprint 145, 2026-11-23)**: D1 an active invitee gets a no-write 200; D2 an
   invitation promotes a pending applicant; D3 any live active member may admit someone to a
   private community. Shipped — do not re-debate.
