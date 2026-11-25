@@ -472,11 +472,15 @@ only in two dev-server schema modules. Its real consumers were run on the same v
 manifests, command outputs and MCP arguments under `zod` 3.25.76 and 4.6.6, and every outcome matched. Its MCP
 `registerTool` path was not run: it needs `EXPO_UNSTABLE_MCP_SERVER` and the `expo-mcp` package, and this repo has
 neither, so adding `expo-mcp` means re-checking it under zod 4. `sprint-131-d9-security-overrides.test.ts` fails
-if the pin and the lock's single `zod` copy diverge. **Sprint 146 (2026-11-25):** `@expo/cli` 57.0.35 declares no
-`zod`. It resolves `zod` from `expo-mcp`'s directory, and only for MCP (`build/src/start/server/mcp/MCP.js:60`). The
-scoped pin therefore applies to nothing. The maintainer kept it on 2026-11-25 as a guard in case a later `@expo/cli`
-declares `zod ^3` again. The lock's single `zod` copy stays at 4.6.6, and retiring the pin is an open candidate.
-Adding `expo-mcp` now means checking the `zod` that `expo-mcp` itself brings.
+if the pin and the lock's single `zod` copy diverge. **Sprint 146 (2026-11-25):** `@expo/cli` 57.0.35 no
+longer lists `zod` as a runtime dependency. It is only a devDependency (`^3.25.76`), which consumers never install.
+The CLI resolves `zod` from `expo-mcp`'s directory, and only for MCP (`build/src/start/server/mcp/MCP.js:60`). Expo
+made the same move in 58.1.21; 58.1.15, cited above, still had runtime `zod ^3.25.76` (registry, 2026-11-25). The
+scoped pin therefore applies to nothing in this lock. The maintainer kept it on 2026-11-25 as a guard for any
+`@expo/cli` that declares a runtime `zod ^3`. The pin would force 4.6.6 onto such a version silently, so a bump that
+brings a runtime `zod` back must re-run the consumer check above before keeping the pin. The lock's single `zod` copy
+stays at 4.6.6, and retiring the pin is an open candidate. Adding `expo-mcp` now means checking the `zod` that
+`expo-mcp` itself brings.
 
 **Validator rule.** `validAuditReport` rejected the report from npm 10.8.2 (the Windows box's PATH `npm`):
 `expo-server-sdk` moderate with `via: ["undici"]`, and `undici` high. npm ranks a dependent by the
