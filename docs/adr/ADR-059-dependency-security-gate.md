@@ -522,6 +522,12 @@ Dependabot #318 (fast-uri) was not used. Besides the bump, it deletes 26 `libc` 
 platform binaries, which select the musl builds the Alpine images need.
 
 **Not changed:** `deepmerge` GHSA-gcqx-w48m-w2h4 is low with no fix (4.3.1 is the latest), so it is below this gate
-and gets no registry entry. `decode-uri-component`
+and gets no registry entry. **Re-check closed (Sprint 146, 2026-11-24):** GitHub withdrew the advisory at
+2026-11-16T18:55:38Z (`gh api advisories/GHSA-gcqx-w48m-w2h4` → `withdrawn_at`; summary now "Withdrawn Advisory:
+deepmerge mergeObject() allows prototype poisoning of returned objects", CVE-2026-93753). The "low with no fix, below
+the gate floor" reasoning above is therefore moot: there is no advisory left to gate. The re-check due by 2026-12-01
+found Dependabot PR #178 closed unmerged and zero open code-scanning alerts on master, and was re-verified on
+2026-11-25. The lock still holds `deepmerge` 4.3.1, the latest release. There was no upgrade, no registry entry and no
+exemption change, and the obligation is closed. `decode-uri-component`
 GHSA-vcc3-ghjq-m6fr (moderate) stays BUG-041: alert #150 was dismissed as tolerable risk on 2026-09-14, and 0.5.1
 (2026-10-23) is still ESM-only.

@@ -8,8 +8,9 @@ and green.** Task 1 (evidence only, at `ca97d62c`): live drift matches the plan 
 splice, strict pinned-npm `npm ci` exit 0, no new graph problems, sprint-122 16/16 green.
 Task 4 (evidence only): the committed drift gate exits 0 with only the two registered jest
 divergences. Task 5 (evidence only): the mobile type check and tests pass, and the full root
-`npm test -- --force` is 27/27 green. Task 6 (ADR-059 deepmerge reconciliation) is next. Nothing
-is pushed yet.
+`npm test -- --force` is 27/27 green. Task 6: ADR-059 records the withdrawn deepmerge advisory
+and the closed #178 re-check, and its landing page is regenerated. Task 7 (version v11.119.0 +
+mobile doc line) is next. Nothing is pushed yet.
 Prior review records below are historical; the final verdict supersedes their blocker lists.
 Sprint 146 goal named by the
 maintainer 2026-11-24: **Expo drift #329** — align the nine drifted SDK-57 pins in `apps/mobile`
@@ -23,7 +24,7 @@ number and demo-data operations remain unauthorized.
 |---|---|
 | **Branch** | `agent/claude/sprint-146-planning`, cut from `origin/master` `95d5e8c1` (fetched 2026-11-24) |
 | **Base** | `origin/master` `95d5e8c1` = Sprint 145, [PR #342](https://github.com/ravichavali/karmyq/pull/342), v11.118.0 |
-| **Active editor** | Claude (executor) ran Tasks 1-5 on 2026-11-24/25 and committed each checkpoint. Next editor: the executor for Task 6 when the maintainer says go; one editor at a time in the shared Windows checkout |
+| **Active editor** | Claude (executor) ran Tasks 1-6 on 2026-11-24/25 and committed each checkpoint. Next editor: the executor for Task 7 when the maintainer says go; one editor at a time in the shared Windows checkout |
 | **Reviewer role** | Codex re-reviewed spec/plan at `6ee743ca`: PASS, R1-R4/RR1-RR4/R3-1 resolved; implementation still requires its own verification and reviews |
 | **Owned paths** | The Sprint 145 post-merge record (rides with this PR) plus the Sprint 146 spec, plan, this handoff, `docs/adr/ADR-059-dependency-security-gate.md`, `apps/mobile/package.json`, `package-lock.json`, root `package.json` version, `apps/mobile/claude.md` |
 | **Shared resources needed** | Version bump AUTHORIZED (v11.119.0). Merge slot, any ADR number, further dependency work and demo-data operations each need their own maintainer yes |
@@ -50,10 +51,9 @@ number and demo-data operations remain unauthorized.
 
 **Next chat (executor):** read this handoff, run `git status --short` and
 `git branch --show-current`, re-run `git fetch origin && git log --oneline origin/master -1`
-(must still be `95d5e8c1`), then start plan Task 6: the ADR-059 deepmerge reconciliation
-(docs only), then an explicit `npm run generate-docs --workspace=karmyq-landing` that keeps
-only the ADR-059 page change and reverts the rest of the generator churn (see the Task 5 row).
-Then Task 7 (version v11.119.0 + mobile doc line). When Task 7
+(must still be `95d5e8c1`), then start plan Task 7: bump the version to v11.119.0, re-derived
+from `origin/master` (a four-line lock diff), and add the `apps/mobile/claude.md` Recent-changes
+line. Task 7's landing check expects the five-file branch set recorded in the Task 6 row. When Task 7
 edits `apps/mobile/claude.md`, also correct the S134 line about the `edgesOut` crash: Task 3
 showed the trigger is the cwd of `npm ls` itself (see the Task 3 row). Reuse
 `agent/claude/sprint-146-planning`. Nothing is pushed; the branch tip is green from Task 3 on.
@@ -293,7 +293,7 @@ version entries). Re-run the citation checks at execution and record
 | 3 Lockfile splice + npm ci proof | **done** 2026-11-24, green | Splice commit `0ae053d1`. **Steps 6-8**: `npx -y npm@11.19.0 ci` from `C:\Users\ravic\development\karmyq` (uppercase) exit 0, "found 0 vulnerabilities", lock sha unchanged (`cefb6751…`); `npm ls --all --package-lock-only --json` root problems **9 → 9**, total problem lines **45 → 45**, none new, none resolved (drive-letter case normalized); all 31 moved packages installed at their target versions; sprint-122 **16/16 pass**; `npm audit --audit-level=high` exit 0, 0 vulnerabilities; the sprint-122 + sprint-124 + sprint-131-d9 suites pass, 3 suites / 59 tests with `--no-cache`. Context: plain `npm ls --all` still crashes (`edgesOut`) from a lowercase `c:\` cwd, but completes from an uppercase `C:\` cwd (5 installed-tree problems, all among the 9 baseline ones). So the trigger is the `npm ls` cwd, not the install cwd that `apps/mobile/claude.md`'s S134 line names; Task 7 corrects that line. npm calls in the scripts ran npm-cli.js via node with no shell, because cmd.exe rewrites `^`/`>` in ranges. **Steps 1-5**, done 2026-11-24: Override-aware closure probe exit 0: 31 entries (9 targets + 22 transitive), each equal to the plan table, plus exactly one `OVERRIDE >=11.0.1 satisfied by 11.0.3 — no move` line (fingerprint's minimatch `^10.2.6`). Reverse-break scan CLEAN. Splice: 31 `a -> b` lines, no field adds/drops, nodes 1845 → 1845. Diff proof: **changed 32** (31 moves + `apps/mobile`), added 0, removed 0; every integrity/tarball equals `npm view`; key order preserved; workspace-node parity OK; the single minimatch node (11.0.3) unchanged. Steps 6-8 (strict `npm ci`, `npm ls` root-problem compare, sprint-122 green, `npm audit`) pending. If `npm ci` fails: restore `.tmp/sprint-146/package-lock.before.json` (= `2ce2c83e`'s lock) in a fix-forward commit and diagnose |
 | 4 Drift gates green | **done** 2026-11-24 | Evidence only, at `557c4183`, no file changed. **Raw arbiter** (`npx expo install --check` from `apps/mobile`): exit 1 with exactly the two jest rows (`@types/jest@30.0.0` → 29.5.14, `jest@30.5.1` → ~29.7.0). That is the designed ADR-094 steady state. **Committed gate** (`node scripts/expo-divergences.js`): **exit 0**, exactly two `REGISTERED DIVERGENCE` lines (jest, @types/jest), then `✅ Expo divergence gate clean (2 registered divergence(s)).`, with no BLOCKING row. The gate-shape check was mutation-proved. **sprint-124 regression**: 31/31 pass, unchanged |
 | 5 Mobile tests + type-check + root regression | **done** 2026-11-25 | Evidence only, at `03e398fe`, no file changed. `npm run type-check --workspace=@karmyq/mobile` exit 0. `npm test --workspace=@karmyq/mobile`: 2 suites / 5 tests pass. **Full root suite** `npm test -- --force` (Turbo cache bypassed): exit 0, **27/27 tasks successful, 0 cached**, 11m13s. Root `@karmyq/tests`: 50 suites / 1098 tests and 10 / 101, with sprint-122 and sprint-124 PASS in that run. No FAIL line in any workspace; only Jest's pre-existing "worker failed to exit gracefully" warnings. Cache note: `npm test` regenerated 3 landing files (architecture.json timestamp, build.json sha/date/adrCount, adr-010 CRLF→LF); all were generator churn and are reverted. The tracked `build.json` is already stale at `adrCount: 99` vs the generator's 104, so Task 6's regeneration must again keep only the ADR-059 page |
-| 6 ADR-059 deepmerge reconciliation | pending | — |
+| 6 ADR-059 deepmerge reconciliation | **done** 2026-11-25 | Docs only. **Live re-check, 2026-11-25T15:24Z**: GHSA-gcqx-w48m-w2h4 `withdrawn_at` 2026-11-16T18:55:38Z (low, CVE-2026-93753, summary "Withdrawn Advisory: …"); PR #178 CLOSED 2026-07-30, never merged; **0** open code-scanning alerts on master; npm deepmerge latest 4.3.1, and the lock holds 4.3.1. `docs/adr/ADR-059-dependency-security-gate.md:524-531`: the original sentence is kept, with a dated "Re-check closed (Sprint 146, 2026-11-24)" close-out appended (7+/1−). No registry, exemption or dependency change; `expo-divergences.js --registry-only` exit 0. **Landing**: `npm run generate-docs --workspace=karmyq-landing`; the ADR-059 page delta is the `content` field only, exactly the source edit, LF. The same generator churn as Task 5 (architecture.json, build.json, adr-010) was reverted. The branch landing set vs `origin/master` is the expected five files: the four Sprint 145 pages, unchanged, plus ADR-059 as the only new one. Doc/context drift gate 41/41 |
 | 7 Version v11.119.0 + mobile doc line | pending | — |
 | 8 Handoff rewrite (this file) | pending | — |
 | 9 SDLC quality gates | pending | — |
