@@ -467,7 +467,8 @@ npm run generate-docs --workspace=karmyq-landing
       record why; never commit unreviewed generated output.
 
 - [ ] **Verification:** the JSON's `content` contains the withdrawal date and no longer carries
-      an open re-check obligation; `git diff --stat apps/landing` shows only the ADR-059 page.
+      an open re-check obligation; `git diff --stat apps/landing` shows the ADR-059 page as the
+      only NEW landing change (the branch's four Sprint 145 record files predate this task).
 
 ## Task 7: Version bump v11.119.0 + mobile doc line (docs task)
 
@@ -483,10 +484,20 @@ npm run generate-docs --workspace=karmyq-landing
 
 - [ ] **Verification:** `node -e "console.log(require('./package.json').version)"` prints
       `11.119.0`; `git diff --stat` for the lockfile shows the version hunks only beyond the
-      Task 3 splice; and the ONLY `apps/landing` delta on the branch is the Task 6
-      `adr-059-dependency-security-gate.json` regeneration — `git diff --stat origin/master --
-      apps/landing` must name exactly that file (RR4: Task 6 requires this delta, so Task 7
-      verifies it rather than forbidding it).
+      Task 3 splice; and `git diff --stat origin/master -- apps/landing` names **exactly these
+      five files**, nothing else:
+
+| File | From |
+|---|---|
+| `apps/landing/src/data/docs/concepts/adr-059-dependency-security-gate.json` | Task 6 (this sprint) |
+| `apps/landing/src/data/docs/concepts/adr-062-community-identity-idempotent-creation.json` | `013d4923` Sprint 145 post-merge record (intentional, rides with this PR) |
+| `apps/landing/src/data/docs/concepts/adr-106-database-owned-member-count.json` | `013d4923` Sprint 145 post-merge record |
+| `apps/landing/src/data/docs/services/community-service.json` | `013d4923` Sprint 145 post-merge record |
+| `apps/landing/src/data/docs/services/social-graph-service.json` | `013d4923` Sprint 145 post-merge record |
+
+      (Round-3 review fix: the branch bundles the Sprint 145 record's four landing updates, so
+      "only ADR-059" was unachievable; the check now preserves those four and asserts Sprint 146
+      adds exactly one.)
 
 ## Task 8: Handoff rewrite for the executing conversation
 

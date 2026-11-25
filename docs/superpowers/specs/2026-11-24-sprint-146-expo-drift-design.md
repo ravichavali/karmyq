@@ -141,7 +141,10 @@ Mandatory doc updates this sprint:
    `.npmrc` `ignore-scripts=true` disables `prebuild`, so neither CI (`npm run build` only) nor
    `scripts/deploy.sh` regenerates it — the committed JSON is what ships. Run
    `npm run generate-docs --workspace=karmyq-landing`, commit the ADR-059 content delta, and
-   revert any unrelated generated churn. No other landing page has a content delta.
+   revert any unrelated generated churn. The final branch landing diff is exactly five files:
+   this ADR-059 page plus the four Sprint 145 record files the branch already carries
+   (`adr-062`, `adr-106`, `community-service`, `social-graph-service` — intentional, from
+   `013d4923`). No other landing page has a content delta.
 6. **Root version** — `package.json` and `package-lock.json` (`version` + `packages[""].version`)
    → v11.119.0, the same four-line lock diff pattern Sprint 145 used.
 
