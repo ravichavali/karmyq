@@ -37,6 +37,8 @@ hand-rolled with `@expo/vector-icons`; state is the one Zustand store in `store/
   jest divergences), strict `npx -y npm@11.19.0 ci` passes, and `npm ls --all --package-lock-only` root problems are
   unchanged (9). Two notes still hold at the new versions. BUG-041 stands, because expo-router 57.0.32 keeps
   `query-string ^7.1.3`. `@expo/cli` 57.0.35 still defaults `isTsconfigPathsEnabled` on (`instantiateMetro.js:295`).
+  One requirement changed: `@expo/cli` 57.0.35 declares no `zod`, so the root `"@expo/cli": { "zod": "4.6.6" }`
+  override is inert. The maintainer kept it as a guard (ADR-059, Sprint 146 note).
   **The S134 `edgesOut` note also depends on where `npm ls` runs.** After an uppercase-`C:\` install,
   `npm ls --all` still crashed from a lowercase `c:\` cwd and completed from `C:\`. Run both commands from `C:\`.
 - **Sprint 136 (2026-11-03): `babel-plugin-module-resolver` is gone** (Dependabot #180/#179: its nested glob 9.3.5 and

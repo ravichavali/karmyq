@@ -33,7 +33,9 @@ describe('D9 security override pins', () => {
     // 0.5.1 is the only patched release and is ESM-only: query-string@7 (expo-router) require()s it and gets
     // { default } instead of a function. Accepted until the mobile sprint; see docs/IDEAS.md 2026-10-29.
     ['decode-uri-component', '0.5.1'],
-    // @expo/cli declares zod ^3; its exact pin must track the root's zod, or npm nests a second copy.
+    // Sprint 134 pinned @expo/cli's zod because 57.0.32 declared zod ^3 (GHSA-mrhx-c7xc-m3w5). Since 57.0.35
+    // (Sprint 146) @expo/cli declares no zod, so this exact pin is inert. The maintainer kept it as a guard in case a
+    // later @expo/cli declares zod ^3 again. It must still track the root's zod, and the lock keeps one patched copy.
     ['zod', '4.6.6', ['@expo/cli', 'zod']],
   ])('%s stays on a patched version in the manifest and lock', (name, floor, overridePath = [name]) => {
     const override = ownVersion(overridePath.reduce((o, key) => o[key], pkg.overrides));

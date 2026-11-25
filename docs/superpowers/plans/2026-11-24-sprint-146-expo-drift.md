@@ -531,6 +531,9 @@ npm run generate-docs --workspace=karmyq-landing
       minimatch), any manifest line beyond the nine ranges, any unplanned node add or removal,
       and the ADR-059 wording claiming no upgrade where
       the advisory is withdrawn (two different statements; both must be accurate).
+      > **Erratum (execution, 2026-11-25):** "the 1 predicted add (nested minimatch)" above is a
+      > round-1 leftover. RR1 removed the nest, and Task 3 measured **changed 32, added 0,
+      > removed 0**, with no minimatch node touched. Expect that result, not an add.
 
 - [ ] **`/security-review`** on the branch diff — the dependency-audit standing gate (ADR-059)
       runs on push in CI; the human-level review confirms the splice introduced no unreviewed

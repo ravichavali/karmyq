@@ -125,7 +125,7 @@ stale nested-minimatch expectation (see Next unchecked task).
 | 6 ADR-059 deepmerge reconciliation | **done** 2026-11-25 | `68e806ec` + `24236a8a` (record `cb51b1fc`). Live re-check 2026-11-25T15:24Z: advisory withdrawn 2026-11-16T18:55:38Z (CVE-2026-93753), PR #178 CLOSED unmerged, 0 open code-scanning alerts on master, deepmerge 4.3.1 latest = locked. `ADR-059…:524-531`: original sentence kept, dated close-out appended. `docs/adr/README.md` ADR-059 line gains the Sprint 146 note. Landing: the ADR-059 page delta is `content` only, matching the source exactly; unrelated churn reverted. Doc drift gate 41/41 |
 | 7 Version v11.119.0 + mobile doc line | **done** 2026-11-25 | `8d50a0b2` (+ `edb6cc48`). Version 11.119.0 in `package.json` and both lock entries (4 lock lines, version-only against the splice). `apps/mobile/claude.md` Sprint 146 bullet: pins, closure, override lesson, BUG-041 still stands (expo-router 57.0.32 keeps `query-string ^7.1.3`), `@expo/cli` 57.0.35 still defaults tsconfig paths on, plus the `edgesOut` correction (and a pointer in the S134 bullet). Branch landing set = the five expected files. 3 suites / 69 tests |
 | 8 Handoff rewrite | **done** 2026-11-25 | This rewrite (a handoff cannot record its own SHA). Self-audit line above |
-| 9 SDLC quality gates | **next** | `/simplify`, `/code-review`, `/security-review` on the branch diff; see the Next-task note on the stale plan expectation |
+| 9 SDLC quality gates | **in progress** 2026-11-25 | **`/simplify`** at `3b10d021`: run inline (four angles, no source code in the diff). 1 fixed in `cfa22949` (the mobile bullet restated derivable pins); 2 altitude findings skipped as outside the diff and listed under Open candidates. **`/code-review` medium** at `cfa22949`: 5 findings, all verified. **F1** (Important, CONFIRMED): `@expo/cli` 57.0.35 declares no `zod`, so the `package.json:108-110` scoped override is inert. Maintainer decision 2026-11-25: keep it as a guard and document it. **F2** (Important, PARTIAL): the sprint-131-d9 zod comment was false, but the case still enforces one locked copy at the pin; comment corrected, assertions unchanged, mutation-proved able to fail. **F3** (nit, CONFIRMED): `ADR-059` Sprint 146 zod note added after line 475; landing page regenerated (`content` only). **F4** (nit, CONFIRMED): mobile bullet notes the dropped zod. **F5** (nit, CONFIRMED): plan erratum under Task 9. After the fixes, d9 + sprint-122 + sprint-124 + the doc drift gate pass, 4 suites / 100 tests. Next: re-run `/code-review` on the fixes, then `/security-review` |
 | 10 Final verification | pending | `/pre-commit-check` at the final HEAD; re-run the suites, since Task 5 ran at `03e398fe` and docs/version commits followed |
 | 11 Merge + deploy | pending, **maintainer-authorized only** | Push, open the PR (closes #329), CI, then a fresh maintainer yes for merge. The chat ends once the PR is open |
 
@@ -185,6 +185,10 @@ stale nested-minimatch expectation (see Next unchecked task).
 - **Decision (2026-11-25, Task 6)**: the Deepmerge #178 re-check is **closed**. The advisory was
   withdrawn, so there is no upgrade, registry entry or exemption. It no longer appears among the
   open candidates.
+- **Decision (2026-11-25, Task 9, maintainer)**: keep the now-inert `"@expo/cli": { "zod": "4.6.6" }`
+  override (`package.json:108-110`) as a guard in case a later `@expo/cli` declares `zod ^3` again, and
+  document it (ADR-059 Sprint 146 note, the sprint-131-d9 comment, the mobile bullet). No dependency
+  change this sprint. Retiring it is an open candidate.
 - **Decision (Sprint 145, 2026-11-23)**: D1 an active invitee gets a no-write 200; D2 an
   invitation promotes a pending applicant; D3 any live active member may admit someone to a
   private community. Shipped; do not re-debate.
@@ -200,6 +204,16 @@ stale nested-minimatch expectation (see Next unchecked task).
   acceptance lands on discovery without saying why; deferred minors (shared social-graph test
   builders, integration `as()` helper, `MEMBERSHIP_CHANGED` wording, untrimmed code lookup,
   `liveRole.ts` `db` doc placement).
+- **Inert `@expo/cli` zod pin (new, Sprint 146).** `@expo/cli` 57.0.35 declares no `zod`, so the
+  scoped override applies to nothing. Retiring it means removing the override, rewriting the
+  sprint-131-d9 zod case and adding an ADR-059 note, and it needs a dependency-lane yes.
+  Re-check if `expo-mcp` is ever added.
+- **Committed drift-splice tool (new, /simplify altitude).** Every Expo drift sprint (S131,
+  S134, S146) re-types the closure, reverse-scan, splice and diff scripts from plan text. A
+  committed, tested `scripts/` tool would end the transcription and the Windows shell-quoting bug.
+- **`edgesOut` cwd gotcha (new, /simplify altitude).** Plain `npm ls --all` crashes from a
+  lowercase `c:\` cwd and completes from `C:\`. It belongs in `docs/gotchas/` with a machine
+  check (the `learned` skill), not only in the mobile sprint bullet.
 - **Landing generator churn (new, pre-existing cause).** Every regeneration rewrites
   `architecture.json` (timestamp), `build.json` (sha, date, and `adrCount`, where the tracked
   file says 99 and the generator counts 104) and `adr-010` (CRLF → LF). Executors revert it each
