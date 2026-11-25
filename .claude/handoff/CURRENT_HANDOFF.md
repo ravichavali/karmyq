@@ -53,8 +53,10 @@ number and demo-data operations remain unauthorized.
 `git branch --show-current`, re-run `git fetch origin && git log --oneline origin/master -1`
 (must still be `95d5e8c1`), then start plan Task 8: rewrite this handoff for the executing
 conversation. #178 leaves the open candidates, and the Task 1-7 evidence rows carry over. Then
-Task 9 (SDLC gates: `/simplify`, `/code-review`, `/security-review`, process review) and Task 10
-(final pre-commit-check). Reuse
+Task 9 (SDLC gates: `/simplify`, `/code-review`, `/security-review`) and Task 10 (final
+pre-commit-check). ⚠️ Plan Task 9's `/code-review` bullet still says "the 1 predicted add (nested
+minimatch)". That is a stale round-1 leftover contradicting RR1 and Task 3's result. The
+correct expectation is **changed 32, added 0, removed 0, no minimatch node touched**. Reuse
 `agent/claude/sprint-146-planning`. Nothing is pushed; the branch tip is green from Task 3 on.
 If master has moved past `95d5e8c1`, stop and re-plan, because the base changed. Merge/deploy
 still require a fresh maintainer yes.
