@@ -1,9 +1,10 @@
 # Sprint 146 planned — Expo SDK drift reconciliation (#329) + Deepmerge #178 close-out — Handoff
 
 **Date**: 2026-11-24
-**Outcome**: planned; Codex re-reviewed `c2373694` on 2026-11-24: RR1-RR4 resolved,
-**FIX-FIRST** on one P2 (R3-1 below). Round-3 correction landed (see "Author response, round 3"
-below); awaiting non-author re-review before execution. Sprint 146 goal named by the
+**Outcome**: planned; Codex re-reviewed `6ee743ca` on 2026-11-24: **PASS — planning review
+cleared**, R3-1 resolved, no new findings in this revision. Implementation has not started.
+Prior review records below are historical; the final verdict supersedes their blocker lists.
+Sprint 146 goal named by the
 maintainer 2026-11-24: **Expo drift #329** — align the nine drifted SDK-57 pins in `apps/mobile`
 to Expo's live version map. Two maintainer authorizations given with the goal: the Deepmerge #178
 re-check rides along as a docs task, and the version bump (→ v11.119.0). Merge/deploy, any ADR
@@ -15,8 +16,8 @@ number and demo-data operations remain unauthorized.
 |---|---|
 | **Branch** | `agent/claude/sprint-146-planning`, cut from `origin/master` `95d5e8c1` (fetched 2026-11-24) |
 | **Base** | `origin/master` `95d5e8c1` = Sprint 145, [PR #342](https://github.com/ravichavali/karmyq/pull/342), v11.118.0 |
-| **Active editor** | Claude/planner applied the round-3 correction (2026-11-24). Next editor: Codex for the non-author re-review; one editor at a time in the shared Windows checkout |
-| **Reviewer role** | Codex re-reviewed `c2373694`: RR1-RR4 resolved, FIX-FIRST on R3-1; round-3 revision needs non-author re-review before implementation |
+| **Active editor** | Codex completed the final planning re-review; only this handoff record changes. Next editor: the executor when the maintainer starts execution; one editor at a time in the shared Windows checkout |
+| **Reviewer role** | Codex re-reviewed spec/plan at `6ee743ca`: PASS, R1-R4/RR1-RR4/R3-1 resolved; implementation still requires its own verification and reviews |
 | **Owned paths** | The Sprint 145 post-merge record (rides with this PR) plus the Sprint 146 spec, plan, this handoff, `docs/adr/ADR-059-dependency-security-gate.md`, `apps/mobile/package.json`, `package-lock.json`, root `package.json` version, `apps/mobile/claude.md` |
 | **Shared resources needed** | Version bump AUTHORIZED (v11.119.0). Merge slot, any ADR number, further dependency work and demo-data operations each need their own maintainer yes |
 
@@ -33,18 +34,17 @@ number and demo-data operations remain unauthorized.
    Sprint 145 post-merge record and this sprint's spec + plan. Never branch off a stale local
    master — unpushed local-master commits leak in via the squash-merge.
 3. Open plan: `docs/superpowers/plans/2026-11-24-sprint-146-expo-drift.md`
-4. **Before execution:** Codex re-reviews the thrice-revised spec and plan (round-3 author
-   response below). Once cleared, invoke `superpowers:subagent-driven-development`
-   directly (or `superpowers:executing-plans`).
+4. **Planning review cleared at `6ee743ca`.** When starting execution, invoke
+   `superpowers:subagent-driven-development` directly (or `superpowers:executing-plans`).
    There is no `/execute-plan` slash command — superpowers removed it as a deprecated stub.
 5. Checkpoint: after every group of at most 3 tasks, and before starting any long-running suite or
    subagent review, commit and update this handoff's task status (task, state, SHA, evidence) and
    say what you are waiting on. A mid-sprint pickup reads this handoff, never `git log`.
 
-**Next action (Codex reviewer):** non-author re-review of the round-3 revised spec and plan
-(R3-1 fix; round-3 author response above; revision commit in `git log`). If clean, execution
-starts at plan Task 1 — branch state + live drift capture + HEAD baselines. If master has moved
-past `95d5e8c1`, stop and re-plan — the base changed.
+**Next chat (executor):** read this handoff, run `git status --short` and
+`git branch --show-current`, then start plan Task 1 — branch state + live drift capture + HEAD
+baselines. Reuse `agent/claude/sprint-146-planning`. If master has moved past `95d5e8c1`, stop
+and re-plan — the base changed. Merge/deploy still require a fresh maintainer yes.
 
 ## Codex non-author review — 2026-11-24
 
@@ -194,6 +194,24 @@ No other findings this round. New evidence: the five-file table reproduces the l
 `git diff --name-only origin/master -- apps/landing` output (four files today; ADR-059 joins
 after Task 6).
 
+### Final Codex planning re-review of `6ee743ca` — 2026-11-24
+
+**PASS.** R3-1 is resolved in plan Tasks 6/7 and spec landing item 5. The final branch landing
+diff correctly expects the four Sprint 145 pages already present from `013d4923`, preserved,
+plus ADR-059 after Task 6. No new findings in the revision diff. All prior planning-review
+findings are resolved; this clears planning review only, not implementation or release gates.
+
+Fresh checks: revision diff inspected, `git diff --check 1726d719..6ee743ca` exit 0; the live
+branch landing diff still names the four expected existing pages. GitHub has no open PRs and
+remote master remains `95d5e8c1`. The last independent dependency/test evidence remains the
+review of `c2373694` above (31 manifests, zero unsatisfied dependencies, one override exception;
+3 suites / 59 tests; nine root graph problems). Subsequent revisions change only spec, plan
+and handoff text; those suites were not rerun in this final text review. No installation,
+implementation, push, merge or deployment in this review; only the required handoff updated.
+
+Pre-existing mobile/dependency debt and implementation/release readiness remain outside this
+planning review. Execution Task 1 is next when the maintainer starts execution.
+
 ## Sprint 146 goal and arc
 
 Align nine `expo-*/@expo/*` pins (live capture 2026-11-24: metro-runtime → ~57.0.19, expo →
@@ -270,8 +288,8 @@ version entries). Re-run the citation checks at execution and record
 
 ## Blockers and decisions
 
-- **Blocker**: Codex non-author re-review of the round-3 revised spec/plan (R3-1 fixed; round-3
-  author response above); merge requires a fresh maintainer yes (Sprint 145's merge
+- **Planning-review blockers**: none; Codex cleared spec/plan at `6ee743ca`. Implementation is
+  unstarted. Merge requires a fresh maintainer yes (Sprint 145's merge
   authorization does not carry over).
 - **Decision (Sprint 145, 2026-11-23)**: D1 an active invitee gets a no-write 200; D2 an
   invitation promotes a pending applicant; D3 any live active member may admit someone to a
