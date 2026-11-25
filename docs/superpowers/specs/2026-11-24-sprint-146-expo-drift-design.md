@@ -38,9 +38,10 @@ a number older than the run that produced it.
 - **Sprint 136 (complete)** — mobile dependency wave and status follow-ups; confirmed the map
   (not Dependabot) decides SDK-managed pins.
 - **Sprint 146 (this sprint)** — the largest alignment since the gates were built (S131 #268
-  moved six packages/13 nodes; a 2026-10-21 re-derivation moved twenty) and the first that
-  requires a **nested node add**: align the nine drifted pins plus their full transitive closure,
-  close #329, and close out the Deepmerge #178 re-check obligation in ADR-059.
+  moved six packages/13 nodes; a 2026-10-21 re-derivation moved twenty) and the first whose
+  closure is shaped by a **security override** (minimatch stays put via `>=11.0.1`): align the
+  nine drifted pins plus their full transitive closure, close #329, and close out the Deepmerge
+  #178 re-check obligation in ADR-059.
 
 ---
 
@@ -81,20 +82,23 @@ expected** because no non-expo-prefixed SDK pin (react, react-native, reanimated
 screens, gesture-handler, safe-area-context, maps, web, picker) appears in the live drift.
 Re-verify both facts at execution — the map moves.
 
-### The lockfile closure (verified by probe at planning, live map 2026-11-24)
+### The lockfile closure (verified by override-aware probe at planning, live map 2026-11-24)
 
-The nine target manifests force **23 additional hoisted lock nodes** to move with them (each is a
+The nine target manifests force **22 additional hoisted lock nodes** to move with them (each is a
 requirement of a published manifest the new versions declare — e.g. `expo@57.0.34` requires
-`@expo/cli ^57.0.35`, lock has 57.0.32). The full table is plan Task 3 Step 1; the probe script
-(reused from the Sprint 131 PR-268 expo-drift plan) recomputes it at execution and the map's word
-wins over this document.
+`@expo/cli ^57.0.35`, lock has 57.0.32). The full table is plan Task 3 Step 1; the probe
+recomputes it at execution and the map's word wins over this document.
 
-One move is special: `@expo/fingerprint@0.20.17` wants `minimatch ^10.2.6`, but the hoisted
-`node_modules/minimatch@11.0.3` serves `glob ^11.0.2` and cannot move. The splice therefore
-**adds one nested node**, `node_modules/@expo/fingerprint/node_modules/minimatch@10.2.6` — the
-resolution npm itself would produce. Expected node count: 1845 → 1846 (32 moved, 1 added, 0
-removed) plus the `apps/mobile` workspace node, whose `dependencies` map mirrors the manifest
-ranges and must be updated in the same splice (verified: `package-lock.json`
+The probe must apply the root `overrides` (`package.json:70` et al.): a dependency whose
+installed version satisfies the override range needs no move even when its raw declared range
+fails. That resolves the one apparent conflict — `@expo/fingerprint@0.20.17` declares
+`minimatch ^10.2.6`, but the root override sets `minimatch >=11.0.1` and the hoisted 11.0.3
+satisfies it (exactly what npm's Arborist OverrideSet computes). **No minimatch node moves and no
+nested copy is added** — which also keeps `tests/regression/sprint-131-d9-security-overrides.test.ts`
+green, since it floors every locked minimatch copy at 11.0.1 and rejects below-floor copies,
+nested included. Expected end state: 31 moved nodes + the `apps/mobile` workspace mirror,
+**1845 → 1845 nodes, 0 added, 0 removed**; the workspace node's `dependencies` map mirrors the
+manifest ranges and is updated in the same splice (verified: `package-lock.json`
 `packages["apps/mobile"].dependencies` repeats all nine ranges).
 
 The two registered divergences (`jest ^30.5.1` → Expo `~29.7.0`; `@types/jest ^30.0.0` → Expo
@@ -150,16 +154,20 @@ Mandatory doc updates this sprint:
    and bump to *those* values. The issue's numbers and the table above are evidence, not
    instructions. If the live map differs, the live map wins; if it moved a `SDK_PINNED` package,
    that map entry changes too, with a written reason per its comment contract.
-2. **Lockfile edits are surgical, and the splice unit is the closure, not the nine.** Never
-   `npm install --workspace`, never `npm dedupe`, never a scratch regen. Run the closure probe
-   (Sprint 131 PR-268 technique) to compute every hoisted node the new manifests force to move —
-   23 at planning time — then run a reverse-break scan: any hoisted node that serves another
-   requirer must NOT move; that requirement becomes a nested add instead (planning time: exactly
-   one, `minimatch@10.2.6` under `@expo/fingerprint`, because the hoisted 11.0.3 serves `glob`).
-   Update the `apps/mobile` workspace node's mirrored `dependencies` in the same splice. Every
-   changed node is registry-verified (version, resolved, integrity, field set); the expected end
-   state is 1845 → 1846 nodes, proven by strict pinned-npm `npm ci` and an `npm ls --all` error
-   set identical to the HEAD baseline.
+2. **Lockfile edits are surgical, and the splice unit is the closure, not the nine — computed
+   with root overrides applied.** Never `npm install --workspace`, never `npm dedupe`, never a
+   scratch regen. Run the override-aware closure probe (Sprint 131 PR-268 technique plus a check
+   of the root `package.json` `overrides`) to compute every hoisted node the new manifests force
+   to move — 22 transitive moves at planning time, 31 nodes total. Then run a reverse-break
+   scan: any hoisted node that serves another requirer must NOT move. At planning time the probe
+   resolves minimatch via its override (`package.json:70` sets `>=11.0.1`; hoisted 11.0.3
+   satisfies it), so there is no minimatch move and NO nest — `tests/regression/sprint-131-d9-security-overrides.test.ts`
+   floors every locked copy at the patched version and rejects below-floor copies, nested
+   included. Update the `apps/mobile` workspace node's mirrored `dependencies` in the same
+   splice. Every changed node is registry-verified (version, resolved, integrity, field set);
+   the expected end state is 31 moved nodes + the workspace mirror, 1845 → 1845 nodes, proven by
+   strict pinned-npm `npm ci` and a before/after comparison of
+   `npm ls --all --package-lock-only --json` root problems (9 at HEAD; none new afterwards).
 3. **Do not touch the registered divergences.** `security/expo-divergences.json` stays as-is;
    removing a still-matching entry fails the gate, and widening one to hide drift is forbidden
    (ADR-094).

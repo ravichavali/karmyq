@@ -32,7 +32,7 @@ version numbers here — a pinned example goes stale and then gets copied into s
 | File | Change |
 |------|--------|
 | `apps/mobile/package.json` | Nine SDK-managed ranges bumped to the live-map values captured in Task 1 |
-| `package-lock.json` | Nine hoisted direct targets + 23 transitive hoisted moves spliced in place + ONE nested add (`node_modules/@expo/fingerprint/node_modules/minimatch@10.2.6`) + the `apps/mobile` workspace node manifest mirror (R1/R2 closure, Task 3) |
+| `package-lock.json` | 31 hoisted nodes (9 direct targets + 22 transitive closure moves, computed with root overrides applied) spliced in place + the `apps/mobile` workspace node manifest mirror; 0 added, 0 removed (RR1/RR2, Task 3) |
 | `docs/adr/ADR-059-dependency-security-gate.md` (~line 524) | Deepmerge paragraph amended: advisory withdrawn 2026-11-16, re-check completed 2026-11-24, obligation closed |
 | `apps/mobile/claude.md` | Recent-changes line for the alignment (v11.119.0) |
 | `package.json` / `package-lock.json` (root) | Version → v11.119.0 (four-line lock diff, Sprint 145 pattern) |
@@ -47,16 +47,20 @@ version numbers here — a pinned example goes stale and then gets copied into s
    and bump to *those* values. The issue's numbers and the spec table are evidence, not
    instructions. If the live map differs, the live map wins; if it moved a `SDK_PINNED` package,
    that map entry changes too, with a written reason per its comment contract.
-2. **Lockfile edits are surgical, and the splice unit is the closure, not the nine.** Never
-   `npm install --workspace`, never `npm dedupe`, never a scratch regen. Run the closure probe
-   (Sprint 131 PR-268 technique) to compute every hoisted node the new manifests force to move —
-   23 at planning time — then run a reverse-break scan: any hoisted node that serves another
-   requirer must NOT move; that requirement becomes a nested add instead (planning time: exactly
-   one, `minimatch@10.2.6` under `@expo/fingerprint`, because the hoisted 11.0.3 serves `glob`).
-   Update the `apps/mobile` workspace node's mirrored `dependencies` in the same splice. Every
-   changed node is registry-verified (version, resolved, integrity, field set); the expected end
-   state is 1845 → 1846 nodes, proven by strict pinned-npm `npm ci` and an `npm ls --all` error
-   set identical to the HEAD baseline.
+2. **Lockfile edits are surgical, and the splice unit is the closure, not the nine — computed
+   with root overrides applied.** Never `npm install --workspace`, never `npm dedupe`, never a
+   scratch regen. Run the override-aware closure probe (Sprint 131 PR-268 technique plus a check
+   of the root `package.json` `overrides`) to compute every hoisted node the new manifests force
+   to move — 22 transitive moves at planning time, 31 nodes total. Then run a reverse-break
+   scan: any hoisted node that serves another requirer must NOT move. At planning time the probe
+   resolves minimatch via its override (`package.json:70` sets `>=11.0.1`; hoisted 11.0.3
+   satisfies it), so there is no minimatch move and NO nest — `tests/regression/sprint-131-d9-security-overrides.test.ts`
+   floors every locked copy at the patched version and rejects below-floor copies, nested
+   included. Update the `apps/mobile` workspace node's mirrored `dependencies` in the same
+   splice. Every changed node is registry-verified (version, resolved, integrity, field set);
+   the expected end state is 31 moved nodes + the workspace mirror, 1845 → 1845 nodes, proven by
+   strict pinned-npm `npm ci` and a before/after comparison of
+   `npm ls --all --package-lock-only --json` root problems (9 at HEAD; none new afterwards).
 3. **Do not touch the registered divergences.** `security/expo-divergences.json` stays as-is;
    removing a still-matching entry fails the gate, and widening one to hide drift is forbidden
    (ADR-094).
@@ -101,20 +105,35 @@ node scripts/expo-divergences.js
       does, extend Tasks 2–3 to that package and add a written reason to the `SDK_PINNED` map
       comment per its contract.
 
-- [ ] Record the HEAD baselines the splice must preserve (all read-only):
+- [ ] Record the HEAD baselines the splice must preserve (all read-only). The graph-parity
+      baseline is `npm ls --all --package-lock-only --json`, which completes where plain
+      `npm ls --all` crashes (`Cannot read properties of null (reading 'edgesOut')` at this HEAD
+      under npm 10.8.2 and npm@11.19.0 alike — pre-existing, and a repeated crash proves nothing,
+      so it is context only, not the proof):
 
 ```bash
 node -e "const l=require('./package-lock.json'); console.log('nodes:', Object.keys(l.packages).length)"
-npm ls --all > "$SCRATCH/ls-baseline.txt" 2>&1; echo "ls-exit=$?"
-grep -E "^npm error" "$SCRATCH/ls-baseline.txt" | grep -v "complete log"
+npm ls --all --package-lock-only --json > "$SCRATCH/ls-plock-baseline.json" 2>"$SCRATCH/ls-plock-baseline.err"; echo "plock-ls-exit=$?"
+node -e '
+const fs = require("fs");
+const doc = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+const problems = [];
+(function walk(n, path) {
+  if (n.problems) for (const p of n.problems) problems.push(path + " :: " + p);
+  for (const [k, v] of Object.entries(n.dependencies || {})) walk(v, path + " > " + k);
+})(doc, "root");
+console.log("root problems:", (doc.problems || []).length);
+for (const p of doc.problems || []) console.log(" -", p);
+console.log("total problem lines:", problems.length);' "$SCRATCH/ls-plock-baseline.json"
 ```
 
-      Expected at this HEAD: **1845** lock nodes; `ls-exit=1` with exactly one error signature,
-      `npm error Cannot read properties of null (reading 'edgesOut')` (pre-existing at
-      `95d5e8c1` with both npm 10.8.2 and pinned npm@11.19.0 — the lock contains a structure
-      `npm ls` cannot walk; this is the baseline, not a splice failure). The Task 3 proof compares
-      against this baseline byte-for-byte for the error set: same single signature afterwards,
-      anything MORE fails.
+      Expected at this HEAD (verified 2026-11-24): **1845** lock nodes; exit 1 (`ELSPROBLEMS`)
+      with **9 root problems**: `invalid: minimatch@11.0.3` (the `>=11.0.1` override forces 11.0.3
+      over raw `^3`/`^10` ranges — expected), `missing: @react-native/metro-config@*`
+      (react-native-worklets), and seven more (`color-string@2.1.4`, `ms@2.0.0`,
+      `picomatch@2.3.2`, `@emnapi/core@1.10.0`, `@emnapi/runtime@1.10.0`,
+      `@emnapi/wasi-threads@1.2.1`, `@emnapi/runtime@1.11.2` under sharp-wasm32). Save both the
+      root-problem list and the total count; Task 3 Step 6 compares against them.
 
 - [ ] **Verification:** gate exits 1 with exactly the nine `BLOCKING` rows and two
       `REGISTERED DIVERGENCE` rows (jest, @types/jest); nothing else.
@@ -146,26 +165,36 @@ npx jest --config tests/jest.config.js --runTestsByPath tests/regression/sprint-
 **Files:**
 - Modify: `package-lock.json`
 - Scratch only, never committed: `$SCRATCH/closure.js`, `$SCRATCH/reverse.js`,
-  `$SCRATCH/splice.js`, `$SCRATCH/package-lock.before.json`, `$SCRATCH/ls.txt`,
-  `$SCRATCH/lock.sha` (`$SCRATCH` = `.tmp/sprint-146/`, gitignored)
+  `$SCRATCH/splice.js`, `$SCRATCH/package-lock.before.json`,
+  `$SCRATCH/ls-plock-after.json` (`$SCRATCH` = `.tmp/sprint-146/`, gitignored)
 
 Technique precedent: the Sprint 131 PR-268 expo-drift plan
 (`docs/superpowers/plans/2026-09-24-sprint-131-pr-268-expo-drift.md`) proved this exact class of
-splice: closure probe → in-place node moves → strict pinned-npm `ci` → `npm ls` baseline
-comparison. This task reuses its probe and splice scripts with three documented deltas: the
-closure is larger (23 transitive moves), ONE nested node is added (minimatch — see Step 3), and
-the `apps/mobile` workspace node must be mirrored (review finding R2).
+splice: closure probe → in-place node moves → strict pinned-npm `ci` → graph baseline
+comparison. This task reuses its probe and splice scripts with two documented deltas: the probe
+must apply the root `overrides` (RR1 — for this sprint that single change resolves the minimatch
+question: no move, no nest), and the `apps/mobile` workspace node must be mirrored (R2).
 
 - [ ] **Step 1: Run the closure probe** (read-only) against the Task 1 targets. Write
-      `$SCRATCH/closure.js` exactly as in the PR-268 plan (Step 2 there), then:
+      `$SCRATCH/closure.js` as in the PR-268 plan (its Step 2) **plus the override rule** (RR1):
+      before reporting an unsatisfied dependency, check the root `package.json` `overrides` — if
+      `overrides[dep]` is a string and the installed version satisfies THAT range, there is no
+      move. The added lines:
+
+```js
+const OVERRIDES = require(process.cwd() + '/package.json').overrides || {};
+// inside the dep loop, after the declared-range check fails:
+const ov = OVERRIDES[dep];
+if (have && typeof ov === 'string' && semver.satisfies(have, ov)) { report.push(`${path}@${moved[path]} needs ${dep}@${range}; OVERRIDE ${ov} satisfied by ${have} — no move`); continue; }
+```
 
 ```bash
 node "$SCRATCH/closure.js" '{"node_modules/@expo/metro-runtime":"57.0.19","node_modules/expo":"57.0.34","node_modules/expo-constants":"57.0.25","node_modules/expo-image-picker":"57.0.22","node_modules/expo-linking":"57.0.14","node_modules/expo-location":"57.0.24","node_modules/expo-notifications":"57.0.26","node_modules/expo-router":"57.0.32","node_modules/expo-splash-screen":"57.0.12"}'; echo "exit=$?"
 ```
 
-      Expected at planning time (live map 2026-11-24): `exit=0` and the final `MOVES=` JSON
-      holds the nine targets **plus exactly these 23 transitive moves** (each forced by a
-      published manifest, R1):
+      Expected at planning time (live map 2026-11-24, override-aware probe run and verified):
+      `exit=0`; the final `MOVES=` JSON holds the nine targets **plus exactly these 22 transitive
+      moves** (each forced by a published manifest, R1):
 
 | Lock node | From | To |
 |---|---|---|
@@ -191,11 +220,18 @@ node "$SCRATCH/closure.js" '{"node_modules/@expo/metro-runtime":"57.0.19","node_
 | node_modules/@expo/inline-modules | 0.1.8 | 0.1.10 |
 | node_modules/@expo/metro-file-map | 57.0.4 | 57.0.5 |
 | node_modules/@expo/prebuild-config | 57.0.19 | 57.0.21 |
-| node_modules/minimatch | 11.0.3 | 10.2.6 |
 
-      If the probe output differs, the map or the lock moved — trust the probe, update this
-      table, and continue. If it exits 2 (an unsatisfied dep resolving to NOTHING or an already
-      nested node), stop and report to the maintainer.
+      and exactly one `OVERRIDE ... — no move` line:
+
+      `node_modules/@expo/fingerprint@0.20.17 needs minimatch@^10.2.6; OVERRIDE >=11.0.1 satisfied by 11.0.3 — no move`
+
+      (`package.json:70` overrides minimatch to `>=11.0.1`; hoisted 11.0.3 satisfies it.
+      `tests/regression/sprint-131-d9-security-overrides.test.ts` floors every locked minimatch
+      copy at 11.0.1 — below-floor copies, including nests, fail the security gate. There is
+      therefore no minimatch move and no minimatch nest.) Save the final JSON line as
+      `$SCRATCH/moves.json` — **31 entries**. If the probe output differs, the map or the lock
+      moved — trust the probe, update this table, and continue. If it exits 2 (an unsatisfied
+      dep resolving to NOTHING or an already nested node), stop and report to the maintainer.
 
 - [ ] **Step 2: Run the reverse-break scan.** The probe plans moves but does not check who else
       a moved hoisted node serves. For every planned move, resolve each lock declaration with
@@ -241,55 +277,42 @@ process.exit(breaks.length ? 1 : 0);
 ```
 
 ```bash
-# minimatch is planned as a NEST, not a hoisted move (see Step 3), so exclude it from `moved`
-# when writing $SCRATCH/moves.json: 31 entries, not 32.
 node "$SCRATCH/reverse.js" "$SCRATCH/moves.json"; echo "exit=$?"
 ```
 
-      Expected at planning time: `REVERSE SCAN CLEAN` for the 22 hoisted moves (verified
-      2026-11-24). Any other output: stop; re-plan that node as a nested add like minimatch.
+      Expected at planning time: `REVERSE SCAN CLEAN` for the 31 hoisted moves (verified
+      2026-11-24, override-aware closure). Any other output: stop; if a moved node serves another
+      requirer, re-plan THAT node as a nested add and document why — but never below an override
+      floor (RR1: `tests/regression/sprint-131-d9-security-overrides.test.ts` rejects every
+      locked copy under the patched version, nested included).
 
-- [ ] **Step 3: Plan the minimatch nest.** The probe's 23rd move (`minimatch` → 10.2.6) is NOT
-      executed as a hoisted move: the hoisted `node_modules/minimatch@11.0.3` serves `glob`
-      (`^11.0.2`), which 10.2.6 breaks (verified 2026-11-24). Instead npm-canonical resolution
-      nests under the requirer whose range the hoisted copy cannot satisfy. Record the planned
-      add in `$SCRATCH/nests.json`:
-
-```json
-{ "minimatch": "10.2.6" }
-```
-
-      meaning one added node `node_modules/@expo/fingerprint/node_modules/minimatch` at 10.2.6
-      (fetched with `npm view minimatch@10.2.6 --json`; its `dependencies` include
-      `@pkgjs/parseargs` etc. — splice the full registry-derived field set exactly like a move).
-      Note this nest also repairs a pre-existing invalid: `@expo/fingerprint@0.20.14` already
-      declares `minimatch ^10.2.2`, which the hoisted 11.0.3 never satisfied. Expected final
-      node count: **1845 → 1846** (31 hoisted moves + 1 nested add + 0 removed; the
-      `apps/mobile` workspace node changes in place and does not move the count).
+- [ ] **Step 3: Confirm the override resolution — no minimatch change at all.** The probe's
+      override line (Step 1) is the whole story: `package.json:70` overrides `minimatch` to
+      `>=11.0.1`, hoisted 11.0.3 satisfies it, and `@expo/fingerprint@0.20.17`'s raw `^10.2.6`
+      edge resolves to the overridden range — exactly what npm's own Arborist OverrideSet does
+      (verified 2026-11-24). Therefore: **no minimatch lock entry is touched, no nested copy is
+      added**, `tests/regression/sprint-131-d9-security-overrides.test.ts` sees the same single
+      hoisted minimatch at 11.0.3 it sees today, and the expected node count stays **1845**.
+      Expected final state: **31 hoisted moves + the workspace mirror, 0 added, 0 removed**.
 
 - [ ] **Step 4: Bump the nine manifest ranges** — as Task 2, then splice with the PR-268
-      `splice.js` (its plan Step 4) with these deltas: (a) iterate the **31 hoisted moves** from
-      `$SCRATCH/moves.json` (minimatch excluded — it nests); (b) after the moves, write the one
-      nested node from `$SCRATCH/nests.json` under
-      `node_modules/@expo/fingerprint/node_modules/`, registry fields only, and change the
-      node-count guard from "refuse any change" to "refuse unless final count = before + number
-      of planned nests"; (c) the script's existing `P['apps/mobile'][f] = pkg[f]` mirror line now
-      matters — it is the R2 fix: the workspace node's `dependencies` must equal the bumped
-      manifest (verify parity explicitly in Step 5). Take a byte copy first — `git checkout --`
-      would also wipe the Task 2 manifest edit:
+      `splice.js` (its plan Step 4) with these deltas: (a) iterate the 31 moves from
+      `$SCRATCH/moves.json`; (b) keep the node-count guard as PR-268 wrote it — "refuse if the
+      node count changes" (no nests exist to permit); (c) the script's existing
+      `P['apps/mobile'][f] = pkg[f]` mirror line now matters — it is the R2 fix: the workspace
+      node's `dependencies` must equal the bumped manifest (verify parity explicitly in Step 5).
+      Take a byte copy first — `git checkout --` would also wipe the Task 2 manifest edit:
 
 ```bash
 cp package-lock.json "$SCRATCH/package-lock.before.json"
-node "$SCRATCH/splice.js" "$SCRATCH/moves.json" "$SCRATCH/nests.json"; echo "exit=$?"
+node "$SCRATCH/splice.js" "$SCRATCH/moves.json"; echo "exit=$?"
 ```
 
-      Expected: 31 `a -> b` lines, one `+ added` line for the nested minimatch,
-      `nodes 1845 -> 1846`.
+      Expected: 31 `a -> b` lines, `nodes 1845 -> 1845`.
 
 - [ ] **Step 5: Prove the diff is exactly what the closure predicted** — the PR-268 plan's Step 5
       comparison, with expectations `changed 32` (31 moved package nodes + the `apps/mobile`
-      workspace node), `added 1` (the nested minimatch), `removed 0`, no `INTEGRITY MISMATCH`;
-      plus the R2 parity check:
+      workspace node), `added 0`, `removed 0`, no `INTEGRITY MISMATCH`; plus the R2 parity check:
 
 ```bash
 node -e '
@@ -309,14 +332,28 @@ console.log(a === b ? "workspace-node parity OK" : "WORKSPACE NODE STALE"); proc
 sha256sum package-lock.json > "$SCRATCH/lock.sha"
 npx -y npm@11.19.0 ci; echo "ci-exit=$?"
 sha256sum -c "$SCRATCH/lock.sha"; echo "unchanged-exit=$?"
-npm ls --all > "$SCRATCH/ls.txt" 2>&1; echo "ls-exit=$?"
-grep -E "^npm error" "$SCRATCH/ls.txt" | grep -v "complete log"
+npm ls --all --package-lock-only --json > "$SCRATCH/ls-plock-after.json" 2>/dev/null; echo "plock-ls-exit=$?"
+node -e '
+const fs = require("fs");
+const before = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+const after = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const root = (d) => (d.problems || []).slice().sort();
+const b = root(before), a = root(after);
+const newOnes = a.filter(p => !b.includes(p));
+const gone = b.filter(p => !a.includes(p));
+console.log("root problems before:", b.length, "after:", a.length);
+console.log("new:", newOnes.length ? newOnes : "none");
+console.log("resolved:", gone.length ? gone : "none");
+if (newOnes.length) process.exit(1);' "$SCRATCH/ls-plock-baseline.json" "$SCRATCH/ls-plock-after.json"; echo "compare-exit=$?"
 ```
 
-      Expected: `ci-exit=0`; `unchanged-exit=0` (`npm ci` never writes the lock); the `npm error`
-      set equals the Task 1 baseline exactly (the single `edgesOut` signature — same set, no
-      new lines; a clean `npm ls` would be accepted too, since the nest repairs the
-      `@expo/fingerprint` invalid, but ANY new error kind fails).
+      Expected: `ci-exit=0`; `unchanged-exit=0` (`npm ci` never writes the lock); `compare-exit=0`
+      — **no new root problems**. The same 9 baseline problems are expected to remain (the
+      override-driven `invalid: minimatch@11.0.3` among them, since raw `^10` ranges stay
+      overridden, not satisfied); a baseline problem disappearing is acceptable only if the
+      splice plausibly resolved it (e.g. a moved manifest no longer declaring the bad edge) —
+      investigate any such line in the diff review. Propagation paths under `dependencies` may
+      shift as manifests move; only ROOT problem kinds are compared.
 
 - [ ] **Step 7: Red test turns green** — re-run the Task 2 command (explicit tests config, from
       the repo root, lowercase cwd is fine for jest):
@@ -368,10 +405,10 @@ must exit 0 and print exactly two `REGISTERED DIVERGENCE` lines (jest, @types/je
 - [ ] **Verification — the divergence-gate regression test:**
 
 ```bash
-npx jest tests/regression/sprint-124-expo-divergence-gate.test.ts --runInBand
+npx jest --config tests/jest.config.js --runTestsByPath tests/regression/sprint-124-expo-divergence-gate.test.ts --runInBand
 ```
 
-must pass unchanged.
+must pass unchanged (same explicit-config form as Tasks 2/3 — the bare path finds no tests).
 
 ## Task 5: Mobile tests + type check + root regression
 
@@ -446,8 +483,10 @@ npm run generate-docs --workspace=karmyq-landing
 
 - [ ] **Verification:** `node -e "console.log(require('./package.json').version)"` prints
       `11.119.0`; `git diff --stat` for the lockfile shows the version hunks only beyond the
-      Task 3 splice; no `apps/landing` content delta exists (no user-facing change — record the
-      assessment in the PR body per the spec).
+      Task 3 splice; and the ONLY `apps/landing` delta on the branch is the Task 6
+      `adr-059-dependency-security-gate.json` regeneration — `git diff --stat origin/master --
+      apps/landing` must name exactly that file (RR4: Task 6 requires this delta, so Task 7
+      verifies it rather than forbidding it).
 
 ## Task 8: Handoff rewrite for the executing conversation
 
@@ -484,7 +523,10 @@ npm run generate-docs --workspace=karmyq-landing
 
 - [ ] **`/security-review`** on the branch diff — the dependency-audit standing gate (ADR-059)
       runs on push in CI; the human-level review confirms the splice introduced no unreviewed
-      packages (every changed lock entry is one of the nine and matches registry integrity).
+      packages: every changed lock node is one of the 31 closure moves or the `apps/mobile`
+      workspace mirror, each matching its registry integrity, and no override-floored package
+      (minimatch `>=11.0.1` and friends per `tests/regression/sprint-131-d9-security-overrides.test.ts`)
+      moved in any direction.
 
 - [ ] **Verification:** each gate's result recorded in the PR validation ledger with the SHA of
       the reviewed HEAD.
