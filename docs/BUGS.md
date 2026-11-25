@@ -2971,7 +2971,7 @@ the header or JWT community hint.
 
 ---
 
-## BUG-110 · [2026-11-25] · fix pending CI (Sprint 146 PR #343) · test only
+## BUG-110 · [2026-11-25] · fixed (Sprint 146 PR #343, pending merge) · test only
 
 **The Sprint 145 integration case "invitation versus staff add" fails whenever the staff add wins the last-slot
 race.** `lastSlot()` requires exactly one 200 response
@@ -2992,7 +2992,8 @@ success status (default `[200, 200]`; the staff-add case passes `[200, 201]`). I
 as `"<status> <error>"`, in one `toEqual`: the winner's success status beside `400 COMMUNITY_FULL`, in either
 order. A failure now prints both responses. A synthetic check of the committed lines passed all 11 outcome pairs;
 the old line fails on a staff win, as in CI. The fix does not control which contender wins, so a green run proves
-only the branch that ran; fixing the winner order is a follow-up. Flip this to `fixed` only after Integration
-Tests passes on the fix head.
+only the branch that ran; fixing the winner order is a follow-up. CI/CD run 45720042129 on the fix commit
+`31708656` passed 14/14 jobs, with Integration Tests 727/727 including this case. A passing log does not record
+which contender won, so the staff-win branch is not yet known to have run.
 
 ---
