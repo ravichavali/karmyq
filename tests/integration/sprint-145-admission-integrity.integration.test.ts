@@ -780,15 +780,21 @@ describe('Sprint 145 duplicate-create — state matrix on the shared table (real
 describe('Sprint 145 last-slot capacity races across admission paths', () => {
   type Contenders = (c: string, a: string, b: string, inviter: string, admin: string) => Promise<request.Response[]>;
 
-  /** Exactly one of two contenders is admitted at the last slot; stored count == active rows == cap. */
+  /**
+   * Exactly one of two contenders is admitted at the last slot; stored count == active rows == cap. `success`
+   * is each contender's admitted status: a staff add answers 201 Created, every other admission path 200.
+   */
   async function lastSlot(fire: Contenders, waits: Array<[string, number]> = [[MEMBER_INSERT, 2]],
-    setup?: (c: string, a: string, b: string) => Promise<void>) {
+    setup?: (c: string, a: string, b: string) => Promise<void>, success: [number, number] = [200, 200]) {
     const { c, inviter, admin } = await invitingCommunity({ max: 3 });
     const [a, b] = await users(2);
     if (setup) await setup(c, a, b);
     const responses = await holdAndRace(COMMUNITY_ROW_LOCK(c), waits, () => fire(c, a, b, inviter, admin));
-    expect(responses.filter((r) => r.status === 200)).toHaveLength(1);
-    expect(responses.filter((r) => r.status === 400).map((r) => r.body.error)).toEqual(['COMMUNITY_FULL']);
+    // Both outcomes in one comparison, so a failure prints both responses. BUG-110: a count of 200s alone
+    // failed every staff-add win (201) and showed neither response.
+    const outcomes = responses.map((r) => `${r.status} ${r.body?.error ?? ''}`.trim());
+    const [first, second] = success.map(String);
+    expect(outcomes).toEqual(outcomes[0] === first ? [first, '400 COMMUNITY_FULL'] : ['400 COMMUNITY_FULL', second]);
     expect(await count(c)).toBe(3);
     expect(await activeRows(c)).toBe(3);
     return { c, a, b, inviter, responses };
@@ -815,7 +821,7 @@ describe('Sprint 145 last-slot capacity races across admission paths', () => {
       const inv = await invite(inv0, c0);
       id = inv.id;
       return Promise.all([as(a0).accept(inv.code), as(admin0).add(c0, b0)]);
-    });
+    }, undefined, undefined, [200, 201]);
     const invitationWon = responses[0].status === 200;
     expect(await memberRow(c, invitationWon ? a : b)).toMatchObject({ status: 'active', role: 'member' });
     expect(await memberRow(c, invitationWon ? b : a)).toBeUndefined();

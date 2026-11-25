@@ -1012,7 +1012,7 @@ See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision
 ## Recent Changes
 
 ### Sprint 145: atomic invitation acceptance (2026-11-23, BUG-106; approved D1–D3)
-- **FIX (BUG-106, fixed in this branch, pending deploy)**: `POST /invitations/accept` used to run four separate
+- **FIX (BUG-106, fixed; deployed in v11.118.0 on 2026-11-24)**: `POST /invitations/accept` used to run four separate
   pool statements. It consumed the code and attributed the user before the membership insert, ignored capacity,
   silently no-op'd on existing rows and had no live check on the inviter. It is now one transaction
   (`src/services/invitationAcceptance.ts`); the contract is under the endpoint above. `getLiveRole` takes an optional

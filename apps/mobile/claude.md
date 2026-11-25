@@ -28,6 +28,19 @@ hand-rolled with `@expo/vector-icons`; state is the one Zustand store in `store/
 
 ## Recent changes
 
+- **Sprint 146 (2026-11-25, v11.119.0; Expo drift #329): nine SDK-managed pins move one or more patches to the live
+  SDK 57 map** (captured 2026-11-24: Expo 57.0.34, Router 57.0.32). The lock moves 31 hoisted nodes, spliced in place:
+  the nine plus 22 that their published manifests require, headed by `@expo/cli` 57.0.35. The `apps/mobile` workspace
+  node is mirrored, with 0 nodes added or removed. **The closure probe must apply root `overrides`.** `@expo/fingerprint@0.20.17` declares
+  `minimatch ^10.2.6`, but the `>=11.0.1` override resolves it to the hoisted 11.0.3, so there is no move and no nest. A
+  nested 10.x copy would fail `sprint-131-d9-security-overrides`. Proof: the drift gate is clean (only the two registered
+  jest divergences), strict `npx -y npm@11.19.0 ci` passes, and `npm ls --all --package-lock-only` root problems are
+  unchanged (9). Two notes still hold at the new versions. BUG-041 stands, because expo-router 57.0.32 keeps
+  `query-string ^7.1.3`. `@expo/cli` 57.0.35 still defaults `isTsconfigPathsEnabled` on (`instantiateMetro.js:295`).
+  One requirement changed: `@expo/cli` 57.0.35 lists `zod` only as a devDependency, so the root
+  `"@expo/cli": { "zod": "4.6.6" }` override is inert. The maintainer kept it as a guard (ADR-059, Sprint 146 note).
+  **The S134 `edgesOut` note also depends on where `npm ls` runs.** After an uppercase-`C:\` install,
+  `npm ls --all` still crashed from a lowercase `c:\` cwd and completed from `C:\`. Run both commands from `C:\`.
 - **Sprint 136 (2026-11-03): `babel-plugin-module-resolver` is gone** (Dependabot #180/#179: its nested glob 9.3.5 and
   minimatch 10.2.5). The `@/` aliases now resolve through **Metro's tsconfig paths** (`@expo/cli` 57.0.32
   `instantiateMetro.js:291`, `isTsconfigPathsEnabled` defaults on; `tsconfig.json` `@/*` → `./*`), and in jest through
@@ -54,7 +67,7 @@ hand-rolled with `@expo/vector-icons`; state is the one Zustand store in `store/
   2.0.0), so a scratch lock is never copied wholesale. `SDK_PINNED` unchanged; jest divergences
   untouched; `npm ls --all` errors identical to HEAD. Run `npm ci` from a `C:\` (uppercase)
   cwd on Windows: a lowercase `c:\` cwd writes workspace junctions that crash `npm ls`
-  (`reading 'edgesOut'`).
+  (`reading 'edgesOut'`). Run `npm ls` itself from `C:\` too (Sprint 146, above).
 - **Sprint 131 #268:** six `expo-*` packages move one patch to the live SDK 57 map (Expo
   57.0.25, Router 57.0.23), with seven hoisted transitives their manifests require (`@expo/cli`,
   `babel-preset-expo`, `expo-modules-core`/`-jsi`, `@expo/ui`, `expo-glass-effect`,

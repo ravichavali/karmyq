@@ -5,7 +5,7 @@
 
 ## Recent Changes
 
-- **2026-11-23 (Sprint 145, BUG-108 fixed in this branch, pending deploy; ADR-062 amended):** the duplicate-create
+- **2026-11-23 (Sprint 145, BUG-108 fixed; deployed in v11.118.0 on 2026-11-24; ADR-062 amended):** the duplicate-create
   join of an existing public community (`POST /communities`) answered `joined: true` even when its
   `ON CONFLICT DO NOTHING` had not admitted anyone: a pending applicant, a blocked member, a NULL/unknown row. It also
   never rejoined a `left` row, and invented role `member` when the refreshed token lacked the community. It now
@@ -16,7 +16,7 @@
   (BUG-106) now checks capacity on its own transaction client too, so fusion is the only admission that can exceed
   the cap.
 
-- **2026-11-19 (Sprint 144, ADR-106; BUG-103, BUG-104, BUG-105 fixed, pending deploy):** migration
+- **2026-11-19 (Sprint 144, ADR-106; BUG-103, BUG-104, BUG-105 fixed; deployed in v11.117.0 on 2026-11-23):** migration
   `20261119-community-member-count-trigger.sql` makes the database the only writer of
   `communities.current_members`. A sync trigger on `communities.members` applies each row's active-delta to its one
   community (a `community_id` change raises `check_violation`). A column guard on `communities.communities` stores
