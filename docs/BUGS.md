@@ -2970,3 +2970,29 @@ is authorized by recording it. Future work must derive generation authority from
 the header or JWT community hint.
 
 ---
+
+## BUG-110 · [2026-11-25] · fix pending CI (Sprint 146 PR #343) · test only
+
+**The Sprint 145 integration case "invitation versus staff add" fails whenever the staff add wins the last-slot
+race.** `lastSlot()` requires exactly one 200 response
+(`tests/integration/sprint-145-admission-integrity.integration.test.ts:790` at `379177af`), but a staff add answers 201 Created
+(`services/community-service/src/routes/members.ts:288`; the Sprint 144 suite already asserts `[201, 400]` for it at
+`tests/integration/sprint-144-staff-write-integrity.integration.test.ts:459`). A staff win therefore returns
+`[400 COMMUNITY_FULL, 201]`: no 200, so the test fails with `Received array: []`.
+
+The test is wrong, not the product: the race still admits exactly one member. Nothing in the test decides which
+contender wins. It is whichever trigger update runs first after the barrier releases, so the case passes only when
+the invitation wins. It failed on PR #343 CI run 45680564241, attempts 1 and 2 (head `379177af`, 726/727, no
+service error logged), and passed on `73e93812` (run 45679554686), whose code is identical. The case's staff-win
+branch (`:819-822` at `379177af`) has never run, because the shared check fails first. The failing assertion also reports only
+the count of 200s, not either response, so the log could not show which outcome occurred.
+
+**Fix (Sprint 146, bundled on PR #343 because it blocked that PR's CI).** `lastSlot()` takes each contender's
+success status (default `[200, 200]`; the staff-add case passes `[200, 201]`). It compares both outcomes, written
+as `"<status> <error>"`, in one `toEqual`: the winner's success status beside `400 COMMUNITY_FULL`, in either
+order. A failure now prints both responses. A synthetic check of the committed lines passed all 11 outcome pairs;
+the old line fails on a staff win, as in CI. The fix does not control which contender wins, so a green run proves
+only the branch that ran; fixing the winner order is a follow-up. Flip this to `fixed` only after Integration
+Tests passes on the fix head.
+
+---

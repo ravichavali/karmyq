@@ -5,6 +5,9 @@
 branch review and the maintainer's merge decision.** It was opened 2026-11-25 at `73e93812`, and
 CI runs on it. Plan Tasks 1-10 are done. In Task 11 the pre-PR `process-reviewer` returned FAIL
 (B1: "#178" is Dependabot alert #178, not PR #178), and its findings are fixed in `73e93812`.
+**CI on `379177af` was red** in Integration Tests, attempt 1 and the maintainer's rerun (both 726/727). The cause is
+[BUG-110](../../docs/BUGS.md), a Sprint 145 test bug: `lastSlot()` counted only 200s, and a winning staff add answers
+201. The maintainer asked for the bug to be logged and the test fixed (2026-11-25), so the fix rides on this PR.
 **Merge and deploy are NOT authorized**; they need a fresh maintainer yes.
 
 Sprint 146 goal, named by the maintainer 2026-11-24: **Expo drift #329**, which aligns the nine
@@ -21,7 +24,7 @@ demo-data operations remain unauthorized.
 | **Base** | `origin/master` `95d5e8c1` = Sprint 145, [PR #342](https://github.com/ravichavali/karmyq/pull/342), v11.118.0 |
 | **Active editor** | Claude (executor) ran Tasks 1-11 on 2026-11-24/25, one checkpoint commit per task. Next editor: the reviewer (Codex) for the branch review, then the maintainer for merge; one editor at a time in the shared Windows checkout |
 | **Reviewer role** | Codex cleared the spec and plan at `6ee743ca` (planning only). The Task 9 gates and the pre-PR `process-reviewer` are done (see the Task 9 and Task 11 rows). A non-author (Codex) review of the branch is still owed before merge |
-| **Owned paths** | The Sprint 145 post-merge record (rides with this PR), the Sprint 146 spec, plan and this handoff, `apps/mobile/package.json`, `package-lock.json`, root `package.json` version, `apps/mobile/claude.md`, `docs/adr/ADR-059-dependency-security-gate.md`, the ADR-059 line of `docs/adr/README.md`, `apps/landing/src/data/docs/concepts/adr-059-dependency-security-gate.json`, and the zod-case comment in `tests/regression/sprint-131-d9-security-overrides.test.ts` (from `/code-review` F2) |
+| **Owned paths** | The Sprint 145 post-merge record (rides with this PR), the Sprint 146 spec, plan and this handoff, `apps/mobile/package.json`, `package-lock.json`, root `package.json` version, `apps/mobile/claude.md`, `docs/adr/ADR-059-dependency-security-gate.md`, the ADR-059 line of `docs/adr/README.md`, `apps/landing/src/data/docs/concepts/adr-059-dependency-security-gate.json`, and the zod-case comment in `tests/regression/sprint-131-d9-security-overrides.test.ts` (from `/code-review` F2). Bundled 2026-11-25 (maintainer): the BUG-110 entry in `docs/BUGS.md` and `lastSlot()` plus the staff-add case in `tests/integration/sprint-145-admission-integrity.integration.test.ts` |
 | **Shared resources needed** | Version bump AUTHORIZED and done (v11.119.0, re-derived from `origin/master` at 11.118.0). Merge slot, any ADR number, further dependency work and demo-data operations each need their own maintainer yes |
 
 ## Links
@@ -46,8 +49,11 @@ demo-data operations remain unauthorized.
    subagent review, commit and update this handoff's task status (task, state, SHA, evidence)
    and say what you are waiting on. A mid-sprint pickup reads this handoff, never `git log`.
 
-**Next step**: a **Codex non-author review of PR #343**, read-only, at its current head (re-derive
-with `gh pr view 343 --json headRefOid,statusCheckRollup`). Then the maintainer decides on merge.
+**Next step**: confirm the CI/CD run on PR #343's current head is green, especially Integration Tests
+(the BUG-110 fix can only be proven there; this box has no PostgreSQL). If Integration Tests is still red, its
+assertion now prints both responses; read them before changing anything. Then a **Codex non-author review of
+PR #343**, read-only, at that head (re-derive with `gh pr view 343 --json headRefOid,statusCheckRollup`). Then
+the maintainer decides on merge.
 On a yes, use the `deploy` skill (merge → CI/CD → health). After merge, confirm the next daily
 `expo-sdk-drift.yml` run is green and #329 is closed (Task 11's remaining verification).
 
@@ -124,7 +130,7 @@ under that task (`4ce53806`), and the spec has an erratum for the #178 identity 
 | 8 Handoff rewrite | **done** 2026-11-25 | This rewrite (a handoff cannot record its own SHA). Self-audit line above |
 | 9 SDLC quality gates | **done** 2026-11-25 | **`/simplify`** at `3b10d021`: run inline (four angles, no source code in the diff). 1 fixed in `cfa22949` (the mobile bullet restated derivable pins); 2 altitude findings skipped as outside the diff and listed under Open candidates. **`/code-review` medium** at `cfa22949`: 5 findings, all verified. **F1** (Important, CONFIRMED): `@expo/cli` 57.0.35 lists `zod` only as a devDependency, so the `package.json:108-110` scoped override is inert. Maintainer decision 2026-11-25: keep it as a guard and document it. **F2** (Important, PARTIAL): the sprint-131-d9 zod comment was false, but the case still enforces one locked copy at the pin; comment corrected, assertions unchanged, mutation-proved able to fail. **F3** (nit, CONFIRMED): `ADR-059` Sprint 146 zod note added after line 475; landing page regenerated (`content` only). **F4** (nit, CONFIRMED): mobile bullet notes the dropped zod. **F5** (nit, CONFIRMED): plan erratum under Task 9. After the fixes, d9 + sprint-122 + sprint-124 + the doc drift gate pass, 4 suites / 100 tests. **`/code-review` re-run** on `cfa22949...a3ba68c1`: 4 nits, all CONFIRMED and fixed. Say "no runtime `zod`", because 57.0.35 keeps `zod ^3.25.76` as a devDependency; the registry shows 57.0.32/58.1.15 runtime and 57.0.35/58.1.21 dev-only. A bump that brings a runtime `zod ^3` back must re-run the Sprint 134 consumer check. The d9 comment now matches its assertions. **`/security-review`** at `4c2b0223`: **no findings**. Run inline, since the diff has no executable code; the only code-like file is the comment-only d9 test edit. Supply-chain check on the lock vs `origin/master`: changed 33 (31 moves + `apps/mobile` + root version), added 0, removed 0. All 31 package nodes come from `registry.npmjs.org` with sha512 integrity equal to `npm view`. No `hasInstallScript`/`bin`/`os`/`cpu` changes. None of the 29 override-governed packages moved. All 266 dependency edges of the moved nodes resolve to existing lock nodes. `npm audit --audit-level=high` exit 0, 0 vulnerabilities; `.npmrc` `ignore-scripts=true` |
 | 10 Final verification | **done** 2026-11-25 | Evidence only, at `acd22556`. Run 1, with Turbo's cache forced off: `npm test` exited 0, and the script failed closed only on the landing churn, restored from its snapshot. Run 2: `pre-commit-check` exit 0 with a clean tree. See Verification references |
-| 11 Merge + deploy | **PR #343 open**; merge **maintainer-authorized only** | **`process-reviewer`** at `a27740c0`: FAIL. All findings were verified and fixed in the Task 11 fix commit. **B1** (blocking, CONFIRMED): the obligation is Dependabot alert #178 (dismissed `tolerable_risk` 2026-10-28), which now returns HTTP 410 "withdrawn", with 0 open Dependabot alerts. PR #178 is unrelated. ADR-059 close-out rewritten, landing page regenerated (`content` = source), spec erratum added. **S1**: runtime `zod` was dropped in 57.0.33 / 58.1.18 (registry), not 57.0.35 / 58.1.21; ADR note and d9 comment fixed. **S2**: PR ledger cache labels and same-HEAD evidence corrected (handoff files feed the doc drift gate). **S3**: stale handoff rows fixed. **N1-N3**: ledger wording, README "no override or registry change", PR body notes the Sprint 144 CONTEXT flip. **N4**: no change; the tripwire is already a candidate. It also ran `pre-commit-check` at `a27740c0`: exit 0. **Then, at `73e93812`:** `pre-commit-check` passed on the second run; the first failed only on the usual churn, restored. The push ran the pre-push hook: unit + regression 27/27, root regression 50 suites / 1098 tests. The report-only TDD tier was red in 4 workspaces, all `ECONNREFUSED :5432`/`:3001`, the box's lack of a DB and running services. **PR [#343](https://github.com/ravichavali/karmyq/pull/343) opened** (closes #329). Remaining: Codex review, maintainer merge yes, deploy, then confirm the drift workflow and that #329 closed |
+| 11 Merge + deploy | **PR #343 open**; merge **maintainer-authorized only** | **`process-reviewer`** at `a27740c0`: FAIL. All findings were verified and fixed in the Task 11 fix commit. **B1** (blocking, CONFIRMED): the obligation is Dependabot alert #178 (dismissed `tolerable_risk` 2026-10-28), which now returns HTTP 410 "withdrawn", with 0 open Dependabot alerts. PR #178 is unrelated. ADR-059 close-out rewritten, landing page regenerated (`content` = source), spec erratum added. **S1**: runtime `zod` was dropped in 57.0.33 / 58.1.18 (registry), not 57.0.35 / 58.1.21; ADR note and d9 comment fixed. **S2**: PR ledger cache labels and same-HEAD evidence corrected (handoff files feed the doc drift gate). **S3**: stale handoff rows fixed. **N1-N3**: ledger wording, README "no override or registry change", PR body notes the Sprint 144 CONTEXT flip. **N4**: no change; the tripwire is already a candidate. It also ran `pre-commit-check` at `a27740c0`: exit 0. **Then, at `73e93812`:** `pre-commit-check` passed on the second run; the first failed only on the usual churn, restored. The push ran the pre-push hook: unit + regression 27/27, root regression 50 suites / 1098 tests. The report-only TDD tier was red in 4 workspaces, all `ECONNREFUSED :5432`/`:3001`, the box's lack of a DB and running services. **PR [#343](https://github.com/ravichavali/karmyq/pull/343) opened** (closes #329). **CI on `379177af`:** CI/CD run [45680564241](https://github.com/ravichavali/karmyq/actions/runs/45680564241) failed in Integration Tests on attempt 1 and on the maintainer's rerun, the same case both times: "invitation versus staff add", 726/727. Every other check passed. The run on `73e93812` ([45679554686](https://github.com/ravichavali/karmyq/actions/runs/45679554686)) passed 14/14 with identical code. Root cause **BUG-110** (test only): `lastSlot()` required one 200, staff add answers 201 (`members.ts:288`), so each staff win failed. Fix bundled (maintainer, 2026-11-25): per-contender success status and one `toEqual` over both outcomes, so a failure prints both responses. A synthetic check of the committed lines passed 11/11 pairs (old line fails on a staff win). The edited file compiles under ts-jest; it cannot run here (no PostgreSQL). Remaining: CI green on the fix head, Codex review, maintainer merge yes, deploy, then confirm the drift workflow and that #329 closed |
 
 ### Execution evidence carried forward
 
@@ -175,9 +181,13 @@ under that task (`4ce53806`), and the spec has an erratum for the #178 identity 
 
 ## Blockers and decisions
 
-- **Blockers**: none. Planning review is cleared; Tasks 1-10 are done and the Task 9 gates are
-  resolved. A non-author branch review is owed before merge. Merge requires a fresh maintainer yes
-  (Sprint 145's merge authorization does not carry over).
+- **Blockers**: CI must be green on the BUG-110 fix head before merge (Integration Tests is a
+  blocking job, and image builds wait on it). Planning review is cleared; Tasks 1-10 are done and
+  the Task 9 gates are resolved. A non-author branch review is owed before merge. Merge requires a
+  fresh maintainer yes (Sprint 145's merge authorization does not carry over).
+- **Decision (2026-11-25, maintainer)**: log BUG-110 and fix the test on this PR ("we need both"),
+  since it blocks this PR's CI. Scope: the BUG-110 entry and the Sprint 145 integration test's
+  `lastSlot()` and staff-add case only. No service code changes.
 - **Decision (2026-11-24, Sprint 146 planning)**: goal = Expo drift #329; the #178 re-check rides
   along as docs only; version bump to v11.119.0 authorized. BUG-109 (invitation-generation
   membership check) is the natural next sprint's candidate; BUG-107 stays deferred.
@@ -199,6 +209,10 @@ under that task (`4ce53806`), and the spec has an erratum for the #178 identity 
   (`services/social-graph-service/src/routes/invitations.ts:12-94`; the Sprint 145 acceptance
   side already refuses outsider-minted codes). Natural follow-up on the same surface.
 - **[BUG-107](../../docs/BUGS.md).** Staff direct-add consent gap; deferred.
+- **Last-slot winner order (new, BUG-110 follow-up).** The Sprint 145 last-slot races leave the
+  winner to whichever trigger update runs first, so a green run proves only the branch that ran.
+  The staff-add case's staff-win branch first runs after the BUG-110 fix. Making each case run
+  both winner orders would prove both branches every run.
 - **Sprint 145 review candidates (not filed).** Guessable 4-hex invitation-code suffix; a refused
   acceptance lands on discovery without saying why; deferred minors (shared social-graph test
   builders, integration `as()` helper, `MEMBERSHIP_CHANGED` wording, untrimmed code lookup,
